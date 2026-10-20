@@ -1,0 +1,17 @@
+{
+  "kind": "Deployment",
+  "metadata": {
+    "name": "api",
+    "namespace": "demo",
+    "generation": 2
+  },
+  "spec": {
+    "replicas": 3
+  },
+  "status": {
+    "observedGeneration": 2,
+    "replicas": 3,
+    "updatedReplicas": 3,
+    "availableReplicas": 3
+  }
+}

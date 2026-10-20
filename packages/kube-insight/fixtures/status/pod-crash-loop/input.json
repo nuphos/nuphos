@@ -1,0 +1,40 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "worker-a",
+    "namespace": "demo"
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "worker",
+        "image": "example/worker:2"
+      }
+    ]
+  },
+  "status": {
+    "phase": "Running",
+    "containerStatuses": [
+      {
+        "name": "worker",
+        "image": "example/worker:2",
+        "ready": false,
+        "restartCount": 14,
+        "state": {
+          "waiting": {
+            "reason": "CrashLoopBackOff",
+            "message": "back-off 5m0s restarting failed container"
+          }
+        },
+        "lastState": {
+          "terminated": {
+            "reason": "Error",
+            "exitCode": 2,
+            "finishedAt": "2026-10-15T11:55:00Z"
+          }
+        }
+      }
+    ]
+  }
+}

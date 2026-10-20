@@ -1,0 +1,10 @@
+{
+  "status": "Progressing",
+  "message": {
+    "key": "health.workload.available",
+    "params": {
+      "available": "1",
+      "desired": "3"
+    }
+  }
+}

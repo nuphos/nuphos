@@ -1,5 +1,6 @@
 import type { ApplyResourceIdentity, ScalableWorkloadKind } from './app-types.ts'
 import type { WorkloadLogEvent } from './watch-types.ts'
+import type { ResourceDiagnosis } from '../lib/kube-insight.ts'
 import type {
   ContextInfo,
   DeploymentEnvContainerType,
@@ -157,6 +158,12 @@ export type WindowK8sApi = {
   removeSecretKey(context: string, namespace: string, name: string, key: string): Promise<void>
   getPodDetail(context: string, namespace: string, name: string): Promise<PodDetail>
   getNodeDetail(context: string, name: string): Promise<NodeDetail>
+  getResourceDiagnosis(
+    context: string,
+    kind: string,
+    namespace: string,
+    name: string,
+  ): Promise<ResourceDiagnosis>
   getPodLogs(
     context: string,
     namespace: string,

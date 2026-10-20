@@ -1,0 +1,4 @@
+{
+  "description": "A Deployment still replacing replicas is Progressing with the updated count.",
+  "operation": "status.workload"
+}

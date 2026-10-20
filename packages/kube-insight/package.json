@@ -1,0 +1,15 @@
+{
+  "name": "@nuphos/kube-insight",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Pure Kubernetes health status, rule-based diagnoses and their English sentences, shared by the Nuphos desktop and agents.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "status": "Degraded",
+  "message": {
+    "key": "health.job.failed",
+    "params": {
+      "reason": "BackoffLimitExceeded"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "api-1",
+        "namespace": "demo"
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "api",
+            "image": "example/api:1.0"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Pending",
+        "containerStatuses": [
+          {
+            "name": "api",
+            "image": "example/api:1.0",
+            "ready": false,
+            "restartCount": 0,
+            "state": {
+              "waiting": {
+                "reason": "CreateContainerConfigError",
+                "message": "couldn't find key PASSWORD in Secret demo/db"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "events": []
+}

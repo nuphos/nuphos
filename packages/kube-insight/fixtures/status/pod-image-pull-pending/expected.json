@@ -1,0 +1,11 @@
+{
+  "status": "Degraded",
+  "message": {
+    "key": "health.pod.waiting",
+    "params": {
+      "container": "web",
+      "reason": "ImagePullBackOff",
+      "restarts": "0"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "status": "Degraded",
+  "message": {
+    "key": "health.workload.deadline",
+    "params": {
+      "message": "ReplicaSet \"api-7c9\" has timed out progressing."
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "description": "A Pending pod whose only trace is a recent FailedScheduling event about a taint is diagnosed as a placement problem from the event.",
+  "operation": "diagnose",
+  "params": {
+    "now": "2026-10-15T12:00:00Z"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "web-1",
+    "namespace": "demo"
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "web"
+      }
+    ]
+  },
+  "status": {
+    "phase": "Pending",
+    "containerStatuses": [
+      {
+        "name": "web",
+        "ready": false,
+        "restartCount": 0,
+        "state": {
+          "waiting": {
+            "reason": "ImagePullBackOff"
+          }
+        }
+      }
+    ]
+  }
+}

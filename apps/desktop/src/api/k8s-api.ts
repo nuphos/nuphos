@@ -108,6 +108,8 @@ export const k8sApi = {
     window.api.removeSecretKey(ctx, ns, name, key),
   getPodDetail: (ctx: string, ns: string, name: string) => window.api.getPodDetail(ctx, ns, name),
   getNodeDetail: (ctx: string, name: string) => window.api.getNodeDetail(ctx, name),
+  getResourceDiagnosis: (ctx: string, kind: string, ns: string, name: string) =>
+    window.api.getResourceDiagnosis(ctx, kind, ns, name),
   getPodLogs: (
     ctx: string,
     ns: string,

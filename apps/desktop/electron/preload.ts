@@ -13,6 +13,7 @@ import { githubCliApi } from './preload-parts/api-github-cli'
 import { instructionsApi } from './preload-parts/api-instructions'
 import { integrationsApi } from './preload-parts/api-integrations'
 import { k8sAppApi } from './preload-parts/api-k8s-app'
+import { k8sInsightApi } from './preload-parts/api-k8s-insight'
 import { localTerminalApi } from './preload-parts/api-local-terminal'
 import { plaudApi } from './preload-parts/api-plaud'
 import { posthogApi } from './preload-parts/api-posthog'
@@ -23,6 +24,7 @@ const api = {
   ...appConfigApi,
   ...localTerminalApi,
   ...k8sAppApi,
+  ...k8sInsightApi,
   ...teamApi,
   ...cloudflareApi,
   ...cloudAccountsApi,

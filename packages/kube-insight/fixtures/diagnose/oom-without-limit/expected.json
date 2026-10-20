@@ -1,0 +1,64 @@
+[
+  {
+    "id": "out-of-memory:redis:diagnosis.outOfMemory.cause.noLimit",
+    "ruleId": "out-of-memory",
+    "severity": "critical",
+    "fixKind": "edit-config",
+    "container": "redis",
+    "pods": ["cache-0"],
+    "cause": {
+      "key": "diagnosis.outOfMemory.cause.noLimit",
+      "params": {
+        "container": "redis",
+        "restarts": "1"
+      }
+    },
+    "why": {
+      "key": "diagnosis.outOfMemory.why.noLimit",
+      "params": {
+        "container": "redis",
+        "restarts": "1"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.outOfMemory.fix.noLimit",
+      "params": {
+        "container": "redis",
+        "restarts": "1"
+      }
+    },
+    "evidence": [
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "cache-0"
+        },
+        "path": "status.containerStatuses[name=redis].lastState.terminated.reason",
+        "value": "OOMKilled"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Resource management for pods and containers",
+        "url": "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#memory-units"
+      },
+      {
+        "title": "Kubernetes: Assign memory resources (exceed a container memory limit)",
+        "url": "https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/#exceed-a-container-s-memory-limit"
+      },
+      {
+        "title": "Kubernetes: Node-pressure eviction, node OOM behavior",
+        "url": "https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#node-out-of-memory-behavior"
+      }
+    ],
+    "actions": [
+      {
+        "type": "previous-logs",
+        "pod": "cache-0",
+        "container": "redis"
+      }
+    ],
+    "lastSeen": "2026-10-15T11:57:59.000Z"
+  }
+]

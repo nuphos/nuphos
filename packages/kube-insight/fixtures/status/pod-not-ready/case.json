@@ -1,0 +1,4 @@
+{
+  "description": "A Running pod with an unready container is Progressing with the ready count.",
+  "operation": "status.pod"
+}

@@ -1,0 +1,4 @@
+{
+  "description": "A container waiting in CrashLoopBackOff makes the pod Degraded, with the reason, container and restart count.",
+  "operation": "status.pod"
+}

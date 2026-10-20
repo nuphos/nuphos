@@ -1,0 +1,41 @@
+{
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "gpu-0",
+        "namespace": "demo"
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "trainer",
+            "image": "example/trainer:1"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Pending"
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "FailedScheduling",
+      "count": 3,
+      "lastTimestamp": "2026-10-15T11:59:00Z",
+      "message": "0/3 nodes are available: 3 node(s) had untolerated taint {nvidia.com/gpu: present}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "gpu-0",
+        "namespace": "demo"
+      },
+      "metadata": {
+        "name": "gpu-0.sched",
+        "namespace": "demo"
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "unschedulable::diagnosis.unschedulable.cause.cpu",
+    "ruleId": "unschedulable",
+    "severity": "critical",
+    "fixKind": "edit-config",
+    "container": null,
+    "pods": ["api-1"],
+    "cause": {
+      "key": "diagnosis.unschedulable.cause.cpu",
+      "params": {}
+    },
+    "why": {
+      "key": "diagnosis.unschedulable.why",
+      "params": {
+        "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod."
+      }
+    },
+    "fix": {
+      "key": "diagnosis.unschedulable.fix.cpu",
+      "params": {}
+    },
+    "evidence": [
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "api-1"
+        },
+        "path": "status.conditions[type=PodScheduled].reason",
+        "value": "Unschedulable"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Pod conditions",
+        "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-conditions"
+      },
+      {
+        "title": "Kubernetes: Debug pods, my pod stays pending",
+        "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/#my-pod-stays-pending"
+      },
+      {
+        "title": "Kubernetes: Assigning pods to nodes",
+        "url": "https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/"
+      }
+    ],
+    "actions": [],
+    "lastSeen": "2026-10-15T11:50:00.000Z"
+  }
+]

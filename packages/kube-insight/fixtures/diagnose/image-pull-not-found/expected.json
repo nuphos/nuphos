@@ -1,0 +1,65 @@
+[
+  {
+    "id": "image-pull:web:diagnosis.imagePull.cause.notFound",
+    "ruleId": "image-pull",
+    "severity": "critical",
+    "fixKind": "edit-config",
+    "container": "web",
+    "pods": ["web-1"],
+    "cause": {
+      "key": "diagnosis.imagePull.cause.notFound",
+      "params": {
+        "container": "web",
+        "image": "nginx:does-not-exist"
+      }
+    },
+    "why": {
+      "key": "diagnosis.imagePull.why",
+      "params": {
+        "container": "web",
+        "image": "nginx:does-not-exist"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.imagePull.fix.notFound",
+      "params": {
+        "container": "web",
+        "image": "nginx:does-not-exist"
+      }
+    },
+    "evidence": [
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "web-1"
+        },
+        "path": "status.containerStatuses[name=web].state.waiting.reason",
+        "value": "ImagePullBackOff"
+      },
+      {
+        "type": "event",
+        "object": {
+          "kind": "Pod",
+          "name": "web-1"
+        },
+        "reason": "Failed",
+        "message": "Failed to pull image \"nginx:does-not-exist\": rpc error: code = NotFound desc = failed to pull and unpack image \"docker.io/library/nginx:does-not-exist\": failed to resolve reference \"docker.io/library/…",
+        "count": 4,
+        "lastSeen": "2026-10-15T11:59:30.000Z"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Images, ImagePullBackOff",
+        "url": "https://kubernetes.io/docs/concepts/containers/images/#imagepullbackoff"
+      },
+      {
+        "title": "Kubernetes: Pull an image from a private registry",
+        "url": "https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/"
+      }
+    ],
+    "actions": [],
+    "lastSeen": "2026-10-15T11:59:30.000Z"
+  }
+]

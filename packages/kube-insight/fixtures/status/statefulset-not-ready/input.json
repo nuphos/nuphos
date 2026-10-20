@@ -1,0 +1,17 @@
+{
+  "kind": "StatefulSet",
+  "metadata": {
+    "name": "db",
+    "generation": 1
+  },
+  "spec": {
+    "replicas": 3
+  },
+  "status": {
+    "observedGeneration": 1,
+    "replicas": 3,
+    "readyReplicas": 1,
+    "currentRevision": "db-1",
+    "updateRevision": "db-1"
+  }
+}

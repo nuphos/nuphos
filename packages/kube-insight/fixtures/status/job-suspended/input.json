@@ -1,0 +1,10 @@
+{
+  "kind": "Job",
+  "metadata": {
+    "name": "report"
+  },
+  "spec": {
+    "suspend": true
+  },
+  "status": {}
+}

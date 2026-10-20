@@ -1,0 +1,4 @@
+{
+  "description": "A Deployment whose new generation the controller has not observed is Progressing.",
+  "operation": "status.workload"
+}

@@ -1,0 +1,79 @@
+[
+  {
+    "id": "crash-loop:worker:diagnosis.crashLoop.cause.exitCode",
+    "ruleId": "crash-loop",
+    "severity": "critical",
+    "fixKind": "inspect-logs",
+    "container": "worker",
+    "pods": ["worker-7d9c-abcde"],
+    "cause": {
+      "key": "diagnosis.crashLoop.cause.exitCode",
+      "params": {
+        "container": "worker",
+        "restarts": "5",
+        "exitCode": "1",
+        "reason": "Error"
+      }
+    },
+    "why": {
+      "key": "diagnosis.crashLoop.why.backOff",
+      "params": {
+        "container": "worker",
+        "restarts": "5",
+        "exitCode": "1",
+        "reason": "Error"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.crashLoop.fix.logs",
+      "params": {
+        "container": "worker",
+        "restarts": "5",
+        "exitCode": "1",
+        "reason": "Error"
+      }
+    },
+    "evidence": [
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "worker-7d9c-abcde"
+        },
+        "path": "status.containerStatuses[name=worker].lastState.terminated.exitCode",
+        "value": "1"
+      },
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "worker-7d9c-abcde"
+        },
+        "path": "status.containerStatuses[name=worker].restartCount",
+        "value": "5"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Pod lifecycle, container restarts",
+        "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-restarts"
+      },
+      {
+        "title": "Kubernetes: Debug running pods",
+        "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/"
+      },
+      {
+        "title": "Bash manual: exit status",
+        "url": "https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html"
+      }
+    ],
+    "actions": [
+      {
+        "type": "previous-logs",
+        "pod": "worker-7d9c-abcde",
+        "container": "worker"
+      }
+    ],
+    "lastSeen": "2026-10-15T11:58:10.000Z"
+  }
+]

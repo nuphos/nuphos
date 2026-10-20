@@ -1,0 +1,68 @@
+[
+  {
+    "id": "probe-failure:api:diagnosis.probeFailure.cause.readiness",
+    "ruleId": "probe-failure",
+    "severity": "warning",
+    "fixKind": "edit-config",
+    "container": "api",
+    "pods": ["api-2"],
+    "cause": {
+      "key": "diagnosis.probeFailure.cause.readiness",
+      "params": {
+        "container": "api",
+        "count": "12",
+        "output": "HTTP probe failed with statuscode: 503",
+        "period": "5",
+        "threshold": "3",
+        "total": "15"
+      }
+    },
+    "why": {
+      "key": "diagnosis.probeFailure.why.readiness",
+      "params": {
+        "container": "api",
+        "count": "12",
+        "output": "HTTP probe failed with statuscode: 503",
+        "period": "5",
+        "threshold": "3",
+        "total": "15"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.probeFailure.fix.readiness",
+      "params": {
+        "container": "api",
+        "count": "12",
+        "output": "HTTP probe failed with statuscode: 503",
+        "period": "5",
+        "threshold": "3",
+        "total": "15"
+      }
+    },
+    "evidence": [
+      {
+        "type": "event",
+        "object": {
+          "kind": "Pod",
+          "name": "api-2"
+        },
+        "reason": "Unhealthy",
+        "message": "Readiness probe failed: HTTP probe failed with statuscode: 503",
+        "count": 12,
+        "lastSeen": "2026-10-15T11:58:00.000Z"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Configure liveness, readiness and startup probes",
+        "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#configure-probes"
+      },
+      {
+        "title": "Kubernetes: Container probes",
+        "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes"
+      }
+    ],
+    "actions": [],
+    "lastSeen": "2026-10-15T11:58:00.000Z"
+  }
+]

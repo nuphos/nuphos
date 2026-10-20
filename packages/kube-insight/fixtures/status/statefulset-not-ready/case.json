@@ -1,0 +1,4 @@
+{
+  "description": "A StatefulSet with fewer ready replicas than desired is Progressing.",
+  "operation": "status.workload"
+}

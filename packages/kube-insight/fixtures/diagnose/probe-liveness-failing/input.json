@@ -1,0 +1,64 @@
+{
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "web-1",
+        "namespace": "demo"
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "web",
+            "image": "example/web:3",
+            "livenessProbe": {
+              "failureThreshold": 5
+            }
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "containerStatuses": [
+          {
+            "name": "web",
+            "image": "example/web:3",
+            "ready": true,
+            "restartCount": 2,
+            "state": {
+              "running": {
+                "startedAt": "2026-10-15T11:59:00Z"
+              }
+            },
+            "lastState": {
+              "terminated": {
+                "reason": "Completed",
+                "exitCode": 143,
+                "finishedAt": "2026-10-15T11:20:00Z"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "Unhealthy",
+      "message": "Liveness probe failed: HTTP probe failed with statuscode: 500",
+      "count": 7,
+      "lastTimestamp": "2026-10-15T11:58:30Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "web-1",
+        "namespace": "demo"
+      },
+      "metadata": {
+        "name": "web-1.unhealthy",
+        "namespace": "demo"
+      }
+    }
+  ]
+}

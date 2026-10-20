@@ -1,0 +1,97 @@
+[
+  {
+    "id": "crash-loop:worker:diagnosis.crashLoop.cause.exitCode",
+    "ruleId": "crash-loop",
+    "severity": "critical",
+    "fixKind": "inspect-logs",
+    "container": "worker",
+    "pods": ["worker-a", "worker-b"],
+    "cause": {
+      "key": "diagnosis.crashLoop.cause.exitCode",
+      "params": {
+        "container": "worker",
+        "restarts": "9",
+        "exitCode": "2",
+        "reason": "Error"
+      }
+    },
+    "why": {
+      "key": "diagnosis.crashLoop.why.backOff",
+      "params": {
+        "container": "worker",
+        "restarts": "9",
+        "exitCode": "2",
+        "reason": "Error"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.crashLoop.fix.logs",
+      "params": {
+        "container": "worker",
+        "restarts": "9",
+        "exitCode": "2",
+        "reason": "Error"
+      }
+    },
+    "evidence": [
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "worker-a"
+        },
+        "path": "status.containerStatuses[name=worker].lastState.terminated.exitCode",
+        "value": "2"
+      },
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "worker-a"
+        },
+        "path": "status.containerStatuses[name=worker].restartCount",
+        "value": "4"
+      },
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "worker-b"
+        },
+        "path": "status.containerStatuses[name=worker].lastState.terminated.exitCode",
+        "value": "2"
+      },
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "worker-b"
+        },
+        "path": "status.containerStatuses[name=worker].restartCount",
+        "value": "9"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Pod lifecycle, container restarts",
+        "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-restarts"
+      },
+      {
+        "title": "Kubernetes: Debug running pods",
+        "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/"
+      },
+      {
+        "title": "Bash manual: exit status",
+        "url": "https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html"
+      }
+    ],
+    "actions": [
+      {
+        "type": "previous-logs",
+        "pod": "worker-b",
+        "container": "worker"
+      }
+    ],
+    "lastSeen": "2026-10-15T11:59:00.000Z"
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "status": "Progressing",
+  "message": {
+    "key": "health.pod.notReady",
+    "params": {
+      "ready": "1",
+      "total": "2"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import electron from 'vite-plugin-electron/simple'
 
 export default defineConfig({
@@ -44,5 +44,12 @@ export default defineConfig({
   ],
   build: {
     outDir: 'dist',
+  },
+  server: {
+    fs: {
+      // The renderer imports packages/kube-insight from outside this app's
+      // root; the dev server refuses to serve files it was not told about.
+      allow: [searchForWorkspaceRoot(process.cwd()), '../../packages/kube-insight'],
+    },
   },
 })

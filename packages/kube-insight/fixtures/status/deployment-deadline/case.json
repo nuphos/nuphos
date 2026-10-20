@@ -1,0 +1,4 @@
+{
+  "description": "A Deployment past its progress deadline is Degraded.",
+  "operation": "status.workload"
+}

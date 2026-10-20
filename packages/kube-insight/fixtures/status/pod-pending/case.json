@@ -1,0 +1,4 @@
+{
+  "description": "A Pending pod with nothing failing is Progressing.",
+  "operation": "status.pod"
+}

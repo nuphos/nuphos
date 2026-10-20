@@ -1,0 +1,4 @@
+{
+  "description": "A Running pod whose containers are all ready is Healthy.",
+  "operation": "status.pod"
+}

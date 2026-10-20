@@ -1,0 +1,4 @@
+{
+  "description": "A Succeeded pod is Healthy.",
+  "operation": "status.pod"
+}

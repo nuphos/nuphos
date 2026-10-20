@@ -1,0 +1,44 @@
+{
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "cache-0",
+        "namespace": "demo"
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "redis",
+            "image": "redis:8"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "containerStatuses": [
+          {
+            "name": "redis",
+            "image": "redis:8",
+            "ready": true,
+            "restartCount": 1,
+            "state": {
+              "running": {
+                "startedAt": "2026-10-15T11:58:00Z"
+              }
+            },
+            "lastState": {
+              "terminated": {
+                "reason": "OOMKilled",
+                "exitCode": 137,
+                "finishedAt": "2026-10-15T11:57:59Z"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "events": []
+}

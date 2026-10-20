@@ -1,0 +1,54 @@
+[
+  {
+    "id": "image-pull:web:diagnosis.imagePull.cause.notFoundOrPrivate",
+    "ruleId": "image-pull",
+    "severity": "critical",
+    "fixKind": "edit-config",
+    "container": "web",
+    "pods": ["web-1"],
+    "cause": {
+      "key": "diagnosis.imagePull.cause.notFoundOrPrivate",
+      "params": {
+        "container": "web",
+        "image": "ghcr.io/example/blog:2.4.1"
+      }
+    },
+    "why": {
+      "key": "diagnosis.imagePull.why",
+      "params": {
+        "container": "web",
+        "image": "ghcr.io/example/blog:2.4.1"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.imagePull.fix.notFoundOrPrivate",
+      "params": {
+        "container": "web",
+        "image": "ghcr.io/example/blog:2.4.1"
+      }
+    },
+    "evidence": [
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "web-1"
+        },
+        "path": "status.containerStatuses[name=web].state.waiting.reason",
+        "value": "ImagePullBackOff"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Images, ImagePullBackOff",
+        "url": "https://kubernetes.io/docs/concepts/containers/images/#imagepullbackoff"
+      },
+      {
+        "title": "Kubernetes: Pull an image from a private registry",
+        "url": "https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/"
+      }
+    ],
+    "actions": [],
+    "lastSeen": null
+  }
+]

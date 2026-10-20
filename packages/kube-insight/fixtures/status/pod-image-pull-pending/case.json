@@ -1,0 +1,4 @@
+{
+  "description": "A Pending pod whose container waits in ImagePullBackOff is Degraded, not Progressing.",
+  "operation": "status.pod"
+}

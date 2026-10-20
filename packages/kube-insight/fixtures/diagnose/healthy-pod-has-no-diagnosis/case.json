@@ -1,0 +1,7 @@
+{
+  "description": "A running, ready pod with no warnings has no diagnosis, so the card stays hidden.",
+  "operation": "diagnose",
+  "params": {
+    "now": "2026-10-15T12:00:00Z"
+  }
+}

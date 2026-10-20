@@ -1,0 +1,15 @@
+{
+  "kind": "Job",
+  "metadata": {
+    "name": "migrate"
+  },
+  "status": {
+    "conditions": [
+      {
+        "type": "Failed",
+        "status": "True",
+        "reason": "BackoffLimitExceeded"
+      }
+    ]
+  }
+}

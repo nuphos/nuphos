@@ -1,0 +1,71 @@
+[
+  {
+    "id": "config-missing:api:diagnosis.configMissing.cause.key",
+    "ruleId": "config-missing",
+    "severity": "critical",
+    "fixKind": "edit-config",
+    "container": "api",
+    "pods": ["api-1"],
+    "cause": {
+      "key": "diagnosis.configMissing.cause.key",
+      "params": {
+        "container": "api",
+        "object": "Secret",
+        "name": "db",
+        "key": "PASSWORD"
+      }
+    },
+    "why": {
+      "key": "diagnosis.configMissing.why",
+      "params": {
+        "container": "api",
+        "object": "Secret",
+        "name": "db",
+        "key": "PASSWORD"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.configMissing.fix.key",
+      "params": {
+        "container": "api",
+        "object": "Secret",
+        "name": "db",
+        "key": "PASSWORD"
+      }
+    },
+    "evidence": [
+      {
+        "type": "field",
+        "object": {
+          "kind": "Pod",
+          "name": "api-1"
+        },
+        "path": "status.containerStatuses[name=api].state.waiting.reason",
+        "value": "CreateContainerConfigError"
+      },
+      {
+        "type": "object",
+        "object": {
+          "kind": "Secret",
+          "name": "db"
+        }
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Secrets, using Secrets as environment variables",
+        "url": "https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-environment-variables"
+      },
+      {
+        "title": "Kubernetes: ConfigMaps",
+        "url": "https://kubernetes.io/docs/concepts/configuration/configmap/"
+      },
+      {
+        "title": "Kubernetes: Configure a pod to use a ConfigMap",
+        "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/"
+      }
+    ],
+    "actions": [],
+    "lastSeen": null
+  }
+]

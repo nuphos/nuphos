@@ -1,0 +1,4 @@
+{
+  "description": "A Job with a Failed condition is Degraded with its reason.",
+  "operation": "status.workload"
+}

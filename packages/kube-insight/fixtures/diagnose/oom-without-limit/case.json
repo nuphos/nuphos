@@ -1,0 +1,7 @@
+{
+  "description": "An OOMKilled container without a memory limit was killed because the node ran short, and the sentences say so instead of naming a limit.",
+  "operation": "diagnose",
+  "params": {
+    "now": "2026-10-15T12:00:00Z"
+  }
+}

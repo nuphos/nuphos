@@ -1,0 +1,73 @@
+[
+  {
+    "id": "config-missing::diagnosis.configMissing.cause.volume",
+    "ruleId": "config-missing",
+    "severity": "critical",
+    "fixKind": "edit-config",
+    "container": null,
+    "pods": ["app-1"],
+    "cause": {
+      "key": "diagnosis.configMissing.cause.volume",
+      "params": {
+        "volume": "v",
+        "object": "Secret",
+        "name": "no-secret",
+        "pod": "app-1"
+      }
+    },
+    "why": {
+      "key": "diagnosis.configMissing.why.volume",
+      "params": {
+        "volume": "v",
+        "object": "Secret",
+        "name": "no-secret",
+        "pod": "app-1"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.configMissing.fix.volume",
+      "params": {
+        "volume": "v",
+        "object": "Secret",
+        "name": "no-secret",
+        "pod": "app-1"
+      }
+    },
+    "evidence": [
+      {
+        "type": "event",
+        "object": {
+          "kind": "Pod",
+          "name": "app-1"
+        },
+        "reason": "FailedMount",
+        "message": "MountVolume.SetUp failed for volume \"v\" : secret \"no-secret\" not found",
+        "count": 5,
+        "lastSeen": "2026-10-17T10:08:00.000Z"
+      },
+      {
+        "type": "object",
+        "object": {
+          "kind": "Secret",
+          "name": "no-secret"
+        }
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Secrets, using Secrets as environment variables",
+        "url": "https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-environment-variables"
+      },
+      {
+        "title": "Kubernetes: ConfigMaps",
+        "url": "https://kubernetes.io/docs/concepts/configuration/configmap/"
+      },
+      {
+        "title": "Kubernetes: Configure a pod to use a ConfigMap",
+        "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/"
+      }
+    ],
+    "actions": [],
+    "lastSeen": "2026-10-17T10:08:00.000Z"
+  }
+]

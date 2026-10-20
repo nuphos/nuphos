@@ -27,6 +27,12 @@ const TARGETS = [
     extensions: ['ts', 'tsx'],
     tsConfig: 'apps/desktop/tsconfig.app.json',
   },
+  {
+    name: 'kube-insight',
+    roots: ['packages/kube-insight/src'],
+    extensions: ['ts'],
+    tsConfig: 'packages/kube-insight/tsconfig.json',
+  },
 ]
 
 /** Same cycle, same string: rotate to the smallest member, then compare. */

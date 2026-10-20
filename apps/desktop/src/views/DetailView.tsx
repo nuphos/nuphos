@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 
+import { DiagnosisCard } from './detail/diagnosis-card'
 import { EventsTab } from './detail/events-tab'
 import { OverviewTabContent } from './detail/overview-router'
 import { PodLogs } from './detail/pod-logs'
@@ -16,6 +17,7 @@ import { PortForwardDialog } from './PortForwardDialog'
 import { useResetOnKey } from './useResetOnKey'
 
 import type { PodPort } from '../types'
+import type { PreviousLogsRequest } from './detail/diagnosis-card'
 import type { DetailTarget } from './detail/target'
 
 export type { DetailTarget } from './detail/target'
@@ -65,6 +67,11 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
   // session and scrollback survive tab switches; it's torn down only when the
   // detail target changes or the view closes.
   const [terminalMounted, setTerminalMounted] = useState(target.initialTab === 'Terminal')
+  // The diagnosis card's "View previous logs": the Logs tab remounts on each
+  // request (`nonce`) and opens on the previous instance of `container`.
+  const [logsRequest, setLogsRequest] = useState<(PreviousLogsRequest & { nonce: number }) | null>(
+    null,
+  )
   const targetRef = useRef(target)
 
   useEffect(() => {
@@ -79,7 +86,13 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
     setPortForwardLoading(false)
     setPortForwardTarget(null)
     setTerminalMounted(target.initialTab === 'Terminal')
+    setLogsRequest(null)
   })
+
+  function showPreviousLogs(request: PreviousLogsRequest) {
+    setLogsRequest({ ...request, nonce: (logsRequest?.nonce ?? 0) + 1 })
+    setTab('Logs')
+  }
 
   // Honor a deep-link tab hint (e.g. "Exec shell" → Terminal) even when the
   // pod detail is already open on it. Only advances the tab; never resets.
@@ -190,6 +203,7 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
             </button>
           </div>
         </div>
+        <DiagnosisCard target={target} refreshKey={refreshKey} onPreviousLogs={showPreviousLogs} />
         <div className="-mx-6 mt-4 flex gap-1 border-b border-zGray-800 px-3">
           {tabs.map((t) => (
             <button
@@ -226,7 +240,12 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
           />
         )}
         {tab === 'Logs' && target.kind === 'Pod' && (
-          <PodLogs namespace={target.namespace!} name={target.name} />
+          <PodLogs
+            key={logsRequest?.nonce ?? 0}
+            namespace={target.namespace!}
+            name={target.name}
+            initialPrevious={logsRequest}
+          />
         )}
         {target.kind === 'Pod' && terminalMounted && (
           <div className={clsx('h-full min-h-0', tab === 'Terminal' ? 'flex flex-col' : 'hidden')}>
@@ -241,7 +260,13 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
           </div>
         )}
         {tab === 'Logs' && hasMatchedPods && (
-          <WorkloadLogsTab kind={target.kind} namespace={target.namespace!} name={target.name} />
+          <WorkloadLogsTab
+            key={logsRequest?.nonce ?? 0}
+            kind={target.kind}
+            namespace={target.namespace!}
+            name={target.name}
+            initialPrevious={logsRequest != null}
+          />
         )}
         {tab === 'YAML' && <YamlTab target={target} refreshKey={refreshKey} />}
         {tab === 'Events' && <EventsTab target={target} refreshKey={refreshKey} />}

@@ -1,0 +1,7 @@
+{
+  "description": "A pod the scheduler cannot place (PodScheduled False, Unschedulable) is waiting for room; the scheduler's message decides what is short.",
+  "operation": "diagnose",
+  "params": {
+    "now": "2026-10-15T12:00:00Z"
+  }
+}

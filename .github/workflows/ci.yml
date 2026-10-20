@@ -55,10 +55,12 @@ jobs:
             backend:
               - 'apps/backend/**'
               - '.github/workflows/ci.yml'
-            # electron main imports runtime-file-program.ts from the backend.
+            # electron main imports runtime-file-program.ts from the backend;
+            # main and renderer both import packages/kube-insight.
             desktop:
               - 'apps/desktop/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'packages/kube-insight/**'
               - '.github/workflows/ci.yml'
             # What electron-builder adds beyond the vite bundle, which every
             # desktop change still builds. The single `*` takes the top-level
@@ -102,6 +104,8 @@ jobs:
               - '.github/workflows/ci.yml'
             import_cycles:
               - 'apps/backend/src/**'
+              - 'packages/kube-insight/src/**'
+              - 'packages/kube-insight/tsconfig.json'
               - 'apps/desktop/src/**'
               - 'apps/desktop/electron/**'
               - 'apps/*/tsconfig*.json'
@@ -339,6 +343,11 @@ jobs:
         # dropped telemetry.
         working-directory: apps/desktop
         run: pnpm typecheck
+      # The desktop build only type-checks the package files it imports, under
+      # the desktop's flags; this checks all of it under its own strict ones.
+      - name: Typecheck kube-insight
+        working-directory: apps/desktop
+        run: pnpm exec tsc -p ../../packages/kube-insight/tsconfig.json
       - name: Lint
         working-directory: apps/desktop
         # BLOCKING. Errors are at zero here; warnings do not fail the run. Runs

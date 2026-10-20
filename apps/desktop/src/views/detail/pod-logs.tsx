@@ -22,7 +22,17 @@ import type { WorkloadLogLine } from '../../types'
 
 type LogRow = WorkloadLogLine & { id: number }
 
-export function PodLogs({ namespace, name }: { namespace: string; name: string }) {
+export function PodLogs({
+  namespace,
+  name,
+  initialPrevious = null,
+}: {
+  namespace: string
+  name: string
+  // Opens on this container's previous instance (the diagnosis card's "View
+  // previous logs"). Read once at mount; the caller remounts to apply another.
+  initialPrevious?: { container: string } | null
+}) {
   const context = useRequiredKubeContext()
   const [logs, setLogs] = useState<LogRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,7 +42,9 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
   const [tsMode, setTsMode] = useState<TimestampMode>('off')
   // Show the previous (terminated) container instance's logs — a one-shot
   // snapshot for post-crash triage (kubectl logs --previous).
-  const [previous, setPrevious] = useState(false)
+  const [previous, setPrevious] = useState(initialPrevious != null)
+  // Mount-only, like `previous` above: the container the request names.
+  const [requestedContainer] = useState(initialPrevious?.container ?? null)
   const [tailLines, setTailLines] = useState(200)
   const [rangeMode, setRangeMode] = useState<LogRangeMode>('lines')
   const [sinceSeconds, setSinceSeconds] = useState<number | null>(3600)
@@ -67,7 +79,9 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
         }))
 
         setContainers(all)
-        setContainer(all[0]?.name ?? null)
+        const first = all.find((c) => c.name === requestedContainer) ?? all.at(0)
+
+        setContainer(first?.name ?? null)
         // No containers → the log effect would early-return forever; clear loading.
         if (all.length === 0) setLoading(false)
       })
@@ -83,7 +97,7 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
     return () => {
       cancelled = true
     }
-  }, [context, namespace, name])
+  }, [context, namespace, name, requestedContainer])
 
   // Clear the previous container's lines up-front so a failed or still-pending
   // switch can't leave stale logs on screen (F1).

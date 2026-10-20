@@ -1,3 +1,4 @@
+import { isDiagnosableKind } from '../../src/lib/kube-insight'
 import { dangerousManifestReason, requireMainProcessConsent } from '../consent'
 import * as k8s from '../k8s'
 import * as k8sWatch from '../k8s-watch'
@@ -150,6 +151,17 @@ export const k8sChannels = {
   'k8s:getPodDetail': (_e: unknown, ctx: string, ns: string, name: string) =>
     k8s.getPodDetail(ctx, ns, name),
   'k8s:getNodeDetail': (_e: unknown, ctx: string, name: string) => k8s.getNodeDetail(ctx, name),
+  'k8s:getResourceDiagnosis': (
+    _e: unknown,
+    ctx: string,
+    kind: string,
+    ns: string,
+    name: string,
+  ) => {
+    if (!isDiagnosableKind(kind)) throw new Error(`Cannot diagnose kind ${kind}`)
+
+    return k8s.getResourceDiagnosis(ctx, kind, ns, name)
+  },
   'k8s:getPodLogs': (
     _e: unknown,
     ctx: string,

@@ -1,0 +1,4 @@
+{
+  "description": "A DaemonSet available on every scheduled node is Healthy.",
+  "operation": "status.workload"
+}

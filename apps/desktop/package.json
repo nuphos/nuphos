@@ -8,7 +8,7 @@
     "build": "tsc -b --noEmit && vite build",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --experimental-test-module-mocks --test \"electron/**/*.test.ts\" \"src/**/*.test.ts\" \"local-runtime/*.test.mjs\"",
+    "test": "node --experimental-strip-types --experimental-test-module-mocks --test \"electron/**/*.test.ts\" \"src/**/*.test.ts\" \"local-runtime/*.test.mjs\" \"../../packages/kube-insight/src/**/*.test.ts\"",
     "electron:build": "vite build && electron-builder",
     "electron:start": "electron .",
     "release": "vite build && electron-builder --publish always",

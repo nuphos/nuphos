@@ -1,0 +1,14 @@
+{
+  "kind": "DaemonSet",
+  "metadata": {
+    "name": "agent",
+    "generation": 4
+  },
+  "spec": {},
+  "status": {
+    "observedGeneration": 4,
+    "desiredNumberScheduled": 5,
+    "updatedNumberScheduled": 5,
+    "numberAvailable": 5
+  }
+}

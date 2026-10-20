@@ -1,0 +1,74 @@
+[
+  {
+    "id": "probe-failure:web:diagnosis.probeFailure.cause.liveness",
+    "ruleId": "probe-failure",
+    "severity": "warning",
+    "fixKind": "edit-config",
+    "container": "web",
+    "pods": ["web-1"],
+    "cause": {
+      "key": "diagnosis.probeFailure.cause.liveness",
+      "params": {
+        "container": "web",
+        "count": "7",
+        "output": "HTTP probe failed with statuscode: 500",
+        "period": "10",
+        "threshold": "5",
+        "total": "50"
+      }
+    },
+    "why": {
+      "key": "diagnosis.probeFailure.why.liveness",
+      "params": {
+        "container": "web",
+        "count": "7",
+        "output": "HTTP probe failed with statuscode: 500",
+        "period": "10",
+        "threshold": "5",
+        "total": "50"
+      }
+    },
+    "fix": {
+      "key": "diagnosis.probeFailure.fix.liveness",
+      "params": {
+        "container": "web",
+        "count": "7",
+        "output": "HTTP probe failed with statuscode: 500",
+        "period": "10",
+        "threshold": "5",
+        "total": "50"
+      }
+    },
+    "evidence": [
+      {
+        "type": "event",
+        "object": {
+          "kind": "Pod",
+          "name": "web-1"
+        },
+        "reason": "Unhealthy",
+        "message": "Liveness probe failed: HTTP probe failed with statuscode: 500",
+        "count": 7,
+        "lastSeen": "2026-10-15T11:58:30.000Z"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Configure liveness, readiness and startup probes",
+        "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#configure-probes"
+      },
+      {
+        "title": "Kubernetes: Container probes",
+        "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes"
+      }
+    ],
+    "actions": [
+      {
+        "type": "previous-logs",
+        "pod": "web-1",
+        "container": "web"
+      }
+    ],
+    "lastSeen": "2026-10-15T11:58:30.000Z"
+  }
+]

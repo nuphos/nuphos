@@ -1,0 +1,7 @@
+{
+  "status": "Progressing",
+  "message": {
+    "key": "health.pod.pending",
+    "params": {}
+  }
+}

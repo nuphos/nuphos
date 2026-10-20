@@ -1,0 +1,4 @@
+{
+  "description": "A paused Deployment is Suspended.",
+  "operation": "status.workload"
+}

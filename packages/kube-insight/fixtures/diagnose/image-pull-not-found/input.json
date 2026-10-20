@@ -1,0 +1,60 @@
+{
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "web-1",
+        "namespace": "demo",
+        "labels": {
+          "app": "web"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "web",
+            "image": "nginx:does-not-exist"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Pending",
+        "containerStatuses": [
+          {
+            "name": "web",
+            "image": "nginx:does-not-exist",
+            "imageID": "",
+            "ready": false,
+            "restartCount": 0,
+            "state": {
+              "waiting": {
+                "reason": "ImagePullBackOff",
+                "message": "Back-off pulling image \"nginx:does-not-exist\""
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "Failed",
+      "message": "Failed to pull image \"nginx:does-not-exist\": rpc error: code = NotFound desc = failed to pull and unpack image \"docker.io/library/nginx:does-not-exist\": failed to resolve reference \"docker.io/library/nginx:does-not-exist\": docker.io/library/nginx:does-not-exist: not found",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "web-1",
+        "namespace": "demo",
+        "fieldPath": "spec.containers{web}"
+      },
+      "metadata": {
+        "name": "web-1.pull",
+        "namespace": "demo"
+      },
+      "count": 4,
+      "lastTimestamp": "2026-10-15T11:59:30Z"
+    }
+  ]
+}

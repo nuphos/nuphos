@@ -1,0 +1,7 @@
+{
+  "description": "The same crash in two pods of one workload is one diagnosis listing both pods, worded from the most recent pod's numbers.",
+  "operation": "diagnose",
+  "params": {
+    "now": "2026-10-15T12:00:00Z"
+  }
+}

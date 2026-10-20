@@ -1,0 +1,7 @@
+{
+  "description": "A recent liveness Unhealthy event on a single-container pod names that container, the probe defaults, and offers the previous logs.",
+  "operation": "diagnose",
+  "params": {
+    "now": "2026-10-15T12:00:00Z"
+  }
+}

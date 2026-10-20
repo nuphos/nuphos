@@ -1,0 +1,53 @@
+[
+  {
+    "id": "unschedulable::diagnosis.unschedulable.cause.placement",
+    "ruleId": "unschedulable",
+    "severity": "critical",
+    "fixKind": "edit-config",
+    "container": null,
+    "pods": ["gpu-0"],
+    "cause": {
+      "key": "diagnosis.unschedulable.cause.placement",
+      "params": {}
+    },
+    "why": {
+      "key": "diagnosis.unschedulable.why",
+      "params": {
+        "message": "0/3 nodes are available: 3 node(s) had untolerated taint {nvidia.com/gpu: present}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling."
+      }
+    },
+    "fix": {
+      "key": "diagnosis.unschedulable.fix.placement",
+      "params": {}
+    },
+    "evidence": [
+      {
+        "type": "event",
+        "object": {
+          "kind": "Pod",
+          "name": "gpu-0"
+        },
+        "reason": "FailedScheduling",
+        "message": "0/3 nodes are available: 3 node(s) had untolerated taint {nvidia.com/gpu: present}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.",
+        "count": 3,
+        "lastSeen": "2026-10-15T11:59:00.000Z"
+      }
+    ],
+    "sources": [
+      {
+        "title": "Kubernetes: Pod conditions",
+        "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-conditions"
+      },
+      {
+        "title": "Kubernetes: Debug pods, my pod stays pending",
+        "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/#my-pod-stays-pending"
+      },
+      {
+        "title": "Kubernetes: Assigning pods to nodes",
+        "url": "https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/"
+      }
+    ],
+    "actions": [],
+    "lastSeen": "2026-10-15T11:59:00.000Z"
+  }
+]

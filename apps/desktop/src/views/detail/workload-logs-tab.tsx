@@ -24,10 +24,14 @@ export function WorkloadLogsTab({
   kind,
   namespace,
   name,
+  initialPrevious = false,
 }: {
   kind: string
   namespace: string
   name: string
+  // Opens on the previous-instance snapshot (the diagnosis card's "View
+  // previous logs"). Read once at mount; the caller remounts to apply it again.
+  initialPrevious?: boolean
 }) {
   const context = useRequiredKubeContext()
   // Render-side log row: identical to the backend's WorkloadLogLine plus a
@@ -40,17 +44,17 @@ export function WorkloadLogsTab({
   const [tailLines, setTailLines] = useState(200)
   const [rangeMode, setRangeMode] = useState<LogRangeMode>('lines')
   const [sinceSeconds, setSinceSeconds] = useState<number | null>(3600)
-  // Starts true: `previous` defaults to false, so the mount-time effect below
-  // always opens a follow.
-  const [streaming, setStreaming] = useState(true)
+  // Starts true unless opened on the previous instance: the mount-time effect
+  // below then fetches a snapshot instead of opening a follow.
+  const [streaming, setStreaming] = useState(!initialPrevious)
   const [query, setQuery] = useState('')
   const [tsMode, setTsMode] = useState<TimestampMode>('off')
   // Show each pod's previous (terminated) instance as a one-shot snapshot.
-  const [previous, setPrevious] = useState(false)
+  const [previous, setPrevious] = useState(initialPrevious)
   // True while the previous-instance snapshot is being fetched (the stream path
   // uses `streaming` instead) — keeps the panel from flashing "No previous
   // logs" before the request resolves.
-  const [previousLoading, setPreviousLoading] = useState(false)
+  const [previousLoading, setPreviousLoading] = useState(initialPrevious)
   // Track stick-to-bottom in a ref (the single source of truth) so the
   // scroll-pin effect always reads the freshest value, and mirror into
   // state only for the header indicator. Writing to a ref during render

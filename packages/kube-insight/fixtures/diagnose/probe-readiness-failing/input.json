@@ -1,0 +1,99 @@
+{
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "api-2",
+        "namespace": "demo",
+        "labels": {
+          "app": "api"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "api",
+            "image": "example/api:2.0",
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/ready",
+                "port": 8080
+              },
+              "periodSeconds": 5
+            }
+          },
+          {
+            "name": "proxy",
+            "image": "example/proxy:1.0"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "containerStatuses": [
+          {
+            "name": "api",
+            "image": "example/api:2.0",
+            "imageID": "",
+            "ready": false,
+            "restartCount": 0,
+            "state": {
+              "running": {
+                "startedAt": "2026-10-15T11:40:00Z"
+              }
+            }
+          },
+          {
+            "name": "proxy",
+            "image": "example/proxy:1.0",
+            "imageID": "",
+            "ready": true,
+            "restartCount": 0,
+            "state": {
+              "running": {
+                "startedAt": "2026-10-15T11:40:00Z"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "Unhealthy",
+      "message": "Readiness probe failed: HTTP probe failed with statuscode: 503",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "api-2",
+        "namespace": "demo",
+        "fieldPath": "spec.containers{api}"
+      },
+      "metadata": {
+        "name": "api-2.unhealthy",
+        "namespace": "demo"
+      },
+      "count": 12,
+      "lastTimestamp": "2026-10-15T11:58:00Z"
+    },
+    {
+      "type": "Warning",
+      "reason": "Unhealthy",
+      "message": "Liveness probe failed: Get \"http://10.42.0.9:8080/healthz\": context deadline exceeded",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "api-2",
+        "namespace": "demo",
+        "fieldPath": "spec.containers{api}"
+      },
+      "metadata": {
+        "name": "api-2.old-liveness",
+        "namespace": "demo"
+      },
+      "count": 1,
+      "lastTimestamp": "2026-10-15T11:20:00Z"
+    }
+  ]
+}

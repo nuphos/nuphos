@@ -1,0 +1,25 @@
+{
+  "kind": "Deployment",
+  "metadata": {
+    "name": "api",
+    "namespace": "demo",
+    "generation": 2
+  },
+  "spec": {
+    "replicas": 3
+  },
+  "status": {
+    "observedGeneration": 2,
+    "replicas": 3,
+    "updatedReplicas": 1,
+    "availableReplicas": 2,
+    "conditions": [
+      {
+        "type": "Progressing",
+        "status": "False",
+        "reason": "ProgressDeadlineExceeded",
+        "message": "ReplicaSet \"api-7c9\" has timed out progressing."
+      }
+    ]
+  }
+}

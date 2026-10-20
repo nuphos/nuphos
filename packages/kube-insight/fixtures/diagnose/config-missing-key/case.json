@@ -1,0 +1,7 @@
+{
+  "description": "CreateContainerConfigError naming a key missing from an existing Secret names the Secret and the key, and never reads the Secret itself.",
+  "operation": "diagnose",
+  "params": {
+    "now": "2026-10-15T12:00:00Z"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "description": "A Deployment with every replica updated and available is Healthy.",
+  "operation": "status.workload"
+}

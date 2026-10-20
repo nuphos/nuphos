@@ -1,0 +1,89 @@
+{
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "app-1",
+        "namespace": "demo",
+        "labels": {
+          "app": "app"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "app",
+            "image": "busybox:1.37",
+            "volumeMounts": [
+              {
+                "name": "v",
+                "mountPath": "/v"
+              }
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "name": "v",
+            "secret": {
+              "secretName": "no-secret"
+            }
+          }
+        ]
+      },
+      "status": {
+        "phase": "Pending",
+        "containerStatuses": [
+          {
+            "name": "app",
+            "image": "busybox:1.37",
+            "imageID": "",
+            "ready": false,
+            "restartCount": 0,
+            "started": false,
+            "state": {
+              "waiting": {
+                "reason": "ContainerCreating"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "FailedMount",
+      "message": "MountVolume.SetUp failed for volume \"v\" : secret \"no-secret\" not found",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "app-1",
+        "namespace": "demo"
+      },
+      "metadata": {
+        "name": "app-1.failedmount",
+        "namespace": "demo"
+      },
+      "count": 5,
+      "lastTimestamp": "2026-10-17T10:08:00Z"
+    },
+    {
+      "type": "Warning",
+      "reason": "FailedMount",
+      "message": "MountVolume.SetUp failed for volume \"w\" : configmap \"gone\" not found",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "app-1",
+        "namespace": "demo"
+      },
+      "metadata": {
+        "name": "app-1.old-failedmount",
+        "namespace": "demo"
+      },
+      "count": 2,
+      "lastTimestamp": "2026-10-17T09:30:00Z"
+    }
+  ]
+}
