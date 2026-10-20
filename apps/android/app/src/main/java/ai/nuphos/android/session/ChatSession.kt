@@ -48,6 +48,39 @@ class ChatSession(
     private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime, String?) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
 ) {
+    private var initialModelPick: Map<String, String>? = null
+    fun presetModelSettings(pick: Map<String, String>) { initialModelPick = pick.takeIf { it.isNotEmpty() } }
+    private var modelScopeActive = false
+    private var modelViewCurrent: () -> Boolean = { false }
+    private var modelScopeRevision = 0L
+    private var pausedModelPending: Map<String, String> = emptyMap()
+    private var modelRuntimeKey: Pair<String?, String?>? = null
+    var modelSettings by mutableStateOf<ModelSettingsStore?>(null)
+        private set
+    /** Screen ownership invalidates late requests on session/workspace navigation. */
+    fun activateModelSettings(active: Boolean, isCurrent: () -> Boolean = { true }) {
+        if (active == modelScopeActive && (!active || modelViewCurrent())) return
+        modelScopeActive = active
+        modelViewCurrent = if (active) isCurrent else ({ false })
+        resetModelSettings(preservePending = true)
+    }
+    private fun resetModelSettings(preservePending: Boolean = false) {
+        if (preservePending) modelSettings?.let { pausedModelPending = it.pending.toMap() }
+        else pausedModelPending = emptyMap()
+        modelScopeRevision++
+        modelSettings?.invalidate()
+        modelSettings = null
+        if (!modelScopeActive || !modelViewCurrent() || !hasAiAccess || browsingOnly || !serverMetadataObserved || !isNative) return
+        val revision = modelScopeRevision
+        modelSettings = ModelSettingsStore(
+            isCurrent = { modelScopeActive && modelViewCurrent() && revision == modelScopeRevision && hasAiAccess },
+            writable = { loaded && loadError == null && isOwner && !readOnly && !movingAgent },
+            streaming = { isStreaming || runtimeObservation?.let { it.fresh(RuntimeObservation.now()) && it.phase !in setOf("idle", "dormant", "cancelled") } == true || submissionPending },
+            read = { ai.nuphos.android.data.ModelSettingsApi.read(token, teamId, sessionId) },
+            write = { id, value -> ai.nuphos.android.data.ModelSettingsApi.write(token, teamId, sessionId, id, value) },
+        ).also { it.restorePending(pausedModelPending) }
+        pausedModelPending = emptyMap()
+    }
     val linkedResources = SessionResourcesStore { NuphosApi.sessionResources(token, teamId, sessionId) }
     suspend fun refreshResources() = linkedResources.refresh { hasAiAccess && loaded && loadError == null }
 
@@ -167,11 +200,14 @@ class ChatSession(
         try {
             val moved = moveRuntime(token, teamId, sessionId, target, agentRuntime)
             if (!hasAiAccess) return
+            modelSettings?.invalidate()
             runtimeId = moved.runtimeId
             runtimeDeviceLabel = moved.displayLabel
             agentRuntime = moved.agentRuntime
             runtimeObservation = null
             serverMetadataObserved = true
+            modelRuntimeKey = runtimeId to agentRuntime
+            resetModelSettings()
         } finally {
             transportGeneration++
             movingAgent = false
@@ -420,7 +456,7 @@ class ChatSession(
         followsBottom = true
         syncTranscriptNow()
         if (!hasAiAccess) return
-        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null))
+        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null, initialSessionConfig = if (wasEmpty) initialModelPick else null))
     }
 
     enum class ApprovalDecision { Once, Session, Always, Deny }
@@ -537,6 +573,7 @@ class ChatSession(
         val continueAfterInterruption: Boolean = false,
         val resumeReason: String? = null,
         val permissionMode: String? = null,
+        val initialSessionConfig: Map<String, String>? = null,
     )
 
     private sealed class TurnResult {
@@ -680,6 +717,11 @@ class ChatSession(
         serverMetadataObserved = true
         runtimeId = detail.runtimeId
         agentRuntime = detail.agentRuntime
+        val key = runtimeId to agentRuntime
+        if (modelRuntimeKey != key || (modelSettings == null && modelScopeActive)) {
+            modelRuntimeKey = key
+            resetModelSettings()
+        }
         runtimeDeviceLabel = detail.runtimeLabel?.takeIf { it.isNotBlank() }
         detail.runtimeState?.let { receiveRuntime(it, observedAt) }
         detail.title?.takeIf { it.isNotEmpty() }?.let { title = it }
@@ -943,6 +985,7 @@ class ChatSession(
                 clientCapabilities = mapOf("localTools" to false),
                 runtimeId = if (shouldResume == true) null else outgoingCreationBinding?.runtimeId,
                 agentRuntime = if (shouldResume == true) null else outgoingCreationBinding?.agentRuntime,
+                initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,
             )
             var needsFreshRetry = false
             var terminal = false
@@ -1276,6 +1319,9 @@ class ChatSession(
 
     /** Revoke local work and unsent copies without cancelling the server run. */
     fun disposeForConsent() {
+        modelScopeActive = false
+        resetModelSettings()
+        initialModelPick = null
         linkedResources.invalidate()
         recallRows = emptySet()
         readTranscript = null

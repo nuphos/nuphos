@@ -28,6 +28,7 @@ object AgentChatApi {
         val clientCapabilities: Map<String, Boolean>? = null,
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
+        val initialSessionConfig: Map<String, String>? = null,
     )
 
     fun chatRequest(token: String, body: ChatRequest): Request {
@@ -60,6 +61,7 @@ object AgentChatApi {
         val clientCapabilities: Map<String, Boolean>? = null,
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
+        val initialSessionConfig: Map<String, String>? = null,
     ) {
         companion object {
             fun from(body: ChatRequest) = ChatRequestBody(
@@ -77,6 +79,7 @@ object AgentChatApi {
                 clientCapabilities = body.clientCapabilities,
                 runtimeId = body.runtimeId,
                 agentRuntime = body.agentRuntime,
+                initialSessionConfig = body.initialSessionConfig,
             )
         }
     }

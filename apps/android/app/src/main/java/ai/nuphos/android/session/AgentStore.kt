@@ -243,6 +243,10 @@ class AgentStore(
     private val sessions = mutableMapOf<SessionKey, ChatSession>()
     private val hasAiAccess = AiAccess.bind(token)
 
+    private var newModelKey: Triple<Long, String, String>? = null
+    var newModelSettings by mutableStateOf<ModelSettingsStore?>(null)
+        private set
+
     init {
         // Work outlives the view. Clean it only when its account capability expires.
         storeScope.launch {
@@ -502,12 +506,32 @@ class AgentStore(
         }
     }
 
+    fun bindNewModelSettings(selection: RuntimeSelections.Selection?): ModelSettingsStore? {
+        val runtime = selection?.selected
+        val team = selectedTeam
+        val key = if (runtime != null && team != null && selection.valid) Triple(workspaceRevision, runtime.id, runtime.provider) else null
+        if (key != newModelKey) {
+            newModelSettings?.invalidate()
+            newModelKey = key
+            newModelSettings = if (key == null || runtime == null || team == null) null else ModelSettingsStore(
+                isCurrent = { !disposed && hasAiAccess() && selectedTeam?.id == team.id && workspaceRevision == key.first &&
+                    selection.valid && selection.selected?.id == runtime.id && selection.selected?.provider == runtime.provider },
+                writable = { true }, streaming = { false },
+                read = { pick -> ai.nuphos.android.data.ModelSettingsApi.newConfig(token, team.id, runtime.id, pick) },
+            )
+        }
+        return newModelSettings
+    }
+
     fun newSession(selection: RuntimeSelections.Selection? = null): ChatSession? {
         if (!credentialsReady) return null
         val team = selectedTeam ?: return null
         if (selection != null && (!selection.valid || selection.teamId != team.id || selection.reselectionRequired)) return null
+        val model = bindNewModelSettings(selection)
+        if (model != null && !model.canStart) return null
         val session = ChatSession.fresh(token, team.id, selection?.binding)
         session.presetPermissionMode(permissionMode)
+        session.presetModelSettings(model?.initialPick.orEmpty())
         session.credentialAccess = credentialSelection
         sessions[SessionKey(team.id, session.sessionId)] = session
         return session
@@ -515,6 +539,9 @@ class AgentStore(
 
     fun disposeForConsent() {
         disposed = true
+        newModelSettings?.invalidate()
+        newModelSettings = null
+        newModelKey = null
         credentials = credentials.reset()
         membershipRequest++
         workspaceRevision++

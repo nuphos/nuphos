@@ -152,6 +152,7 @@ fun ChatComposer(
     onModeChange: ((PermissionMode) -> Unit)? = null,
     agent: RuntimeSelections.Selection? = null,
     agentEnabled: Boolean = true,
+    modelSettings: ai.nuphos.android.session.ModelSettingsStore? = null,
     agentLabel: String? = null,
     agentQuota: ai.nuphos.android.data.RuntimeQuota? = null,
     onChooseAgent: (() -> Unit)? = null,
@@ -159,6 +160,7 @@ fun ChatComposer(
 ) {
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
+    var showModel by remember(modelSettings) { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
     var pickerError by remember { mutableStateOf<String?>(null) }
     var focused by remember { mutableStateOf(false) }
@@ -468,6 +470,11 @@ fun ChatComposer(
                             .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        if (modelSettings != null) FilterChip(
+                            selected = modelSettings.pending.isNotEmpty(),
+                            onClick = { showModel = true },
+                            label = { Text(modelSettings.config?.modelTitle ?: "Model") },
+                        )
                         FilterChip(
                             selected = !resolvedSelection.isEmpty,
                             onClick = { showIam = true },
@@ -608,6 +615,7 @@ fun ChatComposer(
             text = { ai.nuphos.android.ui.agent.RuntimeUsage(agentQuota) },
             confirmButton = { TextButton(onClick = { showAgentUsage = false }) { Text("Done") } })
     }
+    if (showModel && modelSettings != null) ModelSettingsSheet(modelSettings, onDismiss = { showModel = false })
     if (showIam && store != null) {
         CredentialPickerSheet(
             selection = resolvedSelection,

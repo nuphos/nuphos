@@ -349,7 +349,27 @@ fun ConversationScreen(
                             store.workspaceRevision == workspaceRevision && store.selectedTeam?.id == session.teamId },
                         onDismiss = { showAgent = false })
                 }
+                androidx.compose.runtime.DisposableEffect(session, store.workspaceRevision, draftAuth.generation) {
+                    val modelWorkspaceRevision = store.workspaceRevision
+                    val modelAuthGeneration = draftAuth.generation
+                    session.activateModelSettings(store.selectedTeam?.id == session.teamId && draftAuth.aiAllowed) {
+                        store.workspaceRevision == modelWorkspaceRevision && store.selectedTeam?.id == session.teamId &&
+                            draftAuth.generation == modelAuthGeneration && draftAuth.aiAllowed
+                    }
+                    onDispose { session.activateModelSettings(false) }
+                }
+                LaunchedEffect(session.modelSettings, session.isStreaming, session.runtimeObservation?.phase) {
+                    session.modelSettings?.refresh()
+                }
+                LaunchedEffect(session.modelSettings, session.modelSettings?.pending?.isNotEmpty()) {
+                    val settings = session.modelSettings
+                    while (settings != null && settings.pending.isNotEmpty() && settings.error == null) {
+                        kotlinx.coroutines.delay(2500)
+                        settings.refresh()
+                    }
+                }
                 ChatComposer(
+                    modelSettings = session.modelSettings,
                     onChooseAgent = { showAgent = true },
                     mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
                         SessionMentionSource(draftTeam, sessionId) { query ->
