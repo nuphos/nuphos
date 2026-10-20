@@ -37,6 +37,7 @@ export class LocalRuntimeController {
   private superseded = false
   private readonly deps: LocalRuntimeControllerDeps
   private readonly providers: readonly LocalAgentProvider[]
+  private requestedIdentity: string | undefined
   private revision = 0
   private endpoint: string | undefined
   private switching: Promise<unknown> = Promise.resolve()
@@ -77,9 +78,12 @@ export class LocalRuntimeController {
       this.instances?.states(this.online),
     )
   }
-  /** Follows the (backend, account) pair; switches run in order, so one session is down before the next registers. */
   async setUser(userId: string | null): Promise<void> {
-    const revision = ++this.revision
+    const identity = JSON.stringify([this.deps.backendUrl, userId])
+
+    if (identity !== this.requestedIdentity) this.revision += 1
+    this.requestedIdentity = identity
+    const revision = this.revision
     const switched = this.switching.then(() => this.switchTo(userId, revision))
 
     this.switching = switched.catch(() => {})
@@ -87,7 +91,9 @@ export class LocalRuntimeController {
   }
   private async switchTo(userId: string | null, revision: number): Promise<Promise<unknown>[]> {
     if (revision !== this.revision) return []
-    if (userId === this.userId && this.deps.backendUrl === this.endpoint) return []
+    const unchanged = userId === this.userId && this.deps.backendUrl === this.endpoint
+
+    if (unchanged && (!userId || this.tunnel)) return []
     await this.shutdown()
     if (revision !== this.revision) return []
     this.userId = userId
@@ -177,7 +183,6 @@ export class LocalRuntimeController {
     )
     this.tunnel.start()
   }
-
   runtime(provider: LocalAgentProvider) {
     return this.agents[provider].runtime
   }

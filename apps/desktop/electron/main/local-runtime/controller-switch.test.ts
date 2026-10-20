@@ -14,8 +14,8 @@ function deferred() {
   return { promise, resolve }
 }
 
-for (const next of ['bob', null]) {
-  test(`a pending registration cannot open an obsolete tunnel after switching to ${String(next)}`, async () => {
+for (const next of ['alice', 'bob', null, 'roundtrip']) {
+  test(`a pending registration reconciles the latest request for ${String(next)}`, async () => {
     const entered = deferred()
     const registration = deferred()
     const tunnels: (string | null)[] = []
@@ -53,12 +53,14 @@ for (const next of ['bob', null]) {
     const first = controller.setUser('alice')
 
     await entered.promise
-    const second = controller.setUser(next)
+    const target = next === 'roundtrip' ? 'alice' : next
+    const intermediate = next === 'roundtrip' ? controller.setUser('bob') : Promise.resolve()
+    const second = controller.setUser(target)
 
     registration.resolve()
-    await Promise.all([first, second])
-    assert.deepEqual(tunnels, next ? [next] : [])
-    assert.equal(controller.state().userId, next)
+    await Promise.all([first, intermediate, second])
+    assert.deepEqual(tunnels, target ? [target] : [])
+    assert.equal(controller.state().userId, target)
     await controller.shutdown()
   })
 }
