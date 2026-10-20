@@ -89,6 +89,8 @@ A few rules that follow from what the sign-off certifies:
   `git log --format='%an <%ae>'` shows it. Bots sign off as themselves, for
   example
   `github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>`.
+  The one exception is Dependabot, whose own trailer
+  (`dependabot[bot] <support@github.com>`) is accepted.
 
 ## Commit messages
 
