@@ -202,7 +202,7 @@ export function BoxRow({
               .map((agent) => (
                 <AgentTile key={agent.id} agent={agent} onSelect={() => onSelect(agent.id)} />
               ))}
-        {manage && !dim && !starting && (
+        {!dim && !starting && (
           <li className="shrink-0">
             <NewAgentMenu device={device} agents={agents} busy={busy} onAdd={addAgent} />
           </li>

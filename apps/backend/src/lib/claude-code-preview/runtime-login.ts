@@ -44,7 +44,7 @@ async function requireLocalLoginAccess(teamId: string, runtimeId: string, userId
 
   if (ref) {
     if (!userId) throw new AppError(404, 'runtime_not_found', 'Agent is not available')
-    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'manage')
+    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use')
 
     if (device.userId !== ref.userId)
       throw new AppError(404, 'runtime_not_found', 'Agent is not available')

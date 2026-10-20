@@ -126,14 +126,14 @@ test('invalid provider and path-shaped instance ids are refused', async () => {
   expect(calls).toEqual([])
 })
 
-test('management authorizes the actor and dispatches to the durable transport owner', async () => {
+test('a shared member may add: use authorizes the actor and dispatches to the durable transport owner', async () => {
   const { create, calls } = app({
     requireAccess: async (actorId, teamId, deviceId, level) => {
       expect([actorId, teamId, deviceId, level]).toEqual([
         'owner',
         '69e989027ab63e8d6a0ffcb6',
         'box',
-        'manage',
+        'use',
       ])
 
       return { ...device, userId: 'transport-owner' }

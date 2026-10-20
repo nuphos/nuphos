@@ -20,6 +20,7 @@ import { zv } from '@/lib/validate'
 
 import { readTeamIdCandidate } from './team-scope'
 
+import type { DeviceAccessLevel } from '@/lib/agent/devices/box-access'
 import type { RemovableAgent } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
@@ -61,7 +62,11 @@ export function createDeviceAgentRoutes(
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
-  const managed = async (c: Context<{ Variables: AuthVariables }>, candidate?: string) => {
+  const authorized = async (
+    c: Context<{ Variables: AuthVariables }>,
+    level: DeviceAccessLevel,
+    candidate?: string,
+  ) => {
     const userId = c.get('userId')
     const deviceId = c.req.param('deviceId') ?? ''
     const teamId = readTeamIdCandidate(c, candidate)
@@ -73,13 +78,18 @@ export function createDeviceAgentRoutes(
       userId,
       deviceId,
       teamId,
-      device: await deps.requireAccess(userId, teamId, deviceId, 'manage'),
+      device: await deps.requireAccess(userId, teamId, deviceId, level),
     }
   }
 
-  /** Adding or removing an agent manages the Box, and needs a host that supports it. */
-  const managedDevice = async (c: Context<{ Variables: AuthVariables }>, candidate?: string) => {
-    const { userId, deviceId, teamId, device } = await managed(c, candidate)
+  /** Adding an agent is for anyone the Box is shared with, removing one for its managers;
+   *  both need a host that supports it. */
+  const hostDevice = async (
+    c: Context<{ Variables: AuthVariables }>,
+    level: DeviceAccessLevel,
+    candidate?: string,
+  ) => {
+    const { userId, deviceId, teamId, device } = await authorized(c, level, candidate)
     const presence = await deps.getPresence(device.userId, deviceId)
 
     if (presence?.status?.agentInstances !== true)
@@ -94,7 +104,7 @@ export function createDeviceAgentRoutes(
 
   routes.post('/devices/:deviceId/agents', zv('json', createSchema), async (c) => {
     const body = c.req.valid('json')
-    const { target, device } = await managedDevice(c, body.teamId)
+    const { target, device } = await hostDevice(c, 'use', body.teamId)
     const { deviceId } = target
     const instance = await deps.createInstance(target, {
       instanceId: body.instanceId ?? randomUUID(),
@@ -115,7 +125,7 @@ export function createDeviceAgentRoutes(
   // `:agent` is an added agent's instance id, or the provider for the computer's own.
   routes.patch('/devices/:deviceId/agents/:agent', zv('json', renameSchema), async (c) => {
     const { teamId, label } = c.req.valid('json')
-    const { device, deviceId } = await managed(c, teamId)
+    const { device, deviceId } = await authorized(c, 'manage', teamId)
 
     if (!(await deps.renameAgent(device.userId, deviceId, c.req.param('agent'), label)))
       throw new AppError(404, 'agent_not_found', 'This agent is not registered on that computer.')
@@ -135,7 +145,7 @@ export function createDeviceAgentRoutes(
         : undefined
 
     if (!agent) throw new AppError(400, 'agent_not_removable', 'This agent cannot be removed.')
-    const { target, device } = await managedDevice(c)
+    const { target, device } = await hostDevice(c, 'manage')
 
     if ('provider' in agent && !device.box)
       throw new AppError(

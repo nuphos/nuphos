@@ -229,12 +229,15 @@ test('Box instance use and login apply actor ACL before reading transport presen
   expect(
     (await resolveLocalRuntimeEndpoint('team', id, 'member', 'transport', boxDeps)).runtimeId,
   ).toBe(id)
+  expect(
+    (await resolveLocalRuntimeEndpoint('team', id, 'member', 'login', boxDeps)).runtimeId,
+  ).toBe(id)
   reads = 0
   await expect(
-    resolveLocalRuntimeEndpoint('team', id, 'member', 'login', boxDeps),
+    resolveLocalRuntimeEndpoint('team', id, 'unlisted', 'transport', boxDeps),
   ).rejects.toMatchObject({ code: 'runtime_not_found' })
   await expect(
-    resolveLocalRuntimeEndpoint('team', id, 'unlisted', 'transport', boxDeps),
+    resolveLocalRuntimeEndpoint('team', id, 'unlisted', 'login', boxDeps),
   ).rejects.toMatchObject({ code: 'runtime_not_found' })
   await expect(
     resolveLocalRuntimeEndpoint('other', id, 'admin', 'login', boxDeps),

@@ -174,13 +174,8 @@ export async function resolveLocalRuntimeEndpoint(
   let deviceLabel: string
 
   try {
-    const device = await requireDeviceAccess(
-      userId,
-      teamId,
-      ref.deviceId,
-      purpose === 'login' ? 'manage' : 'use',
-      deps.access,
-    )
+    // Anyone a Box is shared with may sign in its agents, as they may add them.
+    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use', deps.access)
 
     if (device.userId !== ref.userId) throw notAvailable()
     deviceLabel = device.label

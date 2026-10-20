@@ -229,7 +229,7 @@ describe('local runtime catalog', () => {
 })
 
 describe('team Box runtime authorization before transport', () => {
-  test('uses the persistent owner and denies login, revoked use, missing membership and forged owner', async () => {
+  test('uses the persistent owner, lets a shared member sign in, and denies revoked use, missing membership and forged owner', async () => {
     const box = {
       ...device('host', 'box', 'Shared'),
       box: {
@@ -255,10 +255,10 @@ describe('team Box runtime authorization before transport', () => {
       (await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared)).local,
     ).toEqual({ userId: 'host', deviceId: 'box' })
     expect(calls).toEqual(['presence:host'])
+    expect((await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'login', shared)).authKey).toBe(
+      'control',
+    )
     calls.length = 0
-    await expect(
-      resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'login', shared),
-    ).rejects.toMatchObject({ status: 404 })
     await expect(
       resolveLocalRuntimeEndpoint('t2', id, 'teammate', 'transport', shared),
     ).rejects.toMatchObject({ status: 404 })
