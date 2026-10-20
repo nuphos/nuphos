@@ -50,7 +50,12 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-        run: bash scripts/check-dco.sh "$BASE" "$HEAD"
+        # Run the base branch's checker so a PR cannot loosen its own check;
+        # the PR's copy is used only until the base has one.
+        run: |
+          git show "$BASE:scripts/check-dco.sh" > "$RUNNER_TEMP/check-dco.sh" 2>/dev/null ||
+            cp scripts/check-dco.sh "$RUNNER_TEMP/check-dco.sh"
+          bash "$RUNNER_TEMP/check-dco.sh" "$BASE" "$HEAD"
 
   changes:
     name: Detect changed apps
