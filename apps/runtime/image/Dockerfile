@@ -77,10 +77,13 @@ RUN cd /opt/nuphos-claude-agent-acp \
  && ln -s "/opt/nuphos-claude-agent-acp/node_modules/@anthropic-ai/claude-agent-sdk-linux-$(node -p process.arch)/claude" \
       /usr/local/bin/claude \
  && claude --version
+# claude.ai connectors act as the signed-in account's owner, not the Nuphos
+# sender. host.mjs sets this too, but a pod without a join token never runs it.
 ENV PATH="/opt/nuphos-claude-agent-acp/node_modules/.bin:${PATH}" \
     OPENAB_AGENT_COMMAND="claude-agent-acp" \
     OPENAB_AGENT_AUTH_COMMAND="claude auth login" \
-    OPENAB_ADAPTER_VERSION="claude-agent-acp@0.74.0"
+    OPENAB_ADAPTER_VERSION="claude-agent-acp@0.74.0" \
+    ENABLE_CLAUDEAI_MCP_SERVERS=false
 
 FROM common AS codex
 COPY codex-acp/package.json codex-acp/package-lock.json \
