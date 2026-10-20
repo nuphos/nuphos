@@ -7,8 +7,8 @@ import path from 'node:path'
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
-import { homeLogin } from './agent-home.ts'
 import { agentCliEnv } from './config.ts'
+import { homeLogin } from './providers.ts'
 
 import type { LocalAgentProvider } from './providers.ts'
 

@@ -36,11 +36,11 @@ import { LocalExecStream } from './exec-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
+import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
-import type { LocalAgentProvider } from './agent-cli.ts'
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
@@ -50,12 +50,6 @@ if (!dataDir) {
   process.exit(1)
 }
 const clientVersion = `nuphos-cli/${process.env.NUPHOS_CLI_VERSION ?? 'dev'}`
-const NAMES: Record<LocalAgentProvider, string> = {
-  'claude-code': 'Claude Code',
-  codex: 'Codex',
-  grok: 'Grok Build',
-  opencode: 'OpenCode',
-}
 
 function deviceIdentity(): DeviceIdentity {
   const file = path.join(dataDir, 'device-identity.json')
