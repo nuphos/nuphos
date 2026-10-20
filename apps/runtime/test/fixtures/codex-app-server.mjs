@@ -62,18 +62,27 @@ for await (const line of createInterface({ input: process.stdin })) {
     result = {
       thread: {
         id: 'smoke-thread',
-        turns: msg.method === 'thread/resume' ? [{
-          id: 'history-turn',
-          status: 'completed',
-          items: [
-            { type: 'userMessage', id: 'history-user', content: [
-              { type: 'text', text: 'Earlier question' },
-              { type: 'image', url: 'data:image/png;base64,aGVsbG8=' },
-            ] },
-            { type: 'agentMessage', id: 'history-agent', text: 'Earlier answer' },
-            { type: 'webSearch', id: 'history-search', query: 'Earlier search' },
-          ],
-        }] : [],
+        turns:
+          msg.method === 'thread/resume'
+            ? [
+                {
+                  id: 'history-turn',
+                  status: 'completed',
+                  items: [
+                    {
+                      type: 'userMessage',
+                      id: 'history-user',
+                      content: [
+                        { type: 'text', text: 'Earlier question' },
+                        { type: 'image', url: 'data:image/png;base64,aGVsbG8=' },
+                      ],
+                    },
+                    { type: 'agentMessage', id: 'history-agent', text: 'Earlier answer' },
+                    { type: 'webSearch', id: 'history-search', query: 'Earlier search' },
+                  ],
+                },
+              ]
+            : [],
       },
       model: 'smoke-model',
       reasoningEffort: 'medium',

@@ -102,14 +102,30 @@ try {
   const created = await rpc('session/new', args('actor-a'))
 
   await rpc('session/load', { ...args('actor-b'), sessionId: created.sessionId })
-  assert.ok(updates.some((u) => u.sessionUpdate === 'user_message_chunk' &&
-    u.content.type === 'text' && u.content.text === 'Earlier question'))
-  assert.ok(updates.some((u) => u.sessionUpdate === 'user_message_chunk' &&
-    u.content.type === 'text' && u.content.text === '[@image](data:image/png;base64,aGVsbG8=)'))
-  assert.ok(updates.some((u) => u.sessionUpdate === 'agent_message_chunk' &&
-    u.content.text === 'Earlier answer'))
-  assert.ok(updates.some((u) => u.sessionUpdate === 'tool_call' &&
-    u.toolCallId === 'history-search'))
+  assert.ok(
+    updates.some(
+      (u) =>
+        u.sessionUpdate === 'user_message_chunk' &&
+        u.content.type === 'text' &&
+        u.content.text === 'Earlier question',
+    ),
+  )
+  assert.ok(
+    updates.some(
+      (u) =>
+        u.sessionUpdate === 'user_message_chunk' &&
+        u.content.type === 'text' &&
+        u.content.text === '[@image](data:image/png;base64,aGVsbG8=)',
+    ),
+  )
+  assert.ok(
+    updates.some(
+      (u) => u.sessionUpdate === 'agent_message_chunk' && u.content.text === 'Earlier answer',
+    ),
+  )
+  assert.ok(
+    updates.some((u) => u.sessionUpdate === 'tool_call' && u.toolCallId === 'history-search'),
+  )
   // A teammate's load moves the session home; the owner's reload above did not.
   const teammate = args('actor-c')
 
@@ -144,8 +160,11 @@ try {
   const calls = readFileSync(`${base}/requests.jsonl`, 'utf8').trim().split('\n').map(JSON.parse)
   const start = calls.find((c) => c.method === 'thread/start')
   const resume = calls.find((c) => c.method === 'thread/resume')
-  assert.equal(calls.some((c) => c.method === 'thread/read'), false,
-    'load must reuse the history returned by resume without reading it again')
+  assert.equal(
+    calls.some((c) => c.method === 'thread/read'),
+    false,
+    'load must reuse the history returned by resume without reading it again',
+  )
 
   // App Server ignores a subscribed resume's config, so only a load that moves
   // the session home releases the thread first; the owner's reload keeps it.
