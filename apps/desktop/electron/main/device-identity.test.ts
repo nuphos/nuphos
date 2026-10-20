@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  desktopDeviceId,
   parseDeviceIdentity,
   parseIoregPlatformUuid,
   parseRegMachineGuid,
@@ -9,6 +10,7 @@ import {
   stableDeviceId,
 } from './device-identity-core.ts'
 
+const mint = () => 'minted'
 const identity = { deviceId: 'abc-123', label: 'My Mac', createdAt: '2026-01-01T00:00:00.000Z' }
 
 test('parseDeviceIdentity accepts a device without an enable switch', () => {
@@ -58,4 +60,17 @@ HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography
   assert.equal(parseIoregPlatformUuid('no uuid here'), null)
   assert.equal(parseRegMachineGuid('ERROR: The system was unable to find the value'), null)
   assert.ok(['string', 'object'].includes(typeof readMachineKey()))
+})
+
+test("a dev build never runs as the installed app's machine id", () => {
+  const machine = stableDeviceId('MACHINE-UUID', 'desktop')
+
+  assert.equal(desktopDeviceId(null, machine, false, mint), machine)
+  assert.equal(desktopDeviceId(null, null, false, mint), 'minted')
+  assert.equal(desktopDeviceId('saved', null, false, mint), 'saved')
+  assert.equal(desktopDeviceId(machine, machine, false, mint), machine)
+
+  assert.equal(desktopDeviceId(null, machine, true, mint), 'minted')
+  assert.equal(desktopDeviceId(machine, machine, true, mint), 'minted')
+  assert.equal(desktopDeviceId('own-dev-id', machine, true, mint), 'own-dev-id')
 })

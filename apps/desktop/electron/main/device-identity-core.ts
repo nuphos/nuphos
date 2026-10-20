@@ -101,3 +101,21 @@ export function stableDeviceId(machineKey: string, kind: DeviceKind): string {
 
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
 }
+
+/**
+ * The id this Desktop build runs as. A `bun run dev` build sits on the same
+ * machine as the installed app, so the machine's id would let its runtime
+ * tunnel supersede the installed app's; it keeps its profile's own id instead,
+ * and a saved id that is the machine's is minted afresh.
+ */
+export function desktopDeviceId(
+  saved: string | null,
+  machineId: string | null,
+  dev: boolean,
+  mint: () => string,
+): string {
+  if (saved && !(dev && saved === machineId)) return saved
+  if (machineId && !dev) return machineId
+
+  return mint()
+}
