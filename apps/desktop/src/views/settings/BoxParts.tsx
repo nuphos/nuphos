@@ -217,5 +217,5 @@ export function NewAgentMenu({
 export function AccessHint({ device }: { device: AgentDevice }) {
   const hint = accessHint(device)
 
-  return hint && <span className="shrink-0 text-[11px] text-tertiary">{hint}</span>
+  return hint && <span className="truncate text-[11px] text-tertiary">· {hint}</span>
 }

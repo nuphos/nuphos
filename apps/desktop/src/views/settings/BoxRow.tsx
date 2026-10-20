@@ -99,7 +99,8 @@ export function BoxRow({
   const starting = settingUp || (state === 'running' && agents.length === 0)
 
   return (
-    <li className="flex h-[220px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
+    <li className="flex h-[236px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
+      {/* The name has the header to itself, so it and its rename field use the card's width. */}
       <div className="flex shrink-0 items-center gap-2">
         <MachineIcon device={device} />
         <InlineRename
@@ -119,14 +120,6 @@ export function BoxRow({
             changed()
           }}
         />
-        <AccessHint device={device} />
-        <span
-          role="status"
-          className="flex shrink-0 items-center gap-1.5 text-[11px] text-tertiary"
-        >
-          {badge.tone === 'online' && <LiveDot />}
-          {badge.label}
-        </span>
         {manage && (
           <Menu>
             <MenuTrigger
@@ -167,6 +160,13 @@ export function BoxRow({
             </MenuContent>
           </Menu>
         )}
+      </div>
+      <div className="mt-1 flex shrink-0 items-center gap-1.5 text-[11px] leading-4 text-tertiary">
+        <span role="status" className="flex items-center gap-1.5">
+          {badge.tone === 'online' && <LiveDot />}
+          {badge.label}
+        </span>
+        <AccessHint device={device} />
       </div>
       <MachineLine device={device} thisComputer={thisComputer} dim={dim} />
       {manage && (state === 'paused' || state === 'hostOffline') ? (
