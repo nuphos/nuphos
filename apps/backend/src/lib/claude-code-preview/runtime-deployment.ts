@@ -89,6 +89,8 @@ export function hostedRuntimeDeploymentObject(args: {
             runAsUser: 1000,
             runAsGroup: 1000,
             fsGroup: 1000,
+            // The home volume is already node's; walking every file on each start takes minutes.
+            fsGroupChangePolicy: 'OnRootMismatch',
             seccompProfile: { type: 'RuntimeDefault' },
           },
           containers: [

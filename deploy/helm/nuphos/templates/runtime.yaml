@@ -39,6 +39,8 @@ spec:
       securityContext:
         # The image runs as node (1000).
         fsGroup: 1000
+        # Re-own the volume only when its root is not node's, not every file on every start.
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: runtime
           image: {{ .Values.runtime.image.repository }}:{{ .Values.runtime.image.tag }}
