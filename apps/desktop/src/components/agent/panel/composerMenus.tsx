@@ -284,7 +284,7 @@ export function ComposerTools({ children }: { children: ReactNode }) {
   return (
     <div
       ref={ref}
-      className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-3 overflow-hidden py-3 @[320px]:gap-x-1"
+      className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
     >
       {children}
     </div>
