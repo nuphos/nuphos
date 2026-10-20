@@ -87,6 +87,23 @@ minute only while the screen is resumed. Missing or failed quota reads show
 
 ## Tests
 
+### Sent attachments
+
+User uploads render as attachment cards in existing conversation history, including
+legacy transfer instructions and structured `data-attachment` / `transfer-upload`
+parts. This is a display projection; the original prompt and wire instructions
+remain available to the agent. Cards refresh team-scoped download links, open
+supported images in the existing zoomable pager, and save files through Android's
+document picker. Expired or inaccessible groups retain file names with a retry
+action. Storage downloads carry no account credentials, follow no redirects, stream
+with size limits, and stop when access is revoked. Temporary previews are removed
+when the card leaves the conversation.
+
+`SentAttachmentsTest` covers transcript projection and wire preservation;
+`TransferDownloadsTest` covers metadata identity/expiry checks and storage failures.
+`SentAttachmentsFixtureDeviceTest` uses synthetic storage and an intercepted document
+picker result, without touching a real account. Run it in a separate fixture package.
+
 ### Unlinking an existing child chat
 
 The history list offers **Unlink** only for a loaded child whose API metadata

@@ -41,6 +41,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.IOException
+import java.io.File
+
+internal typealias MessageImageLoader = suspend (String, Int) -> ImageBitmap?
+private val inlineImageLoader: MessageImageLoader = { source, edge -> MessageImageDecoder.decode(source, edge) }
 
 /** No URL fetching: conversation File parts currently contain inline data images.
  * Decode one page at a time off the main thread; thumbnails use a smaller budget.
@@ -49,6 +53,21 @@ internal object MessageImageDecoder {
     private const val MAX_ENCODED = 16 * 1024 * 1024
     private val supportedMimeTypes = setOf("image/png", "image/jpeg", "image/webp", "image/gif")
     private val header = Regex("data:image/(png|jpeg|jpg|webp|gif);base64", RegexOption.IGNORE_CASE)
+
+    fun decodeFile(file: File, edge: Int): ImageBitmap? = try {
+        if (edge !in 1..2048) null else {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.path, bounds)
+            if (bounds.outWidth !in 1..100_000 || bounds.outHeight !in 1..100_000 ||
+                bounds.outWidth.toLong() * bounds.outHeight > 50_000_000L || bounds.outMimeType !in supportedMimeTypes) null
+            else {
+                var sample = 1
+                while ((bounds.outWidth.toLong() + sample - 1) / sample > edge ||
+                    (bounds.outHeight.toLong() + sample - 1) / sample > edge) sample *= 2
+                BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
+            }
+        }
+    } catch (_: OutOfMemoryError) { null }
 
     fun decode(source: String, edge: Int): ImageBitmap? {
         if (source.length > MAX_ENCODED || edge !in 1..2048) return null
@@ -105,19 +124,19 @@ private sealed interface ImageLoad {
 }
 
 @Composable
-private fun imageLoad(source: String, edge: Int): State<ImageLoad> = produceState<ImageLoad>(ImageLoad.Loading, source, edge) {
+private fun imageLoad(source: String, edge: Int, loader: MessageImageLoader): State<ImageLoad> = produceState<ImageLoad>(ImageLoad.Loading, source, edge, loader) {
     value = ImageLoad.Loading
     value = withContext(imageDecodeDispatcher) {
-        MessageImageDecoder.decode(source, edge)?.let(ImageLoad::Ready) ?: ImageLoad.Unavailable
+        loader(source, edge)?.let(ImageLoad::Ready) ?: ImageLoad.Unavailable
     }
 }
 
 @Composable
-internal fun MessageImages(images: List<String>, messageId: String) {
+internal fun MessageImages(images: List<String>, messageId: String, loader: MessageImageLoader = inlineImageLoader) {
     // Save only the selected index, never duplicate base64 in saved instance state.
     var selected by rememberSaveable(messageId) { mutableIntStateOf(-1) }
     images.take(4).forEachIndexed { index, source ->
-        val load by imageLoad(source, 256)
+        val load by imageLoad(source, 256, loader)
         Box(Modifier.padding(bottom = 6.dp).size(96.dp).clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClickLabel = "Open image ${index + 1} of ${images.size}") { selected = index },
@@ -133,12 +152,12 @@ internal fun MessageImages(images: List<String>, messageId: String) {
         }
     }
     if (selected >= 0 && images.isNotEmpty()) {
-        MessageImagePager(images, selected.coerceAtMost(images.lastIndex), { selected = it }, { selected = -1 })
+        MessageImagePager(images, selected.coerceAtMost(images.lastIndex), { selected = it }, loader, onDismiss = { selected = -1 })
     }
 }
 
 @Composable
-internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, onDismiss: () -> Unit) {
+internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, loader: MessageImageLoader = inlineImageLoader, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val view = LocalView.current
         DisposableEffect(view) {
@@ -178,7 +197,7 @@ internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: 
                 beyondViewportPageCount = 0) { page ->
                 // Adjacent pages keep only placeholders, preventing multiple full-size decodes.
                 if (page == pager.currentPage) {
-                    key(page, images[page]) { ZoomImage(images[page], page, images.size, zoomed) { zoomed = it } }
+                    key(page, images[page]) { ZoomImage(images[page], page, images.size, zoomed, loader) { zoomed = it } }
                 }
             }
             if (images.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -194,8 +213,8 @@ internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: 
 }
 
 @Composable
-private fun ZoomImage(source: String, index: Int, count: Int, zoomed: Boolean, onZoom: (Boolean) -> Unit) {
-    val load by imageLoad(source, 2048)
+private fun ZoomImage(source: String, index: Int, count: Int, zoomed: Boolean, loader: MessageImageLoader, onZoom: (Boolean) -> Unit) {
+    val load by imageLoad(source, 2048, loader)
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var size by remember { mutableStateOf(IntSize.Zero) }

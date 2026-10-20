@@ -7,7 +7,7 @@ sealed class ChatRow {
     abstract val id: String
 
     data class Timestamp(override val id: String, val date: Instant) : ChatRow()
-    data class User(override val id: String, val messageId: String, val text: String, val images: List<String>) : ChatRow()
+    data class User(override val id: String, val messageId: String, val text: String, val images: List<String>, val uploads: List<TransferUpload> = emptyList()) : ChatRow()
     data class AssistantText(override val id: String, val messageId: String, val text: String, val streaming: Boolean) : ChatRow()
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
@@ -51,12 +51,13 @@ sealed class ChatRow {
                         if (ChatTime.showsTimestamp(message.createdAt, previous) && message.createdAt != null) {
                             rows += Timestamp("time.${message.id}", message.createdAt)
                         }
-                        val text = message.text.trim()
-                        val images = message.parts.mapNotNull { part ->
+                        val display = TransferUpload.display(message.parts)
+                        val text = display.text
+                        val images = if (display.uploads.isNotEmpty()) emptyList() else message.parts.mapNotNull { part ->
                             (part as? ChatPart.File)?.takeIf { it.mediaType.startsWith("image/") }?.url
                         }
-                        if (text.isNotEmpty() || images.isNotEmpty()) {
-                            rows += User("user.${message.id}", message.id, text, images)
+                        if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
+                            rows += User("user.${message.id}", message.id, text, images, display.uploads)
                         }
                     }
                     ChatMessage.Role.Assistant -> {

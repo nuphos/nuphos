@@ -50,6 +50,15 @@ class ChatSession(
 ) {
     val linkedResources = SessionResourcesStore { NuphosApi.sessionResources(token, teamId, sessionId) }
     suspend fun refreshResources() = linkedResources.refresh { hasAiAccess && loaded && loadError == null }
+    val canReadAttachments get() = hasAiAccess
+
+    suspend fun transferGroup(groupId: String): ai.nuphos.android.data.TransferDownloadGroup {
+        check(hasAiAccess) { "Attachment access unavailable" }
+        val group = ai.nuphos.android.data.TransferDownloads.group(token, teamId, groupId)
+        check(hasAiAccess) { "Attachment access unavailable" }
+        group.readyFiles(groupId)
+        return group
+    }
 
     var runtimeDeviceLabel by mutableStateOf(creationRuntimeBinding?.displayLabel?.takeIf { it.isNotBlank() })
         private set

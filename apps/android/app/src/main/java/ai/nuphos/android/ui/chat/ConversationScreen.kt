@@ -437,6 +437,11 @@ private fun ChatRowView(
         )
         is ChatRow.User -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
             MessageImages(row.images, row.messageId)
+            row.uploads.forEach { attachment ->
+                key(attachment.groupId, session) {
+                    TransferCard(attachment, { session.transferGroup(attachment.groupId) }, session.canReadAttachments, { session.canReadAttachments })
+                }
+            }
             if (row.text.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 6.dp),
