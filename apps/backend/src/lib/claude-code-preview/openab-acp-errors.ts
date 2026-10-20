@@ -75,14 +75,6 @@ function acpErrorCode(error: OpenAbRpcError): number | undefined {
   return wrapped ? Number(wrapped[1]) : error.code
 }
 
-export function isRuntimeAuthRequired(error: unknown): boolean {
-  return (
-    error instanceof OpenAbRpcError &&
-    acpErrorCode(error) === ACP_AUTH_REQUIRED_CODE &&
-    error.message.includes(ACP_AUTH_REQUIRED_MESSAGE)
-  )
-}
-
 /**
  * The provider answered the agent with HTTP 402: the account has no usage left
  * (Grok Build reports `usage balance exhausted`). Only credits or a reset fix it,
@@ -91,29 +83,50 @@ export function isRuntimeAuthRequired(error: unknown): boolean {
 const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
 /**
- * Claude Code refuses a turn on a spent plan with its own one-line notice
- * (`You've hit your session limit · resets 4:20am (UTC)`): the adapter streams
- * it as the answer, then fails the prompt with `Internal error: <notice>`, which
- * the gateway wraps under -32603. Only that wrapper's first line counts, and only
- * the SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit.
+ * Claude Code refuses a turn it cannot bill with its own one-line notice: the
+ * adapter streams it as the answer, then fails the prompt with
+ * `Internal error: <notice>`, which the gateway wraps under -32603. Only that
+ * wrapper's first line counts.
  */
+const CLAUDE_NOTICE = /^\*\*Internal Error\*\* \(code: -32603\)\nInternal error: ([^\n]*)/u
+/** The SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit; the notice already names the reset. */
 const CLAUDE_USAGE_LIMIT =
-  /^\*\*Internal Error\*\* \(code: -32603\)\nInternal error: ((?:You've hit your|You've reached your|You're out of usage credits|Your org is out of usage)[^\n]*)/u
+  /^(?:You've hit your|You've reached your|You're out of usage credits|Your org is out of usage)/u
+/** A credential the CLI holds but can no longer use, e.g. `Failed to authenticate: OAuth session expired …`. */
+const CLAUDE_AUTH_FAILED = /^Failed to authenticate\b/u
 
-/** Claude Code's own usage-limit notice, which already names the reset, or undefined. */
-export function claudeUsageLimitNotice(error: unknown): string | undefined {
+function claudeNotice(error: unknown): string | undefined {
   if (!(error instanceof OpenAbRpcError) || error.code !== -32603) return undefined
 
-  return CLAUDE_USAGE_LIMIT.exec(error.message)?.[1]?.trim()
+  return CLAUDE_NOTICE.exec(error.message)?.[1]?.trim()
+}
+
+/** Claude Code's notice when it names a usage limit or a sign-in failure, or undefined. */
+export function claudeProductStateNotice(error: unknown): string | undefined {
+  const notice = claudeNotice(error)
+
+  return notice && (CLAUDE_USAGE_LIMIT.test(notice) || CLAUDE_AUTH_FAILED.test(notice))
+    ? notice
+    : undefined
+}
+
+export function isRuntimeAuthRequired(error: unknown): boolean {
+  if (!(error instanceof OpenAbRpcError)) return false
+  if (CLAUDE_AUTH_FAILED.test(claudeNotice(error) ?? '')) return true
+
+  return (
+    acpErrorCode(error) === ACP_AUTH_REQUIRED_CODE &&
+    error.message.includes(ACP_AUTH_REQUIRED_MESSAGE)
+  )
 }
 
 export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'
 
 /** The sentence a client shows for a provider that refuses to bill, or undefined. */
 export function runtimeUsageExhaustedMessage(error: unknown): string | undefined {
-  const notice = claudeUsageLimitNotice(error)
+  const notice = claudeNotice(error)
 
-  if (notice) return notice
+  if (notice && CLAUDE_USAGE_LIMIT.test(notice)) return notice
   // A caller may wrap the gateway's refusal, so its causes are read too.
   let match: RegExpExecArray | null = null
   let cause = error

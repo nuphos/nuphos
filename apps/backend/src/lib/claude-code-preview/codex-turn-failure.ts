@@ -1,4 +1,4 @@
-import { claudeUsageLimitNotice } from './openab-acp-errors'
+import { claudeProductStateNotice } from './openab-acp-errors'
 
 import type { UIMessage } from 'ai'
 
@@ -24,9 +24,9 @@ export class CodexTurnFailedError extends Error {
 
 /** Removes the adapter's failure notice from the answer text it was streamed into. */
 export function withoutFailureNotice(text: string, error: unknown): string {
-  // Claude Code streams its usage-limit notice too; the interruption line repeats it.
+  // Claude Code streams its usage-limit and sign-in notices too; the interruption line replaces them.
   const notice =
-    error instanceof CodexTurnFailedError ? error.notice : claudeUsageLimitNotice(error)
+    error instanceof CodexTurnFailedError ? error.notice : claudeProductStateNotice(error)
 
   if (!notice) return text
   const trimmed = text.trimEnd()

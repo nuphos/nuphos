@@ -91,3 +91,16 @@ test('a -32000 quoted outside the leading wrapper is not the adapter code', () =
   expect(frame.errorCode).toBeUndefined()
   expect(frame.errorText).toContain('MCP server github failed')
 })
+
+test('a Claude sign-in that expired reaches clients as a sign-out, not the gateway wrapper', () => {
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      "**Internal Error** (code: -32603)\nInternal error: Failed to authenticate: OAuth session expired and could not be refreshed\n\n_The agent did not return any error details. Please check the agent's own logs for more information._",
+      -32603,
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_auth_required')
+  expect(frame.errorText).toContain('Sign the agent in again')
+})

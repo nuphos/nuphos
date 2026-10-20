@@ -92,3 +92,16 @@ test("only the gateway wrapper's first line names a usage limit", () => {
     )
   }
 })
+
+test('a Claude sign-in failure is one line: the streamed notice gives way to the sign-in guidance', () => {
+  const notice = 'Failed to authenticate: OAuth session expired and could not be refreshed'
+  const error = new OpenAbRpcError(
+    `**Internal Error** (code: -32603)\nInternal error: ${notice}\n\n_The agent did not return any error details. Please check the agent's own logs for more information._`,
+    -32603,
+  )
+
+  expect(
+    partsWithoutFailureNotice([{ type: 'text', text: notice }] as UIMessage['parts'], error),
+  ).toEqual([])
+  expect(classifyPreviewInterruption(error, false).message).toContain('Sign the agent in again')
+})
