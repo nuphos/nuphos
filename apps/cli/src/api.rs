@@ -117,9 +117,11 @@ impl Api {
     }
 
     /// `scope` is `mine`, or `shared`: others' conversations I take part in.
-    pub async fn conversations(&self, team: &str, scope: &str) -> Result<Vec<Value>, ApiError> {
-        let query =
-            [("teamId", team), ("limit", "30"), ("scope", scope), ("sort", "activity"), ("archived", "exclude")];
+    /// `search` matches titles and first messages.
+    pub async fn conversations(&self, team: &str, scope: &str, search: Option<&str>) -> Result<Vec<Value>, ApiError> {
+        let mut query =
+            vec![("teamId", team), ("limit", "30"), ("scope", scope), ("sort", "activity"), ("archived", "exclude")];
+        query.extend(search.map(|s| ("search", s)));
         let v = self.call(Method::GET, "/agent/conversations", &query, None).await?;
         Ok(v["conversations"].as_array().cloned().unwrap_or_default())
     }

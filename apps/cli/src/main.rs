@@ -52,8 +52,8 @@ enum Command {
     },
     /// Open the TUI on a conversation, or pick one.
     Resume { session: Option<String> },
-    /// List recent conversations.
-    Conversations,
+    /// List recent conversations, or find them by a word in the title or first message.
+    Conversations { query: Option<String> },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
         name: Option<String>,
@@ -61,7 +61,8 @@ enum Command {
         #[arg(long, requires = "name")]
         create: bool,
     },
-    /// List agents, pick one for new conversations (or move --session to it),
+    /// List agents (what conversations run on, such as Claude Code; find conversations with
+    /// `nuphos conversations`), pick one for new conversations (or move --session to it),
     /// add a Cloud agent with --create, or sign one in with --login.
     #[command(name = "agents", alias = "runtime")]
     Runtime {
@@ -191,7 +192,7 @@ async fn run(args: Args) -> Result<i32> {
             }
             cli::exec(&mut ctx, prompt.trim().to_string(), session, runtime, approve).await
         }
-        Some(Command::Conversations) => cli::conversations(&ctx).await.map(|_| 0),
+        Some(Command::Conversations { query }) => cli::conversations(&ctx, query.as_deref()).await.map(|_| 0),
         Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
         Some(Command::Runtime { name: Some(provider), create: true, .. }) => {
             cli::create_runtime(&mut ctx, &provider).await.map(|_| 0)

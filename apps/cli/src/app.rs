@@ -1710,8 +1710,8 @@ impl App {
         let (api, team) = (self.api.clone(), self.team_id());
         self.background(false, async move {
             let (mine, shared, favorites) = tokio::join!(
-                api.conversations(&team, "mine"),
-                api.conversations(&team, "shared"),
+                api.conversations(&team, "mine", None),
+                api.conversations(&team, "shared", None),
                 api.favorites(&team)
             );
             Box::new(move |app: &mut App| {

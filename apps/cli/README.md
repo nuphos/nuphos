@@ -56,9 +56,9 @@ other agents. `--json` prints machine-readable output.
 nuphos exec "list the EKS clusters"          # send, print the reply, exit
 echo "..." | nuphos exec --session ID        # continue a conversation
 nuphos exec --approve --agent Codex "..."    # allow commands needing approval
-nuphos conversations                         # recent conversations
+nuphos conversations [QUERY]                 # recent conversations / find one by title
 nuphos team [NAME] [--create]                # list teams / set the default / create
-nuphos agents [NAME] [--session ID]          # list agents / pick or move
+nuphos agents [NAME] [--session ID]          # list agents (Claude Code, Codex, …) / pick or move
 nuphos agents NAME --create | --login        # add a Cloud agent / sign one in
 nuphos model                                 # list the agent's models
 nuphos model [VALUE] [--effort E] --session ID
