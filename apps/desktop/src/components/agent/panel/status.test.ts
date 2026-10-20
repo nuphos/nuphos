@@ -68,6 +68,15 @@ test('background work stays visible even when the provider is idle', () => {
   current.runtimeState!.phase = 'background_tools'
   assert.equal(computeStatus(current, message)?.label, 'Background tools running')
 })
+test('running shells are left to the composer chip instead of a transcript line', () => {
+  const current = tab('Background tools are still running', 'idle')
+
+  current.runtimeState!.phase = 'background_tools'
+  current.runtimeState!.tools = [
+    { id: 't1', terminal: { terminalId: 't1', command: 'sleep 30', status: 'running' } },
+  ]
+  assert.equal(computeStatus(current, message), null)
+})
 test('a failed turn that explains itself does not also claim the session was interrupted', () => {
   const failed = {
     role: 'assistant',
