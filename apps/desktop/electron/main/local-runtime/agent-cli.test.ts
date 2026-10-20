@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -103,5 +103,38 @@ test(
     assert.equal(readFileSync(path.join(dir, 'args'), 'utf8').trim(), 'update')
     await assert.rejects(updateAgentCli('claude-code', env))
     await assert.rejects(updateAgentCli('opencode' as never, env), /Install the agent/u)
+  },
+)
+
+test(
+  'a Claude login whose tokens are gone is signed out, whatever Claude Code reports',
+  { skip: process.platform === 'win32' || process.platform === 'darwin' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-tokens-'))
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    const node = `'${process.execPath.replaceAll("'", "'\\''")}'`
+
+    writeFileSync(
+      path.join(dir, 'claude'),
+      `#!/bin/sh\nexec ${node} -e 'console.log(process.argv.includes("--version") ? "2.1.0" : JSON.stringify({ loggedIn: true, subscriptionType: "team" }))' -- "$@"\n`,
+      { mode: 0o700 },
+    )
+    const home = path.join(dir, 'claude-home')
+    const credential = path.join(home, '.credentials.json')
+    const env = { PATH: dir, HOME: dir }
+
+    mkdirSync(home)
+    writeFileSync(credential, JSON.stringify({ claudeAiOauth: { subscriptionType: 'team' } }))
+    const gone = await probeAgentCli('claude-code', env, home)
+
+    assert.equal(gone.installed && gone.loggedIn, false)
+    writeFileSync(
+      credential,
+      JSON.stringify({ claudeAiOauth: { refreshToken: 'r', subscriptionType: 'team' } }),
+    )
+    const kept = await probeAgentCli('claude-code', env, home)
+
+    assert.equal(kept.installed && kept.loggedIn, true)
   },
 )

@@ -91,25 +91,6 @@ test('a container handed a join token runs the CLI host instead, as a Box does',
   assert.equal(existsSync(keyFile), false)
 })
 
-test('a joining Claude Code runtime keeps the sign-in it already had', () => {
-  const home = mkdtempSync(join(tmpdir(), 'nuphos-home-'))
-  const bundle = mkdtempSync(join(tmpdir(), 'nuphos-agent-'))
-  const seeded = join(home, '.local/share/nuphos/agent/users/owner-1/claude-home/.credentials.json')
-
-  writeFileSync(join(bundle, 'host.mjs'), 'import { writeSync } from "node:fs"\nwriteSync(3, "{}")')
-  mkdirSync(join(home, '.claude'))
-  writeFileSync(join(home, '.claude/.credentials.json'), '{"claudeAiOauth":{}}')
-  const env = { HOME: home, NUPHOS_JOIN_TOKEN: 'nbj_token', NUPHOS_LOCAL_RUNTIME_DIR: bundle }
-
-  start({ ...env, NUPHOS_AGENT_OWNER_ID: 'owner-1' }, home)
-  assert.equal(readFileSync(seeded, 'utf8'), '{"claudeAiOauth":{}}')
-  assert.equal(statSync(seeded).mode & 0o777, 0o600)
-  // Once the host has its own sign-in, a later start never overwrites it.
-  writeFileSync(seeded, '{"refreshed":true}')
-  start({ ...env, NUPHOS_AGENT_OWNER_ID: 'owner-1' }, home)
-  assert.equal(readFileSync(seeded, 'utf8'), '{"refreshed":true}')
-})
-
 test('back on the direct path, the credential of an earlier join is dropped', () => {
   const home = mkdtempSync(join(tmpdir(), 'nuphos-home-'))
   const credential = join(home, '.local/share/nuphos/agent/device-credential.json')

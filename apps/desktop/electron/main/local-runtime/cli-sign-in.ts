@@ -4,9 +4,9 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 
 import { findAgentCli } from './agent-cli.ts'
-import { prepareAgentHome } from './agent-home.ts'
 import { agentCliEnv } from './config.ts'
 
+import type { prepareAgentHome } from './agent-home.ts'
 import type { LocalRuntimeController } from './controller.ts'
 
 /** Sign in only when the same credential store used by the agent is not authenticated. */
@@ -14,13 +14,14 @@ export async function signInClaude(
   controller: LocalRuntimeController,
   dataDir: string,
   ownerId: string,
+  prepareHome: typeof prepareAgentHome,
 ): Promise<void> {
   const cli = controller.state().agents['claude-code'].cli
 
   if (!cli?.installed || cli.loggedIn || !process.stdin.isTTY) return
   const cliPath = findAgentCli('claude-code', process.env)
   const userDir = path.join(dataDir, 'users', ownerId)
-  const agentHome = prepareAgentHome('claude-code', userDir, path.join(userDir, 'workspace'))
+  const agentHome = prepareHome('claude-code', userDir, path.join(userDir, 'workspace'))
 
   if (!cliPath || !agentHome) return
   console.log(

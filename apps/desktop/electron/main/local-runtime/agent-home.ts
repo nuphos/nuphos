@@ -230,6 +230,24 @@ export function prepareAgentHome(
     : prepareClaudeHome(userDir, workspace)
 }
 
+/**
+ * A pod Nuphos hosts for one person signed that person's Claude Code in at the pod's own
+ * ~/.claude before it joined, and the agent serving them keeps using it, never a copy that
+ * can go stale. Every other member, and every other machine, keeps a home of its own.
+ */
+export function podOwnerAgentHome(
+  podOwner: string | undefined,
+  dataDir: string,
+  home = os.homedir(),
+): typeof prepareAgentHome {
+  const ownerDir = podOwner && path.join(dataDir, 'users', podOwner)
+
+  return (provider, userDir, workspace, env) =>
+    provider === 'claude-code' && ownerDir && path.resolve(userDir) === path.resolve(ownerDir)
+      ? path.join(home, '.claude')
+      : prepareAgentHome(provider, userDir, workspace, env)
+}
+
 /** New instances own their authentication; never link or import the host login. */
 export function prepareIsolatedAgentHome(
   provider: LocalAgentProvider,

@@ -97,6 +97,19 @@ async function readJson(file: string): Promise<Record<string, unknown> | null> {
   }
 }
 
+/**
+ * Claude Code still reports a credentials file whose tokens are gone as signed in, though no
+ * turn can authenticate with it. Where that file is the login, it is read as the agent would.
+ */
+async function claudeTokensGone(env: NodeJS.ProcessEnv): Promise<boolean> {
+  if (process.platform === 'darwin' || !env.CLAUDE_CONFIG_DIR) return false
+  const credential = await readJson(path.join(env.CLAUDE_CONFIG_DIR, '.credentials.json'))
+  const oauth = credential?.claudeAiOauth as
+    { accessToken?: unknown; refreshToken?: unknown } | undefined
+
+  return oauth !== undefined && !oauth.accessToken && !oauth.refreshToken
+}
+
 async function codexUsageRequest(
   home: string,
   env: NodeJS.ProcessEnv,
@@ -225,7 +238,18 @@ export async function probeAgentCli(
   const [version, auth] = await Promise.all([
     run(file, ['--version'], env).then(versionOf, () => {}),
     runtimeEnv
-      ? run(file, authArgs, runtimeEnv).then(parseAuth, () => ({ loggedIn: null }))
+      ? run(file, authArgs, runtimeEnv).then(
+          async (output) => {
+            const auth = parseAuth(output)
+
+            return provider === 'claude-code' &&
+              auth.loggedIn &&
+              (await claudeTokensGone(runtimeEnv))
+              ? { ...auth, loggedIn: false }
+              : auth
+          },
+          () => ({ loggedIn: null }),
+        )
       : Promise.resolve({ loggedIn: null }),
   ])
 
