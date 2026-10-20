@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.83.0",
+  "version": "0.84.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -22,6 +22,7 @@
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.3.1",
     "@kubernetes/client-node": "^1.4.0",
+    "@napi-rs/keyring": "^2.1.2",
     "@novnc/novnc": "1.7.0",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",
@@ -171,10 +172,20 @@
       }
     ],
     "asarUnpack": [
-      "**/node-pty/**"
+      "**/node-pty/**",
+      "**/@napi-rs/keyring*/**"
     ]
   },
   "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "current"
+      ],
+      "cpu": [
+        "x64",
+        "arm64"
+      ]
+    },
     "onlyBuiltDependencies": [
       "electron",
       "node-pty"

@@ -1,4 +1,4 @@
-import { BrowserWindow, net } from 'electron'
+import { BrowserWindow } from 'electron'
 
 import { CHANGELOG_FEED_URL, parseChangelogFeed } from './changelog-feed'
 
@@ -28,11 +28,7 @@ export async function fetchChangelogOnce() {
   if (fetchInFlight) return
   fetchInFlight = true
   try {
-    // Chromium's network stack (same as the reader webview), NOT Node's
-    // global fetch: undici's happy-eyeballs gives each connect attempt only
-    // ~250ms, which times out wholesale on slow networks/VPNs where curl and
-    // the webview connect fine — and it also ignores system proxy settings.
-    const res = await net.fetch(CHANGELOG_FEED_URL, {
+    const res = await fetch(CHANGELOG_FEED_URL, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
 

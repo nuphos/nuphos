@@ -7,6 +7,7 @@ mod cli;
 mod config;
 mod login;
 mod render;
+mod secret;
 mod shared;
 mod transcript;
 mod update;
@@ -95,12 +96,23 @@ enum Command {
         #[arg(long, value_name = "TOKEN")]
         join: Option<String>,
     },
-    /// Sign in through the browser (shared with the desktop app).
+    /// Sign in, from Nuphos Desktop's sign-in when there is one, else through the browser.
     Login,
-    /// Sign out here and in the desktop app.
+    /// Sign out of the CLI (Nuphos Desktop stays signed in).
     Logout,
+    /// Show who is signed in and where the session token is kept.
+    Auth {
+        #[command(subcommand)]
+        command: AuthCommand,
+    },
     /// Install the newest release over this binary.
     Update,
+}
+
+#[derive(Subcommand)]
+enum AuthCommand {
+    /// Who is signed in, and where the session token is kept.
+    Status,
 }
 
 #[tokio::main]
@@ -127,6 +139,7 @@ async fn run(args: Args) -> Result<i32> {
             return Ok(0);
         }
         Some(Command::Update) => return update::update().await,
+        Some(Command::Auth { command }) => return auth(command),
         Some(Command::Agent { join }) => {
             let join = agent::join_token(join.as_deref())?;
             // A joined computer has its own credential; only the session needs signing in.
@@ -191,9 +204,36 @@ async fn run(args: Args) -> Result<i32> {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }
         Some(Command::Stop { session }) => cli::stop(&ctx, &session).await.map(|_| 0),
-        Some(Command::Agent { .. } | Command::Login | Command::Logout | Command::Update | Command::Resume { .. })
+        Some(
+            Command::Agent { .. }
+            | Command::Login
+            | Command::Logout
+            | Command::Auth { .. }
+            | Command::Update
+            | Command::Resume { .. },
+        )
         | None => Ok(0),
     }
+}
+
+/// `nuphos auth status`: read locally, without checking the token with the
+/// backend. There is deliberately no command that prints the token: the
+/// keychain trusts this binary, so it would hand the token to any process.
+fn auth(command: &AuthCommand) -> Result<i32> {
+    let session = config::read_session();
+    if session.token.is_none() {
+        eprintln!("nuphos: not signed in; run `nuphos login`");
+        return Ok(1);
+    }
+    match command {
+        AuthCommand::Status => {
+            let who = session.user_info.as_ref().and_then(|u| u["email"].as_str()).or(session.user.as_deref());
+            println!("Signed in as {}", render::clean(who.unwrap_or("unknown")));
+            println!("API: {}", config::api_url());
+            println!("Token: {}", config::token_storage(&session));
+        }
+    }
+    Ok(0)
 }
 
 /// Opens the TUI at once; it signs in and picks the team behind a loading
@@ -231,7 +271,7 @@ async fn sign_in(interactive: bool) -> Result<(Api, Value, Vec<Value>)> {
         }
     }
     if !interactive {
-        bail!("not signed in; run `nuphos login` (the sign-in is shared with the desktop app)");
+        bail!("not signed in; run `nuphos login` (it can use Nuphos Desktop's sign-in)");
     }
     let session = login::login(&api_url).await?;
     let api = Api::new(api_url, session.token.unwrap_or_default());

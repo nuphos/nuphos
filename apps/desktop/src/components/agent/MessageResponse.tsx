@@ -13,7 +13,7 @@ import { isMac } from '../../lib/platform'
 import { ContextMenu } from '../ContextMenu'
 
 import { ChatLinkMenuContext, isChatMenuLink } from './chatLinkMenuContext'
-import { ReplyImage } from './ReplyImage'
+import { MarkdownImage, ReplyImage } from './ReplyImage'
 
 import type { ContextMenuItem } from '../ContextMenu'
 import type { ComponentProps, MouseEvent, ReactNode } from 'react'
@@ -129,10 +129,9 @@ function createComponents(
   renderLink?: (href: string, children: ReactNode) => ReactNode | null,
 ): StreamdownComponents {
   return {
-    img: ({ src, alt }) => {
-      const groupId = /^https:\/\/nuphos\.ai\/_reply-images\/([a-f0-9]{24})$/.exec(
-        typeof src === 'string' ? src : '',
-      )?.[1]
+    img: ({ src, alt, width, height }) => {
+      const url = typeof src === 'string' ? src : undefined
+      const groupId = /^https:\/\/nuphos\.ai\/_reply-images\/([a-f0-9]{24})$/.exec(url ?? '')?.[1]
 
       return groupId ? (
         <ReplyImage
@@ -142,7 +141,7 @@ function createComponents(
           alt={alt}
         />
       ) : (
-        <img src={src} alt={alt} className="max-w-full rounded-lg" />
+        <MarkdownImage src={url} alt={alt} width={width} height={height} />
       )
     },
     p: ({ children }) => <p className="my-3 leading-[1.75] first:mt-0 last:mb-0">{children}</p>,
@@ -226,15 +225,10 @@ type Props = {
 
 export const MessageResponse = memo(
   ({ children, className, streaming = false, teamId, onLinkClick, renderLink }: Props) => {
-    const hasReplyImages = /https:\/\/nuphos\.ai\/_reply-images\/[a-f0-9]{24}/.test(children)
-    const components = useMemo(() => {
-      const custom = createComponents(teamId, onLinkClick, renderLink)
-
-      // Keep Streamdown's default images in all unrelated MessageResponse views.
-      if (custom && !hasReplyImages) delete custom.img
-
-      return custom
-    }, [teamId, onLinkClick, renderLink, hasReplyImages])
+    const components = useMemo(
+      () => createComponents(teamId, onLinkClick, renderLink),
+      [teamId, onLinkClick, renderLink],
+    )
 
     return (
       <div

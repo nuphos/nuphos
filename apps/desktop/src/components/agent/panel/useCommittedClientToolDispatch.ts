@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 
 import { track } from '../../../lib/analytics'
 import { ownsAgentStream } from '../../../lib/ownedAgentStreams'
-import { runtimeSnapshotFresh } from '../../../lib/runtimeExecution'
 
 import { claimClientToolRequests, selectClientToolDispatch } from './clientToolRequests'
 
@@ -23,7 +22,7 @@ export function useCommittedClientToolDispatch(acc: Acc): void {
 
   useEffect(() => {
     for (const tab of tabs) {
-      if (!runtimeSnapshotFresh(tab.runtimeState)) continue
+      if (!tab.runtimeState) continue
       const running = clientToolRunsRef.current.get(tab.id)
 
       if (running) {

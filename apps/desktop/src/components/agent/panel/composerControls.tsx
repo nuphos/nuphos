@@ -97,6 +97,7 @@ export function ComposerSendControls({
   slackThread,
   hasQueueablePayload,
   sendDisabled,
+  sendBlockedReason,
   onSubmit,
   onStop,
 }: {
@@ -108,6 +109,8 @@ export function ComposerSendControls({
   slackThread?: AgentSlackThread | null
   hasQueueablePayload: boolean
   sendDisabled: boolean
+  /** Shown on the disabled button: why this message cannot go. */
+  sendBlockedReason?: string | null
   onSubmit: () => void
   onStop: () => void
 }) {
@@ -144,17 +147,21 @@ export function ComposerSendControls({
   }
 
   return (
-    <button
-      onClick={onSubmit}
-      disabled={sendDisabled}
-      className={clsx(
-        hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
-        'flex items-center justify-center transition-colors',
-        sendDisabled ? 'text-tertiary' : 'bg-zViolet-500 hover:bg-zViolet-400 text-white',
-      )}
-      title="Send"
-    >
-      <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
-    </button>
+    // A disabled button gets no hover, so the reason sits on its wrapper.
+    <span className="inline-flex" title={sendBlockedReason ?? undefined}>
+      <button
+        onClick={onSubmit}
+        disabled={sendDisabled}
+        aria-label={sendBlockedReason ? `Send (${sendBlockedReason})` : 'Send'}
+        className={clsx(
+          hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
+          'flex items-center justify-center transition-colors',
+          sendDisabled ? 'text-tertiary' : 'bg-zViolet-500 hover:bg-zViolet-400 text-white',
+        )}
+        title={sendBlockedReason ? undefined : 'Send'}
+      >
+        <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
+      </button>
+    </span>
   )
 }

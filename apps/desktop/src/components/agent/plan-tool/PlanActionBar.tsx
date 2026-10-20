@@ -113,7 +113,7 @@ export function PlanActionBar({
                       if (hasChangeRequest) requestChanges()
                     }
                   }}
-                  className="w-full resize-none rounded-lg border border-zGray-800 bg-field px-3 py-2 text-[13px] leading-snug text-main placeholder:text-tertiary focus:border-zViolet-accent/40 focus:outline-none"
+                  className="w-full resize-none rounded-lg border border-zGray-800 bg-surface px-3 py-2 text-[13px] leading-snug text-main placeholder:text-tertiary focus:border-zViolet-accent/40 focus:outline-none"
                 />
               </div>
             </div>

@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import {
-  acceptQueuedSteer,
-  eventEmittedAt,
-  retainBackgroundTabs,
-  statusElapsedSeconds,
-} from './sessionContinuity.ts'
+import { acceptQueuedSteer, eventEmittedAt, retainBackgroundTabs } from './sessionContinuity.ts'
 
 import type { Tab } from './model.ts'
 
@@ -77,15 +72,6 @@ test('buffered event timestamps preserve timer anchors', () => {
 
   assert.equal(eventEmittedAt({ emittedAt: startedAt }, startedAt + 5_000), startedAt)
   assert.equal(eventEmittedAt({}, startedAt + 5_000), startedAt + 5_000)
-  assert.equal(
-    statusElapsedSeconds(
-      startedAt,
-      'Thinking…',
-      { status: 'Thinking…', startedAt: startedAt + 5_000 },
-      startedAt + 12_000,
-    ),
-    12,
-  )
 })
 
 test('steer acknowledgement preserves the live assistant and tool-call target', () => {

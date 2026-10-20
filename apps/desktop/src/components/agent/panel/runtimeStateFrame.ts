@@ -1,31 +1,21 @@
-import { acceptRuntimeSnapshot } from '../../../lib/runtimeExecution.ts'
+import { publishRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
 
 import type { PanelCtx } from './ctx'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 
 export function handleRuntimeStateFrame(
-  ctx: Pick<PanelCtx, 'setTabs' | 'flushTextBuffer'>,
+  ctx: Pick<PanelCtx, 'setTabs' | 'flushTextBuffer' | 'tabsRef'>,
   streamId: string,
   sse: Record<string, unknown>,
 ): boolean {
-  const { setTabs } = ctx
-
   if (sse.type === 'runtime-state' && sse.snapshot && typeof sse.snapshot === 'object') {
     ctx.flushTextBuffer(streamId)
-    const snapshot = sse.snapshot as RuntimeExecution
-    const observedAt =
-      performance.now() -
-      Math.max(0, Date.now() - (typeof sse.emittedAt === 'number' ? sse.emittedAt : 0))
+    const sessionId = ctx.tabsRef.current.find((tab) => tab.streamId === streamId)?.sessionId
 
-    setTabs((prev) =>
+    if (sessionId) publishRuntimeStates([[sessionId, sse.snapshot as RuntimeExecution]])
+    ctx.setTabs((prev) =>
       prev.map((tab) =>
-        tab.streamId === streamId
-          ? {
-              ...tab,
-              claudeCodeRuntimeAttached: true,
-              runtimeState: acceptRuntimeSnapshot(tab.runtimeState, { ...snapshot, observedAt }),
-            }
-          : tab,
+        tab.streamId === streamId ? { ...tab, claudeCodeRuntimeAttached: true } : tab,
       ),
     )
 

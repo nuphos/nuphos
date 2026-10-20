@@ -2,15 +2,14 @@ import { useCallback } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { runtimeAllows, runtimeStatusLabel } from '../../../lib/runtimeExecution'
+import { ownsAgentStream } from '../../../lib/ownedAgentStreams'
+import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
 import { makeAttachmentTurn } from './attachments'
 import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID } from './model'
-import { ownsAgentStream } from '../../../lib/ownedAgentStreams'
-
 import { runtimeMayAcceptLater } from './queuedAutoSend'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
@@ -241,7 +240,7 @@ export function useTurnDispatch(acc: Acc) {
         return
       }
       if (!runtimeAllows(tab.runtimeState, 'reply') && !runtimeMayAcceptLater(tab.runtimeState)) {
-        toast.error(runtimeStatusLabel(tab.runtimeState))
+        toast.error(runtimeStateLabel(tab.runtimeState))
 
         return
       }

@@ -9,6 +9,9 @@ services:
   mongo:
     image: mongo:8.0.32
     command: ['--replSet', 'rs0', '--bind_ip_all']
+    # Kernel 6.19+: let glibc own rseq so tcmalloc skips per-CPU caches (SERVER-121912).
+    environment:
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
     # Mongo shares a network only with the backend and RustFS; the runtime executes agent code.
     networks: [data]
     volumes:
@@ -133,7 +136,7 @@ services:
     restart: unless-stopped
 
   runtime:
-    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.25-claude-code}
+    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.27-claude-code}
     # Published for amd64 only; Apple Silicon runs it under emulation.
     platform: linux/amd64
     environment:

@@ -89,6 +89,7 @@ type Props = {
     runtimeId?: string,
     canArchive?: boolean,
     saved?: boolean,
+    watching?: boolean,
   ) => void
   /** Externally-controlled session id (drives which chat is displayed). */
   sessionId?: string | null

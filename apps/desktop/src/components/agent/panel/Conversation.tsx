@@ -2,8 +2,6 @@ import clsx from 'clsx'
 import { ArrowDownToLine, PanelRightOpen } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { msUntilRuntimeStale } from '../../../lib/runtimeExecution'
-
 import { FeedbackCommentDialog } from './conversationBanners'
 import { ConversationMessageList } from './conversationMessageList'
 import {
@@ -11,7 +9,6 @@ import {
   lastStreamTokenFor,
   localCommandToolTokenFor,
 } from './conversationStreamTokens'
-import { statusElapsedSeconds } from './sessionContinuity'
 import { computeStatus } from './status'
 import { TurnRail } from './TurnRail'
 import { useConversationRead } from './useConversationRead'
@@ -49,10 +46,6 @@ export function Conversation({
   // already recorded when this opens; the dialog only adds detail.
   const [feedbackCommentFor, setFeedbackCommentFor] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
-  const [statusClock, setStatusClock] = useState<{
-    status: string | null
-    startedAt: number | null
-  }>({ status: null, startedAt: null })
   const lastMsg = tab.messages[tab.messages.length - 1]
   const localCommandToolToken = useMemo(() => localCommandToolTokenFor(lastMsg), [lastMsg])
   const hasRunningTool = useMemo(() => hasRunningToolFor(lastMsg), [lastMsg])
@@ -98,28 +91,8 @@ export function Conversation({
 
   useConversationRead(tab.sessionId, visible)
 
-  const statusStartedAt = status?.startedAt ?? null
-  const statusElapsed =
-    tab.runtimeState?.schemaVersion === 2
-      ? null
-      : statusElapsedSeconds(statusStartedAt, statusLabel, statusClock, now)
-
-  // Wall-clock reads only happen outside render, so both the status anchor and
-  // the first tick land on the next turn of the event loop.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setStatusClock((prev) => {
-        if (prev.status === statusLabel) return prev
-
-        return { status: statusLabel, startedAt: statusLabel ? Date.now() : null }
-      })
-    })
-
-    return () => window.clearTimeout(timer)
-  }, [statusLabel])
-
-  useEffect(() => {
-    if (!statusLabel && !hasRunningTool) return
+    if (!hasRunningTool) return
     const tick = () => setNow(Date.now())
     const first = window.setTimeout(tick)
     const interval = window.setInterval(tick, 1000)
@@ -128,17 +101,7 @@ export function Conversation({
       window.clearTimeout(first)
       window.clearInterval(interval)
     }
-  }, [hasRunningTool, statusLabel])
-
-  // A reading that is never replaced must still render as stale when it expires.
-  useEffect(() => {
-    const ms = msUntilRuntimeStale(tab.runtimeState)
-
-    if (ms === null) return
-    const timer = window.setTimeout(() => setNow(Date.now()), ms)
-
-    return () => window.clearTimeout(timer)
-  }, [tab.runtimeState])
+  }, [hasRunningTool])
 
   // Reserve space above the messages for the floating page-mode controls.
   const hasHeaderOverlay = Boolean(onDockToSidebar)
@@ -183,7 +146,6 @@ export function Conversation({
           now={now}
           statusLabel={displayStatusLabel}
           sendingFeedback={sendingFeedback}
-          statusElapsed={statusElapsed}
           hasEarlier={hasEarlier}
           captureEarlierAnchor={captureEarlierAnchor}
           onLoadEarlier={onLoadEarlier}

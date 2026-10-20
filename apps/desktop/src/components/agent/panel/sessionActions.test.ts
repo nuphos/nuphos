@@ -8,6 +8,7 @@ test('an unsaved fork offers no session actions', () => {
     saved: false,
     canRename: false,
     canArchive: false,
+    watching: undefined,
   })
 })
 
@@ -16,6 +17,7 @@ test('a saved own chat offers rename and archive', () => {
     saved: true,
     canRename: true,
     canArchive: true,
+    watching: undefined,
   })
   assert.equal(sessionActionGates({ sessionId: 's-1', unsaved: false }).saved, true)
 })
@@ -25,6 +27,7 @@ test('a teammate chat is saved but only a manager may archive it', () => {
     saved: true,
     canRename: false,
     canArchive: false,
+    watching: undefined,
   })
   assert.equal(
     sessionActionGates({ sessionId: 's-2', foreign: true, canManage: true }).canArchive,
@@ -37,7 +40,20 @@ test('read-only, archived and missing chats', () => {
     saved: true,
     canRename: false,
     canArchive: false,
+    watching: undefined,
   })
   assert.equal(sessionActionGates({ sessionId: 's-4', archived: true }).canArchive, false)
   assert.equal(sessionActionGates(undefined).saved, false)
+})
+
+test('watching is reported only for a saved chat', () => {
+  assert.equal(sessionActionGates({ sessionId: 's-5', watching: false }).watching, false)
+  assert.equal(
+    sessionActionGates({ sessionId: 's-5', foreign: true, watching: true }).watching,
+    true,
+  )
+  assert.equal(
+    sessionActionGates({ sessionId: 'fork-2', unsaved: true, watching: true }).watching,
+    undefined,
+  )
 })

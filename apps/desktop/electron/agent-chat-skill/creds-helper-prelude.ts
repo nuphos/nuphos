@@ -15,7 +15,7 @@ Usage:
   get-short-lived-creds-from-nuphos k8s --team-id <teamId> --provider gcp --project-id <projectId> --cluster <name> [--location <location>] [--output ~/.kube/config]
 
 Optional env:
-  NUPHOS_TOKEN (fallback when ~/.config/nuphos/cli.yaml is unavailable)
+  NUPHOS_TOKEN (fallback when there is no local Nuphos sign-in)
   NUPHOS_BACKEND_URL or NUPHOS_API_URL (defaults to https://api.nuphos.ai)
   NUPHOS_SESSION_ID (uses agent-session scoped endpoints when present)
 EOF
@@ -94,6 +94,7 @@ from pathlib import Path
 
 for path in (
     Path.home() / ".config" / "nuphos" / "cli.yaml",
+    Path.home() / ".config" / "nuphos" / "desktop.yaml",
     Path.home() / ".config" / "nuphos" / "config.yaml",
 ):
     try:
@@ -119,7 +120,7 @@ if [ -z "$auth_token" ]; then
 fi
 if [ -z "$auth_token" ]; then
   echo "Nuphos is not signed in. Open Nuphos and sign in, then retry." >&2
-  echo "Expected local auth at ~/.config/nuphos/cli.yaml. NUPHOS_TOKEN can be used as a fallback." >&2
+  echo "On macOS the sign-in is kept in the keychain, which this helper cannot read; set NUPHOS_TOKEN." >&2
   exit 1
 fi
 

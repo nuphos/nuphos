@@ -69,14 +69,14 @@ export function SearchBox({
       className={clsx(
         'h-7 min-w-0 flex items-center rounded-md transition-[width,background-color] duration-200 ease-out',
         fill
-          ? 'bg-field w-full'
+          ? 'bg-surface w-full'
           : expanded
-            ? 'bg-field w-[240px] max-w-full flex-shrink'
+            ? 'bg-surface w-[240px] max-w-full flex-shrink'
             : // Never the thing that gives way: the controls beside it are
               // flex-shrink-0, so without this the collapsed box is the only
               // shrinkable child and a busy controls row squeezes it to nothing —
               // leaving its (shrink-proof) magnifier jammed against the chips.
-              'w-[104px] flex-shrink-0 hover:bg-field/80',
+              'w-[104px] flex-shrink-0 hover:bg-surface/80',
       )}
     >
       <Search className="w-3.5 h-3.5 ml-2 text-tertiary flex-shrink-0" strokeWidth={2} />

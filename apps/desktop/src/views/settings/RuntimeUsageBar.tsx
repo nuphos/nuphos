@@ -1,35 +1,50 @@
-import { quotaLeftPercent, quotaWindowTone } from '../../lib/runtimeQuota'
+import { Tooltip } from '../../components/ui/tooltip'
+import {
+  mostConstrainedWindow,
+  quotaDetailLines,
+  quotaLeftPercent,
+  quotaSummary,
+  quotaWindowTone,
+} from '../../lib/runtimeQuota'
 
-import { QUOTA_FILL_CLASS, QUOTA_LABEL_CLASS } from './runtimePresentation'
+import { QUOTA_FILL_CLASS } from './runtimePresentation'
 
-import type { RuntimeQuotaWindow } from '../../types/runtime'
+import type { RuntimeQuota } from '../../types/runtime'
 
-/** Drains like a battery: full when nothing is spent, empty when the window is used up. */
-export function RuntimeUsageBar({ window }: { window: RuntimeQuotaWindow }) {
+/** Drains like a battery: full when nothing is spent, empty when the tightest
+ *  window is used up. The exact figures and reset times sit in the tooltip. */
+export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
+  const window = mostConstrainedWindow(quota)
+
+  if (!window) return null
   const left = quotaLeftPercent(window)
   const tone = quotaWindowTone(window)
 
   return (
-    <span
-      className="inline-flex min-w-24 items-center gap-2"
-      title={`${window.label}: ${String(left)}% left`}
+    <Tooltip
+      content={
+        <span className="flex flex-col gap-0.5">
+          {quotaDetailLines(quota).map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </span>
+      }
     >
       <span
         role="progressbar"
-        aria-label={`${window.label} remaining`}
+        aria-label="Usage remaining"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={left}
-        className="h-1.5 w-16 overflow-hidden rounded-full bg-zGray-800"
+        aria-valuetext={quotaSummary(quota) ?? undefined}
+        // A spent window has no fill left to colour, so its track carries the red.
+        className={`h-1.5 w-10 shrink-0 overflow-hidden rounded-full ${tone === 'exhausted' ? 'bg-error/30' : 'bg-zGray-800'}`}
       >
         <span
           className={`block h-full rounded-full ${QUOTA_FILL_CLASS[tone]}`}
           style={{ width: `${String(left)}%` }}
         />
       </span>
-      <span className={`text-[11px] ${QUOTA_LABEL_CLASS[tone] || 'text-tertiary'}`}>
-        {left}% left
-      </span>
-    </span>
+    </Tooltip>
   )
 }

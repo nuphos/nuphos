@@ -1,6 +1,7 @@
 import { ExternalLink, RotateCcw, Sparkles } from 'lucide-react'
 
 import { api } from '../../api'
+import { Button } from '../../components/ui/button'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
 
 import { ErrorBlock } from './ErrorBlock'
@@ -89,9 +90,9 @@ export function CloudRunErrorBlock({
           </button>
         )}
         {onFixInChat && (
-          <button
+          <Button
+            size="sm"
             onClick={onFixInChat}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-zViolet-accent text-white hover:bg-zViolet-accent/85 text-[12px]"
             title={
               apiDisabled
                 ? 'Ask the Nuphos agent to enable the API'
@@ -100,7 +101,7 @@ export function CloudRunErrorBlock({
           >
             <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
             Fix with Agent
-          </button>
+          </Button>
         )}
         <button
           onClick={onRetry}

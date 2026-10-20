@@ -82,6 +82,7 @@ export function portabilityDb() {
       return { insertedId: doc._id }
     },
     findOne: async (query: Doc) => rows(name).find((doc) => matches(doc, query)) ?? null,
+    countDocuments: async (query: Doc) => rows(name).filter((doc) => matches(doc, query)).length,
     findOneAndUpdate: async (query: Doc, mutation: Doc, options?: Doc) => {
       let doc = rows(name).find((entry) => matches(entry, query))
 
@@ -101,6 +102,14 @@ export function portabilityDb() {
       const doc = await collection(name).findOneAndUpdate(query, mutation, options)
 
       return { matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 }
+    },
+    deleteMany: async (query: Doc) => {
+      const kept = rows(name).filter((doc) => !matches(doc, query))
+      const deletedCount = rows(name).length - kept.length
+
+      stores.set(name, kept)
+
+      return { deletedCount }
     },
     deleteOne: async (query: Doc) => {
       const index = rows(name).findIndex((doc) => matches(doc, query))

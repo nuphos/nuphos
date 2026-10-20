@@ -272,6 +272,8 @@ export function serializeConversationDoc(conversation: Record<string, unknown>) 
     previousRuntimeUrls: _previousRuntimeUrls,
     // Raw ids; the detail route sends them rendered (conversation-timeline.ts).
     timelineEvents: _timelineEvents,
+    // Sent per viewer as `watching` (conversation-view.ts).
+    watcherIds: _watcherIds,
     ...rest
   } = conversation
 

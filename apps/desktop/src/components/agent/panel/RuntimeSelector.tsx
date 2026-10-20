@@ -4,13 +4,9 @@ import { useEffect, useState } from 'react'
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName, groupAgentsByTier, listedAgents } from '../../../lib/agentName'
-import {
-  quotaDetailLines,
-  quotaSignedOut,
-  quotaSummary,
-  quotaTone,
-} from '../../../lib/runtimeQuota'
+import { quotaSignedOut } from '../../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../../types/runtime'
+import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import {
   Menu,
@@ -21,12 +17,11 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from '../../ui/menu'
-import { Tooltip } from '../../ui/tooltip'
 
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
+import { selectedAgentReachability } from './runtimeControlSignOut'
 
-import type { QuotaTone } from '../../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
@@ -65,36 +60,11 @@ export type RuntimeControl = {
   }
 }
 
-const QUOTA_TONE_CLASS: Record<QuotaTone, string> = {
-  ok: 'text-tertiary',
-  warning: 'text-warning',
-  exhausted: 'text-error',
-}
-
-export function QuotaBadge({ quota, prefix = '' }: { quota?: RuntimeQuota; prefix?: string }) {
-  const summary = quotaSummary(quota)
-
-  if (!summary) return null
-  const lines = quotaDetailLines(quota)
-
-  return (
-    <Tooltip
-      content={
-        <span className="flex flex-col gap-0.5">
-          {lines.map((line) => (
-            <span key={line}>{line}</span>
-          ))}
-        </span>
-      }
-    >
-      {/* `whitespace-pre` keeps the prefix's leading space inside the inline-flex trigger. */}
-      <span className={`shrink-0 whitespace-pre ${QUOTA_TONE_CLASS[quotaTone(quota)]}`}>
-        {prefix}
-        {summary}
-      </span>
-    </Tooltip>
-  )
-}
+const AGENT_DOT = {
+  ready: { color: 'bg-success', label: 'Box online · agent ready' },
+  signIn: { color: 'bg-warning', label: 'Box online · agent needs sign-in' },
+  offline: { color: 'bg-error', label: 'Box offline' },
+} as const
 
 function runtimeOptionNote(instance: RuntimeInstance, quota?: RuntimeQuota): string {
   if (instance.deletion) return ' · Being removed'
@@ -105,6 +75,8 @@ function runtimeOptionNote(instance: RuntimeInstance, quota?: RuntimeQuota): str
 }
 
 export function RuntimeSelector({
+  menuOpen,
+  onMenuOpenChange,
   teamId,
   canUpdateTeamAgents,
   value,
@@ -118,7 +90,11 @@ export function RuntimeSelector({
   onSettings,
   onAddAgent,
   confirm,
-}: RuntimeControl) {
+}: RuntimeControl & {
+  /** Lets the composer open the list, e.g. from the agent-status banner. */
+  menuOpen?: boolean
+  onMenuOpenChange?: (open: boolean) => void
+}) {
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
@@ -139,6 +115,8 @@ export function RuntimeSelector({
 
     return () => clearTimeout(timer)
   }, [value?.id])
+  const reachability = selectedAgentReachability({ value, options })
+  const dot = reachability ? AGENT_DOT[reachability] : null
   const usageLoading = Boolean(
     value?.id &&
     usageWaitExpired !== value.id &&
@@ -158,18 +136,24 @@ export function RuntimeSelector({
       ) : (
         <span className="max-w-40 truncate">{label}</span>
       )}
+      {dot && (
+        <span
+          role="img"
+          aria-label={dot.label}
+          title={dot.label}
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot.color}`}
+        />
+      )}
       {selectedUpdate && <AgentUpdateBadge update={selectedUpdate} />}
       {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
-      {!unavailable && quotaSignedOut(selectedQuota) ? (
-        <span className="shrink-0 text-amber-400">· Sign in required</span>
-      ) : usageLoading ? (
+      {usageLoading ? (
         <span
           aria-label="Loading usage"
           role="status"
           className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
         />
       ) : (
-        <QuotaBadge quota={selectedQuota} prefix="· " />
+        <RuntimeUsageBar quota={selectedQuota} />
       )}
     </>
   )
@@ -195,7 +179,7 @@ export function RuntimeSelector({
           onClose={confirm.onCancel}
         />
       )}
-      <Menu>
+      <Menu open={menuOpen} onOpenChange={onMenuOpenChange}>
         <MenuTrigger
           aria-label={`Conversation agent: ${label}`}
           className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
@@ -233,10 +217,10 @@ export function RuntimeSelector({
                           <span className="truncate">{agentName(instance, owner)}</span>
                           {update && <AgentUpdateBadge update={update} actionable />}
                         </span>
-                        <span className="text-[11px] text-tertiary">
+                        <span className="flex items-center gap-1.5 text-[11px] text-tertiary">
                           {AGENT_PROVIDER[instance.provider].label}
                           {runtimeOptionNote(instance, quotas?.get(instance.id))}
-                          <QuotaBadge quota={quotas?.get(instance.id)} prefix=" · " />
+                          <RuntimeUsageBar quota={quotas?.get(instance.id)} />
                         </span>
                       </span>
                     </MenuItem>

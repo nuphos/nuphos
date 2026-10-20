@@ -187,6 +187,7 @@ export function usePanelPlanPane(acc: Acc) {
       activeTab?.runtimeId,
       gates.canArchive,
       gates.saved,
+      gates.watching,
     )
   }, [
     activeTab?.readOnly,
@@ -198,6 +199,7 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.runtimeId,
     activeTab?.canManage,
     activeTab?.archived,
+    activeTab?.watching,
     activeTab?.unsaved,
     sessionIdProp,
   ])

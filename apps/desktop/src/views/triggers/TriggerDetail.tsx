@@ -4,12 +4,12 @@ import { createPortal } from 'react-dom'
 
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { Button } from '../../components/ui/button'
+import { Switch } from '../../components/ui/Switch'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { scheduleSummary } from './cron'
 import { DeliversTo } from './DeliversTo'
-import { Toggle } from './parts'
 import { testFireTrigger } from './triggerFormActions'
 import { TriggerRunsList } from './TriggerRunsList'
 
@@ -161,9 +161,10 @@ export function TriggerDetail({
               )}
               Run now
             </Button>
-            <Toggle
-              enabled={trigger.enabled}
+            <Switch
+              checked={trigger.enabled}
               disabled={!canManage || cleanupPending}
+              label={trigger.enabled ? 'Disable trigger' : 'Enable trigger'}
               onChange={(enabled) => void onToggle(enabled)}
             />
             <Button type="button" variant="ghost" size="sm" onClick={onEdit}>

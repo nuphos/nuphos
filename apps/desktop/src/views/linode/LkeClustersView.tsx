@@ -8,14 +8,15 @@ import { ContextMenu } from '../../components/ContextMenu'
 import { Modal } from '../../components/Modal'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
-import { reportFrontendError } from '../../lib/frontendErrorReporter'
 import {
   getEndpointOverride,
   isValidOverrideHost,
   setEndpointOverride,
 } from '../../lib/endpointOverrides'
+import { reportFrontendError } from '../../lib/frontendErrorReporter'
 import { withResourceListCache, resourceListCacheKey } from '../../lib/resourceListCache'
 import { useResourceList } from '../useResourceList'
 
@@ -215,7 +216,7 @@ export function LkeClustersView({
             value={overrideInput}
             onChange={(e) => setOverrideInput(e.target.value)}
             placeholder="k8s-api.your-network.example.com"
-            className="h-8 rounded-md border border-zGray-700 bg-field px-2.5 font-mono text-[12px] text-main placeholder:text-tertiary focus:border-zViolet-accent focus:outline-none"
+            className="h-8 rounded-md border border-zGray-700 bg-surface px-2.5 font-mono text-[12px] text-main placeholder:text-tertiary focus:border-zViolet-accent focus:outline-none"
           />
           <div className="flex justify-end gap-2">
             <button
@@ -225,12 +226,9 @@ export function LkeClustersView({
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              className="h-7 rounded-md bg-zViolet-accent px-3 text-[12px] font-medium text-white hover:opacity-90"
-            >
+            <Button size="sm" type="submit">
               Save
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

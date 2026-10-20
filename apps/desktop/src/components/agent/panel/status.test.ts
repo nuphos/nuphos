@@ -17,20 +17,25 @@ function tab(label: string, state: 'idle' | 'active' = 'active'): Tab {
     messages: [message],
     streaming: true,
     phase: 'thinking',
-    runtimeState: { schemaVersion: 2, state, label, observedAt: performance.now() },
+    runtimeState: { schemaVersion: 2, state, label },
   } as Tab
 }
 test('runtime labels override stale local streaming, phase and unfinished cards', () => {
   for (const label of ['Waiting for approval', 'Finishing the request…', 'Agent: rate_limited']) {
-    assert.deepEqual(computeStatus(tab(label), message), { label, startedAt: null })
+    assert.deepEqual(computeStatus(tab(label), message), { label })
   }
 })
-test('lost observation shows connection loss without inventing a runtime transition', () => {
-  const current = tab('Thinking…')
+test('an unreachable or outdated runtime adds no line; the agent dot says it', () => {
+  const current = tab('unused')
 
-  current.runtimeState!.observedAt = performance.now() - 13_000
-  assert.equal(computeStatus(current, message)?.label, 'Connection lost — agent status unavailable')
-  assert.equal(current.runtimeState!.state, 'active')
+  for (const runtimeState of [
+    { state: 'disconnected' as const },
+    { state: 'unsupported' as const },
+    { state: 'active' as const, label: 'Thinking…' },
+  ]) {
+    current.runtimeState = runtimeState
+    assert.equal(computeStatus(current, message), null)
+  }
 })
 
 test('optimistic first message does not imply a lost runtime connection', () => {

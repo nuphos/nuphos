@@ -28,6 +28,8 @@ export default defineRailway(() => {
     deploy: { restartPolicyType: 'ALWAYS' },
     volumeMounts: { '/data': mongoData },
     env: {
+      // Kernel 6.19+: let glibc own rseq so tcmalloc skips per-CPU caches (SERVER-121912).
+      GLIBC_TUNABLES: 'glibc.pthread.rseq=1',
       // Stable replica identity across container replacement; clients use directConnection.
       NUPHOS_MONGO_HOST: 'localhost',
       MONGO_INITDB_ROOT_USERNAME: 'nuphos',
@@ -56,7 +58,7 @@ export default defineRailway(() => {
     },
   })
   const backend = service('backend', {
-    source: image('ghcr.io/nuphos/backend:v0.96.1'),
+    source: image('ghcr.io/nuphos/backend:v0.97.1'),
     replicas: { 'us-west2': 1 },
     deploy: { restartPolicyType: 'ALWAYS' },
     healthcheck: '/health/ready',

@@ -980,13 +980,6 @@ impl AdapterRouter {
                     let mut native_last_flush = tokio::time::Instant::now();
                     const NATIVE_FLUSH_MS: u128 = 400;
 
-                    // ACP direct relay: no placeholder, no edit loop — text
-                    // snapshots go out inline from the recv loop below.
-                    let acp_draft_msg = MessageRef {
-                        message_id: "draft".to_string(),
-                        channel: thread_channel.clone(),
-                    };
-
                     // Streaming edit: send placeholder, spawn edit loop
                     let (buf_tx, placeholder_msg, edit_handle) =
                         if streaming && !native && !acp_direct {
@@ -1269,10 +1262,18 @@ impl AdapterRouter {
                                 AcpEvent::Text(t) => {
                                     text_buf.push_str(&t);
                                     if acp_direct {
-                                        // Awaited inline so the snapshot reaches the
-                                        // gateway before any later tool/thought relay.
+                                        // Same path as thought/tool updates, so text also
+                                        // reaches a client that reattached after this
+                                        // turn's own connection dropped. Awaited inline to
+                                        // keep wire order with the tool/thought relay.
                                         let _ = adapter
-                                            .edit_message(&acp_draft_msg, &text_buf)
+                                            .forward_agent_update(
+                                                &thread_channel,
+                                                serde_json::json!({
+                                                    "sessionUpdate": "agent_message_chunk",
+                                                    "content": {"type": "text", "text": t},
+                                                }),
+                                            )
                                             .await;
                                     } else if native {
                                         // Lazy stream_begin: open the stream on first text.
@@ -1562,8 +1563,8 @@ impl AdapterRouter {
                     // it was emitted alongside.
                     // ACP failures retain the raw partial text in every streaming mode,
                     // without the display-only warning or send-once answer trimming.
-                    // Direct relay also repeats this snapshot at successful completion
-                    // so the gateway's snapshot diff yields no duplicate chunk.
+                    // Direct relay also repeats the full text at successful completion;
+                    // the gateway has counted the relayed chunks, so it yields no duplicate.
                     let acp_streamed = if platform_is_acp {
                         text_buf.clone()
                     } else {

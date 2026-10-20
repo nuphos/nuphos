@@ -1,22 +1,35 @@
-import { agentSignOut } from '../../../lib/runtimeQuota'
-
 import type { RuntimeControl } from './RuntimeSelector'
 
-/** How the selected agent's sign-in bears on the next message. */
-export function selectedAgentSignOut(control: RuntimeControl | undefined) {
+/** Whether the picked agent can take a message now: its Box first, then its sign-in. */
+export type AgentReachability = 'ready' | 'signIn' | 'offline'
+
+/**
+ * One answer for the dot, the banner and the send button. Agents without a Box have no dot.
+ * Signed out is only the agent CLI's own status, as its Box reports it; the usage probe's
+ * sign-in hint is a guess (it cannot see a token in the environment), so it never counts.
+ */
+export function selectedAgentReachability(
+  control: Pick<RuntimeControl, 'value' | 'options'> | undefined,
+): AgentReachability | null {
   const id = control?.value?.id
 
   if (!id) return null
+  const local = control.options?.find((instance) => instance.id === id)?.local
 
-  return agentSignOut(
-    control.options?.find((instance) => instance.id === id),
-    control.quotas?.get(id),
-  )
+  if (local?.online === false) return 'offline'
+  if (local?.signedIn === false) return 'signIn'
+
+  return local ? 'ready' : null
 }
 
-/** No agent to send to: none picked, disabled, or one certain to refuse the turn. */
-export function runtimeControlBlocksSend(control: RuntimeControl | undefined): boolean {
-  if (control?.onSelect && (!control.value || control.value.status === 'disabled')) return true
+/** Why the next message cannot go, or null when it can: no agent, or one that cannot take it. */
+export function runtimeControlSendBlock(control: RuntimeControl | undefined): string | null {
+  if (control?.onSelect && (!control.value || control.value.status === 'disabled'))
+    return 'Choose an agent to send'
+  const reachability = selectedAgentReachability(control)
 
-  return selectedAgentSignOut(control) === 'blocked'
+  if (reachability === 'offline') return 'Its Box is offline'
+  if (reachability === 'signIn') return 'The agent needs to sign in'
+
+  return null
 }

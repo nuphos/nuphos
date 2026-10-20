@@ -45,6 +45,8 @@ export type TeamRuntimeEndpoint = {
   backendUrl?: string
   /** The owner's own computer, reached through its tunnel; `authKey` then names the purpose. */
   local?: { userId: string; deviceId: string }
+  /** A hosted runtime that joined as a device is dialled here, not at `url`. */
+  tunnelUrl?: string
 }
 
 export type TeamSession = {

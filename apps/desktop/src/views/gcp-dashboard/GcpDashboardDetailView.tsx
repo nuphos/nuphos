@@ -160,7 +160,7 @@ export function GcpDashboardDetailView({
                   }))
                 }
                 placeholder="All"
-                className="h-7 w-[140px] rounded border border-zGray-800 bg-field px-2 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="h-7 w-[140px] rounded border border-zGray-800 bg-surface px-2 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
               />
             </label>
           ),

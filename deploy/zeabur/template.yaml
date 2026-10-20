@@ -68,6 +68,9 @@ spec:
           - id: mongo-config
             dir: /data/configdb
         env:
+          # Kernel 6.19+: let glibc own rseq so tcmalloc skips per-CPU caches (SERVER-121912).
+          GLIBC_TUNABLES:
+            default: glibc.pthread.rseq=1
           NUPHOS_MONGO_HOST:
             default: ${CONTAINER_HOSTNAME}
             expose: true
@@ -201,7 +204,7 @@ spec:
       template: PREBUILT_V2
       spec:
         source:
-          image: ghcr.io/nuphos/backend:v0.96.1
+          image: ghcr.io/nuphos/backend:v0.97.1
         ports:
           - id: web
             port: 3000

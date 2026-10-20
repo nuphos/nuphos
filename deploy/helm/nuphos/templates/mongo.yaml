@@ -85,6 +85,9 @@ spec:
           imagePullPolicy: {{ .Values.mongo.image.pullPolicy }}
           command: ['/bin/bash', '/opt/nuphos/start.sh']
           env:
+            # Kernel 6.19+: let glibc own rseq so tcmalloc skips per-CPU caches (SERVER-121912).
+            - name: GLIBC_TUNABLES
+              value: glibc.pthread.rseq=1
             - name: NUPHOS_MONGO_HOST
               value: {{ include "nuphos.mongoHost" . }}
             - name: MONGO_INITDB_ROOT_USERNAME

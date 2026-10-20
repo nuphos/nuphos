@@ -285,6 +285,7 @@ export function Sidebar({
       {itemMenu && (
         <SidebarItemContextMenu
           menu={itemMenu}
+          teamId={teamId}
           onClose={() => setItemMenu(null)}
           canFavorite={canFavorite}
           favoriteMatch={favoriteMatch}

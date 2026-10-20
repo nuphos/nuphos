@@ -1,8 +1,4 @@
-import {
-  runtimeAllows,
-  runtimeSnapshotFresh,
-  runtimeStatusLabel,
-} from '../../../lib/runtimeExecution.ts'
+import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution.ts'
 
 import { AGENT_PHASE_LABELS } from './agentPhase.ts'
 import { isAgentMemoryIngestEventItem } from './memoryIngestEvent.ts'
@@ -101,17 +97,13 @@ function failedTurnExplainedInline(
 export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStatus | null {
   if (!tab.sessionId || (!tab.claudeCodeRuntimeAttached && tab.messages.length === 0)) return null
 
-  if (!tab.claudeCodeRuntimeAttached && !tab.runtimeState)
-    return { label: 'Connecting…', startedAt: null }
-  // Opened without a runtime read: the catch-up poll is about to take one.
-  // Unobserved is not lost — only a stale or failed read says that.
-  if (!tab.runtimeState) return null
-
+  if (!tab.claudeCodeRuntimeAttached && !tab.runtimeState) return { label: 'Connecting…' }
   const snapshot = tab.runtimeState
 
+  // Only the runtime's own words are shown. Whether the agent can be reached is
+  // the dot beside its name, never a line here.
   if (
-    runtimeSnapshotFresh(snapshot) &&
-    snapshot?.schemaVersion === 2 &&
+    snapshot?.schemaVersion !== 2 ||
     ['idle', 'dormant', 'cancelled'].includes(snapshot.phase ?? snapshot.state)
   )
     return null
@@ -120,7 +112,7 @@ export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStat
   if (snapshot.phase === 'background_tools' && shellsFromRuntimeState(snapshot).length > 0)
     return null
 
-  return { label: runtimeStatusLabel(snapshot), startedAt: null }
+  return { label: runtimeStateLabel(snapshot) }
 }
 
 export function jsonSize(value: unknown): number {

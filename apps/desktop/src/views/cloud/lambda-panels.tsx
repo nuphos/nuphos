@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
@@ -86,18 +87,13 @@ export function LambdaTestPanel({
             onChange={(e) => setPayload(e.target.value)}
             spellCheck={false}
             rows={8}
-            className="w-full px-2.5 py-2 rounded bg-field border border-zGray-800 text-[12px] font-mono text-secondary focus:outline-none focus:border-zViolet-accent/60 resize-y"
+            className="w-full px-2.5 py-2 rounded bg-surface border border-zGray-800 text-[12px] font-mono text-secondary focus:outline-none focus:border-zViolet-accent/60 resize-y"
           />
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void run()}
-            disabled={running}
-            className="h-8 px-3 rounded bg-zViolet-accent text-white hover:bg-zViolet-accent/85 text-[12.5px] disabled:opacity-50"
-          >
+          <Button size="sm" type="button" onClick={() => void run()} disabled={running}>
             {running ? 'Invoking…' : 'Invoke'}
-          </button>
+          </Button>
           <span className="text-[11.5px] text-tertiary">
             Synchronous (RequestResponse) invocation against the live function.
           </span>

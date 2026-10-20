@@ -57,6 +57,11 @@ pub async fn run(join: Option<String>) -> Result<i32> {
     if let Some(token) = join {
         host.env("NUPHOS_JOIN_TOKEN", token);
     }
+    // The session for a host on plain Node, which cannot read the keychain;
+    // it drops the variable at once so the agents it starts never see it.
+    if let Some(token) = config::read_session().token {
+        host.env("NUPHOS_SESSION_TOKEN", token);
+    }
     let error = host
         .arg(runtime.join("host.mjs"))
         .env("NUPHOS_AGENT_HOME", agent_home()?)

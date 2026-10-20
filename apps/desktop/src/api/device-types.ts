@@ -175,7 +175,10 @@ export type BoxUsage = {
   /** Whether the limit comes from the team's own subscription. */
   subscribed: boolean
   usedVcpus: number | null
+  /** A new Box's default size: the smallest of `sizes`. */
   boxVcpus: number | null
+  /** The sizes a new Box can have, smallest first; absent from older backends. */
+  sizes?: { vcpus: number; memMiB: number }[]
   /** Every Box of the team with its own size; `running` ones count against the limit. */
   boxes?: { sandboxId: string; vcpus: number; running: boolean }[]
   /** The billing service; null when this deployment has none. */

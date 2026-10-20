@@ -4,6 +4,7 @@
 
 import {
   clearConversationPreviewLocalTools,
+  clearPendingDecision,
   clearConversationPreviewTurn,
   openConversationPromptSuggestion,
   setConversationPreviewContext,
@@ -131,6 +132,8 @@ export async function persistPreviewTurnContext(
   args: PreviewChatTurnArgs,
   requestId: string,
 ): Promise<void> {
+  // A person speaking in the session answers whatever it was waiting on.
+  if (args.humanTurn) await clearPendingDecision(args.sessionId, args.userId)
   try {
     await setConversationPreviewContext(args.sessionId, args.teamId, {
       activeTurnKey: requestId,

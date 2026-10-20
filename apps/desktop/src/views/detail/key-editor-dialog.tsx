@@ -65,7 +65,7 @@ export function KeyEditorDialog({
             value={key}
             onChange={(e) => setKey(e.target.value)}
             disabled={pending}
-            className="h-9 w-full rounded border border-zGray-800 bg-field px-3 font-mono text-[12.5px] text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
+            className="h-9 w-full rounded border border-zGray-800 bg-surface px-3 font-mono text-[12.5px] text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
           />
         </label>
         <label className="block">
@@ -77,7 +77,7 @@ export function KeyEditorDialog({
             onChange={(e) => setValue(e.target.value)}
             disabled={pending}
             rows={10}
-            className="min-h-48 w-full resize-y rounded border border-zGray-800 bg-field px-3 py-2 font-mono text-[12.5px] leading-relaxed text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
+            className="min-h-48 w-full resize-y rounded border border-zGray-800 bg-surface px-3 py-2 font-mono text-[12.5px] leading-relaxed text-main outline-none focus:border-zViolet-accent disabled:opacity-60"
           />
         </label>
       </div>

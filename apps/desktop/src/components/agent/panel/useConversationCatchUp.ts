@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react'
 
 import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
+import { publishRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { trackError } from '../../../lib/analytics'
-import { acceptRuntimeSnapshot } from '../../../lib/runtimeExecution'
 import { shouldResumeRuntimeWakeup, wakeupTranscriptTail } from '../../../lib/runtimeWakeup'
 
 import { fetchWakeupTranscriptTail, shouldDeferTranscriptCatchUp } from './conversationCatchUp'
@@ -75,19 +75,12 @@ export function useConversationCatchUp(acc: Acc): void {
         const current = tabsRef.current.find((tab) => tab.sessionId === sessionId)
 
         if (!current) return
-        // Observed when the answer arrived: a slow backend is not a lost runtime.
-        // A read that never arrives just lets the last one go stale.
-        const runtimeState = {
-          ...(probe.runtimeState ?? { state: 'unsupported' as const }),
-          observedAt: performance.now(),
-        }
-
+        if (probe.runtimeState) publishRuntimeStates([[sessionId, probe.runtimeState]])
         setTabs((tabs) =>
           tabs.map((tab) =>
             tab.sessionId === sessionId
               ? {
                   ...tab,
-                  runtimeState: acceptRuntimeSnapshot(tab.runtimeState, runtimeState),
                   timelineEvents: probe.timelineEvents,
                   promptSuggestion: probe.promptSuggestion,
                 }
@@ -202,7 +195,6 @@ export function useConversationCatchUp(acc: Acc): void {
             : serverTail
         const next = {
           ...latest,
-          runtimeState: acceptRuntimeSnapshot(latest.runtimeState, runtimeState),
           messages,
           historyBaseIndex:
             retainedPrefixCount > 0 && latest.messages.length >= retainedPrefixCount
@@ -222,12 +214,11 @@ export function useConversationCatchUp(acc: Acc): void {
               ...tab,
               messages: next.messages,
               historyBaseIndex: next.historyBaseIndex,
-              runtimeState: acceptRuntimeSnapshot(tab.runtimeState, runtimeState),
             }
           }),
         )
       } catch {
-        // The next poll retries; the snapshot going stale is what says "Connection lost".
+        // The next poll retries.
       } finally {
         state.polling = false
       }

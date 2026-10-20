@@ -152,7 +152,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
 
       <div className="border-b border-zGray-800/60 p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-field border border-zGray-800 transition-colors min-w-0">
+          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-surface border border-zGray-800 transition-colors min-w-0">
             <Search className="w-3.5 h-3.5 text-tertiary flex-shrink-0" strokeWidth={1.8} />
             <InputGroupInput
               value={query}
@@ -184,7 +184,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             max={100}
             value={limit}
             onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
-            className="h-8 w-16 bg-field border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
+            className="h-8 w-16 bg-surface border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
             aria-label="Trace search limit"
           />
           <Button size="sm" onClick={() => void runSearch()} disabled={loading}>

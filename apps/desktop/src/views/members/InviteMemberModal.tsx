@@ -35,7 +35,7 @@ export function InviteMemberModal({
       <form onSubmit={onSubmit} className="p-5 space-y-4">
         <label className="block">
           <span className="block text-[12px] text-tertiary mb-1.5">Email</span>
-          <InputGroup className="flex items-center gap-2 rounded-md border border-zGray-800 bg-field px-3 h-10 transition-colors">
+          <InputGroup className="flex items-center gap-2 rounded-md border border-zGray-800 bg-surface px-3 h-10 transition-colors">
             <Mail className="w-4 h-4 text-tertiary" strokeWidth={1.8} />
             <InputGroupInput
               type="email"

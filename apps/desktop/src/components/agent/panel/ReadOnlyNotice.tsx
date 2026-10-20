@@ -1,16 +1,18 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { ExternalLink, KeyRound, Loader2 } from 'lucide-react'
+import clsx from 'clsx'
+import { ExternalLink, KeyRound, Loader2, WifiOff } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
+import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
 import { ASK_ADMIN_TO_RECONNECT } from './AgentSetupRequiredCard'
 import { ConversationActivityBadges } from './historyRows'
-import { selectedAgentSignOut } from './runtimeControlSignOut'
+import { selectedAgentReachability } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 
 import type { RuntimeControl } from './RuntimeSelector'
@@ -75,42 +77,110 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
   )
 }
 
-/** Said before the message goes, not after it fails: every turn on a signed-out
- *  agent dies in its first seconds. A managed agent's composer also stops sending. */
-export function SignedOutAgentNotice({ control }: { control: RuntimeControl }) {
-  const { value, canUpdateTeamAgents: isTeamAdmin } = control
-  const signOut = selectedAgentSignOut(control)
-  // Only an administrator can sign a team agent back in; a member gets the same
-  // instruction the reauthentication card gives after a failed turn.
-  const onSettings = isTeamAdmin ? control.onSettings : undefined
+const BANNER = {
+  signIn: {
+    Icon: KeyRound,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+  offline: { Icon: WifiOff, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+} as const
 
-  if (!value || !signOut) return null
+function bannerCopy(
+  reachability: 'signIn' | 'offline',
+  { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings }: RuntimeControl,
+  onSwitchAgent?: () => void,
+): { text: string; action: { label: string; run: () => void } | null } {
+  const name = value?.label ?? 'The agent'
+  // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
+  const switchAgent = onSwitchAgent && { label: 'Switch agent', run: onSwitchAgent }
+
+  if (reachability === 'offline') {
+    const box = options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel
+
+    return {
+      text: `${box ?? 'Its Box'} is offline.`,
+      action: switchAgent ?? {
+        label: 'Retry',
+        run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
+      },
+    }
+  }
+  if (switchAgent) return { text: `${name} is signed out.`, action: switchAgent }
+  // Only an administrator can sign a team agent back in.
+  if (isTeamAdmin && onSettings)
+    return {
+      text: `${name} is signed out. Sign it in to send messages.`,
+      action: { label: 'Agent settings', run: onSettings },
+    }
+
+  return { text: `${name} is signed out. ${ASK_ADMIN_TO_RECONNECT}`, action: null }
+}
+
+/**
+ * Said before the message goes, not after it fails. A slim tab on the composer's
+ * top edge: positioned out of flow, so showing or hiding it never moves the input.
+ * Agent reachability owns this edge; anything else about the turn sits below.
+ */
+export function AgentStatusBanner({
+  control,
+  hero = false,
+  onSwitchAgent,
+}: {
+  control: RuntimeControl
+  /** The new-chat card: wider corners to clear. */
+  hero?: boolean
+  /** Set for a new chat, whose fix is picking another agent. */
+  onSwitchAgent?: () => void
+}) {
+  const reachability = selectedAgentReachability(control)
+  const blocked = reachability === 'signIn' || reachability === 'offline' ? reachability : null
+  // The words stay while the banner leaves, so it closes on what it said.
+  const [shown, setShown] = useState(blocked)
+
+  if (blocked && blocked !== shown) setShown(blocked)
+  const variant = shown ? BANNER[shown] : null
+  const { text, action } = shown
+    ? bannerCopy(shown, control, onSwitchAgent)
+    : { text: '', action: null }
 
   return (
     <div
       role="status"
-      className="mb-1.5 flex min-w-0 items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[12.5px] text-secondary"
+      aria-hidden={!blocked}
+      // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
+      inert={!blocked}
+      className={clsx(
+        't-toast absolute bottom-full',
+        hero ? 'inset-x-6' : 'inset-x-4',
+        blocked ? 'is-open' : 'pointer-events-none',
+      )}
     >
-      <KeyRound aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-      <span className="min-w-0 flex-1">
-        {value.label} is signed out,{' '}
-        {signOut === 'blocked'
-          ? 'so it cannot take messages until it is signed in again.'
-          : 'so messages will likely fail.'}{' '}
-        {isTeamAdmin
-          ? 'Sign it in again in Agent settings, or switch to another agent.'
-          : `${ASK_ADMIN_TO_RECONNECT} Or switch to another agent.`}
-      </span>
-      {onSettings && (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="h-6 shrink-0 px-2 text-[12px]"
-          onClick={onSettings}
+      {variant && (
+        <div
+          className={clsx(
+            'relative overflow-hidden rounded-t-[10px] border border-b-0 bg-composer',
+            variant.border,
+          )}
         >
-          Agent settings
-        </Button>
+          <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
+          <div className="relative flex h-8 min-w-0 items-center gap-2 px-3 text-[12.5px] text-secondary">
+            <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
+            <span className="min-w-0 flex-1 truncate">{text}</span>
+            {action && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 shrink-0 px-2 text-[12px]"
+                onClick={action.run}
+              >
+                {action.label}
+              </Button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

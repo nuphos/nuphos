@@ -96,6 +96,19 @@ final class AgentStore {
         }
     }
 
+    /// The backend also unwatches the threads below, on any page. Reloading
+    /// replaces every row with what it did, as rename and runtime moves do,
+    /// instead of repeating that cascade here.
+    func setWatching(_ watching: Bool, conversation: AgentConversation) async {
+        guard let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        do {
+            try await AgentChatAPI.setWatching(token: token, teamId: teamId, sessionId: conversation.sessionId, watching: watching)
+            await reload()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
     /// Drops a chat that left this list (archived or restored). The poller
     /// keeps rows its first page misses, so it would not drop it; reads
     /// already in flight are discarded so they cannot bring it back. Before

@@ -62,6 +62,9 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// The conversation that opened this one as a thread; the Agent page
     /// nests it there. Cleared when the owner unlinks it.
     var parentSessionId: String?
+    /// Whether this user gets the chat's push notifications. Nil from a
+    /// backend that predates watching, which hides the toggle.
+    var watching: Bool?
 
     var id: String { sessionId }
 
@@ -102,6 +105,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         activitySeq = try? c.decodeIfPresent(Int.self, forKey: .activitySeq)
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
         parentSessionId = try c.decodeIfPresent(String.self, forKey: .parentSessionId)
+        watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
     }
 
     init(
@@ -215,10 +219,11 @@ struct AgentConversationDetail: Decodable, Sendable {
     let archivedAt: Date?
     let activitySeq: Int?
     let readSeq: Int?
+    let watching: Bool?
     let timelineEvents: [TimelineEvent]
 
     private enum CodingKeys: String, CodingKey {
-        case isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, timelineEvents
+        case isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents
     }
 
     init(from decoder: Decoder) throws {
@@ -238,6 +243,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         archivedAt = try? c.decodeIfPresent(Date.self, forKey: .archivedAt)
         activitySeq = try? c.decodeIfPresent(Int.self, forKey: .activitySeq)
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
+        watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
     }
 }

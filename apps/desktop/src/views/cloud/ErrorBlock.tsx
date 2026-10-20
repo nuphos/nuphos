@@ -1,6 +1,7 @@
 import { AlertTriangle, ExternalLink, Sparkles } from 'lucide-react'
 
 import { api, parseAtlasError } from '../../api'
+import { Button } from '../../components/ui/button'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
 import { useWorkspaceRowLink } from '../../lib/workspaceRowLink'
 
@@ -117,15 +118,16 @@ export function ErrorBlock({ message }: { message: string }) {
                 {details.upstreamMessage}
               </div>
             )}
-            <button
+            <Button
+              size="sm"
+              className="mt-3"
               type="button"
               onClick={fixWithAgent}
-              className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-zViolet-accent text-white hover:bg-zViolet-accent/85 text-[12px]"
               title="Seed the agent chat with this permission error"
             >
               <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
               Fix with Agent
-            </button>
+            </Button>
           </div>
         </div>
       </div>

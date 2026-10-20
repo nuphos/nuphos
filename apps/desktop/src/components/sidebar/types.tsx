@@ -42,6 +42,8 @@ export type Item = {
   managedChat?: boolean
   /** The row this one nests under when both are in the same section. */
   parentKey?: string
+  /** Agent chats: whether the viewer watches it; absent hides the toggle. */
+  watching?: boolean
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
 }

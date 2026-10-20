@@ -35,7 +35,7 @@ docker compose ps             # wait until rustfs, backend and runtime are healt
 
 Without `init-env.sh`, copy `.env.example` to `.env` and fill each value with the `openssl` command noted on its line.
 
-To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.25-claude-code`), then run `docker compose up -d runtime`.
+To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.27-claude-code`), then run `docker compose up -d runtime`.
 
 ## First sign-in
 
@@ -66,7 +66,7 @@ For development from source, run `bun run dev` from the repository root.
 The development launcher starts and connects its own complete local stack;
 it does not attach Desktop to this separately started compose stack.
 
-The sign-in token is stored in `~/.config/nuphos/cli.yaml`, which the local stack shares with production. After signing in locally, you need to sign in again when switching back to production.
+The desktop app's sign-in is stored in `~/.config/nuphos/desktop.yaml` (on macOS the token itself is in the login keychain), which the local stack shares with production. After signing in locally, you need to sign in again when switching back to production.
 
 ## Connect the runtime
 

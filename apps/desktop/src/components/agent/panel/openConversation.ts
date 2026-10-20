@@ -1,6 +1,8 @@
 import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
+import { publishRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { trackError } from '../../../lib/analytics'
+import { rememberOpenedConversation } from '../../../lib/openedConversation'
 import { toast } from '../../ui/toast'
 
 import { finalizeIncompleteTools } from './clientTools'
@@ -92,7 +94,6 @@ export async function runOpenConversation(
     title: summary?.title || summary?.firstMessage || titleHint || '',
   })
   try {
-    const runtimeObservedAt = performance.now()
     // The runtime probe is skipped unless a run needs confirming; the catch-up
     // poll fetches runtime state as soon as the tab is active.
     const detail = await api.agentGetConversation(sessionId, teamId, {
@@ -108,6 +109,7 @@ export async function runOpenConversation(
 
       return
     }
+    rememberOpenedConversation(detail)
     const historyBaseIndex = detail.messagesFirstIndex ?? 0
     const messages = fromPersistedMessages(detail.messages)
     const activeRun = detail.activeRun ?? null
@@ -133,6 +135,8 @@ export async function runOpenConversation(
     )
     const activeStartedAt = activeRun?.startedAt ? Date.parse(activeRun.startedAt) : NaN
     const streamStartedAt = Number.isFinite(activeStartedAt) ? activeStartedAt : Date.now()
+
+    if (detail.runtimeState) publishRuntimeStates([[detail.sessionId, detail.runtimeState]])
     const tab: Tab = {
       id: uid(),
       sessionId: detail.sessionId,
@@ -156,12 +160,10 @@ export async function runOpenConversation(
       foreign: detail.isOwner === false ? true : undefined,
       canManage: detail.canManage === true ? true : undefined,
       archived: detail.archivedAt ? true : undefined,
+      watching: detail.watching,
       slackThread: detail.slackThread ?? null,
       activitySource: detail.activitySource,
       claudeCodeRuntimeAttached: detail.claudeCodeRuntimeAttached,
-      runtimeState: detail.runtimeState
-        ? { ...detail.runtimeState, observedAt: runtimeObservedAt }
-        : undefined,
       agentRuntime: detail.agentRuntime,
       runtimeId: detail.runtimeId,
       runtimeLabel: detail.runtimeLabel,

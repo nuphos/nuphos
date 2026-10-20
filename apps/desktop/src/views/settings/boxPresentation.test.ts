@@ -3,6 +3,8 @@ import { test } from 'node:test'
 
 import {
   seenFrom,
+  boxSessions,
+  boxSizeChoices,
   accessHint,
   accessPayload,
   canShareBox,
@@ -178,6 +180,36 @@ test('no Box plan blocks a new Box and tells who can fix it', () => {
 test('a Box that fits the plan may start; one past it is blocked', () => {
   assert.equal(newBoxBlockedReason(usage(12, 8, 4), true), null)
   assert.match(newBoxBlockedReason(usage(12, 12, 4), true) ?? '', /12 of 12 vCPU/)
+})
+
+test('a bigger Box is checked at its own size', () => {
+  assert.equal(newBoxBlockedReason(usage(12, 4, 4), true, 8), null)
+  assert.match(newBoxBlockedReason(usage(12, 8, 4), true, 8) ?? '', /needs 8\./)
+})
+
+test('sizes are named by rank and say how many sessions they hold', () => {
+  const small = { vcpus: 4, memMiB: 8192 }
+  const large = { vcpus: 8, memMiB: 16384 }
+
+  assert.deepEqual(boxSizeChoices([small, large]), [
+    {
+      vcpus: 4,
+      name: 'Small Box',
+      spec: '4 vCPU · 8 GiB',
+      description: 'Good for light tasks · up to 3 sessions at once',
+    },
+    {
+      vcpus: 8,
+      name: 'Large Box',
+      spec: '8 vCPU · 16 GiB',
+      description: 'Good for heavy builds · up to 8 sessions at once',
+    },
+  ])
+  assert.deepEqual(
+    boxSizeChoices([small, { vcpus: 6, memMiB: 12288 }, large]).map((c) => c.name),
+    ['Small Box', 'Medium Box', 'Large Box'],
+  )
+  assert.equal(boxSessions(4096), 1)
 })
 
 test('unlimited or unknown usage never blocks', () => {

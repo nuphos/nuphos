@@ -15,7 +15,7 @@ import {
 } from 'node:fs'
 import { connect, createServer } from 'node:net'
 import { homedir } from 'node:os'
-import { join, sep } from 'node:path'
+import { basename, dirname, join, sep } from 'node:path'
 
 import { mainRoot } from './dev-workspace.ts'
 
@@ -260,6 +260,10 @@ export async function removeInstance(key: string, log: (line: string) => void): 
   if (!sharedRoot) reapLeftovers(record, log)
   rmSync(record.appData, { recursive: true, force: true })
   rmSync(record.cliConfig, { force: true })
+  // Desktop's own sign-in beside it (electron/cli-config-path.ts).
+  rmSync(join(dirname(record.cliConfig), basename(record.cliConfig).replace(/^cli/, 'desktop')), {
+    force: true,
+  })
   rmSync(record.logDir, { recursive: true, force: true })
   log(`removed Desktop profile, sign-in and logs of "${key}"`)
 

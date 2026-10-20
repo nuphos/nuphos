@@ -32,11 +32,12 @@ export type WindowDeviceApi = {
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
   localRuntimeUpdateAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
+  localRuntimeInstallAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
   localRuntimeOpenWorkspace(): Promise<void>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
   boxListDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList>
-  boxCreate(label?: string, teamId?: string): Promise<AgentDevice>
+  boxCreate(label?: string, teamId?: string, vcpus?: number): Promise<AgentDevice>
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>

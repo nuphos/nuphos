@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
 
 import {
   initMainAnalytics,
@@ -21,6 +21,7 @@ import { runtimeTerminals } from './runtime-terminal'
 import { localTerminals } from './local-terminal'
 import { registerAppProtocolHandler, registerAppScheme } from './main/app-protocol'
 import { startChangelogPolling } from './main/changelog'
+import { routeFetchThroughChromium } from './main/chromium-fetch'
 import { accountsChannels } from './main/channels-accounts'
 import { agentChannels } from './main/channels-agent'
 import { agentReadChannels } from './main/channels-agent-read'
@@ -213,12 +214,11 @@ app.on('before-quit', (e) => {
 app
   .whenReady()
   .then(async () => {
-    // Before any window exists: web-contents-created only fires for contents
-    // created after registration, so the guard must precede createWindow() or
-    // the first window's webContents never gets the will-attach-webview hook.
+    routeFetchThroughChromium(net)
+    // Before any window exists: web-contents-created only fires for contents created
+    // after registration, or the first window never gets the will-attach-webview hook.
     initWebviewGuard()
-    // Warm the interactive-shell env cache so the first local exec doesn't pay
-    // the shell-probe latency.
+    // Warm the shell env cache so the first local exec skips the shell probe.
     void resolveShellEnv()
     initMainAnalytics()
     startDevBackendHealthProbe()

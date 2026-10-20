@@ -47,18 +47,3 @@ export const lbl: CSSProperties = {
   opacity: 0.7,
   margin: '0 0 3px',
 }
-
-export const inp: CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '5px 8px',
-  marginBottom: 10,
-  fontSize: 13,
-  borderRadius: 6,
-  border: '0.5px solid rgb(var(--color-border))',
-  background: 'transparent',
-  outline: 'none',
-  // Inputs/selects don't inherit color in Chromium (UA default is black) — set
-  // it so field text stays readable in dark mode.
-  color: 'rgb(var(--color-text-base))',
-}

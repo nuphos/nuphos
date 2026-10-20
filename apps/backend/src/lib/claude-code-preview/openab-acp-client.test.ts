@@ -118,6 +118,19 @@ describe('OpenAbAcpClient', () => {
     ).rejects.toThrow('timed out')
   })
 
+  test('dials the tunnel of a hosted runtime that joined as a device', async () => {
+    const h = harness()
+
+    await OpenAbAcpClient.connect({
+      url: 'ws://openab-claude-abc.openab-runtimes.svc:8080/acp',
+      tunnelUrl: 'nuphos-device://runtime/user-1/pod-device?team=team-1',
+      authKey: 'transport',
+      socketFactory: h.connect,
+    })
+
+    expect(h.socket().url).toBe('nuphos-device://runtime/user-1/pod-device?team=team-1')
+  })
+
   test('surfaces the WebSocket close code and reason when the ACP handshake is rejected', async () => {
     const h = harness(false)
     const connecting = OpenAbAcpClient.connect({

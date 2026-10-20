@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { useState } from 'react'
 
 import { runtimeAllows } from '../../../lib/runtimeExecution'
 
@@ -8,8 +9,8 @@ import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeMayAcceptLater } from './queuedAutoSend'
-import { ReadOnlyConversationNotice, SignedOutAgentNotice } from './ReadOnlyNotice'
-import { runtimeControlBlocksSend } from './runtimeControlSignOut'
+import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
+import { runtimeControlSendBlock } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { ShellsPanel } from './ShellsPanel'
 import { useComposerActions } from './useComposerActions'
@@ -30,6 +31,7 @@ import type { ReactNode } from 'react'
 
 export function Composer({
   variant = 'compact',
+  newChat = false,
   onSend,
   onStop,
   runtimeState,
@@ -55,6 +57,7 @@ export function Composer({
   recall,
 }: {
   variant?: 'compact' | 'hero'
+  newChat?: boolean // a new chat fixes an unusable agent by picking another
   onSend: (text: string, filePaths: string[]) => void
   onStop: () => void
   /** Pending transport work; execution itself comes from the runtime snapshot. */
@@ -112,8 +115,9 @@ export function Composer({
     runtimeState ? !runtimeAllows(runtimeState, 'send') : streaming,
   )
   const hero = variant === 'hero'
-  const sendBlocked =
-    runtimeSendBlocked || modelControl.saving || runtimeControlBlocksSend(runtimeControl)
+  const agentSendBlock = runtimeControlSendBlock(runtimeControl)
+  const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
+  const sendBlocked = runtimeSendBlocked || modelControl.saving || Boolean(agentSendBlock)
   const state = useComposerState({
     hero,
     readOnly,
@@ -156,7 +160,8 @@ export function Composer({
         // Docked, it takes the left sidebar's inset instead, and its bottom gap
         // matches the content card's own (`pb-2` on the main pane) so the two
         // columns end on the same line.
-        hero ? '' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
+        // The hero always keeps room for the agent-status banner above the greeting.
+        hero ? 'pt-5' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
       )}
     >
       <div
@@ -166,6 +171,13 @@ export function Composer({
           hero ? '' : 'max-w-[760px]',
         )}
       >
+        {!readOnly && runtimeControl && (
+          <AgentStatusBanner
+            control={runtimeControl}
+            hero={hero}
+            onSwitchAgent={newChat ? () => setAgentMenuOpen(true) : undefined}
+          />
+        )}
         <div
           className={clsx(
             'relative',
@@ -193,7 +205,6 @@ export function Composer({
           )}
         >
           {mentions.ui}
-          {!readOnly && runtimeControl && <SignedOutAgentNotice control={runtimeControl} />}
           {slash.ui}
           {filePaths.length > 0 && (
             <AttachmentChips
@@ -251,10 +262,16 @@ export function Composer({
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
               {credentialSelector && (
-                <CredentialSelectorButton {...credentialSelector} hero={hero} />
+                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
-              {runtimeControl && <RuntimeSelector {...runtimeControl} />}
+              {runtimeControl && (
+                <RuntimeSelector
+                  {...runtimeControl}
+                  menuOpen={agentMenuOpen}
+                  onMenuOpenChange={setAgentMenuOpen}
+                />
+              )}
             </div>
             {!hero && <ShellsPanel snapshot={runtimeState} />}
             {modelSession ? (
@@ -271,6 +288,7 @@ export function Composer({
               slackThread={slackThread}
               hasQueueablePayload={!(isEmpty && filePaths.length === 0)}
               sendDisabled={sendDisabled}
+              sendBlockedReason={agentSendBlock}
               onSubmit={actions.submit}
               onStop={onStop}
             />

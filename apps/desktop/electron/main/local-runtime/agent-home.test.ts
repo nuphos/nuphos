@@ -3,9 +3,11 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
+  symlinkSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
@@ -15,6 +17,7 @@ import { test } from 'node:test'
 
 import {
   claudeHomeSettings,
+  hardLinkFrom,
   prepareAgentHome,
   prepareClaudeHome,
   prepareCodexHome,
@@ -186,4 +189,58 @@ test('changing CODEX_HOME relinks only isolated symlinks, without copying creden
   assert.ok(home)
   assert.equal(readlinkSync(path.join(home, 'auth.json')), path.join(nextOwner, 'auth.json'))
   assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{}')
+})
+
+test('on Windows the login is a hard link that follows the owner’s login', (t) => {
+  const f = codexFixture(t)
+  const home = path.join(f.dir, 'codex-home')
+  const link = path.join(home, 'auth.json')
+
+  mkdirSync(home)
+  // What earlier Windows builds left behind: a link Codex cannot read.
+  symlinkSync(path.join(f.owner, 'auth.json'), link)
+  hardLinkFrom(f.owner, home, 'auth.json')
+  assert.equal(statSync(link).ino, statSync(path.join(f.owner, 'auth.json')).ino)
+
+  // Codex rewrites the file in place, so a refreshed token reaches both homes.
+  writeFileSync(link, '{"tokens":1}')
+  assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{"tokens":1}')
+
+  // The owner signed in again: the stale hard link follows the new file.
+  rmSync(path.join(f.owner, 'auth.json'))
+  writeFileSync(path.join(f.owner, 'auth.json'), '{"tokens":2}')
+  hardLinkFrom(f.owner, home, 'auth.json')
+  assert.equal(readFileSync(link, 'utf8'), '{"tokens":2}')
+
+  // A login made here stays while the owner has none.
+  rmSync(path.join(f.owner, 'auth.json'))
+  rmSync(link)
+  writeFileSync(link, '{"own":true}')
+  hardLinkFrom(f.owner, home, 'auth.json')
+  assert.equal(readFileSync(link, 'utf8'), '{"own":true}')
+})
+
+test('on Windows a login that cannot be linked leaves the current one in place', (t) => {
+  const f = codexFixture(t)
+  const home = path.join(f.dir, 'codex-home')
+  const link = path.join(home, 'auth.json')
+
+  mkdirSync(home)
+  writeFileSync(link, '{"own":true}')
+  // A directory cannot be hard-linked, so linkSync fails as it does across volumes.
+  rmSync(path.join(f.owner, 'auth.json'))
+  mkdirSync(path.join(f.owner, 'auth.json'))
+  hardLinkFrom(f.owner, home, 'auth.json')
+  assert.equal(readFileSync(link, 'utf8'), '{"own":true}')
+  assert.deepEqual(readdirSync(home), ['auth.json'])
+})
+
+test('on Windows without the owner’s login nothing is linked', (t) => {
+  const f = codexFixture(t)
+  const home = path.join(f.dir, 'codex-home')
+
+  rmSync(path.join(f.owner, 'auth.json'))
+  mkdirSync(home)
+  hardLinkFrom(f.owner, home, 'auth.json')
+  assert.equal(existsSync(path.join(home, 'auth.json')), false)
 })

@@ -80,7 +80,6 @@ export default {
         surface: withOpacity('--color-background-surface'),
         elevated: withOpacity('--color-background-elevated'),
         appBg: withOpacity('--color-appBg'),
-        field: withOpacity('--color-input-surface'),
         agentCanvas: withOpacity('--color-agent-canvas'),
         composer: withOpacity('--color-composer-surface'),
         heatmap: {

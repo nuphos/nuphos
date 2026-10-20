@@ -3,10 +3,11 @@ import { findProposedPlanNumberForConversation } from '@/lib/agent/plans'
 import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
-import { sendAndroidBadge } from './badge'
+import { sendAndroidAlert, sendAndroidBadge } from './badge'
 import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
 import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
+import { watcherCanRead } from './watchers'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
 import type { PushDevice, PushDeviceStore } from './devices'
@@ -23,10 +24,14 @@ export type NotifiableRun = {
   awaitingDecision?: string
   approvalPushed?: boolean
   activityRecorded?: Promise<unknown>
-  trace?: { userId: string; teamId?: string; method: string }
+  trace?: { userId: string; teamId?: string }
 }
 
-export type PushConversation = { title?: string; firstMessage?: string; teamId?: string }
+export type PushConversation = Parameters<typeof watcherCanRead>[0] & {
+  title?: string
+  firstMessage?: string
+  watcherIds?: string[]
+}
 
 export type TurnNotifierDeps = {
   fcmProject?: () => string | null
@@ -42,6 +47,7 @@ export type TurnNotifierDeps = {
     since: Date,
   ) => Promise<number | null>
   unreadCount: (userId: string) => Promise<number>
+  canRead: (conversation: PushConversation, userId: string) => Promise<boolean>
   schedule: (work: () => void, delayMs: number) => void
   now: () => number
 }
@@ -133,59 +139,47 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
   }
 
   async function deliver({ run, body }: Delivery): Promise<void> {
-    if ((!deps.credentials() && !deps.fcmProject?.()) || run.trace?.method === 'TRIGGER') return
-    const userId = run.trace?.userId ?? run.userId
-    const projectId = deps.fcmProject?.()
-    const devices = (await deps.devices.listForUser(userId)).filter((device) =>
-      device.platform === 'ios'
-        ? Boolean(deps.credentials())
-        : Boolean(deps.sendFcm) && Boolean(projectId) && device.projectId === projectId,
-    )
-
-    if (devices.length === 0 || !admit(userId, run.sessionId)) return
+    if (!deps.credentials() && !deps.fcmProject?.()) return
     const conversation = await deps.conversation(run.sessionId)
     const teamId = run.trace?.teamId ?? conversation?.teamId
-    const alert = { title: conversationTitle(conversation), body: await body(conversation) }
+    const projectId = deps.fcmProject?.()
+    let text: Promise<string> | undefined
 
-    await run.activityRecorded
-    const badge = await deps.unreadCount(userId)
-
-    if (teamId && deps.sendFcm) {
-      const projectId = deps.fcmProject?.()
-
-      if (projectId)
-        await Promise.all(
-          devices
-            .filter((device) => device.platform === 'android')
-            .map(async (device) => {
-              try {
-                const result = await deps.sendFcm!(projectId, {
-                  token: device.token,
-                  userId,
-                  teamId,
-                  sessionId: run.sessionId,
-                  ...alert,
-                  badge,
-                })
-
-                if (result.deadToken) await deps.devices.removeToken(device.token)
-                else if (result.status !== 200)
-                  logEvent('warn', 'push.fcm.rejected', { status: result.status })
-              } catch {
-                // Authentication/transport errors can contain credentials: never log raw provider errors.
-                logEvent('warn', 'push.fcm.send_failed', { session_id: run.sessionId })
-              }
-            }),
+    // Only the people watching a session hear about it; see watch.ts.
+    await Promise.all(
+      (conversation?.watcherIds ?? []).map(async (userId) => {
+        if (!(await deps.canRead(conversation!, userId))) return
+        const devices = (await deps.devices.listForUser(userId)).filter((device) =>
+          device.platform === 'ios'
+            ? Boolean(deps.credentials())
+            : Boolean(deps.sendFcm) && Boolean(projectId) && device.projectId === projectId,
         )
-    }
-    await send(
-      devices,
-      {
-        aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId },
-        sessionId: run.sessionId,
-        ...(teamId ? { teamId } : {}),
-      },
-      run.sessionId,
+
+        if (devices.length === 0 || !admit(userId, run.sessionId)) return
+        text ??= Promise.resolve(body(conversation))
+        const alert = { title: conversationTitle(conversation), body: await text }
+
+        await run.activityRecorded
+        const badge = await deps.unreadCount(userId)
+
+        if (teamId && deps.sendFcm && projectId)
+          await sendAndroidAlert(
+            devices,
+            projectId,
+            { userId, teamId, sessionId: run.sessionId, ...alert, badge },
+            deps.sendFcm,
+            (token) => deps.devices.removeToken(token),
+          )
+        await send(
+          devices,
+          {
+            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId },
+            sessionId: run.sessionId,
+            ...(teamId ? { teamId } : {}),
+          },
+          run.sessionId,
+        )
+      }),
     )
   }
 
@@ -271,6 +265,7 @@ function defaultNotifier() {
     conversation: getConversationBySessionId,
     proposedPlanNumber: findProposedPlanNumberForConversation,
     unreadCount: (userId) => countUnreadConversations(userId),
+    canRead: (conversation, userId) => watcherCanRead(conversation, userId),
     schedule: (work, delayMs) => {
       setTimeout(work, delayMs).unref()
     },

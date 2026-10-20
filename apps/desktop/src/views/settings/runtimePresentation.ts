@@ -68,9 +68,9 @@ export function reportedSeries<Series extends { key: RuntimeMetricKey }>(
   return series.filter(({ key }) => samples.some((sample) => sample[key] !== null))
 }
 
-/** A draining usage bar turns amber when it runs low and red once it is spent. */
+/** A draining usage bar is green while healthy, amber when it runs low and red once it is spent. */
 export const QUOTA_FILL_CLASS: Record<QuotaTone, string> = {
-  ok: 'bg-zViolet-500',
+  ok: 'bg-success',
   warning: 'bg-warning',
   exhausted: 'bg-error',
 }

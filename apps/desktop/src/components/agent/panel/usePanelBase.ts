@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
-import { publishRuntimeStates, useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
-import { newestRuntimeSnapshot } from '../../../lib/runtimeExecution'
+import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 
 import { AGENT_WIDTH_KEY, DEFAULT_WIDTH_VW, MAX_WIDTH_VW, MIN_WIDTH_VW } from './constants'
 import { HOME_TAB_ID } from './model'
@@ -114,17 +113,23 @@ export function usePanelBase(acc: Acc) {
 
   const [localTabs, setTabs] = useState<Tab[]>([])
   const runtimeStates = useAgentRuntimeStates()
+  const [withRuntime] = useState(() => new WeakMap<Tab, Tab>())
   const tabs = useMemo(
     () =>
       localTabs.map((tab) => {
-        const runtimeState = newestRuntimeSnapshot(
-          tab.runtimeState,
-          runtimeStates.get(tab.sessionId),
-        )
+        // Tabs never hold their own copy: the shared store is the only one.
+        const runtimeState = runtimeStates.get(tab.sessionId)
+        const known = withRuntime.get(tab)
 
-        return runtimeState === tab.runtimeState ? tab : { ...tab, runtimeState }
+        if (!runtimeState) return tab
+        if (known?.runtimeState === runtimeState) return known
+        const next = { ...tab, runtimeState }
+
+        withRuntime.set(tab, next)
+
+        return next
       }),
-    [localTabs, runtimeStates],
+    [localTabs, runtimeStates, withRuntime],
   )
   const [activeId, setActiveId] = useState<string>(HOME_TAB_ID)
   const tabsRef = useRef(tabs)
@@ -132,14 +137,6 @@ export function usePanelBase(acc: Acc) {
   useLayoutEffect(() => {
     tabsRef.current = tabs
   }, [tabs])
-
-  useEffect(() => {
-    publishRuntimeStates(
-      localTabs.flatMap((tab) =>
-        tab.sessionId && tab.runtimeState ? [[tab.sessionId, tab.runtimeState] as const] : [],
-      ),
-    )
-  }, [localTabs])
 
   return {
     ...conversationRuntime,

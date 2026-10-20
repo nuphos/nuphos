@@ -1,9 +1,9 @@
 import { faAt } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import clsx from 'clsx'
 import { useState } from 'react'
 
 import { api } from '../../api'
+import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 
 import type { AtlasTeam } from '../../types'
@@ -71,28 +71,14 @@ export function AllowedEmailDomainCard({
                 : 'Disabled for this workspace.'}
           </div>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          aria-label={enabled ? 'Disable domain discovery' : 'Enable domain discovery'}
-          onClick={() => void toggle(!enabled)}
-          disabled={!isAdmin || saving}
-          className={clsx(
-            'w-9 h-5 rounded-full transition-colors flex-shrink-0 flex items-center p-0.5',
-            enabled ? 'bg-zViolet-500 justify-end' : 'bg-zGray-700 justify-start',
-            (!isAdmin || saving) && 'opacity-50 cursor-not-allowed',
-          )}
-          title={
-            !isAdmin
-              ? 'Only workspace administrators can change this'
-              : enabled
-                ? 'Disable'
-                : 'Enable'
-          }
-        >
-          <span className="block w-4 h-4 rounded-full bg-white" />
-        </button>
+        <span title={isAdmin ? undefined : 'Only workspace administrators can change this'}>
+          <Switch
+            checked={enabled}
+            disabled={!isAdmin || saving}
+            label={enabled ? 'Disable domain discovery' : 'Enable domain discovery'}
+            onChange={(next) => void toggle(next)}
+          />
+        </span>
       </div>
     </div>
   )

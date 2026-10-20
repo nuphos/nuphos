@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Download, Loader2, Zap } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
+import { AppSelect } from '../../components/ui/select'
 
 import { RANGE_LABEL } from './shared'
 
@@ -84,20 +85,20 @@ export function AuditFilterControls({
         Mutations only
       </button>
       <div className="mx-1 h-4 w-px bg-zGray-800" />
-      <select
+      <AppSelect
         value={range}
-        onChange={(e) => {
-          setRange(e.target.value as Range)
+        onValueChange={(value) => {
+          setRange(value as Range)
           setSelectedSessionIds(new Set())
         }}
-        className="h-7 rounded-md bg-transparent px-2 text-[12px] text-secondary outline-none transition-colors hover:bg-zGray-800/60"
-      >
-        {(Object.keys(RANGE_LABEL) as Range[]).map((value) => (
-          <option key={value} value={value} className="bg-zGray-900">
-            {RANGE_LABEL[value]}
-          </option>
-        ))}
-      </select>
+        options={(Object.keys(RANGE_LABEL) as Range[]).map((value) => ({
+          value,
+          label: RANGE_LABEL[value],
+        }))}
+        ariaLabel="Time range"
+        className="w-32"
+        size="sm"
+      />
     </>
   )
 }

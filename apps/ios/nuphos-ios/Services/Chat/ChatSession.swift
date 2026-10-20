@@ -61,6 +61,8 @@ final class ChatSession {
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
+    /// Nil until read, or from a backend that predates watching.
+    private(set) var isWatching: Bool?
     /// Model / effort / fast controls, for conversations on a native runtime.
     private(set) var sessionConfig: SessionConfigState?
     private(set) var sessionConfigError: String?
@@ -567,6 +569,11 @@ final class ChatSession {
         isArchived = archived
     }
 
+    func setWatching(_ watching: Bool) async throws {
+        try await AgentChatAPI.setWatching(token: token, teamId: teamId, sessionId: sessionId, watching: watching)
+        isWatching = watching
+    }
+
     private func dispatch(_ text: String) async {
         await dispatch(.user(text), title: text)
     }
@@ -876,6 +883,7 @@ final class ChatSession {
         if let l = detail.runtimeLabel { runtimeLabel = l }
         timelineEvents = detail.timelineEvents
         isArchived = detail.archivedAt != nil
+        isWatching = detail.watching
     }
 
     /// Idle poll: the Claude Code runtime can start turns on its own

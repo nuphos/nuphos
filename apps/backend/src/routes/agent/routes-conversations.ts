@@ -7,7 +7,7 @@ import {
   serializeConversationForViewer,
 } from './conversation-view'
 import { parseArchivedParam, parseSortParam } from './conversations-list-params'
-import { serializeConversationList } from './conversations-list-view'
+import { restingRuntimeState, serializeConversationList } from './conversations-list-view'
 import { parseTriggerIdsParam } from './conversations-trigger-param'
 import {
   allCredentialAccessFromOptions,
@@ -29,7 +29,10 @@ import {
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+import { liveAttachment } from '@/lib/agent/db/shared'
+import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
+import { withSessionDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
@@ -109,6 +112,7 @@ agent.get('/conversations', async (c) => {
     archived,
     sort,
     ...(triggerIds ? { triggerIds } : {}),
+    ...(c.req.query('pendingDecision') === 'true' ? { pendingDecision: true } : {}),
     withParents: true,
   })
   const rows = await serializeConversationList(
@@ -152,8 +156,24 @@ agent.get('/conversations/:sessionId', async (c) => {
     (await getActiveAgentRunForSession(result.conversation.userId, sessionId))
   // Opening a chat (`runtimeState=omit`) probes the runtime only to confirm a run.
   const probe = transportRun || c.req.query('runtimeState') !== 'omit'
-  const runtimeState = probe ? await conversationExecutionState(result.conversation) : undefined
-  const activeRun = runtimeState?.state === 'active' ? transportRun : null
+  const probed = probe ? await conversationExecutionState(result.conversation) : undefined
+  const { teamId: conversationTeamId } = result.conversation
+  const openabSessionId = liveAttachment(result.conversation)?.openabSessionId
+  // An unreachable runtime answers the way the list does, never "disconnected":
+  // whether its Box is online is the agent's own status, not this session's.
+  const runtimeState =
+    probed && probed.state !== 'disconnected'
+      ? probed
+      : await withSessionDesktops(
+          restingRuntimeState(
+            conversationTeamId && openabSessionId
+              ? (await readRuntimeStates(conversationTeamId, [openabSessionId]))[0]
+              : null,
+            Boolean(transportRun),
+          ),
+          result.conversation,
+        )
+  const activeRun = runtimeState.state === 'active' ? transportRun : null
   const startedAtMs = activeRun?.startedAt ? Number(activeRun.startedAt) : NaN
   const viewer = c.get('user')
   const ownerById = await buildConversationOwnerMap(teamId, [

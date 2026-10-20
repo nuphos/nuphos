@@ -2,10 +2,19 @@ import { Dialog } from '@base-ui/react/dialog'
 import { Loader2, X } from 'lucide-react'
 
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Button } from '../components/ui/button'
+import { fieldClass } from '../components/ui/input-group'
+import { AppSelect } from '../components/ui/select'
 
 import { EXTRACTS, OPS, useAlertEditor } from './AlertModalState'
 
 import type { PanelAlertExtract, PanelAlertOp, DashboardPanel } from './schema'
+
+const CHANNEL_TYPES = [
+  { value: 'slack', label: 'Slack' },
+  { value: 'discord', label: 'Discord' },
+  { value: 'email', label: 'Email' },
+]
 
 type Props = {
   teamId: string
@@ -42,8 +51,6 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
     remove,
   } = editor
 
-  const field =
-    'w-full rounded-md border border-zGray-800 bg-zGray-900 px-2.5 py-1.5 text-[13px] text-main outline-none focus:border-zViolet-500'
   const channelPlaceholder =
     channelType === 'slack'
       ? 'C0123ABC (channel id)'
@@ -89,25 +96,19 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                   <span className="mb-1 block text-[11px] uppercase tracking-wide text-tertiary">
                     Watch
                   </span>
-                  <select
-                    className={field}
-                    name="panel-alert-extract"
-                    aria-label="Metric to watch"
+                  <AppSelect
+                    positionerClassName="!z-[1100]"
+                    ariaLabel="Metric to watch"
                     value={extract}
-                    onChange={(e) => setExtract(e.target.value as PanelAlertExtract)}
-                  >
-                    {EXTRACTS.filter((x) => x.kinds.includes(panel.kind)).map((x) => (
-                      <option key={x.value} value={x.value}>
-                        {x.label}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(value) => setExtract(value as PanelAlertExtract)}
+                    options={EXTRACTS.filter((x) => x.kinds.includes(panel.kind))}
+                  />
                 </div>
                 {(extract === 'series-last' ||
                   extract === 'series-sum' ||
                   extract === 'column-sum') && (
                   <input
-                    className={field}
+                    className={`${fieldClass} h-9`}
                     name="panel-alert-reference"
                     aria-label="Series or column key"
                     autoComplete="off"
@@ -117,21 +118,16 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                   />
                 )}
                 <div className="flex gap-2">
-                  <select
-                    className={field}
-                    name="panel-alert-operator"
-                    aria-label="Comparison operator"
+                  <AppSelect
+                    positionerClassName="!z-[1100]"
+                    ariaLabel="Comparison operator"
                     value={op}
-                    onChange={(e) => setOp(e.target.value as PanelAlertOp)}
-                  >
-                    {OPS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(value) => setOp(value as PanelAlertOp)}
+                    options={OPS}
+                    className="w-full"
+                  />
                   <input
-                    className={`${field} w-28`}
+                    className={`${fieldClass} h-9 w-28`}
                     name="panel-alert-threshold"
                     aria-label="Threshold"
                     autoComplete="off"
@@ -145,22 +141,19 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                     Notify via
                   </span>
                   <div className="flex gap-2">
-                    <select
-                      className={`${field} w-32`}
-                      name="panel-alert-channel-type"
-                      aria-label="Notification channel type"
+                    <AppSelect
+                      positionerClassName="!z-[1100]"
+                      ariaLabel="Notification channel type"
                       value={channelType}
-                      onChange={(e) => {
-                        setChannelType(e.target.value as typeof channelType)
+                      onValueChange={(value) => {
+                        setChannelType(value as typeof channelType)
                         setChannelValue('')
                       }}
-                    >
-                      <option value="slack">Slack</option>
-                      <option value="discord">Discord</option>
-                      <option value="email">Email</option>
-                    </select>
+                      options={CHANNEL_TYPES}
+                      className="w-full"
+                    />
                     <input
-                      className={field}
+                      className={`${fieldClass} h-9`}
                       name="panel-alert-destination"
                       aria-label="Notification destination"
                       autoComplete="off"
@@ -192,14 +185,14 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                 <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-zGray-800">
                   Cancel
                 </Dialog.Close>
-                <button
+                <Button
+                  size="sm"
                   type="button"
-                  className="flex items-center gap-1.5 rounded-md bg-zViolet-500 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-zViolet-400 disabled:opacity-50"
                   disabled={saving || loadFailed || !channelValue.trim()}
                   onClick={() => void save()}
                 >
                   {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save alert
-                </button>
+                </Button>
               </div>
             </div>
           </Dialog.Popup>

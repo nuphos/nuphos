@@ -32,9 +32,7 @@ export function chatSidebarItem({
   readOnly?: boolean
   actions?: ReactNode
 }): Item {
-  const status = (
-    <ChatRowStatus conversation={conversation} runtimeState={runtimeState} unread={unread} />
-  )
+  const status = <ChatRowStatus runtimeState={runtimeState} unread={unread} />
 
   return {
     key: `agent-session:${conversation.sessionId}`,
@@ -51,6 +49,7 @@ export function chatSidebarItem({
     active,
     ...(readOnly ? { readOnlyChat: true } : {}),
     ...(readOnly && conversation.canManage ? { managedChat: true } : {}),
+    ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
     ...(conversation.parentSessionId
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }
       : {}),

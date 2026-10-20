@@ -1,5 +1,3 @@
-import { runtimeSnapshotFresh } from '../../../lib/runtimeExecution.ts'
-
 import type { Message, QueuedMessage, Tab } from './model.ts'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 
@@ -73,11 +71,7 @@ export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: 
 
 /** A runtime that reports it will never accept sends (outdated agent) should not be waited on. */
 export function runtimeMayAcceptLater(snapshot: RuntimeExecution | undefined): boolean {
-  return !(
-    runtimeSnapshotFresh(snapshot) &&
-    snapshot?.schemaVersion !== 2 &&
-    snapshot?.state !== 'disconnected'
-  )
+  return !snapshot || snapshot.schemaVersion === 2 || snapshot.state === 'disconnected'
 }
 
 /** An unsaved fork has no server session to report a runtime state, so its first

@@ -86,6 +86,12 @@ export const agentChannels = {
     archived: boolean,
     teamId?: string,
   ) => agent.setConversationArchived(sessionId, archived, teamId),
+  'agent:setConversationWatched': (
+    _e: unknown,
+    sessionId: string,
+    watching: boolean,
+    teamId?: string,
+  ) => agent.setConversationWatched(sessionId, watching, teamId),
   'agent:unlinkConversationParent': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.unlinkConversationParent(sessionId, teamId),
   'agent:cancelRuntime': (_e: unknown, sessionId: string, teamId?: string) =>

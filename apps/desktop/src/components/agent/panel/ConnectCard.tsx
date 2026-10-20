@@ -3,11 +3,13 @@ import { useContext, useRef, useState } from 'react'
 import { api } from '../../../api'
 import { TeamHomeBindFlow } from '../../../views/cloud/team-home-bind-flow'
 
+import { ChoiceCard } from './ChoiceCard'
 import { ConnectCardContext } from './connectCardContext'
 import {
   CONNECT_SELECTION_KEY,
   connectRowStatus,
   newConnectIds,
+  parseChoiceRequest,
   parseConnectRequest,
   withConnectIds,
 } from './connectCardModel'
@@ -178,8 +180,8 @@ export function ConnectCard({
   )
 }
 
-/** An integration decision with `providers`: its card once the input parses, else the plain tool row. */
-export function ConnectToolPart({
+/** A user decision: a Connect card when it lists `providers`, else its question card; the plain tool row until the input parses. */
+export function DecisionToolPart({
   part,
   now,
   teamId,
@@ -190,16 +192,21 @@ export function ConnectToolPart({
   teamId?: string
   canAct: boolean
 }) {
-  const request = part.state === 'output-error' ? null : parseConnectRequest(part.input)
+  const failed = part.state === 'output-error'
+  const connect = failed ? null : parseConnectRequest(part.input)
+  const choice = failed || connect ? null : parseChoiceRequest(part.input)
 
-  if (!request) return <ToolPartView part={part} now={now} />
+  if (connect) {
+    return (
+      <ConnectCard
+        teamId={teamId}
+        providers={connect.providers}
+        reason={connect.reason}
+        canAct={canAct}
+      />
+    )
+  }
+  if (choice) return <ChoiceCard {...choice} canAct={canAct} />
 
-  return (
-    <ConnectCard
-      teamId={teamId}
-      providers={request.providers}
-      reason={request.reason}
-      canAct={canAct}
-    />
-  )
+  return <ToolPartView part={part} now={now} />
 }

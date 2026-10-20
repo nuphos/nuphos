@@ -99,12 +99,12 @@ export type AgentConversation = {
   timelineEvents?: ConversationTimelineEvent[]
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
+  watcherIds?: string[] // Who gets its push notifications; see watch.ts.
   /** The owner's read marker, in `activitySeq` units. Only ever moves forward. */
   readSeq?: number
   compactionSummary?: string
   compactionMessageCount?: number
-  parentSessionId?: string // Opener via create_thread; the sidebar nests under it until unlinked.
-  createdBySessionId?: string // The create_thread opener. Set once; parentSessionId can change.
+  parentSessionId?: string // The managing conversation: create_thread's opener or set_thread_parent's choice.
   // Native Mongo parent reference. Legacy vendor fields stay stored but unused.
   conversationTraceParent?: string
   credentialAccess?: AgentCredentialAccess

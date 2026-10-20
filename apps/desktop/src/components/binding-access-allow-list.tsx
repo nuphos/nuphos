@@ -120,7 +120,7 @@ export function AllowListSelect({
               onChange={(event) => setQuery(event.target.value)}
               disabled={all}
               placeholder={all ? 'All members are allowed' : 'Search members to add'}
-              className="w-full h-8 rounded-md bg-field border border-zGray-800 pl-8 pr-2 text-[12.5px] text-main placeholder:text-tertiary outline-none focus:border-zViolet-500/60 disabled:opacity-50"
+              className="w-full h-8 rounded-md bg-surface border border-zGray-800 pl-8 pr-2 text-[12.5px] text-main placeholder:text-tertiary outline-none focus:border-zViolet-500/60 disabled:opacity-50"
             />
             {searchResults.length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-md border border-zGray-800 bg-zGray-850 shadow-2xl shadow-black/40 py-1">

@@ -159,7 +159,8 @@ export function threadToolModule(
       {
         name: 'update_thread',
         description:
-          'Change a thread this conversation created with create_thread. fullAccess switches it ' +
+          'Change a thread nested under this conversation, one it created with create_thread or ' +
+          'adopted with set_thread_parent. fullAccess switches it ' +
           'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
           'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
           "its conversation history, to another of the team's agents from list_agent_runtimes " +

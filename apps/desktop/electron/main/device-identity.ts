@@ -6,10 +6,12 @@ import { app } from 'electron'
 
 import {
   defaultDeviceLabel,
+  desktopDeviceId,
   parseDeviceIdentity,
   readMachineKey,
   stableDeviceId,
 } from './device-identity-core.ts'
+import { isDev } from './env'
 
 import type { DeviceIdentity } from './device-identity-core.ts'
 
@@ -27,14 +29,6 @@ function stableId(): string | null {
   return key ? stableDeviceId(key, 'desktop') : null
 }
 
-function freshIdentity(): DeviceIdentity {
-  return {
-    deviceId: stableId() ?? randomUUID(),
-    label: defaultDeviceLabel(),
-    createdAt: new Date().toISOString(),
-  }
-}
-
 let cached: DeviceIdentity | undefined
 
 function persist(identity: DeviceIdentity): void {
@@ -49,19 +43,30 @@ function persist(identity: DeviceIdentity): void {
  *  after the first read for the life of the process. */
 export function readDeviceIdentity(): DeviceIdentity {
   if (cached) return cached
+  let saved: DeviceIdentity | null = null
+
   try {
-    const raw = fsSync.readFileSync(filePath(), 'utf8')
-    const parsed = parseDeviceIdentity(raw)
-
-    if (parsed) {
-      cached = parsed
-
-      return cached
-    }
+    saved = parseDeviceIdentity(fsSync.readFileSync(filePath(), 'utf8'))
   } catch {
     // No file yet, or unreadable — mint a fresh identity below.
   }
-  cached = freshIdentity()
+  const deviceId = desktopDeviceId(
+    saved?.deviceId ?? null,
+    !saved || isDev ? stableId() : null,
+    isDev,
+    randomUUID,
+  )
+
+  if (saved?.deviceId === deviceId) {
+    cached = saved
+
+    return cached
+  }
+  cached = {
+    deviceId,
+    label: saved?.label ?? defaultDeviceLabel(),
+    createdAt: new Date().toISOString(),
+  }
   persist(cached)
 
   return cached

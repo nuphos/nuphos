@@ -237,14 +237,48 @@ export const BOX_PLANS = [
   },
 ]
 
-/** Why the team's vCPU limit keeps a new Box from starting; null when one can start. */
-export function newBoxBlockedReason(usage: BoxUsage | null, isAdmin: boolean): string | null {
+/** Why the team's vCPU limit keeps a new Box of `vcpus` from starting; null when one can start. */
+export function newBoxBlockedReason(
+  usage: BoxUsage | null,
+  isAdmin: boolean,
+  vcpus: number | null | undefined = usage?.boxVcpus,
+): string | null {
   if (usage?.limitVcpus === 0)
     return isAdmin
       ? 'Your team has no Box plan yet. Choose a plan to start a Box.'
       : 'Ask a team administrator to add a Box plan.'
-  if (usage?.limitVcpus == null || usage.usedVcpus === null || usage.boxVcpus === null) return null
-  if (usage.usedVcpus + usage.boxVcpus <= usage.limitVcpus) return null
+  if (usage?.limitVcpus == null || usage.usedVcpus === null || vcpus == null) return null
+  if (usage.usedVcpus + vcpus <= usage.limitVcpus) return null
 
-  return `Your running Boxes use ${String(usage.usedVcpus)} of ${String(usage.limitVcpus)} vCPU, and a new Box needs ${String(usage.boxVcpus)}. Pause a Box or upgrade.`
+  return `Your running Boxes use ${String(usage.usedVcpus)} of ${String(usage.limitVcpus)} vCPU, and a new Box needs ${String(vcpus)}. Pause a Box or upgrade.`
+}
+
+/**
+ * Sessions a Box of `memMiB` runs at once: 2 GiB for the system, the host and the Box's
+ * own desktop, then 1.75 GiB a session (an agent of ~180–300 MB plus the desktop
+ * it may start: Xvnc, XFCE and Chromium). 8 GiB → 3, 16 GiB → 8.
+ */
+export function boxSessions(memMiB: number): number {
+  return Math.max(1, Math.floor((memMiB - 2048) / 1792))
+}
+
+const SIZE_TIERS = [
+  { name: 'Small Box', use: 'Good for light tasks' },
+  { name: 'Medium Box', use: 'Good for everyday work' },
+  { name: 'Large Box', use: 'Good for heavy builds' },
+]
+
+/** The sizes instabox offers, named by rank: the smallest is Small, the biggest Large. */
+export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
+  return sizes.map(({ vcpus, memMiB }, index) => {
+    // 0 for the first, 2 for the last, 1 between.
+    const tier = SIZE_TIERS[index === 0 ? 0 : 2 - Number(index < sizes.length - 1)]
+
+    return {
+      vcpus,
+      name: tier.name,
+      spec: `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`,
+      description: `${tier.use} · up to ${String(boxSessions(memMiB))} sessions at once`,
+    }
+  })
 }

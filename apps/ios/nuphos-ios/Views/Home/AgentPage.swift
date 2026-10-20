@@ -310,6 +310,14 @@ struct AgentPage: View {
                             Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
                         }
                         .tint(.indigo)
+                        if let watching = conversation.watching {
+                            Button {
+                                Task { await store.setWatching(!watching, conversation: conversation) }
+                            } label: {
+                                Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
+                            }
+                            .tint(.teal)
+                        }
                         if conversation.ownsChat, conversation.parentSessionId != nil {
                             Button {
                                 Task { await store.unlinkParent(conversation) }

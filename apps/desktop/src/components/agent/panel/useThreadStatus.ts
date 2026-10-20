@@ -36,12 +36,7 @@ function read(threadId: string, teamId: string | undefined) {
     .agentGetConversation(threadId, teamId, { tail: 1 })
     .then(
       (detail) => {
-        publishRuntimeStates([
-          [
-            threadId,
-            { ...(detail.runtimeState ?? { state: 'unsupported' }), observedAt: performance.now() },
-          ],
-        ])
+        if (detail.runtimeState) publishRuntimeStates([[threadId, detail.runtimeState]])
         setEntry(key, { title: detail.title || null, failed: false })
       },
       // A failed poll keeps what an earlier read showed.
@@ -90,9 +85,7 @@ export function useThreadStatus(
     keyOf(threadId ?? '', teamId),
   )
   const status: ThreadStatus = entry?.failed ? 'unavailable' : threadStatusOf(snapshot)
-  // A stale snapshot reads as loading; keep polling until a fresh one says how it ended.
-  const active =
-    status === 'running' || status === 'waiting' || (status === 'loading' && snapshot !== undefined)
+  const active = status === 'running' || status === 'waiting'
 
   // Once for the title (and the state, if no other view has it yet)…
   useEffect(() => {

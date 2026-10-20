@@ -44,7 +44,7 @@ function run(overrides: Partial<NotifiableRun> = {}): NotifiableRun {
     createdAt: 1_000,
     frames: finishedFrames,
     abortController: { signal: { aborted: false } },
-    trace: { userId: 'user-1', teamId: 'team-1', method: 'POST' },
+    trace: { userId: 'user-1', teamId: 'team-1' },
     ...overrides,
   }
 }
@@ -58,6 +58,8 @@ let configured: boolean
 let planNumber: number | null
 let unread: number
 let scheduled: { work: () => void; delayMs: number }[]
+let watchers: Record<string, string[]>
+let lostAccess: string[]
 
 function notifier(overrides: Partial<TurnNotifierDeps> = {}) {
   const store: PushDeviceStore = {
@@ -77,9 +79,15 @@ function notifier(overrides: Partial<TurnNotifierDeps> = {}) {
 
       return responses[request.deviceToken] ?? { status: 200 }
     },
-    conversation: async () => ({ title: 'Clear the cache', teamId: 'team-from-doc' }),
+    conversation: async (sessionId) => ({
+      userId: 'owner-1',
+      title: 'Clear the cache',
+      teamId: 'team-from-doc',
+      watcherIds: watchers[sessionId] ?? ['user-1'],
+    }),
     proposedPlanNumber: async () => planNumber,
     unreadCount: async () => unread,
+    canRead: async (_conversation, userId) => !lostAccess.includes(userId),
     schedule: (work, delayMs) => {
       scheduled.push({ work, delayMs })
     },
@@ -98,10 +106,12 @@ beforeEach(() => {
   planNumber = null
   unread = 3
   scheduled = []
+  watchers = {}
+  lostAccess = []
 })
 
 describe('turn notifier', () => {
-  test('sends the finished answer to every device of the user who ran the turn', async () => {
+  test('sends the finished answer to every device of each user watching the session', async () => {
     await notifier().runEnded(run())
 
     expect(sent.map((r) => r.deviceToken)).toEqual(['aa', 'bb'])
@@ -121,6 +131,23 @@ describe('turn notifier', () => {
     })
   })
 
+  test('reaches a teammate watching the session, not an initiator who is not', async () => {
+    devices = [device('mine'), device('theirs', 'user-2')]
+    watchers['session-1'] = ['user-2']
+    await notifier().runEnded(run())
+
+    expect(sent.map((r) => r.deviceToken)).toEqual(['theirs'])
+  })
+
+  test('skips a watcher who can no longer read the session', async () => {
+    devices = [device('mine'), device('theirs', 'user-2')]
+    watchers['session-1'] = ['user-1', 'user-2']
+    lostAccess = ['user-2']
+    await notifier().runEnded(run())
+
+    expect(sent.map((r) => r.deviceToken)).toEqual(['mine'])
+  })
+
   test('is a no-op without APNs credentials', async () => {
     configured = false
     await notifier().runEnded(run())
@@ -128,10 +155,11 @@ describe('turn notifier', () => {
     expect(sent).toEqual([])
   })
 
-  test('skips trigger runs, silent pauses and user stops', async () => {
+  test('skips unwatched sessions, silent pauses and user stops', async () => {
     const n = notifier()
 
-    await n.runEnded(run({ trace: { userId: 'user-1', method: 'TRIGGER' } }))
+    watchers['s-unwatched'] = []
+    await n.runEnded(run({ sessionId: 's-unwatched' }))
     await n.runEnded(
       run({
         sessionId: 's-pause',
@@ -202,8 +230,14 @@ describe('turn notifier', () => {
 
   test('falls back to the conversation team and first message', async () => {
     await notifier({
-      conversation: async () => ({ title: '', firstMessage: 'why is prod slow', teamId: 'team-2' }),
-    }).runEnded(run({ trace: { userId: 'user-1', method: 'POST' } }))
+      conversation: async () => ({
+        userId: 'owner-1',
+        title: '',
+        firstMessage: 'why is prod slow',
+        teamId: 'team-2',
+        watcherIds: ['user-1'],
+      }),
+    }).runEnded(run({ trace: { userId: 'user-1' } }))
 
     expect(sent[0]?.payload).toMatchObject({
       aps: { alert: { title: 'why is prod slow' } },
@@ -277,12 +311,8 @@ describe('turn notifier', () => {
 
     for (let i = 0; i < 5; i += 1) {
       devices.push(device(`u${String(i)}`, `user-${String(i + 10)}`))
-      await n.runEnded(
-        run({
-          sessionId: `s-${String(i)}`,
-          trace: { userId: `user-${String(i + 10)}`, method: 'POST' },
-        }),
-      )
+      watchers[`s-${String(i)}`] = [`user-${String(i + 10)}`]
+      await n.runEnded(run({ sessionId: `s-${String(i)}` }))
     }
     expect(n.trackedKeys()).toBe(10)
 

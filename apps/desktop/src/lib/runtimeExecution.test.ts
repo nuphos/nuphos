@@ -3,15 +3,12 @@ import { test } from 'node:test'
 
 import {
   acceptRuntimeSnapshot,
-  newestRuntimeSnapshot,
   runtimeIsExecuting,
   runtimeAllows,
   runtimeBackgroundRunning,
   runtimeTurnActive,
   runtimeStateLabel,
-  runtimeStatusLabel,
   chatRowIndicator,
-  msUntilRuntimeStale,
 } from './runtimeExecution.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
@@ -27,7 +24,7 @@ test('only runtime active authorizes execution; unknown and transport loss fail 
   ] as const)
     assert.equal(runtimeIsExecuting({ state }), false)
   assert.equal(runtimeIsExecuting(undefined), false)
-  assert.equal(runtimeIsExecuting({ state: 'active', observedAt: performance.now() }), true)
+  assert.equal(runtimeIsExecuting({ state: 'active' }), true)
 })
 
 test('an old active snapshot cannot revive a completed turn; a new process has its own revisions', () => {
@@ -44,38 +41,29 @@ test('an old active snapshot cannot revive a completed turn; a new process has i
   assert.equal(acceptRuntimeSnapshot(idle, { state: 'disconnected' }).state, 'disconnected')
 })
 
-test('a lost status connection cannot leave its last active snapshot running forever', () => {
-  assert.equal(
-    runtimeIsExecuting({ state: 'active', observedAt: performance.now() - 12_001 }),
-    false,
-  )
-  assert.equal(runtimeIsExecuting({ state: 'active' }), false)
+test('within one runtime process the higher revision wins whichever arrives last', () => {
+  const active = { state: 'active' as const, epoch: 'a', revision: 1 }
+  const idle = { state: 'idle' as const, epoch: 'a', revision: 2 }
+
+  assert.equal(acceptRuntimeSnapshot(active, idle), idle)
+  assert.equal(acceptRuntimeSnapshot(idle, active), idle)
 })
 
-test('sidebar uses a newer stop observation instead of OR-ing an older active list row', () => {
-  const active = { state: 'active' as const, epoch: 'a', revision: 1, observedAt: 100 }
-  const idle = { state: 'idle' as const, epoch: 'a', revision: 2, observedAt: 90 }
+test('across runtime processes, or without a revision, the later arrival wins', () => {
+  const active = { state: 'active' as const, epoch: 'a', revision: 100 }
+  const restarted = { state: 'unknown' as const, epoch: 'b', revision: 0 }
+  const resting = { state: 'dormant' as const, schemaVersion: 2 }
 
-  assert.equal(newestRuntimeSnapshot(active, idle), idle)
-  assert.equal(newestRuntimeSnapshot(idle, active), idle)
-})
-
-test('new process and disconnected observations supersede older active observations', () => {
-  const active = { state: 'active' as const, epoch: 'a', revision: 100, observedAt: 100 }
-  const restarted = { state: 'unknown' as const, epoch: 'b', revision: 0, observedAt: 200 }
-  const disconnected = { state: 'disconnected' as const, observedAt: 300 }
-
-  assert.equal(newestRuntimeSnapshot(active, restarted), restarted)
-  assert.equal(newestRuntimeSnapshot(restarted, active), restarted)
-  assert.equal(newestRuntimeSnapshot(active, disconnected), disconnected)
-  assert.equal(newestRuntimeSnapshot(disconnected, active), disconnected)
+  assert.equal(acceptRuntimeSnapshot(active, restarted), restarted)
+  assert.equal(acceptRuntimeSnapshot(restarted, active), active)
+  assert.equal(acceptRuntimeSnapshot(active, resting), resting)
+  assert.equal(acceptRuntimeSnapshot(resting, active), active)
 })
 
 test('runtime capabilities distinguish replying to a request from starting a new turn', () => {
   const snapshot = {
     schemaVersion: 2,
     state: 'active' as const,
-    observedAt: performance.now(),
     actions: { send: false, cancel: true, steer: false, reply: true },
   }
 
@@ -83,15 +71,8 @@ test('runtime capabilities distinguish replying to a request from starting a new
   assert.equal(runtimeAllows(snapshot, 'reply'), true)
   assert.equal(runtimeAllows(snapshot, 'cancel'), true)
 })
-test('late old-process observations cannot overwrite a new runtime process', () => {
-  const current = { state: 'idle' as const, epoch: 'new', revision: 0, observedAt: 200 }
-  const old = { state: 'active' as const, epoch: 'old', revision: 900, observedAt: 100 }
-
-  assert.equal(acceptRuntimeSnapshot(current, old), current)
-})
-
 function observed(state: RuntimeExecution['state'], phase: string): RuntimeExecution {
-  return { schemaVersion: 2, state, phase, observedAt: performance.now() }
+  return { schemaVersion: 2, state, phase }
 }
 
 test('a running turn shows the spinner and outranks background work and unread', () => {
@@ -113,7 +94,7 @@ test('background work after the turn ended is its own state, not a running turn'
 
 test('a stopped runtime shows the error indicator; a missing snapshot does not', () => {
   for (const state of ['disconnected', 'interrupted', 'unknown', 'unsupported'] as const)
-    assert.equal(chatRowIndicator({ state, observedAt: performance.now() }, false), 'error')
+    assert.equal(chatRowIndicator({ state }, false), 'error')
   assert.equal(chatRowIndicator(observed('dormant', 'dormant'), false), 'none')
   assert.equal(chatRowIndicator(undefined, false), 'none')
 })
@@ -132,25 +113,13 @@ test('background work clears when tools finish, fail or are cancelled', () => {
   assert.equal(chatRowIndicator(observed('idle', 'failed'), true), 'error')
 })
 
-test('a slow or failed list poll keeps every row on its last known state', () => {
-  const stale = performance.now() - 60_000
-
+test('a failed turn reads its own label; a disconnected runtime says so', () => {
   assert.equal(
-    chatRowIndicator({ ...observed('active', 'thinking'), observedAt: stale }, false),
-    'turn',
+    runtimeStateLabel({ ...observed('idle', 'failed'), label: 'Agent failed' }),
+    'Agent failed',
   )
   assert.equal(
-    chatRowIndicator({ ...observed('idle', 'background_tools'), observedAt: stale }, false),
-    'background',
-  )
-  assert.equal(chatRowIndicator({ ...observed('idle', 'idle'), observedAt: stale }, false), 'none')
-
-  const failed = { ...observed('idle', 'failed'), label: 'Agent failed', observedAt: stale }
-
-  assert.equal(runtimeStateLabel(failed), 'Agent failed')
-  assert.equal(runtimeStatusLabel(failed), 'Connection lost — agent status unavailable')
-  assert.equal(
-    runtimeStateLabel({ state: 'disconnected', observedAt: performance.now() }),
+    runtimeStateLabel({ state: 'disconnected' }),
     'Connection lost — agent status unavailable',
   )
 })
@@ -160,13 +129,7 @@ test('a lost runtime observation never leaves background work showing', () => {
 
   assert.equal(runtimeBackgroundRunning({ ...background, schemaVersion: 1 }), false)
   assert.equal(
-    chatRowIndicator(
-      newestRuntimeSnapshot(background, {
-        state: 'disconnected',
-        observedAt: performance.now() + 1,
-      }),
-      false,
-    ),
+    chatRowIndicator(acceptRuntimeSnapshot(background, { state: 'disconnected' }), false),
     'error',
   )
 })
@@ -177,18 +140,4 @@ test('a paused automatic continuation is neither a running turn nor background w
   assert.equal(runtimeTurnActive(paused), false)
   assert.equal(runtimeBackgroundRunning(paused), false)
   assert.equal(chatRowIndicator(paused, false), 'error')
-})
-
-test('a reading nobody replaces expires on its own deadline, then reads as Connection lost', () => {
-  const idle = { state: 'idle' as const, schemaVersion: 2, observedAt: performance.now() - 4_000 }
-  const ms = msUntilRuntimeStale(idle)
-
-  assert.ok(ms !== null && ms > 7_900 && ms <= 8_000)
-  assert.notEqual(runtimeStatusLabel(idle), 'Connection lost — agent status unavailable')
-
-  const expired = { ...idle, observedAt: performance.now() - 12_000 }
-
-  assert.equal(msUntilRuntimeStale(expired), null)
-  assert.equal(runtimeStatusLabel(expired), 'Connection lost — agent status unavailable')
-  assert.equal(msUntilRuntimeStale({ state: 'idle' }), null)
 })

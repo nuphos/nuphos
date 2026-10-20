@@ -119,7 +119,7 @@ export async function reachableRuntimeEndpoint(
 ): Promise<TeamRuntimeEndpoint> {
   const provisioner = config.claudeCodeRuntimeProvisioner
 
-  if (!provisioner.kubectl) return endpoint
+  if (!provisioner.kubectl || endpoint.tunnelUrl) return endpoint
   const service = clusterService(endpoint.url)
 
   if (!service) return endpoint

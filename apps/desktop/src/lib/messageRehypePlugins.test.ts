@@ -86,3 +86,29 @@ test('the path part of a URL is left alone', () => {
 
   assert.doesNotMatch(html, /href="\/data\//)
 })
+
+test('markdown, HTML and linked images all reach the img override with their size', () => {
+  const html = renderToStaticMarkup(
+    createElement(Streamdown, {
+      mode: 'static',
+      rehypePlugins: messageRehypePlugins,
+      components: {
+        a: ({ href, children }) => createElement('a', { href }, children),
+        img: ({ src, width }) => createElement('button', { 'data-src': src, 'data-width': width }),
+      },
+      children: [
+        '![shot](https://example.com/a.png)',
+        '<img width="320" alt="b" src="https://github.com/user-attachments/assets/b">',
+        '[![c](https://example.com/c.gif)](https://example.com/c.gif)',
+        '<a href="https://example.com/d.webp"><img src="https://example.com/d.webp"></a>',
+      ].join('\n\n'),
+    }),
+  )
+
+  assert.equal(html.match(/<button /g)?.length, 4)
+  assert.match(
+    html,
+    /data-src="https:\/\/github\.com\/user-attachments\/assets\/b" data-width="320"/,
+  )
+  assert.match(html, /<a href="https:\/\/example\.com\/c\.gif"><button data-src/)
+})

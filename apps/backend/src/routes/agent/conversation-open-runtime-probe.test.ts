@@ -15,6 +15,7 @@ const teamId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 const userId = 'bbbbbbbbbbbbbbbbbbbbbbbb'
 let run: { streamId: string; startedAt: string } | null = null
 let probes = 0
+let probed: { state: string; schemaVersion?: number } = { state: 'active', schemaVersion: 2 }
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: userId } }),
@@ -32,7 +33,7 @@ useSessionExecutionState({
   conversationExecutionState: async () => {
     probes++
 
-    return { state: 'active', schemaVersion: 2 }
+    return probed
   },
 })
 useSlackAgentBot({ getSlackAgentThreadBySessionId: async () => null })
@@ -46,14 +47,29 @@ const open = (query: string) =>
 beforeEach(() => {
   run = null
   probes = 0
+  probed = { state: 'active', schemaVersion: 2 }
 })
 
-test('opening without a run skips the runtime probe', async () => {
+test('opening without a run skips the runtime probe and answers like the list', async () => {
   const body = (await (await open('&runtimeState=omit')).json()) as Record<string, unknown>
 
   expect(probes).toBe(0)
-  expect(body.runtimeState).toBeUndefined()
+  expect((body.runtimeState as { state: string }).state).toBe('dormant')
   expect(body.activeRun).toBeNull()
+})
+
+test('an unreachable runtime answers like the list, never "disconnected"', async () => {
+  probed = { state: 'disconnected' }
+  const idle = (await (await open('')).json()) as Record<string, unknown>
+
+  expect(probes).toBe(1)
+  expect((idle.runtimeState as { state: string }).state).toBe('dormant')
+
+  run = { streamId: 'stream-1', startedAt: '1700000000000' }
+  const running = (await (await open('')).json()) as Record<string, unknown>
+
+  expect((running.runtimeState as { state: string }).state).toBe('active')
+  expect((running.activeRun as { streamId: string }).streamId).toBe('stream-1')
 })
 
 test('opening with a run still confirms it against the runtime', async () => {

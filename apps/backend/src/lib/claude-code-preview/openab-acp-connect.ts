@@ -31,7 +31,7 @@ const DEFAULT_RETIRE_GRACE_MS = 30_000
 export async function connectOpenAbAcpSocket(
   options: OpenAbAcpClientOptions,
 ): Promise<OpenAbAcpConnection> {
-  const socket = (options.socketFactory ?? defaultSocketFactory)(options.url, [
+  const socket = (options.socketFactory ?? defaultSocketFactory)(options.tunnelUrl ?? options.url, [
     `openab.bearer.${options.authKey}`,
     'acp.v1',
   ])
