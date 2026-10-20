@@ -163,7 +163,7 @@ export function createPreviewRunState(args: {
   }
 }
 
-type ToolState = { name: string; toolName: string; input: unknown; hidden: boolean }
+type ToolState = { name: string; toolName: string; input?: unknown; hidden: boolean }
 
 /**
  * Tool steps for the durable transcript, keyed by ACP tool-call id. Nuphos

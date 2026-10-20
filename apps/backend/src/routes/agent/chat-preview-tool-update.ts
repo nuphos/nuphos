@@ -15,14 +15,20 @@ export function handlePreviewToolUpdate(
   const hidden = update.revealed
     ? false
     : (known?.hidden ?? (isToolSearchTitle(name) || classic !== undefined))
-  const input = update.rawInput ?? known?.input ?? {}
+  // Undefined until the call's input arrives; a steer can cut a call off before.
+  const input = update.rawInput ?? known?.input
   const revealing = known?.hidden === true && !hidden
 
   if (!known || revealing || update.rawInput !== undefined || name !== known.name) {
     log.states.set(update.toolCallId, { name, toolName: classic ?? name, input, hidden })
-    if (!isToolSearchTitle(name)) log.record(update.toolCallId, classic ?? name, input)
+    if (!isToolSearchTitle(name)) log.record(update.toolCallId, classic ?? name, input ?? {})
     if (!hidden) {
-      emit({ type: 'tool-input-available', toolCallId: update.toolCallId, toolName: name, input })
+      emit({
+        type: 'tool-input-available',
+        toolCallId: update.toolCallId,
+        toolName: name,
+        input: input ?? {},
+      })
     }
   }
   if (update.status === 'completed') {
@@ -67,16 +73,9 @@ export function closeCallsCutOffBySteer(
   for (const toolCallId of cutOff) {
     const state = log.states.get(toolCallId)
 
-    if (!open.has(toolCallId) || !isEmptyInput(state?.input)) continue
+    if (!open.has(toolCallId) || state?.input !== undefined) continue
     const errorText = log.fail(toolCallId, INTERRUPTED_TOOL_ERROR)
 
     if (!state?.hidden) emit({ type: 'tool-output-error', toolCallId, errorText })
   }
-}
-
-function isEmptyInput(input: unknown): boolean {
-  return (
-    input == null ||
-    (typeof input === 'object' && !Array.isArray(input) && Object.keys(input).length === 0)
-  )
 }

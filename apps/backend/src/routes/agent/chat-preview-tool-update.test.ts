@@ -98,7 +98,7 @@ describe('handlePreviewToolUpdate', () => {
 })
 
 describe('closeCallsCutOffBySteer', () => {
-  function steppedLog(steps: { id: string; input: unknown; output?: unknown }[]): ToolLog {
+  function steppedLog(steps: { id: string; input?: unknown; output?: unknown }[]): ToolLog {
     const log = toolLog()
     const failed = new Map<string, string>()
 
@@ -129,7 +129,7 @@ describe('closeCallsCutOffBySteer', () => {
 
   test('closes a call the steer cut off before its input arrived', () => {
     const frames: Record<string, unknown>[] = []
-    const log = steppedLog([{ id: 'cut', input: {} }])
+    const log = steppedLog([{ id: 'cut' }])
 
     closeCallsCutOffBySteer((frame) => frames.push(frame), log, openToolCalls(log))
     expect(frames).toEqual([
@@ -141,16 +141,17 @@ describe('closeCallsCutOffBySteer', () => {
     const frames: Record<string, unknown>[] = []
     const log = steppedLog([
       { id: 'background', input: { command: 'sleep 600' } },
-      { id: 'done', input: {}, output: 'ok' },
+      { id: 'no-args', input: {} },
+      { id: 'done', output: 'ok' },
     ])
 
-    closeCallsCutOffBySteer((frame) => frames.push(frame), log, ['background', 'done'])
+    closeCallsCutOffBySteer((frame) => frames.push(frame), log, ['background', 'no-args', 'done'])
     expect(frames).toEqual([])
-    expect(openToolCalls(log)).toEqual(['background'])
+    expect(openToolCalls(log)).toEqual(['background', 'no-args'])
   })
   test('ignores calls opened after the steer', () => {
     const frames: Record<string, unknown>[] = []
-    const log = steppedLog([{ id: 'new', input: {} }])
+    const log = steppedLog([{ id: 'new' }])
 
     closeCallsCutOffBySteer((frame) => frames.push(frame), log, [])
     expect(frames).toEqual([])

@@ -198,21 +198,35 @@ describe('runClaudeCodePreviewChatTurn steering', () => {
 
   test('a steer closes the call it cut off before the call got its input', async () => {
     onPrompt = () => {
-      prompting.onAgentUpdate({
+      prompting.onAgentUpdate?.({
         kind: 'tool',
         toolCallId: 'cut',
         title: 'Terminal',
         status: 'pending',
       })
-      prompting.onAgentUpdate({
+      prompting.onAgentUpdate?.({
         kind: 'tool',
         toolCallId: 'background',
         title: 'Terminal',
         status: 'in_progress',
         rawInput: { command: 'sleep 600' },
       })
-      prompting.onAgentUpdate({ kind: 'steering', id: 'steer-1', text: 'stop that' })
+      prompting.onAgentUpdate?.({
+        kind: 'tool',
+        toolCallId: 'no-args',
+        title: 'list_credentials',
+        status: 'in_progress',
+        rawInput: {},
+      })
+      prompting.onAgentUpdate?.({ kind: 'steering', id: 'steer-1', text: 'stop that' })
       prompting.onTextDelta('ok')
+      prompting.onAgentUpdate?.({
+        kind: 'tool',
+        toolCallId: 'no-args',
+        title: 'list_credentials',
+        status: 'completed',
+        rawOutput: 'done',
+      })
 
       return Promise.resolve()
     }
@@ -225,6 +239,7 @@ describe('runClaudeCodePreviewChatTurn steering', () => {
     expect(tools.map((step) => [step.toolCallId, step.errorText])).toEqual([
       ['cut', 'Interrupted before the tool finished.'],
       ['background', undefined],
+      ['no-args', undefined],
     ])
   })
 })
