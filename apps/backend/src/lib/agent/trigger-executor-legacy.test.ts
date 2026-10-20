@@ -119,6 +119,11 @@ describe('executeTrigger on a Trigger older than the credential mode', () => {
     // 'trigger' is what makes the session initialize Full Access; it is read
     // off the run, never off the stored row.
     expect(runs[0]?.origin).toBe('trigger')
+    // The fire is the Trigger speaking, not the owner.
+    expect(runs[0]?.messages.at(-1)?.metadata).toMatchObject({
+      source: 'agent.resource',
+      sender: { type: 'system', id: `trigger:${legacyTrigger._id!.toHexString()}` },
+    })
   })
 })
 

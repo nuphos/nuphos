@@ -14,6 +14,7 @@ import { useSlackAgentBot } from '@/lib/test/doubles/slack-agent-bot'
 import { useSlackApi } from '@/lib/test/doubles/slack-api'
 import { useSlackInstallations } from '@/lib/test/doubles/slack-installations'
 
+import type { NuphosUser } from '@/lib/identity/types'
 import type { SlackAgentThread, SlackUserMapping } from '@/lib/slack/agent-bot'
 
 const WORKSPACE = 'T1'
@@ -50,6 +51,8 @@ const agentRuns: { sessionId: string; teamId: string }[] = []
 // What the resume actually told the model — the approval sentence must not
 // render a mention for an approver who has no Slack identity.
 const turnTexts: string[] = []
+// Who the resume turn is attributed to: the approver, never an anonymous bubble.
+const turnSenders: unknown[] = []
 
 function makeThread(overrides?: Partial<SlackAgentThread>): SlackAgentThread {
   return {
@@ -143,6 +146,7 @@ useIdentity({
   getTeamMembership: async (_userId: string, teamId: string) =>
     teamId === THREAD_TEAM ? { role: 'MEMBER' } : null,
   signNuphosToken: () => 'test-token',
+  getNuphosUserById: async () => ({ name: 'Ada Approver' }) as NuphosUser,
 })
 
 useAgentPlans({
@@ -191,6 +195,7 @@ useTurnRunner({
   hasActiveAgentRunForSession: async () => state.turnAlreadyRunning,
   runAgentForTrigger: async (params) => {
     agentRuns.push({ sessionId: params.sessionId, teamId: params.teamId ?? '' })
+    turnSenders.push(params.messages.at(-1)?.metadata)
     turnTexts.push(
       params.messages
         .flatMap((message) => message.parts.map((part) => ('text' in part ? part.text : '')))
@@ -236,6 +241,7 @@ beforeEach(() => {
   state.approverHasSlackMapping = true
   state.turnAlreadyRunning = false
   turnTexts.length = 0
+  turnSenders.length = 0
   userMappingLookups.length = 0
   recordPlanApprovalCalls.length = 0
   journaled.length = 0
@@ -324,6 +330,10 @@ describe('resumeApprovedPlanTurnFromNuphos', () => {
 
     expect(resumed?.data?.plan_id).toBe(PLAN_ID)
     expect(resumed?.data?.approver_slack_user_id).toBe(SLACK_USER)
+    expect(turnSenders[0]).toMatchObject({
+      source: 'slack',
+      sender: { type: 'user', id: NUPHOS_USER, displayName: 'Ada Approver' },
+    })
   })
 
   test('an approver with no Slack identity still executes, and is not half-mentioned', async () => {

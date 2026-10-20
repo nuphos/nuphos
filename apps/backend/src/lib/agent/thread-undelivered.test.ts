@@ -7,6 +7,7 @@ import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-r
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { UNDELIVERED_NOTICE } from './conversation-turn'
+import { parseMessageMetadata } from './message-metadata'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,
@@ -182,8 +183,10 @@ test('a started turn that fails tells its sender, once', async () => {
   expect(notices()[0]?.messages.at(-1)?.metadata).toMatchObject({
     source: 'agent.thread',
     sourceSessionId: 'target',
-    sender: { type: 'system' },
+    sender: { type: 'agent' },
   })
+  // An attribution the parser rejects renders as the owner's own message.
+  expect(parseMessageMetadata(notices()[0]?.messages.at(-1)?.metadata)).toBeDefined()
   expect(noticeText()).toContain(UNDELIVERED_NOTICE)
   expect(noticeText()).toContain('did not run: Runtime went away mid-turn.')
   expect(noticeText()).toContain('Handed back: PR is green')

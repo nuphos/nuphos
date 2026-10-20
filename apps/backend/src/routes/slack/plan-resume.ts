@@ -105,6 +105,7 @@ export async function resumeApprovedPlanTurn(args: {
       userId: args.thread.agentUserId,
       teamId: args.thread.teamId,
       messageId: `slack-plan-approve-${args.planId}`,
+      actorUserId: args.approverNuphosUserId,
       turnKind: 'plan-approval',
       renderedText,
     })

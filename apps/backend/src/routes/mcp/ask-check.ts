@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { getConversationBySessionId, getConversationWithMessages } from '@/lib/agent/db'
+import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
 import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -119,6 +120,8 @@ export async function nuphosAsk(
     {
       id: randomUUID(),
       role: 'user',
+      // The caller's own request, made through their MCP client: attributed to them.
+      metadata: await createMessageMetadata(ctx.userId, 'nuphos'),
       parts: [
         {
           type: 'text',

@@ -247,7 +247,7 @@ export async function reportUndelivered(
         'agent.thread',
         {
           version: 1,
-          sender: { type: 'system', id: 'nuphos', displayName: 'Nuphos' },
+          sender: { type: 'agent', id: 'nuphos', displayName: 'Nuphos' },
           source: 'agent.thread',
           sourceSessionId: data.targetSessionId,
           sentAt: new Date().toISOString(),

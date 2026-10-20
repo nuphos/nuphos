@@ -21,6 +21,7 @@ import {
 
 import type { ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { AgentConversation } from './db'
+import type { MessageMetadata } from './message-metadata'
 import type { AgentTrigger } from './trigger-db'
 import type { TriggerGroupMember } from './trigger-group-db'
 import type { UIMessage } from 'ai'
@@ -123,6 +124,7 @@ export async function executeTrigger(
       {
         id: randomUUID(),
         role: 'user',
+        metadata: triggerMetadata(trigger),
         parts: [{ type: 'text', text: resolvedMessage }],
       },
     ]
@@ -167,6 +169,19 @@ export async function executeTrigger(
   }
 }
 
+/** A fire is the Trigger speaking, never the owner: shown and attributed as such. */
+function triggerMetadata(trigger: AgentTrigger): MessageMetadata {
+  const triggerId = trigger._id!.toHexString()
+
+  return {
+    version: 1,
+    sender: { type: 'system', id: `trigger:${triggerId}`, displayName: trigger.name },
+    source: 'agent.resource',
+    resourceUrl: `/teams/${trigger.teamId}/triggers/${triggerId}`,
+    sentAt: new Date().toISOString(),
+  }
+}
+
 /**
  * Wakes the bound session the way a GitHub event does. A busy session parks the
  * message until its turn releases, and identical parked fires coalesce.
@@ -202,13 +217,7 @@ async function deliverToTargetSession(
     target,
     text,
     'agent.resource',
-    {
-      version: 1,
-      sender: { type: 'system', id: `trigger:${triggerId}`, displayName: trigger.name },
-      source: 'agent.resource',
-      resourceUrl: `/teams/${trigger.teamId}/triggers/${triggerId}`,
-      sentAt: new Date().toISOString(),
-    },
+    triggerMetadata(trigger),
   )
   await agentTriggers().updateOne(
     { _id: trigger._id },

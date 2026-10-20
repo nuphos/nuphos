@@ -91,7 +91,7 @@ test('a thread turn lost to a runtime restart tells its sender, once', async () 
 
   expect(runs.map((run) => run.sessionId)).toEqual(['child', 'parent'])
   expect(runs[1]?.messages.at(-1)).toMatchObject({
-    metadata: { source: 'agent.thread', sourceSessionId: 'child', sender: { type: 'system' } },
+    metadata: { source: 'agent.thread', sourceSessionId: 'child', sender: { type: 'agent' } },
   })
   expect(JSON.stringify(runs[1]?.messages.at(-1)?.parts)).toContain('was cut off')
 })
