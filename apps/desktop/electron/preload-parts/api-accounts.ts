@@ -5,4 +5,7 @@ export const accountsApi = {
   authAccounts: () => ipcRenderer.invoke('auth:accounts'),
   authSwitch: (key: string) => ipcRenderer.invoke('auth:switch', key),
   authLogoutAll: () => ipcRenderer.invoke('auth:logoutAll'),
+  authLoginEndpoint: () => ipcRenderer.invoke('auth:loginEndpoint'),
+  authStageLoginEndpoint: (url: string | null) =>
+    ipcRenderer.invoke('auth:stageLoginEndpoint', url),
 }

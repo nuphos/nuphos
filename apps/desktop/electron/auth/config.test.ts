@@ -49,6 +49,8 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
     },
   }
   const tokens: (string | null)[] = []
+  // The backend the app pointed at as each token took effect.
+  const tokenApis: string[] = []
   const config = configFile({
     path: file,
     store,
@@ -57,7 +59,10 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
     setApiUrl: (url) => {
       api = url
     },
-    onToken: (token) => tokens.push(token),
+    onToken: (token) => {
+      tokens.push(token)
+      tokenApis.push(api)
+    },
     legacyPath: legacy,
   })
   const onDisk = async (at = file) =>
@@ -78,6 +83,7 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
     items,
     calls,
     tokens,
+    tokenApis,
     onDisk,
     release,
     keychainWriteStarted,
@@ -304,6 +310,28 @@ test('switching to an account on another backend points the app there', async ()
   assert.deepEqual(
     (await h.config.others()).map((o) => [o.key, o.apiUrl]),
     [[OTHER_ACCOUNT, 'https://api.nuphos.ai']],
+  )
+})
+
+test('an account added on another backend moves the app there only with its token', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  assert.equal(h.api(), 'https://api.nuphos.ai/')
+
+  // Signed in on a staged backend while u1 stays current on Nuphos Cloud.
+  await h.config.write({
+    token: 'tok-self',
+    userInfo: OTHER,
+    apiUrl: 'https://nuphos.example.com/',
+  })
+
+  assert.equal(h.api(), 'https://nuphos.example.com')
+  assert.deepEqual(h.tokenApis, ['https://api.nuphos.ai/', 'https://nuphos.example.com'])
+  assert.equal(h.items.get('u9@https://nuphos.example.com'), 'tok-self')
+  assert.deepEqual(
+    (await h.config.others()).map((o) => [o.key, o.apiUrl]),
+    [[ACCOUNT, API]],
   )
 })
 

@@ -39,7 +39,6 @@ type ConfigFileDeps = {
 /** This app's sign-in file, with its token in the keychain where there is one. */
 export function configFile(deps: ConfigFileDeps) {
   const currentApi = () => normalizedApi(deps.apiUrl())
-  const accountFor = (cfg: Config) => itemFor(cfg, currentApi())
   const keyOf = (cfg: Config) => accountKey(cfg, currentApi())
   const asOther = (cfg: Config) => listedAs(cfg, currentApi())
 
@@ -94,11 +93,15 @@ export function configFile(deps: ConfigFileDeps) {
     const stored: Config = { ...cfg, keychainAccount: undefined, otherAccounts: undefined }
     let others = previous.otherAccounts ?? []
 
+    // A sign-in made on another backend (adding an account there) moves the
+    // app to it together with the token, never before.
+    const api = cfg.apiUrl ? normalizedApi(cfg.apiUrl) : currentApi()
+
     if (cfg.token) {
-      const account = accountFor(cfg)
+      const account = itemFor(cfg, api)
       const before = asOther(previous)
 
-      stored.apiUrl = currentApi()
+      stored.apiUrl = api
       // Signing in again to a listed account takes it out of the list.
       others = others.filter((other) => keyOf(other) !== account)
       if (before && keyOf(before) !== account) others = [before, ...others]
@@ -123,6 +126,7 @@ export function configFile(deps: ConfigFileDeps) {
     if (others.length > 0) next.otherAccounts = others
     await forgetDropped(previous, next)
     await writeFile(deps.path, next)
+    if (cfg.token && api !== currentApi()) deps.setApiUrl?.(api)
     deps.onToken(cfg.token ?? null)
   }
 

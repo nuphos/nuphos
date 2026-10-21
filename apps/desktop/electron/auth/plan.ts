@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 
-import { apiUrl } from '../api-endpoint.ts'
+import { loginApiUrl } from '../api-endpoint.ts'
 import { nodeFetch } from '../main/chromium-fetch.ts'
 
 import { apiErrorMessage, NUPHOS_LOGIN_URL } from './config.ts'
@@ -129,7 +129,7 @@ async function registerNativeSession(input: {
   codeChallenge: string
   clientState: string
 }): Promise<string> {
-  const res = await fetch(`${apiUrl()}/auth/native/session`, {
+  const res = await fetch(`${loginApiUrl()}/auth/native/session`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ...input, codeChallengeMethod: 'S256' }),

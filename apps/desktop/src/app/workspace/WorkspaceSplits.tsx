@@ -2,6 +2,7 @@ import { clsx } from 'clsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { isMac } from '../../lib/platform'
+import { endsSessions } from '../../lib/terminalTabTeardown'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
 import { SplitDropOverlay } from './SplitDropOverlay'
@@ -181,10 +182,13 @@ export function WorkspaceSplits({
 
   const handleLogout = useCallback(
     async (change?: AccountChange) => {
-      // Other panes stay mounted until logout completes; release their terminals too.
-      for (const store of stores.values()) {
-        for (const tab of selectAllResidentTabs(store.getState())) {
-          if (tab.sshTerminal) store.actions.closeTab(tab.id)
+      // Other panes stay mounted until logout completes; release their terminals
+      // too. Adding an account keeps this one, and its terminals, signed in.
+      if (endsSessions(change)) {
+        for (const store of stores.values()) {
+          for (const tab of selectAllResidentTabs(store.getState())) {
+            if (tab.sshTerminal) store.actions.closeTab(tab.id)
+          }
         }
       }
       await onLogout(change)

@@ -13,8 +13,8 @@ import type { Config } from './config.ts'
 // surfaces as a transient probe (keep the session, retry next launch).
 const AUTH_ME_TIMEOUT_MS = 10_000
 
-export async function fetchUserInfo(token: string): Promise<UserInfo> {
-  const res = await fetch(`${apiUrl()}/auth/me`, {
+export async function fetchUserInfo(token: string, api = apiUrl()): Promise<UserInfo> {
+  const res = await fetch(`${api}/auth/me`, {
     headers: {
       authorization: `Bearer ${token}`,
     },

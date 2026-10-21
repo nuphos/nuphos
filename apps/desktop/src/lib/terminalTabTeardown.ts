@@ -165,3 +165,12 @@ export function planSshTeardown(prev: LiveSshTabs, next: LiveSshTabs): SshTeardo
 export function planSshTeardownForLogout(tabs: readonly SshTabSnapshot[]): SshTeardownPlan {
   return planSshTeardown(collectLiveSshTabs(tabs), NO_LIVE_SSH_TABS)
 }
+
+/**
+ * Whether an account change ends this window's sessions (terminals, SSH,
+ * node shells). Adding an account does not: the current one stays signed in
+ * until the new sign-in completes, and may be returned to by cancelling.
+ */
+export function endsSessions(change?: { kind: string }): boolean {
+  return change?.kind !== 'add'
+}

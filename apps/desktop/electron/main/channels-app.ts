@@ -11,8 +11,8 @@ import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
 import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
+import { shownAccount } from '../auth/shown-account'
 import { authSession } from '../auth-session'
-import { unverifiedTokenSubject } from '../auth-status'
 import * as fileTransfer from '../fileTransfer'
 import { readImageAttachment, registerAttachment } from '../imageAttachment'
 import { raiseWindow } from '../window-raise'
@@ -33,12 +33,12 @@ import type { ThemeSource } from './theme'
 import type { PersonalCredentialProvider } from '../../src/types/team'
 import type { IpcMainInvokeEvent } from 'electron'
 
-// Another account taking over from a signed-in one (a switch, or adding an
-// account) reloads every window, so none keeps showing the previous account.
-// Signing in from, or out to, the sign-in screen is the renderer's own doing.
-authSession.subscribe((next, prev) => {
-  if (next && prev && unverifiedTokenSubject(next) !== unverifiedTokenSubject(prev))
-    reloadAppWindows()
+// Any change away from the account the windows show (a switch, adding an
+// account, signing out) reloads every window, so none keeps showing it.
+const movedFromShown = shownAccount(apiUrl, authSession.current())
+
+authSession.subscribe((next) => {
+  if (movedFromShown(next)) reloadAppWindows()
 })
 
 export const appChannels = {
@@ -76,7 +76,9 @@ export const appChannels = {
     await auth.logoutAll()
     resetAnalyticsUser()
   },
-  'auth:cancel': () => auth.cancelPendingLogin(),
+  'auth:cancel': () => auth.cancelAddAccount(),
+  'auth:loginEndpoint': () => auth.loginEndpoint(),
+  'auth:stageLoginEndpoint': (_e: unknown, url: string | null) => auth.stageLoginEndpoint(url),
   'auth:emailRequestCode': (_e: unknown, email: string) => auth.requestEmailCode(email),
   'auth:emailVerifyCode': (_e: unknown, email: string, code: string) =>
     auth.verifyEmailCode(email, code),

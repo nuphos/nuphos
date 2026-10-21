@@ -33,6 +33,30 @@ export function apiUrl(): string {
   return process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || DEFAULT_API_URL
 }
 
+// The backend a sign-in in progress talks to, when it is not the current one:
+// adding an account on another backend must not move the signed-in account
+// there before the new sign-in completes.
+let staged: string | null = null
+
+/** Where a sign-in in progress goes: the staged backend, else the current one. */
+export function loginApiUrl(): string {
+  return staged ?? apiUrl()
+}
+
+/** Stages the backend for the next sign-in (`null` drops it) and returns where sign-ins go. */
+export function stageLoginApiUrl(raw: string | null): string {
+  if (raw === null) {
+    staged = null
+  } else {
+    const url = new URL(raw.trim())
+
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Not an http(s) URL')
+    staged = url.origin === apiUrl() ? null : url.origin
+  }
+
+  return loginApiUrl()
+}
+
 /** A dev window may use Cloud, but must not advertise this computer there. */
 export function deviceRegistrationAllowed(dev: boolean): boolean {
   if (!dev) return true

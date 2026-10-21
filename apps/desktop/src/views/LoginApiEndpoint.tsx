@@ -7,7 +7,14 @@ import { setAvatarApiOrigin } from '../lib/avatarUrl'
 
 const DEFAULT_API_URL = 'https://api.nuphos.ai'
 
-type Props = { inputClassName: string }
+type Props = {
+  inputClassName: string
+  /**
+   * Adding an account: the endpoint applies to that sign-in only, and the app
+   * moves there with it once it completes.
+   */
+  staged?: boolean
+}
 
 function isHttpUrl(raw: string) {
   try {
@@ -17,15 +24,15 @@ function isHttpUrl(raw: string) {
   }
 }
 
-/** The sign-in screen's quiet "self-hosted backend" switch. Takes effect immediately. */
-export function LoginApiEndpoint({ inputClassName }: Props) {
+/** The sign-in screen's quiet "self-hosted backend" switch. Takes effect immediately unless `staged`. */
+export function LoginApiEndpoint({ inputClassName, staged = false }: Props) {
   const [current, setCurrent] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
 
   useEffect(() => {
-    void api.atlasGetApiUrl().then(setCurrent)
-  }, [])
+    void (staged ? api.authLoginEndpoint() : api.atlasGetApiUrl()).then(setCurrent)
+  }, [staged])
 
   if (!current) return null
   const custom = current !== DEFAULT_API_URL
@@ -33,6 +40,12 @@ export function LoginApiEndpoint({ inputClassName }: Props) {
   async function save(url: string | null) {
     if (url !== null && !isHttpUrl(url)) {
       toast.error('Invalid API endpoint', 'Enter a full URL, e.g. https://nuphos.example.com')
+
+      return
+    }
+    if (staged) {
+      setCurrent(await api.authStageLoginEndpoint(url ?? DEFAULT_API_URL))
+      setEditing(false)
 
       return
     }

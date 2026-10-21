@@ -1,9 +1,10 @@
+import { loginApiUrl } from '../api-endpoint.ts'
 import { parseCallbackUser } from '../auth-status.ts'
 
 import { LOGIN_TIMEOUT_MS, onCallback } from './callback-server.ts'
-import { writeConfig } from './config.ts'
 import { fetchUserInfo } from './me.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
+import { saveSignIn, signInAttempt } from './sign-in.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 import type { LoginPlan } from './plan.ts'
@@ -14,6 +15,8 @@ export async function completeLegacyLogin(
   server: Server,
   plan: Extract<LoginPlan, { mode: 'legacy' }>,
 ): Promise<UserInfo> {
+  const attempt = signInAttempt()
+
   return new Promise<UserInfo>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Login timed out')), LOGIN_TIMEOUT_MS)
 
@@ -42,9 +45,10 @@ export async function completeLegacyLogin(
           // anything that fails here must fail the sign-in visibly rather than
           // leave the browser claiming success with the token dropped.
           const user =
-            parseCallbackUser(received.params.get('user'), token) ?? (await fetchUserInfo(token))
+            parseCallbackUser(received.params.get('user'), token) ??
+            (await fetchUserInfo(token, loginApiUrl()))
 
-          await writeConfig({
+          await saveSignIn(attempt, {
             token,
             user: user.name,
             username: user.username,

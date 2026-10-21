@@ -1,4 +1,4 @@
-import { apiUrl } from '../api-endpoint.ts'
+import { loginApiUrl } from '../api-endpoint.ts'
 import { isValidUserInfo } from '../auth-status.ts'
 
 import {
@@ -7,8 +7,9 @@ import {
   onCallback,
   SESSION_POLL_INTERVAL_MS,
 } from './callback-server.ts'
-import { apiErrorMessage, writeConfig } from './config.ts'
+import { apiErrorMessage } from './config.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
+import { saveSignIn, signInAttempt } from './sign-in.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 import type { CallbackHit } from './callback-server.ts'
@@ -28,7 +29,7 @@ async function redeemNativeSession(
   let res: Response
 
   try {
-    res = await fetch(`${apiUrl()}/auth/native/session/redeem`, {
+    res = await fetch(`${loginApiUrl()}/auth/native/session/redeem`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ handle, codeVerifier, code }),
@@ -65,6 +66,7 @@ export async function completeNativeLogin(
   server: Server,
   plan: Extract<LoginPlan, { mode: 'native' }>,
 ): Promise<UserInfo> {
+  const attempt = signInAttempt()
   // An object rather than plain `let`s: TypeScript narrows those to their
   // initial values across the callback boundary, and the loop below reads them.
   const browser: { hit: CallbackHit | null; code: string | null; error: string | null } = {
@@ -111,7 +113,7 @@ export async function completeNativeLogin(
         throw new Error(outcome.message)
       }
       if (outcome.status === 'ready') {
-        await writeConfig({
+        await saveSignIn(attempt, {
           token: outcome.token,
           user: outcome.user.name,
           username: outcome.user.username,

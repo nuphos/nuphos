@@ -52,6 +52,17 @@ export function LoginView({ onLogin, others = [], onPickAccount, adding, onCance
     busy === 'send' && step === 'code' ? 'Sending…' : 'Resend code',
   )
   const shownStep = useRef(step)
+  // Set once the user cancels or leaves: a sign-in finishing after that is
+  // ignored here (the main process does not save it either).
+  const abandoned = useRef(false)
+
+  useEffect(() => {
+    abandoned.current = false
+
+    return () => {
+      abandoned.current = true
+    }
+  }, [])
 
   // Both steps stay mounted for the slide, so focus the step's field once the
   // slide has settled instead of relying on autoFocus at mount.
@@ -73,8 +84,9 @@ export function LoginView({ onLogin, others = [], onPickAccount, adding, onCance
     try {
       const user = await api.authLogin()
 
-      onLogin(user)
+      if (!abandoned.current) onLogin(user)
     } catch (e) {
+      if (abandoned.current) return
       toast.apiError('Sign-in failed', e, {
         fallback: 'Check your internet connection and try again.',
       })
@@ -112,8 +124,9 @@ export function LoginView({ onLogin, others = [], onPickAccount, adding, onCance
     try {
       const user = await api.authEmailVerifyCode(email.trim(), code)
 
-      onLogin(user)
+      if (!abandoned.current) onLogin(user)
     } catch (e) {
+      if (abandoned.current) return
       toast.apiError('Sign-in failed', e, {
         fallback: 'Check your internet connection and try again.',
       })
@@ -195,13 +208,14 @@ export function LoginView({ onLogin, others = [], onPickAccount, adding, onCance
                   </span>
                 </Button>
               </form>
-              <LoginApiEndpoint inputClassName={inputClasses} />
+              <LoginApiEndpoint inputClassName={inputClasses} staged={Boolean(adding)} />
               {onCancel && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => {
+                    abandoned.current = true
                     void api.authCancel()
                     onCancel()
                   }}

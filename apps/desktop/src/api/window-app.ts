@@ -52,6 +52,8 @@ export type WindowAppApi = {
   authAccounts(): Promise<OtherAccount[]>
   authSwitch(key: string): Promise<AuthStatus>
   authLogoutAll(): Promise<void>
+  authLoginEndpoint(): Promise<string>
+  authStageLoginEndpoint(url: string | null): Promise<string>
   authCancel(): Promise<void>
   authEmailRequestCode(email: string): Promise<void>
   authEmailVerifyCode(email: string, code: string): Promise<UserInfo>

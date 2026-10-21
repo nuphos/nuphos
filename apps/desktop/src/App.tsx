@@ -66,23 +66,26 @@ export default function App() {
   }, [])
 
   const onLogout = async (change?: AccountChange) => {
-    forgetMacAccounts()
     if (change?.kind === 'add') {
       if (auth.status === 'authenticated') setAuth({ status: 'adding', user: auth.user })
 
       return
     }
-    resetAnalytics()
+    forgetMacAccounts()
     if (change?.kind === 'switch') {
+      resetAnalytics()
       // A successful switch reloads every window as the new account.
       await switched(setAuth, await api.authSwitch(change.key))
 
       return
     }
+    // Sent while still attributed to the account signing out; signing out
+    // also reloads the other windows.
+    track('logout')
+    resetAnalytics()
     clearComposerDrafts()
     if (change?.kind === 'logoutAll') await api.authLogoutAll()
     else await api.authLogout()
-    track('logout')
     await signedOut(setAuth)
   }
 
@@ -95,25 +98,22 @@ export default function App() {
     )
   }
 
-  if (auth.status === 'anonymous' || auth.status === 'adding') {
-    const adding = auth.status === 'adding' ? auth.user : null
-
+  if (auth.status === 'anonymous') {
     return (
       <LoginView
-        others={auth.status === 'anonymous' ? auth.others : []}
-        adding={adding}
-        onCancel={adding ? () => enter(setAuth, adding) : undefined}
+        others={auth.others}
         onPickAccount={async (key) => {
           await switched(setAuth, await api.authSwitch(key))
         }}
         onLogin={(user) => {
-          // Adding an account reloads every window as it once it is saved.
           track('login', { method: 'oauth' })
           enter(setAuth, user)
         }}
       />
     )
   }
+
+  const adding = auth.status === 'adding'
 
   return (
     <CurrentUserContext value={auth.user}>
@@ -122,10 +122,26 @@ export default function App() {
         user={auth.user}
         onUserUpdated={(user) => {
           identifyUser(user)
-          setAuth({ status: 'authenticated', user })
+          setAuth(adding ? { status: 'adding', user } : { status: 'authenticated', user })
         }}
         onLogout={onLogout}
       />
+      {adding && (
+        // Over the workspace rather than instead of it: its tabs and terminals
+        // stay as they are if the new sign-in is cancelled.
+        <div className="fixed inset-0 z-[1900] bg-main">
+          <LoginView
+            adding={auth.user}
+            onCancel={() => setAuth({ status: 'authenticated', user: auth.user })}
+            onLogin={(user) => {
+              track('login', { method: 'oauth' })
+              // Another account reloads every window as it once saved; the
+              // current one, signed in again, just returns to the workspace.
+              if (user.id === auth.user.id) setAuth({ status: 'authenticated', user })
+            }}
+          />
+        </div>
+      )}
       <BoxPaywallHost />
     </CurrentUserContext>
   )

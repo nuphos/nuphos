@@ -3,7 +3,11 @@ import { useCallback, useEffect } from 'react'
 import { api } from '../../api'
 import { restorePersistedTab } from '../../app/workspacePersistence'
 import { logNewTabRequested } from '../../lib/tabSwitchLog'
-import { collectLocalTerminalTabIds, planSshTeardownForLogout } from '../../lib/terminalTabTeardown'
+import {
+  collectLocalTerminalTabIds,
+  endsSessions,
+  planSshTeardownForLogout,
+} from '../../lib/terminalTabTeardown'
 
 import {
   selectAllResidentTabs,
@@ -93,6 +97,13 @@ export function useWorkspaceTabLifecycle(a: Args) {
   // terminals down here.
   const handleLogout = useCallback(
     (change?: AccountChange) => {
+      // Adding an account keeps this one signed in, so its sessions stay open;
+      // the windows reload once the new account is saved.
+      if (!endsSessions(change)) {
+        void onLogout(change)
+
+        return
+      }
       const residentTabs = selectAllResidentTabs(workspaceStore.getState())
       const plan = planSshTeardownForLogout(residentTabs)
 

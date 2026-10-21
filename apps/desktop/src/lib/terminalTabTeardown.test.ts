@@ -10,6 +10,7 @@ import {
   execSessionKey,
   planExecTeardown,
   planSshTeardown,
+  endsSessions,
   planSshTeardownForLogout,
 } from './terminalTabTeardown.ts'
 
@@ -251,4 +252,11 @@ test('a tab that closed its detail, or closed entirely, tears everything down', 
     { tabId: 't2', scope: null },
     { tabId: 't1', scope: null },
   ])
+})
+
+test('opening Add account keeps the sessions; switching and signing out end them', () => {
+  assert.equal(endsSessions({ kind: 'add' }), false)
+  assert.equal(endsSessions({ kind: 'switch' }), true)
+  assert.equal(endsSessions({ kind: 'logoutAll' }), true)
+  assert.equal(endsSessions(), true)
 })
