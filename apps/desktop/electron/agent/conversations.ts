@@ -28,11 +28,12 @@ export async function steerConversation(
   text: string,
   teamId?: string,
   groupId?: string,
+  queuedId?: string,
 ): Promise<{ ok: boolean; messageId: string; text?: string }> {
   return callJson<{ ok: boolean; messageId: string; text?: string }>(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/steer${teamQuery(teamId)}`,
-    { text, ...(groupId ? { groupId } : {}) },
+    { text, ...(groupId ? { groupId } : {}), ...(queuedId ? { queuedId } : {}) },
   )
 }
 

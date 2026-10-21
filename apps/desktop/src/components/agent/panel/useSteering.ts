@@ -22,8 +22,8 @@ export function useSteering({
   fallback: (tabId: string, text: string, filePaths: string[]) => Promise<void>
 }) {
   /**
-   * Resolves true once the running turn has the message. `queuedId` names a
-   * message already waiting in the server queue: it keeps its place there.
+   * `queuedId` names a message waiting in the server queue: the server takes
+   * it off the queue to steer it and keeps it queued if the steer is refused.
    */
   const sendSteering = useCallback(
     async (
@@ -31,10 +31,10 @@ export function useSteering({
       text: string,
       filePaths: string[] = [],
       queuedId?: string,
-    ): Promise<boolean> => {
+    ) => {
       const tab = tabsRef.current.find((t) => t.id === tabId)
 
-      if (!tab?.sessionId) return false
+      if (!tab?.sessionId) return
       const id = queuedId ?? crypto.randomUUID()
       const markSteering = (steering: boolean) =>
         setTabs((tabs) =>
@@ -66,7 +66,13 @@ export function useSteering({
             ? (await api.fileTransferUpload({ teamId, sessionId: tab.sessionId, filePaths }))
                 .groupId
             : undefined
-        const sent = await api.agentSteerConversation(tab.sessionId, text, teamId, groupId)
+        const sent = await api.agentSteerConversation(
+          tab.sessionId,
+          text,
+          teamId,
+          groupId,
+          queuedId,
+        )
         const metadata = optimisticSenderMetadata(currentUser, Date.now())
         const upload = sent.upload ? normalizeTransferUploadPart(sent.upload) : null
         const receipt = {
@@ -92,15 +98,12 @@ export function useSteering({
               : t,
           ),
         )
-
-        return true
       } catch (error) {
         if (queuedId) {
-          // Still waiting in the server queue; it runs there in its place.
           markSteering(false)
-          toast.apiError('Could not send into the running turn; it stays in the queue', error)
+          toast.apiError('Could not send into the running turn; it is still in the queue', error)
 
-          return false
+          return
         }
         // The turn is usually over by now, or not this person's: send it as a message.
         setTabs((tabs) => tabs.map((t) => (t.id === tabId ? withoutQueued(t, id) : t)))
@@ -110,8 +113,6 @@ export function useSteering({
             error,
           )
         await fallback(tabId, text, filePaths)
-
-        return false
       }
     },
     [tabsRef, setTabs, teamId, currentUser, fallback],

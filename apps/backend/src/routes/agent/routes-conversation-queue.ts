@@ -49,9 +49,12 @@ agent.get('/conversations/:sessionId/queue', async (c) => {
   })
 })
 
-agent.delete('/conversations/:sessionId/queue/:messageId', async (c) => {
-  const { userId, conversation } = await readableConversation(c)
-  const messageId = c.req.param('messageId')
+/** Takes the sender's own waiting message off the queue, so nothing else can run it. */
+export async function takeOwnQueued(
+  conversation: { userId: string; sessionId: string },
+  userId: string,
+  messageId: string,
+) {
   const message = (await queued(conversation)).find((entry) => entry.id === messageId)
 
   if (!message) throw new AppError(404, 'not_found', 'This message is no longer waiting')
@@ -64,6 +67,13 @@ agent.delete('/conversations/:sessionId/queue/:messageId', async (c) => {
   )
 
   if (!removed) throw new AppError(404, 'not_found', 'This message is no longer waiting')
+
+  return message
+}
+
+agent.delete('/conversations/:sessionId/queue/:messageId', async (c) => {
+  const { userId, conversation } = await readableConversation(c)
+  const message = await takeOwnQueued(conversation, userId, c.req.param('messageId'))
 
   return c.json({
     ok: true,
