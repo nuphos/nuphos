@@ -16,7 +16,12 @@ export function useQueueActions({
   teamId,
   sendSteering,
 }: Pick<PanelCtx, 'tabsRef' | 'setTabs' | 'teamId'> & {
-  sendSteering: (tabId: string, text: string, filePaths: string[], queuedId: string) => Promise<void>
+  sendSteering: (
+    tabId: string,
+    text: string,
+    filePaths: string[],
+    queuedId: string,
+  ) => Promise<void>
 }) {
   // Steer a waiting message into the running turn; the server moves it off the queue.
   const steerQueued = useCallback(

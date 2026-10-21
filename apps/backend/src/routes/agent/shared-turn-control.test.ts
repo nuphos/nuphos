@@ -101,7 +101,11 @@ test('steering forwards an uploaded group and returns the delivered receipt', as
 async function queueTwo() {
   const sender = 'bbbbbbbbbbbbbbbbbbbbbbbb'
   const first = buildPendingUserMessage({ renderedText: 'one', source: 'app', actorUserId: sender })
-  const second = buildPendingUserMessage({ renderedText: 'two', source: 'app', actorUserId: sender })
+  const second = buildPendingUserMessage({
+    renderedText: 'two',
+    source: 'app',
+    actorUserId: sender,
+  })
 
   await enqueuePendingUserMessage('owner', 'shared-control', first)
   await enqueuePendingUserMessage('owner', 'shared-control', second)

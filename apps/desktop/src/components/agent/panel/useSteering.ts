@@ -26,12 +26,7 @@ export function useSteering({
    * it off the queue to steer it and keeps it queued if the steer is refused.
    */
   const sendSteering = useCallback(
-    async (
-      tabId: string,
-      text: string,
-      filePaths: string[] = [],
-      queuedId?: string,
-    ) => {
+    async (tabId: string, text: string, filePaths: string[] = [], queuedId?: string) => {
       const tab = tabsRef.current.find((t) => t.id === tabId)
 
       if (!tab?.sessionId) return
