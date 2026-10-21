@@ -105,6 +105,15 @@ done
     assert!(refresh("fourth", "fifth").await.is_err(), "meta kept the old value");
     assert_eq!(spawns().len(), 1);
 
+    // So is a credential that could not be revoked.
+    let stale = dir.join("REVOKED");
+    std::fs::create_dir(&stale).unwrap();
+    std::fs::write(stale.join("blocker"), "").unwrap();
+    let failed = refresh("third", "fourth").await;
+    std::fs::remove_dir_all(&stale).unwrap();
+    assert!(failed.is_err(), "a failed revoke must be reported");
+    assert!(refresh("fourth", "fifth").await.is_err(), "meta kept the old value");
+
     std::process::Command::new("kill")
         .arg(pid)
         .status()

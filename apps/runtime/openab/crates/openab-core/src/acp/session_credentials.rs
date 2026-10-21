@@ -107,25 +107,25 @@ pub fn try_write_session_credentials(
     for (name, value) in &entries {
         write_private(&dir, name, value)?;
     }
-    remove_obsolete(&dir, &entries);
+    remove_obsolete(&dir, &entries)?;
     Ok(Some(dir))
 }
 
 /// In-flight temp files start with `.` and belong to a concurrent writer.
-fn remove_obsolete(dir: &Path, keep: &[(&str, &str)]) {
-    let Ok(listing) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in listing.flatten() {
+fn remove_obsolete(dir: &Path, keep: &[(&str, &str)]) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
         let name = entry.file_name();
         let name = name.to_string_lossy();
         if name.starts_with('.') || keep.iter().any(|(kept, _)| *kept == name) {
             continue;
         }
-        if let Err(error) = std::fs::remove_file(entry.path()) {
-            warn!(credential = %name, %error, "could not revoke session credential");
+        match std::fs::remove_file(entry.path()) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error),
+            _ => {}
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
