@@ -217,12 +217,6 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
   )
 
   session.conversationOwnerUserId = handoff.ownerUserId
-  // The running turn may hold a short-lived token its old replica renewed.
-  // Hand it this replica's long-lived one; the next prompt re-mints anyway.
-  if (session.client?.credentialRefresh)
-    await session.client
-      .refreshCredentials?.(session.openabSessionId, access.runtimeEnv)
-      .catch((error: unknown) => logError('agent.runtime_handoff.credentials_failed', error))
   logEvent('info', 'agent.runtime_handoff.adopted', {
     team_id: handoff.teamId,
     session_id: handoff.conversationId,

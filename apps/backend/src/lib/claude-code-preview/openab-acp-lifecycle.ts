@@ -16,10 +16,16 @@ export abstract class OpenAbAcpLifecycle {
   onTerminalFrame?: (frame: unknown) => void
   /** Set from `initialize`: the runtime takes fresh credentials mid-turn. */
   credentialRefresh = false
-  refreshCredentials(sessionId: string, env: Record<string, string> | undefined) {
+  /** Replaces the session's credentials while it still holds `expected`'s. */
+  refreshCredentials(
+    sessionId: string,
+    expected: Record<string, string> | undefined,
+    next: Record<string, string> | undefined,
+  ) {
     return this.call('_openab/session/credentials', {
       sessionId,
-      credentials: sessionCredentials(env),
+      expected: sessionCredentials(expected),
+      credentials: sessionCredentials(next),
     })
   }
   terminalRequest(

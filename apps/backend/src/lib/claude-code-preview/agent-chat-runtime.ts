@@ -1,5 +1,3 @@
-import { logError } from '@/lib/observability'
-
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { RunHandoff } from '@/lib/lifecycle'
 
@@ -34,6 +32,7 @@ import type { RuntimeAttachment } from './runtime-attachments'
 import type { TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
 
 import type { previewSessionAccess } from './credentials-mcp'
+import { RENEWED_TOKEN_TTL_SEC, renewTurnCredentials } from './turn-credential-renewal'
 export {
   previewRuntimeObservability,
   cancelPreviewConversationSession,
@@ -49,10 +48,6 @@ export type {
 } from './autonomous-session-observer'
 export { resolveConversationChatRuntime } from './conversation-chat-route'
 export type { ConversationChatRuntime } from './conversation-chat-route'
-
-// Renewed every 10 minutes, so two missed renewals still leave time to recover.
-const RENEWED_TOKEN_TTL_SEC = 30 * 60
-const TOKEN_RENEW_INTERVAL_MS = 10 * 60 * 1000
 
 // A handoff lets go of the stream only; the runtime keeps running the turn.
 const cancels = (signal: AbortSignal) => signal.aborted && !(signal.reason instanceof RunHandoff)
@@ -169,13 +164,13 @@ export async function runClaudeCodePreviewPrompt(args: {
     locale: args.locale,
   }
   const activeTurn = { cancelled: cancels(args.signal) } as NonNullable<TeamSession['activeTurn']>
+  let renewal: ReturnType<typeof renewTurnCredentials> | undefined
   const onAbort = () => {
+    if (args.signal.reason instanceof RunHandoff) void renewal?.handOff()
     if (!cancels(args.signal)) return
     activeTurn.cancelled = true
     if (session.activeTurn === activeTurn) cancelActiveTeamTurn(session)
   }
-
-  let renewal: ReturnType<typeof setInterval> | undefined
 
   args.signal.addEventListener('abort', onAbort, { once: true })
   try {
@@ -196,13 +191,11 @@ export async function runClaudeCodePreviewPrompt(args: {
 
       nextContext.mcpServers = access.mcpServers
       nextContext.runtime = { ...nextContext.runtime, env: access.runtimeEnv }
-      renewal = setInterval(() => {
-        refresh(session.openabSessionId, renew(RENEWED_TOKEN_TTL_SEC).runtimeEnv).catch(
-          (error: unknown) => {
-            logError('preview.credentials.renew_failed', error)
-          },
-        )
-      }, TOKEN_RENEW_INTERVAL_MS)
+      renewal = renewTurnCredentials({
+        installed: access.runtimeEnv,
+        renew,
+        refresh: (expected, next) => refresh(session.openabSessionId, expected, next),
+      })
     }
     // MCP tokens, runtime environment, and the personal portion of the system
     // prompt are execution-principal scoped. A shared Slack conversation can
@@ -281,7 +274,7 @@ export async function runClaudeCodePreviewPrompt(args: {
 
     return { stopReason: await settledCodexStopReason(session, result, text.last()) }
   } finally {
-    clearInterval(renewal)
+    renewal?.stop()
     args.signal.removeEventListener('abort', onAbort)
     if (session.activeTurn === activeTurn) {
       session.activeTurn = undefined
