@@ -3,13 +3,22 @@ import { conversationExecutionState } from './session-execution-state'
 
 import type { TeamSession } from './team-openab-runtime'
 
-export function lastTextChunkTracker(onTextDelta: (text: string) => void) {
+export function lastTextChunkTracker(
+  onTextDelta: (
+    text: string,
+    metadata?: import('./preview-agent-update').PreviewTextMetadata,
+  ) => void,
+) {
   let last = ''
 
   return {
-    onTextDelta: (text: string) => {
+    onTextDelta: (
+      text: string,
+      metadata?: import('./preview-agent-update').PreviewTextMetadata,
+    ) => {
       last = text
-      onTextDelta(text)
+      if (metadata) onTextDelta(text, metadata)
+      else onTextDelta(text)
     },
     last: () => last,
   }

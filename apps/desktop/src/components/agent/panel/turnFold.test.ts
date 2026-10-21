@@ -71,3 +71,24 @@ test('a cleanly finished turn still folds at its final answer', () => {
 
   assert.equal(turnFoldSplitIndex(parts, { streaming: false }), 2)
 })
+
+test('failed calls stay visible even when the agent follows them with final text', () => {
+  assert.equal(
+    turnFoldSplitIndex([tool('output-error'), text('The command failed.')], { streaming: false }),
+    -1,
+  )
+  assert.equal(
+    turnFoldSplitIndex(
+      [{ ...tool(), output: { exitCode: 6 } } as Part, text('The command failed.')],
+      { streaming: false },
+    ),
+    -1,
+  )
+})
+
+test('interrupted and stopped turns keep failed calls visible', () => {
+  for (const failed of [tool('output-error'), { ...tool(), output: { exit_code: 6 } } as Part]) {
+    assert.equal(turnFoldSplitIndex([failed, interrupted('error')], { streaming: false }), -1)
+    assert.equal(turnFoldSplitIndex([failed], { streaming: false, endedWithoutAnswer: true }), -1)
+  }
+})

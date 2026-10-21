@@ -1,12 +1,11 @@
-// Translates a runtime-owned ACP turn into SSE and transcript updates.
 import { randomUUID } from 'node:crypto'
 
 import './chat-preview-autonomous-runs'
 
 import { config } from '@/config'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
-import { requeueTurnQueue } from '@/lib/agent/session-released'
 import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
+import { requeueTurnQueue } from '@/lib/agent/session-released'
 import {
   previewRuntimeObservability,
   runClaudeCodePreviewPrompt,
@@ -20,13 +19,14 @@ import {
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 import { isRuntimeRefusal, queuedRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { desktopTracker } from '@/lib/claude-code-preview/session-desktops'
 import {
   createSteeringAttribution,
   steeringReceipt,
 } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
-import { desktopTracker } from '@/lib/claude-code-preview/session-desktops'
 import { RunHandoff } from '@/lib/lifecycle'
+
 import {
   finishPreviewTurn,
   persistHandedOffPreviewTurn,
@@ -44,6 +44,7 @@ import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
 import { handlePreviewToolUpdate, trackSteerCutOff } from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
+
 import type { PreviewChatTurnArgs, TurnEnd } from './chat-preview-run'
 import type { PreviewDecision } from '@/lib/claude-code-preview/decision-waiter'
 import type { OpenAbPermissionHandler } from '@/lib/claude-code-preview/openab-acp-session'
@@ -76,7 +77,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     }),
   )
   const pauses = new AbortController()
-  // Mid-turn assistant/user segments persisted before the final assistant.
   const steered: UIMessage[] = []
   const steer = trackSteerCutOff(state.emit, toolLog)
 
@@ -154,11 +154,13 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       renewAccess: access.renew,
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
-      onTextDelta: (delta) => {
+      onTextDelta: (delta, metadata) => {
         diagnostic.progress()
         steer.observe()
         acc.text += delta
-        orderedParts.appendText(delta)
+        if (orderedParts.appendText(delta, metadata)) {
+          state.emit({ type: 'text-start', messageId: metadata?.messageId, phase: metadata?.phase })
+        }
         state.emit({ type: 'text-delta', delta })
       },
       onAgentUpdate: (update) => {
@@ -251,8 +253,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
     state.unbind()
     await clearActiveTurn()
-    // After a handoff the original run is already closed; the continuation
-    // run must carry the error itself instead of the caller's catch.
+    // Handoff errors belong to the continuation; the original run is closed.
     if (!state.handedOff()) throw queuedRefusal(err, args.queued)
     appendAgentRunError(state.current(), queuedRefusal(err, args.queued))
     state.finish()
@@ -271,7 +272,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     return
   }
   pauses.abort()
-  // Runtime completion is authoritative: late tool cards cause no cancel or re-prompt.
   if (acc.text) answers.push(acc.text)
 
   await prepared.openPromptSuggestion()

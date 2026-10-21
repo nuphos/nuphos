@@ -14,7 +14,14 @@ export function normalizePersistedPart(part: unknown): Part | null {
   const value = part as Record<string, unknown>
 
   if (value.type === 'text' && typeof value.text === 'string') {
-    return { type: 'text', text: value.text }
+    return {
+      type: 'text',
+      text: value.text,
+      ...(typeof value.messageId === 'string' ? { messageId: value.messageId } : {}),
+      ...(value.phase === 'commentary' || value.phase === 'final_answer'
+        ? { phase: value.phase }
+        : {}),
+    }
   }
   if (value.type === 'reasoning' && typeof value.text === 'string') {
     return {

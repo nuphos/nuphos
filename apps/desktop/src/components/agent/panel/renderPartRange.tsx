@@ -51,3 +51,19 @@ export function renderPartRange(
       : renderToolRun(parts, segment.indices, renderPart, now),
   )
 }
+
+/** Filter before grouping so excluded calls cannot leave empty tool run headers. */
+export function renderSelectedParts(
+  parts: Part[],
+  indices: number[],
+  renderPart: RenderPart,
+  now: number,
+): ReactNode[] {
+  return renderPartRange(
+    indices.map((index) => parts[index]),
+    0,
+    indices.length,
+    (part, index, options) => renderPart(part, indices[index], options),
+    now,
+  )
+}

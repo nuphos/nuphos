@@ -3,17 +3,18 @@
 // would have generated. The history preamble lives in
 // preview-history-preamble.ts (this file sits at the max-lines limit).
 
-import { CodexTurnFailedError } from './codex-turn-failure'
-import { OpenAbConnectionLostError, runtimeProductStateMessage } from './openab-acp-errors'
-import { attributeReceipt } from './steering-receipt'
-
-import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
-import type { UIMessage } from 'ai'
-
 import { getCompactionSummary, getConversation, updateConversationTitle } from '@/lib/agent/db'
 import { fallbackTitle } from '@/lib/agent/title-fallback'
 import { generateConversationTitle } from '@/lib/agent/title-generator'
 import { logError } from '@/lib/observability'
+
+import { CodexTurnFailedError } from './codex-turn-failure'
+import { OpenAbConnectionLostError, runtimeProductStateMessage } from './openab-acp-errors'
+import { attributeReceipt } from './steering-receipt'
+
+import type { PreviewTextMetadata } from './preview-agent-update'
+import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
+import type { UIMessage } from 'ai'
 
 export type PreviewToolStep = {
   toolCallId: string
@@ -126,7 +127,7 @@ function previewToolPart(step: PreviewToolStep): ToolPart {
 }
 
 type PreviewPartOrderEntry =
-  | { type: 'text'; text: string }
+  | ({ type: 'text'; text: string } & PreviewTextMetadata)
   | { type: 'reasoning'; text: string }
   | { type: 'tool'; toolCallId: string }
   | SteeringEntry
@@ -140,16 +141,38 @@ type PreviewPartOrderEntry =
 export function createPreviewAssistantPartAccumulator(attribute?: SteeringAttribution) {
   const entries: PreviewPartOrderEntry[] = []
   const toolIds = new Set<string>()
-  const appendTextLike = (type: 'text' | 'reasoning', text: string) => {
-    if (!text) return
+  const appendTextLike = (
+    type: 'text' | 'reasoning',
+    text: string,
+    metadata?: PreviewTextMetadata,
+  ) => {
+    if (!text) return false
     const previous = entries.at(-1)
 
-    if (previous?.type === type) {
+    if (
+      previous?.type === type &&
+      (previous.type === 'reasoning' ||
+        (previous.messageId === metadata?.messageId && previous.phase === metadata?.phase))
+    ) {
       previous.text += text
 
-      return
+      return false
     }
-    entries.push({ type, text })
+    entries.push({
+      type,
+      text,
+      ...(metadata?.messageId ? { messageId: metadata.messageId } : {}),
+      ...(metadata?.phase ? { phase: metadata.phase } : {}),
+    })
+
+    return (
+      type === 'text' &&
+      Boolean(
+        metadata?.messageId ||
+        metadata?.phase ||
+        (previous?.type === 'text' && (previous.messageId || previous.phase)),
+      )
+    )
   }
 
   return {
@@ -160,8 +183,8 @@ export function createPreviewAssistantPartAccumulator(attribute?: SteeringAttrib
 
       entries.push({ type: 'data-steering', data: { ...receipt }, receivedAt })
     },
-    appendText: (text: string) => {
-      appendTextLike('text', text)
+    appendText: (text: string, metadata?: PreviewTextMetadata) => {
+      return appendTextLike('text', text, metadata)
     },
     appendReasoning: (text: string) => {
       appendTextLike('reasoning', text)

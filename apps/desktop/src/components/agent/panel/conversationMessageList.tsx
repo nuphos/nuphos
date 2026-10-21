@@ -5,10 +5,11 @@ import { runtimeAllows, runtimeIsExecuting } from '../../../lib/runtimeExecution
 import { publishSessionDesktops } from '../../../lib/sessionDesktops'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
+import { conversationActivity } from './activity'
 import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
 import { AgentHomeAnimation } from './homeAnimation'
-import { LoadingText } from './partChrome'
+import { CollapsedWorkView, LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
 import { sessionDesktopsOf } from './shells'
 import { DEFERRED_MESSAGE_STYLE } from './status'
@@ -78,6 +79,62 @@ export function ConversationMessageList({
   // it opened with do not.
   const openedAt = tab.openedAt ?? 0
 
+  const protectedIds = new Set(
+    [...downloadsByMessage].filter(([, groups]) => groups.length > 0).map(([id]) => id),
+  )
+  const boundaryIds = new Set(
+    [...timeline.before].filter(([, events]) => events.length > 0).map(([id]) => id),
+  )
+  const activity = conversationActivity(messages, protectedIds, boundaryIds)
+  const renderAssistant = (
+    m: Message,
+    isLast: boolean,
+    isStreamingMessage: boolean,
+    prevCreatedAt?: number,
+    history = false,
+  ) => (
+    <div
+      key={m.id}
+      data-message-id={m.id}
+      className="transition-shadow"
+      style={isLast ? undefined : DEFERRED_MESSAGE_STYLE}
+    >
+      {m.turnOrigin === 'autonomous' && !activity.before.has(m.id) && (
+        <div className="mb-4 flex items-center gap-2 text-[11.5px] text-tertiary">
+          <AlarmClock className="h-3.5 w-3.5" />
+          <span className="whitespace-nowrap">Resumed automatically</span>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
+      )}
+      <AssistantMessage
+        message={m}
+        activityHistory={history}
+        teamId={teamId}
+        sessionId={tab.sessionId}
+        currentUrl={currentUrl}
+        streaming={isStreamingMessage}
+        now={isStreamingMessage ? now : 0}
+        downloadGroups={downloadsByMessage.get(m.id)}
+        prevCreatedAt={m.turnOrigin === 'autonomous' ? undefined : prevCreatedAt}
+        isLatestReply={isLast}
+        onStop={onStop}
+        onApprovePlan={onApprovePlan}
+        onRejectPlan={onRejectPlan}
+        activePlanCanAct={activePlanCanAct ?? null}
+        canActOnPlans={
+          (runtimeAllows(tab.runtimeState, 'send') || runtimeAllows(tab.runtimeState, 'reply')) &&
+          !tab.readOnly
+        }
+        isTeamAdmin={isTeamAdmin}
+        onOpenNuphosLink={onOpenNuphosLink}
+        // Feedback is owner-only (backend 403s otherwise); read-only
+        // team views get copy + time but no vote buttons.
+        onMessageFeedback={tab.readOnly || tab.foreign ? undefined : onMessageFeedback}
+        onRequestFeedbackComment={onRequestFeedbackComment}
+      />
+    </div>
+  )
+
   return (
     // Match the composer's column and inner padding so messages stay inside its edges.
     <div className="mx-auto w-full max-w-[760px] space-y-4 px-3">
@@ -112,6 +169,7 @@ export function ConversationMessageList({
         </div>
       ) : (
         messages.map((m, mi) => {
+          if (activity.hidden.has(m.id)) return null
           const isLast = m.id === lastMsg?.id
           // Turn start for the "Worked for Xs" fold: the preceding user
           // message's persisted time.
@@ -147,50 +205,11 @@ export function ConversationMessageList({
                 />
               </div>
             ) : (
-              <div
-                key={m.id}
-                data-message-id={m.id}
-                className="transition-shadow"
-                style={wrapperStyle}
-              >
-                {m.turnOrigin === 'autonomous' && (
-                  <div className="mb-4 flex items-center gap-2 text-[11.5px] text-tertiary">
-                    <AlarmClock className="h-3.5 w-3.5" />
-                    <span className="whitespace-nowrap">Resumed automatically</span>
-                    <div className="h-px flex-1 bg-border/60" />
-                  </div>
-                )}
-                <AssistantMessage
-                  message={m}
-                  teamId={teamId}
-                  sessionId={tab.sessionId}
-                  currentUrl={currentUrl}
-                  streaming={isStreamingMessage}
-                  now={isStreamingMessage ? now : 0}
-                  downloadGroups={downloadsByMessage.get(m.id)}
-                  prevCreatedAt={m.turnOrigin === 'autonomous' ? undefined : prevCreatedAt}
-                  isLatestReply={isLast}
-                  onStop={onStop}
-                  onApprovePlan={onApprovePlan}
-                  onRejectPlan={onRejectPlan}
-                  activePlanCanAct={activePlanCanAct ?? null}
-                  canActOnPlans={
-                    (runtimeAllows(tab.runtimeState, 'send') ||
-                      runtimeAllows(tab.runtimeState, 'reply')) &&
-                    !tab.readOnly
-                  }
-                  isTeamAdmin={isTeamAdmin}
-                  onOpenNuphosLink={onOpenNuphosLink}
-                  // Feedback is owner-only (backend 403s otherwise); read-only
-                  // team views get copy + time but no vote buttons.
-                  onMessageFeedback={tab.readOnly || tab.foreign ? undefined : onMessageFeedback}
-                  onRequestFeedbackComment={onRequestFeedbackComment}
-                />
-              </div>
+              renderAssistant(m, isLast, isStreamingMessage, prevCreatedAt)
             )
 
           return (
-            <Fragment key={m.id}>
+            <Fragment key={activity.before.get(m.id)?.[0].id ?? m.id}>
               {timeline.before.get(m.id)?.map((event) => (
                 <TimelineEventLine
                   key={`${event.at}-${event.text}`}
@@ -198,6 +217,15 @@ export function ConversationMessageList({
                   reveal={Date.parse(event.at) > openedAt}
                 />
               ))}
+              {activity.before.has(m.id) && (
+                <CollapsedWorkView seconds={null} label="Activity">
+                  {() =>
+                    activity.before
+                      .get(m.id)
+                      ?.map((entry) => renderAssistant(entry, false, false, undefined, true))
+                  }
+                </CollapsedWorkView>
+              )}
               {message}
             </Fragment>
           )

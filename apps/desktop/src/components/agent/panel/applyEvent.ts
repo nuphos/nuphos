@@ -1,7 +1,7 @@
+import { eventEmittedAt } from './sessionContinuity.ts'
 import { normalizeAgentError, uid } from './stall.ts'
 import { appendTextDelta } from './streamText.ts'
 import { applyToolOutputDelta } from './toolOutputDelta.ts'
-import { eventEmittedAt } from './sessionContinuity.ts'
 import { updateCurrentAssistantParts } from './turnBoundaries.ts'
 
 import type { Tab } from './model.ts'
@@ -41,7 +41,17 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
   // the last text part (creating one if the last part is a tool / nothing). text-end is a no-op
   // (the next text-start opens a fresh part).
   if (type === 'text-start') {
-    return [...parts, { type: 'text', text: '' }]
+    return [
+      ...parts,
+      {
+        type: 'text',
+        text: '',
+        ...(typeof event.messageId === 'string' ? { messageId: event.messageId } : {}),
+        ...(event.phase === 'commentary' || event.phase === 'final_answer'
+          ? { phase: event.phase }
+          : {}),
+      },
+    ]
   }
   if (type === 'text-delta') {
     const delta =

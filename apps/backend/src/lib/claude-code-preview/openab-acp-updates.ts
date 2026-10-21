@@ -1,11 +1,12 @@
+import { chunkUpdate } from './openab-text-updates'
 import { parseToolUpdate } from './preview-agent-update'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 
-import type { PreviewAgentUpdate } from './preview-agent-update'
+import type { PreviewAgentUpdate, PreviewTextMetadata } from './preview-agent-update'
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 
 export type OpenAbSessionUpdate =
-  | { kind: 'text'; text: string }
+  | ({ kind: 'text'; text: string } & PreviewTextMetadata)
   | { kind: 'agent'; update: PreviewAgentUpdate }
   | { kind: 'status'; status: string; runtimeSnapshot?: SessionExecutionState }
   | { kind: 'prompt-suggestion'; suggestion: string }
@@ -25,7 +26,7 @@ export type OpenAbSessionUpdate =
   | { kind: 'interrupted'; reason?: string; runtimeSnapshot?: SessionExecutionState }
 
 export type PromptUpdateTarget = {
-  onTextDelta?: (text: string) => void
+  onTextDelta?: (text: string, metadata?: PreviewTextMetadata) => void
   onAgentUpdate?: (update: PreviewAgentUpdate) => void
 }
 
@@ -71,19 +72,6 @@ function autonomousResultOrigin(payload: Record<string, unknown>): Record<string
   return typeof kind === 'string' && AUTONOMOUS_RESULT_ORIGINS.has(kind)
     ? (origin as Record<string, unknown>)
     : null
-}
-
-function chunkUpdate(kind: unknown, payload: Record<string, unknown>): OpenAbSessionUpdate | null {
-  const content = payload.content
-
-  if (!content || typeof content !== 'object') return null
-  const text = (content as Record<string, unknown>).text
-
-  if (typeof text !== 'string' || text.length === 0) return null
-
-  return kind === 'agent_message_chunk'
-    ? { kind: 'text', text }
-    : { kind: 'agent', update: { kind: 'thought', text } }
 }
 
 function runtimeThreadStatus(payload: Record<string, unknown>): string | null {
@@ -262,8 +250,14 @@ export function deliverOpenAbSessionUpdate(args: {
   // A streaming prompt owns its deadline; autonomous turn boundaries do not end it.
   if (update.kind === 'complete' || update.kind === 'interrupted') return
   for (const target of args.pending) {
-    if (update.kind === 'text') target.onTextDelta?.(update.text)
-    else target.onAgentUpdate?.(update.update)
+    if (update.kind === 'text') {
+      if (update.messageId || update.phase)
+        target.onTextDelta?.(update.text, {
+          ...(update.messageId ? { messageId: update.messageId } : {}),
+          ...(update.phase ? { phase: update.phase } : {}),
+        })
+      else target.onTextDelta?.(update.text)
+    } else target.onAgentUpdate?.(update.update)
   }
 }
 

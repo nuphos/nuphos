@@ -7,16 +7,16 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
-import { retractedPrompt } from './retracted-notice'
 import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
-import { OpenAbRpcError } from './openab-acp-errors'
 import { openConversationSession } from './open-conversation-session'
-import { refusal } from './runtime-refusal'
+import { OpenAbRpcError } from './openab-acp-errors'
+import { retractedPrompt } from './retracted-notice'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
   assertConversationRuntimeAvailable,
   assertRuntimeNotDeleting,
 } from './runtime-portability-store'
+import { refusal } from './runtime-refusal'
 import { previewSessionPrincipalChanged, sessionContextStale } from './session-context'
 import { conversationExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
@@ -25,14 +25,14 @@ import {
   cancelActiveTeamTurn,
   previewRuntimeCwd,
 } from './team-openab-runtime'
+import { RENEWED_TOKEN_TTL_SEC, renewTurnCredentials } from './turn-credential-renewal'
 
+import type { previewSessionAccess } from './credentials-mcp'
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeAttachment } from './runtime-attachments'
 import type { TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
 
-import type { previewSessionAccess } from './credentials-mcp'
-import { RENEWED_TOKEN_TTL_SEC, renewTurnCredentials } from './turn-credential-renewal'
 export {
   previewRuntimeObservability,
   cancelPreviewConversationSession,
@@ -84,7 +84,10 @@ export async function runClaudeCodePreviewPrompt(args: {
   /** History preamble, resolved lazily when creating a fresh inner session. */
   freshSessionMessage?: (uncertain?: boolean) => string
   signal: AbortSignal
-  onTextDelta: (text: string) => void
+  onTextDelta: (
+    text: string,
+    metadata?: import('./preview-agent-update').PreviewTextMetadata,
+  ) => void
   onAgentUpdate?: (update: PreviewAgentUpdate) => void
   onPermissionRequest?: OpenAbPermissionHandler
   /** Re-mints this turn's MCP servers and runtime env with the given token lifetime. */
