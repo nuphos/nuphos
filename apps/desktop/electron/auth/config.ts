@@ -1,5 +1,4 @@
-import { apiUrl, useApiUrl } from '../api-endpoint.ts'
-import { authSession } from '../auth-session.ts'
+import { accountContext, apiUrl } from '../api-endpoint.ts'
 import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import {
@@ -13,6 +12,7 @@ import {
 } from './accounts.ts'
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 
+import type { AccountChangeReason } from '../account-context.ts'
 import type { Config, OtherAccount } from './accounts.ts'
 import type { TokenStore } from './token-store.ts'
 
@@ -23,9 +23,8 @@ type ConfigFileDeps = {
   store: TokenStore
   secure: () => boolean
   apiUrl: () => string
-  /** Points the app, not the CLI, at another backend: the one an account is on. */
-  setApiUrl?: (url: string) => void
-  onToken: (token: string | null) => void
+  /** Makes `token` the session on `api`, both at once (see account-context.ts). */
+  publish: (api: string, token: string | null, reason: AccountChangeReason) => void
   /** The CLI's cli.yaml, which this app shared before it had its own file. */
   legacyPath?: string
 }
@@ -83,13 +82,11 @@ export function configFile(deps: ConfigFileDeps) {
    * no token. A sign-in as someone else keeps the previous account in the
    * list, so switching back needs no new sign-in.
    */
-  async function save(cfg: Config): Promise<void> {
+  async function save(cfg: Config, reason: AccountChangeReason): Promise<void> {
     const previous = (await readFile(deps.path)) ?? {}
     const stored: Config = { ...cfg, keychainAccount: undefined, otherAccounts: undefined }
     let others = previous.otherAccounts ?? []
 
-    // A sign-in made on another backend (adding an account there) moves the
-    // app to it together with the token, never before.
     const api = cfg.apiUrl ? normalizedApi(cfg.apiUrl) : currentApi()
 
     if (cfg.token) {
@@ -125,16 +122,9 @@ export function configFile(deps: ConfigFileDeps) {
     await forgetDropped(previous, next)
     await writeFile(deps.path, next)
     generation += 1
-    if (cfg.token) moveTo(api)
-    deps.onToken(cfg.token ?? null)
-  }
-
-  // Moves the app to another backend for the token about to take effect, clearing
-  // the session first so nothing sends the outgoing token to the new backend.
-  function moveTo(api: string) {
-    if (api === currentApi()) return
-    deps.onToken(null)
-    deps.setApiUrl?.(api)
+    // A sign-in made on another backend (adding an account there) moves the
+    // app to it together with the token, never before.
+    deps.publish(cfg.token ? api : currentApi(), cfg.token ?? null, reason)
   }
 
   /** Makes a listed account the current one, keeping the current one in the list. */
@@ -149,14 +139,11 @@ export function configFile(deps: ConfigFileDeps) {
     const next: Config = { ...target, otherAccounts: before ? [before, ...rest] : rest }
 
     if (next.otherAccounts?.length === 0) delete next.otherAccounts
-    // Read the token before the backend changes, so a slow or denied keychain
-    // read never leaves the outgoing account's token on the new backend.
     const token = await tokenOf(target)
 
     await writeFile(deps.path, next)
     generation += 1
-    if (target.apiUrl) moveTo(normalizedApi(target.apiUrl))
-    deps.onToken(token)
+    deps.publish(target.apiUrl ? normalizedApi(target.apiUrl) : currentApi(), token, 'switch')
     const { otherAccounts: _, ...current } = next
 
     return token ? { ...current, token } : current
@@ -169,7 +156,7 @@ export function configFile(deps: ConfigFileDeps) {
     await forgetDropped(previous, {})
     await writeFile(deps.path, {})
     generation += 1
-    deps.onToken(null)
+    deps.publish(currentApi(), null, 'signOut')
   }
 
   async function listOthers(): Promise<OtherAccount[]> {
@@ -198,7 +185,7 @@ export function configFile(deps: ConfigFileDeps) {
       userInfo: legacy.userInfo,
     }
 
-    await save(cfg)
+    await save(cfg, 'refresh')
     if (deps.secure()) await writeFile(deps.legacyPath, { ...legacy, token: undefined })
 
     return cfg
@@ -213,7 +200,7 @@ export function configFile(deps: ConfigFileDeps) {
     if (cfg.token) {
       // Signed in before the keychain, or by a client without it: move it there.
       if (deps.secure())
-        await save(file).catch((e: unknown) => {
+        await save(file, 'refresh').catch((e: unknown) => {
           console.warn('auth: failed to move the session token to the keychain', e)
         })
 
@@ -229,8 +216,10 @@ export function configFile(deps: ConfigFileDeps) {
       inTurn(async () => {
         const cfg = await load()
 
+        const api = cfg.token && cfg.apiUrl ? normalizedApi(cfg.apiUrl) : currentApi()
+
         // The account decides the backend (the saved endpoint is the CLI's).
-        if (cfg.token && cfg.apiUrl) moveTo(normalizedApi(cfg.apiUrl))
+        if (api !== currentApi()) deps.publish(api, null, 'refresh')
         readAt.set(cfg, generation)
 
         return cfg
@@ -239,16 +228,20 @@ export function configFile(deps: ConfigFileDeps) {
     unchangedSince: (cfg: Config) => readAt.get(cfg) === generation,
     write: (cfg: Config) => {
       // A sign-out takes effect in memory at once, before its turn.
-      if (!cfg.token) deps.onToken(null)
+      if (!cfg.token) deps.publish(currentApi(), null, 'signOut')
 
-      return inTurn(() => save(cfg))
+      return inTurn(() => save(cfg, cfg.token ? 'signIn' : 'signOut'))
     },
     // Writes only if `allowed` accepts the file as its turn finds it, so a write
     // based on an earlier read never overrides a newer change. True if it wrote.
-    writeIf: (cfg: Config, allowed: (current: Config) => boolean) =>
+    writeIf: (
+      cfg: Config,
+      allowed: (current: Config) => boolean,
+      reason: AccountChangeReason = 'refresh',
+    ) =>
       inTurn(async () => {
         if (!allowed((await readFile(deps.path)) ?? {})) return false
-        await save(cfg)
+        await save(cfg, reason)
 
         return true
       }),
@@ -256,7 +249,7 @@ export function configFile(deps: ConfigFileDeps) {
     publishIf: (token: string | null, allowed: (current: Config) => boolean) =>
       inTurn(async () => {
         if (!allowed((await readFile(deps.path)) ?? {})) return false
-        deps.onToken(token)
+        deps.publish(currentApi(), token, 'refresh')
 
         return true
       }),
@@ -264,7 +257,7 @@ export function configFile(deps: ConfigFileDeps) {
     settled: () => inTurn(() => Promise.resolve()),
     switchTo: (key: string) => inTurn(() => switchTo(key)),
     signOutAll: () => {
-      deps.onToken(null)
+      deps.publish(currentApi(), null, 'signOut')
 
       return inTurn(forgetAll)
     },
@@ -278,9 +271,8 @@ const defaultConfigFile = configFile({
   store: keychainStore,
   secure: () => secureStorageEnabled(),
   apiUrl,
-  setApiUrl: useApiUrl,
-  onToken: (token) => {
-    authSession.set(token)
+  publish: (api, token, reason) => {
+    accountContext.swap({ api, token }, reason)
   },
 })
 
@@ -296,5 +288,5 @@ export const otherAccounts = defaultConfigFile.others
 
 /** The signed-in token, kept in memory once the startup check has run. */
 export async function sessionToken(): Promise<string | null> {
-  return authSession.current() ?? (await readConfig()).token ?? null
+  return accountContext.current().token ?? (await readConfig()).token ?? null
 }

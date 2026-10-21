@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto'
 
 import { PostHog } from 'posthog-node'
 
+import { accountContext } from './api-endpoint.ts'
 import { isDev } from './main/env.ts'
 
 // phc_ project keys are public ingest keys (safe to embed in a shipped app).
@@ -135,3 +136,6 @@ export async function shutdownMainAnalytics(): Promise<void> {
     client = null
   }
 }
+
+// The next account starts from a fresh anonymous identity.
+accountContext.onLeave(resetAnalyticsUser)

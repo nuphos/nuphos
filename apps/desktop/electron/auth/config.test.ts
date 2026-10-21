@@ -57,12 +57,10 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
     store,
     secure: () => secure,
     apiUrl: () => api,
-    setApiUrl: (url) => {
+    publish: (url, token) => {
       api = url
-    },
-    onToken: (token) => {
       tokens.push(token)
-      tokenApis.push(api)
+      tokenApis.push(url)
     },
     legacyPath: legacy,
   })
@@ -318,7 +316,7 @@ test('an account added on another backend moves the app there only with its toke
   const h = await harness()
 
   await h.config.write({ token: 'tok-1', userInfo: USER })
-  assert.equal(h.api(), 'https://api.nuphos.ai/')
+  assert.equal(h.api(), 'https://api.nuphos.ai')
 
   // Signed in on a staged backend while u1 stays current on Nuphos Cloud.
   await h.config.write({
@@ -328,13 +326,9 @@ test('an account added on another backend moves the app there only with its toke
   })
 
   assert.equal(h.api(), 'https://nuphos.example.com')
-  // The session is cleared before the app moves, then takes the new token.
-  assert.deepEqual(h.tokens, ['tok-1', null, 'tok-self'])
-  assert.deepEqual(h.tokenApis, [
-    'https://api.nuphos.ai/',
-    'https://api.nuphos.ai/',
-    'https://nuphos.example.com',
-  ])
+  // The new token and its backend take effect together, in one change.
+  assert.deepEqual(h.tokens, ['tok-1', 'tok-self'])
+  assert.deepEqual(h.tokenApis, ['https://api.nuphos.ai', 'https://nuphos.example.com'])
   assert.equal(h.items.get('u9@https://nuphos.example.com'), 'tok-self')
   assert.deepEqual(
     (await h.config.others()).map((o) => [o.key, o.apiUrl]),
@@ -430,8 +424,9 @@ test('switching to another backend never pairs the outgoing token with it', asyn
 
   await h.config.switchTo('u1@https://nuphos.example.com')
 
-  assert.deepEqual(h.tokens, [null, 'tok-self'])
-  assert.deepEqual(h.tokenApis, ['https://api.nuphos.ai', 'https://nuphos.example.com'])
+  // The token and its backend take effect together, in one change.
+  assert.deepEqual(h.tokens, ['tok-self'])
+  assert.deepEqual(h.tokenApis, ['https://nuphos.example.com'])
 })
 
 test('a write based on an account no longer current is skipped', async () => {

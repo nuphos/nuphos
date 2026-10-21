@@ -135,7 +135,8 @@ before(async () => {
     if (url.endsWith('/auth/email/verify-code')) {
       emailCalls.push(url)
 
-      return readySession()
+      // Another backend issues its own token: a token never moves between backends.
+      return json({ token: `${TOKEN}-${new URL(url).host}`, user: USER })
     }
 
     throw new Error(`unexpected fetch: ${url}`)

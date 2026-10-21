@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { accountEpoch, assertSameAccount } from './account-work.ts'
+import { accountContext } from './api-endpoint.ts'
 
 import type { WebContents } from 'electron'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
@@ -217,3 +218,7 @@ export function replaySshSession(target: WebContents, id: string): void {
 export function closeAllSshSessions(): void {
   for (const id of sessions.keys()) closeSshSession(id)
 }
+
+// SSH sessions outlive a renderer reload by design; the account they were
+// opened as is leaving, so they end with it.
+accountContext.onLeave(closeAllSshSessions)

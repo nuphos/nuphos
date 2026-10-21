@@ -34,10 +34,14 @@ import {
   writePodExecSession,
 } from './pod-exec/session'
 import { accountEpoch, assertSameAccount } from './account-work'
+import { accountContext } from './api-endpoint'
 import { NO_SUPPORTED_SHELL_MESSAGE, resolvePodShell } from './pod-exec/shell'
 import { describeError } from './pod-exec/tty'
 
 import type { WebContents } from 'electron'
+
+// Pod exec sessions (and any node-shell pod) belong to the account that opened them.
+accountContext.onLeave(closeAllPodExecSessions)
 
 export {
   awaitNodeShellCleanup,

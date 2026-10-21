@@ -2,8 +2,8 @@
 // on two backends, switches, sign-outs, status probes), checked against the
 // invariants the rest of the app relies on:
 //
-// I1. A token takes effect only while the app points at the backend it was
-//     issued by, so no token is ever sent to another backend.
+// I1. A token takes effect only on the backend that issued it, so no token is
+//     ever sent to another backend.
 // I2. Once settled, the session is the file's current account, on its backend.
 // I3. A probe's write lands only if no other change landed since its read.
 
@@ -12,6 +12,8 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
+
+import { AccountContexts } from '../account-context.ts'
 
 import { normalizedApi, sameAccount } from './accounts.ts'
 import { configFile } from './config.ts'
@@ -37,8 +39,7 @@ function random(seed: number) {
 
 async function run(seed: number) {
   const pick = random(seed)
-  let api = BACKENDS[0]
-  let session: string | null = null
+  const contexts = new AccountContexts(BACKENDS[0])
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-model-'))
   const items = new Map<string, string>()
   // The backend each token was issued by.
@@ -59,19 +60,19 @@ async function run(seed: number) {
       return Promise.resolve()
     },
   }
+
+  // I1, checked on every change of the session, not only once settled.
+  contexts.subscribe((next) => {
+    if (next.token)
+      assert.equal(next.api, issuedBy.get(next.token), `seed ${seed}: ${next.token} on ${next.api}`)
+  })
   const config = configFile({
     path: path.join(dir, 'desktop.yaml'),
     store,
     secure: () => pick(2) === 0,
-    apiUrl: () => api,
-    setApiUrl: (url) => {
-      // I1: the outgoing session is gone before the backend changes.
-      assert.equal(session, null, `seed ${seed}: moved to ${url} with a session`)
-      api = url
-    },
-    onToken: (token) => {
-      if (token) assert.equal(api, issuedBy.get(token), `seed ${seed}: ${token} on ${api}`)
-      session = token
+    apiUrl: () => contexts.current().api,
+    publish: (url, token, reason) => {
+      contexts.swap({ api: url, token }, reason)
     },
   })
   const ops: Promise<unknown>[] = []
@@ -90,7 +91,7 @@ async function run(seed: number) {
         config.others().then(async (others) => {
           const target = others[pick(Math.max(others.length, 1))]
 
-          if (target) await config.switchTo(target.key).catch(() => undefined)
+          if (target) await config.switchTo(target.key).catch(() => {})
         }),
       )
     } else if (op === 3) {
@@ -102,7 +103,8 @@ async function run(seed: number) {
           await new Promise(setImmediate)
           let accepted = false
           const wrote = await config.writeIf(read, (current) => {
-            accepted = config.unchangedSince(read) && sameAccount(current, read, api)
+            accepted =
+              config.unchangedSince(read) && sameAccount(current, read, contexts.current().api)
 
             return accepted
           })
@@ -117,12 +119,12 @@ async function run(seed: number) {
   await config.settled()
   const current = await config.read()
 
+  const { api, token } = contexts.current()
+
   // I2
-  assert.equal(session, current.token ?? null, `seed ${seed}: session is not the file's`)
-  if (current.token) {
+  assert.equal(token, current.token ?? null, `seed ${seed}: session is not the file's`)
+  if (current.token)
     assert.equal(api, normalizedApi(current.apiUrl ?? api), `seed ${seed}: wrong backend`)
-    assert.equal(api, issuedBy.get(current.token), `seed ${seed}: token on another backend`)
-  }
   await fs.rm(dir, { recursive: true, force: true })
 }
 

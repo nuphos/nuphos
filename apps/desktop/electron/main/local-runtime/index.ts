@@ -6,7 +6,7 @@ import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
 import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
-import { apiUrl, deviceRegistrationAllowed, onApiUrlChange } from '../../api-endpoint.ts'
+import { accountContext, apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
 import { unverifiedTokenSubject } from '../../auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
@@ -230,9 +230,9 @@ export function initLocalRuntime(): void {
     void controller.setUser(userId)
   }
 
-  authSession.subscribe(follow)
-  onApiUrlChange(() => follow(authSession.current()))
-  follow(authSession.current())
+  // The backend and token change together, so one subscription sees both.
+  accountContext.subscribe((next) => follow(next.token))
+  follow(accountContext.current().token)
   if (devBuild())
     watchDevBundle(bundleRoot(), {
       bundle: () => void controller.refresh(true),

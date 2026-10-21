@@ -1,15 +1,16 @@
 // The backend this app talks to: a launch-time NUPHOS_API_URL (e.g. from
 // `bun run dev`), else the endpoint saved on the sign-in screen, else Nuphos
-// Cloud. It lives in process.env so spawned helpers inherit it, and is read
-// per call, so changing it takes effect without a relaunch.
+// Cloud. It is half of the account context (see account-context.ts), changed
+// only together with the session token, and mirrored into process.env so
+// spawned helpers inherit it.
 
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { AccountContexts } from './account-context.ts'
 import { CLI_CONFIG_PATH } from './cli-config-path.ts'
 
 const DEFAULT_API_URL = 'https://api.nuphos.ai'
-const listeners = new Set<() => void>()
 
 // What this process was launched with; resetting the switch returns here, so a
 // `bun run dev` build never falls through to Nuphos Cloud.
@@ -19,18 +20,26 @@ const LAUNCH_API_URL = process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL |
 // cli.dev.yaml never shares an endpoint with the installed app.
 const SAVED_PATH = `${CLI_CONFIG_PATH.replace(/\.ya?ml$/, '')}.api-url`
 
-if (!process.env.NUPHOS_API_URL && !process.env.ATLAS_API_URL) {
+function savedApiUrl(): string {
   try {
-    const saved = fs.readFileSync(SAVED_PATH, 'utf8').trim()
-
-    if (saved) process.env.NUPHOS_API_URL = saved
+    return fs.readFileSync(SAVED_PATH, 'utf8').trim()
   } catch {
     // No saved endpoint: use the default.
+    return ''
   }
 }
 
+/** The account this app acts as: a backend and the token it issued, changed only as a pair. */
+export const accountContext = new AccountContexts(
+  LAUNCH_API_URL || savedApiUrl() || DEFAULT_API_URL,
+  (api) => {
+    delete process.env.ATLAS_API_URL
+    process.env.NUPHOS_API_URL = api
+  },
+)
+
 export function apiUrl(): string {
-  return process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || DEFAULT_API_URL
+  return accountContext.current().api
 }
 
 // The backend a sign-in in progress talks to, when it is not the current one:
@@ -77,46 +86,33 @@ export function deviceRegistrationAllowed(dev: boolean): boolean {
   return new URL(apiUrl()).hostname.replace(/\.$/u, '') !== new URL(DEFAULT_API_URL).hostname
 }
 
+/** Follows the backend, after it and its token have both taken effect. */
 export function onApiUrlChange(listener: () => void): () => void {
-  listeners.add(listener)
-
-  return () => {
-    listeners.delete(listener)
-  }
+  return accountContext.subscribe((next, prev) => {
+    if (next.api !== prev.api) listener()
+  })
 }
 
 /**
- * Points this app at the backend of the account it switched to, until it quits.
- * Unlike `setApiUrl` nothing is saved: the saved endpoint is shared with the
- * CLI, whose token belongs to the backend it names.
+ * Saves the endpoint chosen on the sign-in screen (`null` restores the
+ * launch-time one, else Nuphos Cloud) and returns the new one. The endpoint
+ * is shared with the CLI. A token never follows it to another backend: a
+ * session on the old backend is signed out of instead.
  */
-export function useApiUrl(url: string): void {
-  const previous = apiUrl()
-
-  delete process.env.ATLAS_API_URL
-  process.env.NUPHOS_API_URL = url
-  if (apiUrl() !== previous) for (const listener of listeners) listener()
-}
-
-/** Saves the endpoint (`null` restores the launch-time one, else Nuphos Cloud) and returns the new one. */
 export function setApiUrl(raw: string | null): string {
-  const previous = apiUrl()
+  let api = LAUNCH_API_URL || DEFAULT_API_URL
 
-  delete process.env.ATLAS_API_URL
   if (raw === null) {
     fs.rmSync(SAVED_PATH, { force: true })
-    if (LAUNCH_API_URL) process.env.NUPHOS_API_URL = LAUNCH_API_URL
-    else delete process.env.NUPHOS_API_URL
   } else {
     const url = new URL(raw.trim())
 
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Not an http(s) URL')
     fs.mkdirSync(path.dirname(SAVED_PATH), { recursive: true })
     fs.writeFileSync(SAVED_PATH, `${url.origin}\n`, 'utf8')
-    process.env.NUPHOS_API_URL = url.origin
+    api = url.origin
   }
-
-  if (apiUrl() !== previous) for (const listener of listeners) listener()
+  if (api !== apiUrl()) accountContext.swap({ api, token: null }, 'endpoint')
 
   return apiUrl()
 }

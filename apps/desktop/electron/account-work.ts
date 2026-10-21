@@ -3,6 +3,8 @@
 // once its awaits are over, that the account has gone, instead of opening a
 // connection nobody owns any more.
 
+import { accountContext } from './api-endpoint.ts'
+
 let epoch = 0
 
 /** Taken before work for the signed-in account starts. */
@@ -19,3 +21,5 @@ export function endAccountWork(): void {
 export function assertSameAccount(since: number): void {
   if (since !== epoch) throw new Error('The account changed. Open it again.')
 }
+
+accountContext.onLeave(endAccountWork)
