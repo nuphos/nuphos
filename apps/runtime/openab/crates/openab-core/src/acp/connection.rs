@@ -473,7 +473,8 @@ pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
         if let Some(activity) = &execution {
             activity.execution.observe_and_stamp(msg.params.as_mut());
         }
-        debug!(line = line.trim(), "acp_recv");
+        // Frames carry credentials and tool output; log only their routing.
+        debug!(id = ?msg.id, method = msg.method.as_deref().unwrap_or(""), "acp_recv");
 
         // Response (has id, no method) → resolve pending AND forward to
         // subscriber. An id-bearing message WITH a method is a request FROM
@@ -895,7 +896,10 @@ impl AcpConnection {
     }
 
     pub(crate) async fn send_raw(&self, data: &str) -> Result<()> {
-        debug!(data = data.trim(), "acp_send");
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            let frame: Value = serde_json::from_str(data).unwrap_or(Value::Null);
+            debug!(id = %frame["id"], method = %frame["method"], "acp_send");
+        }
         // A hung agent can stop draining stdin; bound the write so callers
         // (and the mutexes they hold) can never block on it indefinitely.
         tokio::time::timeout(std::time::Duration::from_secs(10), async {
