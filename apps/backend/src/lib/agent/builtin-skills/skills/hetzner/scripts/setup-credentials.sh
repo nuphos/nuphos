@@ -46,7 +46,7 @@ trap 'rm -f "$tmp"' EXIT
 http_code="$(curl --http1.1 -sS -o "$tmp" -w '%{http_code}' \
   --connect-timeout 10 \
   --max-time 30 \
-  -H "Authorization: Bearer ${NUPHOS_TOKEN}" \
+  -H @<(printf 'Authorization: Bearer %s\n' "${NUPHOS_TOKEN}") \
   -H 'Accept: application/json' \
   "$url")"
 

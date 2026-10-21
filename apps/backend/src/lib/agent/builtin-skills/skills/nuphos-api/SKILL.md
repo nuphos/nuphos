@@ -73,7 +73,7 @@ not available instead of looking for another token or route.
 Reusable helper:
 
 ```bash
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 ```
 
 ## Admin routes and human-only operations

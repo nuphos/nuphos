@@ -92,7 +92,7 @@ skill's credentials setup first.
 
 ```bash
 curl -s -X POST https://uptime.betterstack.com/api/v2/heartbeats \
-  -H "Authorization: Bearer $BETTERSTACK_UPTIME_API_TOKEN" \
+  -H @<(printf 'Authorization: Bearer %s\n' "$BETTERSTACK_UPTIME_API_TOKEN") \
   -H "Content-Type: application/json" \
   -d '{"name": "kube-prometheus watchdog — <cluster name>", "period": 300, "grace": 300}'
 # → response.data.attributes.url is the heartbeat URL

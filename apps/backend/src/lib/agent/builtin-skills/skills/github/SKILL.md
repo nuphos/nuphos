@@ -76,7 +76,7 @@ is exported in the runtime environment.
 
 ```bash
 # Reuse the helper from the nuphos-api skill (loads it if needed):
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 
 ac /teams/$TEAM/github-installations | python3 -m json.tool
 # → { "installations": [
@@ -151,7 +151,7 @@ other JSON instead of adding a Python formatting call.
 ```bash
 gh_api() {
   curl -sS \
-    -H "Authorization: Bearer $(gh auth token)" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$(gh auth token)") \
     -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     "https://api.github.com$1" "${@:2}"

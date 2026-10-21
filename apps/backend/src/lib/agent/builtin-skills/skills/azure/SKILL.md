@@ -41,15 +41,15 @@ need exact control over headers or response handling:
 
 ```bash
 # Which subscription/tenant is this token for?
-curl -sS -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" \
+curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$AZURE_ACCESS_TOKEN") \
   "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID?api-version=2022-12-01"
 
 # List resource groups
-curl -sS -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" \
+curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$AZURE_ACCESS_TOKEN") \
   "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourcegroups?api-version=2021-04-01"
 
 # List AKS clusters (prefer the Nuphos route above unless you need raw ARM)
-curl -sS -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" \
+curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$AZURE_ACCESS_TOKEN") \
   "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/providers/Microsoft.ContainerService/managedClusters?api-version=2024-05-01"
 ```
 

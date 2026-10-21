@@ -38,7 +38,7 @@ notion() {
   # usage: notion <METHOD> <path> [curl args...]
   local method="$1" path="$2"; shift 2
   curl -sS -X "$method" "https://api.notion.com/v1${path}" \
-    -H "Authorization: Bearer $NOTION_TOKEN" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$NOTION_TOKEN") \
     -H "Notion-Version: ${NOTION_VERSION:-2026-03-11}" \
     -H "Content-Type: application/json" "$@"
 }
@@ -62,7 +62,7 @@ Only if the credential section is missing or looks stale. `$TEAM` is exported in
 environment.
 
 ```bash
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 ac /teams/$TEAM/notion-integrations | python3 -m json.tool
 # → { "integrations": [ { "id": "<integrationId>", "label": "Acme",
 #       "workspaceName": "Acme", ... } ] }

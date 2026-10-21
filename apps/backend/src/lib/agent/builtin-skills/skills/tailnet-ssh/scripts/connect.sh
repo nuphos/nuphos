@@ -52,7 +52,7 @@ cleanup() { rm -f "$response" "$keyfile"; }
 trap cleanup EXIT
 
 status="$(curl -sS -X POST -w '%{http_code}' -o "$response" \
-  -H "Authorization: Bearer ${NUPHOS_TOKEN}" \
+  -H @<(printf 'Authorization: Bearer %s\n' "${NUPHOS_TOKEN}") \
   -H 'Content-Type: application/json' \
   "$url" || true)"
 

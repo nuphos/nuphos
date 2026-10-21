@@ -76,7 +76,7 @@ trap 'rm -f "$tmp"' EXIT
 # hangs every kubectl call forever instead of failing with a readable error.
 http_code="$(curl -sS -o "$tmp" -w '%{http_code}' \
   --connect-timeout 10 --max-time 30 \
-  -H "Authorization: Bearer ${NUPHOS_TOKEN}" \
+  -H @<(printf 'Authorization: Bearer %s\n' "${NUPHOS_TOKEN}") \
   "$url")"
 
 if [ "$http_code" != "200" ]; then

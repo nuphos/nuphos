@@ -72,7 +72,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
 
    ```bash
    curl -sS -X POST 'https://uptime.betterstack.com/api/v2/outgoing-webhooks' \
-     -H "Authorization: Bearer $BETTERSTACK_UPTIME_API_TOKEN" \
+     -H @<(printf 'Authorization: Bearer %s\n' "$BETTERSTACK_UPTIME_API_TOKEN") \
      -H 'content-type: application/json' \
      -d '{
        "name": "nuphos-<trigger name>",

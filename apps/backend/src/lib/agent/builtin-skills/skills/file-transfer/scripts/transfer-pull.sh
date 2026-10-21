@@ -42,7 +42,7 @@ fi
 
 mkdir -p "$dest_dir"
 url="${base}/agent-sessions/${session}/teams/${team_id}/file-transfers/${group_id}/download"
-resp="$(curl -fsSL -H "Authorization: Bearer ${token}" "$url")"
+resp="$(curl -fsSL -H @<(printf 'Authorization: Bearer %s\n' "${token}") "$url")"
 
 # Parse the file list, download each ready file (preserving relPath), and
 # optionally unpack any pulled .zip archives.

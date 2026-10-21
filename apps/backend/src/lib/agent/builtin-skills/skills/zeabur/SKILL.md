@@ -63,7 +63,7 @@ If the URL omits `envID`, list environments for the project with `environments(p
 ```bash
 zq() {  # zq '<query>' '<variables-json>'
   curl -sS https://api.zeabur.com/graphql \
-    -H "Authorization: Bearer ${ZEABUR_TOKEN}" \
+    -H @<(printf 'Authorization: Bearer %s\n' "${ZEABUR_TOKEN}") \
     -H 'Content-Type: application/json' \
     --data "$(python3 -c 'import json,sys; print(json.dumps({"query":sys.argv[1],"variables":json.loads(sys.argv[2] or "{}")}))' "$1" "${2:-}")"
 }

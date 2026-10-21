@@ -56,7 +56,7 @@ trap 'rm -f "$tmp" "$resolved" "$merged"' EXIT
 # enumeration sweeps cloud list APIs, so allow a generous ceiling.
 http_code="$(curl -sS -o "$tmp" -w '%{http_code}' \
   --connect-timeout "$connect_timeout" --max-time "$max_time" \
-  -H "Authorization: Bearer ${NUPHOS_TOKEN}" \
+  -H @<(printf 'Authorization: Bearer %s\n' "${NUPHOS_TOKEN}") \
   -H 'Accept: application/yaml' \
   "$url")"
 

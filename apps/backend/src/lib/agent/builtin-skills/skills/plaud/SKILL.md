@@ -41,7 +41,7 @@ All calls are `GET` with `Authorization: Bearer $PLAUD_ACCESS_TOKEN` against
 
 ```bash
 source ~/.plaud/nuphos.env
-plaud() { curl -sS --fail-with-body -H "Authorization: Bearer $PLAUD_ACCESS_TOKEN" -H 'Accept: application/json' "$PLAUD_API_BASE_URL$1"; }
+plaud() { curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s\n' "$PLAUD_ACCESS_TOKEN") -H 'Accept: application/json' "$PLAUD_API_BASE_URL$1"; }
 
 plaud /open/third-party/users/current                  # the connected account
 plaud '/open/third-party/files/?page=1&page_size=20'   # newest recordings first

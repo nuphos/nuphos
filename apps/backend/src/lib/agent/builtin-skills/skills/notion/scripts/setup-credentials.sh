@@ -63,7 +63,7 @@ curl -fsSL \
   --retry 3 \
   --retry-delay 1 \
   --retry-connrefused \
-  -H "Authorization: Bearer ${auth_token}" \
+  -H @<(printf 'Authorization: Bearer %s\n' "${auth_token}") \
   -H "Accept: application/json" \
   "${base}${path}" > "$tmp"
 
