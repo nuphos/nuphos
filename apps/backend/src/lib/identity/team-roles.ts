@@ -90,3 +90,55 @@ export async function updateTeamMemberRole(
 
   return member ? { kind: 'updated', member } : { kind: 'member_not_found' }
 }
+
+export type TransferTeamOwnershipResult =
+  'transferred' | 'team_not_found' | 'member_not_found' | 'self' | 'forbidden'
+
+/**
+ * Hand the team to another active member. Owner-only. The new owner becomes an
+ * administrator; the previous owner keeps their membership and role. The owner
+ * check and the membership check live in the write filter, so a concurrent
+ * transfer or removal can't slip in between the read and the write.
+ */
+export async function transferTeamOwnership(
+  teamId: string,
+  newOwnerId: string,
+  actorUserId: string,
+): Promise<TransferTeamOwnershipResult> {
+  if (
+    !MongoObjectId.isValid(teamId) ||
+    !MongoObjectId.isValid(newOwnerId) ||
+    !MongoObjectId.isValid(actorUserId)
+  ) {
+    return 'member_not_found'
+  }
+  if (newOwnerId === actorUserId) return 'self'
+
+  const teamObjectId = new MongoObjectId(teamId)
+  const newOwnerObjectId = new MongoObjectId(newOwnerId)
+  const actorObjectId = new MongoObjectId(actorUserId)
+  const result = await teams().updateOne(
+    {
+      _id: teamObjectId,
+      deletedAt: { $exists: false },
+      ownerID: actorObjectId,
+      members: { $elemMatch: { userId: newOwnerObjectId, deletedAt: { $exists: false } } },
+    },
+    {
+      $set: {
+        ownerID: newOwnerObjectId,
+        'members.$.role': 'ADMINISTRATOR',
+        updatedAt: new Date(),
+      },
+    },
+  )
+
+  if (result.modifiedCount > 0) return 'transferred'
+
+  const team = await teams().findOne({ _id: teamObjectId, deletedAt: { $exists: false } })
+
+  if (!team) return 'team_not_found'
+  if (!team.ownerID.equals(actorObjectId)) return 'forbidden'
+
+  return 'member_not_found'
+}

@@ -13,6 +13,7 @@ import {
   removeUserFromTeam,
   setTeamAgentRuntime,
   setTeamAllowedEmailDomains,
+  transferTeamOwnership,
   updateTeam,
   updateTeamMemberRole,
 } from '@/lib/identity'
@@ -35,6 +36,12 @@ const updateTeamSchema = z
 const updateTeamMemberRoleSchema = z
   .object({
     role: z.enum(['ADMINISTRATOR', 'EDITOR', 'VIEWER']),
+  })
+  .strict()
+
+const transferOwnershipSchema = z
+  .object({
+    userId: z.string().refine((value) => ObjectId.isValid(value), 'Invalid userId'),
   })
   .strict()
 
@@ -239,6 +246,29 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     }
     throw new AppError(403, 'forbidden', 'Only the team owner can delete the team')
   })
+
+  // Owner-only (enforced inside transferTeamOwnership); the role gate rejects non-admins early.
+  teamScoped.post(
+    '/transfer-ownership',
+    requireTeamRole('ADMINISTRATOR'),
+    zv('json', transferOwnershipSchema),
+    async (c) => {
+      const { userId } = c.req.valid('json')
+      const result = await transferTeamOwnership(c.get('teamId'), userId, c.get('userId'))
+
+      if (result === 'transferred') return c.body(null, 204)
+      if (result === 'team_not_found') {
+        throw new AppError(404, 'team_not_found', 'Team not found')
+      }
+      if (result === 'member_not_found') {
+        throw new AppError(404, 'member_not_found', 'Member not found')
+      }
+      if (result === 'self') {
+        throw new AppError(409, 'already_owner', 'You already own this team')
+      }
+      throw new AppError(403, 'forbidden', 'Only the team owner can transfer ownership')
+    },
+  )
 
   // Self-leave: any member removes their own membership. No role gate — the
   // owner and last-admin guards live inside leaveTeam.
