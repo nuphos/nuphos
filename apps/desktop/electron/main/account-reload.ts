@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 
+import { endAccountWork } from '../account-work'
 import { resetAnalyticsUser } from '../analytics'
 import { apiUrl, onLoginApiUrlChange } from '../api-endpoint'
 import { shownAccount } from '../auth/shown-account'
@@ -8,7 +9,11 @@ import { authSession } from '../auth-session'
 import * as podExec from '../pod-exec'
 import * as terminal from '../terminal'
 
-import { mostRecentlyFocusedVisibleAppWindow, openAppWindows } from './windows'
+import {
+  mostRecentlyFocusedAppWindow,
+  mostRecentlyFocusedVisibleAppWindow,
+  openAppWindows,
+} from './windows'
 
 /** How the signed-in account changed, passed to reloaded windows as `?account=`. */
 export type AccountChangeKind = 'added' | 'switched' | 'signedOut'
@@ -28,7 +33,11 @@ export function withAccountChange(current: string, change: AccountChangeKind): s
  * made it, so it is counted once; the others reload as for a switch.
  */
 export function reloadAppWindows(change: AccountChangeKind): void {
-  const signedInFrom = change === 'added' ? mostRecentlyFocusedVisibleAppWindow() : null
+  // Every window may be hidden or minimized by the time a sign-in saves.
+  const signedInFrom =
+    change === 'added'
+      ? (mostRecentlyFocusedVisibleAppWindow() ?? mostRecentlyFocusedAppWindow())
+      : null
 
   for (const win of openAppWindows()) {
     const told = change === 'added' && win !== signedInFrom ? 'switched' : change
@@ -59,6 +68,8 @@ export function watchAccountChanges(): void {
     // SSH and pod-exec sessions outlive a renderer reload by design; the
     // account they were opened as is leaving, so close them (and any
     // node-shell pod) here rather than in the window that made the change.
+    // Starts still fetching credentials or probing for the account leaving are refused too.
+    endAccountWork()
     terminal.closeAllSshSessions()
     podExec.closeAllPodExecSessions()
     resetAnalyticsUser()

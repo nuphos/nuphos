@@ -33,6 +33,7 @@ import {
   send,
   writePodExecSession,
 } from './pod-exec/session'
+import { accountEpoch, assertSameAccount } from './account-work'
 import { NO_SUPPORTED_SHELL_MESSAGE, resolvePodShell } from './pod-exec/shell'
 import { describeError } from './pod-exec/tty'
 
@@ -63,6 +64,7 @@ export async function startPodExecSession(
   pod: string,
   container: string,
   opts?: { cols?: number; rows?: number; shell?: string },
+  since = accountEpoch(),
 ): Promise<{ id: string }> {
   // Idempotent: a remounted view asks for its own id back rather than opening a
   // second exec into the same container.
@@ -72,7 +74,8 @@ export async function startPodExecSession(
     : await resolvePodShell((candidate) => probePodShell(kc, namespace, pod, container, candidate))
 
   if (!command) throw new Error(NO_SUPPORTED_SHELL_MESSAGE)
-
+  // Probing ran as the account the shell was opened for; it may have gone since.
+  assertSameAccount(since)
   const session = createSession(target, id, opts)
 
   try {

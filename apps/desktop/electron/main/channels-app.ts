@@ -78,9 +78,10 @@ export const appChannels = {
   },
   'auth:loginEndpoint': () => auth.loginEndpoint(),
   'auth:stageLoginEndpoint': (_e: unknown, url: string | null) => auth.stageLoginEndpoint(url),
-  'auth:emailRequestCode': (_e: unknown, email: string) => auth.requestEmailCode(email),
-  'auth:emailVerifyCode': (_e: unknown, email: string, code: string) =>
-    auth.verifyEmailCode(email, code),
+  'auth:emailRequestCode': (e: IpcMainInvokeEvent, email: string) =>
+    auth.requestEmailCode(email, e.sender.id),
+  'auth:emailVerifyCode': (e: IpcMainInvokeEvent, email: string, code: string) =>
+    auth.verifyEmailCode(email, code, e.sender.id),
   'analytics:identify': (_e: unknown, userId: string, props?: Record<string, unknown>) => {
     setAnalyticsUser(userId, props)
   },

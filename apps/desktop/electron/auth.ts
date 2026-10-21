@@ -40,7 +40,8 @@ let pendingServer: Server | null = null
  */
 export async function login(): Promise<UserInfo> {
   cancelPendingLogin()
-
+  // Taken before the preflight, so a Cancel during it never opens a browser.
+  const attempt = signInAttempt()
   const server = createServer()
   const port = await listenOnLoopback(server)
 
@@ -49,11 +50,12 @@ export async function login(): Promise<UserInfo> {
   try {
     const plan = await planLogin(port)
 
+    if (!isCurrentAttempt(attempt)) throw new Error('Sign-in cancelled')
     await shell.openExternal(plan.browserUrl)
 
     return plan.mode === 'native'
-      ? await completeNativeLogin(server, plan)
-      : await completeLegacyLogin(server, plan)
+      ? await completeNativeLogin(server, plan, attempt)
+      : await completeLegacyLogin(server, plan, attempt)
   } finally {
     server.close()
     if (pendingServer === server) pendingServer = null
@@ -62,14 +64,15 @@ export async function login(): Promise<UserInfo> {
 
 // Email OTP sign-in talks to the backend directly and receives the token in
 // the JSON response — no browser round-trip or localhost callback needed.
-// The attempt an email code was requested in: the code is verified with the
-// backend that sent it, and not at all once that attempt is cancelled.
-let emailCodeAttempt: { email: string; attempt: SignInAttempt } | null = null
+// The attempt each window requested an email code in: the code is verified
+// with the backend that sent it, by the window that asked for it, and not at
+// all once that attempt is cancelled.
+const emailCodeAttempts = new Map<number, { email: string; attempt: SignInAttempt }>()
 
-export async function requestEmailCode(email: string): Promise<void> {
+export async function requestEmailCode(email: string, from: number): Promise<void> {
   const attempt = signInAttempt()
 
-  emailCodeAttempt = { email, attempt }
+  emailCodeAttempts.set(from, { email, attempt })
   const res = await fetch(`${attempt.api}/auth/email/request-code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -82,8 +85,15 @@ export async function requestEmailCode(email: string): Promise<void> {
   }
 }
 
-export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
-  const attempt = emailCodeAttempt?.email === email ? emailCodeAttempt.attempt : signInAttempt()
+export async function verifyEmailCode(
+  email: string,
+  code: string,
+  from: number,
+): Promise<UserInfo> {
+  const requested = emailCodeAttempts.get(from)
+
+  if (requested?.email !== email) throw new Error('Request a new code for this email')
+  const { attempt } = requested
 
   if (!isCurrentAttempt(attempt)) throw new Error('Sign-in cancelled')
   const res = await fetch(`${attempt.api}/auth/email/verify-code`, {

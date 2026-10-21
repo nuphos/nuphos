@@ -1,3 +1,4 @@
+import { accountEpoch, assertSameAccount } from '../account-work'
 import { probeCloudCli, probeCloudCliVersion } from '../agent/cloud-cli-probe'
 import * as atlas from '../atlas'
 import { requireMainProcessConsent } from '../consent'
@@ -101,9 +102,10 @@ export const cloudOpsChannels = {
     region: string,
     roleId?: string,
   ) => {
+    const since = accountEpoch()
     const access = await atlas.getAwsLightsailSshAccess(teamId, accountId, name, region, roleId)
 
-    return terminal.startSshSession(e.sender, access)
+    return terminal.startSshSession(e.sender, access, since)
   },
   'atlas:startAwsEc2Ssh': async (
     e: IpcMainInvokeEvent,
@@ -114,6 +116,7 @@ export const cloudOpsChannels = {
     username?: string,
     roleId?: string,
   ) => {
+    const since = accountEpoch()
     const access = await atlas.getAwsEc2SshAccess(
       teamId,
       accountId,
@@ -123,7 +126,7 @@ export const cloudOpsChannels = {
       roleId,
     )
 
-    return terminal.startSshSession(e.sender, access)
+    return terminal.startSshSession(e.sender, access, since)
   },
   'atlas:listGcpComputeInstances': (
     _e: unknown,
@@ -188,6 +191,7 @@ export const cloudOpsChannels = {
     zone: string,
     serviceAccountId?: string,
   ) => {
+    const since = accountEpoch()
     const access = await atlas.getGcpComputeSshAccess(
       teamId,
       projectId,
@@ -196,7 +200,7 @@ export const cloudOpsChannels = {
       serviceAccountId,
     )
 
-    return terminal.startSshSession(e.sender, access)
+    return terminal.startSshSession(e.sender, access, since)
   },
   'ssh-terminal:input': (_e: unknown, id: string, data: string) =>
     terminal.writeSshSession(id, data),
@@ -211,7 +215,17 @@ export const cloudOpsChannels = {
     pod: string,
     container: string,
     opts?: { cols?: number; rows?: number; shell?: string },
-  ) => podExec.startPodExecSession(e.sender, id, k8s.getKubeConfig(ctx), ns, pod, container, opts),
+  ) =>
+    podExec.startPodExecSession(
+      e.sender,
+      id,
+      k8s.getKubeConfig(ctx),
+      ns,
+      pod,
+      container,
+      opts,
+      accountEpoch(),
+    ),
   'node-exec:start': async (
     e: IpcMainInvokeEvent,
     id: string,
@@ -224,6 +238,7 @@ export const cloudOpsChannels = {
     // again every time the dock swaps chat session would train the user to
     // click through the one dialog that matters.
     if (podExec.hasPodExecSession(id)) return { id }
+    const since = accountEpoch()
     // Real security boundary for the node root shell: a privileged pod with
     // host PID/IPC/network and the node's root filesystem. The renderer's
     // in-app explainer is UX; this isolated prompt is what a rogue renderer
@@ -237,6 +252,8 @@ export const cloudOpsChannels = {
     })
 
     if (!ok) throw new Error('Node shell cancelled — confirmation declined.')
+    // The account may have changed while the dialog was up.
+    assertSameAccount(since)
 
     return podExec.startNodeExecSession(
       e.sender,

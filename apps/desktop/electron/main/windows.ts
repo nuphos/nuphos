@@ -35,7 +35,7 @@ function forgetAppWindow(win: BrowserWindow) {
   if (index !== -1) appWindowFocusOrder.splice(index, 1)
 }
 
-function mostRecentlyFocusedAppWindow(except?: BrowserWindow): BrowserWindow | null {
+export function mostRecentlyFocusedAppWindow(except?: BrowserWindow): BrowserWindow | null {
   for (let index = appWindowFocusOrder.length - 1; index >= 0; index -= 1) {
     const win = appWindowFocusOrder[index]
 

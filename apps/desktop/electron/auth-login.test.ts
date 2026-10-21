@@ -47,7 +47,7 @@ let registrations: Registration[] = []
 // Per-test switches for the fake servers.
 let nativeSupported = true
 /** How the fake landing page answers GET /api/google/start. */
-let landingStart: () => Response = () =>
+let landingStart: () => Response | Promise<Response> = () =>
   new Response(null, {
     status: 302,
     headers: { location: 'https://accounts.google.com/o/oauth2/v2/auth' },
@@ -56,6 +56,8 @@ let redeemQueue: (() => Response)[] = []
 let redeemCalls = 0
 /** Bodies POSTed to /auth/native/session/redeem, so tests can assert on them. */
 let redeemBodies: { handle: string; codeVerifier: string; code?: string }[] = []
+/** Email code requests and verifications the fake backends received, by URL. */
+let emailCalls: string[] = []
 let meHandler: () => Promise<Response> = () => {
   throw new Error('unexpected /auth/me call')
 }
@@ -125,6 +127,17 @@ before(async () => {
 
     if (url.includes('/auth/me')) return meHandler()
 
+    if (url.endsWith('/auth/email/request-code')) {
+      emailCalls.push(url)
+
+      return json({})
+    }
+    if (url.endsWith('/auth/email/verify-code')) {
+      emailCalls.push(url)
+
+      return readySession()
+    }
+
     throw new Error(`unexpected fetch: ${url}`)
   }) as typeof fetch
 
@@ -144,6 +157,7 @@ beforeEach(() => {
   redeemQueue = [readySession]
   redeemCalls = 0
   redeemBodies = []
+  emailCalls = []
   meHandler = () => {
     throw new Error('unexpected /auth/me call')
   }
@@ -589,4 +603,65 @@ test('legacy: a failed /auth/me never renders the success page', async () => {
 
   await assert.rejects(loginPromise)
   assert.equal(configWrites.length, 0)
+})
+
+// ── Cancelling ───────────────────────────────────────────────────────────────
+
+test('a Cancel during the preflight never opens a browser', async () => {
+  let release!: () => void
+  const released = new Promise<void>((resolve) => {
+    release = resolve
+  })
+
+  let probed!: () => void
+  const probing = new Promise<void>((resolve) => {
+    probed = resolve
+  })
+
+  landingStart = async () => {
+    probed()
+    await released
+
+    return new Response(null, {
+      status: 302,
+      headers: { location: 'https://accounts.google.com/o/oauth2/v2/auth' },
+    })
+  }
+  const login = auth.login()
+
+  await probing
+  auth.cancelAddAccount()
+  release()
+  const outcome = await Promise.race([
+    login.then(
+      () => 'signed in',
+      () => 'failed',
+    ),
+    new Promise((resolve) => setTimeout(() => resolve('still waiting'), 2_000)),
+  ])
+
+  assert.deepEqual(openedUrls, [])
+  assert.equal(outcome, 'failed')
+})
+
+// ── Email codes ──────────────────────────────────────────────────────────────
+
+test('an email code is verified only by the window that requested it, on its backend', async () => {
+  auth.stageLoginEndpoint('https://b.example.com')
+  await auth.requestEmailCode(USER.email, 1)
+  // Another window stages another backend and asks for its own code.
+  auth.stageLoginEndpoint('https://c.example.com')
+  await auth.requestEmailCode(USER.email, 2)
+
+  // Window 1's attempt went with the backend it was staged for.
+  await assert.rejects(auth.verifyEmailCode(USER.email, '123456', 1), /cancelled/u)
+  // A window that never asked for a code cannot verify one.
+  await assert.rejects(auth.verifyEmailCode(USER.email, '123456', 3), /new code/u)
+  assert.deepEqual(emailCalls, [
+    'https://b.example.com/auth/email/request-code',
+    'https://c.example.com/auth/email/request-code',
+  ])
+  assert.deepEqual(await auth.verifyEmailCode(USER.email, '123456', 2), USER)
+  assert.equal(emailCalls[2], 'https://c.example.com/auth/email/verify-code')
+  auth.cancelAddAccount()
 })

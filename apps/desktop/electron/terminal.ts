@@ -5,6 +5,8 @@ import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 
+import { accountEpoch, assertSameAccount } from './account-work.ts'
+
 import type { WebContents } from 'electron'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 
@@ -84,9 +86,11 @@ function assertTcpReachable(host: string, port: number, timeoutMs: number): Prom
   })
 }
 
+/** `since`: the account epoch taken before `access` was fetched for it. */
 export async function startSshSession(
   target: WebContents,
   access: SshAccessDetails,
+  since = accountEpoch(),
 ): Promise<{ id: string }> {
   await assertTcpReachable(access.ipAddress, 22, 8_000)
 
@@ -107,6 +111,10 @@ export async function startSshSession(
 
     await fs.mkdir(knownHostsDir, { recursive: true })
     const knownHostsPath = path.join(knownHostsDir, 'atlas_known_hosts')
+
+    // The account may have changed while the target was probed: its teardown
+    // has already run, so connecting now would leave a session nobody owns.
+    assertSameAccount(since)
 
     const child = spawn(
       '/usr/bin/ssh',

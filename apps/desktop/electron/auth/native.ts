@@ -8,11 +8,12 @@ import {
   SESSION_POLL_INTERVAL_MS,
 } from './callback-server.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
-import { saveSignIn, signInAttempt } from './sign-in.ts'
+import { saveSignIn } from './sign-in.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 import type { CallbackHit } from './callback-server.ts'
 import type { LoginPlan } from './plan.ts'
+import type { SignInAttempt } from './sign-in.ts'
 import type { Server } from 'node:http'
 
 type RedeemOutcome =
@@ -65,8 +66,8 @@ async function redeemNativeSession(
 export async function completeNativeLogin(
   server: Server,
   plan: Extract<LoginPlan, { mode: 'native' }>,
+  attempt: SignInAttempt,
 ): Promise<UserInfo> {
-  const attempt = signInAttempt()
   // An object rather than plain `let`s: TypeScript narrows those to their
   // initial values across the callback boundary, and the loop below reads them.
   const browser: { hit: CallbackHit | null; code: string | null; error: string | null } = {

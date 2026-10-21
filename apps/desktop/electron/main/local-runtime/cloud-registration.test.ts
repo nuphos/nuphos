@@ -86,6 +86,7 @@ mock.method(globalThis, 'WebSocket', function (url: string) {
 const { setApiUrl } = await import('../../api-endpoint.ts')
 const { authSession } = await import('../../auth-session.ts')
 const { initLocalRuntime, getLocalRuntimeState, stopLocalRuntime } = await import('./index.ts')
+const { runtimeOwner } = await import('./owner.ts')
 const token = `test.${Buffer.from(JSON.stringify({ sub: 'alice' })).toString('base64url')}.test`
 const settle = async () => {
   for (let i = 0; i < 20; i++) await new Promise((resolve) => setTimeout(resolve, 5))
@@ -114,7 +115,7 @@ test('Cloud sign-in stays usable without registering a dev device or opening its
 test('switching endpoints stops hosting on Cloud and resumes on the dev backend', async () => {
   setApiUrl(null)
   await until(() => sockets.length === 1)
-  assert.equal(getLocalRuntimeState().userId, 'alice@127.0.0.1_3718')
+  assert.equal(getLocalRuntimeState().userId, runtimeOwner('alice', 'http://127.0.0.1:3718'))
   assert.deepEqual(requests, ['/agent/devices'])
   assert.deepEqual(sockets, ['ws://127.0.0.1:3718/agent/devices/dev-device/runtime-tunnel'])
   setApiUrl('https://api.nuphos.ai')
@@ -127,7 +128,7 @@ test('switching endpoints stops hosting on Cloud and resumes on the dev backend'
   assert.equal(authSession.current(), token)
   setApiUrl(null)
   await until(() => sockets.length === 2)
-  assert.equal(getLocalRuntimeState().userId, 'alice@127.0.0.1_3718')
+  assert.equal(getLocalRuntimeState().userId, runtimeOwner('alice', 'http://127.0.0.1:3718'))
   assert.equal(requests.length, 2)
   assert.equal(sockets.length, 2)
 })
@@ -138,7 +139,7 @@ test('the same user id on another allowed backend is another runtime owner', asy
   setApiUrl('http://127.0.0.1:3719')
   await until(() => sockets.length === 3)
   assert.ok(stopped > stops)
-  assert.equal(getLocalRuntimeState().userId, 'alice@127.0.0.1_3719')
+  assert.equal(getLocalRuntimeState().userId, runtimeOwner('alice', 'http://127.0.0.1:3719'))
   assert.equal(requests.length, 3)
   assert.equal(sockets[2], 'ws://127.0.0.1:3719/agent/devices/dev-device/runtime-tunnel')
   assert.equal(authSession.current(), token)
