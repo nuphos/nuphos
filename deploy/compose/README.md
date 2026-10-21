@@ -165,6 +165,6 @@ rm .env                       # start over with new secrets too
 ## Known limitations
 
 - No Redis: cron scheduling, background thread queues and audit journal sealing are disabled. Both Compose and `bun run dev` use single-replica in-memory mode.
-- No Bedrock keys: the backend's own model calls (conversation titles, dashboard insights) are unavailable. Chat on the runtime is unaffected.
+- No Bedrock keys: the backend's own model calls (conversation titles, starter suggestions) are unavailable. Chat on the runtime is unaffected.
 - `/admin` is not configured.
 - This is a development stack: `NODE_ENV=development`, secrets in a local `.env`, and every port bound to `127.0.0.1` only. Do not expose it publicly.

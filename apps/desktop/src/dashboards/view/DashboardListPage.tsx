@@ -134,7 +134,7 @@ export function DashboardListPage({
         title="Delete dashboard?"
         description={
           dashboardToDelete
-            ? `"${dashboardToDelete.name}" and all of its panels, snapshots, insights, and alerts will be permanently deleted.`
+            ? `"${dashboardToDelete.name}" and all of its panels, snapshots, and alerts will be permanently deleted.`
             : ''
         }
         confirmLabel="Delete dashboard"

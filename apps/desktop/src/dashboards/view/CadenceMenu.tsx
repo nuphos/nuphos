@@ -50,10 +50,11 @@ export function CadenceMenu({ teamId, detail, onSaved }: Props) {
             type="button"
             title={title}
             disabled={saving}
-            className="flex h-7 items-center gap-1.5 rounded-md border border-zGray-800 px-2 text-[12px] text-secondary outline-none hover:bg-zGray-800 hover:text-main focus:border-zViolet-500 disabled:opacity-50"
+            className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md border border-zGray-800 px-2 text-[12px] text-secondary outline-none hover:bg-zGray-800 hover:text-main focus:border-zViolet-500 disabled:opacity-50"
           >
             <Clock className="h-3.5 w-3.5 text-tertiary" />
-            Auto-refresh: {cadence ? CADENCE_LABELS[cadence] : 'Off'}
+            <span className="hidden @xl:inline">Auto-refresh:</span>
+            {cadence ? CADENCE_LABELS[cadence] : 'Off'}
             <ChevronDown className="h-3.5 w-3.5 text-tertiary" />
           </button>
         }

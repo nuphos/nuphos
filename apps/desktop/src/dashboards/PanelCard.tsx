@@ -5,6 +5,7 @@ import {
   MoreHorizontal,
   Pencil,
   RefreshCw,
+  Sparkles,
   Trash2,
 } from 'lucide-react'
 import { memo, useState } from 'react'
@@ -30,6 +31,7 @@ type Props = {
   onEdit: (panel: DashboardPanel) => void
   onDelete: (panel: DashboardPanel) => void
   onConfigureAlert: (panel: DashboardPanel) => void
+  onAskAgent: (panel: DashboardPanel) => void
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>
 }
 
@@ -82,6 +84,7 @@ export const PanelCard = memo(
     onEdit,
     onDelete,
     onConfigureAlert,
+    onAskAgent,
     dragHandleProps,
   }: Props) => {
     const [errorOpen, setErrorOpen] = useState(false)
@@ -129,6 +132,12 @@ export const PanelCard = memo(
               }
             />
             <MenuContent align="end">
+              <MenuItem
+                icon={<Sparkles className="h-3.5 w-3.5" />}
+                onClick={() => onAskAgent(panel)}
+              >
+                Ask agent
+              </MenuItem>
               <MenuItem
                 icon={<RefreshCw className="h-3.5 w-3.5" />}
                 disabled={snapshotLoading}

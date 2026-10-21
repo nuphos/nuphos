@@ -33,7 +33,6 @@ import {
   shutdownClaudeCodeRuntimeProvisioner,
 } from '@/lib/claude-code-preview/runtime-provisioner'
 import { recoverDashboardPanelExecutions } from '@/lib/dashboards/exec-service'
-import { recoverDashboardPanelInsights } from '@/lib/dashboards/insight-service'
 import { dashboardRefreshScheduler } from '@/lib/dashboards/refresh-schedule'
 import { connectDb, closeDb } from '@/lib/db'
 import { watchDevLauncher } from '@/lib/dev-launcher-watchdog'
@@ -84,7 +83,7 @@ assertRegistryInvariants()
 await setupIndexes()
 await tolerateIndexConflict(setupMcpOAuthIndexes, 'mcp-oauth')
 logEvent('info', 'backend.mongodb.indexes_ready')
-await Promise.all([recoverDashboardPanelExecutions(), recoverDashboardPanelInsights()])
+await recoverDashboardPanelExecutions()
 
 // One-time backfill: drop pre-OIDC Aliyun bindings (no roleArn) so they don't
 // surface as permanently-broken accounts after the AccessKey → RAM-role

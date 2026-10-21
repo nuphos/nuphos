@@ -80,37 +80,6 @@ export type DashboardPanelSnapshot = {
   createdAt: string
 }
 
-export type PanelFinding = {
-  title: string
-  detail: string
-  kind: 'insight' | 'anomaly' | 'driver' | 'hypothesis'
-  confidence: 'high' | 'medium' | 'low'
-  evidence?: string
-}
-
-export type PanelInsightAction = {
-  title: string
-  detail: string
-  prompt: string
-  risk: 'low' | 'medium' | 'high'
-  estimatedImpactUsd?: number
-}
-
-export type DashboardPanelInsight = {
-  id: string
-  panelId: string
-  snapshotId: string
-  scriptVersion: number
-  status: 'pending' | 'complete' | 'failed'
-  findings: PanelFinding[]
-  actions: PanelInsightAction[]
-  feedback: { rating: 'up' | 'down'; note: string | null } | null
-  generatedBy: 'eager-create' | 'manual-regenerate'
-  error: string | null
-  createdAt: string
-  updatedAt: string
-}
-
 export type DashboardPanelVersionMeta = {
   version: number
   codeHash: string
@@ -131,8 +100,6 @@ export type DashboardPanel = {
   credentialAccess: AgentCredentialSelection | null
   currentSnapshot: DashboardPanelSnapshot | null
   lastSuccessfulSnapshot: DashboardPanelSnapshot | null
-  insight: DashboardPanelInsight | null
-  insightStale: boolean
   createdBy: string
   createdAt: string
   updatedAt: string

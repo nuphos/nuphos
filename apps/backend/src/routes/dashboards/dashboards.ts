@@ -14,12 +14,11 @@ import { requireTeamRole } from '@/middleware/auth'
 import {
   nuphosDashboards,
   dashboardPanelAlerts,
-  dashboardPanelInsights,
   dashboardPanels,
   dashboardPanelSnapshots,
 } from '@/models'
 
-import { resolvePanelInsights, serializeDashboard, serializePanel } from './serialize'
+import { serializeDashboard, serializePanel } from './serialize'
 import { dashboardForView, dashboardViewSchema } from './view-range'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -144,7 +143,6 @@ export function registerDashboardRoutes(
       resolvePanelSnapshots(teamId, view, panels),
       resolveLastSuccessfulPanelSnapshots(teamId, panels, view, preset),
     ])
-    const insights = await resolvePanelInsights(teamId, panels, snapshots)
 
     return c.json({
       dashboard: serializeDashboard(dashboard),
@@ -155,7 +153,6 @@ export function registerDashboardRoutes(
           p,
           dashboard,
           snapshots.get(p._id.toHexString()) ?? null,
-          insights.get(p._id.toHexString()),
           successfulSnapshots.get(p._id.toHexString()) ?? null,
         ),
       ),
@@ -228,11 +225,10 @@ export function registerDashboardRoutes(
         .toArray()
       const panelIds = panels.map((p) => p._id)
 
-      // Cascade: panels, their snapshots, insights, alerts.
+      // Cascade: panels, their snapshots, alerts.
       if (panelIds.length) {
         await Promise.all([
           dashboardPanelSnapshots().deleteMany({ teamId, panelId: { $in: panelIds } }),
-          dashboardPanelInsights().deleteMany({ teamId, panelId: { $in: panelIds } }),
           dashboardPanelAlerts().deleteMany({ teamId, panelId: { $in: panelIds } }),
         ])
       }

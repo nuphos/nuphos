@@ -20,8 +20,7 @@ check per-session access, not merely team membership.
 
 - Explicit span start, input, output, metadata, metrics, errors (including stack
   and cause), named events, end, and conversation-root updates.
-- The three current `wrapAI` callers (title generation, starter suggestions,
-  dashboard insights): generation options, resolved output format, every
+- The two current `wrapAI` callers (title generation, starter suggestions): generation options, resolved output format, every
   provider `doGenerate` attempt (including failed attempts), and the final AI
   SDK result including getter-backed text, reasoning, steps, tools, token
   usage, response ids and provider metadata.

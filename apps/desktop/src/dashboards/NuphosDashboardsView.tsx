@@ -59,9 +59,6 @@ export function NuphosDashboardsView({
     null,
   )
   const [editingLayout, setEditingLayout] = useState(false)
-  // The dashboard shows one of two sibling views: the panel canvas (data) or
-  // the Insights view (AI reading). Insights never mix into the canvas.
-  const [canvasView, setCanvasView] = useState<'panels' | 'insights'>('panels')
   const { isActive } = useWorkspaceTab()
   const dragFrom = useRef<number | null>(null)
   const selectedId = openDashboardId ?? null
@@ -140,30 +137,20 @@ export function NuphosDashboardsView({
     creating,
   )
 
-  const {
-    busyPanels,
-    regenPanels,
-    saving,
-    onExecutePanel,
-    deletePanel,
-    onInsightFeedback,
-    onRegenerateInsight,
-    savePanel,
-    onDrop,
-    movePanel,
-  } = usePanelActions({
-    teamId,
-    viewRange,
-    selectedId,
-    detail,
-    setDetail,
-    editor,
-    setEditor,
-    setPanelToDelete,
-    panels,
-    dragFromRef: dragFrom,
-    loadDetail,
-  })
+  const { busyPanels, saving, onExecutePanel, deletePanel, savePanel, onDrop, movePanel } =
+    usePanelActions({
+      teamId,
+      viewRange,
+      selectedId,
+      detail,
+      setDetail,
+      editor,
+      setEditor,
+      setPanelToDelete,
+      panels,
+      dragFromRef: dragFrom,
+      loadDetail,
+    })
 
   const visibleDashboards = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -202,7 +189,7 @@ export function NuphosDashboardsView({
           <>
             <span
               title={lastRefreshAt ? new Date(lastRefreshAt).toLocaleString() : undefined}
-              className="text-[12px] text-tertiary"
+              className="hidden whitespace-nowrap text-[12px] text-tertiary @xl:inline"
             >
               {lastRefreshAt ? `Last updated ${refreshAge(lastRefreshAt)}` : 'No completed refresh'}
             </span>
@@ -223,9 +210,6 @@ export function NuphosDashboardsView({
         onDefaultSaved={loadDetail}
         detail={detail}
         viewRange={viewRange}
-        panels={panels}
-        canvasView={canvasView}
-        setCanvasView={setCanvasView}
         customRange={customRange}
         setCustomRange={setCustomRange}
         refreshing={refreshing}
@@ -241,11 +225,8 @@ export function NuphosDashboardsView({
         detailError={detailError}
         loading={loading}
         selectedId={selectedId}
-        canvasView={canvasView}
-        setCanvasView={setCanvasView}
         panels={panels}
         busyPanels={busyPanels}
-        regenPanels={regenPanels}
         refreshing={refreshing}
         editingLayout={editingLayout}
         dragFromRef={dragFrom}
@@ -254,8 +235,6 @@ export function NuphosDashboardsView({
         onDashboardOpened={onDashboardOpened}
         loadDetail={loadDetail}
         onExecutePanel={onExecutePanel}
-        onInsightFeedback={onInsightFeedback}
-        onRegenerateInsight={onRegenerateInsight}
         onDrop={onDrop}
         movePanel={movePanel}
         setEditor={setEditor}
@@ -286,7 +265,7 @@ export function NuphosDashboardsView({
         title="Delete panel?"
         description={
           panelToDelete
-            ? `"${panelToDelete.title}" and its snapshots, insights, and alert will be permanently deleted.`
+            ? `"${panelToDelete.title}" and its snapshots and alert will be permanently deleted.`
             : ''
         }
         confirmLabel="Delete panel"

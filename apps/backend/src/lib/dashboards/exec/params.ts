@@ -184,8 +184,7 @@ export function panelSnapshotKey(
  *  status) matching the panel's CURRENT (script version, params) under the
  *  dashboard's time range. This binds the displayed snapshot to the current time
  *  window rather than "whatever ran most recently", so switching to an
- *  already-computed range shows that range's immutable snapshot and a bound
- *  insight reads as current instead of stale. Batch-loaded to avoid N+1 reads. */
+ *  already-computed range shows that range's immutable snapshot. Batch-loaded to avoid N+1 reads. */
 export async function resolvePanelSnapshots(
   teamId: ObjectId,
   dashboard: NuphosDashboard,

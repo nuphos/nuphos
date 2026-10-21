@@ -155,8 +155,6 @@ export type DashboardPanelSnapshot = {
    *  concurrency slot starts; expired leases are safe to recover after restart. */
   leaseId?: string
   leaseUntil?: Date
-  /** Only panel creation requests an eager first insight. */
-  initialInsightRequested?: boolean
   /** Ad-hoc view queries do not evaluate shared alert rules. */
   viewOnly?: boolean
   output?: DashboardPanelOutput
@@ -173,47 +171,6 @@ export type DashboardPanelSnapshot = {
 
 export const dashboardPanelSnapshots = (): Collection<DashboardPanelSnapshot> =>
   db().collection<DashboardPanelSnapshot>('cost_panel_snapshots')
-
-export type PanelInsightAction = {
-  title: string
-  detail: string
-  /** Seed prompt handed to Agent Chat when the user runs the action. Must
-   *  request a plan/confirmation (guarded like v1 tools-cost-analysis). */
-  prompt: string
-  risk: 'low' | 'medium' | 'high'
-  estimatedImpactUsd?: number
-}
-
-export type DashboardPanelInsight = {
-  _id: ObjectId
-  teamId: ObjectId
-  panelId: ObjectId
-  /** The snapshot this insight interprets (immutable evidence binding). */
-  snapshotId: ObjectId
-  scriptVersion: number
-  /** Fences late model replies from a superseded regeneration. */
-  generationId: string
-  generationLeaseUntil?: Date
-  status: 'pending' | 'complete' | 'failed'
-  findings: {
-    title: string
-    detail: string
-    kind: 'insight' | 'anomaly' | 'driver' | 'hypothesis'
-    confidence: 'high' | 'medium' | 'low'
-    evidence?: string
-  }[]
-  actions: PanelInsightAction[]
-  feedback?: { rating: 'up' | 'down'; note?: string; by: string; at: Date }
-  /** The Agent Chat conversation spawned by "run first action", if any. */
-  spawnedConversationId?: string
-  generatedBy: 'eager-create' | 'manual-regenerate'
-  error?: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-export const dashboardPanelInsights = (): Collection<DashboardPanelInsight> =>
-  db().collection<DashboardPanelInsight>('cost_panel_insights')
 
 export type DashboardPanelAlertChannel =
   | { type: 'slack'; channelId: string }

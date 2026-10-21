@@ -1,7 +1,6 @@
 import { Loader2, Plus } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
-import { InsightsAnomalyBanner, InsightsSection } from '../InsightsSection'
 import { PanelCard } from '../PanelCard'
 
 import type { NuphosDashboardDetail, DashboardPanel, OpenAgentChat } from '../schema'
@@ -12,11 +11,8 @@ type Props = {
   detailError: boolean
   loading: boolean
   selectedId: string
-  canvasView: 'panels' | 'insights'
-  setCanvasView: Dispatch<SetStateAction<'panels' | 'insights'>>
   panels: DashboardPanel[]
   busyPanels: Set<string>
-  regenPanels: Set<string>
   refreshing: boolean
   editingLayout: boolean
   dragFromRef: RefObject<number | null>
@@ -25,8 +21,6 @@ type Props = {
   onDashboardOpened?: (d: { dashboardId: string; dashboardName: string } | null) => void
   loadDetail: (id: string, opts?: { silent?: boolean }) => Promise<void>
   onExecutePanel: (panel: DashboardPanel) => void
-  onInsightFeedback: (panel: DashboardPanel, rating: 'up' | 'down') => void
-  onRegenerateInsight: (panel: DashboardPanel) => void
   onDrop: (to: number) => void
   movePanel: (from: number, offset: -1 | 1) => void
   setEditor: Dispatch<SetStateAction<{ panel: DashboardPanel | null } | null>>
@@ -39,11 +33,8 @@ export function DashboardCanvas({
   detailError,
   loading,
   selectedId,
-  canvasView,
-  setCanvasView,
   panels,
   busyPanels,
-  regenPanels,
   refreshing,
   editingLayout,
   dragFromRef,
@@ -52,8 +43,6 @@ export function DashboardCanvas({
   onDashboardOpened,
   loadDetail,
   onExecutePanel,
-  onInsightFeedback,
-  onRegenerateInsight,
   onDrop,
   movePanel,
   setEditor,
@@ -90,23 +79,6 @@ export function DashboardCanvas({
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
         ) : null
-      ) : canvasView === 'insights' ? (
-        <InsightsSection
-          panels={panels}
-          regenPanels={regenPanels}
-          onOpenAgentChat={onOpenAgentChat}
-          onFeedback={onInsightFeedback}
-          onRegenerate={onRegenerateInsight}
-          onJumpToPanel={(id) => {
-            setCanvasView('panels')
-            // Wait a tick for the panel canvas to mount before scrolling.
-            setTimeout(() => {
-              document
-                .getElementById(`dashboard-panel-${id}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }, 100)
-          }}
-        />
       ) : panels.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
           <div className="text-[14px] text-tertiary">This dashboard is empty.</div>
@@ -116,9 +88,6 @@ export function DashboardCanvas({
         </div>
       ) : (
         <>
-          {/* Only anomalies earn space ahead of the data — one warning line
-              that switches to the Insights view. */}
-          <InsightsAnomalyBanner panels={panels} onViewInsights={() => setCanvasView('insights')} />
           {/* Masonry via CSS columns: each column stacks its cards to content
               height, so a short scalar tile never leaves a row-height gap
               under itself the way a grid row (sized by its tallest card)
@@ -146,6 +115,12 @@ export function DashboardCanvas({
                   onEdit={(p) => setEditor({ panel: p })}
                   onDelete={setPanelToDelete}
                   onConfigureAlert={setAlertPanel}
+                  onAskAgent={(p) =>
+                    onOpenAgentChat(
+                      `About the panel "${p.title}" (panel ID "${p.id}") on dashboard ID "${selectedId}": `,
+                      { send: false },
+                    )
+                  }
                   dragHandleProps={
                     editingLayout
                       ? {

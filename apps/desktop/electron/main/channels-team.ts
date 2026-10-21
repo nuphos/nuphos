@@ -155,22 +155,6 @@ export const teamChannels = {
     force?: boolean,
     viewRange?: DashboardViewRange,
   ) => atlas.dashboardsExecutePanel(teamId, dashboardId, panelId, force, viewRange),
-  'dashboards:generateInsight': (
-    _e: unknown,
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    viewRange?: DashboardViewRange,
-  ) => atlas.dashboardsGenerateInsight(teamId, dashboardId, panelId, viewRange),
-  'dashboards:insightFeedback': (
-    _e: unknown,
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    rating: 'up' | 'down',
-    note?: string,
-    viewRange?: DashboardViewRange,
-  ) => atlas.dashboardsInsightFeedback(teamId, dashboardId, panelId, rating, note, viewRange),
   'dashboards:getAlert': (_e: unknown, teamId: string, dashboardId: string, panelId: string) =>
     atlas.dashboardsGetAlert(teamId, dashboardId, panelId),
   'dashboards:saveAlert': (
