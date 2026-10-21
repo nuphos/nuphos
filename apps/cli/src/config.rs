@@ -90,38 +90,44 @@ fn sibling(path: &std::path::Path, name: &str) -> PathBuf {
     path.with_file_name(file)
 }
 
-/// The desktop app's sign-in, to start the CLI's from. Reading its token from
-/// the keychain is what makes macOS ask once.
-pub fn read_desktop_session() -> Option<Session> {
-    let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let mut session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
-    if session.token.is_none() {
-        session.token = secret::desktop_token(session.keychain_account.as_deref()?).ok().flatten();
-    }
-    session.keychain_account = None;
-    session.token.is_some().then_some(session)
+/// The desktop app's sign-in as one read of its file: who it is, the backend
+/// its account is on, and where its token is. Deciding from one read keeps
+/// the token paired with its backend, even if the desktop switches meanwhile.
+pub struct DesktopSignIn {
+    pub who: String,
+    /// The desktop switches backends without moving the CLI's `cli.api-url`.
+    pub api_url: Option<String>,
+    session: Session,
 }
 
-/// Whether the desktop app is signed in, without reading its token.
-pub fn desktop_signed_in() -> Option<String> {
-    let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
+impl DesktopSignIn {
+    /// Its token: in the file it was read from, or in the keychain item that
+    /// file names, which is per user and backend (`<user>@<apiUrl>`). Reading
+    /// it is what makes macOS ask once.
+    pub fn token(&self) -> Option<String> {
+        if let Some(token) = &self.session.token {
+            return Some(token.clone());
+        }
+        secret::desktop_token(self.session.keychain_account.as_deref()?).ok().flatten()
+    }
+}
+
+/// The desktop app's sign-in, to start the CLI's from, without reading its token.
+pub fn desktop_sign_in() -> Option<DesktopSignIn> {
+    desktop_sign_in_from(&fs::read_to_string(desktop_session_path()).ok()?)
+}
+
+fn desktop_sign_in_from(text: &str) -> Option<DesktopSignIn> {
+    let session = serde_yaml::from_str::<Option<Session>>(text).ok().flatten()?;
     if session.token.is_none() && session.keychain_account.is_none() {
         return None;
     }
     let user = session.user_info.as_ref().and_then(|u| u["email"].as_str()).map(String::from);
-    Some(user.or(session.user).unwrap_or_else(|| "you".into()))
-}
-
-/// The backend the desktop app's current account is on, when its file says.
-/// The desktop switches backends without moving the CLI's `cli.api-url`.
-pub fn desktop_api_url() -> Option<String> {
-    desktop_backend(&fs::read_to_string(desktop_session_path()).ok()?)
-}
-
-fn desktop_backend(text: &str) -> Option<String> {
-    let value = serde_yaml::from_str::<serde_yaml::Value>(text).ok()?;
-    value.get("apiUrl")?.as_str().map(String::from)
+    let who = user.or_else(|| session.user.clone()).unwrap_or_else(|| "you".into());
+    let api_url = serde_yaml::from_str::<serde_yaml::Value>(text)
+        .ok()
+        .and_then(|value| value.get("apiUrl")?.as_str().map(String::from));
+    Some(DesktopSignIn { who, api_url, session })
 }
 
 /// Whether two endpoints name the same backend.
@@ -309,7 +315,7 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        desktop_backend, forget_rejected, read_session_file, same_backend, sibling, write_private, Prefs, Session,
+        desktop_sign_in_from, forget_rejected, read_session_file, same_backend, sibling, write_private, Prefs, Session,
     };
 
     #[test]
@@ -342,12 +348,15 @@ mod tests {
     }
 
     #[test]
-    fn the_desktop_account_names_its_backend() {
-        let text = "keychainAccount: u1@https://nuphos.example.com\napiUrl: https://nuphos.example.com\n";
-        let backend = desktop_backend(text).unwrap();
-        assert!(same_backend(&backend, "https://nuphos.example.com/"));
-        assert!(!same_backend(&backend, "https://api.nuphos.ai"));
-        assert_eq!(desktop_backend("keychainAccount: u1@x\n"), None);
+    fn the_desktop_token_stays_with_the_backend_it_was_read_with() {
+        let on_b = desktop_sign_in_from("token: tok-b\napiUrl: https://nuphos.example.com\n").unwrap();
+        // The desktop switching back to Nuphos Cloud after this read changes nothing in it.
+        let _on_cloud = desktop_sign_in_from("token: tok-a\napiUrl: https://api.nuphos.ai\n").unwrap();
+        assert!(same_backend(on_b.api_url.as_deref().unwrap(), "https://nuphos.example.com/"));
+        assert!(!same_backend(on_b.api_url.as_deref().unwrap(), "https://api.nuphos.ai"));
+        assert_eq!(on_b.token().as_deref(), Some("tok-b"));
+        assert!(desktop_sign_in_from("keychainAccount: u1@x\n").unwrap().api_url.is_none());
+        assert!(desktop_sign_in_from("{}\n").is_none());
     }
 
     #[test]
