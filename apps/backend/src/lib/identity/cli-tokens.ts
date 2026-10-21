@@ -169,7 +169,7 @@ const AGENT_DENIED: [RegExp, RegExp][] = [
   [/^(PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/?$/],
   [/^(PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/(agent-runtime|allowed-email-domains)\/?$/],
   [/^(POST|PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/(members|invitations)(\/|$)/],
-  [/./, /^\/teams\/[^/]+\/(leave|billing)(\/|$)/],
+  [/./, /^\/teams\/[^/]+\/(leave|billing|transfer-ownership)(\/|$)/],
 ]
 
 /** Why this CLI token may not make this request, or null when it may. */

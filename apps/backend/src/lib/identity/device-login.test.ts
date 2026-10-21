@@ -270,6 +270,7 @@ describe('what each token kind may call', () => {
       ['POST', `/teams/${TEAM}/invitations`],
       ['POST', `/teams/${TEAM}/leave`],
       ['GET', `/teams/${TEAM}/billing/usage`],
+      ['POST', `/teams/${TEAM}/transfer-ownership`],
       ['GET', '/agent/devices'],
       ['PUT', '/agent/devices'],
       ['POST', '/agent/devices/join-tokens'],
