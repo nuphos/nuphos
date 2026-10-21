@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
+import { mintRuntimeSkillsToken } from './runtime-skills-token'
 import {
   mintPreviewMcpToken,
   personalCredentialSubject,
+  redactSignedTokens,
   scopedPathAllowed,
   verifyPreviewMcpToken,
 } from './mcp-token'
@@ -133,5 +135,23 @@ describe('personalCredentialSubject', () => {
     expect(personalCredentialSubject(undefined)).toBeNull()
     expect(personalCredentialSubject(mint(true))).toBeNull()
     expect(personalCredentialSubject(`Bearer ${head}.${forged}.${signature}`)).toBeNull()
+  })
+})
+
+describe('redactSignedTokens', () => {
+  test('replaces tokens this backend signed, including inside raw JSON', () => {
+    const token = mintPreviewMcpToken({ userId: 'user-1', sessionId: 'conv-1', teamId: 'team-1' })
+    const skills = mintRuntimeSkillsToken('team-1', 'user-1')
+    const frame = JSON.stringify({ text: `NUPHOS_TOKEN=${token}\nBearer ${token}\tS=${skills}` })
+
+    expect(JSON.parse(redactSignedTokens(frame))).toEqual({
+      text: 'NUPHOS_TOKEN=[redacted]\nBearer [redacted]\tS=[redacted]',
+    })
+  })
+
+  test('keeps JWTs it did not sign and plain text', () => {
+    const foreign = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2lnbmF0dXJl'
+
+    expect(redactSignedTokens(`id_token=${foreign} ok`)).toBe(`id_token=${foreign} ok`)
   })
 })

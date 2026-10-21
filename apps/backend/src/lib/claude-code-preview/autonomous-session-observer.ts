@@ -12,6 +12,7 @@ import type { OpenAbPermissionOutcome, OpenAbPermissionRequest } from './openab-
 import type { PreviewAgentUpdate } from './preview-agent-update'
 import type { TeamSession } from './team-openab-runtime'
 
+import { redactStreamedUpdates } from './streamed-token-redaction'
 export type ClaudeCodeAutonomousContext = {
   teamId: string
   conversationId: string
@@ -286,7 +287,9 @@ export function observeAutonomousUpdates(session: TeamSession): void {
 
     updateChain = settled
   }
-  const stopUpdates = session.client.onSessionUpdate(session.openabSessionId, deliver)
+  // Background output streams too; it is redacted the same way as a prompt's.
+  const live = redactStreamedUpdates(deliver)
+  const stopUpdates = session.client.onSessionUpdate(session.openabSessionId, live.deliver)
 
   session.stopObserving = () => {
     clearCodexAsyncTaskState(session)

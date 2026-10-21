@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { mintPreviewMcpToken } from './mcp-token'
 import { OpenAbAcpClient } from './openab-acp-client'
 
 import type { OpenAbSessionUpdate } from './openab-acp-client'
@@ -334,6 +335,36 @@ describe('OpenAbAcpClient', () => {
 
     h.socket().receive({ jsonrpc: '2.0', id: promptFrame.id, result: { stopReason: 'end_turn' } })
     await expect(prompting).resolves.toEqual({ stopReason: 'end_turn' })
+  })
+
+  test('redacts backend tokens from agent output before it is handled', async () => {
+    const h = harness()
+    const client = await OpenAbAcpClient.connect({
+      url: 'wss://openab.example/acp',
+      authKey: 'transport-key',
+      socketFactory: h.connect,
+    })
+    const token = mintPreviewMcpToken({ userId: 'u1', sessionId: 'sess-redact', teamId: 't1' })
+    const seen: unknown[] = []
+    const prompting = client.prompt('sess-redact', 'hello', (update) => seen.push(update))
+    const promptFrame = await nextSent(h.socket(), 0)
+
+    h.socket().receive({
+      jsonrpc: '2.0',
+      method: 'session/update',
+      params: {
+        sessionId: 'sess-redact',
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          content: { type: 'text', text: `token is ${token}` },
+        },
+      },
+    })
+    h.socket().receive({ jsonrpc: '2.0', id: promptFrame.id, result: { stopReason: 'end_turn' } })
+    await prompting
+
+    expect(JSON.stringify(seen)).toContain('token is [redacted]')
+    expect(JSON.stringify(seen)).not.toContain(token)
   })
 
   test('times out a prompt that streams nothing for the inactivity window', async () => {

@@ -32,6 +32,7 @@ import type { RuntimeAttachment } from './runtime-attachments'
 import type { TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
 
 import type { previewSessionAccess } from './credentials-mcp'
+import { redactStreamedUpdates } from './streamed-token-redaction'
 import { RENEWED_TOKEN_TTL_SEC, renewTurnCredentials } from './turn-credential-renewal'
 export {
   previewRuntimeObservability,
@@ -245,14 +246,22 @@ export async function runClaudeCodePreviewPrompt(args: {
       .filter(Boolean)
       .join('\n\n')
     const text = lastTextChunkTracker(args.onTextDelta)
+    const live = redactStreamedUpdates((update) => {
+      if (update.kind === 'text') text.onTextDelta(update.text)
+      else if (update.kind === 'agent') args.onAgentUpdate?.(update.update)
+    })
     // A refusal or transport failure does not grant authority to cancel or
     // replace the runtime session. Its snapshot remains the lifecycle source.
     const result = await client
       .prompt(
         session.openabSessionId,
         args.text,
-        text.onTextDelta,
-        args.onAgentUpdate,
+        (delta) => {
+          live.deliver({ kind: 'text', text: delta })
+        },
+        (update) => {
+          live.deliver({ kind: 'agent', update })
+        },
         args.onPermissionRequest,
         () => {
           // Runtime admission, not a backend flag, selects the command whose
@@ -270,6 +279,9 @@ export async function runClaudeCodePreviewPrompt(args: {
         throw error instanceof OpenAbRpcError && error.code === -32001
           ? refusal(error.message)
           : error
+      })
+      .finally(() => {
+        live.flush()
       })
 
     return { stopReason: await settledCodexStopReason(session, result, text.last()) }
