@@ -1,6 +1,8 @@
 use crate::acp::connection::{AcpConnection, SessionActivity};
 use crate::acp::protocol::ConfigOption;
-use crate::acp::session_credentials::{write_session_credentials, SESSION_CREDENTIALS_DIR_ENV};
+use crate::acp::session_credentials::{
+    write_session_credentials, SESSION_CREDENTIALS_DIR_ENV, SESSION_CREDENTIALS_META_KEY,
+};
 use crate::acp::startup::{spawn_initialized, AgentCommand, LOCKED_STATE_RETRY_DELAYS};
 use crate::config::AgentConfig;
 use anyhow::{anyhow, Result};
@@ -423,6 +425,27 @@ impl SessionPool {
                 )
             })?;
         handle.steer(prompt).await
+    }
+
+    /// Swaps a session's credentials mid-turn: the files the live agent reads,
+    /// and the stored meta a respawn rewrites them from.
+    pub async fn refresh_session_credentials(
+        &self,
+        thread_id: &str,
+        credentials: serde_json::Value,
+    ) -> Result<()> {
+        let meta = {
+            let mut state = self.state.write().await;
+            let meta = state
+                .session_meta
+                .get_mut(thread_id)
+                .filter(|meta| meta.is_object())
+                .ok_or_else(|| anyhow!("No session to refresh"))?;
+            meta[SESSION_CREDENTIALS_META_KEY] = credentials;
+            meta.clone()
+        };
+        write_session_credentials(&self.credentials_root, thread_id, Some(&meta));
+        Ok(())
     }
 
     pub async fn execution_snapshot(&self, thread_id: &str) -> serde_json::Value {

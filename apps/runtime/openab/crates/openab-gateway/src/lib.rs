@@ -66,6 +66,19 @@ pub type AcpSessionSteer = Arc<
         + Sync,
 >;
 
+/// Replaces a live session's short-lived credentials (`dev.openab/credentials`)
+/// while a turn runs, so a turn can outlast any one token.
+#[cfg(feature = "acp")]
+pub type AcpSessionCredentials = Arc<
+    dyn Fn(
+            String,
+            serde_json::Value,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>>
+        + Send
+        + Sync,
+>;
+
 #[cfg(feature = "acp")]
 pub type AcpSessionCancel = Arc<
     dyn Fn(
@@ -172,6 +185,8 @@ pub struct AppState {
     #[cfg(feature = "acp")]
     pub acp_session_steer: Option<AcpSessionSteer>,
     #[cfg(feature = "acp")]
+    pub acp_session_credentials: Option<AcpSessionCredentials>,
+    #[cfg(feature = "acp")]
     pub acp_session_inventory: Option<AcpSessionInventory>,
     #[cfg(feature = "acp")]
     pub acp_runtime_suspend: Option<AcpRuntimeSuspend>,
@@ -261,6 +276,8 @@ impl AppState {
             acp_session_cancel: None,
             #[cfg(feature = "acp")]
             acp_session_steer: None,
+            #[cfg(feature = "acp")]
+            acp_session_credentials: None,
             #[cfg(feature = "acp")]
             acp_session_inventory: None,
             #[cfg(feature = "acp")]
@@ -413,6 +430,8 @@ impl AppState {
             acp_session_cancel: None,
             #[cfg(feature = "acp")]
             acp_session_steer: None,
+            #[cfg(feature = "acp")]
+            acp_session_credentials: None,
             #[cfg(feature = "acp")]
             acp_session_inventory: None,
             #[cfg(feature = "acp")]
@@ -1070,6 +1089,8 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
         acp_session_cancel: None,
         #[cfg(feature = "acp")]
         acp_session_steer: None,
+        #[cfg(feature = "acp")]
+        acp_session_credentials: None,
         #[cfg(feature = "acp")]
         acp_session_inventory: None,
         #[cfg(feature = "acp")]

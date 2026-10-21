@@ -1,5 +1,5 @@
-//! A prompt's session `_meta` refreshes a live agent's credential files and the
-//! meta a respawn replays, without restarting the agent.
+//! A prompt's session `_meta`, or a mid-turn refresh, updates a live agent's
+//! credential files and the meta a respawn replays, without restarting the agent.
 #![cfg(unix)]
 use openab_core::acp::session_credentials::session_credentials_dir;
 use openab_core::acp::SessionPool;
@@ -73,6 +73,17 @@ done
     assert_eq!(token(), "second");
     assert_eq!(spawns().len(), 1, "a live agent must not be restarted");
 
+    // Mid-turn refresh: same files, same agent, and the meta a respawn replays.
+    pool.refresh_session_credentials("acp:c", json!({"NUPHOS_TOKEN": "third"}))
+        .await
+        .unwrap();
+    assert_eq!(token(), "third");
+    assert_eq!(spawns().len(), 1, "a refresh must not restart the agent");
+    assert!(pool
+        .refresh_session_credentials("acp:unknown", json!({"NUPHOS_TOKEN": "x"}))
+        .await
+        .is_err());
+
     std::process::Command::new("kill")
         .arg(pid)
         .status()
@@ -89,6 +100,6 @@ done
         .lines()
         .find(|line| line.contains("\"session/load\""))
         .expect("respawn resumes the saved session");
-    assert!(load.contains("\"NUPHOS_TOKEN\":\"second\""), "{load}");
-    assert_eq!(token(), "second");
+    assert!(load.contains("\"NUPHOS_TOKEN\":\"third\""), "{load}");
+    assert_eq!(token(), "third");
 }

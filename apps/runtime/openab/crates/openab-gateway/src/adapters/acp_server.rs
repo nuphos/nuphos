@@ -2257,6 +2257,12 @@ async fn handle_acp_connection(
                             json!(true);
                     }
                 }
+                if state.acp_session_credentials.is_some() {
+                    if let Some(result) = resp.result.as_mut() {
+                        result["agentCapabilities"]["_meta"]["dev.openab/credentialRefresh"] =
+                            json!(true);
+                    }
+                }
                 if state.acp_session_snapshot.is_some() {
                     if let Some(result) = resp.result.as_mut() {
                         result["agentCapabilities"]["_meta"]["dev.openab/sessionAuthority"] =
@@ -2796,6 +2802,38 @@ async fn handle_acp_connection(
                     JsonRpcResponse::error(id, -32602, "Missing params")
                 };
                 let _ = out_tx.send(serde_json::to_string(&response).unwrap());
+            }
+            "_openab/session/credentials" => {
+                let state = state.clone();
+                let out_tx = out_tx.clone();
+                let params = req.params.clone();
+                let scope = scope.clone();
+                tokio::spawn(async move {
+                    let session = params.as_ref().and_then(|p| p["sessionId"].as_str());
+                    let credentials = params
+                        .as_ref()
+                        .map(|p| p["credentials"].clone())
+                        .filter(Value::is_object);
+                    let response = if !runtime_control {
+                        JsonRpcResponse::error(id, -32003, "Runtime operator credential required")
+                    } else if !initialized {
+                        JsonRpcResponse::error(id, -32002, "Not initialized")
+                    } else if !scope.owns_session(session) {
+                        JsonRpcResponse::error(id, -32003, FOREIGN_SESSION)
+                    } else if let (Some(channel), Some(credentials), Some(refresh)) = (
+                        session.and_then(derive_channel_id),
+                        credentials,
+                        state.acp_session_credentials.as_ref(),
+                    ) {
+                        match refresh(channel, credentials).await {
+                            Ok(()) => JsonRpcResponse::success(id, json!({})),
+                            Err(message) => JsonRpcResponse::error(id, -32004, message),
+                        }
+                    } else {
+                        JsonRpcResponse::error(id, -32602, "Invalid credentials request")
+                    };
+                    let _ = out_tx.send(serde_json::to_string(&response).unwrap());
+                });
             }
             "_openab/session/steer" => {
                 let state = state.clone();
@@ -8004,6 +8042,67 @@ mod acp_ws_integration {
         }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn credential_refresh_requires_operator_and_reaches_the_pool() {
+        let (tx, _events) = tokio::sync::broadcast::channel(16);
+        let mut state = crate::AppState::test_default(tx);
+        state.acp = Some(AcpConfig {
+            auth_key: None,
+            control_key: Some("operator-fixture-key".into()),
+            allowed_origins: vec![],
+            login_command: None,
+            auth_file: None,
+            runtime_jobs: RuntimeJobs::default(),
+            disk_paths: vec![],
+            credentials: None,
+            console: None,
+        });
+        let calls = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = calls.clone();
+        state.acp_session_credentials = Some(Arc::new(move |channel, credentials| {
+            seen.lock().unwrap().push((channel, credentials));
+            Box::pin(async { Ok(()) })
+        }));
+        let app = axum::Router::new()
+            .route("/acp", axum::routing::get(ws_upgrade))
+            .with_state(Arc::new(state));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+        for operator in [false, true] {
+            let mut request = format!("ws://{addr}/acp").into_client_request().unwrap();
+            if operator {
+                request.headers_mut().insert(
+                    "Authorization",
+                    "Bearer operator-fixture-key".parse().unwrap(),
+                );
+            }
+            let (mut ws, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+            send(&mut ws, json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}})).await;
+            let init = recv(&mut ws).await;
+            assert_eq!(init["result"]["agentCapabilities"]["_meta"]["dev.openab/credentialRefresh"], true);
+            send(&mut ws, json!({"jsonrpc":"2.0","id":2,"method":"_openab/session/credentials","params":{"sessionId":"sess_173201f5-7973-4186-ae78-e63c2988d1b9","credentials":{"NUPHOS_TOKEN":"fresh"}}})).await;
+            let result = recv(&mut ws).await;
+            if operator {
+                assert_eq!(result["result"], json!({}));
+                send(&mut ws, json!({"jsonrpc":"2.0","id":3,"method":"_openab/session/credentials","params":{"sessionId":"sess_173201f5-7973-4186-ae78-e63c2988d1b9","credentials":"fresh"}})).await;
+                assert_eq!(recv(&mut ws).await["error"]["code"], -32602);
+            } else {
+                assert_eq!(result["error"]["code"], -32003);
+            }
+        }
+        assert_eq!(
+            *calls.lock().unwrap(),
+            vec![(
+                "acp_173201f5-7973-4186-ae78-e63c2988d1b9".to_string(),
+                json!({"NUPHOS_TOKEN":"fresh"})
+            )]
+        );
     }
 
     #[tokio::test]
