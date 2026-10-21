@@ -118,6 +118,22 @@ test('a team gets at most 20 hosted agents; deleting one frees a slot and other 
   await add(server, 'after delete')
 })
 
+test('concurrent creates for the last hosted slot admit exactly one', async () => {
+  const server = app()
+
+  for (let index = 0; index < 19; index++) await add(server, `agent ${String(index)}`)
+  const responses = await Promise.all(
+    ['a', 'b', 'c'].map((label) =>
+      server.request('/agent-runtimes', json('POST', { label, provider: 'codex' })),
+    ),
+  )
+
+  expect(responses.map((response) => response.status).toSorted((a, b) => a - b)).toEqual([
+    201, 409, 409,
+  ])
+  expect(runtimeRows().filter((doc) => doc.teamId === 'one')).toHaveLength(20)
+})
+
 test('the create route takes a name and a type, and nothing that signs the agent in', async () => {
   for (const extra of [
     { image: `registry.example/codex@sha256:${'a'.repeat(64)}` },

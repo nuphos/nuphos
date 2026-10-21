@@ -37,6 +37,23 @@ export type RuntimeInstance = {
  *  from taking the whole runtime node pool. */
 const MAX_HOSTED_RUNTIMES_PER_TEAM = 20
 
+/** The team's hosted runtimes that hold a slot: the oldest ones, ties broken by
+ *  id, so every concurrent create agrees on who got in. */
+async function hostedRuntimesWithSlot(teamId: string): Promise<string[]> {
+  const docs = await runtimes()
+    .find({ teamId, hostedBy: 'nuphos', managedBy: { $exists: false } })
+    .project<{ _id: string; createdAt: Date }>({ _id: 1, createdAt: 1 })
+    .toArray()
+
+  return docs
+    .toSorted((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a._id.localeCompare(b._id))
+    .slice(0, MAX_HOSTED_RUNTIMES_PER_TEAM)
+    .map((doc) => doc._id)
+}
+function runtimeLimitReached() {
+  return new AppError(409, 'runtime_limit_reached', 'This team has reached its hosted agent limit.')
+}
+
 /**
  * Registers a runtime the way an administrator registers a self-hosted one with its
  * password, and deploys a pod started with that password. The reconcile loop retries a
@@ -48,18 +65,8 @@ export async function createManagedRuntimeInstance(args: {
   provider: OpenAbProvider
   label: string
 }): Promise<RuntimeInstance> {
-  const hostedCount = await runtimes().countDocuments({
-    teamId: args.teamId,
-    hostedBy: 'nuphos',
-    managedBy: { $exists: false },
-  })
-
-  if (hostedCount >= MAX_HOSTED_RUNTIMES_PER_TEAM)
-    throw new AppError(
-      409,
-      'runtime_limit_reached',
-      'This team has reached its hosted agent limit.',
-    )
+  if ((await hostedRuntimesWithSlot(args.teamId)).length >= MAX_HOSTED_RUNTIMES_PER_TEAM)
+    throw runtimeLimitReached()
   const image = await managedRuntimeImage(args.provider)
 
   if (!image)
@@ -81,6 +88,13 @@ export async function createManagedRuntimeInstance(args: {
     hostedBy: 'nuphos',
     deploymentImage: image,
   })
+
+  // Concurrent creates can all pass the check above; the ones left without a
+  // slot once every row is in back out before anything is deployed.
+  if (!(await hostedRuntimesWithSlot(args.teamId)).includes(runtime.id)) {
+    await runtimes().deleteOne({ _id: runtime.id, teamId: args.teamId })
+    throw runtimeLimitReached()
+  }
   const { enabled, namespace, scheduling } = config.claudeCodeRuntimeProvisioner
   const kube = enabled ? provisionerKubeClient() : null
   const hosted = kube && (await runtimes().findOne({ _id: runtime.id, teamId: args.teamId }))
