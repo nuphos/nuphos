@@ -41,7 +41,7 @@ export function ClaudeSignInCode() {
         autoComplete="off"
         value={code}
         onChange={(event) => setCode(event.target.value)}
-        className="w-full rounded-md border border-zGray-700 bg-transparent px-3 py-2"
+        className="w-full rounded-md border border-zGray-700 bg-transparent px-3 py-2 outline-none focus:border-zViolet-500 focus:ring-1 focus:ring-zViolet-500"
       />
       <Button size="sm" type="submit" disabled={submitting || !code.trim()}>
         Submit code
