@@ -18,6 +18,7 @@ import { isDev } from '../env.ts'
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { LocalAgentLogin } from './agent-login.ts'
+import { localFileConnectors } from './attachment-stream.ts'
 import { LocalBrowserStream } from './browser-stream.ts'
 import { runBrowserCall } from './browser-tabs.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
@@ -25,7 +26,6 @@ import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
-import { LocalFileStream } from './file-stream.ts'
 import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
@@ -131,7 +131,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
           },
         })
       },
-      connectFile: (instanceId) => LocalFileStream.open(controller.state(), instanceId),
+      ...localFileConnectors(() => controller.state(), bundleRoot()),
       ...localToolStreams,
       connectBrowser: () => new LocalBrowserStream(runBrowserCall),
       connectTerminal: createDockTerminalStream,

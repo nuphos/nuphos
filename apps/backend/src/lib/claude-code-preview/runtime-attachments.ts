@@ -97,10 +97,41 @@ export async function materializeRuntimeAttachments(
 
   if (endpoint.url !== runtime.url)
     throw new Error('Conversation runtime changed. Retry this message.')
-  const stdout =
-    (await localAttachments(teamId, ownerUserId, runtime.runtimeId, files)) ??
-    (await attachmentJob(teamId, endpoint, files))
+  let stdout = await localAttachments(teamId, ownerUserId, runtime.runtimeId, files)
 
+  if (stdout === null) {
+    const client = await controlRegistry.acquire(teamId, endpoint)
+
+    const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
+    // A Desktop local runtime runs only its bundled copy of the program, so just the file
+    // list crosses; the image's general `panel` job takes the program as its runner.
+    const job = jobs.includes('attachments')
+      ? 'attachments'
+      : jobs.includes('panel')
+        ? 'panel'
+        : null
+
+    if (!job) throw new Error('Update this agent to support native file attachments')
+    const result = await client.runJob(
+      {
+        jobId: randomUUID(),
+        job,
+        stdin: JSON.stringify(
+          job === 'attachments'
+            ? { files }
+            : { runner: ATTACHMENT_RUNNER, script: '', params: { files } },
+        ),
+        env: {},
+        timeoutMs: 120_000,
+        maxStdoutBytes: 64 * 1024,
+      },
+      125_000,
+    )
+
+    if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
+      throw new Error('Could not prepare attachments on the runtime. Retry this message.')
+    stdout = result.stdout
+  }
   const output = JSON.parse(stdout) as { paths?: unknown[] }
 
   if (
@@ -122,39 +153,4 @@ export async function materializeRuntimeAttachments(
       : {}),
     ...(files[index]!.mimeType ? { mimeType: files[index]!.mimeType } : {}),
   }))
-}
-
-async function attachmentJob(
-  teamId: string,
-  endpoint: TeamRuntimeEndpoint,
-  files: RuntimeAttachment[],
-): Promise<string> {
-  const client = await controlRegistry.acquire(teamId, endpoint)
-
-  const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
-  // A Desktop local runtime runs only its bundled copy of the program, so just the file
-  // list crosses; the image's general `panel` job takes the program as its runner.
-  const job = jobs.includes('attachments') ? 'attachments' : jobs.includes('panel') ? 'panel' : null
-
-  if (!job) throw new Error('Update this agent to support native file attachments')
-  const result = await client.runJob(
-    {
-      jobId: randomUUID(),
-      job,
-      stdin: JSON.stringify(
-        job === 'attachments'
-          ? { files }
-          : { runner: ATTACHMENT_RUNNER, script: '', params: { files } },
-      ),
-      env: {},
-      timeoutMs: 120_000,
-      maxStdoutBytes: 64 * 1024,
-    },
-    125_000,
-  )
-
-  if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
-    throw new Error('Could not prepare attachments on the runtime. Retry this message.')
-
-  return result.stdout
 }
