@@ -26,7 +26,7 @@ if (localRoot) {
     const path = join(root, entry.name)
     const info = await lstat(path).catch(() => undefined)
     if (info?.isDirectory() && info.mtimeMs < cutoff)
-      await rm(path, { recursive: true, force: true })
+      await rm(path, { recursive: true, force: true }).catch(() => {})
   }
 }
 const dir = await mkdtemp(join(root, 'nuphos-attachments-'))
@@ -40,11 +40,11 @@ try {
       .pop()
       .replace(/[\x00-\x1f\x7f<>:"|?*]/g, '_')
       .replace(/[ .]+$/g, '')
-    if (/^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(name)) name = `_${name}`
     // Bound both UTF-8 bytes (POSIX) and UTF-16 code units (Windows).
     name = Array.from(name).slice(0, 180).join('')
     while (Buffer.byteLength(name, 'utf8') > 200) name = Array.from(name).slice(0, -1).join('')
     name = name.replace(/[ .]+$/g, '')
+    if (/^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(name)) name = `_${name}`
     const path = join(folder, !name || name === '.' || name === '..' ? 'attachment' : name)
     const response = await fetch(file.url, {
       signal: AbortSignal.timeout(60000),

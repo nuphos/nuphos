@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, mkdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { basename, join, relative } from 'node:path'
@@ -67,6 +67,8 @@ test('downloads reclaim expired batches and use portable Windows filenames', asy
   const expired = join(root, 'nuphos-attachments-expired')
   const recent = join(root, 'nuphos-attachments-recent')
   const unrelated = join(root, 'keep-other-directory')
+  const locked = join(root, 'nuphos-attachments-locked')
+  const canLock = process.platform !== 'win32' && process.getuid?.() !== 0
   const server = createServer((_request, response) => response.end('red'))
 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -82,7 +84,19 @@ test('downloads reclaim expired batches and use portable Windows filenames', asy
 
     await utimes(expired, old, old)
     await utimes(unrelated, old, old)
-    const names = ['report?.txt', 'CON.png', 'trailing. ', '圖片'.repeat(200)]
+    if (canLock) {
+      await mkdir(locked)
+      await writeFile(join(locked, 'keep.txt'), 'locked')
+      await utimes(locked, old, old)
+      await chmod(locked, 0o500)
+    }
+    const names = [
+      'report?.txt',
+      'CON.png',
+      'trailing. ',
+      '圖片'.repeat(200),
+      `CON${' '.repeat(177)}x`,
+    ]
     const result = (await request(new LocalAttachmentStream(workspace, program), {
       files: names.map((name) => ({
         name,
@@ -96,13 +110,16 @@ test('downloads reclaim expired batches and use portable Windows filenames', asy
     assert.equal(basename(result.paths[1]!), '_CON.png')
     assert.equal(basename(result.paths[2]!), 'trailing')
     assert.ok(Buffer.byteLength(basename(result.paths[3]!), 'utf8') <= 200)
+    assert.equal(basename(result.paths[4]!), '_CON')
     for (const path of result.paths) assert.equal(await readFile(path, 'utf8'), 'red')
     await assert.rejects(stat(expired), { code: 'ENOENT' })
     assert.equal(await readFile(join(recent, 'keep.txt'), 'utf8'), 'keep')
     assert.equal(await readFile(join(unrelated, 'keep.txt'), 'utf8'), 'keep')
+    if (canLock) assert.equal(await readFile(join(locked, 'keep.txt'), 'utf8'), 'locked')
   } finally {
     server.closeAllConnections()
     await new Promise<void>((resolve) => server.close(() => resolve()))
+    if (canLock) await chmod(locked, 0o700).catch(() => {})
     await rm(workspace, { recursive: true, force: true })
   }
 })
