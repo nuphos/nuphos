@@ -30,7 +30,7 @@ export function ResourcePreview({
       <PreviewCard.Trigger
         delay={300}
         closeDelay={150}
-        render={<span className="inline-flex min-w-0 max-w-full align-baseline" />}
+        render={<span className="inline-flex max-w-full align-baseline" />}
       >
         {children}
       </PreviewCard.Trigger>
