@@ -44,6 +44,7 @@ const CLOSED = 3
 const DEFAULT_LIVENESS_MS = 10_000
 const OFFLINE_REASON = 'The computer running this agent is offline'
 const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
+  attachments: 'localAttachments',
   exec: 'localExec',
   terminal: 'localTerminal',
   cua: 'localCua',
@@ -65,8 +66,6 @@ function refusal(status: LocalRuntimeStatus | undefined, target: DeviceStreamTar
   ) {
     return 'instance_missing'
   }
-
-  return undefined
 }
 
 /**
