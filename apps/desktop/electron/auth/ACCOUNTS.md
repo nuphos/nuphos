@@ -15,7 +15,7 @@ below. `config.model.test.ts` checks I1–I3 against random interleavings.
 | I3  | Every change to the sign-in runs in the config turn (`inTurn`). Work based on an earlier read writes or publishes only if nothing else landed since (`writeIf`, `publishIf`, `unchangedSince`).         | `config.ts`, `me.ts`                                              |
 | I4  | A sign-in belongs to one attempt, which owns its backend. Cancelling it or starting another one makes its result void, even if its write is already queued.                                             | `sign-in.ts`                                                      |
 | I5  | When the shown account (`sub@backend`) changes, the main process ends account-scoped work (SSH, pod exec, analytics identity) and then reloads every window. No renderer carries state across accounts. | `main/account-reload.ts`                                          |
-| I6  | Anything stored per user is keyed by user and backend, not user id alone.                                                                                                                               | `accountKey`, `composerDraftOwner`                                |
+| I6  | Anything stored per user is keyed by user and backend, not user id alone. The local runtime keeps a Cloud user under the bare id (existing homes) and anyone else under `<id>@<host>`.                  | `accountKey`, `composerDraftOwner`, `runtimeOwner`                |
 
 Adding state or work that belongs to an account? Then it has to join I5's
 teardown, and any async result has to go through I3. Collecting all of this

@@ -29,6 +29,7 @@ import { LocalFileStream } from './file-stream.ts'
 import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
+import { runtimeOwner } from './owner.ts'
 import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
 
@@ -218,8 +219,9 @@ export function cancelLocalCodexLogin(): void {
 export function initLocalRuntime(): void {
   sleep.initSleepPrevention(broadcastState)
   const follow = (token: string | null) => {
-    const userId =
-      token && deviceRegistrationAllowed(isDev) ? (unverifiedTokenSubject(token) ?? null) : null
+    const subject = token && deviceRegistrationAllowed(isDev) ? unverifiedTokenSubject(token) : null
+    // The same user id on another backend is another account, with its own agents.
+    const userId = subject ? runtimeOwner(subject, apiUrl()) : null
 
     if (userId !== controller.state().userId) {
       cancelLocalClaudeLogin()

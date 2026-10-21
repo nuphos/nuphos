@@ -114,7 +114,7 @@ test('Cloud sign-in stays usable without registering a dev device or opening its
 test('switching endpoints stops hosting on Cloud and resumes on the dev backend', async () => {
   setApiUrl(null)
   await until(() => sockets.length === 1)
-  assert.equal(getLocalRuntimeState().userId, 'alice')
+  assert.equal(getLocalRuntimeState().userId, 'alice@127.0.0.1_3718')
   assert.deepEqual(requests, ['/agent/devices'])
   assert.deepEqual(sockets, ['ws://127.0.0.1:3718/agent/devices/dev-device/runtime-tunnel'])
   setApiUrl('https://api.nuphos.ai')
@@ -127,18 +127,18 @@ test('switching endpoints stops hosting on Cloud and resumes on the dev backend'
   assert.equal(authSession.current(), token)
   setApiUrl(null)
   await until(() => sockets.length === 2)
-  assert.equal(getLocalRuntimeState().userId, 'alice')
+  assert.equal(getLocalRuntimeState().userId, 'alice@127.0.0.1_3718')
   assert.equal(requests.length, 2)
   assert.equal(sockets.length, 2)
 })
 
-test('switching between two allowed backends with the same account moves hosting to the new one', async () => {
+test('the same user id on another allowed backend is another runtime owner', async () => {
   const stops = stopped
 
   setApiUrl('http://127.0.0.1:3719')
   await until(() => sockets.length === 3)
   assert.ok(stopped > stops)
-  assert.equal(getLocalRuntimeState().userId, 'alice')
+  assert.equal(getLocalRuntimeState().userId, 'alice@127.0.0.1_3719')
   assert.equal(requests.length, 3)
   assert.equal(sockets[2], 'ws://127.0.0.1:3719/agent/devices/dev-device/runtime-tunnel')
   assert.equal(authSession.current(), token)
