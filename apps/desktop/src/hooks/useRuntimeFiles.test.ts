@@ -17,6 +17,10 @@ let transfer = async () => ({
   size: 46_000_000,
   url: 'https://store/clip',
 })
+let linkedTransfer = async () => ({
+  ...(await transfer()),
+  origin: 'this-computer' as 'this-computer' | 'agent',
+})
 const tooLarge = () =>
   new Error(`__ATLAS_API_ERROR__${JSON.stringify({ message: 'big', code: 'file_too_large' })}`)
 
@@ -38,10 +42,25 @@ mock.module('../api.ts', {
 
         return read()
       },
+      atlasReadLinkedFile: () => {
+        calls.push('linked-read')
+
+        return read().then((file) => ({ ...file, origin: 'this-computer' }))
+      },
+      atlasTransferLinkedFile: () => {
+        calls.push('linked-transfer')
+
+        return linkedTransfer()
+      },
       atlasTransferRuntimeFile: () => {
         calls.push('transfer')
 
         return transfer()
+      },
+      fileTransferDownloadOne: async () => {
+        calls.push('download')
+
+        return { saved: false }
       },
     },
   },
@@ -80,10 +99,10 @@ mock.module('react', {
 const { useRuntimeFiles } = await import('./useRuntimeFiles.ts')
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
-function render(active = true, refreshKey = 0) {
+function render(active = true, refreshKey = 0, filePath?: string) {
   cursor = 0
   // eslint-disable-next-line react-hooks/rules-of-hooks -- Test harness runs the hook with mocked React scheduling.
-  const value = useRuntimeFiles('team', 'session', active, refreshKey)
+  const value = useRuntimeFiles('team', 'session', active, refreshKey, filePath)
 
   if (effect) {
     const next = effect
@@ -111,7 +130,117 @@ function reset() {
     size: 46_000_000,
     url: 'https://store/clip',
   })
+  linkedTransfer = async () => ({ ...(await transfer()), origin: 'this-computer' })
 }
+
+for (const name of [
+  'clip.mp4',
+  'clip.MOV',
+  'clip.webm',
+  'sound.mp3',
+  'sound.wav',
+  'photo.png',
+  'slides.pdf',
+]) {
+  test(`a linked ${name} uses local lookup and retains its actual source`, async () => {
+    reset()
+    read = async () => {
+      throw tooLarge()
+    }
+    const fetched = mock.method(globalThis, 'fetch', async () => new Response('%PDF'))
+    const path = `/outside-workspace/space and 中文/${name}`
+
+    try {
+      render(true, 0, path)
+      await settle()
+      const result = render(true, 0, path)
+
+      assert.ok(result.media)
+      assert.equal(result.source?.label, 'This computer')
+      assert.equal(result.source?.local, true)
+      assert.ok(calls.includes('linked-transfer'))
+      assert.ok(!calls.includes('transfer'))
+      // Refresh repeats the same local lookup; navigating the runtime does not.
+      result.refresh()
+      render(true, 0, path)
+      await settle()
+      assert.equal(calls.filter((call) => call === 'linked-transfer').length, 2)
+      render(true, 0, path).openFile('another.mp4')
+      render(true, 0, path)
+      await settle()
+      assert.ok(calls.includes('transfer'))
+      assert.equal(render(true, 0, path).source?.local, undefined)
+    } finally {
+      cleanup?.()
+      fetched.mock.restore()
+    }
+  })
+}
+
+test('a linked file absent on this computer keeps the runtime source', async () => {
+  reset()
+  linkedTransfer = async () => ({ ...(await transfer()), origin: 'agent' })
+  render(true, 0, '/workspace/clip.mp4')
+  await settle()
+  assert.equal(render(true, 0, '/workspace/clip.mp4').source?.local, undefined)
+  assert.equal(render(true, 0, '/workspace/clip.mp4').source?.label, 'Local')
+})
+
+test('leaving linked media while its transfer is pending cannot replace the new preview', async () => {
+  reset()
+  let finish!: (value: Awaited<ReturnType<typeof linkedTransfer>>) => void
+
+  linkedTransfer = () =>
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  const path = '/outside-workspace/clip.mp4'
+
+  render(true, 0, path)
+  await settle()
+  render(true, 0, path).openFile('report.txt')
+  render(true, 0, path)
+  await settle()
+  finish({ ...(await transfer()), origin: 'this-computer' })
+  await settle()
+  assert.equal(render(true, 0, path).media, undefined)
+  assert.deepEqual(render(true, 0, path).preview, { text: 'hi' })
+})
+
+test('a large linked document downloads from the local lookup; played media reuses its transfer', async () => {
+  reset()
+  read = async () => {
+    throw tooLarge()
+  }
+  const path = '/outside-workspace/report.txt'
+
+  render(true, 0, path)
+  await settle()
+  assert.equal(render(true, 0, path).tooLarge, true)
+  await render(true, 0, path).download()
+  assert.deepEqual(calls, ['source', 'linked-read', 'linked-transfer', 'download'])
+  reset()
+  const clip = '/outside-workspace/clip.mp4'
+
+  render(true, 0, clip)
+  await settle()
+  await render(true, 0, clip).download()
+  assert.deepEqual(calls, ['source', 'linked-transfer', 'download'])
+})
+
+test('local linked media over the transfer limit retains the too-large state', async () => {
+  reset()
+  linkedTransfer = async () => {
+    throw tooLarge()
+  }
+  const path = '/outside-workspace/huge.mp4'
+
+  render(true, 0, path)
+  await settle()
+  assert.equal(render(true, 0, path).overLimit, true)
+  assert.equal(render(true, 0, path).media, undefined)
+  assert.ok(!calls.includes('transfer'))
+})
 
 test('refresh during preview reloads the visible file and ignores the older response', async () => {
   reset()

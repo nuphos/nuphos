@@ -1,3 +1,4 @@
+import type { SessionConfigPick, SessionConfigState } from './session-config-types.ts'
 import type {
   LarkAvailableChat,
   LarkBindInput,
@@ -13,7 +14,6 @@ import type {
   SlackUserMapping,
   DiscordConnection,
 } from '../types/messaging.ts'
-import type { SessionConfigPick, SessionConfigState } from './session-config-types.ts'
 import type { AtlasClustersResponse, AwsAccount, GcpProject } from '../types/provider-accounts.ts'
 import type {
   AgentProvider,
@@ -100,6 +100,19 @@ export type WindowTeamApi = {
     sessionId: string,
     path: string,
   ): Promise<void>
+  atlasTransferLinkedFile(
+    teamId: string,
+    runtimeId: string,
+    sessionId: string,
+    path: string,
+  ): Promise<{
+    groupId: string
+    fileId: string
+    fileName: string
+    size: number
+    url: string
+    origin: 'this-computer' | 'agent'
+  }>
   atlasTransferRuntimeFile(
     teamId: string,
     runtimeId: string,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { api } from '../api.ts'
 import { parseAtlasError } from '../api/errors.ts'
+import { api } from '../api.ts'
 import { toast } from '../components/ui/toast.ts'
 import { runtimeFilePreview } from '../lib/runtimeFileLink.ts'
 
@@ -41,13 +41,10 @@ const tooLargeError = (error: unknown) => parseAtlasError(error).code === 'file_
 // The inline read caps at 512 KiB, so media goes through the transfer store:
 // the runtime uploads it once, and it plays (with seeking) from a presigned
 // URL. A PDF is fetched whole, since the viewer needs its type.
-async function transferMedia(target: Source, path: string, kind: MediaKind) {
-  const transfer = await api.atlasTransferRuntimeFile(
-    target.teamId,
-    target.runtimeId,
-    target.sessionId,
-    path,
-  )
+async function transferMedia(target: Source, path: string, kind: MediaKind, linkedPath: string) {
+  const transfer = await (
+    path === linkedPath ? api.atlasTransferLinkedFile : api.atlasTransferRuntimeFile
+  )(target.teamId, target.runtimeId, target.sessionId, path)
   const url =
     kind === 'pdf'
       ? URL.createObjectURL(
@@ -145,7 +142,7 @@ export function useRuntimeFiles(
               toast.error('Preview unavailable', 'This file format cannot be previewed.')
             setResult({ source: inline.shown, directory: null, preview, loading: false })
           } else if (kind) {
-            const media = await transferMedia(target, `${path}/${fileName}`, kind)
+            const media = await transferMedia(target, `${path}/${fileName}`, kind, filePath)
 
             // The load owns a PDF's blob URL; one that lands after cleanup is let go here.
             if (cancelled) {
@@ -154,7 +151,12 @@ export function useRuntimeFiles(
               return
             }
             if (kind === 'pdf') blob = media.url
-            setResult({ source: target, directory: null, preview: null, loading: false, media })
+            const shown =
+              'origin' in media.transfer && media.transfer.origin === 'this-computer'
+                ? { ...target, label: 'This computer', local: true }
+                : target
+
+            setResult({ source: shown, directory: null, preview: null, loading: false, media })
           }
         } else {
           const directory = await api.atlasListRuntimeFiles(
@@ -204,12 +206,11 @@ export function useRuntimeFiles(
     try {
       const file =
         result.media?.transfer ??
-        (await api.atlasTransferRuntimeFile(
-          target.teamId,
-          target.runtimeId,
-          target.sessionId,
-          `${path}/${fileName}`,
-        ))
+        (await (
+          filePath === `${path}/${fileName}`
+            ? api.atlasTransferLinkedFile
+            : api.atlasTransferRuntimeFile
+        )(target.teamId, target.runtimeId, target.sessionId, `${path}/${fileName}`))
       const saved = await api.fileTransferDownloadOne({
         teamId: target.teamId,
         groupId: file.groupId,

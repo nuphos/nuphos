@@ -6,9 +6,10 @@ import { pathToFileURL } from 'node:url'
 import { shell } from 'electron'
 
 import * as atlas from '../atlas'
-import { downloadTo } from '../fileTransfer'
+import { downloadTo, resolveDownloads, uploadFiles } from '../fileTransfer'
 
 import { getDeviceIdentity, listDeviceAudit, updateDeviceLabel } from './device-controller.ts'
+import { transferLinkedFile } from './linked-file-transfer.ts'
 import { readThisComputerFile, resolveThisComputerFile } from './linked-file.ts'
 import { installAgentCli } from './local-runtime/agent-cli-install.ts'
 import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
@@ -56,6 +57,12 @@ export const deviceChannels = {
       ? { ...local, origin: 'this-computer' as const }
       : { ...(await atlas.readRuntimeFile(...args)), origin: 'agent' as const }
   },
+  'atlas:transferLinkedFile': (_e: unknown, ...args: [string, string, string, string]) =>
+    transferLinkedFile(args, getLocalRuntimeState().workspace, {
+      uploadFiles,
+      resolveDownloads,
+      transferRuntimeFile: atlas.transferRuntimeFile,
+    }),
   // An HTML file opens from where Files read it: in place on this computer, so
   // the files next to it load too, or else as a single-file copy of the agent's.
   'atlas:openHtmlFile': async (

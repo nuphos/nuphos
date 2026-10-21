@@ -15,6 +15,8 @@ test('a linked file is read on this computer within the local workspace, else le
     await writeFile(join(workspace, 'docs/a.md'), 'hello')
     await writeFile(join(root, 'secret'), 'outside')
     await writeFile(join(workspace, 'big'), Buffer.alloc(512 * 1024 + 1))
+    await writeFile(join(workspace, 'at-limit'), Buffer.alloc(512 * 1024))
+    await writeFile(join(workspace, 'empty'), '')
     const hello = { name: 'a.md', size: 5, data: Buffer.from('hello').toString('base64') }
 
     assert.deepEqual(await readThisComputerFile('/workspace/docs/a.md', workspace), hello)
@@ -24,9 +26,11 @@ test('a linked file is read on this computer within the local workspace, else le
       ['/workspace/docs', workspace],
       ['/workspace/../secret', workspace],
       ['/workspace/docs/a.md', null],
-      ['/workspace/big', workspace],
     ] as const)
       assert.equal(await readThisComputerFile(path, base), null, path)
+    await assert.rejects(readThisComputerFile('/workspace/big', workspace), /file_too_large/)
+    assert.equal((await readThisComputerFile('/workspace/at-limit', workspace))?.size, 512 * 1024)
+    assert.equal((await readThisComputerFile('/workspace/empty', workspace))?.size, 0)
     // Opening in place has no preview limit, but the same workspace bounds.
     assert.equal(await resolveThisComputerFile('/workspace/big', workspace), join(workspace, 'big'))
     assert.equal(await resolveThisComputerFile('/workspace/../secret', workspace), null)
