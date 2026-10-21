@@ -11,7 +11,7 @@ export function toUiMessages(messages: Message[]): unknown[] {
   return finalizeIncompleteTools(messages, INTERRUPTED_TOOL_MESSAGE)
     .map((m) => {
       const parts = m.parts.flatMap((p) => {
-        if (p.type === 'text') return [{ type: 'text', text: p.text }]
+        if (p.type === 'text') return [{ ...p }]
         // Thinking from previous turns isn't resent — the API only needs
         // thinking blocks within the live tool loop, which stays server-side.
         if (p.type === 'reasoning') return []

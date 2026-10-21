@@ -58,8 +58,10 @@ export function ThinkingPartView({ text, live }: { text: string; live: boolean }
 export function CollapsedWorkView({
   seconds,
   children,
+  label,
 }: {
   seconds: number | null
+  label?: string
   /** Render work only after disclosure. Historical tool output can be several
    * megabytes, so CSS-only hiding still blocks conversation open on its DOM. */
   children: () => ReactNode
@@ -67,7 +69,7 @@ export function CollapsedWorkView({
   const [open, setOpen] = useState(false)
 
   return (
-    <div>
+    <div data-collapsed-activity={label === 'Activity' && !open ? '' : undefined}>
       {/* Chapter-style header: label + full-width rule, like Codex's
           "Worked for Xs" separator between a turn's request and answer. */}
       <div className="flex items-center gap-3">
@@ -87,7 +89,7 @@ export function CollapsedWorkView({
             'inline-flex flex-shrink-0 items-center gap-1 text-[13px] text-tertiary hover:text-main/80',
           )}
         >
-          {seconds === null ? 'Worked' : `Worked for ${formatWorkDuration(seconds)}`}
+          {label ?? (seconds === null ? 'Worked' : `Worked for ${formatWorkDuration(seconds)}`)}
           <ChevronRight
             className={clsx('h-3.5 w-3.5 transition-transform', open && 'rotate-90')}
             strokeWidth={2}

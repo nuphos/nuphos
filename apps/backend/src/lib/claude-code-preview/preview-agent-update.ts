@@ -1,3 +1,8 @@
+export type PreviewTextMetadata = {
+  messageId?: string
+  phase?: 'commentary' | 'final_answer'
+}
+
 export type PreviewAgentUpdate =
   | { kind: 'thought'; text: string }
   | { kind: 'steering'; id: string; text: string }

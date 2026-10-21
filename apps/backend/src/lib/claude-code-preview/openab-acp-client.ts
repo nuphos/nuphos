@@ -25,7 +25,7 @@ import type {
   PromptSessionContext,
 } from './openab-acp-session.ts'
 import type { OpenAbSessionUpdate } from './openab-acp-updates.ts'
-import type { PreviewAgentUpdate } from './preview-agent-update.ts'
+import type { PreviewAgentUpdate, PreviewTextMetadata } from './preview-agent-update.ts'
 import type { PromptAttachment } from './runtime-attachments'
 
 export type { AcpHttpMcpServer, OpenAbAcpClientOptions } from './openab-acp-session.ts'
@@ -122,7 +122,7 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
   prompt(
     sessionId: string,
     text: string,
-    onTextDelta: (text: string) => void,
+    onTextDelta: (text: string, metadata?: PreviewTextMetadata) => void,
     onAgentUpdate?: (update: PreviewAgentUpdate) => void,
     onPermissionRequest?: OpenAbPermissionHandler,
     onAccepted?: () => void,

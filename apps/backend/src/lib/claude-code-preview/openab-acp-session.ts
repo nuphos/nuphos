@@ -2,7 +2,7 @@
 // options it forwards to the runtime's inner claude-agent-acp session.
 import { runsBehindAcpShim } from './runtime-provider'
 
-import type { PreviewAgentUpdate } from './preview-agent-update'
+import type { PreviewAgentUpdate, PreviewTextMetadata } from './preview-agent-update'
 import type { OpenAbProvider } from './runtime-provider'
 
 export const ACP_INITIALIZE_PARAMS = {
@@ -18,7 +18,7 @@ export type PendingCall = {
   /** Re-arms this call's timer; `progress` also restarts its progress window. */
   arm: (progress?: boolean) => ReturnType<typeof setTimeout>
   sessionId?: string
-  onTextDelta?: (text: string) => void
+  onTextDelta?: (text: string, metadata?: PreviewTextMetadata) => void
   onAgentUpdate?: (update: PreviewAgentUpdate) => void
   onPermissionRequest?: OpenAbPermissionHandler
   onAccepted?: () => void

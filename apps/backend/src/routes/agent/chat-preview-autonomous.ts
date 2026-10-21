@@ -154,7 +154,13 @@ export function createClaudeCodeAutonomousUpdateHandler(deps: AutonomousTurnDeps
 
       if (update.update.kind === 'text') {
         turn.text += update.update.text
-        turn.orderedParts.appendText(update.update.text)
+        if (turn.orderedParts.appendText(update.update.text, update.update)) {
+          turn.emit({
+            type: 'text-start',
+            messageId: update.update.messageId,
+            phase: update.update.phase,
+          })
+        }
         turn.emit({ type: 'text-delta', delta: update.update.text })
       } else if (update.update.update.kind === 'thought') {
         turn.reasoning += update.update.update.text

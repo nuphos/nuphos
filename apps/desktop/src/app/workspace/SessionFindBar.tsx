@@ -95,7 +95,7 @@ function FindBar({
   onClose: () => void
 }) {
   const [query, setQuery] = useState('')
-  const [result, setResult] = useState({ index: 0, count: 0, partial: false })
+  const [result, setResult] = useState({ index: 0, count: 0, partial: false, folded: false })
 
   const search = useStableCallback((text: string, step: Step) => {
     const root = rootRef.current
@@ -113,6 +113,7 @@ function FindBar({
       index,
       count: ranges.length,
       partial: Boolean(root?.querySelector('[data-earlier-messages]')),
+      folded: Boolean(root?.querySelector('[data-collapsed-activity]')),
     })
   })
 
@@ -214,6 +215,11 @@ function FindBar({
       {result.partial && (
         <div className="pb-0.5 pt-1 text-[11px] text-tertiary">
           Earlier messages are not loaded and are not searched.
+        </div>
+      )}
+      {result.folded && (
+        <div className="pb-0.5 pt-1 text-[11px] text-tertiary">
+          Expand Activity to search earlier updates.
         </div>
       )}
     </InputGroup>

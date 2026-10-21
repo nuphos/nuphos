@@ -4,13 +4,14 @@ import { normalizeRecallFirstOrder, recallLeadCount } from '../../../lib/agentMe
 import { MessageResponse } from '../MessageResponse'
 import { isPlanProposalToolName } from '../planReference'
 
+import { liveActivityIndices } from './activity'
 import { renderCardToolPart } from './cardToolParts'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
-import { renderPartRange } from './renderPartRange'
+import { renderPartRange, renderSelectedParts } from './renderPartRange'
 import { steeringMessage } from './steering'
 import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
 import { StoppedTurnEnding } from './StoppedTurnEnding'
@@ -31,10 +32,7 @@ import type { RenderPartOptions } from './renderPartRange'
 import type { ActivePlanCanAct } from './toolParts'
 import type { FileTransferGroup } from '../../../types'
 
-// Memoized so a long transcript doesn't re-render every message on each parent
-// update (notably the 1s `now` tick during streaming). Historical messages keep
-// their object identity across updates, so memo skips them; only the streaming
-// message — which gets a live `now` and a changing `message` — actually redraws.
+// Historical message identity stays stable across the streaming clock tick.
 export const AssistantMessage = memo(
   ({
     message,
@@ -55,8 +53,10 @@ export const AssistantMessage = memo(
     onOpenNuphosLink,
     onMessageFeedback,
     onRequestFeedbackComment,
+    activityHistory = false,
   }: {
     message: Message
+    activityHistory?: boolean
     teamId?: string
     sessionId?: string
     currentUrl?: string
@@ -95,21 +95,19 @@ export const AssistantMessage = memo(
     const streamingTailIndex = streaming ? lastVisiblePartIndex(orderedParts) : -1
     const displayParts = turnDisplayParts(orderedParts, streaming)
     const keyCounts: Record<string, number> = {}
-    // The response text the copy button writes to the clipboard — the rendered
-    // markdown answer only, not tool calls / reasoning.
+    // Copy the answer text, including narration kept in the activity log.
     const copyableText = orderedParts
       .filter((p): p is TextPart => p.type === 'text')
       .map((p) => p.text)
       .join('\n\n')
       .trim()
     // Fold boundary for a finished turn (see turnFoldSplitIndex).
-    const collapseSplit = turnFoldSplitIndex(orderedParts, {
-      streaming,
-      endedWithoutAnswer: message.stoppedByUser === true || orderedParts !== normalizedParts,
-    })
-    // Duration: live-completed turns carry client-stamped tool timestamps;
-    // reloaded transcripts fall back to persisted message times (prev user
-    // message → this assistant message ≈ the whole turn).
+    const collapseSplit = activityHistory
+      ? -1
+      : turnFoldSplitIndex(orderedParts, {
+          streaming,
+          endedWithoutAnswer: message.stoppedByUser === true || orderedParts !== normalizedParts,
+        })
     const workSeconds =
       collapseSplit > 0
         ? (turnWorkSeconds(orderedParts) ??
@@ -174,8 +172,7 @@ export const AssistantMessage = memo(
       if (p.type === 'tool' && (p.toolName === 'plan_update' || p.toolName === 'plan_get')) {
         return <PlanBookkeepingPart key={partKey} part={p} now={now} />
       }
-      // `skill` tool calls are setup noise (the input is just a skill name,
-      // the output is the entire SKILL.md). Don't render them.
+      // Skill setup output does not render as a tool row.
       if (p.type === 'tool' && p.toolName !== 'skill') {
         const card = renderCardToolPart(p, partKey, {
           teamId,
@@ -219,12 +216,34 @@ export const AssistantMessage = memo(
     const liftedPlans = new Set(planIndices)
     const renderFoldPart = (p: Part, i: number, options?: RenderPartOptions) =>
       liftedPlans.has(i) ? null : renderMessagePart(p, i, options)
+    const liveHistory =
+      streaming && !activityHistory ? liveActivityIndices(displayParts) : new Set<number>()
+    const liveIndices = displayParts.map((_, index) => index).slice(recallLead)
 
     return (
       <div className="group/message space-y-2">
         {/* Above the fold, always: what the turn already knew when it started. */}
         {renderRange(0, recallLead)}
-        {folded ? (
+        {liveHistory.size > 0 ? (
+          <>
+            <CollapsedWorkView seconds={null} label="Activity">
+              {() =>
+                renderSelectedParts(
+                  displayParts,
+                  liveIndices.filter((index) => liveHistory.has(index)),
+                  renderMessagePart,
+                  now,
+                )
+              }
+            </CollapsedWorkView>
+            {renderSelectedParts(
+              displayParts,
+              liveIndices.filter((index) => !liveHistory.has(index)),
+              renderMessagePart,
+              now,
+            )}
+          </>
+        ) : folded ? (
           <>
             {foldHasWork && (
               <CollapsedWorkView seconds={workSeconds}>
@@ -242,10 +261,7 @@ export const AssistantMessage = memo(
           downloadGroups?.map((group) => (
             <DownloadFilesCard key={group.groupId} group={group} teamId={teamId} />
           ))}
-        {/* The same provenance part, rendered again for its other moment: what
-            the agent looked up mid-turn belongs down here with what the turn
-            learned, not up top with what it already remembered. Renders
-            nothing when the agent looked nothing up. */}
+        {/* Mid-turn recall belongs beside what the agent learned. */}
         {orderedParts
           .filter((p) => p.type === 'memory-provenance')
           .map((p) => (

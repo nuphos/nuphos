@@ -3,7 +3,12 @@ import { createContext } from 'react'
 import type { AgentMemoryIngestEventItem } from '../../../api'
 import type { AgentMessageMetadata } from '../../../api/agent-types'
 
-export type TextPart = { type: 'text'; text: string }
+export type TextPart = {
+  type: 'text'
+  text: string
+  messageId?: string
+  phase?: 'commentary' | 'final_answer'
+}
 // Extended thinking: streamed when the backend enables it; folded
 // in the UI, persisted with the transcript, hashed into the journal.
 export type ReasoningPart = {

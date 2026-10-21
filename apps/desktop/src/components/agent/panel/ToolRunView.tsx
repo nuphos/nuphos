@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronRight, Terminal } from 'lucide-react'
 import { useState } from 'react'
 
+import { failedOutput } from './activity'
 import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
 import { getToolLabel, isCommandTool } from './toolPartUtils'
 
@@ -33,13 +34,19 @@ export function ToolRunView({
 }) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const latest = parts[parts.length - 1]
-  const needsAttention = latest.state === 'approval-requested'
+  const attention = parts.findLast(
+    (part) =>
+      part.state === 'approval-requested' ||
+      part.state === 'output-error' ||
+      failedOutput(part.output),
+  )
+  const needsAttention = attention !== undefined
   // A manual fold must not outlive the approval it was made under: each new
   // request clears the override so it opens the run like the first one did.
   const [attentionFor, setAttentionFor] = useState<string | null>(null)
 
-  if (needsAttention && attentionFor !== latest.toolCallId) {
-    setAttentionFor(latest.toolCallId)
+  if (attention && attentionFor !== attention.toolCallId) {
+    setAttentionFor(attention.toolCallId)
     setUserOpen(null)
   }
   const open = userOpen ?? needsAttention

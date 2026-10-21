@@ -1,3 +1,4 @@
+import { failedOutput } from './activity.ts'
 import { BOOKKEEPING_TOOL_NAMES } from './toolRuns.ts'
 
 import type { Part } from './parts.ts'
@@ -28,7 +29,7 @@ export function collapsedTurnSplitIndex(parts: Part[]): number {
       if ((p.type === 'text' || p.type === 'reasoning') && p.text.trim()) hasProcess = true
       continue
     }
-    if (p.state !== 'output-available' && p.state !== 'output-error') return -1
+    if (p.state !== 'output-available' || failedOutput(p.output)) return -1
     if (!BOOKKEEPING_TOOL_NAMES.has(p.toolName)) hasProcess = true
   }
 
@@ -51,13 +52,16 @@ export function interruptedTurnSplitIndex(parts: Part[]): number {
   return split
 }
 
-// An approval the user can still answer keeps its buttons, so it must not end up
-// behind the fold.
-function awaitsApproval(parts: Part[], to: number): boolean {
+// Approvals and failures need attention even when the turn was interrupted.
+function needsAttention(parts: Part[], to: number): boolean {
   for (let i = 0; i < to; i++) {
     const p = parts[i]
 
-    if (p.type === 'tool' && p.state === 'approval-requested') return true
+    if (
+      p.type === 'tool' &&
+      (p.state === 'approval-requested' || p.state === 'output-error' || failedOutput(p.output))
+    )
+      return true
   }
 
   return false
@@ -76,7 +80,7 @@ export function turnFoldSplitIndex(
   if (endedWithoutAnswer === true || parts.some((p) => p.type === 'turn-interrupted')) {
     const split = interruptedTurnSplitIndex(parts)
 
-    return awaitsApproval(parts, split) ? -1 : split
+    return needsAttention(parts, split) ? -1 : split
   }
 
   return collapsedTurnSplitIndex(parts)

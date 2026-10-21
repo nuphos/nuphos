@@ -151,8 +151,10 @@ function createComponents(
     ul: ({ children }) => (
       <ul className="my-3 list-outside list-disc space-y-1.5 pl-5">{children}</ul>
     ),
-    ol: ({ children }) => (
-      <ol className="my-3 list-outside list-decimal space-y-1.5 pl-5">{children}</ol>
+    ol: ({ children, start }) => (
+      <ol start={start} className="my-3 list-outside list-decimal space-y-1.5 pl-5">
+        {children}
+      </ol>
     ),
     li: ({ children }) => <li className="leading-[1.75]">{children}</li>,
     h1: ({ children }) => (

@@ -15,6 +15,17 @@ before(async () => {
   ;({ toUiMessages, toPersistedMessages } = await import('./toUiMessages.ts'))
 })
 
+test('native text phase and identity survive requests and transcript sync', () => {
+  const parts = [
+    { type: 'text' as const, text: 'Progress', messageId: 'p', phase: 'commentary' as const },
+    { type: 'text' as const, text: 'Answer', messageId: 'f', phase: 'final_answer' as const },
+  ]
+  const messages: Message[] = [{ id: 'a', role: 'assistant', parts }]
+
+  assert.deepEqual((toUiMessages(messages)[0] as Message).parts, parts)
+  assert.deepEqual(toPersistedMessages(messages)[0].parts, parts)
+})
+
 test('image identity stays structured in requests and transcript sync', () => {
   const image = {
     type: 'image' as const,
