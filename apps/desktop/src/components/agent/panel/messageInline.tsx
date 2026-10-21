@@ -9,6 +9,7 @@ import { renderMentionChip } from '../../../lib/atlasLinkMention'
 
 import { fileNameFromPath } from './textUtils'
 import { MEDIA_BOX } from './transferDownloads'
+import { ZoomableImage } from './ZoomableImage'
 
 export function AtlasMentionInline({
   url,
@@ -191,10 +192,11 @@ export function ImageLightbox({
                   className="max-h-full max-w-full rounded-lg bg-black shadow-2xl"
                 />
               ) : (
-                <img
-                  src={image.url}
-                  alt={image.fileName}
-                  className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+                <ZoomableImage
+                  key={image.url}
+                  url={image.url}
+                  fileName={image.fileName}
+                  onDismiss={() => onIndexChange(null)}
                 />
               )}
               {count > 1 && (
