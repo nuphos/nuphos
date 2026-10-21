@@ -15,6 +15,8 @@ import { shownAccount } from '../auth/shown-account'
 import { authSession } from '../auth-session'
 import * as fileTransfer from '../fileTransfer'
 import { readImageAttachment, registerAttachment } from '../imageAttachment'
+import * as podExec from '../pod-exec'
+import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { getChangelogState } from './changelog'
@@ -38,7 +40,13 @@ import type { IpcMainInvokeEvent } from 'electron'
 const movedFromShown = shownAccount(apiUrl, authSession.current())
 
 authSession.subscribe((next) => {
-  if (movedFromShown(next)) reloadAppWindows()
+  if (!movedFromShown(next)) return
+  // SSH and pod-exec sessions outlive a renderer reload by design; the
+  // account they were opened as is leaving, so close them (and any node-shell
+  // pod) here rather than relying on the window that started the change.
+  terminal.closeAllSshSessions()
+  podExec.closeAllPodExecSessions()
+  reloadAppWindows()
 })
 
 export const appChannels = {

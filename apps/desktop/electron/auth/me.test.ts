@@ -22,7 +22,7 @@ function harness() {
 
       return Promise.resolve()
     },
-    probe: () => Promise.resolve(probe),
+    probe: (_token: string): Promise<MeProbe> => Promise.resolve(probe),
   }
 
   return {
@@ -70,4 +70,29 @@ test('a transient probe failure with no cached identity leaves the session unaut
 
   assert.equal(h.session.current(), null)
   assert.equal(h.config().token, 'tok-1', 'an unconfirmed token is kept for the next launch')
+})
+
+test('a probe answering after another account took over reports that account instead', async () => {
+  const h = harness()
+  const OTHER: UserInfo = { ...USER, id: 'u9', email: 'other@example.com' }
+  let switched = false
+
+  h.setProbe({ ok: false, transient: false })
+  h.deps.probe = (token: string) => {
+    if (!switched) {
+      // Another window switches to u9 while u1's probe is out.
+      switched = true
+      void h.deps.writeConfig({ token: 'tok-9', userInfo: OTHER })
+
+      return Promise.resolve<MeProbe>({ ok: false, transient: false })
+    }
+
+    return Promise.resolve<MeProbe>(
+      token === 'tok-9' ? { ok: true, user: OTHER } : { ok: false, transient: false },
+    )
+  }
+
+  assert.deepEqual(await status(h.deps), { loggedIn: true, token: 'tok-9', user: OTHER })
+  assert.equal(h.session.current(), 'tok-9')
+  assert.equal(h.config().token, 'tok-9')
 })

@@ -104,7 +104,11 @@ export function configFile(deps: ConfigFileDeps) {
       stored.apiUrl = api
       // Signing in again to a listed account takes it out of the list.
       others = others.filter((other) => keyOf(other) !== account)
-      if (before && keyOf(before) !== account) others = [before, ...others]
+      // A sign-in stored before its identity was known (`default@…`) that is
+      // now named by the same token is the same account, not another one.
+      const unnamed = before && !before.userInfo?.id && (await tokenOf(before)) === cfg.token
+
+      if (before && keyOf(before) !== account && !unnamed) others = [before, ...others]
       if (deps.secure()) {
         try {
           // Update in place only an item this app made: one that was already
@@ -126,8 +130,19 @@ export function configFile(deps: ConfigFileDeps) {
     if (others.length > 0) next.otherAccounts = others
     await forgetDropped(previous, next)
     await writeFile(deps.path, next)
-    if (cfg.token && api !== currentApi()) deps.setApiUrl?.(api)
+    if (cfg.token) moveTo(api)
     deps.onToken(cfg.token ?? null)
+  }
+
+  /**
+   * Points the app at another backend for the token about to take effect.
+   * The session is cleared first, so nothing following the endpoint sends the
+   * outgoing account's token to the new backend.
+   */
+  function moveTo(api: string) {
+    if (api === currentApi()) return
+    deps.onToken(null)
+    deps.setApiUrl?.(api)
   }
 
   /** Makes a listed account the current one, keeping the current one in the list. */
@@ -142,11 +157,12 @@ export function configFile(deps: ConfigFileDeps) {
     const next: Config = { ...target, otherAccounts: before ? [before, ...rest] : rest }
 
     if (next.otherAccounts?.length === 0) delete next.otherAccounts
-    await writeFile(deps.path, next)
-    // Point at the account's backend before anything uses its token there.
-    if (target.apiUrl && target.apiUrl !== currentApi()) deps.setApiUrl?.(target.apiUrl)
+    // Read the token before the backend changes, so a slow or denied keychain
+    // read never leaves the outgoing account's token on the new backend.
     const token = await tokenOf(target)
 
+    await writeFile(deps.path, next)
+    if (target.apiUrl) moveTo(normalizedApi(target.apiUrl))
     deps.onToken(token)
     const { otherAccounts: _, ...current } = next
 
@@ -222,6 +238,19 @@ export function configFile(deps: ConfigFileDeps) {
 
       return inTurn(() => save(cfg))
     },
+    /**
+     * Writes `cfg` only if `allowed` accepts the file as its turn finds it, so
+     * a write based on what was read earlier (a status probe, a sign-in that
+     * may have been cancelled) never overrides a newer change. Resolves to
+     * whether it wrote.
+     */
+    writeIf: (cfg: Config, allowed: (current: Config) => boolean) =>
+      inTurn(async () => {
+        if (!allowed((await readFile(deps.path)) ?? {})) return false
+        await save(cfg)
+
+        return true
+      }),
     switchTo: (key: string) => inTurn(() => switchTo(key)),
     signOutAll: () => {
       deps.onToken(null)
@@ -246,6 +275,7 @@ const defaultConfigFile = configFile({
 
 export const readConfig = defaultConfigFile.read
 export const writeConfig = defaultConfigFile.write
+export const writeConfigIf = defaultConfigFile.writeIf
 export const switchConfig = defaultConfigFile.switchTo
 export const signOutAllConfig = defaultConfigFile.signOutAll
 export const otherAccounts = defaultConfigFile.others

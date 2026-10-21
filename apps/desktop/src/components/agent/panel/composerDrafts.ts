@@ -61,6 +61,20 @@ export function composerDraftKey(teamId: string | undefined, sessionId?: string)
 }
 
 /** Bind drafts to the signed-in account; another account's drafts are dropped. */
+const CLOUD_API_URL = 'https://api.nuphos.ai'
+
+/**
+ * Who owns the saved drafts: the user on a backend. The same user id on a
+ * self-hosted backend is another account, so its drafts are not shown there.
+ */
+export function composerDraftOwner(userId: string, apiUrl: string): string {
+  let api = apiUrl
+
+  while (api.endsWith('/')) api = api.slice(0, -1)
+
+  return api === CLOUD_API_URL ? userId : `${userId}@${api}`
+}
+
 export function claimComposerDrafts(userId: string, storage = defaultStorage()): void {
   const store = read(storage)
 

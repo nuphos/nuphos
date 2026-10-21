@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 
 import { api } from './api'
 import { Workspace } from './app/workspace/Workspace'
-import { claimComposerDrafts, clearComposerDrafts } from './components/agent/panel/composerDrafts'
+import {
+  claimComposerDrafts,
+  clearComposerDrafts,
+  composerDraftOwner,
+} from './components/agent/panel/composerDrafts'
 import { toast } from './components/ui/toast'
 import { CurrentUserContext } from './hooks/useCurrentUser'
 import { forgetMacAccounts } from './hooks/useMacSignIn'
@@ -21,9 +25,9 @@ type AuthState =
 
 type SetAuth = (next: AuthState) => void
 
-function enter(setAuth: SetAuth, user: UserInfo) {
+async function enter(setAuth: SetAuth, user: UserInfo) {
   identifyUser(user)
-  claimComposerDrafts(user.id)
+  claimComposerDrafts(composerDraftOwner(user.id, await api.atlasGetApiUrl()))
   setAuth({ status: 'authenticated', user })
 }
 
@@ -35,10 +39,15 @@ async function signedOut(setAuth: SetAuth) {
 }
 
 // Switching to an account whose sign-in the backend rejects drops it.
-async function switched(setAuth: SetAuth, s: AuthStatus) {
+async function switchAccount(setAuth: SetAuth, key: string) {
+  // Sent first, as the outgoing account: a successful switch reloads every
+  // window, this one included, before the call below returns.
   track('switch_account')
+  resetAnalytics()
+  const s: AuthStatus = await api.authSwitch(key)
+
   if (s.loggedIn) {
-    enter(setAuth, s.user)
+    await enter(setAuth, s.user)
 
     return
   }
@@ -73,9 +82,7 @@ export default function App() {
     }
     forgetMacAccounts()
     if (change?.kind === 'switch') {
-      resetAnalytics()
-      // A successful switch reloads every window as the new account.
-      await switched(setAuth, await api.authSwitch(change.key))
+      await switchAccount(setAuth, change.key)
 
       return
     }
@@ -103,11 +110,11 @@ export default function App() {
       <LoginView
         others={auth.others}
         onPickAccount={async (key) => {
-          await switched(setAuth, await api.authSwitch(key))
+          await switchAccount(setAuth, key)
         }}
         onLogin={(user) => {
           track('login', { method: 'oauth' })
-          enter(setAuth, user)
+          void enter(setAuth, user)
         }}
       />
     )

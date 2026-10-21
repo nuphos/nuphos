@@ -7,10 +7,11 @@ const saved: Config[] = []
 
 mock.module('./config.ts', {
   namedExports: {
-    writeConfig: (cfg: Config) => {
+    writeConfigIf: (cfg: Config, wanted: () => boolean) => {
+      if (!wanted()) return Promise.resolve(false)
       saved.push(cfg)
 
-      return Promise.resolve()
+      return Promise.resolve(true)
     },
   },
 })

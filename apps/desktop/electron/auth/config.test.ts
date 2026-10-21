@@ -6,6 +6,7 @@ import { test } from 'node:test'
 
 import yaml from 'js-yaml'
 
+import { sameAccount } from './accounts.ts'
 import { configFile } from './config.ts'
 import { secureStorageEnabled } from './token-store.ts'
 
@@ -327,7 +328,13 @@ test('an account added on another backend moves the app there only with its toke
   })
 
   assert.equal(h.api(), 'https://nuphos.example.com')
-  assert.deepEqual(h.tokenApis, ['https://api.nuphos.ai/', 'https://nuphos.example.com'])
+  // The session is cleared before the app moves, then takes the new token.
+  assert.deepEqual(h.tokens, ['tok-1', null, 'tok-self'])
+  assert.deepEqual(h.tokenApis, [
+    'https://api.nuphos.ai/',
+    'https://api.nuphos.ai/',
+    'https://nuphos.example.com',
+  ])
   assert.equal(h.items.get('u9@https://nuphos.example.com'), 'tok-self')
   assert.deepEqual(
     (await h.config.others()).map((o) => [o.key, o.apiUrl]),
@@ -409,4 +416,45 @@ test('only the packaged macOS app keeps the token in the keychain', () => {
   assert.equal(secureStorageEnabled('darwin', { ...electron, defaultApp: true }), false)
   assert.equal(secureStorageEnabled('darwin', { versions: process.versions }), false)
   assert.equal(secureStorageEnabled('linux', electron), false)
+})
+
+test('switching to another backend never pairs the outgoing token with it', async () => {
+  const h = await harness()
+
+  h.useApi('https://nuphos.example.com')
+  await h.config.write({ token: 'tok-self', userInfo: USER })
+  h.useApi('https://api.nuphos.ai')
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+  h.tokens.length = 0
+  h.tokenApis.length = 0
+
+  await h.config.switchTo('u1@https://nuphos.example.com')
+
+  assert.deepEqual(h.tokens, [null, 'tok-self'])
+  assert.deepEqual(h.tokenApis, ['https://api.nuphos.ai', 'https://nuphos.example.com'])
+})
+
+test('a write based on an account no longer current is skipped', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  const read = await h.config.read()
+
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+  // A status probe for u1 answering after the switch to u9: neither its
+  // refresh nor its sign-out touches u9.
+  assert.equal(await h.config.writeIf({}, (current) => sameAccount(current, read, h.api())), false)
+  assert.equal(h.items.get(OTHER_ACCOUNT), 'tok-9')
+  assert.equal((await h.config.read()).token, 'tok-9')
+})
+
+test('naming a sign-in stored without its identity replaces it instead of listing it', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1' })
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+
+  assert.deepEqual(await h.config.others(), [])
+  assert.equal(h.items.has('default@https://api.nuphos.ai'), false)
+  assert.equal(h.items.get(ACCOUNT), 'tok-1')
 })

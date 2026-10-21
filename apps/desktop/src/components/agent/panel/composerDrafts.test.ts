@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  composerDraftOwner,
   claimComposerDrafts,
   clearComposerDrafts,
   composerDraftKey,
@@ -111,4 +112,12 @@ test('only the most recent drafts are kept and broken storage is ignored', () =>
   assert.doesNotThrow(() => claimComposerDrafts('user-1', throwing))
   assert.doesNotThrow(() => saveComposerDraft('k', draft('x'), throwing))
   assert.equal(loadComposerDraft('k', throwing), null)
+})
+
+test('drafts belong to a user on a backend', () => {
+  assert.equal(composerDraftOwner('u1', 'https://api.nuphos.ai/'), 'u1')
+  assert.equal(
+    composerDraftOwner('u1', 'https://nuphos.example.com'),
+    'u1@https://nuphos.example.com',
+  )
 })

@@ -68,6 +68,13 @@ export function accountKey(cfg: Config, currentApi: string): string | undefined 
   return itemFor(cfg, cfg.apiUrl ?? currentApi)
 }
 
+/** Whether two reads of the sign-in file name the same account. */
+export function sameAccount(a: Config, b: Config, currentApi: string): boolean {
+  const api = normalizedApi(currentApi)
+
+  return accountKey(a, api) === accountKey(b, api)
+}
+
 /** The current account as an entry in the list, or nothing when signed out. */
 export function listedAs(cfg: Config, currentApi: string): Config | null {
   if (!accountKey(cfg, currentApi)) return null
