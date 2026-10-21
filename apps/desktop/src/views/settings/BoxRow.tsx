@@ -99,7 +99,7 @@ export function BoxRow({
   const starting = settingUp || (state === 'running' && agents.length === 0)
 
   return (
-    <li className="flex h-[236px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
+    <li className="flex h-[240px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
       {/* The name has the header to itself, so it and its rename field use the card's width. */}
       <div className="flex shrink-0 items-center gap-2">
         <MachineIcon device={device} />

@@ -165,7 +165,7 @@ export function BoxSection({
         {!list && loadError ? (
           <div
             role="status"
-            className="flex h-[236px] items-center gap-3 text-[12px] text-tertiary"
+            className="flex h-[240px] items-center gap-3 text-[12px] text-tertiary"
           >
             Could not load Boxes.
             <Button size="sm" variant="secondary" onClick={reload}>
@@ -174,7 +174,7 @@ export function BoxSection({
           </div>
         ) : (
           <div className="t-skel-skeleton is-pulsing" aria-hidden="true">
-            <div className="flex h-[236px] w-[248px] flex-col gap-3 rounded-xl border border-zGray-800/70 p-3">
+            <div className="flex h-[240px] w-[248px] flex-col gap-3 rounded-xl border border-zGray-800/70 p-3">
               <div className="h-5 w-32 rounded bg-zGray-800/40" />
               <div className="h-3 w-44 rounded bg-zGray-800/30" />
               <div className="h-10 rounded bg-zGray-800/30" />
