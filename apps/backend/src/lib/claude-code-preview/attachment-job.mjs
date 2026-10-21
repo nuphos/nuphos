@@ -3,7 +3,7 @@
 // pass through ACP or a shell command. Desktop bundles this file for its local runtime.
 import { mkdir, mkdtemp, readFile, readdir, lstat, rm } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { text } from 'node:stream/consumers'
@@ -44,10 +44,25 @@ try {
   for (const [index, file] of files.entries()) {
     const folder = join(dir, String(index))
     await mkdir(folder, { mode: 0o700 })
-    const name = file.name
+    let name = file.name
       .split(/[\\/]/)
       .pop()
-      .replace(/[\x00-\x1f\x7f]/g, '_')
+      .replace(/[\x00-\x1f\x7f<>:"|?*]/g, '_')
+      .replace(/[ .]+$/g, '')
+    // Bound both UTF-8 bytes (POSIX) and UTF-16 code units (Windows).
+    const extension = extname(name)
+    const suffix =
+      extension.length <= 32 && Buffer.byteLength(extension, 'utf8') <= 40 ? extension : ''
+    let stem = suffix ? name.slice(0, -suffix.length) : name
+    stem = Array.from(stem)
+      .slice(0, 180 - suffix.length)
+      .join('')
+    while (Buffer.byteLength(stem + suffix, 'utf8') > 200)
+      stem = Array.from(stem).slice(0, -1).join('')
+    name = stem + suffix
+    name = name.replace(/[ .]+$/g, '')
+    if (/^(con|conin\$|conout\$|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(name))
+      name = `_${name}`
     const path = join(folder, !name || name === '.' || name === '..' ? 'attachment' : name)
     const response = await fetch(file.url, {
       signal: AbortSignal.timeout(60000),
