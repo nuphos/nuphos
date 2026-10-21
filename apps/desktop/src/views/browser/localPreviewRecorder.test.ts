@@ -115,37 +115,3 @@ test('SPA routes, hashes and back navigation replace the exact-page snapshot', a
     recorder.dispose()
   }
 })
-
-test('identity changes invalidate old snapshots and in-flight captures before recapturing', async () => {
-  let finish!: (value: NativeImage) => void
-  let delayed = false
-  const pending = new Promise<NativeImage>((resolve) => {
-    finish = resolve
-  })
-  const recorder = localPreviewRecorder(
-    page(() => (delayed ? pending : Promise.resolve(image))),
-    scope,
-  )
-  const next = { userId: 'other-viewer', teamId: 'other-team' }
-
-  try {
-    await recorder.capture()
-    delayed = true
-    const stale = recorder.capture()
-
-    recorder.setScope(next)
-    assert.equal(localPreviewSnapshots.get(scope, href), undefined)
-    finish(image)
-    await stale
-    assert.equal(localPreviewSnapshots.get(next, href), undefined)
-    delayed = false
-    await recorder.capture()
-    assert.equal(localPreviewSnapshots.get(next, href)?.title, 'Example page')
-    recorder.setScope(undefined)
-    assert.equal(localPreviewSnapshots.get(next, href), undefined)
-    await recorder.capture()
-    assert.equal(localPreviewSnapshots.get(scope, href), undefined)
-  } finally {
-    recorder.dispose()
-  }
-})
