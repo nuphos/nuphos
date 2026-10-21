@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
-import { join, relative } from 'node:path'
+import { basename, join, relative } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -59,6 +59,52 @@ test('invalid requests are closed without running a downloader', async () => {
     { runner: 'arbitrary code' },
   ])
     assert.equal(await request(new LocalAttachmentStream('/unused', '/must-not-run'), input), null)
+})
+
+test('downloads reclaim expired batches and use portable Windows filenames', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'attachment-retention-'))
+  const root = join(workspace, '.nuphos-attachments')
+  const expired = join(root, 'nuphos-attachments-expired')
+  const recent = join(root, 'nuphos-attachments-recent')
+  const unrelated = join(root, 'keep-other-directory')
+  const server = createServer((_request, response) => response.end('red'))
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+
+  assert.ok(address && typeof address !== 'string')
+  try {
+    for (const dir of [expired, recent, unrelated]) {
+      await mkdir(dir, { recursive: true })
+      await writeFile(join(dir, 'keep.txt'), 'keep')
+    }
+    const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
+
+    await utimes(expired, old, old)
+    await utimes(unrelated, old, old)
+    const names = ['report?.txt', 'CON.png', 'trailing. ', '圖片'.repeat(200)]
+    const result = (await request(new LocalAttachmentStream(workspace, program), {
+      files: names.map((name) => ({
+        name,
+        url: `http://127.0.0.1:${address.port}/image`,
+        size: 3,
+      })),
+    })) as { paths: string[] }
+
+    assert.equal(result.paths.length, names.length)
+    assert.equal(basename(result.paths[0]!), 'report_.txt')
+    assert.equal(basename(result.paths[1]!), '_CON.png')
+    assert.equal(basename(result.paths[2]!), 'trailing')
+    assert.ok(Buffer.byteLength(basename(result.paths[3]!), 'utf8') <= 200)
+    for (const path of result.paths) assert.equal(await readFile(path, 'utf8'), 'red')
+    await assert.rejects(stat(expired), { code: 'ENOENT' })
+    assert.equal(await readFile(join(recent, 'keep.txt'), 'utf8'), 'keep')
+    assert.equal(await readFile(join(unrelated, 'keep.txt'), 'utf8'), 'keep')
+  } finally {
+    server.closeAllConnections()
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    await rm(workspace, { recursive: true, force: true })
+  }
 })
 
 test('an absent bundle or unknown instance cannot open an attachment stream', async () => {

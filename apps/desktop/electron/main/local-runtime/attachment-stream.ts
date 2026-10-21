@@ -79,16 +79,19 @@ export class LocalAttachmentStream implements SocketLike {
     } catch {
       return this.close()
     }
-    const child = spawn(process.execPath, [this.program], {
-      env: {
-        ELECTRON_RUN_AS_NODE: '1',
-        SystemRoot: process.env.SystemRoot,
-        NUPHOS_ATTACHMENT_ROOT: join(this.workspace, '.nuphos-attachments'),
+    const child = spawn(
+      process.execPath,
+      [this.program, '--local-root', join(this.workspace, '.nuphos-attachments')],
+      {
+        env: {
+          ELECTRON_RUN_AS_NODE: '1',
+          SystemRoot: process.env.SystemRoot,
+        },
+        stdio: ['pipe', 'pipe', 'ignore'],
+        windowsHide: true,
+        timeout: 120_000,
       },
-      stdio: ['pipe', 'pipe', 'ignore'],
-      windowsHide: true,
-      timeout: 120_000,
-    })
+    )
 
     this.child = child
     let output = ''

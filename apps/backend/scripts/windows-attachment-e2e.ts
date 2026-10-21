@@ -69,12 +69,17 @@ try {
     'team',
     'owner',
     'local_owner_device',
-    [{ name: '圖片 space.png', url: `http://127.0.0.1:${address.port}/image`, size: png.length }],
+    ['圖片 space.png', 'report?.png', 'CON.png', 'trailing. ', '圖'.repeat(300)].map((name) => ({
+      name,
+      url: `http://127.0.0.1:${address.port}/image`,
+      size: png.length,
+    })),
     { bus, presence },
   )
   const { paths } = JSON.parse(output!)
 
-  assert.deepEqual(await readFile(paths[0]), png)
+  assert.equal(paths.length, 5)
+  for (const path of paths) assert.deepEqual(await readFile(path), png)
   const uri = attachmentFileUrl(paths[0])
 
   assert.ok(uri?.startsWith('file:///'))
