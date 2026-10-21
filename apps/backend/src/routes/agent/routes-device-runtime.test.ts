@@ -105,7 +105,7 @@ describe('device runtime tunnel route', () => {
       },
     } as unknown as WSContext)
     events.onMessage(new MessageEvent('message', { data: JSON.stringify({ t: 'pong' }) }))
-    events.onClose()
+    events.onClose(new CloseEvent('close'))
     await Bun.sleep(0)
     failClaim(new Error('Device presence unavailable'))
     // Bun fails this test on an unhandled child rejection, even when onOpen
