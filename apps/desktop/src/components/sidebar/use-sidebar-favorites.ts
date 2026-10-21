@@ -142,7 +142,6 @@ export function useSidebarFavorites({
         href,
         parentKey: live?.parentKey,
         foldedStatus: live?.foldedStatus,
-        readOnlyChat: live?.readOnlyChat,
         label,
         icon:
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),

@@ -76,7 +76,6 @@ export function useWorkspaceToolbar(a: Args) {
     filter,
     target,
     architectureDetail,
-    triggerForm,
     nuphosDashboard,
     connectorDetail,
     awsDetail,
@@ -136,9 +135,6 @@ export function useWorkspaceToolbar(a: Args) {
     !inAlarmDetail &&
     !inPlanDetail &&
     !architectureDetail &&
-    // A Triggers form filters nothing — the search box and count belong to
-    // the list it replaced.
-    !triggerForm &&
     // The connector drill-down swaps the table out for a provider info page.
     !connectorDetail &&
     // The dashboard list page is a filterable list; an open dashboard is not.

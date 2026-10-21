@@ -10,6 +10,7 @@ import {
 } from './settings/settingsNav'
 import { SettingsNav } from './settings/SettingsNavPanel'
 import { SettingsSectionBody } from './settings/SettingsSectionBody'
+import { MemoriesSection, SkillsSection, TriggersSection } from './settings/TeamPageSections'
 import { useResetOnKey } from './useResetOnKey'
 
 import type { JournalChatTarget } from '../lib/journalEvent'
@@ -26,10 +27,14 @@ type Props = {
   onTeamRemoved: (teamId: string) => void
   onSignOut: () => void
   onOpenConversation?: (sessionId: string) => void
+  /** Open a fresh agent chat with a prompt (closes Settings first). */
+  onOpenAgentChat?: (prompt: string, options?: { send?: boolean }) => void
   /** Open an audit conversation in the read-only viewer (closes Settings first). */
   onOpenAuditConversation?: (sessionId: string, locate?: JournalChatTarget) => void
   /** Section to land on; its prefix also picks User settings vs Team settings. */
   initialSection?: string
+  /** Search the landing section starts with (a skill deep link names its skill). */
+  initialFilter?: string
 }
 
 /**
@@ -46,8 +51,10 @@ export function SettingsPage({
   onSignOut,
   onUserUpdated,
   onOpenConversation,
+  onOpenAgentChat,
   onOpenAuditConversation,
   initialSection,
+  initialFilter,
 }: Props) {
   const [section, setSection] = useState<string>(initialSection ?? TEAM_SETTINGS_DEFAULT_SECTION)
 
@@ -72,11 +79,17 @@ export function SettingsPage({
         onOpenAuditConversation(sessionId, locate)
       }
     : undefined
+  const pageProps = { teamId: team?.id, currentUserId: user.id, onOpenAgentChat }
   const fullHeightSections: Partial<Record<string, ReactNode>> = {
     'workspace.members': <MembersSection teamId={team?.id} currentUserId={user.id} />,
     'workspace.billing': team ? (
       <BillingSection teamId={team.id} isAdmin={team.role === 'ADMINISTRATOR'} />
     ) : null,
+    'workspace.skills': (
+      <SkillsSection key={initialFilter} {...pageProps} initialFilter={initialFilter} />
+    ),
+    'workspace.memories': <MemoriesSection {...pageProps} />,
+    'workspace.triggers': <TriggersSection {...pageProps} />,
     'workspace.audit': (
       <AuditSection teamId={team?.id} onOpenConversation={openAuditConversation} />
     ),

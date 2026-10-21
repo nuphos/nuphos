@@ -18,6 +18,7 @@ import {
 import { parseAtlasLink } from '../../lib/atlasLinkMention'
 import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
+import { settingsSectionForPage } from '../../views/settings/settingsNav'
 
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -70,6 +71,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
     accounts,
     openInChat,
     openConversationInNewTab,
+    openSettingsSection,
   } = a
   const openSessionBeside = useWorkspacePane()?.openSessionBeside
 
@@ -109,6 +111,13 @@ export function useWorkspaceLinkOpeners(a: Args) {
         (target ? navigationFromMentionTarget(target) : null)
 
       if (!navigation) return false
+      const settingsSection = settingsSectionForPage(navigation.active)
+
+      if (settingsSection) {
+        openSettingsSection(settingsSection, navigation.filter)
+
+        return true
+      }
 
       if (beside) {
         const sessionId = navigation.active === 'team.agent' ? navigation.agentSessionId : null
@@ -155,6 +164,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       accountsByTeam,
       openConversationInNewTab,
       openSessionBeside,
+      openSettingsSection,
       updateTab,
       workspaceActions,
       workspaceStore,
@@ -222,7 +232,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       // the deep-link resolver, which knows the remaining tricks.
       const navigation = !newTab ? navigationFromAppPath(href) : null
 
-      if (navigation) {
+      if (navigation && !settingsSectionForPage(navigation.active)) {
         const hydrated = hydrateNavigationCredentialState(navigation, accountsByTeam)
 
         updateActiveTab((tab) => ({

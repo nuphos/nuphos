@@ -10,7 +10,6 @@ import type {
   NavigationSnapshot,
   PageLocation,
   RepoProvider,
-  TriggerFormRef,
 } from '../lib/appRoutes'
 import type {
   DiscordConnection,
@@ -182,15 +181,6 @@ export type WorkspaceTabState = {
   cloudflareDetail?: CloudflareResourceDetailRef | null
   /** Connector basic-info drill-down on the Connectors page; mirrors architectureDetail. */
   connectorDetail?: ConnectorDetailRef | null
-  /** Open trigger on the Triggers page — its runs, read in place. Mirrors
-   *  architectureDetail: on the tab so the breadcrumb names the trigger and
-   *  the crumb above it returns to the list, which is why the page itself
-   *  carries no title bar or back button. */
-  triggerDetail?: { triggerId: string; triggerName: string } | null
-  /** Open Triggers form. Here rather than inside the page for the same reason
-   *  as triggerDetail: the breadcrumb names it, and the toolbar knows to drop
-   *  the list's search and count — a form filters nothing. */
-  triggerForm?: TriggerFormRef | null
   /** Whether the "Add integration" marketplace modal is open on the integrations
    *  page. Encoded into the URL (?add-modal-opened) so it round-trips. */
   addIntegrationOpen?: boolean

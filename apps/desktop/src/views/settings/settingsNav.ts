@@ -1,6 +1,8 @@
 import {
   Archive,
+  Brain,
   CircleUserRound,
+  Clock,
   CreditCard,
   FileText,
   KeyRound,
@@ -8,6 +10,7 @@ import {
   NotebookPen,
   ScrollText,
   Settings,
+  Sparkles,
   SquareTerminal,
   SunMedium,
   Users,
@@ -32,6 +35,18 @@ export const USER_SETTINGS_DEFAULT_SECTION = 'account.profile'
 export const TEAM_SETTINGS_DEFAULT_SECTION = 'workspace.general'
 export const MY_PREFERENCES_DEFAULT_SECTION = 'preferences.instructions'
 
+/** Team pages that live in Settings, by the workspace page key their links resolve to. */
+const SETTINGS_SECTION_FOR_PAGE: Partial<Record<string, string>> = {
+  'team.agent-skills': 'workspace.skills',
+  'team.agent-memories': 'workspace.memories',
+  'team.triggers': 'workspace.triggers',
+  'team.schedule': 'workspace.triggers',
+}
+
+export function settingsSectionForPage(key: string): string | undefined {
+  return SETTINGS_SECTION_FOR_PAGE[key]
+}
+
 const TEAM_GROUPS: SettingsNavGroup[] = [
   {
     title: 'Team',
@@ -40,6 +55,9 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
       { key: 'workspace.members', label: 'Members', icon: Users },
       { key: 'workspace.billing', label: 'Billing', icon: CreditCard },
       { key: 'workspace.instructions', label: 'Instructions', icon: FileText },
+      { key: 'workspace.skills', label: 'Skills', icon: Sparkles },
+      { key: 'workspace.memories', label: 'Memories', icon: Brain },
+      { key: 'workspace.triggers', label: 'Triggers', icon: Clock },
       { key: 'workspace.archived', label: 'Archived chats', icon: Archive },
       { key: 'workspace.audit', label: 'Audit log', icon: ScrollText },
     ],

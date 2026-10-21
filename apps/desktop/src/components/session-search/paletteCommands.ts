@@ -2,7 +2,11 @@ import { Keyboard, PanelLeft, Plus, Settings, SquarePen, Users } from 'lucide-re
 
 import { launcherMatchRank } from '../../lib/launcherMatch.ts'
 import { SHORTCUT_GROUPS } from '../../lib/shortcutsCatalog.ts'
-import { ARCHIVED_CHATS_NAV_ITEM, TEAM_MANAGEMENT_NAV_ITEMS } from '../../lib/teamOverviewNav.ts'
+import {
+  ARCHIVED_CHATS_NAV_ITEM,
+  TEAM_MANAGEMENT_NAV_ITEMS,
+  TEAM_SETTINGS_PAGE_NAV_ITEMS,
+} from '../../lib/teamOverviewNav.ts'
 
 import type { AppShortcutAction } from '../../api/window-shell'
 import type { LucideIcon } from 'lucide-react'
@@ -40,12 +44,14 @@ const comboFor = (label: string) =>
     ?.combos[0]
 
 export const PALETTE_COMMANDS: PaletteCommand[] = [
-  ...[...TEAM_MANAGEMENT_NAV_ITEMS, ARCHIVED_CHATS_NAV_ITEM].map((item) => ({
-    id: item.key,
-    label: item.label,
-    group: 'Go to' as const,
-    icon: item.icon,
-  })),
+  ...[...TEAM_MANAGEMENT_NAV_ITEMS, ...TEAM_SETTINGS_PAGE_NAV_ITEMS, ARCHIVED_CHATS_NAV_ITEM].map(
+    (item) => ({
+      id: item.key,
+      label: item.label,
+      group: 'Go to' as const,
+      icon: item.icon,
+    }),
+  ),
   ...ACTIONS.map((action) => ({
     ...action,
     group: 'Actions' as const,

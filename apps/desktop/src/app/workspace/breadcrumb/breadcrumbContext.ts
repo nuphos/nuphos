@@ -8,7 +8,6 @@ import type {
   LinearNavState,
   NuphosDashboardRef,
   RepoProvider,
-  TriggerFormRef,
 } from '../../../lib/appRoutes'
 import type { KubernetesClusterSelection } from '../../../lib/kubernetesCluster'
 import type {
@@ -36,8 +35,6 @@ export type BreadcrumbContext = {
   nuphosDashboard: NuphosDashboardRef | null
   nuphosDashboards: { id: string; name: string }[] | undefined
   connectorDetail: ConnectorDetailRef | null
-  triggerDetail: { triggerId: string; triggerName: string } | null
-  triggerForm: TriggerFormRef | null
   agentSessionTitle: string | null
   agentSessionId: string | null
   awsDetail: AwsResourceDetailRef | null

@@ -2,6 +2,7 @@ import { CONNECTOR_INFO_PROVIDERS } from '../lib/appRoutes.ts'
 import { parseDesktopFilter } from '../lib/desktopScreens.ts'
 import { isTeamId } from '../lib/teamId.ts'
 import { renamedTeamNavKey } from '../lib/teamOverviewNav.ts'
+import { settingsSectionForPage } from '../views/settings/settingsNav.ts'
 
 import { readLocalStorage, writeLocalStorage } from './localStorage.ts'
 import { createWorkspaceTab, restoreNavigation } from './workspaceTabFactory.ts'
@@ -155,7 +156,9 @@ type LegacyNavigationSnapshot = NavigationSnapshot & {
 // the Linear page was an issue-only `team.linear-issue` page carrying `linearIssue`.
 export function withRenamedPage(snapshot: LegacyNavigationSnapshot): NavigationSnapshot {
   const { costDashboard, linearIssue, ...rest } = snapshot
-  const active = renamedTeamNavKey(snapshot.active)
+  const renamed = renamedTeamNavKey(snapshot.active)
+  // A tab saved on a page that now lives in Settings has nothing to show; it reopens as Inbox.
+  const active = settingsSectionForPage(renamed) ? 'team.inbox' : renamed
 
   if (active === snapshot.active && costDashboard === undefined && linearIssue === undefined) {
     return snapshot

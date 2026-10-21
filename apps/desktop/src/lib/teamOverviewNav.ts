@@ -40,10 +40,14 @@ const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
 export const TEAM_MANAGEMENT_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.inbox', label: 'Inbox', icon: Inbox },
   { key: 'team.agents', label: 'Agents', icon: Bot },
+  { key: 'team.integrations', label: 'Connectors', icon: Cloud },
+]
+
+/** Team pages hosted in Team Settings. Their keys still name them in links and ⌘K. */
+export const TEAM_SETTINGS_PAGE_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.agent-skills', label: 'Skills', icon: Sparkles },
   { key: 'team.agent-memories', label: 'Memories', icon: Brain },
   { key: 'team.triggers', label: 'Triggers', icon: Clock },
-  { key: 'team.integrations', label: 'Connectors', icon: Cloud },
 ]
 
 /** Opened from the foot of the sidebar's Chats list, not from the nav rows. */
@@ -75,7 +79,7 @@ export const TEAM_SIDEBAR_NAV_ITEMS: TeamOverviewNavItem[] = [
 /**
  * Legacy keys that still reach a live page resolve to its nav item rather than
  * falling off the list: `team.accounts` opens Connectors, and `team.schedule`
- * opens Triggers in its Calendar view.
+ * opens Triggers.
  */
 const TEAM_OVERVIEW_KEY_ALIASES: Record<string, string> = {
   'team.accounts': 'team.integrations',
@@ -118,6 +122,7 @@ export function teamOverviewNavItemFor(active: string): TeamOverviewNavItem | un
   return (
     navItemIn(TEAM_SIDEBAR_NAV_ITEMS, active) ??
     navItemIn(TEAM_WORKSPACE_NAV_ITEMS, active) ??
+    navItemIn(TEAM_SETTINGS_PAGE_NAV_ITEMS, active) ??
     navItemIn([ARCHIVED_CHATS_NAV_ITEM], active)
   )
 }

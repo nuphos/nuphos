@@ -10,7 +10,6 @@ import type {
   ConnectorDetailRef,
   LinearNavState,
   NuphosDashboardRef,
-  TriggerFormRef,
 } from '../../lib/appRoutes'
 import type { DetailTarget } from '../../views/DetailView'
 
@@ -60,18 +59,6 @@ export function useTabDetailSetters(tabId: string, updateTab: UpdateWorkspaceTab
   const setArchitectureDetail = useCallback(
     (architectureDetail: { diagramId: string; diagramName: string } | null) => {
       updateTab(tabId, (cur) => ({ ...cur, architectureDetail }))
-    },
-    [tabId, updateTab],
-  )
-  const setTriggerDetail = useCallback(
-    (triggerDetail: { triggerId: string; triggerName: string } | null) => {
-      updateTab(tabId, (cur) => ({ ...cur, triggerDetail }))
-    },
-    [tabId, updateTab],
-  )
-  const setTriggerForm = useCallback(
-    (triggerForm: TriggerFormRef | null) => {
-      updateTab(tabId, (cur) => ({ ...cur, triggerForm }))
     },
     [tabId, updateTab],
   )
@@ -151,8 +138,6 @@ export function useTabDetailSetters(tabId: string, updateTab: UpdateWorkspaceTab
     setS3Detail,
     setAwsDetail,
     setArchitectureDetail,
-    setTriggerDetail,
-    setTriggerForm,
     setNuphosDashboard,
     setNuphosDashboards,
     setLinearNav,

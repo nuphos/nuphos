@@ -32,14 +32,6 @@ export type Item = {
    * starring a chat here and starring its tab can't create two entries.
    */
   href?: string
-  /**
-   * A chat row the viewer does not own (the Shared section). Renaming belongs
-   * to the owner, and archiving to the owner and managers (see `managedChat`).
-   * Pinning still works: that is the viewer's own.
-   */
-  readOnlyChat?: boolean
-  /** A shared chat the viewer manages: they may archive it, not rename it. */
-  managedChat?: boolean
   /** The row this one nests under when both are in the same section. */
   parentKey?: string
   /** Agent chats: whether the viewer watches it; absent hides the toggle. */

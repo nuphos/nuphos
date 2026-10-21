@@ -115,11 +115,13 @@ export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collap
   // `data-scrolling` attribute so the thumb also shows while the wheel/trackpad
   // moves even when the pointer isn't over the sidebar, then fades out shortly
   // after scrolling stops. We mutate the DOM node directly to avoid re-rendering
-  // the whole nav on every scroll event.
+  // the whole nav on every scroll event. `data-scrolled` marks a list scrolled
+  // off its top, which fades in the divider under the search row.
   const navScrollHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleNavScroll = useCallback((e: UIEvent<HTMLElement>) => {
     const el = e.currentTarget
 
+    el.toggleAttribute('data-scrolled', el.scrollTop > 0)
     el.setAttribute('data-scrolling', 'true')
     if (navScrollHideTimer.current) clearTimeout(navScrollHideTimer.current)
     navScrollHideTimer.current = setTimeout(() => {

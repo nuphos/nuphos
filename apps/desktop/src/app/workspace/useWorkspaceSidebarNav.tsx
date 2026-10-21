@@ -6,6 +6,7 @@ import { openGceSsh } from '../../app/workspace/sshTabOpenGce'
 import { restorePersistedTab } from '../../app/workspacePersistence'
 import { pageLocationForTab, tabOpenedFrom } from '../../app/workspaceTabFactory'
 import { isTeamManagementKey } from '../../lib/teamOverviewNav'
+import { settingsSectionForPage } from '../../views/settings/settingsNav'
 
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
 
@@ -54,6 +55,7 @@ export function useWorkspaceSidebarNav(a: Args) {
     closedSshTabsRef,
     updateTab,
     updateActiveTab,
+    openSettingsSection,
   } = a
 
   // The sidebar's navigation as a pure tab transform, so the same key can be
@@ -90,6 +92,13 @@ export function useWorkspaceSidebarNav(a: Args) {
   // navigates the page it was triggered from, or opens beside it on cmd-click.
   const onSidebarOpenKey = useCallback(
     (key: string, favoriteLabel: string | null, newTab: boolean) => {
+      const settingsSection = settingsSectionForPage(key)
+
+      if (settingsSection) {
+        openSettingsSection(settingsSection)
+
+        return
+      }
       const sessionId = /^agent-session:(.+)$/.exec(key)?.[1]
 
       if (sessionId || key === 'team.agent') {
@@ -152,6 +161,7 @@ export function useWorkspaceSidebarNav(a: Args) {
     [
       focusSession,
       openManagementPage,
+      openSettingsSection,
       sidebarKeyTabUpdater,
       updateActiveTab,
       updateTab,

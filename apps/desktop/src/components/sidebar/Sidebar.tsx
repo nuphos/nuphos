@@ -6,7 +6,7 @@ import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
-import { sharedChatSection, withChatSections } from './chat-sections'
+import { withChatSections } from './chat-sections'
 import { SidebarHeaderBar, SidebarTeamSwitcher, SidebarUserEntry } from './header'
 import { SidebarHelpMenu } from './help-menu'
 import { SidebarItemContextMenu } from './item-context-menu'
@@ -18,7 +18,6 @@ import { settingsBackTarget } from './types'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
-import { useSidebarSharedChats } from './use-sidebar-shared-chats'
 import { sectionsFor, sidebarView } from './view'
 
 import type { Item, SidebarProps } from './types'
@@ -75,7 +74,6 @@ export function Sidebar({
     chatShown,
     onArchived: onChatArchived,
   })
-  const { sharedChatItems } = useSidebarSharedChats({ teamId, agentSessionId, chatShown })
 
   // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
@@ -108,9 +106,7 @@ export function Sidebar({
       userId: user?.id ?? '',
       teamId,
       teamView,
-      // Shared rows are live rows too: a pin resolves its icon by finding
-      // itself here, and only the render order keeps them out of `sections`.
-      sections: [...sections, ...sharedChatSection(sharedChatItems)],
+      sections,
       currentHref,
       activeSessionId: chatShown ? agentSessionId : undefined,
       scopeChipForPath,
@@ -121,7 +117,7 @@ export function Sidebar({
   const [itemMenu, setItemMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
 
   const renderSections = teamView
-    ? withChatSections(sections, pinnedChatItems, sharedChatItems, favoriteMatch)
+    ? withChatSections(sections, pinnedChatItems, favoriteMatch)
     : [...sections]
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
@@ -131,11 +127,7 @@ export function Sidebar({
   const sidebarSections = dynamicNavigation
     ? renderSections
     : renderSections.filter(
-        (section, index) =>
-          index === 0 ||
-          section.title === 'Pinned' ||
-          section.title === 'Shared' ||
-          section.title === 'Chats',
+        (section, index) => index === 0 || section.title === 'Pinned' || section.title === 'Chats',
       )
 
   const showSidebar = !collapsed || peek
@@ -213,6 +205,7 @@ export function Sidebar({
           className={clsx(
             SIDEBAR_PANEL_PADDING_CLASS,
             'flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay',
+            'border-t border-transparent transition-colors duration-200 data-[scrolled]:border-zGray-800/60',
           )}
         >
           <SidebarNavStack viewKey={view.key} level={view.level}>

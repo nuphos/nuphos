@@ -20,15 +20,7 @@ const ALL_ITEMS = [...TEAM_SIDEBAR_NAV_ITEMS, ...TEAM_WORKSPACE_NAV_ITEMS]
 test('the sidebar lists New chat then the management pages', () => {
   assert.deepEqual(
     TEAM_SIDEBAR_NAV_ITEMS.map((item) => item.key),
-    [
-      'team.agent',
-      'team.inbox',
-      'team.agents',
-      'team.agent-skills',
-      'team.agent-memories',
-      'team.triggers',
-      'team.integrations',
-    ],
+    ['team.agent', 'team.inbox', 'team.agents', 'team.integrations'],
   )
   assert.deepEqual(
     TEAM_MANAGEMENT_NAV_ITEMS.map((item) => item.key),
@@ -96,7 +88,7 @@ test('resolves the nav item for each page key', () => {
 test('the legacy Schedule keys resolve to Triggers', () => {
   assert.equal(canonicalTeamOverviewKey(renamedTeamNavKey('team.calendar')), 'team.triggers')
   assert.equal(teamOverviewNavItemFor('team.schedule')?.label, 'Triggers')
-  assert.ok(isTeamManagementKey('team.schedule'))
+  assert.equal(isTeamManagementKey('team.schedule'), false)
 })
 
 test('the legacy team.accounts alias resolves to Connectors', () => {

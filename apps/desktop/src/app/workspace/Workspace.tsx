@@ -48,6 +48,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
     settingsOpen,
     setSettingsOpen,
     settingsInitialSection,
+    settingsInitialFilter,
     shortcutsHelpOpen,
     setShortcutsHelpOpen,
     scope,
@@ -253,6 +254,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           team={ws.currentTeam}
           user={user}
           initialSection={settingsInitialSection ?? undefined}
+          initialFilter={settingsInitialFilter}
           onClose={() => setSettingsOpen(false)}
           onTeamUpdated={handleTeamUpdated}
           onTeamRemoved={handleTeamRemoved}
@@ -261,6 +263,10 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           onOpenConversation={(sessionId) => {
             setSettingsOpen(false)
             openConversationInNewTab(sessionId)
+          }}
+          onOpenAgentChat={(prompt, options) => {
+            setSettingsOpen(false)
+            ws.stableOpenAgentChatWithPrompt(prompt, options)
           }}
           onOpenAuditConversation={openAuditConversation}
         />

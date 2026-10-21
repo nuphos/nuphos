@@ -1,21 +1,17 @@
 import {
   Archive,
   Bot,
-  Brain,
   ChartLine,
   ClipboardList,
-  Clock,
   HeartPulse,
   Inbox,
   Network,
   ScrollText,
-  Sparkles,
   Users,
 } from 'lucide-react'
 
 import { NuphosDashboardsView } from '../../dashboards/NuphosDashboardsView'
 import { dashboardsPageTitle } from '../../dashboards/view/pageTitle'
-import { AgentMemoriesView } from '../../views/AgentMemoriesView'
 import { ArchitectureView } from '../../views/ArchitectureView'
 import { ArchivedChatsView } from '../../views/ArchivedChatsView'
 import { AuditLogView } from '../../views/AuditLogView'
@@ -27,9 +23,7 @@ import { PlansView } from '../../views/PlansView'
 import { RuntimeFilesView } from '../../views/RuntimeFilesView'
 import { AgentSection } from '../../views/settings/AgentSection'
 import { TeamMembersView } from '../../views/TeamMembersView'
-import { TeamSkillsView } from '../../views/TeamSkillsView'
 import { TerminalView } from '../../views/TerminalView'
-import { TriggersView } from '../../views/TriggersView'
 
 import type { ScopeRenderContext } from './context'
 
@@ -45,10 +39,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
     refreshKey,
     architectureDetail,
     setArchitectureDetail,
-    triggerDetail,
-    setTriggerDetail,
-    triggerForm,
-    setTriggerForm,
     nuphosDashboard,
     nuphosDashboards,
     restoredTitle,
@@ -119,21 +109,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
       />,
     )
   }
-  if (active === 'team.agent-memories') {
-    return renderPage(
-      'team.agent-memories',
-      'Memories',
-      <Brain className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      <AgentMemoriesView
-        teamId={scope.teamId}
-        filter={filter}
-        refreshKey={refreshKey}
-        onCount={onCount}
-        onLoading={onLoading}
-        onOpenAgentChat={onOpenAgentChat}
-      />,
-    )
-  }
   if (active === 'team.archived-chats') {
     return renderPage(
       'team.archived-chats',
@@ -161,43 +136,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
         onCount={onCount}
         onLoading={onLoading}
         onOpenConversation={onOpenConversation}
-      />,
-    )
-  }
-  if (active === 'team.triggers' || active === 'team.schedule') {
-    return renderPage(
-      'team.triggers',
-      'Triggers',
-      <Clock className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      <TriggersView
-        teamId={scope.teamId}
-        initialView={active === 'team.schedule' ? 'calendar' : undefined}
-        currentUserId={currentUserId}
-        filter={filter}
-        refreshKey={refreshKey}
-        onCount={onCount}
-        onLoading={onLoading}
-        triggerDetail={triggerDetail}
-        setTriggerDetail={setTriggerDetail}
-        triggerForm={triggerForm}
-        setTriggerForm={setTriggerForm}
-        onOpenAgentChat={onOpenAgentChat}
-      />,
-    )
-  }
-  if (active === 'team.agent-skills') {
-    return renderPage(
-      'team.agent-skills',
-      'Skills',
-      <Sparkles className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      <TeamSkillsView
-        teamId={scope.teamId}
-        currentUserId={currentUserId}
-        refreshKey={refreshKey}
-        filter={filter}
-        onCount={onCount}
-        onLoading={onLoading}
-        onOpenAgentChat={onOpenAgentChat}
       />,
     )
   }

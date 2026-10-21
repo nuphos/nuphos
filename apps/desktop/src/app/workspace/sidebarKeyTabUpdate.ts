@@ -29,8 +29,6 @@ export function sidebarKeyTabUpdate(
       active: 'team.agent',
       agentSessionId: sessionMatch[1],
       connectorDetail: null,
-      triggerDetail: null,
-      triggerForm: null,
       target: null,
       dashboardTarget: null,
       traceDatasourceTarget: null,
@@ -77,8 +75,6 @@ export function sidebarKeyTabUpdate(
       active: key === 'team.accounts' ? 'team.integrations' : key,
       agentSessionId: key === 'team.agent' ? null : tab.agentSessionId,
       connectorDetail: null,
-      triggerDetail: null,
-      triggerForm: null,
       nuphosDashboard: null,
       target: null,
       dashboardTarget: null,
@@ -99,12 +95,9 @@ export function sidebarKeyTabUpdate(
     // chat. Other destinations keep agentSessionId untouched.
     agentSessionId: key === 'team.agent' ? null : tab.agentSessionId,
     // Sidebar picks land on the section root — drop any open connector
-    // basic-info drill-down, any open dashboard so Dashboards shows
-    // its list page, and any open trigger or Triggers form so clicking
-    // Triggers means the list rather than wherever you last were.
+    // basic-info drill-down, and any open dashboard so Dashboards shows
+    // its list page.
     connectorDetail: null,
-    triggerDetail: null,
-    triggerForm: null,
     nuphosDashboard: null,
     target: null,
     dashboardTarget: key === 'observability.dashboards' ? tab.dashboardTarget : null,

@@ -8,7 +8,6 @@ import type {
   LinearNavState,
   NuphosDashboardRef,
   RepoProvider,
-  TriggerFormRef,
 } from '../../lib/appRoutes'
 import type { JournalChatTarget } from '../../lib/journalEvent'
 import type { KubernetesClusterSelection } from '../../lib/kubernetesCluster'
@@ -59,10 +58,6 @@ export type ScopeContentProps = {
   setS3Detail: (d: AwsS3Detail | null) => void
   architectureDetail: { diagramId: string; diagramName: string } | null
   setArchitectureDetail: (d: { diagramId: string; diagramName: string } | null) => void
-  triggerDetail: { triggerId: string; triggerName: string } | null
-  setTriggerDetail: (d: { triggerId: string; triggerName: string } | null) => void
-  triggerForm: TriggerFormRef | null
-  setTriggerForm: (f: TriggerFormRef | null) => void
   nuphosDashboard: NuphosDashboardRef | null
   setNuphosDashboard: (d: NuphosDashboardRef | null) => void
   nuphosDashboards: { id: string; name: string }[] | undefined

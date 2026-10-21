@@ -93,8 +93,9 @@ export function useWorkspaceShellState() {
   // Section SettingsPage should land on when opened via a deep entry point
   // (e.g. picking Slack in the connector marketplace); null = default.
   const [settingsInitialSection, setSettingsInitialSection] = useState<string | null>(null)
+  const [settingsInitialFilter, setSettingsInitialFilter] = useState<string | undefined>()
   const openSettingsSection = useCallback(
-    (section: string) => {
+    (section: string, filter?: string) => {
       if (section === 'workspace.agent') {
         const teamId = selectScope(workspaceStore.getState())?.teamId
 
@@ -109,6 +110,7 @@ export function useWorkspaceShellState() {
         return
       }
       setSettingsInitialSection(section)
+      setSettingsInitialFilter(filter)
       setSettingsOpen(true)
     },
     [workspaceActions, workspaceStore],
@@ -211,6 +213,7 @@ export function useWorkspaceShellState() {
     setSettingsOpen,
     settingsInitialSection,
     setSettingsInitialSection,
+    settingsInitialFilter,
     openSettingsSection,
     sessionSearchOpen,
     setSessionSearchOpen,

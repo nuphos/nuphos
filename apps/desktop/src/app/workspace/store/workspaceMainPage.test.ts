@@ -39,7 +39,7 @@ function setup() {
 
 function openTriggers(actions: ReturnType<typeof setup>['actions'], teamId = TEAM_A) {
   actions.openMainPage(teamId)
-  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.triggers' }))
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.inbox' }))
 }
 
 test('a management page replaces the chat surface without touching its dock', () => {
@@ -51,7 +51,7 @@ test('a management page replaces the chat surface without touching its dock', ()
 
   assert.equal(state.mainPageOpen, true)
   assert.equal(currentSessionKey(state), MAIN_PAGE_BUCKET_KEY)
-  assert.equal(selectActiveTab(state)?.active, 'team.triggers')
+  assert.equal(selectActiveTab(state)?.active, 'team.inbox')
   assert.equal(selectBucket(state, 'chat-1'), chatDock)
   assert.equal(chatDock.dockOpen, true)
 })
@@ -92,7 +92,7 @@ test('the main page is global: it keeps its page across chats and resets on a ne
   actions.selectSession('chat-2')
   actions.openMainPage(TEAM_A)
   assert.equal(selectActiveTab(store.getState())?.id, tabId)
-  assert.equal(selectActiveTab(store.getState())?.active, 'team.triggers')
+  assert.equal(selectActiveTab(store.getState())?.active, 'team.inbox')
 
   actions.openMainPage(TEAM_B)
   assert.notEqual(selectActiveTab(store.getState())?.id, tabId)
@@ -137,9 +137,9 @@ test('switching team from a management page switches the chat surface', () => {
 })
 
 test('the sidebar highlights the main page, or the chat when the chat surface shows', () => {
-  assert.deepEqual(sidebarSurface(true, false, 'team.triggers'), {
+  assert.deepEqual(sidebarSurface(true, false, 'team.inbox'), {
     dynamicNavigation: false,
-    active: 'team.triggers',
+    active: 'team.inbox',
     chatShown: false,
   })
   assert.deepEqual(sidebarSurface(false, false, 'team.integrations'), {
@@ -152,7 +152,7 @@ test('the sidebar highlights the main page, or the chat when the chat surface sh
     active: 'aws.s3',
     chatShown: true,
   })
-  assert.equal(sidebarSurface(true, true, 'team.triggers').dynamicNavigation, false)
+  assert.equal(sidebarSurface(true, true, 'team.inbox').dynamicNavigation, false)
 })
 
 test('a dock tab navigating to a management page stays put; the page opens in the main pane', () => {
@@ -209,7 +209,7 @@ test('connector scopes may still live in a dock', () => {
 })
 
 test('restoring drops management tabs from docks but keeps the main page', () => {
-  const tabs = ['team.plans', 'team.triggers'].map((active) => {
+  const tabs = ['team.plans', 'team.inbox'].map((active) => {
     const tab = createWorkspaceTab(TEAM_A)
 
     return { ...tab, active, navHistory: [{ ...tab.navHistory[0], active }] }
@@ -229,7 +229,7 @@ test('restoring drops management tabs from docks but keeps the main page', () =>
     ['team.plans'],
   )
   assert.equal('chat-2' in state.buckets, false)
-  assert.equal(state.buckets[MAIN_PAGE_BUCKET_KEY].tabs[0].active, 'team.triggers')
+  assert.equal(state.buckets[MAIN_PAGE_BUCKET_KEY].tabs[0].active, 'team.inbox')
 })
 
 test('restored tabs load nothing until the teams arrive, then a team the account left is dropped', () => {
@@ -237,8 +237,8 @@ test('restored tabs load nothing until the teams arrive, then a team the account
   const opened = createWorkspaceTab(gone)
   const management = {
     ...opened,
-    active: 'team.triggers',
-    navHistory: [{ ...opened.navHistory[0], active: 'team.triggers' }],
+    active: 'team.inbox',
+    navHistory: [{ ...opened.navHistory[0], active: 'team.inbox' }],
   }
   const dock = createWorkspaceTab(gone)
   const main = serializeWorkspace([management], management.id)

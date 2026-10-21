@@ -52,35 +52,33 @@ test('a repeated cursor fails instead of looping forever or silently truncating 
   )
 })
 
-for (const scope of ['mine', 'shared'] as const) {
-  test(`${scope} refresh moves an older active conversation above a newer idle one`, async () => {
-    const older = { ...chat(1), createdAt: '2026-10-01T00:00:00Z' }
-    const newer = { ...chat(2), createdAt: '2026-10-02T00:00:00Z' }
-    let active = false
-    const readPage: Parameters<typeof loadSidebarChats>[0] = async (options) => {
-      assert.equal(options.sort, 'activity')
-      assert.equal(options.scope, scope)
-      assert.equal(options.archived, 'exclude')
-      const ordered = active ? [older, newer] : [newer, older]
+test('refresh moves an older active conversation above a newer idle one', async () => {
+  const older = { ...chat(1), createdAt: '2026-10-01T00:00:00Z' }
+  const newer = { ...chat(2), createdAt: '2026-10-02T00:00:00Z' }
+  let active = false
+  const readPage: Parameters<typeof loadSidebarChats>[0] = async (options) => {
+    assert.equal(options.sort, 'activity')
+    assert.equal(options.scope, 'mine')
+    assert.equal(options.archived, 'exclude')
+    const ordered = active ? [older, newer] : [newer, older]
 
-      return {
-        conversations: [ordered[options.cursor ? 1 : 0]!],
-        nextCursor: options.cursor ? null : 'next',
-        hasMore: !options.cursor,
-      }
+    return {
+      conversations: [ordered[options.cursor ? 1 : 0]!],
+      nextCursor: options.cursor ? null : 'next',
+      hasMore: !options.cursor,
     }
-    const initial = await loadSidebarChats(readPage, () => true, scope)
+  }
+  const initial = await loadSidebarChats(readPage, () => true)
 
-    assert.deepEqual(
-      initial?.map((row) => row.sessionId),
-      ['2', '1'],
-    )
-    active = true
-    const refreshed = await loadSidebarChats(readPage, () => true, scope)
+  assert.deepEqual(
+    initial?.map((row) => row.sessionId),
+    ['2', '1'],
+  )
+  active = true
+  const refreshed = await loadSidebarChats(readPage, () => true)
 
-    assert.deepEqual(
-      refreshed?.map((row) => row.sessionId),
-      ['1', '2'],
-    )
-  })
-}
+  assert.deepEqual(
+    refreshed?.map((row) => row.sessionId),
+    ['1', '2'],
+  )
+})

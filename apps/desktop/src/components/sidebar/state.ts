@@ -110,10 +110,6 @@ export function agentSessionsCacheKey(teamId: string): string {
   return `sidebar-agent-sessions:${teamId}`
 }
 
-export function sharedSessionsCacheKey(teamId: string): string {
-  return `sidebar-shared-sessions:${teamId}`
-}
-
 export function crdCacheKey(kubeconfigContext: string): string {
   return `sidebar-crds:${kubeconfigContext}`
 }

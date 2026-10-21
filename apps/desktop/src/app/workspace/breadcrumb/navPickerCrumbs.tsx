@@ -22,8 +22,6 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
     nuphosDashboard,
     nuphosDashboards,
     connectorDetail,
-    triggerDetail,
-    triggerForm,
     agentSessionTitle,
     agentSessionId,
     awsDetail,
@@ -56,15 +54,6 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
       scope.kind === 'team' && active === 'team.dashboards' && Boolean(nuphosDashboard)
     const inConnectorDetail =
       scope.kind === 'team' && isTeamIntegrationsActive(active) && Boolean(connectorDetail)
-    const inTriggerForm =
-      scope.kind === 'team' && active === 'team.triggers' && Boolean(triggerForm)
-    // A form supersedes the runs page: both are inside the Triggers list, and
-    // only the innermost one gets the resource crumb.
-    const inTriggerDetail =
-      scope.kind === 'team' &&
-      active === 'team.triggers' &&
-      Boolean(triggerDetail) &&
-      !inTriggerForm
     // Chats sits under Agent, not beside Plans and Skills, so it gets no
     // sibling picker — the trail already says where it hangs. It is in the
     // nav-item list at all only so the crumb has a label and an icon.
@@ -111,35 +100,12 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
                 ? () => updateActiveTab((tab) => ({ ...tab, nuphosDashboard: null }))
                 : inConnectorDetail
                   ? () => updateActiveTab((tab) => ({ ...tab, connectorDetail: null }))
-                  : inTriggerForm
-                    ? () =>
-                        updateActiveTab((tab) => ({
-                          ...tab,
-                          triggerForm: null,
-                          triggerDetail: null,
-                        }))
-                    : inTriggerDetail
-                      ? () => updateActiveTab((tab) => ({ ...tab, triggerDetail: null }))
-                      : inAgentConversation
-                        ? () => updateActiveTab((tab) => ({ ...tab, agentSessionId: null }))
-                        : inPlanDetail
-                          ? () => updateActiveTab((tab) => ({ ...tab, filter: '' }))
-                          : undefined,
+                  : inAgentConversation
+                    ? () => updateActiveTab((tab) => ({ ...tab, agentSessionId: null }))
+                    : inPlanDetail
+                      ? () => updateActiveTab((tab) => ({ ...tab, filter: '' }))
+                      : undefined,
     })
-    if (inTriggerForm && triggerForm) {
-      out.push({
-        label: triggerForm.kind === 'create' ? 'New trigger' : triggerForm.name,
-        isResource: true,
-        icon: currentNavItem.icon,
-      })
-    }
-    if (inTriggerDetail && triggerDetail) {
-      out.push({
-        label: triggerDetail.triggerName,
-        isResource: true,
-        icon: currentNavItem.icon,
-      })
-    }
     if (inArchitectureDetail && architectureDetail) {
       out.push({
         label: architectureDetail.diagramName,

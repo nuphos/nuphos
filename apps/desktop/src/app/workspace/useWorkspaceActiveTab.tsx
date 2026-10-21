@@ -60,8 +60,6 @@ export function useWorkspaceActiveTab(a: Args) {
   const nuphosDashboards = activeTab?.nuphosDashboards
   const linearNav = activeTab?.linearNav ?? null
   const connectorDetail = activeTab?.connectorDetail ?? null
-  const triggerDetail = activeTab?.triggerDetail ?? null
-  const triggerForm = activeTab?.triggerForm ?? null
   // Title of the conversation the Agent page is showing, per tab — the
   // breadcrumb's leaf. The panel publishes it; the tab's own label comes from
   // pageMeta, which the page sets from the same value.
@@ -162,8 +160,6 @@ export function useWorkspaceActiveTab(a: Args) {
     nuphosDashboards,
     linearNav,
     connectorDetail,
-    triggerDetail,
-    triggerForm,
     setAgentSessionTitle,
     agentSessionTitle,
     awsDetail,

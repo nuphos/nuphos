@@ -52,7 +52,7 @@ export function SidebarItemContextMenu({
                   },
             ]
           : []),
-        ...(menu.item.key.startsWith('agent-session:') && !menu.item.readOnlyChat
+        ...(menu.item.key.startsWith('agent-session:')
           ? [
               {
                 key: 'rename',
@@ -83,8 +83,7 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        ...(menu.item.key.startsWith('agent-session:') &&
-        (!menu.item.readOnlyChat || menu.item.managedChat)
+        ...(menu.item.key.startsWith('agent-session:')
           ? [
               {
                 key: 'archive',

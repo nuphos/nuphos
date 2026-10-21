@@ -1,19 +1,15 @@
 import type { AgentConversation, AgentConversationsPage } from '../../api/agent-types.ts'
 
-/** 'mine' is the Chats section; 'shared' is sessions the viewer joined. */
-export type SidebarChatScope = 'mine' | 'shared'
-
 /** Page size is a transport bound, never a limit on the visible chat list. */
 export async function loadSidebarChats(
   readPage: (options: {
     limit: number
     cursor?: string
-    scope: SidebarChatScope
+    scope: 'mine'
     archived: 'exclude'
     sort: 'activity'
   }) => Promise<AgentConversationsPage>,
   isCurrent: () => boolean,
-  scope: SidebarChatScope = 'mine',
 ): Promise<AgentConversation[] | null> {
   const conversations = new Map<string, AgentConversation>()
   const cursors = new Set<string>()
@@ -22,7 +18,7 @@ export async function loadSidebarChats(
   do {
     const page = await readPage({
       limit: 100,
-      scope,
+      scope: 'mine',
       archived: 'exclude',
       sort: 'activity',
       ...(cursor ? { cursor } : {}),
