@@ -127,9 +127,10 @@ this repository while that happens. It is enforced in two places:
 
 The delay applies to the version Renovate picks, not to what the package
 manager resolves around it, so Renovate's lock file maintenance (a full
-re-resolve) runs only for Bun, which enforces the delay itself. It is off for
-the desktop, whose patched `electron-builder` must not move without approval,
-and for Cargo and npm.
+re-resolve) runs only for the root Bun project, which enforces the delay
+itself. It is off for the backend and the desktop, whose patched dependencies
+(the OpenTelemetry exporters, `electron-builder`) must not move without
+approval, and for Cargo and npm.
 
 Two ecosystems have no local delay, so check the release date yourself (crates.io,
 Maven Central) before adding or bumping a dependency by hand:

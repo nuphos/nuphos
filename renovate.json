@@ -105,6 +105,13 @@
       "enabled": false
     },
     {
+      "description": "The backend's Bun re-resolve would move the OpenTelemetry exporters off the version its patch fits; they wait for Dashboard approval instead.",
+      "matchManagers": ["bun"],
+      "matchFileNames": ["apps/backend/**"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "enabled": false
+    },
+    {
       "description": "Cargo resolves new transitive crates with no release-age check until Cargo 1.100, so a maintainer approves each update on the Dependency Dashboard after checking the crates it would add.",
       "matchManagers": ["cargo"],
       "dependencyDashboardApproval": true
