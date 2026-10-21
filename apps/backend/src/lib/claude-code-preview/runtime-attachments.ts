@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { pathToFileURL } from 'node:url'
 
 import { ObjectId } from 'mongodb'
 
 import { resolveDownloads } from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
+import { attachmentFileUrl } from './attachment-path'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { ATTACHMENT_RUNNER } from './runtime-attachment-runner'
 import { uploadPromptImages } from './upload-prompt-images'
@@ -131,13 +131,13 @@ export async function materializeRuntimeAttachments(
   if (
     !Array.isArray(output.paths) ||
     output.paths.length !== files.length ||
-    !output.paths.every((path) => typeof path === 'string' && path.startsWith('/'))
+    !output.paths.every((path) => attachmentFileUrl(path) !== undefined)
   )
     throw new Error('The runtime returned invalid attachment paths')
 
   return output.paths.map((path, index) => ({
     type: 'resource_link',
-    uri: pathToFileURL(String(path)).href,
+    uri: attachmentFileUrl(path)!,
     name: files[index]!.name,
     ...(files[index]!.archive
       ? {
