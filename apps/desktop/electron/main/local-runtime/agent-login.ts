@@ -20,7 +20,7 @@ export function claudeLoginUrl(output: string): string | undefined {
 
       if (
         ['claude.ai', 'claude.com'].includes(url.hostname) &&
-        url.pathname === '/oauth/authorize' &&
+        ['/oauth/authorize', '/cai/oauth/authorize'].includes(url.pathname) &&
         !url.username &&
         !url.password &&
         !url.port
