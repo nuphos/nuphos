@@ -201,6 +201,8 @@ async function startLocalLogin(provider: CliLoginProvider) {
   return login.start(cliPath, agentCliEnv({ provider, env, cliPath, agentHome }))
 }
 
+export const submitLocalClaudeLoginCode = (code: unknown) => logins['claude-code'].submitCode(code)
+
 export const startLocalClaudeLogin = () => startLocalLogin('claude-code')
 export const startLocalCodexLogin = () => startLocalLogin('codex')
 

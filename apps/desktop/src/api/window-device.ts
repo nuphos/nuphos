@@ -25,6 +25,7 @@ export type WindowDeviceApi = {
   deviceListAudit(before?: string): Promise<DeviceExecAuditPage>
   localRuntimeStartCodexLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelCodexLogin(): Promise<void>
+  localRuntimeSubmitClaudeLoginCode(code: string): Promise<void>
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>
   localRuntimeSetSleepPreferences(value: SleepPreferences): Promise<SleepState>

@@ -66,6 +66,20 @@ export class LocalAgentLogin {
     this.update({ state: 'cancelled' })
   }
 
+  /** Authorization codes go only to the current CLI's stdin, never state or logs. */
+  submitCode(value: unknown): void {
+    if (
+      this.deps.provider === 'codex' ||
+      this.value.state !== 'waiting' ||
+      !this.value.url ||
+      !this.child?.stdin
+    )
+      throw new Error('Start Claude sign-in before submitting a code.')
+    if (typeof value !== 'string' || !/^[A-Za-z0-9._~+/#-]{16,1024}$/u.test(value.trim()))
+      throw new Error('Paste the authorization code from the Claude sign-in page.')
+    this.child.stdin.write(`${value.trim()}\n`)
+  }
+
   start(cli: string, env: NodeJS.ProcessEnv): LocalAgentLoginState {
     if (this.value.state === 'waiting' || this.value.state === 'checking') return this.value
     const generation = ++this.generation
@@ -80,7 +94,7 @@ export class LocalAgentLogin {
     try {
       child = (this.deps.spawn ?? spawn)(cli, agentSignInArgs(codex ? 'codex' : 'claude-code'), {
         env,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         shell: cli.endsWith('.cmd'),
       })
     } catch {
@@ -118,6 +132,7 @@ export class LocalAgentLogin {
         this.update({ state: 'waiting', url, ...(userCode ? { userCode } : {}) })
     }
 
+    child.stdin?.on('error', () => fail('Could not submit the sign-in code. Please try again.'))
     child.stdout?.on('data', receive)
     child.stderr?.on('data', receive)
     child.once('error', () =>

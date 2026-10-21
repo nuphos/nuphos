@@ -10,6 +10,8 @@ export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
   deviceSetLabel: (label: string) => window.api.deviceSetLabel(label),
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
+  localRuntimeSubmitClaudeLoginCode: (code: string) =>
+    window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),
   localRuntimeStartCodexLogin: () => window.api.localRuntimeStartCodexLogin(),
   localRuntimeCancelClaudeLogin: () => window.api.localRuntimeCancelClaudeLogin(),

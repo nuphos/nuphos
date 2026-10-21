@@ -5,6 +5,7 @@ import { ClaudeIcon, CodexIcon } from '../../../components/agent/panel/icons'
 import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { isMac } from '../../../lib/platform'
+import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
 import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
 
 import { LOCAL_AGENT_INFO, LOCAL_SETUP_PROVIDERS, localAgentStatus } from './agentSetup'
@@ -39,6 +40,9 @@ function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
           <code className="select-all font-semibold text-main">{login.userCode}</code>
         </p>
       )}
+      {provider === 'claude-code' && login?.state === 'waiting' && login.url && (
+        <ClaudeSignInCode key={login.url} />
+      )}
       <div className="flex items-center gap-3">
         {login?.url && (
           <a
@@ -47,7 +51,7 @@ function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
             rel="noopener noreferrer"
             className="text-zViolet-400 underline"
           >
-            {login.userCode ? 'Open the sign-in page' : 'Reopen the sign-in page'}
+            Open the sign-in page
           </a>
         )}
         <Button size="sm" variant="ghost" onClick={() => void cancel()}>
