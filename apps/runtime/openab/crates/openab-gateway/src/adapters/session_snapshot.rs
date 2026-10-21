@@ -69,8 +69,9 @@ impl SessionSnapshots {
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
+        // An owed continuation is not busy: a person's prompt runs first and the
+        // continuation waits for the provider to go idle again.
         let busy = resuming
-            || resume_pending
             || request_pending
             || executing
             || operation != "none"
@@ -288,6 +289,22 @@ mod tests {
             snapshots.project("s", json!({"state":"idle","gateway":{"steering":1}}), true)["phase"],
             "steering"
         );
+    }
+    #[test]
+    fn owed_continuation_does_not_block_a_person() {
+        let owed = SessionSnapshots::default().project(
+            "a",
+            json!({"state":"idle","automation":{"pending":["task"]}}),
+            false,
+        );
+        assert_eq!(owed["phase"], "resume_pending");
+        assert_eq!(owed["actions"]["send"], true);
+        let running = SessionSnapshots::default().project(
+            "a",
+            json!({"state":"idle","automation":{"pending":["task"],"running":true}}),
+            false,
+        );
+        assert_eq!(running["actions"]["send"], false);
     }
     #[test]
     fn gateway_wait_is_visible_even_after_provider_idle() {

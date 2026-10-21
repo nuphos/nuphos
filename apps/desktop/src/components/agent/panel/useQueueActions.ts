@@ -16,30 +16,29 @@ export function useQueueActions({
   teamId,
   sendSteering,
 }: Pick<PanelCtx, 'tabsRef' | 'setTabs' | 'teamId'> & {
-  sendSteering: (tabId: string, text: string, filePaths: string[]) => Promise<void>
+  sendSteering: (
+    tabId: string,
+    text: string,
+    filePaths: string[],
+    queuedId: string,
+  ) => Promise<boolean>
 }) {
-  // Steer a waiting message into the running turn: take it off the queue first.
+  // Steer a waiting message into the running turn. It leaves the queue only
+  // once the turn has it; a refused steer leaves it waiting in its place.
   const steerQueued = useCallback(
     async (tabId: string, queuedId: string) => {
       const tab = tabsRef.current.find((candidate) => candidate.id === tabId)
       const draft = tab?.queued?.find((candidate) => candidate.id === queuedId)
 
       if (!tab || !draft || draft.steering || !runtimeAllows(tab.runtimeState, 'steer')) return
-      try {
-        await api.agentUnqueueMessage(tab.sessionId, queuedId, teamId)
-      } catch (error) {
-        toast.apiError('This message is no longer waiting', error)
-
-        return
-      }
-      setTabs((previous) =>
-        previous.map((candidate) =>
-          candidate.id === tabId ? withoutQueued(candidate, queuedId) : candidate,
-        ),
-      )
-      await sendSteering(tabId, draft.text, draft.filePaths)
+      if (!(await sendSteering(tabId, draft.text, draft.filePaths, queuedId))) return
+      await api.agentUnqueueMessage(tab.sessionId, queuedId, teamId).catch((error: unknown) => {
+        // A 404 means it already left the queue.
+        if (parseAtlasError(error).code !== 'not_found')
+          toast.apiError('Sent into the running turn, but it may also run again later', error)
+      })
     },
-    [sendSteering, tabsRef, setTabs, teamId],
+    [sendSteering, tabsRef, teamId],
   )
 
   // Take a waiting message back. A 404 means its turn already started, or it is gone.

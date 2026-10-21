@@ -21,30 +21,43 @@ export function useSteering({
   /** Send it as a message instead; the server queues it behind the turn. */
   fallback: (tabId: string, text: string, filePaths: string[]) => Promise<void>
 }) {
+  /**
+   * Resolves true once the running turn has the message. `queuedId` names a
+   * message already waiting in the server queue: it keeps its place there.
+   */
   const sendSteering = useCallback(
     async (
       tabId: string,
       text: string,
       filePaths: string[] = [],
-      queuedId: string = crypto.randomUUID(),
-    ) => {
+      queuedId?: string,
+    ): Promise<boolean> => {
       const tab = tabsRef.current.find((t) => t.id === tabId)
 
-      if (!tab?.sessionId) return
+      if (!tab?.sessionId) return false
+      const id = queuedId ?? crypto.randomUUID()
+      const markSteering = (steering: boolean) =>
+        setTabs((tabs) =>
+          tabs.map((t) =>
+            t.id === tabId
+              ? {
+                  ...t,
+                  queued: t.queued?.map((q) => (q.id === id ? { ...q, steering } : q)),
+                }
+              : t,
+          ),
+        )
+
       // The draft remains recoverable until the runtime acknowledges delivery.
-      setTabs((tabs) =>
-        tabs.map((t) =>
-          t.id === tabId
-            ? {
-                ...t,
-                queued: [
-                  ...(t.queued ?? []).filter((q) => q.id !== queuedId),
-                  { id: queuedId, text, filePaths, steering: true },
-                ],
-              }
-            : t,
-        ),
-      )
+      if (queuedId) markSteering(true)
+      else
+        setTabs((tabs) =>
+          tabs.map((t) =>
+            t.id === tabId
+              ? { ...t, queued: [...(t.queued ?? []), { id, text, filePaths, steering: true }] }
+              : t,
+          ),
+        )
       try {
         // Attachments take the normal upload path; the backend places them on
         // the runtime and returns them with the receipt.
@@ -74,20 +87,31 @@ export function useSteering({
                   t.messages.at(-1)?.id === tab.messages.at(-1)?.id
                     ? appendSteering(t, receipt)
                     : t),
-                  queued: t.queued?.filter((q) => q.id !== queuedId),
+                  queued: t.queued?.filter((q) => q.id !== id),
                 }
               : t,
           ),
         )
+
+        return true
       } catch (error) {
+        if (queuedId) {
+          // Still waiting in the server queue; it runs there in its place.
+          markSteering(false)
+          toast.apiError('Could not send into the running turn; it stays in the queue', error)
+
+          return false
+        }
         // The turn is usually over by now, or not this person's: send it as a message.
-        setTabs((tabs) => tabs.map((t) => (t.id === tabId ? withoutQueued(t, queuedId) : t)))
+        setTabs((tabs) => tabs.map((t) => (t.id === tabId ? withoutQueued(t, id) : t)))
         if (!isSteeringUnavailable(error))
           toast.apiError(
             'Could not steer the current turn; it was sent as a message at the back of the queue',
             error,
           )
         await fallback(tabId, text, filePaths)
+
+        return false
       }
     },
     [tabsRef, setTabs, teamId, currentUser, fallback],
