@@ -41,7 +41,10 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     var sender: Sender? {
         guard metadata?["version"]?.numberValue == 1,
               let name = metadata?["sender"]?["displayName"]?.stringValue, !name.isEmpty else { return nil }
-        return Sender(name: name, avatarURL: metadata?["sender"]?["avatarURL"]?.stringValue ?? "")
+        // An agent token's message: "Grok Bot · via Yuanlin Lin".
+        let via = metadata?["source"]?.stringValue == "nuphos" ? metadata?["sender"]?["onBehalfOf"]?["displayName"]?.stringValue : nil
+        let label = via.flatMap { $0.isEmpty ? nil : "\(name) · via \($0)" } ?? name
+        return Sender(name: label, avatarURL: metadata?["sender"]?["avatarURL"]?.stringValue ?? "")
     }
 
     /// A message another session (`agent.thread`) or a linked resource or

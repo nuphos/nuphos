@@ -160,6 +160,8 @@ export type AgentMessageMetadata = {
     displayName: string
     avatarURL?: string
     agentRuntime?: AgentProvider
+    /** An agent token's message: the user it acts for. */
+    onBehalfOf?: { id: string; displayName: string }
   }
   source: 'nuphos' | 'slack' | 'discord' | 'lark' | 'agent.thread' | 'agent.resource'
   sentAt: string

@@ -19,8 +19,17 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
   const m = value as Partial<AgentMessageMetadata>
 
   if (m.version !== 1 || !m.source || !SOURCES.has(m.source)) return undefined
+  const via = m.sender?.onBehalfOf
+  const onBehalfOf =
+    m.source === 'nuphos' && typeof via?.id === 'string' && via.id
+      ? { id: via.id, displayName: typeof via.displayName === 'string' ? via.displayName : '' }
+      : undefined
   const senderType =
-    m.source === 'agent.thread' ? 'agent' : m.source === 'agent.resource' ? 'system' : 'user'
+    m.source === 'agent.thread' || onBehalfOf
+      ? 'agent'
+      : m.source === 'agent.resource'
+        ? 'system'
+        : 'user'
 
   if (m.sender?.type !== senderType || typeof m.sender.id !== 'string' || !m.sender.id)
     return undefined
@@ -37,6 +46,7 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
       displayName: m.sender.displayName,
       ...(m.source === 'agent.thread' && agentRuntime ? { agentRuntime } : {}),
       ...(avatarURL ? { avatarURL } : {}),
+      ...(onBehalfOf ? { onBehalfOf } : {}),
     },
     source: m.source,
     sentAt: m.sentAt,
@@ -46,4 +56,11 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
     ...(replyTo ? { replyTo } : {}),
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
   }
+}
+
+/** "Grok Bot · via Yuanlin Lin" for an agent token's message, else the sender. */
+export function senderLabel(sender: AgentMessageMetadata['sender']): string {
+  return sender.onBehalfOf?.displayName
+    ? `${sender.displayName} · via ${sender.onBehalfOf.displayName}`
+    : sender.displayName
 }

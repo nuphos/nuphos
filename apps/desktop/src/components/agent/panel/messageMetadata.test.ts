@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { parseMessageMetadata } from './messageMetadata.ts'
+import { parseMessageMetadata, senderLabel } from './messageMetadata.ts'
 import { parseSteeringPart } from './steering.ts'
 
 for (const [source, type, displayName] of [
@@ -90,4 +90,30 @@ test('an unverified Discord author keeps the unattested mark, and only for Disco
 
   assert.equal(parseMessageMetadata(metadata)?.unattested, true)
   assert.equal(parseMessageMetadata({ ...metadata, source: 'nuphos' })?.unattested, undefined)
+})
+
+test('an agent token message is the bot, via the user it acts for', () => {
+  const metadata = {
+    version: 1,
+    sender: {
+      type: 'agent',
+      id: 'token-1',
+      displayName: 'Grok Bot',
+      onBehalfOf: { id: 'user-1', displayName: 'Yuanlin Lin' },
+    },
+    source: 'nuphos',
+    sentAt: '2026-10-21T00:00:00Z',
+  }
+  const sender = parseMessageMetadata(metadata)?.sender
+
+  assert.deepEqual(sender?.onBehalfOf, { id: 'user-1', displayName: 'Yuanlin Lin' })
+  assert.equal(sender && senderLabel(sender), 'Grok Bot · via Yuanlin Lin')
+  // Without onBehalfOf a nuphos message is a user's; an agent type is refused.
+  assert.equal(
+    parseMessageMetadata({ ...metadata, sender: { ...metadata.sender, onBehalfOf: undefined } }),
+    undefined,
+  )
+  // Only nuphos messages carry it.
+  assert.equal(parseMessageMetadata({ ...metadata, source: 'slack' }), undefined)
+  assert.equal(senderLabel({ type: 'user', id: 'u', displayName: 'Yuanlin Lin' }), 'Yuanlin Lin')
 })

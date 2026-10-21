@@ -11,6 +11,7 @@ import { EditMessageForm } from './EditMessageForm'
 import { CopyMessageButton, EditMessageButton } from './messageActions'
 import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInline'
 import { renderAtlasMentionLink } from './messageInlineLinks'
+import { senderLabel } from './messageMetadata'
 import { formatMessageTimestamp } from './streamText'
 import { UploadedFilesCard } from './transferCards'
 import { useSentMessageMotion } from './useSentMessageMotion'
@@ -119,9 +120,9 @@ export const UserMessage = memo(
               <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
                 <span
                   className="truncate font-medium text-secondary"
-                  title={message.metadata.sender.displayName}
+                  title={senderLabel(message.metadata.sender)}
                 >
-                  {message.metadata.sender.displayName}
+                  {senderLabel(message.metadata.sender)}
                 </span>
                 {message.metadata.source === 'slack' && (
                   <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">

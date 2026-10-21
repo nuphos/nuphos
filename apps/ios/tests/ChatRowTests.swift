@@ -113,6 +113,12 @@ enum ChatRowTests {
         }
         canonical.metadata = nil
         precondition(canonical.sender == nil)
+        // An agent token's message names the bot and the user it acts for.
+        canonical.metadata = .object(["version": .number(1), "source": .string("nuphos"), "sender": .object([
+            "type": .string("agent"), "id": .string("token"), "displayName": .string("Grok Bot"),
+            "onBehalfOf": .object(["id": .string("u1"), "displayName": .string("Yuanlin Lin")])
+        ])])
+        precondition(canonical.sender?.name == "Grok Bot · via Yuanlin Lin" && canonical.event == nil)
     }
 
     private static func decodesSharedConversationPermissions() {
