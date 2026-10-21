@@ -82,3 +82,28 @@ test('a resumed turn posts no question, and an unbound or disconnected session i
     expect(calls.posts).toEqual([])
   }
 })
+
+test("an agent token's app turn is posted as the bot, via its user", async () => {
+  const { calls, deps } = setup()
+  const agentMessage = {
+    ...message,
+    metadata: {
+      ...(message.metadata as object),
+      sender: {
+        type: 'agent',
+        id: 'token-1',
+        displayName: 'Grok Bot',
+        onBehalfOf: { id: 'owner', displayName: 'Yuanlin Lin' },
+      },
+    },
+  } as unknown as UIMessage
+
+  await mirrorAppTurnToDiscord(
+    { sessionId: 'session', teamId: 'team', message: agentMessage },
+    deps,
+  )
+
+  expect(calls.posts).toEqual([
+    ['thread', '**Grok Bot · via Yuanlin Lin** (from Nuphos):\nship it?'],
+  ])
+})

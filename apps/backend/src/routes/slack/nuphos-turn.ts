@@ -14,6 +14,7 @@ import { setAssistantStatusSafe } from '@/routes/slack/status'
 import { recordSlackTurnTranscript } from '@/routes/slack/turn'
 
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
+import type { SlackMirrorPayload } from '@/routes/agent/chat-slack-bound'
 
 export type NuphosSlackTurnOutcome = {
   /** The user pressed Stop in Nuphos before the turn finished. */
@@ -67,7 +68,7 @@ export async function beginNuphosSlackTurn(args: {
    * continuations (client-tool outputs, pause resume) and duplicate retries —
    * only the reply mirroring is attached then.
    */
-  mirror: { messageId: string; questionText: string; attachmentCount: number } | null
+  mirror: SlackMirrorPayload | null
 }): Promise<NuphosSlackTurnDelivery | null> {
   const { thread, mirror } = args
   const threadKey = {
@@ -101,18 +102,20 @@ export async function beginNuphosSlackTurn(args: {
   // record wait on it; the system prompt uses the Nuphos name. Rendered as
   // plain bold text, never a real <@…> mention — the bot mentioning the
   // author would notify them about their own message on every turn.
-  const mapping = await getSlackUserMappingForNuphosUser(
-    thread.slackWorkspaceId,
-    thread.teamId,
-    args.userId,
-  ).catch((err: unknown) => {
-    logError('slack.nuphos_turn.sender_resolve_error', err, {
-      slack_workspace_id: thread.slackWorkspaceId,
-      session_id: thread.sessionId,
-    })
+  const mapping = mirror?.agentLabel
+    ? null
+    : await getSlackUserMappingForNuphosUser(
+        thread.slackWorkspaceId,
+        thread.teamId,
+        args.userId,
+      ).catch((err: unknown) => {
+        logError('slack.nuphos_turn.sender_resolve_error', err, {
+          slack_workspace_id: thread.slackWorkspaceId,
+          session_id: thread.sessionId,
+        })
 
-    return null
-  })
+        return null
+      })
   const sender = mapping
     ? { slackUserId: mapping.slackUserId, displayName: args.userName }
     : undefined
@@ -120,7 +123,7 @@ export async function beginNuphosSlackTurn(args: {
     ? fetchSlackUserName(runtime.botToken, thread.slackWorkspaceId, mapping.slackUserId)
         .then((name) => name ?? args.userName)
         .catch(() => args.userName)
-    : Promise.resolve(args.userName)
+    : Promise.resolve(mirror?.agentLabel ?? args.userName)
 
   // Never rejects. The sink's poster awaits it so the "@Name says:" line is in
   // the thread before the first mirrored reply, without delaying the Nuphos

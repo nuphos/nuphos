@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
+import { parseMessageMetadata, senderLabel } from '@/lib/agent/message-metadata'
 import { pausedTurnKind } from '@/lib/agent/round-continuation'
 import { turnRunner } from '@/lib/agent/turn-runner'
 import { sendDiscordMessage } from '@/lib/discord/api'
-import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import {
   discordAgentThreads,
   discordInstallations,
@@ -94,9 +94,9 @@ export async function mirrorAppTurnToDiscord(
     .join('\n\n')
 
   if (text) {
-    const sender = parseMessageMetadata(args.message?.metadata)?.sender.displayName
+    const sender = parseMessageMetadata(args.message?.metadata)?.sender
 
-    await post(sender ?? 'Someone', text, false)
+    await post(sender ? senderLabel(sender) : 'Someone', text, false)
   }
   const frameSink = new SlackAgentRunSink((reply) => post('Nuphos', reply, true))
 

@@ -5,11 +5,11 @@
 // replies; mirror setup fails open.
 import { beforeEach, describe, expect, test } from 'bun:test'
 
-import type { AgentChatBody } from './types'
-import type { UIMessage } from 'ai'
-
 import { useTurnRunner } from '@/lib/agent/turn-runner-testing'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+
+import type { AgentChatBody } from './types'
+import type { UIMessage } from 'ai'
 
 const SESSION_ID = 'sess-slack-bound-1'
 const OWNER = '62e6289482f5f9d9408f1a79'
@@ -90,6 +90,26 @@ describe('buildSlackBoundTurnPlan', () => {
       questionText: 'new question from the app',
       attachmentCount: 0,
     })
+  })
+
+  test("an agent token's message mirrors under the bot's label, not its user", async () => {
+    const message = {
+      ...uiText('u3', 'user', 'nightly build failed'),
+      metadata: {
+        version: 1,
+        source: 'nuphos',
+        sentAt: '2026-10-21T00:00:00.000Z',
+        sender: {
+          type: 'agent',
+          id: 'token-1',
+          displayName: 'Grok Bot',
+          onBehalfOf: { id: 'owner', displayName: 'Yuanlin Lin' },
+        },
+      },
+    } as UIMessage
+    const plan = await buildSlackBoundTurnPlan(planArgs([message]))
+
+    expect(plan.mirror?.agentLabel).toBe('Grok Bot · via Yuanlin Lin')
   })
 
   test('a client-tool continuation keeps the client copy (tool outputs) and mirrors nothing', async () => {

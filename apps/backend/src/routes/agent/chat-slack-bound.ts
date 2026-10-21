@@ -1,10 +1,6 @@
-import type { AgentChatBody } from './types'
-import type { SlackAgentThread } from '@/lib/slack/agent-bot'
-import type { UIMessage } from 'ai'
-
 import { getConversationWithMessages } from '@/lib/agent/db'
 import { assertSingleNewUserMessage } from '@/lib/agent/message-input'
-import { parseMessageMetadata } from '@/lib/agent/message-metadata'
+import { parseMessageMetadata, senderLabel } from '@/lib/agent/message-metadata'
 // A Slack-bound conversation continued from the Nuphos app: the owner's turn
 // runs through the normal /agent/chat pipeline (native SSE streaming,
 // attachments, local tools), while a Slack mirror posts the question and the
@@ -29,6 +25,10 @@ import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 // depends on lib/agent, so this stays cycle-free where the barrel would not.
 import { persistedPartToUiMessagePart } from '@/routes/slack/messages'
 
+import type { AgentChatBody } from './types'
+import type { SlackAgentThread } from '@/lib/slack/agent-bot'
+import type { UIMessage } from 'ai'
+
 type BeginNuphosSlackTurn = (typeof import('@/routes/slack'))['beginNuphosSlackTurn']
 export type SlackBoundTurnDelivery = NonNullable<Awaited<ReturnType<BeginNuphosSlackTurn>>>
 
@@ -37,6 +37,8 @@ export type SlackMirrorPayload = {
   messageId: string
   questionText: string
   attachmentCount: number
+  /** An agent token's message: posted under this label, not as its user. */
+  agentLabel?: string
 }
 
 export type SlackBoundTurnPlan = {
@@ -275,9 +277,12 @@ function userMessagePreview(message: UIMessage): SlackMirrorPayload {
     }
   }
 
+  const sender = parseMessageMetadata(message.metadata)?.sender
+
   return {
     messageId: message.id,
     questionText: texts.join('\n\n').trim(),
     attachmentCount,
+    ...(sender?.onBehalfOf ? { agentLabel: senderLabel(sender) } : {}),
   }
 }

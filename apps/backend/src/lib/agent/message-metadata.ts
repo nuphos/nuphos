@@ -189,3 +189,10 @@ export function restoreAppMessageMetadata(
     }
   }
 }
+
+/** "Grok Bot · via Yuanlin Lin" for an agent token's message, else the sender's name. */
+export function senderLabel(sender: Pick<MessageMetadata['sender'], 'displayName' | 'onBehalfOf'>) {
+  return sender.onBehalfOf?.displayName
+    ? `${sender.displayName} · via ${sender.onBehalfOf.displayName}`
+    : sender.displayName
+}
