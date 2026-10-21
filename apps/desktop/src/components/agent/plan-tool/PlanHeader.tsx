@@ -20,7 +20,9 @@ type PlanHeaderProps = {
 
 // Shared header content. In floating mode the plan icon rides inline at the
 // left of the title (matching Decisions / Cost / Risk), with the #/status/
-// counts as a small eyebrow above and the overview below.
+// counts as a small eyebrow above and the overview below. The header action
+// and fold toggle sit at the end of the eyebrow row, so the title and
+// overview keep the full width.
 export function PlanHeader({
   payload,
   status,
@@ -32,22 +34,53 @@ export function PlanHeader({
   onToggleFold,
   headerAction,
 }: PlanHeaderProps) {
+  const foldButton =
+    !floating && foldable ? (
+      <button
+        type="button"
+        onClick={onToggleFold}
+        className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
+        title={folded ? 'Expand plan' : 'Collapse plan'}
+        aria-label={folded ? 'Expand plan' : 'Collapse plan'}
+        aria-expanded={!folded}
+      >
+        {/* icon-swap: cross-fade the expand/collapse chevrons */}
+        <span className="t-icon-swap" data-state={folded ? 'b' : 'a'}>
+          <span className="t-icon" data-icon="a">
+            <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
+          </span>
+          <span className="t-icon" data-icon="b">
+            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+          </span>
+        </span>
+      </button>
+    ) : null
+
   const headerInner = (
     <>
-      <div className="flex items-center gap-2 text-[12px] font-medium leading-relaxed text-zViolet-accent">
-        <span>Plan{typeof payload.number === 'number' ? ` #${String(payload.number)}` : ''}</span>
-        {status && <PlanStatusBadge status={status} />}
-        <span className="text-tertiary">·</span>
-        <span className="text-tertiary normal-case tracking-normal">
-          {payload.steps.length} {payload.steps.length === 1 ? 'step' : 'steps'} · {totalJobs}{' '}
-          {totalJobs === 1 ? 'job' : 'jobs'}
-          {totalCommands > 0 && (
-            <>
-              {' '}
-              · {totalCommands} {totalCommands === 1 ? 'command' : 'commands'}
-            </>
-          )}
-        </span>
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-[12px] font-medium leading-relaxed text-zViolet-accent">
+          <span className="whitespace-nowrap">
+            Plan{typeof payload.number === 'number' ? ` #${String(payload.number)}` : ''}
+          </span>
+          {status && <PlanStatusBadge status={status} />}
+          <span className="whitespace-nowrap text-tertiary">
+            {payload.steps.length} {payload.steps.length === 1 ? 'step' : 'steps'} · {totalJobs}{' '}
+            {totalJobs === 1 ? 'job' : 'jobs'}
+            {totalCommands > 0 && (
+              <>
+                {' '}
+                · {totalCommands} {totalCommands === 1 ? 'command' : 'commands'}
+              </>
+            )}
+          </span>
+        </div>
+        {(headerAction ?? foldButton) && (
+          <div className="flex h-[22px] flex-shrink-0 items-center gap-0.5">
+            {headerAction}
+            {foldButton}
+          </div>
+        )}
       </div>
       <div className="mt-0.5 flex items-center gap-2">
         {floating && (
@@ -62,12 +95,7 @@ export function PlanHeader({
   )
 
   if (floating) {
-    return (
-      <div className="flex items-start gap-2.5 px-4 py-3.5">
-        <div className="min-w-0 flex-1">{headerInner}</div>
-        {headerAction && <div className="flex-shrink-0">{headerAction}</div>}
-      </div>
-    )
+    return <div className="px-4 py-3.5">{headerInner}</div>
   }
 
   return (
@@ -81,31 +109,6 @@ export function PlanHeader({
         <ClipboardList className="h-3.5 w-3.5" strokeWidth={2} />
       </div>
       <div className="min-w-0 flex-1">{headerInner}</div>
-      {(foldable || headerAction) && (
-        <div className="flex flex-shrink-0 items-center gap-0.5">
-          {headerAction}
-          {foldable && (
-            <button
-              type="button"
-              onClick={onToggleFold}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
-              title={folded ? 'Expand plan' : 'Collapse plan'}
-              aria-label={folded ? 'Expand plan' : 'Collapse plan'}
-              aria-expanded={!folded}
-            >
-              {/* icon-swap: cross-fade the expand/collapse chevrons */}
-              <span className="t-icon-swap" data-state={folded ? 'b' : 'a'}>
-                <span className="t-icon" data-icon="a">
-                  <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
-                </span>
-                <span className="t-icon" data-icon="b">
-                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-                </span>
-              </span>
-            </button>
-          )}
-        </div>
-      )}
     </div>
   )
 }
