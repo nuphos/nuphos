@@ -29,7 +29,7 @@ function renderGithubLink(
 
 /** Links in agent text that render as chips: pull requests, issues and local servers. */
 export function useAgentLinks(teamId: string | undefined, onOpen?: OpenLink) {
-  const renderLocal = useLocalUrlLinks(onOpen)
+  const renderLocal = useLocalUrlLinks(onOpen, teamId)
 
   return useCallback(
     (href: string, children: ReactNode, options?: LinkRenderOptions): ReactNode => {

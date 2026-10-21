@@ -87,6 +87,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
   if (active === 'team.browser') {
     return (
       <BrowserView
+        teamId={scope.teamId}
         url={ctx.browserUrl}
         onNavigate={ctx.onBrowserNavigate}
         onComment={(text, filePaths) => ctx.openInChat(text, { mode: 'text', filePaths })}

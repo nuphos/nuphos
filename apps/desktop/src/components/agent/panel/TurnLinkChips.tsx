@@ -19,7 +19,7 @@ export function TurnLinkChips({
   return (
     <>
       <GithubRefStrip refs={turnGithubRefs(parts)} teamId={teamId} onOpen={onOpen} />
-      <LocalUrlStrip urls={turnLocalUrls(parts)} onOpen={onOpen} />
+      <LocalUrlStrip urls={turnLocalUrls(parts)} onOpen={onOpen} teamId={teamId} />
     </>
   )
 }

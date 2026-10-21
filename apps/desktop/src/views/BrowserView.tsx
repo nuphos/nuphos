@@ -4,20 +4,24 @@ import { useEffect, useRef, useState } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
 import { BrowserLoadingProgress } from '../components/BrowserLoadingProgress'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
+import { localPreviewRecorder } from './browser/localPreviewRecorder'
 import { useBrowserComments } from './browser/useBrowserComments'
 
 import type { WebviewTag } from 'electron'
 
 /** Each mounted dock tab owns its webview and navigation history. */
 export function BrowserView({
+  teamId,
   url,
   onNavigate,
   onComment,
 }: {
+  teamId: string
   url?: string
   onNavigate?: (url: string) => void
   /** Receives a page comment for the agent composer, with its screenshot. */
@@ -32,7 +36,14 @@ export function BrowserView({
   }, [onNavigate])
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<WebviewTag | null>(null)
-  const { refreshKey } = useWorkspaceTab()
+  const { refreshKey, isActive } = useWorkspaceTab()
+  const activeRef = useRef(isActive)
+
+  useEffect(() => {
+    activeRef.current = isActive
+  }, [isActive])
+  const userId = useCurrentUser()?.id
+  const previewRef = useRef<ReturnType<typeof localPreviewRecorder> | null>(null)
   const lastRefresh = useRef(refreshKey)
   const [address, setAddress] = useState(initialUrl)
   const [title, setTitle] = useState('Browser')
@@ -54,6 +65,9 @@ export function BrowserView({
     view.setAttribute('allowpopups', '')
     view.setAttribute('webpreferences', 'sandbox=yes,contextIsolation=yes')
     view.style.cssText = 'width:100%;height:100%;display:flex'
+    const preview = localPreviewRecorder(view, userId ? { userId, teamId } : undefined)
+
+    previewRef.current = preview
 
     const sync = () => {
       const currentUrl = view.getURL()
@@ -70,12 +84,18 @@ export function BrowserView({
       resetComments()
       sync()
     }
+    const onInPage = (event: Electron.DidNavigateInPageEvent) => {
+      if (!event.isMainFrame) return
+      sync()
+      void preview.navigatedInPage(activeRef.current)
+    }
     const onReady = () => {
       setReady(true)
       view.setZoomFactor(1)
       sync()
     }
     const onStart = () => {
+      preview.invalidate()
       setLoading(true)
       setError(null)
     }
@@ -95,7 +115,7 @@ export function BrowserView({
 
     view.addEventListener('dom-ready', onReady)
     view.addEventListener('did-navigate', onDocument)
-    view.addEventListener('did-navigate-in-page', sync)
+    view.addEventListener('did-navigate-in-page', onInPage)
     view.addEventListener('did-start-loading', onStart)
     view.addEventListener('did-stop-loading', onStop)
     view.addEventListener('did-fail-load', onFail)
@@ -104,9 +124,11 @@ export function BrowserView({
     viewRef.current = view
 
     return () => {
+      preview.dispose()
+      previewRef.current = null
       view.removeEventListener('dom-ready', onReady)
       view.removeEventListener('did-navigate', onDocument)
-      view.removeEventListener('did-navigate-in-page', sync)
+      view.removeEventListener('did-navigate-in-page', onInPage)
       view.removeEventListener('did-start-loading', onStart)
       view.removeEventListener('did-stop-loading', onStop)
       view.removeEventListener('did-fail-load', onFail)
@@ -114,7 +136,11 @@ export function BrowserView({
       view.remove()
       viewRef.current = null
     }
-  }, [initialUrl, resetComments])
+  }, [initialUrl, resetComments, teamId, userId])
+
+  useEffect(() => {
+    if (isActive && ready && !loading && !error) void previewRef.current?.capture()
+  }, [error, isActive, loading, ready])
 
   useEffect(() => {
     if (lastRefresh.current === refreshKey) return

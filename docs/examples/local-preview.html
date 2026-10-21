@@ -1,0 +1,185 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Component preview</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f7f8fa;
+        color: #263247;
+        font:
+          15px -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+      }
+      main {
+        max-width: 900px;
+        margin: auto;
+        padding: 42px 48px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #dce1e8;
+        padding-bottom: 22px;
+      }
+      .brand {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+      }
+      .nav {
+        font-size: 12px;
+        color: #596579;
+      }
+      h1 {
+        font-size: 28px;
+        letter-spacing: -0.04em;
+        margin: 32px 0 10px;
+      }
+      p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #596579;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 28px;
+        font-size: 13px;
+      }
+      th {
+        text-align: left;
+        color: #596579;
+        font-weight: 500;
+      }
+      td,
+      th {
+        padding: 16px 0;
+        border-bottom: 1px solid #e0e5ec;
+      }
+      button {
+        border: 1px solid #cad2dd;
+        border-radius: 6px;
+        background: white;
+        color: #263247;
+        padding: 7px 12px;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #e9edf3;
+      }
+      button:focus-visible {
+        outline: 2px solid #405b7e;
+      }
+      button[aria-pressed='true'] {
+        background: #263247;
+        color: white;
+      }
+      .status {
+        color: #49664f;
+      }
+      .examples {
+        display: flex;
+        gap: 8px;
+        margin-top: 22px;
+      }
+      @media (max-width: 550px) {
+        main {
+          padding: 24px;
+        }
+        h1 {
+          font-size: 24px;
+        }
+        td,
+        th {
+          padding: 14px 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="brand">Example workspace</span><span class="nav">Components</span>
+      </header>
+      <h1>Component preview</h1>
+      <p>A neutral page for testing previews. No product or customer content.</p>
+      <div class="examples">
+        <button
+          aria-pressed="true"
+          onclick="
+            document
+              .querySelectorAll('.examples button')
+              .forEach((b) => b.setAttribute('aria-pressed', String(b === this)))
+          "
+        >
+          All components</button
+        ><button
+          aria-pressed="false"
+          onclick="
+            document
+              .querySelectorAll('.examples button')
+              .forEach((b) => b.setAttribute('aria-pressed', String(b === this)))
+          "
+        >
+          Interactive
+        </button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Status</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Navigation</td>
+            <td class="status">Available</td>
+            <td>
+              <button
+                onclick="
+                  this.textContent = this.textContent === 'Viewed' ? 'View example' : 'Viewed'
+                "
+              >
+                View example
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td>Form controls</td>
+            <td class="status">Available</td>
+            <td>
+              <button
+                onclick="
+                  this.textContent = this.textContent === 'Viewed' ? 'View example' : 'Viewed'
+                "
+              >
+                View example
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td>Data table</td>
+            <td class="status">Available</td>
+            <td>
+              <button
+                onclick="
+                  this.textContent = this.textContent === 'Viewed' ? 'View example' : 'Viewed'
+                "
+              >
+                View example
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>
