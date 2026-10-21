@@ -674,6 +674,36 @@ describe('agent device routes', () => {
     expect(JSON.stringify(member)).not.toContain('203.0.113.7')
   })
 
+  test('every viewer sees a Box whose host is restarting for an update, until it reports in again', async () => {
+    const startedAt = new Date(Date.now() - 60_000)
+
+    devices[key('host-owner', 'b1')] = {
+      ...boxDevice('host-owner', 'b1'),
+      box: {
+        provider: 'instabox',
+        sandboxId: 'm_b1',
+        teamId: 'team-1',
+        access: { everyone: true, userIds: [] },
+        updateStartedAt: startedAt,
+      },
+      lastSeenAt: new Date(startedAt.getTime() - 60_000),
+    }
+    const app = buildApp(fakeBox([]))
+    const box = async () =>
+      (
+        (await (await app.request('/agent/devices?teamId=team-1')).json()) as {
+          devices: { box?: Record<string, unknown> }[]
+        }
+      ).devices[0]?.box
+
+    machineState = 'running'
+    role = 'EDITOR'
+    expect(await box()).toMatchObject({ updateStartedAt: startedAt.toISOString() })
+    // The host reported in after the update started: it is back.
+    devices[key('host-owner', 'b1')]!.lastSeenAt = new Date()
+    expect((await box())?.updateStartedAt).toBeUndefined()
+  })
+
   test('metrics are read and demanded only for Boxes the viewer may use, under the transport owner', async () => {
     const box = (deviceId: string, userIds: string[]) => ({
       ...boxDevice('host-owner', deviceId),

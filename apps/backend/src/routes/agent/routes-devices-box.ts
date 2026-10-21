@@ -7,6 +7,7 @@ import {
   memberAccess,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
+import { boxUpdatingSince } from '@/lib/agent/devices/box-updating'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 
@@ -53,6 +54,7 @@ async function deviceView(
   online?: boolean,
 ) {
   online ??= await deps.isOnline(device.userId, device.deviceId)
+  const updating = boxUpdatingSince(device)
   const state = device.box && deps.box ? await deps.box.state(device, online) : undefined
 
   if (state === 'gone') {
@@ -81,6 +83,8 @@ async function deviceView(
             ...(level === 'manage' && device.box.access ? { access: device.box.access } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             state,
+            // Its host restarting for an update: offline on purpose, and back on its own.
+            ...(updating ? { updateStartedAt: updating.toISOString() } : {}),
           },
         }
       : {}),

@@ -24,7 +24,7 @@ const status = (cliVersion?: string) =>
   }) as unknown as LocalRuntimeStatus
 
 function deps(overrides: Partial<BoxUpdateDeps> = {}) {
-  const calls = { updated: 0, asked: [] as string[] }
+  const calls = { updated: 0, marked: 0, asked: [] as string[] }
   const value: BoxUpdateDeps = {
     isBox: async () => true,
     canManage: async (actorId) => actorId === 'admin',
@@ -37,6 +37,11 @@ function deps(overrides: Partial<BoxUpdateDeps> = {}) {
     },
     update: async () => {
       calls.updated++
+    },
+    markUpdating: async () => {
+      // Noted only once the update command started.
+      expect(calls.updated).toBe(1)
+      calls.marked++
     },
     ...overrides,
   }
@@ -71,6 +76,8 @@ describe('Box update', () => {
 
     expect(await requestBoxUpdate('t1', codex, 'admin', idle.value)).toEqual({ version: '0.5.0' })
     expect(idle.calls.updated).toBe(1)
+    // Every viewer of the Box sees it updating rather than offline.
+    expect(idle.calls.marked).toBe(1)
     // Every agent the host runs is asked, as the administrator, not only the one whose card was used.
     expect(idle.calls.asked).toEqual([`admin:${claude}`, `admin:${codex}`])
 
@@ -84,12 +91,26 @@ describe('Box update', () => {
     expect(busy.calls.updated).toBe(0)
   })
 
+  test('an update that started is reported as started even when noting it fails', async () => {
+    const unnoted = deps({
+      markUpdating: async () => {
+        throw new Error('database is down')
+      },
+    })
+
+    expect(await requestBoxUpdate('t1', codex, 'admin', unnoted.value)).toEqual({
+      version: '0.5.0',
+    })
+    expect(unnoted.calls.updated).toBe(1)
+  })
+
   test('an update is refused for a personal computer, another team’s Box, an away Box, or no known release', async () => {
     const refused = async (overrides: Partial<BoxUpdateDeps>, actorId = 'admin') => {
       const attempt = deps(overrides)
 
       await requestBoxUpdate('t1', claude, actorId, attempt.value).catch((error: unknown) => {
         expect(attempt.calls.updated).toBe(0)
+        expect(attempt.calls.marked).toBe(0)
         throw error
       })
     }

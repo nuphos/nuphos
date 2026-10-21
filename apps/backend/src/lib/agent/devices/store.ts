@@ -21,6 +21,8 @@ export type AgentDeviceBox = {
   teamId: string
   createdBy?: string
   access?: { everyone: boolean; userIds: string[] }
+  /** When an update last restarted its host; see box-updating. */
+  updateStartedAt?: Date
 }
 
 export type AgentDevice = {

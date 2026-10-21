@@ -7,10 +7,12 @@
 import { resumeBox } from '@/lib/agent/devices/box-instabox'
 import { BOX_UPDATE_COMMAND } from '@/lib/agent/devices/box-instabox-client'
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
+import { markBoxUpdateStarted } from '@/lib/agent/devices/box-updating'
 import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { RUNTIME_RELEASES_URL, latestCliRelease, newerRuntimeVersion } from './runtime-release'
@@ -28,6 +30,8 @@ export type BoxUpdateDeps = {
   /** Whether that agent is mid-turn, asked as `actorId`; an agent that cannot be reached counts as idle. */
   busy: (teamId: string, runtimeId: string, actorId: string) => Promise<boolean>
   update: (ref: LocalRuntimeRef) => Promise<unknown>
+  /** Notes the restart on the Box, so every viewer sees it updating rather than offline. */
+  markUpdating: (ref: LocalRuntimeRef) => Promise<unknown>
 }
 
 const defaultDeps: BoxUpdateDeps = {
@@ -48,6 +52,7 @@ const defaultDeps: BoxUpdateDeps = {
     return endpoint ? endpointHasActiveTurn(endpoint) : false
   },
   update: ({ userId, deviceId }) => resumeBox(userId, deviceId, BOX_UPDATE_COMMAND),
+  markUpdating: ({ userId, deviceId }) => markBoxUpdateStarted(userId, deviceId),
 }
 
 async function box(runtimeId: string, deps: BoxUpdateDeps) {
@@ -120,6 +125,14 @@ export async function requestBoxUpdate(
     if (await deps.busy(teamId, id, actorId))
       throw new AppError(409, 'runtime_busy', 'Updates wait for active conversations to finish.')
   await deps.update(found.ref)
+  // After the command started: an update that could not start leaves the Box as it was. One
+  // that started is reported as started even when the note fails; its card then reads offline.
+  await deps.markUpdating(found.ref).catch((error: unknown) => {
+    logError('agent.box.update_mark_failed', error, {
+      user_id: found.ref.userId,
+      device_id: found.ref.deviceId,
+    })
+  })
 
   return { version: release.version }
 }

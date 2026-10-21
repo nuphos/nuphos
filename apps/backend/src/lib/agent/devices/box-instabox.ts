@@ -29,6 +29,7 @@ import {
 } from './box-instabox-client'
 import { boxSize, startWithinLimit } from './box-instabox-limit'
 import { noteBoxUsage } from './box-usage-history'
+import { boxUpdatingSince, clearBoxUpdateStarted } from './box-updating'
 
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { isDevicePresent, waitForPresence } from './presence'
@@ -208,6 +209,7 @@ export function healBox(userId: string, deviceId: string): void {
   if (now - (lastHeal.get(deviceId) ?? 0) < 60_000) return
   lastHeal.set(deviceId, now)
   void resumeBox(userId, deviceId).catch((error: unknown) => {
+    if (error instanceof AppError && error.code === 'box_updating') return // starts on its own
     logError('agent.box.heal_failed', error, { user_id: userId, device_id: deviceId })
   })
 }
@@ -226,6 +228,7 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
   } catch (error) {
     throw unavailable('Could not pause the Box', error)
   }
+  await clearBoxUpdateStarted(userId, deviceId)
 
   return device
 }
@@ -237,6 +240,10 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 export async function resumeBox(userId: string, deviceId: string, command = AGENT_COMMAND) {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
   const sandboxId = requireMachine(device)
+
+  // Starting the host mid-update would run the old CLI while the new one installs.
+  if (command === AGENT_COMMAND && boxUpdatingSince(device))
+    throw new AppError(409, 'box_updating', 'The Box is updating and starts again on its own.')
   const url = backendUrl()
 
   try {
@@ -287,7 +294,7 @@ export async function wakeBox(userId: string, deviceId: string): Promise<boolean
   const device = await getAgentDevice(userId, deviceId)
 
   if (!device?.box?.sandboxId) return false
-  await resumeBox(userId, deviceId)
+  if (!boxUpdatingSince(device)) await resumeBox(userId, deviceId)
 
   return waitForPresence(userId, deviceId, WAKE_TIMEOUT_MS)
 }

@@ -129,6 +129,8 @@ export type BoxStatus = {
   /** Set once the machine exists. */
   sandboxId?: string
   state: BoxState
+  /** While an update restarts its host: when it began. Absent from older backends. */
+  updateStartedAt?: string
 }
 
 /** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */

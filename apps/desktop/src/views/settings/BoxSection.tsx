@@ -8,7 +8,9 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
-import { boxAgents, boxPollMs, vanishedBoxes } from './boxPresentation'
+import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxPresentation'
+import { boxRestartEnded } from './boxRestartPresentation'
+import { boxRestarts } from './boxRestartStore'
 import { BoxRow } from './BoxRow'
 import { NewBoxDialog } from './NewBoxDialog'
 import { PanelHeading } from './RuntimePanel'
@@ -52,11 +54,17 @@ export function BoxSection({
     list,
     error: loadError,
     reload,
-  } = useAgentDevices((next) => boxPollMs(next.devices, false), '', {
-    metrics: true,
-    enabled: isActive,
+  } = useAgentDevices(
+    // A restarting host comes back without the user acting.
+    (next) => (boxRestarts.current().size ? BOX_METRICS_POLL_MS : boxPollMs(next.devices, false)),
+    // A list is the team's: one taken before a team change never settles the new team's Boxes.
     teamId,
-  })
+    {
+      metrics: true,
+      enabled: isActive,
+      teamId,
+    },
+  )
 
   useEffect(() => {
     if (!list) return
@@ -68,8 +76,14 @@ export function BoxSection({
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     for (const device of vanishedBoxes(previous.current, list.devices))
       toast.error('Box setup failed', `${device.label} could not start and was removed.`)
+    for (const { device, kind, outcome } of boxRestarts.settle(list.devices, teamId)) {
+      const notice = device && boxRestartEnded(kind, outcome, device.label)
+
+      if (notice?.tone === 'error') toast.error(notice.title, notice.description)
+      else if (notice) toast.success(notice.title, notice.description)
+    }
     previous.current = list.devices
-  }, [list])
+  }, [list, teamId])
 
   // Everything ever registered stays listed; only its status follows presence.
   const owned = list?.devices ?? []
