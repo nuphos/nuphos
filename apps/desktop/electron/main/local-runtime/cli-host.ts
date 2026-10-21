@@ -19,6 +19,7 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 
 import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
+import { localFileConnectors } from './attachment-stream.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { cliSessionToken, hostOwner } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
@@ -33,7 +34,6 @@ import {
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
-import { LocalFileStream } from './file-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
@@ -204,7 +204,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       onRevoked: () => {
         void controller.shutdown().then(exitRevoked)
       },
-      connectFile: (instanceId) => LocalFileStream.open(controller.state(), instanceId),
+      ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
       connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
       connectRuntime: (purpose, provider, instanceId) => {
