@@ -13,7 +13,10 @@ describe('gkeApiServer', () => {
       gkeApiServer({
         ...ipCluster,
         controlPlaneEndpointsConfig: {
-          dnsEndpointConfig: { endpoint: 'gke-abc-123.us-west1-a.gke.goog', allowExternalTraffic: true },
+          dnsEndpointConfig: {
+            endpoint: 'gke-abc-123.us-west1-a.gke.goog',
+            allowExternalTraffic: true,
+          },
         },
       }),
     ).toEqual({ endpoint: 'gke-abc-123.us-west1-a.gke.goog' })
@@ -24,7 +27,10 @@ describe('gkeApiServer', () => {
       gkeApiServer({
         ...ipCluster,
         controlPlaneEndpointsConfig: {
-          dnsEndpointConfig: { endpoint: 'gke-abc-123.us-west1-a.gke.goog', allowExternalTraffic: false },
+          dnsEndpointConfig: {
+            endpoint: 'gke-abc-123.us-west1-a.gke.goog',
+            allowExternalTraffic: false,
+          },
         },
       }),
     ).toEqual({ endpoint: '34.1.2.3', caBase64: 'R0NQLUNB' })
