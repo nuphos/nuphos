@@ -113,6 +113,22 @@ pub fn desktop_signed_in() -> Option<String> {
     Some(user.or(session.user).unwrap_or_else(|| "you".into()))
 }
 
+/// The backend the desktop app's current account is on, when its file says.
+/// The desktop switches backends without moving the CLI's `cli.api-url`.
+pub fn desktop_api_url() -> Option<String> {
+    desktop_backend(&fs::read_to_string(desktop_session_path()).ok()?)
+}
+
+fn desktop_backend(text: &str) -> Option<String> {
+    let value = serde_yaml::from_str::<serde_yaml::Value>(text).ok()?;
+    value.get("apiUrl")?.as_str().map(String::from)
+}
+
+/// Whether two endpoints name the same backend.
+pub fn same_backend(a: &str, b: &str) -> bool {
+    a.trim().trim_end_matches('/') == b.trim().trim_end_matches('/')
+}
+
 /// Paired with the sign-in file (`cli.yaml` → `cli.api-url`).
 fn api_url_path() -> PathBuf {
     session_path().with_extension("api-url")
@@ -292,7 +308,9 @@ fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
 mod tests {
     use std::path::Path;
 
-    use super::{forget_rejected, read_session_file, sibling, write_private, Prefs, Session};
+    use super::{
+        desktop_backend, forget_rejected, read_session_file, same_backend, sibling, write_private, Prefs, Session,
+    };
 
     #[test]
     fn the_desktop_sign_in_sits_beside_the_cli_one() {
@@ -321,6 +339,15 @@ mod tests {
         assert!(desktop.token.is_none());
         let legacy: Session = serde_yaml::from_str("token: tok\n").unwrap();
         assert_eq!(legacy.token.as_deref(), Some("tok"));
+    }
+
+    #[test]
+    fn the_desktop_account_names_its_backend() {
+        let text = "keychainAccount: u1@https://nuphos.example.com\napiUrl: https://nuphos.example.com\n";
+        let backend = desktop_backend(text).unwrap();
+        assert!(same_backend(&backend, "https://nuphos.example.com/"));
+        assert!(!same_backend(&backend, "https://api.nuphos.ai"));
+        assert_eq!(desktop_backend("keychainAccount: u1@x\n"), None);
     }
 
     #[test]
