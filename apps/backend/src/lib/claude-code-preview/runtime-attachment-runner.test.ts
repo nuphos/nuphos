@@ -102,7 +102,16 @@ test('the bundled attachments job takes its file list on stdin', async () => {
 
 test('downloaded filenames remain portable on Windows without changing file bytes', async () => {
   const server = Bun.serve({ port: 0, fetch: () => new Response('png') })
-  const names = ['report?.png', 'CON.png', 'trailing. ', '圖'.repeat(300), `CON${' '.repeat(177)}x`]
+  const names = [
+    'report?.png',
+    'CON.png',
+    'trailing. ',
+    '圖'.repeat(300),
+    `CON${' '.repeat(177)}x`,
+    `${'a'.repeat(181)}.png`,
+    'CONIN$',
+    'CONOUT$.png',
+  ]
   let paths: string[] = []
 
   try {
@@ -116,6 +125,9 @@ test('downloaded filenames remain portable on Windows without changing file byte
     expect(basename(paths[2]!)).toBe('trailing')
     expect(Buffer.byteLength(basename(paths[3]!), 'utf8')).toBeLessThanOrEqual(200)
     expect(basename(paths[4]!)).toBe('_CON')
+    expect(basename(paths[5]!)).toEndWith('.png')
+    expect(basename(paths[6]!)).toBe('_CONIN$')
+    expect(basename(paths[7]!)).toBe('_CONOUT$.png')
     for (const path of paths) expect(await readFile(path, 'utf8')).toBe('png')
   } finally {
     await server.stop()
