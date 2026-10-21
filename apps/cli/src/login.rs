@@ -119,6 +119,7 @@ fn save_device_session(body: &Value) -> Result<Session> {
         username: user["username"].as_str().map(String::from),
         user_info: Some(user),
         keychain_account: None,
+        from_env: false,
         cli_token: body.get("cliToken").cloned(),
     };
     config::write_session(&session)?;
@@ -136,6 +137,7 @@ pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
         cli_token: me.get("cliToken").cloned(),
         user_info: Some(me),
         keychain_account: None,
+        from_env: false,
     };
     config::write_session(&session)?;
     Ok(session)
@@ -165,6 +167,7 @@ async fn from_desktop(api_url: &str) -> Option<Session> {
         username: me["username"].as_str().map(String::from),
         user_info: Some(me),
         keychain_account: None,
+        from_env: false,
         cli_token: None,
     };
     match config::write_session(&session) {
@@ -264,6 +267,7 @@ async fn browser(api_url: &str) -> Result<Session> {
             username: user["username"].as_str().map(String::from),
             user_info: Some(user),
             keychain_account: None,
+            from_env: false,
             cli_token: None,
         };
         config::write_session(&session)?;

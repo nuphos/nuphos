@@ -311,9 +311,11 @@ impl App {
                     Ok(pair) => pair,
                     Err(e) => {
                         app.failure = Some(if e.is_rejected_token() {
-                            // Expired or signed out elsewhere: cleared, as the desktop does.
-                            let _ = config::write_session(&config::Session::default());
-                            "your sign-in has expired; run `nuphos` again to sign in".into()
+                            // Expired or signed out elsewhere.
+                            match config::forget_rejected(&config::read_session()) {
+                                Ok(()) => "your sign-in has expired; run `nuphos` again to sign in".into(),
+                                Err(e) => e.to_string(),
+                            }
                         } else {
                             e.message
                         });

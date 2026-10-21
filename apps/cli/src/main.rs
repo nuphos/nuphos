@@ -267,8 +267,12 @@ fn auth(command: &AuthCommand) -> Result<i32> {
     Ok(0)
 }
 
-/// "Grok Bot, an agent of Yuanlin" for an agent token, else the user.
+/// "Grok Bot, an agent of Yuanlin" for an agent token, else the user. Not
+/// known locally for `NUPHOS_CLI_TOKEN`, which nothing has checked yet.
 fn who(session: &config::Session) -> String {
+    if session.from_env {
+        return "whoever NUPHOS_CLI_TOKEN belongs to (not checked locally; `nuphos team` checks it)".to_string();
+    }
     let user = session.user_info.as_ref().and_then(|u| u["email"].as_str()).or(session.user.as_deref());
     let user = render::clean(user.unwrap_or("unknown"));
     match &session.cli_token {
@@ -351,12 +355,12 @@ async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
 async fn sign_in(interactive: bool) -> Result<(Api, Value, Vec<Value>)> {
     let api_url = config::api_url();
     let session = config::read_session();
-    if let Some(token) = session.token {
+    if let Some(token) = session.token.clone() {
         let api = Api::new(api_url.clone(), token);
         match tokio::try_join!(api.me(), api.teams()) {
             Ok((me, teams)) => return Ok((api, me, teams)),
-            // Expired or signed out elsewhere: cleared, as the desktop does.
-            Err(e) if e.is_rejected_token() => config::write_session(&config::Session::default())?,
+            // Expired or signed out elsewhere.
+            Err(e) if e.is_rejected_token() => config::forget_rejected(&session)?,
             Err(e) => return Err(e.into()),
         }
     }
