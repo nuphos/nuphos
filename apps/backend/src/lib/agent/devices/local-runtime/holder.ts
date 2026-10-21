@@ -37,7 +37,8 @@ export type TunnelHolderDeps = {
 
 export type RuntimeTunnel = {
   receive(raw: string): void
-  closed(): void
+  /** The socket closed, with the WebSocket close code and reason when known. */
+  closed(code?: number, reason?: string): void
 }
 
 const DEFAULT_IDLE_TIMEOUT_MS = 15_000
@@ -82,15 +83,9 @@ export async function attachRuntimeTunnel(
         seenAt: Date.now(),
       })
       .then((updated) => {
-        if (!updated && !ended) {
-          end()
-          connection.close(TUNNEL_CLOSE_IDLE, 'Device presence expired')
-        }
+        if (!updated) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
       })
-      .catch(() => {
-        end()
-        connection.close(TUNNEL_CLOSE_IDLE, 'Device presence unavailable')
-      })
+      .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device presence unavailable'))
 
   const end = () => {
     if (ended) return
@@ -102,6 +97,20 @@ export async function attachRuntimeTunnel(
       void toStream(s, { t: 'close', reason: 'The computer running this agent disconnected' })
     streams.clear()
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
+  }
+  // Every close is logged once with its reason, whichever side ended the tunnel.
+  const logClosed = (code: number | undefined, reason: string) =>
+    logEvent('info', 'agent.local_runtime.tunnel_closed', {
+      user_id: userId,
+      device_id: deviceId,
+      code,
+      reason,
+    })
+  const shut = (code: number, reason: string) => {
+    if (ended) return
+    end()
+    logClosed(code, reason)
+    connection.close(code, reason)
   }
 
   const openStream = async (message: Extract<HolderMessage, { t: 'open' }>) => {
@@ -131,13 +140,11 @@ export async function attachRuntimeTunnel(
     switch (message.t) {
       case 'supersede':
         if (message.previous ? message.previous !== conn : message.conn === conn) return
-        end()
-        connection.close(TUNNEL_CLOSE_SUPERSEDED, 'Another connection took over this computer')
+        shut(TUNNEL_CLOSE_SUPERSEDED, 'Another connection took over this computer')
 
         return
       case 'revoke':
-        end()
-        connection.close(TUNNEL_CLOSE_REVOKED, 'This computer was disconnected from Nuphos')
+        shut(TUNNEL_CLOSE_REVOKED, 'This computer was disconnected from Nuphos')
 
         return
       case 'revoke-actor':
@@ -182,17 +189,13 @@ export async function attachRuntimeTunnel(
   unsubscribe = await deps.bus.subscribe(channel, onHolderMessage)
   heartbeat = setInterval(() => {
     if (Date.now() - lastFrameAt > (deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS)) {
-      end()
-      connection.close(TUNNEL_CLOSE_IDLE, 'No frames from the computer')
+      shut(TUNNEL_CLOSE_IDLE, 'No frames from the computer')
 
       return
     }
     void deps.bus
       .publish(channel, JSON.stringify({ t: 'ping', conn } satisfies HolderMessage))
-      .catch(() => {
-        end()
-        connection.close(TUNNEL_CLOSE_IDLE, 'Device channel unavailable')
-      })
+      .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable'))
   }, deps.heartbeatMs ?? RUNTIME_PRESENCE_HEARTBEAT_MS)
 
   try {
@@ -270,12 +273,9 @@ export async function attachRuntimeTunnel(
             })
       }
     },
-    closed() {
+    closed(code, reason) {
       if (!ended) {
-        logEvent('info', 'agent.local_runtime.tunnel_closed', {
-          user_id: userId,
-          device_id: deviceId,
-        })
+        logClosed(code, reason || 'The connection closed')
         deps.connectionChanged?.(userId, deviceId)
       }
       end()

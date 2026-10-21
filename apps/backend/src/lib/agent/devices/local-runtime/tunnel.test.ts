@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { localRuntimeUrl } from './address'
 import { createLocalTunnelBus } from './bus'
@@ -15,6 +15,19 @@ import type { BackendFrame } from './protocol'
 
 const owner = { userId: 'u1', deviceId: 'd1', provider: 'claude-code' as const }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 5))
+
+/** The structured log lines a block wrote at `level`, parsed. */
+async function logged(level: 'log' | 'warn', run: () => Promise<void>) {
+  const spy = spyOn(console, level).mockImplementation(() => {})
+
+  try {
+    await run()
+
+    return spy.mock.calls.map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+  } finally {
+    spy.mockRestore()
+  }
+}
 
 async function eventually(check: () => boolean): Promise<void> {
   for (let i = 0; i < 100 && !check(); i++) await tick()
@@ -176,12 +189,21 @@ describe('local runtime tunnel', () => {
     expect(bob.events.some((event) => event.type === 'close')).toBe(false)
   })
 
-  test('an offline computer fails the connection instead of hanging', async () => {
-    const { events } = openStream(createLocalTunnelBus(), createMemoryPresenceStore(), 't1')
-
-    await eventually(() => events.some((event) => event.type === 'close'))
+  test('an offline computer fails the connection instead of hanging, and says why', async () => {
+    let events: { type: string; reason?: string }[] = []
+    const lines = await logged('warn', async () => {
+      events = openStream(createLocalTunnelBus(), createMemoryPresenceStore(), 't1').events
+      await eventually(() => events.some((event) => event.type === 'close'))
+    })
 
     expect(events[0]?.reason).toContain('offline')
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.stream_failed',
+        stage: 'connect',
+        cause: 'no_presence',
+      }),
+    )
   })
 
   test('the computer disconnecting closes every stream it carried', async () => {
@@ -231,9 +253,17 @@ describe('local runtime tunnel', () => {
     })
 
     expect(await presence.get(owner.userId, owner.deviceId)).not.toBeNull()
-    await eventually(() => desktop.closed !== undefined)
+    const lines = await logged('log', () => eventually(() => desktop.closed !== undefined))
 
     expect(await presence.get(owner.userId, owner.deviceId)).toBeNull()
+    // The backend closed it, so the reason is logged here or nowhere.
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_closed',
+        code: 4001,
+        reason: 'No frames from the computer',
+      }),
+    )
   })
 
   test('presence lives only as long as the socket keeps answering', async () => {

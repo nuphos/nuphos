@@ -103,9 +103,9 @@ export function runtimeTunnelEvents(userId: string, deviceId: string, deps: Tunn
         attached?.receive(data)
       })
     },
-    onClose: () => {
+    onClose: (event: CloseEvent) => {
       void tunnel?.then((attached) => {
-        attached?.closed()
+        attached?.closed(event.code, event.reason)
       })
     },
   }

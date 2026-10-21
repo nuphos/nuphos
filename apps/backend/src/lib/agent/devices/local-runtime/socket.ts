@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
+import { errorTelemetryProperties, logEvent } from '@/lib/observability'
+
 import { parseLocalRuntimeUrl, purposeFromProtocols } from './address'
 import { tunnelBus } from './bus'
 import { runtimePresenceStore } from './presence'
@@ -7,7 +9,13 @@ import { holderChannel, parseJson, streamChannel } from './protocol'
 
 import type { TunnelBus } from './bus'
 import type { LocalRuntimePresenceStore } from './presence'
-import type { HolderMessage, LocalAgentProvider, StreamMessage, TunnelPurpose } from './protocol'
+import type {
+  HolderMessage,
+  LocalAgentProvider,
+  LocalRuntimeStatus,
+  StreamMessage,
+  TunnelPurpose,
+} from './protocol'
 
 type SocketEvent = { data?: unknown; code?: number; reason?: string }
 type Listener = (event: SocketEvent) => void
@@ -35,6 +43,31 @@ const OPEN = 1
 const CLOSED = 3
 const DEFAULT_LIVENESS_MS = 10_000
 const OFFLINE_REASON = 'The computer running this agent is offline'
+const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
+  exec: 'localExec',
+  terminal: 'localTerminal',
+  cua: 'localCua',
+  browser: 'localBrowser',
+  instances: 'agentInstances',
+}
+
+/** Why a connected computer cannot take this stream; the person still reads "offline". */
+function refusal(status: LocalRuntimeStatus | undefined, target: DeviceStreamTarget) {
+  const capability = CAPABILITY[target.purpose]
+
+  if (capability && status?.[capability] !== true) return 'capability_missing'
+  if (
+    target.instanceId !== undefined &&
+    !status?.instances?.some(
+      (instance) =>
+        instance.instanceId === target.instanceId && instance.provider === target.provider,
+    )
+  ) {
+    return 'instance_missing'
+  }
+
+  return undefined
+}
 
 /**
  * A WebSocket-shaped ACP stream to a computer's local runtime, carried over the
@@ -76,6 +109,23 @@ export class DeviceRuntimeSocket {
     this.finish(1000, '')
   }
 
+  /** Logs which check found the computer unreachable, since the person only sees "offline". */
+  private fail(stage: 'connect' | 'liveness', cause: string, error?: unknown): void {
+    const { userId, deviceId, purpose, provider, instanceId } = this.target
+
+    logEvent('warn', 'agent.local_runtime.stream_failed', {
+      user_id: userId,
+      device_id: deviceId,
+      purpose,
+      provider,
+      instance_id: instanceId,
+      stage,
+      cause,
+      ...(error === undefined ? {} : errorTelemetryProperties(error)),
+    })
+    this.finish(1006, error instanceof Error ? error.message : OFFLINE_REASON)
+  }
+
   private emit(type: string, event: SocketEvent): void {
     for (const listener of this.listeners.get(type) ?? []) listener(event)
   }
@@ -110,20 +160,12 @@ export class DeviceRuntimeSocket {
 
     try {
       const presence = await this.deps.presence.get(userId, deviceId)
+      const cause = presence ? refusal(presence.status, this.target) : 'no_presence'
 
-      if (
-        !presence ||
-        (purpose === 'exec' && presence.status?.localExec !== true) ||
-        (purpose === 'terminal' && presence.status?.localTerminal !== true) ||
-        (purpose === 'cua' && presence.status?.localCua !== true) ||
-        (purpose === 'browser' && presence.status?.localBrowser !== true) ||
-        (purpose === 'instances' && presence.status?.agentInstances !== true) ||
-        (instanceId !== undefined &&
-          !presence.status?.instances?.some(
-            (instance) => instance.instanceId === instanceId && instance.provider === provider,
-          ))
-      ) {
-        throw new Error(OFFLINE_REASON)
+      if (!presence || cause) {
+        this.fail('connect', cause ?? 'no_presence')
+
+        return
       }
       this.conn = presence.conn
       this.unsubscribe = await this.deps.bus.subscribe(streamChannel(this.streamId), this.onStream)
@@ -151,7 +193,7 @@ export class DeviceRuntimeSocket {
         this.deps.livenessMs ?? DEFAULT_LIVENESS_MS,
       )
     } catch (error) {
-      this.finish(1006, error instanceof Error ? error.message : OFFLINE_REASON)
+      this.fail('connect', 'error', error)
     }
   }
 
@@ -160,9 +202,9 @@ export class DeviceRuntimeSocket {
       .get(this.target.userId, this.target.deviceId)
       .catch(() => null)
 
-    if (presence?.conn === this.conn) return
+    if (presence?.conn === this.conn || this.readyState === CLOSED) return
     void this.toHolder({ t: 'close', s: this.streamId })
-    this.finish(1006, OFFLINE_REASON)
+    this.fail('liveness', presence ? 'tunnel_replaced' : 'no_presence')
   }
 }
 
