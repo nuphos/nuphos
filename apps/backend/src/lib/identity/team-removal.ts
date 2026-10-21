@@ -47,10 +47,12 @@ export async function removeUserFromTeam(
     return 'last_admin'
   }
 
+  // Fence on the owner too: ownership can move to the target between the read and this write.
   const result = await teams().updateOne(
     {
       _id: teamObjectId,
       deletedAt: { $exists: false },
+      ownerID: { $ne: userObjectId },
       members: {
         $elemMatch: {
           userId: userObjectId,
@@ -93,7 +95,7 @@ export async function deleteTeam(teamId: string, actorUserId: string): Promise<D
   if (!team.ownerID.equals(actorObjectId)) return 'forbidden'
 
   const result = await teams().updateOne(
-    { _id: teamObjectId, deletedAt: { $exists: false } },
+    { _id: teamObjectId, deletedAt: { $exists: false }, ownerID: actorObjectId },
     { $set: { deletedAt: new Date(), updatedAt: new Date() } },
   )
 
@@ -165,6 +167,7 @@ export async function leaveTeam(teamId: string, actorUserId: string): Promise<Le
     {
       _id: teamObjectId,
       deletedAt: { $exists: false },
+      ownerID: { $ne: actorObjectId },
       members: {
         $elemMatch: {
           userId: actorObjectId,

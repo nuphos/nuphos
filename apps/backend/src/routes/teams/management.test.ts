@@ -8,7 +8,6 @@ import type { TransferTeamOwnershipResult } from '@/lib/identity/team-roles'
 import type { NuphosTeamMember } from '@/lib/identity/types'
 import type { TeamAuthVariables } from '@/middleware/auth'
 
-
 const MEMBER: NuphosTeamMember = {
   id: 'member-1',
   email: 'member@example.com',

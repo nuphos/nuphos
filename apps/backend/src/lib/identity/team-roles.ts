@@ -68,6 +68,7 @@ export async function updateTeamMemberRole(
     {
       _id: teamObjectId,
       deletedAt: { $exists: false },
+      ownerID: { $ne: userObjectId },
       members: {
         $elemMatch: {
           userId: userObjectId,
