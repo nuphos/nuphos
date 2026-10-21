@@ -68,7 +68,7 @@ out = {"direction": "download",
                   "size": f["size"], "contentType": f["contentType"]} for f in files]}
 json.dump(out, sys.stdout)')"
 
-create_resp="$(curl -fsSL -X POST -H "Authorization: Bearer ${token}" \
+create_resp="$(curl -fsSL -X POST -H @<(printf 'Authorization: Bearer %s\n' "${token}") \
   -H "Content-Type: application/json" -d "$create_body" "${api}")"
 group_id="$(echo "$create_resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["groupId"])')"
 
@@ -97,7 +97,7 @@ print(f"Uploaded {ok}/{len(created.get('files', []))} file(s)")
 PY
 
 # 4. Finalize — backend HEADs each object and sets the group ready/partial.
-final_resp="$(curl -fsSL -X POST -H "Authorization: Bearer ${token}" "${api}/${group_id}/finalize")"
+final_resp="$(curl -fsSL -X POST -H @<(printf 'Authorization: Bearer %s\n' "${token}") "${api}/${group_id}/finalize")"
 status="$(echo "$final_resp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
 
 echo "Transfer group ${group_id} is ${status} (${count} file(s))."

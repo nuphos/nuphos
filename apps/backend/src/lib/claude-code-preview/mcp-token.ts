@@ -110,6 +110,21 @@ export function scopedPathAllowed(path: string, claims: Pick<PreviewMcpClaims, '
   return match !== null && match[1] === claims.sid && match[2] === claims.tid
 }
 
+const SIGNED_TOKEN = /\beyJ[\w-]*\.[\w-]+\.[\w-]+/gu
+const SKILLS_TOKEN = /\bnuphos-runtime-skills-v1\.[^\s"'\\]+/gu
+
+/**
+ * Replaces every token this backend signed (conversation, plan, skills) in
+ * runtime output with a marker, so a token an agent prints never reaches the
+ * transcript. Other JWTs are left alone. Safe on raw JSON: token characters
+ * are never escaped.
+ */
+export function redactSignedTokens(text: string): string {
+  return text
+    .replace(SIGNED_TOKEN, (token) => (signedPayload(token) ? '[redacted]' : token))
+    .replace(SKILLS_TOKEN, '[redacted]')
+}
+
 /** Claims when the token is a valid, unexpired preview-MCP token; else null. */
 export function verifyPreviewMcpToken(token: string): PreviewMcpClaims | null {
   const payload = signedPayload(token)

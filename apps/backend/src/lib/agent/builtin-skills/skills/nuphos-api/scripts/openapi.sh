@@ -79,14 +79,14 @@ base_url="${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}"
 base_url="${base_url%/}"
 cache_path="${NUPHOS_OPENAPI_CACHE:-/tmp/nuphos-openapi.json}"
 
-curl_args=(-fsS)
-if [ -n "${NUPHOS_TOKEN:-}" ]; then
-  curl_args+=(-H "Authorization: Bearer ${NUPHOS_TOKEN}")
-fi
+# The bearer goes to curl through a file descriptor, never argv.
+auth_header() {
+  if [ -n "${NUPHOS_TOKEN:-}" ]; then printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN"; fi
+}
 
 if [ "$refresh" -eq 1 ]; then
   tmp_path="${cache_path}.$$"
-  if curl "${curl_args[@]}" "${base_url}/openapi.json" -o "${tmp_path}"; then
+  if curl -fsS -H @<(auth_header) "${base_url}/openapi.json" -o "${tmp_path}"; then
     mv "${tmp_path}" "${cache_path}"
   else
     rm -f "${tmp_path}"

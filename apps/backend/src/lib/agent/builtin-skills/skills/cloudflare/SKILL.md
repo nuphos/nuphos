@@ -30,7 +30,7 @@ Then call Cloudflare with curl:
 ```bash
 source ~/.cloudflare/nuphos.env
 
-curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_KEY" \
+curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$CLOUDFLARE_API_KEY") \
   "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID"
 ```
 
@@ -43,7 +43,7 @@ environment.
 
 ```bash
 # Reuse the helper from the nuphos-api skill (loads it if needed):
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 
 ac /teams/$TEAM/cloudflare-accounts | python3 -m json.tool
 ```

@@ -58,7 +58,7 @@ tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
 curl -fsSL \
-  -H "Authorization: Bearer ${auth_token}" \
+  -H @<(printf 'Authorization: Bearer %s\n' "${auth_token}") \
   -H "Accept: application/json" \
   "${base}${path}" > "$tmp"
 

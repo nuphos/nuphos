@@ -39,7 +39,7 @@ cleanup() {
 trap cleanup EXIT
 
 status="$(curl -fsS -w '%{http_code}' -o "$tmp" \
-  -H "Authorization: Bearer ${NUPHOS_TOKEN}" \
+  -H @<(printf 'Authorization: Bearer %s\n' "${NUPHOS_TOKEN}") \
   "$url" || true)"
 
 if [ "$status" != "200" ]; then

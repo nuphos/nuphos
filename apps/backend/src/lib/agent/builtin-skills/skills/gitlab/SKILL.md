@@ -36,7 +36,7 @@ glab repo list --member --output json
 
 # Raw API fallback for endpoints glab does not expose directly.
 GITLAB_HOST="$(cat ~/.gitlab-host)"
-gl() { curl -sS -H "Authorization: Bearer $(cat ~/.gitlab-token)" "$GITLAB_HOST/api/v4$1" "${@:2}"; }
+gl() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$(cat ~/.gitlab-token)") "$GITLAB_HOST/api/v4$1" "${@:2}"; }
 ```
 
 If the credential section lists no GitLab bindings, tell the user a team admin needs to connect a GitLab account first (desktop app → Integrations → Add → GitLab) — you cannot bind it for them because it requires an interactive OAuth grant in their browser.
@@ -48,7 +48,7 @@ environment.
 
 ```bash
 # Reuse the helper from the nuphos-api skill (loads it if needed):
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 
 ac /teams/$TEAM/gitlab-bindings | python3 -m json.tool
 # → { "bindings": [ { "id": "...", "hostUrl": "https://gitlab.com", "username": "...", ... } ] }

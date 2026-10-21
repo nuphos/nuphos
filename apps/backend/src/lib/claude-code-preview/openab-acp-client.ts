@@ -9,6 +9,7 @@ import {
   resumeSessionAlive,
   sessionMeta,
 } from './openab-acp-session.ts'
+import { redactSignedTokens } from './mcp-token'
 import { createCallTimer, refreshSessionTimers } from './openab-acp-timers.ts'
 import { observeOpenAbSessionUpdates, routeOpenAbSessionUpdate } from './openab-acp-updates.ts'
 import { rememberPushedRuntimeState } from './runtime-state-store'
@@ -196,7 +197,8 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     let frame: unknown
 
     try {
-      frame = JSON.parse(event.data)
+      // The runtime relays agent and terminal output; keep backend tokens out of it.
+      frame = JSON.parse(redactSignedTokens(event.data))
     } catch {
       return
     }

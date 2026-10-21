@@ -22,7 +22,7 @@ progress → transition it to Done when the fix is verified.
 
 ```bash
 # 1. Discover the Jira sites the team has bound.
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 ac /teams/$TEAM/jira-sites | python3 -m json.tool
 # → { "sites": [ { "id": "<bindingId>", "siteName": "Acme",
 #       "siteUrl": "https://acme.atlassian.net", "cloudId": "<uuid>", ... } ] }
@@ -39,7 +39,7 @@ jira() {
   local method="$1" path="$2"; shift 2
   curl -sS -X "$method" \
     "https://api.atlassian.com/ex/jira/$JIRA_CLOUD_ID/rest/api/3$path" \
-    -H "Authorization: Bearer $JIRA_ACCESS_TOKEN" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$JIRA_ACCESS_TOKEN") \
     -H "Accept: application/json" \
     -H "Content-Type: application/json" "$@"
 }

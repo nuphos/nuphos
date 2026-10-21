@@ -23,7 +23,7 @@ id already filled in. Pick the exact integration the user names; when several ex
 user did not identify one, ask instead of guessing.
 
 ```bash
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 
 SQ=<integrationId from the credential section>
 
