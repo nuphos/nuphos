@@ -22,6 +22,8 @@ export type LocalRuntimeSummary = {
   agentLabel?: string
   /** Set for an extra agent beyond the device's default one of its provider. */
   instanceId?: string
+  /** The team member who added this agent, and when; absent for older and default agents. */
+  addedBy?: { userId: string; at: string }
   /** The host can run more than one agent per provider; any agent on the device reports it. */
   agentInstances?: boolean
   /** Whether its computer is connected now. Away, the agent stays listed with its last state. */

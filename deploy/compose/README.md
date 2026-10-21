@@ -35,7 +35,7 @@ docker compose ps             # wait until rustfs, backend and runtime are healt
 
 Without `init-env.sh`, copy `.env.example` to `.env` and fill each value with the `openssl` command noted on its line.
 
-To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.28-claude-code`), then run `docker compose up -d runtime`.
+To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.29-claude-code`), then run `docker compose up -d runtime`.
 
 ## First sign-in
 
@@ -165,6 +165,6 @@ rm .env                       # start over with new secrets too
 ## Known limitations
 
 - No Redis: cron scheduling, background thread queues and audit journal sealing are disabled. Both Compose and `bun run dev` use single-replica in-memory mode.
-- No Bedrock keys: the backend's own model calls (conversation titles, dashboard insights) are unavailable. Chat on the runtime is unaffected.
+- No Bedrock keys: the backend's own model calls (conversation titles, starter suggestions) are unavailable. Chat on the runtime is unaffected.
 - `/admin` is not configured.
 - This is a development stack: `NODE_ENV=development`, secrets in a local `.env`, and every port bound to `127.0.0.1` only. Do not expose it publicly.

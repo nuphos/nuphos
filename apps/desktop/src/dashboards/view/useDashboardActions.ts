@@ -94,7 +94,7 @@ export function useDashboardActions({
   )
 
   // Refresh always forces a fresh provider fetch. Changing dates can reuse
-  // matching snapshots; neither path starts a new AI insight automatically.
+  // matching snapshots.
   const refreshAll = useCallback(
     async (force: boolean) => {
       if (!selectedId) return

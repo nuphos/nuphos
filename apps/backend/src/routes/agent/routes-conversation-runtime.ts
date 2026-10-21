@@ -1,7 +1,10 @@
+import { takeOwnQueued } from './routes-conversation-queue'
 import { agent } from './router'
 import { resolveVerifiedTeamId, readTeamIdCandidate } from './team-scope'
 
 import { getReadableConversation } from '@/lib/agent/db'
+import { requeuePendingAtHead } from '@/lib/agent/pending-queue'
+import { sessionReleased } from '@/lib/agent/session-released'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import {
@@ -44,9 +47,10 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
   if (!canReply(conversationAccess(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
-  const body = await c.req.json<{ text?: unknown; groupId?: unknown }>()
+  const body = await c.req.json<{ text?: unknown; groupId?: unknown; queuedId?: unknown }>()
   const text = typeof body.text === 'string' ? body.text.trim() : ''
   const groupId = typeof body.groupId === 'string' ? body.groupId : ''
+  const queuedId = typeof body.queuedId === 'string' ? body.queuedId : ''
 
   if (!text && !groupId) throw new AppError(400, 'invalid_request', 'text or groupId is required')
   const runtime = await conversationExecutionState(conversation)
@@ -63,7 +67,20 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
       'Someone else started the running turn; send your message to run after it',
     )
   const messageId = steeringMessageId(groupId)
-  const sent = await steerConversationRuntime(conversation, { text, groupId, userId }, messageId)
+  // A waiting message leaves the queue before it steers, so the queue cannot
+  // also start it; a refused steer puts it back at the front.
+  const claimed = queuedId ? await takeOwnQueued(conversation, userId, queuedId) : null
+  const sent = await steerConversationRuntime(
+    conversation,
+    { text, groupId, userId },
+    messageId,
+  ).catch(async (error: unknown) => {
+    if (claimed) {
+      await requeuePendingAtHead(conversation.userId, sessionId, [claimed])
+      sessionReleased(conversation.userId, sessionId)
+    }
+    throw error
+  })
 
   return c.json({
     ok: true,

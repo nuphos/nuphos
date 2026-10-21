@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 
-import type { RegisteredAgent } from './agent-registry'
+import type { AgentAddition, RegisteredAgent } from './agent-registry'
 import type { RequestOrigin } from '@/lib/request-origin'
 import type { Collection } from 'mongodb'
 
@@ -21,6 +21,8 @@ export type AgentDeviceBox = {
   teamId: string
   createdBy?: string
   access?: { everyone: boolean; userIds: string[] }
+  /** When an update last restarted its host; see box-updating. */
+  updateStartedAt?: Date
 }
 
 export type AgentDevice = {
@@ -34,6 +36,8 @@ export type AgentDevice = {
   box?: AgentDeviceBox
   /** Agents this computer has ever had signed in; see agent-registry. */
   agents?: RegisteredAgent[]
+  /** Who added each of its added agents; absent for agents added before this was recorded. */
+  addedAgents?: AgentAddition[]
   /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
   credentialHash?: string
   credentialIssuedAt?: Date
@@ -123,16 +127,25 @@ export async function insertJoinedAgentDevice(
   })
 }
 
-/** A Box's device row exists from the moment the machine is ordered, so the UI can show it. */
+/**
+ * A Box's device row exists from the moment the machine is ordered, so the UI can show it.
+ * Its access is the creator's, plus `shared` when the route chose whom to share it with;
+ * whatever access the registration carries is ignored.
+ */
 export async function insertBoxAgentDevice(
   userId: string,
   device: AgentDeviceRegistration & { box: AgentDeviceBox },
+  shared?: { everyone: boolean; userIds: string[] },
 ): Promise<AgentDevice> {
   const now = new Date()
+  const access = {
+    everyone: shared?.everyone ?? false,
+    userIds: [...new Set([userId, ...(shared?.userIds ?? [])])],
+  }
   const created: AgentDevice = {
     ...device,
     userId,
-    box: { ...device.box, createdBy: userId, access: { everyone: false, userIds: [userId] } },
+    box: { ...device.box, createdBy: userId, access },
     createdAt: now,
     updatedAt: now,
   }

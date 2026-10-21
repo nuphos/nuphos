@@ -1,25 +1,22 @@
 import { randomUUID } from 'node:crypto'
-import { pathToFileURL } from 'node:url'
 
 import { ObjectId } from 'mongodb'
 
 import { resolveDownloads } from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
+import { attachmentFileUrl } from './attachment-path'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
+import { localAttachments } from './local-attachments'
 import { ATTACHMENT_RUNNER } from './runtime-attachment-runner'
 import { uploadPromptImages } from './upload-prompt-images'
 
+import type { RuntimeAttachment } from './runtime-attachment-types'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { PromptImage } from '../agent/image-parts'
 
-export type RuntimeAttachment = {
-  name: string
-  url: string
-  size: number
-  mimeType?: string
-  archive?: boolean
-}
+export type { RuntimeAttachment } from './runtime-attachment-types'
+
 export type PromptAttachment = {
   type: 'resource_link'
   uri: string
@@ -100,44 +97,53 @@ export async function materializeRuntimeAttachments(
 
   if (endpoint.url !== runtime.url)
     throw new Error('Conversation runtime changed. Retry this message.')
-  const client = await controlRegistry.acquire(teamId, endpoint)
+  let stdout = await localAttachments(teamId, ownerUserId, runtime.runtimeId, files)
 
-  const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
-  // A Desktop local runtime runs only its bundled copy of the program, so just the file
-  // list crosses; the image's general `panel` job takes the program as its runner.
-  const job = jobs.includes('attachments') ? 'attachments' : jobs.includes('panel') ? 'panel' : null
+  if (stdout === null) {
+    const client = await controlRegistry.acquire(teamId, endpoint)
 
-  if (!job) throw new Error('Update this agent to support native file attachments')
-  const result = await client.runJob(
-    {
-      jobId: randomUUID(),
-      job,
-      stdin: JSON.stringify(
-        job === 'attachments'
-          ? { files }
-          : { runner: ATTACHMENT_RUNNER, script: '', params: { files } },
-      ),
-      env: {},
-      timeoutMs: 120_000,
-      maxStdoutBytes: 64 * 1024,
-    },
-    125_000,
-  )
+    const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
+    // A Desktop local runtime runs only its bundled copy of the program, so just the file
+    // list crosses; the image's general `panel` job takes the program as its runner.
+    const job = jobs.includes('attachments')
+      ? 'attachments'
+      : jobs.includes('panel')
+        ? 'panel'
+        : null
 
-  if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
-    throw new Error('Could not prepare attachments on the runtime. Retry this message.')
-  const output = JSON.parse(result.stdout) as { paths?: unknown[] }
+    if (!job) throw new Error('Update this agent to support native file attachments')
+    const result = await client.runJob(
+      {
+        jobId: randomUUID(),
+        job,
+        stdin: JSON.stringify(
+          job === 'attachments'
+            ? { files }
+            : { runner: ATTACHMENT_RUNNER, script: '', params: { files } },
+        ),
+        env: {},
+        timeoutMs: 120_000,
+        maxStdoutBytes: 64 * 1024,
+      },
+      125_000,
+    )
+
+    if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
+      throw new Error('Could not prepare attachments on the runtime. Retry this message.')
+    stdout = result.stdout
+  }
+  const output = JSON.parse(stdout) as { paths?: unknown[] }
 
   if (
     !Array.isArray(output.paths) ||
     output.paths.length !== files.length ||
-    !output.paths.every((path) => typeof path === 'string' && path.startsWith('/'))
+    !output.paths.every((path) => attachmentFileUrl(path) !== undefined)
   )
     throw new Error('The runtime returned invalid attachment paths')
 
   return output.paths.map((path, index) => ({
     type: 'resource_link',
-    uri: pathToFileURL(String(path)).href,
+    uri: attachmentFileUrl(path)!,
     name: files[index]!.name,
     ...(files[index]!.archive
       ? {

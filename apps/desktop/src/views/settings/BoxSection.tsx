@@ -1,18 +1,18 @@
 import clsx from 'clsx'
-import { Box, Loader2 } from 'lucide-react'
+import { Box } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { api } from '../../api'
 import { Button } from '../../components/ui/button'
-import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
-import { openBoxPaywall } from './boxPaywallStore'
-import { boxAgents, boxPollMs, boxSizeChoices, vanishedBoxes } from './boxPresentation'
+import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxPresentation'
+import { boxRestartEnded } from './boxRestartPresentation'
+import { boxRestarts } from './boxRestartStore'
 import { BoxRow } from './BoxRow'
+import { NewBoxDialog } from './NewBoxDialog'
 import { PanelHeading } from './RuntimePanel'
 import { useAgentDevices } from './useAgentDevices'
 import { useBoxUsage } from './useBoxUsage'
@@ -32,42 +32,6 @@ function deviceConfiguration({
   return device
 }
 
-/** The sizes a new Box can have, each named with what it is good for. */
-function BoxSizePicker({
-  sizes,
-  value,
-  disabled,
-  onChange,
-}: {
-  sizes: { vcpus: number; memMiB: number }[]
-  value: number | undefined
-  disabled: boolean
-  onChange: (vcpus: number) => void
-}) {
-  return (
-    <AppSelect
-      ariaLabel="New Box size"
-      size="sm"
-      contentClassName="w-[360px]"
-      value={String(value)}
-      disabled={disabled}
-      onValueChange={(next) => onChange(Number(next))}
-      options={boxSizeChoices(sizes).map((choice) => ({
-        value: String(choice.vcpus),
-        label: (
-          <span className="flex items-center gap-2">
-            <span className="truncate">{choice.name}</span>
-            <span className="ml-auto shrink-0 rounded-full bg-zGray-800 px-2 py-0.5 text-[11px] font-medium text-tertiary">
-              {choice.spec}
-            </span>
-          </span>
-        ),
-        description: choice.description,
-      }))}
-    />
-  )
-}
-
 /** The signed-in user's own Boxes, above the team's agents. Hidden when the backend has no Box provider. */
 export function BoxSection({
   teamId,
@@ -85,20 +49,22 @@ export function BoxSection({
   const [creating, setCreating] = useState(false)
   const previous = useRef<AgentDevice[]>([])
   const { usage, reload: reloadUsage } = useBoxUsage(teamId)
-  const sizes = usage?.sizes ?? []
-  // The smallest until one is picked; a pick the backend no longer offers falls back too.
-  const [picked, setPicked] = useState<number>()
-  const vcpus = (sizes.find((size) => size.vcpus === picked) ?? sizes.at(0))?.vcpus
   const { isActive } = useWorkspaceTab()
   const {
     list,
     error: loadError,
     reload,
-  } = useAgentDevices((next) => boxPollMs(next.devices, false), '', {
-    metrics: true,
-    enabled: isActive,
+  } = useAgentDevices(
+    // A restarting host comes back without the user acting.
+    (next) => (boxRestarts.current().size ? BOX_METRICS_POLL_MS : boxPollMs(next.devices, false)),
+    // A list is the team's: one taken before a team change never settles the new team's Boxes.
     teamId,
-  })
+    {
+      metrics: true,
+      enabled: isActive,
+      teamId,
+    },
+  )
 
   useEffect(() => {
     if (!list) return
@@ -110,23 +76,15 @@ export function BoxSection({
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     for (const device of vanishedBoxes(previous.current, list.devices))
       toast.error('Box setup failed', `${device.label} could not start and was removed.`)
-    previous.current = list.devices
-  }, [list])
+    for (const { device, kind, outcome } of boxRestarts.settle(list.devices, teamId)) {
+      const notice = device && boxRestartEnded(kind, outcome, device.label)
 
-  const create = async () => {
-    setCreating(true)
-    try {
-      await api.boxCreate(undefined, teamId, vcpus)
-      reload()
-    } catch (error) {
-      // No plan, or past it: the paywall offers one, then makes the Box.
-      if (!openBoxPaywall(teamId, error, () => void create()))
-        toast.apiError('Could not create Box', error)
-    } finally {
-      setCreating(false)
-      reloadUsage()
+      if (notice?.tone === 'error') toast.error(notice.title, notice.description)
+      else if (notice) toast.success(notice.title, notice.description)
     }
-  }
+    previous.current = list.devices
+  }, [list, teamId])
+
   // Everything ever registered stays listed; only its status follows presence.
   const owned = list?.devices ?? []
 
@@ -135,27 +93,20 @@ export function BoxSection({
       <PanelHeading
         title="Boxes"
         right={
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void create()
-            }}
-          >
-            {list?.boxAvailable && canCreate && sizes.length > 1 && (
-              <BoxSizePicker sizes={sizes} value={vcpus} disabled={creating} onChange={setPicked} />
-            )}
-            {list?.boxAvailable && canCreate && (
-              <Button type="submit" size="sm" variant="secondary" disabled={creating}>
-                {creating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Box className="h-3.5 w-3.5" />
-                )}
-                New Box
-              </Button>
-            )}
-          </form>
+          list?.boxAvailable &&
+          canCreate && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                reloadUsage()
+                setCreating(true)
+              }}
+            >
+              <Box className="h-3.5 w-3.5" />
+              New Box
+            </Button>
+          )
         }
       />
       <div
@@ -206,6 +157,19 @@ export function BoxSection({
           )}
         </div>
       </div>
+      {creating && (
+        <NewBoxDialog
+          teamId={teamId}
+          usage={usage}
+          labels={owned.map((device) => device.label)}
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            reload()
+            reloadUsage()
+          }}
+          onPlanChanged={reloadUsage}
+        />
+      )}
     </section>
   )
 }

@@ -1,13 +1,16 @@
-import { Terminal, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { agentApi } from '../../api/agent-api'
 import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
-import { ResourcePreview } from '../ui/resource-preview'
 import { toast } from '../ui/toast'
 
-import { resourceStyle } from './sessionResourceStyle'
+import { ResourceListMenu } from './ResourceListMenu'
+import { SessionResourceChip } from './SessionResourceChip'
+import { chipNames, resourceChips } from './sessionResourcePresentation'
+import { menuChipClass } from './sessionResourceStyle'
+import { useFittingChips } from './useFittingChips'
 
+import type { ResourceActions } from './ResourceListMenu'
 import type { SessionResource } from '../../api/session-resource-types'
 
 /** Resource links belong to their session, including sessions that are not open. */
@@ -27,11 +30,34 @@ export function SessionResources({
   onOpenTab?: (tabId: string) => void
 }) {
   const processes = useSessionTerminalProcesses(sessionId)
-  const ResourceLabel = titlebar ? 'button' : 'span'
 
   const [canManage, setCanManage] = useState(false)
   const [removed, setRemoved] = useState<string[]>([])
   const [removing, setRemoving] = useState<string[]>([])
+
+  const chips = resourceChips(
+    resources.filter((resource) => !removed.includes(resource.id)),
+    processes,
+  )
+  const { rowRef, measureRef, shown, minimum, fresh } = useFittingChips(
+    chips.map((chip) => chip.key),
+    titlebar && canManage,
+  )
+  const hidden = chips.length - shown
+  // Set by an unlink from the "+N" menu. If the row then fits, "+N" and its
+  // menu unmount and take focus with them, so it moves to the last chip.
+  const refocus = useRef(false)
+
+  useLayoutEffect(() => {
+    if (!refocus.current || removing.length || !fresh) return
+    refocus.current = false
+    if (hidden > 0 || (document.activeElement && document.activeElement !== document.body)) return
+    const buttons = rowRef.current?.querySelectorAll<HTMLElement>(
+      ':scope > :not([aria-hidden]) button',
+    )
+
+    buttons?.[buttons.length - 1]?.focus()
+  })
 
   useEffect(() => {
     let disposed = false
@@ -62,111 +88,92 @@ export function SessionResources({
     }
   }
 
-  if (!resources.length && !processes.length) return null
-  const linked = resources.filter((resource) => !removed.includes(resource.id))
+  // In the sidebar a chip opens nothing itself: the click reaches the row and
+  // opens the chat. Lists that open things live in the titlebar only.
+  const actions: ResourceActions = {
+    openResource: (resource, event) => {
+      if (!titlebar) return
+      event.stopPropagation()
+      const thread = resource.provider === 'slack' || resource.provider === 'discord'
+
+      onOpen?.(resource.url, thread || event.metaKey)
+    },
+    openTerminal: (tabId, event) => {
+      if (!titlebar) return
+      event.stopPropagation()
+      onOpenTab?.(tabId)
+    },
+  }
+
+  if (!chips.length) return null
+  const chipProps = {
+    titlebar,
+    canManage,
+    onUnlink: (resourceId: string) => void unlink(resourceId),
+    actions,
+  }
 
   return (
     <div
+      ref={rowRef}
+      // In the titlebar the row only takes the room the title leaves, down to
+      // its "+N" chip: chips fold away before the title truncates. The row
+      // still moves the window; only the chips themselves opt out.
+      style={titlebar ? { minWidth: minimum } : undefined}
       className={
         titlebar
-          ? 't-session-heading titlebar-no-drag flex min-w-0 items-center gap-1 overflow-hidden text-[11px] text-tertiary'
-          : 'flex min-w-0 items-center gap-2 overflow-hidden px-2 pb-2 pl-8 text-[11px] text-tertiary'
+          ? 't-session-heading relative flex flex-1 items-center gap-1 overflow-hidden text-[11px] text-tertiary'
+          : 'relative flex min-w-0 items-center gap-2 overflow-hidden px-2 pb-2 pl-8 text-[11px] text-tertiary'
       }
       aria-label="Linked resources"
     >
-      {linked.map((resource) => {
-        const thread = resource.provider === 'slack' || resource.provider === 'discord'
-        const { icon, color } = resourceStyle(resource)
-        let label = resource.title.split(/\s+/, 1)[0]
-
-        if (resource.provider === 'github') label = `#${String(resource.number)}`
-        else if (thread) label = resource.title
-
-        const unlinkButton =
-          titlebar && canManage ? (
-            <button
-              type="button"
-              aria-label={`Unlink ${label}`}
-              title="Unlink resource"
-              disabled={removing.includes(resource.id)}
-              className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                void unlink(resource.id)
-              }}
-            >
-              <X className="size-3" />
-              {resource.provider === 'github' && <span>Unlink</span>}
-            </button>
-          ) : null
-
-        const badge = (
-          <span
-            key={resource.id}
-            className={`inline-flex items-center ${titlebar ? 'session-resource-tag shrink-0 rounded border' : thread ? 'min-w-0' : 'shrink-0'} ${color}`}
-          >
-            <ResourceLabel
-              onPointerDown={(event) => {
-                if (titlebar) event.stopPropagation()
-              }}
-              onClick={(event) => {
-                if (!titlebar) return
-                event.stopPropagation()
-                onOpen?.(resource.url, thread || event.metaKey)
-              }}
-              key={resource.id}
-              className={
-                titlebar
-                  ? 'inline-flex min-w-0 max-w-24 items-center gap-1 rounded-l px-1.5 py-0.5 transition-colors hover:bg-[var(--sidebar-overlay-hover)] active:bg-[var(--sidebar-overlay-active)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
-                  : 'inline-flex min-w-0 max-w-40 items-center gap-1'
-              }
-              title={
-                resource.provider === 'github' ? undefined : `${resource.title} · ${resource.state}`
-              }
-              aria-label={`${label} · ${resource.state}`}
-            >
-              <span className="inline-flex shrink-0">{icon}</span>
-              <span className="truncate">{label}</span>
-            </ResourceLabel>
-            {resource.provider !== 'github' && unlinkButton}
-          </span>
-        )
-
-        return resource.provider === 'github' ? (
-          <ResourcePreview
-            key={resource.id}
-            actionable={titlebar}
-            actions={unlinkButton}
-            repository={resource.repository ?? 'GitHub'}
-            identifier={label}
-            title={resource.title}
-            state={resource.state}
-          >
-            {badge}
-          </ResourcePreview>
-        ) : (
-          badge
-        )
-      })}
-      {processes.map(({ tabId, name }) => (
-        <ResourceLabel
-          key={tabId}
-          onPointerDown={(event) => {
-            if (titlebar) event.stopPropagation()
-          }}
-          onClick={(event) => {
-            if (!titlebar) return
-            event.stopPropagation()
-            onOpenTab?.(tabId)
-          }}
-          className={`inline-flex min-w-0 max-w-40 items-center gap-1 text-secondary ${titlebar ? 'shrink-0 rounded border border-[var(--sidebar-overlay-active)] px-1.5 py-0.5 transition-colors hover:bg-[var(--sidebar-overlay-hover)] active:bg-[var(--sidebar-overlay-active)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-current' : ''}`}
-          title={name}
-        >
-          <Terminal className="size-3 shrink-0" />
-          <span className="truncate">{name}</span>
-        </ResourceLabel>
+      {chips.slice(0, shown).map((chip) => (
+        <SessionResourceChip
+          key={chip.key}
+          chip={chip}
+          removing={chip.kind === 'resource' && removing.includes(chip.resource.id)}
+          {...chipProps}
+        />
       ))}
+      {hidden > 0 &&
+        (titlebar ? (
+          <ResourceListMenu
+            chips={chips}
+            actions={actions}
+            unlink={
+              canManage
+                ? {
+                    removing,
+                    onUnlink: (resourceId) => {
+                      refocus.current = true
+                      chipProps.onUnlink(resourceId)
+                    },
+                  }
+                : undefined
+            }
+            label={`${String(hidden)} more linked resources, show all`}
+            className={`${menuChipClass(titlebar)} titlebar-no-drag`}
+          >
+            +{hidden}
+          </ResourceListMenu>
+        ) : (
+          <span
+            className={menuChipClass(titlebar)}
+            title={chipNames(chips.slice(shown)).join('\n')}
+          >
+            +{hidden}
+          </span>
+        ))}
+      <div
+        ref={measureRef}
+        aria-hidden
+        className="pointer-events-none invisible absolute left-0 top-0 flex w-max"
+      >
+        {chips.map((chip) => (
+          <SessionResourceChip key={chip.key} chip={chip} measure removing={false} {...chipProps} />
+        ))}
+        <span className={menuChipClass(titlebar)}>+{chips.length}</span>
+      </div>
     </div>
   )
 }

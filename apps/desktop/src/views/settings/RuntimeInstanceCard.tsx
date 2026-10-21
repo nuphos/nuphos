@@ -10,7 +10,9 @@ import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
+import { AgentAddedBy } from './AgentAddedBy'
 import { agentName, localRemovalId } from './agentPresentation'
+import { boxRestarts } from './boxRestartStore'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
@@ -154,6 +156,9 @@ export function RuntimeInstanceCard({
               {instance.local && <span> · {instance.local.deviceLabel}</span>}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
+            {instance.local?.addedBy && (
+              <AgentAddedBy teamId={teamId} addedBy={instance.local.addedBy} />
+            )}
           </div>
         </div>
         <span
@@ -189,8 +194,12 @@ export function RuntimeInstanceCard({
         managed={updatable}
         canUpdate={canEdit && updatable}
         enabled={enabled}
+        box={instance.local?.deviceLabel}
         onUpdate={async () => {
           const result = await api.atlasRequestRuntimeUpdate(teamId, instance.id)
+
+          // Its Box's card follows the host away and back.
+          if (instance.local) boxRestarts.start(instance.local.deviceId, teamId, 'update')
 
           setRuntime(
             (previous) =>

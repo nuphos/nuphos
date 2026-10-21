@@ -11,7 +11,6 @@ import { RANGE_PRESETS, rangeLabel } from './helpers'
 import type {
   NuphosDashboardDetail,
   DashboardViewRange,
-  DashboardPanel,
   DashboardGranularity,
   DashboardRangePreset,
 } from '../schema'
@@ -24,9 +23,6 @@ type Props = {
   onDefaultSaved: (id: string) => Promise<void>
   detail: NuphosDashboardDetail | null
   viewRange?: DashboardViewRange
-  panels: DashboardPanel[]
-  canvasView: 'panels' | 'insights'
-  setCanvasView: Dispatch<SetStateAction<'panels' | 'insights'>>
   customRange: CustomRange
   setCustomRange: Dispatch<SetStateAction<CustomRange>>
   refreshing: boolean
@@ -46,9 +42,6 @@ export function DashboardToolbar({
   onDefaultSaved,
   detail,
   viewRange,
-  panels,
-  canvasView,
-  setCanvasView,
   customRange,
   setCustomRange,
   refreshing,
@@ -105,33 +98,12 @@ export function DashboardToolbar({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {dashboard && (
           <>
-            <div className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-zGray-800 p-0.5 text-[12.5px]">
-              <button
-                type="button"
-                className={`rounded px-2.5 py-1 outline-none ${canvasView === 'panels' ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-main'}`}
-                onClick={() => setCanvasView('panels')}
-              >
-                Panels
-              </button>
-              <button
-                type="button"
-                className={`flex items-center gap-1.5 rounded px-2.5 py-1 outline-none ${canvasView === 'insights' ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-main'}`}
-                onClick={() => setCanvasView('insights')}
-              >
-                Insights
-                {panels.some(
-                  (p) =>
-                    p.insight?.status === 'complete' &&
-                    p.insight.findings.some((f) => f.kind === 'anomaly'),
-                ) && <span className="h-1.5 w-1.5 rounded-full bg-warning" />}
-              </button>
-            </div>
             <Menu>
               <MenuTrigger
                 render={
                   <button
                     type="button"
-                    className="flex h-8 items-center gap-1.5 rounded-md border border-zGray-800 bg-zGray-900 px-2.5 text-[12.5px] text-main outline-none hover:bg-zGray-800 focus:border-zViolet-500"
+                    className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-zGray-800 bg-zGray-900 px-2.5 text-[12.5px] text-main outline-none hover:bg-zGray-800 focus:border-zViolet-500"
                   >
                     <Calendar className="h-3.5 w-3.5 text-tertiary" />
                     {dashboard.rangePreset
@@ -235,24 +207,26 @@ export function DashboardToolbar({
       </div>
       {dashboard && (
         <div className="flex shrink-0 items-center gap-2">
-          {canvasView === 'panels' && (
-            <button
-              type="button"
-              className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] outline-none ${editingLayout ? 'border-zViolet-500/50 bg-zViolet-500/10 text-zViolet-accent' : 'border-zGray-800 text-secondary hover:bg-zGray-800 hover:text-main focus:bg-zGray-800'}`}
-              onClick={() => setEditingLayout((editing) => !editing)}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" /> {editingLayout ? 'Done' : 'Edit layout'}
-            </button>
-          )}
+          <button
+            type="button"
+            aria-label={editingLayout ? 'Done' : 'Edit layout'}
+            className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-[13px] outline-none ${editingLayout ? 'border-zViolet-500/50 bg-zViolet-500/10 text-zViolet-accent' : 'border-zGray-800 text-secondary hover:bg-zGray-800 hover:text-main focus:bg-zGray-800'}`}
+            onClick={() => setEditingLayout((editing) => !editing)}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span className="hidden @xl:inline">{editingLayout ? 'Done' : 'Edit layout'}</span>
+          </button>
           {/* Split button: asking Agent is the default path; the dropdown
               keeps the explicit manual editor available when needed. */}
           <div className="flex items-center">
             <button
               type="button"
-              className="flex h-8 items-center gap-1.5 rounded-l-md bg-zViolet-500 px-2.5 text-[13px] font-medium text-white outline-none hover:bg-zViolet-400 focus:bg-zViolet-400"
+              aria-label="Add Panel"
+              className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-l-md bg-zViolet-500 px-2.5 text-[13px] font-medium text-white outline-none hover:bg-zViolet-400 focus:bg-zViolet-400"
               onClick={openPanelAssistant}
             >
-              <Plus className="h-3.5 w-3.5" /> Add Panel
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden @xl:inline">Add Panel</span>
             </button>
             <Menu>
               <MenuTrigger

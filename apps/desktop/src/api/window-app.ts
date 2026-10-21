@@ -140,20 +140,6 @@ export type WindowAppApi = {
     force?: boolean,
     viewRange?: DashboardViewRange,
   ): Promise<import('../dashboards/schema').DashboardPanelSnapshot>
-  dashboardsGenerateInsight(
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    viewRange?: DashboardViewRange,
-  ): Promise<import('../dashboards/schema').DashboardPanelInsight>
-  dashboardsInsightFeedback(
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    rating: 'up' | 'down',
-    note?: string,
-    viewRange?: DashboardViewRange,
-  ): Promise<{ ok: boolean }>
   dashboardsGetAlert(
     teamId: string,
     dashboardId: string,

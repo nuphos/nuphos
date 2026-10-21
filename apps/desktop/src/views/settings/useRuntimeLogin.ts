@@ -11,10 +11,13 @@ import type { RuntimeInstance, RuntimeLoginStatus } from '../../types/runtime'
 
 const activeStates = new Set(['starting', 'awaiting_authorization'])
 
-/** A team agent's sign-in, from waiting for it to answer to connected. Shared by Settings and onboarding. */
+/**
+ * A team agent's sign-in, from waiting for it to answer to connected. Shared by Settings and
+ * onboarding. Idle without an agent, for a flow that makes the agent first.
+ */
 export function useRuntimeLogin(
   teamId: string,
-  instance: RuntimeInstance,
+  instance: RuntimeInstance | null,
   onConnected: () => void,
   immediate = false,
 ) {
@@ -31,7 +34,10 @@ export function useRuntimeLogin(
     onConnected()
   })
 
+  const id = instance?.id
+
   useEffect(() => {
+    if (!id) return
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -45,7 +51,7 @@ export function useRuntimeLogin(
       } else if (activeStates.has(status.state)) timer = setTimeout(poll, 2_000)
     }
     const poll = () => {
-      void api.atlasGetRuntimeLogin(teamId, instance.id).then(receive, () => {
+      void api.atlasGetRuntimeLogin(teamId, id).then(receive, () => {
         if (stopped) return
         setError('Could not check sign-in status. Retrying…')
         timer = setTimeout(poll, 3_000)
@@ -54,7 +60,7 @@ export function useRuntimeLogin(
 
     const start = () => {
       setReachable(true)
-      request.current ??= api.atlasStartRuntimeLogin(teamId, instance.id)
+      request.current ??= api.atlasStartRuntimeLogin(teamId, id)
       void request.current.then(receive, (cause: unknown) => {
         if (!stopped) {
           setError('Could not start sign-in. Please try again.')
@@ -64,7 +70,7 @@ export function useRuntimeLogin(
     }
     // A just-created agent is still starting; sign-in needs it to answer first.
     const whenReachable = () => {
-      void api.atlasGetRuntimeInstanceStatus(teamId, instance.id).then(
+      void api.atlasGetRuntimeInstanceStatus(teamId, id).then(
         (status) => {
           if (stopped) return
           if (status.online) start()
@@ -83,7 +89,7 @@ export function useRuntimeLogin(
       stopped = true
       clearTimeout(timer)
     }
-  }, [teamId, instance.id, retry, complete, immediate])
+  }, [teamId, id, retry, complete, immediate])
 
   /** Cancels an attempt still in progress. False when cancelling failed and the caller should stay. */
   async function cancel(): Promise<boolean> {
@@ -93,8 +99,8 @@ export function useRuntimeLogin(
       // A start still in flight has an attempt too; it must not outlive the caller.
       const current = login ?? (await request.current?.catch(() => null))
 
-      if (current && activeStates.has(current.state))
-        await api.atlasCancelRuntimeLogin(teamId, instance.id, current.attemptId)
+      if (id && current && activeStates.has(current.state))
+        await api.atlasCancelRuntimeLogin(teamId, id, current.attemptId)
 
       return true
     } catch (cause) {
@@ -113,8 +119,8 @@ export function useRuntimeLogin(
     setRetry((value) => value + 1)
   }
   async function submitCode(code: string) {
-    if (login)
-      setLogin(await api.atlasSubmitRuntimeLoginCode(teamId, instance.id, login.attemptId, code))
+    if (id && login)
+      setLogin(await api.atlasSubmitRuntimeLoginCode(teamId, id, login.attemptId, code))
   }
 
   const awaiting = login?.state === 'awaiting_authorization'
@@ -126,10 +132,10 @@ export function useRuntimeLogin(
     closing,
     retry,
     awaiting,
-    authorizationUrl: awaiting
-      ? authorizeUrl(instance.provider, login.authorizationUrl)
-      : undefined,
-    verificationUri: awaiting ? devicePage(instance.provider, login.verificationUri) : undefined,
+    authorizationUrl:
+      awaiting && instance ? authorizeUrl(instance.provider, login.authorizationUrl) : undefined,
+    verificationUri:
+      awaiting && instance ? devicePage(instance.provider, login.verificationUri) : undefined,
     failed: login?.state === 'failed' || login?.state === 'cancelled' || (!login && Boolean(error)),
     cancel,
     restart,

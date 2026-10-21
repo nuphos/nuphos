@@ -10,11 +10,14 @@ import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
 import { AddAgentDialog } from './AddAgentDialog'
+import { AgentList } from './AgentList'
 import { visibleAgent } from './agentPresentation'
-import { AgentUsageSkeleton } from './AgentUsageSkeleton'
 import { BoxSection } from './BoxSection'
+import { ReorderableSections } from './ReorderableSections'
 import { RuntimeInstanceCard } from './RuntimeInstanceCard'
 import { RuntimeQuotaHistory } from './RuntimeQuotaHistory'
+import { AGENT_SECTION_IDS, AGENT_SECTION_LABELS } from './sectionOrderPresentation'
+import { useSectionOrder } from './useSectionOrder'
 
 import type { CSSProperties, KeyboardEvent } from 'react'
 
@@ -45,6 +48,7 @@ export function AgentSection({
   const catalog = useRuntimeInstances(teamId, refreshKey)
   const visible = catalog.instances.filter(visibleAgent)
   const quotas = useRuntimeQuotas(teamId)
+  const sectionOrder = useSectionOrder(teamId, AGENT_SECTION_IDS)
   const instances = visible.filter((instance) =>
     instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
   )
@@ -110,34 +114,38 @@ export function AgentSection({
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-y-auto p-5 lg:p-8">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-          <BoxSection
-            teamId={teamId}
-            instances={catalog.instances}
-            onSelect={select}
-            canCreate={isAdmin}
+        <div className="mx-auto w-full max-w-5xl">
+          <ReorderableSections
+            {...sectionOrder}
+            labels={AGENT_SECTION_LABELS}
+            sections={{
+              boxes: (
+                <BoxSection
+                  teamId={teamId}
+                  instances={catalog.instances}
+                  onSelect={select}
+                  canCreate={isAdmin}
+                />
+              ),
+              usage: instances.length > 0 && (
+                <div className="t-agents-reveal">
+                  <RuntimeQuotaHistory teamId={teamId} instances={instances} onSelect={select} />
+                </div>
+              ),
+              // The retry banner stands in for the list when the catalog failed to load.
+              agents: (instances.length > 0 || catalog.loading || !catalog.error) && (
+                <AgentList
+                  instances={instances}
+                  quotas={quotas}
+                  selectedId={panelShown && open ? selectedId : null}
+                  onSelect={select}
+                  loading={catalog.loading}
+                  filtered={filter.trim() !== ''}
+                  isAdmin={isAdmin}
+                />
+              ),
+            }}
           />
-          {catalog.loading && instances.length === 0 && <AgentUsageSkeleton />}
-          {!catalog.loading && !catalog.error && instances.length === 0 && (
-            <p className="rounded-xl border border-dashed border-zGray-800 p-8 text-center text-sm text-tertiary">
-              {filter.trim()
-                ? 'No matching agents.'
-                : isAdmin
-                  ? 'Add your first agent to start a conversation.'
-                  : 'Ask a workspace administrator to add an agent.'}
-            </p>
-          )}
-          {instances.length > 0 && (
-            <div className="t-agents-reveal">
-              <RuntimeQuotaHistory
-                teamId={teamId}
-                instances={instances}
-                quotas={quotas}
-                selectedId={panelShown && open ? selectedId : null}
-                onSelect={select}
-              />
-            </div>
-          )}
         </div>
       </div>
       {panelShown &&

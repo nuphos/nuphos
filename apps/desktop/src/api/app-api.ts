@@ -126,20 +126,6 @@ export const appApi = {
     force?: boolean,
     viewRange?: DashboardViewRange,
   ) => window.api.dashboardsExecutePanel(teamId, dashboardId, panelId, force, viewRange),
-  dashboardsGenerateInsight: (
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    viewRange?: DashboardViewRange,
-  ) => window.api.dashboardsGenerateInsight(teamId, dashboardId, panelId, viewRange),
-  dashboardsInsightFeedback: (
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    rating: 'up' | 'down',
-    note?: string,
-    viewRange?: DashboardViewRange,
-  ) => window.api.dashboardsInsightFeedback(teamId, dashboardId, panelId, rating, note, viewRange),
   dashboardsGetAlert: (teamId: string, dashboardId: string, panelId: string) =>
     window.api.dashboardsGetAlert(teamId, dashboardId, panelId),
   dashboardsSaveAlert: (

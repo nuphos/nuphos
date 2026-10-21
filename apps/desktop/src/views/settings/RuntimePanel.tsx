@@ -3,10 +3,13 @@ import type { ReactNode } from 'react'
 /** Heading row for one block inside an expanded runtime: a small caps label,
  *  an optional hint, and room for a control on the right. */
 export function PanelHeading({
+  id,
   title,
   hint,
   right,
 }: {
+  /** Lets the section the heading titles name itself with aria-labelledby. */
+  id?: string
   title: string
   hint?: string
   right?: ReactNode
@@ -14,7 +17,9 @@ export function PanelHeading({
   return (
     <div className={`mb-3 flex justify-between gap-3 ${hint ? 'items-start' : 'items-center'}`}>
       <div className="min-w-0">
-        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-tertiary">{title}</h4>
+        <h4 id={id} className="text-[11px] font-semibold uppercase tracking-wide text-tertiary">
+          {title}
+        </h4>
         {hint && <p className="mt-0.5 text-xs text-tertiary/80">{hint}</p>}
       </div>
       {right && <div className="shrink-0">{right}</div>}

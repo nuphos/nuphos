@@ -1,5 +1,7 @@
 import { BSON } from 'mongodb'
 
+import { redactSignedTokens } from '@/lib/claude-code-preview/mcp-token'
+
 import { preserveRuntimeToolResults } from './transcript-runtime-tool-results'
 import { withoutToolOutputs } from './transcript-tool-output'
 
@@ -35,6 +37,15 @@ function alreadyStored(stored: AgentMessage | undefined, fields: Record<string, 
   )
 }
 
+// Agent output arrives in chunks that can split a token, so redact once the
+// message is assembled. Token characters are never JSON-escaped.
+function redacted(parts: unknown[]): unknown[] {
+  const json = JSON.stringify(parts)
+  const clean = redactSignedTokens(json)
+
+  return clean === json ? parts : (JSON.parse(clean) as unknown[])
+}
+
 /**
  * Upserts for the transcript, skipping messages already stored as they would
  * be written. A long conversation used to rewrite every message on every send.
@@ -61,12 +72,14 @@ export function messageWrites(
         : {}),
       messageId: message.id,
       role: attribution.get(message.id)?.role ?? message.role,
-      parts: withoutToolOutputs(
-        preserveRuntimeToolResults(
-          attribution.get(message.id)?.role === 'user'
-            ? attribution.get(message.id)!.parts
-            : message.parts,
-          runtimeToolParts,
+      parts: redacted(
+        withoutToolOutputs(
+          preserveRuntimeToolResults(
+            attribution.get(message.id)?.role === 'user'
+              ? attribution.get(message.id)!.parts
+              : message.parts,
+            runtimeToolParts,
+          ),
         ),
       ),
       // Only ever set, never unset: a re-sync that rebuilt history

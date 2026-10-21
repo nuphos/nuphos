@@ -12,6 +12,7 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { moveConversationRuntime } from './conversation-runtime-move'
 import { listRuntimeInstances, requireRuntimeInstance } from './runtime-catalog'
+import { steerConversationRuntime } from './session-execution-state'
 import { runtimeModelCatalog } from './runtime-models'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -154,18 +155,27 @@ describe('only the owner can put a session on their local agent', () => {
     expect(endpoint.authKey).toBe('control')
   })
 
+  test('a teammate cannot steer the owner’s conversation on it, even with no active run', async () => {
+    const attached = {
+      ...conversation('owner'),
+      claudeCodePreview: { runtimeUrl: 'nuphos-device://placeholder', openabSessionId: 's' },
+    } as AgentConversation
+
+    await expect(
+      steerConversationRuntime(attached, { text: 'hi', userId: 'teammate' }, 'm1'),
+    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
+  })
+
   test('a teammate cannot start a new conversation on it', async () => {
     await expect(
       resolveConversationChatRuntime(TEAM, null, { userId: 'teammate', runtimeId: localId }),
     ).rejects.toMatchObject(notFound)
   })
 
-  test('a teammate continues the owner’s conversation on the owner’s computer', async () => {
-    const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
-      userId: 'teammate',
-    })
-
-    expect(parseLocalRuntimeUrl(endpoint.url)).toMatchObject({ userId: 'owner', teamId: TEAM })
+  test('a teammate cannot send to the owner’s conversation on the owner’s computer', async () => {
+    await expect(
+      resolveConversationChatRuntime(TEAM, conversation('owner'), { userId: 'teammate' }),
+    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
   })
 
   test('a teammate cannot put the owner’s unpinned conversation on it', async () => {
@@ -181,7 +191,7 @@ describe('only the owner can put a session on their local agent', () => {
   test('the owner’s computer never serves someone else’s conversation', async () => {
     await expect(
       resolveConversationChatRuntime(TEAM, conversation('teammate'), { userId: 'owner' }),
-    ).rejects.toMatchObject(notFound)
+    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
     await expect(
       resolveConversationChatRuntime(TEAM, conversation('teammate'), { purpose: 'control' }),
     ).rejects.toMatchObject(notFound)

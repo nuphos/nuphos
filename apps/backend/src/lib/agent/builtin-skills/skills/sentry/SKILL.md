@@ -34,7 +34,7 @@ set -o pipefail   # so a failed curl piped into python3 fails the step, not sile
 # 1. Discover the Sentry accounts the team has bound. --fail-with-body makes a
 # 401/403/5xx exit non-zero (still printing the error body) so a bad listing
 # doesn't look successful.
-ac() { curl -sS --fail-with-body -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 ac /teams/$TEAM/sentry-accounts | python3 -m json.tool
 # → { "accounts": [ { "id": "<bindingId>", "userName": "Jane Doe",
 #       "userEmail": "jane@acme.com", "userId": "<id>", ... } ] }
@@ -53,7 +53,7 @@ sentry() {
   local path="$1"; shift
   curl -sS --fail-with-body \
     "${SENTRY_API_BASE_URL:-https://sentry.io/api/0}$path" \
-    -H "Authorization: Bearer $SENTRY_ACCESS_TOKEN" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$SENTRY_ACCESS_TOKEN") \
     -H "Accept: application/json" "$@"
 }
 

@@ -10,9 +10,12 @@ import { downloadTo } from '../fileTransfer'
 
 import { getDeviceIdentity, listDeviceAudit, updateDeviceLabel } from './device-controller.ts'
 import { readThisComputerFile, resolveThisComputerFile } from './linked-file.ts'
+import { installAgentCli } from './local-runtime/agent-cli-install.ts'
+import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import {
   getLocalRuntimeState,
   startLocalClaudeLogin,
+  submitLocalClaudeLoginCode,
   startLocalCodexLogin,
   cancelLocalCodexLogin,
   cancelLocalClaudeLogin,
@@ -21,8 +24,6 @@ import {
   refreshLocalRuntime,
   userEnv,
 } from './local-runtime/index.ts'
-import { installAgentCli } from './local-runtime/agent-cli-install.ts'
-import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
 
 import type { LocalAgentProvider } from './local-runtime/agent-cli.ts'
@@ -42,6 +43,8 @@ export const deviceChannels = {
   'device:listAudit': (_e: unknown, before?: string) => listDeviceAudit(before),
   'localRuntime:startCodexLogin': () => startLocalCodexLogin(),
   'localRuntime:cancelCodexLogin': () => cancelLocalCodexLogin(),
+  'localRuntime:submitClaudeLoginCode': (_e: unknown, code: unknown) =>
+    submitLocalClaudeLoginCode(code),
   'localRuntime:startClaudeLogin': () => startLocalClaudeLogin(),
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),

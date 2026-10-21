@@ -37,6 +37,8 @@ export type LocalRuntimeSummary = {
   /** The agent's own name; absent while it has its provider's. */
   agentLabel?: string
   instanceId?: string
+  /** The team member who added this agent through Nuphos; absent for older and default agents. */
+  addedBy?: { userId: string; at: string }
   agentInstances?: boolean
   /** Whether the computer reports this agent right now. */
   online: boolean
@@ -113,6 +115,8 @@ export async function listOwnLocalRuntimes(
             instanceId,
           })
           const reported = presence ? reportedLocalAgent(presence.status, agent) : undefined
+          const added =
+            instanceId && device.addedAgents?.find((entry) => entry.instanceId === instanceId)
 
           return {
             id,
@@ -129,6 +133,7 @@ export async function listOwnLocalRuntimes(
               agentInstances: presence?.status?.agentInstances === true,
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(instanceId ? { instanceId } : {}),
+              ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
               // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,

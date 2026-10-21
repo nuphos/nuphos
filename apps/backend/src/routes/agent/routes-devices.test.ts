@@ -334,9 +334,15 @@ describe('agent device routes', () => {
 
   function fakeBox(calls: string[]): BoxDeps {
     return {
-      create: async (userId, teamId, label) => {
+      create: async (userId, teamId, label, _vcpus, shared) => {
         calls.push(`create ${teamId} ${label}`)
-        devices[key(userId, 'b1')] = { ...boxDevice(userId, 'b1'), label }
+        const device = boxDevice(userId, 'b1')
+
+        devices[key(userId, 'b1')] = {
+          ...device,
+          label,
+          box: { ...device.box, ...(shared ? { access: shared } : {}) },
+        }
 
         return devices[key(userId, 'b1')]!
       },
@@ -668,6 +674,36 @@ describe('agent device routes', () => {
     expect(JSON.stringify(member)).not.toContain('203.0.113.7')
   })
 
+  test('every viewer sees a Box whose host is restarting for an update, until it reports in again', async () => {
+    const startedAt = new Date(Date.now() - 60_000)
+
+    devices[key('host-owner', 'b1')] = {
+      ...boxDevice('host-owner', 'b1'),
+      box: {
+        provider: 'instabox',
+        sandboxId: 'm_b1',
+        teamId: 'team-1',
+        access: { everyone: true, userIds: [] },
+        updateStartedAt: startedAt,
+      },
+      lastSeenAt: new Date(startedAt.getTime() - 60_000),
+    }
+    const app = buildApp(fakeBox([]))
+    const box = async () =>
+      (
+        (await (await app.request('/agent/devices?teamId=team-1')).json()) as {
+          devices: { box?: Record<string, unknown> }[]
+        }
+      ).devices[0]?.box
+
+    machineState = 'running'
+    role = 'EDITOR'
+    expect(await box()).toMatchObject({ updateStartedAt: startedAt.toISOString() })
+    // The host reported in after the update started: it is back.
+    devices[key('host-owner', 'b1')]!.lastSeenAt = new Date()
+    expect((await box())?.updateStartedAt).toBeUndefined()
+  })
+
   test('metrics are read and demanded only for Boxes the viewer may use, under the transport owner', async () => {
     const box = (deviceId: string, userIds: string[]) => ({
       ...boxDevice('host-owner', deviceId),
@@ -754,5 +790,30 @@ describe('agent device routes', () => {
     expect(calls).toEqual([])
     expect((await create('team-1')).status).toBe(201)
     expect(calls).toHaveLength(1)
+  })
+  test('Box create passes the requested access, limited to current team members, to the provider', async () => {
+    const calls: string[] = []
+    const app = buildApp(fakeBox(calls))
+    const create = (access?: { everyone: boolean; userIds: string[] }) =>
+      app.request('/agent/devices/boxes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ teamId: 'team-1', label: 'Shared box', vcpus: 4, access }),
+      })
+    const response = await create({ everyone: false, userIds: ['alice', 'alice', 'stranger'] })
+
+    expect(response.status).toBe(201)
+    expect(calls).toEqual(['create team-1 Shared box'])
+    expect(await response.json()).toMatchObject({
+      label: 'Shared box',
+      box: { access: { everyone: false, userIds: ['alice'] } },
+    })
+    expect(await (await create({ everyone: true, userIds: [] })).json()).toMatchObject({
+      box: { access: { everyone: true, userIds: [] } },
+    })
+    // Without a request, the provider keeps its creator-only default.
+    const plain = (await (await create()).json()) as { box: { access?: unknown } }
+
+    expect(plain.box.access).toBeUndefined()
   })
 })

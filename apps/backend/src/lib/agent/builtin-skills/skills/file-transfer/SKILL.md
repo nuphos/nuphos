@@ -37,7 +37,7 @@ gone. Pulling an upload likewise happens within the active turn.
 ft() {
   local method="$1" path="$2"; shift 2
   curl -fsSL -X "$method" \
-    -H "Authorization: Bearer $NUPHOS_TOKEN" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
     -H "Content-Type: application/json" \
     "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/agent-sessions/${NUPHOS_SESSION_ID}/teams/${TEAM}/file-transfers${path}" "$@"
 }

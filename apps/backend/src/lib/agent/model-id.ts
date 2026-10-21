@@ -38,7 +38,7 @@ export function assertModelIdMatchesProvider(
 }
 
 /**
- * The default the secondary models (compaction, judges, rerank, cost insight)
+ * The default the secondary models (compaction, judges, rerank)
  * fall back to.
  *
  * Bedrock entitles the whole Anthropic catalogue at once, so a cheap hardcoded

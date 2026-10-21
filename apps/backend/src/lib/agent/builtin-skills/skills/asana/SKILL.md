@@ -29,7 +29,7 @@ set -o pipefail   # so a failed curl piped into python3 fails the step, not sile
 # 1. Discover the Asana accounts the team has bound. --fail-with-body makes a
 # 401/403/5xx exit non-zero (still printing the error body) so a bad listing
 # doesn't look successful.
-ac() { curl -sS --fail-with-body -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 ac /teams/$TEAM/asana-accounts | python3 -m json.tool
 # → { "accounts": [ { "id": "<bindingId>", "accountName": "Jane Doe",
 #       "accountEmail": "jane@acme.com", "accountGid": "<gid>", ... } ] }
@@ -49,7 +49,7 @@ asana() {
   local method="$1" path="$2"; shift 2
   curl -sS --fail-with-body -X "$method" \
     "${ASANA_API_BASE_URL:-https://app.asana.com/api/1.0}$path" \
-    -H "Authorization: Bearer $ASANA_ACCESS_TOKEN" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$ASANA_ACCESS_TOKEN") \
     -H "Accept: application/json" \
     -H "Content-Type: application/json" "$@"
 }

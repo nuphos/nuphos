@@ -40,7 +40,6 @@ export function usePanelActions({
   loadDetail,
 }: Args) {
   const [busyPanels, setBusyPanels] = useState<Set<string>>(new Set())
-  const [regenPanels, setRegenPanels] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
 
   const executePanel = useCallback(
@@ -65,7 +64,7 @@ export function usePanelActions({
     [teamId, selectedId, loadDetail, viewRange],
   )
 
-  // `PanelCard` / `InsightsSection` are memoized and take `() => void` props;
+  // `PanelCard` is memoized and take `() => void` props;
   // these adapters drop the promise exactly like passing the async callback
   // did, without handing the children a new identity every render.
   const onExecutePanel = useCallback(
@@ -86,57 +85,6 @@ export function usePanelActions({
       }
     },
     [teamId, selectedId, loadDetail, setPanelToDelete],
-  )
-
-  const insightFeedback = useCallback(
-    async (panel: DashboardPanel, rating: 'up' | 'down') => {
-      if (!selectedId) return
-      try {
-        await api.dashboardsInsightFeedback(
-          teamId,
-          selectedId,
-          panel.id,
-          rating,
-          undefined,
-          viewRange,
-        )
-      } catch (err) {
-        toast.apiError('Could not save feedback', err)
-      }
-    },
-    [teamId, selectedId, viewRange],
-  )
-
-  const regenerateInsight = useCallback(
-    async (panel: DashboardPanel) => {
-      if (!selectedId) return
-      setRegenPanels((s) => new Set(s).add(panel.id))
-      try {
-        await api.dashboardsGenerateInsight(teamId, selectedId, panel.id, viewRange)
-        await loadDetail(selectedId)
-      } catch (err) {
-        toast.apiError('Could not generate insight', err)
-      } finally {
-        setRegenPanels((s) => {
-          const n = new Set(s)
-
-          n.delete(panel.id)
-
-          return n
-        })
-      }
-    },
-    [teamId, selectedId, loadDetail, viewRange],
-  )
-
-  const onInsightFeedback = useCallback(
-    (panel: DashboardPanel, rating: 'up' | 'down') => void insightFeedback(panel, rating),
-    [insightFeedback],
-  )
-
-  const onRegenerateInsight = useCallback(
-    (panel: DashboardPanel) => void regenerateInsight(panel),
-    [regenerateInsight],
   )
 
   const savePanel = useCallback(
@@ -229,12 +177,9 @@ export function usePanelActions({
 
   return {
     busyPanels,
-    regenPanels,
     saving,
     onExecutePanel,
     deletePanel,
-    onInsightFeedback,
-    onRegenerateInsight,
     savePanel,
     onDrop,
     movePanel,

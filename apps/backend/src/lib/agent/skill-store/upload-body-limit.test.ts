@@ -30,4 +30,30 @@ describe('skillUploadBodyLimit', () => {
 
     expect(json.error.code).toBe('skill_upload_too_large')
   })
+
+  test('rejects oversized upload', async () => {
+    const chunk = new Uint8Array(64 * 1024)
+    let sent = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent > MAX_SKILL_UPLOAD_REQUEST_BYTES) {
+          controller.close()
+
+          return
+        }
+        sent += chunk.byteLength
+        controller.enqueue(chunk)
+      },
+    })
+    const res = await uploadApp().request('/upload', {
+      method: 'POST',
+      body,
+      duplex: 'half',
+    } as RequestInit)
+
+    expect(res.status).toBe(413)
+    const json = (await res.json()) as { error: { code: string } }
+
+    expect(json.error.code).toBe('skill_upload_too_large')
+  })
 })

@@ -110,7 +110,6 @@ describe('every production model call accounts for its tokens', () => {
       .filter((operation): operation is string => operation !== undefined)
 
     expect(operations.toSorted(byCodeUnit)).toEqual([
-      'cost_insight',
       'memory.attribution_judge',
       'memory.conflict',
       'memory.distill',
@@ -135,7 +134,6 @@ describe('every production model call accounts for its tokens', () => {
       'lib/agent/starter-suggestions.ts',
       'lib/agent/thread-addressing.ts',
       'lib/agent/title-generator.ts',
-      'lib/dashboards/insight/model.ts',
     ])
   })
 })

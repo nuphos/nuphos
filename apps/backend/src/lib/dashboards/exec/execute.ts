@@ -19,8 +19,6 @@ export type ExecuteArgs = {
   /** Bypass completed-snapshot reuse. An equivalent in-flight run is still
    * reused so duplicate clicks cannot execute the same script concurrently. */
   force?: boolean
-  /** Generate the panel's initial insight after its first successful run. */
-  generateInsight?: boolean
   viewOnly?: boolean
 }
 
@@ -30,7 +28,7 @@ export type ExecuteArgs = {
  * Never throws for script/exec failures — those land in a `failed` snapshot.
  */
 export async function executePanel(args: ExecuteArgs): Promise<DashboardPanelSnapshot> {
-  const { teamId, panel, force, generateInsight = false } = args
+  const { teamId, panel, force } = args
   const dashboard = await advanceRelativeWindow(args.dashboard)
   const { codeHash, version } = headCode(panel)
   const { params, paramsHash } = resolveParams(dashboard, panel)
@@ -76,7 +74,6 @@ export async function executePanel(args: ExecuteArgs): Promise<DashboardPanelSna
     requestedAt: now,
     status: 'running',
     viewOnly: args.viewOnly === true,
-    ...(generateInsight ? { initialInsightRequested: true } : {}),
     // Per-doc TTL = billing retention.
     expiresAt: new Date(now.getTime() + config.dashboards.snapshotTtlDays * 24 * 60 * 60 * 1000),
     createdAt: now,

@@ -81,7 +81,7 @@ token_response="$(curl -fsSL \
   --retry 2 \
   --retry-delay 1 \
   --retry-all-errors \
-  -H "Authorization: Bearer $NUPHOS_TOKEN" \
+  -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
   "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/github-installations/$installation_id/token$identity_query")"
 
 token="$(printf '%s' "$token_response" | python3 -c '

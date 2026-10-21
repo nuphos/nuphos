@@ -19,7 +19,7 @@ to run and no token to fetch.
 
 ```bash
 # Reuse the helper from the nuphos-api skill (loads it if needed):
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 
 # Stash the instance id from the credential section for the rest of the session.
 GI=<instanceId from the credential section>

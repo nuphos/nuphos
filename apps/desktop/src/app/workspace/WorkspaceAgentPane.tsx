@@ -1,5 +1,4 @@
 import { clsx } from 'clsx'
-import { GripVertical } from 'lucide-react'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { connectedResourceLabels } from '../../app/accountScopes'
@@ -16,8 +15,9 @@ import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
+import { PaneCloseButton } from './PaneCloseButton'
+import { PaneGrip } from './PaneGrip'
 import { SessionFindBar } from './SessionFindBar'
-import { PANE_DRAG_TYPE } from './splitLayout'
 import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -162,26 +162,13 @@ export function WorkspaceAgentPane({
       <div ref={contentRef} className="flex min-h-0 w-full flex-1 flex-col">
         <div
           className={clsx(
-            'workspace-agent-titlebar flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
+            'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
             // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
             // sits over this header only while the dock is closed; once it is
             // open the toggle rides the dock's own tab strip instead.
             dockOpen ? 'pr-3' : 'pr-12',
           )}
         >
-          {/* The rest of the header moves the window, so a pane moves by its grip. */}
-          <span
-            draggable
-            title="Drag to move this pane"
-            aria-hidden
-            onDragStart={(event) => {
-              event.dataTransfer.effectAllowed = 'move'
-              event.dataTransfer.setData(PANE_DRAG_TYPE, 'pane')
-            }}
-            className="titlebar-no-drag -ml-1 mr-1 hidden h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center rounded text-tertiary hover:bg-zGray-800/60 hover:text-main active:cursor-grabbing group-data-[split-multiple=true]/pane:flex"
-          >
-            <GripVertical className="h-3.5 w-3.5" strokeWidth={1.8} />
-          </span>
           {/* Keep the native drag rectangle beside the Share action so hit testing
             never relies on a no-drag hole inside its draggable ancestor. */}
           <div
@@ -245,6 +232,10 @@ export function WorkspaceAgentPane({
             />
           )}
           {savedSessionId && <ChatSummaryToggle active={paneActive && !ws.mainPageOpen} />}
+          <PaneCloseButton />
+          {/* The rest of the header moves the window, so a pane moves by its grip. Electron cuts
+            no-drag holes in page order, so the grip comes after the drag area it sits over. */}
+          <PaneGrip label={currentHeading.title} />
         </div>
         <SessionFindBar
           key={selectedSessionId ?? 'home'}

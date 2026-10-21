@@ -1,11 +1,9 @@
+import { AGENT_PROVIDER } from '../../types/runtime.ts'
+
+import { agentName } from './agentPresentation.ts'
+
 import type { RuntimeStatusView } from './runtimePresentation'
-import type {
-  AgentDevice,
-  BoxAccess,
-  BoxState,
-  BoxStatus,
-  LocalAgentProvider,
-} from '../../api/device-types'
+import type { AgentDevice, BoxState, BoxStatus, LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
 
 export type BoxDevice = AgentDevice & { box: BoxStatus }
@@ -109,7 +107,9 @@ export function boxPollMs(devices: AgentDevice[], signingIn: boolean): number {
 
   if ([...states].some((state) => setupStates.has(state))) return BOX_CREATING_POLL_MS
   if (signingIn) return 1_500
-  if (devices.some((device) => device.online)) return BOX_METRICS_POLL_MS
+  // A host restarting for an update comes back without the user acting.
+  if (devices.some((device) => device.online || device.box?.updateStartedAt))
+    return BOX_METRICS_POLL_MS
 
   return states.has('hostOffline') ? BOX_OFFLINE_POLL_MS : 0
 }
@@ -136,11 +136,6 @@ export function seenFrom(device: AgentDevice): string | null {
 /** Choosing who may use a Box is for its managers; a computer is only ever its owner's. */
 export function canShareBox(device: AgentDevice): boolean {
   return device.box !== undefined && canManage(device)
-}
-
-/** What Save sends: everyone, or exactly the chosen members (admins need no entry). */
-export function accessPayload(everyone: boolean, chosen: Iterable<string>): BoxAccess {
-  return { everyone, userIds: everyone ? [] : [...chosen] }
 }
 
 /** A manager's view of who may use a Box; null for a computer or a viewer who only uses it. */
@@ -180,6 +175,24 @@ export function newAgentAction(
   return idle ? { signIn: idle.id } : null
 }
 
+/** Whether an agent on this machine already goes by this name, in any case. */
+export function agentNameTaken(agents: RuntimeInstance[], name: string): boolean {
+  const wanted = name.trim().toLocaleLowerCase()
+
+  return agents.some((agent) => agentName(agent).toLocaleLowerCase() === wanted)
+}
+
+/** A new agent's name: its provider's, numbered past the ones this machine already has. */
+export function defaultAgentName(agents: RuntimeInstance[], provider: LocalAgentProvider): string {
+  const base = AGENT_PROVIDER[provider].label
+  const named = (n: number) => (n === 1 ? base : `${base} ${String(n)}`)
+  let n = 1
+
+  while (agentNameTaken(agents, named(n))) n += 1
+
+  return named(n)
+}
+
 export type BoxSetupPhase = 'idle' | 'starting' | 'ready' | 'error' | 'timeout'
 
 /** Where a Box made by a setup flow stands: up once the team lists one of its agents. */
@@ -216,7 +229,7 @@ export const BOX_PLANS = [
     name: 'Starter',
     vcpus: 4,
     usdPerMonth: 20,
-    example: 'e.g. one 4 vCPU Box, or two 2 vCPU Boxes',
+    example: 'e.g. one 4 vCPU Box',
     perks: ['Your agents keep working while your laptop sleeps', 'A full desktop in every Box'],
   },
   {
@@ -224,7 +237,7 @@ export const BOX_PLANS = [
     vcpus: 12,
     usdPerMonth: 50,
     recommended: true,
-    example: 'e.g. an 8 vCPU build Box next to two 2 vCPU Boxes',
+    example: 'e.g. an 8 vCPU build Box next to a 4 vCPU Box',
     perks: ['Room for a build Box beside everyday ones', 'Share Boxes with your teammates'],
   },
   {
@@ -245,23 +258,28 @@ export function boxSessions(memMiB: number): number {
   return Math.max(1, Math.floor((memMiB - 2048) / 1792))
 }
 
+// By vCPU, so a name says what the size is whatever sizes the provider offers.
 const SIZE_TIERS = [
-  { name: 'Small Box', use: 'Good for light tasks' },
-  { name: 'Medium Box', use: 'Good for everyday work' },
-  { name: 'Large Box', use: 'Good for heavy builds' },
+  { upTo: 2, name: 'Small', use: 'Light tasks' },
+  { upTo: 6, name: 'Medium', use: 'Everyday work' },
+  { upTo: Infinity, name: 'Large', use: 'Heavy builds' },
 ]
 
-/** The sizes instabox offers, named by rank: the smallest is Small, the biggest Large. */
+const sessionCount = (n: number) => `${String(n)} session${n === 1 ? '' : 's'}`
+
+/** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, more Large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
-  return sizes.map(({ vcpus, memMiB }, index) => {
-    // 0 for the first, 2 for the last, 1 between.
-    const tier = SIZE_TIERS[index === 0 ? 0 : 2 - Number(index < sizes.length - 1)]
+  return sizes.map(({ vcpus, memMiB }) => {
+    // 0 Small, 1 Medium, 2 Large; also how many slabs its glyph fills, less one.
+    const tier = SIZE_TIERS.findIndex((size) => vcpus <= size.upTo)
 
     return {
       vcpus,
-      name: tier.name,
+      tier,
+      name: SIZE_TIERS[tier].name,
       spec: `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`,
-      description: `${tier.use} · up to ${String(boxSessions(memMiB))} sessions at once`,
+      use: SIZE_TIERS[tier].use,
+      sessions: `Up to ${sessionCount(boxSessions(memMiB))} at once`,
     }
   })
 }

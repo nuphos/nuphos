@@ -25,6 +25,7 @@ export type WindowDeviceApi = {
   deviceListAudit(before?: string): Promise<DeviceExecAuditPage>
   localRuntimeStartCodexLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelCodexLogin(): Promise<void>
+  localRuntimeSubmitClaudeLoginCode(code: string): Promise<void>
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>
   localRuntimeSetSleepPreferences(value: SleepPreferences): Promise<SleepState>
@@ -37,7 +38,12 @@ export type WindowDeviceApi = {
   localRuntimeOpenWorkspace(): Promise<void>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
   boxListDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList>
-  boxCreate(label?: string, teamId?: string, vcpus?: number): Promise<AgentDevice>
+  boxCreate(
+    label?: string,
+    teamId?: string,
+    vcpus?: number,
+    access?: BoxAccess,
+  ): Promise<AgentDevice>
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>
@@ -46,6 +52,7 @@ export type WindowDeviceApi = {
     deviceId: string,
     teamId: string,
     provider: LocalAgentProvider,
+    label?: string,
   ): Promise<DeviceAgentInstance>
   boxRemoveAgent(deviceId: string, teamId: string, instanceId: string): Promise<void>
   boxRenameAgent(

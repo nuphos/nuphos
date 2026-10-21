@@ -19,6 +19,8 @@ import {
   selectScope,
   teamScopeOf,
 } from './store/workspaceState'
+import { usePaneCloseConfirm } from './usePaneCloseConfirm'
+import { GLIDE, usePaneDropPreview } from './usePaneDropPreview'
 import { usePaneFocusTracking } from './usePaneFocusTracking'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
 
@@ -43,6 +45,7 @@ export function WorkspaceSplits({
   }, [sidebarCollapsed])
 
   const [layout, setLayout] = useState<SplitLayout>({ id: 'primary' })
+  const { placed, gliding, onPreview } = usePaneDropPreview(layout)
   const [{ activeId, sessionSearchOpen }, setWindowState] = useState({
     activeId: 'primary',
     sessionSearchOpen: false,
@@ -178,6 +181,8 @@ export function WorkspaceSplits({
     registrations.delete(id)
   }
 
+  const closing = usePaneCloseConfirm(stores, multiple, close)
+
   const handleLogout = useCallback(async () => {
     // Other panes stay mounted until logout completes; release their terminals too.
     for (const store of stores.values()) {
@@ -191,7 +196,7 @@ export function WorkspaceSplits({
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       <div ref={setSidebarHost} className="flex shrink-0" />
-      <div className="relative min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1 bg-main">
         {/* Flat keyed leaves stay mounted even when the split tree changes shape. */}
         {rects.map((rect) => {
           let registerStore = registrations.get(rect.id)
@@ -207,6 +212,8 @@ export function WorkspaceSplits({
             registrations.set(rect.id, registerStore)
           }
 
+          const at = placed.get(rect.id) ?? rect
+
           return (
             <WorkspacePaneContext.Provider
               key={rect.id}
@@ -219,7 +226,7 @@ export function WorkspaceSplits({
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 isTabFocused: () => focusSurfaces.get(rect.id) === 'tab',
-                closePane: () => close(rect.id),
+                closePane: () => closing.request(rect.id),
                 active: activeId === rect.id,
                 // The first surviving leaf owns persistence, even after the original closes.
                 primary: rect.id === rects[0].id,
@@ -239,12 +246,17 @@ export function WorkspaceSplits({
                   'group/pane absolute flex min-h-0 min-w-0 flex-col overflow-hidden',
                   multiple && 'border border-zGray-800/60',
                   activeId !== rect.id && 'opacity-50',
+                  // Panes slide over the split area's own background, so crossing panes leave no gaps.
+                  gliding && [
+                    'bg-main transition-[left,top,width,height] will-change-[left,top,width,height]',
+                    GLIDE,
+                  ],
                 )}
                 style={{
-                  left: `${String(rect.left)}%`,
-                  top: `${String(rect.top)}%`,
-                  width: `${String(rect.width)}%`,
-                  height: `${String(rect.height)}%`,
+                  left: `${String(at.left)}%`,
+                  top: `${String(at.top)}%`,
+                  width: `${String(at.width)}%`,
+                  height: `${String(at.height)}%`,
                 }}
                 onPointerDownCapture={() => setActiveId(rect.id)}
                 onFocusCapture={() => setActiveId(rect.id)}
@@ -259,8 +271,11 @@ export function WorkspaceSplits({
             </WorkspacePaneContext.Provider>
           )
         })}
+        {closing.dialog}
         <SplitDropOverlay
           rects={rects}
+          placed={placed}
+          onPreview={onPreview}
           stores={stores}
           split={split}
           place={(target, id, zone) => {

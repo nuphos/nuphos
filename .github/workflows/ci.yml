@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version-file: .bun-version
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Check formatting
@@ -81,6 +81,7 @@ jobs:
           filters: |
             backend:
               - 'apps/backend/**'
+              - '.bun-version'
               - '.github/workflows/ci.yml'
             # electron main imports runtime-file-program.ts from the backend.
             desktop:
@@ -275,13 +276,13 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version-file: .bun-version
       # Tests must run on the Bun the production image ships, or a runtime
       # behavior change (e.g. http.Agent options) can pass CI and fail in prod.
       - name: Bun matches the backend image
         run: |
           image=$(sed -n 's|^FROM oven/bun:\([0-9.]*\).*|\1|p' apps/backend/Dockerfile | sort -u)
-          test "$image" = "$(bun --version)" || { echo "::error::CI Bun $(bun --version) != Dockerfile Bun $image"; exit 1; }
+          test "$image" = "$(bun --version)" || { echo "::error::.bun-version Bun $(bun --version) != Dockerfile Bun $image"; exit 1; }
       - name: Install dependencies
         working-directory: apps/backend
         run: bun install --frozen-lockfile
@@ -414,7 +415,7 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version-file: .bun-version
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Lint scripts/
@@ -450,7 +451,7 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version-file: .bun-version
       # Every config is loaded for real, so every config's plugins must be on
       # disk. Nothing is built or typechecked here — installs are the whole cost.
       - name: Install root dependencies
@@ -482,7 +483,7 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version-file: .bun-version
       # madge parses the sources itself, so only the root toolchain is needed —
       # no app install, no type program. The whole job is a few seconds.
       - name: Install dependencies

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test'
+import { Sandbox } from '@insforge/instabox-sdk'
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
@@ -6,7 +7,7 @@ import { useAgentDevicePresence } from '@/lib/test/doubles/agent-devices-presenc
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useBoxInstaboxLimit } from '@/lib/test/doubles/box-instabox-limit'
 
-import { resumeBox, wakeBox } from './box-instabox'
+import { pauseBox, resumeBox, wakeBox } from './box-instabox'
 
 import type { AgentDevice } from './store'
 
@@ -18,7 +19,8 @@ const paused = {
 } as unknown as AgentDevice
 const checked: [string, unknown][] = []
 
-useAgentDeviceStore({ getAgentDevice: () => Promise.resolve(paused) })
+const installStore = useAgentDeviceStore({ getAgentDevice: () => Promise.resolve(paused) })
+
 useAgentDevicePresence({ isDevicePresent: () => Promise.resolve(false) })
 useBoxInstaboxLimit({
   startWithinLimit: (team: string, starting: unknown) => {
@@ -51,4 +53,69 @@ test('resuming a paused Box goes through the team limit, and a refusal is a 402'
 test('waking a paused Box goes through the same limit', async () => {
   await expect(wakeBox('u1', 'd1')).rejects.toMatchObject({ status: 402 })
   expect(checked).toEqual([[teamId, { sandboxId: 'm_paused' }]])
+})
+
+test('a plain resume is refused while an update restarts the host', async () => {
+  const updating = {
+    ...paused,
+    box: { ...paused.box, updateStartedAt: new Date() },
+  } as AgentDevice
+
+  installStore({ getAgentDevice: () => Promise.resolve(updating) })
+  await expect(resumeBox('u1', 'd1')).rejects.toMatchObject({ status: 409, code: 'box_updating' })
+  expect(checked).toEqual([])
+})
+
+test('pausing an updating Box ends its update, so a resume starts the host again', async () => {
+  const writes: unknown[] = []
+  const savedBox = config.box.instabox
+  const connect = spyOn(Sandbox, 'connect').mockResolvedValue({
+    pause: () => Promise.resolve(),
+  } as unknown as Sandbox)
+
+  config.box.instabox = { apiKey: 'test' }
+  installStore({
+    getAgentDevice: () =>
+      Promise.resolve({ ...paused, box: { ...paused.box, updateStartedAt: new Date() } }),
+    agentDevices: () =>
+      ({
+        updateOne: (filter: unknown, update: unknown) => {
+          writes.push([filter, update])
+
+          return Promise.resolve({ matchedCount: 1 })
+        },
+      }) as never,
+  })
+  try {
+    await pauseBox('u1', 'd1')
+  } finally {
+    connect.mockRestore()
+    config.box.instabox = savedBox
+  }
+  expect(writes).toEqual([
+    [
+      { userId: 'u1', deviceId: 'd1', box: { $exists: true } },
+      { $unset: { 'box.updateStartedAt': '' } },
+    ],
+  ])
+})
+
+test('a pause that happened is not reported as failed when ending the update note fails', async () => {
+  const savedBox = config.box.instabox
+  const restore = () => {
+    connect.mockRestore()
+    config.box.instabox = savedBox
+  }
+  const connect = spyOn(Sandbox, 'connect').mockResolvedValue({
+    pause: () => Promise.resolve(),
+  } as unknown as Sandbox)
+  const failingWrite = { updateOne: () => Promise.reject(new Error('mongo is down')) }
+
+  config.box.instabox = { apiKey: 'test' }
+  installStore({
+    getAgentDevice: () =>
+      Promise.resolve({ ...paused, box: { ...paused.box, updateStartedAt: new Date() } }),
+    agentDevices: () => failingWrite,
+  })
+  await expect(pauseBox('u1', 'd1').finally(restore)).resolves.toMatchObject({ deviceId: 'd1' })
 })

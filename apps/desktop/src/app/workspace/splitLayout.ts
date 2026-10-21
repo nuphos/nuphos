@@ -65,9 +65,24 @@ export function dropZone(x: number, y: number): DropZone {
   return distance < 0.25 ? zone : 'center'
 }
 
+function hasPane(layout: SplitLayout, id: string): boolean {
+  return 'id' in layout ? layout.id === id : layout.children.some((child) => hasPane(child, id))
+}
+
+/** Exchanges two panes' places; the tree keeps its shape. */
+export function swapPanes(layout: SplitLayout, a: string, b: string): SplitLayout {
+  if ('id' in layout) {
+    if (layout.id === a) return { id: b }
+
+    return layout.id === b ? { id: a } : layout
+  }
+
+  return { ...layout, children: layout.children.map((child) => swapPanes(child, a, b)) }
+}
+
 /**
  * Places `id` on `zone`'s side of `target`, taking it out of its old spot
- * first; a new id splits `target`. The center leaves the layout alone.
+ * first; a new id splits `target`. The center swaps two panes already shown.
  */
 export function dropPane(
   layout: SplitLayout,
@@ -75,7 +90,8 @@ export function dropPane(
   id: string,
   zone: DropZone,
 ): SplitLayout {
-  if (id === target || zone === 'center') return layout
+  if (id === target) return layout
+  if (zone === 'center') return hasPane(layout, id) ? swapPanes(layout, target, id) : layout
   const rest = removePane(layout, id) ?? layout
 
   return splitPane(
@@ -85,6 +101,22 @@ export function dropPane(
     zone === 'left' || zone === 'right' ? 'row' : 'column',
     zone === 'left' || zone === 'top',
   )
+}
+
+/** Stands in for a chat that would open in a new pane while a drag shows where it lands. */
+export const PREVIEW_PANE = 'drop-preview'
+
+/** What letting go would do now; `pane` is the dragged pane, null for a sidebar chat. */
+export type DropPreview = { target: string; zone: DropZone; pane: string | null }
+
+/** The layout a drop would leave, so panes can move there before the pointer is released. */
+export function previewDrop(layout: SplitLayout, preview: DropPreview | null): SplitLayout {
+  if (!preview) return layout
+  if (preview.pane) return dropPane(layout, preview.target, preview.pane, preview.zone)
+
+  return preview.zone === 'center'
+    ? layout
+    : dropPane(layout, preview.target, PREVIEW_PANE, preview.zone)
 }
 
 export function paneRects(

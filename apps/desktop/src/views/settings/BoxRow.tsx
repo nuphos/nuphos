@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Ellipsis, Play } from 'lucide-react'
+import { Ellipsis, Loader2, Play } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -12,7 +12,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
-import { BoxAgentSignIn } from './BoxAgentSignIn'
+import { BoxAgentSetup } from './BoxAgentSetup'
 import { openBoxDesktop } from './boxDesktop'
 import { BoxMetrics } from './BoxMetrics'
 import { AccessHint, AgentTile, LiveDot, MachineIcon, MachineLine, NewAgentMenu } from './BoxParts'
@@ -26,6 +26,8 @@ import {
   removal,
   newAgentAction,
 } from './boxPresentation'
+import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
+import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 
 import type { AgentDevice } from '../../api'
@@ -57,11 +59,13 @@ export function BoxRow({
   const [renaming, setRenaming] = useState(false)
   const [sharing, setSharing] = useState(false)
   const state = boxState(device)
+  // A host restarting at the user's request is away on purpose: follow it, not offer Resume.
+  const restart = boxRestartOf(useBoxRestart(device.deviceId), device)
   const cloud = device.box !== undefined
   const manage = canManage(device)
   const remove = removal(device)
   const badge = BOX_BADGE[state]
-  const actions = cloud ? boxActions(state) : { pause: false, resume: false }
+  const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
   const act = (
     title: string,
@@ -86,6 +90,13 @@ export function BoxRow({
     }
   }
 
+  // The host takes a while to join after the machine starts; the card follows it until then.
+  const resume = () =>
+    act('Could not resume Box', async (deviceId, team) => {
+      await api.boxResume(deviceId, team)
+      boxRestarts.start(deviceId, team, 'resume')
+    })
+
   const addAgent = (provider: LocalAgentProvider) => {
     const action = newAgentAction(agents, provider)
 
@@ -96,7 +107,10 @@ export function BoxRow({
 
   const dim = state === 'paused' || state === 'stopped'
   const settingUp = state === 'creating' || state === 'connecting'
-  const starting = settingUp || (state === 'running' && agents.length === 0)
+  const starting =
+    settingUp || restart !== undefined || (state === 'running' && agents.length === 0)
+  const metricsStatus = settingUp ? state : device.metricsStatus
+  const away = !restart && (state === 'paused' || state === 'hostOffline')
 
   return (
     <li className="flex h-[240px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
@@ -141,7 +155,7 @@ export function BoxRow({
                 <MenuItem onClick={() => setSharing(true)}>Manage access…</MenuItem>
               )}
               {actions.resume && (
-                <MenuItem onClick={() => void act('Could not resume Box', api.boxResume)}>
+                <MenuItem onClick={() => void resume()}>
                   {state === 'error' ? 'Retry' : 'Resume'}
                 </MenuItem>
               )}
@@ -164,36 +178,33 @@ export function BoxRow({
       </div>
       <div className="mt-1 flex shrink-0 items-center gap-1.5 text-[11px] leading-4 text-tertiary">
         <span role="status" className="flex items-center gap-1.5">
-          {badge.tone === 'online' && <LiveDot />}
-          {badge.label}
+          {restart ? (
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+          ) : (
+            badge.tone === 'online' && <LiveDot />
+          )}
+          {restart ? boxRestartLabel(restart.kind) : badge.label}
         </span>
         <AccessHint device={device} />
       </div>
       <MachineLine device={device} thisComputer={thisComputer} dim={dim} />
-      {manage && (state === 'paused' || state === 'hostOffline') ? (
+      {manage && away ? (
         <div className="mt-auto pb-1">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void act('Could not resume Box', api.boxResume)}
-          >
-            <Play className="h-3 w-3" />
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
             {busy ? 'Resuming…' : 'Resume'}
           </Button>
         </div>
       ) : (
         <BoxMetrics
           metrics={device.metrics}
-          status={settingUp ? state : device.metricsStatus}
+          status={restart ? 'connecting' : metricsStatus}
           receivedAt={device.metricsReceivedAt}
         />
       )}
       <ul
         className={clsx(
-          state === 'paused' || state === 'hostOffline'
-            ? 'hidden'
-            : 'mt-auto flex shrink-0 items-center gap-2 overflow-x-auto pb-1',
+          away ? 'hidden' : 'mt-auto flex shrink-0 items-center gap-2 overflow-x-auto pb-1',
           dim && 'opacity-50',
         )}
       >
@@ -213,10 +224,11 @@ export function BoxRow({
         )}
       </ul>
       {adding && (
-        <BoxAgentSignIn
+        <BoxAgentSetup
           teamId={teamId}
           device={device}
           provider={adding}
+          agents={agents}
           onDone={(runtimeId) => {
             setAdding(null)
             changed()

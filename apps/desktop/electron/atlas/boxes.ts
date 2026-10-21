@@ -8,6 +8,7 @@ import type {
   AgentDeviceList,
   AgentDeviceListOptions,
   BillingSummary,
+  BoxAccess,
   BoxUsage,
   BoxUsageHistory,
   DeviceAgentInstance,
@@ -54,24 +55,36 @@ export async function listAgentDevices(options?: AgentDeviceListOptions): Promis
     ),
   }
 }
-export function createBox(label?: string, teamId?: string, vcpus?: number): Promise<AgentDevice> {
+export function createBox(
+  label?: string,
+  teamId?: string,
+  vcpus?: number,
+  access?: BoxAccess,
+): Promise<AgentDevice> {
   return call(
     'POST',
     '/agent/devices/boxes',
-    { ...(label ? { label } : {}), ...(teamId ? { teamId } : {}), ...(vcpus ? { vcpus } : {}) },
+    {
+      ...(label ? { label } : {}),
+      ...(teamId ? { teamId } : {}),
+      ...(vcpus ? { vcpus } : {}),
+      ...(access ? { access } : {}),
+    },
     { retry: false },
   )
 }
-/** Add another agent on a device: the Box records it pending and answers at once; it exists once signed in. */
+/** Add another agent on a device: the Box records it pending and answers at once; it exists once signed in.
+ *  Without a label it takes its provider's name. */
 export function createDeviceAgent(
   deviceId: string,
   teamId: string,
   provider: LocalAgentProvider,
+  label?: string,
 ): Promise<DeviceAgentInstance> {
   return call(
     'POST',
     `/agent/devices/${encodeURIComponent(deviceId)}/agents`,
-    { teamId, provider },
+    { teamId, provider, ...(label ? { label } : {}) },
     { retry: false },
   )
 }

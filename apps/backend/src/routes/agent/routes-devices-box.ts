@@ -4,8 +4,10 @@ import { z } from 'zod'
 import {
   deviceAccess,
   listAccessibleDevices,
+  memberAccess,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
+import { boxUpdatingSince } from '@/lib/agent/devices/box-updating'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 
@@ -27,6 +29,8 @@ const boxCreateSchema = z.object({
   teamId: z.string().trim().min(1).max(64).optional(),
   /** One of the sizes the Boxes section lists; the smallest when left out. */
   vcpus: z.number().int().min(1).max(1024).optional(),
+  /** Whom it is shared with besides its creator and the admins; no one when left out. */
+  access: boxAccessSchema.optional(),
 })
 
 /** Unnamed Boxes count up: "Box 1", "Box 2", … after the highest the caller has. */
@@ -50,6 +54,7 @@ async function deviceView(
   online?: boolean,
 ) {
   online ??= await deps.isOnline(device.userId, device.deviceId)
+  const updating = boxUpdatingSince(device)
   const state = device.box && deps.box ? await deps.box.state(device, online) : undefined
 
   if (state === 'gone') {
@@ -78,6 +83,8 @@ async function deviceView(
             ...(level === 'manage' && device.box.access ? { access: device.box.access } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             state,
+            // Its host restarting for an update: offline on purpose, and back on its own.
+            ...(updating ? { updateStartedAt: updating.toISOString() } : {}),
           },
         }
       : {}),
@@ -150,17 +157,20 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
   // A Box: a cloud machine made for this user, joined with its own one-time token.
   routes.post('/devices/boxes', zv('json', boxCreateSchema), async (c) => {
     const box = requireBoxes()
-    const { label, teamId: requestedTeamId, vcpus } = c.req.valid('json')
+    const { label, teamId: requestedTeamId, vcpus, access: requested } = c.req.valid('json')
     const teamId = readTeamIdCandidate(c, requestedTeamId)
 
     if (!teamId) throw new AppError(400, 'team_required', 'A Box is made inside one of your teams')
     if ((await deps.access.role(c.get('userId'), teamId)) !== 'ADMINISTRATOR')
       throw new AppError(403, 'forbidden', 'Only an active team administrator can create a Box')
+    // Stored with the Box itself, so a Box is never made without the access asked for.
+    const shared = requested && memberAccess(await deps.teamMembers(teamId), requested)
     const device = await box.create(
       c.get('userId'),
       teamId,
       label ?? nextBoxLabel((await deps.listDevices(c.get('userId'))).map((d) => d.label)),
       vcpus,
+      shared,
     )
 
     return c.json(await viewOrGone(device), 201)
@@ -246,13 +256,8 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
         'manage',
         deps.access,
       )
-      const next = c.req.valid('json')
       const members = await deps.teamMembers(device.box?.teamId ?? '')
-      const memberIds = new Set(members.map((member) => member.id))
-      const access = {
-        everyone: next.everyone,
-        userIds: [...new Set(next.userIds.filter((id) => memberIds.has(id)))],
-      }
+      const access = memberAccess(members, c.req.valid('json'))
 
       if (!(await deps.setBoxAccess(device.userId, device.deviceId, access)))
         throw new AppError(404, 'device_not_found', 'Device is not available')

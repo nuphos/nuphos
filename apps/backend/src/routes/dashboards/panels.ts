@@ -16,7 +16,6 @@ import { requireTeamRole } from '@/middleware/auth'
 import {
   nuphosDashboards,
   dashboardPanelAlerts,
-  dashboardPanelInsights,
   dashboardPanels,
   dashboardPanelSnapshots,
 } from '@/models'
@@ -141,13 +140,8 @@ export function registerDashboardPanelRoutes(
       )
       // Kick off the first run in the background and return immediately with the
       // `running` snapshot — the client polls it to completion. Alert evaluation
-      // and the one eager Insight fire from the background completion.
-      const snapshot = await executePanel({
-        teamId,
-        dashboard,
-        panel: doc,
-        generateInsight: true,
-      })
+      // fires from the background completion.
+      const snapshot = await executePanel({ teamId, dashboard, panel: doc })
 
       return c.json(serializePanel(doc, { ...dashboard, ...cadence }, snapshot), 201)
     },
@@ -216,7 +210,6 @@ export function registerDashboardPanelRoutes(
           updated,
           scheduled,
           snapshots.get(panelId) ?? null,
-          undefined,
           successfulSnapshots.get(panelId) ?? null,
         ),
       )
@@ -235,7 +228,6 @@ export function registerDashboardPanelRoutes(
 
       await Promise.all([
         dashboardPanelSnapshots().deleteMany({ teamId, panelId: panel._id }),
-        dashboardPanelInsights().deleteMany({ teamId, panelId: panel._id }),
         dashboardPanelAlerts().deleteMany({ teamId, panelId: panel._id }),
       ])
       await dashboardPanels().deleteOne({ _id: panel._id, teamId })

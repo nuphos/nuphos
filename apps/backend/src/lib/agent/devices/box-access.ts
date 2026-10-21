@@ -11,6 +11,19 @@ import type { AgentDevice } from './store'
 import type { NuphosTeamRole } from '@/lib/identity/types'
 
 export type DeviceAccessLevel = 'use' | 'manage'
+
+/** The requested access, keeping only the team's current members, each once. */
+export function memberAccess(
+  members: { id: string }[],
+  next: { everyone: boolean; userIds: string[] },
+): { everyone: boolean; userIds: string[] } {
+  const memberIds = new Set(members.map((member) => member.id))
+
+  return {
+    everyone: next.everyone,
+    userIds: [...new Set(next.userIds.filter((id) => memberIds.has(id)))],
+  }
+}
 export type DeviceAccessDeps = {
   getDevice: typeof getAgentDevice
   listDevices: typeof listAgentDevicesForUser

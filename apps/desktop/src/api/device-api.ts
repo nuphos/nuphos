@@ -10,6 +10,8 @@ export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
   deviceSetLabel: (label: string) => window.api.deviceSetLabel(label),
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
+  localRuntimeSubmitClaudeLoginCode: (code: string) =>
+    window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),
   localRuntimeStartCodexLogin: () => window.api.localRuntimeStartCodexLogin(),
   localRuntimeCancelClaudeLogin: () => window.api.localRuntimeCancelClaudeLogin(),
@@ -28,8 +30,8 @@ export const deviceApi = {
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
   localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
   boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
-  boxCreate: (label?: string, teamId?: string, vcpus?: number) =>
-    window.api.boxCreate(label, teamId, vcpus),
+  boxCreate: (label?: string, teamId?: string, vcpus?: number, access?: BoxAccess) =>
+    window.api.boxCreate(label, teamId, vcpus, access),
   boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
@@ -38,8 +40,12 @@ export const deviceApi = {
   boxJoinToken: () => window.api.boxJoinToken(),
   openSessionDesktop: (teamId: string, sessionId: string) =>
     window.api.openSessionDesktop(teamId, sessionId),
-  boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
-    window.api.boxCreateAgent(deviceId, teamId, provider),
+  boxCreateAgent: (
+    deviceId: string,
+    teamId: string,
+    provider: LocalAgentProvider,
+    label?: string,
+  ) => window.api.boxCreateAgent(deviceId, teamId, provider, label),
   boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>
     window.api.boxRemoveAgent(deviceId, teamId, instanceId),
   boxRenameAgent: (deviceId: string, teamId: string, agent: string, label: string) =>

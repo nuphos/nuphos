@@ -4,6 +4,7 @@ import * as transfers from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
 import * as chatRoute from './conversation-chat-route'
+import * as localFiles from './local-attachments'
 import { attachmentPrompt } from './openab-acp-lifecycle'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 
@@ -181,5 +182,68 @@ test('folder archives retain extraction instructions through the ACP text bounda
     route.mockRestore()
     acquire.mockRestore()
     jobs.mockRestore()
+  }
+})
+
+test('a capable local downloader bypasses legacy runtime jobs and validates its output', async () => {
+  const route = controlRoute()
+  const download = spyOn(localFiles, 'localAttachments').mockResolvedValue(
+    JSON.stringify({ paths: ['/workspace/圖片.png'] }),
+  )
+  const acquire = spyOn(controlRegistry, 'acquire')
+
+  try {
+    expect(
+      await materializeRuntimeAttachments('team', 'owner', endpoint, [
+        { name: '圖片.png', url: 'https://store.example/signed', size: 3 },
+      ]),
+    ).toEqual([
+      {
+        type: 'resource_link',
+        name: '圖片.png',
+        uri: 'file:///workspace/%E5%9C%96%E7%89%87.png',
+      },
+    ])
+    expect(acquire).not.toHaveBeenCalled()
+    download.mockResolvedValueOnce(JSON.stringify({ paths: ['C:relative.png'] }))
+    await expect(
+      materializeRuntimeAttachments('team', 'owner', endpoint, [
+        { name: 'x', url: 'https://store.example/signed', size: 3 },
+      ]),
+    ).rejects.toThrow('invalid attachment paths')
+  } finally {
+    route.mockRestore()
+    download.mockRestore()
+    acquire.mockRestore()
+  }
+})
+
+test('capable Windows peers materialize drive and UNC paths as native file links', async () => {
+  const route = controlRoute()
+  const download = spyOn(localFiles, 'localAttachments')
+  const acquire = spyOn(controlRegistry, 'acquire')
+  const files = [{ name: '圖片 space.png', url: 'https://store.example/signed', size: 3 }]
+
+  try {
+    for (const [path, uri] of [
+      [
+        'C:\\Users\\Pan\\\u5716\u7247 space.png',
+        'file:///C:/Users/Pan/%E5%9C%96%E7%89%87%20space.png',
+      ],
+      [
+        '\\\\server\\share\\\u5716\u7247 space.png',
+        'file://server/share/%E5%9C%96%E7%89%87%20space.png',
+      ],
+    ] as const) {
+      download.mockResolvedValueOnce(JSON.stringify({ paths: [path] }))
+      expect(await materializeRuntimeAttachments('team', 'owner', endpoint, files)).toEqual([
+        { type: 'resource_link', name: files[0]!.name, uri },
+      ])
+    }
+    expect(acquire).not.toHaveBeenCalled()
+  } finally {
+    route.mockRestore()
+    download.mockRestore()
+    acquire.mockRestore()
   }
 })

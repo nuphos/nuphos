@@ -1,7 +1,6 @@
 import {
   nuphosDashboards,
   dashboardPanelAlerts,
-  dashboardPanelInsights,
   dashboardPanels,
   dashboardPanelSnapshots,
 } from '@/models/dashboards'
@@ -213,12 +212,6 @@ export async function setupCoreIndexes(): Promise<void> {
   await dashboardPanelSnapshots().createIndex(
     { expiresAt: 1 },
     { expireAfterSeconds: 0, background: true, name: 'cost_panel_snapshots_ttl' },
-  )
-  await dashboardPanelInsights().createIndex({ snapshotId: 1 }, { background: true })
-  await dashboardPanelInsights().createIndex({ panelId: 1, createdAt: -1 }, { background: true })
-  await dashboardPanelInsights().createIndex(
-    { status: 1, generationLeaseUntil: 1 },
-    { background: true },
   )
   await dashboardPanelAlerts().createIndex({ panelId: 1 }, { unique: true, background: true })
   await dashboardPanelAlerts().createIndex({ teamId: 1, enabled: 1 }, { background: true })

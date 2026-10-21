@@ -72,29 +72,6 @@ export const teamApi = {
     viewRange?: DashboardViewRange,
   ) =>
     ipcRenderer.invoke('dashboards:executePanel', teamId, dashboardId, panelId, force, viewRange),
-  dashboardsGenerateInsight: (
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    viewRange?: DashboardViewRange,
-  ) => ipcRenderer.invoke('dashboards:generateInsight', teamId, dashboardId, panelId, viewRange),
-  dashboardsInsightFeedback: (
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    rating: 'up' | 'down',
-    note?: string,
-    viewRange?: DashboardViewRange,
-  ) =>
-    ipcRenderer.invoke(
-      'dashboards:insightFeedback',
-      teamId,
-      dashboardId,
-      panelId,
-      rating,
-      note,
-      viewRange,
-    ),
   dashboardsGetAlert: (teamId: string, dashboardId: string, panelId: string) =>
     ipcRenderer.invoke('dashboards:getAlert', teamId, dashboardId, panelId),
   dashboardsSaveAlert: (teamId: string, dashboardId: string, panelId: string, input: unknown) =>

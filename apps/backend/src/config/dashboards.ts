@@ -1,5 +1,4 @@
 import { boundedInt } from './env'
-import { modelId } from './model'
 
 const EXEC_TIMEOUT_BOUNDS = { min: 5_000, max: 300_000 }
 const MAX_OUTPUT_BOUNDS = { min: 4_096, max: 8 * 1024 * 1024 }
@@ -44,7 +43,5 @@ export function dashboardsConfig() {
       boundedInt('COST_PANEL_SNAPSHOT_TTL_DAYS', 400, SNAPSHOT_TTL_BOUNDS),
       SNAPSHOT_TTL_BOUNDS,
     ),
-    // Model for the separate Insight pass. Empty falls back to the agent model.
-    insightModel: modelId('DASHBOARD_PANEL_INSIGHT_MODEL') ?? modelId('COST_PANEL_INSIGHT_MODEL'),
   }
 }

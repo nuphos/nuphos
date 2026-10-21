@@ -6,7 +6,6 @@ import { logError, logEvent } from '@/lib/observability'
 import { nuphosDashboards, dashboardPanels, dashboardPanelSnapshots } from '@/models'
 
 import { evaluatePanelAlert } from '../alert-service'
-import { generateSnapshotInsight } from '../insight-service'
 import { mintDashboardPanelToken } from '../panel-principal'
 
 import { PanelExecError } from './errors'
@@ -206,16 +205,10 @@ async function completeSnapshot(
   )
 
   if (!persisted) return
-  const complete: DashboardPanelSnapshot = persisted
 
-  await evaluatePanelAlert({ teamId, panel, snapshot: complete }).catch((err: unknown) => {
+  await evaluatePanelAlert({ teamId, panel, snapshot: persisted }).catch((err: unknown) => {
     logError('dashboard.panel.alert_eval_failed', err, { panel_id: panel._id.toHexString() })
   })
-  if (snapshot.initialInsightRequested === true) {
-    await generateSnapshotInsight({ teamId, panel, snapshot: complete }).catch((err: unknown) => {
-      logError('dashboard.panel.eager_insight_failed', err, { panel_id: panel._id.toHexString() })
-    })
-  }
 }
 
 /** Unknown failures stay generic: runtime stderr is never read because panel

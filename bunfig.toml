@@ -1,0 +1,4 @@
+[install]
+# Do not resolve package versions published less than seven days ago; see CONTRIBUTING.md,
+# "Dependencies". `trustedDependencies` is empty, so no package runs install scripts.
+minimumReleaseAge = 604800

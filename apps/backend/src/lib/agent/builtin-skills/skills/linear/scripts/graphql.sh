@@ -34,7 +34,7 @@ http_status="$({
     --max-time 45 \
     -o "$response" \
     -w '%{http_code}' \
-    -H "Authorization: Bearer ${LINEAR_ACCESS_TOKEN}" \
+    -H @<(printf 'Authorization: Bearer %s\n' "${LINEAR_ACCESS_TOKEN}") \
     -H 'Content-Type: application/json' \
     --data-binary "@${payload_path}" \
     "$graphql_url"

@@ -105,7 +105,7 @@ Only if the credential section is missing or looks stale. `$TEAM` is exported in
 environment.
 
 ```bash
-ac() { curl -sS -H "Authorization: Bearer $NUPHOS_TOKEN" "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
+ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 ac /teams/$TEAM/upstash-accounts | python3 -m json.tool
 # → { "accounts": [ { "id": "<accountId>", "label": "Acme",
 #       "email": "ops@acme.com", ... } ] }
@@ -259,8 +259,8 @@ print("REST_URL=" + shlex.quote("https://" + endpoint))
 print("REST_TOKEN=" + shlex.quote(token))
 ')"
 
-curl -sS "$REST_URL/get/mykey" -H "Authorization: Bearer $REST_TOKEN"
-curl -sS "$REST_URL/set/mykey/myvalue" -H "Authorization: Bearer $REST_TOKEN"
+curl -sS "$REST_URL/get/mykey" -H @<(printf 'Authorization: Bearer %s\n' "$REST_TOKEN")
+curl -sS "$REST_URL/set/mykey/myvalue" -H @<(printf 'Authorization: Bearer %s\n' "$REST_TOKEN")
 ```
 
 Commands map to path segments (`/get/k`, `/set/k/v`, `/dbsize`, `/scan/0`).

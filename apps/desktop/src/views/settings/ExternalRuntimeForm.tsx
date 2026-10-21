@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
@@ -6,6 +6,7 @@ import { normalizeAgentUrl, normalizePairingCode } from '../../lib/connectAgentL
 
 import { submitPairing } from './connectAgent'
 import { Field } from './shared'
+import { StepActions } from './StepActions'
 import { inputClasses } from './styles'
 
 import type { PairExternalRuntimeInput, PairedExternalRuntime } from '../../types/runtime'
@@ -16,12 +17,16 @@ export function ExternalRuntimeForm({
   onConnected,
   onCancel,
   onUsePassword,
+  footer,
 }: {
   onPair: (input: PairExternalRuntimeInput) => Promise<PairedExternalRuntime>
   onConnected: (runtime: PairedExternalRuntime) => void
   onCancel: () => void
   onUsePassword?: () => void
+  /** A dialog's pinned footer for the actions; inline below the fields without one. */
+  footer?: HTMLElement | null
 }) {
+  const formId = useId()
   const [url, setUrl] = useState('')
   const [code, setCode] = useState('')
   const [saving, setSaving] = useState(false)
@@ -51,8 +56,40 @@ export function ExternalRuntimeForm({
     }
   }
 
+  const primary = duplicateId ? (
+    <Button size="sm" type="button" disabled={cannotSave} onClick={() => void submit(duplicateId)}>
+      {saving ? 'Updating…' : 'Update existing connection'}
+    </Button>
+  ) : (
+    <Button size="sm" type="submit" form={formId} disabled={cannotSave}>
+      {saving ? 'Connecting…' : 'Connect agent'}
+    </Button>
+  )
+  const cancel = (
+    <button
+      type="button"
+      onClick={onCancel}
+      disabled={saving}
+      className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
+    >
+      Cancel
+    </button>
+  )
+  const switchLink = (side: string) =>
+    onUsePassword && (
+      <button
+        type="button"
+        onClick={onUsePassword}
+        disabled={saving}
+        className={`${side} rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60`}
+      >
+        Use a password instead
+      </button>
+    )
+
   return (
     <form
+      id={formId}
       onSubmit={(event) => {
         event.preventDefault()
         void submit()
@@ -113,40 +150,20 @@ export function ExternalRuntimeForm({
           new key and keeps its conversations.
         </p>
       )}
-      <div className="flex items-center gap-2">
-        {duplicateId ? (
-          <Button
-            size="sm"
-            type="button"
-            disabled={cannotSave}
-            onClick={() => void submit(duplicateId)}
-          >
-            {saving ? 'Updating…' : 'Update existing connection'}
-          </Button>
-        ) : (
-          <Button size="sm" type="submit" disabled={cannotSave}>
-            {saving ? 'Connecting…' : 'Connect agent'}
-          </Button>
-        )}
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
-        >
-          Cancel
-        </button>
-        {onUsePassword && (
-          <button
-            type="button"
-            onClick={onUsePassword}
-            disabled={saving}
-            className="ml-auto rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
-          >
-            Use a password instead
-          </button>
-        )}
-      </div>
+      {/* Inline as it always was; in a dialog's footer the primary action sits on the right. */}
+      {footer === undefined ? (
+        <div className="flex items-center gap-2">
+          {primary}
+          {cancel}
+          {switchLink('ml-auto')}
+        </div>
+      ) : (
+        <StepActions footer={footer} className="flex items-center justify-end gap-2">
+          {switchLink('mr-auto')}
+          {cancel}
+          {primary}
+        </StepActions>
+      )}
     </form>
   )
 }

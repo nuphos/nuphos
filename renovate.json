@@ -1,0 +1,137 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Weekly dependency updates under a seven-day release-age delay, run by .github/workflows/renovate.yml. The runtime image's agent SDKs move through runtime-update-*.yml, and ghcr.io/nuphos images through the release process, never through Renovate. See CONTRIBUTING.md, \"Dependencies\".",
+  "extends": [
+    "config:recommended",
+    ":semanticCommitTypeAll(chore)",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "schedule": ["* 0-5 * * 1"],
+  "labels": ["dependencies"],
+  "platformCommit": "enabled",
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 8,
+  "prHourlyLimit": 4,
+  "enabledManagers": [
+    "bun",
+    "bun-version",
+    "npm",
+    "cargo",
+    "github-actions",
+    "dockerfile",
+    "docker-compose",
+    "helm-values",
+    "gradle",
+    "gradle-wrapper"
+  ],
+  "ignorePaths": ["**/node_modules/**", "apps/runtime/image/**", "apps/backend/fixtures/**"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 0-5 * * 1"]
+  },
+  "packageRules": [
+    {
+      "description": "Majors wait for a maintainer to tick them on the Dependency Dashboard.",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "One pull request per project for compatible updates; majors stay separate.",
+      "matchManagers": ["bun"],
+      "matchFileNames": ["package.json"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "root tooling (non-major)"
+    },
+    {
+      "matchManagers": ["bun"],
+      "matchFileNames": ["apps/backend/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "backend (non-major)"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchFileNames": ["apps/desktop/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "desktop (non-major)"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchFileNames": ["deploy/railway/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "railway (non-major)"
+    },
+    {
+      "matchManagers": ["cargo"],
+      "matchFileNames": ["apps/cli/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "cli crates (non-major)"
+    },
+    {
+      "matchManagers": ["cargo"],
+      "matchFileNames": ["apps/runtime/openab/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "openab crates (non-major)"
+    },
+    {
+      "matchManagers": ["gradle", "gradle-wrapper"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "android (non-major)"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Patches applied to a dependency only fit the version they were made for.",
+      "matchPackageNames": ["@opentelemetry/otlp-exporter-base", "app-builder-lib"],
+      "enabled": false
+    },
+    {
+      "description": "These pin a patched package exactly, so an update needs the patch regenerated: a maintainer ticks it on the Dependency Dashboard.",
+      "matchPackageNames": [
+        "electron-builder",
+        "@opentelemetry/exporter-logs-otlp-http",
+        "@opentelemetry/exporter-metrics-otlp-http",
+        "@opentelemetry/exporter-trace-otlp-http"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Lock file maintenance re-resolves everything outside Renovate's release-age check: off for Cargo and npm (no delay in Cargo; the desktop's patched electron-builder must wait for approval).",
+      "matchManagers": ["cargo", "npm"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "enabled": false
+    },
+    {
+      "description": "The backend's Bun re-resolve would move the OpenTelemetry exporters off the version its patch fits; they wait for Dashboard approval instead.",
+      "matchManagers": ["bun"],
+      "matchFileNames": ["apps/backend/**"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "enabled": false
+    },
+    {
+      "description": "Cargo resolves new transitive crates with no release-age check until Cargo 1.100, so a maintainer approves each update on the Dependency Dashboard after checking the crates it would add.",
+      "matchManagers": ["cargo"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "The Bun in .bun-version (CI) and in apps/backend/Dockerfile must be the same version (ci.yml checks it).",
+      "matchPackageNames": ["bun", "oven/bun"],
+      "groupName": "bun"
+    },
+    {
+      "description": "Compose and the Helm chart ship the same database and object-store images.",
+      "matchManagers": ["docker-compose", "helm-values"],
+      "matchPackageNames": ["mongo", "rustfs/rustfs"],
+      "groupName": "self-hosted images"
+    },
+    {
+      "description": "Our own images are versioned by the release process.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/nuphos/**", "nuphos-backend"],
+      "enabled": false
+    }
+  ]
+}

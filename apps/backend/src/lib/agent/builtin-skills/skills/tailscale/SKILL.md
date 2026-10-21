@@ -51,7 +51,7 @@ printf '\n'
 
 python3 - "$team_id" "$label" "$tailscale_client_id" "$tailscale_client_secret" <<'PY' | \
   curl -fsS -X POST "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/${team_id}/tailscale-clients" \
-    -H "Authorization: Bearer ${NUPHOS_TOKEN}" \
+    -H @<(printf 'Authorization: Bearer %s\n' "${NUPHOS_TOKEN}") \
     -H "Content-Type: application/json" \
     --data-binary @-
 import json
@@ -69,7 +69,7 @@ PY
 After binding, list clients:
 
 ```bash
-curl -fsS -H "Authorization: Bearer $NUPHOS_TOKEN" \
+curl -fsS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
   "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/${team_id}/tailscale-clients" | python3 -m json.tool
 ```
 
@@ -85,7 +85,7 @@ The script calls `GET /teams/:teamId/tailscale-clients/:clientId/credentials` on
 
 ```bash
 source ~/.tailscale/nuphos.env
-curl -fsS -H "Authorization: Bearer $TAILSCALE_API_TOKEN" \
+curl -fsS -H @<(printf 'Authorization: Bearer %s\n' "$TAILSCALE_API_TOKEN") \
   "https://api.tailscale.com/api/v2/tailnet/$TAILSCALE_TAILNET/devices" | python3 -m json.tool
 ```
 

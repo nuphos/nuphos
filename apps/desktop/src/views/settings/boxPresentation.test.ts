@@ -6,7 +6,6 @@ import {
   boxSessions,
   boxSizeChoices,
   accessHint,
-  accessPayload,
   canShareBox,
   removal,
   BOX_BADGE,
@@ -19,6 +18,8 @@ import {
   boxPollMs,
   boxState,
   newAgentAction,
+  agentNameTaken,
+  defaultAgentName,
   machineLine,
   vanishedBoxes,
 } from './boxPresentation.ts'
@@ -163,27 +164,51 @@ test('New Agent adds an agent on a capable host, and only signs in the existing 
   assert.equal(newAgentAction(old, 'claude-code'), null)
 })
 
-test('sizes are named by rank and say how many sessions they hold', () => {
-  const small = { vcpus: 4, memMiB: 8192 }
+const named = (agentLabel?: string) =>
+  ({ provider: 'codex', kind: 'local', local: { agentLabel } }) as RuntimeInstance
+
+test('a new agent is named after its provider, numbered past the names the machine has', () => {
+  assert.equal(defaultAgentName([named('Claude Code')], 'codex'), 'Codex')
+  assert.equal(defaultAgentName([named(), named('codex 2')], 'codex'), 'Codex 3')
+  assert.equal(agentNameTaken([named('Review')], '  review '), true)
+  assert.equal(agentNameTaken([named('Review')], 'Reviews'), false)
+})
+
+test('sizes are named by vCPU, not position, and say how many sessions they hold', () => {
+  const small = { vcpus: 2, memMiB: 4096 }
+  const medium = { vcpus: 4, memMiB: 8192 }
   const large = { vcpus: 8, memMiB: 16384 }
 
-  assert.deepEqual(boxSizeChoices([small, large]), [
+  assert.deepEqual(boxSizeChoices([medium, large]), [
     {
       vcpus: 4,
-      name: 'Small Box',
+      tier: 1,
+      name: 'Medium',
       spec: '4 vCPU · 8 GiB',
-      description: 'Good for light tasks · up to 3 sessions at once',
+      use: 'Everyday work',
+      sessions: 'Up to 3 sessions at once',
     },
     {
       vcpus: 8,
-      name: 'Large Box',
+      tier: 2,
+      name: 'Large',
       spec: '8 vCPU · 16 GiB',
-      description: 'Good for heavy builds · up to 8 sessions at once',
+      use: 'Heavy builds',
+      sessions: 'Up to 8 sessions at once',
     },
   ])
   assert.deepEqual(
-    boxSizeChoices([small, { vcpus: 6, memMiB: 12288 }, large]).map((c) => c.name),
-    ['Small Box', 'Medium Box', 'Large Box'],
+    boxSizeChoices([small, medium, large]).map((c) => [c.name, c.tier, c.sessions]),
+    [
+      ['Small', 0, 'Up to 1 session at once'],
+      ['Medium', 1, 'Up to 3 sessions at once'],
+      ['Large', 2, 'Up to 8 sessions at once'],
+    ],
+  )
+  // The edges: 2 is still Small, 6 still Medium, 7 already Large.
+  assert.deepEqual(
+    boxSizeChoices([2, 3, 6, 7].map((vcpus) => ({ vcpus, memMiB: 8192 }))).map((c) => c.name),
+    ['Small', 'Medium', 'Medium', 'Large'],
   )
   assert.equal(boxSessions(4096), 1)
 })
@@ -249,14 +274,6 @@ test('a Box goes Starting, then Connecting until its host joins, then Running; b
   assert.equal(boxPollMs([box('b', 'connecting', false)], false), 1_000)
 })
 
-test('Save sends everyone, or exactly the chosen members', () => {
-  assert.deepEqual(accessPayload(true, new Set(['u1'])), { everyone: true, userIds: [] })
-  assert.deepEqual(accessPayload(false, new Set(['u1', 'u2'])), {
-    everyone: false,
-    userIds: ['u1', 'u2'],
-  })
-})
-
 test('only a manager sees who may use a Box', () => {
   const shared = (access: { everyone: boolean; userIds: string[] }, level: 'use' | 'manage') =>
     ({
@@ -282,4 +299,8 @@ test('only a manager sees who may use a Box', () => {
     canShareBox({ deviceId: 'c1', label: 'Mac', platform: 'darwin', access: 'manage' }),
     false,
   )
+})
+
+test('boxSizeChoices says "1 session", not "1 sessions"', () => {
+  assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 session at once')
 })

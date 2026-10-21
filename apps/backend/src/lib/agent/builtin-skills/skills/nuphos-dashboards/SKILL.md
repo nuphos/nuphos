@@ -5,7 +5,7 @@ description: Build and update a Nuphos Dashboard (the Dashboards page; not Grafa
 
 # Nuphos Dashboards
 
-A Nuphos Dashboard is a **Grafana-style blank canvas**, but it is not Grafana: its panels are scripts, not Grafana queries, and it lives on the Dashboards page. Cloud spend is one common use; a panel can chart any data a script can read through the Nuphos API or a selected connected account. A dashboard has **no privileged "total" header** — every number, including total spend, is just a panel. Each panel's data source is a stored JavaScript script that runs when the panel is created or explicitly refreshed, producing an immutable **snapshot**. A separate AI pass turns the first snapshot into an **Insight**; each panel can have its own **Alert**.
+A Nuphos Dashboard is a **Grafana-style blank canvas**, but it is not Grafana: its panels are scripts, not Grafana queries, and it lives on the Dashboards page. Cloud spend is one common use; a panel can chart any data a script can read through the Nuphos API or a selected connected account. A dashboard has **no privileged "total" header** — every number, including total spend, is just a panel. Each panel's data source is a stored JavaScript script that runs when the panel is created or explicitly refreshed, producing an immutable **snapshot**. Each panel can have its own **Alert**.
 
 Given a supported read-only data source, build a useful dashboard (or add/adjust panels) by writing panel scripts against the contract below and calling the dashboard API. Never invent an endpoint or substitute sample data when the source does not expose the requested data.
 
@@ -13,7 +13,7 @@ Given a supported read-only data source, build a useful dashboard (or add/adjust
 
 The toolbar time range is a per-tab view option, persisted in the URL. Changing it
 must not PUT the shared dashboard definition. GET detail, POST refresh, panel
-execute, and insight routes accept `preset=last7|last14|last30|thisMonth|prevMonth`
+execute routes accept `preset=last7|last14|last30|thisMonth|prevMonth`
 or `periodStart` + `periodEnd` (ISO timestamps), with optional `granularity`.
 GET returns `viewTimeRange` alongside the unchanged saved dashboard definition.
 Snapshots are reused only for matching script and resolved params; view queries
@@ -123,20 +123,19 @@ the REST response is the single contract used by both Desktop and the agent.
 | Action | Call |
 |---|---|
 | Create dashboard | `POST /teams/{teamId}/dashboards` → `{ name, timeRange: { periodStart, periodEnd, granularity? } }` |
-| Add a panel (auto-runs + eager insight) | `POST …/{dashboardId}/panels` → `{ title, kind: 'chart'\|'scalar'\|'table', code, staticParams?, credentialAccess? }` |
+| Add a panel (auto-runs) | `POST …/{dashboardId}/panels` → `{ title, kind: 'chart'\|'scalar'\|'table', code, staticParams?, credentialAccess? }` |
 | Edit a panel (code edit ⇒ new version) | `PUT …/{dashboardId}/panels/{panelId}` → `{ title?, kind?, code?, staticParams?, credentialAccess? }` |
 | Re-run one panel | `POST …/{dashboardId}/panels/{panelId}/execute?force=1` |
 | Re-run all panels | `POST …/{dashboardId}/refresh?force=1` |
 | Schedule refreshes | `PUT …/{dashboardId}` → `{ cadence: 'daily'\|'weekly'\|'monthly'\|null }` |
 | Read dashboard + panels + snapshots | `GET …/{dashboardId}` |
-| Regenerate a panel's insight | `POST …/{dashboardId}/panels/{panelId}/insight` |
 
 Key facts:
 
 - `timeRange` is the single source of truth for time; **every panel inherits it**. Panels carry only `staticParams` (provider, accountId, filters) — never their own start/end.
 - Editing a panel's `code` creates a **new script version**; existing snapshots keep the version they ran against (immutable). Re-running produces a new snapshot.
 - A schedule belongs to the whole dashboard and refreshes every panel at 09:00 UTC: daily, on Mondays (weekly) or on the 1st (monthly). Tell the user that time in both UTC and their own timezone.
-- Adding a panel runs it immediately and generates its first Insight eagerly. Later refreshes update data only; the prior Insight becomes stale until the user explicitly regenerates it.
+- Adding a panel runs it immediately.
 
 ## Building the initial dashboard
 
@@ -150,7 +149,7 @@ For a first "build me a dashboard" request, create **four** complementary panels
 
 1. Reuse an existing dashboard only when it clearly matches the requested account and decision; otherwise create one.
 2. Create the full initial panel set before reporting. Then GET the dashboard: report completed panels from their snapshot output, name a failed panel with its `error.kind`, and state that running snapshots continue in the dashboard. Do not claim that a running panel has data.
-3. Do not create recurring Slack reports by default. Insights already belong to each panel. When the user explicitly requests Slack, prefer a threshold alert on a scalar panel; it is edge-triggered and concise. A daily report must be at most five lines: time window, total/change, up to two drivers, and one next action — no raw JSON, scripts, command logs, or repeated setup instructions.
+3. Do not create recurring Slack reports by default. When the user explicitly requests Slack, prefer a threshold alert on a scalar panel; it is edge-triggered and concise. A daily report must be at most five lines: time window, total/change, up to two drivers, and one next action — no raw JSON, scripts, command logs, or repeated setup instructions.
 
 ## Guardrails
 
@@ -158,5 +157,5 @@ These apply to every panel you create or edit, not just the initial build.
 
 1. For spend panels, prefer the provider's native billing/usage export and mark data `actual`. Otherwise compute from official provider pricing and label it `estimated` with assumptions — never turn missing usage into zero cost. For any metric, never turn missing data into zero.
 2. A panel script must be deterministic given `params` and must not mutate infrastructure — it only reads and shapes data.
-3. Insights bind to a snapshot as evidence; every Insight **action** is a safe handoff prompt that asks Nuphos to investigate and produce a **Plan** for user confirmation before any change. Never make changes during analysis.
+3. Never make changes during analysis; any change needs a **Plan** the user confirms.
 4. If a panel run fails, read the snapshot's `error.kind` (`timeout` / `oversize` / `nonzero_exit` / `invalid_output`) and fix the script — usually an off-contract payload (a row missing `xKey`, a string where a number is required) or an unhandled `nuphos` response. `runtime_unavailable` (no runtime online, or it was busy/unreachable) and `runtime_outdated` (the runtime image cannot run panels) are not script bugs: report the snapshot's `error.message` to the user instead of editing the script.

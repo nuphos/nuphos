@@ -113,40 +113,6 @@ export async function dashboardsExecutePanel(
     { retry: false },
   )
 }
-export async function dashboardsGenerateInsight(
-  teamId: string,
-  dashboardId: string,
-  panelId: string,
-  viewRange?: DashboardViewRange,
-): Promise<unknown> {
-  return call(
-    'POST',
-    appendQuery(
-      `/teams/${teamId}/dashboards/${dashboardId}/panels/${panelId}/insight`,
-      viewRange ?? {},
-    ),
-    undefined,
-    { retry: false },
-  )
-}
-export async function dashboardsInsightFeedback(
-  teamId: string,
-  dashboardId: string,
-  panelId: string,
-  rating: 'up' | 'down',
-  note?: string,
-  viewRange?: DashboardViewRange,
-): Promise<unknown> {
-  return call(
-    'POST',
-    appendQuery(
-      `/teams/${teamId}/dashboards/${dashboardId}/panels/${panelId}/insight/feedback`,
-      viewRange ?? {},
-    ),
-    { rating, note },
-    { retry: false },
-  )
-}
 export async function dashboardsGetAlert(
   teamId: string,
   dashboardId: string,

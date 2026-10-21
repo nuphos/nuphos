@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
 
-import { mergeAgentRegistry, renameRegisteredAgent, reportedAgents } from './agent-registry'
+import {
+  ADDITION_GRACE_MS,
+  goneAdditions,
+  mergeAgentRegistry,
+  renameRegisteredAgent,
+  reportedAgents,
+} from './agent-registry'
 
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
 
@@ -62,4 +68,20 @@ test('a name a person gave survives every later report; clearing it restores the
     mergeAgentRegistry(renameRegisteredAgent(renamed, work, '')!, reportedAgents(status)),
   ).toBeNull()
   expect(renameRegisteredAgent(registered, orphan, 'Nope')).toBeNull()
+})
+
+test('who added an agent is kept while it exists, pending or registered, and dropped once it is gone', () => {
+  const now = Date.parse('2026-10-21T08:00:00Z')
+  const old = new Date(now - ADDITION_GRACE_MS)
+  const gone = '44444444-4444-4444-8444-444444444444'
+  const noted = (instanceId: string, at = old) => ({ instanceId, userId: 'u2', at })
+  const registered = [{ provider: 'claude-code' as const, instanceId: work, signedIn: true }]
+  const additions = [noted(work), noted(pending), noted(gone), noted(orphan, new Date(now))]
+  const report = { ...status, instances: status.instances?.filter((i) => i.instanceId !== orphan) }
+
+  // The host dropped `gone`; `orphan` was noted a moment ago and may not have reached it yet.
+  expect(goneAdditions(additions, registered, report, now)).toEqual([gone])
+  expect(goneAdditions([noted(work)], registered, report, now)).toEqual([])
+  // An older host lists no agents of its own, so it never says one is gone.
+  expect(goneAdditions(additions, [], { agents: {} }, now)).toEqual([])
 })

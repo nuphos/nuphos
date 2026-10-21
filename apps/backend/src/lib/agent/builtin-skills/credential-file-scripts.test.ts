@@ -16,12 +16,14 @@ function jwt(secret: string) {
   return `header.${payload}.${secret}`
 }
 
-// Records every argument and --config file curl receives, then fails the call.
+// Records every argument (also to CURL_ARGV) and every --config or -H @file
+// curl receives, then fails the call.
 const fakeCurl = `#!/usr/bin/env bash
 prev=
 for arg in "$@"; do
-  printf '%s\\n' "$arg" >>"$CURL_CAPTURE"
+  printf '%s\\n' "$arg" | tee -a "$CURL_ARGV" >>"$CURL_CAPTURE"
   if [[ "$prev" == --config ]]; then cat "$arg" >>"$CURL_CAPTURE"; fi
+  if [[ "$prev" == -H && "$arg" == @* ]]; then cat "\${arg#@}" >>"$CURL_CAPTURE"; fi
   prev=$arg
 done
 exit 22
@@ -32,11 +34,13 @@ async function capturedAuthorization(script: string[], stdin = '', revoked = fal
   const bin = join(dir, 'bin')
   const credentials = join(dir, 'credentials')
   const capture = join(dir, 'capture')
+  const argv = join(dir, 'argv')
 
   Bun.spawnSync(['mkdir', '-p', bin, credentials])
   writeFileSync(join(bin, 'curl'), fakeCurl)
   chmodSync(join(bin, 'curl'), 0o755)
   writeFileSync(capture, '')
+  writeFileSync(argv, '')
   if (!revoked) {
     writeFileSync(join(credentials, 'NUPHOS_TOKEN'), jwt('fresh'))
     writeFileSync(join(credentials, 'NUPHOS_PLAN_API_TOKEN'), jwt('fresh'))
@@ -46,6 +50,7 @@ async function capturedAuthorization(script: string[], stdin = '', revoked = fal
       PATH: `${bin}:${process.env.PATH ?? ''}`,
       HOME: dir,
       CURL_CAPTURE: capture,
+      CURL_ARGV: argv,
       OPENAB_CREDENTIALS_DIR: credentials,
       NUPHOS_TOKEN: jwt('stale'),
       NUPHOS_PLAN_API_TOKEN: jwt('stale'),
@@ -60,7 +65,7 @@ async function capturedAuthorization(script: string[], stdin = '', revoked = fal
 
   await child.exited
 
-  return readFileSync(capture, 'utf8')
+  return { captured: readFileSync(capture, 'utf8'), argv: readFileSync(argv, 'utf8') }
 }
 
 describe('skill scripts prefer the per-turn credential file over the spawn-time env', () => {
@@ -80,14 +85,24 @@ describe('skill scripts prefer the per-turn credential file over the spawn-time 
 
   for (const [name, script, stdin] of cases) {
     test(name, async () => {
-      const captured = await capturedAuthorization(script, stdin)
+      const { captured, argv } = await capturedAuthorization(script, stdin)
 
       expect(captured).toContain(`Bearer ${jwt('fresh')}`)
       expect(captured).not.toContain('stale')
+      // The bearer never appears in a process's argument list.
+      expect(argv).not.toContain(jwt('fresh'))
     })
 
     test(`${name} never falls back to a revoked token`, async () => {
-      expect(await capturedAuthorization(script, stdin, true)).not.toContain('stale')
+      expect((await capturedAuthorization(script, stdin, true)).captured).not.toContain('stale')
     })
   }
+})
+
+test('no skill script or doc passes a bearer token as a curl argument', () => {
+  const offenders = Array.from(new Bun.Glob('**/*.{sh,md}').scanSync(skills)).filter((file) =>
+    /-H\s+"Authorization: Bearer \$/u.test(readFileSync(join(skills, file), 'utf8')),
+  )
+
+  expect(offenders).toEqual([])
 })

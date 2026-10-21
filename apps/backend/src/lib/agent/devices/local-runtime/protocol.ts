@@ -3,7 +3,16 @@ import { z } from 'zod'
 import { boxMetricsSchema } from '../metrics-schema'
 
 export type TunnelPurpose =
-  'transport' | 'control' | 'exec' | 'file' | 'terminal' | 'cua' | 'browser' | 'vnc' | 'instances'
+  | 'transport'
+  | 'control'
+  | 'exec'
+  | 'file'
+  | 'attachments'
+  | 'terminal'
+  | 'cua'
+  | 'browser'
+  | 'vnc'
+  | 'instances'
 
 export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'opencode'] as const
 
@@ -109,6 +118,7 @@ export const localRuntimeStatusSchema = z.object({
       'Duplicate agent instance id',
     )
     .optional(),
+  localAttachments: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),

@@ -67,3 +67,19 @@ test('Box creation persists creator-only access and rejects unlisted, cross-team
     status: 404,
   })
 })
+
+test('Box creation shares with the requested members while keeping its creator, still ignoring the registration', async () => {
+  const created = await insertBoxAgentDevice(
+    'creator',
+    {
+      deviceId: 'shared-box',
+      label: 'Shared Box',
+      platform: 'linux',
+      allowLocalExec: true,
+      box: { provider: 'instabox', teamId: 'team', access: { everyone: true, userIds: ['x'] } },
+    },
+    { everyone: false, userIds: ['alice', 'creator'] },
+  )
+
+  expect(created.box?.access).toEqual({ everyone: false, userIds: ['creator', 'alice'] })
+})

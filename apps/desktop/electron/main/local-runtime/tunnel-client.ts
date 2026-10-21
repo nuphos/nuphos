@@ -1,6 +1,7 @@
 import { InstanceStreams } from './instance-streams.ts'
 import { createMetricsLease } from './metrics-lease.ts'
 import { parseFrame } from './tunnel-protocol.ts'
+import { connectLocalStream } from './tunnel-streams.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { BackendFrame, LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
@@ -9,7 +10,15 @@ import type { DeviceMetrics } from '../../../src/api/device-types.ts'
 export type TunnelPurpose = 'transport' | 'control'
 /** What a backend stream may ask this computer for: an agent, one of its local tools, or its agent inventory. */
 export type StreamPurpose =
-  TunnelPurpose | 'exec' | 'file' | 'terminal' | 'cua' | 'browser' | 'vnc' | 'instances'
+  | TunnelPurpose
+  | 'exec'
+  | 'file'
+  | 'attachments'
+  | 'terminal'
+  | 'cua'
+  | 'browser'
+  | 'vnc'
+  | 'instances'
 
 export type SocketEvent = { data?: unknown; code?: number }
 
@@ -32,6 +41,7 @@ export type TunnelClientDeps = {
   ) => SocketLike | null
   instances?: (request: unknown) => Promise<unknown>
   connectFile?: (instanceId?: string) => SocketLike | null
+  connectAttachments?: (instanceId?: string) => SocketLike | null
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
@@ -61,14 +71,12 @@ const CLOSE_SUPERSEDED = 4000
 const CLOSE_REVOKED = 4003
 
 export function tunnelReconnectDelayMs(attempt: number): number {
-  return RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)]
+  return (
+    RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)] ?? 10_000
+  )
 }
 
-/**
- * Keeps exactly one tunnel to the backend open while started, reconnecting with
- * backoff whenever it closes, and relays each stream the backend opens to the
- * runtime on loopback. The runtime itself never listens beyond 127.0.0.1.
- */
+/** One reconnecting backend tunnel; agent runtime listeners stay on loopback. */
 export class RuntimeTunnelClient {
   private readonly instanceStreams: InstanceStreams
   private socket: SocketLike | undefined
@@ -121,6 +129,7 @@ export class RuntimeTunnelClient {
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
         localBrowser: Boolean(this.deps.connectBrowser),
+        localAttachments: Boolean(this.deps.connectAttachments),
       },
     })
   }
@@ -254,20 +263,10 @@ export class RuntimeTunnelClient {
 
       return
     }
-    const { connectTerminal, connectFile, connectExec, connectCua, connectBrowser, connectVnc } =
-      this.deps
-    const local = {
-      terminal: connectTerminal,
-      file: connectFile,
-      exec: connectExec,
-      cua: connectCua,
-      browser: connectBrowser,
-      vnc: connectVnc,
-    }
     const runtime =
       purpose === 'transport' || purpose === 'control'
         ? this.deps.connectRuntime(purpose, provider, instanceId)
-        : local[purpose]?.(instanceId)
+        : connectLocalStream(this.deps, purpose, instanceId)
 
     if (!runtime) {
       this.send({ t: 'close', s, reason: 'The local agent is not running' })

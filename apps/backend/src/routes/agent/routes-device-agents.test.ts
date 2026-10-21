@@ -43,6 +43,8 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
 
       return key === id || key === 'claude-code'
     },
+    recordAddition: () => Promise.resolve(),
+    forgetAddition: () => Promise.resolve(),
     ...overrides,
   }
   const server = new Hono<{ Variables: AuthVariables }>()

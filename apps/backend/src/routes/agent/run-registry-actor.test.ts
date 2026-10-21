@@ -113,11 +113,12 @@ describe('human turn', () => {
     expect(isHumanTurn(trace('/agent/chat', 'POST'))).toBe(true)
     expect(isHumanTurn(trace('/agent/chat', 'QUEUED'))).toBe(true)
     expect(isHumanTurn(trace('slack.agent', 'TRIGGER'))).toBe(true)
+    // A runtime follow-up continues that person's work, so they can steer it.
+    expect(isHumanTurn(trace('claude-code/autonomous', 'RUNTIME'))).toBe(true)
   })
 
-  test("agents, resource events, triggers and the runtime start no person's turn", () => {
+  test("agents, resource events and triggers start no person's turn", () => {
     for (const route of ['agent.thread', 'agent.resource', 'agent.trigger', 'lark.agent'])
       expect(isHumanTurn(trace(route, 'TRIGGER'))).toBe(false)
-    expect(isHumanTurn(trace('claude-code/autonomous', 'RUNTIME'))).toBe(false)
   })
 })

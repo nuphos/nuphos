@@ -23,7 +23,7 @@ GitLab OAuth access token and wires up git, glab, and curl access:
   - git credential store for the binding's host, so \`git clone <https url>\`
     works without putting the token on the command line
   - ~/.gitlab-token + ~/.gitlab-host (mode 600) for direct API calls:
-      curl -H "Authorization: Bearer \$(cat ~/.gitlab-token)" \\
+      curl -H @<(printf 'Authorization: Bearer %s\\n' "\$(cat ~/.gitlab-token)") \\
         "\$(cat ~/.gitlab-host)/api/v4/projects?membership=true"
   - glab authentication when the runtime provides the GitLab CLI
 
@@ -58,7 +58,7 @@ token_response="$(curl -fsSL \
   --retry 2 \
   --retry-delay 1 \
   --retry-all-errors \
-  -H "Authorization: Bearer $NUPHOS_TOKEN" \
+  -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
   "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/gitlab-bindings/$binding_id/token")"
 
 token="$(printf '%s' "$token_response" | python3 -c '
@@ -146,4 +146,4 @@ echo "git clone $host_url/<group>/<project>.git now works directly."
 if command -v glab >/dev/null 2>&1; then
   echo "GitLab CLI: glab repo list --member --output json"
 fi
-echo "API: curl -H \"Authorization: Bearer \$(cat ~/.gitlab-token)\" \"$host_url/api/v4/projects?membership=true\""
+echo "API: curl -H @<(printf 'Authorization: Bearer %s\\n' \"\$(cat ~/.gitlab-token)\") \"$host_url/api/v4/projects?membership=true\""

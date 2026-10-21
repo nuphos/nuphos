@@ -46,7 +46,7 @@ spec:
     MongoDB has authentication, a single-node replica set and public TCP forwarding disabled.
     Keep all generated credentials and volumes when redeploying. Deleting volumes deletes your data.
 
-    This is a single-replica installation. Cron, background thread queues and journal sealing are disabled without Redis. Backend-generated titles/insights require separately configured model credentials. Managed agents require Kubernetes. This template does not create those integrations.
+    This is a single-replica installation. Cron, background thread queues and journal sealing are disabled without Redis. Backend-generated titles require separately configured model credentials. Managed agents require Kubernetes. This template does not create those integrations.
   services:
     - name: mongo
       template: PREBUILT_V2
@@ -204,7 +204,7 @@ spec:
       template: PREBUILT_V2
       spec:
         source:
-          image: ghcr.io/nuphos/backend:v0.99.0
+          image: ghcr.io/nuphos/backend:v0.100.0
         ports:
           - id: web
             port: 3000

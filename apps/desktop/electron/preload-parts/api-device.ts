@@ -1,6 +1,10 @@
 import { ipcRenderer } from 'electron'
 
-import type { AgentDeviceListOptions, LocalAgentProvider } from '../../src/api/device-types.ts'
+import type {
+  AgentDeviceListOptions,
+  BoxAccess,
+  LocalAgentProvider,
+} from '../../src/api/device-types.ts'
 
 export const deviceApi = {
   onWindowFullScreenChanged: (cb: (fullScreen: boolean) => void) => {
@@ -13,6 +17,8 @@ export const deviceApi = {
   deviceGetIdentity: () => ipcRenderer.invoke('device:getIdentity'),
   deviceSetLabel: (label: string) => ipcRenderer.invoke('device:setLabel', label),
   deviceListAudit: (before?: string) => ipcRenderer.invoke('device:listAudit', before),
+  localRuntimeSubmitClaudeLoginCode: (code: string) =>
+    ipcRenderer.invoke('localRuntime:submitClaudeLoginCode', code),
   localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
@@ -38,8 +44,8 @@ export const deviceApi = {
     ipcRenderer.invoke('localRuntime:listActivity', before),
   boxListDevices: (options?: AgentDeviceListOptions) =>
     ipcRenderer.invoke('box:listDevices', options),
-  boxCreate: (label?: string, teamId?: string, vcpus?: number) =>
-    ipcRenderer.invoke('box:create', label, teamId, vcpus),
+  boxCreate: (label?: string, teamId?: string, vcpus?: number, access?: BoxAccess) =>
+    ipcRenderer.invoke('box:create', label, teamId, vcpus, access),
   boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:resume', deviceId, teamId),
@@ -52,8 +58,12 @@ export const deviceApi = {
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),
   openSessionDesktop: (teamId: string, sessionId: string) =>
     ipcRenderer.invoke('box:openSessionDesktop', teamId, sessionId),
-  boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
-    ipcRenderer.invoke('box:createAgent', deviceId, teamId, provider),
+  boxCreateAgent: (
+    deviceId: string,
+    teamId: string,
+    provider: LocalAgentProvider,
+    label?: string,
+  ) => ipcRenderer.invoke('box:createAgent', deviceId, teamId, provider, label),
   boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>
     ipcRenderer.invoke('box:removeAgent', deviceId, teamId, instanceId),
   boxRenameAgent: (deviceId: string, teamId: string, agent: string, label: string) =>

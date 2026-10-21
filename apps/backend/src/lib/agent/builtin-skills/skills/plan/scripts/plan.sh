@@ -43,7 +43,7 @@ request() {
       *) url="${url}?teamId=${team}" ;;
     esac
   fi
-  local args=(-sS --connect-timeout 10 --max-time 60 -X "$method" -H "Authorization: Bearer $NUPHOS_TOKEN")
+  local args=(-sS --connect-timeout 10 --max-time 60 -X "$method")
   if [ -n "$body" ]; then
     args+=(-H 'Content-Type: application/json' -d "$body")
   fi
@@ -54,7 +54,7 @@ request() {
   local response http_code out
   # A connect/DNS/TLS/timeout failure exits non-zero with no HTTP status; fail
   # loudly instead of falling through to the status check with an empty code.
-  if ! response="$(curl "${args[@]}" -w $'\n%{http_code}' "$url")"; then
+  if ! response="$(curl "${args[@]}" -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") -w $'\n%{http_code}' "$url")"; then
     printf 'plan.sh: %s %s request failed\n' "$method" "$path" >&2
     return 1
   fi

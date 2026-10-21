@@ -60,7 +60,7 @@ Helper used throughout:
 resend() {
   method="$1"; path="$2"; shift 2
   curl -sS -X "$method" \
-    -H "Authorization: Bearer ${RESEND_API_KEY}" \
+    -H @<(printf 'Authorization: Bearer %s\n' "${RESEND_API_KEY}") \
     -H "Content-Type: application/json" \
     "${RESEND_API_BASE_URL}${path}" "$@"
 }

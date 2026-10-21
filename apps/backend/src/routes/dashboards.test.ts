@@ -134,7 +134,7 @@ describe('serializePanel', () => {
       updatedAt: now,
     } as DashboardPanel
 
-    const serialized = serializePanel(panel, {}, failed, undefined, successful)
+    const serialized = serializePanel(panel, {}, failed, successful)
 
     expect(serialized.currentSnapshot?.status).toBe('failed')
     expect(serialized.lastSuccessfulSnapshot?.status).toBe('complete')

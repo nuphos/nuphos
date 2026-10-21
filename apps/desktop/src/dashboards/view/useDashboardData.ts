@@ -185,22 +185,12 @@ export function useDashboardData({
   }, [selectedId, loadDetail, setLoad])
 
   // Panel scripts run asynchronously on an agent runtime. Poll while any panel is
-  // still running or an explicitly requested insight is pending.
+  // still running.
   useEffect(() => {
     if (!detail || !selectedId) return
     const anyRunning = detail.panels.some((p) => p.currentSnapshot?.status === 'running')
-    const awaitingInsight = detail.panels.some((p) => {
-      // An insight generating asynchronously — keep polling until it settles.
-      if (p.insight?.status === 'pending') return true
-      const s = p.currentSnapshot
 
-      if (s?.status !== 'complete' || p.insight) return false
-      const settledAt = new Date(s.finishedAt ?? s.createdAt).getTime()
-
-      return Date.now() - settledAt < 20_000
-    })
-
-    if (!anyRunning && !awaitingInsight) return
+    if (!anyRunning) return
     const t = setTimeout(() => {
       void loadDetail(selectedId, { silent: true })
     }, 2_500)

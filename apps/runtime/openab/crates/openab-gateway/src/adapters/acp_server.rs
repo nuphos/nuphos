@@ -3916,12 +3916,6 @@ async fn handle_session_prompt(
                 .as_str()
                 .is_some_and(|op| op != "none")
             || !state.acp_session_requests.pending(&channel_id).is_empty()
-            || (params
-                .and_then(|p| p.get("_runtimeResumeGeneration"))
-                .is_none()
-                && state.acp_session_automation.snapshot(&channel_id)["pending"]
-                    .as_array()
-                    .is_some_and(|pending| !pending.is_empty()))
         {
             let response = JsonRpcResponse::error(id, -32001, "Runtime session is busy");
             let _ = out_tx.send(serde_json::to_string(&response).unwrap());

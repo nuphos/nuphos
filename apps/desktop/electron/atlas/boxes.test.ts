@@ -93,6 +93,8 @@ test('adding an agent posts once; removing one deletes it, waiting out a still-s
   assert.equal(calls.at(-1), '/agent/devices/box%2F1/agents')
   assert.deepEqual(bodies.at(-1), { teamId: 'team-1', provider: 'codex' })
   assert.deepEqual(options.at(-1), { retry: false })
+  await boxChannels['box:createAgent'](null, 'box/1', 'team-1', 'codex', 'Review')
+  assert.deepEqual(bodies.at(-1), { teamId: 'team-1', provider: 'codex', label: 'Review' })
   await boxChannels['box:removeAgent'](null, 'box/1', 'team-1', 'uuid-1')
   assert.equal(calls.at(-1), '/agent/devices/box%2F1/agents/uuid-1?teamId=team-1')
   assert.deepEqual(options.at(-1), { retry: false, timeoutMs: 50_000 })
