@@ -132,20 +132,22 @@ export function PlanActionBar({
                 <>
                   <Button
                     variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setChangesOpen(false)
                       setChangeRequest('')
                     }}
-                    className="h-7 flex-shrink-0 gap-1.5 px-2.5 text-[12.5px]"
+                    className="flex-shrink-0 gap-1.5"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.2} />
                     Back
                   </Button>
                   <Button
                     variant="primary"
+                    size="sm"
                     onClick={requestChanges}
                     disabled={!hasChangeRequest}
-                    className="h-7 flex-shrink-0 gap-1.5 px-4 text-[12.5px] active:scale-95"
+                    className="flex-shrink-0 gap-1.5 px-4 active:scale-95"
                   >
                     <MessageSquare className="h-3 w-3" strokeWidth={2.4} />
                     Send
@@ -155,10 +157,11 @@ export function PlanActionBar({
                 <div className="inline-flex overflow-hidden rounded-md">
                   <Button
                     variant="primary"
+                    size="sm"
                     onClick={() => void approve()}
                     className={clsx(
-                      'h-7 flex-shrink-0 gap-1.5 pl-3 pr-2.5 text-[12.5px] active:scale-95',
-                      onReject ? 'rounded-none' : 'rounded-md',
+                      'flex-shrink-0 gap-1.5 pl-3 pr-2.5 active:scale-95',
+                      onReject && 'rounded-r-none',
                     )}
                   >
                     <Check className="h-3 w-3" strokeWidth={2.4} />
@@ -167,7 +170,7 @@ export function PlanActionBar({
                   {onReject && (
                     <Menu>
                       <MenuTrigger
-                        className="flex h-7 w-7 flex-shrink-0 items-center justify-center border-l border-white/20 bg-zViolet-500 text-white transition hover:bg-zViolet-400 data-[popup-open]:bg-zViolet-400"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center border-l border-white/20 bg-zViolet-500 text-white transition hover:bg-zViolet-400 data-[popup-open]:bg-zViolet-400"
                         aria-label="More plan actions"
                       >
                         <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.4} />
