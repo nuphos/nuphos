@@ -11,6 +11,7 @@ type PreviewPage = Pick<WebviewTag, 'getURL' | 'getTitle' | 'capturePage'>
 /** Capture only a page the user or agent already opened in the browser pane. */
 export function localPreviewRecorder(view: PreviewPage, scope?: PreviewScope) {
   const owner = Symbol('browser preview')
+  let currentScope = scope
   let generation = 0
   let disposed = false
   const invalidate = () => {
@@ -19,7 +20,7 @@ export function localPreviewRecorder(view: PreviewPage, scope?: PreviewScope) {
   }
 
   const capture = async () => {
-    if (!scope || disposed) return
+    if (!currentScope || disposed) return
     const request = ++generation
 
     try {
@@ -30,7 +31,7 @@ export function localPreviewRecorder(view: PreviewPage, scope?: PreviewScope) {
       const image = await view.capturePage()
 
       if (disposed || request !== generation || view.getURL() !== href || image.isEmpty()) return
-      localPreviewSnapshots.publish(owner, scope, url, {
+      localPreviewSnapshots.publish(owner, currentScope, url, {
         title: view.getTitle(),
         image: image.resize({ width: Math.min(960, image.getSize().width) }).toDataURL(),
       })
@@ -41,6 +42,11 @@ export function localPreviewRecorder(view: PreviewPage, scope?: PreviewScope) {
 
   return {
     invalidate,
+    setScope(next: PreviewScope | undefined) {
+      if (next?.userId === currentScope?.userId && next?.teamId === currentScope?.teamId) return
+      invalidate()
+      currentScope = next
+    },
     capture,
     async navigatedInPage(active: boolean) {
       invalidate()

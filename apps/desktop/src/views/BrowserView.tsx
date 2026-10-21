@@ -4,12 +4,12 @@ import { useEffect, useRef, useState } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
 import { BrowserLoadingProgress } from '../components/BrowserLoadingProgress'
-import { useCurrentUser } from '../hooks/useCurrentUser'
-import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
 import { localPreviewRecorder } from './browser/localPreviewRecorder'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { useBrowserComments } from './browser/useBrowserComments'
 
 import type { WebviewTag } from 'electron'
@@ -36,15 +36,6 @@ export function BrowserView({
   }, [onNavigate])
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<WebviewTag | null>(null)
-  const { refreshKey, isActive } = useWorkspaceTab()
-  const activeRef = useRef(isActive)
-
-  useEffect(() => {
-    activeRef.current = isActive
-  }, [isActive])
-  const userId = useCurrentUser()?.id
-  const previewRef = useRef<ReturnType<typeof localPreviewRecorder> | null>(null)
-  const lastRefresh = useRef(refreshKey)
   const [address, setAddress] = useState(initialUrl)
   const [title, setTitle] = useState('Browser')
   const [nav, setNav] = useState({ back: false, forward: false })
@@ -53,6 +44,20 @@ export function BrowserView({
   const [ready, setReady] = useState(false)
   const comments = useBrowserComments(viewRef, onComment)
   const { reset: resetComments } = comments
+  const { isActive } = useWorkspaceTab()
+  const activeRef = useRef(isActive)
+
+  useEffect(() => {
+    activeRef.current = isActive
+  }, [isActive])
+  const userId = useCurrentUser()?.id
+  const previewRef = useRef<ReturnType<typeof localPreviewRecorder> | null>(null)
+  const previewScope = useRef<{ userId: string; teamId: string }>(undefined)
+
+  useEffect(() => {
+    previewScope.current = userId ? { userId, teamId } : undefined
+    previewRef.current?.setScope(previewScope.current)
+  }, [teamId, userId])
 
   useEffect(() => {
     const host = hostRef.current
@@ -65,7 +70,7 @@ export function BrowserView({
     view.setAttribute('allowpopups', '')
     view.setAttribute('webpreferences', 'sandbox=yes,contextIsolation=yes')
     view.style.cssText = 'width:100%;height:100%;display:flex'
-    const preview = localPreviewRecorder(view, userId ? { userId, teamId } : undefined)
+    const preview = localPreviewRecorder(view, previewScope.current)
 
     previewRef.current = preview
 
@@ -136,17 +141,7 @@ export function BrowserView({
       view.remove()
       viewRef.current = null
     }
-  }, [initialUrl, resetComments, teamId, userId])
-
-  useEffect(() => {
-    if (isActive && ready && !loading && !error) void previewRef.current?.capture()
-  }, [error, isActive, loading, ready])
-
-  useEffect(() => {
-    if (lastRefresh.current === refreshKey) return
-    lastRefresh.current = refreshKey
-    if (ready) viewRef.current?.reload()
-  }, [refreshKey, ready])
+  }, [initialUrl, resetComments])
 
   useEffect(() => {
     if (!url || url === lastUrl.current || !viewRef.current) return
@@ -155,6 +150,10 @@ export function BrowserView({
     lastUrl.current = next
     viewRef.current.src = next
   }, [url])
+
+  useEffect(() => {
+    if (isActive && ready && !loading && !error) void previewRef.current?.capture()
+  }, [error, isActive, loading, ready, teamId, userId])
 
   const buttonClass =
     'flex h-7 w-7 shrink-0 items-center justify-center rounded text-secondary hover:bg-zGray-800 hover:text-main disabled:opacity-30'
