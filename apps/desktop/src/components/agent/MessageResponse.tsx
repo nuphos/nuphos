@@ -13,8 +13,10 @@ import { isMac } from '../../lib/platform'
 import { ContextMenu } from '../ContextMenu'
 
 import { ChatLinkMenuContext, isChatMenuLink } from './chatLinkMenuContext'
+import { standaloneLocalLink } from './localPreviewLink'
 import { MarkdownImage, ReplyImage } from './ReplyImage'
 
+import type { LinkRenderOptions } from './localPreviewLink'
 import type { ContextMenuItem } from '../ContextMenu'
 import type { ComponentProps, MouseEvent, ReactNode } from 'react'
 
@@ -129,7 +131,7 @@ export function ChatLink({
 function createComponents(
   teamId?: string,
   onLinkClick?: (href: string, beside: boolean) => boolean,
-  renderLink?: (href: string, children: ReactNode) => ReactNode | null,
+  renderLink?: (href: string, children: ReactNode, options?: LinkRenderOptions) => ReactNode | null,
 ): StreamdownComponents {
   return {
     img: ({ src, alt, width, height }) => {
@@ -147,7 +149,12 @@ function createComponents(
         <MarkdownImage src={url} alt={alt} width={width} height={height} />
       )
     },
-    p: ({ children }) => <p className="my-3 leading-[1.75] first:mt-0 last:mb-0">{children}</p>,
+    p: ({ children }) => {
+      const preview = standaloneLocalLink(children)
+      const card = preview && renderLink?.(preview.href, preview.children, { standalone: true })
+
+      return <p className="my-3 leading-[1.75] first:mt-0 last:mb-0">{card ?? children}</p>
+    },
     ul: ({ children }) => (
       <ul className="my-3 list-outside list-disc space-y-1.5 pl-5">{children}</ul>
     ),
@@ -223,7 +230,7 @@ type Props = {
   currentUrl?: string
   onLinkClick?: (href: string, beside: boolean) => boolean
   /** Render a link as a custom node instead of the default anchor (return null to fall through). */
-  renderLink?: (href: string, children: ReactNode) => ReactNode | null
+  renderLink?: (href: string, children: ReactNode, options?: LinkRenderOptions) => ReactNode | null
 }
 
 export const MessageResponse = memo(

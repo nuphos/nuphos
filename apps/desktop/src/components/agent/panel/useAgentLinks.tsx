@@ -7,6 +7,7 @@ import { useLocalUrlLinks } from './useLocalUrlLinks'
 
 import type { GithubRef } from './githubRefs'
 import type { OpenLink } from './LocalUrlChip'
+import type { LinkRenderOptions } from '../localPreviewLink'
 import type { ReactNode } from 'react'
 
 function renderGithubLink(
@@ -31,10 +32,12 @@ export function useAgentLinks(teamId: string | undefined, onOpen?: OpenLink) {
   const renderLocal = useLocalUrlLinks(onOpen)
 
   return useCallback(
-    (href: string, children: ReactNode): ReactNode => {
+    (href: string, children: ReactNode, options?: LinkRenderOptions): ReactNode => {
       const ref = githubRef(href)
 
-      return ref ? renderGithubLink(ref, children, teamId, onOpen) : renderLocal(href, children)
+      return ref
+        ? renderGithubLink(ref, children, teamId, onOpen)
+        : renderLocal(href, children, options)
     },
     [onOpen, renderLocal, teamId],
   )

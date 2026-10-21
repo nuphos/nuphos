@@ -5,13 +5,14 @@ import { isBareLocalLink, localUrl } from './localUrls'
 import { flattenLinkText } from './messageInlineLinks'
 
 import type { OpenLink } from './LocalUrlChip'
+import type { LinkRenderOptions } from '../localPreviewLink'
 import type { ReactNode } from 'react'
 
 /** Renders a localhost link in agent text as a chip; other links fall through. A
  *  labelled link keeps its label, which GFM would otherwise drop as synthesized. */
 export function useLocalUrlLinks(onOpen?: OpenLink) {
   return useCallback(
-    (href: string, children: ReactNode): ReactNode | null => {
+    (href: string, children: ReactNode, options?: LinkRenderOptions): ReactNode | null => {
       const url = localUrl(href)
 
       if (!url) return null
@@ -22,6 +23,7 @@ export function useLocalUrlLinks(onOpen?: OpenLink) {
           url={url}
           label={isBareLocalLink(href, text) || !text ? undefined : text}
           onOpen={onOpen}
+          variant={options?.standalone ? 'card' : 'inline'}
         />
       )
     },
