@@ -18,6 +18,8 @@ export function ZoomableImage({
 }) {
   const viewport = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, Point>())
+  const dragStart = useRef<Point | null>(null)
+  const dragged = useRef(false)
   const anchor = useRef<{ point: Point; scale: number; left: number; top: number } | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [view, setView] = useState({ width: 0, height: 0 })
@@ -179,9 +181,12 @@ export function ZoomableImage({
         onDoubleClick={() => changeZoom(enlarged ? null : 1)}
         onPointerDown={(event) => {
           if (event.button !== 0) return
+          if (!pointers.current.size) {
+            dragStart.current = { x: event.clientX, y: event.clientY }
+            dragged.current = false
+          }
           if (enlarged || event.pointerType === 'touch') {
             pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
-            event.currentTarget.setPointerCapture(event.pointerId)
           }
           event.currentTarget.focus()
         }}
@@ -191,6 +196,15 @@ export function ZoomableImage({
           if (!previous) return
           const other = [...pointers.current.entries()].find(([id]) => id !== event.pointerId)?.[1]
           const next = { x: event.clientX, y: event.clientY }
+
+          if (
+            other ||
+            (dragStart.current &&
+              Math.hypot(next.x - dragStart.current.x, next.y - dragStart.current.y) > 5)
+          ) {
+            dragged.current = true
+            event.currentTarget.setPointerCapture(event.pointerId)
+          }
 
           if (other) {
             const oldDistance = Math.hypot(previous.x - other.x, previous.y - other.y)
@@ -215,7 +229,7 @@ export function ZoomableImage({
         <div
           className="grid place-items-center"
           onClick={(event) => {
-            if (!enlarged && event.target === event.currentTarget) onDismiss()
+            if (!dragged.current && event.target === event.currentTarget) onDismiss()
           }}
           style={{
             width: Math.max(view.width, size.width * scale),
