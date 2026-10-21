@@ -106,16 +106,12 @@ const USER = {
 const TEAM = '69e989027ab63e8d6a0ffcb6'
 const OTHER_TEAM = '69e989027ab63e8d6a0ffcb7'
 
-useDb({ db: (() => ({ collection })) as unknown as typeof dbActual.db })
+useDb({ db: () => ({ collection }) })
 useIdentity({
-  getNuphosUserById: (async (id: string) =>
-    id === USER.id ? USER : null) as unknown as typeof identityActual.getNuphosUserById,
-  getNuphosUserForCredential: (async (id: string) =>
-    id === USER.id ? USER : null) as unknown as typeof identityActual.getNuphosUserForCredential,
-  getTeamMembership: (async (_userId: string, teamId: string) =>
-    teamId === TEAM
-      ? { role: 'EDITOR' }
-      : null) as unknown as typeof identityActual.getTeamMembership,
+  getNuphosUserById: async (id: string) => (id === USER.id ? USER : null),
+  getNuphosUserForCredential: async (id: string) => (id === USER.id ? USER : null),
+  getTeamMembership: async (_userId: string, teamId: string) =>
+    teamId === TEAM ? { role: 'EDITOR' } : null,
 })
 
 const {
@@ -245,6 +241,8 @@ describe('what each token kind may call', () => {
       expect(cliTokenDenied(kind, 'POST', '/auth/cli-tokens')).not.toBeNull()
       expect(cliTokenDenied(kind, 'GET', '/auth/device/approve')).not.toBeNull()
       expect(cliTokenDenied(kind, 'POST', '/auth/device/approve')).not.toBeNull()
+      // A join token redeems into a device credential that survives revoking this one.
+      expect(cliTokenDenied(kind, 'POST', '/agent/devices/join-tokens')).not.toBeNull()
     }
   })
 
@@ -269,6 +267,12 @@ describe('what each token kind may call', () => {
       ['POST', `/teams/${TEAM}/invitations`],
       ['POST', `/teams/${TEAM}/leave`],
       ['GET', `/teams/${TEAM}/billing/usage`],
+      ['GET', '/agent/devices'],
+      ['PUT', '/agent/devices'],
+      ['POST', '/agent/devices/join-tokens'],
+      ['DELETE', '/agent/devices/d1'],
+      ['DELETE', '/agent/devices/d1/credential'],
+      ['POST', '/agent/devices/boxes'],
     ]) {
       expect([method, path, cliTokenDenied(agent, method!, path!)]).not.toEqual([
         method,

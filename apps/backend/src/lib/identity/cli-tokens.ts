@@ -107,7 +107,7 @@ export async function authenticateCliToken(
     // Best effort: a missed write only makes "last used" a minute staler.
     void cliTokens()
       .updateOne({ _id: doc._id }, { $set: { lastUsedAt: now } })
-      .catch(() => undefined)
+      .catch(() => {})
   }
 
   return { user, cliToken: toPrincipal(doc) }
@@ -140,22 +140,28 @@ function toPrincipal(doc: CliTokenDoc): CliTokenPrincipal {
   }
 }
 
-/** Both kinds: minting tokens and approving device codes take a real sign-in. */
+/**
+ * Both kinds: minting credentials takes a real sign-in, so a leaked CLI token
+ * cannot outlive its own revocation. That covers tokens, device-code approval
+ * and device join tokens (redeemed into an independent device credential).
+ */
 const SESSION_ONLY: [RegExp, RegExp][] = [
   [/^POST$/, /^\/auth\/cli-tokens\/?$/],
   [/./, /^\/auth\/device\/approve\/?$/],
+  [/^POST$/, /^\/agent\/devices\/join-tokens\/?$/],
 ]
 
 /**
  * Agent tokens act as their user inside one team, but never on the user's
- * account, their tokens, team membership or billing. Other teams are refused
- * by `token-team-scope`, not here.
+ * account, their tokens, their computers, team membership or billing. Other
+ * teams are refused by `token-team-scope`, not here.
  */
 const AGENT_DENIED: [RegExp, RegExp][] = [
   [/./, /^\/auth\/cli-tokens(\/|$)/],
   [/./, /^\/auth\/account-deletion/],
   [/^(PUT|PATCH|DELETE)$/, /^\/auth\/(me|ai-consent)(\/|$)/],
   [/./, /^\/push\//],
+  [/./, /^\/agent\/devices(\/|$)/],
   [/./, /^\/invitations(\/|$)/],
   [/./, /^\/personal-credentials(\/|$)/],
   [/^POST$/, /^\/teams\/?$/],
@@ -176,7 +182,7 @@ export function cliTokenDenied(
 
   if (hit(SESSION_ONLY)) return 'Sign in on nuphos.ai to do this; a CLI token cannot.'
   if (cliToken.kind === 'agent' && hit(AGENT_DENIED)) {
-    return 'An agent token cannot change the account, its tokens, team membership or billing.'
+    return 'An agent token cannot manage the account, its tokens, computers, team membership or billing.'
   }
 
   return null

@@ -17,6 +17,19 @@ export function tokenTeamScope(): string | undefined {
   return scope.getStore()?.teamId
 }
 
+/**
+ * The `teamId` a query must match under an agent token: its own team, or
+ * nothing at all when the caller names another one. Undefined without a token
+ * limit, so callers keep their usual filter. Team-less rows never match.
+ */
+export function tokenTeamFilter(teamId: string | undefined): string | { $in: [] } | undefined {
+  const limit = tokenTeamScope()
+
+  if (limit === undefined) return undefined
+
+  return teamId === undefined || teamId === limit ? limit : { $in: [] }
+}
+
 /** Whether a request limited by an agent token may touch `teamId`. */
 export function inTokenTeamScope(teamId: string | undefined): boolean {
   const limit = tokenTeamScope()

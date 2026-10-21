@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
+import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
-
 import type { GeneralAccess } from './access'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
@@ -278,21 +278,18 @@ export const agentMessages = (): Collection<AgentMessage> =>
 export const agentEvents = (): Collection<AgentEventDoc> =>
   db().collection<AgentEventDoc>(EVENT_COLLECTION_NAME)
 
-// Build a filter that scopes by teamId when provided. Pre-migration
-// conversations don't have a `teamId` field at all, so we accept both
-// `{ teamId }` and `{ teamId: { $exists: false } }` to keep them reachable
-// until the next transcript sync backfills the field. Without this, every
-// chat created before this PR would 404 / disappear from history.
+// Scope by teamId when given, keeping pre-migration conversations (no `teamId` yet) reachable.
+// An agent token gets its own team only: never another team, never team-less rows.
 export function withTeamScope(
   base: Record<string, unknown>,
   teamId: string | undefined,
 ): Record<string, unknown> {
+  const tokenTeam = tokenTeamFilter(teamId)
+
+  if (tokenTeam !== undefined) return { ...base, teamId: tokenTeam }
   if (!teamId) return base
 
-  return {
-    ...base,
-    $or: [{ teamId }, { teamId: { $exists: false } }],
-  }
+  return { ...base, $or: [{ teamId }, { teamId: { $exists: false } }] }
 }
 
 export function escapeRegExp(value: string): string {

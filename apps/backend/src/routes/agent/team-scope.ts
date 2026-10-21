@@ -1,8 +1,3 @@
-import type { AgentCredentialSelection } from './types'
-import type { AgentConversation } from '@/lib/agent/db'
-import type { AuthVariables } from '@/middleware/auth'
-import type { Context } from 'hono'
-
 import { getConversationBySessionId, getConversationWithMessages } from '@/lib/agent/db'
 import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import { parseUrlContext } from '@/lib/agent/url-context'
@@ -10,6 +5,11 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { tokenTeamScope } from '@/lib/identity/token-team-scope'
 import { isTeamIdShape } from '@/lib/team-id'
+
+import type { AgentCredentialSelection } from './types'
+import type { AgentConversation } from '@/lib/agent/db'
+import type { AuthVariables } from '@/middleware/auth'
+import type { Context } from 'hono'
 
 export function normalizeOptionalTeamId(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
@@ -53,22 +53,23 @@ export function sanitizeKubeContextHeader(raw: string | undefined): string | und
 }
 
 /**
- * Return the candidate teamId only if the authenticated caller is actually a
- * member of that team. Every client-supplied source of teamId (request body,
- * query string, X-Atlas-Url, referer, origin) is verified against Nuphos
- * team membership before being stored on conversations or used as a filter,
- * so a client can't forge or reassign conversations to teams they don't belong
- * to.
- *
- * Returns `undefined` when the candidate is missing, malformed, or the caller
- * is not a member.
+ * The candidate teamId, only if the caller is a member: every client-supplied
+ * teamId (body, query, X-Atlas-Url, referer, origin) is checked so a client
+ * can't forge or reassign conversations to other teams. `undefined` when it is
+ * missing, malformed or not the caller's; an agent token refuses any team but
+ * its own instead, since callers read `undefined` as the personal scope.
  */
 export async function resolveVerifiedTeamId(
   c: Context<{ Variables: AuthVariables }>,
   candidate: string | undefined,
 ): Promise<string | undefined> {
-  // An agent token always works in its own team, named or not.
-  if (!candidate) return tokenTeamScope()
+  const limit = tokenTeamScope()
+
+  if (limit && candidate && candidate !== limit) {
+    throw new AppError(403, 'team_out_of_scope', 'This agent token is limited to another team')
+  }
+
+  if (limit || !candidate) return limit
   if (!isTeamIdShape(candidate)) return undefined
   const userId = c.get('userId')
   const membership = await getTeamMembership(userId, candidate)
