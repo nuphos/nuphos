@@ -46,7 +46,7 @@ jobs:
           npm ci --ignore-scripts --prefix image/claude-agent-acp
           node image/claude-agent-acp/patch-adapter.mjs image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js
           node --check image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js
-          node --test test/claude-turn-completion-smoke.mjs test/claude-session-state-smoke.mjs test/claude-session-home-smoke.mjs test/claude-session-home-reload-smoke.mjs
+          node --test test/claude-turn-completion-smoke.mjs test/claude-session-state-smoke.mjs test/claude-session-home-smoke.mjs test/claude-session-home-reload-smoke.mjs test/claude-project-instructions-smoke.mjs
       - name: Stage the adapters into the Desktop Local runtime
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --no-openab

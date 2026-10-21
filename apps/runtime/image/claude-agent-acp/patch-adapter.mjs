@@ -54,7 +54,10 @@ const optionsAnchor = '            settingSources: ["user", "project", "local"],
 if (patched.split(suggestionCase).length !== 2 || patched.split(optionsAnchor).length !== 2)
   throw new Error('Expected one Claude prompt suggestion handoff.')
 patched = patched
-  .replace(optionsAnchor, `${optionsAnchor}            promptSuggestions: true,\n`)
+  .replace(
+    optionsAnchor,
+    '            settingSources: ["user"],\n            promptSuggestions: true,\n',
+  )
   .replace(
     suggestionCase,
     `                    case "prompt_suggestion":
@@ -68,9 +71,19 @@ patched = patched
                     case "tool_use_summary":
                         break;`,
   )
+// Only user settings load; the working directory's CLAUDE.md is appended as text.
+const instructionsAnchor =
+  '        const permissionMode = resolvePermissionMode(settingsManager.getSettings().permissions?.defaultMode, this.logger);\n'
+if (patched.split(instructionsAnchor).length !== 2)
+  throw new Error('Expected one Claude system prompt handoff.')
+patched = patched.replace(
+  instructionsAnchor,
+  `        systemPrompt = await nuphosWithProjectInstructions(systemPrompt, params.cwd);\n${instructionsAnchor}`,
+)
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
-patched = patchRuntimeDefaults(`${sessionHome}\n${helper}\n${patched}`)
+const instructions = readFileSync(new URL('./project-instructions.mjs', import.meta.url), 'utf8')
+patched = patchRuntimeDefaults(`${sessionHome}\n${helper}\n${instructions}\n${patched}`)
 // A live session keeps its query, and with it the HOME it started in, until its
 // fingerprint changes. Make the session home part of it, so a load for another
 // actor (a teammate, or automated work) recreates the query in that actor's home
