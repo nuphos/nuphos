@@ -1,11 +1,5 @@
 import type { RuntimeStatusView } from './runtimePresentation'
-import type {
-  AgentDevice,
-  BoxAccess,
-  BoxState,
-  BoxStatus,
-  LocalAgentProvider,
-} from '../../api/device-types'
+import type { AgentDevice, BoxState, BoxStatus, LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
 
 export type BoxDevice = AgentDevice & { box: BoxStatus }
@@ -138,11 +132,6 @@ export function canShareBox(device: AgentDevice): boolean {
   return device.box !== undefined && canManage(device)
 }
 
-/** What Save sends: everyone, or exactly the chosen members (admins need no entry). */
-export function accessPayload(everyone: boolean, chosen: Iterable<string>): BoxAccess {
-  return { everyone, userIds: everyone ? [] : [...chosen] }
-}
-
 /** A manager's view of who may use a Box; null for a computer or a viewer who only uses it. */
 export function accessHint(device: AgentDevice): string | null {
   const access = device.box?.access
@@ -246,22 +235,27 @@ export function boxSessions(memMiB: number): number {
 }
 
 const SIZE_TIERS = [
-  { name: 'Small Box', use: 'Good for light tasks' },
-  { name: 'Medium Box', use: 'Good for everyday work' },
-  { name: 'Large Box', use: 'Good for heavy builds' },
+  { name: 'Small', use: 'Light tasks' },
+  { name: 'Medium', use: 'Everyday work' },
+  { name: 'Large', use: 'Heavy builds' },
 ]
+
+const sessionCount = (n: number) => `${String(n)} session${n === 1 ? '' : 's'}`
 
 /** The sizes instabox offers, named by rank: the smallest is Small, the biggest Large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
   return sizes.map(({ vcpus, memMiB }, index) => {
     // 0 for the first, 2 for the last, 1 between.
-    const tier = SIZE_TIERS[index === 0 ? 0 : 2 - Number(index < sizes.length - 1)]
+    const rank = index === 0 ? 0 : 2 - Number(index < sizes.length - 1)
+    const tier = SIZE_TIERS[rank]
 
     return {
       vcpus,
+      rank,
       name: tier.name,
       spec: `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`,
-      description: `${tier.use} · up to ${String(boxSessions(memMiB))} sessions at once`,
+      use: tier.use,
+      sessions: `Up to ${sessionCount(boxSessions(memMiB))} at once`,
     }
   })
 }

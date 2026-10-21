@@ -123,16 +123,25 @@ export async function insertJoinedAgentDevice(
   })
 }
 
-/** A Box's device row exists from the moment the machine is ordered, so the UI can show it. */
+/**
+ * A Box's device row exists from the moment the machine is ordered, so the UI can show it.
+ * Its access is the creator's, plus `shared` when the route chose whom to share it with;
+ * whatever access the registration carries is ignored.
+ */
 export async function insertBoxAgentDevice(
   userId: string,
   device: AgentDeviceRegistration & { box: AgentDeviceBox },
+  shared?: { everyone: boolean; userIds: string[] },
 ): Promise<AgentDevice> {
   const now = new Date()
+  const access = {
+    everyone: shared?.everyone ?? false,
+    userIds: [...new Set([userId, ...(shared?.userIds ?? [])])],
+  }
   const created: AgentDevice = {
     ...device,
     userId,
-    box: { ...device.box, createdBy: userId, access: { everyone: false, userIds: [userId] } },
+    box: { ...device.box, createdBy: userId, access },
     createdAt: now,
     updatedAt: now,
   }

@@ -4,7 +4,16 @@ import { parseAtlasError } from '../../api/errors.ts'
 
 import type { TeamMember } from '../../types'
 
-export type BoxPaywallRequest = { id: number; teamId: string; message: string; retry: () => void }
+export type BoxPaywallRequest = {
+  id: number
+  teamId: string
+  message: string
+  retry: () => void
+  /** What happens once a plan is bought, when it is not the refused start running again. */
+  afterPaid?: string
+  /** The vCPU running the team needs, so plans too small are dimmed. */
+  needs?: number
+}
 
 let request: BoxPaywallRequest | null = null
 // The team's limit as first read after opening; a larger one later means a plan was bought.
@@ -35,10 +44,20 @@ export function openBoxPaywall(teamId: string, error: unknown, retry: () => void
   const { code, message } = parseAtlasError(error)
 
   if (code !== 'box_vcpu_limit') return false
-  opened += 1
-  set({ id: opened, teamId, message, retry })
+  openBoxPlans(teamId, message, retry)
 
   return true
+}
+
+/** Opens the plans without a refusal, as for a Box size the plan cannot fit; `retry` runs once one is bought. */
+export function openBoxPlans(
+  teamId: string,
+  message: string,
+  retry: () => void,
+  more: { afterPaid?: string; needs?: number } = {},
+): void {
+  opened += 1
+  set({ id: opened, teamId, message, retry, ...more })
 }
 
 /** Each read of the team's limit while the paywall is open: once it grows, close and start again. */

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { blockedStart, boxRows, chartTicks, tickLabel } from './billingPresentation.ts'
+import { blockedStart, boxRows, chartTicks, planFits, tickLabel } from './billingPresentation.ts'
 
 import type { AgentDevice, BoxUsage } from '../../api/device-types.ts'
 
@@ -70,4 +70,22 @@ test('chart ticks: 4-hourly for 24h, daily for 7d, every 5 days for 30d, each wi
     assert.equal(labels.length, count, range)
     assert.equal(new Set(labels).size, count, range)
   }
+})
+
+test('planFits marks the current plan, dims plans too small for the need, and recommends the smallest that fits', () => {
+  const plans = [{ vcpus: 4 }, { vcpus: 12, recommended: true }, { vcpus: 24 }]
+
+  assert.deepEqual(planFits(plans, 12, 16), [
+    { state: 'short', recommended: false },
+    { state: 'current', recommended: false },
+    { state: 'fits', recommended: true },
+  ])
+  assert.deepEqual(
+    planFits(plans, null).map((fit) => fit.recommended),
+    [false, true, false],
+  )
+  assert.deepEqual(
+    planFits(plans, 12).map((fit) => fit.state),
+    ['fits', 'current', 'fits'],
+  )
 })

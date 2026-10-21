@@ -28,8 +28,8 @@ export const deviceApi = {
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
   localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
   boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
-  boxCreate: (label?: string, teamId?: string, vcpus?: number) =>
-    window.api.boxCreate(label, teamId, vcpus),
+  boxCreate: (label?: string, teamId?: string, vcpus?: number, access?: BoxAccess) =>
+    window.api.boxCreate(label, teamId, vcpus, access),
   boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),

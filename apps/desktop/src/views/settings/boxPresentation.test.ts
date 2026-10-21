@@ -6,7 +6,6 @@ import {
   boxSessions,
   boxSizeChoices,
   accessHint,
-  accessPayload,
   canShareBox,
   removal,
   BOX_BADGE,
@@ -170,20 +169,24 @@ test('sizes are named by rank and say how many sessions they hold', () => {
   assert.deepEqual(boxSizeChoices([small, large]), [
     {
       vcpus: 4,
-      name: 'Small Box',
+      rank: 0,
+      name: 'Small',
       spec: '4 vCPU · 8 GiB',
-      description: 'Good for light tasks · up to 3 sessions at once',
+      use: 'Light tasks',
+      sessions: 'Up to 3 sessions at once',
     },
     {
       vcpus: 8,
-      name: 'Large Box',
+      rank: 2,
+      name: 'Large',
       spec: '8 vCPU · 16 GiB',
-      description: 'Good for heavy builds · up to 8 sessions at once',
+      use: 'Heavy builds',
+      sessions: 'Up to 8 sessions at once',
     },
   ])
   assert.deepEqual(
     boxSizeChoices([small, { vcpus: 6, memMiB: 12288 }, large]).map((c) => c.name),
-    ['Small Box', 'Medium Box', 'Large Box'],
+    ['Small', 'Medium', 'Large'],
   )
   assert.equal(boxSessions(4096), 1)
 })
@@ -249,14 +252,6 @@ test('a Box goes Starting, then Connecting until its host joins, then Running; b
   assert.equal(boxPollMs([box('b', 'connecting', false)], false), 1_000)
 })
 
-test('Save sends everyone, or exactly the chosen members', () => {
-  assert.deepEqual(accessPayload(true, new Set(['u1'])), { everyone: true, userIds: [] })
-  assert.deepEqual(accessPayload(false, new Set(['u1', 'u2'])), {
-    everyone: false,
-    userIds: ['u1', 'u2'],
-  })
-})
-
 test('only a manager sees who may use a Box', () => {
   const shared = (access: { everyone: boolean; userIds: string[] }, level: 'use' | 'manage') =>
     ({
@@ -282,4 +277,8 @@ test('only a manager sees who may use a Box', () => {
     canShareBox({ deviceId: 'c1', label: 'Mac', platform: 'darwin', access: 'manage' }),
     false,
   )
+})
+
+test('boxSizeChoices says "1 session", not "1 sessions"', () => {
+  assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 session at once')
 })

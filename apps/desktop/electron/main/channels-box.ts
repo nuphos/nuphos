@@ -66,11 +66,18 @@ export const boxChannels = {
     boxBillingPage(string(teamId), typeof vcpus === 'number' ? vcpus : undefined),
   'box:billingSummary': (_e: unknown, teamId: unknown) => boxBillingSummary(string(teamId)),
   'box:listDevices': (_e?: unknown, options?: AgentDeviceListOptions) => listAgentDevices(options),
-  'box:create': (_e: unknown, label?: unknown, teamId?: unknown, vcpus?: unknown) =>
+  'box:create': (
+    _e: unknown,
+    label?: unknown,
+    teamId?: unknown,
+    vcpus?: unknown,
+    access?: unknown,
+  ) =>
     createBox(
       optionalString(label),
       optionalString(teamId),
       typeof vcpus === 'number' ? vcpus : undefined,
+      access === undefined ? undefined : boxAccess(access),
     ),
   'box:createAgent': (_e: unknown, deviceId: unknown, teamId: unknown, provider: unknown) =>
     createDeviceAgent(string(deviceId), string(teamId), agentProvider(provider)),

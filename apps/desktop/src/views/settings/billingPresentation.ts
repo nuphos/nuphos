@@ -94,3 +94,29 @@ export const tickLabel = (at: number, range: '1d' | '7d' | '30d') =>
     undefined,
     range === '1d' ? { hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric' },
   )
+
+export type PlanFit = { state: 'current' | 'short' | 'fits'; recommended: boolean }
+
+/**
+ * How each plan stands for the team: the one it has, those too small for `needs` vCPU running,
+ * and the rest. The smallest that fits is recommended; without a need, the catalog's own pick.
+ */
+export function planFits(
+  plans: readonly { vcpus: number; recommended?: boolean }[],
+  current: number | null,
+  needs?: number,
+): PlanFit[] {
+  const fits = (vcpus: number) => vcpus !== current && (needs === undefined || vcpus >= needs)
+  const best =
+    needs === undefined
+      ? plans.find((plan) => plan.recommended && fits(plan.vcpus))
+      : plans.find((plan) => fits(plan.vcpus))
+
+  return plans.map((plan) => {
+    let state: PlanFit['state'] = fits(plan.vcpus) ? 'fits' : 'short'
+
+    if (plan.vcpus === current) state = 'current'
+
+    return { state, recommended: plan === best }
+  })
+}

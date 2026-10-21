@@ -21,6 +21,7 @@ test('Box IPC channels scope the list and every Box action to the page team', as
   await boxChannels['box:create'](null, 'demo', 'team-1')
   await boxChannels['box:create'](null, undefined, 'team-1')
   await boxChannels['box:create'](null, undefined, 'team-1', 8)
+  await boxChannels['box:create'](null, 'demo', 'team-1', 4, { everyone: true, userIds: [] })
   await boxChannels['box:pause'](null, 'dev/1', 'team-1')
   await boxChannels['box:resume'](null, 'dev/1', 'team-1')
   await boxChannels['box:delete'](null, 'dev/1', 'team-1')
@@ -39,6 +40,11 @@ test('Box IPC channels scope the list and every Box action to the page team', as
       ['POST', '/agent/devices/boxes', { teamId: 'team-1', label: 'demo' }],
       ['POST', '/agent/devices/boxes', { teamId: 'team-1' }],
       ['POST', '/agent/devices/boxes', { teamId: 'team-1', vcpus: 8 }],
+      [
+        'POST',
+        '/agent/devices/boxes',
+        { teamId: 'team-1', label: 'demo', vcpus: 4, access: { everyone: true, userIds: [] } },
+      ],
       ['POST', '/agent/devices/dev%2F1/box/pause?teamId=team-1', undefined],
       ['POST', '/agent/devices/dev%2F1/box/resume?teamId=team-1', undefined],
       ['DELETE', '/agent/devices/dev%2F1/box?teamId=team-1', undefined],

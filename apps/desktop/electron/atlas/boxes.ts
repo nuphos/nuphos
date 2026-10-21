@@ -8,6 +8,7 @@ import type {
   AgentDeviceList,
   AgentDeviceListOptions,
   BillingSummary,
+  BoxAccess,
   BoxUsage,
   BoxUsageHistory,
   DeviceAgentInstance,
@@ -54,11 +55,21 @@ export async function listAgentDevices(options?: AgentDeviceListOptions): Promis
     ),
   }
 }
-export function createBox(label?: string, teamId?: string, vcpus?: number): Promise<AgentDevice> {
+export function createBox(
+  label?: string,
+  teamId?: string,
+  vcpus?: number,
+  access?: BoxAccess,
+): Promise<AgentDevice> {
   return call(
     'POST',
     '/agent/devices/boxes',
-    { ...(label ? { label } : {}), ...(teamId ? { teamId } : {}), ...(vcpus ? { vcpus } : {}) },
+    {
+      ...(label ? { label } : {}),
+      ...(teamId ? { teamId } : {}),
+      ...(vcpus ? { vcpus } : {}),
+      ...(access ? { access } : {}),
+    },
     { retry: false },
   )
 }

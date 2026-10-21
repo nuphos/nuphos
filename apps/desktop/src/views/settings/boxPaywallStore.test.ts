@@ -5,6 +5,7 @@ import {
   boxPaywall,
   boxPaywallLimitRead,
   openBoxPaywall,
+  openBoxPlans,
   paywallAudience,
 } from './boxPaywallStore.ts'
 
@@ -93,4 +94,22 @@ test('a member who is not an administrator is told which administrators can upgr
   )
   assert.equal(paywallAudience(members, 'u3').isAdmin, true)
   assert.equal(paywallAudience([], 'u1').isAdmin, false)
+})
+
+test('a size the plan cannot fit opens the plans directly, with its own note for after paying', () => {
+  let picked = 0
+
+  openBoxPlans(
+    't1',
+    'Large needs 8 vCPU',
+    () => {
+      picked += 1
+    },
+    { afterPaid: 'It is selected for you.', needs: 16 },
+  )
+  assert.equal(boxPaywall.current()?.message, 'Large needs 8 vCPU')
+  assert.equal(boxPaywall.current()?.afterPaid, 'It is selected for you.')
+  assert.equal(boxPaywall.current()?.needs, 16)
+  boxPaywall.current()?.retry()
+  assert.equal(picked, 1)
 })

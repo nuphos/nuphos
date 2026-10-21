@@ -25,6 +25,13 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
     if (usage) boxPaywallLimitRead(usage.limitVcpus)
   }, [usage])
   const names = either.format(admins.map(memberDisplayName))
+  // A team with a plan changes it in the billing portal; one without starts at Checkout.
+  const opens = usage?.subscribed
+    ? 'Your billing portal opens in your browser to change plans.'
+    : 'Checkout opens in your browser.'
+  const hint = isAdmin
+    ? `${opens} ${request.afterPaid ?? 'Once you have paid, your Box starts here on its own.'}`
+    : `Only team administrators can choose a plan. Ask ${names || 'a team administrator'} to upgrade.`
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && boxPaywall.close()}>
@@ -48,12 +55,12 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
             </Dialog.Close>
           </div>
           <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-5 py-4">
-            <PlanCards billing={isAdmin ? billing : null} />
-            <p className="text-[13px] text-tertiary">
-              {isAdmin
-                ? 'Checkout opens in your browser. Once you have paid, your Box starts here on its own.'
-                : `Only team administrators can choose a plan. Ask ${names || 'a team administrator'} to upgrade.`}
-            </p>
+            <PlanCards
+              billing={isAdmin ? billing : null}
+              current={usage?.subscribed ? usage.limitVcpus : null}
+              needs={request.needs}
+            />
+            <p className="text-[13px] text-tertiary">{hint}</p>
           </div>
           <div className="flex justify-end border-t border-zGray-800 px-5 py-3">
             <Button size="sm" variant="ghost" onClick={boxPaywall.close}>

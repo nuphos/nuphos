@@ -1,6 +1,10 @@
 import { ipcRenderer } from 'electron'
 
-import type { AgentDeviceListOptions, LocalAgentProvider } from '../../src/api/device-types.ts'
+import type {
+  AgentDeviceListOptions,
+  BoxAccess,
+  LocalAgentProvider,
+} from '../../src/api/device-types.ts'
 
 export const deviceApi = {
   onWindowFullScreenChanged: (cb: (fullScreen: boolean) => void) => {
@@ -38,8 +42,8 @@ export const deviceApi = {
     ipcRenderer.invoke('localRuntime:listActivity', before),
   boxListDevices: (options?: AgentDeviceListOptions) =>
     ipcRenderer.invoke('box:listDevices', options),
-  boxCreate: (label?: string, teamId?: string, vcpus?: number) =>
-    ipcRenderer.invoke('box:create', label, teamId, vcpus),
+  boxCreate: (label?: string, teamId?: string, vcpus?: number, access?: BoxAccess) =>
+    ipcRenderer.invoke('box:create', label, teamId, vcpus, access),
   boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:resume', deviceId, teamId),

@@ -89,12 +89,14 @@ function backendUrl(): string {
  * Registers the device row at once and returns; ordering, installing and
  * joining run in the background. The row shows `creating` until the host joins.
  * If any step fails, the machine, the row and its token are removed again.
+ * `shared` is whom it is shared with besides its creator, already limited to the team's members.
  */
 export async function createBox(
   userId: string,
   teamId: string,
   label: string,
   vcpus?: number,
+  shared?: { everyone: boolean; userIds: string[] },
 ): Promise<AgentDevice> {
   const url = backendUrl()
   const size = await boxSize(vcpus)
@@ -108,7 +110,7 @@ export async function createBox(
   }
 
   const created = await startWithinLimit(teamId, { vcpus: size.vcpus }, () =>
-    insertBoxAgentDevice(userId, registration),
+    insertBoxAgentDevice(userId, registration, shared),
   )
 
   void order(userId, url, registration, size)
