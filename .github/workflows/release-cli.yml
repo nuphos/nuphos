@@ -157,6 +157,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/desktop/pnpm-lock.yaml
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       # Attested openab from openab-cache.yml on main; otherwise the next step compiles it.
