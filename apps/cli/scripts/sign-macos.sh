@@ -25,7 +25,7 @@ printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$SIGNING_DIR/AuthKey.p8
 codesign --force --sign "$IDENTITY" \
   --identifier ai.nuphos.cli --options runtime --timestamp "$BINARY"
 REQUIREMENT='identifier "ai.nuphos.cli" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "6T873K59LQ"'
-codesign --verify --strict --verbose=2 -R "$REQUIREMENT" "$BINARY"
+codesign --verify --strict --verbose=2 -R "=$REQUIREMENT" "$BINARY"
 codesign --display --requirements - "$BINARY"
 
 # notarytool accepts ZIP, not tar.gz. Raw Mach-O binaries cannot be stapled;
