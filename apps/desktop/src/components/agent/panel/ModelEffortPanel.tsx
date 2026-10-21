@@ -1,12 +1,13 @@
 import { Slider } from '@base-ui/react/slider'
 import clsx from 'clsx'
 import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { effortLabel } from '../../../lib/configLabels'
 import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
 import { Tooltip } from '../../ui/tooltip'
 
+import { effortCommit } from './effortCommit'
 import { fastUnavailableReason } from './modelSelectorParts'
 
 import type { SessionConfigOption } from '../../../api/session-config-types'
@@ -87,6 +88,9 @@ export function ModelEffortPanel({
   // A draft only holds until the runtime reports a different level.
   const [draft, setDraft] = useState<{ index: number; from: string }>()
   const [wasSaving, setWasSaving] = useState(saving)
+  const [commit] = useState(effortCommit)
+
+  useEffect(() => () => commit.flush(), [commit])
 
   // Drop a draft once the runtime reports any change, or once a save ends,
   // so a failed change never lingers on the slider.
@@ -172,9 +176,11 @@ export function ModelEffortPanel({
         onValueCommitted={(value) => {
           const stop = stops[value]
 
-          // Commit before the popover can unmount. A delayed write is lost when
-          // someone picks a level and immediately returns to the conversation.
-          if (stop && stop.value !== effort.currentValue) onSelect(effort.id, stop.value)
+          commit.schedule(
+            stop && stop.value !== effort.currentValue
+              ? () => onSelect(effort.id, stop.value)
+              : undefined,
+          )
         }}
         className="mt-4 data-[disabled]:opacity-60"
       >
