@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 
-import { AGENT_USAGE_COLUMNS, AgentUsageRow } from './AgentUsageRow'
 import { HeatmapSkeleton } from './AgentUsageSkeleton'
 import { GAP_FILL, RangeSwitch } from './MetricChart'
 import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
@@ -11,7 +10,6 @@ import { UsageHeatmap } from './UsageHeatmap'
 
 import type {
   RuntimeInstance,
-  RuntimeQuota,
   RuntimeQuotaHistoryRange,
   RuntimeQuotaHistorySeries,
 } from '../../types/runtime'
@@ -23,18 +21,14 @@ const RANGE_OPTIONS = (Object.keys(QUOTA_HISTORY_RANGES) as RuntimeQuotaHistoryR
 const POLL_MS = 600_000
 
 /** How much of each agent's subscription the team used over the last day, week or
- *  month: a heatmap of every agent's busiest plan window, then one row per agent. */
+ *  month: a heatmap of every agent's busiest plan window. */
 export function RuntimeQuotaHistory({
   teamId,
   instances,
-  quotas,
-  selectedId,
   onSelect,
 }: {
   teamId: string
   instances: readonly RuntimeInstance[]
-  quotas: ReadonlyMap<string, RuntimeQuota>
-  selectedId: string | null
   onSelect: (runtimeId: string) => void
 }) {
   const [range, setRange] = useState<RuntimeQuotaHistoryRange>('1d')
@@ -69,7 +63,7 @@ export function RuntimeQuotaHistory({
   const shownRange = loaded?.range ?? range
 
   return (
-    <section className="@container mb-10">
+    <section className="@container">
       <PanelHeading
         title="Subscription usage"
         hint={`Highest share of each plan window used per ${QUOTA_HISTORY_RANGES[shownRange].bucketLabel}`}
@@ -102,25 +96,6 @@ export function RuntimeQuotaHistory({
         ) : (
           <UsageHeatmap rows={rows} range={loaded.range} nowMs={loaded.nowMs} onSelect={onSelect} />
         ))}
-      <div className="overflow-hidden rounded-xl border border-zGray-800/60 bg-surface/40">
-        <div
-          className={`grid ${AGENT_USAGE_COLUMNS} border-b border-zGray-800/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary`}
-        >
-          <span>Agent</span>
-          <span className="hidden @3xl:block">Runs on</span>
-          <span>Usage</span>
-          <span />
-        </div>
-        {instances.map((instance) => (
-          <AgentUsageRow
-            key={instance.id}
-            instance={instance}
-            quota={quotas.get(instance.id)}
-            selected={selectedId === instance.id}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
     </section>
   )
 }
