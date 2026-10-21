@@ -114,12 +114,17 @@ export function supportsPermissionRelay(initializeResult: unknown): boolean {
   )
 }
 
-export function supportsRuntimeAuthority(initializeResult: Record<string, unknown>): boolean {
-  const capabilities = initializeResult.agentCapabilities as
-    { _meta?: Record<string, unknown> } | undefined
-
-  return capabilities?._meta?.['dev.openab/sessionAuthority'] === 2
+function runtimeCapability(initializeResult: Record<string, unknown>, name: string) {
+  return (initializeResult.agentCapabilities as { _meta?: Record<string, unknown> } | undefined)
+    ?._meta?.[name]
 }
+
+export const supportsRuntimeAuthority = (initializeResult: Record<string, unknown>) =>
+  runtimeCapability(initializeResult, 'dev.openab/sessionAuthority') === 2
+
+/** The runtime accepts `_openab/session/credentials` while a turn runs. */
+export const supportsCredentialRefresh = (initializeResult: Record<string, unknown>) =>
+  runtimeCapability(initializeResult, 'dev.openab/credentialRefresh') === true
 
 // The skills credential names the turn's sender, whose personal skills the runtime
 // re-syncs before each prompt.
@@ -131,12 +136,14 @@ const REFRESHED_CREDENTIALS = [
 
 // OpenAB rewrites these as per-session files on every prompt, so a live agent
 // reads the current value instead of the one its process env was spawned with.
-function runtimeCredentials(env: Record<string, string> | undefined) {
-  const entries = REFRESHED_CREDENTIALS.flatMap((key): [string, string][] =>
-    env?.[key] ? [[key, env[key]]] : [],
-  )
+export function sessionCredentials(env: Record<string, string> = {}) {
+  return Object.fromEntries(REFRESHED_CREDENTIALS.filter((key) => env[key]).map((k) => [k, env[k]]))
+}
 
-  return entries.length > 0 ? { 'dev.openab/credentials': Object.fromEntries(entries) } : {}
+function runtimeCredentials(env: Record<string, string> | undefined) {
+  const credentials = sessionCredentials(env)
+
+  return Object.keys(credentials).length > 0 ? { 'dev.openab/credentials': credentials } : {}
 }
 
 // claude-agent-acp reads `_meta.systemPrompt` on session/new and session/load:

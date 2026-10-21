@@ -4,6 +4,7 @@ import {
   runtimeBuildInfo,
   runtimeJobs,
   supportsPermissionRelay,
+  supportsCredentialRefresh,
   supportsRuntimeAuthority,
 } from './openab-acp-session'
 
@@ -32,7 +33,8 @@ export type TeamPreviewClient = Pick<
   | 'onRetired'
   | 'onSessionUpdate'
   | 'onSessionPermission'
->
+> &
+  Partial<Pick<OpenAbAcpClient, 'credentialRefresh' | 'refreshCredentials'>>
 
 export type TeamRuntimeEndpoint = {
   runtimeId?: string
@@ -161,6 +163,7 @@ export function createTeamRuntimeRegistry<Client extends TeamPreviewClient>(
             }
 
             jobsByKey.set(key, runtimeJobs(initialized))
+            client.credentialRefresh = supportsCredentialRefresh(initialized)
 
             return runtimeBuildInfo(initialized)
           } catch (error) {

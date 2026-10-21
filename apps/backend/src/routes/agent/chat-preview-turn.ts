@@ -78,7 +78,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const pauses = new AbortController()
   // Mid-turn assistant/user segments persisted before the final assistant.
   const steered: UIMessage[] = []
-  const segmentStepStart = 0
   const steer = trackSteerCutOff(state.emit, toolLog)
 
   appendAgentRunPhase(run, 'connecting-model')
@@ -152,6 +151,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       endpoint: args.endpoint,
       mcpServers: access.mcpServers,
       runtime: { provider: args.endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
+      renewAccess: access.renew,
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta) => {
@@ -200,7 +200,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
         orderedParts.materialize(interruptToolSteps(toolLog.list())),
       ),
       toolSteps: toolLog.list(),
-      finalStepStart: segmentStepStart,
+      finalStepStart: 0,
       steered,
       error,
       diagnostics: diagnostic.finish(error),
@@ -286,7 +286,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       reasoning: acc.reasoning,
       orderedParts: orderedParts.materialize(toolLog.list()),
       toolSteps: toolLog.list(),
-      finalStepStart: segmentStepStart,
+      finalStepStart: 0,
       steered,
       memory: prepared.memory,
       emit: state.emit,
