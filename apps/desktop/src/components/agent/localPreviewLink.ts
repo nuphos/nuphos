@@ -12,7 +12,7 @@ export function standaloneLocalLink(children: ReactNode) {
 
   for (const node of Children.toArray(children)) {
     if (typeof node === 'string') {
-      if (link ? !/^[\s.!?]*$/.test(node) : Boolean(node.trim())) return null
+      if (link ? !/^[\s.!?。！？｡．]*$/u.test(node) : Boolean(node.trim())) return null
       continue
     }
     if (link || !isValidElement<{ href?: unknown; children?: ReactNode }>(node)) return null
