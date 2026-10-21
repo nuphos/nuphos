@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, setSystemTime, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, setSystemTime, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -135,6 +135,9 @@ beforeEach(() => {
   now = new Date('2026-10-21T00:00:00Z')
   setSystemTime(now)
 })
+
+// The clock is process-wide: left frozen, every later suite's timers stall.
+afterAll(() => setSystemTime())
 
 describe('device login', () => {
   test('approved as an agent: one poll gets a working agent token, then the request is gone', async () => {
