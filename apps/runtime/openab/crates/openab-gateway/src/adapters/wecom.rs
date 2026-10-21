@@ -656,116 +656,73 @@ struct WecomMessage {
     file_name: String,
 }
 
-fn parse_envelope_xml(xml: &str) -> Result<CallbackEnvelope> {
+/// Collects the text of each element in a flat WeCom callback XML document.
+/// Text, CDATA and entity references inside one element are concatenated.
+fn parse_xml_fields(xml: &str) -> Result<std::collections::HashMap<String, String>> {
+    use quick_xml::escape::resolve_predefined_entity;
     use quick_xml::events::Event;
     use quick_xml::Reader;
 
     let mut reader = Reader::from_str(xml);
-    let mut to_user_name = String::new();
-    let mut encrypt = String::new();
+    let mut fields = std::collections::HashMap::new();
     let mut current_tag = String::new();
 
     loop {
-        match reader.read_event() {
+        let text = match reader.read_event() {
             Ok(Event::Start(e)) => {
                 current_tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
-            }
-            Ok(Event::CData(e)) => {
-                let text = String::from_utf8_lossy(&e).to_string();
-                match current_tag.as_str() {
-                    "ToUserName" => to_user_name = text,
-                    "Encrypt" => encrypt = text,
-                    _ => {}
-                }
-            }
-            Ok(Event::Text(e)) => {
-                let text = e.decode().unwrap_or_default().to_string();
-                match current_tag.as_str() {
-                    "ToUserName" if to_user_name.is_empty() => to_user_name = text,
-                    "Encrypt" if encrypt.is_empty() => encrypt = text,
-                    _ => {}
-                }
+                continue;
             }
             Ok(Event::End(_)) => {
                 current_tag.clear();
+                continue;
             }
+            Ok(Event::Text(e)) => e.decode()?.into_owned(),
+            Ok(Event::CData(e)) => String::from_utf8_lossy(&e).into_owned(),
+            Ok(Event::GeneralRef(e)) => match e.resolve_char_ref()? {
+                Some(ch) => ch.to_string(),
+                None => {
+                    let name = e.decode()?;
+                    resolve_predefined_entity(&name)
+                        .ok_or_else(|| anyhow::anyhow!("unknown xml entity &{name};"))?
+                        .to_string()
+                }
+            },
             Ok(Event::Eof) => break,
             Err(e) => anyhow::bail!("xml parse error: {e}"),
-            _ => {}
+            _ => continue,
+        };
+        if !current_tag.is_empty() {
+            fields.entry(current_tag.clone()).or_insert_with(String::new).push_str(&text);
         }
     }
 
+    Ok(fields)
+}
+
+fn parse_envelope_xml(xml: &str) -> Result<CallbackEnvelope> {
+    let mut fields = parse_xml_fields(xml)?;
+    let encrypt = fields.remove("Encrypt").unwrap_or_default();
     if encrypt.is_empty() {
         anyhow::bail!("missing Encrypt field in callback XML");
     }
     Ok(CallbackEnvelope {
-        to_user_name,
+        to_user_name: fields.remove("ToUserName").unwrap_or_default(),
         encrypt,
     })
 }
 
 fn parse_message_xml(xml: &str) -> Result<WecomMessage> {
-    use quick_xml::events::Event;
-    use quick_xml::Reader;
-
-    let mut reader = Reader::from_str(xml);
-    let mut from_user = String::new();
-    let mut msg_type = String::new();
-    let mut content = String::new();
-    let mut msg_id = String::new();
-    let mut pic_url = String::new();
-    let mut media_id = String::new();
-    let mut file_name = String::new();
-    let mut current_tag = String::new();
-
-    loop {
-        match reader.read_event() {
-            Ok(Event::Start(e)) => {
-                current_tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
-            }
-            Ok(Event::CData(e)) => {
-                let text = String::from_utf8_lossy(&e).to_string();
-                match current_tag.as_str() {
-                    "FromUserName" => from_user = text,
-                    "MsgType" => msg_type = text,
-                    "Content" => content = text,
-                    "MsgId" => msg_id = text,
-                    "PicUrl" => pic_url = text,
-                    "MediaId" => media_id = text,
-                    "FileName" => file_name = text,
-                    _ => {}
-                }
-            }
-            Ok(Event::Text(e)) => {
-                let text = e.decode().unwrap_or_default().to_string();
-                match current_tag.as_str() {
-                    "FromUserName" if from_user.is_empty() => from_user = text,
-                    "MsgType" if msg_type.is_empty() => msg_type = text,
-                    "Content" if content.is_empty() => content = text,
-                    "MsgId" if msg_id.is_empty() => msg_id = text,
-                    "PicUrl" if pic_url.is_empty() => pic_url = text,
-                    "MediaId" if media_id.is_empty() => media_id = text,
-                    "FileName" if file_name.is_empty() => file_name = text,
-                    _ => {}
-                }
-            }
-            Ok(Event::End(_)) => {
-                current_tag.clear();
-            }
-            Ok(Event::Eof) => break,
-            Err(e) => anyhow::bail!("xml parse error: {e}"),
-            _ => {}
-        }
-    }
-
+    let mut fields = parse_xml_fields(xml)?;
+    let mut take = |name: &str| fields.remove(name).unwrap_or_default();
     Ok(WecomMessage {
-        from_user,
-        msg_type,
-        content,
-        msg_id,
-        pic_url,
-        media_id,
-        file_name,
+        from_user: take("FromUserName"),
+        msg_type: take("MsgType"),
+        content: take("Content"),
+        msg_id: take("MsgId"),
+        pic_url: take("PicUrl"),
+        media_id: take("MediaId"),
+        file_name: take("FileName"),
     })
 }
 
@@ -1575,6 +1532,16 @@ mod tests {
         assert_eq!(msg.msg_type, "text");
         assert_eq!(msg.content, "hello bot");
         assert_eq!(msg.msg_id, "1234567890123456");
+    }
+
+    #[test]
+    fn parse_escaped_text_fields() {
+        let xml = "<xml><FromUserName>user&#49;</FromUserName><MsgType>image</MsgType><Content>A&amp;B &lt;C&gt;</Content><PicUrl>http://example.com/p.jpg?a=1&amp;b=2</PicUrl></xml>";
+
+        let msg = parse_message_xml(xml).unwrap();
+        assert_eq!(msg.from_user, "user1");
+        assert_eq!(msg.content, "A&B <C>");
+        assert_eq!(msg.pic_url, "http://example.com/p.jpg?a=1&b=2");
     }
 
     #[test]
