@@ -81,7 +81,7 @@ export async function requestEmailCode(email: string): Promise<void> {
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
   const attempt = signInAttempt()
-  const res = await fetch(`${loginApiUrl()}/auth/email/verify-code`, {
+  const res = await fetch(`${attempt.api}/auth/email/verify-code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, code }),
@@ -143,8 +143,14 @@ export function cancelAddAccount() {
   stageLoginApiUrl(null)
 }
 
-/** Stages the backend the next sign-in goes to, without leaving the current one. */
+/**
+ * Stages the backend the next sign-in goes to, without leaving the current
+ * one. A sign-in already under way belongs to the previous backend, so it is
+ * cancelled rather than saved on the new one.
+ */
 export function stageLoginEndpoint(url: string | null): string {
+  cancelPendingLogin()
+
   return stageLoginApiUrl(url)
 }
 

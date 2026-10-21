@@ -42,6 +42,17 @@ test('a sign-in on a staged backend is saved there, leaving the current backend 
   assert.equal(loginApiUrl(), apiUrl())
 })
 
+test('a sign-in is saved on the backend it started on, even if another is staged meanwhile', async () => {
+  saved.length = 0
+  stageLoginApiUrl('https://b.example.com')
+  const attempt = signInAttempt()
+
+  stageLoginApiUrl('https://c.example.com')
+  await saveSignIn(attempt, { token: 'tok-b', userInfo: USER })
+
+  assert.equal(saved[0]?.apiUrl, 'https://b.example.com')
+})
+
 test('staging the current backend stages nothing', () => {
   assert.equal(stageLoginApiUrl('https://api.nuphos.ai/'), 'https://api.nuphos.ai')
   assert.equal(loginApiUrl(), apiUrl())

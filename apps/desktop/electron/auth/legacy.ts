@@ -1,4 +1,3 @@
-import { loginApiUrl } from '../api-endpoint.ts'
 import { parseCallbackUser } from '../auth-status.ts'
 
 import { LOGIN_TIMEOUT_MS, onCallback } from './callback-server.ts'
@@ -46,7 +45,7 @@ export async function completeLegacyLogin(
           // leave the browser claiming success with the token dropped.
           const user =
             parseCallbackUser(received.params.get('user'), token) ??
-            (await fetchUserInfo(token, loginApiUrl()))
+            (await fetchUserInfo(token, attempt.api))
 
           await saveSignIn(attempt, {
             token,

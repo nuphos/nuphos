@@ -9,9 +9,12 @@ import type { Config } from './config.ts'
 // email code already submitted) is dropped instead of switching accounts.
 let attempt = 0
 
+/** A sign-in in progress: its number, and the backend it was started on. */
+export type SignInAttempt = { id: number; api: string }
+
 /** The attempt a sign-in starting now belongs to. */
-export function signInAttempt(): number {
-  return attempt
+export function signInAttempt(): SignInAttempt {
+  return { id: attempt, api: loginApiUrl() }
 }
 
 /** Starts a new attempt, dropping whatever the previous one completes. */
@@ -21,9 +24,9 @@ export function cancelSignIn(): number {
   return attempt
 }
 
-/** Saves a completed sign-in, on the backend it was made on, unless its attempt was cancelled. */
-export async function saveSignIn(of: number, cfg: Config): Promise<void> {
-  if (of !== attempt) throw new Error('Sign-in cancelled')
-  await writeConfig({ ...cfg, apiUrl: loginApiUrl() })
+/** Saves a completed sign-in, on the backend it was started on, unless its attempt was cancelled. */
+export async function saveSignIn(of: SignInAttempt, cfg: Config): Promise<void> {
+  if (of.id !== attempt) throw new Error('Sign-in cancelled')
+  await writeConfig({ ...cfg, apiUrl: of.api })
   stageLoginApiUrl(null)
 }

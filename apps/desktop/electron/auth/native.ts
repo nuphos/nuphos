@@ -1,4 +1,3 @@
-import { loginApiUrl } from '../api-endpoint.ts'
 import { isValidUserInfo } from '../auth-status.ts'
 
 import {
@@ -22,6 +21,7 @@ type RedeemOutcome =
   | { status: 'failed'; message: string }
 
 async function redeemNativeSession(
+  api: string,
   handle: string,
   codeVerifier: string,
   code: string,
@@ -29,7 +29,7 @@ async function redeemNativeSession(
   let res: Response
 
   try {
-    res = await fetch(`${loginApiUrl()}/auth/native/session/redeem`, {
+    res = await fetch(`${api}/auth/native/session/redeem`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ handle, codeVerifier, code }),
@@ -106,7 +106,12 @@ export async function completeNativeLogin(
     // Retried rather than done once, so a network blip on the exchange does not
     // throw away a sign-in the user has already completed.
     if (browser.code) {
-      const outcome = await redeemNativeSession(plan.handle, plan.codeVerifier, browser.code)
+      const outcome = await redeemNativeSession(
+        attempt.api,
+        plan.handle,
+        plan.codeVerifier,
+        browser.code,
+      )
 
       if (outcome.status === 'failed') {
         browser.hit?.respond(500, errorPage(outcome.message))
