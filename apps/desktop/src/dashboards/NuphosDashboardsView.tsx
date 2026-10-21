@@ -96,7 +96,6 @@ export function NuphosDashboardsView({
     setDetailError(false)
     setEditor(null)
     setAlertPanel(null)
-    setCanvasView('panels')
   }
 
   const panels = useMemo(() => (detail ? orderPanels(detail) : []), [detail])
