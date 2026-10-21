@@ -18,12 +18,6 @@ import type { TokenStore } from './token-store.ts'
 
 export type { Config, OtherAccount }
 
-export const NUPHOS_LOGIN_URL =
-  process.env.NUPHOS_LOGIN_URL ||
-  (process.env.NUPHOS_WEB_URL
-    ? new URL('/login', process.env.NUPHOS_WEB_URL).toString()
-    : 'https://nuphos.ai/login')
-
 type ConfigFileDeps = {
   path: string
   store: TokenStore
@@ -70,10 +64,12 @@ export function configFile(deps: ConfigFileDeps) {
     }
   }
 
-  // Every read and write of the file runs one at a time, each from the file as
-  // its turn finds it: a read that moves a plaintext token to the keychain can
-  // then never land after, and undo, a sign-out or a newer sign-in.
+  // Every read and write of the file runs one at a time, from the file as its turn
+  // finds it: moving a plaintext token can never undo a later sign-out or sign-in.
   let queue: Promise<unknown> = Promise.resolve()
+  // Changes to the sign-in so far, so a read can tell whether any landed since.
+  let generation = 0
+  const readAt = new WeakMap<Config, number>()
 
   function inTurn<T>(task: () => Promise<T>): Promise<T> {
     const run = queue.then(task)
@@ -89,6 +85,7 @@ export function configFile(deps: ConfigFileDeps) {
    * list, so switching back needs no new sign-in.
    */
   async function save(cfg: Config): Promise<void> {
+    generation += 1
     const previous = (await readFile(deps.path)) ?? {}
     const stored: Config = { ...cfg, keychainAccount: undefined, otherAccounts: undefined }
     let others = previous.otherAccounts ?? []
@@ -144,6 +141,7 @@ export function configFile(deps: ConfigFileDeps) {
 
   /** Makes a listed account the current one, keeping the current one in the list. */
   async function switchTo(key: string): Promise<Config> {
+    generation += 1
     const previous = (await readFile(deps.path)) ?? {}
     const others = previous.otherAccounts ?? []
     const target = others.find((other) => keyOf(other) === key)
@@ -168,6 +166,7 @@ export function configFile(deps: ConfigFileDeps) {
 
   /** Signs every account on this device out. */
   async function forgetAll(): Promise<void> {
+    generation += 1
     const previous = (await readFile(deps.path)) ?? {}
 
     await forgetDropped(previous, {})
@@ -228,7 +227,16 @@ export function configFile(deps: ConfigFileDeps) {
   }
 
   return {
-    read: () => inTurn(load),
+    read: () =>
+      inTurn(async () => {
+        const cfg = await load()
+
+        readAt.set(cfg, generation)
+
+        return cfg
+      }),
+    /** Whether the sign-in is unchanged since `cfg` was read. */
+    unchangedSince: (cfg: Config) => readAt.get(cfg) === generation,
     write: (cfg: Config) => {
       // A sign-out takes effect in memory at once, before its turn.
       if (!cfg.token) deps.onToken(null)
@@ -281,6 +289,7 @@ export const writeConfig = defaultConfigFile.write
 export const writeConfigIf = defaultConfigFile.writeIf
 export const publishSessionIf = defaultConfigFile.publishIf
 export const configSettled = defaultConfigFile.settled
+export const configUnchangedSince = defaultConfigFile.unchangedSince
 export const switchConfig = defaultConfigFile.switchTo
 export const signOutAllConfig = defaultConfigFile.signOutAll
 export const otherAccounts = defaultConfigFile.others
@@ -288,12 +297,4 @@ export const otherAccounts = defaultConfigFile.others
 /** The signed-in token, kept in memory once the startup check has run. */
 export async function sessionToken(): Promise<string | null> {
   return authSession.current() ?? (await readConfig()).token ?? null
-}
-
-export async function apiErrorMessage(res: Response): Promise<string> {
-  const body = (await res.json().catch(() => null)) as { error?: { message?: unknown } } | null
-
-  return typeof body?.error?.message === 'string'
-    ? body.error.message
-    : `HTTP ${String(res.status)}`
 }

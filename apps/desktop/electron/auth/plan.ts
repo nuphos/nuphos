@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import { loginApiUrl } from '../api-endpoint.ts'
 import { nodeFetch } from '../main/chromium-fetch.ts'
 
-import { apiErrorMessage, NUPHOS_LOGIN_URL } from './config.ts'
+import { apiErrorMessage, NUPHOS_LOGIN_URL } from './backend.ts'
 
 export type LoginPlan =
   | {

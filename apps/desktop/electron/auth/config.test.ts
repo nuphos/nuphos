@@ -458,3 +458,14 @@ test('naming a sign-in stored without its identity replaces it instead of listin
   assert.equal(h.items.has('default@https://api.nuphos.ai'), false)
   assert.equal(h.items.get(ACCOUNT), 'tok-1')
 })
+
+test('a read goes stale when the same account signs in again', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  const read = await h.config.read()
+
+  assert.equal(h.config.unchangedSince(read), true)
+  await h.config.write({ token: 'tok-1b', userInfo: USER })
+  assert.equal(h.config.unchangedSince(read), false)
+})

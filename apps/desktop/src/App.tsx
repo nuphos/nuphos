@@ -148,16 +148,14 @@ export default function App() {
             adding={auth.user}
             onCancel={() => setAuth({ status: 'authenticated', user: auth.user })}
             onLogin={async (user) => {
-              // Another account (another user, or the same id on another
-              // backend) reloads every window as it once saved, and is
-              // counted after that. The current one, signed in again, just
-              // returns to the workspace.
+              // Any new token reloads the windows once saved, and the sign-in
+              // is counted after that. Signed in again as the current account
+              // (same user and backend), this window returns to the workspace
+              // meanwhile; another account is shown only after the reload.
               const sameAccount =
                 user.id === auth.user.id && (await api.atlasGetApiUrl()) === auth.apiUrl
 
-              if (!sameAccount) return
-              track('login', { method: 'oauth' })
-              setAuth({ status: 'authenticated', user })
+              if (sameAccount) setAuth({ status: 'authenticated', user })
             }}
           />
         </div>

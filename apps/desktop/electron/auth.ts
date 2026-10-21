@@ -5,19 +5,15 @@ import { shell } from 'electron'
 // Extension-qualified so this module also resolves under plain node ESM, which
 // is how auth-login.test.ts drives login().
 import { loginApiUrl, stageLoginApiUrl } from './api-endpoint.ts'
+import { apiErrorMessage } from './auth/backend.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
-import {
-  apiErrorMessage,
-  otherAccounts,
-  signOutAllConfig,
-  switchConfig,
-  writeConfig,
-} from './auth/config.ts'
+import { otherAccounts, signOutAllConfig, switchConfig, writeConfig } from './auth/config.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
 import { status } from './auth/me.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
-import { cancelSignIn, saveSignIn, signInAttempt } from './auth/sign-in.ts'
+import { cancelSignIn, isCurrentAttempt, saveSignIn, signInAttempt } from './auth/sign-in.ts'
+import type { SignInAttempt } from './auth/sign-in.ts'
 import { isValidUserInfo } from './auth-status.ts'
 
 import type { OtherAccount } from './auth/config.ts'
@@ -66,8 +62,15 @@ export async function login(): Promise<UserInfo> {
 
 // Email OTP sign-in talks to the backend directly and receives the token in
 // the JSON response — no browser round-trip or localhost callback needed.
+// The attempt an email code was requested in: the code is verified with the
+// backend that sent it, and not at all once that attempt is cancelled.
+let emailCodeAttempt: { email: string; attempt: SignInAttempt } | null = null
+
 export async function requestEmailCode(email: string): Promise<void> {
-  const res = await fetch(`${loginApiUrl()}/auth/email/request-code`, {
+  const attempt = signInAttempt()
+
+  emailCodeAttempt = { email, attempt }
+  const res = await fetch(`${attempt.api}/auth/email/request-code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -80,7 +83,9 @@ export async function requestEmailCode(email: string): Promise<void> {
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
-  const attempt = signInAttempt()
+  const attempt = emailCodeAttempt?.email === email ? emailCodeAttempt.attempt : signInAttempt()
+
+  if (!isCurrentAttempt(attempt)) throw new Error('Sign-in cancelled')
   const res = await fetch(`${attempt.api}/auth/email/verify-code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

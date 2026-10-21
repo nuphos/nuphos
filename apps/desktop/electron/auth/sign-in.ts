@@ -25,6 +25,11 @@ export function signInAttempt(): SignInAttempt {
   return { id: attempt, api: loginApiUrl() }
 }
 
+/** Whether `of` is still the attempt in progress (not cancelled since). */
+export function isCurrentAttempt(of: SignInAttempt): boolean {
+  return of.id === attempt
+}
+
 /** Starts a new attempt, dropping whatever the previous one completes. */
 export function cancelSignIn(): number {
   attempt += 1

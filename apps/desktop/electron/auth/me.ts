@@ -1,8 +1,7 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { decideAuthStatus, isTokenRejected, isValidUserInfo } from '../auth-status.ts'
 
-import { sameAccount } from './accounts.ts'
-import { publishSessionIf, readConfig, writeConfigIf } from './config.ts'
+import { configUnchangedSince, publishSessionIf, readConfig, writeConfigIf } from './config.ts'
 
 import type { AuthStatus, MeProbe, UserInfo } from '../auth-status.ts'
 import type { Config } from './config.ts'
@@ -82,7 +81,9 @@ export type StatusDeps = {
 }
 
 async function commitStatus(read: Config, next: Config | null, token: string | null) {
-  const stillRead = (current: Config) => sameAccount(current, read, apiUrl())
+  // Not merely the same account: a re-sign-in to it since the read replaced
+  // the token this probe checked.
+  const stillRead = () => configUnchangedSince(read)
 
   if (next) {
     try {

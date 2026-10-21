@@ -6,22 +6,17 @@ import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electro
 
 import * as agentChatSkill from '../agent-chat-skill'
 import { resetAnalyticsUser, setAnalyticsTeam, setAnalyticsUser } from '../analytics'
-import { apiUrl, onLoginApiUrlChange, setApiUrl } from '../api-endpoint'
+import { apiUrl, setApiUrl } from '../api-endpoint'
 import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
 import { configSettled } from '../auth/config'
 import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
-import { shownAccount } from '../auth/shown-account'
-import { signInCommitting } from '../auth/sign-in'
-import { authSession } from '../auth-session'
 import * as fileTransfer from '../fileTransfer'
 import { readImageAttachment, registerAttachment } from '../imageAttachment'
-import * as podExec from '../pod-exec'
-import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
-import { reloadAppWindows } from './account-reload'
+import { watchAccountChanges } from './account-reload'
 import { getChangelogState } from './changelog'
 import { pickPaths, savePastedAttachments } from './dialogs'
 import { isDev } from './env'
@@ -38,27 +33,7 @@ import type { ThemeSource } from './theme'
 import type { PersonalCredentialProvider } from '../../src/types/team'
 import type { IpcMainInvokeEvent } from 'electron'
 
-// Any change away from the account the windows show (a switch, adding an
-// account, signing out) reloads every window, so none keeps showing it.
-const movedFromShown = shownAccount(apiUrl, authSession.current())
-
-authSession.subscribe((next) => {
-  if (!movedFromShown(next)) return
-  // SSH and pod-exec sessions outlive a renderer reload by design; the
-  // account they were opened as is leaving, so close them (and any node-shell
-  // pod) here rather than relying on the window that started the change.
-  terminal.closeAllSshSessions()
-  podExec.closeAllPodExecSessions()
-  resetAnalyticsUser()
-  reloadAppWindows(next === null ? 'signedOut' : signInCommitting() ? 'added' : 'switched')
-})
-
-// Every window adding an account shows the server its sign-in will go to.
-onLoginApiUrlChange((url) => {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('auth:loginEndpointChanged', url)
-  }
-})
+watchAccountChanges()
 
 export const appChannels = {
   'auth:updateProfile': (
