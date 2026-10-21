@@ -229,7 +229,7 @@ export const BOX_PLANS = [
     name: 'Starter',
     vcpus: 4,
     usdPerMonth: 20,
-    example: 'e.g. one 4 vCPU Box, or two 2 vCPU Boxes',
+    example: 'e.g. one 4 vCPU Box',
     perks: ['Your agents keep working while your laptop sleeps', 'A full desktop in every Box'],
   },
   {
@@ -237,7 +237,7 @@ export const BOX_PLANS = [
     vcpus: 12,
     usdPerMonth: 50,
     recommended: true,
-    example: 'e.g. an 8 vCPU build Box next to two 2 vCPU Boxes',
+    example: 'e.g. an 8 vCPU build Box next to a 4 vCPU Box',
     perks: ['Room for a build Box beside everyday ones', 'Share Boxes with your teammates'],
   },
   {
@@ -258,27 +258,27 @@ export function boxSessions(memMiB: number): number {
   return Math.max(1, Math.floor((memMiB - 2048) / 1792))
 }
 
+// By vCPU, so a name says what the size is whatever sizes the provider offers.
 const SIZE_TIERS = [
-  { name: 'Small', use: 'Light tasks' },
-  { name: 'Medium', use: 'Everyday work' },
-  { name: 'Large', use: 'Heavy builds' },
+  { upTo: 2, name: 'Small', use: 'Light tasks' },
+  { upTo: 6, name: 'Medium', use: 'Everyday work' },
+  { upTo: Infinity, name: 'Large', use: 'Heavy builds' },
 ]
 
 const sessionCount = (n: number) => `${String(n)} session${n === 1 ? '' : 's'}`
 
-/** The sizes instabox offers, named by rank: the smallest is Small, the biggest Large. */
+/** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, more Large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
-  return sizes.map(({ vcpus, memMiB }, index) => {
-    // 0 for the first, 2 for the last, 1 between.
-    const rank = index === 0 ? 0 : 2 - Number(index < sizes.length - 1)
-    const tier = SIZE_TIERS[rank]
+  return sizes.map(({ vcpus, memMiB }) => {
+    // 0 Small, 1 Medium, 2 Large; also how many slabs its glyph fills, less one.
+    const tier = SIZE_TIERS.findIndex((size) => vcpus <= size.upTo)
 
     return {
       vcpus,
-      rank,
-      name: tier.name,
+      tier,
+      name: SIZE_TIERS[tier].name,
       spec: `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`,
-      use: tier.use,
+      use: SIZE_TIERS[tier].use,
       sessions: `Up to ${sessionCount(boxSessions(memMiB))} at once`,
     }
   })

@@ -38,3 +38,25 @@ export function quotaCells(limit: number, used: number, adding: number): QuotaCe
     return 'free'
   })
 }
+
+/** The size to make: the pick while it fits, else the smallest that does, else the smallest, where the backend then offers the plans. */
+export function boxCreateSize(
+  choices: { vcpus: number }[],
+  picked: number | undefined,
+  left: number | null,
+): number | undefined {
+  const fits = (size: number) => left === null || size <= left
+
+  return (
+    choices.find((choice) => choice.vcpus === picked && fits(choice.vcpus)) ??
+    choices.find((choice) => fits(choice.vcpus)) ??
+    choices.at(0)
+  )?.vcpus
+}
+
+/** Columns for `count` size cards: one each up to three, then wrapping; one while there are none. */
+export function sizeGridColumns(count: number): 1 | 2 | 3 {
+  if (count <= 1) return 1
+
+  return count === 2 ? 2 : 3
+}

@@ -174,22 +174,23 @@ test('a new agent is named after its provider, numbered past the names the machi
   assert.equal(agentNameTaken([named('Review')], 'Reviews'), false)
 })
 
-test('sizes are named by rank and say how many sessions they hold', () => {
-  const small = { vcpus: 4, memMiB: 8192 }
+test('sizes are named by vCPU, not position, and say how many sessions they hold', () => {
+  const small = { vcpus: 2, memMiB: 4096 }
+  const medium = { vcpus: 4, memMiB: 8192 }
   const large = { vcpus: 8, memMiB: 16384 }
 
-  assert.deepEqual(boxSizeChoices([small, large]), [
+  assert.deepEqual(boxSizeChoices([medium, large]), [
     {
       vcpus: 4,
-      rank: 0,
-      name: 'Small',
+      tier: 1,
+      name: 'Medium',
       spec: '4 vCPU · 8 GiB',
-      use: 'Light tasks',
+      use: 'Everyday work',
       sessions: 'Up to 3 sessions at once',
     },
     {
       vcpus: 8,
-      rank: 2,
+      tier: 2,
       name: 'Large',
       spec: '8 vCPU · 16 GiB',
       use: 'Heavy builds',
@@ -197,8 +198,17 @@ test('sizes are named by rank and say how many sessions they hold', () => {
     },
   ])
   assert.deepEqual(
-    boxSizeChoices([small, { vcpus: 6, memMiB: 12288 }, large]).map((c) => c.name),
-    ['Small', 'Medium', 'Large'],
+    boxSizeChoices([small, medium, large]).map((c) => [c.name, c.tier, c.sessions]),
+    [
+      ['Small', 0, 'Up to 1 session at once'],
+      ['Medium', 1, 'Up to 3 sessions at once'],
+      ['Large', 2, 'Up to 8 sessions at once'],
+    ],
+  )
+  // The edges: 2 is still Small, 6 still Medium, 7 already Large.
+  assert.deepEqual(
+    boxSizeChoices([2, 3, 6, 7].map((vcpus) => ({ vcpus, memMiB: 8192 }))).map((c) => c.name),
+    ['Small', 'Medium', 'Medium', 'Large'],
   )
   assert.equal(boxSessions(4096), 1)
 })
