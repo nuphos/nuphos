@@ -8,7 +8,7 @@ import { placementNamespace, recordRuntimeController } from './runtime-controlle
 import { reconcileRuntimeDeletions } from './runtime-deletion'
 import { hostedRuntimeDeploymentObject } from './runtime-deployment'
 import { hostedRuntimeJoinToken } from './runtime-device-join'
-import { managedRuntimeImage } from './runtime-image'
+import { managedRuntimeImage, runtimeImageVersion } from './runtime-image'
 import {
   PROVISIONER_FIELD_MANAGER,
   hostedRuntimeSecretObject,
@@ -74,7 +74,7 @@ async function applyHostedRuntime(runtime: ClaudeCodeRuntimeDoc, deps: Provision
     const currentImage = current?.spec?.template?.spec?.containers?.find(
       (container) => container.name === 'openab',
     )?.image
-    const currentVersion = currentImage?.match(/:(\d+\.\d+\.\d+)-(?:claude-code|codex)(?:@|$)/)?.[1]
+    const currentVersion = runtimeImageVersion(currentImage)
     const pendingUpdate =
       runtime.requestedRuntimeVersion &&
       (!currentVersion || newerRuntimeVersion(runtime.requestedRuntimeVersion, currentVersion))

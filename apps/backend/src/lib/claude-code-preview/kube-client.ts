@@ -13,8 +13,14 @@ type FetchLike = (url: string, init?: RequestInit) => Promise<Response>
 
 export type KubeResource = Pick<KubeObject, 'apiVersion' | 'kind' | 'metadata'>
 export type KubeResourceState = {
-  status?: { conditions?: { reason?: string }[] }
-  metadata: { uid: string; deletionTimestamp?: string }
+  status?: {
+    conditions?: { reason?: string }[]
+    observedGeneration?: number
+    replicas?: number
+    updatedReplicas?: number
+    availableReplicas?: number
+  }
+  metadata: { uid: string; generation?: number; deletionTimestamp?: string }
   spec?: {
     volumeName?: string
     persistentVolumeReclaimPolicy?: string

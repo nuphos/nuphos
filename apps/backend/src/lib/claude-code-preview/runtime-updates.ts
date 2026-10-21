@@ -1,9 +1,11 @@
 import { config } from '@/config'
+import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 
 import { requestBoxUpdate } from './box-update'
+import { localRuntimeStatus } from './local-runtime-catalog'
 import { provisionerKubeClient } from './provisioner-kube'
-import { managedRuntimeImage } from './runtime-image'
+import { managedRuntimeImage, runtimeImageVersion } from './runtime-image'
 import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimes } from './runtime-registry'
 import {
@@ -13,41 +15,69 @@ import {
   RUNTIME_RELEASES_URL,
 } from './runtime-release'
 import { runtimeServiceName } from './runtime-service-name'
+import { claudeCodePreviewRuntimeStatus } from './runtime-status'
 
+import type { KubeResourceState } from './kube-client'
 import type { RuntimeInstance } from './runtime-instances'
+import type { ClaudeCodeRuntimeDoc } from './runtime-registry'
+import type { PreviewRuntimeStatus } from './runtime-status'
+
+function readDeployment(doc: ClaudeCodeRuntimeDoc) {
+  const namespace = config.claudeCodeRuntimeProvisioner.namespace
+  const name = runtimeServiceName(doc.url, namespace)
+  const kube = name ? provisionerKubeClient() : null
+
+  return name
+    ? (kube
+        ?.getResource?.({
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: { name, namespace },
+        })
+        .catch(() => null) ?? null)
+    : null
+}
+
+function openabImage(deployment: KubeResourceState | null | undefined) {
+  return deployment?.spec?.template?.spec?.containers?.find(
+    (container) => container.name === 'openab',
+  )?.image
+}
+
+/** What a joined pod runs: its Deployment's image, once every pod runs it and the device is online. */
+function joinedVersion(deployment: KubeResourceState | null, online: boolean | undefined) {
+  const status = deployment?.status
+  const updated = status?.updatedReplicas ?? 0
+  const rolledOut =
+    updated > 0 &&
+    (status?.observedGeneration ?? 0) >= (deployment?.metadata.generation ?? Infinity) &&
+    status?.replicas === updated &&
+    status.availableReplicas === updated
+
+  return online && rolledOut ? runtimeImageVersion(openabImage(deployment)) : undefined
+}
 
 export async function runtimeUpdateStatus(
-  teamId: string,
-  instance: RuntimeInstance,
-  currentVersion?: string,
+  provider: RuntimeInstance['provider'],
+  doc: ClaudeCodeRuntimeDoc | null,
+  observed: Pick<PreviewRuntimeStatus, 'online' | 'runtimeVersion'>,
 ) {
-  const release = await latestRuntimeRelease(instance.provider)
-  const doc =
-    instance.kind === 'managed' ? await runtimes().findOne({ _id: instance.id, teamId }) : null
+  const release = await latestRuntimeRelease(provider)
   const target = doc?.requestedRuntimeVersion
+  // A joined pod serves no status page, so its Deployment says what it runs.
+  const joined = doc?.device ? await readDeployment(doc) : undefined
+  const currentVersion =
+    joined === undefined ? observed.runtimeVersion : joinedVersion(joined, observed.online)
   let state: 'unknown' | 'current' | 'available' | 'waiting' | 'updating' | 'failed' = 'unknown'
 
   if (currentVersion && release)
     state = newerRuntimeVersion(release.version, currentVersion) ? 'available' : 'current'
   let error = doc?.runtimeUpdateError
 
-  if (target && (!currentVersion || newerRuntimeVersion(target, currentVersion))) {
+  if (doc && target && (!currentVersion || newerRuntimeVersion(target, currentVersion))) {
     state = error ? 'failed' : 'waiting'
-    const namespace = config.claudeCodeRuntimeProvisioner.namespace
-    const name = doc && runtimeServiceName(doc.url, namespace)
-    const kube = name ? provisionerKubeClient() : null
-    const deployment = name
-      ? await kube
-          ?.getResource?.({
-            apiVersion: 'apps/v1',
-            kind: 'Deployment',
-            metadata: { name, namespace },
-          })
-          .catch(() => null)
-      : null
-    const image = deployment?.spec?.template?.spec?.containers?.find(
-      (container) => container.name === 'openab',
-    )?.image
+    const deployment = joined === undefined ? await readDeployment(doc) : joined
+    const image = openabImage(deployment)
 
     const targetImage = doc.deploymentImage
     // Both sides can be absent — an unreadable Deployment, an unresolved digest — and two
@@ -77,6 +107,27 @@ export async function runtimeUpdateStatus(
         : (release?.url ?? RUNTIME_RELEASES_URL),
     ...(state === 'failed' ? { error } : {}),
   }
+}
+
+/** A Nuphos-side runtime's status card, with the update it is waiting on. */
+export async function runtimeStatusWithUpdate(
+  teamId: string,
+  userId: string,
+  instance: RuntimeInstance,
+) {
+  const { provider } = instance
+  const doc =
+    instance.kind === 'managed' ? await runtimes().findOne({ _id: instance.id, teamId }) : null
+  const joined =
+    doc?.device && (provider === 'claude-code' || provider === 'codex')
+      ? { ...doc.device, provider }
+      : undefined
+  // A joined pod answers through the device it joined as, the way a Box does.
+  const status = joined
+    ? await localRuntimeStatus(localRuntimeId(joined))
+    : await claudeCodePreviewRuntimeStatus(teamId, userId, provider, instance.id)
+
+  return { ...status, runtimeUpdate: await runtimeUpdateStatus(provider, doc, status) }
 }
 
 /** Only a team administrator's route can request an update. The normal idle-safe reconciler executes it. */

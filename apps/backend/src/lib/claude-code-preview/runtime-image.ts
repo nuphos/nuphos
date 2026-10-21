@@ -83,6 +83,11 @@ function publishedDigest(repository: string, tag: string): Promise<string | unde
   return entry.result
 }
 
+/** The release version an image names through its `<version>-<provider>` tag. */
+export function runtimeImageVersion(image: string | undefined): string | undefined {
+  return image?.match(/:(\d+\.\d+\.\d+)-(?:claude-code|codex)(?:@|$)/)?.[1]
+}
+
 /**
  * The image a managed agent runs: the version an administrator pinned, otherwise the
  * latest published release, named by the digest the registry serves for that tag.

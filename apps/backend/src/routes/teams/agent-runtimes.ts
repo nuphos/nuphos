@@ -21,7 +21,6 @@ import {
   renameTeamRuntime,
   setTeamRuntimeStatus,
 } from '@/lib/claude-code-preview/runtime-registry'
-import { claudeCodePreviewRuntimeStatus } from '@/lib/claude-code-preview/runtime-status'
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
 import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import {
@@ -35,7 +34,7 @@ import {
 } from '@/lib/claude-code-preview/runtime-terminal'
 import {
   requestRuntimeUpdate,
-  runtimeUpdateStatus,
+  runtimeStatusWithUpdate,
 } from '@/lib/claude-code-preview/runtime-updates'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
@@ -178,17 +177,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       })
     }
 
-    const status = await claudeCodePreviewRuntimeStatus(
-      c.get('teamId'),
-      c.get('userId'),
-      instance.provider,
-      instance.id,
-    )
-
-    return c.json({
-      ...status,
-      runtimeUpdate: await runtimeUpdateStatus(c.get('teamId'), instance, status.runtimeVersion),
-    })
+    return c.json(await runtimeStatusWithUpdate(c.get('teamId'), c.get('userId'), instance))
   })
   teamScoped.post(
     '/agent-runtimes/:runtimeId/update',
