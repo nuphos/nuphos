@@ -12,6 +12,7 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { moveConversationRuntime } from './conversation-runtime-move'
 import { listRuntimeInstances, requireRuntimeInstance } from './runtime-catalog'
+import { steerConversationRuntime } from './session-execution-state'
 import { runtimeModelCatalog } from './runtime-models'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -152,6 +153,17 @@ describe('only the owner can put a session on their local agent', () => {
     })
 
     expect(endpoint.authKey).toBe('control')
+  })
+
+  test('a teammate cannot steer the owner’s conversation on it, even with no active run', async () => {
+    const attached = {
+      ...conversation('owner'),
+      claudeCodePreview: { runtimeUrl: 'nuphos-device://placeholder', openabSessionId: 's' },
+    } as AgentConversation
+
+    await expect(
+      steerConversationRuntime(attached, { text: 'hi', userId: 'teammate' }, 'm1'),
+    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
   })
 
   test('a teammate cannot start a new conversation on it', async () => {
