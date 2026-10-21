@@ -100,8 +100,9 @@ export function BoxRow({
 
   return (
     <li className="flex h-[240px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
-      {/* The name has the header to itself, so it and its rename field use the card's width. */}
-      <div className="flex shrink-0 items-center gap-2">
+      {/* The name has the header to itself, so it and its rename field use the card's width.
+          A fixed height keeps the taller rename field from pushing the card's contents down. */}
+      <div className="flex h-6 shrink-0 items-center gap-2">
         <MachineIcon device={device} />
         <InlineRename
           value={device.label}
