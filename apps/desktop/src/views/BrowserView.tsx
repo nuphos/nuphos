@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
 import { BrowserLoadingProgress } from '../components/BrowserLoadingProgress'
-import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
@@ -32,8 +31,6 @@ export function BrowserView({
   }, [onNavigate])
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<WebviewTag | null>(null)
-  const { refreshKey } = useWorkspaceTab()
-  const lastRefresh = useRef(refreshKey)
   const [address, setAddress] = useState(initialUrl)
   const [title, setTitle] = useState('Browser')
   const [nav, setNav] = useState({ back: false, forward: false })
@@ -115,12 +112,6 @@ export function BrowserView({
       viewRef.current = null
     }
   }, [initialUrl, resetComments])
-
-  useEffect(() => {
-    if (lastRefresh.current === refreshKey) return
-    lastRefresh.current = refreshKey
-    if (ready) viewRef.current?.reload()
-  }, [refreshKey, ready])
 
   useEffect(() => {
     if (!url || url === lastUrl.current || !viewRef.current) return
