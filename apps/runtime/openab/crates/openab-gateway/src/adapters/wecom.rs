@@ -679,7 +679,7 @@ fn parse_envelope_xml(xml: &str) -> Result<CallbackEnvelope> {
                 }
             }
             Ok(Event::Text(e)) => {
-                let text = e.unescape().unwrap_or_default().to_string();
+                let text = e.decode().unwrap_or_default().to_string();
                 match current_tag.as_str() {
                     "ToUserName" if to_user_name.is_empty() => to_user_name = text,
                     "Encrypt" if encrypt.is_empty() => encrypt = text,
@@ -737,7 +737,7 @@ fn parse_message_xml(xml: &str) -> Result<WecomMessage> {
                 }
             }
             Ok(Event::Text(e)) => {
-                let text = e.unescape().unwrap_or_default().to_string();
+                let text = e.decode().unwrap_or_default().to_string();
                 match current_tag.as_str() {
                     "FromUserName" if from_user.is_empty() => from_user = text,
                     "MsgType" if msg_type.is_empty() => msg_type = text,
