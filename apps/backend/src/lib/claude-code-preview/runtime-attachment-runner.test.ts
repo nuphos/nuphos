@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 
 import { expect, test } from 'bun:test'
 
@@ -97,5 +97,28 @@ test('the bundled attachments job takes its file list on stdin', async () => {
     await rm(dirname(dirname(output.paths![0]!)), { recursive: true, force: true })
   } finally {
     await server.stop()
+  }
+})
+
+test('downloaded filenames remain portable on Windows without changing file bytes', async () => {
+  const server = Bun.serve({ port: 0, fetch: () => new Response('png') })
+  const names = ['report?.png', 'CON.png', 'trailing. ', '圖'.repeat(300), `CON${' '.repeat(177)}x`]
+  let paths: string[] = []
+
+  try {
+    const result = await run(names.map((name) => ({ name, url: server.url.href, size: 3 })))
+
+    expect(result.code).toBe(0)
+    paths = result.output.paths!
+    expect(paths).toHaveLength(names.length)
+    expect(basename(paths[0]!)).toBe('report_.png')
+    expect(basename(paths[1]!)).toBe('_CON.png')
+    expect(basename(paths[2]!)).toBe('trailing')
+    expect(Buffer.byteLength(basename(paths[3]!), 'utf8')).toBeLessThanOrEqual(200)
+    expect(basename(paths[4]!)).toBe('_CON')
+    for (const path of paths) expect(await readFile(path, 'utf8')).toBe('png')
+  } finally {
+    await server.stop()
+    if (paths[0]) await rm(dirname(dirname(paths[0])), { recursive: true, force: true })
   }
 })

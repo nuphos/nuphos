@@ -21,10 +21,16 @@ try {
   for (const [index, file] of files.entries()) {
     const folder = join(dir, String(index))
     await mkdir(folder, { mode: 0o700 })
-    const name = file.name
+    let name = file.name
       .split(/[\\/]/)
       .pop()
-      .replace(/[\x00-\x1f\x7f]/g, '_')
+      .replace(/[\x00-\x1f\x7f<>:"|?*]/g, '_')
+      .replace(/[ .]+$/g, '')
+    // Bound both UTF-8 bytes (POSIX) and UTF-16 code units (Windows).
+    name = Array.from(name).slice(0, 180).join('')
+    while (Buffer.byteLength(name, 'utf8') > 200) name = Array.from(name).slice(0, -1).join('')
+    name = name.replace(/[ .]+$/g, '')
+    if (/^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(name)) name = `_${name}`
     const path = join(folder, !name || name === '.' || name === '..' ? 'attachment' : name)
     const response = await fetch(file.url, {
       signal: AbortSignal.timeout(60000),
