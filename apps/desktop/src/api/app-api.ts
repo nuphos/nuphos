@@ -35,6 +35,8 @@ export const appApi = {
   authSwitch: (key: string) => window.api.authSwitch(key),
   authLogoutAll: () => window.api.authLogoutAll(),
   authLoginEndpoint: () => window.api.authLoginEndpoint(),
+  onLoginEndpointChanged: (cb: (url: string) => void) =>
+    window.api.onLoginEndpointChanged?.(cb) ?? (() => undefined),
   authStageLoginEndpoint: (url: string | null) => window.api.authStageLoginEndpoint(url),
   authCancel: () => window.api.authCancel(),
   authEmailRequestCode: (email: string) => window.api.authEmailRequestCode(email),

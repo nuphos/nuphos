@@ -18,7 +18,7 @@ import { LoginApiEndpoint } from './LoginApiEndpoint'
 import type { OtherAccount, UserInfo } from '../types'
 
 type Props = {
-  onLogin: (user: UserInfo) => void
+  onLogin: (user: UserInfo) => void | Promise<void>
   /** Accounts still signed in on this device, offered before a new sign-in. */
   others?: OtherAccount[]
   onPickAccount?: (key: string) => Promise<void>
@@ -84,7 +84,7 @@ export function LoginView({ onLogin, others = [], onPickAccount, adding, onCance
     try {
       const user = await api.authLogin()
 
-      if (!abandoned.current) onLogin(user)
+      if (!abandoned.current) void onLogin(user)
     } catch (e) {
       if (abandoned.current) return
       toast.apiError('Sign-in failed', e, {
@@ -124,7 +124,7 @@ export function LoginView({ onLogin, others = [], onPickAccount, adding, onCance
     try {
       const user = await api.authEmailVerifyCode(email.trim(), code)
 
-      if (!abandoned.current) onLogin(user)
+      if (!abandoned.current) void onLogin(user)
     } catch (e) {
       if (abandoned.current) return
       toast.apiError('Sign-in failed', e, {
@@ -216,8 +216,9 @@ export function LoginView({ onLogin, others = [], onPickAccount, adding, onCance
                   size="sm"
                   onClick={() => {
                     abandoned.current = true
-                    void api.authCancel()
-                    onCancel()
+                    // Waits for a sign-in already being saved: that one
+                    // completes, and its account reloads the windows.
+                    void api.authCancel().finally(onCancel)
                   }}
                   className="mt-3 titlebar-no-drag"
                 >

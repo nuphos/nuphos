@@ -61,8 +61,8 @@ export function mostRecentlyFocusedVisibleAppWindow(except?: BrowserWindow): Bro
   )
 }
 
-export function reloadAppWindows(): void {
-  for (const win of appWindows) if (!win.isDestroyed()) win.webContents.reload()
+export function openAppWindows(): BrowserWindow[] {
+  return [...appWindows].filter((win) => !win.isDestroyed())
 }
 
 export function focusedAppWindow(): BrowserWindow | null {

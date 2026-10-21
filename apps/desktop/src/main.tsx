@@ -10,7 +10,8 @@ import App from './App.tsx'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ToastProvider } from './components/ui/ToastProvider'
 import { ThemeProvider } from './hooks/ThemeProvider'
-import { initAnalytics, track } from './lib/analytics'
+import { accountChange } from './lib/accountChange'
+import { initAnalytics, resetAnalytics, track } from './lib/analytics'
 import { showFirstLaunchIntro } from './lib/firstLaunchIntro'
 import { isMac } from './lib/platform'
 
@@ -19,6 +20,9 @@ import { isMac } from './lib/platform'
 config.autoAddCss = false
 
 initAnalytics()
+// Reloaded as another account (or signed out): drop the previous identity
+// before anything is captured.
+if (accountChange) resetAnalytics()
 track('app_ready')
 
 if (isMac) {

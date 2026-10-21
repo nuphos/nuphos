@@ -37,6 +37,16 @@ export function apiUrl(): string {
 // adding an account on another backend must not move the signed-in account
 // there before the new sign-in completes.
 let staged: string | null = null
+const loginListeners = new Set<(url: string) => void>()
+
+/** Follows where sign-ins go, so every window adding an account shows the same server. */
+export function onLoginApiUrlChange(listener: (url: string) => void): () => void {
+  loginListeners.add(listener)
+
+  return () => {
+    loginListeners.delete(listener)
+  }
+}
 
 /** Where a sign-in in progress goes: the staged backend, else the current one. */
 export function loginApiUrl(): string {
@@ -45,6 +55,8 @@ export function loginApiUrl(): string {
 
 /** Stages the backend for the next sign-in (`null` drops it) and returns where sign-ins go. */
 export function stageLoginApiUrl(raw: string | null): string {
+  const before = loginApiUrl()
+
   if (raw === null) {
     staged = null
   } else {
@@ -53,6 +65,7 @@ export function stageLoginApiUrl(raw: string | null): string {
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Not an http(s) URL')
     staged = url.origin === apiUrl() ? null : url.origin
   }
+  if (loginApiUrl() !== before) for (const listener of loginListeners) listener(loginApiUrl())
 
   return loginApiUrl()
 }

@@ -10,6 +10,7 @@ import {
 import { toast } from './components/ui/toast'
 import { CurrentUserContext } from './hooks/useCurrentUser'
 import { forgetMacAccounts } from './hooks/useMacSignIn'
+import { accountChange } from './lib/accountChange'
 import { identifyUser, resetAnalytics, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
@@ -21,7 +22,7 @@ type AuthState =
   | { status: 'anonymous'; others: OtherAccount[] }
   | { status: 'authenticated'; user: UserInfo }
   // Signing in to one more account; `user` stays signed in meanwhile.
-  | { status: 'adding'; user: UserInfo }
+  | { status: 'adding'; user: UserInfo; apiUrl: string }
 
 type SetAuth = (next: AuthState) => void
 
@@ -66,7 +67,12 @@ export default function App() {
 
     api
       .authStatus()
-      .then((s) => (s.loggedIn ? enter(settle, s.user) : signedOut(settle)))
+      .then(async (s) => {
+        if (!s.loggedIn) return signedOut(settle)
+        await enter(settle, s.user)
+        // Reloaded as an account just added: its sign-in, as it.
+        if (accountChange === 'added') track('login', { method: 'oauth' })
+      })
       .catch(() => settle({ status: 'anonymous', others: [] }))
 
     return () => {
@@ -76,7 +82,8 @@ export default function App() {
 
   const onLogout = async (change?: AccountChange) => {
     if (change?.kind === 'add') {
-      if (auth.status === 'authenticated') setAuth({ status: 'adding', user: auth.user })
+      if (auth.status === 'authenticated')
+        setAuth({ status: 'adding', user: auth.user, apiUrl: await api.atlasGetApiUrl() })
 
       return
     }
@@ -129,7 +136,7 @@ export default function App() {
         user={auth.user}
         onUserUpdated={(user) => {
           identifyUser(user)
-          setAuth(adding ? { status: 'adding', user } : { status: 'authenticated', user })
+          setAuth(auth.status === 'adding' ? { ...auth, user } : { status: 'authenticated', user })
         }}
         onLogout={onLogout}
       />
@@ -140,19 +147,17 @@ export default function App() {
           <LoginView
             adding={auth.user}
             onCancel={() => setAuth({ status: 'authenticated', user: auth.user })}
-            onLogin={(user) => {
-              if (user.id === auth.user.id) {
-                // The current account, signed in again: back to the workspace.
-                track('login', { method: 'oauth' })
-                setAuth({ status: 'authenticated', user })
+            onLogin={async (user) => {
+              // Another account (another user, or the same id on another
+              // backend) reloads every window as it once saved, and is
+              // counted after that. The current one, signed in again, just
+              // returns to the workspace.
+              const sameAccount =
+                user.id === auth.user.id && (await api.atlasGetApiUrl()) === auth.apiUrl
 
-                return
-              }
-              // Another account reloads every window as it once saved:
-              // attribute this sign-in, and what follows, to it.
-              resetAnalytics()
-              identifyUser(user)
+              if (!sameAccount) return
               track('login', { method: 'oauth' })
+              setAuth({ status: 'authenticated', user })
             }}
           />
         </div>

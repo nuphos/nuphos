@@ -134,11 +134,8 @@ export function configFile(deps: ConfigFileDeps) {
     deps.onToken(cfg.token ?? null)
   }
 
-  /**
-   * Points the app at another backend for the token about to take effect.
-   * The session is cleared first, so nothing following the endpoint sends the
-   * outgoing account's token to the new backend.
-   */
+  // Moves the app to another backend for the token about to take effect, clearing
+  // the session first so nothing sends the outgoing token to the new backend.
   function moveTo(api: string) {
     if (api === currentApi()) return
     deps.onToken(null)
@@ -238,12 +235,8 @@ export function configFile(deps: ConfigFileDeps) {
 
       return inTurn(() => save(cfg))
     },
-    /**
-     * Writes `cfg` only if `allowed` accepts the file as its turn finds it, so
-     * a write based on what was read earlier (a status probe, a sign-in that
-     * may have been cancelled) never overrides a newer change. Resolves to
-     * whether it wrote.
-     */
+    // Writes only if `allowed` accepts the file as its turn finds it, so a write
+    // based on an earlier read never overrides a newer change. True if it wrote.
     writeIf: (cfg: Config, allowed: (current: Config) => boolean) =>
       inTurn(async () => {
         if (!allowed((await readFile(deps.path)) ?? {})) return false
@@ -251,6 +244,16 @@ export function configFile(deps: ConfigFileDeps) {
 
         return true
       }),
+    /** Makes `token` the session only if `allowed` accepts the file as its turn finds it. */
+    publishIf: (token: string | null, allowed: (current: Config) => boolean) =>
+      inTurn(async () => {
+        if (!allowed((await readFile(deps.path)) ?? {})) return false
+        deps.onToken(token)
+
+        return true
+      }),
+    /** Resolves once every read and write queued so far has finished. */
+    settled: () => inTurn(() => Promise.resolve()),
     switchTo: (key: string) => inTurn(() => switchTo(key)),
     signOutAll: () => {
       deps.onToken(null)
@@ -276,6 +279,8 @@ const defaultConfigFile = configFile({
 export const readConfig = defaultConfigFile.read
 export const writeConfig = defaultConfigFile.write
 export const writeConfigIf = defaultConfigFile.writeIf
+export const publishSessionIf = defaultConfigFile.publishIf
+export const configSettled = defaultConfigFile.settled
 export const switchConfig = defaultConfigFile.switchTo
 export const signOutAllConfig = defaultConfigFile.signOutAll
 export const otherAccounts = defaultConfigFile.others

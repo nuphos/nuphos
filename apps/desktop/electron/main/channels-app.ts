@@ -6,12 +6,14 @@ import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electro
 
 import * as agentChatSkill from '../agent-chat-skill'
 import { resetAnalyticsUser, setAnalyticsTeam, setAnalyticsUser } from '../analytics'
-import { apiUrl, setApiUrl } from '../api-endpoint'
+import { apiUrl, onLoginApiUrlChange, setApiUrl } from '../api-endpoint'
 import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
+import { configSettled } from '../auth/config'
 import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
 import { shownAccount } from '../auth/shown-account'
+import { signInCommitting } from '../auth/sign-in'
 import { authSession } from '../auth-session'
 import * as fileTransfer from '../fileTransfer'
 import { readImageAttachment, registerAttachment } from '../imageAttachment'
@@ -19,6 +21,7 @@ import * as podExec from '../pod-exec'
 import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
+import { reloadAppWindows } from './account-reload'
 import { getChangelogState } from './changelog'
 import { pickPaths, savePastedAttachments } from './dialogs'
 import { isDev } from './env'
@@ -28,7 +31,7 @@ import { listLocalAgentSessions, validateLocalSessionSource } from './local-sess
 import { openExternal } from './open-external'
 import { writePersistedThemeSource } from './theme'
 import { autoUpdater, checkForUpdatesOnce, getUpdaterState, setUpdaterState } from './updater'
-import { mostRecentlyFocusedVisibleAppWindow, reloadAppWindows } from './windows'
+import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
 import type { ThemeSource } from './theme'
@@ -46,7 +49,15 @@ authSession.subscribe((next) => {
   // pod) here rather than relying on the window that started the change.
   terminal.closeAllSshSessions()
   podExec.closeAllPodExecSessions()
-  reloadAppWindows()
+  resetAnalyticsUser()
+  reloadAppWindows(next === null ? 'signedOut' : signInCommitting() ? 'added' : 'switched')
+})
+
+// Every window adding an account shows the server its sign-in will go to.
+onLoginApiUrlChange((url) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('auth:loginEndpointChanged', url)
+  }
 })
 
 export const appChannels = {
@@ -84,7 +95,12 @@ export const appChannels = {
     await auth.logoutAll()
     resetAnalyticsUser()
   },
-  'auth:cancel': () => auth.cancelAddAccount(),
+  // Resolves once a sign-in whose write had already started has finished: a
+  // cancel cannot undo that one, and its account change reloads the windows.
+  'auth:cancel': async () => {
+    auth.cancelAddAccount()
+    await configSettled()
+  },
   'auth:loginEndpoint': () => auth.loginEndpoint(),
   'auth:stageLoginEndpoint': (_e: unknown, url: string | null) => auth.stageLoginEndpoint(url),
   'auth:emailRequestCode': (_e: unknown, email: string) => auth.requestEmailCode(email),

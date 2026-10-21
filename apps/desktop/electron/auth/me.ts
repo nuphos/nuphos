@@ -1,11 +1,9 @@
 import { apiUrl } from '../api-endpoint.ts'
-import { authSession } from '../auth-session.ts'
 import { decideAuthStatus, isTokenRejected, isValidUserInfo } from '../auth-status.ts'
 
 import { sameAccount } from './accounts.ts'
-import { readConfig, writeConfigIf } from './config.ts'
+import { publishSessionIf, readConfig, writeConfigIf } from './config.ts'
 
-import type { AuthSession } from '../auth-session.ts'
 import type { AuthStatus, MeProbe, UserInfo } from '../auth-status.ts'
 import type { Config } from './config.ts'
 
@@ -73,61 +71,63 @@ async function probeMe(token: string): Promise<MeProbe> {
 
 export type StatusDeps = {
   readConfig: () => Promise<Config>
-  /** Writes `cfg` unless the file no longer names the account `read` was. */
-  writeConfig: (cfg: Config, read: Config) => Promise<unknown>
+  /**
+   * Applies a probe's outcome while the file still names the account `read`
+   * was, in one turn with every other read and write of it: writes `next`
+   * when there is one (which also sets the session), else makes `token` the
+   * session. Resolves false, changing nothing, once another account took over.
+   */
+  commit: (read: Config, next: Config | null, token: string | null) => Promise<boolean>
   probe: (token: string) => Promise<MeProbe>
-  session: AuthSession
+}
+
+async function commitStatus(read: Config, next: Config | null, token: string | null) {
+  const stillRead = (current: Config) => sameAccount(current, read, apiUrl())
+
+  if (next) {
+    try {
+      return await writeConfigIf(next, stillRead)
+    } catch (e) {
+      // Best-effort: a failed write (disk full, permissions) must not
+      // downgrade a valid sign-in, so the session is still published below.
+      console.warn('auth: failed to update the sign-in after checking it', e)
+    }
+  }
+
+  return publishSessionIf(token, stillRead)
 }
 
 const defaultStatusDeps: StatusDeps = {
   readConfig,
-  writeConfig: (cfg, read) => writeConfigIf(cfg, (current) => sameAccount(current, read, apiUrl())),
+  commit: commitStatus,
   probe: probeMe,
-  session: authSession,
 }
 
+/**
+ * Checks the current sign-in with the backend and makes the session match.
+ * When another window switches or adds an account while the check is out,
+ * its answer is about an account no longer current, so the current one is
+ * checked instead.
+ */
 export async function status(deps: StatusDeps = defaultStatusDeps): Promise<AuthStatus> {
-  const result = await probeStatus(deps)
-
-  deps.session.set(result.loggedIn ? result.token : null)
-
-  return result
-}
-
-async function probeStatus(deps: StatusDeps): Promise<AuthStatus> {
   const cfg = await deps.readConfig()
 
-  if (!cfg.token) return { loggedIn: false }
+  if (!cfg.token) {
+    if (await deps.commit(cfg, null, null)) return { loggedIn: false }
 
-  const probe = await deps.probe(cfg.token)
-
-  // Another window switched or added an account while this probe ran: its
-  // answer is about an account no longer current, so check the current one.
-  if ((await deps.readConfig()).token !== cfg.token) return probeStatus(deps)
-  if (probe.ok) {
-    // Keep the cached identity fresh so a later transient failure has an
-    // up-to-date user to fall back on. Best-effort: a failed write (disk full,
-    // permissions, race) must NOT downgrade a valid login to anonymous.
-    try {
-      await deps.writeConfig(
-        {
-          ...cfg,
-          user: probe.user.name,
-          username: probe.user.username,
-          userInfo: probe.user,
-        },
-        cfg,
-      )
-    } catch (e) {
-      console.warn('auth: failed to refresh cached identity', e)
-    }
-  } else if (!probe.transient) {
-    try {
-      await deps.writeConfig({}, cfg)
-    } catch (e) {
-      console.warn('auth: failed to clear rejected token', e)
-    }
+    return status(deps)
   }
+  const probe = await deps.probe(cfg.token)
+  const result = decideAuthStatus(probe, cfg.token, cfg.userInfo)
+  // Keep the cached identity fresh so a later transient failure has an
+  // up-to-date user to fall back on; a rejected token signs out.
+  const next: Config | null = probe.ok
+    ? { ...cfg, user: probe.user.name, username: probe.user.username, userInfo: probe.user }
+    : probe.transient
+      ? null
+      : {}
 
-  return decideAuthStatus(probe, cfg.token, cfg.userInfo)
+  if (await deps.commit(cfg, next, result.loggedIn ? result.token : null)) return result
+
+  return status(deps)
 }

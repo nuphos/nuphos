@@ -6,6 +6,13 @@ export const accountsApi = {
   authSwitch: (key: string) => ipcRenderer.invoke('auth:switch', key),
   authLogoutAll: () => ipcRenderer.invoke('auth:logoutAll'),
   authLoginEndpoint: () => ipcRenderer.invoke('auth:loginEndpoint'),
+  onLoginEndpointChanged: (cb: (url: string) => void) => {
+    const handler = (_event: unknown, url: string) => cb(url)
+
+    ipcRenderer.on('auth:loginEndpointChanged', handler)
+
+    return () => ipcRenderer.off('auth:loginEndpointChanged', handler)
+  },
   authStageLoginEndpoint: (url: string | null) =>
     ipcRenderer.invoke('auth:stageLoginEndpoint', url),
 }

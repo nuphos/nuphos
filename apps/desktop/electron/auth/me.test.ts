@@ -15,12 +15,14 @@ function harness() {
   let probe: MeProbe = { ok: true, user: USER }
   const session = new AuthSession()
   const deps = {
-    session,
     readConfig: () => Promise.resolve(config),
-    writeConfig: (cfg: Config) => {
-      config = cfg
+    // As the config file does it: only while the file names the account read.
+    commit: (read: Config, next: Config | null, token: string | null) => {
+      if (config.token !== read.token) return Promise.resolve(false)
+      if (next) config = next
+      session.set(token)
 
-      return Promise.resolve()
+      return Promise.resolve(true)
     },
     probe: (_token: string): Promise<MeProbe> => Promise.resolve(probe),
   }
@@ -29,6 +31,9 @@ function harness() {
     session,
     deps,
     config: () => config,
+    setConfig: (next: Config) => {
+      config = next
+    },
     setProbe: (next: MeProbe) => {
       probe = next
     },
@@ -65,14 +70,14 @@ test('a transient probe failure with no cached identity leaves the session unaut
 
   await status(h.deps)
   h.setProbe({ ok: false, transient: true })
-  await h.deps.writeConfig({ token: 'tok-1' })
+  h.setConfig({ token: 'tok-1' })
   await status(h.deps)
 
   assert.equal(h.session.current(), null)
   assert.equal(h.config().token, 'tok-1', 'an unconfirmed token is kept for the next launch')
 })
 
-test('a probe answering after another account took over reports that account instead', async () => {
+test('a probe answering after another account took over checks that account instead', async () => {
   const h = harness()
   const OTHER: UserInfo = { ...USER, id: 'u9', email: 'other@example.com' }
   let switched = false
@@ -82,7 +87,7 @@ test('a probe answering after another account took over reports that account ins
     if (!switched) {
       // Another window switches to u9 while u1's probe is out.
       switched = true
-      void h.deps.writeConfig({ token: 'tok-9', userInfo: OTHER })
+      h.setConfig({ token: 'tok-9', userInfo: OTHER })
 
       return Promise.resolve<MeProbe>({ ok: false, transient: false })
     }
@@ -95,4 +100,26 @@ test('a probe answering after another account took over reports that account ins
   assert.deepEqual(await status(h.deps), { loggedIn: true, token: 'tok-9', user: OTHER })
   assert.equal(h.session.current(), 'tok-9')
   assert.equal(h.config().token, 'tok-9')
+})
+
+test('a rejected probe for an account no longer current signs nothing out', async () => {
+  const h = harness()
+  const OTHER: UserInfo = { ...USER, id: 'u9', email: 'other@example.com' }
+  let first = true
+
+  h.deps.probe = (token: string) => {
+    if (first) {
+      first = false
+      // u9 takes over after the probe read u1, before its answer is applied.
+      h.setConfig({ token: 'tok-9', userInfo: OTHER })
+    }
+
+    return Promise.resolve<MeProbe>(
+      token === 'tok-9' ? { ok: true, user: OTHER } : { ok: false, transient: false },
+    )
+  }
+
+  assert.deepEqual(await status(h.deps), { loggedIn: true, token: 'tok-9', user: OTHER })
+  assert.equal(h.config().token, 'tok-9')
+  assert.equal(h.session.current(), 'tok-9')
 })

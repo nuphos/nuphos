@@ -53,6 +53,7 @@ export type WindowAppApi = {
   authSwitch(key: string): Promise<AuthStatus>
   authLogoutAll(): Promise<void>
   authLoginEndpoint(): Promise<string>
+  onLoginEndpointChanged?: (cb: (url: string) => void) => () => void
   authStageLoginEndpoint(url: string | null): Promise<string>
   authCancel(): Promise<void>
   authEmailRequestCode(email: string): Promise<void>

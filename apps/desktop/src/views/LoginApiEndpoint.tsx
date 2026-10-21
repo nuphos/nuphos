@@ -32,6 +32,8 @@ export function LoginApiEndpoint({ inputClassName, staged = false }: Props) {
 
   useEffect(() => {
     void (staged ? api.authLoginEndpoint() : api.atlasGetApiUrl()).then(setCurrent)
+    // Another window adding an account may stage a server, or drop it.
+    if (staged) return api.onLoginEndpointChanged(setCurrent)
   }, [staged])
 
   if (!current) return null
