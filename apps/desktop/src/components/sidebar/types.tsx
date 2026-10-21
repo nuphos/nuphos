@@ -4,7 +4,7 @@ import { navigationFromAppPath } from '../../lib/appRoutes'
 import { HREF_FAVORITE_PREFIX } from '../../lib/sidebarFavorites'
 import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav'
 
-import type { Scope, TeamInvitation, UserInfo } from '../../types'
+import type { AccountChange, Scope, TeamInvitation, UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -151,7 +151,7 @@ export type SidebarProps = {
   /** Resolved kubeconfig context for the active cluster tab. */
   kubeconfigContext?: string | null
   user: UserInfo | null
-  onLogout: () => void
+  onLogout: (change?: AccountChange) => void
   grafanaInstance?: { id: string; name: string; url: string } | null
   teamSegment?: BreadcrumbSegment
   /** Pulse a placeholder in the team-switcher slot while teams are loading. */

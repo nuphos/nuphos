@@ -11,6 +11,8 @@ import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
 import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
+import { authSession } from '../auth-session'
+import { unverifiedTokenSubject } from '../auth-status'
 import * as fileTransfer from '../fileTransfer'
 import { readImageAttachment, registerAttachment } from '../imageAttachment'
 import { raiseWindow } from '../window-raise'
@@ -24,12 +26,20 @@ import { listLocalAgentSessions, validateLocalSessionSource } from './local-sess
 import { openExternal } from './open-external'
 import { writePersistedThemeSource } from './theme'
 import { autoUpdater, checkForUpdatesOnce, getUpdaterState, setUpdaterState } from './updater'
-import { mostRecentlyFocusedVisibleAppWindow } from './windows'
+import { mostRecentlyFocusedVisibleAppWindow, reloadAppWindows } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
 import type { ThemeSource } from './theme'
 import type { PersonalCredentialProvider } from '../../src/types/team'
 import type { IpcMainInvokeEvent } from 'electron'
+
+// Another account taking over from a signed-in one (a switch, or adding an
+// account) reloads every window, so none keeps showing the previous account.
+// Signing in from, or out to, the sign-in screen is the renderer's own doing.
+authSession.subscribe((next, prev) => {
+  if (next && prev && unverifiedTokenSubject(next) !== unverifiedTokenSubject(prev))
+    reloadAppWindows()
+})
 
 export const appChannels = {
   'auth:updateProfile': (
@@ -55,6 +65,16 @@ export const appChannels = {
     resetAnalyticsUser()
 
     return result
+  },
+  'auth:accounts': () => auth.accounts(),
+  'auth:switch': (_e: unknown, key: string) => {
+    resetAnalyticsUser()
+
+    return auth.switchAccount(key)
+  },
+  'auth:logoutAll': async () => {
+    await auth.logoutAll()
+    resetAnalyticsUser()
   },
   'auth:cancel': () => auth.cancelPendingLogin(),
   'auth:emailRequestCode': (_e: unknown, email: string) => auth.requestEmailCode(email),

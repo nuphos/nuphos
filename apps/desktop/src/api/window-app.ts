@@ -27,6 +27,7 @@ import type {
   AtlasTeam,
   AuthStatus,
   ChangelogState,
+  OtherAccount,
   PersonalCredential,
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
@@ -48,6 +49,9 @@ export type WindowAppApi = {
   authStatus(): Promise<AuthStatus>
   authLogin(): Promise<UserInfo>
   authLogout(): Promise<void>
+  authAccounts(): Promise<OtherAccount[]>
+  authSwitch(key: string): Promise<AuthStatus>
+  authLogoutAll(): Promise<void>
   authCancel(): Promise<void>
   authEmailRequestCode(email: string): Promise<void>
   authEmailVerifyCode(email: string, code: string): Promise<UserInfo>

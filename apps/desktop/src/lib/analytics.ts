@@ -30,6 +30,7 @@ export type AnalyticsEvent =
   | 'app_ready'
   | 'login'
   | 'logout'
+  | 'switch_account'
   | 'team_switched'
   | 'navigation'
   | 'tab_opened'

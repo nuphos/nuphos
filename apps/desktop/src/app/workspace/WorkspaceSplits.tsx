@@ -26,6 +26,7 @@ import type { DropZone, SplitLayout } from './splitLayout'
 import type { WorkspaceState } from './store/workspaceState'
 import type { WorkspaceStore } from './store/workspaceStore'
 import type { WorkspaceProps } from './workspaceProps'
+import type { AccountChange } from '../../types'
 import type { ComponentType, SetStateAction } from 'react'
 
 export function WorkspaceSplits({
@@ -178,15 +179,18 @@ export function WorkspaceSplits({
     registrations.delete(id)
   }
 
-  const handleLogout = useCallback(async () => {
-    // Other panes stay mounted until logout completes; release their terminals too.
-    for (const store of stores.values()) {
-      for (const tab of selectAllResidentTabs(store.getState())) {
-        if (tab.sshTerminal) store.actions.closeTab(tab.id)
+  const handleLogout = useCallback(
+    async (change?: AccountChange) => {
+      // Other panes stay mounted until logout completes; release their terminals too.
+      for (const store of stores.values()) {
+        for (const tab of selectAllResidentTabs(store.getState())) {
+          if (tab.sshTerminal) store.actions.closeTab(tab.id)
+        }
       }
-    }
-    await onLogout()
-  }, [onLogout, stores])
+      await onLogout(change)
+    },
+    [onLogout, stores],
+  )
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">

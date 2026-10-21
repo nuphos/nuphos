@@ -12,19 +12,26 @@ import { useTextSwap } from '../hooks/useTextSwap'
 import { signInEmailError } from '../lib/emailDomain'
 import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
+import { LoginAccounts } from './LoginAccounts'
 import { LoginApiEndpoint } from './LoginApiEndpoint'
 
-import type { UserInfo } from '../types'
+import type { OtherAccount, UserInfo } from '../types'
 
 type Props = {
   onLogin: (user: UserInfo) => void
+  /** Accounts still signed in on this device, offered before a new sign-in. */
+  others?: OtherAccount[]
+  onPickAccount?: (key: string) => Promise<void>
+  /** The account that stays signed in while another one is added. */
+  adding?: UserInfo | null
+  onCancel?: () => void
 }
 
 const inputClasses =
   'w-full px-3 py-2 rounded-md bg-surface border border-zGray-800 text-main text-[14px] ' +
   'outline-none focus:border-zViolet-accent placeholder:text-secondary titlebar-no-drag t-input'
 
-export function LoginView({ onLogin }: Props) {
+export function LoginView({ onLogin, others = [], onPickAccount, adding, onCancel }: Props) {
   const [step, setStep] = useState<'start' | 'code'>('start')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -124,13 +131,18 @@ export function LoginView({ onLogin }: Props) {
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
             <NuphosLogo className="h-12 w-12" variant="white-bg" />
           </div>
-          <h1 className="text-[20px] font-semibold text-main mb-1.5">Welcome to Nuphos</h1>
+          <h1 className="text-[20px] font-semibold text-main mb-1.5">
+            {adding ? 'Add another account' : 'Welcome to Nuphos'}
+          </h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
-            The agent workspace for your team
+            {adding
+              ? `You stay signed in as ${adding.email || adding.name}; switch between accounts from the account menu.`
+              : 'The agent workspace for your team'}
           </p>
 
           <div className="t-page-slide t-wizard-slide w-full" data-page={step === 'start' ? 1 : 2}>
             <section className="t-page" data-page-id="1" inert={step !== 'start'}>
+              {onPickAccount && <LoginAccounts others={others} onPick={onPickAccount} />}
               <Button
                 onClick={() => void handleGoogleLogin()}
                 size="lg"
@@ -184,6 +196,20 @@ export function LoginView({ onLogin }: Props) {
                 </Button>
               </form>
               <LoginApiEndpoint inputClassName={inputClasses} />
+              {onCancel && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    void api.authCancel()
+                    onCancel()
+                  }}
+                  className="mt-3 titlebar-no-drag"
+                >
+                  Cancel
+                </Button>
+              )}
             </section>
             <section className="t-page" data-page-id="2" inert={step !== 'code'}>
               <form

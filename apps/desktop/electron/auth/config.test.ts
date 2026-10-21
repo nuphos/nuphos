@@ -14,8 +14,10 @@ import type { TokenStore } from './token-store.ts'
 
 const USER: UserInfo = { id: 'u1', name: 'Bruce', email: 'bruce@example.com', username: 'bruce' }
 const ACCOUNT = 'u1@https://api.nuphos.ai'
+const API = 'https://api.nuphos.ai'
 
 async function harness({ secure = true, failSet = false, gated = false } = {}) {
+  let api = 'https://api.nuphos.ai/'
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-config-'))
   const file = path.join(dir, 'desktop.yaml')
   const legacy = path.join(dir, 'cli.yaml')
@@ -51,7 +53,10 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
     path: file,
     store,
     secure: () => secure,
-    apiUrl: () => 'https://api.nuphos.ai/',
+    apiUrl: () => api,
+    setApiUrl: (url) => {
+      api = url
+    },
     onToken: (token) => tokens.push(token),
     legacyPath: legacy,
   })
@@ -62,7 +67,23 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
     while (!calls.some((c) => c.startsWith('set'))) await new Promise(setImmediate)
   }
 
-  return { config, file, legacy, items, calls, tokens, onDisk, release, keychainWriteStarted }
+  const useApi = (url: string) => {
+    api = url
+  }
+
+  return {
+    config,
+    file,
+    legacy,
+    items,
+    calls,
+    tokens,
+    onDisk,
+    release,
+    keychainWriteStarted,
+    useApi,
+    api: () => api,
+  }
 }
 
 test('a sign-in keeps the token in the keychain and only names it in the file', async () => {
@@ -71,7 +92,7 @@ test('a sign-in keeps the token in the keychain and only names it in the file', 
   await h.config.write({ token: 'tok-1', userInfo: USER })
 
   assert.equal(h.items.get(ACCOUNT), 'tok-1')
-  assert.deepEqual(await h.onDisk(), { keychainAccount: ACCOUNT, userInfo: USER })
+  assert.deepEqual(await h.onDisk(), { keychainAccount: ACCOUNT, userInfo: USER, apiUrl: API })
   assert.equal((await fs.stat(h.file)).mode & 0o777, 0o600)
   assert.deepEqual(h.tokens, ['tok-1'])
   assert.equal((await h.config.read()).token, 'tok-1')
@@ -84,7 +105,7 @@ test('a plaintext token from an older client moves to the keychain', async () =>
 
   assert.equal((await h.config.read()).token, 'tok-old')
   assert.equal(h.items.get(ACCOUNT), 'tok-old')
-  assert.deepEqual(await h.onDisk(), { keychainAccount: ACCOUNT, userInfo: USER })
+  assert.deepEqual(await h.onDisk(), { keychainAccount: ACCOUNT, userInfo: USER, apiUrl: API })
 })
 
 test('signing out while a plaintext token moves to the keychain stays signed out', async () => {
@@ -105,7 +126,7 @@ test('signing out while a plaintext token moves to the keychain stays signed out
   assert.equal((await h.config.read()).token, undefined)
 })
 
-test('a newer sign-in while a plaintext token moves to the keychain wins', async () => {
+test('a newer sign-in while a plaintext token moves to the keychain wins, keeping both', async () => {
   const h = await harness({ gated: true })
   const other = { ...USER, id: 'u9' }
 
@@ -118,7 +139,10 @@ test('a newer sign-in while a plaintext token moves to the keychain wins', async
   h.release()
   await Promise.all([reading, signingIn])
 
-  assert.deepEqual([...h.items], [['u9@https://api.nuphos.ai', 'tok-9']])
+  assert.deepEqual(Object.fromEntries(h.items), {
+    [ACCOUNT]: 'tok-old',
+    'u9@https://api.nuphos.ai': 'tok-9',
+  })
   assert.equal(h.tokens.at(-1), 'tok-9')
   assert.equal((await h.config.read()).token, 'tok-9')
 })
@@ -166,7 +190,7 @@ test('without a keychain the token stays in the file', async () => {
 
   await h.config.write({ token: 'tok-1', userInfo: USER })
 
-  assert.deepEqual(await h.onDisk(), { token: 'tok-1', userInfo: USER })
+  assert.deepEqual(await h.onDisk(), { token: 'tok-1', userInfo: USER, apiUrl: API })
   assert.deepEqual(h.calls, [])
   assert.equal((await h.config.read()).token, 'tok-1')
 })
@@ -176,17 +200,127 @@ test('a keychain that refuses the write leaves the token in the file', async () 
 
   await h.config.write({ token: 'tok-1', userInfo: USER })
 
-  assert.deepEqual(await h.onDisk(), { token: 'tok-1', userInfo: USER })
+  assert.deepEqual(await h.onDisk(), { token: 'tok-1', userInfo: USER, apiUrl: API })
   assert.deepEqual(h.tokens, ['tok-1'])
 })
 
-test('another user replaces the previous keychain item', async () => {
+const OTHER: UserInfo = { ...USER, id: 'u9', email: 'other@example.com' }
+const OTHER_ACCOUNT = 'u9@https://api.nuphos.ai'
+
+test('signing in as someone else keeps the previous account signed in', async () => {
   const h = await harness()
 
   await h.config.write({ token: 'tok-1', userInfo: USER })
-  await h.config.write({ token: 'tok-9', userInfo: { ...USER, id: 'u9' } })
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
 
-  assert.deepEqual([...h.items], [['u9@https://api.nuphos.ai', 'tok-9']])
+  assert.deepEqual(Object.fromEntries(h.items), { [ACCOUNT]: 'tok-1', [OTHER_ACCOUNT]: 'tok-9' })
+  assert.equal((await h.config.read()).token, 'tok-9')
+  assert.deepEqual(await h.config.others(), [
+    { key: ACCOUNT, user: USER, apiUrl: 'https://api.nuphos.ai' },
+  ])
+  assert.equal((await h.onDisk()).otherAccounts !== undefined, true)
+})
+
+test('switching makes a listed account current without a new sign-in', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+  const current = await h.config.switchTo(ACCOUNT)
+
+  assert.equal(current.token, 'tok-1')
+  assert.equal(h.tokens.at(-1), 'tok-1')
+  assert.equal((await h.config.read()).token, 'tok-1')
+  assert.deepEqual(
+    (await h.config.others()).map((o) => o.key),
+    [OTHER_ACCOUNT],
+  )
+  assert.equal(h.items.size, 2)
+  await assert.rejects(h.config.switchTo('nobody@https://api.nuphos.ai'))
+})
+
+test('signing in again to a listed account updates its item in place', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+  h.calls.length = 0
+  await h.config.write({ token: 'tok-1b', userInfo: USER })
+
+  assert.deepEqual(h.calls, [`set ${ACCOUNT}`])
+  assert.equal(h.items.get(ACCOUNT), 'tok-1b')
+  assert.deepEqual(
+    (await h.config.others()).map((o) => o.key),
+    [OTHER_ACCOUNT],
+  )
+})
+
+test('signing out of the current account leaves the others signed in', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+  await h.config.write({})
+
+  assert.deepEqual([...h.items.keys()], [ACCOUNT])
+  assert.equal((await h.config.read()).token, undefined)
+  assert.deepEqual(
+    (await h.config.others()).map((o) => o.key),
+    [ACCOUNT],
+  )
+  assert.equal((await h.config.switchTo(ACCOUNT)).token, 'tok-1')
+  assert.deepEqual(await h.config.others(), [])
+})
+
+test('signing out of all accounts removes every item', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+  await h.config.signOutAll()
+
+  assert.equal(h.items.size, 0)
+  assert.deepEqual(await h.onDisk(), {})
+  assert.equal(h.tokens.at(-1), null)
+})
+
+test('switching to an account on another backend points the app there', async () => {
+  const h = await harness()
+
+  h.useApi('https://nuphos.example.com')
+  await h.config.write({ token: 'tok-self', userInfo: USER })
+  h.useApi('https://api.nuphos.ai')
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+
+  const [listed] = await h.config.others()
+
+  assert.deepEqual(listed, {
+    key: 'u1@https://nuphos.example.com',
+    user: USER,
+    apiUrl: 'https://nuphos.example.com',
+  })
+  assert.equal((await h.config.switchTo(listed.key)).token, 'tok-self')
+  assert.equal(h.api(), 'https://nuphos.example.com')
+  assert.deepEqual(
+    (await h.config.others()).map((o) => [o.key, o.apiUrl]),
+    [[OTHER_ACCOUNT, 'https://api.nuphos.ai']],
+  )
+})
+
+test('without a keychain each account keeps its token in the file', async () => {
+  const h = await harness({ secure: false })
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  await h.config.write({ token: 'tok-9', userInfo: OTHER })
+
+  assert.deepEqual(h.calls, [])
+  assert.equal((await h.onDisk()).token, 'tok-9')
+  assert.deepEqual(
+    (await h.config.others()).map((o) => o.key),
+    [ACCOUNT],
+  )
+  assert.equal((await h.config.switchTo(ACCOUNT)).token, 'tok-1')
+  assert.equal((await h.onDisk()).token, 'tok-1')
 })
 
 test('the first run starts from the sign-in shared with the CLI, and takes the token out of cli.yaml', async () => {
@@ -196,7 +330,12 @@ test('the first run starts from the sign-in shared with the CLI, and takes the t
 
   assert.equal((await h.config.read()).token, 'tok-old')
   assert.equal(h.items.get(ACCOUNT), 'tok-old')
-  assert.deepEqual(await h.onDisk(), { keychainAccount: ACCOUNT, user: 'Bruce', userInfo: USER })
+  assert.deepEqual(await h.onDisk(), {
+    keychainAccount: ACCOUNT,
+    user: 'Bruce',
+    userInfo: USER,
+    apiUrl: API,
+  })
   assert.deepEqual(await h.onDisk(h.legacy), { user: 'Bruce', userInfo: USER })
 })
 
@@ -206,7 +345,7 @@ test('without a keychain the shared sign-in is copied and the CLI keeps its own'
   await fs.writeFile(h.legacy, yaml.dump({ token: 'tok-old', userInfo: USER }))
 
   assert.equal((await h.config.read()).token, 'tok-old')
-  assert.deepEqual(await h.onDisk(), { token: 'tok-old', userInfo: USER })
+  assert.deepEqual(await h.onDisk(), { token: 'tok-old', userInfo: USER, apiUrl: API })
   assert.deepEqual(await h.onDisk(h.legacy), { token: 'tok-old', userInfo: USER })
 })
 

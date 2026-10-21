@@ -3,41 +3,88 @@ import { useEffect, useState } from 'react'
 import { api } from './api'
 import { Workspace } from './app/workspace/Workspace'
 import { claimComposerDrafts, clearComposerDrafts } from './components/agent/panel/composerDrafts'
+import { toast } from './components/ui/toast'
 import { CurrentUserContext } from './hooks/useCurrentUser'
 import { forgetMacAccounts } from './hooks/useMacSignIn'
 import { identifyUser, resetAnalytics, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
 
-import type { UserInfo } from './types'
+import type { AccountChange, AuthStatus, OtherAccount, UserInfo } from './types'
 
 type AuthState =
-  { status: 'checking' } | { status: 'anonymous' } | { status: 'authenticated'; user: UserInfo }
+  | { status: 'checking' }
+  | { status: 'anonymous'; others: OtherAccount[] }
+  | { status: 'authenticated'; user: UserInfo }
+  // Signing in to one more account; `user` stays signed in meanwhile.
+  | { status: 'adding'; user: UserInfo }
+
+type SetAuth = (next: AuthState) => void
+
+function enter(setAuth: SetAuth, user: UserInfo) {
+  identifyUser(user)
+  claimComposerDrafts(user.id)
+  setAuth({ status: 'authenticated', user })
+}
+
+/** The sign-in screen, offering the accounts still signed in on this device. */
+async function signedOut(setAuth: SetAuth) {
+  const others = await api.authAccounts().catch(() => [])
+
+  setAuth({ status: 'anonymous', others })
+}
+
+// Switching to an account whose sign-in the backend rejects drops it.
+async function switched(setAuth: SetAuth, s: AuthStatus) {
+  track('switch_account')
+  if (s.loggedIn) {
+    enter(setAuth, s.user)
+
+    return
+  }
+  toast.error('That sign-in has expired', 'Sign in to the account again.')
+  await signedOut(setAuth)
+}
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>({ status: 'checking' })
 
   useEffect(() => {
     let cancelled = false
+    const settle = (next: AuthState) => {
+      if (!cancelled) setAuth(next)
+    }
 
     api
       .authStatus()
-      .then((s) => {
-        if (cancelled) return
-        if (s.loggedIn) {
-          identifyUser(s.user)
-          claimComposerDrafts(s.user.id)
-          setAuth({ status: 'authenticated', user: s.user })
-        } else {
-          setAuth({ status: 'anonymous' })
-        }
-      })
-      .catch(() => !cancelled && setAuth({ status: 'anonymous' }))
+      .then((s) => (s.loggedIn ? enter(settle, s.user) : signedOut(settle)))
+      .catch(() => settle({ status: 'anonymous', others: [] }))
 
     return () => {
       cancelled = true
     }
   }, [])
+
+  const onLogout = async (change?: AccountChange) => {
+    forgetMacAccounts()
+    if (change?.kind === 'add') {
+      if (auth.status === 'authenticated') setAuth({ status: 'adding', user: auth.user })
+
+      return
+    }
+    resetAnalytics()
+    if (change?.kind === 'switch') {
+      // A successful switch reloads every window as the new account.
+      await switched(setAuth, await api.authSwitch(change.key))
+
+      return
+    }
+    clearComposerDrafts()
+    if (change?.kind === 'logoutAll') await api.authLogoutAll()
+    else await api.authLogout()
+    track('logout')
+    await signedOut(setAuth)
+  }
 
   if (auth.status === 'checking') {
     return (
@@ -48,14 +95,21 @@ export default function App() {
     )
   }
 
-  if (auth.status === 'anonymous') {
+  if (auth.status === 'anonymous' || auth.status === 'adding') {
+    const adding = auth.status === 'adding' ? auth.user : null
+
     return (
       <LoginView
+        others={auth.status === 'anonymous' ? auth.others : []}
+        adding={adding}
+        onCancel={adding ? () => enter(setAuth, adding) : undefined}
+        onPickAccount={async (key) => {
+          await switched(setAuth, await api.authSwitch(key))
+        }}
         onLogin={(user) => {
-          identifyUser(user)
-          claimComposerDrafts(user.id)
+          // Adding an account reloads every window as it once it is saved.
           track('login', { method: 'oauth' })
-          setAuth({ status: 'authenticated', user })
+          enter(setAuth, user)
         }}
       />
     )
@@ -64,19 +118,13 @@ export default function App() {
   return (
     <CurrentUserContext value={auth.user}>
       <Workspace
+        key={auth.user.id}
         user={auth.user}
         onUserUpdated={(user) => {
           identifyUser(user)
           setAuth({ status: 'authenticated', user })
         }}
-        onLogout={async () => {
-          await api.authLogout()
-          clearComposerDrafts()
-          forgetMacAccounts()
-          track('logout')
-          resetAnalytics()
-          setAuth({ status: 'anonymous' })
-        }}
+        onLogout={onLogout}
       />
       <BoxPaywallHost />
     </CurrentUserContext>

@@ -1,5 +1,6 @@
 import { contextBridge } from 'electron'
 
+import { accountsApi } from './preload-parts/api-accounts'
 import { agentApi } from './preload-parts/api-agent'
 import { appConfigApi } from './preload-parts/api-app-config'
 import { awsApi } from './preload-parts/api-aws'
@@ -20,6 +21,7 @@ import { sessionAccessApi } from './preload-parts/api-session-access'
 import { teamApi } from './preload-parts/api-team'
 
 const api = {
+  ...accountsApi,
   ...appConfigApi,
   ...localTerminalApi,
   ...k8sAppApi,
