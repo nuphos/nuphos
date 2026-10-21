@@ -33,6 +33,10 @@ export type RuntimeInstance = {
   createdAt: string
 }
 
+/** Every hosted runtime is a pod in one shared namespace; this keeps one team
+ *  from taking the whole runtime node pool. */
+const MAX_HOSTED_RUNTIMES_PER_TEAM = 20
+
 /**
  * Registers a runtime the way an administrator registers a self-hosted one with its
  * password, and deploys a pod started with that password. The reconcile loop retries a
@@ -44,6 +48,18 @@ export async function createManagedRuntimeInstance(args: {
   provider: OpenAbProvider
   label: string
 }): Promise<RuntimeInstance> {
+  const hostedCount = await runtimes().countDocuments({
+    teamId: args.teamId,
+    hostedBy: 'nuphos',
+    managedBy: { $exists: false },
+  })
+
+  if (hostedCount >= MAX_HOSTED_RUNTIMES_PER_TEAM)
+    throw new AppError(
+      409,
+      'runtime_limit_reached',
+      'This team has reached its hosted agent limit.',
+    )
   const image = await managedRuntimeImage(args.provider)
 
   if (!image)

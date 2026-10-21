@@ -100,6 +100,24 @@ test('adding a managed agent registers a hosted runtime with its own generated p
   }
 })
 
+test('a team gets at most 20 hosted agents; deleting one frees a slot and other teams are unaffected', async () => {
+  const server = app()
+  const created = []
+
+  for (let index = 0; index < 20; index++) created.push(await add(server, `agent ${String(index)}`))
+  const over = await server.request(
+    '/agent-runtimes',
+    json('POST', { label: 'one more', provider: 'codex' }),
+  )
+
+  expect(over.status).toBe(409)
+  expect(await over.json()).toEqual({ code: 'runtime_limit_reached' })
+  expect(runtimeRows().filter((doc) => doc.teamId === 'one')).toHaveLength(20)
+  await add(app('two'), 'another team')
+  await store.collection('claude_code_runtimes').deleteOne({ _id: created[0]!.id })
+  await add(server, 'after delete')
+})
+
 test('the create route takes a name and a type, and nothing that signs the agent in', async () => {
   for (const extra of [
     { image: `registry.example/codex@sha256:${'a'.repeat(64)}` },
