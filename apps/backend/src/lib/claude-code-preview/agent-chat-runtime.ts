@@ -7,9 +7,10 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
-import { lastTextChunkTracker, settledCodexStopReason } from './codex-turn-settle'
+import { settledCodexStopReason } from './codex-turn-settle'
 import { openConversationSession } from './open-conversation-session'
 import { OpenAbRpcError } from './openab-acp-errors'
+import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
@@ -25,15 +26,13 @@ import {
   cancelActiveTeamTurn,
   previewRuntimeCwd,
 } from './team-openab-runtime'
+import { RENEWED_TOKEN_TTL_SEC, renewTurnCredentials } from './turn-credential-renewal'
 
+import type { previewSessionAccess } from './credentials-mcp'
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeAttachment } from './runtime-attachments'
 import type { TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
-
-import type { previewSessionAccess } from './credentials-mcp'
-import { redactStreamedUpdates } from './streamed-token-redaction'
-import { RENEWED_TOKEN_TTL_SEC, renewTurnCredentials } from './turn-credential-renewal'
 
 export {
   previewRuntimeObservability,
@@ -249,23 +248,15 @@ export async function runClaudeCodePreviewPrompt(args: {
     ]
       .filter(Boolean)
       .join('\n\n')
-    const text = lastTextChunkTracker(args.onTextDelta)
-    const live = redactStreamedUpdates((update) => {
-      if (update.kind === 'text') text.onTextDelta(update.text)
-      else if (update.kind === 'agent') args.onAgentUpdate?.(update.update)
-    })
+    const text = redactedPromptUpdates(args.onTextDelta, args.onAgentUpdate)
     // A refusal or transport failure does not grant authority to cancel or
     // replace the runtime session. Its snapshot remains the lifecycle source.
     const result = await client
       .prompt(
         session.openabSessionId,
         args.text,
-        (delta) => {
-          live.deliver({ kind: 'text', text: delta })
-        },
-        (update) => {
-          live.deliver({ kind: 'agent', update })
-        },
+        text.onTextDelta,
+        text.onAgentUpdate,
         args.onPermissionRequest,
         () => {
           // Runtime admission, not a backend flag, selects the command whose
@@ -285,7 +276,7 @@ export async function runClaudeCodePreviewPrompt(args: {
           : error
       })
       .finally(() => {
-        live.flush()
+        text.flush()
       })
 
     return { stopReason: await settledCodexStopReason(session, result, text.last()) }

@@ -1,6 +1,8 @@
 import { redactSignedTokens } from './mcp-token'
+import { previewTextMetadata } from './preview-text-metadata'
 
 import type { OpenAbSessionUpdate } from './openab-acp-updates'
+import type { PreviewTextMetadata } from './preview-agent-update'
 
 // How every token this backend signs begins.
 const TOKEN_STARTS = [
@@ -29,21 +31,59 @@ function pendingTokenStart(text: string): number {
   return Math.min(text.length, ...starts)
 }
 
-function heldBack(emit: (text: string) => void) {
+const sameOwner = (a?: PreviewTextMetadata, b?: PreviewTextMetadata) =>
+  a?.messageId === b?.messageId && a?.phase === b?.phase
+
+function heldBack(emit: (text: string, metadata?: PreviewTextMetadata) => void) {
   // The last character already sent: a token split right after it still matches.
   let sent = ''
   let held = ''
+  let sentOwner: PreviewTextMetadata | undefined
+  let owners: { length: number; metadata?: PreviewTextMetadata }[] = []
+  const consume = (value: string, remember = true) => {
+    let from = 0
+
+    while (from < value.length) {
+      const owner = owners[0]
+      const length = Math.min(owner?.length ?? value.length, value.length - from)
+
+      emit(value.slice(from, from + length), owner?.metadata)
+      if (remember) sentOwner = owner?.metadata
+      from += length
+      if (owner) {
+        owner.length -= length
+        if (owner.length === 0) owners.shift()
+      }
+    }
+  }
+  const replaceOwners = (length: number, borrowedContext = false) => {
+    const first = owners[0]?.metadata
+    const same =
+      owners.every((owner) => sameOwner(owner.metadata, first)) &&
+      (!borrowedContext || sameOwner(sentOwner, first))
+
+    // Mixed redacted text stays unphased; no source-message classification is guessed.
+    owners = length ? [{ length, metadata: same ? first : undefined }] : []
+  }
 
   return {
-    push(text: string) {
-      const all = redactSignedTokens(sent + held + text)
+    push(text: string, metadata?: PreviewTextMetadata) {
+      const previous = owners.at(-1)
+
+      if (text.length) {
+        if (previous && sameOwner(previous.metadata, metadata)) previous.length += text.length
+        else owners.push({ length: text.length, metadata })
+      }
+      const raw = sent + held + text
+      const all = redactSignedTokens(raw)
       const fresh = all.startsWith(sent) ? all.slice(sent.length) : all
       const context = all.startsWith(sent) ? sent : ''
       const cut = Math.max(0, pendingTokenStart(context + fresh) - context.length)
 
+      if (all !== raw) replaceOwners(fresh.length, Boolean(sent) && !context)
       held = fresh.slice(cut)
       if (cut > 0) {
-        emit(fresh.slice(0, cut))
+        consume(fresh.slice(0, cut))
         sent = fresh.slice(cut - 1, cut)
       }
     },
@@ -51,7 +91,10 @@ function heldBack(emit: (text: string) => void) {
       const rest = held
 
       held = ''
-      if (rest) emit(redactSignedTokens(rest))
+      const safe = redactSignedTokens(rest)
+
+      if (safe !== rest) replaceOwners(safe.length)
+      if (safe) consume(safe, false)
     },
   }
 }
@@ -69,8 +112,8 @@ const turnEnds = (update: OpenAbSessionUpdate) =>
  * token resolves, the turn ends, or flush() is called.
  */
 export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => void) {
-  const text = heldBack((value) => {
-    handler({ kind: 'text', text: value })
+  const text = heldBack((value, metadata) => {
+    handler({ kind: 'text', text: value, ...metadata })
   })
   const thought = heldBack((value) => {
     handler({ kind: 'agent', update: { kind: 'thought', text: value } })
@@ -82,7 +125,7 @@ export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => 
 
   return {
     deliver: (update: OpenAbSessionUpdate) => {
-      if (update.kind === 'text') text.push(update.text)
+      if (update.kind === 'text') text.push(update.text, previewTextMetadata(update))
       else if (update.kind === 'agent' && update.update.kind === 'thought')
         thought.push(update.update.text)
       else {

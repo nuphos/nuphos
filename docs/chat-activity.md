@@ -13,7 +13,10 @@ commentary/final_answer. `preview-transcript.ts` preserves message boundaries;
 the prompt and autonomous routes emit matching text-start frames. Desktop
 applyEvent, persistence and toUiMessages preserve these fields through stream,
 reload, request and transcript sync. Legacy framing is retained. Existing
-mid-turn credential renewal from main remains intact.
+mid-turn credential renewal and runtime-output token redaction from main remain intact.
+The redaction buffer keeps ordinary text ownership across native message boundaries;
+if one redacted credential spans owners, its sanitized output stays unphased
+instead of guessing a source-message classification.
 
 `panel/activity.ts` owns grouping and protects user/timeline/file boundaries.
 `renderPartRange.tsx` selects parts before constructing tool runs, preventing

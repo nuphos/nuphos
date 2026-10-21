@@ -1,3 +1,4 @@
+import { redactSignedTokens } from './mcp-token'
 import { connectOpenAbAcpSocket } from './openab-acp-connect.ts'
 import { OpenAbConnectionLostError, cancelSession, settlePendingCall } from './openab-acp-errors.ts'
 import { OpenAbAcpLifecycle, attachmentPrompt } from './openab-acp-lifecycle.ts'
@@ -9,7 +10,6 @@ import {
   resumeSessionAlive,
   sessionMeta,
 } from './openab-acp-session.ts'
-import { redactSignedTokens } from './mcp-token'
 import { createCallTimer, refreshSessionTimers } from './openab-acp-timers.ts'
 import { observeOpenAbSessionUpdates, routeOpenAbSessionUpdate } from './openab-acp-updates.ts'
 import { rememberPushedRuntimeState } from './runtime-state-store'
