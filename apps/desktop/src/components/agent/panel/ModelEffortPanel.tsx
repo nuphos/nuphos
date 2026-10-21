@@ -1,7 +1,7 @@
 import { Slider } from '@base-ui/react/slider'
 import clsx from 'clsx'
 import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import { effortLabel } from '../../../lib/configLabels'
 import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
@@ -96,9 +96,6 @@ export function ModelEffortPanel({
   }
   if (draft && draft.from !== effort.currentValue) setDraft(undefined)
   const index = draft?.from === effort.currentValue ? draft.index : committed
-  const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  useEffect(() => () => clearTimeout(pending.current), [])
   const current = index >= 0 ? stops[index] : undefined
   const fraction = stopFraction(stops.length, index)
   const fastOn = fast?.currentValue === 'on'
@@ -175,11 +172,9 @@ export function ModelEffortPanel({
         onValueCommitted={(value) => {
           const stop = stops[value]
 
-          clearTimeout(pending.current)
-          // Arrow keys commit on every press; send only where they come to rest.
-          pending.current = setTimeout(() => {
-            if (stop && stop.value !== effort.currentValue) onSelect(effort.id, stop.value)
-          }, 350)
+          // Commit before the popover can unmount. A delayed write is lost when
+          // someone picks a level and immediately returns to the conversation.
+          if (stop && stop.value !== effort.currentValue) onSelect(effort.id, stop.value)
         }}
         className="mt-4 data-[disabled]:opacity-60"
       >
