@@ -1,13 +1,7 @@
 # Effort picker save timing
 
-`ModelEffortPanel` sends a committed level immediately. A committed value must reach `SessionConfigSync` before closing the popover unmounts the picker. Previously a350ms timer was canceled by unmount, losing a chosen xhigh value and reopening at the previous level.
+Committed effort selections are sent immediately rather than through a timer canceled on unmount. The existing config synchronizer handles runtime acknowledgments and errors.
 
-The slider still keeps its local draft while dragging, ignores committing the already-selected stop, and disables during a save. The existing config synchronizer handles acknowledgment, failed saves, queued busy-session picks and stale reads. This fix does not invent a confirmed runtime value.
+The previous screenshots and GIF were withdrawn because their component fixture did not show the real application interaction. Replacement visual evidence must use the running application and native model picker. A review finding about repeated keyboard steps while a save is pending remains under investigation.
 
-Verification:14 existing config-sync/effort tests pass. Actual before/after components were exercised in a browser in light and dark mode: End selects xhigh, immediate close loses the value before and preserves it after; reopening restores xhigh, repeating End makes no extra save, and Home commits low. Desktop build/typecheck and focused lint pass. Evidence uses a neutral model and no product data.
-
-![Light before/after](images/effort-picker/light.png)
-
-![Dark before/after](images/effort-picker/dark.png)
-
-![Commit and close](images/effort-picker/commit-close.gif)
+Verification completed before that review: config-sync and effort tests, desktop build/typecheck, and focused lint. These checks do not establish that repeated keyboard input is fixed.
