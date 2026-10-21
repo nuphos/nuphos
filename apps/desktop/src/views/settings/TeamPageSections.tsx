@@ -39,6 +39,7 @@ function SettingsPageFrame({
   title,
   subtitle,
   onBack,
+  searchable = true,
   filter,
   onFilterChange,
   count,
@@ -47,6 +48,8 @@ function SettingsPageFrame({
   title: string
   subtitle?: string
   onBack?: () => void
+  /** Hide the search where there is nothing to filter, such as a form. */
+  searchable?: boolean
   filter: string
   onFilterChange: (filter: string) => void
   count: number
@@ -67,14 +70,23 @@ function SettingsPageFrame({
         subtitle={subtitle}
         leading={
           onBack && (
-            <Button type="button" variant="ghost" size="sm" aria-label="Back" onClick={onBack}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Back"
+              // Keep the header as tall as it is without the button.
+              className="-my-1"
+              onClick={onBack}
+            >
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
             </Button>
           )
         }
       />
-      <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6">
-        <SearchBox filter={filter} onFilterChange={onFilterChange} count={count} />
+      {/* Shown only while something is in it: a form has no search and no controls. */}
+      <div className="hidden h-[42px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6 has-[>:not(:empty)]:flex">
+        {searchable && <SearchBox filter={filter} onFilterChange={onFilterChange} count={count} />}
         <div ref={setLeft} className="flex min-w-0 items-center gap-1 empty:hidden" />
         <div className="flex-1" />
         <div ref={setRight} className="flex items-center gap-2 empty:hidden" />
@@ -176,6 +188,7 @@ export function TriggersSection({ teamId, currentUserId, onOpenAgentChat }: Page
     <SettingsPageFrame
       title={title}
       onBack={back}
+      searchable={!form}
       filter={filter}
       onFilterChange={setFilter}
       count={count}
