@@ -13,10 +13,10 @@ export function ClaudeSignInCode() {
   async function submit() {
     const value = code
 
-    setCode('')
     setSubmitting(true)
     try {
       await api.localRuntimeSubmitClaudeLoginCode(value)
+      setCode('')
     } catch {
       toast.error('Could not submit sign-in code', 'Try signing in again.')
     } finally {
