@@ -71,7 +71,9 @@ const CLOSE_SUPERSEDED = 4000
 const CLOSE_REVOKED = 4003
 
 export function tunnelReconnectDelayMs(attempt: number): number {
-  return RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)]
+  return (
+    RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)] ?? 10_000
+  )
 }
 
 /** One reconnecting backend tunnel; agent runtime listeners stay on loopback. */
