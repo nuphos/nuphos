@@ -2,6 +2,7 @@ import { LogOut, Settings, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
+import { backendHost } from '../../lib/backendHost'
 import { Avatar } from '../Avatar'
 import { Kbd } from '../ui/kbd'
 import {
@@ -18,12 +19,7 @@ import type { AccountChange, OtherAccount, UserInfo } from '../../types'
 
 /** The backend an account belongs to, when it is not the one this app is on. */
 function otherBackend(apiUrl: string | undefined): string | null {
-  if (!apiUrl || apiUrl === window.api.apiUrlSync()) return null
-  try {
-    return new URL(apiUrl).host
-  } catch {
-    return apiUrl
-  }
+  return apiUrl === window.api.apiUrlSync() ? null : backendHost(apiUrl)
 }
 
 function AccountIdentity({

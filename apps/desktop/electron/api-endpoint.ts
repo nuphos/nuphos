@@ -85,6 +85,19 @@ export function onApiUrlChange(listener: () => void): () => void {
   }
 }
 
+/**
+ * Points this app at the backend of the account it switched to, until it quits.
+ * Unlike `setApiUrl` nothing is saved: the saved endpoint is shared with the
+ * CLI, whose token belongs to the backend it names.
+ */
+export function useApiUrl(url: string): void {
+  const previous = apiUrl()
+
+  delete process.env.ATLAS_API_URL
+  process.env.NUPHOS_API_URL = url
+  if (apiUrl() !== previous) for (const listener of listeners) listener()
+}
+
 /** Saves the endpoint (`null` restores the launch-time one, else Nuphos Cloud) and returns the new one. */
 export function setApiUrl(raw: string | null): string {
   const previous = apiUrl()

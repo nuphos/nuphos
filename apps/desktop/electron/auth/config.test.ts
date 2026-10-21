@@ -469,3 +469,26 @@ test('a read goes stale when the same account signs in again', async () => {
   await h.config.write({ token: 'tok-1b', userInfo: USER })
   assert.equal(h.config.unchangedSince(read), false)
 })
+
+test('a write that fails leaves earlier reads current', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-1', userInfo: USER })
+  const read = await h.config.read()
+
+  // A read-only desktop.yaml.
+  await fs.chmod(h.file, 0o400)
+  await assert.rejects(h.config.write({ token: 'tok-1b', userInfo: USER }))
+  assert.equal(h.config.unchangedSince(read), true)
+})
+
+test('a read points the app at the current account’s backend, not the saved endpoint', async () => {
+  const h = await harness()
+
+  await h.config.write({ token: 'tok-self', userInfo: USER, apiUrl: 'https://nuphos.example.com' })
+  // Relaunched with the endpoint the CLI saved.
+  h.useApi('https://api.nuphos.ai')
+
+  assert.equal((await h.config.read()).token, 'tok-self')
+  assert.equal(h.api(), 'https://nuphos.example.com')
+})

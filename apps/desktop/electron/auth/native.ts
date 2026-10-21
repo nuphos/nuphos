@@ -1,12 +1,12 @@
 import { isValidUserInfo } from '../auth-status.ts'
 
+import { apiErrorMessage } from './backend.ts'
 import {
   CALLBACK_WAIT_INTERVAL_MS,
   LOGIN_TIMEOUT_MS,
   onCallback,
   SESSION_POLL_INTERVAL_MS,
 } from './callback-server.ts'
-import { apiErrorMessage } from './backend.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
 import { saveSignIn, signInAttempt } from './sign-in.ts'
 

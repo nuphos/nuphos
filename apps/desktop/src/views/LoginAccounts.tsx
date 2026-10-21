@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useState } from 'react'
 
 import { Avatar } from '../components/Avatar'
+import { backendHost } from '../lib/backendHost'
 
 import type { OtherAccount } from '../types'
 
@@ -25,6 +26,8 @@ export function LoginAccounts({
         {others.map((other) => {
           const user = other.user
           const name = user ? user.name || user.username || user.email : 'Unknown account'
+          // The same person can be signed in on several backends: name the server.
+          const detail = [user?.email, backendHost(other.apiUrl)].filter(Boolean).join(' · ')
 
           return (
             <button
@@ -45,8 +48,8 @@ export function LoginAccounts({
               />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13.5px] font-medium text-main">{name}</span>
-                {user?.email && (
-                  <span className="block truncate text-[12px] text-tertiary">{user.email}</span>
+                {detail && (
+                  <span className="block truncate text-[12px] text-tertiary">{detail}</span>
                 )}
               </span>
               <FontAwesomeIcon

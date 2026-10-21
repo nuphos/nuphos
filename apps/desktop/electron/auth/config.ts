@@ -1,4 +1,4 @@
-import { apiUrl, setApiUrl } from '../api-endpoint.ts'
+import { apiUrl, useApiUrl } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
 import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
@@ -23,7 +23,7 @@ type ConfigFileDeps = {
   store: TokenStore
   secure: () => boolean
   apiUrl: () => string
-  /** Points the app at another backend, when switching to an account there. */
+  /** Points the app, not the CLI, at another backend: the one an account is on. */
   setApiUrl?: (url: string) => void
   onToken: (token: string | null) => void
   /** The CLI's cli.yaml, which this app shared before it had its own file. */
@@ -64,10 +64,9 @@ export function configFile(deps: ConfigFileDeps) {
     }
   }
 
-  // Every read and write of the file runs one at a time, from the file as its turn
-  // finds it: moving a plaintext token can never undo a later sign-out or sign-in.
+  // One read or write at a time, from the file as its turn finds it (never undoing a later one).
   let queue: Promise<unknown> = Promise.resolve()
-  // Changes to the sign-in so far, so a read can tell whether any landed since.
+  // Changes to the sign-in that landed so far, so a read can tell whether any did since.
   let generation = 0
   const readAt = new WeakMap<Config, number>()
 
@@ -85,7 +84,6 @@ export function configFile(deps: ConfigFileDeps) {
    * list, so switching back needs no new sign-in.
    */
   async function save(cfg: Config): Promise<void> {
-    generation += 1
     const previous = (await readFile(deps.path)) ?? {}
     const stored: Config = { ...cfg, keychainAccount: undefined, otherAccounts: undefined }
     let others = previous.otherAccounts ?? []
@@ -101,8 +99,7 @@ export function configFile(deps: ConfigFileDeps) {
       stored.apiUrl = api
       // Signing in again to a listed account takes it out of the list.
       others = others.filter((other) => keyOf(other) !== account)
-      // A sign-in stored before its identity was known (`default@…`) that is
-      // now named by the same token is the same account, not another one.
+      // A sign-in stored before its identity was known (`default@…`), same token: same account.
       const unnamed = before && !before.userInfo?.id && (await tokenOf(before)) === cfg.token
 
       if (before && keyOf(before) !== account && !unnamed) others = [before, ...others]
@@ -127,6 +124,7 @@ export function configFile(deps: ConfigFileDeps) {
     if (others.length > 0) next.otherAccounts = others
     await forgetDropped(previous, next)
     await writeFile(deps.path, next)
+    generation += 1
     if (cfg.token) moveTo(api)
     deps.onToken(cfg.token ?? null)
   }
@@ -141,7 +139,6 @@ export function configFile(deps: ConfigFileDeps) {
 
   /** Makes a listed account the current one, keeping the current one in the list. */
   async function switchTo(key: string): Promise<Config> {
-    generation += 1
     const previous = (await readFile(deps.path)) ?? {}
     const others = previous.otherAccounts ?? []
     const target = others.find((other) => keyOf(other) === key)
@@ -157,6 +154,7 @@ export function configFile(deps: ConfigFileDeps) {
     const token = await tokenOf(target)
 
     await writeFile(deps.path, next)
+    generation += 1
     if (target.apiUrl) moveTo(normalizedApi(target.apiUrl))
     deps.onToken(token)
     const { otherAccounts: _, ...current } = next
@@ -166,11 +164,11 @@ export function configFile(deps: ConfigFileDeps) {
 
   /** Signs every account on this device out. */
   async function forgetAll(): Promise<void> {
-    generation += 1
     const previous = (await readFile(deps.path)) ?? {}
 
     await forgetDropped(previous, {})
     await writeFile(deps.path, {})
+    generation += 1
     deps.onToken(null)
   }
 
@@ -231,6 +229,8 @@ export function configFile(deps: ConfigFileDeps) {
       inTurn(async () => {
         const cfg = await load()
 
+        // The account decides the backend (the saved endpoint is the CLI's).
+        if (cfg.token && cfg.apiUrl) moveTo(normalizedApi(cfg.apiUrl))
         readAt.set(cfg, generation)
 
         return cfg
@@ -278,7 +278,7 @@ const defaultConfigFile = configFile({
   store: keychainStore,
   secure: () => secureStorageEnabled(),
   apiUrl,
-  setApiUrl,
+  setApiUrl: useApiUrl,
   onToken: (token) => {
     authSession.set(token)
   },
