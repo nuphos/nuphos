@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 
 import { useOpenedConversation } from '../../../lib/openedConversation'
 import { useSwrCache } from '../../../lib/swrCache'
-import { agentSessionsCacheKey, sharedSessionsCacheKey } from '../../sidebar/state'
+import { agentSessionsCacheKey } from '../../sidebar/state'
 import { useSessionTransferGroups } from '../panel/useTransferDownloads'
 
 import { findConversation, outputFilesOf, subThreadsOf } from './chatSummaryModel'
@@ -26,16 +26,15 @@ export type ChatSummary = {
  */
 export function useChatSummary(sessionId: string, teamId: string): ChatSummary {
   const own = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
-  const shared = useSwrCache<AgentConversation[]>(sharedSessionsCacheKey(teamId))
   const opened = useOpenedConversation(sessionId)
   const groups = useSessionTransferGroups(sessionId)
-  const lists = useMemo(() => [own ?? [], shared ?? []], [own, shared])
+  const lists = useMemo(() => [own ?? []], [own])
   // Expiry is checked against when the panel opened; a group that lapses while
   // it is open still offers its files, and the download says if one is gone.
   const [openedAt] = useState(() => Date.now())
 
   return {
-    loaded: own !== undefined || shared !== undefined || opened !== undefined,
+    loaded: own !== undefined || opened !== undefined,
     conversation: findConversation(sessionId, lists, opened),
     threads: subThreadsOf(sessionId, lists),
     outputs: outputFilesOf(groups, openedAt),

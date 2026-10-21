@@ -18,7 +18,7 @@ import {
 import { parseAtlasLink } from '../../lib/atlasLinkMention'
 import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
-import { settingsSectionForPage } from '../../views/settings/settingsNav'
+import { settingsLinkTarget, settingsSectionForPage } from '../../views/settings/settingsNav'
 
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -72,6 +72,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
     openInChat,
     openConversationInNewTab,
     openSettingsSection,
+    teams,
   } = a
   const openSessionBeside = useWorkspacePane()?.openSessionBeside
 
@@ -111,10 +112,18 @@ export function useWorkspaceLinkOpeners(a: Args) {
         (target ? navigationFromMentionTarget(target) : null)
 
       if (!navigation) return false
-      const settingsSection = settingsSectionForPage(navigation.active)
+      const settingsTarget = settingsLinkTarget(
+        navigation,
+        teams.map((team) => team.id),
+      )
 
-      if (settingsSection) {
-        openSettingsSection(settingsSection, navigation.filter)
+      // A Settings page opens in the link's own team, never the one on screen.
+      if (settingsTarget === null) return false
+      if (settingsTarget) {
+        if (settingsTarget.teamId !== selectScope(workspaceStore.getState())?.teamId) {
+          workspaceActions.openTeamTab(settingsTarget.teamId)
+        }
+        openSettingsSection(settingsTarget.section, settingsTarget.filter)
 
         return true
       }
@@ -165,6 +174,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       openConversationInNewTab,
       openSessionBeside,
       openSettingsSection,
+      teams,
       updateTab,
       workspaceActions,
       workspaceStore,

@@ -47,6 +47,23 @@ export function settingsSectionForPage(key: string): string | undefined {
   return SETTINGS_SECTION_FOR_PAGE[key]
 }
 
+/**
+ * Where a link to a page hosted in Settings lands: the section, its search, and
+ * the team whose Settings it opens. Undefined when the page is not in Settings;
+ * null when the link names a team the viewer is not in, so nothing opens.
+ */
+export function settingsLinkTarget(
+  navigation: { active: string; scope: { teamId: string }; filter?: string },
+  teamIds: readonly string[],
+): { section: string; filter?: string; teamId: string } | null | undefined {
+  const section = settingsSectionForPage(navigation.active)
+
+  if (!section) return undefined
+  const { teamId } = navigation.scope
+
+  return teamIds.includes(teamId) ? { section, filter: navigation.filter, teamId } : null
+}
+
 const TEAM_GROUPS: SettingsNavGroup[] = [
   {
     title: 'Team',
