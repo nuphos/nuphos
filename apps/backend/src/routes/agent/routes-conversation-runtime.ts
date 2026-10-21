@@ -53,14 +53,14 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
 
   if (!runtime.actions?.steer)
     throw new AppError(409, 'runtime_steering_unavailable', 'This agent cannot accept steering')
-  // Only the person whose turn is running steers it; anyone else's message waits its turn.
+  // Only the person who started the running turn steers it; anyone else's message waits its turn.
   const active = await getActiveAgentRunForSession(conversation.userId, sessionId)
 
-  if (active?.actorUserId && active.actorUserId !== userId)
+  if (active && (!active.humanTurn || (active.actorUserId && active.actorUserId !== userId)))
     throw new AppError(
       409,
       'runtime_steering_unavailable',
-      "Another person's turn is running; send your message to run after it",
+      'Someone else started the running turn; send your message to run after it',
     )
   const messageId = steeringMessageId(groupId)
   const sent = await steerConversationRuntime(conversation, { text, groupId, userId }, messageId)

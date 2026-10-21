@@ -2,7 +2,6 @@ import { useCallback } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { ownsAgentStream } from '../../../lib/ownedAgentStreams'
 import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
@@ -227,12 +226,11 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
-      // Only the person whose turn is running steers it. Any other message is
-      // sent now and waits its turn in the server queue.
+      // The backend decides whose turn it is: a refused steer is sent as a
+      // message and waits its turn in the server queue.
       if (
         runtimeAllows(tab.runtimeState, 'steer') &&
         !runtimeAllows(tab.runtimeState, 'reply') &&
-        ownsAgentStream(tab.streamId ?? undefined) &&
         !turnKind
       ) {
         await sendSteering(activeId, trimmed, filePaths)

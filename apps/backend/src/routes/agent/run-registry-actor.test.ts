@@ -8,7 +8,13 @@ import {
   drainPendingUserMessages,
 } from '@/lib/agent/pending-messages'
 
-import { agentRuns, claimAgentRunOrEnqueue, createAgentRun, registerAgentRun } from './run-registry'
+import {
+  agentRuns,
+  claimAgentRunOrEnqueue,
+  createAgentRun,
+  isHumanTurn,
+  registerAgentRun,
+} from './run-registry'
 
 const OWNER = 'conversation-owner'
 const ACTOR_A = 'actor-a'
@@ -90,5 +96,28 @@ describe('shared-conversation participant state machine', () => {
     expect(
       (await drainPendingUserMessages(OWNER, SESSION, OWNER)).map((entry) => entry.renderedText),
     ).toEqual(['owner follow-up'])
+  })
+})
+
+describe('human turn', () => {
+  const trace = (route: string, method: string) => ({
+    requestId: 'request',
+    userId: ACTOR_A,
+    sessionId: SESSION,
+    streamId: 'stream',
+    route,
+    method,
+  })
+
+  test('people start app, queued and verified-sender bridge turns', () => {
+    expect(isHumanTurn(trace('/agent/chat', 'POST'))).toBe(true)
+    expect(isHumanTurn(trace('/agent/chat', 'QUEUED'))).toBe(true)
+    expect(isHumanTurn(trace('slack.agent', 'TRIGGER'))).toBe(true)
+  })
+
+  test("agents, resource events, triggers and the runtime start no person's turn", () => {
+    for (const route of ['agent.thread', 'agent.resource', 'agent.trigger', 'lark.agent'])
+      expect(isHumanTurn(trace(route, 'TRIGGER'))).toBe(false)
+    expect(isHumanTurn(trace('claude-code/autonomous', 'RUNTIME'))).toBe(false)
   })
 })

@@ -28,6 +28,7 @@ export function startAgentRunOwnership(
     onCancellationRequested?: () => void
     heartbeatMs?: number
     actorUserId?: string
+    humanTurn?: boolean
     teamId?: string
   } = {},
 ): () => void {
@@ -52,6 +53,7 @@ export function startAgentRunOwnership(
         .set(oKey, replicaId, 'EX', OWNER_TTL_SEC)
         .hset(aKey, 'streamId', streamId)
         .hset(aKey, 'actorUserId', options.actorUserId ?? userId)
+        .hset(aKey, 'humanTurn', options.humanTurn === false ? '0' : '1')
         .hset(aKey, 'teamId', options.teamId ?? '')
         .hsetnx(aKey, 'startedAt', String(Date.now()))
         // The hash rides the heartbeat, so a live run keeps refreshing it; only
@@ -258,23 +260,22 @@ async function sweepAbandonedGuard(
   }
 }
 
-export async function getActiveAgentRunForSession(
-  userId: string,
-  sessionId: string,
-): Promise<{ streamId: string; startedAt: string | null; actorUserId: string | null } | null> {
+export async function getActiveAgentRunForSession(userId: string, sessionId: string) {
   if (!redisEnabled()) return null
   const aKey = activeRunKey(userId, sessionId)
-  const result = await withRedis((c) => c.hmget(aKey, 'streamId', 'startedAt', 'actorUserId'))
+  const result = await withRedis((c) =>
+    c.hmget(aKey, 'streamId', 'startedAt', 'actorUserId', 'humanTurn'),
+  )
 
   if (!result) return null
-  const [streamId, startedAt, actorUserId] = result
+  const [streamId, startedAt = null, actorUserId = null, humanTurn] = result
 
   if (!streamId) return null
   if (await guardIsAbandoned(userId, sessionId, streamId)) {
     if (await sweepAbandonedGuard(userId, sessionId, streamId)) return null
   }
 
-  return { streamId, startedAt: startedAt ?? null, actorUserId: actorUserId ?? null }
+  return { streamId, startedAt, actorUserId, humanTurn: humanTurn !== '0' }
 }
 
 /** Bounded scan; recovery must also work while every desktop is disconnected. */

@@ -17,7 +17,7 @@ import {
   appendAgentRunPhase,
   finishAgentRun,
 } from './run-frames'
-import { attachAgentRunFrameSink, createAgentRun } from './run-registry'
+import { HUMAN_SENDER_SOURCES, attachAgentRunFrameSink, createAgentRun } from './run-registry'
 import { serializeTelemetryMessages } from './telemetry'
 import { persistAcceptedConversationTurn } from './transcript'
 import { recordTriggerRunFailure } from './trigger-run-observability'
@@ -65,8 +65,6 @@ export type TriggerRunParams = {
   /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
   clientResendsRefusal?: boolean
 }
-
-const HUMAN_SENDER_SOURCES = new Set(['slack.agent', 'discord.agent', 'mcp'])
 
 /**
  * Execute an agent session on behalf of a trigger (cron or webhook).
