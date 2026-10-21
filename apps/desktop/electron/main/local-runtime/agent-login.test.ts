@@ -195,6 +195,12 @@ test('a code is written only to the active Claude child stdin', () => {
   assert.throws(() => login.submitCode('code\ncommand'), /Paste/)
   const code = 'authorization-code-1234#state-1234567890'
 
+  for (const answer of ['a#b', `${'a'.repeat(2048)}#${'s'.repeat(512)}`, code]) {
+    login.submitCode(answer)
+    assert.equal(children[0]!.stdin.read()?.toString(), `${answer}\n`)
+  }
+  for (const answer of [`${'a'.repeat(2049)}#b`, `a#${'b'.repeat(513)}`, 'no-state'])
+    assert.throws(() => login.submitCode(answer), /Paste/)
   login.submitCode(code)
   assert.equal(children[0]!.stdin.read()?.toString(), `${code}\n`)
   assert.ok(!JSON.stringify(login.state()).includes(code))

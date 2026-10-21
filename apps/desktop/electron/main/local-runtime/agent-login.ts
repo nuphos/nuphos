@@ -75,7 +75,7 @@ export class LocalAgentLogin {
       !this.child?.stdin
     )
       throw new Error('Start Claude sign-in before submitting a code.')
-    if (typeof value !== 'string' || !/^[A-Za-z0-9._~+/#-]{16,1024}$/u.test(value.trim()))
+    if (typeof value !== 'string' || !/^[\w.~-]{1,2048}#[\w.~-]{1,512}$/u.test(value.trim()))
       throw new Error('Paste the authorization code from the Claude sign-in page.')
     this.child.stdin.write(`${value.trim()}\n`)
   }
