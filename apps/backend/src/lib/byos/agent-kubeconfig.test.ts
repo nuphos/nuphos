@@ -162,6 +162,19 @@ describe('renderAgentKubeconfig', () => {
     expect(yaml).toContain('interactiveMode: Never')
   })
 
+  test('omits certificate-authority-data when a context has no CA', () => {
+    const yaml = renderAgentKubeconfig([
+      {
+        contextName: 'gcp/my-project/prod',
+        endpoint: 'https://gke-abc-123.us-west1-a.gke.goog',
+        execArgs: ['gcp', TEAM, 'my-project', 'prod', 'us-west1-a'],
+      },
+    ])
+
+    expect(yaml).toContain('server: "https://gke-abc-123.us-west1-a.gke.goog"')
+    expect(yaml).not.toContain('certificate-authority-data')
+  })
+
   test('routes an on-prem cluster through the relay with proxy-url', () => {
     const yaml = renderAgentKubeconfig([
       {

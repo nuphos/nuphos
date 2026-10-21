@@ -6,7 +6,7 @@ export type KubeconfigResult = {
 export function renderKubeconfig(opts: {
   clusterName: string
   endpoint: string
-  caBase64: string
+  caBase64?: string
   token: string
 }): string {
   return `apiVersion: v1
@@ -14,8 +14,7 @@ kind: Config
 clusters:
   - name: ${opts.clusterName}
     cluster:
-      server: ${opts.endpoint}
-      certificate-authority-data: ${opts.caBase64}
+      server: ${opts.endpoint}${opts.caBase64 ? `\n      certificate-authority-data: ${opts.caBase64}` : ''}
 contexts:
   - name: ${opts.clusterName}
     context:

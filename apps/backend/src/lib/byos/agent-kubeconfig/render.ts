@@ -11,7 +11,8 @@ export type AgentClusterContext = {
   /** Context, cluster, and user entry name — `<provider>/<account>/<cluster>`. */
   contextName: string
   endpoint: string
-  caBase64: string
+  /** Absent when the server's certificate is publicly trusted (GKE DNS endpoint). */
+  caBase64?: string
   /**
    * How the context authenticates. EKS and GKE mint short-lived tokens, so they
    * go through the exec plugin (`execArgs` are passed to get-credential.sh).
@@ -94,7 +95,7 @@ export function renderAgentKubeconfig(contexts: AgentClusterContext[]): string {
       `  - name: ${q(ctx.contextName)}`,
       '    cluster:',
       `      server: ${q(ctx.endpoint)}`,
-      `      certificate-authority-data: ${q(ctx.caBase64)}`,
+      ...(ctx.caBase64 ? [`      certificate-authority-data: ${q(ctx.caBase64)}`] : []),
       ...(ctx.proxyUrl ? [`      proxy-url: ${q(ctx.proxyUrl)}`] : []),
     )
   }

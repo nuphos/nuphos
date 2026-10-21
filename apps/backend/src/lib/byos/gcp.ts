@@ -10,6 +10,7 @@ import { renderKubeconfig } from './kubeconfig'
 
 import type { KubeconfigResult } from './kubeconfig'
 import type { ClusterResult } from './types'
+import type { protos } from '@google-cloud/container'
 
 export const GCP_SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
 
@@ -125,8 +126,7 @@ export async function listGkeClusters(
       provider: 'gcp' as const,
       name: c.name ?? '',
       region: c.location ?? '',
-      endpoint: c.endpoint ?? undefined,
-      caBase64: c.masterAuth?.clusterCaCertificate ?? undefined,
+      ...gkeApiServer(c),
       status: c.status ? String(c.status) : undefined,
       version: c.currentMasterVersion ?? undefined,
       createdAt: c.createTime ? new Date(c.createTime) : undefined,
@@ -145,12 +145,32 @@ export async function listGkeClusters(
   }
 }
 
+/**
+ * Where to reach a GKE cluster's Kubernetes API. The DNS endpoint
+ * (`*.gke.goog`) is IAM-authorized and serves a publicly trusted certificate,
+ * so it needs no CA and keeps working after the public IP endpoint is turned
+ * off. It is used whenever it accepts traffic from outside the VPC.
+ */
+export function gkeApiServer(c: protos.google.container.v1.ICluster): {
+  endpoint?: string
+  caBase64?: string
+} {
+  const dns = c.controlPlaneEndpointsConfig?.dnsEndpointConfig
+
+  if (dns?.endpoint && dns.allowExternalTraffic) return { endpoint: dns.endpoint }
+
+  return {
+    endpoint: c.endpoint ?? undefined,
+    caBase64: c.masterAuth?.clusterCaCertificate ?? undefined,
+  }
+}
+
 export type GkeAdminAccess = {
   clusterName: string
   /** Already prefixed with `https://`. */
   endpoint: string
-  /** Base64-encoded PEM CA bundle. */
-  caBase64: string
+  /** Base64-encoded PEM CA bundle; absent for the DNS endpoint. */
+  caBase64?: string
   /** Impersonated GCP SA access token — admin-equivalent on the K8s API. */
   adminToken: string
   expiresAt: Date
@@ -189,9 +209,9 @@ export async function getGkeAdminAccess(
     if (code === 5 /* NOT_FOUND */) return null
     throw e
   }
-  if (!cluster.endpoint || !cluster.masterAuth?.clusterCaCertificate) {
-    throw new Error('Cluster missing endpoint or CA certificate')
-  }
+  const server = gkeApiServer(cluster)
+
+  if (!server.endpoint) throw new Error('Cluster missing endpoint')
 
   const tokenResp = await impersonated.getAccessToken()
 
@@ -199,8 +219,8 @@ export async function getGkeAdminAccess(
 
   return {
     clusterName,
-    endpoint: `https://${cluster.endpoint}`,
-    caBase64: cluster.masterAuth.clusterCaCertificate,
+    endpoint: `https://${server.endpoint}`,
+    caBase64: server.caBase64,
     adminToken: tokenResp.token,
     expiresAt: new Date(Date.now() + config.byos.gcp.tokenLifetimeSec * 1000),
   }

@@ -45,7 +45,7 @@ export async function sweepGcp(opts: {
   })
 
   for (const cluster of clusters) {
-    if (!cluster.endpoint || !cluster.caBase64) continue
+    if (!cluster.endpoint) continue
     const contextName = claimContextName(sink, [
       `gcp/${binding.projectId}/${cluster.name}`,
       `gcp/${binding.projectId}/${cluster.name}@${cluster.region}`,
