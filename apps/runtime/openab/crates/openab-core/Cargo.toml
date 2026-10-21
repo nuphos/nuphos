@@ -41,7 +41,7 @@ tempfile = "3.27.0"
 aws-sdk-secretsmanager = { version = "1", optional = true }
 aws-sdk-s3 = { version = "1", optional = true }
 aws-config = { version = "1", optional = true }
-zip = { version = "2", default-features = false, features = ["deflate"], optional = true }
+zip = { version = "9", default-features = false, features = ["deflate"], optional = true }
 flate2 = { version = "1", optional = true }
 tar = { version = "0.4.45", default-features = false, optional = true }
 aws-sigv4 = { version = "1", optional = true }
