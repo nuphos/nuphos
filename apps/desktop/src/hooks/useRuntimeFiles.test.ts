@@ -210,13 +210,17 @@ test('leaving linked media while its transfer is pending cannot replace the new 
 test('a large linked document downloads from the local lookup; played media reuses its transfer', async () => {
   reset()
   read = async () => {
-    throw tooLarge()
+    throw new Error(
+      `__ATLAS_API_ERROR__${JSON.stringify({ message: 'big', code: 'file_too_large', details: { origin: 'this-computer' } })}`,
+    )
   }
   const path = '/outside-workspace/report.txt'
 
   render(true, 0, path)
   await settle()
   assert.equal(render(true, 0, path).tooLarge, true)
+  assert.equal(render(true, 0, path).source?.label, 'This computer')
+  assert.equal(render(true, 0, path).source?.local, true)
   await render(true, 0, path).download()
   assert.deepEqual(calls, ['source', 'linked-read', 'linked-transfer', 'download'])
   reset()

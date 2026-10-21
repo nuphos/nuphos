@@ -171,12 +171,21 @@ export function useRuntimeFiles(
       } catch (error) {
         if (cancelled) return
         const tooLarge = tooLargeError(error)
+        const details = parseAtlasError(error).details
+        const local =
+          details &&
+          typeof details === 'object' &&
+          'origin' in details &&
+          details.origin === 'this-computer'
         // Media reached the transfer store, which refused it too.
         const overLimit = tooLarge && Boolean(mediaKind(fileName))
 
         if (!tooLarge) toast.apiError('Could not load runtime files', error)
         setResult({
-          source: source.current,
+          source:
+            local && source.current
+              ? { ...source.current, label: 'This computer', local: true }
+              : source.current,
           directory: null,
           preview: null,
           loading: false,

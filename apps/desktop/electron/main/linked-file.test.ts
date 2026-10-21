@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -32,8 +32,46 @@ test('a linked file is read on this computer within the local workspace, else le
     assert.equal((await readThisComputerFile('/workspace/at-limit', workspace))?.size, 512 * 1024)
     assert.equal((await readThisComputerFile('/workspace/empty', workspace))?.size, 0)
     // Opening in place has no preview limit, but the same workspace bounds.
-    assert.equal(await resolveThisComputerFile('/workspace/big', workspace), join(workspace, 'big'))
+    assert.equal(
+      await resolveThisComputerFile('/workspace/big', workspace),
+      await realpath(join(workspace, 'big')),
+    )
     assert.equal(await resolveThisComputerFile('/workspace/../secret', workspace), null)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('virtual workspace links cannot follow file or directory symlinks outside its real root', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'linked-boundary-'))
+  const workspace = join(root, 'workspace')
+
+  try {
+    await mkdir(workspace)
+    await mkdir(join(root, 'outside'))
+    await writeFile(join(root, 'outside', 'clip.mp4'), 'outside')
+    await writeFile(join(workspace, '..safe.mp4'), 'inside')
+    await symlink(join(root, 'outside', 'clip.mp4'), join(workspace, 'escape.mp4'))
+    await symlink(join(root, 'outside'), join(workspace, 'escape-directory'))
+    await symlink(join(workspace, '..safe.mp4'), join(workspace, 'inside.mp4'))
+    assert.equal(await resolveThisComputerFile('/workspace/escape.mp4', workspace), null)
+    assert.equal(
+      await resolveThisComputerFile('/workspace/escape-directory/clip.mp4', workspace),
+      null,
+    )
+    assert.equal(
+      await resolveThisComputerFile('/workspace/inside.mp4', workspace),
+      await realpath(join(workspace, '..safe.mp4')),
+    )
+    assert.equal(
+      await resolveThisComputerFile('/workspace/..safe.mp4', workspace),
+      await realpath(join(workspace, '..safe.mp4')),
+    )
+    // Explicit absolute links still name local files independently of the workspace alias.
+    assert.equal(
+      await resolveThisComputerFile(join(root, 'outside', 'clip.mp4'), workspace),
+      join(root, 'outside', 'clip.mp4'),
+    )
   } finally {
     await rm(root, { recursive: true, force: true })
   }

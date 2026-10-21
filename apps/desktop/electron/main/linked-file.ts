@@ -1,5 +1,5 @@
-import { readFile, stat } from 'node:fs/promises'
-import { basename, isAbsolute, relative, resolve } from 'node:path'
+import { readFile, realpath, stat } from 'node:fs/promises'
+import { basename, isAbsolute, relative, resolve, sep } from 'node:path'
 
 import { buildAtlasError } from '../atlas/error.ts'
 
@@ -19,7 +19,10 @@ export async function readThisComputerFile(
   const target = await resolveThisComputerFile(path, workspace)
 
   if (!target) return null
-  const tooLarge = () => buildAtlasError('File preview is limited to 512 KiB.', 'file_too_large')
+  const tooLarge = () =>
+    buildAtlasError('File preview is limited to 512 KiB.', 'file_too_large', {
+      origin: 'this-computer',
+    })
 
   if ((await stat(target)).size > LIMIT) throw tooLarge()
   const data = await readFile(target)
@@ -41,8 +44,20 @@ export async function resolveThisComputerFile(
     inWorkspace && workspace ? resolve(workspace, `.${path.slice('/workspace'.length)}`) : path
   const outside = workspace ? relative(workspace, target) : ''
 
-  if (inWorkspace && (outside.startsWith('..') || isAbsolute(outside))) return null
+  if (inWorkspace && (outside === '..' || outside.startsWith(`..${sep}`) || isAbsolute(outside)))
+    return null
+  const canonical = await realpath(target).catch(() => null)
+
+  if (!canonical) return null
+  if (inWorkspace && workspace) {
+    const root = await realpath(workspace).catch(() => null)
+
+    if (!root) return null
+    const resolved = relative(root, canonical)
+
+    if (resolved === '..' || resolved.startsWith(`..${sep}`) || isAbsolute(resolved)) return null
+  }
   const info = await stat(target).catch(() => null)
 
-  return info?.isFile() ? target : null
+  return info?.isFile() ? (inWorkspace ? canonical : target) : null
 }
