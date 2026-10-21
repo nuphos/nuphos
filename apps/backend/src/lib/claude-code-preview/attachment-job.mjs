@@ -15,7 +15,9 @@ const { files } = JSON.parse(
     : await text(process.stdin),
 )
 // Not tmpdir(): a runtime job's TMPDIR is removed when the job exits, before the agent reads it.
-const dir = await mkdtemp('/tmp/nuphos-attachments-')
+const root = process.env.NUPHOS_ATTACHMENT_ROOT ?? '/tmp'
+await mkdir(root, { recursive: true, mode: 0o700 })
+const dir = await mkdtemp(join(root, 'nuphos-attachments-'))
 const paths = []
 try {
   for (const [index, file] of files.entries()) {

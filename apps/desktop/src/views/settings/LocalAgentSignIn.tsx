@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { useStableCallback } from '../../hooks/useStableCallback'
 import { isMac } from '../../lib/platform'
 
+import { ClaudeSignInCode } from './ClaudeSignInCode'
 import { useLocalAgentLogin } from './useLocalAgentLogin'
 
 import type { CliLoginProvider } from '../../api'
@@ -102,9 +103,10 @@ export function LocalAgentSignIn({
                 rel="noopener noreferrer"
                 className="block text-[13px] text-zViolet-400 underline"
               >
-                Reopen the sign-in page
+                Open the sign-in page
               </a>
             )}
+            {busy && !codex && login?.url && <ClaudeSignInCode key={login.url} />}
             <div className="flex gap-2">
               {connected ? (
                 <Button size="sm" onClick={() => void close()}>

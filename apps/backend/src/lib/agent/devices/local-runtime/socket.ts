@@ -113,6 +113,7 @@ export class DeviceRuntimeSocket {
 
       if (
         !presence ||
+        (purpose === 'attachments' && presence.status?.localAttachments !== true) ||
         (purpose === 'exec' && presence.status?.localExec !== true) ||
         (purpose === 'terminal' && presence.status?.localTerminal !== true) ||
         (purpose === 'cua' && presence.status?.localCua !== true) ||

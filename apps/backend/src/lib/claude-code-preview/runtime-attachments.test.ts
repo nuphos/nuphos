@@ -2,8 +2,10 @@ import { expect, spyOn, test } from 'bun:test'
 
 import * as transfers from '@/lib/file-transfer/service'
 
+
 import { controlRegistry } from './agent-chat-registry'
 import * as chatRoute from './conversation-chat-route'
+import * as localFiles from './local-attachments'
 import { attachmentPrompt } from './openab-acp-lifecycle'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 
@@ -181,5 +183,38 @@ test('folder archives retain extraction instructions through the ACP text bounda
     route.mockRestore()
     acquire.mockRestore()
     jobs.mockRestore()
+  }
+})
+
+test('Windows absolute paths from the dedicated local downloader become Windows file URIs', async () => {
+  const route = controlRoute()
+  const download = spyOn(localFiles, 'localAttachments').mockResolvedValue(
+    JSON.stringify({ paths: ['C:\\Users\\Pan Name\\圖片.png'] }),
+  )
+  const acquire = spyOn(controlRegistry, 'acquire')
+
+  try {
+    expect(
+      await materializeRuntimeAttachments('team', 'owner', endpoint, [
+        { name: '圖片.png', url: 'https://store.example/signed', size: 3 },
+      ]),
+    ).toEqual([
+      {
+        type: 'resource_link',
+        name: '圖片.png',
+        uri: 'file:///C:/Users/Pan%20Name/%E5%9C%96%E7%89%87.png',
+      },
+    ])
+    expect(acquire).not.toHaveBeenCalled()
+    download.mockResolvedValueOnce(JSON.stringify({ paths: ['C:relative.png'] }))
+    await expect(
+      materializeRuntimeAttachments('team', 'owner', endpoint, [
+        { name: 'x', url: 'https://store.example/signed', size: 3 },
+      ]),
+    ).rejects.toThrow('invalid attachment paths')
+  } finally {
+    route.mockRestore()
+    download.mockRestore()
+    acquire.mockRestore()
   }
 })

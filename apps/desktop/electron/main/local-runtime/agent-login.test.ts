@@ -12,6 +12,7 @@ function harness(
   provider: 'claude-code' | 'codex' = 'claude-code',
 ) {
   const children: (EventEmitter & {
+    stdin: PassThrough
     stdout: PassThrough
     stderr: PassThrough
     kill: () => boolean
@@ -25,6 +26,7 @@ function harness(
     spawn: ((...args: unknown[]) => {
       calls.push(args)
       const child = Object.assign(new EventEmitter(), {
+        stdin: new PassThrough(),
         stdout: new PassThrough(),
         stderr: new PassThrough(),
         kill: () => {
@@ -182,4 +184,22 @@ test('Codex authentication failures expose only a fixed message and permit retry
   login.start('/bin/codex', {})
   assert.deepEqual(login.state(), { state: 'waiting' })
   login.cancel()
+})
+
+test('the current Claude URL is accepted and a code is written only to the active child stdin', () => {
+  const { login, children } = harness()
+
+  login.start('/bin/claude', {})
+  children[0]!.stdout.write('Open https://claude.com/cai/oauth/authorize?state=test\n')
+  assert.equal(login.state().url, 'https://claude.com/cai/oauth/authorize?state=test')
+  assert.throws(() => login.submitCode('code\ncommand'), /Paste/)
+  const code = 'authorization-code-1234#state-1234567890'
+
+  login.submitCode(code)
+  assert.equal(children[0]!.stdin.read()?.toString(), `${code}\n`)
+  assert.ok(!JSON.stringify(login.state()).includes(code))
+  login.cancel()
+  assert.throws(() => login.submitCode(code), /Start Claude/)
+  assert.equal(claudeLoginUrl('https://claude.com.evil.test/cai/oauth/authorize'), undefined)
+  assert.equal(claudeLoginUrl('https://claude.com/cai/oauth/authorize/other'), undefined)
 })
