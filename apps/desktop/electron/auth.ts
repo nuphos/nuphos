@@ -110,7 +110,9 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
 }
 
 export async function logout() {
-  cancelPendingLogin()
+  // A backend staged for adding an account (in any window) goes with it, so
+  // the next sign-in is sent where the sign-in screen says.
+  cancelAddAccount()
   await writeConfig({})
 }
 

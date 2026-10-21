@@ -141,10 +141,18 @@ export default function App() {
             adding={auth.user}
             onCancel={() => setAuth({ status: 'authenticated', user: auth.user })}
             onLogin={(user) => {
+              if (user.id === auth.user.id) {
+                // The current account, signed in again: back to the workspace.
+                track('login', { method: 'oauth' })
+                setAuth({ status: 'authenticated', user })
+
+                return
+              }
+              // Another account reloads every window as it once saved:
+              // attribute this sign-in, and what follows, to it.
+              resetAnalytics()
+              identifyUser(user)
               track('login', { method: 'oauth' })
-              // Another account reloads every window as it once saved; the
-              // current one, signed in again, just returns to the workspace.
-              if (user.id === auth.user.id) setAuth({ status: 'authenticated', user })
             }}
           />
         </div>
