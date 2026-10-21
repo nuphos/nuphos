@@ -6,6 +6,7 @@ import { publishSessionDesktops } from '../../../lib/sessionDesktops'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import { conversationActivity } from './activity'
+import { toolAnchorIds } from './chatTarget'
 import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
 import { AgentHomeAnimation } from './homeAnimation'
@@ -218,7 +219,14 @@ export function ConversationMessageList({
                 />
               ))}
               {activity.before.has(m.id) && (
-                <CollapsedWorkView seconds={null} label="Activity">
+                <CollapsedWorkView
+                  seconds={null}
+                  label="Activity"
+                  messageIds={activity.before.get(m.id)?.map((entry) => entry.id)}
+                  toolCallIds={toolAnchorIds(
+                    activity.before.get(m.id)?.flatMap((entry) => entry.parts) ?? [],
+                  )}
+                >
                   {() =>
                     activity.before
                       .get(m.id)

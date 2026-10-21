@@ -5,6 +5,7 @@ import { MessageResponse } from '../MessageResponse'
 import { isPlanProposalToolName } from '../planReference'
 
 import { liveActivityIndices } from './activity'
+import { toolAnchorIds } from './chatTarget'
 import { renderCardToolPart } from './cardToolParts'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
@@ -226,7 +227,11 @@ export const AssistantMessage = memo(
         {renderRange(0, recallLead)}
         {liveHistory.size > 0 ? (
           <>
-            <CollapsedWorkView seconds={null} label="Activity">
+            <CollapsedWorkView
+              seconds={null}
+              label="Activity"
+              toolCallIds={toolAnchorIds(displayParts.filter((_, index) => liveHistory.has(index)))}
+            >
               {() =>
                 renderSelectedParts(
                   displayParts,
@@ -246,7 +251,10 @@ export const AssistantMessage = memo(
         ) : folded ? (
           <>
             {foldHasWork && (
-              <CollapsedWorkView seconds={workSeconds}>
+              <CollapsedWorkView
+                seconds={workSeconds}
+                toolCallIds={toolAnchorIds(displayParts.slice(recallLead, collapseSplit))}
+              >
                 {() =>
                   renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)
                 }

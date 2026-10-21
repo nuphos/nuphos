@@ -25,11 +25,17 @@ failures and approvals visible, including interrupted turns and structured
 nonzero exit codes. SessionFindBar explains how to search collapsed activity.
 Continued ordered Markdown lists keep their starting number.
 
-The screenshots use light-theme native components with explicitly synthetic
-transcript/tool fixtures, not installed-app captures. No product content appears.
+The screenshots use light-theme production components with neutral synthetic
+transcript/tool fixtures, not installed-app captures. Both columns receive the
+same event stream, use matching widths and start at the top. Before text is
+shown in full without a fixed-height scroller. Expanding Activity is checked
+against the original text and message identities. Both 390px mobile views are
+shown together at their original scale.
 
-![Before and after](images/chat-activity/activity-before-after.png)
-![Expanded](images/chat-activity/activity-expanded.png)
-![Approvals and failures](images/chat-activity/safety-desktop.png)
-![Numbering](images/chat-activity/numbering-before-after.png)
-![390px responsive renderer](images/chat-activity/activity-mobile.png)
+The frozen before chat components and styles match base 5378a89; the after
+components are from 05d8e71. This evidence revision changes no application code.
+No product or real conversation content appears.
+
+![Running work before and after](images/chat-activity/activity-before-after.png)
+![Continued numbering before and after](images/chat-activity/numbering-before-after.png)
+![390px before and after](images/chat-activity/activity-mobile.png)

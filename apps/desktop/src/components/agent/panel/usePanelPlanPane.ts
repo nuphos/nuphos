@@ -5,6 +5,7 @@ import { findLatestPlanReference } from '../planReference'
 import { usePlan } from '../planUpdates'
 
 import { ACTIVE_LIFECYCLE_STATUSES } from './applyEvent'
+import { locateChatTarget } from './chatTarget'
 import { credentialSelectionSignature } from './credentialAccess'
 import { sessionActionGates } from './sessionActions'
 import { useConversationPlanReference } from './useConversationPlanReference'
@@ -101,24 +102,7 @@ export function usePanelPlanPane(acc: Acc) {
   const locateInChat = useCallback((target: JournalChatTarget): boolean => {
     const root = panelRootRef.current
 
-    if (!root) return false
-    const selector = target.toolCallId
-      ? `[data-tool-call-id="${CSS.escape(target.toolCallId)}"]`
-      : target.messageId
-        ? `[data-message-id="${CSS.escape(target.messageId)}"]`
-        : null
-
-    if (!selector) return false
-    const el = root.querySelector<HTMLElement>(selector)
-
-    if (!el) return false
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    const flashClasses = ['ring-2', 'ring-violet-400/70', 'rounded-lg']
-
-    el.classList.add(...flashClasses)
-    window.setTimeout(() => el.classList.remove(...flashClasses), 1600)
-
-    return true
+    return root ? locateChatTarget(root, target) : false
   }, [])
 
   // Audit-log deep link: once the requested conversation is active and its
