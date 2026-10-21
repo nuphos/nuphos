@@ -32,6 +32,10 @@ pub struct Session {
     pub username: Option<String>,
     #[serde(rename = "userInfo", skip_serializing_if = "Option::is_none")]
     pub user_info: Option<Value>,
+    /// A device or agent token's own record (`kind`, `name`, `teamId`), when
+    /// the session is one.
+    #[serde(rename = "cliToken", default, skip_serializing_if = "Option::is_none")]
+    pub cli_token: Option<Value>,
 }
 
 /// What this client remembers between runs; the desktop keeps the same
@@ -153,9 +157,14 @@ fn read_session_file() -> Session {
         .unwrap_or_default()
 }
 
-/// The sign-in with its token: from the keychain, or from the file, which
-/// moves it to the keychain where there is one.
+/// The sign-in with its token: `NUPHOS_CLI_TOKEN`, then the keychain, or the
+/// file, which moves it to the keychain where there is one. The environment
+/// variable is not `NUPHOS_TOKEN`: Nuphos's own agent sandboxes set that one to
+/// a conversation credential.
 pub fn read_session() -> Session {
+    if let Some(token) = std::env::var("NUPHOS_CLI_TOKEN").ok().filter(|t| !t.trim().is_empty()) {
+        return Session { token: Some(token.trim().to_string()), ..Session::default() };
+    }
     let mut session = read_session_file();
     if session.token.is_some() {
         if secret::enabled() {
@@ -224,6 +233,9 @@ fn keychain_account(session: &Session) -> String {
 
 /// Where `read_session` found the token, for `nuphos auth status`.
 pub fn token_storage(session: &Session) -> String {
+    if std::env::var("NUPHOS_CLI_TOKEN").is_ok_and(|t| !t.trim().is_empty()) {
+        return "the NUPHOS_CLI_TOKEN environment variable".to_string();
+    }
     match &session.keychain_account {
         Some(_) => "macOS Keychain".to_string(),
         None => format!("plaintext in {}", session_path().display()),

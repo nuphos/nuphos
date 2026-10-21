@@ -97,8 +97,22 @@ enum Command {
         #[arg(long, value_name = "TOKEN")]
         join: Option<String>,
     },
-    /// Sign in, from Nuphos Desktop's sign-in when there is one, else through the browser.
-    Login,
+    /// Sign in, from Nuphos Desktop's sign-in when there is one, else through the browser,
+    /// or with a code approved on another device when there is no browser here.
+    Login {
+        /// Sign in with a code approved on another device, even if this one has a browser.
+        #[arg(long, conflicts_with = "token")]
+        device: bool,
+        /// Use an agent token from nuphos.ai/settings/tokens. Pass `-` and pipe it to stdin,
+        /// so it stays out of the shell history. `NUPHOS_CLI_TOKEN` works without saving it.
+        #[arg(long, value_name = "TOKEN")]
+        token: Option<String>,
+    },
+    /// List the CLI and agent tokens you have signed in with, or revoke one.
+    Token {
+        #[command(subcommand)]
+        command: TokenCommand,
+    },
     /// Sign out of the CLI (Nuphos Desktop stays signed in).
     Logout,
     /// Show who is signed in and where the session token is kept.
@@ -108,6 +122,14 @@ enum Command {
     },
     /// Install the newest release over this binary.
     Update,
+}
+
+#[derive(Subcommand)]
+enum TokenCommand {
+    /// Device sign-ins and agent tokens, newest first.
+    List,
+    /// Revoke the token with this id; whatever uses it is signed out.
+    Revoke { id: String },
 }
 
 #[derive(Subcommand)]
@@ -149,10 +171,18 @@ async fn run(args: Args) -> Result<i32> {
             }
             return agent::run(join).await;
         }
-        Some(Command::Login) => {
-            let session = login::login(&config::api_url()).await?;
-            println!("Signed in as {}.", render::clean(session.user.as_deref().unwrap_or("you")));
+        Some(Command::Login { device, token }) => {
+            let api_url = config::api_url();
+            let session = match token.as_deref() {
+                Some(token) => login::with_token(&api_url, &read_secret(token)?).await?,
+                None => login::login(&api_url, *device).await?,
+            };
+            println!("Signed in as {}.", who(&session));
             return Ok(0);
+        }
+        Some(Command::Token { command }) => {
+            let (api, _, _) = sign_in(false).await?;
+            return token(&api, command, args.json).await;
         }
         Some(Command::Resume { session }) => return tui(app::Start::Resume(session.clone()), args.team).await,
         None => return tui(app::Start::New, args.team).await,
@@ -207,7 +237,8 @@ async fn run(args: Args) -> Result<i32> {
         Some(Command::Stop { session }) => cli::stop(&ctx, &session).await.map(|_| 0),
         Some(
             Command::Agent { .. }
-            | Command::Login
+            | Command::Login { .. }
+            | Command::Token { .. }
             | Command::Logout
             | Command::Auth { .. }
             | Command::Update
@@ -228,10 +259,68 @@ fn auth(command: &AuthCommand) -> Result<i32> {
     }
     match command {
         AuthCommand::Status => {
-            let who = session.user_info.as_ref().and_then(|u| u["email"].as_str()).or(session.user.as_deref());
-            println!("Signed in as {}", render::clean(who.unwrap_or("unknown")));
+            println!("Signed in as {}", who(&session));
             println!("API: {}", config::api_url());
             println!("Token: {}", config::token_storage(&session));
+        }
+    }
+    Ok(0)
+}
+
+/// "Grok Bot, an agent of Yuanlin" for an agent token, else the user.
+fn who(session: &config::Session) -> String {
+    let user = session.user_info.as_ref().and_then(|u| u["email"].as_str()).or(session.user.as_deref());
+    let user = render::clean(user.unwrap_or("unknown"));
+    match &session.cli_token {
+        Some(t) if t["kind"] == "agent" => {
+            format!("{}, an agent of {user}", render::clean(t["name"].as_str().unwrap_or("?")))
+        }
+        _ => user,
+    }
+}
+
+/// `-` reads the value from stdin, so it never lands in the shell history.
+fn read_secret(value: &str) -> Result<String> {
+    let value = if value == "-" {
+        let mut text = String::new();
+        std::io::stdin().read_to_string(&mut text)?;
+        text
+    } else {
+        value.to_string()
+    };
+    let value = value.trim().to_string();
+    if value.is_empty() {
+        bail!("no token given");
+    }
+    Ok(value)
+}
+
+/// `nuphos token list | revoke ID`.
+async fn token(api: &Api, command: &TokenCommand, json: bool) -> Result<i32> {
+    match command {
+        TokenCommand::List => {
+            let tokens = api.cli_tokens().await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&tokens)?);
+                return Ok(0);
+            }
+            for t in &tokens {
+                let used = t["lastUsedAt"].as_str().unwrap_or("never");
+                println!(
+                    "{}  {:<8}  {}  last used {}",
+                    render::clean(t["id"].as_str().unwrap_or_default()),
+                    render::clean(t["kind"].as_str().unwrap_or_default()),
+                    render::clean(t["name"].as_str().unwrap_or_default()),
+                    render::clean(used),
+                );
+            }
+        }
+        TokenCommand::Revoke { id } => {
+            if id.len() != 24 || !id.chars().all(|c| c.is_ascii_hexdigit()) {
+                bail!("not a token id; `nuphos token list` shows them");
+            }
+            api.revoke_cli_token(id).await?;
+            println!("Revoked {}.", render::clean(id));
         }
     }
     Ok(0)
@@ -243,7 +332,7 @@ async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
     let api_url = config::api_url();
     let token = match config::read_session().token {
         Some(token) => token,
-        None => login::login(&api_url).await?.token.unwrap_or_default(),
+        None => login::login(&api_url, false).await?.token.unwrap_or_default(),
     };
     let app = app::App::new(Api::new(api_url, token), config::read_prefs());
     if let Some((team_id, session_id)) = app.run(start, team).await? {
@@ -274,7 +363,7 @@ async fn sign_in(interactive: bool) -> Result<(Api, Value, Vec<Value>)> {
     if !interactive {
         bail!("not signed in; run `nuphos login` (it can use Nuphos Desktop's sign-in)");
     }
-    let session = login::login(&api_url).await?;
+    let session = login::login(&api_url, false).await?;
     let api = Api::new(api_url, session.token.unwrap_or_default());
     let (me, teams) = tokio::try_join!(api.me(), api.teams())?;
     Ok((api, me, teams))

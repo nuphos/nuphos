@@ -106,6 +106,16 @@ impl Api {
         self.call(Method::GET, "/auth/me", &[], None).await
     }
 
+    /// The signed-in user's device sign-ins and agent tokens.
+    pub async fn cli_tokens(&self) -> Result<Vec<Value>, ApiError> {
+        let v = self.call(Method::GET, "/auth/cli-tokens", &[], None).await?;
+        Ok(v["tokens"].as_array().cloned().unwrap_or_default())
+    }
+
+    pub async fn revoke_cli_token(&self, id: &str) -> Result<Value, ApiError> {
+        self.call(Method::DELETE, &format!("/auth/cli-tokens/{id}"), &[], None).await
+    }
+
     pub async fn teams(&self) -> Result<Vec<Value>, ApiError> {
         let v = self.call(Method::GET, "/teams", &[], None).await?;
         Ok(v["teams"].as_array().cloned().unwrap_or_default())

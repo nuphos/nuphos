@@ -36,6 +36,16 @@ switching away from a reply leaves it running on the server.
 It opens in the team used last (the first team the first time) and shows
 which one; `/team` in the TUI, `nuphos team NAME` or `--team` switch it.
 
+Over SSH, or on Linux without a display, `nuphos login` shows a code
+instead of opening a browser: enter it at nuphos.ai/device on any device and
+approve it as yourself, or as an agent with its own name in one team. An
+agent's messages show as that agent, via you, and it cannot change your
+account, tokens, team membership or billing. `nuphos login --device` picks
+this flow anywhere; `nuphos login --token -` takes an agent token minted on
+nuphos.ai, and `NUPHOS_CLI_TOKEN` uses one without saving it. Each device
+sign-in and agent token is listed by `nuphos token list` and on nuphos.ai,
+and can be revoked on its own.
+
 Getting started needs neither the desktop app nor the web. The first run
 signs in through the browser and, if you are not in a team yet, asks for a
 name and creates one. Then add an agent for it to run on:
@@ -64,6 +74,9 @@ nuphos model                                 # list the agent's models
 nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
 nuphos login | logout
+nuphos login --device                        # sign in with a code approved on another device
+nuphos login --token -                       # an agent token from nuphos.ai/settings/tokens, on stdin
+nuphos token list | revoke ID                # your device sign-ins and agent tokens
 nuphos agent                                 # run this computer's agents
 nuphos agent --join -                        # join with a one-time token from stdin, then run them
 ```

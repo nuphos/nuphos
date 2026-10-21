@@ -1,6 +1,7 @@
 //! Browser sign-in, the desktop's native flow (RFC 8252 loopback + PKCE):
 //! register a session, open the browser, take the `code` from the redirect to
-//! 127.0.0.1, and redeem it for the token.
+//! 127.0.0.1, and redeem it for the token. Without a browser here, a code
+//! approved on another device instead (RFC 8628).
 
 use std::time::{Duration, Instant};
 
@@ -27,12 +28,117 @@ fn random(len: usize) -> String {
 }
 
 /// Signs in with the desktop app's session when it has one, else through the
-/// browser, and saves the CLI's own session.
-pub async fn login(api_url: &str) -> Result<Session> {
+/// browser, or with a code approved on another device when this one has no
+/// browser (or `device` asks for it), and saves the CLI's own session.
+pub async fn login(api_url: &str, device: bool) -> Result<Session> {
+    if device || headless() {
+        return device_code(api_url).await;
+    }
     if let Some(session) = from_desktop(api_url).await {
         return Ok(session);
     }
     browser(api_url).await
+}
+
+/// Where no browser here could finish a sign-in: over SSH, or a Linux
+/// session without a display.
+fn headless() -> bool {
+    let set = |key| std::env::var_os(key).is_some_and(|v| !v.is_empty());
+    set("SSH_CONNECTION") || set("SSH_TTY") || (cfg!(target_os = "linux") && !set("DISPLAY") && !set("WAYLAND_DISPLAY"))
+}
+
+/// The machine's name, shown on the approval page so its approver can tell
+/// which terminal is asking.
+fn hostname() -> String {
+    std::env::var("HOSTNAME")
+        .ok()
+        .or_else(|| std::fs::read_to_string("/etc/hostname").ok())
+        .or_else(|| std::process::Command::new("hostname").output().ok().and_then(|o| String::from_utf8(o.stdout).ok()))
+        .map(|h| h.trim().to_string())
+        .filter(|h| !h.is_empty())
+        .unwrap_or_else(|| "Nuphos CLI".into())
+}
+
+/// Device sign-in (RFC 8628): show a code, wait while someone approves it on
+/// nuphos.ai, as themselves or as an agent, then keep the token it yields.
+async fn device_code(api_url: &str) -> Result<Session> {
+    let http = reqwest::Client::new();
+    let started: Value = http
+        .post(format!("{api_url}/auth/device"))
+        .json(&json!({ "clientName": hostname() }))
+        .send()
+        .await
+        .context("Could not reach Nuphos")?
+        .error_for_status()
+        .context("This Nuphos server does not support sign-in with a code")?
+        .json()
+        .await?;
+    let field =
+        |key: &str| started[key].as_str().map(String::from).ok_or_else(|| anyhow!("Malformed sign-in response"));
+    let (device_code, user_code, uri) = (field("deviceCode")?, field("userCode")?, field("verificationUri")?);
+    let mut interval = Duration::from_secs(started["interval"].as_u64().unwrap_or(5));
+    let deadline = Instant::now() + Duration::from_secs(started["expiresIn"].as_u64().unwrap_or(600));
+
+    println!(
+        "To sign in, open {} on any device and enter:\n\n    {}\n\nOnly enter it there yourself; never approve a code someone sent you.\nWaiting for approval…",
+        clean(&uri),
+        clean(&user_code)
+    );
+    while Instant::now() < deadline {
+        tokio::time::sleep(interval).await;
+        let response = http
+            .post(format!("{api_url}/auth/device/token"))
+            .json(&json!({ "deviceCode": device_code }))
+            .timeout(Duration::from_secs(15))
+            .send()
+            .await;
+        // A blip says nothing about the sign-in; keep trying.
+        let Ok(response) = response else { continue };
+        let status = response.status();
+        let body: Value = response.json().await.unwrap_or_default();
+        if status.is_success() {
+            return save_device_session(&body);
+        }
+        match body["error"]["code"].as_str() {
+            Some("authorization_pending") => {}
+            Some("slow_down") => interval += Duration::from_secs(5),
+            Some("access_denied") => bail!("The sign-in was denied."),
+            Some("expired_token") => bail!("The code expired; run `nuphos login` again."),
+            _ => bail!("Sign-in failed with status {status}"),
+        }
+    }
+    bail!("The code expired; run `nuphos login` again.")
+}
+
+fn save_device_session(body: &Value) -> Result<Session> {
+    let token = body["token"].as_str().ok_or_else(|| anyhow!("Malformed sign-in response"))?;
+    let user = body["user"].clone();
+    let session = Session {
+        token: Some(token.to_string()),
+        user: user["name"].as_str().map(String::from),
+        username: user["username"].as_str().map(String::from),
+        user_info: Some(user),
+        keychain_account: None,
+        cli_token: body.get("cliToken").cloned(),
+    };
+    config::write_session(&session)?;
+    Ok(session)
+}
+
+/// `nuphos login --token`: a token minted on nuphos.ai, checked with
+/// `/auth/me` before it is saved.
+pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
+    let me = Api::new(api_url.to_string(), token.to_string()).me().await.context("The token did not work")?;
+    let session = Session {
+        token: Some(token.to_string()),
+        user: me["name"].as_str().map(String::from),
+        username: me["username"].as_str().map(String::from),
+        cli_token: me.get("cliToken").cloned(),
+        user_info: Some(me),
+        keychain_account: None,
+    };
+    config::write_session(&session)?;
+    Ok(session)
 }
 
 /// The desktop app's session, copied once into the CLI's own: macOS asks once
@@ -59,6 +165,7 @@ async fn from_desktop(api_url: &str) -> Option<Session> {
         username: me["username"].as_str().map(String::from),
         user_info: Some(me),
         keychain_account: None,
+        cli_token: None,
     };
     match config::write_session(&session) {
         Ok(()) => Some(session),
@@ -157,6 +264,7 @@ async fn browser(api_url: &str) -> Result<Session> {
             username: user["username"].as_str().map(String::from),
             user_info: Some(user),
             keychain_account: None,
+            cli_token: None,
         };
         config::write_session(&session)?;
         respond(&mut browser, 200, "Signed in to Nuphos. You can close this tab and return to the terminal.").await;
