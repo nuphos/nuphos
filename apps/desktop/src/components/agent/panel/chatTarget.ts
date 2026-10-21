@@ -21,11 +21,14 @@ export function locateChatTarget(
   const element = root.querySelector<HTMLElement>(selector)
 
   if (!element) return false
-  if (element.hasAttribute('data-chat-fold-anchor')) {
-    const toggle = element
-      .closest('[data-chat-fold]')
-      ?.querySelector<HTMLButtonElement>('[data-chat-fold-toggle]')
+  const toggle = element
+    .closest('[data-chat-fold]')
+    ?.querySelector<HTMLButtonElement>('[data-chat-fold-toggle]')
 
+  if (
+    element.hasAttribute('data-chat-fold-anchor') ||
+    toggle?.getAttribute('aria-expanded') === 'false'
+  ) {
     if (toggle && attempt < 3) {
       toggle.click()
       requestAnimationFrame(() => locateChatTarget(root, target, attempt + 1))

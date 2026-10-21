@@ -57,7 +57,7 @@ export function ToolRunView({
   const toggle = () => setUserOpen(!open)
 
   return (
-    <div className="text-[12.5px]">
+    <div className="text-[12.5px]" data-chat-fold="">
       <button
         type="button"
         onPointerDown={(event) => {
@@ -69,6 +69,7 @@ export function ToolRunView({
           toggle()
         }}
         aria-expanded={open}
+        data-chat-fold-toggle=""
         className={clsx(
           disclosureControlClass,
           'group inline-flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden text-tertiary transition-colors hover:text-secondary',
