@@ -38,8 +38,12 @@ export const deviceApi = {
   boxJoinToken: () => window.api.boxJoinToken(),
   openSessionDesktop: (teamId: string, sessionId: string) =>
     window.api.openSessionDesktop(teamId, sessionId),
-  boxCreateAgent: (deviceId: string, teamId: string, provider: LocalAgentProvider) =>
-    window.api.boxCreateAgent(deviceId, teamId, provider),
+  boxCreateAgent: (
+    deviceId: string,
+    teamId: string,
+    provider: LocalAgentProvider,
+    label?: string,
+  ) => window.api.boxCreateAgent(deviceId, teamId, provider, label),
   boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>
     window.api.boxRemoveAgent(deviceId, teamId, instanceId),
   boxRenameAgent: (deviceId: string, teamId: string, agent: string, label: string) =>

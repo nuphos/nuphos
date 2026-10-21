@@ -51,6 +51,7 @@ export type WindowDeviceApi = {
     deviceId: string,
     teamId: string,
     provider: LocalAgentProvider,
+    label?: string,
   ): Promise<DeviceAgentInstance>
   boxRemoveAgent(deviceId: string, teamId: string, instanceId: string): Promise<void>
   boxRenameAgent(

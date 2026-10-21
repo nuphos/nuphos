@@ -12,6 +12,9 @@ export type RegisteredAgent = {
   signedIn: boolean | null
 }
 
+/** Who added an agent to a computer through Nuphos, and when; only those agents have one. */
+export type AgentAddition = { instanceId: string; userId: string; at: Date }
+
 export const registryKey = (agent: Pick<RegisteredAgent, 'provider' | 'instanceId'>) =>
   agent.instanceId ?? agent.provider
 
@@ -80,4 +83,29 @@ export function renameRegisteredAgent(
 
     return label ? { ...rest, label } : rest
   })
+}
+
+/** Long enough for a create to reach the host after its addition was noted. */
+export const ADDITION_GRACE_MS = 10 * 60_000
+
+/**
+ * The instances whose addition can go: neither registered nor on a report from a host that
+ * lists its agents (pending ones too). A host may drop a pending agent itself, so this is what
+ * keeps the bounded list for live agents. Empty when nothing is to go.
+ */
+export function goneAdditions(
+  additions: AgentAddition[],
+  registered: RegisteredAgent[],
+  status: LocalRuntimeStatus | undefined,
+  now = Date.now(),
+): string[] {
+  if (!status?.instances) return []
+  const live = new Set([
+    ...registered.map((agent) => agent.instanceId),
+    ...status.instances.map((instance) => instance.instanceId),
+  ])
+
+  return additions
+    .filter((entry) => !live.has(entry.instanceId) && now - entry.at.getTime() >= ADDITION_GRACE_MS)
+    .map((entry) => entry.instanceId)
 }

@@ -1,3 +1,7 @@
+import { AGENT_PROVIDER } from '../../types/runtime.ts'
+
+import { agentName } from './agentPresentation.ts'
+
 import type { RuntimeStatusView } from './runtimePresentation'
 import type { AgentDevice, BoxState, BoxStatus, LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
@@ -167,6 +171,24 @@ export function newAgentAction(
   const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
 
   return idle ? { signIn: idle.id } : null
+}
+
+/** Whether an agent on this machine already goes by this name, in any case. */
+export function agentNameTaken(agents: RuntimeInstance[], name: string): boolean {
+  const wanted = name.trim().toLocaleLowerCase()
+
+  return agents.some((agent) => agentName(agent).toLocaleLowerCase() === wanted)
+}
+
+/** A new agent's name: its provider's, numbered past the ones this machine already has. */
+export function defaultAgentName(agents: RuntimeInstance[], provider: LocalAgentProvider): string {
+  const base = AGENT_PROVIDER[provider].label
+  const named = (n: number) => (n === 1 ? base : `${base} ${String(n)}`)
+  let n = 1
+
+  while (agentNameTaken(agents, named(n))) n += 1
+
+  return named(n)
 }
 
 export type BoxSetupPhase = 'idle' | 'starting' | 'ready' | 'error' | 'timeout'

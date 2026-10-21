@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 
-import type { RegisteredAgent } from './agent-registry'
+import type { AgentAddition, RegisteredAgent } from './agent-registry'
 import type { RequestOrigin } from '@/lib/request-origin'
 import type { Collection } from 'mongodb'
 
@@ -34,6 +34,8 @@ export type AgentDevice = {
   box?: AgentDeviceBox
   /** Agents this computer has ever had signed in; see agent-registry. */
   agents?: RegisteredAgent[]
+  /** Who added each of its added agents; absent for agents added before this was recorded. */
+  addedAgents?: AgentAddition[]
   /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
   credentialHash?: string
   credentialIssuedAt?: Date

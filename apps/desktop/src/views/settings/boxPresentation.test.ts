@@ -18,6 +18,8 @@ import {
   boxPollMs,
   boxState,
   newAgentAction,
+  agentNameTaken,
+  defaultAgentName,
   machineLine,
   vanishedBoxes,
 } from './boxPresentation.ts'
@@ -160,6 +162,16 @@ test('New Agent adds an agent on a capable host, and only signs in the existing 
   assert.deepEqual(newAgentAction(capable, 'claude-code'), { create: true })
   assert.deepEqual(newAgentAction(old, 'codex'), { signIn: 'codex' })
   assert.equal(newAgentAction(old, 'claude-code'), null)
+})
+
+const named = (agentLabel?: string) =>
+  ({ provider: 'codex', kind: 'local', local: { agentLabel } }) as RuntimeInstance
+
+test('a new agent is named after its provider, numbered past the names the machine has', () => {
+  assert.equal(defaultAgentName([named('Claude Code')], 'codex'), 'Codex')
+  assert.equal(defaultAgentName([named(), named('codex 2')], 'codex'), 'Codex 3')
+  assert.equal(agentNameTaken([named('Review')], '  review '), true)
+  assert.equal(agentNameTaken([named('Review')], 'Reviews'), false)
 })
 
 test('sizes are named by rank and say how many sessions they hold', () => {

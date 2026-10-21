@@ -12,7 +12,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 
 import { visibleAgent } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
-import { BoxAgentSignIn } from './BoxAgentSignIn'
+import { BoxAgentSetup } from './BoxAgentSetup'
 import { openBoxDesktop } from './boxDesktop'
 import { BoxMetrics } from './BoxMetrics'
 import { AccessHint, AgentTile, LiveDot, MachineIcon, MachineLine, NewAgentMenu } from './BoxParts'
@@ -213,10 +213,11 @@ export function BoxRow({
         )}
       </ul>
       {adding && (
-        <BoxAgentSignIn
+        <BoxAgentSetup
           teamId={teamId}
           device={device}
           provider={adding}
+          agents={agents}
           onDone={(runtimeId) => {
             setAdding(null)
             changed()

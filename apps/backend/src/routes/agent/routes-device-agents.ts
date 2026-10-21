@@ -11,7 +11,12 @@ import {
 } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
-import { removeDeviceAgent, renameDeviceAgent } from '@/lib/agent/devices/agent-registry-store'
+import {
+  forgetAgentAddition,
+  recordAgentAddition,
+  removeDeviceAgent,
+  renameDeviceAgent,
+} from '@/lib/agent/devices/agent-registry-store'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
@@ -21,7 +26,9 @@ import { zv } from '@/lib/validate'
 import { readTeamIdCandidate } from './team-scope'
 
 import type { DeviceAccessLevel } from '@/lib/agent/devices/box-access'
+import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 import type { RemovableAgent } from '@/lib/agent/devices/local-runtime/protocol'
+import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
@@ -47,7 +54,42 @@ export type DeviceAgentRouteDeps = {
   removeInstance: typeof removeLocalAgentInstance
   forgetAgent: typeof removeDeviceAgent
   renameAgent: typeof renameDeviceAgent
+  recordAddition: typeof recordAgentAddition
+  forgetAddition: typeof forgetAgentAddition
 }
+
+type HostDevice = {
+  target: { userId: string; actorId: string; deviceId: string; teamId: string }
+  device: AgentDevice
+  presence: LocalRuntimePresence
+}
+
+/** An agent the host already has, signed in or still pending. */
+function existingAgent({ device, presence }: HostDevice, instanceId: string): boolean {
+  return (
+    device.agents?.some((agent) => agent.instanceId === instanceId) === true ||
+    presence.status?.instances?.some((instance) => instance.instanceId === instanceId) === true
+  )
+}
+
+/** The caller added this agent and it never signed in, so cancelling its setup may remove it. */
+function ownPendingAgent({ device, presence, target }: HostDevice, instanceId: string): boolean {
+  const reported = presence.status?.instances?.find(
+    (instance) => instance.instanceId === instanceId,
+  )
+
+  return (
+    device.addedAgents?.some(
+      (entry) => entry.instanceId === instanceId && entry.userId === target.actorId,
+    ) === true &&
+    !device.agents?.some((agent) => agent.instanceId === instanceId) &&
+    // An older host reports no state, so only a reported pending one counts.
+    (!reported || reported.state === 'pending')
+  )
+}
+
+const isNotFound = (error: unknown) =>
+  error instanceof Error && 'status' in error && error.status === 404
 
 export function createDeviceAgentRoutes(
   deps: DeviceAgentRouteDeps = {
@@ -58,6 +100,8 @@ export function createDeviceAgentRoutes(
     removeInstance: removeLocalAgentInstance,
     forgetAgent: removeDeviceAgent,
     renameAgent: renameDeviceAgent,
+    recordAddition: recordAgentAddition,
+    forgetAddition: forgetAgentAddition,
   },
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
@@ -88,7 +132,7 @@ export function createDeviceAgentRoutes(
     c: Context<{ Variables: AuthVariables }>,
     level: DeviceAccessLevel,
     candidate?: string,
-  ) => {
+  ): Promise<HostDevice> => {
     const { userId, deviceId, teamId, device } = await authorized(c, level, candidate)
     const presence = await deps.getPresence(device.userId, deviceId)
 
@@ -99,18 +143,41 @@ export function createDeviceAgentRoutes(
         'Update and connect the Box host before adding another agent.',
       )
 
-    return { target: { userId: device.userId, actorId: userId, deviceId, teamId }, device }
+    return {
+      target: { userId: device.userId, actorId: userId, deviceId, teamId },
+      device,
+      presence,
+    }
   }
 
   routes.post('/devices/:deviceId/agents', zv('json', createSchema), async (c) => {
     const body = c.req.valid('json')
-    const { target, device } = await hostDevice(c, 'use', body.teamId)
+    const host = await hostDevice(c, 'use', body.teamId)
+    const { target, device } = host
     const { deviceId } = target
-    const instance = await deps.createInstance(target, {
-      instanceId: body.instanceId ?? randomUUID(),
-      provider: body.provider,
-      label: body.label ?? runtimeLabel(body.provider),
-    })
+    const instanceId = body.instanceId ?? randomUUID()
+    // The host answers an id it has as a retry, so only a new agent is noted, and before the
+    // host makes it: a status report then never lists the agent without its addition.
+    const added = !existingAgent(host, instanceId)
+
+    if (added)
+      await deps.recordAddition(device.userId, deviceId, {
+        instanceId,
+        userId: target.actorId,
+        at: new Date(),
+      })
+    let instance: Awaited<ReturnType<typeof deps.createInstance>>
+
+    try {
+      instance = await deps.createInstance(target, {
+        instanceId,
+        provider: body.provider,
+        label: body.label ?? runtimeLabel(body.provider),
+      })
+    } catch (error) {
+      if (added) await deps.forgetAddition(device.userId, deviceId, instanceId)
+      throw error
+    }
 
     return c.json(
       {
@@ -133,6 +200,20 @@ export function createDeviceAgentRoutes(
     return c.json({ ok: true })
   })
 
+  /** Managers remove any agent; whoever added one may remove it until it has signed in. */
+  const removableBy = async (c: Context<{ Variables: AuthVariables }>, agent: RemovableAgent) => {
+    try {
+      return await hostDevice(c, 'manage')
+    } catch (error) {
+      if (!('instanceId' in agent) || !isNotFound(error)) throw error
+      const host = await hostDevice(c, 'use')
+
+      if (!ownPendingAgent(host, agent.instanceId)) throw error
+
+      return host
+    }
+  }
+
   // `:agent` as for rename. A person's own computer keeps its defaults: their logins are
   // that person's CLI logins.
   routes.delete('/devices/:deviceId/agents/:agent', async (c) => {
@@ -145,7 +226,7 @@ export function createDeviceAgentRoutes(
         : undefined
 
     if (!agent) throw new AppError(400, 'agent_not_removable', 'This agent cannot be removed.')
-    const { target, device } = await hostDevice(c, 'manage')
+    const { target, device } = await removableBy(c, agent)
 
     if ('provider' in agent && !device.box)
       throw new AppError(

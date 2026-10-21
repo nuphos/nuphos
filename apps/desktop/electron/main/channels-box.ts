@@ -79,8 +79,19 @@ export const boxChannels = {
       typeof vcpus === 'number' ? vcpus : undefined,
       access === undefined ? undefined : boxAccess(access),
     ),
-  'box:createAgent': (_e: unknown, deviceId: unknown, teamId: unknown, provider: unknown) =>
-    createDeviceAgent(string(deviceId), string(teamId), agentProvider(provider)),
+  'box:createAgent': (
+    _e: unknown,
+    deviceId: unknown,
+    teamId: unknown,
+    provider: unknown,
+    label?: unknown,
+  ) =>
+    createDeviceAgent(
+      string(deviceId),
+      string(teamId),
+      agentProvider(provider),
+      optionalString(label),
+    ),
   'box:removeAgent': (_e: unknown, deviceId: unknown, teamId: unknown, instanceId: unknown) =>
     removeDeviceAgent(string(deviceId), string(teamId), string(instanceId)),
   'box:renameAgent': (
