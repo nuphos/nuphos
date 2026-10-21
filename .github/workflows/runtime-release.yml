@@ -65,6 +65,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write # keyless image signing in runtime-build.yml
     with:
       release_tag: runtime-v${{ needs.tag.outputs.version }}
       provider: all
