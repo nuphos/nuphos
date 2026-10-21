@@ -29,7 +29,9 @@ import { requireAuth } from '@/middleware/auth'
 export const auth = new Hono<{ Variables: AuthVariables }>()
 
 auth.get('/me', requireAuth, (c) => {
-  return c.json(c.get('user'))
+  const cliToken = c.get('cliToken')
+
+  return c.json({ ...c.get('user'), ...(cliToken ? { cliToken } : {}) })
 })
 
 auth.get('/account-deletion', requireAuth, async (c) =>

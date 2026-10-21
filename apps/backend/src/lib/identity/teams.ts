@@ -2,6 +2,7 @@ import { ObjectId as MongoObjectId } from 'mongodb'
 
 import { upsertCachedTeam } from '@/lib/agent/directory'
 import { mapTeam, mapUser, teams, users } from '@/lib/identity/shared'
+import { inTokenTeamScope } from '@/lib/identity/token-team-scope'
 
 import type { NuphosTeamDoc } from '@/lib/identity/shared'
 import type {
@@ -17,6 +18,8 @@ export async function getTeamMembership(
   userId: string,
   teamId: string,
 ): Promise<TeamMembership | null> {
+  if (!inTokenTeamScope(teamId)) return null
+
   return getNuphosTeamMembership(userId, teamId)
 }
 
@@ -35,13 +38,15 @@ export async function getMyTeams(userId: string): Promise<NuphosTeam[]> {
     .sort({ createdAt: 1 })
     .toArray()
 
-  return docs.map((doc) => {
-    const role = doc.members.find(
-      (member) => member.userId.equals(userObjectId) && !member.deletedAt,
-    )?.role
+  return docs
+    .filter((doc) => inTokenTeamScope(doc._id.toHexString()))
+    .map((doc) => {
+      const role = doc.members.find(
+        (member) => member.userId.equals(userObjectId) && !member.deletedAt,
+      )?.role
 
-    return { ...mapTeam(doc), role }
-  })
+      return { ...mapTeam(doc), role }
+    })
 }
 
 export async function getTeamsByIds(teamIds: string[]): Promise<NuphosTeam[]> {

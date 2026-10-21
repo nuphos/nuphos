@@ -8,6 +8,7 @@ import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import { parseUrlContext } from '@/lib/agent/url-context'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
+import { tokenTeamScope } from '@/lib/identity/token-team-scope'
 import { isTeamIdShape } from '@/lib/team-id'
 
 export function normalizeOptionalTeamId(value: unknown): string | undefined {
@@ -66,7 +67,8 @@ export async function resolveVerifiedTeamId(
   c: Context<{ Variables: AuthVariables }>,
   candidate: string | undefined,
 ): Promise<string | undefined> {
-  if (!candidate) return undefined
+  // An agent token always works in its own team, named or not.
+  if (!candidate) return tokenTeamScope()
   if (!isTeamIdShape(candidate)) return undefined
   const userId = c.get('userId')
   const membership = await getTeamMembership(userId, candidate)

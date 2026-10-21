@@ -12,6 +12,8 @@ export type MessageMetadata = {
     email?: string
     avatarURL?: string
     agentRuntime?: string
+    /** An agent token's message: the user it acts for. `id` is then the token's. */
+    onBehalfOf?: { id: string; displayName: string }
   }
   /** Self-reported by the sender's registered Desktop; never proof of anything. */
   device?: MessageDevice
@@ -23,6 +25,8 @@ export type MessageMetadata = {
   replyTo?: { authorName: string; text: string }
   /** A Discord author with no verified Nuphos identity: the body is fenced for the model. */
   unattested?: true
+  /** The stored CLI or agent token that sent it, for audit. */
+  cliTokenId?: string
 }
 
 const SOURCES = ['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'] as const
@@ -45,8 +49,16 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
   const m = value as Partial<MessageMetadata>
 
   if (m.version !== 1 || !m.source || !SOURCES.includes(m.source)) return undefined
+  const onBehalfOf =
+    m.source === 'nuphos' && nonEmpty(m.sender?.onBehalfOf?.id)
+      ? { id: m.sender.onBehalfOf.id, displayName: m.sender.onBehalfOf.displayName || '' }
+      : undefined
   const senderType =
-    m.source === 'agent.thread' ? 'agent' : m.source === 'agent.resource' ? 'system' : 'user'
+    m.source === 'agent.thread' || onBehalfOf
+      ? 'agent'
+      : m.source === 'agent.resource'
+        ? 'system'
+        : 'user'
 
   if (!m.sender || m.sender.type !== senderType || !nonEmpty(m.sender.id)) return undefined
   if (m.source === 'agent.thread' && !nonEmpty(m.sourceSessionId)) return undefined
@@ -75,6 +87,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
         : {}),
       ...(nonEmpty(m.sender.email) ? { email: m.sender.email } : {}),
       ...(trustedAvatarURL(m.sender.avatarURL) ? { avatarURL: m.sender.avatarURL } : {}),
+      ...(onBehalfOf ? { onBehalfOf } : {}),
     },
     ...(device ? { device } : {}),
     source: m.source,
@@ -83,6 +96,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
     ...(m.source === 'agent.resource' ? { resourceUrl: m.resourceUrl } : {}),
     ...(replyTo ? { replyTo } : {}),
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
+    ...(nonEmpty(m.cliTokenId) ? { cliTokenId: m.cliTokenId } : {}),
   }
 }
 

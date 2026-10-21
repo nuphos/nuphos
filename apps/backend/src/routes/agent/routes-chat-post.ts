@@ -67,6 +67,7 @@ agent.post('/chat', async (c) => {
     conversationForResume,
     userId,
     c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
+    c.get('cliToken'),
   )
   const slackThread =
     !body.resume && conversationForResume

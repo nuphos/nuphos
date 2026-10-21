@@ -243,3 +243,26 @@ test("a Trigger fire reads as its owner's instruction, not a GitHub event", () =
   expect(instructions).toContain('carry it out')
   expect(instructions).not.toContain('GitHub')
 })
+
+test('an agent-token message keeps its bot sender, the user it acts for, and the token', () => {
+  const bot = {
+    version: 1 as const,
+    sender: {
+      type: 'agent' as const,
+      id: 'token-1',
+      displayName: 'Grok Bot',
+      onBehalfOf: { id: 'user-a', displayName: 'Yuanlin' },
+    },
+    source: 'nuphos' as const,
+    sentAt: '2026-10-21T00:00:00Z',
+    cliTokenId: 'token-1',
+  }
+
+  expect(parseMessageMetadata(bot)).toEqual(bot)
+  // Without a user it acts for, a nuphos message is a person's, so an agent type is refused.
+  expect(
+    parseMessageMetadata({ ...bot, sender: { ...bot.sender, onBehalfOf: undefined } }),
+  ).toBeUndefined()
+  // A Slack message cannot claim to be a bot acting for someone.
+  expect(parseMessageMetadata({ ...bot, source: 'slack' })).toBeUndefined()
+})

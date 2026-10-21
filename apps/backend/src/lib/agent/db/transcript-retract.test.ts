@@ -59,3 +59,21 @@ test('an unknown or assistant message is not found', () => {
   expect(retractableAt(earlier, 'nope', 'alice', 'owner').outcome).toBe('not_found')
   expect(retractableAt(earlier, 'a', 'alice', 'owner').outcome).toBe('not_found')
 })
+
+test("an agent token's message is its user's to take back", () => {
+  const bot = {
+    ...user('m1'),
+    metadata: {
+      ...sentBy('tok1'),
+      sender: {
+        type: 'agent' as const,
+        id: 'tok1',
+        displayName: 'Grok Bot',
+        onBehalfOf: { id: 'alice', displayName: 'Alice' },
+      },
+    },
+  }
+
+  expect(retractableAt([bot], 'm1', 'alice', 'owner').outcome).toBe('retracted')
+  expect(retractableAt([bot], 'm1', 'tok1', 'owner').outcome).toBe('not_sender')
+})

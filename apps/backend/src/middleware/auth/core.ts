@@ -7,6 +7,8 @@ import type { MiddlewareHandler } from 'hono'
 import { AppError } from '@/lib/errors'
 import { authenticateToken, getTeamMembership } from '@/lib/identity'
 import { AI_CONSENT_VERSION, readAIConsent } from '@/lib/identity/ai-consent'
+import { authenticateCliToken, cliTokenDenied, isCliToken } from '@/lib/identity/cli-tokens'
+import { runInTokenTeamScope } from '@/lib/identity/token-team-scope'
 
 export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
   const header = c.req.header('Authorization')
@@ -16,13 +18,19 @@ export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   }
   const token = header.slice('Bearer '.length)
 
-  const result = await authenticateToken(token)
+  const result = isCliToken(token)
+    ? await authenticateCliToken(token)
+    : await authenticateToken(token)
 
   if (!result) {
     throw new AppError(401, 'unauthorized', 'Invalid or expired token')
   }
 
   const { user } = result
+  const cliToken = 'cliToken' in result ? result.cliToken : undefined
+  const denied = cliToken && cliTokenDenied(cliToken, c.req.method, c.req.path)
+
+  if (denied) throw new AppError(403, 'cli_token_forbidden', denied)
 
   if (!ObjectId.isValid(user.id)) {
     throw new AppError(500, 'invalid_user_id', 'Nuphos returned a non-ObjectId user id')
@@ -50,6 +58,8 @@ export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   c.set('userName', user.name)
   c.set('user', user)
   c.set('authToken', token)
+  if (cliToken) c.set('cliToken', cliToken)
+  if (cliToken?.teamId) return runInTokenTeamScope(cliToken.teamId, next)
   await next()
 }
 

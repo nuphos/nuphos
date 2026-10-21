@@ -40,8 +40,15 @@ export function retractableAt(
 
   if (!message || message.role !== 'user') return { outcome: 'not_found' }
   const sender = message.metadata?.sender
+  // An agent token's message is its user's to take back.
+  const senderUserId =
+    sender?.type === 'agent'
+      ? sender.onBehalfOf?.id
+      : sender?.type === 'user'
+        ? sender.id
+        : undefined
 
-  if (sender ? sender.type !== 'user' || sender.id !== actorUserId : actorUserId !== ownerUserId)
+  if (sender ? senderUserId !== actorUserId : actorUserId !== ownerUserId)
     return { outcome: 'not_sender' }
   const answered = stored
     .slice(index + 1)

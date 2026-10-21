@@ -1,5 +1,6 @@
 import type { AgentChatBody } from './types'
 import type { AgentConversation } from '@/lib/agent/db'
+import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { UIMessage } from 'ai'
 
 import { agentMessages, getConversationMessagesHead } from '@/lib/agent/db'
@@ -111,6 +112,7 @@ export async function acceptClientTail(
   conversationForResume: AgentConversation | null,
   actorId = runOwnerUserId,
   deviceId?: string,
+  cliToken?: CliTokenPrincipal,
 ): Promise<UIMessage[]> {
   const baseIndex = body.baseIndex ?? 0
   const messages = body.messages
@@ -131,6 +133,7 @@ export async function acceptClientTail(
     actorId,
     Boolean(body.resume || body.continueAfterInterruption),
     deviceId,
+    cliToken,
   )
 
   return messages

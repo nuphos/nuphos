@@ -18,6 +18,7 @@ import { asanaAppRoutes } from '@/routes/asana-app'
 import { auth } from '@/routes/auth'
 import { avatarsRoutes } from '@/routes/avatars'
 import { claudeCodeRuntimeSkills } from '@/routes/claude-code-runtime-skills'
+import { cliAuthRoutes } from '@/routes/cli-auth'
 import { cliRoutes } from '@/routes/cli'
 import { cloudflareAppRoutes } from '@/routes/cloudflare-app'
 import { desktopRoutes } from '@/routes/desktop'
@@ -85,6 +86,7 @@ app.route('/health', health)
 // Public OIDC issuer metadata for AWS BYOS web-identity federation. AWS STS
 // fetches these unauthenticated, so they live outside the auth'd route tree.
 app.route('/.well-known', wellKnownRoutes)
+app.route('/auth', cliAuthRoutes)
 app.route('/auth', auth)
 app.route('/avatars', avatarsRoutes)
 // Server-to-server abuse fence for nuphos.ai's public email handoff. The route

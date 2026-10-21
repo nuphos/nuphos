@@ -1,4 +1,5 @@
 import type { TailscaleBindingAuth } from '@/lib/byos/tailscale-binding'
+import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { NuphosTeamRole, NuphosUser, NuphosTeam } from '@/lib/identity'
 import type {
   AwsRoleBinding,
@@ -31,6 +32,8 @@ export type AuthVariables = {
   authToken: string
   /** Scoped Claude-runtime token metadata; absent for normal user sessions. */
   previewConversationOwnerUserId?: string
+  /** Set when the request came with a stored CLI token rather than a session. */
+  cliToken?: CliTokenPrincipal
 }
 
 export type TeamAuthVariables = AuthVariables & {

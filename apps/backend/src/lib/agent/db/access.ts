@@ -1,3 +1,5 @@
+import { inTokenTeamScope, tokenTeamScope } from '@/lib/identity/token-team-scope'
+
 /**
  * Who in the team may open a conversation without being invited: nobody, or
  * everyone — to read, or to read and reply. Invitees add to it; they can raise
@@ -47,6 +49,8 @@ export function conversationAccess(
   conversation: AccessFields,
   viewerId: string,
 ): ConversationAccess | null {
+  // An agent token reaches only its own team's conversations, its user's included.
+  if (!inTokenTeamScope(conversation.teamId)) return null
   if (conversation.userId === viewerId) return 'owner'
   if (!conversation.teamId) return null
   const general = generalAccessOf(conversation)
@@ -113,6 +117,8 @@ export function readableConversationScope(
   viewerUserId: string,
   teamId: string | undefined,
 ): Record<string, unknown> {
+  // An agent token reads its own team's conversations, whatever the caller asked for.
+  teamId = tokenTeamScope() ?? teamId
   if (!teamId) return { ...base, userId: viewerUserId }
 
   return { ...base, teamId, ...readableByFilter(viewerUserId) }

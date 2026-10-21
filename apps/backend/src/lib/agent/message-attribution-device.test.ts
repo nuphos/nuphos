@@ -44,3 +44,26 @@ test('the email stays out of channels people outside the team can read', async (
   for (const source of ['discord', 'lark'] as const)
     expect((await createMessageMetadata(sender, source)).sender).not.toHaveProperty('email')
 })
+
+test("an agent token's message is the bot's, on its user's behalf, and records the token", async () => {
+  const cliToken = { id: 'tok1', kind: 'agent' as const, name: 'Grok Bot', teamId: 't1' }
+  const metadata = await createMessageMetadata(sender, 'nuphos', 'mine', cliToken)
+
+  expect(metadata.sender).toEqual({
+    type: 'agent',
+    id: 'tok1',
+    displayName: 'Grok Bot',
+    onBehalfOf: { id: sender, displayName: 'Me' },
+  })
+  expect(metadata.cliTokenId).toBe('tok1')
+  expect(metadata).not.toHaveProperty('device')
+
+  const personal = await createMessageMetadata(sender, 'nuphos', undefined, {
+    id: 'tok2',
+    kind: 'personal',
+    name: 'laptop',
+  })
+
+  expect(personal.sender).toMatchObject({ type: 'user', id: sender })
+  expect(personal.cliTokenId).toBe('tok2')
+})

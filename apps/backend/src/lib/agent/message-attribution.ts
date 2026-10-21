@@ -7,27 +7,52 @@ import { assertSingleNewUserMessage } from './message-input'
 import { restoreAppMessageMetadata, parseMessageMetadata } from './message-metadata'
 
 import type { MessageMetadata } from './message-metadata'
+import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { UIMessage } from 'ai'
 
 import { getNuphosUserById } from '@/lib/identity/auth'
 
-/** `deviceId` is client-claimed, so it only counts when registered to this user. */
+/**
+ * `deviceId` is client-claimed, so it only counts when registered to this user.
+ * `cliToken` is the stored token the request authenticated with: an agent
+ * token's message is the bot's, sent on the user's behalf.
+ */
 export async function createMessageMetadata(
   userId: string,
   source: MessageMetadata['source'],
   deviceId?: string,
+  cliToken?: CliTokenPrincipal,
 ): Promise<MessageMetadata> {
   const [user, device] = await Promise.all([
     getNuphosUserById(userId),
     deviceId ? getAgentDevice(userId, deviceId) : null,
   ])
 
+  const displayName = user?.name || user?.username || userId
+  const token = cliToken ? { cliTokenId: cliToken.id } : {}
+
+  if (cliToken?.kind === 'agent') {
+    return {
+      version: 1,
+      sender: {
+        type: 'agent',
+        id: cliToken.id,
+        displayName: cliToken.name,
+        ...(cliToken.avatarUrl ? { avatarURL: cliToken.avatarUrl } : {}),
+        onBehalfOf: { id: userId, displayName },
+      },
+      source,
+      sentAt: new Date().toISOString(),
+      ...token,
+    }
+  }
+
   return {
     version: 1,
     sender: {
       type: 'user',
       id: userId,
-      displayName: user?.name || user?.username || userId,
+      displayName,
       // Discord and Lark threads can be read by people outside the team.
       ...(user?.email && (source === 'nuphos' || source === 'slack') ? { email: user.email } : {}),
       ...(trustedAvatarURL(user?.avatarURL)
@@ -37,6 +62,7 @@ export async function createMessageMetadata(
     ...(device ? { device: { label: device.label, platform: device.platform } } : {}),
     source,
     sentAt: new Date().toISOString(),
+    ...token,
   }
 }
 
@@ -48,6 +74,7 @@ export async function attributeAppMessages(
   actorId: string,
   continuation: boolean,
   deviceId?: string,
+  cliToken?: CliTokenPrincipal,
 ): Promise<void> {
   const stored = await agentMessages()
     .find(
@@ -61,7 +88,7 @@ export async function attributeAppMessages(
   const last = messages.at(-1)
   const fresh =
     !continuation && last?.role === 'user' && !byId.has(last.id)
-      ? await createMessageMetadata(actorId, 'nuphos', deviceId)
+      ? await createMessageMetadata(actorId, 'nuphos', deviceId, cliToken)
       : undefined
 
   // Speaking in someone else's session is joining it, so the same step that
