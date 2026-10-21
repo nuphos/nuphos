@@ -61,7 +61,11 @@ try {
       stem = Array.from(stem).slice(0, -1).join('')
     name = stem + suffix
     name = name.replace(/[ .]+$/g, '')
-    if (/^(con|conin\$|conout\$|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(name))
+    if (
+      /^(con|conin\$|conout\$|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(
+        name.split('.')[0].replace(/ +$/g, ''),
+      )
+    )
       name = `_${name}`
     const path = join(folder, !name || name === '.' || name === '..' ? 'attachment' : name)
     const response = await fetch(file.url, {
