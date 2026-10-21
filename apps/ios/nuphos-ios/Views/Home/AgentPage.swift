@@ -371,6 +371,7 @@ struct SearchBar: View {
 
             Button("Cancel", action: onCancel)
                 .font(.body)
+                .keyboardShortcut(.cancelAction)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)

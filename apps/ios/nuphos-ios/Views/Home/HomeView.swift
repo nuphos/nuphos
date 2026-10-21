@@ -92,6 +92,9 @@ struct HomeView: View {
                             .glassEffect(.regular.interactive(), in: Circle())
                     }
                     .buttonStyle(.plain)
+                    #if os(iOS)
+                    .hoverEffect()
+                    #endif
                     .accessibilityLabel("Account")
                 }
                 .sharedBackgroundVisibility(.hidden)
@@ -146,6 +149,10 @@ struct HomeView: View {
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
             }
+        }
+        .focusedSceneValue(\.newChat) {
+            page = .agent
+            openChat = nil
         }
         .onChange(of: page) { oldPage, newPage in
             isSearching = false

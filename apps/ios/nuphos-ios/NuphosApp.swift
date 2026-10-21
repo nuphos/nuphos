@@ -21,5 +21,24 @@ struct NuphosApp: App {
                 .environment(session)
             #endif
         }
+        .commands { NewChatCommand() }
+    }
+}
+
+extension FocusedValues {
+    /// Opens the new-chat composer in the focused window.
+    @Entry var newChat: (() -> Void)?
+}
+
+/// ⌘N, listed in the menu bar.
+private struct NewChatCommand: Commands {
+    @FocusedValue(\.newChat) private var newChat
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Chat") { newChat?() }
+                .keyboardShortcut("n")
+                .disabled(newChat == nil)
+        }
     }
 }

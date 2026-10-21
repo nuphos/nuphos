@@ -157,6 +157,12 @@ struct ChatComposerBar<Controls: View>: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in ownsKeyboard = focused }
         #endif
         .preference(key: ComposerOwnsKeyboard.self, value: ownsKeyboard)
+        // A drop is a paste: files and images attach, text joins the draft.
+        .onDrop(of: [.item], isTargeted: nil) { providers in
+            guard allowsAttachments else { return false }
+            paste(providers)
+            return true
+        }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .onChange(of: photoItems) { _, items in
@@ -294,6 +300,9 @@ struct ChatComposerBar<Controls: View>: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        #if os(iOS)
+        .hoverEffect()
+        #endif
         .disabled(preparingSubmission)
         .accessibilityLabel("Voice input")
         #endif
@@ -437,6 +446,9 @@ struct ChatComposerBar<Controls: View>: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        #if os(iOS)
+        .hoverEffect()
+        #endif
         .accessibilityLabel(label)
     }
 
@@ -465,6 +477,9 @@ struct ChatComposerBar<Controls: View>: View {
                 .background(filled ? Theme.heading : Theme.muted.opacity(0.6), in: Circle())
         }
         .buttonStyle(.plain)
+        #if os(iOS)
+        .hoverEffect()
+        #endif
         .contentTransition(.symbolEffect(.replace))
         .disabled(action != .stop && (!canSend || !hasPayload || (!allowsAttachments && !attachments.isEmpty)))
         .accessibilityLabel(action.accessibilityLabel)
