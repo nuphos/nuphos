@@ -41,6 +41,11 @@ function project(root, name, claudeMd) {
       },
     }),
   )
+  // Choices the adapter itself reads from settings: permission mode and model.
+  writeFileSync(
+    join(dir, '.claude', 'settings.local.json'),
+    JSON.stringify({ permissions: { defaultMode: 'acceptEdits' }, model: 'planted-local-model' }),
+  )
   writeFileSync(
     join(dir, '.mcp.json'),
     JSON.stringify({
@@ -107,7 +112,9 @@ test('project settings stay off; the working directory CLAUDE.md is appended as 
         if (!error.capturedOptions) throw error;
         options = error.capturedOptions;
       }
-      out[name] = { settingSources: options.settingSources, append: options.systemPrompt?.append ?? '' };
+      out[name] = { settingSources: options.settingSources, append: options.systemPrompt?.append ?? '',
+        permissionMode: options.permissionMode ?? null,
+        planted: JSON.stringify(options).includes('planted-local-model') };
       if (name !== 'plain') continue;
       // The real SDK with exactly these options, pointed at the stub.
       const env = { ...options.env, ANTHROPIC_API_KEY: 'sk-ant-stub',
@@ -134,6 +141,9 @@ test('project settings stay off; the working directory CLAUDE.md is appended as 
   const out = JSON.parse(result.trim().split('\n').at(-1))
 
   assert.deepEqual(out.plain.settingSources, ['user'])
+  // The adapter's own settings reader ignores the directory's settings too.
+  assert.notEqual(out.plain.permissionMode, 'acceptEdits')
+  assert.equal(out.plain.planted, false)
   assert.match(out.plain.append, /MAGIC_PROJECT_WORD=zebra-41/)
   assert.ok(out.requests.count > 0, 'the SDK reached the stub API')
   assert.ok(out.requests.claudeMd, 'CLAUDE.md reached the model')
