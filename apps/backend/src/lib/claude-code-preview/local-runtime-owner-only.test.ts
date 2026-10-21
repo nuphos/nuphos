@@ -160,12 +160,10 @@ describe('only the owner can put a session on their local agent', () => {
     ).rejects.toMatchObject(notFound)
   })
 
-  test('a teammate continues the owner’s conversation on the owner’s computer', async () => {
-    const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
-      userId: 'teammate',
-    })
-
-    expect(parseLocalRuntimeUrl(endpoint.url)).toMatchObject({ userId: 'owner', teamId: TEAM })
+  test('a teammate cannot send to the owner’s conversation on the owner’s computer', async () => {
+    await expect(
+      resolveConversationChatRuntime(TEAM, conversation('owner'), { userId: 'teammate' }),
+    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
   })
 
   test('a teammate cannot put the owner’s unpinned conversation on it', async () => {
@@ -181,7 +179,7 @@ describe('only the owner can put a session on their local agent', () => {
   test('the owner’s computer never serves someone else’s conversation', async () => {
     await expect(
       resolveConversationChatRuntime(TEAM, conversation('teammate'), { userId: 'owner' }),
-    ).rejects.toMatchObject(notFound)
+    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
     await expect(
       resolveConversationChatRuntime(TEAM, conversation('teammate'), { purpose: 'control' }),
     ).rejects.toMatchObject(notFound)

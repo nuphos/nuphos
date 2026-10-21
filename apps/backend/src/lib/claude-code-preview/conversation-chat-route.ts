@@ -34,20 +34,6 @@ export type ConversationChatRequest = {
   purpose?: 'transport' | 'control'
 }
 
-/**
- * Who a local agent acts for. Only its owner may put a conversation on it;
- * once there, any teammate who may reply drives it as that owner.
- */
-function localAgentUserFor(
-  conversation: Pick<AgentConversation, 'userId' | 'runtimeId'> | null,
-  actor: string | undefined,
-): string | undefined {
-  if (conversation?.runtimeId && isLocalRuntimeId(conversation.runtimeId))
-    return conversation.userId
-
-  return conversation && conversation.userId !== actor ? undefined : actor
-}
-
 /** Resolve every conversation onto the supported OpenAB runtime and placement. */
 export async function resolveConversationChatRuntime(
   teamId: string | undefined,
@@ -61,7 +47,15 @@ export async function resolveConversationChatRuntime(
   const pinned = Boolean(conversation?.agentRuntime || conversation?.claudeCodePreview)
   const selectedId = resolveConversationRuntimeId(conversation, request.runtimeId)
   const actor = request.userId ?? conversation?.userId
-  const localAgentUser = localAgentUserFor(conversation, actor)
+
+  // A local agent runs on its owner's computer, as them, so only they drive it.
+  if (conversation && actor !== conversation.userId && isLocalRuntimeId(conversation.runtimeId))
+    throw new AppError(
+      403,
+      'local_runtime_owner_only',
+      'This conversation runs on its owner’s own computer, so only they can send messages here. Ask them to move it to a team agent to continue together.',
+    )
+  const localAgentUser = conversation && conversation.userId !== actor ? undefined : actor
 
   if (selectedId && !teamId)
     throw new AppError(400, 'invalid_request', 'An agent requires a workspace')
