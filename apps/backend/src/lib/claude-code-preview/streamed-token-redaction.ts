@@ -56,11 +56,17 @@ function heldBack(emit: (text: string) => void) {
   }
 }
 
+// A completion, an interruption, or the runtime thread leaving `active`.
+const turnEnds = (update: OpenAbSessionUpdate) =>
+  update.kind === 'complete' ||
+  update.kind === 'interrupted' ||
+  (update.kind === 'status' && update.status !== 'active')
+
 /**
  * Wraps a session-update handler so streamed agent text and thoughts never
- * carry a backend token, even one split across chunks. Only text that may begin
- * a token is held, until the token completes, a separator, any other update,
- * or flush() releases it, in order.
+ * carry a backend token, even one split across chunks. Only text that may
+ * begin a token is held, and it stays held across other updates until the
+ * token resolves, the turn ends, or flush() is called.
  */
 export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => void) {
   const text = heldBack((value) => {
@@ -76,14 +82,11 @@ export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => 
 
   return {
     deliver: (update: OpenAbSessionUpdate) => {
-      if (update.kind === 'text') {
-        thought.flush()
-        text.push(update.text)
-      } else if (update.kind === 'agent' && update.update.kind === 'thought') {
-        text.flush()
+      if (update.kind === 'text') text.push(update.text)
+      else if (update.kind === 'agent' && update.update.kind === 'thought')
         thought.push(update.update.text)
-      } else {
-        flush()
+      else {
+        if (turnEnds(update)) flush()
         handler(update)
       }
     },
