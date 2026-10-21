@@ -22,6 +22,7 @@ import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-met
 import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
 import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
 import { setupDiscordIndexes } from '@/lib/discord/store'
+import { setupHostedRuntimeSlotIndexes } from '@/lib/claude-code-preview/runtime-instances'
 import { setupDownloadLinkEmailIndexes } from '@/lib/download-link-email'
 import { setupEmailOtpIndexes } from '@/lib/email-otp'
 import { setupIdentityIndexes } from '@/lib/identity'
@@ -73,6 +74,7 @@ export async function setupIndexes(): Promise<void> {
     ['cli-tokens', setupCliTokenIndexes],
     ['device-login', setupDeviceLoginIndexes],
     ['runtime-login', setupRuntimeLoginIndexes],
+    ['hosted-runtime-slots', setupHostedRuntimeSlotIndexes],
     ['runtime-metrics', setupRuntimeMetricIndexes],
     ['runtime-quota-history', setupRuntimeQuotaHistoryIndexes],
     ['box-usage-history', setupBoxUsageHistoryIndexes],

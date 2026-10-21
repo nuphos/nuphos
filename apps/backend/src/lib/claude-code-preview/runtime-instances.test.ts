@@ -118,20 +118,75 @@ test('a team gets at most 20 hosted agents; deleting one frees a slot and other 
   await add(server, 'after delete')
 })
 
-test('concurrent creates for the last hosted slot admit exactly one', async () => {
+test('a create whose insert lands after a competing create took the last slot is refused', async () => {
   const server = app()
 
   for (let index = 0; index < 19; index++) await add(server, `agent ${String(index)}`)
-  const responses = await Promise.all(
-    ['a', 'b', 'c'].map((label) =>
-      server.request('/agent-runtimes', json('POST', { label, provider: 'codex' })),
-    ),
+  const collection = store.collection.bind(store)
+  let releaseFirstInsert!: () => void
+  let firstInsertReached!: () => void
+  const firstInsertHeld = new Promise<void>((resolve) => {
+    releaseFirstInsert = resolve
+  })
+  const reached = new Promise<void>((resolve) => {
+    firstInsertReached = resolve
+  })
+  let held = false
+
+  store.collection = (name: string) => {
+    const real = collection(name)
+
+    if (name !== 'claude_code_runtimes' || held) return real
+
+    return {
+      ...real,
+      insertOne: async (doc: Record<string, unknown>) => {
+        if (!held) {
+          held = true
+          firstInsertReached()
+          await firstInsertHeld
+        }
+
+        return real.insertOne(doc)
+      },
+    }
+  }
+  const first = server.request(
+    '/agent-runtimes',
+    json('POST', { label: 'first', provider: 'codex' }),
   )
 
-  expect(responses.map((response) => response.status).toSorted((a, b) => a - b)).toEqual([
-    201, 409, 409,
-  ])
+  // Let the first create read slot 19 as free and block on its insert.
+  await reached
+  const second = await server.request(
+    '/agent-runtimes',
+    json('POST', { label: 'second', provider: 'codex' }),
+  )
+
+  releaseFirstInsert()
+  expect(second.status).toBe(201)
+  expect((await first).status).toBe(409)
+  store.collection = collection
   expect(runtimeRows().filter((doc) => doc.teamId === 'one')).toHaveLength(20)
+})
+
+test('hosted agents created before slots existed count toward the limit', async () => {
+  for (let index = 0; index < 18; index++)
+    await store.collection('claude_code_runtimes').insertOne({
+      _id: `legacy-${String(index)}`,
+      teamId: 'one',
+      hostedBy: 'nuphos',
+      status: 'active',
+      createdAt: new Date(),
+    })
+  const server = app()
+
+  await add(server, 'nineteenth')
+  await add(server, 'twentieth')
+  expect(
+    (await server.request('/agent-runtimes', json('POST', { label: 'over', provider: 'codex' })))
+      .status,
+  ).toBe(409)
 })
 
 test('the create route takes a name and a type, and nothing that signs the agent in', async () => {

@@ -42,10 +42,10 @@ export type ClaudeCodeRuntimeDoc = {
   requestedRuntimeVersion?: string
   runtimeUpdateError?: string
   hostedBy?: 'nuphos'
+  hostedSlot?: number
   /** A row of the retired provisioner model, which nothing resolves any more. */
   managedBy?: 'provisioner'
-  /** Envelope-encrypted ACP transport key. Mongo owns it; the Kubernetes
-   *  Secret a hosted pod reads is derived from it. */
+  /** Envelope-encrypted ACP transport key; a hosted pod's Kubernetes Secret derives from it. */
   authKeyEnvelope?: EncryptedEnvelope
   /** Envelope-encrypted operator credential, when it is not derived from the password. */
   controlKeyEnvelope?: EncryptedEnvelope
@@ -123,6 +123,7 @@ export async function registerTeamRuntime(args: {
   controlKey?: string
   label?: string
   hostedBy?: 'nuphos'
+  hostedSlot?: number
   deploymentImage?: string
   pairing?: RuntimePairing
   kube?: KubeClient
@@ -146,7 +147,7 @@ export async function registerTeamRuntime(args: {
     url,
     provider: args.provider ?? 'claude-code',
     ...(args.label?.trim() ? { label: args.label.trim() } : {}),
-    ...(args.hostedBy ? { hostedBy: args.hostedBy } : {}),
+    ...(args.hostedBy ? { hostedBy: args.hostedBy, hostedSlot: args.hostedSlot } : {}),
     ...(args.deploymentImage ? { deploymentImage: args.deploymentImage } : {}),
     ...(args.pairing ? { pairing: args.pairing } : {}),
     status: 'active',
