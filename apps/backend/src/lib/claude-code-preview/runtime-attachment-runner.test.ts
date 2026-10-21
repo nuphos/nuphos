@@ -111,6 +111,10 @@ test('downloaded filenames remain portable on Windows without changing file byte
     `${'a'.repeat(181)}.png`,
     'CONIN$',
     'CONOUT$.png',
+    'CON .txt',
+    'LPT1 .log',
+    'CON   .tar.gz',
+    'COM1    .txt',
   ]
   let paths: string[] = []
 
@@ -128,6 +132,10 @@ test('downloaded filenames remain portable on Windows without changing file byte
     expect(basename(paths[5]!)).toEndWith('.png')
     expect(basename(paths[6]!)).toBe('_CONIN$')
     expect(basename(paths[7]!)).toBe('_CONOUT$.png')
+    expect(basename(paths[8]!)).toBe('_CON .txt')
+    expect(basename(paths[9]!)).toBe('_LPT1 .log')
+    expect(basename(paths[10]!)).toBe('_CON   .tar.gz')
+    expect(basename(paths[11]!)).toBe('_COM1    .txt')
     for (const path of paths) expect(await readFile(path, 'utf8')).toBe('png')
   } finally {
     await server.stop()
