@@ -8,7 +8,6 @@ import yaml from 'js-yaml'
 
 import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
-import { unverifiedTokenSubject } from '../../auth-status.ts'
 import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
 import {
   defaultDeviceLabel,
@@ -20,10 +19,11 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 
 import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
-import { agentEnv, readBundle } from './config.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
-import { LocalRuntimeController } from './controller.ts'
+import { cliSessionToken, hostOwner } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
+import { agentEnv, readBundle } from './config.ts'
+import { LocalRuntimeController } from './controller.ts'
 import {
   enableDesktopPool,
   desktopStatus,
@@ -41,6 +41,7 @@ import { RuntimeTunnelClient } from './tunnel-client.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
+import type { CliConfig } from './cli-host-session.ts'
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
@@ -87,22 +88,16 @@ const launchToken = process.env.NUPHOS_SESSION_TOKEN || null
 
 delete process.env.NUPHOS_SESSION_TOKEN
 
-/** The CLI's session: in cli.yaml, or the launch token while cli.yaml names its user. */
-function currentToken(): string | null {
-  let cfg: { token?: string; keychainAccount?: string } | null
-
+function readCliConfig(): CliConfig {
   try {
-    cfg = yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as typeof cfg
+    return yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as CliConfig
   } catch {
     return null
   }
-  if (cfg?.token) return cfg.token
-  if (!launchToken || !cfg?.keychainAccount) return null
-
-  return cfg.keychainAccount.startsWith(`${unverifiedTokenSubject(launchToken) ?? ''}@`)
-    ? launchToken
-    : null
 }
+
+const launch = { token: launchToken, keychainAccount: readCliConfig()?.keychainAccount }
+const currentToken = () => cliSessionToken(readCliConfig(), launch)
 
 // API calls go out with the session, read as above.
 setTokenSource(() => Promise.resolve(currentToken()))
@@ -120,13 +115,20 @@ const deviceCredential = await deviceCredentialFor({
   headers: { 'x-atlas-client': clientVersion },
 })
 const deviceId = deviceCredential?.deviceId ?? device.deviceId
-const token = deviceCredential ? null : currentToken()
-const owner = deviceCredential?.userId ?? (token ? unverifiedTokenSubject(token) : undefined)
+// Signed out or signed in again since (the token changed): the agents stop.
+const signedIn = deviceCredential ? null : currentToken()
+const resolved = deviceCredential
+  ? { userId: deviceCredential.userId }
+  : hostOwner(
+      signedIn ? await callJson<{ id?: string }>('GET', '/auth/me').catch(() => null) : null,
+    )
 
-if (!owner) {
-  console.error('Not signed in; run `nuphos login`, or join with `nuphos agent --join <token>`.')
+if ('error' in resolved) {
+  console.error(resolved.error)
   process.exit(1)
 }
+const owner = resolved.userId
+
 if (!bundle()) {
   console.error(`No local runtime bundle at ${bundleRoot}.`)
   process.exit(1)
@@ -193,8 +195,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       connectBackend: () => {
         const fresh = deviceCredential?.credential ?? currentToken()
 
-        if (!fresh || (!deviceCredential && unverifiedTokenSubject(fresh) !== owner))
-          throw new Error('Signed out')
+        if (!fresh || (!deviceCredential && fresh !== signedIn)) throw new Error('Signed out')
 
         return new WebSocket(tunnelUrlFor(apiUrl(), deviceId).replace(/^http/u, 'ws'), {
           headers: { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion },
@@ -273,8 +274,7 @@ if (!deviceCredential)
   setInterval(() => {
     const fresh = currentToken()
 
-    if (!stopping && (!fresh || unverifiedTokenSubject(fresh) !== owner))
-      stop('Signed out of Nuphos; stopping the local agents.')
+    if (!stopping && fresh !== signedIn) stop('Signed out of Nuphos; stopping the local agents.')
   }, 2_000)
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => stop())
 console.log(`Running this computer's agents for Nuphos as "${device.label}". Press Ctrl-C to stop.`)
