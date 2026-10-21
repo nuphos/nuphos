@@ -67,11 +67,13 @@ pub type AcpSessionSteer = Arc<
 >;
 
 /// Replaces a live session's short-lived credentials (`dev.openab/credentials`)
-/// while a turn runs, so a turn can outlast any one token.
+/// while a turn runs, so a turn can outlast any one token. Arguments: channel,
+/// the credentials the caller expects the session to hold, the replacement.
 #[cfg(feature = "acp")]
 pub type AcpSessionCredentials = Arc<
     dyn Fn(
             String,
+            serde_json::Value,
             serde_json::Value,
         )
             -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>>

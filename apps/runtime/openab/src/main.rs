@@ -1217,10 +1217,10 @@ async fn main() -> anyhow::Result<()> {
                 ));
                 let credentials_pool = pool.clone();
                 gw_state_inner.acp_session_credentials = Some(Arc::new(
-                    move |channel: String, credentials: serde_json::Value| {
+                    move |channel: String, expected: serde_json::Value, credentials: serde_json::Value| {
                         let pool = credentials_pool.clone();
                         Box::pin(async move {
-                            pool.refresh_session_credentials(&format!("acp:{channel}"), credentials)
+                            pool.refresh_session_credentials(&format!("acp:{channel}"), &expected, credentials)
                                 .await
                                 .map_err(|error| error.to_string())
                         })

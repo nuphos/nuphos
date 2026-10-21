@@ -70,37 +70,45 @@ pub fn write_session_credentials(
     thread_id: &str,
     meta: Option<&serde_json::Value>,
 ) -> Option<PathBuf> {
-    meta?;
+    try_write_session_credentials(root, thread_id, meta).unwrap_or_else(|error| {
+        warn!(%error, "could not write session credentials");
+        None
+    })
+}
+
+/// [`write_session_credentials`] that reports the first failure, so a caller
+/// can tell the agent may still read its previous credentials.
+pub fn try_write_session_credentials(
+    root: &Path,
+    thread_id: &str,
+    meta: Option<&serde_json::Value>,
+) -> std::io::Result<Option<PathBuf>> {
+    if meta.is_none() {
+        return Ok(None);
+    }
     let entries = credentials(meta);
     let dir = session_credentials_dir(root, thread_id);
     if entries.is_empty() {
-        if let Err(error) = std::fs::remove_dir_all(&dir) {
-            if error.kind() != std::io::ErrorKind::NotFound {
-                warn!(%error, "could not remove session credentials directory");
-            }
-        }
-        return None;
+        return match std::fs::remove_dir_all(&dir) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error),
+            _ => Ok(None),
+        };
     }
     let mut builder = std::fs::DirBuilder::new();
     builder.recursive(true);
     #[cfg(unix)]
     std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
-    if let Err(error) = builder.create(&dir) {
-        warn!(%error, "could not create session credentials directory");
-        return None;
-    }
+    builder.create(&dir)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
     }
     for (name, value) in &entries {
-        if let Err(error) = write_private(&dir, name, value) {
-            warn!(credential = name, %error, "could not write session credential");
-        }
+        write_private(&dir, name, value)?;
     }
     remove_obsolete(&dir, &entries);
-    Some(dir)
+    Ok(Some(dir))
 }
 
 /// In-flight temp files start with `.` and belong to a concurrent writer.

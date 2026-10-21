@@ -1,7 +1,8 @@
 use crate::acp::connection::{AcpConnection, SessionActivity};
 use crate::acp::protocol::ConfigOption;
 use crate::acp::session_credentials::{
-    write_session_credentials, SESSION_CREDENTIALS_DIR_ENV, SESSION_CREDENTIALS_META_KEY,
+    try_write_session_credentials, write_session_credentials, SESSION_CREDENTIALS_DIR_ENV,
+    SESSION_CREDENTIALS_META_KEY,
 };
 use crate::acp::startup::{spawn_initialized, AgentCommand, LOCKED_STATE_RETRY_DELAYS};
 use crate::config::AgentConfig;
@@ -428,23 +429,28 @@ impl SessionPool {
     }
 
     /// Swaps a session's credentials mid-turn: the files the live agent reads,
-    /// and the stored meta a respawn rewrites them from.
+    /// and the stored meta a respawn rewrites them from. Applies only while the
+    /// session still holds `expected`, so a late refresh never replaces the
+    /// credentials a later prompt installed.
     pub async fn refresh_session_credentials(
         &self,
         thread_id: &str,
+        expected: &serde_json::Value,
         credentials: serde_json::Value,
     ) -> Result<()> {
-        let meta = {
-            let mut state = self.state.write().await;
-            let meta = state
-                .session_meta
-                .get_mut(thread_id)
-                .filter(|meta| meta.is_object())
-                .ok_or_else(|| anyhow!("No session to refresh"))?;
-            meta[SESSION_CREDENTIALS_META_KEY] = credentials;
-            meta.clone()
-        };
-        write_session_credentials(&self.credentials_root, thread_id, Some(&meta));
+        let mut state = self.state.write().await;
+        let meta = state
+            .session_meta
+            .get_mut(thread_id)
+            .filter(|meta| meta.is_object())
+            .ok_or_else(|| anyhow!("No session to refresh"))?;
+        if &meta[SESSION_CREDENTIALS_META_KEY] != expected {
+            return Err(anyhow!("Session credentials changed since this refresh"));
+        }
+        let mut next = meta.clone();
+        next[SESSION_CREDENTIALS_META_KEY] = credentials;
+        try_write_session_credentials(&self.credentials_root, thread_id, Some(&next))?;
+        *meta = next;
         Ok(())
     }
 

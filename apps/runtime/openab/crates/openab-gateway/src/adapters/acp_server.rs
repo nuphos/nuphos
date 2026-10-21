@@ -2810,22 +2810,25 @@ async fn handle_acp_connection(
                 let scope = scope.clone();
                 tokio::spawn(async move {
                     let session = params.as_ref().and_then(|p| p["sessionId"].as_str());
-                    let credentials = params
-                        .as_ref()
-                        .map(|p| p["credentials"].clone())
-                        .filter(Value::is_object);
+                    let object = |key: &str| {
+                        params
+                            .as_ref()
+                            .map(|p| p[key].clone())
+                            .filter(Value::is_object)
+                    };
                     let response = if !runtime_control {
                         JsonRpcResponse::error(id, -32003, "Runtime operator credential required")
                     } else if !initialized {
                         JsonRpcResponse::error(id, -32002, "Not initialized")
                     } else if !scope.owns_session(session) {
                         JsonRpcResponse::error(id, -32003, FOREIGN_SESSION)
-                    } else if let (Some(channel), Some(credentials), Some(refresh)) = (
+                    } else if let (Some(channel), Some(expected), Some(credentials), Some(refresh)) = (
                         session.and_then(derive_channel_id),
-                        credentials,
+                        object("expected"),
+                        object("credentials"),
                         state.acp_session_credentials.as_ref(),
                     ) {
-                        match refresh(channel, credentials).await {
+                        match refresh(channel, expected, credentials).await {
                             Ok(()) => JsonRpcResponse::success(id, json!({})),
                             Err(message) => JsonRpcResponse::error(id, -32004, message),
                         }
@@ -8061,7 +8064,8 @@ mod acp_ws_integration {
         });
         let calls = Arc::new(std::sync::Mutex::new(Vec::new()));
         let seen = calls.clone();
-        state.acp_session_credentials = Some(Arc::new(move |channel, credentials| {
+        state.acp_session_credentials = Some(Arc::new(move |channel, expected, credentials| {
+            assert_eq!(expected, json!({"NUPHOS_TOKEN":"stale"}));
             seen.lock().unwrap().push((channel, credentials));
             Box::pin(async { Ok(()) })
         }));
@@ -8086,11 +8090,11 @@ mod acp_ws_integration {
             send(&mut ws, json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}})).await;
             let init = recv(&mut ws).await;
             assert_eq!(init["result"]["agentCapabilities"]["_meta"]["dev.openab/credentialRefresh"], true);
-            send(&mut ws, json!({"jsonrpc":"2.0","id":2,"method":"_openab/session/credentials","params":{"sessionId":"sess_173201f5-7973-4186-ae78-e63c2988d1b9","credentials":{"NUPHOS_TOKEN":"fresh"}}})).await;
+            send(&mut ws, json!({"jsonrpc":"2.0","id":2,"method":"_openab/session/credentials","params":{"sessionId":"sess_173201f5-7973-4186-ae78-e63c2988d1b9","expected":{"NUPHOS_TOKEN":"stale"},"credentials":{"NUPHOS_TOKEN":"fresh"}}})).await;
             let result = recv(&mut ws).await;
             if operator {
                 assert_eq!(result["result"], json!({}));
-                send(&mut ws, json!({"jsonrpc":"2.0","id":3,"method":"_openab/session/credentials","params":{"sessionId":"sess_173201f5-7973-4186-ae78-e63c2988d1b9","credentials":"fresh"}})).await;
+                send(&mut ws, json!({"jsonrpc":"2.0","id":3,"method":"_openab/session/credentials","params":{"sessionId":"sess_173201f5-7973-4186-ae78-e63c2988d1b9","credentials":{"NUPHOS_TOKEN":"fresh"}}})).await;
                 assert_eq!(recv(&mut ws).await["error"]["code"], -32602);
             } else {
                 assert_eq!(result["error"]["code"], -32003);
