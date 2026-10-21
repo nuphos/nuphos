@@ -221,6 +221,9 @@ export const AssistantMessage = memo(
       streaming && !activityHistory ? liveActivityIndices(displayParts) : new Set<number>()
     const liveIndices = displayParts.map((_, index) => index).slice(recallLead)
 
+    const livePast = liveIndices.filter((index) => liveHistory.has(index))
+    const liveCurrent = liveIndices.filter((index) => !liveHistory.has(index))
+
     return (
       <div className="group/message space-y-2">
         {/* Above the fold, always: what the turn already knew when it started. */}
@@ -232,21 +235,9 @@ export const AssistantMessage = memo(
               label="Activity"
               toolCallIds={toolAnchorIds(displayParts.filter((_, index) => liveHistory.has(index)))}
             >
-              {() =>
-                renderSelectedParts(
-                  displayParts,
-                  liveIndices.filter((index) => liveHistory.has(index)),
-                  renderMessagePart,
-                  now,
-                )
-              }
+              {() => renderSelectedParts(displayParts, livePast, renderMessagePart, now)}
             </CollapsedWorkView>
-            {renderSelectedParts(
-              displayParts,
-              liveIndices.filter((index) => !liveHistory.has(index)),
-              renderMessagePart,
-              now,
-            )}
+            {renderSelectedParts(displayParts, liveCurrent, renderMessagePart, now)}
           </>
         ) : folded ? (
           <>
