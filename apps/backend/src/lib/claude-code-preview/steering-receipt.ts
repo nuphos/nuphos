@@ -3,8 +3,9 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
-import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { logError } from '@/lib/observability'
+
+export { steeringHistoryText } from '@/lib/agent/steering-history'
 
 /** The desktop's `transfer-upload` part, so a receipt shows its files like any user message. */
 type SteeringUpload = {
@@ -128,12 +129,4 @@ export function steeringReceipt(
       files: (names as string[]).map((fileName) => ({ fileName, size: null, status: 'ready' })),
     },
   }
-}
-
-/** How a persisted receipt reads in the history preamble of a re-created session. */
-export function steeringHistoryText(data: Record<string, unknown>): string | null {
-  if (typeof data.text !== 'string') return null
-  const who = parseMessageMetadata(data.metadata)?.sender.displayName ?? 'User'
-
-  return `\n${who} (during this turn): ${data.text}\nAssistant continues:`
 }

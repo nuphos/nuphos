@@ -3,10 +3,12 @@
 // mirror), so another agent reading the transcript sees it too.
 import { agentRuns } from './run-admission'
 import { getActiveAgentRunForSession, readAgentRunFrames } from './run-store'
+import { steeringHistoryText } from './steering-history'
 
 type LivePart =
   | { type: 'text'; text: string }
   | { type: 'tool'; id: string; name: string; input?: unknown; output?: unknown }
+  | { type: 'steering'; text: string }
 
 export type LiveTurn = {
   startedAt: string | null
@@ -81,7 +83,11 @@ export function liveTurnParts(frames: string[]): LivePart[] | null {
 
     if (!event) continue
     if (SETTLED_FRAME_TYPES.has(event.type)) return null
-    applyFrameEvent(parts, event)
+    if (event.type === 'data-steering') {
+      const text = steeringHistoryText(event.data)
+
+      if (text) parts.push({ type: 'steering', text })
+    } else applyFrameEvent(parts, event)
   }
 
   return parts

@@ -1,4 +1,5 @@
 import { renderAttributedMessage } from '../message-metadata'
+import { steeringHistoryText } from '../steering-history'
 
 import { getReadableConversation } from './conversations'
 import { agentMessages } from './shared'
@@ -8,19 +9,6 @@ import type { AgentMessage } from './shared'
 import type { LiveTurn } from '../live-turn'
 
 const TRANSCRIPT_MESSAGE_MAX_CHARS = 4_000
-
-function messageTextParts(parts: unknown[]): string[] {
-  const out: string[] = []
-
-  for (const part of parts) {
-    if (!part || typeof part !== 'object') continue
-    const { type, text } = part as { type?: unknown; text?: unknown }
-
-    if (type === 'text' && typeof text === 'string' && text.trim()) out.push(text)
-  }
-
-  return out
-}
 
 const TOOL_DETAIL_MAX_CHARS = 1_500
 
@@ -68,15 +56,28 @@ function toolLine(part: ToolPart, includeDetails: boolean): string {
     .join('\n')
 }
 
+function historyPart(part: unknown, includeDetails: boolean): string {
+  if (!part || typeof part !== 'object') return ''
+  const value = part as Record<string, unknown>
+
+  if (value.type === 'text' && typeof value.text === 'string') return value.text.trim()
+  if (value.type === 'data-steering') return steeringHistoryText(value.data) ?? ''
+  const tool = messageToolParts([part])[0]
+
+  return tool ? toolLine(tool, includeDetails) : ''
+}
+
 export function compactTranscriptLine(
   message: Pick<AgentMessage, 'index' | 'role' | 'parts' | 'metadata'> & { messageId?: string },
   options: { includeToolDetails?: boolean } = {},
 ) {
-  const tools = messageToolParts(message.parts).map((part) =>
-    toolLine(part, options.includeToolDetails ?? false),
+  const body = clip(
+    message.parts
+      .map((part) => historyPart(part, options.includeToolDetails ?? false))
+      .filter(Boolean)
+      .join('\n'),
+    TRANSCRIPT_MESSAGE_MAX_CHARS,
   )
-  const text = messageTextParts(message.parts).join('\n').trim()
-  const body = clip([...tools, text].filter(Boolean).join('\n'), TRANSCRIPT_MESSAGE_MAX_CHARS)
 
   return `#${String(message.index)} ${message.role}: ${renderAttributedMessage(message.messageId ?? String(message.index), body || '(no text)', message.metadata)}`
 }
@@ -89,9 +90,11 @@ export function liveTurnTranscriptLine(
   options: { includeToolDetails?: boolean } = {},
 ) {
   const body = turn.parts
-    .map((part) =>
-      part.type === 'tool' ? toolLine(part, options.includeToolDetails ?? false) : part.text.trim(),
-    )
+    .map((part) => {
+      if (part.type === 'tool') return toolLine(part, options.includeToolDetails ?? false)
+
+      return part.text.trim()
+    })
     .filter(Boolean)
     .join('\n')
   const clipped =
