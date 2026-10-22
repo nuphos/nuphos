@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { localAgentMoveWarning } from './localAgentSharing.ts'
+import { LOCAL_AGENT_SHARING_NOTE, localAgentMoveWarning } from './localAgentSharing.ts'
 
-test('every move onto a Local Agent asks for consent, even with only the owner in the session', () => {
-  // The decision takes no participants: any current team member can reply to a
-  // team session, so an owner-only participant list grants no less access.
+test('a move onto a Local Agent says that only the owner can send messages afterwards', () => {
+  // The backend refuses a teammate's turn on a Local Agent, so the move leaves
+  // everyone else read-only rather than handing them the owner's computer.
   const warning = localAgentMoveWarning({ kind: 'local' })
 
   assert.ok(warning)
-  assert.match(warning, /anyone in this team/)
+  assert.match(warning, /only you can send messages/)
+  assert.doesNotMatch(warning, /run commands on your computer/)
+})
+
+test('the Share note no longer says teammates can run commands on the computer', () => {
+  assert.match(LOCAL_AGENT_SHARING_NOTE, /only you can send messages/)
+  assert.doesNotMatch(LOCAL_AGENT_SHARING_NOTE, /run commands on your computer/)
 })
 
 test('moves onto hosted agents need no Local Agent consent', () => {

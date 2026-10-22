@@ -1,10 +1,10 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { Loader2, TriangleAlert, X } from 'lucide-react'
+import { Info, Loader2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { LOCAL_AGENT_SHARING_WARNING } from '../../lib/localAgentSharing'
+import { LOCAL_AGENT_SHARING_NOTE } from '../../lib/localAgentSharing'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
@@ -242,9 +242,9 @@ export function SessionParticipants({
                   />
                 </ShareLink>
                 {warnLocalAgent && (
-                  <div className="flex gap-2 px-1 text-[12px] leading-snug text-warning">
-                    <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                    {LOCAL_AGENT_SHARING_WARNING}
+                  <div className="flex gap-2 px-1 text-[12px] leading-snug text-tertiary">
+                    <Info className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                    {LOCAL_AGENT_SHARING_NOTE}
                   </div>
                 )}
                 <ParticipantList

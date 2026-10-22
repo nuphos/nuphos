@@ -5,16 +5,17 @@ export function isLocalAgentRuntime(runtimeId: string | undefined): boolean {
   return runtimeId?.startsWith('local_') === true
 }
 
-/** Shown in the Share menu of a session on the owner's computer. Every current
- *  team member may reply to a team session, not only its participants, and
- *  every reply runs on that computer. */
-export const LOCAL_AGENT_SHARING_WARNING =
-  'This session runs on your computer’s Local Agent. Anyone in this team can open it and run commands on your computer.'
+/** Shown in the Share menu of a session on the owner's computer. The backend
+ *  refuses a turn there from anyone but the owner (`local_runtime_owner_only`),
+ *  so the people it is shared with can read it but not run anything. */
+export const LOCAL_AGENT_SHARING_NOTE =
+  'This session runs on your computer’s Local Agent. People you share it with can read it, but only you can send messages. Move it to a team agent to work on it together.'
 
-/** The consent a move needs before it puts the session on a computer. It does
- *  not depend on who has joined: the whole team can reply once it is there. */
+/** The confirmation a move needs before it puts the session on a computer:
+ *  from then on only the owner can send messages, so anyone who could reply
+ *  before is left read-only. */
 export function localAgentMoveWarning(target: Pick<RuntimeInstance, 'kind'>): string | undefined {
   return target.kind === 'local'
-    ? 'This agent runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.'
+    ? 'This agent runs on your computer. After the move, only you can send messages in this session. People you shared it with can still read it.'
     : undefined
 }
