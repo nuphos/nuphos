@@ -309,7 +309,7 @@ impl Api {
                 attempt += 1;
                 let _ = tx.send(StreamEvent::Frame(
                     stream_id.to_string(),
-                    json!({ "type": "phase", "phase": "Waiting for the agent to be ready" }),
+                    json!({ "type": "phase", "phase": "Waiting for the runtime to be ready" }),
                 ));
                 tokio::time::sleep(Duration::from_millis(500 * attempt.min(6))).await;
                 continue;

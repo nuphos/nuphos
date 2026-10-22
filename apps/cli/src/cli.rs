@@ -93,7 +93,7 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
         }
         return Ok(());
     };
-    let target = shared::find(&runtimes, &name, "agent")?;
+    let target = shared::find(&runtimes, &name, "runtime")?;
     let target_id = target["id"].as_str().unwrap_or_default().to_string();
     match session {
         None => {
@@ -102,7 +102,7 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
             if ctx.json {
                 ctx.print_json(&target);
             } else {
-                println!("New conversations in {} run on {}", label(&ctx.team), label(&target));
+                println!("New agents in {} run on {}", label(&ctx.team), label(&target));
             }
         }
         Some(id) => {
@@ -125,14 +125,14 @@ pub async fn create_runtime(ctx: &mut Ctx, provider: &str) -> Result<()> {
     let runtime = ctx.api.create_runtime(&team, provider).await?;
     ctx.prefs.runtime_ids.insert(team, runtime["id"].as_str().unwrap_or_default().to_string());
     config::write_prefs(&ctx.prefs);
-    eprintln!("Added {}; new conversations run on it.", label(&runtime));
+    eprintln!("Added {}; new agents run on it.", label(&runtime));
     sign_in_runtime(ctx, &runtime).await
 }
 
 /// `nuphos agents NAME --login`: signs a Cloud agent in to its provider
 /// account, again or for the first time.
 pub async fn login_runtime(ctx: &Ctx, name: &str) -> Result<()> {
-    let runtime = shared::find(&ctx.api.runtimes(&ctx.team_id()).await?, name, "agent")?;
+    let runtime = shared::find(&ctx.api.runtimes(&ctx.team_id()).await?, name, "runtime")?;
     sign_in_runtime(ctx, &runtime).await
 }
 
@@ -220,7 +220,7 @@ pub async fn model(
         let mut config = ctx.api.model_config(&team, &session).await?;
         for (kind, wanted) in [("model", &value), ("effort", &effort)] {
             let Some(wanted) = wanted else { continue };
-            let option = option_of_kind(&config, kind).ok_or_else(|| anyhow!("This agent has no {kind} setting."))?;
+            let option = option_of_kind(&config, kind).ok_or_else(|| anyhow!("This runtime has no {kind} setting."))?;
             let id = option["id"].as_str().unwrap_or(kind).to_string();
             let value = choice(option["options"].as_array(), wanted, kind)?;
             config = ctx.api.set_model_config(&team, &session, &id, &value).await?;
@@ -234,11 +234,11 @@ pub async fn model(
     }
 
     if value.is_some() || effort.is_some() {
-        bail!("Pick a model per conversation: pass --session, or choose one in the app before the first message.");
+        bail!("Pick a model per agent: pass --session, or choose one in the app before the first message.");
     }
     let runtimes = ctx.runtimes().await?;
     let runtime = shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id)
-        .ok_or_else(|| anyhow!("This team has no active agents. {}", shared::ADD_AGENT_HINT))?;
+        .ok_or_else(|| anyhow!("This team has no active runtimes. {}", shared::ADD_AGENT_HINT))?;
     let runtime_id = runtime["id"].as_str().unwrap_or_default().to_string();
     let config = ctx.api.runtime_model_config(&team, &runtime_id, &json!({})).await?;
     if ctx.json {
@@ -336,7 +336,7 @@ pub async fn exec(
     if first {
         let runtimes = ctx.runtimes().await?;
         let runtime = match runtime {
-            Some(name) => Some(shared::find(&runtimes, &name, "agent")?),
+            Some(name) => Some(shared::find(&runtimes, &name, "runtime")?),
             None => shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id),
         };
         body["permissionMode"] = json!(if ctx.prefs.full_access { "bypass" } else { "auto" });
@@ -345,7 +345,7 @@ pub async fn exec(
             body["agentRuntime"] = r["provider"].clone();
         }
     } else if runtime.is_some() {
-        bail!("--agent picks the agent for a new conversation; use `nuphos agents NAME --session ID` to move one.");
+        bail!("--agent picks the runtime for a new agent; use `nuphos agents NAME --session ID` to move one.");
     }
 
     let (sender, mut rx) = unbounded_channel();
@@ -445,7 +445,7 @@ pub async fn exec(
     if ctx.json {
         println!("{}", json!({ "type": "nuphos-session", "sessionId": session_id, "teamId": team }));
     } else {
-        eprintln!("session {session_id}");
+        eprintln!("agent {session_id}");
     }
     if let Some(error) = error {
         eprintln!("nuphos: {}", clean(&error));

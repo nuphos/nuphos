@@ -40,19 +40,19 @@ enum Command {
     /// Send a message without the TUI and print the reply (reads stdin if no PROMPT).
     Exec {
         prompt: Option<String>,
-        /// Continue this conversation instead of starting one.
+        /// Continue this agent instead of starting one.
         #[arg(long)]
         session: Option<String>,
-        /// Agent for a new conversation (id or label).
+        /// Runtime for a new agent (id or label).
         #[arg(long = "agent", alias = "runtime")]
         runtime: Option<String>,
         /// Approve commands that need approval (otherwise they are denied).
         #[arg(long)]
         approve: bool,
     },
-    /// Open the TUI on a conversation, or pick one.
+    /// Open the TUI on an agent, or pick one.
     Resume { session: Option<String> },
-    /// List recent conversations, or find them by a word in the title or first message.
+    /// List recent agents, or find them by a word in the title or first message.
     Conversations { query: Option<String> },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
@@ -61,22 +61,22 @@ enum Command {
         #[arg(long, requires = "name")]
         create: bool,
     },
-    /// List agents (what conversations run on, such as Claude Code; find conversations with
-    /// `nuphos conversations`), pick one for new conversations (or move --session to it),
-    /// add a Cloud agent with --create, or sign one in with --login.
+    /// List runtimes (what agents run on, such as Claude Code; find agents with
+    /// `nuphos conversations`), pick one for new agents (or move --session to it),
+    /// add a Cloud runtime with --create, or sign one in with --login.
     #[command(name = "agents", alias = "runtime")]
     Runtime {
         name: Option<String>,
         #[arg(long)]
         session: Option<String>,
-        /// Add a Nuphos-managed Cloud agent for provider NAME (claude-code, codex, grok, antigravity, opencode) and sign it in.
+        /// Add a Nuphos-managed Cloud runtime for provider NAME (claude-code, codex, grok, antigravity, opencode) and sign it in.
         #[arg(long, requires = "name", conflicts_with_all = ["session", "login"])]
         create: bool,
-        /// Sign the Cloud agent NAME in to its provider account.
+        /// Sign the Cloud runtime NAME in to its provider account.
         #[arg(long, requires = "name", conflicts_with = "session")]
         login: bool,
     },
-    /// Show or set a conversation's model and reasoning effort (--session), or list the agent's models.
+    /// Show or set an agent's model and reasoning effort (--session), or list the runtime's models.
     Model {
         value: Option<String>,
         #[arg(long)]
@@ -89,7 +89,7 @@ enum Command {
         #[arg(long)]
         session: String,
     },
-    /// Run this computer's Claude Code and Codex as local agents, as the desktop app does.
+    /// Run this computer's Claude Code and Codex as local runtimes, as the desktop app does.
     Agent {
         /// Join Nuphos with a one-time token instead of signing in. Pass `-` and pipe the token
         /// to stdin, or set `NUPHOS_JOIN_TOKEN`, so it stays out of the shell history. Later
@@ -404,7 +404,7 @@ async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
     if let Some((team_id, session_id)) = app.run(start, team).await? {
         let web = std::env::var("NUPHOS_WEB_URL").unwrap_or_else(|_| "https://nuphos.ai".into());
         let path = render::clean(&format!("/teams/{team_id}/agent/{session_id}"));
-        println!("Conversation: {}{path}", web.trim_end_matches('/'));
+        println!("Agent: {}{path}", web.trim_end_matches('/'));
         println!("Continue with: nuphos resume {}", render::clean(&session_id));
     }
     Ok(0)

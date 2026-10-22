@@ -89,7 +89,7 @@ fn platform() -> Result<&'static str> {
         ("macos", "x86_64") => "darwin-x64",
         ("linux", "x86_64") => "linux-x64",
         ("linux", "aarch64") => "linux-arm64",
-        (os, arch) => bail!("no local agent runtime for {os} {arch}"),
+        (os, arch) => bail!("no local runtime for {os} {arch}"),
     })
 }
 
@@ -107,7 +107,7 @@ async fn fetch() -> Result<PathBuf> {
     let base = std::env::var("NUPHOS_DOWNLOAD_URL")
         .unwrap_or_else(|_| format!("https://github.com/nuphos/nuphos/releases/download/cli-v{VERSION}"));
     let asset = format!("nuphos-agent-{platform}.tar.gz");
-    eprintln!("Downloading the local agent runtime for {platform}…");
+    eprintln!("Downloading the local runtime for {platform}…");
     let http = reqwest::Client::new();
     let get = |url: String| {
         let http = http.clone();

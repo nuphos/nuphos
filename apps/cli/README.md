@@ -1,6 +1,6 @@
 # Nuphos CLI
 
-`nuphos` is a terminal client for Nuphos agent conversations. It talks to the
+`nuphos` is a terminal client for Nuphos agents. It talks to the
 same API as the desktop and iOS apps (`POST /agent/chat` and its event stream),
 and its layout follows the Codex CLI: it takes over the whole terminal, the
 conversation scrolls above a composer pinned to the bottom, and a reply streams
@@ -23,13 +23,13 @@ installs it in place. `NUPHOS_NO_UPDATE_CHECK=1` turns the check off.
 ## Usage
 
 ```sh
-nuphos                    # TUI: new conversation in the default team
-nuphos resume [SESSION]   # TUI on a previous conversation, or a picker
+nuphos                    # TUI: new agent in the default team
+nuphos resume [SESSION]   # TUI on a previous agent, or a picker
 ```
 
-A new conversation opens on a home screen with the shortcuts; typing anything
-switches to the conversation. `ctrl+\` (`ctrl+4` in terminals without the
-kitty keyboard protocol) lists your conversations as the desktop's sidebar does (Pinned, Shared, Chats;
+A new agent opens on a home screen with the shortcuts; typing anything
+switches to the agent. `ctrl+\` (`ctrl+4` in terminals without the
+kitty keyboard protocol) lists your agents as the desktop's sidebar does (Pinned, Shared, Agents;
 `p` pins or unpins, in the same favorites), and
 switching away from a reply leaves it running on the server.
 
@@ -50,12 +50,12 @@ change the name and avatar its messages show, and nothing else, with
 
 Getting started needs neither the desktop app nor the web. The first run
 signs in through the browser and, if you are not in a team yet, asks for a
-name and creates one. Then add an agent for it to run on:
+name and creates one. Then add a runtime for its agents to run on:
 
 ```sh
 nuphos team "Acme" --create           # create a team and make it the default
-nuphos agents claude-code --create    # add a Nuphos-managed Cloud agent and sign it in
-nuphos agents "Claude Code" --login   # sign a Cloud agent in again
+nuphos agents claude-code --create    # add a Nuphos-managed Cloud runtime and sign it in
+nuphos agents "Claude Code" --login   # sign a Cloud runtime in again
 ```
 
 `--create` takes `claude-code`, `codex`, `grok`, `antigravity` or `opencode`. Signing in
@@ -66,33 +66,33 @@ other agents. `--json` prints machine-readable output.
 
 ```sh
 nuphos exec "list the EKS clusters"          # send, print the reply, exit
-echo "..." | nuphos exec --session ID        # continue a conversation
+echo "..." | nuphos exec --session ID        # continue an agent
 nuphos exec --approve --agent Codex "..."    # allow commands needing approval
-nuphos conversations [QUERY]                 # recent conversations / find one by title
+nuphos conversations [QUERY]                 # recent agents / find one by title
 nuphos team [NAME] [--create]                # list teams / set the default / create
-nuphos agents [NAME] [--session ID]          # list agents (Claude Code, Codex, …) / pick or move
-nuphos agents NAME --create | --login        # add a Cloud agent / sign one in
-nuphos model                                 # list the agent's models
+nuphos agents [NAME] [--session ID]          # list runtimes (Claude Code, Codex, …) / pick or move
+nuphos agents NAME --create | --login        # add a Cloud runtime / sign one in
+nuphos model                                 # list the runtime's models
 nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
 nuphos login | logout
 nuphos login --device                        # sign in with a code approved on another device
 nuphos login --token -                       # an agent token from nuphos.ai/settings/tokens, on stdin
 nuphos token list | revoke ID                # your device sign-ins and agent tokens
-nuphos agent                                 # run this computer's agents
+nuphos agent                                 # run this computer's runtimes
 nuphos agent --join -                        # join with a one-time token from stdin, then run them
 ```
 
-`nuphos agent` makes this computer a local agent, as the desktop app does: the
+`nuphos agent` runs this computer's local runtimes, as the desktop app does: the
 Claude Code and Codex you already have installed show up in every team you
-belong to while it runs. Only you can start a conversation on them, but once
-you move a conversation onto this computer, anyone in that team can continue
+belong to while it runs. Only you can start an agent on them, but once
+you move an agent onto this computer, anyone in that team can continue
 it, and their messages run commands here, as you. It needs Node.js 22 or newer. On first
 use it downloads the runtime for this release (openab and the ACP adapters)
 into `~/.local/share/nuphos/runtime`. On macOS it reuses your terminal Claude
 login; if none exists, it asks you to sign in to that shared login. Linux and
 Windows use a separate Claude sign-in for Nuphos. Codex uses your `codex login`. It
-runs as its own device, so the desktop app on the same computer is unaffected;
+runs as its own computer, so the desktop app on the same computer is unaffected;
 `NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
 
 ### On a server
@@ -109,7 +109,7 @@ nuphos agent --join -        # paste the token, then Enter
 
 `--join -` reads the token from stdin, and `NUPHOS_JOIN_TOKEN` in the
 environment works too, so it never lands in the shell history or in `ps`. From
-a script or cloud-init, write it to a file only the agent's account can read and
+a script or cloud-init, write it to a file only the runtime's account can read and
 pipe it: `nuphos agent --join - < /run/nuphos-join`.
 
 The token works once. The machine keeps its own credential in
@@ -121,13 +121,13 @@ opens only this machine's tunnel. Revoking it
 token, until it joins again with a new one.
 
 To keep it running with systemd, use a dedicated non-root account: anyone who
-controls that account acts as this machine in Nuphos, and conversation
+controls that account acts as this machine in Nuphos, and agents'
 commands run as it.
 
 ```ini
 # ~/.config/systemd/user/nuphos-agent.service
 [Unit]
-Description=Nuphos local agents
+Description=Nuphos local runtimes
 After=network-online.target
 
 [Service]
@@ -149,7 +149,7 @@ on the first start and ignored afterwards. Add the directories of `node` and
 `claude` to `PATH` if they live elsewhere.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
-the session id. New conversations use the mode last picked in `/full-access`
+the agent id. New agents use the mode last picked in `/full-access`
 (Full Access by default). In Full Access nothing asks for approval. In Auto Mode,
 a command that needs approval is denied unless `--approve` is given; the exit status is 0, 1 on error, or 2 when an approval was denied.
 
@@ -170,29 +170,29 @@ and where the token is. `NUPHOS_API_URL` and `NUPHOS_TEAM` override the endpoint
 
 In the composer:
 
-| Key                    | Action                                                                                                 |
-| ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| `enter`                | send                                                                                                   |
-| `alt+enter` / `ctrl+j` | new line                                                                                               |
-| `esc`                  | stop the reply, or back to the latest                                                                  |
-| `↑` / `↓`, mouse wheel | scroll the conversation                                                                                |
-| `pgup` / `pgdn`        | scroll a page                                                                                          |
-| `ctrl+\`               | sessions: switch to another conversation                                                               |
-| `y` / `n`              | answer a command waiting for approval                                                                  |
-| `/model`               | model and reasoning effort                                                                             |
-| `/full-access`         | switch Full Access: allow the agent's actions without asking; new conversations start in the last pick |
-| `/agents`              | the agents this team runs on: choose one, add a Nuphos-managed or self-hosted one, `l` to sign one in  |
-| `/team`                | switch team                                                                                            |
-| `/new`, `/resume`      | start or continue a conversation                                                                       |
-| `/archive`             | archive this conversation, start a new one                                                             |
-| `/logout`, `/quit`     | sign out, exit                                                                                         |
+| Key                    | Action                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| `enter`                | send                                                                                                    |
+| `alt+enter` / `ctrl+j` | new line                                                                                                |
+| `esc`                  | stop the reply, or back to the latest                                                                   |
+| `↑` / `↓`, mouse wheel | scroll the conversation                                                                                 |
+| `pgup` / `pgdn`        | scroll a page                                                                                           |
+| `ctrl+\`               | agents: switch to another agent                                                                         |
+| `y` / `n`              | answer a command waiting for approval                                                                   |
+| `/model`               | model and reasoning effort                                                                              |
+| `/full-access`         | switch Full Access: allow the agent's actions without asking; new agents start in the last pick         |
+| `/agents`              | the runtimes this team runs on: choose one, add a Nuphos-managed or self-hosted one, `l` to sign one in |
+| `/team`                | switch team                                                                                             |
+| `/new`, `/resume`      | start or continue an agent                                                                              |
+| `/archive`             | archive this agent, start a new one                                                                     |
+| `/logout`, `/quit`     | sign out, exit                                                                                          |
 
 The wheel scrolls through the terminal's alternate scroll mode, so the mouse is
 left alone and selecting text to copy works as usual. Scrolled up, the view
 stays put while a reply streams in below it.
 
-Before the first message, `/model` picks from the agent's own models; the first
-message carries the pick, as the desktop's new-conversation picker does.
+Before the first message, `/model` picks from the runtime's own models; the first
+message carries the pick, as the desktop's new-agent picker does.
 
 ## Releasing
 
