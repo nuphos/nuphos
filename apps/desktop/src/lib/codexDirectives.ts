@@ -112,8 +112,10 @@ export function renderCodexDirectives(markdown: string): string {
   let output = ''
   let fence = ''
   let inline = 0
-  // Leading spaces on the current line, or -1 once other text appeared.
-  let column = 0
+  // Leading whitespace columns on the current line, or -1 once other text appeared.
+  let lead = 0
+  // The line began with 4+ columns of whitespace: possibly indented code, left as written.
+  let indented = false
   let previous = ''
   let i = 0
 
@@ -122,7 +124,7 @@ export function renderCodexDirectives(markdown: string): string {
     let next = i + 1
 
     if (fence) {
-      if (char === fence[0] && column >= 0) {
+      if (char === fence[0] && lead >= 0 && lead < 4) {
         next = markdown.indexOf('\n', i)
         if (next < 0) next = markdown.length
         const line = markdown.slice(i, next)
@@ -135,14 +137,21 @@ export function renderCodexDirectives(markdown: string): string {
       while (markdown[next] === char) next++
       const run = markdown.slice(i, next)
 
-      if (column >= 0 && !inline && run.length >= 3) fence = run
+      if (lead >= 0 && lead < 4 && !inline && run.length >= 3) fence = run
       else if (char === '`') inline = inline === run.length ? 0 : inline || run.length
-    } else if (char === ':' && !inline && previous !== '\\' && previous !== ':') {
-      const directive = directiveAt(markdown, i, column >= 0)
+    } else if (
+      char === ':' &&
+      !inline &&
+      !indented &&
+      lead < 4 &&
+      previous !== '\\' &&
+      previous !== ':'
+    ) {
+      const directive = directiveAt(markdown, i, lead >= 0)
 
       if (directive) {
         output += directive.markdown
-        column = -1
+        lead = -1
         previous = ')'
         i = directive.end
         continue
@@ -154,8 +163,14 @@ export function renderCodexDirectives(markdown: string): string {
     for (const c of text) {
       // A blank line ends a paragraph, and with it any unclosed code span.
       if (c === '\n' && previous === '\n') inline = 0
-      if (c === '\n') column = 0
-      else column = c === ' ' && column >= 0 && column < 3 ? column + 1 : -1
+      if (c === '\n') {
+        lead = 0
+        indented = false
+      } else if (lead >= 0 && (c === ' ' || c === '\t')) lead += c === '\t' ? 4 - (lead % 4) : 1
+      else if (lead >= 0) {
+        indented = lead >= 4
+        lead = -1
+      }
       previous = c === '\\' && previous === '\\' ? '' : c
     }
     i = next
