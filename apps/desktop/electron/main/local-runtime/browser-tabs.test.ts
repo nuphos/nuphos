@@ -37,6 +37,9 @@ class Guest extends EventEmitter {
   getURL = () => this.url
   getTitle = () => ''
   isLoading = () => this.loading
+  /** What the page's script resolves to; never settles unless a test says so. */
+  script = new Promise<unknown>(() => {})
+  executeJavaScript = () => this.script
 
   attach(): this {
     guests.push(this)
@@ -125,4 +128,47 @@ test('overlapping opens of the same page each get their own tab', async () => {
     tabs.toSorted((a, b) => a - b),
     created.map((guest) => guest.id),
   )
+})
+
+function textOf(result: Awaited<ReturnType<typeof RunBrowserCall>>): string {
+  const [part] = result.content as { text: string }[]
+
+  return part?.text ?? ''
+}
+
+test('eval settles when its script navigates the tab to a new document', async () => {
+  const guest = new Guest().attach()
+  const result = runBrowserCall({ action: 'eval', team: 't1', tab: guest.id, script: 'click()' })
+
+  await tick()
+  guest.emit('did-start-navigation', {
+    url: 'https://example.com/edit',
+    isMainFrame: true,
+    isSameDocument: false,
+  })
+  // The stream turns a rejected call into an error result for the agent.
+  await assert.rejects(result, /navigated to https:\/\/example\.com\/edit/)
+})
+
+test('eval keeps waiting through a client-side route change', async () => {
+  const guest = new Guest().attach()
+
+  guest.script = new Promise((resolve) => setTimeout(resolve, 10, 'edit page'))
+  const result = runBrowserCall({ action: 'eval', team: 't1', tab: guest.id, script: 'route()' })
+
+  guest.emit('did-start-navigation', {
+    url: 'https://example.com/edit',
+    isMainFrame: true,
+    isSameDocument: true,
+  })
+  assert.equal(textOf(await result), 'edit page')
+})
+
+test('eval fails after the call timeout when the page never answers', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const guest = new Guest().attach()
+  const result = runBrowserCall({ action: 'eval', team: 't1', tab: guest.id, script: 'hang()' })
+
+  t.mock.timers.tick(30_000)
+  await assert.rejects(result, /did not finish within 30s/)
 })

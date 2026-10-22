@@ -11,6 +11,8 @@ import type { WebContents } from 'electron'
 /** How long Desktop may take to attach the tab and start its page. */
 const OPEN_TIMEOUT_MS = 15_000
 const LOAD_TIMEOUT_MS = 20_000
+/** The longest one call into a tab's page may run. */
+const CALL_TIMEOUT_MS = 30_000
 
 const isHttp = (url: string | undefined): url is string =>
   url !== undefined && /^https?:\/\//i.test(url)
@@ -53,6 +55,50 @@ function loaded(contents: WebContents): Promise<void> {
       clearTimeout(timer)
       resolve()
     })
+  })
+}
+
+/**
+ * `work` on a tab, failed instead once the tab closes or crashes, `ms` pass, or
+ * (with `untilNavigation`) its page is replaced by a new document. Electron
+ * never settles a call whose page goes away, so without this the call hangs.
+ */
+function onPage<T>(
+  contents: WebContents,
+  work: Promise<T>,
+  { untilNavigation = false, ms = CALL_TIMEOUT_MS } = {},
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const fail = (message: string) => {
+      stop()
+      reject(new Error(message))
+    }
+    const onNavigation = (details: {
+      url: string
+      isMainFrame: boolean
+      isSameDocument: boolean
+    }) => {
+      if (details.isMainFrame && !details.isSameDocument)
+        fail(
+          `The tab navigated to ${details.url} before the script finished, so its result is lost. Run eval again on the new page.`,
+        )
+    }
+    const onGone = () => fail('The tab closed or crashed during the call.')
+    const timer = setTimeout(
+      () => fail(`The call did not finish within ${String(ms / 1000)}s.`),
+      ms,
+    )
+    const stop = () => {
+      clearTimeout(timer)
+      contents.off('did-start-navigation', onNavigation)
+      contents.off('destroyed', onGone)
+      contents.off('render-process-gone', onGone)
+    }
+
+    if (untilNavigation) contents.on('did-start-navigation', onNavigation)
+    contents.on('destroyed', onGone)
+    contents.on('render-process-gone', onGone)
+    work.finally(stop).then(resolve, reject)
   })
 }
 
@@ -131,20 +177,22 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'navigate') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
     // A failed load still leaves the tab on its error page, which `describe` reports.
-    await contents.loadURL(call.url).catch(() => {})
+    await onPage(contents, contents.loadURL(call.url), { ms: LOAD_TIMEOUT_MS }).catch(() => {})
 
     return text(describe(contents))
   }
   if (call.action === 'eval') {
     if (!call.script) return failed('script is required.')
     // A user gesture lets the script click through what only a real click may open.
-    const value: unknown = await contents.executeJavaScript(call.script, true)
+    const value: unknown = await onPage(contents, contents.executeJavaScript(call.script, true), {
+      untilNavigation: true,
+    })
 
     await loaded(contents)
 
     return text(value === undefined ? 'undefined' : value)
   }
-  const image = await contents.capturePage()
+  const image = await onPage(contents, contents.capturePage())
 
   if (image.isEmpty())
     return failed('The tab is not on screen, so it cannot be captured. eval still reads its page.')
