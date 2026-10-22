@@ -58,52 +58,57 @@ export function registerCloudflareD1Routes(
     return c.json(database)
   })
 
-  accountScoped.post('/d1/databases/:databaseId/open-in-databases', async (c) => {
-    const databaseId = parseD1IdParam(c.req.param('databaseId'))
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const startedAt = Date.now()
-    const database = await getD1Database(await accountHandleFor(c), databaseId)
-    const connection = await materializeCloudflareD1Connection({
-      teamId,
-      binding: c.get('cloudflareBinding'),
-      database,
-      userId: c.get('userId'),
-      latencyMs: Date.now() - startedAt,
-    })
+  // Adds the database to the team's Databases, like creating a connection there.
+  accountScoped.post(
+    '/d1/databases/:databaseId/open-in-databases',
+    requireTeamRole('ADMINISTRATOR'),
+    async (c) => {
+      const databaseId = parseD1IdParam(c.req.param('databaseId'))
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const startedAt = Date.now()
+      const database = await getD1Database(await accountHandleFor(c), databaseId)
+      const connection = await materializeCloudflareD1Connection({
+        teamId,
+        binding: c.get('cloudflareBinding'),
+        database,
+        userId: c.get('userId'),
+        latencyMs: Date.now() - startedAt,
+      })
 
-    c.header('Cache-Control', 'no-store')
+      c.header('Cache-Control', 'no-store')
 
-    return c.json({
-      id: connection._id.toHexString(),
-      name: connection.name,
-      engine: connection.engine,
-      environment: connection.environment,
-      tags: connection.tags,
-      endpoint: connection.endpoint,
-      databaseName: connection.databaseName,
-      tls: connection.tls,
-      networkMode: connection.networkMode,
-      providerOrigin: connection.providerOrigin
-        ? {
-            ...connection.providerOrigin,
-            integrationId: connection.providerOrigin.integrationId.toHexString(),
-          }
-        : undefined,
-      agentPolicy: connection.access.agentPolicy,
-      relations: connection.relations,
-      health: connection.health,
-      canUse: true,
-      access: {
-        memberAllowList: connection.access.memberAllowList,
-        updatedAt: connection.access.updatedAt,
-        updatedBy: connection.access.updatedBy,
+      return c.json({
+        id: connection._id.toHexString(),
+        name: connection.name,
+        engine: connection.engine,
+        environment: connection.environment,
+        tags: connection.tags,
+        endpoint: connection.endpoint,
+        databaseName: connection.databaseName,
+        tls: connection.tls,
+        networkMode: connection.networkMode,
+        providerOrigin: connection.providerOrigin
+          ? {
+              ...connection.providerOrigin,
+              integrationId: connection.providerOrigin.integrationId.toHexString(),
+            }
+          : undefined,
         agentPolicy: connection.access.agentPolicy,
-      },
-      changeApprovalPolicy: connection.changeApprovalPolicy,
-      createdAt: connection.createdAt,
-      updatedAt: connection.updatedAt,
-    })
-  })
+        relations: connection.relations,
+        health: connection.health,
+        canUse: true,
+        access: {
+          memberAllowList: connection.access.memberAllowList,
+          updatedAt: connection.access.updatedAt,
+          updatedBy: connection.access.updatedBy,
+          agentPolicy: connection.access.agentPolicy,
+        },
+        changeApprovalPolicy: connection.changeApprovalPolicy,
+        createdAt: connection.createdAt,
+        updatedAt: connection.updatedAt,
+      })
+    },
+  )
 
   accountScoped.delete('/d1/databases/:databaseId', requireTeamRole('ADMINISTRATOR'), async (c) => {
     const databaseId = parseD1IdParam(c.req.param('databaseId'))

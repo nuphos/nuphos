@@ -22,6 +22,7 @@ import {
   validateMinInterval,
   validateSlackDestination,
 } from './shared'
+import { assertTriggerCreationQuota } from './quota'
 import { rollbackTriggerUpdate } from './update-rollback'
 
 import type { TriggerActor } from '../trigger-access'
@@ -62,6 +63,14 @@ export async function updateTrigger(
       ? patch.messageTemplate.trim()
       : trigger.messageTemplate
   const nextEnabled = typeof patch.enabled === 'boolean' ? patch.enabled : trigger.enabled
+
+  // Turning a Trigger back on takes a quota slot back, the same as creating one.
+  if (nextEnabled && !trigger.enabled && !trigger.watchGroupId) {
+    await assertTriggerCreationQuota({
+      userId: trigger.createdByUserId ?? trigger.userId,
+      teamId: trigger.teamId,
+    })
+  }
 
   if (trigger.sessionRouting && patch.incidentMode === true) {
     throw new AppError(400, 'invalid_routing', 'Routed sessions cannot enable incident mode')

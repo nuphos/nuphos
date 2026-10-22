@@ -3,6 +3,7 @@ import { AppError } from '@/lib/errors'
 import { assertTriggerExecutionMutationAccess } from '../trigger-access'
 import { agentTriggerGroups } from '../trigger-group-db'
 import { updateTrigger } from '../trigger-service'
+import { assertTriggerCreationQuota } from '../trigger-service/quota'
 
 import { getOwnedTriggerGroup } from './read'
 import { loadPartitionTriggers, serializeTriggerGroup } from './shared'
@@ -46,6 +47,14 @@ export async function updateTriggerGroup(
       ? patch.messageTemplate.trim()
       : currentMessageTemplate
   const nextEnabled = typeof patch.enabled === 'boolean' ? patch.enabled : group.enabled
+
+  // Turning a Watch Group back on takes a quota slot back, the same as creating one.
+  if (nextEnabled && !group.enabled) {
+    await assertTriggerCreationQuota({
+      userId: group.createdByUserId ?? group.userId,
+      teamId: group.teamId,
+    })
+  }
 
   if (!nextName || !nextMessageTemplate) {
     throw new AppError(400, 'invalid_request', 'name and messageTemplate are required')

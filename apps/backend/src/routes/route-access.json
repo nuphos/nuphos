@@ -693,7 +693,7 @@
   "POST /teams/:teamId/claude-code-runtimes": "admin",
   "POST /teams/:teamId/cloudflare-accounts": "admin",
   "POST /teams/:teamId/cloudflare-accounts/:accountId/d1/databases": "admin",
-  "POST /teams/:teamId/cloudflare-accounts/:accountId/d1/databases/:databaseId/open-in-databases": "member",
+  "POST /teams/:teamId/cloudflare-accounts/:accountId/d1/databases/:databaseId/open-in-databases": "admin",
   "POST /teams/:teamId/cloudflare-accounts/:accountId/d1/databases/:databaseId/query": "admin",
   "POST /teams/:teamId/cloudflare-accounts/:accountId/kv/namespaces": "admin",
   "POST /teams/:teamId/cloudflare-accounts/:accountId/pages/projects/:projectName/deployments": "admin",
