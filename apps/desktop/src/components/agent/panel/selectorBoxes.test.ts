@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { selectorBoxes, selectorMetrics, selectorSignIn } from './selectorBoxes.ts'
+import { boxAgentName, selectorBoxes, selectorMetrics, selectorSignIn } from './selectorBoxes.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance } from '../../../types/runtime'
@@ -126,4 +126,12 @@ test('sign-in: a Box manager signs in here, another computer gets instructions, 
   assert.equal(selectorSignIn(agent('a', 'mac'), device('mac'), true), 'instructions')
   assert.equal(selectorSignIn(agent('cloud'), undefined, true), 'login')
   assert.equal(selectorSignIn(agent('cloud'), undefined, false), null)
+})
+
+test('inside its Box an agent drops the Box prefix but keeps a custom name', () => {
+  const local = { ownerUserId: 'u1', deviceId: 'mac', deviceLabel: 'Studio', signedIn: true }
+
+  assert.equal(boxAgentName({ label: 'Studio · Claude Code', local }), 'Claude Code')
+  assert.equal(boxAgentName({ label: 'Yuanlin (20x)', local }), 'Yuanlin (20x)')
+  assert.equal(boxAgentName({ label: 'Studio · Codex' }), 'Studio · Codex')
 })

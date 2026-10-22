@@ -234,7 +234,7 @@ private struct SelectorAgentRow: View {
         HStack(spacing: 12) {
             BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 20).frame(width: 28).foregroundStyle(Theme.heading)
             VStack(alignment: .leading, spacing: 5) {
-                Text(runtime.label).font(.system(size: titleSize, weight: .medium)).foregroundStyle(Theme.heading).fixedSize(horizontal: false, vertical: true)
+                Text(SelectorBox.agentName(runtime)).font(.system(size: titleSize, weight: .medium)).foregroundStyle(Theme.heading).fixedSize(horizontal: false, vertical: true)
                 if signedOut {
                     Text(canSignIn ? "Sign in required" : runtime.local.map { "Sign in on \($0.deviceLabel)" } ?? "Ask an administrator to sign in")
                         .font(.system(size: 12)).foregroundStyle(Theme.warning)
@@ -254,7 +254,7 @@ private struct SelectorAgentRow: View {
         }.frame(minHeight: 48).contentShape(Rectangle())
     }
     @ViewBuilder private var details: some View {
-        if runtime.label != runtime.providerName { Text(runtime.providerName).font(.system(size: detailSize)).foregroundStyle(Theme.muted) }
+        if SelectorBox.agentName(runtime) != runtime.providerName { Text(runtime.providerName).font(.system(size: detailSize)).foregroundStyle(Theme.muted) }
         if runtime.status == .disabled { Text("Unavailable").font(.footnote).foregroundStyle(Theme.muted) }
         else if let quota { QuotaLine(quota: quota) }
     }
@@ -284,11 +284,11 @@ private struct SelectorManagementView: View {
                 Section(box.label) {
                     ForEach(box.agents) { runtime in
                         if let team = store.selectedTeam, runtime.tier == .cloud, team.isAdministrator {
-                            NavigationLink(runtime.label) { AgentDetailView(team: team, runtime: runtime) }
+                            NavigationLink(SelectorBox.agentName(runtime)) { AgentDetailView(team: team, runtime: runtime) }
                         } else if let team = store.selectedTeam, box.canSignIn(runtime, administrator: team.isAdministrator) {
-                            NavigationLink(runtime.label) { AgentSetupView(team: team, runtime: runtime, selectOnCompletion: false) }
+                            NavigationLink(SelectorBox.agentName(runtime)) { AgentSetupView(team: team, runtime: runtime, selectOnCompletion: false) }
                         } else {
-                            NavigationLink(runtime.label) { AgentSignInInstructions(runtime: runtime) }
+                            NavigationLink(SelectorBox.agentName(runtime)) { AgentSignInInstructions(runtime: runtime) }
                         }
                     }
                 }.listRowBackground(Theme.surface)

@@ -1,7 +1,6 @@
 import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop } from 'lucide-react'
 
-import { agentName } from '../../../lib/agentName'
 import { quotaSignedOut } from '../../../lib/runtimeQuota'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
@@ -9,11 +8,10 @@ import { MenuContent, MenuItem, MenuSubmenu, MenuSubmenuTrigger } from '../../ui
 
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
-import { selectorMetrics, selectorSignIn } from './selectorBoxes'
+import { boxAgentName, selectorMetrics, selectorSignIn } from './selectorBoxes'
 
 import type { SelectorBox, SelectorMetrics } from './selectorBoxes'
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
-import type { ThisComputer } from '../../../lib/agentName'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 const SIGN_IN_LABEL = {
@@ -89,7 +87,6 @@ export function SelectorBoxMenu({
   metricsUnavailable,
   quotas,
   updates,
-  owner,
   admin,
   selectDisabled,
   onSelect,
@@ -101,7 +98,6 @@ export function SelectorBoxMenu({
   metricsUnavailable: boolean
   quotas?: ReadonlyMap<string, RuntimeQuota>
   updates: ReadonlyMap<string, AgentUpdate>
-  owner: ThisComputer
   admin: boolean
   selectDisabled?: boolean
   onSelect: (runtimeId: string) => void
@@ -145,6 +141,8 @@ export function SelectorBoxMenu({
           const signedOut = instance.local?.signedIn === false || quotaSignedOut(quota)
           const action = selectorSignIn(instance, group.device, admin)
           const update = updates.get(instance.id)
+          const name = boxAgentName(instance)
+          const provider = AGENT_PROVIDER[instance.provider].label
           const unusable = offline || instance.status !== 'active' || Boolean(instance.notReady)
 
           return (
@@ -165,11 +163,11 @@ export function SelectorBoxMenu({
             >
               <span className="flex min-w-0 flex-col py-1">
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate">{agentName(instance, owner)}</span>
+                  <span className="truncate">{name}</span>
                   {update && <AgentUpdateBadge update={update} actionable />}
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-tertiary">
-                  {AGENT_PROVIDER[instance.provider].label}
+                  {name !== provider && provider}
                   {signedOut ? (
                     <span className="text-warning">{SIGN_IN_LABEL[action ?? 'none']}</span>
                   ) : (

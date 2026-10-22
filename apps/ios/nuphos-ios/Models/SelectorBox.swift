@@ -52,4 +52,10 @@ struct SelectorBox: Identifiable {
         if runtime.local != nil { return device?.box != nil && device?.access != "use" }
         return administrator
     }
+
+    /// Inside its Box an agent drops the "<Box> · " prefix its default label carries.
+    static func agentName(_ runtime: RuntimeInstance) -> String {
+        guard let device = runtime.local?.deviceLabel, runtime.label.hasPrefix("\(device) · ") else { return runtime.label }
+        return String(runtime.label.dropFirst(device.count + 3))
+    }
 }

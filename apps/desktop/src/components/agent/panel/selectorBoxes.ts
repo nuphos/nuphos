@@ -87,3 +87,10 @@ export function selectorSignIn(
 
   return admin ? 'login' : null
 }
+
+/** Inside its Box an agent drops the "<Box> · " prefix its default label carries. */
+export function boxAgentName(agent: Pick<RuntimeInstance, 'label' | 'local'>): string {
+  const prefix = agent.local ? `${agent.local.deviceLabel} · ` : ''
+
+  return prefix && agent.label.startsWith(prefix) ? agent.label.slice(prefix.length) : agent.label
+}

@@ -181,7 +181,6 @@ export function RuntimeSelector({
                 metricsUnavailable={devices.error}
                 quotas={quotas}
                 updates={updates}
-                owner={owner}
                 admin={Boolean(canUpdateTeamAgents)}
                 selectDisabled={selectDisabled}
                 onSelect={onSelect}
