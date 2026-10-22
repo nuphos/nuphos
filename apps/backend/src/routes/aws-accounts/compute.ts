@@ -16,6 +16,7 @@ import {
   updateLambdaFunctionConfig,
   listLambdaTriggers,
 } from '@/lib/byos/aws-lambda'
+import { cloudRegionSchema } from '@/lib/byos/cloud-region'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 import { optionalRegionQuerySchema } from '@/routes/aws-accounts/schemas'
@@ -24,7 +25,7 @@ import type { AwsAccountVariables } from '@/middleware/auth'
 import type { Hono } from 'hono'
 
 const ecsClusterScopeSchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   cluster: z.string().trim().min(1),
 })
 
@@ -39,7 +40,7 @@ const ecsMetricsQuerySchema = z.object({
 // Function detail/metrics use query params (region + name) like the
 // log-group endpoints, keeping the path free of encoding edge cases.
 const lambdaFunctionQuerySchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   name: z.string().trim().min(1),
 })
 
@@ -154,7 +155,7 @@ export function registerAwsComputeRoutes(
     zv(
       'json',
       z.object({
-        region: z.string().trim().min(1),
+        region: cloudRegionSchema,
         name: z.string().trim().min(1),
         payload: z.string().max(256 * 1024),
       }),
@@ -173,7 +174,7 @@ export function registerAwsComputeRoutes(
     zv(
       'json',
       z.object({
-        region: z.string().trim().min(1),
+        region: cloudRegionSchema,
         name: z.string().trim().min(1),
         memoryMb: z.number().int().min(128).max(10240).optional(),
         timeoutSec: z.number().int().min(1).max(900).optional(),

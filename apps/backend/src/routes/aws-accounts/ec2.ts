@@ -10,6 +10,7 @@ import {
   listEc2Instances,
   getEc2InstanceSshAccess,
 } from '@/lib/byos/aws-ec2'
+import { cloudRegionSchema } from '@/lib/byos/cloud-region'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
@@ -36,7 +37,7 @@ const naclEntrySchema = z.object({
 const replaceEntriesSchema = z.object({ entries: z.array(naclEntrySchema) })
 
 const ec2SshAccessSchema = z.object({
-  region: z.string().trim().min(1).optional(),
+  region: cloudRegionSchema.optional(),
   username: z.string().trim().min(1).max(64).optional(),
 })
 

@@ -13,6 +13,7 @@ import {
   listLogStreams,
   setLogGroupRetention,
 } from '@/lib/byos/aws-cloudwatch-logs'
+import { cloudRegionSchema } from '@/lib/byos/cloud-region'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 import { optionalRegionQuerySchema } from '@/routes/aws-accounts/schemas'
@@ -21,7 +22,7 @@ import type { AwsAccountVariables } from '@/middleware/auth'
 import type { Hono } from 'hono'
 
 const logSearchQuerySchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   name: z.string().trim().min(1),
   pattern: z.string().optional(),
   startTime: z.coerce.number().int().optional(),
@@ -31,7 +32,7 @@ const logSearchQuerySchema = z.object({
 })
 
 const logStreamsQuerySchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   name: z.string().trim().min(1),
   nextToken: z.string().optional(),
 })
@@ -44,13 +45,13 @@ const LOG_RETENTION_ALLOWED_DAYS = [
 ] as const
 
 const metricListQuerySchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   namespace: z.string().optional(),
   metricName: z.string().optional(),
 })
 
 const metricDataQuerySchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   namespace: z.string().trim().min(1),
   metricName: z.string().trim().min(1),
   // JSON-encoded Record<string,string> — dimension values can contain
@@ -83,14 +84,14 @@ const metricDataQuerySchema = z.object({
 })
 
 const alarmHistoryQuerySchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   name: z.string().trim().min(1),
 })
 
 // Log group names contain slashes, so the group is addressed via query params
 // (mirroring how S3 object keys are passed) rather than a path segment.
 const logGroupEventsQuerySchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
   name: z.string().trim().min(1),
 })
 
@@ -130,7 +131,7 @@ export function registerAwsObservabilityRoutes(
     zv(
       'json',
       z.object({
-        region: z.string().trim().min(1),
+        region: cloudRegionSchema,
         name: z.string().trim().min(1),
         retentionDays: z
           .number()

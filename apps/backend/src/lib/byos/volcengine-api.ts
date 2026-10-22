@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto'
 import { Service } from '@volcengine/openapi'
 
 import { SWEEP_READ_TIMEOUT_MS } from './aliyun'
+import { assertCloudRegion } from './cloud-region'
 
 /**
  * Short-lived credentials used for VKE/ECS calls, obtained via OIDC web-identity
@@ -131,6 +132,7 @@ export function volcCall<T>(
   requestData: Record<string, unknown>,
   opts?: { json?: boolean },
 ): Promise<T | undefined> {
+  assertCloudRegion(region)
   const svc = new Service({
     serviceName,
     region,

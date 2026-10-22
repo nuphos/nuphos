@@ -9,6 +9,7 @@ import {
   isAliyunAuthError,
   withAliyunRateLimitRetry,
 } from './aliyun-errors'
+import { assertCloudRegion } from './cloud-region'
 
 import type { AliyunHandle } from './aliyun-sts'
 import type { KubeconfigResult } from './kubeconfig'
@@ -65,7 +66,9 @@ function ackClient(handle: AliyunHandle, region?: string): CS {
     securityToken: handle.securityToken,
   })
 
-  config.endpoint = region ? `cs.${region}.aliyuncs.com` : ackCenterEndpoint(handle.site)
+  config.endpoint = region
+    ? `cs.${assertCloudRegion(region)}.aliyuncs.com`
+    : ackCenterEndpoint(handle.site)
   config.readTimeout = 30000
   config.connectTimeout = 15000
 

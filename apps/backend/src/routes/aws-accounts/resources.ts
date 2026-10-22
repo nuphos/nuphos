@@ -12,6 +12,7 @@ import {
   getS3ObjectDownloadUrl,
   getS3ObjectTextPreview,
 } from '@/lib/byos/aws-s3'
+import { cloudRegionSchema } from '@/lib/byos/cloud-region'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
@@ -21,7 +22,7 @@ import type { AwsAccountVariables } from '@/middleware/auth'
 import type { Hono } from 'hono'
 
 const lightsailInstanceActionSchema = z.object({
-  region: z.string().trim().min(1),
+  region: cloudRegionSchema,
 })
 
 export function registerAwsResourceRoutes(

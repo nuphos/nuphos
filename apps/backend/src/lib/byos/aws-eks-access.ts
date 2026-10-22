@@ -12,6 +12,7 @@ import { SignatureV4 } from '@smithy/signature-v4'
 
 import { logEksAccessMutation } from './aws-eks-access-audit'
 import { assumeRoleAsConnector } from './aws-sts'
+import { assertCloudRegion } from './cloud-region'
 import { renderKubeconfig } from './kubeconfig'
 
 import type { EksAccessActor } from './aws-eks-access-audit'
@@ -25,7 +26,7 @@ export async function generateEksToken(
   region: string,
   credentials: TempCredentials,
 ): Promise<string> {
-  const hostname = `sts.${region}.amazonaws.com`
+  const hostname = `sts.${assertCloudRegion(region)}.amazonaws.com`
   const signer = new SignatureV4({
     credentials,
     region,
