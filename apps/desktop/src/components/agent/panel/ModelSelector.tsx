@@ -26,7 +26,7 @@ import type { useSessionConfig } from './useSessionConfig'
 
 export type ModelControl = Pick<
   ReturnType<typeof useSessionConfig>,
-  'data' | 'loading' | 'slow' | 'saving' | 'error' | 'stalled' | 'queued' | 'open' | 'select'
+  'data' | 'loading' | 'slow' | 'saving' | 'error' | 'queued' | 'open' | 'select'
 > & { setOpen: (open: boolean) => void; refresh: () => void }
 
 export function ModelSelector({
@@ -39,7 +39,7 @@ export function ModelSelector({
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
 }) {
-  const { data, loading, slow, saving, error, stalled } = control
+  const { data, loading, slow, saving, error } = control
   const [view, setView] = useState<'effort' | 'models'>('effort')
   const chipRef = useRef<HTMLButtonElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
@@ -56,7 +56,7 @@ export function ModelSelector({
   const busy = status === 'busy'
   let name = slow ? 'Connecting…' : 'Model settings'
 
-  if (error || status === 'offline' || stalled) name = 'Model unavailable'
+  if (error || status === 'offline') name = 'Model unavailable'
   if (model) name = modelName(model) || name
   const level = effortName(effort)
   const effortLevels = [
@@ -68,7 +68,7 @@ export function ModelSelector({
     Boolean(error) ||
     slow ||
     (status !== 'ready' && status !== 'dormant' && status !== 'busy')
-  const hint = modelHint(status, Boolean(model), busy, stalled)
+  const hint = modelHint(status, Boolean(model), busy)
 
   const setOpen = control.setOpen
   const open = control.open
@@ -131,7 +131,7 @@ export function ModelSelector({
         'Available when this conversation is ready for your next message.',
     ].filter((line): line is string => Boolean(line)),
     error: error ?? undefined,
-    onRetry: error || stalled || status === 'offline' ? control.refresh : undefined,
+    onRetry: error || status === 'offline' ? control.refresh : undefined,
     retrying: loading || saving,
   }
   // Closing returns to the message box, so typing carries on; switching views

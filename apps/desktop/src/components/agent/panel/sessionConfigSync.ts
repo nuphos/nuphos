@@ -11,15 +11,8 @@ export type ConfigSnapshot = {
   slow: boolean
   saving: boolean
   error?: string
-  /** The runtime has reported "busy" for longer than a reply reasonably
-   *  takes. Distinguishes a genuinely stuck session from a normal wait, so
-   *  the UI can stop implying this will resolve on its own. */
-  stalled: boolean
 }
-const INITIAL: ConfigSnapshot = { loading: true, slow: false, saving: false, stalled: false }
-// A reply legitimately keeps the session busy for a while; past this, repeated
-// "busy" reads stop reading as progress and start reading as stuck.
-const STALL_AFTER_MS = 45_000
+const INITIAL: ConfigSnapshot = { loading: true, slow: false, saving: false }
 
 /** One request at a time, independent of menu/focus changes. Never invent model values. */
 export class SessionConfigSync {
@@ -30,7 +23,6 @@ export class SessionConfigSync {
   private version = 0
   private pending = false
   private failures = 0
-  private busySince?: number
   private poll?: ReturnType<typeof setTimeout>
   private slowTimer?: ReturnType<typeof setTimeout>
 
@@ -97,24 +89,14 @@ export class SessionConfigSync {
 
       if (!this.active || version !== this.version) return
       this.failures = 0
-      if (data.status === 'busy') this.busySince ??= Date.now()
-      else this.busySince = undefined
-      this.publish({
-        data,
-        loading: false,
-        slow: false,
-        error: undefined,
-        stalled: this.busySince !== undefined && Date.now() - this.busySince >= STALL_AFTER_MS,
-      })
+      this.publish({ data, loading: false, slow: false, error: undefined })
     } catch {
       if (!this.active || version !== this.version) return
       ++this.failures
-      this.busySince = undefined
       this.publish({
         loading: false,
         slow: false,
         error: 'Could not connect to the agent. Reconnecting automatically.',
-        stalled: false,
       })
     } finally {
       if (this.active && version === this.version) {

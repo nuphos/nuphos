@@ -127,9 +127,9 @@ test('late reads cannot overwrite a write acknowledgement or a replacement sessi
   assert.equal(sync.getSnapshot(), snapshot)
 })
 
-test('a session stuck reporting busy is flagged stalled, and clears once it recovers', async (t) => {
+test('a long reply keeps a busy session healthy: no error, however long it runs', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
-  let status: SessionConfigState = busy
+  let status: SessionConfigState = { ...busy, options: ready('started').options }
   const sync = new SessionConfigSync({
     read: async () => status,
     write: async () => ready('unused'),
@@ -137,20 +137,19 @@ test('a session stuck reporting busy is flagged stalled, and clears once it reco
 
   t.after(sync.start())
   await flush()
-  assert.equal(sync.getSnapshot().data?.status, 'busy')
-  assert.equal(sync.getSnapshot().stalled, false)
+  // Agent turns run for many minutes; a busy read is progress, not a failure.
+  for (let i = 0; i < 180; i++) {
+    t.mock.timers.tick(10_000)
+    await flush()
+  }
+  assert.deepEqual(sync.getSnapshot().data, status)
+  assert.equal(sync.getSnapshot().error, undefined)
+  assert.equal('stalled' in sync.getSnapshot(), false)
 
-  // Still busy well past the stall threshold, across several poll cycles.
-  t.mock.timers.tick(50_000)
-  await flush()
-  assert.equal(sync.getSnapshot().stalled, true)
-
-  // The reply lands: busy clears, and so does the stalled flag.
   status = ready('actual')
   t.mock.timers.tick(10_000)
   await flush()
   assert.equal(sync.getSnapshot().data?.status, 'ready')
-  assert.equal(sync.getSnapshot().stalled, false)
 })
 
 test('lost write acknowledgement is never an optimistic model and triggers readback', async (t) => {

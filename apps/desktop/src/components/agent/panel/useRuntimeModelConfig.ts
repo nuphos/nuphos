@@ -56,7 +56,6 @@ export function useRuntimeModelConfig(
     slow: false,
     saving: Boolean(shown) && pending,
     error: pending ? undefined : shown?.error,
-    stalled: false,
     queued: undefined,
     open,
     setOpen: (next: boolean) => {

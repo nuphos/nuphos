@@ -34,12 +34,9 @@ export function modelHint(
   status: SessionConfigState['status'] | undefined,
   hasModel: boolean,
   busy: boolean,
-  stalled: boolean,
 ) {
   if (status === 'offline')
     return 'This agent is offline. Model settings return when it reconnects.'
-  if (busy && stalled)
-    return "This agent hasn't responded in a while — it may be stuck. Try reconnecting below."
   if (busy) return 'Changes apply after this reply.'
   if (status === 'dormant' && !hasModel)
     return 'Send a message to start this session before changing model settings.'
@@ -74,7 +71,7 @@ export function ownsShortcut(chip: HTMLElement) {
 export function fastUnavailableReason(option: SessionConfigOption | undefined) {
   const reason = option?.description?.split(' — ')[1]?.trim()
 
-  if (!option || option.currentValue === 'on' || !reason) return undefined
+  if (!option || option.currentValue === 'on' || !reason) return
   const sentence = reason.replace(/\.$/, '')
 
   return {

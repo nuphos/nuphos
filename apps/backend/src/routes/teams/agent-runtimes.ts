@@ -21,7 +21,7 @@ import {
   renameTeamRuntime,
   setTeamRuntimeStatus,
 } from '@/lib/claude-code-preview/runtime-registry'
-import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
+import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import {
   openRuntimeDesktop,

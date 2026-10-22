@@ -6,11 +6,10 @@ import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
+import { offeredSessionConfig, unansweredSessionConfig } from './session-config-catalog'
 import { parseSessionConfigOptions } from './session-config-options'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
-import type { RuntimeDefaults } from './openab-acp-session'
-import type { RuntimeModelCatalog } from './runtime-models'
 import type {
   SessionConfigOption,
   SessionConfigSelection,
@@ -113,87 +112,26 @@ export async function conversationSessionConfig(
   if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId)
   if (selection) return await liveSessionConfig(conversation, attachment, selection, viewerUserId)
   // Reads never fail for a reachable conversation: while the session cannot
-  // answer, show the settings it last confirmed.
-  const remembered = attachment.sessionConfig ?? []
+  // answer, show the settings it last confirmed, or else those it started with.
+  const { teamId, runtimeId } = conversation
+  const shown = () =>
+    unansweredSessionConfig(
+      attachment,
+      runtimeId
+        ? (model) => runtimeModelCatalog(teamId, runtimeId, model, viewerUserId)
+        : undefined,
+    )
   let state: SessionConfigState
 
   try {
     state = await liveSessionConfig(conversation, attachment)
   } catch {
-    return { status: 'offline', options: remembered }
+    return { status: 'offline', options: await shown() }
   }
-  if (state.status !== 'ready') return { ...state, options: remembered }
+  if (state.status !== 'ready') return { ...state, options: await shown() }
   await rememberSessionConfig(conversation, attachment, state.options)
 
   return state
-}
-
-/** The runtime's own choices as session options; a pick it still offers is the current value. */
-export function catalogSessionConfig(
-  catalog: RuntimeModelCatalog,
-  chosen: RuntimeDefaults,
-): SessionConfigOption[] {
-  const controls = catalog.controls
-  const option = (
-    id: keyof RuntimeDefaults,
-    name: string,
-    choices: { value: string; name: string; description?: string }[],
-    fallback: string,
-  ): SessionConfigOption => ({
-    id,
-    name,
-    kind: id,
-    currentValue: choices.some((choice) => choice.value === chosen[id]) ? chosen[id]! : fallback,
-    options: choices.map(({ value, name, description }) => ({ value, name, description })),
-  })
-
-  if (!catalog.models.length) return []
-
-  return [
-    option(
-      'model',
-      'Model',
-      catalog.models.map(({ id, name, description }) => ({ value: id, name, description })),
-      controls?.modelId ?? 'default',
-    ),
-    ...(controls?.effort.length
-      ? [option('effort', 'Effort', controls.effort, controls.defaultEffort ?? 'default')]
-      : []),
-    ...(controls?.fast
-      ? [
-          option(
-            'fast',
-            'Fast',
-            [
-              { value: 'on', name: 'On' },
-              { value: 'off', name: 'Off' },
-            ],
-            controls.defaultFast ?? 'off',
-          ),
-        ]
-      : []),
-  ]
-}
-
-/**
- * The runtime's choices, and the picks it still offers. A model it no longer
- * lists (re-login, update) is dropped and the list read again without it.
- */
-export async function offeredSessionConfig(
-  catalogFor: (model?: string) => Promise<RuntimeModelCatalog>,
-  pick: RuntimeDefaults,
-): Promise<{ options: SessionConfigOption[]; kept: RuntimeDefaults }> {
-  let catalog = pick.model ? await catalogFor(pick.model).catch(() => undefined) : undefined
-
-  if (!catalog?.models.length) catalog = await catalogFor()
-  const options = catalogSessionConfig(catalog, pick)
-  const kept = Object.fromEntries(
-    Object.entries(pick).filter(
-      ([id, value]) => options.find((option) => option.id === id)?.currentValue === value,
-    ),
-  ) as RuntimeDefaults
-
-  return { options, kept }
 }
 
 /**

@@ -3,12 +3,12 @@ import { describe, expect, test } from 'bun:test'
 import { AppError } from '@/lib/errors'
 
 import { OpenAbRpcError } from './openab-acp-errors'
+import { controlSessionConfig, restoreSessionConfigForWrite } from './session-config'
 import {
   catalogSessionConfig,
-  controlSessionConfig,
   offeredSessionConfig,
-  restoreSessionConfigForWrite,
-} from './session-config'
+  unansweredSessionConfig,
+} from './session-config-catalog'
 import { parseSessionConfigOptions } from './session-config-options'
 
 const model = (currentValue = 'a') => ({
@@ -329,4 +329,44 @@ test('picks the runtime no longer offers are dropped, and a stale model is read 
     ['model', 'opus'],
     ['effort', 'high'],
   ])
+})
+
+test('a session busy with its first turn shows the settings it started with, not nothing', async () => {
+  const catalogFor = async () => ({
+    models: [
+      { id: 'sol', name: 'GPT-6.1-Sol' },
+      { id: 'astra', name: 'GPT-6-Astra' },
+    ],
+    controls: {
+      modelId: 'sol',
+      effort: [
+        { value: 'low', name: 'Low' },
+        { value: 'high', name: 'High' },
+      ],
+      fast: false,
+      defaultEffort: 'low',
+    },
+  })
+  const started = await unansweredSessionConfig(
+    { runtimeDefaults: { model: 'astra', effort: 'high' } },
+    catalogFor,
+  )
+
+  expect(started.map((option) => [option.id, option.currentValue])).toEqual([
+    ['model', 'astra'],
+    ['effort', 'high'],
+  ])
+  // Settings the session confirmed win over those it started with.
+  const confirmed = parseSessionConfigOptions([model('b')])
+
+  expect(
+    await unansweredSessionConfig(
+      { sessionConfig: confirmed, runtimeDefaults: { model: 'astra' } },
+      catalogFor,
+    ),
+  ).toEqual(confirmed)
+  // An unreachable catalog leaves the chip empty rather than failing the read.
+  expect(
+    await unansweredSessionConfig({}, () => Promise.reject(new Error('Runtime offline'))),
+  ).toEqual([])
 })

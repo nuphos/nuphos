@@ -7,7 +7,7 @@
 import { agentConversations } from '@/lib/agent/db'
 import { trackAgentProducer } from '@/lib/agent/producer-drain'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
-import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config'
+import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
 
 import { isFirstTurn } from './chat-permission-mode'
