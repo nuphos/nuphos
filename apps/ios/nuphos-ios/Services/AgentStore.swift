@@ -190,11 +190,33 @@ final class AgentStore {
     func loadRuntimes(force: Bool = false) async {
         guard let team = selectedTeam, force || !runtimesLoaded else { return }
         do {
-            runtimes = try await NuphosAPI.runtimeInstances(token: token, teamId: team.id)
+            let next = try await NuphosAPI.runtimeInstances(token: token, teamId: team.id)
+            guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
+            runtimes = next
             runtimesError = nil
             runtimesLoaded = true
         } catch {
+            guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             runtimesError = error.localizedDescription
+        }
+    }
+
+    private(set) var agentDevices: [AgentDevice] = []
+    private(set) var agentDevicesError = false
+
+    func loadAgentDevices() async {
+        guard let team = selectedTeam else { return }
+        struct Envelope: Decodable { let devices: [AgentDevice] }
+        do {
+            let query = [URLQueryItem(name: "metrics", value: "true"), URLQueryItem(name: "teamId", value: team.id)]
+            let data = try await AgentChatAPI.send("GET", "agent/devices", query: query, token: token, body: JSONValue?.none)
+            let result = try JSONDecoder().decode(Envelope.self, from: data)
+            guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
+            agentDevices = result.devices
+            agentDevicesError = false
+        } catch {
+            guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
+            agentDevicesError = true
         }
     }
 
@@ -266,6 +288,8 @@ final class AgentStore {
         favorites = nil
         sharedConversations = []
         runtimes = []
+        agentDevices = []
+        agentDevicesError = false
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }

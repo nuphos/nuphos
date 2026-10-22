@@ -23,6 +23,7 @@ struct AgentSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     let team: Team
+    private let selectOnCompletion: Bool
     @State private var provider = RuntimeInstance.Provider.claudeCode
     @State private var name = ""
     @State private var runtime: RuntimeInstance?
@@ -35,8 +36,9 @@ struct AgentSetupView: View {
     @State private var copied = false
     @State private var error: String?
 
-    init(team: Team, runtime: RuntimeInstance? = nil, login: WorkspaceAPI.Login? = nil) {
+    init(team: Team, runtime: RuntimeInstance? = nil, login: WorkspaceAPI.Login? = nil, selectOnCompletion: Bool = true) {
         self.team = team
+        self.selectOnCompletion = selectOnCompletion
         _runtime = State(initialValue: runtime)
         _login = State(initialValue: login)
     }
@@ -396,7 +398,7 @@ struct AgentSetupView: View {
             async let runtimes: Void = store.loadRuntimes(force: true)
             async let quotas: Void = store.loadQuotas()
             _ = await (runtimes, quotas)
-            store.selectRuntime(runtime)
+            if selectOnCompletion { store.selectRuntime(runtime) }
             dismiss()
         }
     }
