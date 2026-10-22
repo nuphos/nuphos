@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react'
+import { useReducer } from 'react'
 
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
@@ -39,25 +39,19 @@ export function useNewConversationRuntime(teamId?: string) {
   const chosen = choice && instances.find((instance) => instance.id === choice.runtimeId)
   const selected = chosen && usable(chosen) ? chosen : best
 
-  const save = useCallback(
-    (next: NewChatChoice) => {
-      saveNewChatChoice(newChatChoiceKey(teamId), next)
-      rerender()
-    },
-    [teamId],
-  )
+  function save(next: NewChatChoice) {
+    saveNewChatChoice(newChatChoiceKey(teamId), next)
+    rerender()
+  }
 
   function selectConversationRuntime(runtimeId: string) {
     save(chooseAgent(choice, runtimeId))
   }
 
   const selectedRuntimeId = selected?.id
-  const pickNewConversationSessionConfig = useCallback(
-    (pick: SessionConfigPick) => {
-      if (selectedRuntimeId) save({ runtimeId: selectedRuntimeId, pick })
-    },
-    [save, selectedRuntimeId],
-  )
+  function pickNewConversationSessionConfig(pick: SessionConfigPick) {
+    if (selectedRuntimeId) save({ runtimeId: selectedRuntimeId, pick })
+  }
 
   return {
     newConversationRuntime: selected ?? null,

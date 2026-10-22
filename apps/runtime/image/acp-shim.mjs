@@ -336,13 +336,18 @@ export function runShim({
       // A loaded or resumed session gets the current instructions too.
       const sessionId = reply.result?.sessionId ?? params.sessionId
       if (text && !spec.instruct) pendingInstructions.set(sessionId, text)
-      if (message.method !== 'session/new') return reply
       const agentApi = {
         setSessionConfigOption: (options) => request('session/set_config_option', options),
       }
+      const applied = nuphosApplyRuntimeDefaults(agentApi, { ...params, sessionId }, reply.result)
+
+      // A reopened session keeps its restored settings where a stored one is gone.
       return {
         ...reply,
-        result: await nuphosApplyRuntimeDefaults(agentApi, params, reply.result),
+        result:
+          message.method === 'session/new'
+            ? await applied
+            : await applied.catch(() => reply.result),
       }
     })
     send({ ...message, params })

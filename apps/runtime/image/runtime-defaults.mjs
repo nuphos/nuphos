@@ -186,8 +186,11 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   return team
 }
 
-// Run inside the native adapter after session/new has discovered its controls,
-// before OpenAB receives the session or sends the first prompt. Never run on load.
+// Run inside the native adapter once a session has discovered its controls,
+// before OpenAB receives it or sends a prompt: on session/new, and again when a
+// session is loaded or resumed. The backend sends the conversation's own
+// settings (those it started with, then every change it confirmed), which the
+// agent's restored state can lag: a change no turn followed is not on record.
 export async function nuphosApplyRuntimeDefaults(agent, params, response) {
   const defaults = params._meta?.['ai.nuphos/runtimeDefaults']
   if (!defaults || Object.keys(defaults).length === 0) return response
@@ -212,7 +215,7 @@ export async function nuphosApplyRuntimeDefaults(agent, params, response) {
     }
     if (option.currentValue === value) continue
     const updated = await agent.setSessionConfigOption({
-      sessionId: response.sessionId,
+      sessionId: response.sessionId ?? params.sessionId,
       configId: option.id,
       value,
     })
@@ -348,7 +351,9 @@ export function patchRuntimeDefaults(source) {
             nuphosRestorePhase('adapter-restore');
             nuphosReplyImages(this, params, { sessionId: params.sessionId });
             try {
-                return await this.nuphos_${method}(params, nuphosRestorePhase);
+                const restored = await this.nuphos_${method}(params, nuphosRestorePhase);
+                // A setting the runtime no longer offers leaves the restored session as it is.
+                return await nuphosApplyRuntimeDefaults(this, params, restored).catch(() => restored);
             } finally {
                 await this.nuphosFlushReplyImages?.(params.sessionId);
             }
