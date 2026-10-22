@@ -1,4 +1,4 @@
-import { bool, optional } from './env'
+import { bool, optional, optionalList } from './env'
 
 // Per-team SaaS connectors. Most bind with a credential the team pastes, so the
 // only server-side setting is the BYOK key that encrypts it at rest; the OAuth
@@ -42,6 +42,11 @@ export function byosIntegrationsConfig() {
         'OUTBOUND_ALLOW_PRIVATE_HOSTS',
         bool('GITLAB_ALLOW_PRIVATE_HOSTS', false),
       ),
+      // Address ranges refused besides the private / reserved ones: the
+      // cluster's Service CIDR. Defaults to GKE's default Service range.
+      blockedCidrs: process.env.OUTBOUND_BLOCKED_CIDRS
+        ? optionalList('OUTBOUND_BLOCKED_CIDRS')
+        : ['34.118.224.0/20'],
     },
     cloudflare: {
       encryptionKey: optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),

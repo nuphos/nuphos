@@ -40,6 +40,10 @@ describe('blockedUrlReason', () => {
     'http://localhost.',
     'http://grafana.localhost',
     'http://printer.local',
+    'http://grafana.monitoring.svc',
+    'http://grafana.monitoring.svc.',
+    'http://kubernetes.default.svc.cluster.local',
+    'http://34.118.230.5',
     'http://user:secret@example.com',
     'file:///etc/passwd',
     'not a url',
@@ -47,12 +51,14 @@ describe('blockedUrlReason', () => {
     expect(blockedUrlReason(url)).not.toBeNull()
   })
 
-  test.each(['https://grafana.example.com', 'http://93.184.216.34:3000', 'https://[2606:4700::1]'])(
-    'allows %s',
-    (url) => {
-      expect(blockedUrlReason(url)).toBeNull()
-    },
-  )
+  test.each([
+    'https://grafana.example.com',
+    'http://93.184.216.34:3000',
+    'https://[2606:4700::1]',
+    'http://34.118.208.1',
+  ])('allows %s', (url) => {
+    expect(blockedUrlReason(url)).toBeNull()
+  })
 })
 
 describe('isBlockedAddress', () => {
@@ -88,6 +94,14 @@ describe('resolvePublicTarget', () => {
     ).resolves.toMatchObject({ address: '93.184.216.34' })
     await expect(
       resolvePublicTarget('https://grafana.example.com', rebinding),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  test('refuses a name that resolves into the cluster Service range', async () => {
+    await expect(
+      resolvePublicTarget('https://grafana.example.com', async () => [
+        { address: '34.118.230.5', family: 4 },
+      ]),
     ).rejects.toMatchObject({ status: 400 })
   })
 
