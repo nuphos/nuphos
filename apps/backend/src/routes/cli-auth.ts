@@ -6,7 +6,12 @@ import { z } from 'zod'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { trustedAvatarURL } from '@/lib/identity/avatar-url'
-import { listCliTokens, mintCliToken, revokeCliToken } from '@/lib/identity/cli-tokens'
+import {
+  listCliTokens,
+  mintCliToken,
+  revokeCliToken,
+  updateAgentProfile,
+} from '@/lib/identity/cli-tokens'
 import {
   decideDeviceLogin,
   findPendingDeviceLogin,
@@ -17,6 +22,7 @@ import { redisEnabled, withRedis } from '@/lib/redis'
 import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
+import { avatarBodyLimit } from '@/routes/auth'
 
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
@@ -148,7 +154,55 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
     return c.json({ ok: true })
   })
 
+  // The calling agent token's own name and avatar. No id in the path: the
+  // token can only ever reach itself (`updateAgentProfile` filters by owner too).
+  routes.patch(
+    '/agent-profile',
+    requireAuth,
+    zv('json', z.object({ name: agentFields.name })),
+    async (c) =>
+      c.json({
+        cliToken: await updateAgentProfile(c.get('userId'), ownAgentTokenId(c), {
+          name: c.req.valid('json').name,
+        }),
+      }),
+  )
+
+  routes.put('/agent-profile/avatar', requireAuth, avatarBodyLimit, async (c) =>
+    c.json({
+      cliToken: await updateAgentProfile(c.get('userId'), ownAgentTokenId(c), {
+        avatar: new Uint8Array(await c.req.arrayBuffer()),
+      }),
+    }),
+  )
+
+  // The owner setting one of their agent tokens' avatar (nuphos.ai/settings/tokens).
+  // Agent tokens are refused here by `cliTokenDenied`.
+  routes.put('/cli-tokens/:id/avatar', requireAuth, avatarBodyLimit, async (c) =>
+    c.json({
+      cliToken: await updateAgentProfile(c.get('userId'), c.req.param('id'), {
+        avatar: new Uint8Array(await c.req.arrayBuffer()),
+      }),
+    }),
+  )
+
+  routes.delete('/cli-tokens/:id/avatar', requireAuth, async (c) =>
+    c.json({
+      cliToken: await updateAgentProfile(c.get('userId'), c.req.param('id'), { avatar: null }),
+    }),
+  )
+
   return routes
+}
+
+function ownAgentTokenId(c: Context<{ Variables: AuthVariables }>): string {
+  const cliToken = c.get('cliToken')
+
+  if (cliToken?.kind !== 'agent') {
+    throw new AppError(403, 'forbidden', 'Only an agent token has an agent profile')
+  }
+
+  return cliToken.id
 }
 
 /** Codes are guessable only by trying: cap tries per approving user. */

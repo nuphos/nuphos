@@ -47,26 +47,35 @@ export async function renderAvatar(input: Uint8Array): Promise<Uint8Array> {
   }
 }
 
-export async function uploadAvatar(userId: string, input: Uint8Array) {
+/**
+ * Stores the photo for `ownerId` (a user, or an agent token) and returns the
+ * URL that will serve it once the owner's document points at it.
+ */
+export async function storeAvatar(ownerId: string, input: Uint8Array): Promise<string> {
   if (input.byteLength === 0) throw new AppError(400, 'invalid_avatar_image', 'The image is empty')
   if (input.byteLength > MAX_AVATAR_UPLOAD_BYTES)
     throw new AppError(413, 'avatar_too_large', 'Use an image under 2 MB')
-  // A deletion request already removed the photo; a new one would outlive it.
-  if (await deletionPending(userId))
-    throw new AppError(409, 'account_deletion_pending', 'This account is being deleted')
   const bytes = await renderAvatar(input)
   const hash = createHash('sha256').update(bytes).digest('hex')
-  const _id = new ObjectId(userId)
 
   // Each image is its own document, stored before the URL that names it is
   // published, so a concurrent upload or removal can't delete it from under
-  // that URL. The users document holds the one current pointer.
+  // that URL. The owner's document holds the one current pointer.
   await userAvatars().updateOne(
-    { userId: _id, hash },
+    { userId: new ObjectId(ownerId), hash },
     { $set: { bytes: new Binary(bytes), updatedAt: new Date() } },
     { upsert: true },
   )
-  const avatarURL = `${config.auth.publicBaseUrl}${hostedAvatarPath(userId, hash)}`
+
+  return `${config.auth.publicBaseUrl}${hostedAvatarPath(ownerId, hash)}`
+}
+
+export async function uploadAvatar(userId: string, input: Uint8Array) {
+  // A deletion request already removed the photo; a new one would outlive it.
+  if (await deletionPending(userId))
+    throw new AppError(409, 'account_deletion_pending', 'This account is being deleted')
+  const _id = new ObjectId(userId)
+  const avatarURL = await storeAvatar(userId, input)
   const user = await setAvatarURL(_id, avatarURL)
 
   // A deletion request is recorded before its one-time purge, and this photo
@@ -125,13 +134,22 @@ async function deletionPending(userId: string): Promise<boolean> {
   return request !== null
 }
 
-/** The image hash in the user's current avatar URL, if it is one this backend serves. */
+/**
+ * The image hash in the owner's current avatar URL, if it is one this backend
+ * serves. The owner is a user or, failing that, an agent token.
+ */
 async function currentAvatarHash(_id: ObjectId): Promise<string | null> {
   const user = await users().findOne(
     { _id, deletedAt: { $exists: false } },
     { projection: { avatarURL: 1 } },
   )
-  const url = typeof user?.avatarURL === 'string' ? user.avatarURL : ''
+  const agent = user
+    ? null
+    : await db()
+        .collection<{ _id: ObjectId; avatarUrl?: string }>('cli_tokens')
+        .findOne({ _id, kind: 'agent' }, { projection: { avatarUrl: 1 } })
+  const owned = user ? user.avatarURL : agent?.avatarUrl
+  const url = typeof owned === 'string' ? owned : ''
 
   return url && hostedAvatarOwner(url) === _id.toHexString()
     ? (url.split('/').pop() ?? '').slice(0, 64)

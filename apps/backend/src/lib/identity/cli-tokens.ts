@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 import { getNuphosUserForCredential } from '@/lib/identity'
+import { deleteUserAvatars, pruneAvatars, storeAvatar } from '@/lib/identity/avatar-upload'
 import { generateOpaqueToken, hashToken } from '@/lib/oauth/tokens'
 
 import type { NuphosUser } from '@/lib/identity/types'
@@ -127,7 +128,45 @@ export async function revokeCliToken(userId: string, id: string): Promise<boolea
   if (!ObjectId.isValid(id)) return false
   const { deletedCount } = await cliTokens().deleteOne({ _id: new ObjectId(id), userId })
 
+  if (deletedCount === 1) await deleteUserAvatars(id)
+
   return deletedCount === 1
+}
+
+/**
+ * Renames an agent token or sets its avatar (`null` removes it). The filter is
+ * the whole scope: this one agent token, owned by `userId`. Nothing else is
+ * written, so neither the owner's account nor their other tokens are reachable.
+ */
+export async function updateAgentProfile(
+  userId: string,
+  tokenId: string,
+  change: { name?: string; avatar?: Uint8Array | null },
+): Promise<CliTokenPrincipal> {
+  const notFound = new AppError(404, 'not_found', 'No such agent token')
+
+  if (!ObjectId.isValid(tokenId)) throw notFound
+  const filter = { _id: new ObjectId(tokenId), userId, kind: 'agent' as const }
+
+  if (!(await cliTokens().findOne(filter, { projection: { _id: 1 } }))) throw notFound
+  const avatarUrl = change.avatar ? await storeAvatar(tokenId, change.avatar) : undefined
+  const $set = {
+    ...(change.name !== undefined ? { name: change.name } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+  }
+  const doc = await cliTokens().findOneAndUpdate(
+    filter,
+    {
+      ...(Object.keys($set).length ? { $set } : {}),
+      ...(change.avatar === null ? { $unset: { avatarUrl: '' as const } } : {}),
+    },
+    { returnDocument: 'after' },
+  )
+
+  if (!doc) throw notFound
+  if (change.avatar !== undefined) await pruneAvatars(tokenId)
+
+  return toPrincipal(doc)
 }
 
 function toPrincipal(doc: CliTokenDoc): CliTokenPrincipal {

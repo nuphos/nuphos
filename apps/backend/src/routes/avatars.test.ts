@@ -6,7 +6,7 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { errorHandler } from '@/lib/errors'
-import { deleteUserAvatars } from '@/lib/identity/avatar-upload'
+import { deleteUserAvatars, storeAvatar } from '@/lib/identity/avatar-upload'
 import { trustedAvatarURL } from '@/lib/identity/avatar-url'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useDb } from '@/lib/test/doubles/db'
@@ -21,6 +21,7 @@ type Doc = Record<string, unknown>
 const userId = new ObjectId()
 let usersById: Map<string, Doc>
 let avatars: Doc[]
+let agentTokens: Doc[] = []
 // When set, the next users write waits on it: lets a test interleave two requests.
 let gate: Promise<void> | null = null
 // When set, the next user_avatars prune waits on it, after it chose what to keep.
@@ -107,6 +108,13 @@ function collection(name: string) {
     }
   }
 
+  if (name === 'cli_tokens') {
+    return {
+      findOne: (filter: Doc) =>
+        Promise.resolve(agentTokens.find((doc) => matches(doc, filter)) ?? null),
+    }
+  }
+
   if (name === 'account_deletion_requests') {
     return {
       findOne: (filter: Doc) =>
@@ -151,6 +159,7 @@ beforeEach(() => {
     ],
   ])
   avatars = []
+  agentTokens = []
   gate = null
   pruneGate = null
   pruneWaiting = false
@@ -393,4 +402,17 @@ test('an upload racing an account deletion request leaves no photo stored or ser
   expect(res.status).toBe(409)
   expect(avatars).toHaveLength(0)
   expect(current()).toBe('')
+})
+
+test("an agent token's photo is served only while it is the token's avatar", async () => {
+  const tokenId = new ObjectId()
+  const url = await storeAvatar(tokenId.toHexString(), png(64, 64))
+
+  expect(trustedAvatarURL(url)).toBe(url)
+  expect((await app.request(pathOf(url))).status).toBe(404)
+  agentTokens = [{ _id: tokenId, kind: 'agent', avatarUrl: url }]
+  expect((await app.request(pathOf(url))).status).toBe(200)
+  // A personal token has no avatar of its own to serve.
+  agentTokens = [{ _id: tokenId, kind: 'personal', avatarUrl: url }]
+  expect((await app.request(pathOf(url))).status).toBe(404)
 })

@@ -14,7 +14,7 @@ mod update;
 
 use std::io::{IsTerminal, Read};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 
@@ -113,6 +113,15 @@ enum Command {
         #[command(subcommand)]
         command: TokenCommand,
     },
+    /// Change the name or avatar this agent token's messages show (agent tokens only).
+    AgentProfile {
+        /// The name its messages show.
+        #[arg(long, required_unless_present = "avatar")]
+        name: Option<String>,
+        /// A PNG, JPEG or WebP file, or an http(s) URL to download it from.
+        #[arg(long, value_name = "FILE|URL")]
+        avatar: Option<String>,
+    },
     /// Sign out of the CLI (Nuphos Desktop stays signed in).
     Logout,
     /// Show who is signed in and where the session token is kept.
@@ -184,6 +193,10 @@ async fn run(args: Args) -> Result<i32> {
             let (api, _, _) = sign_in(false).await?;
             return token(&api, command, args.json).await;
         }
+        Some(Command::AgentProfile { name, avatar }) => {
+            let (api, _, _) = sign_in(false).await?;
+            return agent_profile(&api, name.as_deref(), avatar.as_deref(), args.json).await;
+        }
         Some(Command::Resume { session }) => return tui(app::Start::Resume(session.clone()), args.team).await,
         None => return tui(app::Start::New, args.team).await,
         _ => {}
@@ -239,6 +252,7 @@ async fn run(args: Args) -> Result<i32> {
             Command::Agent { .. }
             | Command::Login { .. }
             | Command::Token { .. }
+            | Command::AgentProfile { .. }
             | Command::Logout
             | Command::Auth { .. }
             | Command::Update
@@ -330,6 +344,54 @@ async fn token(api: &Api, command: &TokenCommand, json: bool) -> Result<i32> {
     Ok(0)
 }
 
+/// `nuphos agent-profile --name NAME --avatar FILE|URL`: the backend accepts
+/// this only from an agent token, and only for that token.
+async fn agent_profile(api: &Api, name: Option<&str>, avatar: Option<&str>, json: bool) -> Result<i32> {
+    let mut profile = Value::Null;
+    if let Some(name) = name {
+        profile = api.set_agent_name(name.trim()).await?["cliToken"].take();
+    }
+    if let Some(avatar) = avatar {
+        profile = api.set_agent_avatar(read_avatar(avatar).await?).await?["cliToken"].take();
+    }
+    if json {
+        println!("{}", serde_json::to_string_pretty(&profile)?);
+    } else {
+        let name = render::clean(profile["name"].as_str().unwrap_or_default());
+        match profile["avatarUrl"].as_str() {
+            Some(url) => println!("This agent is now {name}, with avatar {}.", render::clean(url)),
+            None => println!("This agent is now {name}."),
+        }
+    }
+    Ok(0)
+}
+
+/// The backend's avatar limit; reading stops once an image is larger.
+const MAX_AVATAR_BYTES: usize = 2 * 1024 * 1024;
+
+/// An avatar image from a file or an http(s) URL, at most `MAX_AVATAR_BYTES`.
+async fn read_avatar(source: &str) -> Result<Vec<u8>> {
+    let too_large = || anyhow::anyhow!("the image is over 2 MB");
+    let mut image = Vec::new();
+    if source.starts_with("https://") || source.starts_with("http://") {
+        let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build()?;
+        let mut response = client.get(source).send().await?.error_for_status()?;
+        while let Some(chunk) = response.chunk().await? {
+            if image.len() + chunk.len() > MAX_AVATAR_BYTES {
+                return Err(too_large());
+            }
+            image.extend_from_slice(&chunk);
+        }
+    } else {
+        let file = std::fs::File::open(source).with_context(|| format!("reading {source}"))?;
+        file.take(MAX_AVATAR_BYTES as u64 + 1).read_to_end(&mut image)?;
+        if image.len() > MAX_AVATAR_BYTES {
+            return Err(too_large());
+        }
+    }
+    Ok(image)
+}
+
 /// Opens the TUI at once; it signs in and picks the team behind a loading
 /// state. Only a missing session waits, for the browser sign-in.
 async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
@@ -371,4 +433,40 @@ async fn sign_in(interactive: bool) -> Result<(Api, Value, Vec<Value>)> {
     let api = Api::new(api_url, session.token.unwrap_or_default());
     let (me, teams) = tokio::try_join!(api.me(), api.teams())?;
     Ok((api, me, teams))
+}
+
+#[cfg(test)]
+mod avatar_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// A chunked response that never ends must stop at the limit, not buffer forever.
+    #[tokio::test]
+    async fn an_endless_chunked_image_stops_at_the_limit() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/a.png", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0u8; 1024];
+            let _ = socket.read(&mut request).await;
+            let _ = socket.write_all(b"HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\n").await;
+            let chunk = format!("{:x}\r\n{}\r\n", 64 * 1024, "x".repeat(64 * 1024));
+            while socket.write_all(chunk.as_bytes()).await.is_ok() {}
+        });
+        let error = read_avatar(&url).await.unwrap_err();
+        assert!(error.to_string().contains("over 2 MB"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn a_file_over_the_limit_is_refused() {
+        let path = std::env::temp_dir().join(format!("nuphos-avatar-{}.png", std::process::id()));
+        std::fs::write(&path, vec![0u8; MAX_AVATAR_BYTES + 1]).unwrap();
+        let result = read_avatar(path.to_str().unwrap()).await;
+        std::fs::remove_file(&path).unwrap();
+        assert!(result.unwrap_err().to_string().contains("over 2 MB"));
+        let small = std::env::temp_dir().join(format!("nuphos-avatar-ok-{}.png", std::process::id()));
+        std::fs::write(&small, b"png").unwrap();
+        assert_eq!(read_avatar(small.to_str().unwrap()).await.unwrap(), b"png");
+        std::fs::remove_file(&small).unwrap();
+    }
 }

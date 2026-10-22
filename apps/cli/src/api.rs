@@ -82,17 +82,23 @@ impl Api {
         query: &[(&str, &str)],
         body: Option<&Value>,
     ) -> Result<Value, ApiError> {
-        let mut request = self
-            .http
-            .request(method, format!("{}{}", self.base, path))
-            .query(query)
-            .bearer_auth(&self.token)
-            .header("accept", "application/json")
-            .header("x-atlas-client", CLIENT)
-            .timeout(Duration::from_secs(30));
+        let mut request = self.request(method, path).query(query);
         if let Some(body) = body {
             request = request.json(body);
         }
+        Self::send(request).await
+    }
+
+    fn request(&self, method: Method, path: &str) -> reqwest::RequestBuilder {
+        self.http
+            .request(method, format!("{}{}", self.base, path))
+            .bearer_auth(&self.token)
+            .header("accept", "application/json")
+            .header("x-atlas-client", CLIENT)
+            .timeout(Duration::from_secs(30))
+    }
+
+    async fn send(request: reqwest::RequestBuilder) -> Result<Value, ApiError> {
         let response = request.send().await.map_err(ApiError::network)?;
         let status = response.status();
         let text = response.text().await.map_err(ApiError::network)?;
@@ -114,6 +120,21 @@ impl Api {
 
     pub async fn revoke_cli_token(&self, id: &str) -> Result<Value, ApiError> {
         self.call(Method::DELETE, &format!("/auth/cli-tokens/{id}"), &[], None).await
+    }
+
+    /// Renames the agent token this CLI is signed in with.
+    pub async fn set_agent_name(&self, name: &str) -> Result<Value, ApiError> {
+        let body = serde_json::json!({ "name": name });
+        self.call(Method::PATCH, "/auth/agent-profile", &[], Some(&body)).await
+    }
+
+    /// Sets the signed-in agent token's avatar; the backend re-encodes the image.
+    pub async fn set_agent_avatar(&self, image: Vec<u8>) -> Result<Value, ApiError> {
+        let request = self
+            .request(Method::PUT, "/auth/agent-profile/avatar")
+            .header("content-type", "application/octet-stream")
+            .body(image);
+        Self::send(request).await
     }
 
     pub async fn teams(&self) -> Result<Vec<Value>, ApiError> {

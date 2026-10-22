@@ -44,7 +44,9 @@ account, tokens, team membership or billing. `nuphos login --device` picks
 this flow anywhere; `nuphos login --token -` takes an agent token minted on
 nuphos.ai, and `NUPHOS_CLI_TOKEN` uses one without saving it. Each device
 sign-in and agent token is listed by `nuphos token list` and on nuphos.ai,
-and can be revoked on its own.
+and can be revoked on its own. An agent signed in with its own token can
+change the name and avatar its messages show, and nothing else, with
+`nuphos agent-profile --name NAME --avatar FILE|URL`.
 
 Getting started needs neither the desktop app nor the web. The first run
 signs in through the browser and, if you are not in a team yet, asks for a

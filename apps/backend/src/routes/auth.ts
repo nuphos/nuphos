@@ -52,7 +52,7 @@ auth.patch('/me', requireAuth, async (c) =>
   c.json(await updateProfile(c.get('userId'), await c.req.json())),
 )
 
-const avatarBodyLimit = bodyLimit({
+export const avatarBodyLimit = bodyLimit({
   maxSize: MAX_AVATAR_UPLOAD_BYTES,
   onError: (c) =>
     c.json(
