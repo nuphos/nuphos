@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from 'react'
+import { useCallback, useReducer } from 'react'
 
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
@@ -7,7 +7,7 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { defaultAgent, usable } from '../../../lib/agentName'
 import { pendingLocalAgents } from '../../../lib/localAgentReady'
 
-import { chooseAgent, parseNewChatChoice } from './newChatChoice'
+import { chooseAgent, readNewChatChoice, saveNewChatChoice } from './newChatChoice'
 
 import type { NewChatChoice } from './newChatChoice'
 import type { SessionConfigPick } from '../../../api/session-config-types'
@@ -16,7 +16,7 @@ const NO_PICK: SessionConfigPick = {}
 
 export function useNewConversationRuntime(teamId?: string) {
   const key = `nuphos.agent.runtimeInstance.${teamId ?? 'personal'}`
-  // The saved choice is the only state: every new chat, pane and restart reads it.
+  // One saved choice for every new chat, pane and restart of this team.
   const [, rerender] = useReducer((count: number) => count + 1, 0)
   const catalog = useRuntimeInstances(teamId)
   const runtimeQuotas = useRuntimeQuotas(teamId)
@@ -25,14 +25,7 @@ export function useNewConversationRuntime(teamId?: string) {
   const instances = teamId
     ? [...catalog.instances, ...pendingLocalAgents(localState, catalog.instances)]
     : catalog.instances
-  let raw: string | null = null
-
-  try {
-    raw = localStorage.getItem(key)
-  } catch {
-    /* Storage is optional. */
-  }
-  const choice = useMemo(() => parseNewChatChoice(raw), [raw])
+  const choice = readNewChatChoice(key)
   const best = defaultAgent(instances, owner, (instance) => {
     const windows = runtimeQuotas.get(instance.id)?.windows ?? []
 
@@ -44,11 +37,7 @@ export function useNewConversationRuntime(teamId?: string) {
 
   const save = useCallback(
     (next: NewChatChoice) => {
-      try {
-        localStorage.setItem(key, JSON.stringify(next))
-      } catch {
-        /* Storage is optional. */
-      }
+      saveNewChatChoice(key, next)
       rerender()
     },
     [key],

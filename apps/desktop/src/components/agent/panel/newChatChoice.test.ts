@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { chooseAgent, parseNewChatChoice } from './newChatChoice.ts'
+import {
+  chooseAgent,
+  parseNewChatChoice,
+  readNewChatChoice,
+  saveNewChatChoice,
+} from './newChatChoice.ts'
 
 test('the model and effort picked for a new chat are saved with its agent', () => {
   const saved = JSON.stringify({ runtimeId: 'claude', pick: { model: 'opus', effort: 'high' } })
@@ -27,4 +32,43 @@ test('re-choosing the same agent keeps its picks; another agent starts from its 
   assert.equal(chooseAgent(choice, 'claude'), choice)
   assert.deepEqual(chooseAgent(choice, 'codex'), { runtimeId: 'codex' })
   assert.deepEqual(chooseAgent(undefined, 'codex'), { runtimeId: 'codex' })
+})
+
+test('a choice stands for this run even when storage cannot save or read it', () => {
+  const broken = () => ({
+    getItem: () => {
+      throw new Error('SecurityError')
+    },
+    setItem: () => {
+      throw new Error('QuotaExceededError')
+    },
+  })
+  const key = 'test.broken-storage'
+
+  assert.equal(readNewChatChoice(key, broken), undefined)
+  saveNewChatChoice(key, { runtimeId: 'claude', pick: { effort: 'high' } }, broken)
+  assert.deepEqual(readNewChatChoice(key, broken), {
+    runtimeId: 'claude',
+    pick: { effort: 'high' },
+  })
+})
+
+test('a saved choice is read once and stays the same object until changed', () => {
+  const stored = new Map([['test.saved', '{"runtimeId":"codex","pick":{"model":"sol"}}']])
+  let reads = 0
+  const storage = () => ({
+    getItem: (key: string) => {
+      reads++
+
+      return stored.get(key) ?? null
+    },
+    setItem: (key: string, value: string) => void stored.set(key, value),
+  })
+  const first = readNewChatChoice('test.saved', storage)
+
+  assert.equal(readNewChatChoice('test.saved', storage), first)
+  assert.equal(reads, 1)
+  saveNewChatChoice('test.saved', { runtimeId: 'claude' }, storage)
+  assert.deepEqual(readNewChatChoice('test.saved', storage), { runtimeId: 'claude' })
+  assert.equal(stored.get('test.saved'), '{"runtimeId":"claude"}')
 })
