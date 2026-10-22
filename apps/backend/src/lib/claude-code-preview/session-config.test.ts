@@ -3,12 +3,13 @@ import { describe, expect, test } from 'bun:test'
 import { AppError } from '@/lib/errors'
 
 import { OpenAbRpcError } from './openab-acp-errors'
-import { controlSessionConfig, restoreSessionConfigForWrite } from './session-config'
 import {
-  catalogSessionConfig,
-  offeredSessionConfig,
-  unansweredSessionConfig,
-} from './session-config-catalog'
+  controlSessionConfig,
+  pickOf,
+  restoreSessionConfigForWrite,
+  sessionConfigView,
+} from './session-config'
+import { catalogSessionConfig, offeredSessionConfig } from './session-config-catalog'
 import { parseSessionConfigOptions } from './session-config-options'
 
 const model = (currentValue = 'a') => ({
@@ -331,7 +332,9 @@ test('picks the runtime no longer offers are dropped, and a stale model is read 
   ])
 })
 
-test('a session busy with its first turn shows the settings it started with, not nothing', async () => {
+test('the model list renders while a reply runs: catalog plus stored picks, never the session', async () => {
+  // A busy session answers config reads with -32005; the read path has no
+  // session client at all, only the runtime catalog and the stored picks.
   const catalogFor = async () => ({
     models: [
       { id: 'sol', name: 'GPT-6.1-Sol' },
@@ -347,26 +350,36 @@ test('a session busy with its first turn shows the settings it started with, not
       defaultEffort: 'low',
     },
   })
-  const started = await unansweredSessionConfig(
-    { runtimeDefaults: { model: 'astra', effort: 'high' } },
-    catalogFor,
-  )
+  const state = await sessionConfigView({ model: 'astra', effort: 'high' }, catalogFor)
 
-  expect(started.map((option) => [option.id, option.currentValue])).toEqual([
+  expect(state.status).toBe('ready')
+  expect(state.options.map((option) => [option.id, option.currentValue])).toEqual([
     ['model', 'astra'],
     ['effort', 'high'],
   ])
-  // Settings the session confirmed win over those it started with.
-  const confirmed = parseSessionConfigOptions([model('b')])
+  expect(state.options[0]?.options.map((option) => option.value)).toEqual(['sol', 'astra'])
+  // An unreachable runtime reads as offline instead of failing.
+  expect(await sessionConfigView({}, () => Promise.reject(new Error('Runtime offline')))).toEqual({
+    status: 'offline',
+    options: [],
+  })
+})
 
-  expect(
-    await unansweredSessionConfig(
-      { sessionConfig: confirmed, runtimeDefaults: { model: 'astra' } },
-      catalogFor,
-    ),
-  ).toEqual(confirmed)
-  // An unreachable catalog leaves the chip empty rather than failing the read.
-  expect(
-    await unansweredSessionConfig({}, () => Promise.reject(new Error('Runtime offline'))),
-  ).toEqual([])
+test('a confirmed change is stored by kind, so the chip and a recreated session keep it', async () => {
+  const set: unknown[] = []
+  const client = {
+    getSessionConfigOptions: async () => ({ configOptions: [model('a'), effort, fast] }),
+    setSessionConfigOption: async (_id: string, configId: string, value: string) => {
+      set.push([configId, value])
+
+      return { configOptions: [model(value), effort, fast] }
+    },
+  }
+  // The chip names controls by kind; the session gets its own id.
+  const state = await controlSessionConfig(client, 'session', { configId: 'model', value: 'b' })
+
+  expect(set).toEqual([['model', 'b']])
+  expect(pickOf(state.options)).toEqual({ model: 'b', effort: 'high', fast: 'off' })
+  await controlSessionConfig(client, 'session', { configId: 'effort', value: 'high' })
+  expect(set.at(-1)).toEqual(['reasoning_effort', 'high'])
 })

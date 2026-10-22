@@ -6,7 +6,7 @@ import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
-import { offeredSessionConfig, unansweredSessionConfig } from './session-config-catalog'
+import { offeredSessionConfig } from './session-config-catalog'
 import { parseSessionConfigOptions } from './session-config-options'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
@@ -15,6 +15,8 @@ import type {
   SessionConfigSelection,
   SessionConfigState,
 } from './session-config-options'
+import type { RuntimeDefaults } from './openab-acp-session'
+import type { RuntimeModelCatalog } from './runtime-models'
 import type { AgentConversation } from '@/lib/agent/db'
 
 export async function controlSessionConfig(
@@ -28,7 +30,10 @@ export async function controlSessionConfig(
     )
 
     if (!selection) return { status: options.length ? 'ready' : 'unsupported', options }
-    const option = options.find((entry) => entry.id === selection.configId)
+    // The chip lists the runtime's catalog, which names each control by its kind.
+    const option =
+      options.find((entry) => entry.id === selection.configId) ??
+      options.find((entry) => entry.kind === selection.configId)
 
     if (!option?.options.some((entry) => entry.value === selection.value)) {
       throw new AppError(
@@ -38,8 +43,7 @@ export async function controlSessionConfig(
       )
     }
     const updated = parseSessionConfigOptions(
-      (await client.setSessionConfigOption(sessionId, selection.configId, selection.value))
-        .configOptions,
+      (await client.setSessionConfigOption(sessionId, option.id, selection.value)).configOptions,
     )
 
     return { status: updated.length ? 'ready' : 'unsupported', options: updated }
@@ -110,28 +114,48 @@ export async function conversationSessionConfig(
 
   if (!conversation.teamId) return { status: 'unsupported', options: [] }
   if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId)
-  if (selection) return await liveSessionConfig(conversation, attachment, selection, viewerUserId)
-  // Reads never fail for a reachable conversation: while the session cannot
-  // answer, show the settings it last confirmed, or else those it started with.
+  const catalogFor = runtimeCatalog(conversation, viewerUserId)
+
+  if (!selection) return await sessionConfigView(attachment.runtimeDefaults ?? {}, catalogFor)
+  const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
+
+  return await sessionConfigView(picked, catalogFor)
+}
+
+type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
+
+function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
   const { teamId, runtimeId } = conversation
-  const shown = () =>
-    unansweredSessionConfig(
-      attachment,
-      runtimeId
-        ? (model) => runtimeModelCatalog(teamId, runtimeId, model, viewerUserId)
-        : undefined,
-    )
-  let state: SessionConfigState
 
+  return teamId && runtimeId
+    ? (model) => runtimeModelCatalog(teamId, runtimeId, model, viewerUserId)
+    : undefined
+}
+
+/**
+ * A started conversation's chip: the runtime's own list with the session's
+ * settings as current values. The session is never asked, so the list is the
+ * same whether or not a reply is running (it cannot answer while one runs).
+ */
+export async function sessionConfigView(
+  picked: RuntimeDefaults,
+  catalogFor: CatalogFor,
+): Promise<SessionConfigState> {
+  const { status, options } = await catalogState(picked, catalogFor)
+
+  return { status: status === 'dormant' ? 'ready' : status, options }
+}
+
+async function catalogState(
+  picked: RuntimeDefaults,
+  catalogFor: CatalogFor,
+): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
+  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
   try {
-    state = await liveSessionConfig(conversation, attachment)
+    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked)) }
   } catch {
-    return { status: 'offline', options: await shown() }
+    return { status: 'offline', options: [], kept: {} }
   }
-  if (state.status !== 'ready') return { ...state, options: await shown() }
-  await rememberSessionConfig(conversation, attachment, state.options)
-
-  return state
 }
 
 /**
@@ -143,24 +167,14 @@ async function initialSessionConfig(
   selection: SessionConfigSelection | undefined,
   viewerUserId: string | undefined,
 ): Promise<SessionConfigState> {
-  const { teamId, runtimeId } = conversation
-
-  if (!teamId || !runtimeId) return { status: 'dormant', options: [] }
   const stored = conversation.initialSessionConfig ?? {}
-  let offered: Awaited<ReturnType<typeof offeredSessionConfig>>
+  const { status, options, kept } = await catalogState(
+    selection ? { ...stored, [selection.configId]: selection.value } : stored,
+    runtimeCatalog(conversation, viewerUserId),
+  )
 
-  try {
-    offered = await offeredSessionConfig(
-      (model) => runtimeModelCatalog(teamId, runtimeId, model, viewerUserId),
-      selection ? { ...stored, [selection.configId]: selection.value } : stored,
-    )
-  } catch (error) {
-    if (selection) throw error
-
-    return { status: 'offline', options: [] }
-  }
-  const { options, kept } = offered
-
+  if (selection && status === 'offline')
+    throw new AppError(409, 'runtime_unavailable', 'The conversation’s agent is unavailable.')
   if (
     selection &&
     options.find((option) => option.id === selection.configId)?.currentValue !== selection.value
@@ -171,27 +185,35 @@ async function initialSessionConfig(
       'This model setting is no longer available. Refresh and try again.',
     )
   // Only before the session starts; afterwards the session holds its own settings.
-  if (JSON.stringify(kept) !== JSON.stringify(stored))
+  if (status !== 'offline' && JSON.stringify(kept) !== JSON.stringify(stored))
     await agentConversations().updateOne(
-      { sessionId: conversation.sessionId, teamId, claudeCodePreview: { $exists: false } },
+      {
+        sessionId: conversation.sessionId,
+        teamId: conversation.teamId,
+        claudeCodePreview: { $exists: false },
+      },
       { $set: { initialSessionConfig: kept } },
     )
 
-  return { status: 'dormant', options }
+  return { status, options }
 }
 
-async function liveSessionConfig(
+/**
+ * A change goes to the live session, and what it confirms becomes the session's
+ * settings: shown from then on, and applied again if the session is recreated.
+ */
+async function applySessionConfig(
   conversation: AgentConversation,
   attachment: NonNullable<ReturnType<typeof liveAttachment>>,
-  selection?: SessionConfigSelection,
+  selection: SessionConfigSelection,
   viewerUserId?: string,
-): Promise<SessionConfigState> {
+): Promise<RuntimeDefaults> {
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation)
 
   if (!endpoint || endpoint.url !== attachment.runtimeUrl)
     throw new AppError(409, 'runtime_unavailable', 'The conversation’s agent is unavailable.')
   // Do not session/resume here: it would claim the live output sink from
-  // another backend replica. This connection only reads/writes configuration.
+  // another backend replica. This connection only writes configuration.
   const client = await OpenAbAcpClient.connect({
     ...(await reachableRuntimeEndpoint(endpoint)),
     callTimeoutMs: 100_000,
@@ -199,8 +221,6 @@ async function liveSessionConfig(
 
   try {
     await client.initialize()
-    if (!selection) return await controlSessionConfig(client, attachment.openabSessionId)
-
     await restoreSessionConfigForWrite(
       client,
       attachment.openabSessionId,
@@ -208,31 +228,28 @@ async function liveSessionConfig(
       viewerUserId,
       () => sessionConfigRestoreContext(conversation, endpoint),
     )
-    const state = await controlSessionConfig(client, attachment.openabSessionId, selection)
+    const { options } = await controlSessionConfig(client, attachment.openabSessionId, selection)
+    const picked = { ...attachment.runtimeDefaults, ...pickOf(options) }
 
-    await rememberSessionConfig(conversation, attachment, state.options)
+    // Scoped to the session id so a newer session's settings are never overwritten.
+    await agentConversations().updateOne(
+      {
+        sessionId: conversation.sessionId,
+        teamId: conversation.teamId,
+        'claudeCodePreview.openabSessionId': attachment.openabSessionId,
+      },
+      { $set: { 'claudeCodePreview.runtimeDefaults': picked } },
+    )
 
-    return state
+    return picked
   } finally {
     client.close()
   }
 }
 
-/** Scoped to the session id so a newer session's settings are never overwritten. */
-async function rememberSessionConfig(
-  conversation: AgentConversation,
-  attachment: NonNullable<ReturnType<typeof liveAttachment>>,
-  options: SessionConfigOption[],
-) {
-  // Clients poll; skip the write when nothing changed.
-  if (!options.length || JSON.stringify(options) === JSON.stringify(attachment.sessionConfig))
-    return
-  await agentConversations().updateOne(
-    {
-      sessionId: conversation.sessionId,
-      teamId: conversation.teamId,
-      'claudeCodePreview.openabSessionId': attachment.openabSessionId,
-    },
-    { $set: { 'claudeCodePreview.sessionConfig': options } },
-  )
+/** The values a session confirmed, by kind, as the runtime takes them on creation. */
+export function pickOf(options: SessionConfigOption[]): RuntimeDefaults {
+  return Object.fromEntries(
+    options.map((option) => [option.kind, option.currentValue]),
+  ) as RuntimeDefaults
 }

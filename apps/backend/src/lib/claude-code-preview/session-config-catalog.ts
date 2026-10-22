@@ -1,24 +1,6 @@
 import type { RuntimeDefaults } from './openab-acp-session'
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { SessionConfigOption } from './session-config-options'
-import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
-
-/**
- * A session busy with its first turn has never confirmed its settings, and the
- * runtime does not answer until the turn ends. It runs the settings it started
- * with, so show those rather than nothing.
- */
-export async function unansweredSessionConfig(
-  attachment: Pick<ConversationPreviewAttachment, 'sessionConfig' | 'runtimeDefaults'>,
-  catalogFor: ((model?: string) => Promise<RuntimeModelCatalog>) | undefined,
-): Promise<SessionConfigOption[]> {
-  if (attachment.sessionConfig?.length || !catalogFor) return attachment.sessionConfig ?? []
-  const started = await offeredSessionConfig(catalogFor, attachment.runtimeDefaults ?? {}).catch(
-    () => undefined,
-  )
-
-  return started?.options ?? []
-}
 
 /** The runtime's own choices as session options; a pick it still offers is the current value. */
 export function catalogSessionConfig(
