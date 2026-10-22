@@ -98,7 +98,7 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
 /** Open the same agent details panel as the usage table. */
 export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
   const offline = agentOffline(agent)
-  // Signed out stays on the card: its page is where it signs in again and its host updates.
+  // Signed out after a sign-in, it stays on the card: its page is where it signs in again.
   const signedOut = agent.local?.signedIn === false
   let state = ''
 

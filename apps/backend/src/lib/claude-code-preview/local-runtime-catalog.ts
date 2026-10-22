@@ -44,6 +44,8 @@ export type LocalRuntimeSummary = {
   online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
   signedIn: boolean | null
+  /** Seen signed in at least once: the agent registry. A host's default agent no one used has none. */
+  everSignedIn?: true
   /** Provider usage the computer reported, raw; normalized in runtime-quota. */
   usage?: unknown
   /** When that computer read the usage above. */
@@ -100,6 +102,7 @@ export async function listOwnLocalRuntimes(
       // Every agent this computer ever had signed in, plus whatever it reports now (an
       // added agent appears once signed in; until then only its sign-in reaches it).
       const known = new Map<string, RegisteredAgent>()
+      const registered = new Set((device.agents ?? []).map(registryKey))
 
       for (const agent of [...(device.agents ?? []), ...reportedAgents(presence?.status)])
         known.set(registryKey(agent), withReport(known.get(registryKey(agent)), agent))
@@ -137,6 +140,7 @@ export async function listOwnLocalRuntimes(
               // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
+              ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
               ...(reported?.usage !== undefined
                 ? {
                     usage: reported.usage,

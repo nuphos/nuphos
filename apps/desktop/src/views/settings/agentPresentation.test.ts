@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentName, agentOffline, agentRunsOn, localRemovalId } from './agentPresentation.ts'
+import {
+  agentName,
+  agentOffline,
+  agentRunsOn,
+  localRemovalId,
+  visibleAgent,
+} from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime.ts'
@@ -32,19 +38,56 @@ const teamAgent = (kind: 'managed' | 'external' | 'development'): RuntimeInstanc
   createdAt: '',
 })
 
-test('Box cards keep signed-out agents, so they can sign in again and update', () => {
+test('Box cards and usage share signed-in local agents, retaining every team runtime', () => {
   const catalog = [
     local('box2-codex', '2', true),
     local('box2-claude', '2', false),
     local('box3-codex', '3', null),
+    local('box3-claude', '3', false),
     local('mac-claude', 'mac', true),
+    local('mac-codex', 'mac', true),
     teamAgent('managed'),
+    { ...teamAgent('external'), status: 'disabled' as const },
+    teamAgent('development'),
+    { ...teamAgent('managed'), id: 'missing-local', kind: 'local' as const },
   ]
+  const visible = catalog.filter(visibleAgent)
+  const cards = ['2', '3', 'mac'].flatMap((device) =>
+    boxAgents(device, catalog).filter(visibleAgent),
+  )
 
   assert.deepEqual(
-    ['2', '3', 'mac'].flatMap((device) => boxAgents(device, catalog)).map((agent) => agent.id),
-    ['box2-codex', 'box2-claude', 'box3-codex', 'mac-claude'],
+    cards.map((agent) => agent.id),
+    ['box2-codex', 'mac-claude', 'mac-codex'],
   )
+  assert.deepEqual(
+    visible.filter((agent) => agent.kind === 'local'),
+    cards,
+  )
+  assert.deepEqual(
+    visible.filter((agent) => agent.kind !== 'local').map((agent) => agent.id),
+    ['managed', 'external', 'development'],
+  )
+  assert.equal(visible.filter((agent) => agent.label.includes('box3')).length, 0)
+  assert.equal(
+    visible.find((agent) => agent.id === 'box2-claude'),
+    undefined,
+  )
+  assert.equal(visible.find((agent) => agent.id === 'box2-codex')?.id, 'box2-codex')
+  assert.equal(catalog.length, 10, 'presentation never removes catalog / history data')
+})
+
+test('an agent signed in before stays when it signs out; one never signed in stays hidden', () => {
+  const box = (signedIn: boolean | null, everSignedIn?: true) =>
+    ({
+      ...local('a', '2', signedIn),
+      local: { ...local('a', '2', signedIn).local!, ...(everSignedIn ? { everSignedIn } : {}) },
+    }) as RuntimeInstance
+
+  assert.equal(visibleAgent(box(false, true)), true)
+  assert.equal(visibleAgent(box(null, true)), true)
+  assert.equal(visibleAgent(box(false)), false)
+  assert.equal(visibleAgent(box(null)), false)
 })
 
 test('Runs on uses the actual current device, labels remote Boxes, and handles missing identity', () => {
@@ -92,6 +135,7 @@ test("an away computer's signed-in agent stays visible and reads Offline", () =>
   } as RuntimeInstance
   const back = { ...away, local: { ...away.local!, online: true } } as RuntimeInstance
 
+  assert.equal(visibleAgent(away), true)
   assert.equal(agentOffline(away), true)
   assert.equal(agentRunsOn(away), 'Box 1 · Offline')
   assert.equal(agentOffline(back), false)

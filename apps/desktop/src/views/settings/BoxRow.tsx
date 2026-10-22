@@ -10,6 +10,7 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../c
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 
+import { visibleAgent } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { openBoxDesktop } from './boxDesktop'
@@ -237,9 +238,11 @@ export function BoxRow({
           ? [0, 1].map((slot) => (
               <li key={slot} className="h-10 w-10 shrink-0 rounded-lg bg-zGray-800/30" />
             ))
-          : agents.map((agent) => (
-              <AgentTile key={agent.id} agent={agent} onSelect={() => onSelect(agent.id)} />
-            ))}
+          : agents
+              .filter(visibleAgent)
+              .map((agent) => (
+                <AgentTile key={agent.id} agent={agent} onSelect={() => onSelect(agent.id)} />
+              ))}
         {!dim && !starting && (
           <li className="shrink-0">
             <NewAgentMenu device={device} agents={agents} busy={busy} onAdd={addAgent} />

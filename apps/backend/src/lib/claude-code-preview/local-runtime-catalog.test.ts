@@ -141,6 +141,25 @@ describe('local runtime catalog', () => {
     expect(cleared[1]?.local.agentLabel).toBeUndefined()
   })
 
+  test('only an agent once seen signed in is marked as such', async () => {
+    const signedOut = { cli: { installed: true, loggedIn: false } }
+    const known = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [{ provider: 'claude-code', signedIn: true }] as RegisteredAgent[],
+    }
+
+    presence = { ...online(), status: { agents: { 'claude-code': signedOut, grok: signedOut } } }
+    const listed = await listOwnLocalRuntimes('t1', 'owner', {
+      ...deps,
+      access: { ...deps.access, listDevices: async () => [known] },
+    })
+
+    expect(listed.map(({ provider, local }) => [provider, local.everSignedIn])).toEqual([
+      ['claude-code', true],
+      ['grok', undefined],
+    ])
+  })
+
   test('a teammate never sees another member’s local agent', async () => {
     expect(await listOwnLocalRuntimes('t1', 'teammate', deps)).toEqual([])
   })
