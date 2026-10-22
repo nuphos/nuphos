@@ -1,3 +1,4 @@
+import { pendingCodexFileCitationStart, rewriteCodexFileCitations } from './codex-file-citations'
 import { redactSignedTokens } from './mcp-token'
 import { previewTextMetadata } from './preview-text-metadata'
 
@@ -30,6 +31,10 @@ function pendingTokenStart(text: string): number {
 
   return Math.min(text.length, ...starts)
 }
+
+const clean = (text: string) => rewriteCodexFileCitations(redactSignedTokens(text))
+const pendingStart = (text: string) =>
+  Math.min(pendingTokenStart(text), pendingCodexFileCitationStart(text))
 
 const sameOwner = (a?: PreviewTextMetadata, b?: PreviewTextMetadata) =>
   a?.messageId === b?.messageId && a?.phase === b?.phase
@@ -75,10 +80,10 @@ function heldBack(emit: (text: string, metadata?: PreviewTextMetadata) => void) 
         else owners.push({ length: text.length, metadata })
       }
       const raw = sent + held + text
-      const all = redactSignedTokens(raw)
+      const all = clean(raw)
       const fresh = all.startsWith(sent) ? all.slice(sent.length) : all
       const context = all.startsWith(sent) ? sent : ''
-      const cut = Math.max(0, pendingTokenStart(context + fresh) - context.length)
+      const cut = Math.max(0, pendingStart(context + fresh) - context.length)
 
       if (all !== raw) replaceOwners(fresh.length, Boolean(sent) && !context)
       held = fresh.slice(cut)
@@ -91,7 +96,7 @@ function heldBack(emit: (text: string, metadata?: PreviewTextMetadata) => void) 
       const rest = held
 
       held = ''
-      const safe = redactSignedTokens(rest)
+      const safe = clean(rest)
 
       if (safe !== rest) replaceOwners(safe.length)
       if (safe) consume(safe, false)
@@ -107,8 +112,9 @@ const turnEnds = (update: OpenAbSessionUpdate) =>
 
 /**
  * Wraps a session-update handler so streamed agent text and thoughts never
- * carry a backend token, even one split across chunks. Only text that may
- * begin a token is held, and it stays held across other updates until the
+ * carry a backend token, even one split across chunks, and Codex file
+ * citations arrive as Markdown links. Only text that may begin a token or a
+ * citation is held, and it stays held across other updates until the
  * token resolves, the turn ends, or flush() is called.
  */
 export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => void) {
