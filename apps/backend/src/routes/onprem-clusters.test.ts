@@ -7,6 +7,7 @@ import { Hono } from 'hono'
 import { MongoServerError } from 'mongodb'
 
 import { errorHandler } from '@/lib/errors'
+import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useRelayToken } from '@/lib/test/doubles/byos-relay-token'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useModels } from '@/lib/test/doubles/models'
@@ -63,6 +64,19 @@ useModels({
 // not billing, so hand them a grandfathered workspace — the one population
 // that resolves to "no limit" regardless of whether Stripe is configured, so
 
+// The route's own authorisation is not what these tests are about; team scoping
+// is exercised where the middleware lives.
+useAuthMiddleware({
+  // Admits everyone but keeps the roles on the gate, which the route table reads.
+  requireTeamRole: (...teamRoles) =>
+    Object.assign(
+      async (_c: unknown, next: () => Promise<void>) => {
+        await next()
+      },
+      { teamRoles },
+    ),
+})
+
 useByosSecrets({
   encryptOnpremKubeconfig: () => ({
     v: 1,
@@ -109,7 +123,6 @@ function app() {
   outer.use('*', async (c, next) => {
     c.set('teamId', TEAM)
     c.set('userId', USER)
-    c.set('teamRole', 'ADMINISTRATOR')
     await next()
   })
   outer.route('/', onpremClustersRoutes)

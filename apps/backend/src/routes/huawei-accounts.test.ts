@@ -8,6 +8,7 @@ import { Hono } from 'hono'
 import { MongoServerError, ObjectId } from 'mongodb'
 
 import { errorHandler } from '@/lib/errors'
+import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosHuawei } from '@/lib/test/doubles/byos-huawei'
 import { useModels } from '@/lib/test/doubles/models'
 
@@ -47,6 +48,17 @@ useModels({
       return { matchedCount: 1, modifiedCount: 1, upsertedId: null }
     },
   }),
+})
+
+useAuthMiddleware({
+  // Admits everyone but keeps the roles on the gate, which the route table reads.
+  requireTeamRole: (...teamRoles) =>
+    Object.assign(
+      async (_c: unknown, next: () => Promise<void>) => {
+        await next()
+      },
+      { teamRoles },
+    ),
 })
 
 useByosHuawei({
