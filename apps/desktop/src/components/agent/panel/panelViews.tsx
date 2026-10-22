@@ -20,6 +20,7 @@ import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
 import { waitingMessages } from './queuedAutoSend'
 import { QueuedStrip } from './QueuedStrip'
+import { serverHasConversation } from './sessionActions'
 
 import type { PanelViewCtx } from './ctx'
 import type { Message } from './model'
@@ -83,7 +84,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     [currentUserId, editableSessionId, foreignChat, forkConversation],
   )
   const modelSession =
-    activeTab?.sessionId && !activeTab.foreign && teamId
+    activeTab?.sessionId && !activeTab.foreign && teamId && serverHasConversation(activeTab)
       ? {
           sessionId: activeTab.sessionId,
           teamId,

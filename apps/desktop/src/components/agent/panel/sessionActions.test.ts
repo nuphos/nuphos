@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { sessionActionGates } from './sessionActions.ts'
+import { serverHasConversation, sessionActionGates } from './sessionActions.ts'
 
 test('an unsaved fork offers no session actions', () => {
   assert.deepEqual(sessionActionGates({ sessionId: 'fork-1', readOnly: false, unsaved: true }), {
@@ -56,4 +56,16 @@ test('watching is reported only for a saved chat', () => {
     sessionActionGates({ sessionId: 'fork-2', unsaved: true, watching: true }).watching,
     undefined,
   )
+})
+
+test('a new chat reads its model settings only once the server has its conversation', () => {
+  const asked = { id: 'u', role: 'user' as const, parts: [] }
+  const answered = { id: 'a', role: 'assistant' as const, parts: [] }
+
+  // Sent, but the stream has not started: the conversation may not exist yet.
+  assert.equal(serverHasConversation({ connected: false, messages: [asked] }), false)
+  // The stream started, so the backend stored the conversation.
+  assert.equal(serverHasConversation({ connected: true, messages: [asked] }), true)
+  // A later turn reconnects, but a reply proves the conversation exists.
+  assert.equal(serverHasConversation({ connected: false, messages: [asked, answered] }), true)
 })

@@ -21,3 +21,10 @@ export function sessionActionGates(tab: GateTab | null | undefined) {
     watching: saved ? tab?.watching : undefined,
   }
 }
+
+/** A new chat's conversation is stored with its first turn. Until the server
+ *  answers (its stream starts, or a reply is on record), reading the
+ *  conversation's settings finds nothing. */
+export function serverHasConversation(tab: Pick<Tab, 'connected' | 'messages'>) {
+  return tab.connected || tab.messages.some((message) => message.role === 'assistant')
+}
