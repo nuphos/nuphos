@@ -29,13 +29,26 @@ struct PushTarget: Equatable, Hashable, Identifiable {
 }
 
 /// APNs registration and notification routing. The device token is sent to
-/// the backend once someone is signed in; a tapped notification becomes
-/// `pendingTarget` for the Agent page to open.
+/// the backend once someone is signed in; a tapped notification or link
+/// becomes `pendingTarget` for the Agent page to open, or `pendingPlan`.
 @Observable
 final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     static let shared = PushNotifications()
 
     var pendingTarget: PushTarget?
+    var pendingPlan: PlanLink.Target?
+
+    /// Shows a nuphos.ai page in-app — a link tapped in a chat or one that
+    /// opened the app. False when the app has no screen for it.
+    @discardableResult
+    func open(_ url: URL) -> Bool {
+        switch AppLink(url) {
+        case .session(let teamId, let sessionId): pendingTarget = PushTarget(teamId: teamId, sessionId: sessionId)
+        case .plan(let plan): pendingPlan = plan
+        case nil: return false
+        }
+        return true
+    }
 
     @ObservationIgnored private var authToken: String?
     @ObservationIgnored private var deviceToken: String?
@@ -79,6 +92,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         let authToken = self.authToken
         self.authToken = nil
         pendingTarget = nil
+        pendingPlan = nil
         registeredPair = nil
         guard let authToken, let deviceToken else { return }
         try? await AgentChatAPI.unregisterPushDevice(token: authToken, deviceToken: deviceToken)

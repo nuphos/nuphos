@@ -462,3 +462,23 @@ private struct PlanStepDisclosure: View {
         }
     }
 }
+
+/// A linked plan over whatever is on screen — from a chat, or a link that
+/// opened the app. A chat passes its own `approve` and hides the chat actions.
+struct PlanLinkSheet: View {
+    let target: PlanLink.Target
+    var approve: ((Plan) async throws -> Plan)?
+    let done: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            PlanDetailView(planId: target.planId, teamId: target.teamId, approve: approve, showsChatActions: approve == nil)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done", action: done)
+                    }
+                }
+        }
+        .presentationDetents([.large])
+    }
+}

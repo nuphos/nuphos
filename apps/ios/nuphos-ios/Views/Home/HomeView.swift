@@ -25,6 +25,9 @@ struct HomeView: View {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
+                        .sheet(item: Bindable(PushNotifications.shared).pendingPlan) { target in
+                            PlanLinkSheet(target: target) { PushNotifications.shared.pendingPlan = nil }
+                        }
                         .environment(store)
                         .environment(plans)
                         .environment(connectors)

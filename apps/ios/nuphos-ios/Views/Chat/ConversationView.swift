@@ -180,20 +180,7 @@ struct ConversationView: View {
             }
         }
         .sheet(item: $planLink) { target in
-            NavigationStack {
-                PlanDetailView(
-                    planId: target.planId,
-                    teamId: target.teamId,
-                    approve: { plan in try await session.approvePlan(plan.id) },
-                    showsChatActions: false
-                )
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { planLink = nil }
-                    }
-                }
-            }
-            .presentationDetents([.large])
+            PlanLinkSheet(target: target, approve: { plan in try await session.approvePlan(plan.id) }) { planLink = nil }
         }
         .task {
             if session.isNew, let initialPrompt, !didSendInitial {
@@ -251,16 +238,13 @@ struct ConversationView: View {
         }
     }
 
-    /// Plan links open the plan here and session links open that chat the
-    /// way a tapped notification does; everything else leaves the app.
+    /// Plan links open the plan here, approved through this chat; other app
+    /// pages open the way a link from outside does; everything else leaves.
     private func open(link url: URL) {
-        if let target = PlanLink.target(in: url) {
-            planLink = target
-        } else if let link = SessionLink.target(in: url) {
-            guard link.sessionId != session.sessionId else { return }
-            PushNotifications.shared.pendingTarget = PushTarget(teamId: link.teamId, sessionId: link.sessionId)
-        } else {
-            openURL(url)
+        switch AppLink(url) {
+        case .plan(let target): planLink = target
+        case .session(_, session.sessionId): break
+        default: if !PushNotifications.shared.open(url) { openURL(url) }
         }
     }
 
