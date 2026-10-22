@@ -5,8 +5,17 @@
 //   :codex-followup[Label]{prompt="…"}
 //   ::code-comment{title="…" body="…" file="…" start=10 end=12}  (codex-security)
 //
-// They become the Markdown the Codex app's rendering corresponds to. The stored
-// message keeps the original text; directives in code, or after `\`, stay as written.
+// A remark plugin turns them into what the Codex app's rendering corresponds
+// to. It only reads prose text nodes, so code and inline code stay as written,
+// and the stored message keeps the original text.
+
+type Node = {
+  type: string
+  value?: string
+  url?: string
+  children?: Node[]
+  position?: { start: { offset?: number }; end: { offset?: number } }
+}
 
 type Attributes = Map<string, string>
 
@@ -14,43 +23,43 @@ const NAME = /[\w-]/
 
 /** Reads `{name="value" name='value' name=bare}` at `start` (the `{`); null unless well formed. */
 function readAttributes(
-  text: string,
+  source: string,
   start: number,
 ): { attributes: Attributes; end: number } | null {
   const attributes: Attributes = new Map()
   let i = start + 1
 
   for (;;) {
-    while (/\s/.test(text[i] ?? '')) i++
-    if (text[i] === '}') return { attributes, end: i + 1 }
+    while (/\s/.test(source[i] ?? '')) i++
+    if (source[i] === '}') return { attributes, end: i + 1 }
     const nameStart = i
 
-    while (NAME.test(text[i] ?? '')) i++
-    if (i === nameStart || text[i] !== '=') return null
-    const name = text.slice(nameStart, i)
-    const quote = text[++i]
+    while (NAME.test(source[i] ?? '')) i++
+    if (i === nameStart || source[i] !== '=') return null
+    const name = source.slice(nameStart, i)
+    const quote = source[++i]
     let value = ''
 
     if (quote === '"' || quote === "'") {
-      for (i++; i < text.length && text[i] !== quote; i++) {
-        if (text[i] === '\\' && text[i + 1] === quote) i++
-        value += text[i]
+      for (i++; i < source.length && source[i] !== quote; i++) {
+        if (source[i] === '\\' && source[i + 1] === quote) i++
+        value += source[i]
       }
-      if (i >= text.length) return null
+      if (i >= source.length) return null
       i++
     } else {
       const valueStart = i
 
-      while (i < text.length && !/[\s}]/.test(text[i] ?? '')) i++
-      value = text.slice(valueStart, i)
+      while (i < source.length && !/[\s}]/.test(source[i] ?? '')) i++
+      value = source.slice(valueStart, i)
     }
     attributes.set(name, value.trim())
   }
 }
 
-const escapeLabel = (label: string) => label.replace(/[\\[\]]/g, '\\$&')
+const text = (value: string): Node => ({ type: 'text', value })
 
-function citation(attributes: Attributes): string | null {
+function citation(attributes: Attributes): Node[] | null {
   const path = attributes.get('path')
 
   if (!path) return null
@@ -59,13 +68,12 @@ function citation(attributes: Attributes): string | null {
     attributes.get('label') ||
     attributes.get('title') ||
     (/^[a-z][\w+.-]*:\/\//i.test(path) ? path : (path.split('/').findLast(Boolean) ?? path))
-  const target = /[\s()<>]/.test(path) ? `<${path.replace(/[<>]/g, encodeURIComponent)}>` : path
 
-  return `[${escapeLabel(name)}](${target})`
+  return [{ type: 'link', url: path, children: [text(name)] }]
 }
 
-// The Codex TUI's fallback for a review comment.
-function codeComment(attributes: Attributes): string | null {
+// The Codex TUI's fallback for a review comment: title, location, then the body.
+function codeComment(attributes: Attributes): Node[] | null {
   const title = attributes.get('title')
   const body = attributes.get('body')
 
@@ -74,107 +82,100 @@ function codeComment(attributes: Attributes): string | null {
   const [start, end] = [attributes.get('start'), attributes.get('end')]
   const lines = start && end && end !== start ? `${start}-${end}` : start
   const where = file && lines ? `${file}:${lines}` : file
-  const location = where ? ` — ${where}` : ''
 
-  return `- ${title}${location}\n\n  ${body.replace(/\n/g, '\n  ')}`
+  return [
+    { type: 'strong', children: [text(title)] },
+    ...(where ? [text(` — ${where}`)] : []),
+    { type: 'break' },
+    text(body),
+  ]
 }
 
-/** Directive at `i` (its first `:`), as replacement Markdown and the index after it. */
-function directiveAt(text: string, i: number, lineStart: boolean) {
-  if (text.startsWith(':codex-file-citation{', i)) {
-    const read = readAttributes(text, i + ':codex-file-citation'.length)
-    const markdown = read && citation(read.attributes)
+const startsLine = (source: string, at: number) =>
+  /^[ \t]*$/.test(source.slice(source.lastIndexOf('\n', at - 1) + 1, at))
 
-    return read && markdown ? { markdown, end: read.end } : null
+/** The directive starting at `at` in the source, as nodes and the offset after it. */
+function directiveAt(source: string, at: number): { nodes: Node[]; end: number } | null {
+  let read: ReturnType<typeof readAttributes> = null
+  let nodes: Node[] | null = null
+
+  if (source.startsWith(':codex-file-citation{', at)) {
+    read = readAttributes(source, at + ':codex-file-citation'.length)
+    nodes = read && citation(read.attributes)
+  } else if (source.startsWith(':codex-followup[', at)) {
+    const close = source.indexOf(']', at)
+    const label = source.slice(at + ':codex-followup['.length, close)
+
+    if (close > 0 && label.trim() && !label.includes('\n') && source[close + 1] === '{') {
+      read = readAttributes(source, close + 1)
+      nodes = [text(label)]
+    }
+  } else if (source.startsWith('::code-comment{', at) && startsLine(source, at)) {
+    read = readAttributes(source, at + '::code-comment'.length)
+    nodes = read && codeComment(read.attributes)
   }
-  if (text.startsWith(':codex-followup[', i)) {
-    const close = text.indexOf(']', i)
-    const label = close < 0 ? '' : text.slice(i + ':codex-followup['.length, close)
 
-    if (!label.trim() || label.includes('\n') || text[close + 1] !== '{') return null
-    const read = readAttributes(text, close + 1)
-
-    return read && { markdown: label, end: read.end }
-  }
-  if (lineStart && text.startsWith('::code-comment{', i)) {
-    const read = readAttributes(text, i + '::code-comment'.length)
-    const markdown = read && codeComment(read.attributes)
-
-    return read && markdown ? { markdown, end: read.end } : null
-  }
-
-  return null
+  return read && nodes ? { nodes, end: read.end } : null
 }
 
-/** Rewrites Codex app directives outside code into plain Markdown. */
-export function renderCodexDirectives(markdown: string): string {
-  if (!markdown.includes(':codex-') && !markdown.includes('::code-comment{')) return markdown
-  let output = ''
-  let fence = ''
-  let inline = 0
-  // Leading whitespace columns on the current line, or -1 once other text appeared.
-  let lead = 0
-  // The line began with 4+ columns of whitespace: possibly indented code, left as written.
-  let indented = false
-  let previous = ''
-  let i = 0
+// GFM turns a citation's URL path into a link, so a directive can span these.
+const PROSE = new Set(['text', 'link', 'break'])
 
-  while (i < markdown.length) {
-    const char = markdown[i] ?? ''
-    let next = i + 1
+/** Replaces the first directive found in `children[i]`, a text node. */
+function replaceIn(children: Node[], i: number, source: string) {
+  const node = children[i]
+  const start = node?.position?.start.offset
+  const value = node?.value ?? ''
 
-    if (fence) {
-      if (char === fence[0] && lead >= 0 && lead < 4) {
-        next = markdown.indexOf('\n', i)
-        if (next < 0) next = markdown.length
-        const line = markdown.slice(i, next)
-        let run = 0
+  if (node?.type !== 'text' || start === undefined) return
+  for (let k = value.indexOf(':'); k >= 0; k = value.indexOf(':', k + 1)) {
+    // Offsets hold only while the text matches its source (no escapes or entities before it).
+    if (value.slice(0, k) !== source.slice(start, start + k)) return
+    const at = start + k
+    const directive = source[at - 1] === ':' ? null : directiveAt(source, at)
 
-        while (line[run] === char) run++
-        if (run >= fence.length && !line.slice(run).trim()) fence = ''
-      }
-    } else if ((char === '`' || char === '~') && previous !== '\\') {
-      while (markdown[next] === char) next++
-      const run = markdown.slice(i, next)
+    if (!directive) continue
+    let j = i
 
-      if (lead >= 0 && lead < 4 && !inline && run.length >= 3) fence = run
-      else if (char === '`') inline = inline === run.length ? 0 : inline || run.length
-    } else if (
-      char === ':' &&
-      !inline &&
-      !indented &&
-      lead < 4 &&
-      previous !== '\\' &&
-      previous !== ':'
-    ) {
-      const directive = directiveAt(markdown, i, lead >= 0)
+    while ((children[j]?.position?.end.offset ?? Infinity) < directive.end) j++
+    const last = children[j]
+    const lastEnd = last?.position?.end.offset ?? -1
+    const rest = source.slice(directive.end, lastEnd)
 
-      if (directive) {
-        output += directive.markdown
-        lead = -1
-        previous = ')'
-        i = directive.end
-        continue
-      }
-    }
-    const text = markdown.slice(i, next)
+    if (
+      !children.slice(i, j + 1).every((child) => PROSE.has(child.type)) ||
+      (last?.type === 'text' ? !(last.value ?? '').endsWith(rest) : rest !== '')
+    )
+      continue
+    const tail = { start: { offset: directive.end }, end: { offset: lastEnd } }
 
-    output += text
-    for (const c of text) {
-      // A blank line ends a paragraph, and with it any unclosed code span.
-      if (c === '\n' && previous === '\n') inline = 0
-      if (c === '\n') {
-        lead = 0
-        indented = false
-      } else if (lead >= 0 && (c === ' ' || c === '\t')) lead += c === '\t' ? 4 - (lead % 4) : 1
-      else if (lead >= 0) {
-        indented = lead >= 4
-        lead = -1
-      }
-      previous = c === '\\' && previous === '\\' ? '' : c
-    }
-    i = next
+    children.splice(
+      i,
+      j - i + 1,
+      ...(k ? [text(value.slice(0, k))] : []),
+      ...directive.nodes,
+      ...(rest ? [{ ...text(rest), position: tail }] : []),
+    )
+
+    return
   }
+}
 
-  return output
+function visit(node: Node, source: string) {
+  // Code is its own node type; an explicit link keeps its label as written.
+  if (!node.children || node.type === 'link' || node.type === 'linkReference') return
+  // Text after a replaced directive is a new node later in the list, scanned in turn.
+  for (let i = 0; i < node.children.length; i++) {
+    replaceIn(node.children, i, source)
+    visit(node.children[i] as Node, source)
+  }
+}
+
+/** Remark plugin: Codex app directives in prose become plain Markdown nodes. */
+export function remarkCodexDirectives() {
+  return (tree: Node, file: { value: unknown }) => {
+    const source = String(file.value)
+
+    if (source.includes(':codex-') || source.includes('::code-comment{')) visit(tree, source)
+  }
 }
