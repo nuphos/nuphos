@@ -111,6 +111,13 @@ enum ChatRowTests {
             canonical.metadata = .object(["version": .number(1), "sender": .object(["displayName": .string("Teammate"), "avatarURL": .string(bad)])])
             precondition(canonical.sender?.avatar == nil)
         }
+        // A photo uploaded to the signed-in backend, a user's or an agent token's.
+        let api = URL(string: "https://api.nuphos.ai")!
+        let uploaded = "https://api.nuphos.ai/avatars/\(String(repeating: "a", count: 24))/\(String(repeating: "b", count: 64)).webp"
+        precondition(ChatMessage.Sender(name: "Grok Bot", avatarURL: uploaded, apiBase: api).avatar != nil)
+        for bad in [uploaded + "?x=1", uploaded.replacingOccurrences(of: "api.nuphos.ai", with: "evil.example"), "https://api.nuphos.ai/avatars/x.webp", "https://api.nuphos.ai/teams/a/avatar.webp"] {
+            precondition(ChatMessage.Sender(name: "Grok Bot", avatarURL: bad, apiBase: api).avatar == nil)
+        }
         canonical.metadata = nil
         precondition(canonical.sender == nil)
         // An agent token's message names the bot and the user it acts for.

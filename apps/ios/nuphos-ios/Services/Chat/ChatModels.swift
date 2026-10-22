@@ -27,14 +27,23 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         let name: String
         let avatar: URL?
 
-        /// Only avatar hosts the transcript trusts are loaded.
-        init(name: String, avatarURL raw: String) {
+        /// Only avatar hosts the transcript trusts are loaded: Google's profile
+        /// CDN, or a photo uploaded to the backend this app is signed in to.
+        init(name: String, avatarURL raw: String, apiBase: URL = NuphosAPI.baseURL) {
             self.name = name
             avatar = URL(string: raw).flatMap { value -> URL? in
-                guard raw.count <= 2048, value.scheme == "https", value.user == nil, value.password == nil, value.port == nil,
+                guard raw.count <= 2048, value.user == nil, value.password == nil else { return nil }
+                if Self.isUploaded(value, apiBase: apiBase) { return value }
+                guard value.scheme == "https", value.port == nil,
                       ["lh3.googleusercontent.com", "lh4.googleusercontent.com", "lh5.googleusercontent.com", "lh6.googleusercontent.com"].contains(value.host ?? "") else { return nil }
                 return value
             }
+        }
+
+        private static func isUploaded(_ url: URL, apiBase: URL) -> Bool {
+            guard url.scheme == apiBase.scheme, url.host == apiBase.host, url.port == apiBase.port,
+                  url.query == nil, url.fragment == nil else { return false }
+            return url.path.range(of: "^/avatars/[0-9a-f]{24}/[0-9a-f]{64}\\.webp$", options: .regularExpression) != nil
         }
     }
 
