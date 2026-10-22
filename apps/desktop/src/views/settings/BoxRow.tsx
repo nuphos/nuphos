@@ -14,6 +14,7 @@ import { visibleAgent } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { openBoxDesktop } from './boxDesktop'
+import { BoxHostUpdate } from './BoxHostUpdate'
 import { BoxMetrics } from './BoxMetrics'
 import { AccessHint, AgentTile, LiveDot, MachineIcon, MachineLine, NewAgentMenu } from './BoxParts'
 import { openBoxPaywall } from './boxPaywallStore'
@@ -111,6 +112,7 @@ export function BoxRow({
     settingUp || restart !== undefined || (state === 'running' && agents.length === 0)
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
+  const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0] : undefined
 
   return (
     <li className="flex h-[240px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
@@ -186,6 +188,20 @@ export function BoxRow({
           {restart ? boxRestartLabel(restart.kind) : badge.label}
         </span>
         <AccessHint device={device} />
+        {hostAgent && (
+          <BoxHostUpdate
+            teamId={teamId}
+            boxLabel={device.label}
+            runtimeId={hostAgent.id}
+            busy={busy}
+            onUpdate={() =>
+              void act('Could not update Box', async (deviceId, team) => {
+                await api.atlasRequestRuntimeUpdate(team, hostAgent.id)
+                boxRestarts.start(deviceId, team, 'update')
+              })
+            }
+          />
+        )}
       </div>
       <MachineLine device={device} thisComputer={thisComputer} dim={dim} />
       {manage && away ? (
