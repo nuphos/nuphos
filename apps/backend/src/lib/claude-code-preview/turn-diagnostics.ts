@@ -1,10 +1,11 @@
+import { turnDiagnosticsSchema } from '@/lib/agent/turn-diagnostics-schema'
+import { redactSecrets } from '@/lib/journal/redact'
+import { errorMessage } from '@/lib/observability-sanitize'
+
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 
 import type { PreviewToolStep } from './preview-transcript'
 import type { TurnDiagnostics } from '@/lib/agent/turn-diagnostics-schema'
-
-import { turnDiagnosticsSchema } from '@/lib/agent/turn-diagnostics-schema'
-import { errorMessage } from '@/lib/observability-sanitize'
 
 /** A backend deadline, with the actual configured window rather than a guessed default. */
 export class OpenAbTimeoutError extends Error {
@@ -15,6 +16,17 @@ export class OpenAbTimeoutError extends Error {
   ) {
     super(message)
     this.name = 'OpenAbTimeoutError'
+  }
+}
+
+/** A failed read before prompt dispatch, with a safe message and the original diagnostic cause. */
+export class RuntimeStateProbeError extends Error {
+  constructor(cause: unknown) {
+    super(
+      `Could not check the agent's state: ${redactSecrets(errorMessage(cause)).redacted.slice(0, 2000)}`,
+      { cause },
+    )
+    this.name = 'RuntimeStateProbeError'
   }
 }
 
@@ -33,7 +45,7 @@ export function turnDiagnostics(args: {
   toolSteps: PreviewToolStep[]
 }): TurnDiagnostics {
   const endedAt = args.endedAt ?? Date.now()
-  const error = args.error
+  const error = args.error instanceof RuntimeStateProbeError ? args.error.cause : args.error
   const message = error === undefined ? '' : errorMessage(error)
   // Older runtime wording proves the layer, not elapsed-time vs silence semantics.
   const runtimeTimeout = /Agent exceeded hard timeout \((\d+)s\)/u.exec(message)

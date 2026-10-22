@@ -1,3 +1,6 @@
+import { liveAttachment } from '@/lib/agent/db/shared'
+import { AppError } from '@/lib/errors'
+
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { abandonPendingPreviewWaits } from './decision-waiter'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
@@ -6,14 +9,10 @@ import { OpenAbRpcError } from './openab-acp-errors'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { rememberRuntimeState } from './runtime-state-store'
+import { withSessionDesktops } from './session-desktops'
 import { steeringText } from './steering-receipt'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
-import { liveAttachment } from '@/lib/agent/db/shared'
-import { AppError } from '@/lib/errors'
-
-import { withSessionDesktops } from './session-desktops'
-
 import type { AgentConversation } from '@/lib/agent/db'
 
 /** No live session to report on: the next prompt starts or restores one. */
@@ -40,10 +39,18 @@ type ExecutionStateConversation = Pick<
 export async function conversationExecutionState(
   conversation: ExecutionStateConversation,
 ): Promise<SessionExecutionState> {
-  return withSessionDesktops(await probeExecutionState(conversation), conversation)
+  const state = await probeExecutionState(conversation).catch(
+    (error: unknown): SessionExecutionState => ({
+      state:
+        error instanceof OpenAbRpcError && error.code === -32601 ? 'unsupported' : 'disconnected',
+    }),
+  )
+
+  return withSessionDesktops(state, conversation)
 }
 
-async function probeExecutionState(
+/** Prompt admission must retain probe failures rather than treating them as runtime state. */
+export async function probeExecutionState(
   conversation: ExecutionStateConversation,
 ): Promise<SessionExecutionState> {
   const attachment = liveAttachment(conversation)
@@ -88,11 +95,6 @@ async function probeExecutionState(
       return { ...state, actions: { ...state.actions, send: true } }
 
     return state
-  } catch (error) {
-    return {
-      state:
-        error instanceof OpenAbRpcError && error.code === -32601 ? 'unsupported' : 'disconnected',
-    }
   } finally {
     client?.close()
   }

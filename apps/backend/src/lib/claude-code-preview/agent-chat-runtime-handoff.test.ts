@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
-import { registry, sessionsByConversation } from './agent-chat-registry'
-import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
-
-import type { TeamPreviewClient } from './team-openab-runtime'
-
 import { RunHandoff } from '@/lib/lifecycle'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
+
+import { registry, sessionsByConversation } from './agent-chat-registry'
+import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
+
+import type { TeamPreviewClient } from './team-openab-runtime'
 
 const endpoint = {
   url: 'wss://runtime.invalid/acp',
@@ -51,7 +51,7 @@ useAgentDb({
 })
 useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })
 useSessionExecutionState({
-  conversationExecutionState: async () => ({ schemaVersion: 2, actions: { send: true } }),
+  probeExecutionState: async () => ({ schemaVersion: 2, actions: { send: true } }),
 })
 
 beforeEach(() => {

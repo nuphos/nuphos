@@ -11,6 +11,7 @@ import { logError } from '@/lib/observability'
 import { CodexTurnFailedError } from './codex-turn-failure'
 import { OpenAbConnectionLostError, runtimeProductStateMessage } from './openab-acp-errors'
 import { attributeReceipt } from './steering-receipt'
+import { RuntimeStateProbeError } from './turn-diagnostics'
 
 import type { PreviewTextMetadata } from './preview-agent-update'
 import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
@@ -74,7 +75,13 @@ export function classifyPreviewInterruption(
         ? 'timeout'
         : 'error'
 
-  return { reason, message: INTERRUPTION_MESSAGES[reason] }
+  return {
+    reason,
+    message:
+      !aborted && error instanceof RuntimeStateProbeError
+        ? error.message
+        : INTERRUPTION_MESSAGES[reason],
+  }
 }
 
 /** Steps still waiting on output when the turn died, marked as failed. */

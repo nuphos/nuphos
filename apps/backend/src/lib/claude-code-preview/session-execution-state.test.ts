@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test'
 
-import { conversationExecutionState } from './session-execution-state'
+import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
+
+import { conversationExecutionState, probeExecutionState } from './session-execution-state'
 
 import type { AgentConversation } from '@/lib/agent/db'
-
-import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 
 let endpoint = ''
 
@@ -153,3 +153,66 @@ test('a conversation moved before the fix is read the same way', async () => {
   expect(snapshot.state).toBe('dormant')
   expect(snapshot.actions?.send).toBe(true)
 })
+
+for (const [failure, message] of [
+  ['timeout', 'OpenAB ACP _openab/session/state timed out'],
+  ['invalid snapshot', 'Invalid runtime execution snapshot'],
+  ['unsupported RPC', 'Method not found'],
+] as const) {
+  test(`admission preserves ${failure} while status readers retain their fallback`, async () => {
+    const methods: string[] = []
+    const server = Bun.serve({
+      port: 0,
+      fetch(request, socketServer) {
+        if (socketServer.upgrade(request)) return
+
+        return new Response('upgrade required', { status: 400 })
+      },
+      websocket: {
+        message(ws, data) {
+          const frame = JSON.parse(String(data))
+
+          methods.push(frame.method)
+          if (frame.method === 'initialize') {
+            ws.send(
+              JSON.stringify({ jsonrpc: '2.0', id: frame.id, result: { protocolVersion: 1 } }),
+            )
+          } else if (failure === 'unsupported RPC') {
+            ws.send(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: frame.id,
+                error: { code: -32601, message: 'Method not found' },
+              }),
+            )
+          } else if (failure === 'invalid snapshot') {
+            ws.send(JSON.stringify({ jsonrpc: '2.0', id: frame.id, result: { state: 'idle' } }))
+          }
+          // timeout: the runtime is connected, but never answers the state query.
+        },
+      },
+    })
+
+    endpoint = `ws://127.0.0.1:${String(server.port)}/acp`
+    const conversation = {
+      sessionId: 'probe-failure',
+      teamId: 'team',
+      agentRuntime: 'claude-code',
+    } as AgentConversation
+
+    try {
+      await expect(probeExecutionState(conversation)).rejects.toThrow(message)
+      expect(await conversationExecutionState(conversation)).toEqual({
+        state: failure === 'unsupported RPC' ? 'unsupported' : 'disconnected',
+      })
+      expect(methods).toEqual([
+        'initialize',
+        '_openab/session/state',
+        'initialize',
+        '_openab/session/state',
+      ])
+    } finally {
+      await server.stop(true)
+    }
+  }, 10_000)
+}

@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useDb } from '@/lib/test/doubles/db'
+import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
+
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { SESSION_CONTEXT_REFRESH_MS, runClaudeCodePreviewPrompt } from './agent-chat-runtime'
 
 import type { PromptSessionContext } from './openab-acp-session'
 import type { TeamPreviewClient } from './team-openab-runtime'
-
-import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useDb } from '@/lib/test/doubles/db'
-import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
 const endpoint = {
   url: 'wss://runtime.invalid/acp',
@@ -61,7 +61,7 @@ useAgentDb({
 })
 useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })
 useSessionExecutionState({
-  conversationExecutionState: async () => ({ schemaVersion: 2, actions: { send: true } }),
+  probeExecutionState: async () => ({ schemaVersion: 2, actions: { send: true } }),
 })
 
 function placeSession(contextDeliveredAt: number) {
@@ -149,7 +149,7 @@ test('a runtime that renews credentials mid-turn gets a short-lived token', asyn
   }
 
   placeSession(Date.now())
-  acquire.mockResolvedValue(renewing as TeamPreviewClient)
+  acquire.mockResolvedValue(renewing)
   await runClaudeCodePreviewPrompt({
     teamId: 'team',
     conversationId: 'conversation',

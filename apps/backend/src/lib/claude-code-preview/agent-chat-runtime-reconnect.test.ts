@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
-import { registry, sessionsByConversation } from './agent-chat-registry'
-import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
-import { OpenAbRpcError } from './openab-acp-errors'
-
-import type { TeamPreviewClient } from './team-openab-runtime'
-
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
+
+import { registry, sessionsByConversation } from './agent-chat-registry'
+import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
+import { OpenAbRpcError } from './openab-acp-errors'
+import { classifyPreviewInterruption } from './preview-transcript'
+import { OpenAbTimeoutError, RuntimeStateProbeError, turnDiagnostics } from './turn-diagnostics'
+
+import type { TeamPreviewClient } from './team-openab-runtime'
 
 const endpoint = {
   url: 'wss://runtime.invalid/acp',
@@ -24,6 +26,7 @@ let loaded = false
 let loadedPrompt: string | undefined
 let prompted: string | undefined
 let promptError: Error | undefined
+let probeError: Error | undefined
 const noop = () => {}
 const replacement = {
   getSessionExecutionState: () => {
@@ -69,9 +72,10 @@ useAgentDb({
 })
 useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })
 useSessionExecutionState({
-  conversationExecutionState: async (conversation) => {
+  probeExecutionState: async (conversation) => {
     expect(conversation.claudeCodePreview).toEqual(attachment)
     calls.push('observe-control')
+    if (probeError) throw probeError
 
     return {
       schemaVersion: 2,
@@ -86,6 +90,7 @@ beforeEach(() => {
   loaded = false
   prompted = undefined
   promptError = undefined
+  probeError = undefined
   sendAllowed = true
   phase = undefined
   phaseAfterLoad = undefined
@@ -244,4 +249,47 @@ test('changed identity instructions reload an already attached session before pr
   expect(await run('new identity instructions')).toEqual({ stopReason: 'end_turn' })
   expect(calls).toEqual(['observe-control', 'load', 'prompt'])
   expect(loadedPrompt).toBe('new identity instructions')
+})
+
+for (const [name, error, diagnostics] of [
+  [
+    'timeout',
+    new OpenAbTimeoutError('OpenAB ACP _openab/session/state timed out', 'call-deadline', 3000),
+    { source: 'backend', timeoutKind: 'call-deadline', timeoutMs: 3000 },
+  ],
+  ['invalid snapshot', new Error('Invalid runtime execution snapshot'), { source: 'unknown' }],
+  [
+    'unsupported RPC',
+    new OpenAbRpcError('Method not found', -32601),
+    { source: 'runtime', errorCode: -32601 },
+  ],
+] as const) {
+  test(`the ${name} probe failure reaches the transcript and diagnostics without sending a prompt`, async () => {
+    probeError = error
+    const failure = await run().catch((cause: unknown) => cause)
+
+    expect(failure).toBeInstanceOf(RuntimeStateProbeError)
+    expect((failure as Error).cause).toBe(error)
+    expect(classifyPreviewInterruption(failure, false)).toEqual({
+      reason: name === 'timeout' ? 'timeout' : 'error',
+      message: `Could not check the agent's state: ${error.message}`,
+    })
+    expect(
+      turnDiagnostics({ streamId: 'run', startedAt: 1000, error: failure, toolSteps: [] }),
+    ).toMatchObject({
+      ...diagnostics,
+      error: error.message,
+    })
+    expect(calls).toEqual(['observe-control'])
+  })
+}
+
+test('a probe failure is redacted before display and cancellation still takes precedence', async () => {
+  probeError = new Error('Authorization: Bearer abcdefghijklmnopqrstuvwxyz')
+  const failure = await run().catch((cause: unknown) => cause)
+
+  expect(classifyPreviewInterruption(failure, false).message).not.toContain(
+    'abcdefghijklmnopqrstuvwxyz',
+  )
+  expect(classifyPreviewInterruption(failure, true).reason).toBe('cancelled')
 })

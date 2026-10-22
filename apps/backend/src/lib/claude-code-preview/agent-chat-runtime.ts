@@ -19,7 +19,7 @@ import {
 } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
 import { previewSessionPrincipalChanged, sessionContextStale } from './session-context'
-import { conversationExecutionState } from './session-execution-state'
+import { probeExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
   MAX_PREVIEW_CONVERSATION_ID_LENGTH,
@@ -27,6 +27,7 @@ import {
   previewRuntimeCwd,
 } from './team-openab-runtime'
 import { RENEWED_TOKEN_TTL_SEC, renewTurnCredentials } from './turn-credential-renewal'
+import { RuntimeStateProbeError } from './turn-diagnostics'
 
 import type { previewSessionAccess } from './credentials-mcp'
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
@@ -121,7 +122,7 @@ export async function runClaudeCodePreviewPrompt(args: {
 
   // Query runtime admission without attaching a replacement prompt socket.
   const observe = () =>
-    conversationExecutionState({
+    probeExecutionState({
       teamId: session.teamId,
       sessionId: session.conversationId,
       userId: session.conversationOwnerUserId ?? session.userId,
@@ -131,6 +132,8 @@ export async function runClaudeCodePreviewPrompt(args: {
         runtimeUrl: session.endpoint.url,
         openabSessionId: session.openabSessionId,
       },
+    }).catch((cause: unknown) => {
+      throw new RuntimeStateProbeError(cause)
     })
   const observed = await observe()
 
