@@ -198,7 +198,7 @@ export function NewAgentMenu({
         render={<Button size="sm" variant="secondary" className="h-10" />}
       >
         <Plus className="h-3.5 w-3.5" />
-        New Runtime
+        New runtime
       </MenuTrigger>
       <MenuContent align="start">
         {PROVIDERS.map((provider) => (
