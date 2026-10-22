@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.88.2",
+  "version": "0.88.3",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
