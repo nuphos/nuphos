@@ -1,4 +1,4 @@
-import { pendingCodexFileCitationStart, rewriteCodexFileCitations } from './codex-file-citations'
+import { codexFileCitationScanner } from './codex-file-citations'
 import { redactSignedTokens } from './mcp-token'
 import { previewTextMetadata } from './preview-text-metadata'
 
@@ -31,10 +31,6 @@ function pendingTokenStart(text: string): number {
 
   return Math.min(text.length, ...starts)
 }
-
-const clean = (text: string) => rewriteCodexFileCitations(redactSignedTokens(text))
-const pendingStart = (text: string) =>
-  Math.min(pendingTokenStart(text), pendingCodexFileCitationStart(text))
 
 const sameOwner = (a?: PreviewTextMetadata, b?: PreviewTextMetadata) =>
   a?.messageId === b?.messageId && a?.phase === b?.phase
@@ -80,10 +76,10 @@ function heldBack(emit: (text: string, metadata?: PreviewTextMetadata) => void) 
         else owners.push({ length: text.length, metadata })
       }
       const raw = sent + held + text
-      const all = clean(raw)
+      const all = redactSignedTokens(raw)
       const fresh = all.startsWith(sent) ? all.slice(sent.length) : all
       const context = all.startsWith(sent) ? sent : ''
-      const cut = Math.max(0, pendingStart(context + fresh) - context.length)
+      const cut = Math.max(0, pendingTokenStart(context + fresh) - context.length)
 
       if (all !== raw) replaceOwners(fresh.length, Boolean(sent) && !context)
       held = fresh.slice(cut)
@@ -96,11 +92,34 @@ function heldBack(emit: (text: string, metadata?: PreviewTextMetadata) => void) 
       const rest = held
 
       held = ''
-      const safe = clean(rest)
+      const safe = redactSignedTokens(rest)
 
       if (safe !== rest) replaceOwners(safe.length)
       if (safe) consume(safe, false)
     },
+  }
+}
+
+// Each source message is its own Markdown document; a turn end closes the last.
+function citationLinks(emit: (text: string, metadata?: PreviewTextMetadata) => void) {
+  let scan = codexFileCitationScanner()
+  let owner: PreviewTextMetadata | undefined
+  const flush = () => {
+    const rest = scan('', true)
+
+    if (rest) emit(rest, owner)
+    scan = codexFileCitationScanner()
+  }
+
+  return {
+    push: (text: string, metadata?: PreviewTextMetadata) => {
+      if (!sameOwner(owner, metadata)) flush()
+      owner = metadata
+      const ready = scan(text)
+
+      if (ready) emit(ready, metadata)
+    },
+    flush,
   }
 }
 
@@ -113,19 +132,21 @@ const turnEnds = (update: OpenAbSessionUpdate) =>
 /**
  * Wraps a session-update handler so streamed agent text and thoughts never
  * carry a backend token, even one split across chunks, and Codex file
- * citations arrive as Markdown links. Only text that may begin a token or a
- * citation is held, and it stays held across other updates until the
+ * citations in agent text arrive as Markdown links. Only text that may begin
+ * a token or a citation is held, and it stays held across other updates until the
  * token resolves, the turn ends, or flush() is called.
  */
 export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => void) {
-  const text = heldBack((value, metadata) => {
+  const links = citationLinks((value, metadata) => {
     handler({ kind: 'text', text: value, ...metadata })
   })
+  const text = heldBack(links.push)
   const thought = heldBack((value) => {
     handler({ kind: 'agent', update: { kind: 'thought', text: value } })
   })
   const flush = () => {
     text.flush()
+    links.flush()
     thought.flush()
   }
 
