@@ -24,10 +24,16 @@ export async function triggerActor(
     get(key: 'teamId'): string | undefined
     get(key: 'conversationAgent'): { sessionId: string } | undefined
   }
-  const candidate =
-    typeof teamCandidate === 'string' && teamCandidate.trim()
-      ? teamCandidate.trim()
-      : variables.get('teamId')
+  const requested =
+    typeof teamCandidate === 'string' && teamCandidate.trim() ? teamCandidate.trim() : undefined
+  // Under /teams/:teamId the path team is the one the caller was authorized
+  // for; a different body or query team must not replace it.
+  const pathTeamId = variables.get('teamId')
+
+  if (pathTeamId && requested && requested !== pathTeamId) {
+    throw new AppError(403, 'team_out_of_scope', 'teamId does not match the team in the path')
+  }
+  const candidate = pathTeamId ?? requested
   const conversationAgent = variables.get('conversationAgent')
 
   if (!candidate) {

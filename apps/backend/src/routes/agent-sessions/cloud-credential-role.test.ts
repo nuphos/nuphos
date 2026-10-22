@@ -15,9 +15,9 @@ useCredentialRole({
   },
 })
 
-const { requireCloudCredentialRole } = await import('./shared')
+const { requireAgentWriteRole, requireCloudCredentialRole } = await import('./shared')
 
-function app(sender: string, owner: string) {
+function app(sender: string, owner: string, gate = requireCloudCredentialRole()) {
   const router = new Hono()
 
   router.use('*', async (c, next) => {
@@ -28,7 +28,7 @@ function app(sender: string, owner: string) {
     ctx.set('agent', { userId: sender, sessionId: 's', conversationOwnerUserId: owner })
     await next()
   })
-  router.use('*', requireCloudCredentialRole() as never)
+  router.use('*', gate as never)
   router.get('*', (c) => c.text('ok'))
 
   return router.onError(errorHandler)
@@ -52,5 +52,23 @@ describe('requireCloudCredentialRole', () => {
 
   test('leaves non-credential paths alone', async () => {
     expect((await app('viewer', 'viewer').request('/s/teams/team-1/plans')).status).toBe(200)
+  })
+
+  test('refuses a viewer joining the sandbox to a tailnet', async () => {
+    const path = '/s/teams/team-1/tailscale-clients/c/tailnet-sessions'
+
+    expect((await app('viewer', 'owner-editor').request(path)).status).toBe(403)
+  })
+
+  test('a connector write needs an editor sender and owner', async () => {
+    const path = '/s/teams/team-1/uptime-kuma-instances/i/monitors'
+
+    expect(
+      (await app('editor', 'owner-editor', requireAgentWriteRole()).request(path)).status,
+    ).toBe(200)
+    expect(
+      (await app('viewer', 'owner-editor', requireAgentWriteRole()).request(path)).status,
+    ).toBe(403)
+    expect((await app('editor', 'viewer', requireAgentWriteRole()).request(path)).status).toBe(403)
   })
 })

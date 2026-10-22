@@ -10,7 +10,7 @@ import {
   updateUptimeKumaMonitor,
 } from '@/lib/byos/uptime-kuma'
 import { zv } from '@/lib/validate'
-import { requireUptimeKumaMemberAccess } from '@/middleware/auth'
+import { requireUptimeKumaMemberAccess, requireTeamRole } from '@/middleware/auth'
 import {
   handleFromBinding,
   monitorIdParam,
@@ -58,6 +58,7 @@ export function registerUptimeKumaMonitorRoutes(
 
   instanceScoped.post(
     '/monitors',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     requireUptimeKumaMemberAccess(),
     zv('json', monitorCreateSchema),
     async (c) => {
@@ -85,6 +86,7 @@ export function registerUptimeKumaMonitorRoutes(
 
   instanceScoped.patch(
     '/monitors/:monitorId',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     requireUptimeKumaMemberAccess(),
     zv('json', monitorPatchSchema),
     async (c) => {
@@ -100,37 +102,52 @@ export function registerUptimeKumaMonitorRoutes(
     },
   )
 
-  instanceScoped.post('/monitors/:monitorId/pause', requireUptimeKumaMemberAccess(), async (c) => {
-    await pauseUptimeKumaMonitor(
-      handleFromBinding(c.get('uptimeKumaBinding')),
-      monitorIdParam(c.req.param('monitorId')),
-    ).catch((err: unknown) => {
-      throw uptimeKumaError(err, 'Could not pause Uptime Kuma monitor')
-    })
+  instanceScoped.post(
+    '/monitors/:monitorId/pause',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+    requireUptimeKumaMemberAccess(),
+    async (c) => {
+      await pauseUptimeKumaMonitor(
+        handleFromBinding(c.get('uptimeKumaBinding')),
+        monitorIdParam(c.req.param('monitorId')),
+      ).catch((err: unknown) => {
+        throw uptimeKumaError(err, 'Could not pause Uptime Kuma monitor')
+      })
 
-    return c.body(null, 204)
-  })
+      return c.body(null, 204)
+    },
+  )
 
-  instanceScoped.post('/monitors/:monitorId/resume', requireUptimeKumaMemberAccess(), async (c) => {
-    await resumeUptimeKumaMonitor(
-      handleFromBinding(c.get('uptimeKumaBinding')),
-      monitorIdParam(c.req.param('monitorId')),
-    ).catch((err: unknown) => {
-      throw uptimeKumaError(err, 'Could not resume Uptime Kuma monitor')
-    })
+  instanceScoped.post(
+    '/monitors/:monitorId/resume',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+    requireUptimeKumaMemberAccess(),
+    async (c) => {
+      await resumeUptimeKumaMonitor(
+        handleFromBinding(c.get('uptimeKumaBinding')),
+        monitorIdParam(c.req.param('monitorId')),
+      ).catch((err: unknown) => {
+        throw uptimeKumaError(err, 'Could not resume Uptime Kuma monitor')
+      })
 
-    return c.body(null, 204)
-  })
+      return c.body(null, 204)
+    },
+  )
 
-  instanceScoped.delete('/monitors/:monitorId', requireUptimeKumaMemberAccess(), async (c) => {
-    await deleteUptimeKumaMonitor(
-      handleFromBinding(c.get('uptimeKumaBinding')),
-      monitorIdParam(c.req.param('monitorId')),
-      c.req.query('deleteChildren') === 'true',
-    ).catch((err: unknown) => {
-      throw uptimeKumaError(err, 'Could not delete Uptime Kuma monitor')
-    })
+  instanceScoped.delete(
+    '/monitors/:monitorId',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+    requireUptimeKumaMemberAccess(),
+    async (c) => {
+      await deleteUptimeKumaMonitor(
+        handleFromBinding(c.get('uptimeKumaBinding')),
+        monitorIdParam(c.req.param('monitorId')),
+        c.req.query('deleteChildren') === 'true',
+      ).catch((err: unknown) => {
+        throw uptimeKumaError(err, 'Could not delete Uptime Kuma monitor')
+      })
 
-    return c.body(null, 204)
-  })
+      return c.body(null, 204)
+    },
+  )
 }

@@ -65,9 +65,13 @@ function access(overrides: Partial<AgentCredentialAccess> = {}): AgentCredential
 let sessionScope: AgentCredentialAccess | undefined
 
 useCredentialOptions({ getAgentCredentialOptions: () => Promise.resolve(options) })
+let sessionTeamId: string | undefined = 'team-1'
+
 useAgentDb({
-  getConversation: () =>
-    Promise.resolve(sessionScope ? { credentialAccess: sessionScope } : null) as never,
+  getConversationBySessionId: (sessionId: string) =>
+    Promise.resolve(
+      sessionId === 's1' ? { teamId: sessionTeamId, credentialAccess: sessionScope } : null,
+    ) as never,
 })
 
 const { resolveTriggerCredentialSelection } = await import('./quota')
@@ -104,5 +108,19 @@ describe('resolveTriggerCredentialSelection', () => {
     expect(await resolveTriggerCredentialSelection({ ...context, sessionId: 's1' })).toEqual({
       credentialMode: 'all',
     })
+  })
+
+  test('a session the caller does not share is refused instead of widening to all', async () => {
+    sessionScope = access({ awsRoleIds: ['prod'] })
+
+    await expect(
+      resolveTriggerCredentialSelection({ ...context, sessionId: 'missing' }),
+    ).rejects.toMatchObject({ status: 403 })
+
+    sessionTeamId = 'team-2'
+    await expect(
+      resolveTriggerCredentialSelection({ ...context, sessionId: 's1' }),
+    ).rejects.toMatchObject({ status: 403 })
+    sessionTeamId = 'team-1'
   })
 })

@@ -41,6 +41,7 @@ describe('isCloudCredentialPath', () => {
     '/s/teams/t/tailscale-clients/c/credentials',
     '/s/teams/t/aws-accounts/123/clusters/prod/exec-credential',
     '/s/teams/t/gcp-projects/p/clusters/c/exec-credential',
+    '/s/teams/t/tailscale-clients/c/tailnet-sessions',
   ])('matches %s', (path) => {
     expect(isCloudCredentialPath(path)).toBe(true)
   })

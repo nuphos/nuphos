@@ -1,5 +1,6 @@
 import { grafanaBindingToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
+import { pinnedFetch } from '@/lib/net/safe-outbound'
 
 import { cleanupConflict } from './shared'
 
@@ -10,7 +11,11 @@ import type { GrafanaInstanceBinding } from '@/models'
 export async function grafanaRequest<T>(
   binding: GrafanaInstanceBinding,
   path: string,
-  init: RequestInit = {},
+  init: {
+    method?: string
+    body?: string
+    headers?: NonNullable<ConstructorParameters<typeof Headers>[0]>
+  } = {},
   allowNotFound = false,
 ): Promise<T | null> {
   const headers = new Headers(init.headers)
@@ -21,7 +26,7 @@ export async function grafanaRequest<T>(
   let response: Response
 
   try {
-    response = await fetch(`${binding.grafanaUrl.replace(/\/$/, '')}${path}`, {
+    response = await pinnedFetch(`${binding.grafanaUrl.replace(/\/$/, '')}${path}`, {
       ...init,
       headers,
       signal: AbortSignal.timeout(30_000),

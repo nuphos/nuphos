@@ -1,7 +1,7 @@
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 
-import { getConversation } from '../db'
+import { getConversationBySessionId } from '../db'
 import { credentialScopeCoversAll } from '../trigger-credential-access'
 import { agentTriggers } from '../trigger-db'
 import { agentTriggerGroups } from '../trigger-group-db'
@@ -36,8 +36,14 @@ export async function resolveTriggerCredentialSelection(
     context.sessionId ?? ('sourceContext' in context ? context.sourceContext?.sessionId : undefined)
 
   if (!sessionId) return { credentialMode: 'all' }
-  const approved = (await getConversation(sessionId, context.userId, context.teamId))
-    ?.credentialAccess
+  // Shared conversations are owned by someone else, so look the session up by
+  // id alone. One that cannot be found in this scope must not widen to `all`.
+  const conversation = await getConversationBySessionId(sessionId)
+
+  if (!conversation || (conversation.teamId ?? undefined) !== context.teamId) {
+    throw new AppError(403, 'forbidden', 'The Trigger source conversation is not in this scope')
+  }
+  const approved = conversation.credentialAccess
 
   if (!approved) return { credentialMode: 'all' }
   const { resolveTriggerCredentialAccess } = await import('@/routes/agent')

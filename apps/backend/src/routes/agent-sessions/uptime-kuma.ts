@@ -16,7 +16,7 @@ import {
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireUptimeKumaInstance, requireUptimeKumaMemberAccess } from '@/middleware/auth'
-import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
+import { getAgentCredentialAccess, requireAgentWriteRole } from '@/routes/agent-sessions/shared'
 
 import type { UptimeKumaAuthHandle } from '@/lib/byos/uptime-kuma'
 import type { UptimeKumaInstanceVariables } from '@/middleware/auth'
@@ -89,6 +89,11 @@ export const uptimeKumaScoped = new Hono<{ Variables: AgentUptimeKumaVars }>()
 uptimeKumaScoped.use('*', requireUptimeKumaInstance())
 uptimeKumaScoped.use('*', requireUptimeKumaMemberAccess())
 uptimeKumaScoped.use('*', requireSelectedUptimeKumaAgentCredential())
+uptimeKumaScoped.on(
+  ['POST', 'PATCH', 'DELETE'],
+  ['/monitors', '/monitors/*'],
+  requireAgentWriteRole() as never,
+)
 
 uptimeKumaScoped.get('/monitors', async (c) => {
   const monitors = await listUptimeKumaMonitors(

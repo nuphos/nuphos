@@ -19,11 +19,15 @@ import {
   dashboardPanels,
   dashboardPanelSnapshots,
 } from '@/models'
+import { intersectTriggerCredentialAccess } from '@/lib/agent/trigger-credential-access'
 import { resolveAgentCredentialAccess } from '@/routes/agent/credential-resolve'
+import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import { cadenceSchema, loadDashboard } from './dashboards'
 import { appendScriptVersion, serializePanel, serializeSnapshot } from './serialize'
 
+import type { AgentCredentialAccess } from '@/lib/agent/db'
+import type { AgentRef } from '@/lib/agents/identity'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { NuphosDashboard, DashboardPanel, DashboardPanelScriptVersion } from '@/models'
 import type { Hono } from 'hono'
@@ -42,16 +46,38 @@ const createPanelSchema = z.object({
   credentialAccess: z.record(z.unknown()).optional(),
 })
 
-/** Selections are validated against the saving member's own allow lists; the
- *  panel's principal is re-checked on every credential request at run time. */
-async function panelCredentialAccess(teamId: ObjectId, userId: string, selection: unknown) {
-  const { access } = await resolveAgentCredentialAccess({
-    teamId: teamId.toHexString(),
-    userId,
-    selection,
-  })
+/** Selections are checked against the member's allow lists and, for a
+ *  conversation, held to what it holds — also when none is given, which
+ *  would otherwise mean every credential the member can reach. */
+export async function panelCredentialAccess(
+  c: { get(key: 'userId'): string },
+  teamId: ObjectId,
+  selection: unknown,
+  existing?: AgentCredentialAccess,
+): Promise<AgentCredentialAccess | undefined> {
+  const requested =
+    selection === undefined
+      ? existing
+      : (
+          await resolveAgentCredentialAccess({
+            teamId: teamId.toHexString(),
+            userId: c.get('userId'),
+            selection,
+          })
+        ).access
+  const agent = (c as unknown as { get(key: 'conversationAgent'): AgentRef | undefined }).get(
+    'conversationAgent',
+  )
 
-  return access
+  if (!agent) return requested
+  // A conversation with nothing stored yet holds an unstamped empty selection.
+  const held = {
+    updatedAt: new Date(),
+    updatedBy: c.get('userId'),
+    ...(await getAgentCredentialAccess(agent, teamId.toHexString())),
+  }
+
+  return intersectTriggerCredentialAccess(requested ?? held, held)
 }
 
 export async function loadPanel(
@@ -103,6 +129,7 @@ export function registerDashboardPanelRoutes(
         authoredBy: c.get('userId'),
         createdAt: now,
       }
+      const credentialAccess = await panelCredentialAccess(c, teamId, input.credentialAccess)
       const doc: DashboardPanel = {
         _id: new ObjectId(),
         teamId,
@@ -112,15 +139,7 @@ export function registerDashboardPanelRoutes(
         scriptVersion: 1,
         versions: [version],
         ...(input.staticParams ? { staticParams: input.staticParams } : {}),
-        ...(input.credentialAccess
-          ? {
-              credentialAccess: await panelCredentialAccess(
-                teamId,
-                c.get('userId'),
-                input.credentialAccess,
-              ),
-            }
-          : {}),
+        ...(credentialAccess ? { credentialAccess } : {}),
         createdBy: c.get('userId'),
         createdAt: now,
         updatedAt: now,
@@ -166,13 +185,13 @@ export function registerDashboardPanelRoutes(
       if (input.kind !== undefined) set.kind = input.kind
       if (input.staticParams === null) unset.staticParams = ''
       else if (input.staticParams !== undefined) set.staticParams = input.staticParams
-      if (input.credentialAccess === null) unset.credentialAccess = ''
-      else if (input.credentialAccess !== undefined)
-        set.credentialAccess = await panelCredentialAccess(
-          teamId,
-          c.get('userId'),
-          input.credentialAccess,
-        )
+      const credentialAccess =
+        input.credentialAccess === null
+          ? await panelCredentialAccess(c, teamId, undefined)
+          : await panelCredentialAccess(c, teamId, input.credentialAccess, panel.credentialAccess)
+
+      if (credentialAccess) set.credentialAccess = credentialAccess
+      else if (input.credentialAccess === null) unset.credentialAccess = ''
 
       // Editing code appends a new version; old snapshots keep their version.
       if (input.code !== undefined) {

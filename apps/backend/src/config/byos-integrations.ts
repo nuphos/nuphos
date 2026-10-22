@@ -32,9 +32,16 @@ export function byosIntegrationsConfig() {
       // (Cloudflare below keeps an env override — prod sealed data with a
       // non-default id there.)
       encryptionKeyId: 'default',
-      // SSRF guard escape hatch: allow binding self-hosted GitLab instances on
-      // private/loopback addresses. Off by default; only enable in trusted nets.
-      allowPrivateHosts: bool('GITLAB_ALLOW_PRIVATE_HOSTS', false),
+    },
+    outbound: {
+      // Escape hatch for lib/net/safe-outbound: let team-configured hosts
+      // (Grafana, GitLab, SonarQube, Uptime Kuma, databases) resolve to
+      // private / loopback addresses. Off by default; development only.
+      // GITLAB_ALLOW_PRIVATE_HOSTS is the previous name.
+      allowPrivateHosts: bool(
+        'OUTBOUND_ALLOW_PRIVATE_HOSTS',
+        bool('GITLAB_ALLOW_PRIVATE_HOSTS', false),
+      ),
     },
     cloudflare: {
       encryptionKey: optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),

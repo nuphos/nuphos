@@ -4,18 +4,23 @@ import type { AgentZeaburVars } from '@/routes/agent-sessions/shared'
 import type { Context, MiddlewareHandler } from 'hono'
 
 import { agentSubjectId } from '@/lib/agents/identity'
+import { canMintCredentials } from '@/lib/byos/credential-role'
 import { decryptZeaburToken } from '@/lib/byos/secrets'
 import { listZeaburProjects, listZeaburServers } from '@/lib/byos/zeabur'
 import { AppError } from '@/lib/errors'
 import { requireZeaburProvider } from '@/middleware/auth'
-import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
+import { agentPrincipals, getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 export const zeaburScoped = new Hono<{ Variables: AgentZeaburVars }>()
 
 zeaburScoped.use('*', requireZeaburProvider())
 zeaburScoped.use('*', requireSelectedZeaburAgentCredential())
 
-zeaburScoped.get('/credentials', (c) => {
+// A long-lived personal access token: administrators only, as on the team route.
+zeaburScoped.get('/credentials', async (c) => {
+  if (!(await canMintCredentials(c.get('teamId'), agentPrincipals(c), ['ADMINISTRATOR']))) {
+    throw new AppError(403, 'forbidden', 'Requires one of: ADMINISTRATOR')
+  }
   const agent = c.get('agent')
 
   c.header('X-Atlas-Agent', agentSubjectId(agent))

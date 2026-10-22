@@ -1,3 +1,5 @@
+import { pinnedFetch } from '@/lib/net/safe-outbound'
+
 import { truncate } from './overview-types'
 
 import type { MonitoringOverviewRow } from './overview-types'
@@ -12,7 +14,7 @@ export async function collectGrafana(
   integrationLabel: string,
 ): Promise<MonitoringOverviewRow[]> {
   const base = grafanaUrl.replace(/\/$/, '')
-  const res = await fetch(`${base}/api/prometheus/grafana/api/v1/rules?type=alert`, {
+  const res = await pinnedFetch(`${base}/api/prometheus/grafana/api/v1/rules?type=alert`, {
     headers: { Authorization: `Bearer ${saToken}` },
     signal: AbortSignal.timeout(15_000),
   })

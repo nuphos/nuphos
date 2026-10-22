@@ -42,14 +42,15 @@ export function databaseChangePermissions({
   const approvable = request.status === 'pending_approval' || request.status === 'approved'
   const open = request.status === 'draft' || approvable
   const executable = request.status === 'approved' && currentApprovals >= policy.minimumApprovals
+  // Viewers only read; every step of a change is a write.
+  const writer = memberCanUse && teamRole !== 'VIEWER'
 
   return {
     currentApprovals,
-    canEdit: request.status === 'draft' && request.requesterUserId === userId,
-    canApprove:
-      approvable && memberCanUse && request.requesterUserId !== userId && !alreadyApproved,
-    canReject: approvable && memberCanUse && request.requesterUserId !== userId,
+    canEdit: writer && request.status === 'draft' && request.requesterUserId === userId,
+    canApprove: approvable && writer && request.requesterUserId !== userId && !alreadyApproved,
+    canReject: approvable && writer && request.requesterUserId !== userId,
     canCancel: open && (request.requesterUserId === userId || teamRole === 'ADMINISTRATOR'),
-    canExecute: executable && memberCanUse && request.authorizedExecutorUserIds.includes(userId),
+    canExecute: executable && writer && request.authorizedExecutorUserIds.includes(userId),
   }
 }

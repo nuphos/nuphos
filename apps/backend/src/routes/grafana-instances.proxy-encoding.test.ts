@@ -7,7 +7,7 @@ import { responseCompression } from '@/middleware/compression'
 
 import { isGrafanaRead } from '@/middleware/auth/core'
 
-import { toGrafanaProxyResponse } from './grafana-instances'
+import { grafanaErrorResponse, toGrafanaProxyResponse } from './grafana-instances'
 
 const PAYLOAD = JSON.stringify({ database: 'ok', version: '11.0.0', padding: 'x'.repeat(4096) })
 
@@ -92,5 +92,24 @@ describe('isGrafanaRead', () => {
     expect(isGrafanaRead('POST', 'api/dashboards/db')).toBe(false)
     expect(isGrafanaRead('DELETE', 'api/dashboards/uid/x')).toBe(false)
     expect(isGrafanaRead('PUT', 'api/v1/provisioning/alert-rules/x')).toBe(false)
+  })
+})
+
+describe('grafanaErrorResponse', () => {
+  test('keeps the status and Grafana message, never the raw body', async () => {
+    const upstream = Response.json(
+      { message: 'dashboard not found', internal: 'secret detail' },
+      { status: 404 },
+    )
+    const res = await grafanaErrorResponse(upstream)
+
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'HTTP 404', message: 'dashboard not found' })
+  })
+
+  test('reduces a non-JSON body to the status', async () => {
+    const res = await grafanaErrorResponse(new Response('<html>internal</html>', { status: 502 }))
+
+    expect(await res.json()).toEqual({ error: 'HTTP 502' })
   })
 })

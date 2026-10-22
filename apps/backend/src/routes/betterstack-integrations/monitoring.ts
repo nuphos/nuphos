@@ -12,7 +12,7 @@ import {
   updateBetterStackMonitor,
 } from '@/lib/byos/betterstack'
 import { zv } from '@/lib/validate'
-import { requireBetterStackMemberAccess } from '@/middleware/auth'
+import { requireBetterStackMemberAccess, requireTeamRole } from '@/middleware/auth'
 import {
   betterStackError,
   betterStackTelemetryToken,
@@ -43,6 +43,7 @@ export function registerBetterStackMonitoringRoutes(
 
   integrationScoped.post(
     '/uptime/monitors',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     requireBetterStackMemberAccess(),
     zv('json', createMonitorSchema),
     async (c) => {
@@ -60,6 +61,7 @@ export function registerBetterStackMonitoringRoutes(
 
   integrationScoped.patch(
     '/uptime/monitors/:monitorId',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     requireBetterStackMemberAccess(),
     zv('json', monitorInputSchema),
     async (c) => {
@@ -78,6 +80,7 @@ export function registerBetterStackMonitoringRoutes(
 
   integrationScoped.delete(
     '/uptime/monitors/:monitorId',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     requireBetterStackMemberAccess(),
     async (c) => {
       const uptimeApiToken = betterStackUptimeToken(c)
@@ -95,6 +98,7 @@ export function registerBetterStackMonitoringRoutes(
 
   integrationScoped.delete(
     '/uptime/heartbeats/:heartbeatId',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     requireBetterStackMemberAccess(),
     async (c) => {
       const uptimeApiToken = betterStackUptimeToken(c)

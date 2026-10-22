@@ -129,4 +129,25 @@ describe('database change approval and execution policy', () => {
       }).canExecute,
     ).toBe(false)
   })
+
+  test('a viewer can neither edit, review nor execute a change', () => {
+    const approved = request({
+      status: 'approved' as const,
+      authorizedExecutorUserIds: ['viewer'],
+      approvals: [
+        { userId: 'reviewer', digest, policyVersion: 3, comment: null, createdAt: new Date() },
+      ],
+    })
+    const permissions = databaseChangePermissions({
+      request: approved,
+      policy,
+      userId: 'viewer',
+      teamRole: 'VIEWER',
+      memberCanUse: true,
+    })
+
+    expect(permissions.canApprove).toBe(false)
+    expect(permissions.canReject).toBe(false)
+    expect(permissions.canExecute).toBe(false)
+  })
 })

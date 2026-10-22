@@ -4,7 +4,7 @@ import { agentSubjectId } from '@/lib/agents/identity'
 import { decryptBetterStackToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { requireBetterStackIntegration, requireBetterStackMemberAccess } from '@/middleware/auth'
-import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
+import { getAgentCredentialAccess, requireAgentWriteRole } from '@/routes/agent-sessions/shared'
 
 import type { AgentBetterStackVars } from '@/routes/agent-sessions/shared'
 import type { MiddlewareHandler } from 'hono'
@@ -15,7 +15,8 @@ betterStackScoped.use('*', requireBetterStackIntegration())
 betterStackScoped.use('*', requireBetterStackMemberAccess())
 betterStackScoped.use('*', requireSelectedBetterStackAgentCredential())
 
-betterStackScoped.get('/credentials', (c) => {
+// The tokens can change monitors, so handing them out is write-level.
+betterStackScoped.get('/credentials', requireAgentWriteRole(), (c) => {
   const agent = c.get('agent')
   const uptimeEnvelope = c.get('betterStackEncryptedUptimeApiToken')
   const telemetryEnvelope = c.get('betterStackEncryptedTelemetryApiToken')

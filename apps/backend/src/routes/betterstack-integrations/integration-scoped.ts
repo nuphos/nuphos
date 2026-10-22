@@ -184,17 +184,23 @@ export function registerBetterStackIntegrationRoutes(
     },
   )
 
-  integrationScoped.get('/credentials', requireBetterStackMemberAccess(), (c) => {
-    const tokens = betterStackCredentials(c)
+  // The tokens can change monitors, so handing them out is write-level.
+  integrationScoped.get(
+    '/credentials',
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+    requireBetterStackMemberAccess(),
+    (c) => {
+      const tokens = betterStackCredentials(c)
 
-    return c.json({
-      id: c.get('betterStackIntegrationId'),
-      integrationId: c.get('betterStackIntegrationId'),
-      label: c.get('betterStackLabel'),
-      uptimeApiToken: tokens.uptimeApiToken,
-      telemetryApiToken: tokens.telemetryApiToken,
-      prometheusWebhookUrl: c.get('betterStackBinding').prometheusWebhookUrl ?? null,
-      authType: 'api_token',
-    })
-  })
+      return c.json({
+        id: c.get('betterStackIntegrationId'),
+        integrationId: c.get('betterStackIntegrationId'),
+        label: c.get('betterStackLabel'),
+        uptimeApiToken: tokens.uptimeApiToken,
+        telemetryApiToken: tokens.telemetryApiToken,
+        prometheusWebhookUrl: c.get('betterStackBinding').prometheusWebhookUrl ?? null,
+        authType: 'api_token',
+      })
+    },
+  )
 }

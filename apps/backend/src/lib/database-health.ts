@@ -1,5 +1,7 @@
 import postgres from 'postgres'
 
+import { connectPublic } from '@/lib/net/public-socks'
+
 import { classifyDatabaseError } from '@/lib/database-connections'
 import { databaseMongoClient } from '@/lib/database-mongo-client'
 
@@ -119,12 +121,37 @@ async function probeMongo(
   }
 }
 
+/** Hosts are tried in order, one client each: the driver's own rotation
+ *  loops forever when it is handed a socket. */
 async function probePostgres(
   parsed: ParsedDatabaseConnection,
   timeoutMs: number,
 ): Promise<DatabaseConnectionHealth> {
+  const { host, port } = postgres(parsed.connectionUri, { max: 1 }).options
+  let health: DatabaseConnectionHealth | undefined
+
+  for (const [index, name] of host.entries()) {
+    health = await probePostgresHost(parsed, timeoutMs, name, port[index] ?? port[0]!)
+    if (health.status === 'healthy') return health
+  }
+
+  return health!
+}
+
+async function probePostgresHost(
+  parsed: ParsedDatabaseConnection,
+  timeoutMs: number,
+  host: string,
+  port: number,
+): Promise<DatabaseConnectionHealth> {
   const startedAt = Date.now()
+  // Dialled at the address that was checked; the driver never resolves.
+  // `socket` is a documented option the bundled types omit.
+  const dial = { socket: async () => await connectPublic(host, port) }
   const sql = postgres(parsed.connectionUri, {
+    ...(dial as object),
+    host,
+    port,
     max: 1,
     connect_timeout: Math.max(1, Math.ceil(timeoutMs / 1_000)),
     idle_timeout: 1,

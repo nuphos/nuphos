@@ -7,6 +7,8 @@ import { findTailscaleClient } from '@/lib/byos/account'
 import { decryptTailscaleClientSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 
+import { publicSocksProxy } from '@/lib/net/public-socks'
+
 import type { DatabaseNetworkMode, DatabaseTailscaleNetwork } from '@/models'
 import type { MongoClientOptions } from 'mongodb'
 
@@ -113,8 +115,17 @@ export async function resolveDatabaseNetwork(
 ): Promise<ResolvedDatabaseNetwork> {
   assertDatabaseNetworkConfiguration(networkMode, tailscale)
   if (networkMode === 'public') {
+    const proxy = await publicSocksProxy()
+
     return {
-      mongoOptions: {},
+      // The backend dials a team-supplied host, and the driver dials every
+      // replica-set member it discovers: all of it goes through the guard.
+      mongoOptions: {
+        proxyHost: proxy.host,
+        proxyPort: proxy.port,
+        proxyUsername: proxy.username,
+        proxyPassword: proxy.password,
+      },
       path: { mode: 'public', executionPlane: 'backend', bindingId: null, tag: null },
     }
   }

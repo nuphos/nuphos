@@ -9,6 +9,7 @@ import { databaseConnectionChangeReviewRoutes } from '@/routes/database-connecti
 import { databaseConnectionMonitoringRoutes } from '@/routes/database-connections/monitoring'
 import { databaseConnectionQueryRoutes } from '@/routes/database-connections/query'
 import { databaseConnectionRootRoutes } from '@/routes/database-connections/root'
+import { requireTeamRole } from '@/middleware/auth'
 import { requireDatabaseConnection } from '@/routes/database-connections/shared'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -21,6 +22,14 @@ databaseConnectionsRoutes.route('/', databaseConnectionRootRoutes)
 const connectionScoped = new Hono<{ Variables: ConnectionVariables }>()
 
 connectionScoped.use('*', requireDatabaseConnection())
+// Proposing, reviewing and running a change writes to the database: viewers only read.
+for (const path of ['/changes', '/changes/*']) {
+  connectionScoped.on(
+    ['POST', 'PUT', 'PATCH', 'DELETE'],
+    path,
+    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+  )
+}
 connectionScoped.route('/', databaseConnectionCatalogRoutes)
 connectionScoped.route('/', databaseConnectionQueryRoutes)
 connectionScoped.route('/', databaseConnectionMonitoringRoutes)

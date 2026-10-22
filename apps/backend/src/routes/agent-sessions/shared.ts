@@ -193,6 +193,28 @@ function normalizeCredentialAccess(
   }
 }
 
+/** Everyone a credential request acts for: the sender and the conversation owner. */
+export function agentPrincipals(c: {
+  get(key: 'userId'): string
+  get(key: 'agent'): AgentRef
+}): string[] {
+  const agent = c.get('agent')
+
+  return [c.get('userId'), agent.userId, agent.conversationOwnerUserId ?? agent.userId]
+}
+
+/** Writes through a connector the team shares are editor-level, for every principal. */
+export function requireAgentWriteRole(): MiddlewareHandler<{
+  Variables: AgentVars & TeamAuthVariables
+}> {
+  return async (c, next) => {
+    if (!(await canMintCredentials(c.get('teamId'), agentPrincipals(c)))) {
+      throw new AppError(403, 'forbidden', 'Requires one of: ADMINISTRATOR, EDITOR')
+    }
+    await next()
+  }
+}
+
 /** Cloud credential and kubeconfig vending is write-level: refuse it when the
  * sender or the conversation owner is a team viewer (dashboard panels act as
  * their author). */
@@ -201,14 +223,7 @@ export function requireCloudCredentialRole(): MiddlewareHandler<{
 }> {
   return async (c, next) => {
     if (isCloudCredentialPath(c.req.path)) {
-      const agent = c.get('agent')
-      const principals = [
-        c.get('userId'),
-        agent.userId,
-        agent.conversationOwnerUserId ?? agent.userId,
-      ]
-
-      if (!(await canMintCredentials(c.get('teamId'), principals))) {
+      if (!(await canMintCredentials(c.get('teamId'), agentPrincipals(c)))) {
         throw new AppError(403, 'forbidden', 'Requires one of: ADMINISTRATOR, EDITOR')
       }
     }
