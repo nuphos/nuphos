@@ -8,6 +8,7 @@ struct ProfileSheet: View {
     let user: NuphosUser
     private var currentUser: NuphosUser { session.user ?? user }
     @State private var editing = false
+    @AppStorage(BotAvatars.enabledKey) private var botAvatars = true
 
     @State private var confirmSignOut = false
     @State private var privacyError: String?
@@ -56,6 +57,15 @@ struct ProfileSheet: View {
                 }
                 .listRowBackground(Theme.surface)
                 #endif
+
+                Section {
+                    Toggle("Bot avatars", isOn: $botAvatars)
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Give Agents a character avatar. Turn off to show Runtime icons.")
+                }
+                .listRowBackground(Theme.surface)
 
                 Section("Privacy") {
                     Link("Privacy policy", destination: URL(string: "https://nuphos.ai/privacy")!)

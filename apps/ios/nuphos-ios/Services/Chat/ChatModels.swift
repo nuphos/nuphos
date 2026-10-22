@@ -64,6 +64,8 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         /// The runtime's or provider's mark; nil shows the name's initial.
         let logo: String?
         let text: String
+        var agentId: String? = nil
+        var runtime: String? = nil
     }
 
     var event: Event? {
@@ -75,7 +77,9 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         let logo = source == "agent.thread"
             ? runtime.map { RuntimeInstance.Provider.logo($0.rawValue) }
             : ["github", "linear"].contains(id) ? "logo-\(id)" : nil
-        return Event(name: name, logo: logo, text: text.trimmingCharacters(in: .whitespacesAndNewlines))
+        return Event(name: name, logo: logo, text: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                     agentId: source == "agent.thread" ? (metadata?["sourceSessionId"]?.stringValue ?? metadata?["sender"]?["id"]?.stringValue) : nil,
+                     runtime: runtime?.rawValue)
     }
 
     var text: String {

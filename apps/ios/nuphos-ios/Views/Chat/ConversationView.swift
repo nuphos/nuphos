@@ -25,6 +25,7 @@ struct ConversationView: View {
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
     @State private var showShare = false
+    @State private var referencedAgents = ReferencedAgents()
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
 
@@ -214,26 +215,26 @@ struct ConversationView: View {
     /// The conversation's title, with the agent that answers in it on a
     /// second, quieter line — where the composer's runtime chip used to be.
     private var titleBar: some View {
-        VStack(spacing: 1) {
-            Text(session.title)
-                .font(Theme.Text.label.weight(.semibold))
-                .foregroundStyle(Theme.heading)
-                .lineLimit(1)
-            if let name = session.runtimeDisplayName {
-                HStack(spacing: 4) {
-                    RuntimeMark(runtime: session.isNativeRuntime ? session.agentRuntime : nil)
-                    Text(name)
-                        .font(Theme.Text.micro)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
+        HStack(spacing: 8) {
+            AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
+            VStack(spacing: 1) {
+                Text(session.title)
+                    .font(Theme.Text.label.weight(.semibold))
+                    .foregroundStyle(Theme.heading)
+                    .lineLimit(1)
+                if let name = session.runtimeDisplayName {
+                    HStack(spacing: 4) {
+                        RuntimeMark(runtime: session.isNativeRuntime ? session.agentRuntime : nil)
+                        Text(name)
+                            .font(Theme.Text.micro)
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Runtime: \(name)")
+                } else if !session.loaded {
+                    Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Runtime: \(name)")
-            } else if !session.loaded {
-                // A chat opened without the list's copy of the runtime — from
-                // a plan, say — holds the line rather than growing into it
-                // once the detail lands.
-                Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
             }
         }
     }
@@ -351,12 +352,16 @@ struct ConversationView: View {
         case .reasoning(_, let part):
             ReasoningTile(part: part)
         case .tool(_, _, let part, let canDecide):
-            ToolCallRow(
-                part: part,
-                canDecide: canDecide,
-                session: session,
-                onOpen: { toolDetail = part }
-            )
+            if let reference = ThreadReference(part) {
+                AgentThreadBadge(reference: reference, teamId: session.teamId, agents: referencedAgents, onLink: open(link:))
+            } else {
+                ToolCallRow(
+                    part: part,
+                    canDecide: canDecide,
+                    session: session,
+                    onOpen: { toolDetail = part }
+                )
+            }
         case .toolRun(_, _, let items, let live):
             ToolRunView(items: items, live: live, session: session, onOpen: { toolDetail = $0 })
         case .work(_, let inner, let duration):
@@ -553,18 +558,26 @@ struct EventLine: View {
             Button {
                 disclose(readingInteraction) { expanded.toggle() }
             } label: {
-                HStack(spacing: 5) {
-                    if let logo = event.logo {
-                        BrandLogo(name: logo, size: 13).foregroundStyle(Theme.heading)
+                HStack(spacing: event.agentId == nil ? 5 : 8) {
+                    if let agentId = event.agentId {
+                        AgentAvatar(agentId: agentId, runtime: event.runtime)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.name).fontWeight(.medium).foregroundStyle(Theme.heading)
+                            Text(event.text.prefix { $0 != "\n" })
+                        }
                     } else {
-                        Text(event.name.prefix(1).uppercased())
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 14, height: 14)
-                            .background(Theme.muted, in: Circle())
+                        if let logo = event.logo {
+                            BrandLogo(name: logo, size: 13).foregroundStyle(Theme.heading)
+                        } else {
+                            Text(event.name.prefix(1).uppercased())
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 14, height: 14)
+                                .background(Theme.muted, in: Circle())
+                        }
+                        Text(event.name).fontWeight(.medium).foregroundStyle(Theme.heading).layoutPriority(1)
+                        Text(event.text.prefix { $0 != "\n" })
                     }
-                    Text(event.name).fontWeight(.medium).foregroundStyle(Theme.heading).layoutPriority(1)
-                    Text(event.text.prefix { $0 != "\n" })
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))

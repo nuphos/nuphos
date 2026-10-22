@@ -44,10 +44,10 @@ export function AgentAvatar({
             alt=""
             draggable={false}
             className="absolute left-0 top-0 object-contain"
-            style={{ width: box - 4, height: box - 4 }}
+            style={{ width: box, height: box }}
           />
           <span
-            className="absolute bottom-0 right-0 flex items-center justify-center rounded-full bg-main p-px text-secondary ring-1 ring-main"
+            className="absolute bottom-0 right-0 flex items-center justify-center rounded-full bg-main p-px text-secondary"
             style={{ width: badge, height: badge }}
           >
             {runtime}

@@ -121,7 +121,7 @@ extension ChatRow {
         func foldable(_ row: ChatRow) -> Bool {
             switch row {
             case .reasoning, .assistantText: return true
-            case .tool(_, _, let t, _): return t.kind != .plan && t.kind != .question && t.state != .approvalRequested
+            case .tool(_, _, let t, _): return t.kind != .plan && t.kind != .question && t.state != .approvalRequested && ThreadReference(t) == nil
             case .toolRun(_, _, let items, _): return !items.contains { $0.tool?.state == .approvalRequested }
             default: return false
             }

@@ -87,7 +87,7 @@ enum ChatRowTests {
             return m
         }
         let agent = message("agent.thread", "agent", "s1", "Reviewer", runtime: "codex").event
-        precondition(agent == .init(name: "Reviewer", logo: "logo-openai", text: "First line\n\nDetails"))
+        precondition(agent == .init(name: "Reviewer", logo: "logo-openai", text: "First line\n\nDetails", agentId: "s1", runtime: "codex"))
         precondition(message("agent.thread", "agent", "nuphos", "Nuphos").event?.logo == nil)
         precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.logo == "logo-github")
         precondition(message("agent.resource", "system", "trigger:1", "Hourly scan").event?.logo == nil)

@@ -13,7 +13,7 @@ enum ToolRuns {
     static let hiddenTools: Set<String> = ["skill"]
 
     static func isPlainTool(_ tool: ChatPart.ToolPart) -> Bool {
-        tool.kind != .plan && tool.kind != .question && tool.kind != .chart && !hiddenTools.contains(tool.toolName)
+        tool.kind != .plan && tool.kind != .question && tool.kind != .chart && !hiddenTools.contains(tool.toolName) && ThreadReference(tool) == nil
     }
 
     /// Parts that render as nothing; they neither join nor split a run.

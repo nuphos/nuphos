@@ -24,3 +24,16 @@ test('Agent identities resolve consistently to one of the 28 shipped vector asse
     assert.doesNotMatch(svg, /<image|<script|onload=|data:image/)
   }
 })
+
+// Swift reads this same fixture in apps/ios/tests/BotAvatarTests.swift.
+test('Desktop and iOS share the exact ID mapping and SVG bytes', () => {
+  const fixtures = JSON.parse(readFileSync(new URL('../../../ios/tests/fixtures/bot-avatars.json', import.meta.url), 'utf8')) as { id: string; file: string }[]
+
+  for (const { id, file } of fixtures) assert.equal(botAvatarUrl(id), `/bot-avatars/${file}`)
+  assert.equal(new Set(fixtures.map(({ file }) => file)).size, 28)
+  for (const file of BOT_AVATARS) {
+    const ios = new URL(`../../../ios/nuphos-ios/Assets.xcassets/BotAvatars/bot-avatar-${file.slice(0, -4)}.imageset/${file}`, import.meta.url)
+
+    assert.deepEqual(readFileSync(ios), readFileSync(new URL(`../../public/bot-avatars/${file}`, import.meta.url)))
+  }
+})
