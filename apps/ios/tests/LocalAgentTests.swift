@@ -5,7 +5,7 @@ enum LocalAgentTests {
         keepsKeysThisBuildDoesNotKnow()
         readsDevicesFromTheCatalog()
         groupsOwnComputersApartFromCloud()
-        namesAComputersAgentOnce()
+        describesAComputersAgent()
         detectsALocalAgentWhileItsComputerIsOffline()
         defaultsToAUsableCloudAgent()
         namesCloudOnlyProviders()
@@ -103,13 +103,10 @@ enum LocalAgentTests {
         precondition(!RuntimeInstance.isLocalAgent(nil))
     }
 
-    private static func namesAComputersAgentOnce() {
-        precondition(macbook.name == "MacBook" && macbook.subtitle == "Claude Code")
-        precondition(cloud.name == "Team Claude" && cloud.subtitle == nil)
+    private static func describesAComputersAgent() {
+        precondition(macbook.subtitle == "Claude Code" && cloud.subtitle == nil)
         precondition(!signedOut.isSelectable)
         precondition(signedOut.subtitle == "Codex · Signed out · sign in to Codex on that computer")
-        let unlabelled = agent(#"{"id":"local_u1_x","provider":"claude-code","label":"Mini · Claude Code","status":"active","kind":"local"}"#)
-        precondition(unlabelled.name == "Mini")
     }
 
     private static func defaultsToAUsableCloudAgent() {

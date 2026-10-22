@@ -192,7 +192,7 @@ struct ComposerControls: View {
             if store.selectedRuntimeUnavailable { return "Choose agent" }
             return store.runtimesLoaded ? "Agent" : "Agent…"
         }
-        return runtime.name
+        return runtime.label
     }
 
     private func modelTitle(_ session: ChatSession) -> String {

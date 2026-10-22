@@ -58,7 +58,7 @@ struct RuntimePickerSheet: View {
             }
             .navigationDestination(item: $howTo) { runtime in AgentSignInInstructions(runtime: runtime) }
             .navigationDestination(isPresented: $managing) { SelectorManagementView() }
-            .alert("Move to \(pendingLocal?.name ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
+            .alert("Move to \(pendingLocal?.label ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
                 Button("Move") { onMove(runtime); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in

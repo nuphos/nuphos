@@ -46,14 +46,6 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     var providerName: String { Provider.name(provider.rawValue) }
 
-    /// A computer's agent is named for the computer; its provider goes in `subtitle`.
-    var name: String {
-        guard tier == .myComputers else { return label }
-        if let deviceLabel = local?.deviceLabel, !deviceLabel.isEmpty { return deviceLabel }
-        let suffix = " · \(providerName)"
-        return label.hasSuffix(suffix) ? String(label.dropLast(suffix.count)) : label
-    }
-
     var subtitle: String? {
         let hint: String? =
             if local?.signedIn == false { "Signed out · sign in to \(providerName) on that computer" }
