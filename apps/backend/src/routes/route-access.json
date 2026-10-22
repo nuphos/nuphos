@@ -223,7 +223,7 @@
   "GET /invitations": "user",
   "GET /invite": "public",
   "GET /jira-app/setup": "public",
-  "GET /lark/available-chats": "public",
+  "GET /lark/available-chats": "user",
   "GET /lark/mappings": "user",
   "GET /lark/user-mappings": "user",
   "GET /linear-app/setup": "public",

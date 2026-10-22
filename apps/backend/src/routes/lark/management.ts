@@ -56,6 +56,7 @@ export function registerLarkManagementRoutes(larkRoutes: Hono<{ Variables: AuthV
   larkRoutes.use('/user-mappings', requireAuth)
   larkRoutes.use('/user-mappings/*', requireAuth)
   larkRoutes.use('/pair-code', requireAuth)
+  larkRoutes.use('/available-chats', requireAuth)
 
   larkRoutes.get('/mappings', async (c) => {
     const teamId = await resolveVerifiedTeamId(c, c.req.query('teamId'))
