@@ -1,5 +1,1 @@
-iPad and iPhone Duo get an adaptive split view: your conversation list stays beside the chat on wide screens, with keyboard shortcuts, drag and drop to attach files, and pointer hover on iPad.
-
-Running turns now show as a Live Activity, and you can watch or unwatch a conversation to choose which push notifications you get.
-
-Messages an agent sends with its own token now show as the bot, with the person it acts for. The transcript no longer jumps when new events arrive, and chats you open after the split view collapses load correctly. The App Store screenshots are refreshed too.
+Expanding or collapsing a step group, reasoning, tool run or plan in a conversation no longer makes its title jump. The rest of the transcript stays where it is.
