@@ -115,15 +115,17 @@ export function nuphosToolName(mcpToolId: string | undefined): string | null {
 }
 
 // codex-acp sends an MCP call as `mcp.<server>.<tool>` with its arguments
-// wrapped in `{ server, tool, arguments }`; read it as Claude Code's
-// `mcp__<server>__<tool>` with the arguments as its input.
+// wrapped in `{ server, tool, arguments }`, and completes it with the wrapped
+// input again but no title; read both as Claude Code's `mcp__<server>__<tool>`
+// with the arguments as its input.
 function asClaudeCodeMcpCall(payload: Record<string, unknown>): Record<string, unknown> {
   const input = payload.rawInput
 
-  if (!input || typeof input !== 'object') return payload
+  if (!input || typeof input !== 'object' || !('arguments' in input)) return payload
   const { server, tool, arguments: args } = input as Record<string, unknown>
 
   if (typeof server !== 'string' || typeof tool !== 'string') return payload
+  if (payload.title === undefined) return { ...payload, rawInput: args ?? {} }
   if (payload.title !== `mcp.${server}.${tool}`) return payload
 
   return { ...payload, title: `mcp__${server}__${tool}`, rawInput: args ?? {} }

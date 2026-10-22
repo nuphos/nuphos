@@ -42,13 +42,16 @@ describe('handlePreviewToolUpdate', () => {
       label: 'Enabling Cloudflare access',
     }
 
-    // codex-acp sends an MCP call as `mcp.<server>.<tool>` with its arguments wrapped.
-    for (const status of ['in_progress', 'completed']) {
-      const update = parseToolUpdate('call_1', {
-        title: 'mcp.nuphos-tools.request_user_decision',
-        status,
-        rawInput: { server: 'nuphos-tools', tool: 'request_user_decision', arguments: args },
-      })
+    const rawInput = { server: 'nuphos-tools', tool: 'request_user_decision', arguments: args }
+    // codex-acp starts an MCP call as `mcp.<server>.<tool>` with its arguments
+    // wrapped, then completes it with the wrapped input again but no title.
+    const updates = [
+      { title: 'mcp.nuphos-tools.request_user_decision', status: 'in_progress', rawInput },
+      { status: 'completed', rawInput, rawOutput: { result: { content: [] }, error: null } },
+    ]
+
+    for (const payload of updates) {
+      const update = parseToolUpdate('call_1', payload)
 
       if (update.kind === 'tool') handlePreviewToolUpdate((f) => frames.push(f), log, update)
     }
