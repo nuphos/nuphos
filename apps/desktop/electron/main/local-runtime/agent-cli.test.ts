@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -91,9 +92,15 @@ test(
     writeFileSync(
       path.join(dir, 'claude'),
       // `claude auth status` refreshes an expired token and can lose the rotated one.
-      `#!/bin/sh\ncase "$*" in *auth*) touch ${JSON.stringify(path.join(dir, 'auth-ran'))};; esac\nexec ${node} -e 'console.log("2.1.0")'\n`,
+      `#!/bin/sh\ncase "$*" in *auth*) : > ${JSON.stringify(path.join(dir, 'auth-ran'))};; esac\nexec ${node} -e 'console.log("2.1.0")'\n`,
       { mode: 0o700 },
     )
+    const authRan = path.join(dir, 'auth-ran')
+
+    // The sentinel must work with PATH limited to the fake CLI.
+    execFileSync(path.join(dir, 'claude'), ['auth', 'status'], { env: { PATH: dir } })
+    assert.equal(existsSync(authRan), true)
+    rmSync(authRan)
     const home = path.join(dir, 'claude-home')
     const credential = path.join(home, '.credentials.json')
     const env = { PATH: dir, HOME: dir }
@@ -122,7 +129,7 @@ test(
       account: 'a@example.com',
       plan: 'team',
     })
-    assert.equal(existsSync(path.join(dir, 'auth-ran')), false)
+    assert.equal(existsSync(authRan), false)
   },
 )
 
