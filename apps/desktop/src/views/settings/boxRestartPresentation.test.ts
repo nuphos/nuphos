@@ -10,7 +10,6 @@ import {
   boxRestartOf,
   boxRestartStep,
   boxUpdateConfirm,
-  updateAction,
 } from './boxRestartPresentation.ts'
 import { boxRestarts } from './boxRestartStore.ts'
 
@@ -87,11 +86,6 @@ test('the update confirmation names the Box and promises only what the update do
   assert.match(confirm.description, /replying/)
   assert.doesNotMatch(boxUpdateConfirm('Build box', undefined).description, /expected/)
   assert.doesNotMatch(confirm.description, /[\u2013\u2014]/)
-})
-
-test('Update asks first only for a Box agent; any other agent starts at once', () => {
-  assert.equal(updateAction(undefined, '0.4.2').confirm, null)
-  assert.equal(updateAction('Build box', '0.4.2').confirm?.confirmLabel, 'Update and restart')
 })
 
 test('an update the backend reports shows for every viewer, and holds until it clears', () => {

@@ -13,6 +13,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { openBoxDesktop } from './boxDesktop'
+import { BoxHostUpdate } from './BoxHostUpdate'
 import { BoxMetrics } from './BoxMetrics'
 import { AccessHint, AgentTile, LiveDot, MachineIcon, MachineLine, NewAgentMenu } from './BoxParts'
 import { openBoxPaywall } from './boxPaywallStore'
@@ -28,6 +29,7 @@ import {
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
+import { useBoxHostUpdate } from './useBoxHostUpdate'
 
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
@@ -110,6 +112,15 @@ export function BoxRow({
     settingUp || restart !== undefined || (state === 'running' && agents.length === 0)
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
+  const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0]?.id : undefined
+  const updateVersion = useBoxHostUpdate(teamId, hostAgent)
+  const [confirmUpdate, setConfirmUpdate] = useState(false)
+  const update = () =>
+    act('Could not update Box', async (deviceId, team) => {
+      if (!hostAgent) return
+      await api.atlasRequestRuntimeUpdate(team, hostAgent)
+      boxRestarts.start(deviceId, team, 'update')
+    })
 
   return (
     <li className="flex h-[240px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
@@ -149,6 +160,11 @@ export function BoxRow({
                   Open desktop
                 </MenuItem>
               )}
+              {updateVersion !== undefined && (
+                <MenuItem onClick={() => setConfirmUpdate(true)}>
+                  {updateVersion ? `Update to v${updateVersion}` : 'Update'}
+                </MenuItem>
+              )}
               <MenuItem onClick={() => setRenaming(true)}>Rename</MenuItem>
               {canShareBox(device) && (
                 <MenuItem onClick={() => setSharing(true)}>Manage access…</MenuItem>
@@ -185,6 +201,16 @@ export function BoxRow({
           {restart ? boxRestartLabel(restart.kind) : badge.label}
         </span>
         <AccessHint device={device} />
+        {updateVersion !== undefined && (
+          <BoxHostUpdate
+            boxLabel={device.label}
+            version={updateVersion}
+            busy={busy}
+            confirming={confirmUpdate}
+            onConfirmingChange={setConfirmUpdate}
+            onUpdate={() => void update()}
+          />
+        )}
       </div>
       <MachineLine device={device} thisComputer={thisComputer} dim={dim} />
       {manage && away ? (

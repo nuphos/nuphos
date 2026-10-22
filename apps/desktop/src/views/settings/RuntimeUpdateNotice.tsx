@@ -1,10 +1,8 @@
 import { useState } from 'react'
 
-import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
-import { updateAction } from './boxRestartPresentation'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
 
 import type { RuntimeUpdateStatus } from '../../types/team'
@@ -14,29 +12,18 @@ export function RuntimeUpdateNotice({
   managed,
   canUpdate,
   enabled,
-  box,
   onUpdate,
 }: {
   update?: RuntimeUpdateStatus
   managed: boolean
   canUpdate: boolean
   enabled: boolean
-  /** The Box this agent runs on: updating restarts it, so it is confirmed first. */
-  box: string | undefined
   onUpdate: () => Promise<void>
 }) {
   const [busy, setBusy] = useState(false)
-  const [confirming, setConfirming] = useState(false)
 
   if (!update || update.state === 'current') return null
   const view = runtimeUpdatePresentation(update, managed, canUpdate, enabled)
-  const { confirm } = updateAction(box, view.version)
-  const start = () => {
-    setBusy(true)
-    void onUpdate()
-      .catch((error: unknown) => toast.apiError('Could not update runtime', error))
-      .finally(() => setBusy(false))
-  }
 
   return (
     <div
@@ -63,20 +50,15 @@ export function RuntimeUpdateNotice({
           size="sm"
           variant="secondary"
           disabled={busy || view.pending}
-          onClick={() => (confirm ? setConfirming(true) : start())}
+          onClick={() => {
+            setBusy(true)
+            void onUpdate()
+              .catch((error: unknown) => toast.apiError('Could not update runtime', error))
+              .finally(() => setBusy(false))
+          }}
         >
           {busy ? 'Requesting…' : view.button}
         </Button>
-      )}
-      {confirm && (
-        <ConfirmDialog
-          open={confirming}
-          title={confirm.title}
-          description={confirm.description}
-          confirmLabel={confirm.confirmLabel}
-          onConfirm={start}
-          onClose={() => setConfirming(false)}
-        />
       )}
     </div>
   )

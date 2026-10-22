@@ -93,10 +93,3 @@ export function boxUpdateConfirm(boxLabel: string, version: string | undefined) 
     description: `This restarts the agent host on ${boxLabel} to install the latest version available now${expected}. The Box itself keeps running, but all of its agents are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any of its agents is replying.`,
   }
 }
-
-/** What Update does: a Box agent asks first, since it restarts the whole host; others start. */
-export function updateAction(box: string | undefined, version: string | undefined) {
-  return box === undefined
-    ? ({ confirm: null } as const)
-    : { confirm: boxUpdateConfirm(box, version) }
-}
