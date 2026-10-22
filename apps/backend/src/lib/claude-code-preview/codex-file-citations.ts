@@ -7,10 +7,10 @@ const MAX_HELD = 4096
 const CITATION = /^:codex-file-citation\{([^{}]*)\}$/
 const ATTRIBUTE = /(?:^|\s)([\w-]+)="([^"\n]*)"/g
 
-function markdownLink(path: string): string {
-  const name = /^[a-z][\w+.-]*:\/\//i.test(path)
-    ? path
-    : (path.split('/').findLast(Boolean) ?? path)
+function markdownLink(path: string, title?: string): string {
+  const name =
+    title ??
+    (/^[a-z][\w+.-]*:\/\//i.test(path) ? path : (path.split('/').findLast(Boolean) ?? path))
   const label = name.replace(/[\\[\]]/g, '\\$&')
   const target = /[\s()<>]/.test(path) ? `<${path.replace(/[<>]/g, encodeURIComponent)}>` : path
 
@@ -21,9 +21,13 @@ function citationLink(directive: string): string | null {
   const attributes = CITATION.exec(directive)?.[1]
 
   if (attributes === undefined || attributes.replace(ATTRIBUTE, '').trim()) return null
-  const path = [...attributes.matchAll(ATTRIBUTE)].find(([, name]) => name === 'path')?.[2]?.trim()
+  const values = new Map(
+    [...attributes.matchAll(ATTRIBUTE)].map(([, name, value]) => [name, value?.trim()]),
+  )
+  const path = values.get('path')
 
-  return path ? markdownLink(path) : null
+  // The Codex app shows `label`, then `title`, in place of the path.
+  return path ? markdownLink(path, values.get('label') || values.get('title') || undefined) : null
 }
 
 /**

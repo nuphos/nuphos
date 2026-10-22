@@ -38,6 +38,18 @@ test('a citation becomes a Markdown link to its path', () => {
   ).toBe('The review of [book.xlsx](/abs/path/book.xlsx) is due Friday.')
 })
 
+test('a label or title attribute becomes the link text, as in the Codex app', () => {
+  expect(
+    whole(`:codex-file-citation{path="${DOC}" label="Q3 [draft] notes" purpose="output"}`),
+  ).toBe(`[Q3 \\[draft\\] notes](${DOC})`)
+  expect(whole(':codex-file-citation{path="/abs/deck.pptx" title="Launch deck"}')).toBe(
+    '[Launch deck](/abs/deck.pptx)',
+  )
+  expect(whole(':codex-file-citation{path="/abs/deck.pptx" label=" " title="Launch deck"}')).toBe(
+    '[Launch deck](/abs/deck.pptx)',
+  )
+})
+
 test('a citation wrapped over several lines is rewritten too', () => {
   const answer = [
     'Done.',
