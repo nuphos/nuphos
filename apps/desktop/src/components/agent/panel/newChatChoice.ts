@@ -1,8 +1,11 @@
-import type { SessionConfigPick } from '../../../api/session-config-types'
+import type { SessionConfigOption, SessionConfigPick } from '../../../api/session-config-types'
 
 /** The agent and model settings the next new chat starts with, saved per team. */
 export type NewChatChoice = { runtimeId: string; pick?: SessionConfigPick }
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>
+
+export const newChatChoiceKey = (teamId?: string) =>
+  `nuphos.agent.runtimeInstance.${teamId ?? 'personal'}`
 
 // The choice in memory is authoritative and shared by every panel; storage only
 // carries it across restarts, so a storage failure never loses a selection.
@@ -54,4 +57,12 @@ export function saveNewChatChoice(
 /** Model ids belong to one agent, so choosing another agent starts from its defaults. */
 export function chooseAgent(choice: NewChatChoice | undefined, runtimeId: string): NewChatChoice {
   return choice?.runtimeId === runtimeId ? choice : { runtimeId }
+}
+
+/** What a chat's agent confirmed is also what the next new chat starts with. */
+export function confirmedChoice(runtimeId: string, options: SessionConfigOption[]): NewChatChoice {
+  return {
+    runtimeId,
+    pick: Object.fromEntries(options.map((option) => [option.kind, option.currentValue])),
+  }
 }

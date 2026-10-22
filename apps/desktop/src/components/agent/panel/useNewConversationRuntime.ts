@@ -7,7 +7,7 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { defaultAgent, usable } from '../../../lib/agentName'
 import { pendingLocalAgents } from '../../../lib/localAgentReady'
 
-import { chooseAgent, readNewChatChoice, saveNewChatChoice } from './newChatChoice'
+import { chooseAgent, newChatChoiceKey, readNewChatChoice, saveNewChatChoice } from './newChatChoice'
 
 import type { NewChatChoice } from './newChatChoice'
 import type { SessionConfigPick } from '../../../api/session-config-types'
@@ -15,7 +15,7 @@ import type { SessionConfigPick } from '../../../api/session-config-types'
 const NO_PICK: SessionConfigPick = {}
 
 export function useNewConversationRuntime(teamId?: string) {
-  const key = `nuphos.agent.runtimeInstance.${teamId ?? 'personal'}`
+  const key = newChatChoiceKey(teamId)
   // One saved choice for every new chat, pane and restart of this team.
   const [, rerender] = useReducer((count: number) => count + 1, 0)
   const catalog = useRuntimeInstances(teamId)

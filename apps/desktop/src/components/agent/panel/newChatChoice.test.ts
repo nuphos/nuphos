@@ -3,6 +3,8 @@ import { test } from 'node:test'
 
 import {
   chooseAgent,
+  confirmedChoice,
+  newChatChoiceKey,
   parseNewChatChoice,
   readNewChatChoice,
   saveNewChatChoice,
@@ -71,4 +73,33 @@ test('a saved choice is read once and stays the same object until changed', () =
   saveNewChatChoice('test.saved', { runtimeId: 'claude' }, storage)
   assert.deepEqual(readNewChatChoice('test.saved', storage), { runtimeId: 'claude' })
   assert.equal(stored.get('test.saved'), '{"runtimeId":"claude"}')
+})
+
+test('a model switched inside a chat is what the next new chat (Cmd+N) starts with', () => {
+  const stored = new Map<string, string>()
+  const storage = () => ({
+    getItem: (key: string) => stored.get(key) ?? null,
+    setItem: (key: string, value: string) => void stored.set(key, value),
+  })
+  const key = newChatChoiceKey('team-switch')
+  const option = (kind: 'model' | 'effort', currentValue: string) => ({
+    id: kind,
+    name: kind,
+    kind,
+    currentValue,
+    options: [],
+  })
+
+  saveNewChatChoice(key, { runtimeId: 'codex', pick: { model: 'sol', effort: 'low' } }, storage)
+  saveNewChatChoice(
+    key,
+    confirmedChoice('codex', [option('model', 'astra'), option('effort', 'high')]),
+    storage,
+  )
+
+  assert.deepEqual(readNewChatChoice(key, storage), {
+    runtimeId: 'codex',
+    pick: { model: 'astra', effort: 'high' },
+  })
+  assert.deepEqual(parseNewChatChoice(stored.get(key) ?? null), readNewChatChoice(key, storage))
 })
