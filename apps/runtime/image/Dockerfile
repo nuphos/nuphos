@@ -127,7 +127,7 @@ COPY --from=openab /usr/local/bin/openab /usr/local/bin/openab
 
 # The `nuphos agent` host from that CLI release. A container given NUPHOS_JOIN_TOKEN runs
 # it instead of openab and joins Nuphos as a device, the way a Box does (runtime-start.sh).
-ARG NUPHOS_AGENT_VERSION=0.6.1
+ARG NUPHOS_AGENT_VERSION=0.6.2
 RUN arch=$(case "$(dpkg --print-architecture)" in amd64) echo x64 ;; *) dpkg --print-architecture ;; esac) \
  && asset="nuphos-agent-linux-${arch}.tar.gz" \
  && base="https://github.com/nuphos/nuphos/releases/download/cli-v${NUPHOS_AGENT_VERSION}" \
