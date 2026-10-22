@@ -1,6 +1,6 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { isShuttingDown } from '@/lib/lifecycle'
-import { logError, logEvent } from '@/lib/observability'
+import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { observeAutonomousUpdates } from './autonomous-session-observer'
@@ -129,7 +129,7 @@ export async function reattachAfterTransportLoss(
   // Set only by a failure against the runtime itself, never by a bookkeeping
   // read that happened to throw: a Mongo hiccup is no evidence about the
   // agent process.
-  let unreachable = false
+  let failure: { error: unknown; attempts: number } | undefined
 
   try {
     for (const [attempt, delay] of delays.entries()) {
@@ -151,12 +151,7 @@ export async function reattachAfterTransportLoss(
 
         return true
       } catch (error) {
-        logError('agent.openab_session.reattach_failed', error, {
-          team_id: session.teamId,
-          session_id: session.conversationId,
-          attempt: attempt + 1,
-        })
-        unreachable = true
+        failure = { error, attempts: attempt + 1 }
       }
     }
     // Every retry is spent and the session is still off the air. Whether the
@@ -164,8 +159,17 @@ export async function reattachAfterTransportLoss(
     // that much and no more. Recorded here rather than on the first failure
     // so a blip the next attempt recovers from says nothing, and recorded on
     // a break as well as on exhaustion: an attempt that finds the session
-    // superseded hands ownership on without ever resuming.
-    if (unreachable) await markBackgroundWorkLost(session, 'unreachable')
+    // superseded hands ownership on without ever resuming. A computer that
+    // went offline is expected, so this is one warning, not an error per try.
+    if (failure) {
+      logEvent('warn', 'agent.openab_session.reattach_failed', {
+        ...errorTelemetryProperties(failure.error),
+        team_id: session.teamId,
+        session_id: session.conversationId,
+        attempts: failure.attempts,
+      })
+      await markBackgroundWorkLost(session, 'unreachable')
+    }
 
     return false
   } finally {

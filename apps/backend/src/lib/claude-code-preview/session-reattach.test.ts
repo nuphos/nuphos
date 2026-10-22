@@ -167,12 +167,47 @@ test('a runtime that stays unreachable is reported as lost contact, not certain 
 test('a blip the next attempt recovers from reports nothing', async () => {
   // The session is back on the air, so there is nothing to warn about and no
   // reason to invite a re-run of work that may still be running.
+  const error = spyOn(console, 'error').mockImplementation(() => {})
+  const warn = spyOn(console, 'warn').mockImplementation(() => {})
+
   acquire = spyOn(registry, 'acquire')
     .mockRejectedValueOnce(new Error('Failed to connect'))
     .mockResolvedValue(fakeClient('replacement'))
 
-  expect(await reattachAfterTransportLoss(session, session.client, [0, 0], instant)).toBe(true)
-  expect(workLost).toBeNull()
+  try {
+    expect(await reattachAfterTransportLoss(session, session.client, [0, 0], instant)).toBe(true)
+    expect(workLost).toBeNull()
+    expect(error).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+  } finally {
+    error.mockRestore()
+    warn.mockRestore()
+  }
+})
+
+test('an offline computer logs no error per retry, and one warning when reattach gives up', async () => {
+  // A computer going offline is expected; every retry failing must not flood
+  // the error log the backend error-volume alert watches.
+  const error = spyOn(console, 'error').mockImplementation(() => {})
+  const warn = spyOn(console, 'warn').mockImplementation(() => {})
+
+  acquire = spyOn(registry, 'acquire').mockRejectedValue(
+    new Error('The computer running this agent is offline'),
+  )
+
+  try {
+    expect(await reattachAfterTransportLoss(session, session.client, [0, 0, 0], instant)).toBe(
+      false,
+    )
+    expect(acquire).toHaveBeenCalledTimes(3)
+    expect(error).not.toHaveBeenCalled()
+    expect(warn.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual([
+      expect.objectContaining({ event: 'agent.openab_session.reattach_failed', attempts: 3 }),
+    ])
+  } finally {
+    error.mockRestore()
+    warn.mockRestore()
+  }
 })
 
 test('giving up because the session was superseded still reports the failures seen', async () => {
