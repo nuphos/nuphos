@@ -67,7 +67,9 @@ export async function attachRuntimeTunnel(
   let metrics: BoxMetrics | undefined
   let metricsReceivedAt: number | undefined
   let metricsLeaseUntil = 0
+  const heartbeatMs = deps.heartbeatMs ?? RUNTIME_PRESENCE_HEARTBEAT_MS
   let lastFrameAt = Date.now()
+  let presenceAt = 0
   let ended = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
@@ -86,6 +88,15 @@ export async function attachRuntimeTunnel(
         if (!updated) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
       })
       .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device presence unavailable'))
+
+  // Any frame shows the computer is alive. A pong queued behind data arrives late,
+  // so pongs alone would read a busy tunnel as silent.
+  const sawFrame = () => {
+    lastFrameAt = Date.now()
+    if (lastFrameAt - presenceAt < heartbeatMs) return
+    presenceAt = lastFrameAt
+    void refreshPresence()
+  }
 
   const end = () => {
     if (ended) return
@@ -196,7 +207,7 @@ export async function attachRuntimeTunnel(
     void deps.bus
       .publish(channel, JSON.stringify({ t: 'ping', conn } satisfies HolderMessage))
       .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable'))
-  }, deps.heartbeatMs ?? RUNTIME_PRESENCE_HEARTBEAT_MS)
+  }, heartbeatMs)
 
   try {
     const previous = await deps.presence.claim(userId, deviceId, conn)
@@ -233,12 +244,11 @@ export async function attachRuntimeTunnel(
 
       switch (frame.t) {
         case 'metrics':
-          if (Date.now() >= metricsLeaseUntil) return
+          if (Date.now() >= metricsLeaseUntil) break
           metrics = frame.metrics
           metricsReceivedAt = Date.now()
           void refreshPresence()
-
-          return
+          break
         case 'status': {
           const reported = frame.status
 
@@ -257,22 +267,17 @@ export async function attachRuntimeTunnel(
                 recorded = undefined
               })
           }
-
-          return
+          break
         }
         case 'pong':
-          lastFrameAt = Date.now()
-          void refreshPresence()
-
-          return
+          // Answers the heartbeat; it counts as liveness like every other frame.
+          break
         case 'opened':
           if (streams.has(frame.s)) void toStream(frame.s, { t: 'opened' })
-
-          return
+          break
         case 'data':
           if (streams.has(frame.s)) void toStream(frame.s, { t: 'data', d: frame.d })
-
-          return
+          break
         case 'close':
           if (streams.delete(frame.s))
             void toStream(frame.s, {
@@ -281,6 +286,7 @@ export async function attachRuntimeTunnel(
               ...(frame.reason ? { reason: frame.reason } : {}),
             })
       }
+      sawFrame()
     },
     closed(code, reason) {
       if (!ended) {
