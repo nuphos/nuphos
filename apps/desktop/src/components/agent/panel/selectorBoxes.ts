@@ -1,3 +1,5 @@
+import { AGENT_PROVIDER } from '../../../types/runtime.ts'
+
 import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance } from '../../../types/runtime'
 
@@ -88,9 +90,9 @@ export function selectorSignIn(
   return admin ? 'login' : null
 }
 
-/** Inside its Box an agent drops the "<Box> · " prefix its default label carries. */
-export function boxAgentName(agent: Pick<RuntimeInstance, 'label' | 'local'>): string {
-  const prefix = agent.local ? `${agent.local.deviceLabel} · ` : ''
+/** Inside its computer a runtime goes by its own name, or its provider's; never "<name> in <computer>". */
+export function boxAgentName(agent: Pick<RuntimeInstance, 'label' | 'local' | 'provider'>): string {
+  if (!agent.local) return agent.label
 
-  return prefix && agent.label.startsWith(prefix) ? agent.label.slice(prefix.length) : agent.label
+  return agent.local.agentLabel ?? AGENT_PROVIDER[agent.provider].label
 }

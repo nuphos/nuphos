@@ -53,9 +53,9 @@ struct SelectorBox: Identifiable {
         return administrator
     }
 
-    /// Inside its Box an agent drops the "<Box> · " prefix its default label carries.
+    /// Inside its computer a runtime goes by its own name, or its provider's; never "<name> in <computer>".
     static func agentName(_ runtime: RuntimeInstance) -> String {
-        guard let device = runtime.local?.deviceLabel, runtime.label.hasPrefix("\(device) · ") else { return runtime.label }
-        return String(runtime.label.dropFirst(device.count + 3))
+        guard let local = runtime.local else { return runtime.label }
+        return local.agentLabel ?? runtime.providerName
     }
 }

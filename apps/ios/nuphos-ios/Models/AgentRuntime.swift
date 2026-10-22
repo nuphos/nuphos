@@ -11,6 +11,8 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         let ownerUserId: String
         let deviceId: String
         let deviceLabel: String
+        /// The runtime's own name; absent while it goes by its provider's.
+        var agentLabel: String? = nil
         /// The owner's own CLI sign-in; nil when their computer cannot tell.
         let signedIn: Bool?
     }
