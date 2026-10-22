@@ -22,9 +22,9 @@ export async function pickUpConversationInSlack(sessionId: string, teamId?: stri
     }
     toast.success(
       'Picked up in Slack',
-      'Reply in your Slack DM with Nuphos to continue this conversation.',
+      'Reply in your Slack DM with Nuphos to continue with this agent.',
     )
   } catch (err) {
-    toast.apiError('Couldn’t pick this conversation up in Slack', err)
+    toast.apiError('Couldn’t pick this agent up in Slack', err)
   }
 }

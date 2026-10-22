@@ -78,10 +78,10 @@ test('the update confirmation names the Box and promises only what the update do
   const confirm = boxUpdateConfirm('Build box', '0.4.2')
 
   assert.equal(confirm.title, 'Update Build box?')
-  assert.match(confirm.description, /restarts the agent host on Build box/)
+  assert.match(confirm.description, /restarts the runtime host on Build box/)
   assert.match(confirm.description, /latest version available now \(expected v0\.4\.2\)/)
-  assert.match(confirm.description, /Box itself keeps running/)
-  assert.match(confirm.description, /all of its agents are unavailable until the host reconnects/)
+  assert.match(confirm.description, /computer itself keeps running/)
+  assert.match(confirm.description, /all of its runtimes are unavailable until the host reconnects/)
   assert.match(confirm.description, /even if the install fails/)
   assert.match(confirm.description, /replying/)
   assert.doesNotMatch(boxUpdateConfirm('Build box', undefined).description, /expected/)

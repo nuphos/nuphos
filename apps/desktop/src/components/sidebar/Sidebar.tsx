@@ -127,7 +127,7 @@ export function Sidebar({
   const sidebarSections = dynamicNavigation
     ? renderSections
     : renderSections.filter(
-        (section, index) => index === 0 || section.title === 'Pinned' || section.title === 'Chats',
+        (section, index) => index === 0 || section.title === 'Pinned' || section.title === 'Agents',
       )
 
   const showSidebar = !collapsed || peek

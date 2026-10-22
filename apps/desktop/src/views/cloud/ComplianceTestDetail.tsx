@@ -73,7 +73,7 @@ export function ComplianceTestDetail({
       <div className="flex-shrink-0 border-t border-zGray-800/60 p-3">
         <Button size="sm" className="w-full" type="button" onClick={onOpenInChat}>
           <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-          Open in chat
+          Open in agent
         </Button>
       </div>
     </div>

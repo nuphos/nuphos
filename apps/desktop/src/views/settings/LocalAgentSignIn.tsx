@@ -75,7 +75,7 @@ export function LocalAgentSignIn({
           <div className="space-y-4 p-5" role="status" aria-live="polite">
             <p className="text-[13px] text-secondary">
               {connected
-                ? `${name} is connected. Your local agent is ready.`
+                ? `${name} is connected. Your local runtime is ready.`
                 : login?.state === 'checking'
                   ? 'Verifying your sign-in…'
                   : busy
@@ -83,10 +83,10 @@ export function LocalAgentSignIn({
                     : retry
                       ? 'Sign-in did not finish. Try again.'
                       : codex
-                        ? 'Sign in with ChatGPT using the one-time code. Device-code login must be enabled in ChatGPT security settings. This updates your terminal Codex login and restarts your local Codex agent.'
+                        ? 'Sign in with ChatGPT using the one-time code. Device-code login must be enabled in ChatGPT security settings. This updates your terminal Codex login and restarts your local Codex runtime.'
                         : isMac
-                          ? 'Nuphos uses the Claude sign-in from your terminal. Signing in updates that shared login, restarts your local Claude agent and stops its running conversations.'
-                          : 'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude agent and stops its running conversations.'}
+                          ? 'Nuphos uses the Claude sign-in from your terminal. Signing in updates that shared login, restarts your local Claude runtime and stops its running agents.'
+                          : 'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude runtime and stops its running agents.'}
             </p>
             {busy && login?.userCode && (
               <div className="space-y-2">

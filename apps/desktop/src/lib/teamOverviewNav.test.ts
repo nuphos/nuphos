@@ -17,7 +17,7 @@ import {
 
 const ALL_ITEMS = [...TEAM_SIDEBAR_NAV_ITEMS, ...TEAM_WORKSPACE_NAV_ITEMS]
 
-test('the sidebar lists New chat then the management pages', () => {
+test('the sidebar lists New agent then the management pages', () => {
   assert.deepEqual(
     TEAM_SIDEBAR_NAV_ITEMS.map((item) => item.key),
     ['team.agent', 'team.inbox', 'team.agents', 'team.integrations'],
@@ -80,7 +80,7 @@ test('keys are unique', () => {
 
 test('resolves the nav item for each page key', () => {
   assert.equal(teamOverviewNavItemFor('team.monitoring')?.label, 'Monitoring')
-  assert.equal(teamOverviewNavItemFor('team.agent')?.label, 'New chat')
+  assert.equal(teamOverviewNavItemFor('team.agent')?.label, 'New agent')
   assert.equal(teamOverviewNavItemFor('team.agent-memories')?.label, 'Memories')
   assert.equal(teamOverviewNavItemFor('team.triggers')?.label, 'Triggers')
 })

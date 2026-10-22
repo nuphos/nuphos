@@ -50,7 +50,7 @@ export function ConversationTitleInput({
       announceChatTitle({ sessionId, teamId, title: result.title })
       onDone()
     } catch (error) {
-      toast.apiError('Could not rename chat', error)
+      toast.apiError('Could not rename agent', error)
     } finally {
       inFlight.current = false
       setSaving(false)
@@ -74,7 +74,7 @@ export function ConversationTitleInput({
     >
       <label className={inline ? 'flex min-w-0 flex-1' : 'block px-5 pt-0.5 pb-3'}>
         <input
-          aria-label="Chat title"
+          aria-label="Agent title"
           autoFocus
           maxLength={120}
           value={draft}
@@ -169,11 +169,11 @@ export function EditableConversationTitle({
     <Tooltip
       side="bottom"
       triggerClassName="min-w-0"
-      content={<ShortcutLabel label="Rename chat" combo={sessionShortcutCombo('rename-chat')} />}
+      content={<ShortcutLabel label="Rename agent" combo={sessionShortcutCombo('rename-chat')} />}
     >
       <button
         type="button"
-        aria-label={`Rename chat: ${title}`}
+        aria-label={`Rename agent: ${title}`}
         onClick={() => setEditing(true)}
         className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-zGray-800/60"
       >
@@ -198,7 +198,7 @@ export function RenameConversationDialog({
   return (
     <Modal
       open
-      title="Rename chat"
+      title="Rename agent"
       description="Keep it short and recognizable"
       appearance="prompt"
       width={420}

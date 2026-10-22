@@ -149,7 +149,7 @@ export async function runOpenConversation(
       streamStartedAt: activeRun ? streamStartedAt : null,
       error:
         !activeRun && replayBaseMessages.length === 0
-          ? 'This conversation has no saved messages yet.'
+          ? 'This agent has no saved messages yet.'
           : null,
       autoResumeAttempts: 0,
       historyBaseIndex,
@@ -240,7 +240,7 @@ export async function runOpenConversation(
 
       return
     }
-    toast.apiError('Failed to open conversation', err)
+    toast.apiError('Failed to open agent', err)
     clearPendingOpen(sessionId)
     setOpeningConversation(null)
   }

@@ -41,7 +41,7 @@ test('own Boxes by name and size, teammates running Boxes as one row', () => {
     [
       ['Box 1', 2, true],
       ['Build box', 8, false],
-      ["Teammates' Boxes", 7, true],
+      ["Teammates' computers", 7, true],
     ],
   )
 })
@@ -52,7 +52,7 @@ test('a paused Box that does not fit names itself, else a new Box, else nothing'
   ])
 
   assert.equal(blockedStart(usage([], 9), rows), 'Starting Build box needs 8 vCPU; 3 free.')
-  assert.equal(blockedStart(usage([], 9), []), 'A new Box needs 4 vCPU; 3 free.')
+  assert.equal(blockedStart(usage([], 9), []), 'A new computer needs 4 vCPU; 3 free.')
   assert.equal(blockedStart(usage([], 2), []), null)
 })
 

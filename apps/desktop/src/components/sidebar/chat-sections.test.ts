@@ -18,7 +18,7 @@ const layout = (sections: Section[]) =>
 const build = (chats: Item[], pinned: string[]) =>
   layout(
     withChatSections(
-      [{ items: [] }, { title: 'Chats', items: chats }],
+      [{ items: [] }, { title: 'Agents', items: chats }],
       chats.filter((item) => pinned.includes(item.key)),
       (item) => pinned.includes(item.key),
     ),
@@ -30,7 +30,7 @@ test('a pinned conversation takes its threads to Pinned', () => {
   assert.deepEqual(build(chats, ['parent']), {
     '': [],
     Pinned: ['parent', 'thread', 'grandchild'],
-    Chats: ['other'],
+    Agents: ['other'],
   })
 })
 
@@ -45,10 +45,10 @@ test('a pinned thread leaves its parent and takes its own threads along', () => 
   assert.deepEqual(build(chats, ['thread']), {
     '': [],
     Pinned: ['thread', 'grandchild'],
-    Chats: ['parent', 'sibling'],
+    Agents: ['parent', 'sibling'],
   })
 })
 
 test('a parent cycle does not loop', () => {
-  assert.deepEqual(build([row('a', 'b'), row('b', 'a')], []), { '': [], Chats: ['a', 'b'] })
+  assert.deepEqual(build([row('a', 'b'), row('b', 'a')], []), { '': [], Agents: ['a', 'b'] })
 })

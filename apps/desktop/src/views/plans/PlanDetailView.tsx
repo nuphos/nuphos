@@ -74,7 +74,7 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
         className="h-7 gap-1.5 px-2 text-[12.5px]"
       >
         <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-        {plan.status === 'proposed' ? 'Continue in chat' : 'Open in chat'}
+        {plan.status === 'proposed' ? 'Continue in agent' : 'Open in agent'}
       </Button>
     ) : undefined
 

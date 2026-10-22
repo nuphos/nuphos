@@ -14,7 +14,7 @@ import { RadioCard, SetupScreen } from './SetupChrome'
 
 import type { RuntimeInstance } from '../../../types/runtime'
 
-const BREADCRUMB = 'Cloud agent › Box'
+const BREADCRUMB = 'Cloud runtime › Computer'
 
 function SignInPanel({
   teamId,
@@ -34,8 +34,8 @@ function SignInPanel({
     <SetupScreen
       breadcrumb={BREADCRUMB}
       title={`Sign in with ${account}`}
-      subtitle={`${AGENT_PROVIDER[instance.provider].label} runs on your Box and keeps its own sign-in; Nuphos does not store it.`}
-      hint="You can sign in later from Settings › Agents."
+      subtitle={`${AGENT_PROVIDER[instance.provider].label} runs on your computer and keeps its own sign-in; Nuphos does not store it.`}
+      hint="You can sign in later from Settings › Runtimes."
       actions={
         <>
           {state.failed && <Button onClick={state.restart}>Try again</Button>}
@@ -56,7 +56,7 @@ function SignInPanel({
           ) : (
             <Loader2 className="h-4 w-4 animate-spin" />
           )}
-          {state.reachable ? 'Your agent is running' : 'Starting your agent…'}
+          {state.reachable ? 'Your runtime is running' : 'Starting your runtime…'}
         </li>
         {state.reachable && (
           <li className="space-y-4 rounded-xl border border-zGray-800 bg-zGray-900/60 p-4">
@@ -103,8 +103,8 @@ export function BoxCloudSetup({
     return (
       <SetupScreen
         breadcrumb={BREADCRUMB}
-        title="Choose an agent"
-        subtitle="Your Box is running. Pick the agent to sign in first; you can sign in the others later from Settings › Agents."
+        title="Choose a runtime"
+        subtitle="Your computer is running. Pick the runtime to sign in first; you can sign in the others later from Settings › Runtimes."
         actions={
           <>
             <Button variant="ghost" onClick={onBack}>
@@ -118,7 +118,7 @@ export function BoxCloudSetup({
           value={picked.id}
           onValueChange={(value: string) => setPickedId(value)}
           className="grid grid-cols-2 gap-3"
-          aria-label="Agent"
+          aria-label="Runtime"
         >
           {box.agents.map((agent) => (
             <RadioCard
@@ -137,8 +137,8 @@ export function BoxCloudSetup({
   return (
     <SetupScreen
       breadcrumb={BREADCRUMB}
-      title={box.phase === 'idle' ? 'Create a Box' : 'Starting your Box'}
-      subtitle="A Box is a Linux computer in the cloud with Claude Code and Codex on it. Its agents keep working when this computer sleeps, and only you can use it."
+      title={box.phase === 'idle' ? 'Create a computer' : 'Starting your computer'}
+      subtitle="A computer is a Linux machine in the cloud with Claude Code and Codex on it. Your agents keep working on it while your laptop sleeps, and only you can use it."
       actions={
         <>
           <Button variant="ghost" disabled={box.creating} onClick={onBack}>
@@ -146,7 +146,7 @@ export function BoxCloudSetup({
           </Button>
           {box.phase === 'idle' && (
             <Button disabled={box.creating} onClick={() => void box.create()}>
-              {box.creating ? 'Creating…' : 'Create Box'}
+              {box.creating ? 'Creating…' : 'Create computer'}
             </Button>
           )}
         </>
@@ -156,7 +156,7 @@ export function BoxCloudSetup({
         <ol className="space-y-3 text-[13px] text-secondary" role="status" aria-live="polite">
           <li className="flex items-center gap-2">
             <Check className="h-4 w-4 text-success" />
-            Box created
+            Computer created
           </li>
           <li className="flex items-center gap-2">
             {problem ? (
@@ -164,7 +164,7 @@ export function BoxCloudSetup({
             ) : (
               <Loader2 className="h-4 w-4 animate-spin" />
             )}
-            {problem ?? 'Starting the computer and its agents, usually 10–30 seconds…'}
+            {problem ?? 'Starting the computer and its runtimes, usually 10–30 seconds…'}
           </li>
         </ol>
       )}

@@ -105,9 +105,9 @@ export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
 
   return (
     <SetupScreen
-      title={`Connect agents on ${computer}`}
-      subtitle={`Nuphos runs these agents with the subscriptions you already have. Here’s what we found on ${computer}.`}
-      hint="You can change this later in Settings › Agents."
+      title={`Connect runtimes on ${computer}`}
+      subtitle={`Nuphos runs these runtimes with the subscriptions you already have. Here’s what we found on ${computer}.`}
+      hint="You can change this later in Settings › Runtimes."
       actions={<Button onClick={onContinue}>Continue</Button>}
     >
       <div className="space-y-3">

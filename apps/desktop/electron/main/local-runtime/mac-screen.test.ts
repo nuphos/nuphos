@@ -37,7 +37,7 @@ test('another conversation gets the screen only once nobody watches it', async (
 
   assert.equal(await openMacScreen(pool, 's1', port), 0)
   assert.equal(await openMacScreen(pool, 's1', port), 0)
-  await assert.rejects(openMacScreen(pool, 's2', port), /another conversation/u)
+  await assert.rejects(openMacScreen(pool, 's2', port), /another agent/u)
   assert.deepEqual(macScreenStatus(pool), {
     desktops: [{ display: 0, sessionId: 's1' }],
     desktopOpen: true,

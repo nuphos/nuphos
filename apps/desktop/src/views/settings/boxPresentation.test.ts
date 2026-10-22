@@ -174,7 +174,7 @@ test('a new agent is named after its provider, numbered past the names the machi
   assert.equal(agentNameTaken([named('Review')], 'Reviews'), false)
 })
 
-test('sizes are named by vCPU, not position, and say how many sessions they hold', () => {
+test('sizes are named by vCPU, not position, and say how many agents they hold', () => {
   const small = { vcpus: 2, memMiB: 4096 }
   const medium = { vcpus: 4, memMiB: 8192 }
   const large = { vcpus: 8, memMiB: 16384 }
@@ -186,7 +186,7 @@ test('sizes are named by vCPU, not position, and say how many sessions they hold
       name: 'Medium',
       spec: '4 vCPU · 8 GiB',
       use: 'Everyday work',
-      sessions: 'Up to 3 sessions at once',
+      sessions: 'Up to 3 agents at once',
     },
     {
       vcpus: 8,
@@ -194,15 +194,15 @@ test('sizes are named by vCPU, not position, and say how many sessions they hold
       name: 'Large',
       spec: '8 vCPU · 16 GiB',
       use: 'Heavy builds',
-      sessions: 'Up to 8 sessions at once',
+      sessions: 'Up to 8 agents at once',
     },
   ])
   assert.deepEqual(
     boxSizeChoices([small, medium, large]).map((c) => [c.name, c.tier, c.sessions]),
     [
-      ['Small', 0, 'Up to 1 session at once'],
-      ['Medium', 1, 'Up to 3 sessions at once'],
-      ['Large', 2, 'Up to 8 sessions at once'],
+      ['Small', 0, 'Up to 1 agent at once'],
+      ['Medium', 1, 'Up to 3 agents at once'],
+      ['Large', 2, 'Up to 8 agents at once'],
     ],
   )
   // The edges: 2 is still Small, 6 still Medium, 7 already Large.
@@ -301,6 +301,6 @@ test('only a manager sees who may use a Box', () => {
   )
 })
 
-test('boxSizeChoices says "1 session", not "1 sessions"', () => {
-  assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 session at once')
+test('boxSizeChoices says "1 agent", not "1 agents"', () => {
+  assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 agent at once')
 })

@@ -123,7 +123,7 @@ export function SessionDesktopView({
       phase={conversationId ? phase : { kind: 'connecting' }}
       status={
         !conversationId
-          ? 'Select a conversation to see its desktop.'
+          ? 'Select an agent to see its desktop.'
           : phase.kind !== 'connected'
             ? undefined
             : holding
@@ -160,9 +160,9 @@ function boxRefusal(error: unknown): unknown {
   const { code } = parseAtlasError(error)
 
   if (code === 'forbidden' || code === 'not_found')
-    return new DesktopRefusal('denied', 'You no longer have access to this Box’s desktop.')
+    return new DesktopRefusal('denied', 'You no longer have access to this computer’s desktop.')
   if (code === 'box_state' || code === 'box_unavailable')
-    return new DesktopRefusal('offline', 'Box is offline.')
+    return new DesktopRefusal('offline', 'Computer is offline.')
 
   return error
 }

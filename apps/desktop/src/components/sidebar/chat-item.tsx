@@ -29,7 +29,7 @@ export function chatSidebarItem({
 
   return {
     key: `agent-session:${conversation.sessionId}`,
-    label: conversation.title || conversation.firstMessage || 'Untitled chat',
+    label: conversation.title || conversation.firstMessage || 'Untitled agent',
     ...chatRowIcon(conversation),
     description: (
       <SessionResources

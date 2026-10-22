@@ -56,7 +56,7 @@ export function BoxAgentForm({
       {box.phase === 'ready' && (
         <div className="space-y-2">
           <p className="text-[12.5px] text-secondary">
-            Your Box is running. Choose an agent to sign in.
+            Your computer is running. Choose a runtime to sign in.
           </p>
           {box.agents.map((agent) => (
             <Choice
@@ -73,7 +73,7 @@ export function BoxAgentForm({
         <p className="flex items-center gap-2 text-[12.5px] leading-5 text-secondary" role="status">
           {box.phase === 'starting' && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
           {box.phase === 'starting' &&
-            'Starting the computer and its agents, usually 10 to 30 seconds…'}
+            'Starting the computer and its runtimes, usually 10 to 30 seconds…'}
           {boxSetupProblem(box.phase)}
         </p>
       )}
@@ -83,7 +83,7 @@ export function BoxAgentForm({
         </button>
         {box.phase === 'idle' && (
           <Button size="sm" type="submit" form={NEW_BOX_FORM} disabled={creating}>
-            {creating ? 'Creating…' : 'Create Box'}
+            {creating ? 'Creating…' : 'Create computer'}
           </Button>
         )}
       </StepActions>

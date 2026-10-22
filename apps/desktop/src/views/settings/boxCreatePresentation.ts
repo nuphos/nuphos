@@ -1,13 +1,13 @@
 import type { BoxUsage } from '../../api/device-types'
 
-/** The name the backend gives an unnamed Box: "Box N", after the highest the caller has. */
+/** The name the backend gives an unnamed Box: "Computer N", after the highest the caller has. */
 export function nextBoxName(labels: string[]): string {
   const taken = labels
-    .map((label) => /^Box (\d+)$/u.exec(label)?.[1])
+    .map((label) => /^Computer (\d+)$/u.exec(label)?.[1])
     .filter((n): n is string => n !== undefined)
     .map(Number)
 
-  return `Box ${String(Math.max(0, ...taken) + 1)}`
+  return `Computer ${String(Math.max(0, ...taken) + 1)}`
 }
 
 /**

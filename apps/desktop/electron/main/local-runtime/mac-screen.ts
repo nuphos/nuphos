@@ -95,7 +95,7 @@ export async function openMacScreen(
   const held = holder(pool)
 
   if (held && held !== sessionId)
-    throw new Error('This Mac’s screen is open in another conversation. Close it there first.')
+    throw new Error('This Mac’s screen is open in another agent. Close it there first.')
   writeFileSync(lockFile(pool), JSON.stringify({ sessionId, since: Date.now() }), { mode: 0o600 })
 
   return SCREEN

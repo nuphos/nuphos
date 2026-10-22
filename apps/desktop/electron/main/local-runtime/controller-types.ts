@@ -149,10 +149,10 @@ export const AGENT_HOME_UNAVAILABLE: Record<LocalAgentProvider, string> = {
 }
 
 export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
-  'claude-code': 'Install Claude Code on this computer to run it as a local agent.',
-  codex: 'Install Codex on this computer to run it as a local agent.',
-  grok: 'Install Grok Build on this computer to run it as a local agent.',
-  opencode: 'Install OpenCode on this computer to run it as a local agent.',
+  'claude-code': 'Install Claude Code on this computer to run it as a local runtime.',
+  codex: 'Install Codex on this computer to run it as a local runtime.',
+  grok: 'Install Grok Build on this computer to run it as a local runtime.',
+  opencode: 'Install OpenCode on this computer to run it as a local runtime.',
 }
 
 export function freshAgent(): Agent {
@@ -197,7 +197,7 @@ export function agentStatesOf(
   const entries = LOCAL_AGENT_PROVIDERS.map((provider): [LocalAgentProvider, LocalAgentState] => {
     const agent = agents[provider]
     const error = context.superseded
-      ? 'Another Nuphos app on this computer took over the local agent.'
+      ? 'Another Nuphos app on this computer took over the local runtime.'
       : agent.error
 
     return [

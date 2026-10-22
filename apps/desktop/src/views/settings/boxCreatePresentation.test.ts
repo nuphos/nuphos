@@ -9,9 +9,12 @@ import {
   sizeGridColumns,
 } from './boxCreatePresentation.ts'
 
-test('nextBoxName counts up after the highest "Box N", ignoring other names', () => {
-  assert.equal(nextBoxName([]), 'Box 1')
-  assert.equal(nextBoxName(['Personal Laptop', 'Box 1', 'Box 3', 'Box 12x']), 'Box 4')
+test('nextBoxName counts up after the highest "Computer N", ignoring other names', () => {
+  assert.equal(nextBoxName([]), 'Computer 1')
+  assert.equal(
+    nextBoxName(['Personal Laptop', 'Computer 1', 'Computer 3', 'Computer 12x']),
+    'Computer 4',
+  )
 })
 
 test('boxQuota reports used and left vCPU, never below zero, unknown use as null, and null without a limit', () => {

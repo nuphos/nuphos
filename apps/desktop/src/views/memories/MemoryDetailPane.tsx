@@ -179,7 +179,7 @@ export function MemoryDetailPane({
                       : []),
                     ['ID', memory.id],
                     ['Type', memory.type],
-                    ['Conversation', memory.convId ?? '—'],
+                    ['Agent', memory.convId ?? '—'],
                     ['User scope', memory.userId ?? '—'],
                     ['App scope', memory.appId ?? '—'],
                     ['Group IDs', memory.groupIds.length > 0 ? memory.groupIds.join(', ') : '—'],

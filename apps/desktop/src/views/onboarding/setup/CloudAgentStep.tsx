@@ -65,7 +65,7 @@ export function CloudAgentStep({
   return (
     <SetupScreen
       title="Keep working when your computer is closed"
-      subtitle="Local agents stop when this computer sleeps or Nuphos quits. A cloud agent keeps running, so you can close your laptop and pick up the conversation on your phone."
+      subtitle="Local runtimes stop when this computer sleeps or Nuphos quits. A cloud runtime keeps running, so you can close your laptop and pick up where your agents left off on your phone."
       actions={
         <>
           {isAdmin && (
@@ -79,20 +79,20 @@ export function CloudAgentStep({
     >
       <Comparison />
       <div className="space-y-3">
-        <h2 className="text-[14px] font-medium text-main">Add a cloud agent</h2>
+        <h2 className="text-[14px] font-medium text-main">Add a cloud runtime</h2>
         {isAdmin && (
           <RadioGroup
             value={choice}
             onValueChange={(value: CloudChoice) => setChoice(value)}
             className="space-y-2"
-            aria-label="Cloud agent type"
+            aria-label="Cloud runtime type"
           >
             {boxAvailable && (
               <RadioCard
                 value="box"
                 selected={choice === 'box'}
                 icon={<Box className="h-4 w-4" />}
-                title="New Box"
+                title="New computer"
                 badge="Recommended"
                 description="A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account."
               />
@@ -108,7 +108,7 @@ export function CloudAgentStep({
         )}
         {!isAdmin && (
           <p className="rounded-xl border border-zGray-800 bg-zGray-900/60 px-4 py-3 text-[13px] leading-5 text-secondary">
-            Cloud agents are added by workspace admins. Ask an admin of this workspace to add one;
+            Cloud runtimes are added by workspace admins. Ask an admin of this workspace to add one;
             it shows up for you automatically.
           </p>
         )}

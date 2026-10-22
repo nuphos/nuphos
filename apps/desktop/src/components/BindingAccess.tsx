@@ -120,8 +120,7 @@ export function BindingAccessSection({
         {principal && <span className="ml-auto text-[11.5px] text-tertiary">{principal}</span>}
       </div>
       <p className="mb-3 text-[12px] text-tertiary">
-        Control which team members can use this {config.resourceLabel}, including from their agent
-        sessions.
+        Control which team members can use this {config.resourceLabel}, including from their agents.
         {config.adminBypass && ' Team admins always have access, whether or not they are listed.'}
       </p>
       {loading ? (
@@ -133,7 +132,7 @@ export function BindingAccessSection({
           <div className="border-y border-zGray-800/60 divide-y divide-zGray-800/60">
             <AllowListSelect
               title="Access"
-              subtitle={`Members allowed to use this ${config.resourceLabel}. Their agents can use it only when they also select it for a session.`}
+              subtitle={`Members allowed to use this ${config.resourceLabel}. Their agents can use it only when they also select it for that agent.`}
               allowList={memberAllowList}
               members={members}
               onChange={setMemberAllowList}

@@ -100,7 +100,7 @@ async function updateLocal(provider: CliLoginProvider, before?: string) {
     else
       toast.success(
         version ? `${name} updated to v${version}` : `${name} updated`,
-        'New conversations use it; running ones finish on the version they started with.',
+        'New agents use it; running ones finish on the version they started with.',
       )
   } catch (err) {
     toast.apiError(`Could not update ${name}`, err, {
@@ -122,9 +122,9 @@ async function updateTeamAgent(teamId: string, runtimeId: string) {
       ttl: PENDING_TTL_MS,
       status: Promise.resolve({ state: 'waiting', targetVersion: version }),
     })
-    toast.success('Update queued', 'It starts once conversations on this agent finish.')
+    toast.success('Update queued', 'It starts once agents on this runtime finish replying.')
   } catch (err) {
-    toast.apiError('Could not update this agent', err)
+    toast.apiError('Could not update this runtime', err)
   } finally {
     setStarting(runtimeId, false)
   }
@@ -193,12 +193,16 @@ function teamAgentUpdate(
   const version = status.latestVersion
 
   if (kind !== 'managed')
-    return { state: 'available', version, reason: 'Update this agent on the machine that runs it.' }
+    return {
+      state: 'available',
+      version,
+      reason: 'Update this runtime on the computer that runs it.',
+    }
   if (!teamId)
     return {
       state: 'available',
       version,
-      reason: 'Ask a workspace administrator to update this agent.',
+      reason: 'Ask a workspace administrator to update this runtime.',
     }
 
   return { state: 'available', version, start: () => void updateTeamAgent(teamId, id) }

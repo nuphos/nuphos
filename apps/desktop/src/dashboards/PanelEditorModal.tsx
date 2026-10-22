@@ -150,7 +150,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                 <span className="text-[12px] text-secondary">
                   Credentials: {countSelectedCredentials(credentials.control.value)}/
                   {countTotalCredentials(credentials.control.options)} selected
-                  {credentials.usesDefault ? ' · same default as a new conversation' : ''}
+                  {credentials.usesDefault ? ' · same default as a new agent' : ''}
                 </span>
               </div>
               <p className="text-[11px] text-tertiary">

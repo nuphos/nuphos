@@ -50,7 +50,7 @@ export function ExternalRuntimeForm({
       if (outcome.kind === 'duplicate') setDuplicateId(outcome.runtimeId)
       else onConnected(outcome.runtime)
     } catch (error) {
-      toast.apiError('Could not connect agent', error)
+      toast.apiError('Could not connect runtime', error)
     } finally {
       setSaving(false)
     }
@@ -62,7 +62,7 @@ export function ExternalRuntimeForm({
     </Button>
   ) : (
     <Button size="sm" type="submit" form={formId} disabled={cannotSave}>
-      {saving ? 'Connecting…' : 'Connect agent'}
+      {saving ? 'Connecting…' : 'Connect runtime'}
     </Button>
   )
   const cancel = (
@@ -97,16 +97,16 @@ export function ExternalRuntimeForm({
       className="space-y-4"
     >
       <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
-        Open your agent’s address in a browser, sign in to its console and choose Connect to Nuphos.
-        If Nuphos does not open by itself, copy the address and pairing code the console shows into
-        this form. Agents without a console connect with their password instead.
+        Open your runtime’s address in a browser, sign in to its console and choose Connect to
+        Nuphos. If Nuphos does not open by itself, copy the address and pairing code the console
+        shows into this form. Runtimes without a console connect with their password instead.
       </p>
       <Field
         label="Address"
         hint={
           url.trim() && !agentUrl
-            ? 'Enter the agent’s address, for example https://agent.example.com.'
-            : 'The address the agent console shows.'
+            ? 'Enter the runtime’s address, for example https://agent.example.com.'
+            : 'The address the runtime console shows.'
         }
       >
         <input
@@ -146,8 +146,8 @@ export function ExternalRuntimeForm({
       </Field>
       {duplicateId && (
         <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
-          This agent is already connected to this team. Updating the existing connection gives it a
-          new key and keeps its conversations.
+          This runtime is already connected to this team. Updating the existing connection gives it
+          a new key and keeps its agents.
         </p>
       )}
       {/* Inline as it always was; in a dialog's footer the primary action sits on the right. */}

@@ -52,14 +52,14 @@ export function ChatSummaryToggle({ active }: { active: boolean }) {
       side="bottom"
       content={
         <span className="flex items-center gap-2">
-          Toggle chat summary
+          Toggle agent summary
           <Kbd combo="mod+i" />
         </span>
       }
     >
       <button
         type="button"
-        aria-label="Toggle chat summary"
+        aria-label="Toggle agent summary"
         aria-pressed={open}
         onClick={toggleChatSummary}
         className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main aria-pressed:bg-zGray-800/60 aria-pressed:text-main motion-reduce:transition-none"

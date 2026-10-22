@@ -32,7 +32,7 @@ export function boxRows(usage: BoxUsage, devices: AgentDevice[]): BoxRow[] {
   if (teammates > 0)
     rows.push({
       key: 'teammates',
-      name: "Teammates' Boxes",
+      name: "Teammates' computers",
       vcpus: teammates,
       running: true,
       teammates: true,
@@ -50,7 +50,7 @@ export function blockedStart(usage: BoxUsage, rows: BoxRow[]): string | null {
   if (paused)
     return `Starting ${paused.name} needs ${String(paused.vcpus)} vCPU; ${String(free)} free.`
   if (usage.boxVcpus !== null && usage.boxVcpus > free)
-    return `A new Box needs ${String(usage.boxVcpus)} vCPU; ${String(free)} free.`
+    return `A new computer needs ${String(usage.boxVcpus)} vCPU; ${String(free)} free.`
 
   return null
 }

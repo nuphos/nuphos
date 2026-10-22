@@ -415,7 +415,7 @@ async function serve() {
 
       if (display === null)
         throw new Error(
-          `All ${String(size)} desktops on this Box are in use; one frees when its conversation ends.`,
+          `All ${String(size)} desktops on this computer are in use; one frees when its agent ends.`,
         )
       try {
         return { display, env: await startDisplay(pool, display, home) }
@@ -466,7 +466,8 @@ export async function open(pool, sessionId, pid) {
   const size = Number(process.env.NUPHOS_DESKTOP_POOL_SIZE) || os.cpus().length
   const display = claimDisplay(pool, sessionId, size, pid, true)
 
-  if (display === null) throw new Error(`This Box has no free desktop (${String(size)} in use).`)
+  if (display === null)
+    throw new Error(`This computer has no free desktop (${String(size)} in use).`)
   await startDisplay(pool, display, path.join(xdgDir(pool, display), 'home'))
 
   return display

@@ -11,9 +11,9 @@ import type { OpenBilling } from './billing'
 const HOW_IT_WORKS = [
   {
     icon: Cpu,
-    text: 'You pay for the vCPU of running Boxes; each Box counts at its own size.',
+    text: 'You pay for the vCPU of running computers; each computer counts at its own size.',
   },
-  { icon: Pause, text: 'Paused Boxes are free and wake up as you left them.' },
+  { icon: Pause, text: 'Paused computers are free and wake up as you left them.' },
   { icon: Settings2, text: 'Change or cancel anytime in the billing portal.' },
 ]
 
@@ -82,7 +82,9 @@ export function PlanCards({
               </BillingButton>
             )}
             {billing && state === 'short' && needs !== undefined && (
-              <p className="text-center text-[12px] text-tertiary">Too small for this Box</p>
+              <p className="text-center text-[12px] text-tertiary">
+                Too small for the new computer
+              </p>
             )}
           </section>
         )
@@ -107,8 +109,8 @@ export function NoPlan({
           Keep your agents running in the cloud
         </h2>
         <p className="text-[14px] text-secondary">
-          A Box plan gives your team cloud Boxes that run your agents 24/7, each with its own
-          desktop, shared with your teammates.
+          A computer plan gives your team cloud computers that run your agents 24/7, each with its
+          own desktop, shared with your teammates.
         </p>
       </section>
       <PlanCards billing={billing} />

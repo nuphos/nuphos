@@ -45,8 +45,8 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
             <button
               onClick={startNewChat}
               className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center transition-colors"
-              title="New chat"
-              aria-label="New chat"
+              title="New agent"
+              aria-label="New agent"
             >
               <SquarePen className="w-3.5 h-3.5" strokeWidth={1.8} />
             </button>

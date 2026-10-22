@@ -97,7 +97,7 @@ export class VncStream implements SocketLike {
   }
 
   private open(sessionId: string, display: number, viewer: string): void {
-    if (this.holder(display) !== sessionId) throw new Error('Not this session’s display')
+    if (this.holder(display) !== sessionId) throw new Error('Not this agent’s display')
     this.viewer = viewer.replace(/[^\w-]/gu, '')
     this.control = path.join(this.pool, `${String(display)}.xdg`, 'instabox-control')
     this.held = () => this.holder(display) === sessionId

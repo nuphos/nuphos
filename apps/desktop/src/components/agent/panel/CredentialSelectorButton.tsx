@@ -51,7 +51,7 @@ function SelectionButton({
     (devices
       ? listedDevices.some((device) => unseen.deviceIds.includes(device.deviceId))
       : countSelectedCredentials(unseen) > 0)
-  const title = devices ? 'Devices' : 'Agent credentials'
+  const title = devices ? 'Computers' : 'Agent credentials'
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
   const changeAll = (select: boolean) => {
@@ -131,7 +131,7 @@ function SelectionButton({
         {totalCount === 0 && (
           <div className="px-2 py-3 text-[12px] text-tertiary">
             {devices
-              ? 'No devices available to this team yet.'
+              ? 'No computers available to this team yet.'
               : 'No credentials bound to this team yet.'}
           </div>
         )}

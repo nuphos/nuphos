@@ -192,7 +192,7 @@ test(
     sessions.start(owner, 'agent-tab', 80, 24, undefined, scope)
     assert.throws(
       () => sessions.agentRequest('agent-tab', 'another-conversation', 'echo bad\r'),
-      /another conversation/,
+      /another agent/,
     )
     const ready = waitForOutput(emitter, 'AGENT_SHARED_OUTPUT')
 
@@ -219,7 +219,7 @@ test(
 
     sessions.input(owner, 'user-tab', "printf '%s%s\\n' USER_SHELL_ READY\r")
     await userReady
-    assert.throws(() => sessions.agentRequest('user-tab', scope), /another conversation/)
+    assert.throws(() => sessions.agentRequest('user-tab', scope), /another agent/)
     const exited = waitForExit(emitter, 'user-tab', t.signal)
 
     sessions.input(owner, 'user-tab', 'exit\r')

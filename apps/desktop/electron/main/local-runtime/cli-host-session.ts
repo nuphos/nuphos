@@ -24,7 +24,7 @@ export function hostOwner(
   if (me?.cliToken?.kind === 'agent') {
     return {
       error:
-        "An agent token cannot run this computer's agents. Sign in as yourself (`nuphos login --device`, then Approve as me), or join with `nuphos agent --join <token>`.",
+        "An agent token cannot run this computer's runtimes. Sign in as yourself (`nuphos login --device`, then Approve as me), or join with `nuphos agent --join <token>`.",
     }
   }
 

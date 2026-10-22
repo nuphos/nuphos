@@ -213,10 +213,10 @@ export function useComposerMentions(
         open={uninvited.length > 0}
         title={
           uninvited.length === 1
-            ? `Invite ${names[0]} to this session?`
-            : `Invite ${String(uninvited.length)} people to this session?`
+            ? `Invite ${names[0]} to this agent?`
+            : `Invite ${String(uninvited.length)} people to this agent?`
         }
-        description={`You mentioned ${names.join(', ')}, but they are not in this session yet.`}
+        description={`You mentioned ${names.join(', ')}, but they are not in this agent yet.`}
         confirmLabel="Invite"
         cancelLabel="Don't invite"
         onConfirm={async () => {

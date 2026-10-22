@@ -33,14 +33,14 @@ const boxCreateSchema = z.object({
   access: boxAccessSchema.optional(),
 })
 
-/** Unnamed Boxes count up: "Box 1", "Box 2", … after the highest the caller has. */
+/** Unnamed Boxes count up: "Computer 1", "Computer 2", … after the highest the caller has. */
 export function nextBoxLabel(labels: string[]): string {
   const taken = labels
-    .map((label) => /^Box (\d+)$/u.exec(label)?.[1])
+    .map((label) => /^Computer (\d+)$/u.exec(label)?.[1])
     .filter((n): n is string => n !== undefined)
     .map(Number)
 
-  return `Box ${String(Math.max(0, ...taken) + 1)}`
+  return `Computer ${String(Math.max(0, ...taken) + 1)}`
 }
 
 /** What a client sees of a device: never the credential hash. */

@@ -105,7 +105,7 @@ export function applyStreamEvent(
         // message stays where it is; the person sends it again.
         if (!busyNoticeShownForStream.has(streamId)) {
           busyNoticeShownForStream.add(streamId)
-          toast.error("The agent isn't ready yet", 'Your message was not sent. Send it again.')
+          toast.error("The runtime isn't ready yet", 'Your message was not sent. Send it again.')
         }
 
         return showTurnQueued(t, undefined)
@@ -114,7 +114,7 @@ export function applyStreamEvent(
         const message =
           typeof ev.message === 'string'
             ? ev.message
-            : 'Connect your agent in Settings → Agent, then try again.'
+            : 'Connect your runtime in Settings → Runtimes, then try again.'
         const nextTab = {
           ...t,
           messages: stampAssistantTurnEnd(finalizeIncompleteTools(t.messages, message)),

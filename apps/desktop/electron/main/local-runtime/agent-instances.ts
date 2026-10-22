@@ -25,7 +25,7 @@ export function parseInstance(value: unknown): AgentInstance {
     !item.label.trim() ||
     item.label.length > 100
   )
-    throw new Error('Invalid agent instance')
+    throw new Error('Invalid runtime instance')
 
   return { instanceId: item.instanceId, provider: item.provider!, label: item.label.trim() }
 }
@@ -50,7 +50,7 @@ export function readInstances(dir: string): AgentInstanceRecord[] {
     const instances = values.map(parseRecord)
 
     if (new Set(instances.map((item) => item.instanceId)).size !== instances.length)
-      throw new Error('Duplicate agent instance')
+      throw new Error('Duplicate runtime instance')
 
     return instances
   } catch (error) {

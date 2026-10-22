@@ -105,7 +105,7 @@ export function UsageHeatmap({
     >
       <div className="mb-3 flex items-center gap-1.5 text-[11px] text-tertiary">
         <span className="mr-auto text-[13px] font-medium text-main">
-          Highest plan window, every agent
+          Highest plan window, every runtime
         </span>
         <span>0%</span>
         {LEGEND_STEPS.map((step) => (

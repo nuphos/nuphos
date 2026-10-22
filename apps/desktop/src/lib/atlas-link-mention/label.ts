@@ -65,6 +65,6 @@ export function initialLabel(target: MentionTarget): string {
     case 'plan':
       return 'Plan'
     case 'agent-session':
-      return 'Chat'
+      return 'Agent'
   }
 }

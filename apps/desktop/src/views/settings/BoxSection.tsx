@@ -75,7 +75,7 @@ export function BoxSection({
     )
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     for (const device of vanishedBoxes(previous.current, list.devices))
-      toast.error('Box setup failed', `${device.label} could not start and was removed.`)
+      toast.error('Computer setup failed', `${device.label} could not start and was removed.`)
     for (const { device, kind, outcome } of boxRestarts.settle(list.devices, teamId)) {
       const notice = device && boxRestartEnded(kind, outcome, device.label)
 
@@ -89,9 +89,9 @@ export function BoxSection({
   const owned = list?.devices ?? []
 
   return (
-    <section aria-label="Boxes" className="min-w-0">
+    <section aria-label="Computers" className="min-w-0">
       <PanelHeading
-        title="Boxes"
+        title="Computers"
         right={
           list?.boxAvailable &&
           canCreate && (
@@ -104,7 +104,7 @@ export function BoxSection({
               }}
             >
               <Box className="h-3.5 w-3.5" />
-              New Box
+              New computer
             </Button>
           )
         }
@@ -118,7 +118,7 @@ export function BoxSection({
             role="status"
             className="flex h-[240px] items-center gap-3 text-[12px] text-tertiary"
           >
-            Could not load Boxes.
+            Could not load computers.
             <Button size="sm" variant="secondary" onClick={reload}>
               Retry
             </Button>

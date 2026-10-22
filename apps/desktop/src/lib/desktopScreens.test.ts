@@ -29,7 +29,7 @@ test("the switcher lists the Box's own desktop first, then the viewer's sessions
   assert.deepEqual(desktopScreens(device, 'box-1'), [
     { value: 'box-1', label: 'Box 1 · :1' },
     { value: 'box-1:2:s-a', label: ':2 · Fix login' },
-    { value: 'box-1:3:s-b', label: ':3 · Conversation' },
+    { value: 'box-1:3:s-b', label: ':3 · Agent' },
   ])
-  assert.deepEqual(desktopScreens(undefined, 'box-1'), [{ value: 'box-1', label: 'Box · :1' }])
+  assert.deepEqual(desktopScreens(undefined, 'box-1'), [{ value: 'box-1', label: 'Computer · :1' }])
 })

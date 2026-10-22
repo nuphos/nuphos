@@ -32,8 +32,8 @@ export function usePaneCloseConfirm(
       title="Close this pane?"
       description={
         pending?.terminals === 1
-          ? 'Its terminal will close, and anything still running in it will stop. The chat stays in the sidebar.'
-          : `Its ${String(pending?.terminals ?? 0)} terminals will close, and anything still running in them will stop. The chat stays in the sidebar.`
+          ? 'Its terminal will close, and anything still running in it will stop. The agent stays in the sidebar.'
+          : `Its ${String(pending?.terminals ?? 0)} terminals will close, and anything still running in them will stop. The agent stays in the sidebar.`
       }
       confirmLabel="Close pane"
       destructive

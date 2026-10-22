@@ -82,7 +82,7 @@ export function RuntimeInstanceCard({
       await action()
       changed()
     } catch (error) {
-      toast.apiError('Could not update agent', error)
+      toast.apiError('Could not update runtime', error)
     } finally {
       setBusy(false)
     }
@@ -126,8 +126,8 @@ export function RuntimeInstanceCard({
                   canEdit={canEdit}
                   editing={editing}
                   onEditingChange={setEditing}
-                  ariaLabel="Agent name"
-                  errorTitle="Could not rename agent"
+                  ariaLabel="Runtime name"
+                  errorTitle="Could not rename runtime"
                   onSave={async (label) => {
                     await rename(label)
                     changed()
@@ -213,13 +213,13 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              'Removing the agent and its files. Conversation history stays in Nuphos.'}
+              'Removing the runtime and its files. Agent history stays in Nuphos.'}
           </p>
         ) : (
           <>
             {runtime?.credentialRevoked ? (
               <p className="px-4 py-4 text-xs leading-relaxed text-secondary">
-                The agent’s owner revoked this team’s connection from its console. Generate a new
+                The runtime’s owner revoked this team’s connection from its console. Generate a new
                 pairing code there, connect again and choose Update existing connection.
               </p>
             ) : (
@@ -257,15 +257,15 @@ export function RuntimeInstanceCard({
           title={`Remove ${instance.label}?`}
           description={
             instance.kind === 'managed'
-              ? 'This permanently deletes the agent, its disks, workspaces, and sign-in, and stops running conversations. Your conversation history stays in Nuphos. Move any workspace you want to keep to another agent before removing this one.'
+              ? 'This permanently deletes the runtime, its disks, workspaces, and sign-in, and stops agents running on it. Your agent history stays in Nuphos. Move any workspace you want to keep to another runtime before removing this one.'
               : instance.local && !instance.local.instanceId
-                ? `This signs ${instance.label} out on ${instance.local.deviceLabel} and deletes its ${instance.provider === 'codex' ? 'settings' : 'CLI history and settings'} there. Conversations on it stop working; their history stays in Nuphos.`
+                ? `This signs ${instance.label} out on ${instance.local.deviceLabel} and deletes its ${instance.provider === 'codex' ? 'settings' : 'CLI history and settings'} there. Agents on it stop working; their history stays in Nuphos.`
                 : instance.local
                   ? `This removes the agent and its sign-in from ${instance.local.deviceLabel}. Your conversation history stays in Nuphos.`
-                  : 'This disconnects the external agent. Its files remain on the external machine. Your conversations stay in Nuphos and can be moved using conversation history.'
+                  : 'This disconnects the external runtime. Its files remain on the external machine. Your agents stay in Nuphos and can be moved to another runtime with their history.'
           }
           destructive
-          confirmLabel="Remove agent"
+          confirmLabel="Remove runtime"
           onConfirm={() =>
             mutate(() =>
               // The menu offers removal for a computer's agent only when it has a removal id.

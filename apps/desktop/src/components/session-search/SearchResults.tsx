@@ -104,10 +104,10 @@ export function SearchResults({
     mode === 'people'
       ? `People in ${teamName}`
       : owner
-        ? `Sessions by ${owner.name || owner.email}`
+        ? `Agents by ${owner.name || owner.email}`
         : results.recent
           ? 'Recently opened'
-          : 'Sessions'
+          : 'Agents'
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
@@ -179,7 +179,7 @@ export function SearchResults({
                   ? conversation.firstMessage
                   : undefined
               }
-              title={conversation.title || conversation.firstMessage || 'Untitled session'}
+              title={conversation.title || conversation.firstMessage || 'Untitled agent'}
               subtitle={`${conversation.owner?.name || conversation.owner?.email || 'Unknown member'} · ${openedAt ? 'Opened' : 'Updated'} ${relativeTimeFromNow(openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt)}`}
               query={query}
               selected={commands.length + index === selectedIndex}
@@ -193,10 +193,10 @@ export function SearchResults({
         {!busy && !results.error && resultCount === 0 && (
           <p className="py-5">
             {results.recent
-              ? 'Sessions you open will appear here. Type to search your team.'
+              ? 'Agents you open will appear here. Type to search your team.'
               : mode === 'people'
                 ? 'No people found. Try another name or email.'
-                : 'No sessions found. Try another search or clear the person filter.'}
+                : 'No agents found. Try another search or clear the person filter.'}
           </p>
         )}
         {!busy && results.error && (
@@ -214,12 +214,12 @@ export function SearchResults({
           disabled={results.loadingMore}
           onClick={() => void results.loadMore()}
         >
-          {results.loadingMore ? 'Loading…' : 'Load more sessions'}
+          {results.loadingMore ? 'Loading…' : 'Load more agents'}
         </button>
       )}
       {!busy && mode === 'people' && count > 0 && (
         <p className="px-4 pb-3 text-xs text-secondary">
-          Choose a teammate, then search within their sessions.
+          Choose a teammate, then search within their agents.
         </p>
       )}
     </div>

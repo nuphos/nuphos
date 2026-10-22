@@ -69,7 +69,7 @@ test('a transcript that never catches up falls back to the generic closed senten
   assert.equal(fetches, CLOSED_TRANSCRIPT_RETRY_DELAYS_MS.length)
   assert.equal(
     notification.body,
-    'The agent stopped while this conversation was closed — open it to see what happened.',
+    'The agent stopped while it was closed — open it to see what happened.',
   )
 })
 
@@ -86,7 +86,7 @@ test('a failing fetch is retried and then falls back', async () => {
 
   assert.equal(fetches, CLOSED_TRANSCRIPT_RETRY_DELAYS_MS.length)
   assert.equal(notification.title, 'Nuphos')
-  assert.match(notification.body, /stopped while this conversation was closed/)
+  assert.match(notification.body, /stopped while it was closed/)
 })
 
 test('a turn parked on an approval gate says what it is waiting for', async () => {

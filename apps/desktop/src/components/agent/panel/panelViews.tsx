@@ -244,7 +244,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
         strokeWidth={1.7}
         aria-hidden="true"
       />
-      <span className="sr-only">Opening chat</span>
+      <span className="sr-only">Opening agent</span>
     </div>
   )
 }

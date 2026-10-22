@@ -81,12 +81,12 @@ export function ConnectAgentDialog({
       }
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
       toast.success(
-        outcome.runtime.replaced ? 'Agent connection updated' : 'Agent connected',
+        outcome.runtime.replaced ? 'Runtime connection updated' : 'Runtime connected',
         `${outcome.runtime.label ?? label} is now available in ${team.name}.`,
       )
       onConnected(team.id)
     } catch (error) {
-      toast.apiError('Could not connect agent', error)
+      toast.apiError('Could not connect runtime', error)
     } finally {
       setSaving(false)
     }
@@ -96,8 +96,8 @@ export function ConnectAgentDialog({
     <Modal
       open
       onClose={onClose}
-      title="Connect this agent to a team"
-      description="The agent’s console sent this request. Check the address before you confirm."
+      title="Connect this runtime to a team"
+      description="The runtime’s console sent this request. Check the address before you confirm."
       closeOnBackdrop={false}
     >
       <div className="space-y-4 p-5">
@@ -112,8 +112,8 @@ export function ConnectAgentDialog({
           </p>
         ) : noAdminTeam ? (
           <p className="text-[13px] leading-5 text-secondary">
-            Only workspace administrators can connect agents, and you are not an administrator of
-            any workspace. Ask an administrator to open the link from the agent console.
+            Only workspace administrators can connect runtimes, and you are not an administrator of
+            any workspace. Ask an administrator to open the link from the runtime console.
           </p>
         ) : (
           <>
@@ -135,7 +135,7 @@ export function ConnectAgentDialog({
                 }))}
               />
             </Field>
-            <Field label="Name" hint="How this agent appears in the team’s agent list.">
+            <Field label="Name" hint="How this runtime appears in the team’s runtime list.">
               <input
                 aria-label="Name"
                 className={inputClasses}
@@ -150,12 +150,12 @@ export function ConnectAgentDialog({
         {duplicateId && team && (
           <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
             This agent is already connected to {team.name}. Updating the existing connection gives
-            it a new key and keeps its conversations.
+            it a new key and keeps its agents.
           </p>
         )}
         <p className="text-[12px] text-tertiary" role="status">
           {expired
-            ? 'This pairing code has expired. Generate a new one in the agent console.'
+            ? 'This pairing code has expired. Generate a new one in the runtime console.'
             : secondsLeft !== undefined
               ? `The pairing code expires in ${formatCountdown(secondsLeft)}.`
               : 'The pairing code works once and expires after a few minutes.'}
@@ -179,7 +179,7 @@ export function ConnectAgentDialog({
               onClick={() => void confirm()}
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Connect agent
+              Connect runtime
             </Button>
           )}
           <button

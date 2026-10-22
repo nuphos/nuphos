@@ -157,7 +157,7 @@ export function AuditLogView({
         <>
           <PageHeader
             title="Audit log"
-            subtitle="Review agent activity and resource changes across conversations"
+            subtitle="Review agent activity and resource changes across agents"
           />
           <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6">
             <SearchBox
@@ -229,7 +229,7 @@ export function AuditLogView({
                       className="h-8 w-full gap-1.5 text-[13px]"
                     >
                       <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-                      View conversation
+                      View agent
                     </Button>
                   </div>
                 )}

@@ -21,7 +21,11 @@ export function ChatSummaryEnvironment({ conversation }: { conversation: AgentCo
         note={local ? 'Local' : 'Cloud'}
       />
       {devices > 0 && (
-        <SummaryRow icon={<Laptop className="size-3.5" />} label="Devices" note={String(devices)} />
+        <SummaryRow
+          icon={<Laptop className="size-3.5" />}
+          label="Computers"
+          note={String(devices)}
+        />
       )}
       {connectors > 0 && (
         <SummaryRow

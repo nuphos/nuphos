@@ -94,7 +94,7 @@ export function BoxRow({
 
   // The host takes a while to join after the machine starts; the card follows it until then.
   const resume = () =>
-    act('Could not resume Box', async (deviceId, team) => {
+    act('Could not resume computer', async (deviceId, team) => {
       await api.boxResume(deviceId, team)
       boxRestarts.start(deviceId, team, 'resume')
     })
@@ -117,7 +117,7 @@ export function BoxRow({
   const updateVersion = useBoxHostUpdate(teamId, hostAgent)
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
-    act('Could not update Box', async (deviceId, team) => {
+    act('Could not update computer', async (deviceId, team) => {
       if (!hostAgent) return
       await api.atlasRequestRuntimeUpdate(team, hostAgent)
       boxRestarts.start(deviceId, team, 'update')
@@ -134,9 +134,9 @@ export function BoxRow({
           canEdit={manage}
           editing={renaming}
           onEditingChange={setRenaming}
-          ariaLabel={cloud ? 'Box name' : 'Computer name'}
+          ariaLabel="Computer name"
           maxLength={200}
-          errorTitle={`Could not rename ${cloud ? 'Box' : 'computer'}`}
+          errorTitle="Could not rename computer"
           className="flex-1 text-[13px] font-medium text-main"
           // This computer keeps its name locally and re-registers with it, so rename it there.
           onSave={async (label) => {
@@ -176,7 +176,7 @@ export function BoxRow({
                 </MenuItem>
               )}
               {actions.pause && (
-                <MenuItem onClick={() => void act('Could not pause Box', api.boxPause)}>
+                <MenuItem onClick={() => void act('Could not pause computer', api.boxPause)}>
                   Pause
                 </MenuItem>
               )}

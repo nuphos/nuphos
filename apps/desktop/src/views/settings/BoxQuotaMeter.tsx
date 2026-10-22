@@ -37,11 +37,11 @@ export function BoxQuotaMeter({
   const quota = boxQuota(usage)
 
   if (!quota)
-    return <p className="text-[12.5px] text-tertiary">Your team has no vCPU limit for Boxes.</p>
+    return <p className="text-[12.5px] text-tertiary">Your team has no vCPU limit for computers.</p>
   if (quota.used === null || quota.left === null)
     return (
       <p className="text-[12.5px] text-tertiary">
-        Your plan runs up to {quota.limit} vCPU of Boxes. Their current use could not be read.
+        Your plan runs up to {quota.limit} vCPU of computers. Their current use could not be read.
       </p>
     )
   const scale = quota.limit > MAX_CELLS ? MAX_CELLS / quota.limit : 1
@@ -72,7 +72,7 @@ export function BoxQuotaMeter({
           </span>
           {adding !== undefined &&
             (fits ? (
-              <span className="block">{quota.left - adding} left after this Box</span>
+              <span className="block">{quota.left - adding} left after the new computer</span>
             ) : (
               <span className="block font-medium text-amber-500">
                 {adding - quota.left} vCPU over your plan
@@ -97,8 +97,8 @@ export function BoxQuotaMeter({
         ))}
       </div>
       <div className="mt-2 flex gap-4 text-[11px] text-tertiary">
-        <Legend cell="used" label="Running Boxes" />
-        {adding !== undefined && <Legend cell={fits ? 'adding' : 'over'} label="This Box" />}
+        <Legend cell="used" label="Running computers" />
+        {adding !== undefined && <Legend cell={fits ? 'adding' : 'over'} label="New computer" />}
         <Legend cell="free" label="Free" />
       </div>
     </div>

@@ -78,7 +78,7 @@ export function ConversationSwitcher({
       })
       .catch((err: unknown) => {
         if (requestIdRef.current !== requestId) return
-        toast.apiError('Failed to load conversations', err)
+        toast.apiError('Failed to load agents', err)
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setLoading(false)
@@ -95,8 +95,8 @@ export function ConversationSwitcher({
     >
       <MenuTrigger
         className="flex h-7 w-7 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main"
-        title="Switch conversation"
-        aria-label="Switch conversation"
+        title="Switch agent"
+        aria-label="Switch agent"
       >
         <History className="h-3.5 w-3.5" strokeWidth={1.8} />
       </MenuTrigger>
@@ -104,7 +104,7 @@ export function ConversationSwitcher({
         {/* Menus carry a flat `p-1`; the search box needs the same breathing
             room top and bottom, or it reads as pushed against the lid. */}
         <div className="px-1.5 pb-1.5 pt-1.5">
-          <SearchBox filter={query} onFilterChange={setQuery} fill label="Search conversations" />
+          <SearchBox filter={query} onFilterChange={setQuery} fill label="Search agents" />
         </div>
         <div className="max-h-[320px] overflow-y-auto scrollbar-thin px-1 pb-1">
           {loading && items === null && (
@@ -115,7 +115,7 @@ export function ConversationSwitcher({
           )}
           {items?.length === 0 && (
             <div className="px-2 py-2 text-[12.5px] text-tertiary">
-              {debouncedQuery ? 'No conversations match your search.' : 'No conversations yet.'}
+              {debouncedQuery ? 'No agents match your search.' : 'No agents yet.'}
             </div>
           )}
           {items?.map((conversation) => (

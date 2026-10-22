@@ -280,7 +280,7 @@ export function buildDeviceCredentialSections(
     {
       id: 'device',
       provider: 'device' as const,
-      title: 'Devices',
+      title: 'Computers',
       items: devices.map((device) => ({
         id: device.deviceId,
         label: device.label,

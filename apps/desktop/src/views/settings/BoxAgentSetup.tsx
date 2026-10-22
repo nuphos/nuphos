@@ -80,7 +80,7 @@ export function BoxAgentSetup({
   const remove = (instanceId: string) =>
     void api
       .boxRemoveAgent(deviceId, teamId, instanceId)
-      .catch((cause: unknown) => toast.apiError('Could not remove the unfinished agent', cause))
+      .catch((cause: unknown) => toast.apiError('Could not remove the unfinished runtime', cause))
 
   const create = async () => {
     const chosen = name.trim()
@@ -122,7 +122,7 @@ export function BoxAgentSetup({
     <Modal
       open
       onClose={() => void leave()}
-      title={created ? `Sign in with ${account}` : `New ${label} agent`}
+      title={created ? `Sign in with ${account}` : `New ${label} runtime`}
       description={`Step ${created ? '2 of 2 · Sign in' : '1 of 2 · Settings'} · ${device.label}`}
       closeOnBackdrop={false}
       footer={
@@ -168,12 +168,12 @@ export function BoxAgentSetup({
             label="Name"
             hint={
               taken
-                ? 'Another agent on this Box already has this name.'
-                : 'How this agent appears on the Box and in conversations.'
+                ? 'Another runtime on this computer already has this name.'
+                : 'How this runtime appears on the computer and when choosing a runtime for an agent.'
             }
           >
             <input
-              aria-label="Agent name"
+              aria-label="Runtime name"
               className={inputClasses}
               value={name}
               maxLength={100}

@@ -61,7 +61,7 @@ export function CloudCliSetupChoice({
         <p className="mt-2 text-[13px] leading-relaxed text-secondary">
           {check.checking
             ? `Looking for the ${label} command-line tool on this computer.`
-            : `We found the ${label} CLI on this computer. The agent can walk through setup with you, right in a chat.`}
+            : `We found the ${label} CLI on this computer. The agent can walk through setup with you, right in a new agent.`}
         </p>
       </div>
 
@@ -170,11 +170,11 @@ export function CloudCliSetupChoice({
             ) : (
               <MessageSquare className="h-4 w-4" aria-hidden="true" />
             )}
-            {starting ? 'Opening your chat…' : 'Set up with agent'}
+            {starting ? 'Opening your agent…' : 'Set up with agent'}
             {!starting && <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />}
           </Button>
           <p className="mt-2 text-center text-[10.5px] text-tertiary">
-            Opens a new chat on this device
+            Opens a new agent on this computer
           </p>
         </div>
       )}

@@ -179,7 +179,7 @@ export function CloudLogo({ provider, size = 14, className = '' }: Props) {
     return (
       <FontAwesomeIcon
         icon={faLaptop}
-        aria-label="Device"
+        aria-label="Computer"
         className={`flex-shrink-0 text-tertiary ${className}`}
         style={{ width: size, height: size }}
       />

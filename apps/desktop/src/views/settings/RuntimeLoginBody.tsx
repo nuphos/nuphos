@@ -60,7 +60,7 @@ function DeviceCode({
         Waiting for approval…
       </p>
       <p className="text-xs leading-5 text-tertiary">
-        We’ll connect the agent automatically after you approve. Keep this window open; leaving it
+        We’ll connect the runtime automatically after you approve. Keep this window open; leaving it
         cancels sign-in. The code expires in 15 minutes.
       </p>
     </>
@@ -109,7 +109,7 @@ export function RuntimeLoginBody({
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           {reachable
             ? 'Preparing secure sign-in…'
-            : 'Starting your agent… You can close this and sign in from its card once it is running.'}
+            : 'Starting your runtime… You can close this and sign in from its card once it is running.'}
         </div>
       )}
       {error && login && !failed && <p className="text-xs text-error">{error}</p>}

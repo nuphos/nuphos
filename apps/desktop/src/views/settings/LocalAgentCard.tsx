@@ -78,8 +78,8 @@ function InstallButton({ provider }: { provider: CliLoginProvider }) {
 
 function statusLine(agent: LocalAgentState): { label: string; tone: RuntimeStatusTone } {
   if (agent.cli?.installed && agent.cli.loggedIn !== true)
-    return { label: 'Sign in to connect this agent', tone: 'off' }
-  if (agent.online) return { label: 'Ready for your conversations', tone: 'online' }
+    return { label: 'Sign in to connect this runtime', tone: 'off' }
+  if (agent.online) return { label: 'Ready for your agents', tone: 'online' }
   if (agent.cli?.installed === false) return { label: 'Not installed', tone: 'off' }
   if (agent.error) return { label: agent.error, tone: 'error' }
 
@@ -137,7 +137,7 @@ function CliStatus({ provider, cli }: { provider: CliLoginProvider; cli: AgentCl
           ? `Signed in to ${agent.name}.`
           : cli.loggedIn === null
             ? `Could not read the ${agent.name} sign-in. Check again or sign in.`
-            : `Connect ${agent.name} to use this computer as your agent.`}
+            : `Connect ${agent.name} to run your agents on this computer.`}
         {cli.loggedIn && cli.account && <span> {cli.account}</span>}
         {cli.plan && <span> · {cli.plan}</span>}
         {cli.version && <span> · v{cli.version}</span>}

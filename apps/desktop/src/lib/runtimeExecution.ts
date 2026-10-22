@@ -113,8 +113,8 @@ export function runtimeAllows(
 
 export function runtimeStateLabel(snapshot: RuntimeExecution | undefined): string {
   if (!snapshot || snapshot.state === 'disconnected')
-    return 'Connection lost — agent status unavailable'
-  if (snapshot.schemaVersion !== 2) return 'Agent status unavailable — agent update required'
+    return 'Connection lost — runtime status unavailable'
+  if (snapshot.schemaVersion !== 2) return 'Runtime status unavailable — runtime update required'
 
-  return snapshot.label || `Agent: ${snapshot.phase || snapshot.state}`
+  return snapshot.label || `Runtime: ${snapshot.phase || snapshot.state}`
 }

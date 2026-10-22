@@ -31,7 +31,7 @@ const METRICS: {
   { key: 'cpuMillicores', title: 'CPU', format: (v) => `${v.toFixed(v < 10 ? 1 : 0)}m` },
   { key: 'memoryBytes', title: 'Memory', format: (v) => `${(v / 2 ** 20).toFixed(0)} MiB` },
   { key: 'diskUsedBytes', title: 'Disk', format: gibibytes, capacityKey: 'diskTotalBytes' },
-  { key: 'sessions', title: 'Sessions', format: (v) => String(Math.round(v)) },
+  { key: 'sessions', title: 'Agents', format: (v) => String(Math.round(v)) },
 ]
 
 function timeLabel(at: number | string): string {

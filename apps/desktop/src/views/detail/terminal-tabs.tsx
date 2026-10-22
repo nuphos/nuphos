@@ -142,8 +142,8 @@ export function NodeTerminalTab({ name }: { name: string }) {
             <span className="text-main font-mono">{name}</span> and enters the host's namespaces —
             effectively a <span className="text-main font-medium">root shell on the node</span>. The
             pod is created in <span className="font-mono">kube-system</span> and deleted
-            automatically when you close this tab or leave this node. It survives switching chat
-            session, so a command you left running keeps running.
+            automatically when you close this tab or leave this node. It survives switching agents,
+            so a command you left running keeps running.
           </p>
           <button
             type="button"

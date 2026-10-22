@@ -18,7 +18,7 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
     provider: 'github',
     name: 'GitHub',
     description:
-      'Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Conversations scoped to one repository keep using nuphos[bot].',
+      'Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Agents scoped to one repository keep using nuphos[bot].',
   },
   {
     provider: 'linear',
@@ -164,7 +164,7 @@ export function PersonalCredentialsSection() {
         </SkeletonReveal>
       )}
       <p className="mt-4 text-[12px] text-tertiary">
-        Used when you send a message, and for automated runs in sessions you own.
+        Used when you send a message, and for automated runs in agents you own.
       </p>
       <ConfirmDialog
         open={disconnecting !== null}

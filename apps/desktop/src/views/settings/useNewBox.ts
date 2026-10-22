@@ -67,7 +67,7 @@ export function useNewBox({
         .then(
           (made) => onCreated(made.deviceId),
           (again: unknown) => {
-            toast.apiError('Could not create Box', again)
+            toast.apiError('Could not create computer', again)
           },
         )
         .finally(() => setCreating(false))
@@ -81,7 +81,7 @@ export function useNewBox({
     } catch (error) {
       // No plan, or past it: the paywall offers one, then retries.
       if (openBoxPaywall(teamId, error, retry)) return 'paywall'
-      toast.apiError('Could not create Box', error)
+      toast.apiError('Could not create computer', error)
 
       return 'failed'
     } finally {

@@ -65,7 +65,7 @@ export function BrowserCodeEntry({
         {loopback
           ? `Approve access on ${account}’s page. Your browser then ends on a page that does not load; copy the full address from its address bar and paste it here.`
           : `Approve access on ${account}’s page, then paste the code it shows you here.`}{' '}
-        The agent keeps the sign-in; Nuphos does not store it.
+        The runtime keeps the sign-in; Nuphos does not store it.
       </p>
       <Button
         size="md"

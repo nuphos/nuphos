@@ -30,7 +30,7 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
     ? 'Your billing portal opens in your browser to change plans.'
     : 'Checkout opens in your browser.'
   const hint = isAdmin
-    ? `${opens} ${request.afterPaid ?? 'Once you have paid, your Box starts here on its own.'}`
+    ? `${opens} ${request.afterPaid ?? 'Once you have paid, your computer starts here on its own.'}`
     : `Only team administrators can choose a plan. Ask ${names || 'a team administrator'} to upgrade.`
 
   return (
@@ -41,7 +41,7 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
           <div className="flex items-start justify-between gap-4 border-b border-zGray-800 px-5 py-4">
             <div className="flex flex-col gap-1">
               <Dialog.Title className="text-[15px] font-semibold text-main">
-                Choose a Box plan
+                Choose a computer plan
               </Dialog.Title>
               <Dialog.Description className="text-[13px] text-secondary">
                 {request.message}

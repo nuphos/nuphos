@@ -180,7 +180,7 @@ function stopNotificationBody(
     // the question the same way an open conversation's would.
     return (
       describeStoppedTurn(messages) ??
-      'The agent stopped while this conversation was closed — open it to see what happened.'
+      'The agent stopped while it was closed — open it to see what happened.'
     )
   }
   if (outcome.kind === 'failed') {

@@ -29,7 +29,7 @@ import type {
 import type { TeamMember } from '../../types'
 
 function addLabel(count: number) {
-  if (count === 0) return 'Add to session'
+  if (count === 0) return 'Add to agent'
 
   return `Add ${String(count)} ${count === 1 ? 'person' : 'people'}`
 }
@@ -78,7 +78,7 @@ export function SessionParticipants({
         .then((result) => {
           if (!cancelled) apply(result)
         })
-        .catch((err: unknown) => toast.apiError('Failed to load session participants', err))
+        .catch((err: unknown) => toast.apiError('Failed to load agent participants', err))
     const reloadIfThisSession = (event: Event) => {
       if ((event as CustomEvent<string>).detail === sessionId) void load()
     }
@@ -192,7 +192,7 @@ export function SessionParticipants({
           'text-[12px] font-medium text-secondary transition-colors',
           'data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main hover:bg-zGray-800/60 hover:text-main',
         )}
-        title="Share this session with a teammate"
+        title="Share this agent with a teammate"
       >
         <AvatarStack participants={participants} />
         Share
@@ -215,7 +215,7 @@ export function SessionParticipants({
                 added={added}
                 detail={
                   inviteRole === 'view' && generalAccess !== 'reply'
-                    ? 'They can view this session'
+                    ? 'They can view this agent'
                     : 'They can view and reply'
                 }
                 undoing={pending === 'undo'}

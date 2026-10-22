@@ -173,7 +173,7 @@ export function ThreadRow({
   return (
     <SummaryRow
       icon={<AgentProviderIcon provider={conversation.agentRuntime} className="size-3.5" />}
-      label={conversation.title || conversation.firstMessage || 'Untitled chat'}
+      label={conversation.title || conversation.firstMessage || 'Untitled agent'}
       note={
         running ? (
           <span className="flex items-center gap-1.5">

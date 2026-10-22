@@ -269,7 +269,7 @@ export class RuntimeTunnelClient {
         : connectLocalStream(this.deps, purpose, instanceId)
 
     if (!runtime) {
-      this.send({ t: 'close', s, reason: 'The local agent is not running' })
+      this.send({ t: 'close', s, reason: 'The local runtime is not running' })
 
       return
     }

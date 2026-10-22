@@ -23,7 +23,7 @@ export function HeatmapSkeleton({ rows }: { rows: number }) {
 /** The whole overview's shape before the agents themselves have loaded. */
 export function AgentUsageSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading agents">
+    <div aria-busy="true" aria-label="Loading runtimes">
       <div className={`mb-2 h-3 w-36 ${SKELETON}`} />
       <div className={`mb-4 h-3 w-64 ${SKELETON}`} />
       <HeatmapSkeleton rows={5} />

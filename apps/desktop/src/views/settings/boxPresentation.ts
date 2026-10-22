@@ -50,11 +50,11 @@ export function removal(device: AgentDevice) {
     return {
       allowed: true,
       action: 'Delete',
-      confirm: 'Delete Box',
-      error: 'Could not delete Box',
+      confirm: 'Delete computer',
+      error: 'Could not delete computer',
       fallback: REMOVE_FALLBACK,
       description:
-        "This permanently deletes the Box, its files and its agents' sign-ins, and stops conversations running on it. Your conversation history stays in Nuphos.",
+        "This permanently deletes the computer, its files and its runtimes' sign-ins, and stops agents running on it. Your agent history stays in Nuphos.",
     }
 
   return {
@@ -64,7 +64,7 @@ export function removal(device: AgentDevice) {
     error: 'Could not remove computer',
     fallback: REMOVE_FALLBACK,
     description:
-      'This removes the computer and its agents from Nuphos. Opening Nuphos on it registers it again. Your conversation history stays in Nuphos.',
+      'This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your agent history stays in Nuphos.',
   }
 }
 
@@ -216,9 +216,9 @@ export function boxSetupPhase(
 /** Why a setup flow's Box did not come up, or null while it still may. */
 export function boxSetupProblem(phase: BoxSetupPhase): string | null {
   if (phase === 'error')
-    return 'The Box could not start. Delete it in Settings › Agents and try again.'
+    return 'The computer could not start. Delete it in Settings › Runtimes and try again.'
   if (phase === 'timeout')
-    return 'The Box has not started after 5 minutes. Delete it in Settings › Agents and try again.'
+    return 'The computer has not started after 5 minutes. Delete it in Settings › Runtimes and try again.'
 
   return null
 }
@@ -229,23 +229,29 @@ export const BOX_PLANS = [
     name: 'Starter',
     vcpus: 4,
     usdPerMonth: 20,
-    example: 'e.g. one 4 vCPU Box',
-    perks: ['Your agents keep working while your laptop sleeps', 'A full desktop in every Box'],
+    example: 'e.g. one 4 vCPU computer',
+    perks: [
+      'Your agents keep working while your laptop sleeps',
+      'A full desktop in every computer',
+    ],
   },
   {
     name: 'Pro',
     vcpus: 12,
     usdPerMonth: 50,
     recommended: true,
-    example: 'e.g. an 8 vCPU build Box next to a 4 vCPU Box',
-    perks: ['Room for a build Box beside everyday ones', 'Share Boxes with your teammates'],
+    example: 'e.g. an 8 vCPU build computer next to a 4 vCPU computer',
+    perks: [
+      'Room for a build computer beside everyday ones',
+      'Share computers with your teammates',
+    ],
   },
   {
     name: 'Scale',
     vcpus: 24,
     usdPerMonth: 100,
-    example: 'e.g. three 8 vCPU build Boxes at once',
-    perks: ['Many agents working in parallel', 'Boxes for the whole team at once'],
+    example: 'e.g. three 8 vCPU build computers at once',
+    perks: ['Many agents working in parallel', 'Computers for the whole team at once'],
   },
 ]
 
@@ -265,7 +271,7 @@ const SIZE_TIERS = [
   { upTo: Infinity, name: 'Large', use: 'Heavy builds' },
 ]
 
-const sessionCount = (n: number) => `${String(n)} session${n === 1 ? '' : 's'}`
+const sessionCount = (n: number) => `${String(n)} agent${n === 1 ? '' : 's'}`
 
 /** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, more Large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {

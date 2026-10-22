@@ -113,7 +113,7 @@ test('a person’s computer never removes a default agent or touches its login',
 
   await assert.rejects(
     controller.instanceRequest({ method: 'remove', provider: 'codex' }),
-    /Only a Box/u,
+    /Only a cloud computer/u,
   )
   assert.equal(existsSync(path.join(owner, 'auth.json')), true)
   assert.deepEqual(signedIn(controller), { 'claude-code': true, codex: true })
@@ -125,6 +125,6 @@ test('removing names a known provider', async (t) => {
 
   await assert.rejects(
     controller.instanceRequest({ method: 'remove', provider: '../x' }),
-    /Invalid agent provider/u,
+    /Invalid runtime provider/u,
   )
 })

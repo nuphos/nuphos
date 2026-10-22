@@ -12,7 +12,7 @@ import type { AgentConversation } from '../../api'
 const PAGE_SIZE = 30
 
 function chatLabel(conversation: AgentConversation): string {
-  return conversation.title || conversation.firstMessage || 'Untitled chat'
+  return conversation.title || conversation.firstMessage || 'Untitled agent'
 }
 
 export function useArchivedChats({
@@ -65,7 +65,8 @@ export function useArchivedChats({
         setCursor(page.hasMore ? page.nextCursor : null)
       })
       .catch((err: unknown) => {
-        if (requestIdRef.current === requestId) toast.apiError('Could not load archived chats', err)
+        if (requestIdRef.current === requestId)
+          toast.apiError('Could not load archived agents', err)
       })
       .finally(() => {
         if (requestIdRef.current !== requestId) return
@@ -88,7 +89,7 @@ export function useArchivedChats({
       setItems((prev) => appendArchivedPage(prev, page.conversations))
       setCursor(page.hasMore ? page.nextCursor : null)
     } catch (err) {
-      if (requestIdRef.current === requestId) toast.apiError('Could not load archived chats', err)
+      if (requestIdRef.current === requestId) toast.apiError('Could not load archived agents', err)
     } finally {
       setLoadingMore(false)
     }
@@ -104,9 +105,9 @@ export function useArchivedChats({
         await api.agentSetConversationArchived(sessionId, false, teamId)
         setItems((prev) => prev.filter((c) => c.sessionId !== sessionId))
         announceChatUnarchived(sessionId)
-        toast.success('Chat unarchived', `"${chatLabel(conversation)}" is back in Chats.`)
+        toast.success('Agent unarchived', `"${chatLabel(conversation)}" is back in Agents.`)
       } catch (err) {
-        toast.apiError('Could not unarchive chat', err)
+        toast.apiError('Could not unarchive agent', err)
       } finally {
         setRestoringIds((prev) => {
           const next = new Set(prev)

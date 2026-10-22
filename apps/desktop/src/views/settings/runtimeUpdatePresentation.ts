@@ -20,17 +20,17 @@ export function runtimeUpdatePresentation(
 
   if (update.state === 'waiting')
     detail = enabled
-      ? 'The update will start when active conversations finish.'
-      : 'Enable this agent to finish the update.'
-  if (update.state === 'updating') detail = 'Waiting for the updated agent to come online.'
+      ? 'The update will start when agents finish replying.'
+      : 'Enable this runtime to finish the update.'
+  if (update.state === 'updating') detail = 'Waiting for the updated runtime to come online.'
   if (update.state === 'failed')
     detail = update.error ?? 'Could not complete the update. Try again.'
   if (update.state === 'available') {
     detail = 'Update the runtime on its host to get the latest models and fixes.'
     if (managed)
       detail = canUpdate
-        ? 'Updates wait for active conversations to finish.'
-        : 'Ask a workspace administrator to update this agent.'
+        ? 'Updates wait for agents to finish replying.'
+        : 'Ask a workspace administrator to update this runtime.'
   }
   let button = 'Update'
 

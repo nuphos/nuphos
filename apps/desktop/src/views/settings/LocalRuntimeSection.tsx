@@ -67,7 +67,7 @@ export function LocalRuntimeSection({
     try {
       setState(await api.localRuntimeRefresh())
     } catch (err) {
-      toast.apiError('Could not check the local agents', err)
+      toast.apiError('Could not check the local runtimes', err)
     }
   }, [])
 
@@ -93,8 +93,8 @@ export function LocalRuntimeSection({
   return (
     <div>
       <SectionHeader
-        title="Local agent"
-        description="Claude Code and Codex on this computer, with your own sign-in, for your own conversations only. Always on while Nuphos is open."
+        title="Local runtime"
+        description="Claude Code and Codex on this computer, with your own sign-in, for your own agents only. Always on while Nuphos is open."
       />
 
       <SkeletonReveal ready={state !== null} skeleton={<LocalAgentSkeleton />}>

@@ -177,7 +177,7 @@ export function usePanelPermissions(acc: Acc) {
         }),
       )
     } catch (err) {
-      toast.apiError('Failed to load recent conversations', err)
+      toast.apiError('Failed to load recent agents', err)
     } finally {
       setHistoryLoading(false)
     }

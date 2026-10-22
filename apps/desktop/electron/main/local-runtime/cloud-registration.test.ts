@@ -121,7 +121,7 @@ test('switching endpoints stops hosting on Cloud and resumes on the dev backend'
   await settle()
   assert.equal(getLocalRuntimeState().userId, null)
   assert.ok(stopped > 0)
-  assert.throws(() => connectBackend?.(), /do not register devices with Nuphos Cloud/u)
+  assert.throws(() => connectBackend?.(), /do not register computers with Nuphos Cloud/u)
   assert.equal(requests.length, 1)
   assert.equal(sockets.length, 1)
   assert.equal(authSession.current(), token)

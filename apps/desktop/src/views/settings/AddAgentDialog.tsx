@@ -24,10 +24,10 @@ import type { RuntimeInstance } from '../../types/runtime'
 import type { CSSProperties } from 'react'
 
 const TITLE: Record<AddAgentStep, string> = {
-  choose: 'Add agent',
-  'self-hosted': 'Self-hosted Cloud Agent',
-  'self-hosted-password': 'Self-hosted Cloud Agent',
-  box: 'New Box',
+  choose: 'Add runtime',
+  'self-hosted': 'Self-hosted runtime',
+  'self-hosted-password': 'Self-hosted runtime',
+  box: 'New computer',
 }
 
 /** One place to add a team agent, from Settings › Agent or the composer's agent picker. */

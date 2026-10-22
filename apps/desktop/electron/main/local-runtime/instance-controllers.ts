@@ -242,7 +242,7 @@ export class InstanceControllers {
       }
     if (body.method === 'remove' || body.method === 'commit') {
       if (typeof body.instanceId !== 'string' || !UUID.test(body.instanceId))
-        throw new Error('Invalid agent instance')
+        throw new Error('Invalid runtime instance')
       const entry = this.entries.get(body.instanceId)
 
       if (body.method === 'remove') {
@@ -250,10 +250,10 @@ export class InstanceControllers {
 
         return {}
       }
-      if (!entry) throw new Error('Agent instance not found')
+      if (!entry) throw new Error('Runtime instance not found')
       await entry.starting?.catch(() => {})
       await entry.controller.refresh(false)
-      if (!(await this.settle(entry, false))) throw new Error('The agent is not signed in yet')
+      if (!(await this.settle(entry, false))) throw new Error('The runtime is not signed in yet')
 
       return { instance: publicMetadata(entry.metadata) }
     }
@@ -266,7 +266,7 @@ export class InstanceControllers {
         existing.metadata.provider !== metadata.provider ||
         existing.metadata.label !== metadata.label
       )
-        throw new Error('Agent instance already exists')
+        throw new Error('Runtime instance already exists')
 
       return { instance: publicMetadata(existing.metadata) }
     }

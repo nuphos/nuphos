@@ -23,8 +23,8 @@ function ArchiveButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      aria-label="Archive chat"
-      title="Archive chat"
+      aria-label="Archive agent"
+      title="Archive agent"
       onClick={onClick}
       className="mr-2 hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:inline-flex focus-visible:bg-zGray-800/60 group-hover:inline-flex"
     >
@@ -95,13 +95,13 @@ export function HistoryPageList({
         {loading
           ? 'Loading…'
           : debouncedQuery
-            ? 'No conversations match your search.'
+            ? 'No agents match your search.'
             : (emptyLabel ??
               (ownerId
-                ? 'No conversations from this member yet.'
+                ? 'No agents from this member yet.'
                 : historyScope === 'team'
-                  ? 'No team conversations yet.'
-                  : "You haven't started any conversations yet."))}
+                  ? 'No team agents yet.'
+                  : "You haven't started any agents yet."))}
       </div>
     )
   }
@@ -152,7 +152,7 @@ export function HistoryPageList({
               ? ([
                   {
                     key: 'rename',
-                    label: 'Rename chat',
+                    label: 'Rename agent',
                     icon: Pencil,
                     disabled: !teamId,
                     onSelect: () => setRenameTarget(rowMenu.conversation),
@@ -171,7 +171,7 @@ export function HistoryPageList({
               : []),
             {
               key: 'archive',
-              label: 'Archive chat',
+              label: 'Archive agent',
               icon: Archive,
               onSelect: () => onArchive(rowMenu.conversation),
             },

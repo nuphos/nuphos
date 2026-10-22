@@ -93,7 +93,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     const bundle = findBundle()
     const adapter = bundle?.adapters[provider]
 
-    if (!bundle || !adapter) return Promise.reject(new Error('The local agent is not bundled'))
+    if (!bundle || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
 
     return probeLocalModels({
       nodeExecPath: process.execPath,
@@ -121,7 +121,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       activity: sleep.taskActivity,
       connectBackend: () => {
         if (!deviceRegistrationAllowed(isDev))
-          throw new Error('Development builds do not register devices with Nuphos Cloud')
+          throw new Error('Development builds do not register computers with Nuphos Cloud')
         const token = authSession.current()
 
         if (!token) throw new Error('Not signed in')
@@ -196,7 +196,7 @@ async function startLocalLogin(provider: CliLoginProvider) {
       ? (env.CODEX_HOME ?? path.join(env.HOME ?? app.getPath('home'), '.codex'))
       : prepareAgentHome(provider, userDir, path.join(userDir, 'workspace'))
 
-  if (!cliPath || !agentHome) throw new Error('Install the agent on this computer first.')
+  if (!cliPath || !agentHome) throw new Error('Install the runtime on this computer first.')
 
   mkdirSync(agentHome, { recursive: true, mode: 0o700 })
 

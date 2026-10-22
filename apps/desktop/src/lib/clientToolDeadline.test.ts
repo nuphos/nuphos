@@ -25,7 +25,7 @@ test('an invoke that never settles rejects instead of parking the turn forever',
       deadlineMs: 10,
       onDeadline: (i) => seen.push(i),
     }),
-    /local_exec did not respond after 0s on this machine\./,
+    /local_exec did not respond after 0s on this computer\./,
   )
   assert.deepEqual(seen, [{ toolName: 'local_exec', deadlineMs: 10 }])
 })

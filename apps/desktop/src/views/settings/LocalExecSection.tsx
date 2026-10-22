@@ -32,7 +32,7 @@ export function LocalExecSection({
         setLabel(result.label)
       })
       .catch((err: unknown) => {
-        toast.apiError('Could not load this device', err)
+        toast.apiError('Could not load this computer', err)
       })
 
     return () => {
@@ -53,9 +53,9 @@ export function LocalExecSection({
 
       setIdentity(next)
       setLabel(next.label)
-      toast.success('Device renamed')
+      toast.success('Computer renamed')
     } catch (err) {
-      toast.apiError('Could not rename this device', err)
+      toast.apiError('Could not rename this computer', err)
     } finally {
       setSavingLabel(false)
     }
@@ -65,15 +65,15 @@ export function LocalExecSection({
     <div>
       <SectionHeader
         title="Local exec"
-        description="Keep Nuphos open and signed in to use this computer for local exec. It appears in your conversations when its connection is ready. Only your own conversations can use it."
+        description="Keep Nuphos open and signed in to use this computer for local exec. Your agents can use it once its connection is ready. Only your own agents can use it."
       />
 
       {identity && (
         <div className="space-y-5">
           <form onSubmit={(e) => void saveLabel(e)}>
             <Field
-              label="Device name"
-              hint="Shown wherever this device can be picked for local exec."
+              label="Computer name"
+              hint="Shown wherever this computer can be picked for local exec."
             >
               <div className="flex items-center gap-2">
                 <input

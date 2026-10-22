@@ -105,7 +105,7 @@ export function SessionHeaderMenu({
     setToggled(next)
     void api.agentSetConversationWatched(sessionId, next, teamId).catch((err: unknown) => {
       setToggled(!next)
-      toast.apiError(next ? 'Could not watch chat' : 'Could not unwatch chat', err)
+      toast.apiError(next ? 'Could not watch agent' : 'Could not unwatch agent', err)
     })
   }
   // Rename waits for the popup to finish closing; otherwise focus returning to
@@ -125,7 +125,7 @@ export function SessionHeaderMenu({
     addSidebarFavorite(userId, teamId, { label: title, href })
   }
 
-  function copy(value: string, what: 'Link' | 'Session ID') {
+  function copy(value: string, what: 'Link' | 'Agent ID') {
     void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
       onSuccess: () =>
         toast.success(`${what} copied`, undefined, { timeoutMs: 1200, dedupe: false }),
@@ -166,7 +166,7 @@ export function SessionHeaderMenu({
     >
       <Tooltip content="More actions" side="bottom">
         <MenuTrigger
-          aria-label="More chat actions"
+          aria-label="More agent actions"
           className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main motion-reduce:transition-none"
         >
           <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
@@ -181,7 +181,7 @@ export function SessionHeaderMenu({
               renameOnClose.current = true
             }}
           >
-            Rename chat
+            Rename agent
           </MenuItem>
         )}
         <MenuItem
@@ -196,12 +196,12 @@ export function SessionHeaderMenu({
             icon={watching ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
             onClick={toggleWatch}
           >
-            {watching ? 'Unwatch chat' : 'Watch chat'}
+            {watching ? 'Unwatch agent' : 'Watch agent'}
           </MenuItem>
         )}
         {canFork && (
           <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
-            Fork chat
+            Fork agent
           </MenuItem>
         )}
         <MenuSubmenu>
@@ -223,9 +223,9 @@ export function SessionHeaderMenu({
             </MenuItem>
             <MenuItem
               icon={<Hash className="h-3.5 w-3.5" />}
-              onClick={() => copy(sessionId, 'Session ID')}
+              onClick={() => copy(sessionId, 'Agent ID')}
             >
-              Session ID
+              Agent ID
             </MenuItem>
           </MenuContent>
         </MenuSubmenu>
@@ -238,7 +238,7 @@ export function SessionHeaderMenu({
               disabled={archiving}
               onClick={() => void archive()}
             >
-              {archiving ? 'Archiving…' : 'Archive chat'}
+              {archiving ? 'Archiving…' : 'Archive agent'}
             </MenuItem>
           </>
         )}

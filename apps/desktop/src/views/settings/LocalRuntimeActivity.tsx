@@ -23,7 +23,7 @@ function ActivityRow({
   teamName: string
   onOpenConversation?: (sessionId: string) => void
 }) {
-  const title = entry.conversationTitle ?? 'Untitled conversation'
+  const title = entry.conversationTitle ?? 'Untitled agent'
 
   return (
     <div className="border-t border-zGray-800/60 bg-surface px-4 py-2.5 first:border-t-0">
@@ -78,7 +78,7 @@ export function LocalRuntimeActivity({
       try {
         applyPage(await api.localRuntimeListActivity(before), before !== undefined)
       } catch (err) {
-        toast.apiError('Could not load local agent activity', err)
+        toast.apiError('Could not load local runtime activity', err)
         setEntries((prev) => prev ?? [])
       } finally {
         setLoading(false)
@@ -101,7 +101,7 @@ export function LocalRuntimeActivity({
 
   if (entries === null) body = <p className={EMPTY_CLASSES}>Loading…</p>
   else if (entries.length === 0)
-    body = <p className={EMPTY_CLASSES}>No conversation has run on this computer yet.</p>
+    body = <p className={EMPTY_CLASSES}>No agent has run on this computer yet.</p>
   else
     body = (
       <>
@@ -139,7 +139,7 @@ export function LocalRuntimeActivity({
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Refresh local agent activity"
+          aria-label="Refresh local runtime activity"
           disabled={loading}
           onClick={() => void load()}
         >
@@ -148,7 +148,7 @@ export function LocalRuntimeActivity({
       </div>
       {body}
       <p className="mt-2 text-[11px] text-tertiary">
-        Every conversation that ran here, by team. Kept for 90 days.
+        Every agent that ran here, by team. Kept for 90 days.
       </p>
     </div>
   )

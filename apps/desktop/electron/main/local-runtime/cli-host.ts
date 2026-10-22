@@ -162,7 +162,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     const staged = bundle()
     const adapter = staged?.adapters[provider]
 
-    if (!staged || !adapter) return Promise.reject(new Error('The local agent is not bundled'))
+    if (!staged || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
 
     return probeLocalModels({
       nodeExecPath: process.execPath,
@@ -225,7 +225,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       }),
       onChange: (connected, superseded) => {
         onChange(connected, superseded)
-        if (superseded) stop('Another Nuphos app on this computer took over the local agent.')
+        if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
       },
     })
 
@@ -262,7 +262,7 @@ function report(): void {
   console.log(`${new Date().toLocaleTimeString()} ${device.label}\n${summary}`)
 }
 
-function stop(message = 'Stopping the local agents…'): void {
+function stop(message = 'Stopping the local runtimes…'): void {
   if (stopping) process.exit(130)
   stopping = true
   console.log(message)
@@ -274,12 +274,12 @@ if (!deviceCredential)
   setInterval(() => {
     const fresh = currentToken()
 
-    if (!stopping && fresh !== signedIn) stop('Signed out of Nuphos; stopping the local agents.')
+    if (!stopping && fresh !== signedIn) stop('Signed out of Nuphos; stopping the local runtimes.')
   }, 2_000)
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => stop())
 console.log(`Running this computer's agents for Nuphos as "${device.label}". Press Ctrl-C to stop.`)
 console.log(
-  'Conversations you move onto this computer can be continued by anyone in that team, and their messages run commands here.',
+  'Agents you move onto this computer can be continued by anyone in that team, and their messages run commands here.',
 )
 await controller.setUser(owner)
 setInterval(() => {

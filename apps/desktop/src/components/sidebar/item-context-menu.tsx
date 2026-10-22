@@ -68,13 +68,13 @@ export function SidebarItemContextMenu({
               },
               {
                 key: 'copy-session-id',
-                label: 'Copy session ID',
+                label: 'Copy agent ID',
                 icon: Hash,
-                onSelect: () => copy(menu.item.key.slice('agent-session:'.length), 'Session ID'),
+                onSelect: () => copy(menu.item.key.slice('agent-session:'.length), 'Agent ID'),
               },
               {
                 key: 'rename',
-                label: 'Rename chat',
+                label: 'Rename agent',
                 icon: Pencil,
                 onSelect: () =>
                   renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
@@ -95,7 +95,7 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'watch',
-                label: menu.item.watching ? 'Unwatch chat' : 'Watch chat',
+                label: menu.item.watching ? 'Unwatch agent' : 'Watch agent',
                 icon: menu.item.watching ? BellOff : Bell,
                 onSelect: () => watchChat(menu.item, teamId),
               },
@@ -105,7 +105,7 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'archive',
-                label: 'Archive chat',
+                label: 'Archive agent',
                 icon: Archive,
                 onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
               },
@@ -123,11 +123,11 @@ function watchChat(item: Item, teamId: string) {
   api
     .agentSetConversationWatched(item.key.slice('agent-session:'.length), watching, teamId)
     .catch((err: unknown) => {
-      toast.apiError(watching ? 'Could not watch chat' : 'Could not unwatch chat', err)
+      toast.apiError(watching ? 'Could not watch agent' : 'Could not unwatch agent', err)
     })
 }
 
-function copy(value: string, what: 'Link' | 'Session ID') {
+function copy(value: string, what: 'Link' | 'Agent ID') {
   void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
     onSuccess: () => toast.success(`${what} copied`, undefined, { timeoutMs: 1200, dedupe: false }),
     onError: () => toast.error(`Could not copy ${what.toLowerCase()}`, 'Clipboard was blocked.'),

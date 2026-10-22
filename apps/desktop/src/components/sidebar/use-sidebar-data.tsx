@@ -230,7 +230,7 @@ export function useSidebarChats({
       if (ok) {
         announceChatArchived({ sessionId, teamId })
       } else {
-        toast.error('Could not archive chat')
+        toast.error('Could not archive agent')
       }
     },
     [teamId],
@@ -242,7 +242,7 @@ export function useSidebarChats({
         await api.agentUnlinkConversationParent(sessionId, teamId)
         void refreshSessions()
       } catch (err) {
-        toast.apiError('Could not unlink chat', err)
+        toast.apiError('Could not unlink agent', err)
       }
     },
     [teamId, refreshSessions],
@@ -274,8 +274,8 @@ export function useSidebarChats({
       actions: (
         <span
           role="button"
-          aria-label="Archive chat"
-          title="Archive chat"
+          aria-label="Archive agent"
+          title="Archive agent"
           onClick={(e) => {
             e.stopPropagation()
             void archiveChat(conversation.sessionId)

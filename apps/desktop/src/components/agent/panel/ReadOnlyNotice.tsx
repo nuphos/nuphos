@@ -92,15 +92,15 @@ function bannerCopy(
   { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings }: RuntimeControl,
   onSwitchAgent?: () => void,
 ): { text: string; action: { label: string; run: () => void } | null } {
-  const name = value?.label ?? 'The agent'
+  const name = value?.label ?? 'The runtime'
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
-  const switchAgent = onSwitchAgent && { label: 'Switch agent', run: onSwitchAgent }
+  const switchAgent = onSwitchAgent && { label: 'Switch runtime', run: onSwitchAgent }
 
   if (reachability === 'offline') {
     const box = options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel
 
     return {
-      text: `${box ?? 'Its Box'} is offline.`,
+      text: `${box ?? 'Its computer'} is offline.`,
       action: switchAgent ?? {
         label: 'Retry',
         run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
@@ -112,7 +112,7 @@ function bannerCopy(
   if (isTeamAdmin && onSettings)
     return {
       text: `${name} is signed out. Sign it in to send messages.`,
-      action: { label: 'Agent settings', run: onSettings },
+      action: { label: 'Runtime settings', run: onSettings },
     }
 
   return { text: `${name} is signed out. ${ASK_ADMIN_TO_RECONNECT}`, action: null }

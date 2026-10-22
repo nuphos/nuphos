@@ -154,7 +154,7 @@ test('a run whose conversation was closed names the conversation and points back
     }),
     {
       title: 'Cluster check',
-      body: 'The agent stopped while this conversation was closed — open it to see what happened.',
+      body: 'The agent stopped while it was closed — open it to see what happened.',
     },
   )
 })

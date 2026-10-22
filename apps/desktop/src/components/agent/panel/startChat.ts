@@ -65,7 +65,10 @@ export function runStartChatWith(
   } = ctx
 
   if (newConversationRuntime?.status !== 'active') {
-    toast.error('Choose an available agent', 'Connect or enable an agent in Settings → Agent.')
+    toast.error(
+      'Choose an available runtime',
+      'Connect or enable a runtime in Settings → Runtimes.',
+    )
 
     return
   }

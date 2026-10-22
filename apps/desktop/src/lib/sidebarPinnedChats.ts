@@ -38,7 +38,7 @@ export function partitionPinnedChats<T extends { entry: Pick<SidebarFavorite, 'k
 }
 
 export function favoriteToggleTitle(chatRow: boolean, favorited: boolean): string {
-  if (chatRow) return favorited ? 'Unpin chat' : 'Pin chat'
+  if (chatRow) return favorited ? 'Unpin agent' : 'Pin agent'
 
   return favorited ? 'Remove from Favorites' : 'Add to Favorites'
 }

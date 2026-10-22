@@ -14,7 +14,7 @@ export function stripTrailingSlashes(url: string): string {
 export function triggerSourceTitle(trigger: AgentTrigger): string {
   if (trigger.source === 'agent') {
     const sessionId = trigger.sourceContext?.sessionId
-    const where = sessionId ? ` in session ${sessionId}` : ''
+    const where = sessionId ? ` in agent ${sessionId}` : ''
 
     return `Created by the agent${where}`
   }

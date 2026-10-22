@@ -22,15 +22,15 @@ const GROUPS: Record<
     title: 'Team',
     header: 'Instructions',
     headerDescription:
-      'Standing guidance the agent follows in every new conversation in this team, like CLAUDE.md or AGENTS.md. Applies to every agent, including Slack, Discord, and trigger runs.',
+      'Standing guidance every new agent in this team follows, like CLAUDE.md or AGENTS.md. Applies to every agent, including Slack, Discord, and trigger runs.',
     description: 'Shared with everyone in this workspace. Injected first.',
   },
   personal: {
     title: 'Personal',
     header: 'Personal instructions',
     headerDescription:
-      'Your own standing guidance for conversations in this team. Nobody else in the team sees or receives it.',
-    description: 'Only apply to your own conversations. Injected after team instructions.',
+      'Your own standing guidance for your agents in this team. Nobody else in the team sees or receives it.',
+    description: 'Only apply to your own agents. Injected after team instructions.',
   },
 }
 
@@ -119,7 +119,7 @@ export function InstructionsSection({
       <ConfirmDialog
         open={deleting !== null}
         title="Delete instruction"
-        description={`Delete “${deleting?.title ?? ''}”? New conversations will stop receiving it.`}
+        description={`Delete “${deleting?.title ?? ''}”? New agents will stop receiving it.`}
         confirmLabel="Delete"
         destructive
         onConfirm={() => (deleting ? remove(deleting) : undefined)}

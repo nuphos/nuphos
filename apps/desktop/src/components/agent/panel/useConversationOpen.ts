@@ -174,7 +174,7 @@ export function useConversationOpen(acc: Acc) {
 
       // A newer fork replaces any edit still waiting on an earlier one.
       editResendRef.current = null
-      setOpeningConversation({ sessionId: sourceSessionId, title: 'Forking chat…' })
+      setOpeningConversation({ sessionId: sourceSessionId, title: 'Forking agent…' })
       try {
         const detail = await api.agentGetConversation(sourceSessionId, teamId)
 
@@ -191,7 +191,7 @@ export function useConversationOpen(acc: Acc) {
 
         if (edit && cut < 0) {
           setOpeningConversation(null)
-          toast.error('Could not edit message', 'That message is no longer in this chat.')
+          toast.error('Could not edit message', 'That message is no longer in this agent.')
 
           return
         }
@@ -240,7 +240,7 @@ export function useConversationOpen(acc: Acc) {
           return
         }
         setOpeningConversation(null)
-        toast.apiError('Could not fork chat', err)
+        toast.apiError('Could not fork agent', err)
       }
     },
     [credentialOptions, teamId],

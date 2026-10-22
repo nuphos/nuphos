@@ -77,7 +77,7 @@ export function AgentSection({
   const { isActive } = useWorkspaceTab()
   const panelShown = isActive && aside !== null && selected !== undefined
 
-  useToolbarPrimaryAction(isActive && isAdmin ? 'Add agent' : null, () => setAdding(true))
+  useToolbarPrimaryAction(isActive && isAdmin ? 'Add runtime' : null, () => setAdding(true))
   useEffect(() => {
     onCount(instances.length)
   }, [instances.length, onCount])
@@ -169,7 +169,7 @@ export function AgentSection({
                 >
                   <X className="h-4 w-4" />
                 </button>
-                <span className="truncate text-[12.5px] text-tertiary">Agent details</span>
+                <span className="truncate text-[12.5px] text-tertiary">Runtime details</span>
               </div>
               <div
                 key={selected.id}

@@ -195,7 +195,7 @@ function SkillAuditRow({
   return (
     <li
       onClick={onOpen}
-      title={onOpen ? 'View originating conversation' : undefined}
+      title={onOpen ? 'View originating agent' : undefined}
       className={clsx(
         'flex gap-3 rounded-md px-2 py-2',
         onOpen && 'transition-colors hover:bg-zGray-800/40',

@@ -155,7 +155,7 @@ export function RuntimeSelector({
       )}
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
-          aria-label={`Conversation runtime: ${label}`}
+          aria-label={`Agent runtime: ${label}`}
           className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
         >
           {content}
@@ -165,7 +165,7 @@ export function RuntimeSelector({
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
           {!loading && !error && groups.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">
-              Connect a runtime in Settings → Agent to get started.
+              Connect a runtime in Settings → Runtimes to get started.
             </p>
           )}
           <div className="max-h-96 overflow-auto">

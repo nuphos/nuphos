@@ -120,7 +120,7 @@ test('a failed turn reads its own label; a disconnected runtime says so', () => 
   )
   assert.equal(
     runtimeStateLabel({ state: 'disconnected' }),
-    'Connection lost — agent status unavailable',
+    'Connection lost — runtime status unavailable',
   )
 })
 

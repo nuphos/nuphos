@@ -135,7 +135,7 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
     }
     if (inAgentConversation) {
       out.push({
-        label: agentSessionTitle || 'Chat',
+        label: agentSessionTitle || 'Agent',
         isResource: true,
         icon: <MessageSquare className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       })

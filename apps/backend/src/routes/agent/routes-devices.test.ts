@@ -431,10 +431,10 @@ describe('agent device routes', () => {
     ])
   })
 
-  test('an unnamed Box counts up from the highest "Box N" the caller has', () => {
-    expect(nextBoxLabel([])).toBe('Box 1')
-    expect(nextBoxLabel(['Box 3', 'Build box', 'Box 1'])).toBe('Box 4')
-    expect(nextBoxLabel(['Box 10'])).toBe('Box 11')
+  test('an unnamed Box counts up from the highest "Computer N" the caller has', () => {
+    expect(nextBoxLabel([])).toBe('Computer 1')
+    expect(nextBoxLabel(['Computer 3', 'Build box', 'Computer 1'])).toBe('Computer 4')
+    expect(nextBoxLabel(['Computer 10'])).toBe('Computer 11')
   })
 
   test('PATCH /devices/:deviceId renames the caller device and only theirs', async () => {

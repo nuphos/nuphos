@@ -150,7 +150,7 @@ export function usePlanRowActions({
           key: 'open-in-chat',
           // A proposed plan can be pulled back into chat and run (any team
           // member); terminal plans are just opened for review.
-          label: plan.status === 'proposed' ? 'Continue in chat' : 'Open in chat',
+          label: plan.status === 'proposed' ? 'Continue in agent' : 'Open in agent',
           icon: MessageSquare,
           onSelect: () => onOpenInChat?.(plan.id),
         },

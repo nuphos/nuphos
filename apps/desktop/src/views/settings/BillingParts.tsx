@@ -88,8 +88,8 @@ export function LimitCallout({
         {message}
       </p>
       <p className="text-secondary">
-        Your running Boxes use {usage.usedVcpus} of {usage.limitVcpus} vCPU. They keep running;
-        starting or resuming a Box that doesn&apos;t fit is refused until you pause a Box
+        Your running computers use {usage.usedVcpus} of {usage.limitVcpus} vCPU. They keep running;
+        starting or resuming a computer that doesn&apos;t fit is refused until you pause a computer
         {next ? ' or upgrade' : ''}.
       </p>
       {next &&
@@ -102,7 +102,7 @@ export function LimitCallout({
           </div>
         ) : (
           <p className="text-[12px] text-tertiary">
-            Pause one of your Boxes, or ask a team administrator to upgrade to {next.name}.
+            Pause one of your computers, or ask a team administrator to upgrade to {next.name}.
           </p>
         ))}
     </section>
@@ -169,7 +169,7 @@ export function InUse({
         </ul>
       )}
       <p className="text-[12px] text-tertiary">
-        Paused Boxes use no vCPU. {Math.max(0, limit - used)} vCPU free.
+        Paused computers use no vCPU. {Math.max(0, limit - used)} vCPU free.
       </p>
     </>
   )

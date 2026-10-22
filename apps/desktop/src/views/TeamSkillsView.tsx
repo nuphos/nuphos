@@ -24,7 +24,7 @@ const SCOPES: { scope: SkillScope; label: string; title: string }[] = [
     scope: 'personal',
     label: 'Personal',
     title:
-      'Your own skills in this team. Claude Code agents load them on your turns in your own conversations.',
+      'Your own skills in this team. Claude Code runtimes load them on your turns in your own agents.',
   },
 ]
 
@@ -198,8 +198,8 @@ export function TeamSkillsView({
             description={
               scope === 'personal' ? (
                 <>
-                  Personal skills are yours in this team. Claude Code agents load them on your turns
-                  in conversations you own, and never on another member&apos;s turn. A team skill
+                  Personal skills are yours in this team. Claude Code runtimes load them on your
+                  turns in agents you own, and never on another member&apos;s turn. A team skill
                   with the same name is used instead. Move a skill to the team when everyone should
                   have it.
                 </>

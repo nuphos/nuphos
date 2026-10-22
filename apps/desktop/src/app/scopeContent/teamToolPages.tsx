@@ -61,7 +61,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
   if (active === 'team.agents') {
     return renderPage(
       'team.agents',
-      'Agents',
+      'Runtimes',
       <Bot className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <AgentSection
         key={scope.teamId}
@@ -113,7 +113,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
   if (active === 'team.archived-chats') {
     return renderPage(
       'team.archived-chats',
-      'Archived chats',
+      'Archived agents',
       <Archive className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ArchivedChatsView
         teamId={scope.teamId}

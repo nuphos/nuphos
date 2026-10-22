@@ -19,7 +19,7 @@ import type { AtlasTeam } from '../../../types'
 import type { AgentProvider } from '../../../types/runtime'
 import type { ReactNode } from 'react'
 
-const BREADCRUMB = 'Cloud agent › Self-hosted'
+const BREADCRUMB = 'Cloud runtime › Self-hosted'
 
 export type ConnectedCloudAgent = { provider: AgentProvider; label: string }
 
@@ -87,7 +87,7 @@ function DeployAndConnect({
             Open {name} <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </DeployStep>
-        <DeployStep n={2} title="Open your agent’s console">
+        <DeployStep n={2} title="Open your runtime’s console">
           Sign in with the password your deployment generated, then sign in to Claude or ChatGPT
           there.
         </DeployStep>
@@ -98,7 +98,7 @@ function DeployAndConnect({
       <div className="space-y-3">
         <p className="flex items-center gap-2 text-[13px] text-secondary" role="status">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Waiting for your agent to connect…
+          Waiting for your runtime to connect…
         </p>
         {pairing ? (
           <ExternalRuntimeForm

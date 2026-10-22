@@ -11,7 +11,7 @@ import type { NewBoxState } from './useNewBox'
 export const NEW_BOX_FORM = 'new-box-form'
 
 export const NEW_BOX_DESCRIPTION =
-  "A Linux computer in the cloud with Claude Code and Codex on it. Running Boxes count against your plan's vCPU; paused ones do not."
+  "A Linux machine in the cloud with Claude Code and Codex on it. Running computers count against your plan's vCPU; paused ones do not."
 
 /** New Box's name, size and access, made with `useNewBox` when submitted. Used by New Box and Add agent. */
 export function NewBoxFields({
@@ -55,7 +55,7 @@ export function NewBoxFields({
         <BoxQuotaMeter usage={usage} adding={vcpus} />
         {choices.length === 0 && usage && (
           <p className="text-[12.5px] text-tertiary">
-            The sizes could not be loaded, so this Box will be the smallest size.
+            The sizes could not be loaded, so the new computer will be the smallest size.
           </p>
         )}
         {choices.length > 0 && (
@@ -74,7 +74,7 @@ export function NewBoxFields({
                   onPlanChanged()
                 },
                 {
-                  afterPaid: `Once the plan changes, ${choice.name} is unlocked and selected in New Box.`,
+                  afterPaid: `Once the plan changes, ${choice.name} is unlocked and selected in New computer.`,
                   needs: (quota?.used ?? 0) + choice.vcpus,
                 },
               )

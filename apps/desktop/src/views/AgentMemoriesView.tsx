@@ -128,7 +128,7 @@ export function AgentMemoriesView({
       <EmptyState
         icon={Brain}
         title="Memories"
-        description="Cross-conversation memory is not enabled on this backend. The agent will continue to work without it; it just won't recall anything between chats."
+        description="Cross-agent memory is not enabled on this backend. The agent will continue to work without it; it just won't recall anything between agents."
       />
     )
   }

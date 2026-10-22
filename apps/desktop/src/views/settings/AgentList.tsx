@@ -44,12 +44,12 @@ function AgentUsageTable({
 
   return (
     <section aria-labelledby={headingId} className="@container">
-      <PanelHeading id={headingId} title="Agents" />
+      <PanelHeading id={headingId} title="Runtimes" />
       <div className="overflow-hidden rounded-xl border border-zGray-800/60 bg-surface/40">
         <div
           className={`grid ${AGENT_USAGE_COLUMNS} border-b border-zGray-800/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary`}
         >
-          <span>Agent</span>
+          <span>Runtime</span>
           <span className="hidden @3xl:block">Runs on</span>
           <span>Usage</span>
           <span />
@@ -79,10 +79,10 @@ function AgentListPlaceholder({
   isAdmin: boolean
 }) {
   if (loading) return <AgentUsageSkeleton />
-  let hint = 'Ask a workspace administrator to add an agent.'
+  let hint = 'Ask a workspace administrator to add a runtime.'
 
-  if (filtered) hint = 'No matching agents.'
-  else if (isAdmin) hint = 'Add your first agent to start a conversation.'
+  if (filtered) hint = 'No matching runtimes.'
+  else if (isAdmin) hint = 'Add your first runtime to start an agent.'
 
   return (
     <p className="rounded-xl border border-dashed border-zGray-800 p-8 text-center text-sm text-tertiary">

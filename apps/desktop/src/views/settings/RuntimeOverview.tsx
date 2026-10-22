@@ -65,9 +65,9 @@ export function RuntimeOverview({
   let body: React.ReactNode
 
   if (instance.status !== 'active') {
-    body = <Note>Enable this agent to reconnect.</Note>
+    body = <Note>Enable this runtime to reconnect.</Note>
   } else if (statusError) {
-    body = <Note tone="error">Could not load agent status. Retrying…</Note>
+    body = <Note tone="error">Could not load runtime status. Retrying…</Note>
   } else if (!runtime) {
     body = <div aria-busy="true" className="h-10 animate-pulse rounded-md bg-zGray-800/40" />
   } else if (!runtime.configured) {
@@ -89,7 +89,7 @@ export function RuntimeOverview({
         <PanelStat label="Uptime">
           {runtime.uptimeSeconds === undefined ? '—' : formatUptime(runtime.uptimeSeconds)}
         </PanelStat>
-        <PanelStat label="Conversations">
+        <PanelStat label="Agents">
           {runtime.attachedConversations === null
             ? 'Unavailable'
             : String(runtime.attachedConversations)}

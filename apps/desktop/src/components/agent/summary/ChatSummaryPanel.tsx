@@ -98,7 +98,7 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null) {
   const pane = root?.closest(PANE)
 
   setChatSummaryOpen(false)
-  pane?.querySelector<HTMLElement>('[aria-label="Toggle chat summary"]')?.focus()
+  pane?.querySelector<HTMLElement>('[aria-label="Toggle agent summary"]')?.focus()
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */
@@ -111,7 +111,7 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
   return (
     <aside
       ref={rootRef}
-      aria-label="Chat summary"
+      aria-label="Agent summary"
       onKeyDown={(event) => closeOnEscape(event, rootRef.current)}
       className={clsx(
         't-summary-in',
@@ -128,7 +128,7 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
         </SummarySection>
       )}
       {threads.length > 0 && (
-        <SummarySection title="Threads">
+        <SummarySection title="Sub-agents">
           {threads.map((thread) => (
             <ThreadRow
               key={thread.sessionId}
@@ -147,7 +147,7 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
         <div className="px-1 pt-1 text-[13px] leading-5">
           <p className="text-main">Nothing here yet</p>
           <p className="text-tertiary">
-            Pull requests, threads and files from this chat appear here after its first reply.
+            Pull requests, sub-agents and files from this agent appear here after its first reply.
           </p>
         </div>
       )}

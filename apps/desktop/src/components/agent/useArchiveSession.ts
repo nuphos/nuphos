@@ -18,19 +18,19 @@ export function useArchiveSession({ sessionId, teamId, title }: ArchiveTarget) {
       await archiveChat(sessionId, teamId)
       announceChatArchived({ sessionId, teamId })
       // Same receipt as the history page: one stray click must be one click to undo.
-      toast.success('Chat archived', `"${title}" is still available in the Agent history.`, {
+      toast.success('Agent archived', `"${title}" is still available in the Agent history.`, {
         action: {
           label: 'Undo',
           onClick: () => {
             void api
               .agentSetConversationArchived(sessionId, false, teamId)
               .then(() => announceChatUnarchived(sessionId))
-              .catch((err: unknown) => toast.apiError('Could not restore chat', err))
+              .catch((err: unknown) => toast.apiError('Could not restore agent', err))
           },
         },
       })
     } catch (err) {
-      toast.apiError('Could not archive chat', err)
+      toast.apiError('Could not archive agent', err)
     } finally {
       setArchiving(false)
     }

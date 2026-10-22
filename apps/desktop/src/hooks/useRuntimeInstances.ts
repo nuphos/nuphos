@@ -62,7 +62,7 @@ export function useRuntimeInstances(teamId?: string, refreshKey = 0) {
   return {
     instances: snapshot.value ?? [],
     loading: Boolean(teamId && !snapshot.settled),
-    error: snapshot.failed ? 'Could not load agents. Try again.' : null,
+    error: snapshot.failed ? 'Could not load runtimes. Try again.' : null,
     refresh: () => {
       if (key) refreshPoll(key)
     },

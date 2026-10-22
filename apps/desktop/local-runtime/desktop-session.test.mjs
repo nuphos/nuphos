@@ -175,7 +175,7 @@ test('a full pool answers the call that needs a desktop, and the next call tries
     desktop: () =>
       free
         ? Promise.resolve({ display: 2, env: { DISPLAY: ':2' } })
-        : Promise.reject(new Error('All 4 desktops on this Box are in use')),
+        : Promise.reject(new Error('All 4 desktops on this computer are in use')),
   })
 
   await relay.receive({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'click' } })

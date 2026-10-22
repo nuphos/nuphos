@@ -18,7 +18,7 @@ export class InstanceStreams {
   }
   open(id: string): void {
     if (!this.request) {
-      this.send({ t: 'close', s: id, reason: 'Agent instances unavailable' })
+      this.send({ t: 'close', s: id, reason: 'Runtime instances unavailable' })
 
       return
     }

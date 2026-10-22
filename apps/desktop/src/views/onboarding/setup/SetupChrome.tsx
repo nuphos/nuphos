@@ -5,7 +5,7 @@ import { Check, ChevronRight } from 'lucide-react'
 import type { LocalAgentStatus } from './agentSetup'
 import type { ReactNode } from 'react'
 
-const STEPS = ['Local agents', 'Cloud agent'] as const
+const STEPS = ['Local runtimes', 'Cloud runtime'] as const
 
 /** "1 Local agents — 2 Cloud agent", with the steps already passed checked off. */
 export function SetupStepper({ step }: { step: 1 | 2 }) {

@@ -45,7 +45,7 @@ export function useBoxSetup(
     } catch (error) {
       // No plan, or past it: the paywall offers one, then makes the Box.
       if (!openBoxPaywall(teamId, error, () => void create(label)))
-        toast.apiError('Could not create Box', error)
+        toast.apiError('Could not create computer', error)
     } finally {
       setCreating(false)
     }

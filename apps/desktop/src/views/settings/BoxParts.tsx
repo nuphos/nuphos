@@ -194,11 +194,11 @@ export function NewAgentMenu({
   return (
     <Menu>
       <MenuTrigger
-        aria-label={`New agent on ${device.label}`}
+        aria-label={`New runtime on ${device.label}`}
         render={<Button size="sm" variant="secondary" className="h-10" />}
       >
         <Plus className="h-3.5 w-3.5" />
-        New Agent
+        New Runtime
       </MenuTrigger>
       <MenuContent align="start">
         {PROVIDERS.map((provider) => (
@@ -213,7 +213,9 @@ export function NewAgentMenu({
               : `Sign in to ${AGENT_PROVIDER[provider].label}`}
           </MenuItem>
         ))}
-        {!canAddAgents && <MenuItem disabled>Update the Box host to add more agents</MenuItem>}
+        {!canAddAgents && (
+          <MenuItem disabled>Update the computer host to add more runtimes</MenuItem>
+        )}
       </MenuContent>
     </Menu>
   )

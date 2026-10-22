@@ -55,5 +55,5 @@ export function conversationReadOnlyLabel(
     return 'Slack conversation · view-only'
   }
 
-  return 'Shared conversation · view-only'
+  return 'Shared agent · view-only'
 }

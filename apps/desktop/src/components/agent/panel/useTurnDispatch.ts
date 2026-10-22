@@ -113,8 +113,8 @@ export function useTurnDispatch(acc: Acc) {
         if (listed) start(listed)
         else
           toast.error(
-            'The local agent is still starting',
-            'Try again in a moment, or check User settings › This computer › Local agent.',
+            'The local runtime is still starting',
+            'Try again in a moment, or check User settings › This computer › Local runtime.',
           )
       })
     },

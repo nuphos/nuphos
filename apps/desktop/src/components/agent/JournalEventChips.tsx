@@ -126,7 +126,7 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
     return (
       <span
         className="inline-flex flex-shrink-0 items-center rounded border border-violet-500/30 bg-violet-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-violet-300/90"
-        title="An approved plan was active for this conversation when the call was journaled — per-command plan binding is not claimed"
+        title="An approved plan was active for this agent when the call was journaled — per-command plan binding is not claimed"
       >
         plan{typeof auth.planNumber === 'number' ? ` #${String(auth.planNumber)}` : ''}
       </span>

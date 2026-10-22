@@ -46,12 +46,14 @@ export function RuntimeActionsMenu({
           <MenuItem onClick={onSignIn}>{authenticated ? 'Sign in again' : 'Sign in'}</MenuItem>
         )}
         <MenuSeparator />
-        <MenuItem onClick={onToggleEnabled}>{enabled ? 'Disable agent' : 'Enable agent'}</MenuItem>
+        <MenuItem onClick={onToggleEnabled}>
+          {enabled ? 'Disable runtime' : 'Enable runtime'}
+        </MenuItem>
         {/* A person's computer keeps its default agents; a Box can remove any of its agents. */}
         {(instance.kind !== 'local' || localRemovalId(instance)) && (
           // The Box deletes the agent's sign-in itself, so it has to be connected.
           <MenuItem destructive disabled={instance.local?.online === false} onClick={onRemove}>
-            Remove agent
+            Remove runtime
           </MenuItem>
         )}
       </MenuContent>

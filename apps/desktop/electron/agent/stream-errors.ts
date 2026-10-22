@@ -59,7 +59,7 @@ export function agentReauthenticationEvent(error: {
     type: 'agent-setup-required',
     reason: 'reauthentication',
     message:
-      'Your agent sign-in is no longer valid. Open Settings → Agent and sign in again for this conversation’s agent, then resend your message. For an external agent, update its credentials on the host.',
+      'Your runtime sign-in is no longer valid. Open Settings → Runtimes and sign in again for this agent’s runtime, then resend your message. For an external runtime, update its credentials on the host.',
   }
 }
 

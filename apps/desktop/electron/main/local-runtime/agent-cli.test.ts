@@ -77,7 +77,7 @@ test(
     await updateAgentCli('codex', env)
     assert.equal(readFileSync(path.join(dir, 'args'), 'utf8').trim(), 'update')
     await assert.rejects(updateAgentCli('claude-code', env))
-    await assert.rejects(updateAgentCli('opencode' as never, env), /Install the agent/u)
+    await assert.rejects(updateAgentCli('opencode' as never, env), /Install the runtime/u)
   },
 )
 

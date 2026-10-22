@@ -71,7 +71,7 @@ const BROWSER_PROMPT: Record<Paste, string> = {
   address:
     'Approve access on the page. Your browser then ends on a page that does not load; copy the full address from its address bar and paste it here.',
   code: 'Approve access on the page, then paste the code it shows you here.',
-  none: 'Approve access on the page. The agent connects as soon as you do.',
+  none: 'Approve access on the page. The runtime connects as soon as you do.',
 }
 const PASTE_PLACEHOLDER: Record<Paste, string> = {
   address: 'Paste the full address (starts with http://localhost)',
@@ -243,7 +243,8 @@ export function RuntimeLoginStep({
         )}
         {step.kind === 'input' && step.secret && (
           <p className="text-xs leading-5 text-tertiary">
-            Nuphos encrypts it on its way to the agent, which keeps it; Nuphos does not keep a copy.
+            Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a
+            copy.
           </p>
         )}
       </>

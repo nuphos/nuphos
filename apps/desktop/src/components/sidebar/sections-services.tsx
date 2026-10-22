@@ -142,7 +142,7 @@ export function teamSections(
         enabled: true,
       })),
     },
-    ...(agentSessionItems.length > 0 ? [{ title: 'Chats', items: agentSessionItems }] : []),
+    ...(agentSessionItems.length > 0 ? [{ title: 'Agents', items: agentSessionItems }] : []),
     ...loadingPlaceholder,
     ...connectorGroups.map(({ category, items }) => ({
       title: category.label,

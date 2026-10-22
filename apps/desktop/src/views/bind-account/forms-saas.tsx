@@ -176,7 +176,7 @@ export function ResendForm({ st }: { st: BindState }) {
       </Field>
       <Field
         label="API Key"
-        hint="From resend.com/api-keys. Encrypted before storage. Sending is disabled in new conversations until you enable this account for them."
+        hint="From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them."
       >
         <input
           type="password"

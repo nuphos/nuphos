@@ -122,7 +122,7 @@ export function InstructionEditorDialog({
       open={target !== null}
       onClose={onClose}
       title={target ? dialogTitle(target) : ''}
-      description="Markdown. Injected at the start of every new conversation."
+      description="Markdown. Injected at the start of every new agent."
       width={640}
       closeOnBackdrop={readOnly}
       footer={

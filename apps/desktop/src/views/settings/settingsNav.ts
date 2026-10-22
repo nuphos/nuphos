@@ -76,7 +76,7 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
       { key: 'workspace.skills', label: 'Skills', icon: Sparkles },
       { key: 'workspace.memories', label: 'Memories', icon: Brain },
       { key: 'workspace.triggers', label: 'Triggers', icon: Clock },
-      { key: 'workspace.archived', label: 'Archived chats', icon: Archive },
+      { key: 'workspace.archived', label: 'Archived agents', icon: Archive },
       { key: 'workspace.audit', label: 'Audit log', icon: ScrollText },
     ],
   },
@@ -102,7 +102,7 @@ const USER_GROUPS: SettingsNavGroup[] = [
     items: [
       { key: 'device.appearance', label: 'Appearance', icon: SunMedium },
       { key: 'device.localExec', label: 'Local exec', icon: SquareTerminal },
-      { key: 'device.localRuntime', label: 'Local agent', icon: Monitor },
+      { key: 'device.localRuntime', label: 'Local runtime', icon: Monitor },
     ],
   },
 ]

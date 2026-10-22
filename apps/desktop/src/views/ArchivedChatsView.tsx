@@ -39,8 +39,8 @@ export function ArchivedChatsView({
     return (
       <EmptyState
         icon={Archive}
-        title="No archived chats"
-        description="Chats you archive, and chats left idle for a week, are kept here. Unarchive one to put it back in Chats."
+        title="No archived agents"
+        description="Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents."
       />
     )
   }
@@ -59,7 +59,7 @@ export function ArchivedChatsView({
         >
           {items.length === 0 && (
             <div className="px-3 py-4 text-[12.5px] text-tertiary">
-              {loading ? 'Loading…' : 'No archived chats match your search.'}
+              {loading ? 'Loading…' : 'No archived agents match your search.'}
             </div>
           )}
           {items.map((conversation) => (

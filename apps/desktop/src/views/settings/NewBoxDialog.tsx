@@ -33,7 +33,7 @@ export function NewBoxDialog({
       onClose={() => {
         if (box.canClose()) onClose()
       }}
-      title="New Box"
+      title="New computer"
       description={NEW_BOX_DESCRIPTION}
       width={560}
       closeOnBackdrop={!creating}
@@ -43,7 +43,7 @@ export function NewBoxDialog({
             Cancel
           </Button>
           <Button size="sm" type="submit" form={NEW_BOX_FORM} disabled={creating}>
-            {creating ? 'Creating…' : 'Create Box'}
+            {creating ? 'Creating…' : 'Create computer'}
           </Button>
         </div>
       }

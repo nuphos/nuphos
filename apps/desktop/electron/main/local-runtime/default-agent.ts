@@ -16,9 +16,10 @@ export async function removeDefaultAgent(
   provider: unknown,
   restart: ((provider: LocalAgentProvider) => Promise<unknown>) | undefined,
 ): Promise<unknown> {
-  if (!deps.ownsMachine || !restart) throw new Error('Only a Box removes its default agents')
+  if (!deps.ownsMachine || !restart)
+    throw new Error('Only a cloud computer removes its default runtimes')
   if (!LOCAL_AGENT_PROVIDERS.includes(provider as LocalAgentProvider))
-    throw new Error('Invalid agent provider')
+    throw new Error('Invalid runtime provider')
   deleteDefaultLogin(
     provider as LocalAgentProvider,
     userDir(deps.dataDir(), userId),

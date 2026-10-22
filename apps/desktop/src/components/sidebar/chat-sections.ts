@@ -12,7 +12,7 @@ export function withChatSections(
   pinnedChatItems: Item[],
   isPinned: (item: Item) => unknown,
 ): Section[] {
-  const chatItems = sections.find((section) => section.title === 'Chats')?.items ?? []
+  const chatItems = sections.find((section) => section.title === 'Agents')?.items ?? []
   const byKey = new Map(chatItems.map((item) => [item.key, item]))
   const inPinned = (item: Item, seen = new Set<string>()): boolean => {
     if (isPinned(item)) return true
@@ -25,12 +25,12 @@ export function withChatSections(
     ...chatItems.filter((item) => !isPinned(item) && inPinned(item)),
   ]
   const result = sections.flatMap((section) => {
-    if (section.title !== 'Chats') return [section]
+    if (section.title !== 'Agents') return [section]
     const items = chatItems.filter((item) => !inPinned(item))
 
     return items.length > 0 ? [{ ...section, items }] : []
   })
-  const chatsIndex = result.findIndex((section) => section.title === 'Chats')
+  const chatsIndex = result.findIndex((section) => section.title === 'Agents')
 
   if (pinned.length > 0) {
     result.splice(chatsIndex === -1 ? 1 : chatsIndex, 0, { title: 'Pinned', items: pinned })

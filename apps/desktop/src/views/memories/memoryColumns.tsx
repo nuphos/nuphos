@@ -60,7 +60,7 @@ export function buildMemoryColumns(
               if (!s || s.turns === 0) return <span className="text-tertiary">—</span>
               const plural = s.reachConversations === 1 ? '' : 's'
               const corrected = s.corrections > 0 ? ` · corrected ${String(s.corrections)}×` : ''
-              const reach = `reached ${String(s.reachConversations)} conversation${plural}`
+              const reach = `reached ${String(s.reachConversations)} agent${plural}`
 
               return (
                 <span

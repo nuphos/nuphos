@@ -106,7 +106,7 @@ export function useRuntimeFiles(
           if (!conversation.runtimeId) {
             toast.error(
               'No runtime selected',
-              'Select a runtime for this conversation, then refresh Files.',
+              'Select a runtime for this agent, then refresh Files.',
             )
             setResult({ source: null, directory: null, preview: null, loading: false })
 

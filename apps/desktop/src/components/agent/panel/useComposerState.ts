@@ -214,7 +214,7 @@ export function useComposerState({
 
   useEffect(() => {
     const next = readOnly
-      ? (readOnlyPlaceholder ?? 'This conversation is read-only')
+      ? (readOnlyPlaceholder ?? 'This agent is read-only')
       : streaming
         ? 'Agent is replying...'
         : idlePlaceholder

@@ -48,7 +48,7 @@ export function AuditFilterControls({
             }}
             className={pill(tab === t)}
           >
-            {t === 'conversations' ? 'Conversations' : 'All events'}
+            {t === 'conversations' ? 'Agents' : 'All events'}
           </button>
         ))}
       </div>

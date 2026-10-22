@@ -36,7 +36,7 @@ export function useRuntimeModelConfig(
             key,
             runtimeId,
             data: { status: 'offline', options: [] },
-            error: 'Could not load models. Check the agent connection and retry.',
+            error: 'Could not load models. Check the runtime connection and retry.',
           })
       },
     )

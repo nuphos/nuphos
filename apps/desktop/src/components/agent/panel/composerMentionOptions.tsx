@@ -24,8 +24,8 @@ function Row({ icon, label, detail }: { icon: ReactNode; label: string; detail?:
 
 const SECTION_TITLES: Record<MentionOption['kind'], string> = {
   member: 'People',
-  device: 'Devices',
-  session: 'Chats',
+  device: 'Computers',
+  session: 'Agents',
 }
 
 function MentionOptionRow({
@@ -63,7 +63,7 @@ function MentionOptionRow({
       return (
         <Row
           icon={<MessageSquare size={16} className="shrink-0 text-tertiary" />}
-          label={option.session.title || option.session.firstMessage || 'Untitled session'}
+          label={option.session.title || option.session.firstMessage || 'Untitled agent'}
         />
       )
   }

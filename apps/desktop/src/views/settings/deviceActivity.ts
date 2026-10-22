@@ -25,7 +25,7 @@ export function outcomeSummary(entry: Pick<DeviceExecAuditEntry, 'outcome' | 'ex
     case 'timeout':
       return { label: 'Timed out', tone: 'error' }
     case 'device_offline':
-      return { label: 'Device offline', tone: 'error' }
+      return { label: 'Computer offline', tone: 'error' }
     case 'rejected':
       return { label: 'Not run', tone: 'muted' }
     case 'error':

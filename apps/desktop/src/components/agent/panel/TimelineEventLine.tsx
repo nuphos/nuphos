@@ -69,7 +69,7 @@ function EventLine({ event }: { event: AgentTimelineEvent }) {
   if (event.kind === 'runtime_moved' && to)
     return (
       <Rule title={title}>
-        <Person person={actor} /> moved this session{' '}
+        <Person person={actor} /> moved this agent{' '}
         {from && (
           <>
             from <Runtime runtime={from} />{' '}
@@ -82,19 +82,19 @@ function EventLine({ event }: { event: AgentTimelineEvent }) {
   if (event.kind === 'participant_invited')
     return (
       <Rule title={title}>
-        <Person person={actor} /> invited <Person person={target} /> into this session
+        <Person person={actor} /> invited <Person person={target} /> into this agent
       </Rule>
     )
   if (target.id === actor.id)
     return (
       <Rule title={title}>
-        <Person person={actor} /> left this session
+        <Person person={actor} /> left this agent
       </Rule>
     )
 
   return (
     <Rule title={title}>
-      <Person person={actor} /> removed <Person person={target} /> from this session
+      <Person person={actor} /> removed <Person person={target} /> from this agent
     </Rule>
   )
 }
@@ -106,7 +106,7 @@ export function MovingSessionLine({ label }: { label: string }) {
     <PlanRevealSection revealKey={label}>
       <div role="status">
         <Rule>
-          <LoadingText>{`Moving this session to ${label}…`}</LoadingText>
+          <LoadingText>{`Moving this agent to ${label}…`}</LoadingText>
         </Rule>
       </div>
     </PlanRevealSection>

@@ -121,14 +121,14 @@ export function ModelSelector({
     lines: [
       (loading || slow) &&
         !error &&
-        (slow ? 'The agent is reconnecting. This may take a moment.' : 'Getting model settings…'),
+        (slow ? 'The runtime is reconnecting. This may take a moment.' : 'Getting model settings…'),
       error,
       error && model && 'Showing last synced settings.',
       control.queued ? 'Selected for the next reply.' : hint,
       disabled &&
         !busy &&
         status === 'ready' &&
-        'Available when this conversation is ready for your next message.',
+        'Available when this agent is ready for your next message.',
     ].filter((line): line is string => Boolean(line)),
     error: error ?? undefined,
     onRetry: error || status === 'offline' ? control.refresh : undefined,

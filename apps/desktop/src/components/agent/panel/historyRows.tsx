@@ -152,7 +152,7 @@ export function HistoryConversationRow({
               titleClassName,
             )}
           >
-            {conversation.title || conversation.firstMessage || 'Untitled chat'}
+            {conversation.title || conversation.firstMessage || 'Untitled agent'}
           </div>
           <div className={clsx('truncate text-[11.5px] text-tertiary', timeClassName)}>
             {/* Waiting on a decision, the question is what the row is about. */}

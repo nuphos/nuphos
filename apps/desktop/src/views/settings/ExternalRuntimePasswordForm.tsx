@@ -63,7 +63,7 @@ export function ExternalRuntimePasswordForm({
         ...(detectedProvider ? { provider: detectedProvider } : {}),
       })
     } catch (error) {
-      toast.apiError('Could not connect agent', error)
+      toast.apiError('Could not connect runtime', error)
     } finally {
       setSaving(false)
     }
@@ -71,7 +71,7 @@ export function ExternalRuntimePasswordForm({
 
   const primary = (
     <Button size="sm" type="submit" form={formId} disabled={cannotSave}>
-      {saving ? 'Connecting…' : 'Connect agent'}
+      {saving ? 'Connecting…' : 'Connect runtime'}
     </Button>
   )
   const cancel = (
@@ -98,16 +98,16 @@ export function ExternalRuntimePasswordForm({
   return (
     <form id={formId} onSubmit={(event) => void submit(event)} className="space-y-4">
       <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
-        Start the agent container with one variable, its admin password, and serve it over wss:// —
-        most hosts provide TLS for you. Then paste its address and that same password here. Nuphos
-        detects which agent it runs on its own.
+        Start the runtime container with one variable, its admin password, and serve it over wss://
+        — most hosts provide TLS for you. Then paste its address and that same password here. Nuphos
+        detects which runtime it runs on its own.
       </p>
       <Field
         label="Address"
         hint={
           urlLooksWrong
-            ? 'Enter the agent’s ACP address, for example wss://runtime.example.com/acp.'
-            : 'The ACP endpoint your agent serves, usually the host plus /acp.'
+            ? 'Enter the runtime’s ACP address, for example wss://runtime.example.com/acp.'
+            : 'The ACP endpoint your runtime serves, usually the host plus /acp.'
         }
       >
         <input
@@ -140,14 +140,14 @@ export function ExternalRuntimePasswordForm({
       {detecting && (
         <p className="flex items-center gap-1.5 text-[12px] text-tertiary">
           <FontAwesomeIcon icon={faSpinner} spin className="h-3 w-3" />
-          Detecting the agent…
+          Detecting the runtime…
         </p>
       )}
       {detectedProvider && (
         <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
           {AGENT_PROVIDER[detectedProvider].label} detected. Once it is connected, sign it in to{' '}
           {AGENT_PROVIDER[detectedProvider].account} with Sign in on its card.
-          {detectedProvider === 'codex' && ' That needs agent image 0.0.7 or newer.'}
+          {detectedProvider === 'codex' && ' That needs runtime image 0.0.7 or newer.'}
         </p>
       )}
       {/* Inline as it always was; in a dialog's footer the primary action sits on the right. */}

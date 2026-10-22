@@ -76,7 +76,7 @@ export function SessionSearchDialog({
               }
             }}
           >
-            <Dialog.Title className="sr-only">Search sessions and people</Dialog.Title>
+            <Dialog.Title className="sr-only">Search agents and people</Dialog.Title>
             <div className="flex h-14 shrink-0 items-center gap-2 border-b border-main px-4">
               <InputGroup className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-2">
                 <Search size={18} className="shrink-0 text-secondary" />
@@ -88,9 +88,9 @@ export function SessionSearchDialog({
                   role="combobox"
                   aria-expanded
                   aria-autocomplete="list"
-                  aria-label={mode === 'people' ? 'Search people' : 'Search sessions'}
+                  aria-label={mode === 'people' ? 'Search people' : 'Search agents'}
                   placeholder={
-                    mode === 'people' ? 'Search people…' : 'Search sessions, people or pages…'
+                    mode === 'people' ? 'Search people…' : 'Search agents, people or pages…'
                   }
                   className="text-base text-main placeholder:text-secondary"
                 />
@@ -123,7 +123,7 @@ export function SessionSearchDialog({
                     )}
                   >
                     <Icon size={15} />
-                    {value === 'people' ? 'People' : 'Sessions'}
+                    {value === 'people' ? 'People' : 'Agents'}
                   </button>
                 )
               })}
@@ -168,7 +168,7 @@ export function SessionSearchDialog({
               <Kbd combo="enter" />
               <span className="flex-1" />
               <span className="hidden sm:inline">
-                {mode === 'people' ? 'Back to sessions' : 'Open beside'}
+                {mode === 'people' ? 'Back to agents' : 'Open beside'}
               </span>
               <Kbd combo={mode === 'people' ? 'esc' : 'mod+enter'} />
             </div>

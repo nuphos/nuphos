@@ -147,7 +147,7 @@ export function InboxView({
         <EmptyState
           icon={Inbox}
           title="You're all caught up"
-          description="When an agent needs you to decide something, the conversation shows up here. Answer it in the chat and it leaves the Inbox."
+          description="When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox."
         />
       )}
       {/* Mounted while empty too: its refetch is what brings the next question in. */}

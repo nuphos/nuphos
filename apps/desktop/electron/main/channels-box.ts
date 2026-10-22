@@ -35,7 +35,7 @@ function string(value: unknown): string {
 function agentProvider(value: unknown): LocalAgentProvider {
   const provider = LOCAL_AGENT_PROVIDERS.find((known) => known === value)
 
-  if (!provider) throw new TypeError('Expected an agent provider')
+  if (!provider) throw new TypeError('Expected a runtime provider')
 
   return provider
 }
@@ -47,7 +47,7 @@ function boxAccess(value: unknown): BoxAccess {
     !Array.isArray(access.userIds) ||
     !access.userIds.every((id) => typeof id === 'string')
   )
-    throw new TypeError('Expected a Box access list')
+    throw new TypeError('Expected a computer access list')
 
   return { everyone: access.everyone, userIds: access.userIds }
 }

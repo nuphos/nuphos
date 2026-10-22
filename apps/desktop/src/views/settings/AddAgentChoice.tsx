@@ -64,7 +64,7 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Box className="h-4 w-4" />}
-          title="New Box"
+          title="New computer"
           description="A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account."
           onClick={() => onPick('box')}
         />
@@ -73,14 +73,14 @@ export function AddAgentChoices({
         <Choice
           icon={<Laptop className="h-4 w-4" />}
           title="Connect your own machine"
-          description="Make a computer or server you run into a Box, with a one-time join command."
+          description="Connect a computer or server you run, with a one-time join command."
           onClick={onJoin}
         />
       )}
       <Choice
         icon={<Server className="h-4 w-4" />}
-        title="Self-hosted Cloud Agent"
-        description="Connect an agent you run on your own server, with a pairing code from its console."
+        title="Self-hosted runtime"
+        description="Connect a runtime you run on your own server, with a pairing code from its console."
         onClick={() => onPick('self-hosted')}
       />
       <StepActions footer={footer} className="flex items-center justify-end gap-2">

@@ -96,7 +96,7 @@ export class SessionConfigSync {
       this.publish({
         loading: false,
         slow: false,
-        error: 'Could not connect to the agent. Reconnecting automatically.',
+        error: 'Could not connect to the runtime. Reconnecting automatically.',
       })
     } finally {
       if (this.active && version === this.version) {

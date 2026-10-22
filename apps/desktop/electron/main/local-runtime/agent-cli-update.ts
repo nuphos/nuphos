@@ -20,7 +20,7 @@ export function updateAgentCli(
 ): Promise<void> {
   const file = NPM_PACKAGE[provider] ? findAgentCli(provider, env) : null
 
-  if (!file) return Promise.reject(new Error('Install the agent on this computer first.'))
+  if (!file) return Promise.reject(new Error('Install the runtime on this computer first.'))
 
   return new Promise((resolve, reject) => {
     execFile(

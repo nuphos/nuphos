@@ -129,7 +129,7 @@ export function ComposerAttachmentMenu({
     <SessionSubmenu
       source={source}
       label={label}
-      title={onImportSession ? 'Continue one of these on the selected agent' : title}
+      title={onImportSession ? 'Continue one of these on the selected runtime' : title}
       Icon={Icon}
       items={localSessionsBySource[source] ?? []}
       loading={Boolean(localSessionsLoading[source])}
@@ -214,7 +214,7 @@ export function BypassControlMenu({
           hero ? 'h-8 px-1.5 @[400px]:px-3' : 'h-7 px-1.5 @[400px]:px-2.5',
           'text-secondary hover:text-main hover:bg-zGray-800/60',
         )}
-        title="Choose how commands in this conversation are authorized"
+        title="Choose how commands in this agent are authorized"
       >
         <span className="text-[12.5px] font-medium flex items-center">
           {bypassControl.active ? (

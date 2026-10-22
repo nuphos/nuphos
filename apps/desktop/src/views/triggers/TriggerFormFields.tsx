@@ -204,7 +204,7 @@ function canBind(mode: 'create' | 'edit', loaded: AgentTrigger | null, viewerId?
   return (loaded.executionPrincipalUserId ?? loaded.createdByUserId ?? loaded.userId) === viewerId
 }
 
-const NEW_CONVERSATION = { value: '', label: 'A new conversation each fire' }
+const NEW_CONVERSATION = { value: '', label: 'A new agent each fire' }
 
 /** Where a fire lands: a fresh run, or one of the viewer's own sessions. */
 function DeliverToField({
@@ -231,7 +231,7 @@ function DeliverToField({
             page.conversations.map((c) => ({ value: c.sessionId, label: c.title || 'Untitled' })),
           )
       })
-      .catch((err: unknown) => toast.apiError('Could not load your sessions', err))
+      .catch((err: unknown) => toast.apiError('Could not load your agents', err))
 
     return () => {
       cancelled = true
@@ -242,7 +242,7 @@ function DeliverToField({
 
   // A bound session older than the first page still has to read as itself.
   if (value && !sessions.some((s) => s.value === value))
-    options.push({ value, label: 'Current session (not in your recent 50)' })
+    options.push({ value, label: 'Current agent (not in your recent 50)' })
 
   return (
     <Field
@@ -250,8 +250,8 @@ function DeliverToField({
       htmlFor="trigger-deliver-to"
       hint={
         value
-          ? 'Each fire is posted into this session as an event. While it is busy, fires wait and run once after the current turn.'
-          : 'Each fire starts its own conversation, listed under this trigger.'
+          ? 'Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.'
+          : 'Each fire starts its own agent, listed under this trigger.'
       }
     >
       <AppSelect

@@ -32,10 +32,10 @@ export function desktopScreens(
   deviceId: string,
 ): { value: string; label: string }[] {
   return [
-    { value: deviceId, label: `${device?.label ?? 'Box'} · :1` },
+    { value: deviceId, label: `${device?.label ?? 'Computer'} · :1` },
     ...(device?.desktops ?? []).map((desktop) => ({
       value: desktopFilter(deviceId, desktop),
-      label: `:${String(desktop.display)} · ${desktop.title || 'Conversation'}`,
+      label: `:${String(desktop.display)} · ${desktop.title || 'Agent'}`,
     })),
   ]
 }

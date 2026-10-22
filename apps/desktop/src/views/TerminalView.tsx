@@ -19,7 +19,7 @@ export function TerminalView({ teamId, filter }: { teamId: string; filter: strin
   return (
     <PageMeta pageKey="team.terminal" title="Terminal" icon={<Terminal className="h-3.5 w-3.5" />}>
       <div className="flex h-full items-center justify-center p-6">
-        <p className="text-xs text-tertiary">Select a conversation to open its runtime terminal.</p>
+        <p className="text-xs text-tertiary">Select an agent to open its runtime terminal.</p>
       </div>
     </PageMeta>
   )

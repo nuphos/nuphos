@@ -20,7 +20,7 @@ const ROLE_LABEL: Record<ParticipantRole, string> = {
 }
 
 const ROLE_DETAIL: Partial<Record<ParticipantRole, string>> = {
-  manage: 'Reply, and change the agent and credentials',
+  manage: 'Reply, and change the runtime and credentials',
 }
 
 const RANK: Record<GeneralAccess | ParticipantRole, number> = {

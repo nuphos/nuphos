@@ -64,7 +64,7 @@ function CellTooltip({
                 <div className="px-1 text-main">{hover.name}</div>
                 <div className="mb-1 px-1 text-tertiary">{span(hover.cell)}</div>
                 {hover.cell.sessions.length === 0 ? (
-                  <div className="px-1 text-tertiary">No sessions running</div>
+                  <div className="px-1 text-tertiary">No agents running</div>
                 ) : (
                   <div className="space-y-px">
                     {hover.cell.sessions.slice(0, MAX_TITLES).map((s) => (
@@ -74,7 +74,7 @@ function CellTooltip({
                         className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:bg-zGray-800/60"
                       >
                         <AgentProviderIcon provider={s.runtime} className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{s.title || 'Untitled session'}</span>
+                        <span className="truncate">{s.title || 'Untitled agent'}</span>
                       </BaseButton>
                     ))}
                     {hover.cell.sessions.length > MAX_TITLES && (

@@ -141,7 +141,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
     <div>
       <SectionHeader
         title="Sync my setup"
-        description={`Bring this computer’s Claude Code skills and ~/.claude/CLAUDE.md into ${team?.name ?? 'this team'} as your personal skills and instructions, so every agent you run here starts with the same context as your own CLI. Only your conversations get them.`}
+        description={`Bring this computer’s Claude Code skills and ~/.claude/CLAUDE.md into ${team?.name ?? 'this team'} as your personal skills and instructions, so every agent you run here starts with the same context as your own CLI. Only your agents get them.`}
       />
 
       {status && (

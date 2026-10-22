@@ -23,7 +23,7 @@ test('outcomeSummary distinguishes a clean exit, a failing exit and non-runs', (
     tone: 'error',
   })
   assert.deepEqual(outcomeSummary({ outcome: 'device_offline', exitCode: null }), {
-    label: 'Device offline',
+    label: 'Computer offline',
     tone: 'error',
   })
   assert.deepEqual(outcomeSummary({ outcome: 'rejected', exitCode: null }), {

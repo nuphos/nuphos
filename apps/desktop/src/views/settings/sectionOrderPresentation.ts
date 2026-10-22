@@ -4,9 +4,9 @@ export const AGENT_SECTION_IDS = ['boxes', 'usage', 'agents'] as const
 export type AgentSectionId = (typeof AGENT_SECTION_IDS)[number]
 
 export const AGENT_SECTION_LABELS: Record<AgentSectionId, string> = {
-  boxes: 'Boxes',
+  boxes: 'Computers',
   usage: 'Subscription usage',
-  agents: 'Agents',
+  agents: 'Runtimes',
 }
 
 const STORAGE_PREFIX = 'nuphos.agentsPageOrder.v1:'

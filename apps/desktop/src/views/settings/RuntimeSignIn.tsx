@@ -22,19 +22,19 @@ export function RuntimeSignIn({
 }) {
   // OpenCode signs in to one model provider at a time and keeps them all.
   if (authenticated && !(instance.provider === 'opencode' && onSignIn)) {
-    return <p className="px-4 py-4 text-xs text-tertiary">Signed in on the agent.</p>
+    return <p className="px-4 py-4 text-xs text-tertiary">Signed in on the runtime.</p>
   }
   const hostSignIn = instance.kind === 'external' ? HOST_SIGN_IN[instance.provider] : undefined
   const signedOut = authenticated === false
   const note = authenticated
-    ? 'Signed in on the agent. Sign in to another model provider to use its models too.'
+    ? 'Signed in on the runtime. Sign in to another model provider to use its models too.'
     : hostSignIn
       ? signedOut
-        ? 'Not signed in. Sign in here, or on the agent’s host:'
-        : 'Sign-in status is unknown. Try signing in here, or on the agent’s host:'
+        ? 'Not signed in. Sign in here, or on the runtime’s host:'
+        : 'Sign-in status is unknown. Try signing in here, or on the runtime’s host:'
       : signedOut
         ? 'Not signed in.'
-        : 'This agent does not report its sign-in yet.'
+        : 'This runtime does not report its sign-in yet.'
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">

@@ -75,7 +75,7 @@ export function SearchResultRow({
       </div>
       {selected && (
         <span className="flex shrink-0 items-center gap-2 text-xs text-secondary">
-          <span className="hidden sm:inline">{avatar ? 'View sessions' : 'Open'}</span>
+          <span className="hidden sm:inline">{avatar ? 'View agents' : 'Open'}</span>
           <CornerDownLeft size={15} />
         </span>
       )}

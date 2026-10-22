@@ -37,9 +37,9 @@ export function parseDeviceIdentity(raw: string): DeviceIdentity | null {
 
 export function defaultDeviceLabel(): string {
   try {
-    return os.hostname() || 'This device'
+    return os.hostname() || 'This computer'
   } catch {
-    return 'This device'
+    return 'This computer'
   }
 }
 

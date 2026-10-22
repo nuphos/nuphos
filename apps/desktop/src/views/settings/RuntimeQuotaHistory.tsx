@@ -90,7 +90,7 @@ export function RuntimeQuotaHistory({
       {loaded &&
         (rows.length === 0 ? (
           <p className="mb-4 rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
-            No usage recorded in this range yet. A reading is kept each time an agent reports its
+            No usage recorded in this range yet. A reading is kept each time a runtime reports its
             usage while someone on the team has Nuphos open.
           </p>
         ) : (

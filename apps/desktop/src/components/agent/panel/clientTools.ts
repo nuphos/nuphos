@@ -54,7 +54,7 @@ export function latchTabError(
   return {
     error:
       streak >= 2
-        ? `${err} (This has failed ${String(streak)} times in a row — retrying the same way won't help. If it persists, reopen this conversation or continue in a new one.)`
+        ? `${err} (This has failed ${String(streak)} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)`
         : err,
     lastErrorKey: err,
     errorStreak: streak,

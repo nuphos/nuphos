@@ -41,7 +41,7 @@ function ActivityRow({
 }) {
   const outcome = outcomeSummary(entry)
   const preview = commandPreview(entry.command)
-  const title = entry.conversationTitle ?? 'Untitled conversation'
+  const title = entry.conversationTitle ?? 'Untitled agent'
 
   return (
     <div className="border-t border-zGray-800/60 bg-surface px-4 py-2.5 first:border-t-0">
@@ -143,7 +143,7 @@ export function DeviceActivityList({
   if (entries === null) {
     body = <p className={EMPTY_CLASSES}>Loading…</p>
   } else if (entries.length === 0) {
-    body = <p className={EMPTY_CLASSES}>Nothing has run on this device yet.</p>
+    body = <p className={EMPTY_CLASSES}>Nothing has run on this computer yet.</p>
   } else {
     body = (
       <>

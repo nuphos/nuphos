@@ -173,7 +173,7 @@ export class LocalTerminalSessions {
 
     if (!session) throw new Error('Terminal is no longer available.')
 
-    if (session.agentScope !== scope) throw new Error('Terminal belongs to another conversation.')
+    if (session.agentScope !== scope) throw new Error('Terminal belongs to another agent.')
     if (data !== undefined) {
       if (session.exited) throw new Error('Terminal has exited.')
       if (data.length > 65536) throw new Error('Terminal input is too large.')

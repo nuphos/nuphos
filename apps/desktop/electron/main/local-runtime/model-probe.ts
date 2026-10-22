@@ -130,7 +130,7 @@ export function probeLocalModels(options: {
       finish(error)
     })
     child.once('exit', () => {
-      finish(new Error('The agent exited during model discovery'))
+      finish(new Error('The runtime exited during model discovery'))
     })
     child.stdout.setEncoding('utf8')
     child.stdout.on('data', (chunk: string) => {
@@ -181,7 +181,7 @@ export function probeLocalModels(options: {
       const { models, defaultModel } = modelChoices(model)
 
       if (!model || typeof model.currentValue !== 'string' || models.length === 0) {
-        finish(new Error('The agent did not advertise any models'))
+        finish(new Error('The runtime did not advertise any models'))
 
         return
       }

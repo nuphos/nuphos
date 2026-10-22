@@ -16,13 +16,13 @@ export function usePanelSlashCommands(c: PanelViewCtx): SlashCommand[] {
 
   return useMemo(
     () => [
-      { id: 'new', title: 'New chat', description: 'Start a new chat', run: startNewChat },
+      { id: 'new', title: 'New agent', description: 'Start a new agent', run: startNewChat },
       ...(forkableSessionId
         ? [
             {
               id: 'fork',
-              title: 'Fork chat',
-              description: 'Fork this chat',
+              title: 'Fork agent',
+              description: 'Fork this agent',
               run: () => void forkConversation(forkableSessionId),
             },
           ]

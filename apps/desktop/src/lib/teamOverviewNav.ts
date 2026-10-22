@@ -32,14 +32,14 @@ export const SIDEBAR_ITEM_SHORTCUTS: Partial<Record<string, string>> = {
 
 const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
   key: 'team.agent',
-  label: 'New chat',
+  label: 'New agent',
   icon: SquarePen,
 }
 
 /** Team-wide pages that replace the chat surface when opened from the sidebar. */
 export const TEAM_MANAGEMENT_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.inbox', label: 'Inbox', icon: Inbox },
-  { key: 'team.agents', label: 'Agents', icon: Bot },
+  { key: 'team.agents', label: 'Runtimes', icon: Bot },
   { key: 'team.integrations', label: 'Connectors', icon: Cloud },
 ]
 
@@ -53,7 +53,7 @@ export const TEAM_SETTINGS_PAGE_NAV_ITEMS: TeamOverviewNavItem[] = [
 /** Opened from the foot of the sidebar's Chats list, not from the nav rows. */
 export const ARCHIVED_CHATS_NAV_ITEM: TeamOverviewNavItem = {
   key: 'team.archived-chats',
-  label: 'Archived chats',
+  label: 'Archived agents',
   icon: Archive,
 }
 

@@ -69,6 +69,6 @@ test('read-only copy does not promise a Slack action without a thread link', () 
 test('read-only copy falls back safely for ordinary shared conversations', () => {
   assert.equal(
     conversationReadOnlyLabel({ origin: 'nuphos', linkedSlackThread: false }, false),
-    'Shared conversation · view-only',
+    'Shared agent · view-only',
   )
 })

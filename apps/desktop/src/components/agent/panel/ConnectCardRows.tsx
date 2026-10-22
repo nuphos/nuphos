@@ -10,7 +10,7 @@ import type { ConnectProvider, ConnectRowStatus } from './connectCardModel'
 
 const ACTION_LABEL: Partial<Record<ConnectRowStatus, string>> = {
   error: 'Try again',
-  available: 'Use in chat',
+  available: 'Use in agent',
 }
 
 function ProviderLogo({ provider }: { provider: ConnectProvider }) {

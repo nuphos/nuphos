@@ -167,8 +167,8 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
             conversationId
               ? loading
                 ? undefined
-                : 'Select a runtime for this conversation, then refresh Files.'
-              : 'Select a conversation to browse its workspace.'
+                : 'Select a runtime for this agent, then refresh Files.'
+              : 'Select an agent to browse its workspace.'
           }
         />
       ) : fileName ? (

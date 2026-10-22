@@ -31,7 +31,7 @@ export function BoxAccessDialog({
       onSaved()
       onClose()
     } catch (error) {
-      toast.apiError('Could not change who can use this Box', error)
+      toast.apiError('Could not change who can use this computer', error)
     } finally {
       setSaving(false)
     }
@@ -42,7 +42,7 @@ export function BoxAccessDialog({
       open
       onClose={onClose}
       title={`Who can use ${device.label}`}
-      description="People who lose access have their open sessions on this Box closed."
+      description="People who lose access have their open agents on this computer closed."
       width={560}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">

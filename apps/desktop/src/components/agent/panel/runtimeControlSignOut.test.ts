@@ -43,14 +43,14 @@ test('yellow: a signed-out agent on an online Box cannot send', () => {
   const signedOut = control({ online: true, signedIn: false })
 
   assert.equal(selectedAgentReachability(signedOut), 'signIn')
-  assert.equal(runtimeControlSendBlock(signedOut), 'The agent needs to sign in')
+  assert.equal(runtimeControlSendBlock(signedOut), 'The runtime needs to sign in')
 })
 
 test('red: an agent whose Box is offline cannot send, whatever its sign-in', () => {
   const offline = control({ online: false, signedIn: false })
 
   assert.equal(selectedAgentReachability(offline), 'offline')
-  assert.equal(runtimeControlSendBlock(offline), 'Its Box is offline')
+  assert.equal(runtimeControlSendBlock(offline), 'Its computer is offline')
 })
 
 test('the usage probe sign-in guess never makes an agent yellow or blocks it', () => {

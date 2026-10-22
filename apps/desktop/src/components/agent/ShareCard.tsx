@@ -144,7 +144,7 @@ export function ParticipantList({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className={SECTION_LABEL}>In this session</div>
+      <div className={SECTION_LABEL}>In this agent</div>
       {participants.map((participant) => {
         const role = participant.role && participant.role !== 'owner' ? participant.role : 'reply'
 

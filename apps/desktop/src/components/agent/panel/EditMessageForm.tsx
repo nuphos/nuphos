@@ -42,7 +42,7 @@ export function EditMessageForm({
         className="max-h-[40vh] min-h-[44px] w-full resize-none px-1.5 py-1 text-[13.5px] text-main [field-sizing:content]"
       />
       <div className="flex items-center justify-end gap-1.5">
-        <span className="mr-auto pl-1.5 text-[11.5px] text-tertiary">Sends in a new chat</span>
+        <span className="mr-auto pl-1.5 text-[11.5px] text-tertiary">Sends in a new agent</span>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>

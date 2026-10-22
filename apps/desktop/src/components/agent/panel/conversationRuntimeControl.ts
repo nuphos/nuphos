@@ -61,7 +61,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
           runtimeId,
           found: Boolean(target),
         })
-        toast.error('Could not move this conversation', 'This conversation is not ready to move.')
+        toast.error('Could not move this agent', 'This agent is not ready to move.')
 
         return
       }
@@ -89,7 +89,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
               'history',
             )
 
-            toast.success('Conversation moved', 'The working files could not come along.')
+            toast.success('Agent moved', 'The working files could not come along.')
 
             return moved
           })
@@ -112,11 +112,11 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         setTab({ movingTo: undefined })
         console.warn('[agent] conversation move failed', cause)
         if (decideErrorToast(cause).action === 'show') {
-          toast.apiError('Could not move this conversation', cause)
+          toast.apiError('Could not move this agent', cause)
         } else {
           toast.error(
-            'Could not move this conversation',
-            'The agent did not accept the move. Check your connection and try again.',
+            'Could not move this agent',
+            'The runtime did not accept the move. Check your connection and try again.',
           )
         }
       }

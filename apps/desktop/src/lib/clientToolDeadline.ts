@@ -19,7 +19,7 @@ export function clientToolDeadlineMs(toolName: string): number {
 }
 
 export function clientToolDeadlineMessage(toolName: string, deadlineMs: number): string {
-  return `${toolName} did not respond after ${String(Math.round(deadlineMs / 1000))}s on this machine.`
+  return `${toolName} did not respond after ${String(Math.round(deadlineMs / 1000))}s on this computer.`
 }
 
 /**

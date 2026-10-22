@@ -77,7 +77,7 @@ export function boxRestartEnded(
     return {
       tone: 'success',
       title: `${label} is back`,
-      description: 'Its agents are available again.',
+      description: 'Its runtimes are available again.',
     }
 
   return null
@@ -90,6 +90,6 @@ export function boxUpdateConfirm(boxLabel: string, version: string | undefined) 
   return {
     title: `Update ${boxLabel}?`,
     confirmLabel: 'Update and restart',
-    description: `This restarts the agent host on ${boxLabel} to install the latest version available now${expected}. The Box itself keeps running, but all of its agents are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any of its agents is replying.`,
+    description: `This restarts the runtime host on ${boxLabel} to install the latest version available now${expected}. The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any agent on it is replying.`,
   }
 }

@@ -150,7 +150,7 @@ export function AgentHistoryPage({
       })
       .catch((err: unknown) => {
         if (requestIdRef.current !== requestId) return
-        toast.apiError('Failed to load conversation history', err)
+        toast.apiError('Failed to load agent history', err)
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setLoading(false)
@@ -185,7 +185,7 @@ export function AgentHistoryPage({
       setNextPage(page.hasMore && page.nextCursor ? { cursor: page.nextCursor, requestId } : null)
     } catch (err) {
       if (requestIdRef.current === requestId) {
-        toast.apiError('Failed to load more conversations', err)
+        toast.apiError('Failed to load more agents', err)
       }
     } finally {
       loadMoreInFlightRef.current = false
@@ -199,12 +199,12 @@ export function AgentHistoryPage({
   // conversations, so the row leaves at once; Undo restores it and puts it
   // back where it was rather than waiting for the next listing.
   async function archiveConversation(conversation: AgentConversation) {
-    const label = conversation.title || conversation.firstMessage || 'Untitled chat'
+    const label = conversation.title || conversation.firstMessage || 'Untitled agent'
 
     try {
       await archiveChat(conversation.sessionId, teamId)
     } catch (err) {
-      toast.apiError('Could not archive chat', err)
+      toast.apiError('Could not archive agent', err)
 
       return
     }
@@ -219,7 +219,7 @@ export function AgentHistoryPage({
       return prev.filter((c) => c.sessionId !== conversation.sessionId)
     })
     announceChatArchived({ sessionId: conversation.sessionId, teamId })
-    toast.success('Chat archived', `"${label}" is still available in the Agent history.`, {
+    toast.success('Agent archived', `"${label}" is still available in the Agent history.`, {
       action: {
         label: 'Undo',
         onClick: () => {
@@ -229,7 +229,7 @@ export function AgentHistoryPage({
               setItems((prev) => prev.toSpliced(index, 0, conversation))
               announceChatUnarchived(conversation.sessionId)
             })
-            .catch((err: unknown) => toast.apiError('Could not restore chat', err))
+            .catch((err: unknown) => toast.apiError('Could not restore agent', err))
         },
       },
     })

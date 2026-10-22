@@ -48,12 +48,12 @@ export function installApplicationMenu() {
       label: 'File',
       submenu: [
         {
-          label: 'Search Sessions',
+          label: 'Search Agents',
           accelerator: 'CommandOrControl+K',
           click: () => dispatchAppShortcut('search-sessions'),
         },
         {
-          label: 'New Chat',
+          label: 'New Agent',
           accelerator: 'CommandOrControl+N',
           click: () => dispatchAppShortcut('new-chat'),
         },

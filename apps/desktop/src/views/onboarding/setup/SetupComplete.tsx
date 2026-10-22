@@ -50,8 +50,8 @@ export function SetupComplete({
       title="You’re all set"
       subtitle={
         empty
-          ? 'You can add agents any time from Settings › Agents.'
-          : 'These agents are ready for your conversations.'
+          ? 'You can add runtimes any time from Settings › Runtimes.'
+          : 'These runtimes are ready for your agents.'
       }
       actions={<Button onClick={onFinish}>Start using Nuphos</Button>}
     >

@@ -104,7 +104,7 @@ export function BoxUsageChart({
       />
       {empty ? (
         <p className="rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
-          No Boxes ran in this range.
+          No computers ran in this range.
         </p>
       ) : (
         <div className="h-40 rounded-xl border border-zGray-800/60 bg-surface/40 px-2 pb-1 pt-3">

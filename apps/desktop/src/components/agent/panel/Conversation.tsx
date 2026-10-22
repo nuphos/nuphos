@@ -118,7 +118,7 @@ export function Conversation({
               onClick={onDockToSidebar}
               className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800/70 flex items-center justify-center transition-colors"
               title="Move to sidebar"
-              aria-label="Move conversation to sidebar"
+              aria-label="Move agent to sidebar"
             >
               <PanelRightOpen className="h-3.5 w-3.5" strokeWidth={1.8} />
             </button>

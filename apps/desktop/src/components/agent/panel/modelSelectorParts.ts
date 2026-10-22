@@ -36,10 +36,10 @@ export function modelHint(
   busy: boolean,
 ) {
   if (status === 'offline')
-    return 'This agent is offline. Model settings return when it reconnects.'
+    return 'This runtime is offline. Model settings return when it reconnects.'
   if (busy) return 'Changes apply after this reply.'
   if (status === 'dormant' && !hasModel)
-    return 'Send a message to start this session before changing model settings.'
+    return 'Send a message to start this agent before changing model settings.'
 }
 
 /** The composer around a chip: the nearest ancestor holding its message box. */

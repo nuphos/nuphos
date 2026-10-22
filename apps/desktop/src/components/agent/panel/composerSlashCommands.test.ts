@@ -10,8 +10,8 @@ import {
 
 const run = () => null
 const commands = [
-  { id: 'new', title: 'New chat', description: '', run },
-  { id: 'fork', title: 'Fork chat', description: '', run },
+  { id: 'new', title: 'New agent', description: '', run },
+  { id: 'fork', title: 'Fork agent', description: '', run },
   { id: 'model', title: 'Model', description: '', run },
 ]
 
@@ -25,7 +25,7 @@ test('a slash opens the menu only at the start of an otherwise empty message', (
 
 test('commands match by id prefix or title', () => {
   assert.deepEqual(
-    matchSlashCommands(commands, 'chat').map((command) => command.id),
+    matchSlashCommands(commands, 'agent').map((command) => command.id),
     ['new', 'fork'],
   )
   assert.deepEqual(

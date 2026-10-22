@@ -19,7 +19,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: 'Tabs & windows',
     entries: [
-      { label: 'New chat', combos: ['mod+n'] },
+      { label: 'New agent', combos: ['mod+n'] },
       { label: 'New window', combos: ['mod+shift+n'] },
       { label: 'New tab', combos: ['mod+t'] },
       { label: 'Close tab', combos: ['mod+w'] },
@@ -32,7 +32,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: 'App',
     entries: [
-      { label: 'Search sessions and people', combos: ['mod+k'] },
+      { label: 'Search agents and people', combos: ['mod+k'] },
       { label: 'User settings', combos: ['mod+,'] },
       { label: 'Team settings', combos: ['mod+shift+,'] },
       { label: 'Toggle sidebar', combos: ['mod+b'] },
@@ -49,10 +49,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'New line', combos: ['shift+enter'] },
       { label: 'Accept suggested prompt', combos: ['tab'] },
       { label: 'Select effort', combos: ['ctrl+shift+m'] },
-      { label: 'Previous / next conversation', combos: ['up', 'down'] },
+      { label: 'Previous / next agent', combos: ['up', 'down'] },
       { label: 'Stop response', combos: ['esc'] },
       { label: 'Find in conversation', combos: ['mod+f'] },
-      { label: 'Toggle chat summary', combos: ['mod+i'] },
+      { label: 'Toggle agent summary', combos: ['mod+i'] },
     ],
   },
   {

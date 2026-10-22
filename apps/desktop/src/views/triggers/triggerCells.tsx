@@ -25,7 +25,7 @@ export function NameCell({ row }: { row: TriggerListRow }) {
 // "Agent" is on most rows, so the word alone tells the reader almost nothing —
 // the tooltip is where it earns its place. One sentence: a tooltip that needs
 // a paragraph is a sign the label itself is wrong.
-const AGENT_TIP = 'Set up by the agent from a chat, rather than by hand.'
+const AGENT_TIP = 'Set up by an agent, rather than by hand.'
 
 function RowTags({ row }: { row: TriggerListRow }) {
   if (row.kind === 'group') {
