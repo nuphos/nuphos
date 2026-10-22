@@ -7,10 +7,8 @@ struct AgentDevice: Decodable, Sendable {
         struct Capacity: Decodable, Sendable {
             let used: Double
             let total: Double
-            var percent: Double? {
-                guard used.isFinite, total.isFinite, used >= 0, total > 0, used <= total else { return nil }
-                return used / total * 100
-            }
+            var valid: Bool { used.isFinite && total.isFinite && used >= 0 && total > 0 && used <= total }
+            var percent: Double { used / total * 100 }
             var formatted: String { "\((used / 1_073_741_824).formatted(.number.precision(.fractionLength(0...1)))) / \((total / 1_073_741_824).formatted(.number.precision(.fractionLength(0...1)))) GB" }
         }
         let cpuPercent: Double
@@ -19,12 +17,16 @@ struct AgentDevice: Decodable, Sendable {
     }
     let deviceId: String
     let label: String
-    let online: Bool?
     let access: String?
     let box: Box?
     let metricsStatus: String?
     let metrics: Metrics?
-    var liveMetrics: Metrics? { online != false && metricsStatus == "live" ? metrics : nil }
+    /// A live, sane reading, or nil: the picker then shows no meters at all.
+    var liveMetrics: Metrics? {
+        guard metricsStatus == "live", let metrics, metrics.cpuPercent.isFinite, (0...100).contains(metrics.cpuPercent),
+              metrics.memory.valid, metrics.disk.valid else { return nil }
+        return metrics
+    }
 }
 
 struct SelectorBox: Identifiable {
@@ -32,7 +34,6 @@ struct SelectorBox: Identifiable {
     let label: String
     let device: AgentDevice?
     var agents: [RuntimeInstance]
-    var offline: Bool { device?.online == false || agents.allSatisfy { $0.status != .active } }
     var isComputer: Bool { device?.box == nil && agents.first?.local != nil }
 
     static func grouped(_ agents: [RuntimeInstance], devices: [AgentDevice]) -> [SelectorBox] {

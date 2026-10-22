@@ -11,19 +11,19 @@ struct RuntimePickerSheet: View {
     @State private var initialized = false
     @State private var showSetup = false
     @State private var managing = false
-    @State private var signInRuntime: RuntimeInstance?
-    @State private var howTo: RuntimeInstance?
     @State private var pendingLocal: RuntimeInstance?
     @State private var detent = PresentationDetent.height(720)
 
     private var selectedId: String? { session == nil ? store.newConversationRuntime?.id : session?.runtimeId }
+    /// Only runtimes that can take a turn now: never an offline computer or one waiting for a sign-in.
     private var choices: [RuntimeInstance] {
-        guard let session, !session.isOwner else { return store.runtimes }
-        return store.runtimes.filter { $0.kind == "managed" }
+        let ready = store.runtimes.filter { $0.isSelectable && $0.local?.online != false && store.quotas[$0.id]?.needsSignIn != true }
+        guard let session, !session.isOwner else { return ready }
+        return ready.filter { $0.kind == "managed" }
     }
     private var boxes: [SelectorBox] { SelectorBox.grouped(choices, devices: store.agentDevices) }
     private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
-    private var browsing: Bool { !showSetup && !managing && signInRuntime == nil && howTo == nil && scenePhase == .active }
+    private var browsing: Bool { !showSetup && !managing && scenePhase == .active }
 
     var body: some View {
         NavigationStack {
@@ -53,10 +53,6 @@ struct RuntimePickerSheet: View {
                 }
             }
             .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
-            .navigationDestination(item: $signInRuntime) { runtime in
-                if let team = store.selectedTeam { AgentSetupView(team: team, runtime: runtime, selectOnCompletion: false) }
-            }
-            .navigationDestination(item: $howTo) { runtime in AgentSignInInstructions(runtime: runtime) }
             .navigationDestination(isPresented: $managing) { SelectorManagementView() }
             .alert("Move to \(pendingLocal?.label ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
                 Button("Move") { onMove(runtime); dismiss() }
@@ -81,7 +77,7 @@ struct RuntimePickerSheet: View {
         }
         .tint(Theme.heading)
         .presentationDetents([.height(720), .large], selection: $detent)
-        .onChange(of: showSetup || managing || signInRuntime != nil || howTo != nil) { _, open in if open { detent = .large } }
+        .onChange(of: showSetup || managing) { _, open in if open { detent = .large } }
     }
 
     private var boxList: some View {
@@ -99,18 +95,11 @@ struct RuntimePickerSheet: View {
                         .accessibilityValue(expanded == box.id ? "Expanded" : "Collapsed")
                         if expanded == box.id {
                             ForEach(box.agents) { runtime in
-                                let signedOut = runtime.local?.signedIn == false || store.quotas[runtime.id]?.needsSignIn == true
-                                let canSignIn = box.canSignIn(runtime, administrator: administrator)
-                                Button {
-                                    if signedOut {
-                                        if canSignIn { signInRuntime = runtime } else { howTo = runtime }
-                                    } else { select(runtime) }
-                                } label: {
-                                    SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: runtime.id == selectedId, signedOut: signedOut, canSignIn: canSignIn)
+                                Button { select(runtime) } label: {
+                                    SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: runtime.id == selectedId)
                                         .padding(.leading, 12)
                                 }
                                 .buttonStyle(.plain)
-                                .disabled(box.offline || (!signedOut && !runtime.isSelectable))
                                 .accessibilityIdentifier("agent-\(runtime.id)")
                                 .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                             }
@@ -163,21 +152,18 @@ private struct SelectorBoxHeader: View {
                 .font(.system(size: 20)).frame(width: 28).foregroundStyle(Theme.body)
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Text(box.label).font(.system(size: 16, weight: .semibold)).foregroundStyle(box.offline ? Theme.muted : Theme.heading).lineLimit(1)
+                    Text(box.label).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading).lineLimit(1)
                     if current { Text("Current").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.muted) }
                 }
-                HStack(spacing: 6) {
-                    Circle().fill(box.offline ? Theme.muted : Color(hex: 0x127035)).frame(width: 6, height: 6)
-                    Text(box.offline ? "Offline" : "Online · \(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")")
-                        .font(.system(size: 12)).foregroundStyle(Theme.muted)
-                }
-                if box.device != nil {
+                Text("\(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")")
+                    .font(.system(size: 12)).foregroundStyle(Theme.muted)
+                if let metrics {
                     HStack(spacing: 12) {
-                        SelectorMeter(title: "CPU", value: metrics.map(\.cpuPercent).flatMap { $0.isFinite && (0...100).contains($0) ? $0 : nil })
-                        SelectorMeter(title: "MEM", value: metrics?.memory.percent)
-                        SelectorMeter(title: "DISK", value: metrics?.disk.percent)
+                        SelectorMeter(title: "CPU", value: metrics.cpuPercent)
+                        SelectorMeter(title: "MEM", value: metrics.memory.percent)
+                        SelectorMeter(title: "DISK", value: metrics.disk.percent)
                     }
-                    if expanded, let metrics, metrics.memory.percent != nil, metrics.disk.percent != nil {
+                    if expanded {
                         Text("Memory \(metrics.memory.formatted) · Disk \(metrics.disk.formatted)")
                             .font(.system(size: 12)).monospacedDigit().foregroundStyle(Theme.muted)
                     }
@@ -189,36 +175,31 @@ private struct SelectorBoxHeader: View {
         }
         .frame(minHeight: 48).contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(box.label + (current ? ", current computer" : "") + (box.offline ? ", offline" : ""))
+        .accessibilityLabel(box.label + (current ? ", current computer" : ""))
     }
 }
 
 /// One resource: label, percent and a thin bar that turns amber at 80% and red at 95%.
 private struct SelectorMeter: View {
     let title: String
-    let value: Double?
-    private var tint: Color {
-        guard let value else { return Theme.muted }
-        return value >= 95 ? Color(hex: 0xC22929) : value >= 80 ? Theme.warning : Color(hex: 0x745DF3)
-    }
+    let value: Double
+    private var tint: Color { value >= 95 ? Color(hex: 0xC22929) : value >= 80 ? Theme.warning : Color(hex: 0x745DF3) }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 3) {
                 Text(title).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.muted)
                 Spacer(minLength: 1)
-                Text(value.map { "\(Int($0.rounded()))%" } ?? "—").font(.system(size: 12, weight: .medium)).monospacedDigit()
-                    .foregroundStyle(value.map { $0 >= 80 ? tint : Theme.body } ?? Theme.muted)
+                Text("\(Int(value.rounded()))%").font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    .foregroundStyle(value >= 80 ? tint : Theme.body)
             }
             Capsule().fill(Theme.hairline).frame(height: 3).overlay(alignment: .leading) {
-                if let value {
-                    GeometryReader { proxy in Capsule().fill(tint).frame(width: proxy.size.width * value / 100) }
-                }
+                GeometryReader { proxy in Capsule().fill(tint).frame(width: proxy.size.width * value / 100) }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title) usage")
-        .accessibilityValue(value.map { "\(Int($0.rounded())) percent used" } ?? "Unavailable")
+        .accessibilityValue("\(Int(value.rounded())) percent used")
     }
 }
 
@@ -226,8 +207,6 @@ private struct SelectorAgentRow: View {
     let runtime: RuntimeInstance
     let quota: RuntimeQuota?
     let selected: Bool
-    let signedOut: Bool
-    let canSignIn: Bool
     @ScaledMetric(relativeTo: .subheadline) private var titleSize = 16.0
     @ScaledMetric(relativeTo: .footnote) private var detailSize = 13.0
     var body: some View {
@@ -235,28 +214,18 @@ private struct SelectorAgentRow: View {
             BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 20).frame(width: 28).foregroundStyle(Theme.heading)
             VStack(alignment: .leading, spacing: 5) {
                 Text(SelectorBox.agentName(runtime)).font(.system(size: titleSize, weight: .medium)).foregroundStyle(Theme.heading).fixedSize(horizontal: false, vertical: true)
-                if signedOut {
-                    Text(canSignIn ? "Sign in required" : runtime.local.map { "Sign in on \($0.deviceLabel)" } ?? "Ask an administrator to sign in")
-                        .font(.system(size: 12)).foregroundStyle(Theme.warning)
-                } else {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 8) { details }
-                        VStack(alignment: .leading, spacing: 2) { details }
-                    }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { details }
+                    VStack(alignment: .leading, spacing: 2) { details }
                 }
             }
             Spacer(minLength: 4)
-            if signedOut {
-                Text(canSignIn ? "Sign in" : "How to").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.heading)
-                    .padding(.horizontal, 12).padding(.vertical, 8).background(Theme.canvas, in: Capsule())
-            }
             if selected { Image(systemName: "checkmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading) }
         }.frame(minHeight: 48).contentShape(Rectangle())
     }
     @ViewBuilder private var details: some View {
         if SelectorBox.agentName(runtime) != runtime.providerName { Text(runtime.providerName).font(.system(size: detailSize)).foregroundStyle(Theme.muted) }
-        if runtime.status == .disabled { Text("Unavailable").font(.footnote).foregroundStyle(Theme.muted) }
-        else if let quota { QuotaLine(quota: quota) }
+        if let quota { QuotaLine(quota: quota) }
     }
 }
 

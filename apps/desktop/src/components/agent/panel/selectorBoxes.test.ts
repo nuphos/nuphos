@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { boxAgentName, selectorBoxes, selectorMetrics, selectorSignIn } from './selectorBoxes.ts'
+import { boxAgentName, selectorBoxes, selectorMetrics } from './selectorBoxes.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
-import type { RuntimeInstance } from '../../../types/runtime'
+import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 const GB = 1024 ** 3
 
@@ -60,72 +60,76 @@ test('agents group by device id in first-seen order; Cloud agents share one grou
   )
 })
 
-test('signed-out and disabled agents stay listed so they can be signed in', () => {
-  const groups = selectorBoxes([
-    agent('out', 'm5', {
-      local: { ownerUserId: 'u1', deviceId: 'm5', deviceLabel: 'M5', signedIn: false },
-    }),
-    agent('off', 'm5', { status: 'disabled' }),
-  ])
+test('only runtimes that can run now are listed; a computer left with none is dropped', () => {
+  const local = (deviceId: string, signedIn: boolean, online = true) => ({
+    ownerUserId: 'u1',
+    deviceId,
+    deviceLabel: deviceId,
+    signedIn,
+    online,
+  })
+  const signedOutQuota: RuntimeQuota = {
+    runtimeId: 'cloud-out',
+    available: false,
+    reason: 'Sign in required',
+    windows: [],
+  } as RuntimeQuota
+  const groups = selectorBoxes(
+    [
+      agent('ready', 'box'),
+      agent('signed-out', 'box', { local: local('box', false) }),
+      agent('disabled', 'box', { status: 'disabled' }),
+      agent('not-ready', 'box', { notReady: true }),
+      agent('away', 'mac', { local: local('mac', true, false) }),
+      agent('only-signed-out', 'pc', { local: local('pc', false) }),
+      agent('cloud-ok'),
+      agent('cloud-out'),
+    ],
+    [],
+    new Map([['cloud-out', signedOutQuota]]),
+  )
 
   assert.deepEqual(
-    groups[0]?.agents.map((item) => item.id),
-    ['out', 'off'],
+    groups.map((group) => [group.id, group.agents.map((item) => item.id)]),
+    [
+      ['device:box', ['ready']],
+      ['cloud', ['cloud-ok']],
+    ],
   )
 })
 
-test('metrics show only a live reading from an online device', () => {
+test('metrics are a live, sane reading or nothing', () => {
   const live = selectorMetrics(device('box'))
 
-  assert.equal(live.cpu, 18)
-  assert.equal(live.memory, 37.5)
-  assert.equal(live.disk, (210 / 512) * 100)
-  assert.equal(live.capacity, 'Memory 12 / 32 GB · Disk 210 / 512 GB')
+  assert.equal(live?.cpu, 18)
+  assert.equal(live?.memory, 37.5)
+  assert.equal(live?.disk, (210 / 512) * 100)
+  assert.equal(live?.capacity, 'Memory 12 / 32 GB · Disk 210 / 512 GB')
 
   for (const sample of [
     undefined,
-    device('box', { online: false }),
+    device('box', { metricsStatus: 'unsupported' }),
     device('box', { metricsStatus: 'stale' }),
     device('box', { metrics: null }),
-  ]) {
-    assert.deepEqual(selectorMetrics(sample), {
-      cpu: null,
-      memory: null,
-      disk: null,
-      capacity: null,
-    })
-  }
-})
-
-test('an invalid reading becomes unavailable instead of an impossible bar', () => {
-  const metrics = selectorMetrics(
     device('box', {
       metrics: {
         sampledAt: '2026-10-22T00:00:00Z',
         cpuPercent: 140,
+        memory: { used: 1, total: 2 },
+        disk: { used: 1, total: 2 },
+      },
+    }),
+    device('box', {
+      metrics: {
+        sampledAt: '2026-10-22T00:00:00Z',
+        cpuPercent: 10,
         memory: { used: 40 * GB, total: 32 * GB },
         disk: { used: 1, total: 0 },
       },
     }),
-  )
-
-  assert.deepEqual(metrics, { cpu: null, memory: null, disk: null, capacity: null })
-})
-
-test('sign-in: a Box manager signs in here, another computer gets instructions, Cloud needs an admin', () => {
-  const box = { box: { provider: 'instabox', state: 'running' } } as const
-
-  assert.equal(
-    selectorSignIn(agent('a', 'box'), device('box', { ...box, access: 'manage' }), false),
-    'login',
-  )
-  assert.equal(
-    selectorSignIn(agent('a', 'box'), device('box', { ...box, access: 'use' }), true),
-    'instructions',
-  )
-  assert.equal(selectorSignIn(agent('a', 'mac'), device('mac'), true), 'instructions')
-  assert.equal(selectorSignIn(agent('cloud'), undefined, true), 'login')
-  assert.equal(selectorSignIn(agent('cloud'), undefined, false), null)
+  ]) {
+    assert.equal(selectorMetrics(sample), null)
+  }
 })
 
 test('inside its computer a runtime shows its own name, or its provider', () => {

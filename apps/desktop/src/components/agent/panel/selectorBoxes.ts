@@ -1,7 +1,9 @@
+import { usable } from '../../../lib/agentName.ts'
+import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
-import type { RuntimeInstance } from '../../../types/runtime'
+import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type SelectorBox = {
   id: string
@@ -10,14 +12,20 @@ export type SelectorBox = {
   agents: RuntimeInstance[]
 }
 
-/** Device ids, never display names, define a Box. Keep signed-out/offline agents discoverable. */
+/**
+ * Only runtimes that can take a turn now, grouped by device id (never display name). A computer
+ * that is offline, or whose runtimes all need a sign-in, is left out.
+ */
 export function selectorBoxes(
   agents: RuntimeInstance[],
   devices: AgentDevice[] = [],
+  quotas?: ReadonlyMap<string, RuntimeQuota>,
 ): SelectorBox[] {
   const groups = new Map<string, SelectorBox>()
+  const ready = (agent: RuntimeInstance) =>
+    usable(agent) && agent.local?.online !== false && !quotaSignedOut(quotas?.get(agent.id))
 
-  for (const agent of agents) {
+  for (const agent of agents.filter(ready)) {
     const deviceId = agent.local?.deviceId
     const id = deviceId
       ? `device:${deviceId}`
@@ -44,31 +52,35 @@ export function selectorBoxes(
   return [...groups.values()]
 }
 
-export type SelectorMetrics = ReturnType<typeof selectorMetrics>
+export type SelectorMetrics = NonNullable<ReturnType<typeof selectorMetrics>>
 
+const validCapacity = (value: { used: number; total: number } | undefined) =>
+  value !== undefined &&
+  Number.isFinite(value.used) &&
+  Number.isFinite(value.total) &&
+  value.used >= 0 &&
+  value.total > 0 &&
+  value.used <= value.total
+
+/** A live, sane reading, or null: the selector then shows no meters at all. */
 export function selectorMetrics(device?: AgentDevice) {
-  const sample =
-    device?.online !== false && device?.metricsStatus === 'live' ? device.metrics : null
-  const percent = (value: number | undefined) =>
-    value !== undefined && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null
-  const capacity = (value: { used: number; total: number } | undefined) =>
-    value &&
-    Number.isFinite(value.used) &&
-    Number.isFinite(value.total) &&
-    value.used >= 0 &&
-    value.total > 0 &&
-    value.used <= value.total
-      ? value
-      : null
-  const memory = capacity(sample?.memory)
-  const disk = capacity(sample?.disk)
+  const sample = device?.metricsStatus === 'live' ? device.metrics : null
+
+  if (
+    !sample ||
+    !Number.isFinite(sample.cpuPercent) ||
+    sample.cpuPercent < 0 ||
+    sample.cpuPercent > 100 ||
+    !validCapacity(sample.memory) ||
+    !validCapacity(sample.disk)
+  )
+    return null
 
   return {
-    cpu: percent(sample?.cpuPercent),
-    memory: memory ? (memory.used / memory.total) * 100 : null,
-    disk: disk ? (disk.used / disk.total) * 100 : null,
-    capacity:
-      memory && disk ? `Memory ${formatCapacity(memory)} · Disk ${formatCapacity(disk)}` : null,
+    cpu: sample.cpuPercent,
+    memory: (sample.memory.used / sample.memory.total) * 100,
+    disk: (sample.disk.used / sample.disk.total) * 100,
+    capacity: `Memory ${formatCapacity(sample.memory)} · Disk ${formatCapacity(sample.disk)}`,
   }
 }
 
@@ -78,16 +90,6 @@ function formatCapacity(value: { used: number; total: number }) {
     (bytes / gb).toLocaleString('en-US', { maximumFractionDigits: 1 })
 
   return `${format(value.used)} / ${format(value.total)} GB`
-}
-
-export function selectorSignIn(
-  agent: RuntimeInstance,
-  device: AgentDevice | undefined,
-  admin: boolean,
-): 'login' | 'instructions' | null {
-  if (agent.local) return device?.box && device.access !== 'use' ? 'login' : 'instructions'
-
-  return admin ? 'login' : null
 }
 
 /** Inside its computer a runtime goes by its own name, or its provider's; never "<name> in <computer>". */

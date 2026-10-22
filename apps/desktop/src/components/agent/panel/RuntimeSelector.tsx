@@ -3,11 +3,9 @@ import { ChevronDown, Plus, Settings2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
-import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentName } from '../../../lib/agentName'
 import { AGENT_PROVIDER } from '../../../types/runtime'
-import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
@@ -99,9 +97,7 @@ export function RuntimeSelector({
     enabled: open && Boolean(teamId),
     teamId,
   })
-  const groups = selectorBoxes(options, devices.list?.devices)
-  const [signIn, setSignIn] = useState<RuntimeInstance | null>(null)
-  const [howTo, setHowTo] = useState<RuntimeInstance | null>(null)
+  const groups = selectorBoxes(options, devices.list?.devices, quotas)
   const label = value
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
@@ -167,7 +163,7 @@ export function RuntimeSelector({
         </MenuTrigger>
         <MenuContent side="top" align="end" className="w-72">
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
-          {!loading && !error && options.length === 0 && (
+          {!loading && !error && groups.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">
               Connect a runtime in Settings → Agent to get started.
             </p>
@@ -181,17 +177,14 @@ export function RuntimeSelector({
                 metricsUnavailable={devices.error}
                 quotas={quotas}
                 updates={updates}
-                admin={Boolean(canUpdateTeamAgents)}
                 selectDisabled={selectDisabled}
                 onSelect={onSelect}
-                onSignIn={setSignIn}
-                onHowTo={setHowTo}
               />
             ))}
           </div>
           {(onAddAgent ?? onSettings) && (
             <>
-              {options.length > 0 && <MenuSeparator />}
+              {groups.length > 0 && <MenuSeparator />}
               {onAddAgent ? (
                 <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
                   Add new runtime
@@ -205,27 +198,6 @@ export function RuntimeSelector({
           )}
         </MenuContent>
       </Menu>
-      {teamId && signIn && (
-        <RuntimeLoginDialog
-          teamId={teamId}
-          instance={signIn}
-          onClose={() => {
-            setSignIn(null)
-            devices.reload()
-            window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
-          }}
-        />
-      )}
-      {howTo && (
-        <ConfirmDialog
-          open
-          title={`Sign in on ${howTo.local?.deviceLabel ?? 'your computer'}`}
-          description={`Open Nuphos on ${howTo.local?.deviceLabel ?? 'that computer'}, go to Settings → Agents, then choose Sign in for ${howTo.label}. Your current runtime stays selected.`}
-          confirmLabel="Got it"
-          onConfirm={() => setHowTo(null)}
-          onClose={() => setHowTo(null)}
-        />
-      )}
     </>
   )
 }
