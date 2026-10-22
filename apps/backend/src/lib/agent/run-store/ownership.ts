@@ -28,7 +28,6 @@ export function startAgentRunOwnership(
     onCancellationRequested?: () => void
     heartbeatMs?: number
     actorUserId?: string
-    humanTurn?: boolean
     teamId?: string
   } = {},
 ): () => void {
@@ -53,7 +52,6 @@ export function startAgentRunOwnership(
         .set(oKey, replicaId, 'EX', OWNER_TTL_SEC)
         .hset(aKey, 'streamId', streamId)
         .hset(aKey, 'actorUserId', options.actorUserId ?? userId)
-        .hset(aKey, 'humanTurn', options.humanTurn === false ? '0' : '1')
         .hset(aKey, 'teamId', options.teamId ?? '')
         .hsetnx(aKey, 'startedAt', String(Date.now()))
         // The hash rides the heartbeat, so a live run keeps refreshing it; only
@@ -263,19 +261,17 @@ async function sweepAbandonedGuard(
 export async function getActiveAgentRunForSession(userId: string, sessionId: string) {
   if (!redisEnabled()) return null
   const aKey = activeRunKey(userId, sessionId)
-  const result = await withRedis((c) =>
-    c.hmget(aKey, 'streamId', 'startedAt', 'actorUserId', 'humanTurn'),
-  )
+  const result = await withRedis((c) => c.hmget(aKey, 'streamId', 'startedAt', 'actorUserId'))
 
   if (!result) return null
-  const [streamId, startedAt = null, actorUserId = null, humanTurn] = result
+  const [streamId, startedAt = null, actorUserId = null] = result
 
   if (!streamId) return null
   if (await guardIsAbandoned(userId, sessionId, streamId)) {
     if (await sweepAbandonedGuard(userId, sessionId, streamId)) return null
   }
 
-  return { streamId, startedAt, actorUserId, humanTurn: humanTurn !== '0' }
+  return { streamId, startedAt, actorUserId }
 }
 
 /** Bounded scan; recovery must also work while every desktop is disconnected. */

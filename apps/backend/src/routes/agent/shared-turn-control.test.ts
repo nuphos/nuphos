@@ -13,22 +13,29 @@ import {
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
 const teamId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
+const me = 'bbbbbbbbbbbbbbbbbbbbbbbb'
 let member = true
+let activeActor: string | null = null
 let cancelled = 0
 let steered = 0
 let steeredWith: unknown[] = []
 const conversation = { sessionId: 'shared-control', userId: 'owner', teamId }
 
 useIdentity({
-  authenticateToken: async () => ({ user: { id: 'bbbbbbbbbbbbbbbbbbbbbbbb' } }),
+  authenticateToken: async () => ({ user: { id: me } }),
   getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
 })
 useAgentDb({
   getReadableConversation: async (_id, _user, team) => (team === teamId ? conversation : null),
+})
+useAgentRunStore({
+  getActiveAgentRunForSession: async () =>
+    activeActor ? { streamId: 'running', startedAt: null, actorUserId: activeActor } : null,
 })
 useSessionExecutionState({
   conversationExecutionState: async () => ({ schemaVersion: 2, actions: { steer: true } }),
@@ -55,6 +62,7 @@ app.onError((error, c) =>
 )
 beforeEach(async () => {
   member = true
+  activeActor = null
   cancelled = 0
   steered = 0
   refuse = false
@@ -72,6 +80,20 @@ test('a teammate can stop and steer the active turn, whoever started it', async 
   expect((await request('steer')).status).toBe(200)
   expect(cancelled).toBe(1)
   expect(steered).toBe(1)
+})
+
+// Agent threads, resource events and triggers run as the session owner, so the
+// owner steers them instead of waiting behind them (Desktop 0.88.1 regression).
+test('you steer a running turn you are the actor of, including agent-started ones', async () => {
+  activeActor = me
+  expect((await request('steer')).status).toBe(200)
+  expect(steered).toBe(1)
+})
+
+test("another person's running turn refuses the steer, so the message waits its turn", async () => {
+  activeActor = 'cccccccccccccccccccccccc'
+  expect((await request('steer')).status).toBe(409)
+  expect(steered).toBe(0)
 })
 
 test('a revoked team member cannot control the session', async () => {

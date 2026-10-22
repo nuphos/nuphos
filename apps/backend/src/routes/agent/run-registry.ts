@@ -47,14 +47,6 @@ export function listInFlightAgentRuns(): AgentRun[] {
 /** Bridges whose actor is the verified human sender; other headless turns act as the session owner. */
 export const HUMAN_SENDER_SOURCES = new Set(['slack.agent', 'discord.agent', 'mcp'])
 
-/**
- * Agent threads, resource events and triggers are no person's turn. A runtime
- * follow-up continues the turn of the person whose work it waits on.
- */
-export function isHumanTurn(trace: AgentRunTrace | undefined): boolean {
-  return trace?.method !== 'TRIGGER' || HUMAN_SENDER_SOURCES.has(trace.route)
-}
-
 export function createAgentRun(
   userId: string,
   sessionId: string,
@@ -79,7 +71,6 @@ export function createAgentRun(
     lastFrameAt: now,
     releaseOwnership: startAgentRunOwnership(userId, sessionId, streamId, {
       actorUserId: trace?.userId ?? userId,
-      humanTurn: isHumanTurn(trace),
       teamId: trace?.teamId,
       onCancellationRequested: () => {
         abortController.abort()

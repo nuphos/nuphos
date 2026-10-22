@@ -562,25 +562,3 @@ describe('crashed replica recovery', () => {
     expect(await redis.hmget(RUNTIME_HANDOFFS_KEY, `team:${SESSION}`)).toEqual([null])
   })
 })
-
-describe('human turn', () => {
-  test('records whether a person started the running turn', async () => {
-    for (const [humanTurn, expected] of [
-      [undefined, true],
-      [false, false],
-    ] as const) {
-      const release = startAgentRunOwnership(USER, SESSION, STREAM, {
-        humanTurn,
-        heartbeatMs: 1_000_000,
-      })
-
-      try {
-        await flush()
-        expect((await getActiveAgentRunForSession(USER, SESSION))?.humanTurn).toBe(expected)
-      } finally {
-        release()
-        await flush()
-      }
-    }
-  })
-})
