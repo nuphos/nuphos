@@ -38,9 +38,6 @@ gitlabAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    // User declined or GitLab raised an error before issuing a code.
-    await gitlabPendingOAuth().deleteOne({ _id: state })
-
     return desktopCallback(c, {
       state,
       error: errorParam,

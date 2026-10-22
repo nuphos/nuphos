@@ -38,8 +38,6 @@ slackAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    await slackPendingOAuth().deleteOne({ _id: state })
-
     return desktopCallback(c, {
       state,
       error: errorParam,

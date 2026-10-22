@@ -54,8 +54,11 @@ export async function claimConnectorOAuth(input: {
   code: string
   teamId: ObjectId
   userId: string
+  /** Narrows which grants this caller may take, e.g. by the role they hold now. */
+  scope?: Record<string, unknown>
 }): Promise<ConnectorOAuthReady> {
   const ready = await connectorOAuthReady().findOneAndDelete({
+    ...input.scope,
     _id: input.state,
     codeHash: sha256(input.code),
     teamId: input.teamId,

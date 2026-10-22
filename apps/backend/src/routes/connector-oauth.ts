@@ -46,6 +46,12 @@ connectorOAuthRoutes.post('/:state/complete', async (c) => {
     code: body.code,
     teamId,
     userId: c.get('userId'),
+    // Checked again now, not only when the flow started: connecting a workspace
+    // is an administrator's job, while any member may link their own Discord.
+    scope:
+      c.get('teamRole') === 'ADMINISTRATOR'
+        ? {}
+        : { provider: 'discord', 'binding.pending.operation': 'link' },
   })
   const persist = PERSISTS[ready.provider]
 

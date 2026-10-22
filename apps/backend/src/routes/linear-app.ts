@@ -40,9 +40,6 @@ linearAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    // User declined or Linear raised an error before issuing a code.
-    await linearPendingOAuth().deleteOne({ _id: state })
-
     return desktopCallback(c, {
       state,
       error: errorParam,

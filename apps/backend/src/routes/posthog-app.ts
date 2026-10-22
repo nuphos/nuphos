@@ -69,8 +69,6 @@ posthogAppRoutes.get('/callback', async (c) => {
 
   if (!state) throw new AppError(400, 'invalid_state', 'Missing state from PostHog redirect')
 
-  const pending = await posthogPendingOAuth().findOneAndDelete({ _id: state })
-
   if (errorParam) {
     return desktopCallback(c, {
       state,
@@ -78,6 +76,8 @@ posthogAppRoutes.get('/callback', async (c) => {
       error_description: c.req.query('error_description') ?? '',
     })
   }
+  const pending = await posthogPendingOAuth().findOneAndDelete({ _id: state })
+
   if (!pending || pending.expiresAt.getTime() < Date.now()) {
     return desktopCallback(c, {
       state,

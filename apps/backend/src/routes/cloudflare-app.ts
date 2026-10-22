@@ -37,8 +37,6 @@ cloudflareAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    await cloudflarePendingOAuth().deleteOne({ _id: state })
-
     return desktopCallback(c, {
       state,
       error: errorParam,

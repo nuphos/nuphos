@@ -36,8 +36,6 @@ jiraAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    await jiraPendingOAuth().deleteOne({ _id: state })
-
     return desktopCallback(c, {
       state,
       error: errorParam,

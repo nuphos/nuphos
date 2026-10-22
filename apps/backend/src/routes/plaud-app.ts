@@ -31,8 +31,6 @@ plaudAppRoutes.get('/callback', async (c) => {
 
   if (!state) throw new AppError(400, 'invalid_state', 'Missing state from Plaud redirect')
 
-  const pending = await plaudPendingOAuth().findOneAndDelete({ _id: state })
-
   if (errorParam) {
     return desktopCallback(c, {
       state,
@@ -40,6 +38,8 @@ plaudAppRoutes.get('/callback', async (c) => {
       error_description: c.req.query('error_description') ?? '',
     })
   }
+  const pending = await plaudPendingOAuth().findOneAndDelete({ _id: state })
+
   if (!pending || pending.expiresAt.getTime() < Date.now()) {
     return desktopCallback(c, {
       state,

@@ -54,11 +54,14 @@ permissionGrantProposalsRoutes.get('/', async (c) => {
   return c.json(rows.map(serialize))
 })
 
+// The same visibility as the list: the proposer and administrators.
 permissionGrantProposalsRoutes.get('/:id', async (c) => {
   const teamId = c.get('teamId')
   const p = await getPermissionGrantProposal(teamId, c.req.param('id'))
 
-  if (!p) throw new AppError(404, 'proposal_not_found', 'Permission-grant proposal not found')
+  if (!p || (c.get('teamRole') !== 'ADMINISTRATOR' && p.createdByUserId !== c.get('userId'))) {
+    throw new AppError(404, 'proposal_not_found', 'Permission-grant proposal not found')
+  }
 
   return c.json(serialize(p))
 })

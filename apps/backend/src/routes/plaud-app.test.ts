@@ -147,11 +147,11 @@ describe('GET /plaud-app/callback', () => {
     expect(updates).toHaveLength(0)
   })
 
-  test('relays a denied consent and consumes the state', async () => {
+  test('relays a denied consent and leaves the request to its requester', async () => {
     const link = await callback(`state=${addPending()}&error=access_denied`)
 
     expect(link.searchParams.get('error')).toBe('access_denied')
-    expect(pending).toHaveLength(0)
+    expect(pending).toHaveLength(1)
   })
 
   test('never forwards an upstream error body to the desktop', async () => {
