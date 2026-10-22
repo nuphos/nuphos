@@ -183,12 +183,17 @@ export async function launchQueuedChatTurn(
   const actorUserId = item.actorUserId ?? conversation.userId
 
   if (!teamId) throw new Error('A queued message lost its conversation team.')
-  // A redelivered or already answered message must not run twice.
+  // A refused attempt already persisted its input before calling the runtime.
+  // Only unattempted deliveries can use input presence as the duplicate guard:
+  // a counted retry explicitly did not run and still needs to reach the agent.
+  const retrying = (item.attempts ?? 0) > 0
+
   if (
-    await agentMessages().findOne(
+    !retrying &&
+    (await agentMessages().findOne(
       { sessionId, userId: conversation.userId, messageId: item.id },
       { projection: { _id: 1 } },
-    )
+    ))
   ) {
     releaseClaim()
 

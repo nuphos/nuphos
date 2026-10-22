@@ -19,7 +19,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat } from './session-queue-turn'
+import { admitQueueableChat, launchQueuedChatTurn } from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
@@ -37,12 +37,13 @@ let boxOffline = true
 const woken: (string | undefined)[] = []
 const stamped: string[] = []
 
-useAgentDb({
+const installAgentDb = useAgentDb({
   getReadableConversation: async () => conversation,
   stampConversationRuntimeInstance: async (_sessionId, runtimeId) => {
     stamped.push(runtimeId)
   },
 })
+
 useBoxWake({
   wakeOfflineBox: async (runtimeId) => {
     woken.push(runtimeId)
@@ -292,4 +293,61 @@ test('a refused start of a queued message tells the client it waits, not that it
   expect(queuedRefusal(refused, { id: 'queued' })).toMatchObject({ code: 'message_queued' })
   // Nothing was queued: the refusal stands, so the client knows to send again.
   expect(queuedRefusal(refused, undefined)).toBe(refused)
+})
+
+test('a persisted input from an explicitly refused attempt still reaches the retry handoff', async () => {
+  const reachedHistory = new Error('retry reached server history')
+  let historyReads = 0
+  let released = 0
+
+  installAgentDb({
+    agentMessages: () => ({ findOne: () => Promise.resolve({ _id: 'persisted-input' }) }),
+    getConversationWithMessages: () => {
+      historyReads++
+      // Stop before runtime access: the persisted-input guard is the boundary under test.
+
+      return Promise.reject(reachedHistory)
+    },
+  })
+  const input = message('refused-input')
+  const item = {
+    ...buildPendingUserMessage({ renderedText: 'Check the example.', source: 'app' }),
+    id: input.id,
+    attempts: 1,
+    chat: { streamId: 'retry-stream', message: input, locale: 'en', localTools: true },
+  }
+
+  await expect(
+    launchQueuedChatTurn(conversation, item, () => {
+      released++
+    }),
+  ).rejects.toBe(reachedHistory)
+  expect(historyReads).toBe(1)
+  expect(released).toBe(0)
+})
+
+test('an ordinary duplicate persisted input still releases its claim without launching again', async () => {
+  let released = 0
+  let historyReads = 0
+
+  installAgentDb({
+    agentMessages: () => ({ findOne: () => Promise.resolve({ _id: 'persisted-input' }) }),
+    getConversationWithMessages: () => {
+      historyReads++
+
+      return Promise.reject(new Error('a duplicate must not reach runtime preparation'))
+    },
+  })
+  const input = message('duplicate-input')
+  const item = {
+    ...buildPendingUserMessage({ renderedText: 'Check the example.', source: 'app' }),
+    id: input.id,
+    chat: { streamId: 'duplicate-stream', message: input, locale: 'en', localTools: true },
+  }
+
+  await launchQueuedChatTurn(conversation, item, () => {
+    released++
+  })
+  expect(released).toBe(1)
+  expect(historyReads).toBe(0)
 })
