@@ -1,4 +1,3 @@
-import { codexFileCitationScanner } from './codex-file-citations'
 import { redactSignedTokens } from './mcp-token'
 import { previewTextMetadata } from './preview-text-metadata'
 
@@ -100,29 +99,6 @@ function heldBack(emit: (text: string, metadata?: PreviewTextMetadata) => void) 
   }
 }
 
-// Each source message is its own Markdown document; a turn end closes the last.
-function citationLinks(emit: (text: string, metadata?: PreviewTextMetadata) => void) {
-  let scan = codexFileCitationScanner()
-  let owner: PreviewTextMetadata | undefined
-  const flush = () => {
-    const rest = scan('', true)
-
-    if (rest) emit(rest, owner)
-    scan = codexFileCitationScanner()
-  }
-
-  return {
-    push: (text: string, metadata?: PreviewTextMetadata) => {
-      if (!sameOwner(owner, metadata)) flush()
-      owner = metadata
-      const ready = scan(text)
-
-      if (ready) emit(ready, metadata)
-    },
-    flush,
-  }
-}
-
 // A completion, an interruption, or the runtime thread leaving `active`.
 const turnEnds = (update: OpenAbSessionUpdate) =>
   update.kind === 'complete' ||
@@ -131,22 +107,19 @@ const turnEnds = (update: OpenAbSessionUpdate) =>
 
 /**
  * Wraps a session-update handler so streamed agent text and thoughts never
- * carry a backend token, even one split across chunks, and Codex file
- * citations in agent text arrive as Markdown links. Only text that may begin
- * a token or a citation is held, and it stays held across other updates until the
+ * carry a backend token, even one split across chunks. Only text that may
+ * begin a token is held, and it stays held across other updates until the
  * token resolves, the turn ends, or flush() is called.
  */
 export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => void) {
-  const links = citationLinks((value, metadata) => {
+  const text = heldBack((value, metadata) => {
     handler({ kind: 'text', text: value, ...metadata })
   })
-  const text = heldBack(links.push)
   const thought = heldBack((value) => {
     handler({ kind: 'agent', update: { kind: 'thought', text: value } })
   })
   const flush = () => {
     text.flush()
-    links.flush()
     thought.flush()
   }
 

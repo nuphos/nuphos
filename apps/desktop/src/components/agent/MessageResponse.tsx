@@ -6,6 +6,7 @@ import { isValidElement, memo, useContext, useMemo, useState } from 'react'
 import { Streamdown } from 'streamdown'
 import 'streamdown/styles.css'
 
+import { renderCodexDirectives } from '../../lib/codexDirectives'
 import { linkClickMode } from '../../lib/linkClickMode'
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
 import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
@@ -241,6 +242,7 @@ export const MessageResponse = memo(
       () => createComponents(teamId, onLinkClick, renderLink),
       [teamId, onLinkClick, renderLink],
     )
+    const markdown = useMemo(() => renderCodexDirectives(children), [children])
 
     return (
       <div
@@ -267,7 +269,7 @@ export const MessageResponse = memo(
           rehypePlugins={messageRehypePlugins}
           components={components}
         >
-          {children}
+          {markdown}
         </Streamdown>
       </div>
     )
