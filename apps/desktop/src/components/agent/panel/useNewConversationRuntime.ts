@@ -20,7 +20,6 @@ import type { SessionConfigPick } from '../../../api/session-config-types'
 const NO_PICK: SessionConfigPick = {}
 
 export function useNewConversationRuntime(teamId?: string) {
-  const key = newChatChoiceKey(teamId)
   // One saved choice for every new chat, pane and restart of this team.
   const [, rerender] = useReducer((count: number) => count + 1, 0)
   const catalog = useRuntimeInstances(teamId)
@@ -30,7 +29,7 @@ export function useNewConversationRuntime(teamId?: string) {
   const instances = teamId
     ? [...catalog.instances, ...pendingLocalAgents(localState, catalog.instances)]
     : catalog.instances
-  const choice = readNewChatChoice(key)
+  const choice = readNewChatChoice(newChatChoiceKey(teamId))
   const best = defaultAgent(instances, owner, (instance) => {
     const windows = runtimeQuotas.get(instance.id)?.windows ?? []
 
@@ -42,10 +41,10 @@ export function useNewConversationRuntime(teamId?: string) {
 
   const save = useCallback(
     (next: NewChatChoice) => {
-      saveNewChatChoice(key, next)
+      saveNewChatChoice(newChatChoiceKey(teamId), next)
       rerender()
     },
-    [key],
+    [teamId],
   )
 
   function selectConversationRuntime(runtimeId: string) {
