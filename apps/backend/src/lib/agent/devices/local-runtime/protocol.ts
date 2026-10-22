@@ -81,7 +81,9 @@ const localUsageSchema = z.object({
 const localAgentStatusSchema = z.object({
   cli: z.object({ installed: z.boolean(), loggedIn: z.boolean().nullable() }),
   version: z.string().max(200).optional(),
-  models: localModelCatalogSchema.optional(),
+  // Never fatal, like usage: a catalog over its bounds costs the model picker,
+  // not the computer's presence (which `localExec` in this same frame decides).
+  models: localModelCatalogSchema.optional().catch(undefined),
   /** The provider's own usage body, as the computer read it with its own
    *  credential, narrowed to the fields runtime-quota normalizes. Unknown keys
    *  are stripped rather than rejected: a provider may add a window, and this

@@ -308,6 +308,66 @@ test('a socket and status alone do not advertise presence before the first pong'
   expect((await presence.get('u1', 'd1'))?.status?.localExec).toBe(true)
 })
 
+test('a model catalog over its bounds costs the catalog, never the presence', async () => {
+  const presence = createMemoryPresenceStore()
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send: () => {}, close: () => {} },
+    { bus: createLocalTunnelBus(), presence, isMember: async () => true },
+  )
+  const models = Array.from({ length: 201 }, (_, i) => ({ id: `m${i}`, name: `M${i}` }))
+
+  tunnels.push(tunnel)
+  tunnel.receive(
+    JSON.stringify({
+      t: 'status',
+      status: {
+        localExec: true,
+        agents: {
+          opencode: {
+            cli: { installed: true, loggedIn: true },
+            models: { models, defaultModel: 'm0', controls: {} },
+          },
+        },
+      },
+    }),
+  )
+  tunnel.receive(JSON.stringify({ t: 'pong' }))
+  await tick()
+  const status = (await presence.get('u1', 'd1'))?.status
+
+  expect(status?.localExec).toBe(true)
+  expect(status?.agents.opencode?.cli.loggedIn).toBe(true)
+  expect(status?.agents.opencode?.models).toBeUndefined()
+})
+
+test('a rejected frame is logged with its failing paths only', async () => {
+  const log = spyOn(console, 'warn').mockImplementation(() => {})
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send: () => {}, close: () => {} },
+    {
+      bus: createLocalTunnelBus(),
+      presence: createMemoryPresenceStore(),
+      isMember: async () => true,
+    },
+  )
+
+  tunnels.push(tunnel)
+  tunnel.receive(
+    JSON.stringify({ t: 'status', status: { agents: {}, cliVersion: 'x'.repeat(51) } }),
+  )
+  const lines = log.mock.calls.map((call) => String(call[0]))
+
+  log.mockRestore()
+  const line = lines.find((l) => l.includes('agent.local_runtime.frame_rejected'))
+
+  expect(line).toContain('status.cliVersion')
+  expect(line).not.toContain('xxxxx')
+})
+
 test('a late heartbeat or cleanup from the old holder cannot replace the new lease', async () => {
   const presence = createMemoryPresenceStore()
 

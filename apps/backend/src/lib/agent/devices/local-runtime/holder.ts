@@ -219,7 +219,16 @@ export async function attachRuntimeTunnel(
       if (ended) return
       const parsed = desktopFrameSchema.safeParse(parseJson(raw))
 
-      if (!parsed.success) return
+      if (!parsed.success) {
+        // Paths only: the frame is the computer's own data.
+        logEvent('warn', 'agent.local_runtime.frame_rejected', {
+          user_id: userId,
+          device_id: deviceId,
+          issues: parsed.error.issues.map((issue) => issue.path.join('.')).join(', '),
+        })
+
+        return
+      }
       const frame = parsed.data
 
       switch (frame.t) {
