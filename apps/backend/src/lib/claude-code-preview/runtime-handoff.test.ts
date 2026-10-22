@@ -350,6 +350,32 @@ test('shutdown hands on a session whose runtime still owns work, and leaves idle
   })
 })
 
+test('shutdown hands on a runtime-started turn this replica carries, even mid-turn', async () => {
+  // A wakeup or background-task continuation is still running (here waiting on
+  // a deploy) when the drain ends. It has no turn route to hand it on, so the
+  // open transcript is what says this replica owns its output.
+  hold(
+    'carried',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'running_tools',
+    }),
+  )
+  sessionsByConversation.get('team:carried')!.autonomousTranscriptOpen = true
+  hold(
+    'turn-elsewhere',
+    Promise.resolve({
+      ...snapshot,
+      state: 'active',
+      phase: 'running_tools',
+    }),
+  )
+
+  expect(await publishRuntimeHandoffs()).toBe(1)
+  expect(published()).toEqual(['team:carried'])
+})
+
 test('a session already handed off for its turn is handed off once', async () => {
   hold(
     'conv',

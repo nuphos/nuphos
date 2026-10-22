@@ -49,14 +49,16 @@ export function queueRuntimeHandoff(handoff: Omit<RuntimeHandoff, 'at'>): void {
 }
 
 /**
- * A session with no turn here can still have work the runtime owns: a
- * background task whose completion it continues on its own, or that
- * continuation already running. Its output goes to the connection that last
- * resumed the session, so once this replica exits the runtime parks it as
+ * A session with no user turn here can still have work the runtime owns: a
+ * turn the runtime started itself (a wakeup or a background-task
+ * continuation) whose output this replica carries, or a background task whose
+ * completion it continues on its own. Its output goes to the connection that
+ * last resumed the session, so once this replica exits the runtime parks it as
  * "output connection lost" until something resumes the session again. Hand
  * those on as well; an idle session needs nobody. A user turn is never picked
  * here: it may be running on another replica, and only the turn route knows it
- * runs on this one.
+ * runs on this one. A runtime-started turn has no route, but this replica
+ * knows it carries one: its transcript is open here.
  */
 async function queueRuntimeOwnedWork(): Promise<void> {
   const handedOff = new Set(queued.map(field))
@@ -65,16 +67,18 @@ async function queueRuntimeOwnedWork(): Promise<void> {
     [...sessionsByConversation.values()]
       .filter((session) => !handedOff.has(field(session)))
       .map(async (session) => {
-        const state = await Promise.race([
-          session.client
-            .getSessionExecutionState(session.openabSessionId)
-            .then(parseSessionExecutionState)
-            .catch(() => null),
-          Bun.sleep(RUNTIME_STATE_PROBE_MS).then(() => null),
-        ])
+        if (!session.autonomousTranscriptOpen) {
+          const state = await Promise.race([
+            session.client
+              .getSessionExecutionState(session.openabSessionId)
+              .then(parseSessionExecutionState)
+              .catch(() => null),
+            Bun.sleep(RUNTIME_STATE_PROBE_MS).then(() => null),
+          ])
 
-        if (RUNTIME_OWNED_PHASES.has(state?.phase ?? ''))
-          queueRuntimeHandoff(sessionHandoff(session))
+          if (!RUNTIME_OWNED_PHASES.has(state?.phase ?? '')) return
+        }
+        queueRuntimeHandoff(sessionHandoff(session))
       }),
   )
 }
