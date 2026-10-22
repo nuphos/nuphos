@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs'
+
 import { describe, expect, test } from 'bun:test'
 
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -26,6 +28,12 @@ useIdentity({
       : null,
   getTeamMembership: async () => null,
 })
+
+// Route modules capture their middleware when they load. Load every test
+// double first, so suites that run after this one can still swap them.
+for (const file of readdirSync(new URL('../lib/test/doubles', import.meta.url))) {
+  await import(`@/lib/test/doubles/${file}`)
+}
 
 const { app } = await import('@/index-app')
 
