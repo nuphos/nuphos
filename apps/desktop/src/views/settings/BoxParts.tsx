@@ -98,7 +98,13 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
 /** Open the same agent details panel as the usage table. */
 export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
   const offline = agentOffline(agent)
-  const label = `${agentName(agent)}${offline ? ' · Offline' : ''}`
+  // Signed out stays on the card: its page is where it signs in again and its host updates.
+  const signedOut = agent.local?.signedIn === false
+  let state = ''
+
+  if (signedOut) state = ' · Sign in'
+  if (offline) state = ' · Offline'
+  const label = `${agentName(agent)}${state}`
 
   return (
     <li className="shrink-0">
@@ -107,7 +113,7 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
         title={label}
         aria-label={`Open ${label} details`}
         onClick={onSelect}
-        className={`flex h-10 w-10 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60 ${offline ? 'opacity-40 grayscale' : ''}`}
+        className={`flex h-10 w-10 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60 ${offline || signedOut ? 'opacity-40 grayscale' : ''}`}
       >
         <AgentProviderIcon provider={agent.provider} className="h-5 w-5" />
       </button>

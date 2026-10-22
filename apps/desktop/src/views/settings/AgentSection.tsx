@@ -11,7 +11,6 @@ import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 
 import { AddAgentDialog } from './AddAgentDialog'
 import { AgentList } from './AgentList'
-import { visibleAgent } from './agentPresentation'
 import { BoxSection } from './BoxSection'
 import { ReorderableSections } from './ReorderableSections'
 import { RuntimeInstanceCard } from './RuntimeInstanceCard'
@@ -46,13 +45,13 @@ export function AgentSection({
   const [open, setOpen] = useState(false)
   const aside = usePageAside()
   const catalog = useRuntimeInstances(teamId, refreshKey)
-  const visible = catalog.instances.filter(visibleAgent)
+  const visible = catalog.instances
   const quotas = useRuntimeQuotas(teamId)
   const sectionOrder = useSectionOrder(teamId, AGENT_SECTION_IDS)
   const instances = visible.filter((instance) =>
     instance.label.toLowerCase().includes(filter.trim().toLowerCase()),
   )
-  // Search does not close the panel, but a provider signing out removes it.
+  // Search does not close the panel.
   const selected = visible.find((instance) => instance.id === selectedId)
   // The control that opened the panel gets focus back when it closes.
   const opener = useRef<HTMLElement | null>(null)

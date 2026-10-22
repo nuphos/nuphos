@@ -15,11 +15,6 @@ export function localRemovalId(instance: RuntimeInstance): string | undefined {
   return local.instanceId ?? (local.box ? instance.provider : undefined)
 }
 
-/** The overview shows local providers only after sign-in; team runtimes remain visible. */
-export function visibleAgent(instance: RuntimeInstance): boolean {
-  return instance.kind !== 'local' || instance.local?.signedIn === true
-}
-
 const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
   managed: 'Cloud',
   external: 'Self-hosted',

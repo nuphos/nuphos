@@ -10,11 +10,9 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../c
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 
-import { visibleAgent } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { openBoxDesktop } from './boxDesktop'
-import { BoxHostUpdate } from './BoxHostUpdate'
 import { BoxMetrics } from './BoxMetrics'
 import { AccessHint, AgentTile, LiveDot, MachineIcon, MachineLine, NewAgentMenu } from './BoxParts'
 import { openBoxPaywall } from './boxPaywallStore'
@@ -112,7 +110,6 @@ export function BoxRow({
     settingUp || restart !== undefined || (state === 'running' && agents.length === 0)
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
-  const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0] : undefined
 
   return (
     <li className="flex h-[240px] w-[248px] shrink-0 flex-col rounded-xl border border-zGray-800/70 p-3">
@@ -188,20 +185,6 @@ export function BoxRow({
           {restart ? boxRestartLabel(restart.kind) : badge.label}
         </span>
         <AccessHint device={device} />
-        {hostAgent && (
-          <BoxHostUpdate
-            teamId={teamId}
-            boxLabel={device.label}
-            runtimeId={hostAgent.id}
-            busy={busy}
-            onUpdate={() =>
-              void act('Could not update Box', async (deviceId, team) => {
-                await api.atlasRequestRuntimeUpdate(team, hostAgent.id)
-                boxRestarts.start(deviceId, team, 'update')
-              })
-            }
-          />
-        )}
       </div>
       <MachineLine device={device} thisComputer={thisComputer} dim={dim} />
       {manage && away ? (
@@ -228,11 +211,9 @@ export function BoxRow({
           ? [0, 1].map((slot) => (
               <li key={slot} className="h-10 w-10 shrink-0 rounded-lg bg-zGray-800/30" />
             ))
-          : agents
-              .filter(visibleAgent)
-              .map((agent) => (
-                <AgentTile key={agent.id} agent={agent} onSelect={() => onSelect(agent.id)} />
-              ))}
+          : agents.map((agent) => (
+              <AgentTile key={agent.id} agent={agent} onSelect={() => onSelect(agent.id)} />
+            ))}
         {!dim && !starting && (
           <li className="shrink-0">
             <NewAgentMenu device={device} agents={agents} busy={busy} onAdd={addAgent} />
