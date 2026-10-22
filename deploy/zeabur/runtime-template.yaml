@@ -34,7 +34,7 @@ spec:
       template: PREBUILT_V2
       spec:
         source:
-          image: ghcr.io/nuphos/runtime:0.1.33-claude-code
+          image: ghcr.io/nuphos/runtime:0.1.34-claude-code
         ports:
           - id: web
             port: 8080
