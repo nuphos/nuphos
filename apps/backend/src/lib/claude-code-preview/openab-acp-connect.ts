@@ -1,3 +1,5 @@
+import { AppError } from '@/lib/errors'
+
 import { isLocalRuntimeUrl } from '../agent/devices/local-runtime/address.ts'
 import { openLocalRuntimeSocket } from '../agent/devices/local-runtime/socket.ts'
 
@@ -28,10 +30,27 @@ const DEFAULT_PROMPT_TIMEOUT_MS = 180_000
 const DEFAULT_PROMPT_PROGRESS_TIMEOUT_MS = 32 * 60_000
 const DEFAULT_RETIRE_GRACE_MS = 30_000
 
+/**
+ * A computer's tunnel ends a stream with 1006 when the computer is offline or
+ * drops: an expected state the person can fix, not a server fault. Its cause is
+ * already logged by the tunnel (tunnel_closed, stream_failed).
+ */
+function connectionFailure(url: string, event: SocketEvent): Error {
+  if (isLocalRuntimeUrl(url) && event.code === 1006)
+    return new AppError(
+      409,
+      'runtime_offline',
+      'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
+    )
+
+  return new Error(connectionFailureMessage(event))
+}
+
 export async function connectOpenAbAcpSocket(
   options: OpenAbAcpClientOptions,
 ): Promise<OpenAbAcpConnection> {
-  const socket = (options.socketFactory ?? defaultSocketFactory)(options.tunnelUrl ?? options.url, [
+  const url = options.tunnelUrl ?? options.url
+  const socket = (options.socketFactory ?? defaultSocketFactory)(url, [
     `openab.bearer.${options.authKey}`,
     'acp.v1',
   ])
@@ -48,7 +67,7 @@ export async function connectOpenAbAcpSocket(
     }
     const onFailure = (event: SocketEvent) => {
       cleanup()
-      reject(new Error(connectionFailureMessage(event)))
+      reject(connectionFailure(url, event))
     }
     const cleanup = () => {
       clearTimeout(timer)

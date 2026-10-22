@@ -147,6 +147,20 @@ describe('OpenAbAcpClient', () => {
     )
   })
 
+  test('reports an unreachable computer as runtime_offline, not a server fault', async () => {
+    const h = harness(false)
+    const connecting = OpenAbAcpClient.connect({
+      url: 'ws://openab-claude-abc.openab-runtimes.svc:8080/acp',
+      tunnelUrl: 'nuphos-device://runtime/user-1/device-1?team=team-1',
+      authKey: 'transport',
+      socketFactory: h.connect,
+    })
+
+    h.socket().reject(1006, 'The computer running this agent disconnected')
+
+    await expect(connecting).rejects.toMatchObject({ status: 409, code: 'runtime_offline' })
+  })
+
   test('times out an ACP request that never receives a response', async () => {
     const h = harness()
     const client = await OpenAbAcpClient.connect({
