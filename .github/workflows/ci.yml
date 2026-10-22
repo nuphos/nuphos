@@ -319,7 +319,9 @@ jobs:
           TEST_REDIS_URL: redis://127.0.0.1:6379/0
         run: |
           CONTENDED='@/routes/agent|@/lib/identity|@/lib/agent/db|@/models|@/lib/slack/api|@/lib/slack/agent-bot|@/middleware/auth'
-          isolated=$(grep -rlE "mock\.module\('($CONTENDED)'" src --include='*.test.ts' | sort)
+          # A suite that loads the whole app binds every route module's
+          # middleware at once, so it is isolated too.
+          isolated=$(grep -rlE "mock\.module\('($CONTENDED)'|import\('@/index-app'\)" src --include='*.test.ts' | sort)
           shared=$(find src -name '*.test.ts' | sort | comm -23 - <(echo "$isolated"))
           echo "isolated suites:"; echo "$isolated" | sed 's/^/  /'
           bun test $shared
