@@ -1,5 +1,7 @@
 // When a live conversation session has to be handed its context again before
 // the next prompt, rather than reusing what the runtime already holds.
+import { storedPick } from './session-config-options'
+
 import type { TeamSession } from './team-openab-runtime'
 
 // Half the conversation token's TTL: a runtime that ignores per-prompt context
@@ -25,4 +27,13 @@ export function previewSessionPrincipalChanged(
     (nextRuntime !== undefined &&
       session.runtime?.env?.NUPHOS_SESSION_ACTOR !== nextRuntime.env?.NUPHOS_SESSION_ACTOR)
   )
+}
+
+// A turn hands the runtime the conversation's settings as stored now, so a change
+// confirmed after this session opened still reaches a session the runtime recreates.
+export function turnDefaults(
+  session: Pick<TeamSession, 'runtime'>,
+  attachment: Parameters<typeof storedPick>[0] | null,
+) {
+  return attachment ? storedPick(attachment) : session.runtime?.defaults
 }

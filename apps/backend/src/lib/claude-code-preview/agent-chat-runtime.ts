@@ -18,7 +18,11 @@ import {
   assertRuntimeNotDeleting,
 } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
-import { previewSessionPrincipalChanged, sessionContextStale } from './session-context'
+import {
+  previewSessionPrincipalChanged,
+  sessionContextStale,
+  turnDefaults,
+} from './session-context'
 import { probeExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
@@ -162,10 +166,10 @@ export async function runClaudeCodePreviewPrompt(args: {
   const nextContext = {
     mcpServers: args.mcpServers ?? session.mcpServers,
     systemPrompt: args.systemPrompt ?? (principalChanged ? undefined : session.systemPrompt),
-    runtime:
-      args.runtime || principalChanged
-        ? { ...args.runtime, defaults: session.runtime?.defaults }
-        : session.runtime,
+    runtime: {
+      ...(args.runtime || principalChanged ? args.runtime : session.runtime),
+      defaults: turnDefaults(session, currentAttachment),
+    },
     userId: args.userId,
     conversationOwnerUserId: args.conversationOwnerUserId ?? args.userId,
     locale: args.locale,
