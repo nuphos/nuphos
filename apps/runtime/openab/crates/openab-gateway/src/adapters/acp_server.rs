@@ -2016,6 +2016,7 @@ async fn handle_acp_connection(
         let state = state.clone();
         let sessions = sessions.clone();
         let out_tx = out_tx.clone();
+        let connection_id = connection_id.clone();
         tokio::spawn(async move {
             let mut sent: HashMap<String, Value> = HashMap::new();
             let mut tick = tokio::time::interval(std::time::Duration::from_millis(250));
@@ -2031,6 +2032,19 @@ async fn handle_acp_connection(
                     .map(|(id, session)| (id.clone(), session.channel_id.clone()))
                     .collect();
                 for (id, channel) in channels {
+                    // A session another connection has since resumed or prompted reports there.
+                    // Pushing it here as well repeated every snapshot once per connection that
+                    // had ever held the session.
+                    let foreign = state.acp_reply_registry.as_ref().is_some_and(|registry| {
+                        registry
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .get(&channel)
+                            .is_some_and(|sink| sink.owner != connection_id)
+                    });
+                    if foreign {
+                        continue;
+                    }
                     if let Some(snapshot) = read_runtime_snapshot(&state, &channel).await {
                         if sent.get(&id) == Some(&snapshot) {
                             continue;
@@ -8150,6 +8164,86 @@ mod acp_ws_integration {
             events.try_recv().is_err(),
             "a state read must not dispatch work"
         );
+    }
+
+    /// A session's runtime_state goes to the connection that holds it now, not to every
+    /// connection that ever resumed it: each extra copy crossed the same tunnel again.
+    #[tokio::test]
+    async fn runtime_state_is_pushed_only_to_the_connection_holding_the_session() {
+        let (events, _) = tokio::sync::broadcast::channel(16);
+        let mut state = crate::AppState::test_default(events);
+        state.acp = Some(AcpConfig {
+            auth_key: None,
+            control_key: None,
+            allowed_origins: vec![],
+            login_command: None,
+            auth_file: None,
+            runtime_jobs: RuntimeJobs::default(),
+            disk_paths: vec![],
+            credentials: None,
+            console: None,
+        });
+        state.acp_reply_registry = Some(new_reply_registry());
+        let busy = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let provider_busy = busy.clone();
+        state.acp_session_snapshot = Some(Arc::new(move |_| {
+            let busy = provider_busy.load(Ordering::SeqCst);
+            Box::pin(async move {
+                json!({"epoch": "provider", "revision": u64::from(busy), "state": if busy { "active" } else { "idle" }})
+            })
+        }));
+        let app = axum::Router::new()
+            .route("/acp", axum::routing::get(ws_upgrade))
+            .with_state(Arc::new(state));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/acp", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let initialize = json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{"protocolVersion":1,"clientCapabilities":{"_meta":{"dev.openab/sessionSnapshots":true}}}});
+        let is_state = |f: &Value| f["params"]["update"]["sessionUpdate"] == "runtime_state";
+        // Frames for up to `ms`, so a push that should not come has had time to.
+        async fn drain(ws: &mut Ws, ms: u64) -> Vec<Value> {
+            let mut frames = vec![];
+            let until = tokio::time::Instant::now() + std::time::Duration::from_millis(ms);
+            while let Ok(Some(Ok(WsMessage::Text(t)))) =
+                tokio::time::timeout_at(until, ws.next()).await
+            {
+                frames.push(serde_json::from_str(&t).unwrap());
+            }
+            frames
+        }
+
+        let (mut a, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+        send(&mut a, initialize.clone()).await;
+        let _ = recv(&mut a).await;
+        send(&mut a, json!({"jsonrpc":"2.0", "id":2, "method":"session/new", "params":{"cwd":"/w","mcpServers":[]}})).await;
+        let session_id = loop {
+            let f = recv(&mut a).await;
+            if f.get("id") == Some(&json!(2)) {
+                break f["result"]["sessionId"].as_str().unwrap().to_string();
+            }
+        };
+        assert!(
+            drain(&mut a, 600).await.iter().any(is_state),
+            "A holds the session"
+        );
+
+        let (mut b, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+        send(&mut b, initialize).await;
+        let _ = recv(&mut b).await;
+        send(&mut b, json!({"jsonrpc":"2.0", "id":2, "method":"session/resume", "params":{"sessionId":session_id,"cwd":"/w","mcpServers":[]}})).await;
+        let _ = drain(&mut b, 600).await;
+        let _ = drain(&mut a, 0).await;
+
+        busy.store(true, Ordering::SeqCst);
+        let on_b = drain(&mut b, 800).await;
+        let on_a = drain(&mut a, 800).await;
+        assert!(
+            on_b.iter().any(is_state),
+            "B now holds the session: {on_b:?}"
+        );
+        assert!(!on_a.iter().any(is_state), "A no longer holds it: {on_a:?}");
     }
 
     #[tokio::test]
