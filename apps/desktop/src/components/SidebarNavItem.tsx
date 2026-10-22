@@ -42,6 +42,8 @@ type SidebarNavItemProps = {
   /** Controls that take the trailing slot's place while the row is hovered or
    *  focused: at rest the slot shows `trailing`, on hover these instead. */
   hoverActions?: ReactNode
+  /** Larger Agent row; other navigation keeps its compact height. */
+  comfortable?: boolean
   /** Wait for the click when a press may start a drag instead. */
   navigateOnRelease?: boolean
 }
@@ -63,6 +65,7 @@ export function SidebarNavItem({
   edge,
   hoverActions,
   navigateOnRelease = false,
+  comfortable = false,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
 
@@ -89,6 +92,7 @@ export function SidebarNavItem({
       }}
       className={clsx(
         SIDEBAR_ROW_CLASS,
+        comfortable && '!h-[42px]',
         'group w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -104,7 +108,7 @@ export function SidebarNavItem({
     >
       <span
         className={clsx(
-          'flex-shrink-0 flex items-center transition-colors [&_svg]:size-4',
+          'flex-shrink-0 flex items-center transition-colors [&>svg]:size-4',
           active ? 'text-main' : 'text-tertiary group-hover:text-main',
         )}
       >

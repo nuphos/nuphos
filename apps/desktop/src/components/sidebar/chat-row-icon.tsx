@@ -1,17 +1,18 @@
-import { MessageSquare } from 'lucide-react'
-
-import { AgentProviderIcon } from '../agent/panel/icons'
+import { AgentAvatar } from '../agent/AgentAvatar'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
 
-/** The agent type only; running, error and background status live in ChatRowStatus. */
+/** Agent identity and current Runtime; execution status lives in ChatRowStatus. */
 export function chatRowIcon(conversation: AgentConversation): Pick<Item, 'icon' | 'iconNode'> {
   return {
-    iconNode: conversation.claudeCodeRuntimeAttached ? (
-      <AgentProviderIcon provider={conversation.agentRuntime} className="h-3.5 w-3.5" />
-    ) : (
-      <MessageSquare className="h-3.5 w-3.5" />
+    iconNode: (
+      <AgentAvatar
+        agentId={conversation.sessionId}
+        provider={conversation.agentRuntime}
+        attached={conversation.claudeCodeRuntimeAttached}
+        sidebar
+      />
     ),
   }
 }

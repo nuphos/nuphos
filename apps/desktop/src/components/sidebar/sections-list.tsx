@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronDown, ChevronRight, Star } from 'lucide-react'
 import { Fragment } from 'react'
 
+import { useAgentAppearance } from '../../lib/agentAppearance'
 import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import {
@@ -65,6 +66,7 @@ export function SidebarSectionList({
 }: SectionListProps) {
   // The Inbox row carries how many conversations wait on the viewer.
   const shown = useInboxBadge(scope.teamId, sections)
+  const { density } = useAgentAppearance()
 
   return (
     <>
@@ -201,6 +203,7 @@ export function SidebarSectionList({
                         >
                           <SidebarNavItem
                             active={isActive}
+                            comfortable={chatRow && density === 'comfortable'}
                             sharedBackground={Boolean(item.description)}
                             disabled={!item.enabled}
                             navigateOnRelease={Boolean(rowSessionId)}
@@ -261,7 +264,11 @@ export function SidebarSectionList({
                           )}
                           data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                         >
-                          <NestedRowBody trail={trail} expanded={hasChildren && !folded}>
+                          <NestedRowBody
+                            trail={trail}
+                            expanded={hasChildren && !folded}
+                            comfortable={density === 'comfortable'}
+                          >
                             {row}
                           </NestedRowBody>
                         </div>
