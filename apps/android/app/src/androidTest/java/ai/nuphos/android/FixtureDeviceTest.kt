@@ -155,7 +155,7 @@ class FixtureDeviceTest {
         Assert.assertTrue(session.canSubmit)
         Assert.assertFalse(session.canManage)
         Assert.assertFalse(session.canCancel)
-        compose.onNodeWithContentDescription("Chat actions").performClick()
+        compose.onNodeWithContentDescription("Agent actions").performClick()
         compose.onNodeWithText("Share").assertExists()
         compose.onNodeWithText("Rename").assertDoesNotExist()
         compose.onNodeWithText("Archive").assertDoesNotExist()

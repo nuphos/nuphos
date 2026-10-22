@@ -179,7 +179,7 @@ class RuntimeControlFixtureDeviceTest {
     @Test fun readOnlyNativeStatusRemainsVisibleWithoutActions() {
         render(snapshot(reply = true, steer = true, cancel = true), readOnly = true)
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
-        compose.onNodeWithText("Read-only chat").assertIsDisplayed()
+        compose.onNodeWithText("Read-only agent").assertIsDisplayed()
         compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Read-only retained text")
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
         compose.onNodeWithText("Cancel run").assertDoesNotExist()

@@ -66,21 +66,21 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                     if (store.focusSignIn(detail.runtimeId)) { detailId = null; managing = true }
                 })
             } else {
-                Text(if (managing) "Manage Agents" else "Choose an Agent", style = MaterialTheme.typography.headlineSmall)
-                if (!managing) Text("Choose an Agent for new chats. Existing chats keep their current Agent. Provider sign-in may still be required.",
+                Text(if (managing) "Manage runtimes" else "Choose a runtime", style = MaterialTheme.typography.headlineSmall)
+                if (!managing) Text("Choose a runtime for new agents. Existing agents keep their current runtime. Provider sign-in may still be required.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (managing) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Back to Agents") }
-                    else if (store.canAdminister) OutlinedButton(onClick = { code = ""; browserError = false; managing = true }) { Text("Manage Agents") }
+                    if (managing) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Back to runtimes") }
+                    else if (store.canAdminister) OutlinedButton(onClick = { code = ""; browserError = false; managing = true }) { Text("Manage runtimes") }
                     TextButton(onClick = { code = ""; onDismiss() }) { Text("Done") }
                 }
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 state.message?.let { Text(it) }
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (selection.reselectionRequired) Text("The selected Agent is unavailable. Select a saved active Agent before starting a new chat.")
+                if (selection.reselectionRequired) Text("The selected runtime is unavailable. Select a saved active runtime before starting a new agent.")
                 if (!managing) {
                     val groups = listOf(
-                        "My computers" to selection.catalog.filter { it.kind == "local" },
+                        "Computers" to selection.catalog.filter { it.kind == "local" },
                         "Cloud and servers" to selection.catalog.filter { it.kind != "local" },
                     )
                     groups.filter { it.second.isNotEmpty() }.forEach { (title, runtimes) ->
@@ -124,34 +124,34 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                             }
                         }
                     }
-                    if (state.catalogLoaded && selection.catalog.isEmpty()) Text("No saved Agents.")
-                    OutlinedButton(onClick = { store.refresh() }, enabled = !state.busy) { Text("Refresh Agents") }
+                    if (state.catalogLoaded && selection.catalog.isEmpty()) Text("No saved runtimes.")
+                    OutlinedButton(onClick = { store.refresh() }, enabled = !state.busy) { Text("Refresh runtimes") }
                 } else {
                     store.signInRuntime?.let { selected ->
-                        Text("Agent sign-in", style = MaterialTheme.typography.titleSmall,
+                        Text("Runtime sign-in", style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(selected.label, style = MaterialTheme.typography.titleMedium)
                     }
-                    OutlinedButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Change Agent") }
+                    OutlinedButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Change runtime") }
                     if (store.canAdminister) {
                         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                        Text("Managed Agent", style = MaterialTheme.typography.titleMedium)
+                        Text("Managed runtime", style = MaterialTheme.typography.titleMedium)
                         Text("Creation can allocate resources. Provider sign-in is a separate step.")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(provider == "codex", onClick = { provider = "codex" }, label = { Text("Codex") })
                             FilterChip(provider == "claude-code", onClick = { provider = "claude-code" }, label = { Text("Claude Code") })
                         }
-                        OutlinedTextField(label, { label = it }, label = { Text("Agent label (optional)") }, enabled = !state.busy && !selection.createReview, singleLine = true)
+                        OutlinedTextField(label, { label = it }, label = { Text("Runtime label (optional)") }, enabled = !state.busy && !selection.createReview, singleLine = true)
                         Button(onClick = { store.create(provider, label.trim().takeIf { it.isNotEmpty() }) },
-                            enabled = !state.busy && !selection.createReview && label.trim().length <= 120) { Text("Create Agent") }
+                            enabled = !state.busy && !selection.createReview && label.trim().length <= 120) { Text("Create runtime") }
                         if (selection.createReview) {
-                            Text("Creation is unconfirmed. Closing does not undo a saved Agent.")
-                            OutlinedButton(onClick = store::confirmCreateReviewed, enabled = !state.busy && state.catalogLoaded) { Text("I reviewed saved Agents") }
+                            Text("Creation is unconfirmed. Closing does not undo a saved runtime.")
+                            OutlinedButton(onClick = store::confirmCreateReviewed, enabled = !state.busy && state.catalogLoaded) { Text("I reviewed saved runtimes") }
                         }
                         if (store.signInRuntime?.kind in setOf("managed", "external")) {
                             Button(onClick = store::startLogin, enabled = !state.busy && !selection.loginReview) { Text("Start provider sign-in") }
                             if (selection.loginReview) {
-                                if (selection.loginRuntimeId != store.signInRuntime?.id) Text("Another Agent has an unconfirmed sign-in. Select that Agent and refresh its sign-in before starting another.")
+                                if (selection.loginRuntimeId != store.signInRuntime?.id) Text("Another runtime has an unconfirmed sign-in. Select that runtime and refresh its sign-in before starting another.")
                                 val attempt = state.attempt
                                 Text("Sign-in: ${attempt?.state ?: "unconfirmed"}")
                                 OutlinedButton(onClick = store::refreshLogin, enabled = !state.busy) { Text("Refresh sign-in") }
@@ -176,8 +176,8 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                                 OutlinedButton(onClick = { code = ""; store.cancelLogin() }, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch && attempt?.pending == true && attempt.valid(System.currentTimeMillis())) { Text("Cancel sign-in") }
                                 if (attempt != null && !attempt.pending) OutlinedButton(onClick = store::confirmLoginRestart, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch) { Text("Review and allow a new sign-in") }
                             }
-                        } else if (store.signInRuntime != null) Text("Provider setup for self-hosted Agents is not available here.")
-                    } else Text("Only a current workspace administrator can create Agents or manage provider sign-in.")
+                        } else if (store.signInRuntime != null) Text("Provider setup for self-hosted runtimes is not available here.")
+                    } else Text("Only a current workspace administrator can create runtimes or manage provider sign-in.")
                     Text("Closing this sheet stops local polling. It does not cancel server sign-in.")
                     TextButton(onClick = { code = ""; onDismiss() }) { Text("Close") }
                 }

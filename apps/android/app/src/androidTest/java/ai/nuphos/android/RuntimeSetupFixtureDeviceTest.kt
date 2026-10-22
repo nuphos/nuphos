@@ -75,7 +75,7 @@ class RuntimeSetupFixtureDeviceTest {
             var visible by remember { mutableStateOf(true) }
             NuphosTheme { if (visible) RuntimeSetupSheet(setup, { visible = false }, { browsers += it }) }
         }
-        waitText("Choose an Agent")
+        waitText("Choose a runtime")
         compose.waitUntil(5_000) { store.state.catalogLoaded && !store.state.busy }
     }
     private fun waitText(text: String, substring: Boolean = false) {
@@ -83,32 +83,32 @@ class RuntimeSetupFixtureDeviceTest {
     }
     private fun click(text: String) = compose.onNodeWithText(text).performScrollTo().performClick()
     private fun select(manage: Boolean = true) {
-        if (compose.onAllNodesWithText("Choose an Agent").fetchSemanticsNodes().isEmpty()) click("Change Agent")
+        if (compose.onAllNodesWithText("Choose a runtime").fetchSemanticsNodes().isEmpty()) click("Change runtime")
         compose.onNodeWithContentDescription("Use Fixture Agent").performScrollTo().performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithContentDescription("Selected Fixture Agent").fetchSemanticsNodes().isNotEmpty()
         }
-        if (manage && administrator) click("Manage Agents")
+        if (manage && administrator) click("Manage runtimes")
     }
     private fun posts(suffix: String) = requests.count { it.method == "POST" && it.url.encodedPath.endsWith(suffix) }
     @Test fun pickerGroupsAgentsAndKeepsManagementSeparate() {
         catalog = "[${runtime(runtimeId = "computer", label = "My laptop", kind = "local")},${runtime()}]"
         render()
-        compose.onNodeWithText("My computers").assertExists()
+        compose.onNodeWithText("Computers").assertExists()
         compose.onNodeWithText("Cloud and servers").assertExists()
-        compose.onAllNodesWithText("Create Agent").assertCountEquals(0)
-        compose.onNodeWithText("Manage Agents").performClick()
-        compose.onNodeWithText("Create Agent").assertExists()
-        click("Back to Agents")
-        compose.onAllNodesWithText("Create Agent").assertCountEquals(0)
-        compose.onNodeWithText("My computers").assertExists()
+        compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
+        compose.onNodeWithText("Manage runtimes").performClick()
+        compose.onNodeWithText("Create runtime").assertExists()
+        click("Back to runtimes")
+        compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
+        compose.onNodeWithText("Computers").assertExists()
         assertEquals(0, posts("/agent-runtimes"))
         assertEquals(0, posts("/login"))
     }
 
     @Test fun actualSheetCreatesOnceThenSelectsExactSavedRegistration() {
-        render(); click("Manage Agents"); compose.onNodeWithText("Agent label (optional)").performScrollTo().performTextInput(" Fixture Agent ")
-        click("Create Agent"); waitText("Agent registered and selected.", true)
+        render(); click("Manage runtimes"); compose.onNodeWithText("Runtime label (optional)").performScrollTo().performTextInput(" Fixture Agent ")
+        click("Create runtime"); waitText("Runtime registered and selected.", true)
         assertEquals(id, selection.selectedId); assertEquals(1, posts("/agent-runtimes"))
         assertEquals("GET", requests.last().method)
         val body = Buffer().also { requests.first { it.method == "POST" }.body!!.writeTo(it) }.readUtf8()
@@ -116,8 +116,8 @@ class RuntimeSetupFixtureDeviceTest {
     }
     @Test fun actualCatalogSelectionAndDisabledRemovalNeverFallback() {
         catalog = "[${runtime()}]"; render(); select(manage = false)
-        catalog = "[${runtime(active = false)}]"; click("Refresh Agents")
-        waitText("The selected Agent is unavailable.", true)
+        catalog = "[${runtime(active = false)}]"; click("Refresh runtimes")
+        waitText("The selected runtime is unavailable.", true)
         assertTrue(selection.reselectionRequired); assertNull(selection.binding)
         compose.onNodeWithContentDescription("Selected Fixture Agent").assertIsNotEnabled()
         assertEquals(0, posts("/login"))
@@ -125,12 +125,12 @@ class RuntimeSetupFixtureDeviceTest {
     @Test fun homeSelectionLabelUpdatesAndDoesNotShowUnavailableAgent() {
         selection.saveCatalog(listOf(AgentRuntime("computer", "codex", "My laptop", "active", "local")))
         compose.setContent { NuphosTheme { AgentChip(selection, true, {}) } }
-        compose.onNodeWithText("Choose an Agent").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Agent for new chats").assertIsDisplayed()
+        compose.onNodeWithText("Choose a runtime").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Runtime for new agents").assertIsDisplayed()
         compose.runOnIdle { assertTrue(selection.select("computer")) }
         compose.onNodeWithText("My laptop").assertIsDisplayed()
         compose.runOnIdle { selection.saveCatalog(emptyList()) }
-        compose.onNodeWithText("Choose an available Agent").assertIsDisplayed()
+        compose.onNodeWithText("Choose an available runtime").assertIsDisplayed()
         compose.onNodeWithText("My laptop").assertDoesNotExist()
     }
 
@@ -162,12 +162,12 @@ class RuntimeSetupFixtureDeviceTest {
 
     @Test fun editorCannotCreateOrSignInAndForbiddenKeepsAccount() {
         administrator = false; catalog = "[${runtime()}]"; render(); select()
-        compose.onAllNodesWithText("Create Agent").assertCountEquals(0)
+        compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
         compose.onAllNodesWithText("Start provider sign-in").assertCountEquals(0)
         assertEquals(0, expired)
     }
     @Test fun forbiddenCreateShowsDenialWithoutExpiry() {
-        forbidden = true; render(); click("Manage Agents"); click("Create Agent")
+        forbidden = true; render(); click("Manage runtimes"); click("Create runtime")
         waitText("Administrator permission is required.", true); assertEquals(0, expired); assertNull(selection.selected)
     }
     @Test fun codexDeviceBrowserIsInjectedAndCancelUsesExactAttempt() {
@@ -203,11 +203,11 @@ class RuntimeSetupFixtureDeviceTest {
         assertEquals(1, posts("/login")); assertNull(store.state.attempt)
     }
     @Test fun uncertainCreateRequiresExplicitSavedReview() {
-        lostReceipt = true; render(); click("Manage Agents"); click("Create Agent")
+        lostReceipt = true; render(); click("Manage runtimes"); click("Create runtime")
         waitText("We could not identify the saved result.", true)
-        compose.onNodeWithText("Create Agent").assertIsNotEnabled(); assertNull(selection.selected)
+        compose.onNodeWithText("Create runtime").assertIsNotEnabled(); assertNull(selection.selected)
         select(); assertEquals(1, posts("/agent-runtimes"))
-        click("I reviewed saved Agents"); compose.onNodeWithText("Create Agent").assertIsEnabled()
+        click("I reviewed saved runtimes"); compose.onNodeWithText("Create runtime").assertIsEnabled()
     }
     @Test fun newSessionCapturesExactBindingWithoutNativeAdmission() {
         catalog = "[${runtime()}]"; render(); select()

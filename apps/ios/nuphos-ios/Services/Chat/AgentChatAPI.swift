@@ -334,20 +334,20 @@ enum AgentChatAPI {
 
         var errorDescription: String? {
             switch self {
-            case .transcriptOutOfSync: "The conversation changed elsewhere; resyncing."
+            case .transcriptOutOfSync: "The agent changed elsewhere; resyncing."
             case .streamNotResumable: "The previous reply can no longer be resumed."
-            case .streamConflict: "That stream belongs to another conversation."
-            case .conversationBusy: "This conversation is busy with another reply."
-            case .runtimeNotReady: "The agent is not ready for a new message yet. Try again in a moment."
-            case .runtimeLoginRequired: "This agent is not signed in. Sign in to it on the computer running it, or ask an administrator to sign in a Cloud agent from the agent list."
-            case .runtimeDisabled: "This conversation's agent is disabled. Start a new chat on another agent."
-            case .runtimeNotFound: "This agent is no longer available in this workspace. Start a new chat on another agent."
-            case .runtimeOffline: "The computer running this agent is offline. Open Nuphos on it with the local agent turned on, or start a new chat on a Cloud agent."
+            case .streamConflict: "That stream belongs to another agent."
+            case .conversationBusy: "This agent is busy with another reply."
+            case .runtimeNotReady: "The runtime is not ready for a new message yet. Try again in a moment."
+            case .runtimeLoginRequired: "This runtime is not signed in. Sign in to it on the computer running it, or ask an administrator to sign in a cloud runtime from the runtime list."
+            case .runtimeDisabled: "This agent's runtime is disabled. Start a new agent on another runtime."
+            case .runtimeNotFound: "This runtime is no longer available in this workspace. Start a new agent on another runtime."
+            case .runtimeOffline: "The computer running this runtime is offline. Open Nuphos on it with the local runtime turned on, or start a new agent on a cloud runtime."
             case .runtimeUnavailable(let message): message
             case .runtimeBusy: "Wait for the current reply to finish before changing model settings."
-            case .conversationNotRunning: "This conversation is no longer running."
-            case .conversationInUseByTeammate: "A teammate is using this conversation right now. Try again after their turn finishes."
-            case .favoritesChanged: "Pinned chats changed elsewhere; refreshing."
+            case .conversationNotRunning: "This agent is no longer running."
+            case .conversationInUseByTeammate: "A teammate is using this agent right now. Try again after their turn finishes."
+            case .favoritesChanged: "Pinned agents changed elsewhere; refreshing."
             case .other(_, let message, _): message
             }
         }

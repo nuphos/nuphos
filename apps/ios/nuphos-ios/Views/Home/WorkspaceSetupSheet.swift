@@ -14,7 +14,7 @@ struct WorkspaceSetupSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Create a workspace for your chats and agents, or join one your organization has made available.")
+                    Text("Create a workspace for your agents and runtimes, or join one your organization has made available.")
                     TextField("Workspace name", text: $name)
                     Button("Create workspace") { create() }
                         .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 80)

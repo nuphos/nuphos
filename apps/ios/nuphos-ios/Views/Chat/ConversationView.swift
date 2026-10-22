@@ -38,7 +38,7 @@ struct ConversationView: View {
         if !session.loaded || session.awaitingReplay {
             ProgressView().tint(Theme.muted)
         } else if let loadError = session.loadError {
-            ContentUnavailableView("Couldn't load this chat", systemImage: "exclamationmark.bubble", description: Text(loadError))
+            ContentUnavailableView("Couldn't load this agent", systemImage: "exclamationmark.bubble", description: Text(loadError))
         }
     }
 
@@ -84,7 +84,7 @@ struct ConversationView: View {
             #endif
         }
         .onChange(of: scenePhase) { _, _ in updateReading() }
-        .alert("Rename chat", isPresented: $showRename) {
+        .alert("Rename agent", isPresented: $showRename) {
             TextField("Title", text: $renamedTitle)
             Button("Cancel", role: .cancel) {}
             Button("Save") {
@@ -130,7 +130,7 @@ struct ConversationView: View {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
                         }
                         if session.canManage {
-                            Button("Switch agent", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
+                            Button("Switch runtime", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
                                 .disabled(session.isStreaming)
                             Button {
                                 Task {
@@ -155,14 +155,14 @@ struct ConversationView: View {
                         // this is what shows it was taken. A Label, not a bare
                         // Image: the bar takes it as a native item, so the
                         // whole glass answers, not just the glyph.
-                        if updating { ProgressView() } else { Label("Chat options", systemImage: "ellipsis") }
+                        if updating { ProgressView() } else { Label("Agent options", systemImage: "ellipsis") }
                     }
                     .disabled(updating)
-                    .accessibilityLabel("Chat options")
+                    .accessibilityLabel("Agent options")
                 }
             }
         }
-        .alert("Couldn't update chat", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
+        .alert("Couldn't update agent", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
             Button("OK") { archiveError = nil }
         } message: {
             Text(archiveError ?? "")

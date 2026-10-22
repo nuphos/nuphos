@@ -31,7 +31,7 @@ fun runtimeHttpsUrl(value: String): Boolean = runCatching {
 }.getOrDefault(false)
 fun validRuntimeCode(value: String) = value.matches(Regex("^[A-Za-z0-9_.~-]{1,2048}#[A-Za-z0-9_.~-]{1,512}$"))
 class RuntimeLoginAbsent : Exception("No sign-in is in progress for this account.")
-class RuntimeHttpFailure(val status: Int, val errorCode: String?) : Exception("Agent request was rejected ($status).")
+class RuntimeHttpFailure(val status: Int, val errorCode: String?) : Exception("Runtime request was rejected ($status).")
 
 interface RuntimeManagementTransport {
     suspend fun update(runtimeId: String, label: String? = null, status: String? = null): AgentRuntime

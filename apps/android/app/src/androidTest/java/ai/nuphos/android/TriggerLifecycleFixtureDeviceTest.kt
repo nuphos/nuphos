@@ -169,10 +169,10 @@ class TriggerLifecycleFixtureDeviceTest {
         compose.onNodeWithText(answer).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Read-only run").assertIsDisplayed()
         compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
-        listOf("Send", "Stop", "Attach", "Ask Nuphos anything", "Queue message", "Chat actions").forEach {
+        listOf("Send", "Stop", "Attach", "Ask Nuphos anything", "Queue message", "Agent actions").forEach {
             compose.onNodeWithContentDescription(it).assertDoesNotExist()
         }
-        listOf("Approve once", "For session", "Always allow…", "Deny", "Cancel run", "Approve plan", "Reject plan").forEach {
+        listOf("Approve once", "For this agent", "Always allow…", "Deny", "Cancel run", "Approve plan", "Reject plan").forEach {
             compose.onNodeWithText(it).assertDoesNotExist()
         }
     }

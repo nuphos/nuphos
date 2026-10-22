@@ -142,13 +142,13 @@ class ConversationNestingFixtureDeviceTest {
         render()
         compose.onNodeWithText("Synthetic parent").assertExists()
         compose.onNodeWithText("Synthetic child").assertExists()
-        compose.onNodeWithContentDescription("Hide 2 threads").performClick()
+        compose.onNodeWithContentDescription("Hide 2 sub-agents").performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
-        compose.onNodeWithText("My chats").assertExists()
+        compose.onNodeWithText("My agents").assertExists()
         compose.onNodeWithText("Shared").assertExists()
         compose.onNodeWithText("Unread").assertExists()
         shot("collapsed")
-        compose.onNodeWithContentDescription("Show 2 threads").performClick()
+        compose.onNodeWithContentDescription("Show 2 sub-agents").performClick()
         compose.onNodeWithText("Synthetic child").assertExists()
         shot("expanded")
         compose.onNodeWithText("Synthetic child").performClick()
@@ -157,7 +157,7 @@ class ConversationNestingFixtureDeviceTest {
     }
     @Test fun syntheticFoldedLastPageStillOffersExplicitPagination() {
         render()
-        compose.onNodeWithContentDescription("Hide 2 threads").performClick()
+        compose.onNodeWithContentDescription("Hide 2 sub-agents").performClick()
         compose.runOnIdle {
             state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent")) +
                 (0 until 20).map { AgentConversation("child-$it", "A", "Hidden $it", parentSessionId = "normal") }
@@ -165,7 +165,7 @@ class ConversationNestingFixtureDeviceTest {
             AgentStore::class.java.getDeclaredField("nextCursor").also { it.isAccessible = true }.set(store, "next")
         }
         shot("load-more")
-        compose.onNodeWithText("Load more chats").performClick()
+        compose.onNodeWithText("Load more agents").performClick()
         compose.waitUntil(5_000) { requests.any { it.url.queryParameter("cursor") == "next" } && !store.hasMore }
         assertTrue(requests.none { it.method != "GET" })
     }
@@ -178,7 +178,7 @@ class ConversationNestingFixtureDeviceTest {
             ), 2)
         }
         compose.onNodeWithText("Synthetic parent").assertExists()
-        compose.onNodeWithContentDescription("Hide 1 threads").assertExists()
+        compose.onNodeWithContentDescription("Hide 1 sub-agents").assertExists()
         shot("independent-pin")
         compose.runOnIdle {
             state(store, "favorites").value = ConversationActions.Favorites(emptyList(), 3)

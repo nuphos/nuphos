@@ -45,7 +45,7 @@ class ComputerCredentialFixtureDeviceTest {
                     }
                 }
             }
-            compose.onNodeWithText("My computers").assertIsDisplayed()
+            compose.onNodeWithText("Computers").assertIsDisplayed()
             compose.onNodeWithText("macOS").assertIsDisplayed()
             compose.onNodeWithText("Windows").assertIsDisplayed()
             compose.onNodeWithText("Office Mac").assertIsOn()

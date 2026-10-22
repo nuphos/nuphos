@@ -158,7 +158,7 @@ class PinnedHistoryFixtureDeviceTest {
     @Test fun pinsOpenBeyondPageWithoutHydrationAndKeepFilterAndArchiveRules() {
         render()
         assertTrue(requests.none { it.url.encodedPath.startsWith("/agent/conversations/") })
-        compose.onAllNodesWithContentDescription("Pinned chat").assertCountEquals(3)
+        compose.onAllNodesWithContentDescription("Pinned agent").assertCountEquals(3)
         for (scope in listOf(ConversationScope.Team, ConversationScope.Mine)) {
             compose.runOnIdle { store.updateScope(scope) }; compose.waitForIdle()
             compose.onNodeWithText("Beyond first page").assertExists()
@@ -172,8 +172,8 @@ class PinnedHistoryFixtureDeviceTest {
         compose.onNodeWithText("Beyond first page").performClick()
         waitText("Authorized fixture transcript")
         compose.onNodeWithText("Authorized archived detail").assertExists()
-        compose.onNodeWithText("Archived chat").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Chat actions").performClick()
+        compose.onNodeWithText("Archived agent").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Agent actions").performClick()
         compose.onNodeWithText("Restore").assertExists()
         compose.onNodeWithText("Unpin").performClick()
         compose.waitUntil(5_000) { requests.any { it.method == "PUT" } }
@@ -187,15 +187,15 @@ class PinnedHistoryFixtureDeviceTest {
         render()
         compose.onNodeWithText("Beyond first page").performClick()
         waitText("Authorized fixture transcript")
-        compose.onNodeWithText("Archived chat").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Chat actions").performClick()
+        compose.onNodeWithText("Archived agent").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Agent actions").performClick()
         compose.onNodeWithText("Restore").assertDoesNotExist()
         compose.onNodeWithText("Unpin").assertExists()
     }
 
     @Test fun emptyHistoryStillShowsPinsAndDeniedPinIsNeverRemoved() {
         emptyHistory = true; render()
-        compose.onNodeWithText("No chats yet").assertDoesNotExist()
+        compose.onNodeWithText("No agents yet").assertDoesNotExist()
         compose.onNodeWithText("Stale pin").performClick()
         compose.waitUntil(5_000) { requests.any { it.url.encodedPath == "/agent/conversations/denied" } }
         compose.waitForIdle()
@@ -228,7 +228,7 @@ class PinnedHistoryFixtureDeviceTest {
         compose.onNodeWithText("Late A label").assertDoesNotExist()
         failFavorites = true
         compose.runOnIdle { work.launch { store.loadFavorites() } }
-        waitText("Could not refresh pinned chats.")
+        waitText("Could not refresh pinned agents.")
         compose.onNodeWithText("Normal history").assertExists()
         compose.onNodeWithText("Beyond first page").assertExists()
         work.cancel()

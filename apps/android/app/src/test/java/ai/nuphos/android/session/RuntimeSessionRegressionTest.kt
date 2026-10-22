@@ -48,7 +48,7 @@ class RuntimeSessionRegressionTest {
         metadata(session, AgentConversationDetail(agentRuntime = "openab", canRespondToRun = true,
             runtimeState = JsonValue.parse("""{"schemaVersion":2,"actions":{"reply":false,"send":false,"steer":true,"cancel":true}}""")))
         state(session, "queued", listOf("delivery uncertain"))
-        state(session, "error", "Steering delivery is unconfirmed. Check the conversation before retrying.")
+        state(session, "error", "Steering delivery is unconfirmed. Check the agent before retrying.")
         assertFalse(session.canSteer)
         assertFalse(session.canSubmit)
     }
@@ -57,7 +57,7 @@ class RuntimeSessionRegressionTest {
         val receipt = ChatPart.Data("steering", data = JsonValue.parse("""{"id":"old","text":"pending"}""")!!)
         state(session, "messages", listOf(ChatMessage(id = "a", role = ChatMessage.Role.Assistant, parts = listOf(receipt)), ChatMessage(id = "b", role = ChatMessage.Role.Assistant, parts = emptyList())))
         state(session, "queued", listOf("pending", "next"))
-        state(session, "error", "Steering delivery is unconfirmed. Check the conversation before retrying.")
+        state(session, "error", "Steering delivery is unconfirmed. Check the agent before retrying.")
         val pendingType = Class.forName("ai.nuphos.android.session.ChatSession\$PendingSteering")
         val pending = pendingType.declaredConstructors.first().apply { isAccessible = true }.newInstance("pending", "a", setOf("old"))
         state(session, "steeringHold", pending)

@@ -36,7 +36,7 @@ private struct NewChatCommand: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Chat") { newChat?() }
+            Button("New Agent") { newChat?() }
                 .keyboardShortcut("n")
                 .disabled(newChat == nil)
         }

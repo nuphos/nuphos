@@ -17,7 +17,7 @@ import ai.nuphos.android.model.TeamMember
 import ai.nuphos.android.session.SharingState
 import kotlinx.coroutines.launch
 
-private const val LOCAL_WARNING = "This session runs on your computer’s Local Agent. Anyone you share it with can run commands on your computer."
+private const val LOCAL_WARNING = "This agent runs on your computer’s local runtime. Anyone you share it with can run commands on your computer."
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,18 +33,18 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
         LazyColumn(modifier = Modifier.fillMaxWidth().imePadding(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Share session", style = MaterialTheme.typography.headlineSmall)
+                    Text("Share agent", style = MaterialTheme.typography.headlineSmall)
                     TextButton(onClick = onDismiss) { Text("Done") }
                 }
             }
             if (url != null) item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = {
-                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Session link", url))
+                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Agent link", url))
                         copied = true
                     }) { Text(if (copied) "Copied" else "Copy link") }
                     OutlinedButton(onClick = {
-                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "Share session"))
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "Share agent"))
                     }) { Text("Share link") }
                 }
             }
@@ -63,7 +63,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                     if (state.pending == "access") CircularProgressIndicator(Modifier.size(20.dp))
                     if (state.localRuntime && state.canManage) Text(LOCAL_WARNING, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
                 }
-                item { Text("In this session", style = MaterialTheme.typography.titleMedium) }
+                item { Text("In this agent", style = MaterialTheme.typography.titleMedium) }
                 items(access.participants, key = { "participant:${it.id}" }) { person ->
                     Column(Modifier.fillMaxWidth()) {
                         Text(person.displayName, color = if (person.deactivated) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
@@ -115,7 +115,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
     }
     confirm?.let { (member, role) ->
         AlertDialog(onDismissRequest = { confirm = null }, title = { Text("Let ${member.displayName} use your computer?") },
-            text = { Text("This session runs on your computer’s Local Agent. They will be able to run commands on your computer.") },
+            text = { Text("This agent runs on your computer’s local runtime. They will be able to run commands on your computer.") },
             confirmButton = { TextButton(enabled = state.canInvite, onClick = { confirm = null; scope.launch { state.invite(member, role) } }) { Text("Invite") } },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } })
     }

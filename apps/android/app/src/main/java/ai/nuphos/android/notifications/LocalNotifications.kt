@@ -50,12 +50,12 @@ class LocalNotifications(
         return true
     }
 
-    fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String = "Open conversation history", badge: Int? = null): Boolean {
+    fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String = "Open agent history", badge: Int? = null): Boolean {
         if (LocalNotificationTarget.from(target.accountId, target.teamId, target.sessionId) != target ||
             account() != target.accountId || !aiAllowed() ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
             !manager.areNotificationsEnabled()) return false
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Conversation updates", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Agent updates", NotificationManager.IMPORTANCE_DEFAULT))
         if (manager.getNotificationChannel(CHANNEL).importance == NotificationManager.IMPORTANCE_NONE) return false
         val intent = Intent(context, MainActivity::class.java).setAction(ACTION)
             .setData(Uri.Builder().scheme("nuphos-local").authority("conversation")

@@ -27,7 +27,7 @@ struct AgentDetailView: View {
     var body: some View {
         Form {
             Section("Name") {
-                TextField("Agent name", text: $name)
+                TextField("Runtime name", text: $name)
                     .submitLabel(.done)
                     .onSubmit {
                         let label = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,7 +62,7 @@ struct AgentDetailView: View {
                 ))
             }
             Section {
-                Button("Remove Agent", role: .destructive) { confirmRemoval = true }
+                Button("Remove Runtime", role: .destructive) { confirmRemoval = true }
             }
             if let error {
                 Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
@@ -72,11 +72,11 @@ struct AgentDetailView: View {
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Remove \(current.label)?", isPresented: $confirmRemoval, titleVisibility: .visible) {
-            Button("Remove Agent", role: .destructive) { remove() }
+            Button("Remove Runtime", role: .destructive) { remove() }
         } message: {
             Text(current.kind == "managed"
-                ? "This stops the agent and permanently deletes its files and sign-in. Your conversation history stays in Nuphos."
-                : "This disconnects the agent. Your conversations stay in Nuphos.")
+                ? "This stops the runtime and permanently deletes its files and sign-in. Your agents' history stays in Nuphos."
+                : "This disconnects the runtime. Your agents stay in Nuphos.")
         }
     }
 

@@ -181,21 +181,21 @@ struct AgentPage: View {
             }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
             ContentUnavailableView {
-                Label("Connect your first agent", systemImage: "cpu")
+                Label("Connect your first runtime", systemImage: "cpu")
             } description: {
-                Text(store.selectedTeam?.isAdministrator == true ? "Create a cloud agent and sign in with your AI provider." : "Ask a workspace administrator to connect a cloud agent, or open Nuphos on your computer to connect your own local agent.")
+                Text(store.selectedTeam?.isAdministrator == true ? "Create a cloud runtime and sign in with your AI provider." : "Ask a workspace administrator to connect a cloud runtime, or open Nuphos on your computer to connect your own local runtime.")
             } actions: {
                 if store.selectedTeam?.isAdministrator == true {
-                    Button("Set up agent") { showAgentSetup = true }.prominentButton()
+                    Button("Set up runtime") { showAgentSetup = true }.prominentButton()
                 }
             }
         case .idle, .loading:
-            ProgressView("Loading chats…")
+            ProgressView("Loading agents…")
                 .tint(Theme.muted)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
             ContentUnavailableView {
-                Label("Couldn't load chats", systemImage: "wifi.exclamationmark")
+                Label("Couldn't load agents", systemImage: "wifi.exclamationmark")
             } description: {
                 Text(message)
             } actions: {
@@ -204,11 +204,11 @@ struct AgentPage: View {
             }
         case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
-                Label(store.search.isEmpty ? (store.showArchived ? "No archived chats" : "No chats yet") : "No matches", systemImage: store.showArchived ? "archivebox" : "message")
+                Label(store.search.isEmpty ? (store.showArchived ? "No archived agents" : "No agents yet") : "No matches", systemImage: store.showArchived ? "archivebox" : "message")
             } description: {
                 Text(store.search.isEmpty
-                     ? (store.showArchived ? "Idle chats are archived automatically after a week." : "Start a conversation from the bar below.")
-                     : "No conversations match your search.")
+                     ? (store.showArchived ? "Idle agents are archived automatically after a week." : "Start an agent from the bar below.")
+                     : "No agents match your search.")
             }
         case .loaded:
             EmptyView()
@@ -286,7 +286,7 @@ struct AgentPage: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.borderless)
-                                .accessibilityLabel(folded ? "Show \(item.threads) threads" : "Hide \(item.threads) threads")
+                                .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
                             }
                         }
                         // Insets live here, not on the row, so the tree lines span the whole row.
@@ -339,7 +339,7 @@ struct AgentPage: View {
 /// decides whether the query is server-backed (chats) or local (plans).
 struct SearchBar: View {
     @Binding var text: String
-    var placeholder: LocalizedStringKey = "Search chats"
+    var placeholder: LocalizedStringKey = "Search agents"
     var onCancel: () -> Void
     @FocusState private var focused: Bool
 

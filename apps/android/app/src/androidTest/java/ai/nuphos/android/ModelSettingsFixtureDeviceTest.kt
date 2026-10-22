@@ -112,7 +112,7 @@ class ModelSettingsFixtureDeviceTest {
     }
     @Test fun offlineShowsUnavailableWithoutSelectableControls() {
         render(offline = true)
-        compose.onNodeWithText("This agent is offline. Model settings return when it reconnects.").assertExists()
+        compose.onNodeWithText("This runtime is offline. Model settings return when it reconnects.").assertExists()
         compose.onNodeWithText("Alpha").assertDoesNotExist()
         capture("model-offline-light.png")
         assertEquals(0, writes)

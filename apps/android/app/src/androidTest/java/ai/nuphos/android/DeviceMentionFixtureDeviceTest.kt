@@ -139,7 +139,7 @@ class DeviceMentionFixtureDeviceTest {
             }
         }
         field().performClick().performTextInput("@fixture")
-        compose.onNodeWithText("My computers").assertDoesNotExist()
+        compose.onNodeWithText("Computers").assertDoesNotExist()
         compose.runOnIdle { devices = denied }
         compose.waitUntil(5000) { compose.onAllNodesWithText("Fixture Mac").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("…-mac").performScrollTo().performClick()

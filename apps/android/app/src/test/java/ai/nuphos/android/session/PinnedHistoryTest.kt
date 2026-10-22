@@ -16,7 +16,7 @@ class PinnedHistoryTest {
             {"key":"dashboard:private","label":"Other"}, {"href":"/agent/other"}
         ]"""), "", false)
         assertEquals(listOf("beyond-page", "no-label"), pins.map { it.sessionId })
-        assertEquals(listOf("Saved title", "Chat"), pins.map { it.title })
+        assertEquals(listOf("Saved title", "Agent"), pins.map { it.title })
         assertEquals(2, pins.map { it.listKey }.toSet().size)
         assertFalse(pins.any { it.listKey == "history:${it.sessionId}" })
     }

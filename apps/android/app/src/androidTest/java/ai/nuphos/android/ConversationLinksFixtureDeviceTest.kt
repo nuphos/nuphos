@@ -235,10 +235,10 @@ class ConversationLinksFixtureDeviceTest {
         awaitText("Fixture content: fixture-chat")
         snapshot("selected-chat")
         val wide = activity!!.resources.configuration.screenWidthDp >= 600
-        if (wide) compose.onNodeWithText("New chat").performClick()
+        if (wide) compose.onNodeWithText("New agent").performClick()
         else compose.onNodeWithContentDescription("Back").performClick()
         awaitText("Fixture first")
-        if (wide) awaitText("Start a new chat")
+        if (wide) awaitText("Start a new agent")
         compose.onNode(hasSetTextAction()).performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement("Synthetic new draft")
         snapshot("new-chat")
@@ -348,7 +348,7 @@ class ConversationLinksFixtureDeviceTest {
     @Test fun nonMemberLinkNeverReadsConversation() {
         identity()
         launch(link("507f1f77bcf86cd799439099"))
-        awaitText("This conversation is unavailable or your account does not have access.")
+        awaitText("This agent is unavailable or your account does not have access.")
         assertFalse(requests.any { it.url.encodedPath == "/agent/conversations/fixture-chat" })
         assertNull(app.conversationLinks.value.value)
     }
@@ -357,12 +357,12 @@ class ConversationLinksFixtureDeviceTest {
         identity()
         detailStatus = 403
         launch(link())
-        awaitText("This conversation is unavailable or your account does not have access.")
+        awaitText("This agent is unavailable or your account does not have access.")
         assertTrue(compose.onAllNodesWithText("Fixture content: fixture-chat").fetchSemanticsNodes().isEmpty())
         detailStatus = 404
         warm(link(id = "deleted-fixture-chat"))
         compose.waitUntil(10_000) { requests.any { it.url.encodedPath.endsWith("/deleted-fixture-chat") } && app.conversationLinks.value.value == null }
-        awaitText("This conversation is unavailable or your account does not have access.")
+        awaitText("This agent is unavailable or your account does not have access.")
         assertTrue(compose.onAllNodesWithText("Fixture content: deleted-fixture-chat").fetchSemanticsNodes().isEmpty())
     }
 

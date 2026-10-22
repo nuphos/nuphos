@@ -153,7 +153,7 @@ class ConversationUnlinkFixtureDeviceTest {
     private fun child() = store.conversations.first { it.sessionId == "child" }
     private fun openConfirm() {
         compose.onAllNodesWithText("Unlink")[0].performClick()
-        waitText("Unlink chat?")
+        waitText("Unlink agent?")
     }
     private fun confirm() { compose.onAllNodesWithText("Unlink").onLast().performClick() }
 
@@ -169,8 +169,8 @@ class ConversationUnlinkFixtureDeviceTest {
         compose.waitUntil(5_000) { child().parentSessionId == null && store.unlinkingSessionId == null }
         assertEquals(1, deletes())
         assertEquals("child", store.conversations.first { it.sessionId == "leaf" }.parentSessionId)
-        compose.onNodeWithContentDescription("Hide 1 threads").assertExists()
-        compose.onNodeWithContentDescription("Hide 2 threads").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Hide 1 sub-agents").assertExists()
+        compose.onNodeWithContentDescription("Hide 2 sub-agents").assertDoesNotExist()
         compose.onNodeWithText("Synthetic parent").assertExists()
         shot("success-root")
     }
@@ -179,7 +179,7 @@ class ConversationUnlinkFixtureDeviceTest {
         openConfirm(); confirm()
         compose.waitUntil(5_000) { store.unlinkError != null && store.unlinkingSessionId == null }
         assertEquals("normal", child().parentSessionId); assertEquals(1, deletes())
-        compose.onNodeWithText("This chat is unavailable or you no longer have permission to unlink it.").assertExists()
+        compose.onNodeWithText("This agent is unavailable or you no longer have permission to unlink it.").assertExists()
         shot("denied")
         responseCode = 200; responseBody = "{}"; confirm()
         compose.waitUntil(5_000) { deletes() == 2 && store.unlinkingSessionId == null }

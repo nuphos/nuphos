@@ -30,7 +30,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             finally { busy = false }
         }
     }
-    IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, "Chat actions") }
+    IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, "Agent actions") }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         DropdownMenuItem(text = { Text("Share") }, enabled = session.loaded && session.loadError == null, onClick = {
             open = false
@@ -55,12 +55,12 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }
     }
-    if (rename) AlertDialog(onDismissRequest = { if (!busy) rename = false }, title = { Text("Rename chat") },
+    if (rename) AlertDialog(onDismissRequest = { if (!busy) rename = false }, title = { Text("Rename agent") },
         text = { TextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, enabled = !busy, singleLine = true) },
         confirmButton = { TextButton(enabled = !busy && ConversationActions.validTitle(title) != null, onClick = { perform { store.rename(session, title); rename = false } }) { Text("Save") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { rename = false }) { Text("Cancel") } })
-    if (archive) AlertDialog(onDismissRequest = { if (!busy) archive = false }, title = { Text(if (session.isArchived) "Restore chat?" else "Archive chat?") },
-        text = { Text(if (session.isArchived) "Move this chat to Active." else "You can restore this chat from Archived.") },
+    if (archive) AlertDialog(onDismissRequest = { if (!busy) archive = false }, title = { Text(if (session.isArchived) "Restore agent?" else "Archive agent?") },
+        text = { Text(if (session.isArchived) "Move this agent to Active." else "You can restore this agent from Archived.") },
         confirmButton = { TextButton(enabled = !busy, onClick = { perform { val restore = session.isArchived; store.archive(session, !restore); archive = false; if (!restore) onArchived() } }) { Text(if (session.isArchived) "Restore" else "Archive") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { archive = false }) { Text("Cancel") } })
     if (error != null) AlertDialog(onDismissRequest = { error = null }, title = { Text("Action failed") }, text = { Text(error.orEmpty()) }, confirmButton = { TextButton(onClick = { error = null }) { Text("OK") } })

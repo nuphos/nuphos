@@ -216,7 +216,7 @@ object AgentChatApi {
 
     sealed class Conflict : Exception() {
         data class TranscriptOutOfSync(val storedMessageCount: Int?) : Conflict() {
-            override val message = "The conversation changed elsewhere; resyncing."
+            override val message = "The agent changed elsewhere; resyncing."
         }
         data object StreamNotResumable : Conflict() {
             private fun readResolve(): Any = StreamNotResumable
@@ -224,11 +224,11 @@ object AgentChatApi {
         }
         data object StreamConflict : Conflict() {
             private fun readResolve(): Any = StreamConflict
-            override val message = "That stream belongs to another conversation."
+            override val message = "That stream belongs to another agent."
         }
         data object ConversationBusy : Conflict() {
             private fun readResolve(): Any = ConversationBusy
-            override val message = "This conversation is busy with another reply."
+            override val message = "This agent is busy with another reply."
         }
         data class Other(val code: String?, val serverMessage: String, val status: Int) : Conflict() {
             override val message = serverMessage

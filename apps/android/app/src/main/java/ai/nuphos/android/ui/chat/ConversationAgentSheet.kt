@@ -37,7 +37,7 @@ internal fun ConversationAgentSheet(
             val loaded = AgentRuntimeApi(token, session.teamId).catalog()
             if (isCurrent()) { catalog = loaded; error = null }
         } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { if (isCurrent()) error = e.message ?: "Could not load agents." }
+        catch (e: Exception) { if (isCurrent()) error = e.message ?: "Could not load runtimes." }
         finally { refreshing = false }
     }
     fun move(target: AgentRuntime) {
@@ -50,7 +50,7 @@ internal fun ConversationAgentSheet(
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 if (isCurrent()) {
-                    error = e.message ?: "Could not switch agents. Refresh and try again."
+                    error = e.message ?: "Could not switch runtimes. Refresh and try again."
                     // Reconcile ambiguous network failures without optimistically changing placement.
                     session.reloadFromServer()
                 }
@@ -60,17 +60,17 @@ internal fun ConversationAgentSheet(
     ModalBottomSheet(onDismissRequest = { if (!session.movingAgent) onDismiss() }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Agent", style = MaterialTheme.typography.titleLarge)
-            Text(session.runtimeDeviceLabel ?: "Current agent", style = MaterialTheme.typography.titleMedium)
+            Text("Runtime", style = MaterialTheme.typography.titleLarge)
+            Text(session.runtimeDeviceLabel ?: "Current runtime", style = MaterialTheme.typography.titleMedium)
             RuntimeUsage(session.runtimeId?.let { quotas[it] })
-            if (session.movingAgent) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Switching agent…") }
+            if (session.movingAgent) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Switching runtime…") }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (session.canManage) {
-                Text("Switch agent", style = MaterialTheme.typography.titleMedium)
-                if (!session.canMoveAgent && !session.movingAgent) Text("Wait for the current response or pending message to finish before switching agents.")
+                Text("Switch runtime", style = MaterialTheme.typography.titleMedium)
+                if (!session.canMoveAgent && !session.movingAgent) Text("Wait for the current response or pending message to finish before switching runtimes.")
                 if (refreshing) LinearProgressIndicator(Modifier.fillMaxWidth())
                 val choices = catalog?.filter { session.isOwner || it.kind == "managed" }
-                if (choices != null && choices.isEmpty()) Text("No available agents.")
+                if (choices != null && choices.isEmpty()) Text("No available runtimes.")
                 choices?.forEach { target ->
                     val selected = target.id == session.runtimeId
                     OutlinedButton(
@@ -88,14 +88,14 @@ internal fun ConversationAgentSheet(
                         }
                     }
                 }
-                TextButton(enabled = !refreshing && !session.movingAgent, onClick = { refresh++ }) { Text("Refresh agents") }
+                TextButton(enabled = !refreshing && !session.movingAgent, onClick = { refresh++ }) { Text("Refresh runtimes") }
             }
             TextButton(enabled = !session.movingAgent, onClick = onDismiss) { Text("Done") }
         }
     }
     pendingLocal?.let { target ->
         AlertDialog(onDismissRequest = { pendingLocal = null }, title = { Text("Move to ${target.label}?") },
-            text = { Text("This agent runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.") },
+            text = { Text("This runtime runs on your computer. After the move, anyone in this team can open this agent and run commands on your computer.") },
             confirmButton = { TextButton(enabled = isCurrent() && session.canMoveAgent, onClick = { pendingLocal = null; move(target) }) { Text("Move") } },
             dismissButton = { TextButton(onClick = { pendingLocal = null }) { Text("Cancel") } })
     }

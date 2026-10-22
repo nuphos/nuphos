@@ -85,7 +85,7 @@ data class TeamMember(
 data class TeamMembersEnvelope(val members: List<TeamMember> = emptyList())
 
 enum class HomePage(val title: String, val route: String) {
-    Agent("Agent", "agent"),
+    Agent("Agents", "agent"),
     Monitoring("Monitoring", "monitoring"),
     Triggers("Triggers", "triggers"),
     Plans("Plans", "plans"),

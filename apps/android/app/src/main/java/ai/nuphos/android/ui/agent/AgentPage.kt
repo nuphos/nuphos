@@ -152,7 +152,7 @@ fun AgentPage(
             SearchField(
                 value = store.search,
                 onValueChange = store::updateSearch,
-                placeholder = "Search chats",
+                placeholder = "Search agents",
                 onCancel = {
                     store.updateSearch("")
                     onSearchingChange(false)
@@ -160,17 +160,17 @@ fun AgentPage(
             )
         }
         if (store.search.isEmpty() && !store.archivedOnly) {
-            if (store.favoritesLoading) Text("Loading pinned chats…", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+            if (store.favoritesLoading) Text("Loading pinned agents…", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
             store.favoritesError?.let {
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Could not refresh pinned chats.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    Text("Could not refresh pinned agents.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                     Button(onClick = { scope.launch { store.loadFavorites() } }) { Text("Retry pins") }
                 }
             }
         }
         if (store.phase == AgentStore.Phase.Loaded && store.phaseError != null) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Could not refresh chats. Showing last loaded history.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Text("Could not refresh agents. Showing last loaded history.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                 Button(onClick = { scope.launch { store.reload() } }) { Text("Retry history") }
             }
         }
@@ -184,14 +184,14 @@ fun AgentPage(
                     RefreshableHistoryState {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             LoadingIndicator()
-                            Text("Loading chats…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Loading agents…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
                 store.phase == AgentStore.Phase.Failed -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.WifiOff,
-                        title = "Couldn't load chats",
+                        title = "Couldn't load agents",
                         body = store.phaseError.orEmpty(),
                         action = "Try again",
                         onAction = store::refresh,
@@ -200,10 +200,10 @@ fun AgentPage(
                 store.conversations.isEmpty() && pins.isEmpty() -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.ChatBubbleOutline,
-                        title = if (store.search.isEmpty()) "No chats yet" else "No matches",
-                        body = if (store.search.isNotEmpty()) "No conversations match your search."
-                            else if (showComposer) "Start a conversation from the bar below."
-                            else "Start a conversation in the pane beside this list.",
+                        title = if (store.search.isEmpty()) "No agents yet" else "No matches",
+                        body = if (store.search.isNotEmpty()) "No agents match your search."
+                            else if (showComposer) "Start an agent from the bar below."
+                            else "Start an agent in the pane beside this list.",
                     ) }
                 }
                 else -> {
@@ -224,7 +224,7 @@ fun AgentPage(
                                         nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}") { popUpTo("home"); launchSingleTop = true }
                                     }) {
                                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat")
+                                            Icon(Icons.Outlined.PushPin, contentDescription = "Pinned agent")
                                             Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
@@ -247,7 +247,7 @@ fun AgentPage(
                         if (store.hasMore) {
                             item(key = "history:more") {
                                 TextButton(onClick = { scope.launch { store.loadMore() } }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Load more chats")
+                                    Text("Load more agents")
                                 }
                             }
                         }
@@ -280,7 +280,7 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, 
             drawLine(line, Offset(x, 0f), Offset(x, size.height / 2), 1.dp.toPx())
             drawLine(line, Offset(x, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
         }
-        Box(Modifier.weight(1f).semantics { stateDescription = "Thread level ${row.depth}"; this.selected = selected }) {
+        Box(Modifier.weight(1f).semantics { stateDescription = "Sub-agent level ${row.depth}"; this.selected = selected }) {
             ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected)
         }
     }
@@ -319,7 +319,7 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
                 }) {
                     Text("$threads")
                     Icon(if (folded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
-                        contentDescription = "${if (folded) "Show" else "Hide"} $threads threads")
+                        contentDescription = "${if (folded) "Show" else "Hide"} $threads sub-agents")
                 }
             }
             if (onWatch != null) TextButton(onClick = onWatch, enabled = !watchBusy) {
@@ -329,7 +329,7 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
                 Text(if (unlinking) "Unlinking…" else "Unlink")
             }
             if (pinned) {
-                Icon(Icons.Outlined.PushPin, contentDescription = "Pinned chat", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.PushPin, contentDescription = "Pinned agent", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
             }
             if (conversation.isArchived) {
                 Icon(Icons.Outlined.Archive, contentDescription = "Archived", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
@@ -343,9 +343,9 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
 internal fun UnlinkConfirmation(target: AgentConversation, busy: Boolean, error: String?, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Unlink chat?") },
+        title = { Text("Unlink agent?") },
         text = { Column {
-            Text("“${target.displayTitle}” will appear on its own in the chat list. Its messages and sharing permissions will stay the same.")
+            Text("“${target.displayTitle}” will appear on its own in the agent list. Its messages and sharing permissions will stay the same.")
             if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
         } },
         confirmButton = { TextButton(onClick = onConfirm, enabled = !busy) { Text(if (busy) "Unlinking…" else "Unlink") } },
@@ -420,7 +420,7 @@ fun NewChatComposer(nav: NavHostController) {
     // The notice opens the picker itself, since the chip it refers to
     // sits in the composer at the bottom of the page.
     if (selection?.reselectionRequired == true) TextButton(onClick = { setupVisible = true }, enabled = setup != null && auth.aiAllowed, modifier = Modifier.padding(horizontal = 4.dp)) {
-        Text("Select an available Agent before starting a new chat.")
+        Text("Select an available runtime before starting a new agent.")
     }
     val draftAuth = ai.nuphos.android.ui.LocalAuthSession.current
     val draftAccount = draftAuth.user?.id

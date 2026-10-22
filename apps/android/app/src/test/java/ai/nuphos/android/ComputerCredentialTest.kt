@@ -15,7 +15,7 @@ class ComputerCredentialTest {
 
     @Test fun ownComputersHaveDistinctIdsAndReadablePlatforms() {
         val computers = catalog.sections.first { it.provider.optionsKey == "devices" }
-        assertEquals("My computers", computers.provider.title)
+        assertEquals("Computers", computers.provider.title)
         assertEquals(listOf("mac", "pc"), computers.items.map { it.id })
         assertEquals(listOf("macOS", "Windows"), computers.items.map { it.detail })
         assertEquals(listOf("Work computer", "Work computer"), computers.items.map { it.label })

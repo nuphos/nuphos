@@ -161,7 +161,7 @@ class HistoryStatusFixtureDeviceTest {
             }
         }
         compose.runOnIdle { work.launch { store.reload() } }
-        waitText(if (expectHistory) "History fixture" else "Couldn't load chats")
+        waitText(if (expectHistory) "History fixture" else "Couldn't load agents")
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
     private fun readCount() = requests.count { it.url.encodedPath.endsWith("/read") }
@@ -197,9 +197,9 @@ class HistoryStatusFixtureDeviceTest {
         render(); failList = true
         val job = refresh()
         compose.waitUntil(5_000) { job.isCompleted }
-        waitText("Could not refresh chats. Showing last loaded history.")
+        waitText("Could not refresh agents. Showing last loaded history.")
         compose.onNodeWithText("History fixture").assertIsDisplayed()
-        compose.onNodeWithText("Couldn't load chats").assertDoesNotExist()
+        compose.onNodeWithText("Couldn't load agents").assertDoesNotExist()
         android.os.SystemClock.sleep(12_100)
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Running").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithText("Unread").assertIsDisplayed()
@@ -211,7 +211,7 @@ class HistoryStatusFixtureDeviceTest {
     }
     @Test fun initialFailureHasNoRetainedHistoryBanner() {
         failList = true; render(expectHistory = false)
-        compose.onNodeWithText("Couldn't load chats").assertIsDisplayed()
+        compose.onNodeWithText("Couldn't load agents").assertIsDisplayed()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         compose.onNodeWithText("Retry history").assertDoesNotExist()
         assertKnownRequests()
@@ -219,12 +219,12 @@ class HistoryStatusFixtureDeviceTest {
     @Test fun queryTransitionsDropUnrelatedRetainedRows() {
         render(); failList = true
         compose.runOnIdle { store.updateSearch("different"); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load chats")
+        waitText("Couldn't load agents")
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         compose.runOnIdle { store.updateScope(ConversationScope.Team); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load chats")
+        waitText("Couldn't load agents")
         compose.runOnIdle { store.updateArchivedOnly(true); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load chats")
+        waitText("Couldn't load agents")
         compose.onNodeWithText("Retry history").assertDoesNotExist()
         assertKnownRequests()
     }

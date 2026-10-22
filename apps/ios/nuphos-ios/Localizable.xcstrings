@@ -4,6 +4,48 @@
     "" : {
 
     },
+    "Agents" : {
+
+    },
+    "Continue in agent" : {
+
+    },
+    "Couldn't load agents" : {
+
+    },
+    "Couldn't load this agent" : {
+
+    },
+    "Filter agents" : {
+
+    },
+    "Loading agents…" : {
+
+    },
+    "My agents" : {
+
+    },
+    "New agent" : {
+
+    },
+    "No agents match your search." : {
+
+    },
+    "No agents yet" : {
+
+    },
+    "Open agent" : {
+
+    },
+    "Search agents" : {
+
+    },
+    "Start an agent from the bar below." : {
+
+    },
+    "Team agents" : {
+
+    },
     "·" : {
 
     },
@@ -112,9 +154,6 @@
     "Account" : {
 
     },
-    "Agent" : {
-
-    },
     "Approval" : {
 
     },
@@ -172,16 +211,10 @@
     "Connect cloud accounts and integrations in Nuphos to use them here." : {
 
     },
-    "Continue in chat" : {
-
-    },
     "Cost" : {
 
     },
     "Couldn't approve plan" : {
-
-    },
-    "Couldn't load chats" : {
 
     },
     "Couldn't load Credentials" : {
@@ -194,9 +227,6 @@
 
     },
     "Couldn't load teams" : {
-
-    },
-    "Couldn't load this chat" : {
 
     },
     "Decisions" : {
@@ -212,9 +242,6 @@
 
     },
     "Files" : {
-
-    },
-    "Filter chats" : {
 
     },
     "Filter plans" : {
@@ -236,9 +263,6 @@
           }
         }
       }
-    },
-    "Loading chats…" : {
-
     },
     "Loading Credentials…" : {
 
@@ -270,18 +294,6 @@
     "Monthly" : {
 
     },
-    "My chats" : {
-
-    },
-    "New chat" : {
-
-    },
-    "No chats yet" : {
-
-    },
-    "No conversations match your search." : {
-
-    },
     "No Credentials connected" : {
 
     },
@@ -295,9 +307,6 @@
 
     },
     "One-time" : {
-
-    },
-    "Open in chat" : {
 
     },
     "Opens nuphos.ai in a secure browser window." : {
@@ -369,9 +378,6 @@
     "Savings" : {
 
     },
-    "Search chats" : {
-
-    },
     "Search plans" : {
 
     },
@@ -402,9 +408,6 @@
     "Something went wrong" : {
 
     },
-    "Start a conversation from the bar below." : {
-
-    },
     "Steps" : {
 
     },
@@ -412,9 +415,6 @@
 
     },
     "Switch page" : {
-
-    },
-    "Team chats" : {
 
     },
     "The agent is still building this plan — steps, cost and risk arrive before it can be approved." : {

@@ -199,7 +199,7 @@ fun HomeRoute(
                     if (!current()) return@withContext
                     if (resolved == null) {
                         links.complete(request)
-                        linkError = "This conversation is unavailable or your account does not have access."
+                        linkError = "This agent is unavailable or your account does not have access."
                     } else if (agentStore.acceptMemberships(resolved.first, resolved.second.id)) {
                         nav.navigate("conversation/${android.net.Uri.encode(request.destination.conversationId)}") {
                             popUpTo("home")
@@ -215,18 +215,18 @@ fun HomeRoute(
                     if (current()) {
                         links.complete(request)
                         linkError = when (e) {
-                            is NuphosApi.Failure.Unauthorized -> "Sign-in has expired. Sign in again to open this conversation."
+                            is NuphosApi.Failure.Unauthorized -> "Sign-in has expired. Sign in again to open this agent."
                             is NuphosApi.Failure.Http -> if (e.code == 403 || e.code == 404)
-                                "This conversation is unavailable or your account does not have access."
-                                else "We could not open this conversation. Please try the link again."
-                            else -> "We could not open this conversation. Check your connection and try the link again."
+                                "This agent is unavailable or your account does not have access."
+                                else "We could not open this agent. Please try the link again."
+                            else -> "We could not open this agent. Check your connection and try the link again."
                         }
                     }
                 }
             }
         }
         linkError?.let { message ->
-            AlertDialog(onDismissRequest = { linkError = null }, title = { Text("Could not open conversation") },
+            AlertDialog(onDismissRequest = { linkError = null }, title = { Text("Could not open agent") },
                 text = { Text(message) }, confirmButton = { TextButton(onClick = { linkError = null }) { Text("OK") } })
         }
         val notifications = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).localNotifications
@@ -260,7 +260,7 @@ fun HomeRoute(
                     composable("home") {
                         if (wide && !membershipsLoading) Column(Modifier.fillMaxSize().safeDrawingPadding().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 720.dp)) {
                             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Text("Start a new chat", style = MaterialTheme.typography.headlineSmall)
+                                Text("Start a new agent", style = MaterialTheme.typography.headlineSmall)
                             }
                             newChatComposer()
                         }
@@ -511,17 +511,17 @@ internal fun FilterButton(page: HomePage) {
                 if ((page == HomePage.Agent && (store.scope != ConversationScope.Mine || store.archivedOnly || store.sort != ConversationSort.Created)) ||
                     (page == HomePage.Plans && plans.showDismissed)
                 ) Icons.Rounded.FilterList else Icons.Outlined.FilterList,
-                contentDescription = if (page == HomePage.Agent) "Filter chats" else "Filter",
+                contentDescription = if (page == HomePage.Agent) "Filter agents" else "Filter",
             )
         }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
             if (page == HomePage.Agent) {
                 DropdownMenuItem(
-                    text = { Text("My chats") },
+                    text = { Text("My agents") },
                     onClick = { store.updateScope(ConversationScope.Mine); expanded = false },
                 )
                 DropdownMenuItem(
-                    text = { Text("Team chats") },
+                    text = { Text("Team agents") },
                     onClick = { store.updateScope(ConversationScope.Team); expanded = false },
                 )
                 HorizontalDivider()

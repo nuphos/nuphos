@@ -272,7 +272,7 @@ final class ChatSession {
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
-        title: String = "New chat",
+        title: String = "New agent",
         agentRuntime: String? = nil,
         runtimeLabel: String? = nil
     ) {
@@ -511,7 +511,7 @@ final class ChatSession {
     /// when the destination can hold them — another Cloud agent of the same
     /// type — and the move falls back to the transcript alone when they cannot.
     func move(to target: RuntimeInstance) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can move it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner or a manager can move it.") }
         func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
             try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
         }
@@ -557,14 +557,14 @@ final class ChatSession {
     // MARK: - Archive
 
     func rename(_ name: String) async throws {
-        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner can rename it.") }
+        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can rename it.") }
         struct Body: Encodable { let title: String }
         _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
         title = name
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the chat owner or a manager can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner or a manager can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -1056,7 +1056,7 @@ final class ChatSession {
                     continue
                 case .runtimeNotReady where !accepted && notReadyRetries < 30:
                     notReadyRetries += 1
-                    phaseLabel = "Waiting for the agent to be ready…"
+                    phaseLabel = "Waiting for the runtime to be ready…"
                     try? await Task.sleep(for: backoff(notReadyRetries, base: 0.5, max: 3))
                     continue
                 case .other(_, _, let code) where reconnects == 0 && [502, 503, 504, 520, 521, 522, 523, 524].contains(code) && gatewayRetries < 3:
@@ -1090,7 +1090,7 @@ final class ChatSession {
             if refused {
                 guard notReadyRetries < 30 else { return .failed(lastErrorText ?? "The agent hit an error.") }
                 notReadyRetries += 1
-                phaseLabel = "Waiting for the agent to be ready…"
+                phaseLabel = "Waiting for the runtime to be ready…"
                 if let i = streamAssistantIndex, messages.indices.contains(i) { messages.remove(at: i) }
                 streamAssistantIndex = nil
                 streamReducer = nil

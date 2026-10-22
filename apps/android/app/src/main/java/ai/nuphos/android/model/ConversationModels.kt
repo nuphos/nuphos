@@ -59,7 +59,7 @@ data class AgentConversation(
     val id: String get() = sessionId
 
     val displayTitle: String
-        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled chat" } }
+        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled agent" } }
 
     val isArchived: Boolean get() = archivedAt != null
 

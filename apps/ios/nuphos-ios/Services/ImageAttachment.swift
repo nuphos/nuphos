@@ -25,7 +25,7 @@ enum ImageAttachment {
 /// Whole JSON request budget, including base64. Proxies may still impose a lower limit.
 enum ChatPayload {
     static let maxBytes = 20_000_000
-    static let tooLargeMessage = "This message is too large to send. Remove some attachments or send them in separate messages. If it still fails, try a new chat."
+    static let tooLargeMessage = "This message is too large to send. Remove some attachments or send them in separate messages. If it still fails, try a new agent."
 
     struct TooLarge: LocalizedError {
         var errorDescription: String? { ChatPayload.tooLargeMessage }

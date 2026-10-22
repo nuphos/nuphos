@@ -47,7 +47,7 @@ class RuntimeDetailStore(
                     if (e is NuphosApi.Failure.Unauthorized) expired()
                     else error = when {
                         e is RuntimeHttpFailure && e.status == 403 -> "Administrator permission is required. Your account stays signed in."
-                        else -> "Could not confirm the result. Refresh this Agent before continuing."
+                        else -> "Could not confirm the result. Refresh this runtime before continuing."
                     }
                 }
             } finally { if (current(ticket)) busy = false }
@@ -72,7 +72,7 @@ class RuntimeDetailStore(
         if (!current(ticket) || !canManage) return@launch
         if (result.id != runtimeId || result.kind != runtime?.kind || result.provider != runtime?.provider) throw NuphosApi.Failure.InvalidResponse
         selection.saveCatalog(selection.catalog.map { if (it.id == runtimeId) result else it })
-        selection.managementReview.remove(runtimeId); reconciled = true; message = "Agent updated."
+        selection.managementReview.remove(runtimeId); reconciled = true; message = "Runtime updated."
     }
     /** Only invoked by the UI's explicit destructive confirmation. Never retried automatically. */
     fun remove() = launch(true) { ticket ->
@@ -83,6 +83,6 @@ class RuntimeDetailStore(
         selection.saveCatalog(if (deleting) selection.catalog.map { if (it.id == runtimeId) it.copy(deleting = true) else it }
             else selection.catalog.filterNot { it.id == runtimeId })
         removed = !deleting; selection.managementReview.remove(runtimeId); reconciled = true
-        message = if (deleting) "Removal requested. The Agent is being deleted; conversation history stays in Nuphos." else "Agent disconnected. Conversation history stays in Nuphos."
+        message = if (deleting) "Removal requested. The runtime is being deleted; agent history stays in Nuphos." else "Runtime disconnected. Agent history stays in Nuphos."
     }
 }

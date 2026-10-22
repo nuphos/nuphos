@@ -41,7 +41,7 @@ struct CredentialCatalog: Equatable, Sendable {
     }
 
     static let providers: [Provider] = [
-        .init(optionsKey: "devices", selectionKey: "deviceIds", title: "Devices", logo: "", idKey: "deviceId", labelKeys: ["label"], detailKeys: ["platform"], symbol: "laptopcomputer"),
+        .init(optionsKey: "devices", selectionKey: "deviceIds", title: "Computers", logo: "", idKey: "deviceId", labelKeys: ["label"], detailKeys: ["platform"], symbol: "laptopcomputer"),
         .init(optionsKey: "awsRoles", selectionKey: "awsRoleIds", title: "AWS", logo: "logo-aws", idKey: "roleId", labelKeys: ["accountAlias", "accountId"], detailKeys: ["roleArn"]),
         .init(optionsKey: "gcpServiceAccounts", selectionKey: "gcpServiceAccountIds", title: "Google Cloud", logo: "logo-gcp", idKey: "serviceAccountId", labelKeys: ["projectId"], detailKeys: ["serviceAccountEmail"]),
         .init(optionsKey: "azureAccounts", selectionKey: "azureAccountIds", title: "Azure", logo: "logo-azure", idKey: "accountId", labelKeys: ["label"], detailKeys: ["subscriptionId"]),

@@ -2,7 +2,7 @@
   "aps": {
     "alert": {
       "title": "Preview push A",
-      "body": "Tap to open chat"
+      "body": "Tap to open agent"
     },
     "sound": "default"
   },

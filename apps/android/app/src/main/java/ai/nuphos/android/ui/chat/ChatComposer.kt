@@ -371,15 +371,15 @@ fun ChatComposer(
             if (activeMention != null && mentions != null) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (devices == null) "My chats" else "Mention", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        Text(if (devices == null) "My agents" else "Mention", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                         IconButton(onClick = { dismissedAt = text.lastIndexOf('@') }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Outlined.Close, contentDescription = if (devices == null) "Dismiss chat mentions" else "Dismiss mentions", modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.Close, contentDescription = if (devices == null) "Dismiss agent mentions" else "Dismiss mentions", modifier = Modifier.size(16.dp))
                         }
                     }
                     Column(Modifier.heightIn(max = 80.dp).verticalScroll(rememberScrollState())) {
                     if (devices != null && devices.teamId == mentions.teamId) {
-                        Text("My computers", style = MaterialTheme.typography.labelSmall)
-                        Text("Selecting allows this conversation to operate the computer.", style = MaterialTheme.typography.labelSmall)
+                        Text("Computers", style = MaterialTheme.typography.labelSmall)
+                        Text("Selecting allows this agent to operate the computer.", style = MaterialTheme.typography.labelSmall)
                         val computers = DeviceMention.results(deviceRows, activeMention, resolvedSelection)
                         when {
                             devicesLoading -> Text("Loading computers…", style = MaterialTheme.typography.bodySmall)
@@ -413,12 +413,12 @@ fun ChatComposer(
                             }
                         }
                         if (devicePickFailed) Text("Computer selection unavailable. IAM was not changed.", style = MaterialTheme.typography.bodySmall)
-                        Text("My chats", style = MaterialTheme.typography.labelSmall)
+                        Text("My agents", style = MaterialTheme.typography.labelSmall)
                     }
                     when {
-                        mentionLoading -> Text("Searching chats…", style = MaterialTheme.typography.bodySmall)
-                        mentionFailed -> Text("Could not search chats. You can keep typing.", style = MaterialTheme.typography.bodySmall)
-                        mentionRows.isEmpty() -> Text("No matching chats", style = MaterialTheme.typography.bodySmall)
+                        mentionLoading -> Text("Searching agents…", style = MaterialTheme.typography.bodySmall)
+                        mentionFailed -> Text("Could not search agents. You can keep typing.", style = MaterialTheme.typography.bodySmall)
+                        mentionRows.isEmpty() -> Text("No matching agents", style = MaterialTheme.typography.bodySmall)
                         else -> mentionRows.forEach { row ->
                             Text(
                                 row.displayTitle,
@@ -611,7 +611,7 @@ fun ChatComposer(
     }
     if (showAgentUsage) {
         AlertDialog(onDismissRequest = { showAgentUsage = false },
-            title = { Text(agentLabel ?: "Agent usage") },
+            title = { Text(agentLabel ?: "Runtime usage") },
             text = { ai.nuphos.android.ui.agent.RuntimeUsage(agentQuota) },
             confirmButton = { TextButton(onClick = { showAgentUsage = false }) { Text("Done") } })
     }

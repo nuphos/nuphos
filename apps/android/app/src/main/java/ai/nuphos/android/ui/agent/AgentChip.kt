@@ -23,16 +23,16 @@ import ai.nuphos.android.session.RuntimeSelections
 fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick: () -> Unit, labelOverride: String? = null, modifier: Modifier = Modifier) {
     val selected = selection?.selected
     val label = labelOverride ?: when {
-        selection?.reselectionRequired == true -> "Choose an available Agent"
+        selection?.reselectionRequired == true -> "Choose an available runtime"
         selected != null -> selected.label
-        else -> "Choose an Agent"
+        else -> "Choose a runtime"
     }
     TextButton(
         modifier = modifier,
         enabled = enabled,
         onClick = onClick,
     ) {
-        Icon(Icons.Outlined.AutoAwesome, contentDescription = if (labelOverride == null) "Agent for new chats" else "Conversation Agent", modifier = Modifier.size(16.dp))
+        Icon(Icons.Outlined.AutoAwesome, contentDescription = if (labelOverride == null) "Runtime for new agents" else "Runtime for this agent", modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
         Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false).widthIn(max = 160.dp))

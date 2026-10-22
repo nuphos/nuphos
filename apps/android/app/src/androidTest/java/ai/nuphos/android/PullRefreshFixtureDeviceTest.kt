@@ -280,7 +280,7 @@ class PullRefreshFixtureDeviceTest {
         pull(); waitText("Fresh history"); settled(); shot("success-light")
         assertEquals(reads + 1, historyReads()); assertEquals(pins + 1, pinReads())
         failHistory = true; failFavorites = true
-        pull(); waitText("Could not refresh chats. Showing last loaded history."); settled()
+        pull(); waitText("Could not refresh agents. Showing last loaded history."); settled()
         shot("failed-retains-light")
         compose.onNodeWithText("Fresh history").assertExists()
         compose.onNodeWithText("Refreshed pin").assertExists()
@@ -292,11 +292,11 @@ class PullRefreshFixtureDeviceTest {
 
     @Test fun emptyAndSearchAndArchivedStillAcceptGestureAndKeepFilters() {
         emptyHistory = true; entries = "[]"; render()
-        waitText("No chats yet"); assertCentered("No chats yet"); shot("empty-light")
+        waitText("No agents yet"); assertCentered("No agents yet"); shot("empty-light")
         var reads = historyReads()
         pull(); compose.waitUntil(5_000) { historyReads() > reads }; settled()
         compose.runOnIdle { store.updateScope(ConversationScope.Team); searching.value = true }
-        compose.onNodeWithText("Search chats").performTextInput("needle")
+        compose.onNodeWithText("Search agents").performTextInput("needle")
         compose.onNodeWithText("Archived").performClick()
         hideKeyboard()
         waitText("No matches")
@@ -337,7 +337,7 @@ class PullRefreshFixtureDeviceTest {
     @Test fun initialErrorSurfaceCanPullToRecoverAndAccountRevocationRejectsHeldRead() {
         emptyHistory = true; entries = "[]"; render()
         compose.runOnIdle { state(store, "phase").value = AgentStore.Phase.Failed }
-        waitText("Couldn't load chats"); assertCentered("Couldn't load chats"); shot("initial-error-light")
+        waitText("Couldn't load agents"); assertCentered("Couldn't load agents"); shot("initial-error-light")
         emptyHistory = false; historyTitle = "Recovered from initial error"
         pull(); waitText("Recovered from initial error"); settled()
         holdHistory = true; historyTitle = "Wrong account response"
@@ -354,7 +354,7 @@ class PullRefreshFixtureDeviceTest {
         treeHistory = true; entries = "[]"; render()
         compose.runOnIdle { store.refresh() }
         waitText("Synthetic child"); settled()
-        compose.onNodeWithContentDescription("Hide 1 threads").performClick()
+        compose.onNodeWithContentDescription("Hide 1 sub-agents").performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
         compose.onNode(hasSetTextAction()).performTextInput("Unsent refresh fixture draft")
         compose.onNodeWithText("Unsent refresh fixture draft").assertExists()
@@ -396,7 +396,7 @@ class PullRefreshFixtureDeviceTest {
         }
         assertTrue(historyHeld.await(5, TimeUnit.SECONDS))
         work.cancel(); historyRelease.countDown()
-        waitText("Couldn't load chats")
+        waitText("Couldn't load agents")
         assertEquals(AgentStore.Phase.Failed, store.phase)
         assertFalse(store.isRefreshing)
         emptyHistory = false; historyTitle = "Recovered interrupted refresh"
@@ -408,7 +408,7 @@ class PullRefreshFixtureDeviceTest {
         waitText("Newer chat, older activity"); settled()
         assertEquals(ConversationSort.Created, store.sort)
         assertEquals(listOf("created", "recent"), store.conversations.map { it.sessionId })
-        compose.onNodeWithContentDescription("Filter chats").performClick()
+        compose.onNodeWithContentDescription("Filter agents").performClick()
         compose.onNodeWithText("Date created").assertIsSelected()
         shot("sort-menu-created-light")
         compose.onNodeWithText("Recent activity").performClick()

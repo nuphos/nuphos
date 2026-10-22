@@ -59,7 +59,7 @@ data class CredentialCatalog(
         }
 
         val PROVIDERS = listOf(
-            Provider("devices", "deviceIds", "My computers", "deviceId", listOf("label"), listOf("platform")),
+            Provider("devices", "deviceIds", "Computers", "deviceId", listOf("label"), listOf("platform")),
             Provider("awsRoles", "awsRoleIds", "AWS", "roleId", listOf("accountAlias", "accountId"), listOf("roleArn")),
             Provider("gcpServiceAccounts", "gcpServiceAccountIds", "Google Cloud", "serviceAccountId", listOf("projectId"), listOf("serviceAccountEmail")),
             Provider("azureAccounts", "azureAccountIds", "Azure", "accountId", listOf("label"), listOf("subscriptionId")),

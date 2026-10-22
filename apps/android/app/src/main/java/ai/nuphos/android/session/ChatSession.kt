@@ -39,7 +39,7 @@ class ChatSession(
     private val token: String,
     val teamId: String,
     val sessionId: String = UUID.randomUUID().toString().lowercase(),
-    title: String = "New chat",
+    title: String = "New agent",
     private val transfers: AttachmentTransfers = AttachmentTransfers(),
     val browsingOnly: Boolean = false,
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
@@ -214,8 +214,8 @@ class ChatSession(
         !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
-        check(canMoveAgent) { "Wait for the current response to finish before switching agents." }
-        require(target.selectable && (isOwner || target.kind == "managed")) { "Choose an available agent." }
+        check(canMoveAgent) { "Wait for the current response to finish before switching runtimes." }
+        require(target.selectable && (isOwner || target.kind == "managed")) { "Choose an available runtime." }
         if (target.id == runtimeId) return
         movingAgent = true
         transportGeneration++
@@ -536,14 +536,14 @@ class ChatSession(
     }
 
     suspend fun approvePlan(planId: String): Plan {
-        check(permissions.writable) { "This conversation is read-only." }
+        check(permissions.writable) { "This agent is read-only." }
         val updated = AgentChatApi.updatePlan(token, teamId, planId, "approved")
         if (updated.status == "approved") send("Approved plan #$planId — please proceed with plan #$planId.")
         return updated
     }
 
     suspend fun rejectPlan(planId: String): Plan {
-        check(permissions.writable) { "This conversation is read-only." }
+        check(permissions.writable) { "This agent is read-only." }
         val updated = AgentChatApi.updatePlan(token, teamId, planId, "rejected")
         send("Rejected the plan — discard it and stop.")
         return updated
@@ -811,7 +811,7 @@ class ChatSession(
                     error = e.message ?: "Steering was rejected. Retry when the runtime permits it."
                 } else {
                     steeringHold = pending
-                    error = "Steering delivery is unconfirmed. Check the conversation before retrying."
+                    error = "Steering delivery is unconfirmed. Check the agent before retrying."
                     reconcileSteeringReceipts()
                 }
             } finally {

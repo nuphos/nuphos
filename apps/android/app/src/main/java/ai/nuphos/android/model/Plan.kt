@@ -215,9 +215,9 @@ data class PlanChatTarget(
         fun from(plan: Plan): PlanChatTarget? {
             val sessionId = plan.sourceConversationId?.takeIf { it.isNotEmpty() } ?: return null
             val (proceed, button) = when (plan.status) {
-                "proposed" -> null to "Continue in chat"
-                "approved" -> "Approved plan #${plan.id} — please proceed with plan #${plan.id}." to "Continue in chat"
-                else -> null to "Open in chat"
+                "proposed" -> null to "Continue in agent"
+                "approved" -> "Approved plan #${plan.id} — please proceed with plan #${plan.id}." to "Continue in agent"
+                else -> null to "Open agent"
             }
             return PlanChatTarget(plan.id, sessionId, plan.title, proceed, button)
         }

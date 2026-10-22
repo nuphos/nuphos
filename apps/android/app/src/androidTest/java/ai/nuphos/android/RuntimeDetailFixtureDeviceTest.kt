@@ -75,18 +75,18 @@ class RuntimeDetailFixtureDeviceTest {
         render(false)
         compose.onNodeWithText("5h: 24% used").assertExists()
         capture("agent-detail-light.png")
-        click("Remove Agent"); assertEquals(0, removals)
+        click("Remove runtime"); assertEquals(0, removals)
         compose.onNodeWithText("Remove Design workspace?").assertExists()
         capture("agent-detail-remove-light.png")
         compose.onNodeWithText("Cancel").performClick(); assertEquals(0, removals)
-        click("Remove Agent")
-        compose.onNode(hasText("Remove Agent") and hasAnyAncestor(isDialog())).performClick()
+        click("Remove runtime")
+        compose.onNode(hasText("Remove runtime") and hasAnyAncestor(isDialog())).performClick()
         compose.waitUntil { removals == 1 }
         compose.onNodeWithText("Removal is in progress. Refresh to check saved state.").assertExists()
     }
     @Test fun darkRenameEnableAndExistingSigninHandoff() {
         render(true); capture("agent-detail-dark.png")
-        compose.onNodeWithText("Agent name").performTextReplacement("Renamed fixture")
+        compose.onNodeWithText("Runtime name").performTextReplacement("Renamed fixture")
         click("Save name"); compose.waitUntil { updates == 1 && !store.busy }
         assertEquals("Renamed fixture", store.runtime?.label)
         androidx.test.espresso.Espresso.closeSoftKeyboard()
@@ -96,12 +96,12 @@ class RuntimeDetailFixtureDeviceTest {
         compose.onNode(isToggleable()).performScrollTo().performClick()
         compose.waitUntil { updates == 3 && !store.busy }
         click("Sign In Again"); assertEquals(1, signIns)
-        click("Remove Agent"); capture("agent-detail-remove-dark.png")
+        click("Remove runtime"); capture("agent-detail-remove-dark.png")
         compose.onNodeWithText("Cancel").performClick(); assertEquals(0, removals)
     }
     @Test fun localAndMemberHaveNoDestructiveControls() {
         render(false, admin = false, item = initial.copy(kind = "local"))
-        compose.onNodeWithText("Remove Agent").assertDoesNotExist()
+        compose.onNodeWithText("Remove runtime").assertDoesNotExist()
         compose.onNodeWithText("Save name").assertIsNotEnabled()
         assertEquals(0, removals); assertEquals(0, updates)
     }

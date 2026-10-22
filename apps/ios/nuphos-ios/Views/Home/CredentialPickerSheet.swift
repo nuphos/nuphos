@@ -7,7 +7,7 @@ struct CredentialPickerSheet: View {
     @Binding var selection: CredentialSelection
     var scope: CredentialScope = .credentials
 
-    private var title: String { scope == .devices ? "Devices" : "Credentials" }
+    private var title: String { scope == .devices ? "Computers" : "Credentials" }
     private var symbol: String { scope == .devices ? "laptopcomputer" : "key" }
     private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope) }
 
@@ -16,7 +16,7 @@ struct CredentialPickerSheet: View {
             Group {
                 if let catalog {
                     if catalog.isEmpty {
-                        ContentUnavailableView("No \(title) connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a device to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
+                        ContentUnavailableView(scope == .devices ? "No computers connected" : "No \(title) connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a computer to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
                     } else {
                         List {
                             ForEach(catalog.sections, id: \.provider.id) { section in
@@ -125,7 +125,7 @@ struct ComposerControls: View {
             ComposerChip(systemImage: "laptopcomputer", title: deviceTitle, isActive: selection.count(in: .devices) > 0)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Choose devices")
+        .accessibilityLabel("Choose computers")
         .sheet(isPresented: $showDevices) { CredentialPickerSheet(selection: $selection, scope: .devices) }
 
         Button { showModes = true } label: {
@@ -178,7 +178,7 @@ struct ComposerControls: View {
                 ComposerChip(logo: RuntimeInstance.Provider.logo(store.newConversationRuntime?.provider.rawValue), title: runtimeTitle, isActive: store.newConversationRuntime != nil)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Choose agent")
+            .accessibilityLabel("Choose runtime")
             .sheet(isPresented: $showRuntimes) { RuntimePickerSheet() }
             .task { await store.loadRuntimes() }
             #if DEBUG
@@ -189,8 +189,8 @@ struct ComposerControls: View {
 
     private var runtimeTitle: String {
         guard let runtime = store.newConversationRuntime else {
-            if store.selectedRuntimeUnavailable { return "Choose agent" }
-            return store.runtimesLoaded ? "Agent" : "Agent…"
+            if store.selectedRuntimeUnavailable { return "Choose runtime" }
+            return store.runtimesLoaded ? "Runtime" : "Runtime…"
         }
         return runtime.label
     }
@@ -201,7 +201,7 @@ struct ComposerControls: View {
 
     private var deviceTitle: String {
         let n = selection.count(in: .devices)
-        return n == 0 ? "Devices" : "Devices · \(n)"
+        return n == 0 ? "Computers" : "Computers · \(n)"
     }
 
     private var credentialsTitle: String {

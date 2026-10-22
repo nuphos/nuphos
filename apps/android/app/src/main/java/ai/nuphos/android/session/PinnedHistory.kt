@@ -14,7 +14,7 @@ object PinnedHistory {
             val key = entry["key"]?.stringValue ?: return@mapNotNull null
             if (!key.startsWith("agent-session:")) return@mapNotNull null
             val id = key.removePrefix("agent-session:").takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            Shortcut(id, entry["label"]?.stringValue?.takeIf { it.isNotBlank() } ?: "Chat")
+            Shortcut(id, entry["label"]?.stringValue?.takeIf { it.isNotBlank() } ?: "Agent")
         }.distinctBy { it.sessionId }
     }
 

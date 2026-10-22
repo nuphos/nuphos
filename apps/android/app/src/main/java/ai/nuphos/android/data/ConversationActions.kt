@@ -23,7 +23,7 @@ object ConversationActions {
         if (!pinned) return entries.filterNot { it["key"]?.stringValue == key }
         if (exists) return entries
         require(entries.size < 1000) { "Favorites are full." }
-        return entries + JsonValue.obj("label" to JsonValue.Str(title.ifBlank { "Chat" }.take(200)), "key" to JsonValue.Str(key))
+        return entries + JsonValue.obj("label" to JsonValue.Str(title.ifBlank { "Agent" }.take(200)), "key" to JsonValue.Str(key))
     }
     private fun decode(text: String): Favorites {
         val json = JsonValue.parse(text) ?: throw NuphosApi.Failure.InvalidResponse

@@ -28,8 +28,8 @@ fun ModelSettingsSheet(store: ModelSettingsStore, onDismiss: () -> Unit) {
                 TextButton(onClick = { scope.launch { store.refresh() } }, enabled = !store.loading && !store.saving) { Text("Try again") }
             }
             when (store.config?.status) {
-                "offline" -> Text("This agent is offline. Model settings return when it reconnects.")
-                "unsupported" -> Text("This agent does not offer model settings.")
+                "offline" -> Text("This runtime is offline. Model settings return when it reconnects.")
+                "unsupported" -> Text("This runtime does not offer model settings.")
                 "busy" -> if (store.pending.isEmpty()) Text("Changes apply after this reply.")
             }
             store.config?.options?.forEach { option ->

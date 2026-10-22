@@ -75,7 +75,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return "Untitled chat"
+        return "Untitled agent"
     }
 
     var isArchived: Bool { archivedAt != nil }

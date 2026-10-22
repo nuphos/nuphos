@@ -58,7 +58,7 @@ struct RuntimePickerSheet: View {
                 Button("Move") { onMove(runtime); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("This runtime runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.")
+                Text("This runtime runs on your computer. After the move, anyone in this team can open this agent and run commands on your computer.")
             }
             .task(id: store.selectedTeam?.id) {
                 initialized = false
@@ -237,7 +237,7 @@ private struct AgentSignInInstructions: View {
                 BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 56)
                 Text(runtime.local.map { "Sign in on \($0.deviceLabel)" } ?? "Ask an administrator to sign in").font(.title3.weight(.semibold))
                 Text(runtime.label).font(.subheadline).foregroundStyle(Theme.muted)
-                Text(runtime.local.map { "Open Nuphos on \($0.deviceLabel), go to Settings → Agents, then choose Sign in for this runtime." } ?? "A workspace administrator can sign in to this runtime in Settings → Agents.")
+                Text(runtime.local.map { "Open Nuphos on \($0.deviceLabel), go to Settings → Runtimes, then choose Sign in for this runtime." } ?? "A workspace administrator can sign in to this runtime in Settings → Runtimes.")
                     .font(.subheadline).foregroundStyle(Theme.body).multilineTextAlignment(.center)
             }.frame(maxWidth: .infinity).padding(.vertical, 16).listRowBackground(Color.clear)
         }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Sign in").navigationBarTitleDisplayMode(.inline)
@@ -248,7 +248,7 @@ private struct SelectorManagementView: View {
     @Environment(AgentStore.self) private var store
     var body: some View {
         List {
-            Section { Text("Open Settings → Agents in Nuphos Desktop to manage your computers and runtimes.").font(.subheadline).foregroundStyle(Theme.body) }
+            Section { Text("Open Settings → Runtimes in Nuphos Desktop to manage your computers and runtimes.").font(.subheadline).foregroundStyle(Theme.body) }
             ForEach(SelectorBox.grouped(store.runtimes, devices: store.agentDevices)) { box in
                 Section(box.label) {
                     ForEach(box.agents) { runtime in

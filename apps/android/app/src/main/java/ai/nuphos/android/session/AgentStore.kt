@@ -165,7 +165,7 @@ class AgentStore(
             throw e
         } catch (e: Exception) {
             if (favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess()))
-                favoritesError = e.message ?: "Could not load pinned chats."
+                favoritesError = e.message ?: "Could not load pinned agents."
         } finally {
             if (favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) favoritesLoading = false
         }
@@ -178,13 +178,13 @@ class AgentStore(
         if (favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) { favorites = saved; favoritesError = null }
     }
     suspend fun rename(session: ChatSession, title: String) {
-        require(session.canManage) { "Only the owner can rename this chat." }
+        require(session.canManage) { "Only the owner can rename this agent." }
         ConversationActions.rename(token, session.teamId, session.sessionId, title)
         session.reloadFromServer()
         reload()
     }
     suspend fun archive(session: ChatSession, archived: Boolean) {
-        require(session.canManage) { "Only the owner can archive this chat." }
+        require(session.canManage) { "Only the owner can archive this agent." }
         ConversationActions.archive(token, session.teamId, session.sessionId, archived)
         session.reloadFromServer()
         reload()
@@ -291,8 +291,8 @@ class AgentStore(
             if (isCurrent()) unlinkError = when {
                 e is NuphosApi.Failure.Unauthorized -> "Your session has expired. Please sign in again."
                 e is ai.nuphos.android.data.AgentChatApi.Conflict.Other && e.status in setOf(403, 404) ->
-                    "This chat is unavailable or you no longer have permission to unlink it."
-                else -> "Could not unlink chat. Try again."
+                    "This agent is unavailable or you no longer have permission to unlink it."
+                else -> "Could not unlink agent. Try again."
             }
         } finally {
             if (isCurrent()) unlinkingSessionId = null
@@ -532,7 +532,7 @@ class AgentStore(
                 isReloading = false
                 if (phase == Phase.Loading) {
                     phase = if (hasLoadedHistory) Phase.Loaded else Phase.Failed
-                    if (!hasLoadedHistory) phaseError = "Chat refresh was interrupted. Try again."
+                    if (!hasLoadedHistory) phaseError = "Agent list refresh was interrupted. Try again."
                 }
             }
         }

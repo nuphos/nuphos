@@ -99,8 +99,8 @@ fun ConversationScreen(
     val conversation = store.conversations.firstOrNull { it.sessionId == sessionId && (it.teamId == null || it.teamId == selectedTeamId) }
     val session = remember(store, sessionId, selectedTeamId, browsingTeamId, browsingOnly, token) {
         if (browsingOnly) ChatSession(token!!, browsingTeamId!!, sessionId, browsingOnly = true)
-        else if (fresh) store.session(sessionId, "New chat")
-        else conversation?.let { store.session(it) } ?: store.session(sessionId, store.pinnedShortcuts.firstOrNull { it.sessionId == sessionId }?.title ?: "Chat")
+        else if (fresh) store.session(sessionId, "New agent")
+        else conversation?.let { store.session(it) } ?: store.session(sessionId, store.pinnedShortcuts.firstOrNull { it.sessionId == sessionId }?.title ?: "Agent")
     }
     DisposableEffect(session) {
         onDispose { session.disposeBrowsing() }
@@ -198,7 +198,7 @@ fun ConversationScreen(
     var showTitle by remember(session.title) { mutableStateOf(false) }
     if (showTitle) androidx.compose.material3.AlertDialog(
         onDismissRequest = { showTitle = false },
-        title = { Text("Chat title") },
+        title = { Text("Agent title") },
         text = { androidx.compose.foundation.text.selection.SelectionContainer { Text(session.title) } },
         confirmButton = { TextButton(onClick = { showTitle = false }) { Text("Done") } },
     )
@@ -210,10 +210,10 @@ fun ConversationScreen(
                 title = {
                     Text(session.title, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.clickable { showTitle = true }.semantics { contentDescription = "Show full chat title" })
+                        modifier = Modifier.clickable { showTitle = true }.semantics { contentDescription = "Show full agent title" })
                 },
                 navigationIcon = {
-                    if (newChat) TextButton(onClick = onBack) { Text("New chat") }
+                    if (newChat) TextButton(onClick = onBack) { Text("New agent") }
                     else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
@@ -240,13 +240,13 @@ fun ConversationScreen(
             )
             if (session.loaded && session.loadError == null) {
                 session.runtimeDeviceLabel?.let {
-                    Text("Agent: $it", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    Text("Runtime: $it", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.bodyMedium, maxLines = 2,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
             }
             if (session.loaded && session.loadError == null && session.isArchived) {
-                Text("Archived chat", Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                Text("Archived agent", Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             when {
@@ -315,7 +315,7 @@ fun ConversationScreen(
                 session.runtimeLabel?.let { Text(it, modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall) }
                 if (session.cancelRequested) Text("Cancellation requested", modifier = Modifier.padding(horizontal = 16.dp))
                 if (session.isNative && session.canCancel) TextButton(onClick = session::stop) { Text("Cancel run") }
-                if (session.readOnly) Text("Read-only chat", modifier = Modifier.padding(horizontal = 16.dp))
+                if (session.readOnly) Text("Read-only agent", modifier = Modifier.padding(horizontal = 16.dp))
                 if (session.queued.isNotEmpty()) {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         session.queued.forEachIndexed { i, item ->
@@ -567,7 +567,7 @@ private fun ToolCallRow(
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(modifier = Modifier.testTag("approve-once:${part.toolCallId}"), enabled = !session.readOnly && (if (session.isNative) session.canReply else session.canSubmit), onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Once) }) { Text("Approve once") }
                     if (part.approval?.source != "openab") {
-                        FilledTonalButton(enabled = session.canManage, onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Session) }) { Text("For session") }
+                        FilledTonalButton(enabled = session.canManage, onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Session) }) { Text("For this agent") }
                     }
                 }
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

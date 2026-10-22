@@ -22,7 +22,7 @@ fun ConsentScreen(user: NuphosUser) {
         Text("Before you use AI agents", style = MaterialTheme.typography.headlineMedium)
         Text("Using an agent sends your prompts, conversation history, uploaded images and files, and relevant results from connected tools to the providers needed to carry out your request.")
         Text("Who receives this data", style = MaterialTheme.typography.titleMedium)
-        Text("Depending on your agent and model, this includes Anthropic (Claude), OpenAI (Codex), Google, or Amazon Web Services. Nuphos also uses Braintrust to store AI execution traces, which can include conversation and tool content, for diagnostics and service improvement.")
+        Text("Depending on your runtime and model, this includes Anthropic (Claude), OpenAI (Codex), Google, or Amazon Web Services. Nuphos also uses Braintrust to store AI execution traces, which can include conversation and tool content, for diagnostics and service improvement.")
         Text("Your choice", style = MaterialTheme.typography.titleMedium)
         Text("Only share information you are authorized to share. You can decline and still manage your account or request its deletion. You can withdraw permission in Account → AI data sharing. Withdrawal stops new AI use from this app; it does not undo completed transfers or stop work already running, including work started on other devices or by scheduled agents.")
         TextButton(onClick = { uri.openUri("https://nuphos.ai/privacy") }) { Text("Read the privacy policy") }

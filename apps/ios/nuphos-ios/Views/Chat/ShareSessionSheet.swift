@@ -132,7 +132,7 @@ struct ShareSessionSheet: View {
                 Button("Invite") { invite(member) }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("This session runs on your computer’s Local Agent. They will be able to run commands on your computer.")
+                Text("This agent runs on your computer’s local runtime. They will be able to run commands on your computer.")
             }
             .task {
                 do { access = try await session.access("GET") } catch { loadError = error.localizedDescription }
@@ -160,7 +160,7 @@ struct ShareSessionSheet: View {
                 LabeledContent("Team access") { Text(access.generalAccess.title) }
             }
             if runsOnOwnersComputer {
-                Label("This session runs on your computer’s Local Agent. Anyone you share it with can run commands on your computer.", systemImage: "exclamationmark.triangle")
+                Label("This agent runs on your computer’s local runtime. Anyone you share it with can run commands on your computer.", systemImage: "exclamationmark.triangle")
                     .font(.footnote)
                     .foregroundStyle(Theme.warning)
             }
@@ -174,7 +174,7 @@ struct ShareSessionSheet: View {
                 participantRow(participant, general: access.generalAccess)
             }
         } header: {
-            Text("In this session")
+            Text("In this agent")
         } footer: {
             if !canManage { Text("Only the owner can change who has access.") }
         }

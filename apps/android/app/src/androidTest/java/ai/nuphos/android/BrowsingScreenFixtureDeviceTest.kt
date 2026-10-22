@@ -149,10 +149,10 @@ class BrowsingScreenFixtureDeviceTest {
     }
 
     private fun assertNoActions() {
-        listOf("Ask Nuphos anything", "Queue a message", "Queue message", "Send", "Stop", "Attach", "Chat actions").forEach {
+        listOf("Ask Nuphos anything", "Queue a message", "Queue message", "Send", "Stop", "Attach", "Agent actions").forEach {
             compose.onNodeWithContentDescription(it).assertDoesNotExist()
         }
-        listOf("Approve once", "For session", "Always allow…", "Deny", "Cancel run",
+        listOf("Approve once", "For this agent", "Always allow…", "Deny", "Cancel run",
             "Check delivery", "Retry steering", "Approve plan", "Reject plan", "Request changes",
             "Rename", "Archive", "Delete").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
@@ -161,12 +161,12 @@ class BrowsingScreenFixtureDeviceTest {
     @Test fun fullTitleDialogDoesNotEnableActionsOrFetchAgain() {
         render()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Saved fixture answer").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Agent: Fixture laptop").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Show full chat title").performClick()
-        compose.onNodeWithText("Chat title").assertIsDisplayed()
+        compose.onNodeWithText("Runtime: Fixture laptop").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Show full agent title").performClick()
+        compose.onNodeWithText("Agent title").assertIsDisplayed()
         compose.onAllNodesWithText("Saved fixture run").onLast().assertIsDisplayed()
         compose.onNodeWithText("Done").performClick()
-        compose.onNodeWithText("Chat title").assertDoesNotExist()
+        compose.onNodeWithText("Agent title").assertDoesNotExist()
         assertNoActions()
         assertEquals(1, requests.count { it.url.encodedPath.endsWith("/screen-fixture") })
     }

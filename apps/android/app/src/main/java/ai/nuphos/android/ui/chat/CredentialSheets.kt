@@ -75,7 +75,7 @@ fun CredentialPickerSheet(
                         }
                     }
                     if (section.provider.optionsKey == "devices") {
-                        item { Text("Allow this conversation to operate the computers you select.", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
+                        item { Text("Allow this agent to operate the computers you select.", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
                     }
                     items(rows, key = { it.id }) { item ->
                         val computer = section.provider.optionsKey == "devices"

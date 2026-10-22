@@ -4,7 +4,7 @@ import ai.nuphos.android.model.AgentConversation
 
 /** A bounded, iterative forest over the authorized, loaded page only. No detail fetches. */
 object ConversationNesting {
-    enum class Section(val title: String) { Pinned("Pinned"), Mine("My chats"), Shared("Shared") }
+    enum class Section(val title: String) { Pinned("Pinned"), Mine("My agents"), Shared("Shared") }
     data class Row(
         val conversation: AgentConversation,
         val section: Section,

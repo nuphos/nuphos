@@ -58,7 +58,7 @@ struct HomeView: View {
                         Button {
                             isSearching.toggle()
                         } label: {
-                            Label("Search chats", systemImage: "magnifyingglass")
+                            Label("Search agents", systemImage: "magnifyingglass")
                         }
                     }
                     ToolbarSpacer(.fixed, placement: .topBarTrailing)
@@ -119,7 +119,7 @@ struct HomeView: View {
                     .toolbar {
                         if sizeClass == .regular {
                             ToolbarItem(placement: .topBarLeading) {
-                                Button("New chat", systemImage: "square.and.pencil") { self.openChat = nil }
+                                Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
                             }
                         }
                     }
@@ -213,8 +213,8 @@ private struct FilterMenu: View {
         @Bindable var store = store
         Menu {
             Picker("Show", selection: $store.scope) {
-                Label("My chats", systemImage: "person").tag(NuphosAPI.ConversationScope.mine)
-                Label("Team chats", systemImage: "person.2").tag(NuphosAPI.ConversationScope.team)
+                Label("My agents", systemImage: "person").tag(NuphosAPI.ConversationScope.mine)
+                Label("Team agents", systemImage: "person.2").tag(NuphosAPI.ConversationScope.team)
             }
             .pickerStyle(.inline)
             Picker("Sort", selection: $store.sort) {
@@ -226,7 +226,7 @@ private struct FilterMenu: View {
                 Label("Archived", systemImage: "archivebox")
             }
         } label: {
-            Label("Filter chats", systemImage: store.scope == .mine && !store.showArchived && store.sort == .created
+            Label("Filter agents", systemImage: store.scope == .mine && !store.showArchived && store.sort == .created
                   ? "line.3.horizontal.decrease"
                   : "line.3.horizontal.decrease.circle.fill")
         }
