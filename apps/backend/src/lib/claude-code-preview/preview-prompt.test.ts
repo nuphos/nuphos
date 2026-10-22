@@ -53,7 +53,7 @@ describe('buildPreviewSystemPrompt', () => {
     })
 
     expect(prompt).toContain('## Tool memory budgets')
-    expect(prompt).toContain('the kernel kills the largest process')
+    expect(prompt).toContain('the kernel kills one process rather than the whole container')
     expect(prompt).toContain('## Credential handling')
     expect(prompt).toContain('`~/.aws/credentials`')
     expect(prompt).toContain('## Memory scope')

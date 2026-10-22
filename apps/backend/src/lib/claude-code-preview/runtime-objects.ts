@@ -99,9 +99,10 @@ export function runtimeConfigMapObject(
   //
   // Budget one tool well below the container limit instead of letting it use
   // most of it. The container holds up to `max_sessions` conversations; when
-  // it runs out, the kernel kills only the largest process (the runtime node
-  // pool sets kubelet singleProcessOOMKill), so a runaway tool fails on its own
-  // and the pod survives. These budgets make that rarer: GOMEMLIMIT and the V8
+  // it runs out, the kernel kills one process rather than the whole container
+  // (the managed runtime node pool sets kubelet singleProcessOOMKill), normally
+  // the largest — but that can be the agent or another session. These budgets
+  // make that rarer: GOMEMLIMIT and the V8
   // old-space keep one tool small, and GOFLAGS/MAKEFLAGS keep build process
   // trees narrow, since N workers still add up to the container limit.
   // BASH_ENV sources runtime-guard.sh, which refreshes per-turn credentials.

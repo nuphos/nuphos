@@ -2,10 +2,11 @@
 # grep exits 1 when a failure is not memory-related, which is the common path.
 set -uo pipefail
 
-# A Claude Code-native PostToolUseFailure hook. When the runtime container
-# reaches its memory limit, the kernel kills only its largest process (kubelet
-# singleProcessOOMKill) — usually the runaway tool, which exits 137 — and the
-# pod keeps running; this turns that exit into something the agent can act on,
+# A Claude Code-native PostToolUseFailure hook. When a managed runtime
+# container reaches its memory limit, the kernel kills one process instead of
+# the whole container (kubelet singleProcessOOMKill) — normally the largest,
+# often the runaway tool, which then exits 137; this turns that exit into
+# something the agent can act on,
 # so the conversation continues with a smaller approach instead of the user
 # seeing a dropped connection.
 #
@@ -37,11 +38,12 @@ pattern+='|JavaScript heap out of memory'
 printf '%s' "$text" | grep -Eq "$pattern" || exit 0
 
 read -r -d '' context <<EOF || true
-That command was killed with a memory-exhaustion signature. The runtime
-container's memory is shared with the other conversations in it; when it runs
-out, the kernel kills the largest process, which was most likely this command —
-though the signature comes from the command's own output, so treat it as a lead
-rather than a verdict. The pod and the other conversations kept running.
+That command failed with a memory-exhaustion signature. The runtime
+container's memory is shared with the other conversations in it, and when it
+runs out the kernel kills one process, normally the largest — possibly this
+command. Exit 137 means SIGKILL, which has other causes too, and the signature
+comes from the command's own output, so treat this as a lead rather than a
+verdict.
 
 Do not retry the same command unchanged.
 
