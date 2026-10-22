@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { before, mock, test } from 'node:test'
 
-import { foldedTurnLayout, segmentParts, turnDisplayParts } from './toolRuns.ts'
+import { foldedTurnLayout, pendingApproval, segmentParts, turnDisplayParts } from './toolRuns.ts'
 
-import type { Part } from './parts.ts'
+import type { Part, ToolPart } from './parts.ts'
 
 let applyEvent: (parts: Part[], event: Record<string, unknown>) => Part[]
 
@@ -299,4 +299,13 @@ test('a stopped turn whose fold only held an unanswered plan_update has no work 
     planIndices: [],
     foldHasWork: false,
   })
+})
+
+test('a run opens for an earlier pending approval but not for a failed call', () => {
+  const waiting = { ...tool(), state: 'approval-requested' } as ToolPart
+  const failed = { ...tool(), output: { stdout: '', exitCode: 1 } } as ToolPart
+  const errored = { ...tool(), state: 'output-error' } as ToolPart
+
+  assert.equal(pendingApproval([waiting, tool() as ToolPart]), waiting)
+  assert.equal(pendingApproval([failed, errored, tool() as ToolPart]), undefined)
 })

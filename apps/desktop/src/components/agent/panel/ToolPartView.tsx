@@ -25,8 +25,8 @@ export function ToolPartView({
   initiallyOpen?: boolean
 }) {
   const errored = part.state === 'output-error' || failedOutput(part.output)
-  // Approvals and failures open themselves; successful commands collapse.
-  const [open, setOpen] = useState(initiallyOpen || part.state === 'approval-requested' || errored)
+  // An approval request opens itself; a finished command collapses again.
+  const [open, setOpen] = useState(initiallyOpen || part.state === 'approval-requested')
   const done = part.state === 'output-available' || part.state === 'output-error'
   const label = getToolLabel(part)
   const commandTool = isCommandTool(part)
@@ -39,7 +39,6 @@ export function ToolPartView({
   const [openedFor, setOpenedFor] = useState({
     commandTool,
     done,
-    errored,
     state: part.state,
     id: part.toolCallId,
     hasLiveOutput,
@@ -48,7 +47,6 @@ export function ToolPartView({
   if (
     openedFor.commandTool !== commandTool ||
     openedFor.done !== done ||
-    openedFor.errored !== errored ||
     openedFor.state !== part.state ||
     openedFor.id !== part.toolCallId ||
     openedFor.hasLiveOutput !== hasLiveOutput
@@ -56,13 +54,11 @@ export function ToolPartView({
     setOpenedFor({
       commandTool,
       done,
-      errored,
       state: part.state,
       id: part.toolCallId,
       hasLiveOutput,
     })
     if (part.state === 'approval-requested') setOpen(true)
-    else if (errored) setOpen(true)
     else if (commandTool && done) setOpen(false)
     else if (commandTool && hasLiveOutput && !openedFor.hasLiveOutput) setOpen(true)
   }

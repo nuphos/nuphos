@@ -30,6 +30,12 @@ export function isDecisionCardPart(part: Part): boolean {
 }
 
 // Agent bookkeeping that never renders as a tool row.
+/** The call a run opens for: the newest one waiting for approval, wherever it
+ * sits in the run. A failed call does not open it. */
+export function pendingApproval(parts: ToolPart[]): ToolPart | undefined {
+  return parts.findLast((part) => part.state === 'approval-requested')
+}
+
 export const BOOKKEEPING_TOOL_NAMES = new Set(['skill', 'plan_update', 'plan_get'])
 
 export function isPlainToolPart(part: Part): part is ToolPart {
