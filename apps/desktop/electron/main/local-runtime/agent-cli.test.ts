@@ -43,6 +43,7 @@ NUPHOS_TEST_JS
       OPENAI_API_KEY: 'shell-only',
     }
     const isolated = path.join(dir, 'isolated')
+
     assert.deepEqual(await probeAgentCli('codex', env, isolated), {
       installed: true,
       path: path.join(dir, 'codex'),
