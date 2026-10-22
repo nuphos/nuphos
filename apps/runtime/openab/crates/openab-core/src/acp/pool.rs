@@ -705,11 +705,10 @@ impl SessionPool {
     pub async fn restore_for_config(
         &self,
         thread_id: &str,
-        cwd: &str,
         mcp_servers: &[serde_json::Value],
         meta: Option<&serde_json::Value>,
     ) -> Result<()> {
-        self.get_or_restore(thread_id, Some(cwd), mcp_servers, meta, true)
+        self.get_or_restore(thread_id, None, mcp_servers, meta, true)
             .await?;
         Ok(())
     }

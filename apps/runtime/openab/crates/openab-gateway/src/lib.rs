@@ -147,7 +147,7 @@ impl AcpPoolCancel {
 pub struct AcpPoolConfigRequest {
     pub thread_key: String,
     pub selection: Option<(String, String)>,
-    pub restore: Option<(String, Vec<serde_json::Value>, Option<serde_json::Value>)>,
+    pub restore: Option<(Vec<serde_json::Value>, Option<serde_json::Value>)>,
     pub reply: tokio::sync::oneshot::Sender<Result<serde_json::Value, (i32, String)>>,
 }
 

@@ -1266,14 +1266,9 @@ async fn main() -> anyhow::Result<()> {
                         if request.reply.is_closed() {
                             continue;
                         }
-                        if let Some((cwd, servers, meta)) = &request.restore {
+                        if let Some((servers, meta)) = &request.restore {
                             if config_pool
-                                .restore_for_config(
-                                    &request.thread_key,
-                                    cwd,
-                                    servers,
-                                    meta.as_ref(),
-                                )
+                                .restore_for_config(&request.thread_key, servers, meta.as_ref())
                                 .await
                                 .is_err()
                             {

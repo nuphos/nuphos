@@ -3684,14 +3684,9 @@ async fn handle_session_config(
     } else {
         None
     };
+    // A restored session runs where its prompts run (its stored or configured working
+    // directory), so a client `cwd` here is ignored rather than allowed to move it.
     let restore = if let Some(context) = params.and_then(|p| p.get("restore")) {
-        let Some(cwd) = context
-            .get("cwd")
-            .and_then(Value::as_str)
-            .filter(|s| !s.is_empty() && s.len() <= 4096)
-        else {
-            return JsonRpcResponse::error(id, -32602, "Invalid restore working directory");
-        };
         if !mcp_enabled {
             return JsonRpcResponse::error(id, -32601, "Session restore context is disabled");
         }
@@ -3707,11 +3702,7 @@ async fn handle_session_config(
                 "Restore requires an explicit mcpServers array",
             );
         }
-        Some((
-            cwd.to_string(),
-            parse_http_mcp_servers(Some(context)),
-            Some(meta),
-        ))
+        Some((parse_http_mcp_servers(Some(context)), Some(meta)))
     } else {
         None
     };
@@ -11925,9 +11916,10 @@ mod session_config_tests {
                 operations.pending(&channel),
                 "explicit restore remains runtime work"
             );
+            // The client's cwd is not forwarded: a restore runs where the session's prompts run.
             assert_eq!(
                 request.restore,
-                Some(("/saved".into(), vec![], Some(json!({"owner":"fresh"}))))
+                Some((vec![], Some(json!({"owner":"fresh"}))))
             );
             request
                 .reply
