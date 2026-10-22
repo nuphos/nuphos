@@ -425,3 +425,45 @@ test('a stop also ends the antigravity prompts waiting their turn', async () => 
     SLOW_AGENT,
   )
 })
+
+// Restores model a, offers a-d. Setting c fails, and setting d is answered with a still set.
+const RESTORING_AGENT = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+let model = 'a'
+const config = () => ({ configOptions: [{ id: 'model', currentValue: model,
+  options: ['a', 'b', 'c', 'd'].map((value) => ({ value, name: value })) }] })
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  const reply = (body) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...body }) + '\\n')
+  if (m.method === 'session/load') { model = 'a'; return reply({ result: config() }) }
+  if (m.method === 'session/set_config_option') {
+    if (m.params.value === 'c') return reply({ error: { code: -32000, message: 'set_config_option rejected' } })
+    if (m.params.value !== 'd') model = m.params.value
+    return reply({ result: config() })
+  }
+  reply({ result: {} })
+})
+`
+
+test('a reopened session takes the stored settings; only a value no longer offered is left as restored', async () => {
+  await withShim(
+    'grok',
+    async ({ call }) => {
+      await call('initialize', { protocolVersion: 1, clientCapabilities: {} })
+      const load = (model) =>
+        call('session/load', {
+          sessionId: 's1',
+          cwd: '/workspace',
+          mcpServers: [],
+          _meta: { 'ai.nuphos/runtimeDefaults': { model } },
+        })
+
+      assert.equal((await load('b')).result.configOptions[0].currentValue, 'b')
+      assert.equal((await load('retired')).result.configOptions[0].currentValue, 'a')
+      assert.match((await load('c')).error.message, /rejected/)
+      assert.match((await load('d')).error.message, /did not accept/)
+    },
+    RESTORING_AGENT,
+  )
+})

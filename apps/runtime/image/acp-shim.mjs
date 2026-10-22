@@ -339,15 +339,14 @@ export function runShim({
       const agentApi = {
         setSessionConfigOption: (options) => request('session/set_config_option', options),
       }
-      const applied = nuphosApplyRuntimeDefaults(agentApi, { ...params, sessionId }, reply.result)
-
-      // A reopened session keeps its restored settings where a stored one is gone.
       return {
         ...reply,
-        result:
-          message.method === 'session/new'
-            ? await applied
-            : await applied.catch(() => reply.result),
+        result: await nuphosApplyRuntimeDefaults(
+          agentApi,
+          { ...params, sessionId },
+          reply.result,
+          message.method !== 'session/new',
+        ),
       }
     })
     send({ ...message, params })

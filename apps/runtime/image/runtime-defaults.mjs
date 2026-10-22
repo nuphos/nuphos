@@ -191,7 +191,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
 // session is loaded or resumed. The backend sends the conversation's own
 // settings (those it started with, then every change it confirmed), which the
 // agent's restored state can lag: a change no turn followed is not on record.
-export async function nuphosApplyRuntimeDefaults(agent, params, response) {
+export async function nuphosApplyRuntimeDefaults(agent, params, response, reopened = false) {
   const defaults = params._meta?.['ai.nuphos/runtimeDefaults']
   if (!defaults || Object.keys(defaults).length === 0) return response
   let options = response.configOptions
@@ -209,6 +209,9 @@ export async function nuphosApplyRuntimeDefaults(agent, params, response) {
     if (value === undefined) continue
     const option = options?.find((entry) => kindOf(entry) === kind)
     if (!option?.options?.some((choice) => choice.value === value)) {
+      // A reopened session keeps its restored value when the runtime no longer offers
+      // the stored one; any other failure stops it before it can prompt.
+      if (reopened) continue
       throw new Error(
         `The default ${kind} is not supported. Update this runtime in Settings → Agent, then start a new conversation.`,
       )
@@ -351,9 +354,7 @@ export function patchRuntimeDefaults(source) {
             nuphosRestorePhase('adapter-restore');
             nuphosReplyImages(this, params, { sessionId: params.sessionId });
             try {
-                const restored = await this.nuphos_${method}(params, nuphosRestorePhase);
-                // A setting the runtime no longer offers leaves the restored session as it is.
-                return await nuphosApplyRuntimeDefaults(this, params, restored).catch(() => restored);
+                return await nuphosApplyRuntimeDefaults(this, params, await this.nuphos_${method}(params, nuphosRestorePhase), true);
             } finally {
                 await this.nuphosFlushReplyImages?.(params.sessionId);
             }

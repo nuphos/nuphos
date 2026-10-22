@@ -121,7 +121,12 @@ class Agent {
     model = {}
     config(id) { return [{ id: 'model', currentValue: this.model[id] ?? 'a', options: [{ value: 'a' }, { value: 'b' }] }]; }
     async newSession(params) { return { sessionId: params.id, configOptions: this.config(params.id) }; }
-    async setSessionConfigOption(params) { this.model[params.sessionId] = params.value; return { configOptions: this.config(params.sessionId) }; }
+    setter = 'acknowledges'
+    async setSessionConfigOption(params) {
+      if (this.setter === 'rejects') throw new Error('set_config_option rejected');
+      if (this.setter === 'acknowledges') this.model[params.sessionId] = params.value;
+      return { configOptions: this.config(params.sessionId) };
+    }
     async loadSession(params) { return { configOptions: this.config(params.sessionId) }; }
     async resumeSession(params) { return { configOptions: this.config(params.sessionId) }; }
   }`
@@ -144,5 +149,13 @@ class Agent {
   const kept = await agent.loadSession({ sessionId: 'e', ...params({ model: 'retired' }) })
 
   assert.equal(kept.configOptions[0].currentValue, 'a')
+  // Any other failure stops the reopen before a prompt runs on the wrong model.
+  agent.setter = 'rejects'
+  await assert.rejects(agent.loadSession({ sessionId: 'f', ...params({ model: 'b' }) }), /rejected/)
+  agent.setter = 'keeps the old value'
+  await assert.rejects(
+    agent.resumeSession({ sessionId: 'g', ...params({ model: 'b' }) }),
+    /did not accept/,
+  )
   assert.throws(() => patchRuntimeDefaults('unexpected adapter'), /exactly one/)
 })
