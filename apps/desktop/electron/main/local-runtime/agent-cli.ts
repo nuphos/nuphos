@@ -52,26 +52,6 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
   })
 }
 
-export function parseClaudeAuthStatus(
-  output: string,
-): Pick<Extract<AgentCliStatus, { installed: true }>, 'loggedIn' | 'account' | 'plan'> {
-  try {
-    const parsed = JSON.parse(output) as {
-      loggedIn?: unknown
-      email?: unknown
-      subscriptionType?: unknown
-    }
-
-    return {
-      loggedIn: typeof parsed.loggedIn === 'boolean' ? parsed.loggedIn : null,
-      ...(typeof parsed.email === 'string' ? { account: parsed.email } : {}),
-      ...(typeof parsed.subscriptionType === 'string' ? { plan: parsed.subscriptionType } : {}),
-    }
-  } catch {
-    return { loggedIn: null }
-  }
-}
-
 /** `codex login status` prints "Logged in using ChatGPT" (or "… an API key") or "Not logged in". */
 export function parseCodexLoginStatus(
   output: string,
@@ -96,19 +76,33 @@ async function loginOf(
   const fromHome = await homeLogin(provider, agentHome)
 
   if (fromHome !== undefined) return { loggedIn: fromHome }
-  const codex = provider === 'codex'
+  if (provider === 'claude-code') return claudeLogin(runtimeEnv)
 
-  return run(file, codex ? ['login', 'status'] : ['auth', 'status', '--json'], runtimeEnv).then(
-    async (output) => {
-      if (codex) return parseCodexLoginStatus(output)
-      const auth = parseClaudeAuthStatus(output)
+  return run(file, ['login', 'status'], runtimeEnv).then(parseCodexLoginStatus, () => ({
+    loggedIn: null,
+  }))
+}
 
-      return auth.loggedIn && (await claudeTokensGone(runtimeEnv))
-        ? { ...auth, loggedIn: false }
-        : auth
-    },
-    () => ({ loggedIn: null }),
-  )
+/**
+ * Read from the credential, never from `claude auth status`: that command refreshes an
+ * expired token and exits before saving the rotated one, so the next refresh is refused
+ * and Claude Code clears the sign-in.
+ */
+async function claudeLogin(
+  env: NodeJS.ProcessEnv,
+): Promise<Partial<AgentCliStatus> & { loggedIn: boolean | null }> {
+  const oauth = (await readClaudeCredential(homeOf(env), env))?.claudeAiOauth as
+    { accessToken?: unknown; refreshToken?: unknown; subscriptionType?: unknown } | undefined
+  const config = env.CLAUDE_CONFIG_DIR
+    ? await readJson(path.join(env.CLAUDE_CONFIG_DIR, '.claude.json'))
+    : null
+  const email = (config?.oauthAccount as { emailAddress?: unknown } | undefined)?.emailAddress
+
+  return {
+    loggedIn: Boolean(oauth?.accessToken || oauth?.refreshToken),
+    ...(typeof email === 'string' ? { account: email } : {}),
+    ...(typeof oauth?.subscriptionType === 'string' ? { plan: oauth.subscriptionType } : {}),
+  }
 }
 
 function versionOf(output: string): string | undefined {
@@ -123,19 +117,6 @@ async function readJson(file: string): Promise<Record<string, unknown> | null> {
   } catch {
     return null
   }
-}
-
-/**
- * Claude Code still reports a credentials file whose tokens are gone as signed in, though no
- * turn can authenticate with it. Where that file is the login, it is read as the agent would.
- */
-async function claudeTokensGone(env: NodeJS.ProcessEnv): Promise<boolean> {
-  if (process.platform === 'darwin' || !env.CLAUDE_CONFIG_DIR) return false
-  const credential = await readJson(path.join(env.CLAUDE_CONFIG_DIR, '.credentials.json'))
-  const oauth = credential?.claudeAiOauth as
-    { accessToken?: unknown; refreshToken?: unknown } | undefined
-
-  return oauth !== undefined && !oauth.accessToken && !oauth.refreshToken
 }
 
 async function codexUsageRequest(
@@ -157,10 +138,10 @@ async function codexUsageRequest(
   }
 }
 
-async function claudeUsageRequest(
+async function readClaudeCredential(
   home: string,
   env: NodeJS.ProcessEnv,
-): Promise<UsageRequest | null> {
+): Promise<Record<string, unknown> | null> {
   const dir = env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude')
   let credential = await readJson(path.join(dir, '.credentials.json'))
 
@@ -186,6 +167,15 @@ async function claudeUsageRequest(
       // Linux and file-backed sign-ins still use .credentials.json.
     }
   }
+
+  return credential
+}
+
+async function claudeUsageRequest(
+  home: string,
+  env: NodeJS.ProcessEnv,
+): Promise<UsageRequest | null> {
+  const credential = await readClaudeCredential(home, env)
   const oauth = credential?.claudeAiOauth as { accessToken?: unknown } | undefined
 
   if (typeof oauth?.accessToken !== 'string' || !oauth.accessToken) return null
