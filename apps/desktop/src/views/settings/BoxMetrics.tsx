@@ -48,7 +48,7 @@ const STATUS_LABEL: Record<DeviceMetricsStatus | 'creating' | 'connecting', stri
   creating: 'Starting',
   connecting: 'Waiting for the host to connect',
   offline: 'Host offline',
-  unsupported: 'Host update required for metrics',
+  unsupported: 'Metrics unavailable on this host',
   waiting: 'Waiting for metrics',
   stale: 'Stale reading',
   live: 'Live',

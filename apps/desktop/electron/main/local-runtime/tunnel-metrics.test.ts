@@ -56,6 +56,13 @@ test('only demand samples every 5 seconds; expired lease and disconnect stop sam
   })
 
   try {
+    assert.ok(
+      socket.sent.some(
+        (frame) =>
+          frame.t === 'status' && (frame.status as { localMetrics?: boolean }).localMetrics,
+      ),
+      'advertise metrics before the backend requests a sample',
+    )
     assert.equal(count, 0)
     socket.emit({ t: 'metrics', leaseMs: 12_000 })
     await flush()

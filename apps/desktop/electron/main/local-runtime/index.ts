@@ -13,6 +13,7 @@ import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-versio
 import { resolveShellEnv } from '../../shell-env.ts'
 import { syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
+import { readDeviceMetrics } from '../device-metrics.ts'
 import { isDev } from '../env.ts'
 
 import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
@@ -116,6 +117,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
       instances,
+      sampleMetrics: readDeviceMetrics,
       activity: sleep.taskActivity,
       connectBackend: () => {
         if (!deviceRegistrationAllowed(isDev))
