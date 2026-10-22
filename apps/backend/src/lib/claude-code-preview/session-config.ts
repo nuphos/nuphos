@@ -10,13 +10,13 @@ import { offeredSessionConfig } from './session-config-catalog'
 import { parseSessionConfigOptions } from './session-config-options'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
+import type { RuntimeDefaults } from './openab-acp-session'
+import type { RuntimeModelCatalog } from './runtime-models'
 import type {
   SessionConfigOption,
   SessionConfigSelection,
   SessionConfigState,
 } from './session-config-options'
-import type { RuntimeDefaults } from './openab-acp-session'
-import type { RuntimeModelCatalog } from './runtime-models'
 import type { AgentConversation } from '@/lib/agent/db'
 
 export async function controlSessionConfig(
@@ -249,7 +249,5 @@ async function applySessionConfig(
 
 /** The values a session confirmed, by kind, as the runtime takes them on creation. */
 export function pickOf(options: SessionConfigOption[]): RuntimeDefaults {
-  return Object.fromEntries(
-    options.map((option) => [option.kind, option.currentValue]),
-  ) as RuntimeDefaults
+  return Object.fromEntries(options.map((option) => [option.kind, option.currentValue]))
 }
