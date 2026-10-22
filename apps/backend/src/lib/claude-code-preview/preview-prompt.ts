@@ -10,7 +10,6 @@ import { getSystemPrompt } from '@/lib/agent/system-prompt'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
 import { loadInstructionsBlock } from '@/lib/instructions/prompt'
 import {
-  COMMUNICATION_DISCIPLINE_MESSAGE,
   buildDiagramMessage,
   buildKubeContextMessage,
   buildNuphosLinksMessage,
@@ -84,21 +83,12 @@ const PLAN_RUNTIME_NOTE =
 const DASHBOARDS_RUNTIME_NOTE =
   'For Nuphos Dashboards work (the Dashboards page of script-driven panels, not Grafana), use Claude Code’s native `nuphos-dashboards` skill FIRST, then build or update the dashboard through its API script exactly as that skill instructs.'
 
-function backgroundMonitorNote(provider: PreviewPromptArgs['provider']): string {
-  return [
-    '## Background monitoring',
-    '',
-    'Keep working on the authorized task until it is complete or blocked on information or approval. A terminal tool returning a running process/session ID only means the command yielded; it is not an acknowledgement that a durable monitor or future wakeup was registered. Never launch a duplicate command to check whether the first one finished.',
-    'Nothing you leave running inside this process survives it. The runtime process is replaced routinely — a rollout, a pod restart, an idle reap — and every background task, watcher, monitor and open shell goes with it. Nobody re-arms them and no wakeup arrives, so a turn that ends "I am watching this in the background" ends with nothing watching.',
-    'Either finish the wait inside this turn, or tell the user plainly that nothing is watching it and what they should check themselves. Say which of the two you did. An external API accepting work (for example AWS returning CREATING) is not a running monitor. Do not use shell &, nohup, or disown as a substitute for runtime-managed work.',
-    'If the runtime starts a continuation after a background command completes, inspect the completed command result and continue the original task. Do not restart the command or stop at another progress-only answer.',
-    ...(provider === 'codex'
-      ? [
-          'Wait for a yielded command with the native write_stdin tool, inspect its result, and continue the remaining work in the same turn.',
-        ]
-      : []),
-  ].join('\n')
-}
+const BACKGROUND_MONITOR_NOTE = [
+  '## Background monitoring',
+  '',
+  'Nothing you leave running inside this process survives it. The runtime process is replaced routinely — a rollout, a pod restart, an idle reap — and every background task, watcher, monitor and open shell goes with it. Nobody re-arms them and no wakeup arrives, so a turn that ends "I am watching this in the background" ends with nothing watching.',
+  'A terminal tool returning a running process/session ID or an external API accepting work (for example AWS returning CREATING) does not register a durable monitor or future wakeup. Do not use shell &, nohup, or disown as a substitute for runtime-managed work.',
+].join('\n')
 
 async function urlContextSection(currentUrl: string | null | undefined): Promise<string | null> {
   if (!currentUrl) return null
@@ -185,10 +175,9 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     urlContext,
     nativeText(`${planMessage}\n\n${PLAN_RUNTIME_NOTE}`),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
-    nativeText(backgroundMonitorNote(args.provider)),
+    BACKGROUND_MONITOR_NOTE,
     previewChannelPromptSection({ teamId: args.teamId, slackThread: args.slackThread }),
     nativeText(buildNuphosLinksMessage(args.teamId, { nativeClaudeSkills: true })),
-    COMMUNICATION_DISCIPLINE_MESSAGE,
     instructions,
   ]
     .filter((section): section is string => typeof section === 'string' && section.trim() !== '')

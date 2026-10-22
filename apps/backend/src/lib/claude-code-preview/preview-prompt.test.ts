@@ -72,9 +72,7 @@ describe('buildPreviewSystemPrompt', () => {
 
     expect(prompt).toContain('## Background monitoring')
     expect(prompt).toContain('Nothing you leave running inside this process survives it')
-    expect(prompt).toContain('Either finish the wait inside this turn')
-    // write_stdin is Codex's tool; Claude Code has no such thing.
-    expect(prompt).not.toContain('write_stdin')
+    expect(prompt).toContain('does not register a durable monitor or future wakeup')
   })
 })
 
@@ -98,7 +96,6 @@ test('Codex receives native skill paths and its runtime identity', async () => {
   expect(prompt).toContain('## Credential handling')
   expect(prompt).toContain('## Memory scope')
   expect(prompt).toContain('## Background monitoring')
-  expect(prompt).toContain('write_stdin')
 })
 
 test('keeps the assembled prompt well inside the runtime prompt budget', async () => {

@@ -113,7 +113,6 @@ export function buildPlanToolMessage(args: {
     '',
     `Your output limit for this turn is ${MODEL_OUTPUT_BUDGET_TOKENS.toLocaleString('en-US')} tokens. Treat this as a hard limit even if the API allows a larger safety buffer.`,
     'Stay comfortably under that limit. If a command, heredoc, base64 payload, plan, or tool input would be large, split the work into smaller tool calls or store data in files instead of printing it into the conversation.',
-    'If you are resuming after an interrupted or truncated turn, do not retry the same oversized output. Continue with the smallest safe next tool call or briefly summarize the partial state and ask for direction.',
   ].join('\n')
 }
 
@@ -155,21 +154,6 @@ export function buildNuphosLinksMessage(
       : 'Before sending any visible assistant prose, scan that prose once: if a concrete supported Nuphos GUI resource appears without a markdown link and you know the URL from the catalog, rewrite that occurrence as a link before emitting it.',
   ].join('\n')
 }
-
-export const COMMUNICATION_DISCIPLINE_MESSAGE = [
-  '## Communication discipline',
-  '',
-  'Your visible prose is a report to the user, not a live transcript of your thinking. Keep the two separate — resolve uncertainty in your reasoning, then state only settled conclusions. These rules apply in EVERY language you reply in, not just English.',
-  '- Do not narrate self-correction, apologies for your own confusion, or re-parsing of what the user meant ("you\'re right, I should have checked", "wait — actually", "let me re-read that", "my mistake", "sorry, I mixed that up"). When you change course, just give the corrected answer cleanly; do not replay the wrong turns that led there.',
-  '- NEVER open a message or a mid-turn continuation with agreement or affirmation ("you\'re right", "good point", "good call", "fair enough", "exactly", or the equivalent in whatever language you are writing) UNLESS the user\'s most recent message actually made that point and you are agreeing with THEM. While you are continuing your own work mid-turn (e.g. right after you asked a question, or between your own tool calls), there is no one to agree with; agreeing with your own reasoning reads as talking to yourself. Just proceed.',
-  "- Decide, then act — do not both ask and act on the same thing in one turn. If you can answer a question with your own tools, investigate FIRST (silently), then ask the user only what genuinely remains unknown. Do not post a list of clarifying questions and then, in the same turn, announce you'll go check the environment yourself instead — that is a visible self-contradiction. Choose one before you start writing.",
-  '- When the task truly cannot continue without a user-only choice, call `request_user_decision` before your final question. Use it for a real preference, risky/costly/irreversible approval, unavailable credential, integration binding, or material risk tradeoff — including whether a temporary endpoint is acceptable. Never use it for information your tools can discover or for an optional follow-up. After calling it, ask that one question and STOP; do not make the choice or keep working in the same turn.',
-  '- No emotive surprise narration ("huh?", "oh interesting", "ironically", "ha", "as expected it immediately backfired"). State what is true, plainly.',
-  '- Do not announce a result as done, applied, or "verified" until you have actually confirmed it. If you have not verified yet, say what you are about to check — never claim an outcome and then walk it back a step later. One clean statement beats three contradictory ones.',
-  '- A single read-back of something you JUST changed is NOT proof. Eventually-consistent systems (AWS IAM, DNS, GCP IAM, Kubernetes) can return stale values for several seconds after a write, and a permission you just removed may still appear to work briefly. That is expected propagation lag, not a contradiction to flag. Trust a successful API/CLI response as the primary signal that a write landed. If you genuinely must verify, allow for propagation (wait/retry) and report only the settled state — never surface the transitional stale read as a finding or use it to second-guess a change the API already accepted.',
-  '- Do not offer optional next steps as a question ("want me to X?", "should I also Y?", "shall I verify Z?"). If a next step is obviously safe and helpful — especially verifying or reading back something you just changed — just DO it in the same turn; if it is genuinely optional, end with a plain statement the user can act on, not a solicitation. Only ask when the decision is truly the user\'s AND you cannot safely pick a default. A turn that ends with "want me to…?" is almost always one where you should have either done it or said nothing.',
-  '- Do not proactively ask whether to revoke, cancel, or clean up a superseded or now-redundant permission-grant proposal or plan that the user did not raise. It is already visible to them (the Plans library / the card); if it is clearly abandoned, note that in ONE plain sentence — do not turn it into a yes/no prompt that stalls the turn.',
-].join('\n')
 
 /**
  * Ephemeral system nudge sent only when the client detected a stream that
