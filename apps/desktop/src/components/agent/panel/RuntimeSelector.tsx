@@ -56,9 +56,9 @@ export type RuntimeControl = {
 }
 
 const AGENT_DOT = {
-  ready: { color: 'bg-success', label: 'Box online · agent ready' },
-  signIn: { color: 'bg-warning', label: 'Box online · agent needs sign-in' },
-  offline: { color: 'bg-error', label: 'Box offline' },
+  ready: { color: 'bg-success', label: 'Computer online · runtime ready' },
+  signIn: { color: 'bg-warning', label: 'Computer online · runtime needs sign-in' },
+  offline: { color: 'bg-error', label: 'Computer offline' },
 } as const
 
 export function RuntimeSelector({
@@ -105,8 +105,8 @@ export function RuntimeSelector({
   const label = value
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
-      ? 'Loading agents…'
-      : 'Choose agent'
+      ? 'Loading runtimes…'
+      : 'Choose runtime'
   const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
   const reachability = selectedAgentReachability({ value, options })
   const dot = reachability ? AGENT_DOT[reachability] : null
@@ -115,7 +115,7 @@ export function RuntimeSelector({
       <AgentProviderIcon provider={value?.provider} className="h-3.5 w-3.5 shrink-0" />
       {loading && !value ? (
         <span
-          aria-label="Loading agent"
+          aria-label="Loading runtime"
           role="status"
           className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
         />
@@ -159,7 +159,7 @@ export function RuntimeSelector({
       )}
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
-          aria-label={`Conversation agent: ${label}`}
+          aria-label={`Conversation runtime: ${label}`}
           className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
         >
           {content}
@@ -169,7 +169,7 @@ export function RuntimeSelector({
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
           {!loading && !error && options.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">
-              Connect an agent in Settings → Agent to get started.
+              Connect a runtime in Settings → Agent to get started.
             </p>
           )}
           <div className="max-h-96 overflow-auto">
@@ -194,11 +194,11 @@ export function RuntimeSelector({
               {options.length > 0 && <MenuSeparator />}
               {onAddAgent ? (
                 <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
-                  Add new agent
+                  Add new runtime
                 </MenuItem>
               ) : (
                 <MenuItem icon={<Settings2 className="h-3.5 w-3.5" />} onClick={onSettings}>
-                  Manage Boxes and agents
+                  Manage computers and runtimes
                 </MenuItem>
               )}
             </>
@@ -220,7 +220,7 @@ export function RuntimeSelector({
         <ConfirmDialog
           open
           title={`Sign in on ${howTo.local?.deviceLabel ?? 'your computer'}`}
-          description={`Open Nuphos on ${howTo.local?.deviceLabel ?? 'that computer'}, go to Settings → Agents, then choose Sign in for ${howTo.label}. Your current agent stays selected.`}
+          description={`Open Nuphos on ${howTo.local?.deviceLabel ?? 'that computer'}, go to Settings → Agents, then choose Sign in for ${howTo.label}. Your current runtime stays selected.`}
           confirmLabel="Got it"
           onConfirm={() => setHowTo(null)}
           onClose={() => setHowTo(null)}

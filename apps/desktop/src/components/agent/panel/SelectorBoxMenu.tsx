@@ -124,7 +124,7 @@ export function SelectorBoxMenu({
                 )}
               />
               <span className="truncate font-medium">{group.label}</span>
-              {current && <Check aria-label="Current Box" className="h-3 w-3 shrink-0" />}
+              {current && <Check aria-label="Current computer" className="h-3 w-3 shrink-0" />}
               {offline && <span className="text-[10px] text-tertiary">Offline</span>}
             </span>
             {group.device && <SelectorBoxMeters metrics={metrics} />}

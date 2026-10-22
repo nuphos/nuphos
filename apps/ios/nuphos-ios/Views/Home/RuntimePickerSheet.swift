@@ -30,26 +30,26 @@ struct RuntimePickerSheet: View {
             Group {
                 if !store.runtimesLoaded, let error = store.runtimesError {
                     ContentUnavailableView {
-                        Label("Couldn't load agents", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load runtimes", systemImage: "wifi.exclamationmark")
                     } description: { Text(error) } actions: {
                         Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
                     }
                 } else if !store.runtimesLoaded {
-                    ProgressView("Loading agents…").tint(Theme.muted)
+                    ProgressView("Loading runtimes…").tint(Theme.muted)
                 } else if choices.isEmpty {
-                    ContentUnavailableView("No agents", systemImage: "cpu", description: Text("Set up a cloud agent here, or open Nuphos on your computer to connect an agent."))
+                    ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Set up a cloud runtime here, or open Nuphos on your computer to connect a runtime."))
                 } else { boxList }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.canvas)
-            .navigationTitle("Choose agent")
+            .navigationTitle("Choose runtime")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", systemImage: "xmark") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
                 }
                 if administrator {
-                    ToolbarItem(placement: .primaryAction) { Button("Add agent", systemImage: "plus") { showSetup = true } }
+                    ToolbarItem(placement: .primaryAction) { Button("Add runtime", systemImage: "plus") { showSetup = true } }
                 }
             }
             .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
@@ -62,7 +62,7 @@ struct RuntimePickerSheet: View {
                 Button("Move") { onMove(runtime); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("This agent runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.")
+                Text("This runtime runs on your computer. After the move, anyone in this team can open this session and run commands on your computer.")
             }
             .task(id: store.selectedTeam?.id) {
                 initialized = false
@@ -119,7 +119,7 @@ struct RuntimePickerSheet: View {
                 }
                 Section {
                     Button { managing = true } label: {
-                        Label("Manage Boxes and agents", systemImage: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(Theme.body)
+                        Label("Manage computers and runtimes", systemImage: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(Theme.body)
                     }
                 }.listRowBackground(Theme.surface)
             }
@@ -168,7 +168,7 @@ private struct SelectorBoxHeader: View {
                 }
                 HStack(spacing: 6) {
                     Circle().fill(box.offline ? Theme.muted : Color(hex: 0x127035)).frame(width: 6, height: 6)
-                    Text(box.offline ? "Offline" : "Online · \(box.agents.count) \(box.agents.count == 1 ? "agent" : "agents")")
+                    Text(box.offline ? "Offline" : "Online · \(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")")
                         .font(.system(size: 12)).foregroundStyle(Theme.muted)
                 }
                 if box.device != nil {
@@ -189,7 +189,7 @@ private struct SelectorBoxHeader: View {
         }
         .frame(minHeight: 48).contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(box.label + (current ? ", current Box" : "") + (box.offline ? ", offline" : ""))
+        .accessibilityLabel(box.label + (current ? ", current computer" : "") + (box.offline ? ", offline" : ""))
     }
 }
 
@@ -268,7 +268,7 @@ private struct AgentSignInInstructions: View {
                 BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 56)
                 Text(runtime.local.map { "Sign in on \($0.deviceLabel)" } ?? "Ask an administrator to sign in").font(.title3.weight(.semibold))
                 Text(runtime.label).font(.subheadline).foregroundStyle(Theme.muted)
-                Text(runtime.local.map { "Open Nuphos on \($0.deviceLabel), go to Settings → Agents, then choose Sign in for this agent." } ?? "A workspace administrator can sign in to this agent in Settings → Agents.")
+                Text(runtime.local.map { "Open Nuphos on \($0.deviceLabel), go to Settings → Agents, then choose Sign in for this runtime." } ?? "A workspace administrator can sign in to this runtime in Settings → Agents.")
                     .font(.subheadline).foregroundStyle(Theme.body).multilineTextAlignment(.center)
             }.frame(maxWidth: .infinity).padding(.vertical, 16).listRowBackground(Color.clear)
         }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Sign in").navigationBarTitleDisplayMode(.inline)
@@ -279,7 +279,7 @@ private struct SelectorManagementView: View {
     @Environment(AgentStore.self) private var store
     var body: some View {
         List {
-            Section { Text("Open Settings → Agents in Nuphos Desktop to manage your Boxes and computers.").font(.subheadline).foregroundStyle(Theme.body) }
+            Section { Text("Open Settings → Agents in Nuphos Desktop to manage your computers and runtimes.").font(.subheadline).foregroundStyle(Theme.body) }
             ForEach(SelectorBox.grouped(store.runtimes, devices: store.agentDevices)) { box in
                 Section(box.label) {
                     ForEach(box.agents) { runtime in
@@ -293,7 +293,7 @@ private struct SelectorManagementView: View {
                     }
                 }.listRowBackground(Theme.surface)
             }
-        }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Boxes and agents")
+        }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Computers and runtimes")
     }
 }
 
