@@ -13,13 +13,21 @@ export function migratedRuntimeDefaults(attachment: LegacyAttachment): RuntimeDe
   return { ...attachment.runtimeDefaults, ...pickOf(attachment.sessionConfig ?? []) }
 }
 
+type Conversations = Pick<ReturnType<typeof agentConversations>, 'find' | 'updateOne'>
+
 /**
  * One-time backfill: earlier versions kept a session's confirmed settings in
  * `claudeCodePreview.sessionConfig`. Fold them into `runtimeDefaults`, which the
  * chip and a recreated session read. Idempotent — a no-op once none remain.
+ *
+ * Every replica runs it at startup, so each write is a compare-and-set on the
+ * snapshot it read: once the old field is gone, or a newer pick was stored, a
+ * stale write matches nothing.
  */
-export async function migrateConfirmedSessionConfig(): Promise<number> {
-  const legacy = await agentConversations()
+export async function migrateConfirmedSessionConfig(
+  conversations: Conversations = agentConversations(),
+): Promise<number> {
+  const legacy = await conversations
     .find(
       { 'claudeCodePreview.sessionConfig': { $exists: true } },
       { projection: { sessionId: 1, teamId: 1, claudeCodePreview: 1 } },
@@ -31,11 +39,13 @@ export async function migrateConfirmedSessionConfig(): Promise<number> {
       openabSessionId: string
     }
 
-    await agentConversations().updateOne(
+    await conversations.updateOne(
       {
         sessionId: conversation.sessionId,
         teamId: conversation.teamId,
         'claudeCodePreview.openabSessionId': attachment.openabSessionId,
+        'claudeCodePreview.sessionConfig': attachment.sessionConfig,
+        'claudeCodePreview.runtimeDefaults': attachment.runtimeDefaults ?? { $exists: false },
       },
       {
         $set: { 'claudeCodePreview.runtimeDefaults': migratedRuntimeDefaults(attachment) },
