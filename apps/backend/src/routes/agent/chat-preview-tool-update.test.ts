@@ -5,6 +5,7 @@ import {
   handlePreviewToolUpdate,
   openToolCalls,
 } from './chat-preview-tool-update'
+import { parseToolUpdate } from '@/lib/claude-code-preview/preview-agent-update'
 import { INTERRUPTED_TOOL_ERROR } from '@/lib/claude-code-preview/preview-transcript'
 
 import type { createPreviewToolLog } from './chat-preview-run'
@@ -26,6 +27,34 @@ function toolLog(): ToolLog {
 }
 
 describe('handlePreviewToolUpdate', () => {
+  test('a Codex nuphos-tools call is recorded as the classic tool with its own input', () => {
+    const frames: Record<string, unknown>[] = []
+    const recorded = new Map<string, unknown>()
+    const log = toolLog()
+
+    log.record = (toolCallId, name, input) => {
+      recorded.set(toolCallId, { name, input })
+    }
+    const args = {
+      category: 'integration',
+      providers: ['cloudflare'],
+      question: 'Can you connect the Cloudflare account?',
+      label: 'Enabling Cloudflare access',
+    }
+
+    // codex-acp sends an MCP call as `mcp.<server>.<tool>` with its arguments wrapped.
+    for (const status of ['in_progress', 'completed']) {
+      const update = parseToolUpdate('call_1', {
+        title: 'mcp.nuphos-tools.request_user_decision',
+        status,
+        rawInput: { server: 'nuphos-tools', tool: 'request_user_decision', arguments: args },
+      })
+
+      if (update.kind === 'tool') handlePreviewToolUpdate((f) => frames.push(f), log, update)
+    }
+    expect([...recorded]).toEqual([['call_1', { name: 'request_user_decision', input: args }]])
+    expect(frames).toEqual([])
+  })
   test('retains disk-full details when the adapter only sends rawOutput', () => {
     const frames: Record<string, unknown>[] = []
     const failures: string[] = []
