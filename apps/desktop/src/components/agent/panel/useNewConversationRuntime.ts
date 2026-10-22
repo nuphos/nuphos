@@ -49,6 +49,7 @@ export function useNewConversationRuntime(teamId?: string) {
   }
 
   const selectedRuntimeId = selected?.id
+
   function pickNewConversationSessionConfig(pick: SessionConfigPick) {
     if (selectedRuntimeId) save({ runtimeId: selectedRuntimeId, pick })
   }
