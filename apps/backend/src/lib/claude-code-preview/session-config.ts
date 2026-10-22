@@ -7,7 +7,7 @@ import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
 import { offeredSessionConfig } from './session-config-catalog'
-import { parseSessionConfigOptions } from './session-config-options'
+import { parseSessionConfigOptions, storedPick } from './session-config-options'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
 import type { RuntimeDefaults } from './openab-acp-session'
@@ -116,7 +116,7 @@ export async function conversationSessionConfig(
   if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId)
   const catalogFor = runtimeCatalog(conversation, viewerUserId)
 
-  if (!selection) return await sessionConfigView(attachment.runtimeDefaults ?? {}, catalogFor)
+  if (!selection) return await sessionConfigView(storedPick(attachment), catalogFor)
   const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
 
   return await sessionConfigView(picked, catalogFor)
@@ -229,7 +229,6 @@ async function applySessionConfig(
       () => sessionConfigRestoreContext(conversation, endpoint),
     )
     const { options } = await controlSessionConfig(client, attachment.openabSessionId, selection)
-    const picked = { ...attachment.runtimeDefaults, ...pickOf(options) }
 
     // Scoped to the session id so a newer session's settings are never overwritten.
     await agentConversations().updateOne(
@@ -238,16 +237,11 @@ async function applySessionConfig(
         teamId: conversation.teamId,
         'claudeCodePreview.openabSessionId': attachment.openabSessionId,
       },
-      { $set: { 'claudeCodePreview.runtimeDefaults': picked } },
+      { $set: { 'claudeCodePreview.sessionConfig': options } },
     )
 
-    return picked
+    return storedPick({ ...attachment, sessionConfig: options })
   } finally {
     client.close()
   }
-}
-
-/** The values a session confirmed, by kind, as the runtime takes them on creation. */
-export function pickOf(options: SessionConfigOption[]): RuntimeDefaults {
-  return Object.fromEntries(options.map((option) => [option.kind, option.currentValue]))
 }

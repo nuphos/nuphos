@@ -10,6 +10,7 @@ import {
   assertConversationRuntimeAvailable,
   assertRuntimeNotDeleting,
 } from './runtime-portability-store'
+import { storedPick } from './session-config-options'
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
@@ -42,7 +43,7 @@ export async function attachOpenAbSession(
   // backend replica recreating it later applies the same ones.
   const defaults =
     (stored
-      ? stored.runtimeDefaults
+      ? storedPick(stored)
       : (
           await agentConversations().findOne(
             { sessionId: conversationId, teamId },

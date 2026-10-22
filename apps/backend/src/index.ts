@@ -32,7 +32,6 @@ import {
   initClaudeCodeRuntimeProvisioner,
   shutdownClaudeCodeRuntimeProvisioner,
 } from '@/lib/claude-code-preview/runtime-provisioner'
-import { migrateConfirmedSessionConfig } from '@/lib/claude-code-preview/session-config-migration'
 import { recoverDashboardPanelExecutions } from '@/lib/dashboards/exec-service'
 import { dashboardRefreshScheduler } from '@/lib/dashboards/refresh-schedule'
 import { connectDb, closeDb } from '@/lib/db'
@@ -100,7 +99,6 @@ const removedTencent = await migrateLegacyTencentBindings()
 if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
 }
-await migrateConfirmedSessionConfig()
 
 // A message queued behind a turn starts the next one when that turn lets go.
 installQueuedTurnStarter(startQueuedTurn)

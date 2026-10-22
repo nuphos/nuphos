@@ -1,6 +1,7 @@
 import { previewSessionAccess } from './credentials-mcp'
 import { sessionMeta } from './openab-acp-session'
 import { runtimeProvider } from './runtime-provider'
+import { storedPick } from './session-config-options'
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -39,7 +40,7 @@ export async function sessionConfigRestoreContext(
     ...sessionMeta(systemPrompt, {
       provider,
       env: access.runtimeEnv,
-      defaults: conversation.claudeCodePreview?.runtimeDefaults,
+      defaults: storedPick(conversation.claudeCodePreview),
     }),
   }
 }

@@ -5,13 +5,11 @@ import { AppError } from '@/lib/errors'
 import { OpenAbRpcError } from './openab-acp-errors'
 import {
   controlSessionConfig,
-  pickOf,
   restoreSessionConfigForWrite,
   sessionConfigView,
 } from './session-config'
 import { catalogSessionConfig, offeredSessionConfig } from './session-config-catalog'
-import { migratedRuntimeDefaults } from './session-config-migration'
-import { parseSessionConfigOptions } from './session-config-options'
+import { parseSessionConfigOptions, pickOf, storedPick } from './session-config-options'
 
 const model = (currentValue = 'a') => ({
   id: 'model',
@@ -366,7 +364,7 @@ test('the model list renders while a reply runs: catalog plus stored picks, neve
   })
 })
 
-test('a confirmed change is stored by kind, so the chip and a recreated session keep it', async () => {
+test('a confirmed change is read back by kind, so the chip and a recreated session keep it', async () => {
   const set: unknown[] = []
   const client = {
     getSessionConfigOptions: async () => ({ configOptions: [model('a'), effort, fast] }),
@@ -385,15 +383,13 @@ test('a confirmed change is stored by kind, so the chip and a recreated session 
   expect(set.at(-1)).toEqual(['reasoning_effort', 'high'])
 })
 
-test('settings an older version confirmed survive the move to runtimeDefaults', () => {
-  // Started on model a with no effort pick; later changed to b and high.
+test('a confirmed pick that differs from the start settings wins on the chip and on recreation', () => {
+  // Started on model a with fast on; later changed to b and high effort.
   const confirmed = parseSessionConfigOptions([model('b'), effort])
 
   expect(
-    migratedRuntimeDefaults({
-      runtimeDefaults: { model: 'a', fast: 'on' },
-      sessionConfig: confirmed,
-    }),
+    storedPick({ runtimeDefaults: { model: 'a', fast: 'on' }, sessionConfig: confirmed }),
   ).toEqual({ model: 'b', effort: 'high', fast: 'on' })
-  expect(migratedRuntimeDefaults({ runtimeDefaults: { model: 'a' } })).toEqual({ model: 'a' })
+  expect(storedPick({ runtimeDefaults: { model: 'a' } })).toEqual({ model: 'a' })
+  expect(storedPick(undefined)).toEqual({})
 })

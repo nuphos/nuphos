@@ -10,6 +10,7 @@ import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
+import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type BackgroundWorkLoss = 'session_lost' | 'unreachable'
@@ -18,8 +19,10 @@ export type ConversationPreviewAttachment = {
   /** Legacy: set by moves before they stopped minting a session id. Only
    *  getConversationPreviewAttachment reads it, and it answers "no session". */
   forceNew?: boolean
-  /** The session's model settings: those it started with, then each change it confirmed. */
   runtimeDefaults?: RuntimeDefaults
+  /** Last model settings this session confirmed; they override runtimeDefaults
+   *  on the chip and when the session is recreated (see storedPick). */
+  sessionConfig?: SessionConfigOption[]
   openabSessionId: string
   runtimeUrl: string
 }

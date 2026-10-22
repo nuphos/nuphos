@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import type { RuntimeDefaults } from './openab-acp-session'
+
 export type SessionConfigOption = {
   id: string
   name: string
@@ -84,3 +86,16 @@ export const sessionConfigPickSchema = z
     fast: z.enum(['on', 'off']).optional(),
   })
   .strict()
+
+/** The values a session confirmed, by kind, as the runtime takes them on creation. */
+export function pickOf(options: SessionConfigOption[]): RuntimeDefaults {
+  return Object.fromEntries(options.map((option) => [option.kind, option.currentValue]))
+}
+
+/** A session's settings: those it started with, overridden by any change it confirmed. */
+export function storedPick(attachment?: {
+  runtimeDefaults?: RuntimeDefaults
+  sessionConfig?: SessionConfigOption[]
+}): RuntimeDefaults {
+  return { ...attachment?.runtimeDefaults, ...pickOf(attachment?.sessionConfig ?? []) }
+}
