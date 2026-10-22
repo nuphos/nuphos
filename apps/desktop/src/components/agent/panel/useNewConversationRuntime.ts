@@ -7,7 +7,12 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { defaultAgent, usable } from '../../../lib/agentName'
 import { pendingLocalAgents } from '../../../lib/localAgentReady'
 
-import { chooseAgent, newChatChoiceKey, readNewChatChoice, saveNewChatChoice } from './newChatChoice'
+import {
+  chooseAgent,
+  newChatChoiceKey,
+  readNewChatChoice,
+  saveNewChatChoice,
+} from './newChatChoice'
 
 import type { NewChatChoice } from './newChatChoice'
 import type { SessionConfigPick } from '../../../api/session-config-types'
