@@ -6,13 +6,14 @@ import SwiftUI
 struct ReasoningTile: View {
     let part: ChatPart.ReasoningPart
     @State private var expanded = ProcessInfo.processInfo.arguments.contains("-expand-all")
+    @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     private var isThinking: Bool { part.state == .streaming }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { expanded.toggle() }
+                disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "brain")
@@ -40,7 +41,7 @@ struct ReasoningTile: View {
             }
             .buttonStyle(.plain)
 
-            Collapsible(expanded: expanded) {
+            if expanded {
                 Text(ReasoningText.attributed(part.text))
                     .font(Theme.Text.secondary)
                     .lineSpacing(Theme.Text.leading)

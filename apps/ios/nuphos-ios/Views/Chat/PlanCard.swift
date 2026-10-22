@@ -156,19 +156,13 @@ struct PlanCard: View {
     }
 }
 
-/// A disclosure is a reading interaction, not a request to follow the bottom.
-/// Apply its new size atomically: SwiftUI's default height animation and a
-/// self-sizing collection cell otherwise animate the same geometry twice.
 struct PlanStepDisclosureStyle: DisclosureGroupStyle {
     @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                readingInteraction()
-                var transaction = Transaction(animation: nil)
-                transaction.disablesAnimations = true
-                withTransaction(transaction) { configuration.isExpanded.toggle() }
+                disclose(readingInteraction) { configuration.isExpanded.toggle() }
             } label: {
                 HStack {
                     configuration.label
@@ -197,6 +191,18 @@ extension EnvironmentValues {
         get { self[TranscriptReadingInteractionKey.self] }
         set { self[TranscriptReadingInteractionKey.self] = newValue }
     }
+}
+
+/// A disclosure in the transcript is a reading interaction, not a request to
+/// follow the bottom. Apply its new size atomically: SwiftUI's height
+/// animation and a self-sizing collection cell otherwise animate the same
+/// geometry twice, and the row's title jumps away and slides back.
+@MainActor
+func disclose(_ readingInteraction: () -> Void, _ change: () -> Void) {
+    readingInteraction()
+    var transaction = Transaction(animation: nil)
+    transaction.disablesAnimations = true
+    withTransaction(transaction, change)
 }
 
 /// The desktop `PlanStatusBadge`: one label + tone per lifecycle status,

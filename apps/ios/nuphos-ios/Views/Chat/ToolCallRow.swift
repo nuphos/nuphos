@@ -176,6 +176,7 @@ struct ToolRunView: View {
 
     @State private var userOpen: Bool?
     @State private var attentionFor: String?
+    @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     private var tools: [ChatPart.ToolPart] { items.compactMap(\.tool) }
     private var latest: ChatPart.ToolPart? { tools.last }
@@ -186,7 +187,7 @@ struct ToolRunView: View {
         VStack(alignment: .leading, spacing: 0) {
             if let latest {
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { userOpen = !open }
+                    disclose(readingInteraction) { userOpen = !open }
                 } label: {
                     HStack(spacing: 6) {
                         Text(ToolLineRow.label(for: latest))
@@ -318,11 +319,12 @@ struct WorkGroup: View {
     var content: (ChatRow) -> AnyView
 
     @State private var expanded = ProcessInfo.processInfo.arguments.contains("-expand-all")
+    @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) { expanded.toggle() }
+                disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "wrench.and.screwdriver").font(Theme.Text.caption.weight(.semibold))
@@ -340,7 +342,7 @@ struct WorkGroup: View {
             }
             .buttonStyle(.plain)
 
-            Collapsible(expanded: expanded) {
+            if expanded {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(rows) { row in content(row) }
                 }

@@ -447,10 +447,7 @@ struct UserBubble: View {
                         Button(expanded ? "Show less" : "Show more") {
                             // Like a step disclosure: a reading interaction,
                             // applied in one layout rather than animated.
-                            readingInteraction()
-                            var transaction = Transaction(animation: nil)
-                            transaction.disablesAnimations = true
-                            withTransaction(transaction) { expanded.toggle() }
+                            disclose(readingInteraction) { expanded.toggle() }
                         }
                         .font(Theme.Text.label.weight(.medium))
                         .foregroundStyle(Theme.muted)
@@ -570,10 +567,7 @@ struct EventLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
-                readingInteraction()
-                var transaction = Transaction(animation: nil)
-                transaction.disablesAnimations = true
-                withTransaction(transaction) { expanded.toggle() }
+                disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 5) {
                     if let logo = event.logo {
@@ -630,13 +624,14 @@ struct MemoryRecallPill: View {
     let entries: [ChatRow.MemoryEntry]
     let fetched: Int
     @State private var expanded = false
+    @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     private var count: Int { max(entries.count, fetched) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { expanded.toggle() }
+                disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "brain").font(Theme.Text.micro.weight(.semibold))
@@ -655,7 +650,7 @@ struct MemoryRecallPill: View {
             .buttonStyle(.plain)
             .disabled(entries.isEmpty)
 
-            Collapsible(expanded: expanded) {
+            if expanded {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(entries) { entry in
                         HStack(alignment: .top, spacing: 8) {
