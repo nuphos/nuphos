@@ -98,23 +98,13 @@ export function runtimeConfigMapObject(
   // the Pod, so native tools inherit them.
   //
   // Budget one tool well below the container limit instead of letting it use
-  // most of it. The container cgroup runs with memory.oom.group=1 and holds up
-  // to `max_sessions` conversations, so a cgroup OOM kills every session and
-  // the ACP bridge at once — the user sees "OpenAB ACP connection closed" with
-  // no error to react to. Two production incidents came from a single `go
-  // build`/`go vet` walking up to the old 6 GiB budget while three idle
-  // sessions held ~1 GiB between them.
-  //
-  // GOMEMLIMIT is only a soft target (Go keeps allocating past it, just with
-  // more GC), so the actual ceiling is the RLIMIT_DATA that runtime-guard.sh
-  // installs via BASH_ENV on every Bash tool process. Hitting that produces a
-  // clean, reportable "out of memory" the agent can work around; hitting the
-  // cgroup limit does not.
-  // The rlimit binds one process, so the other half of the budget is keeping
-  // process trees narrow: N workers each sitting just under the ceiling still
-  // add up to the container limit. Default the two build tools that fan out by
-  // core count; anything else the agent runs is expected to be told to stay
-  // sequential (see the tool memory budget section of the system prompt).
+  // most of it. The container holds up to `max_sessions` conversations; when
+  // it runs out, the kernel kills only the largest process (the runtime node
+  // pool sets kubelet singleProcessOOMKill), so a runaway tool fails on its own
+  // and the pod survives. These budgets make that rarer: GOMEMLIMIT and the V8
+  // old-space keep one tool small, and GOFLAGS/MAKEFLAGS keep build process
+  // trees narrow, since N workers still add up to the container limit.
+  // BASH_ENV sources runtime-guard.sh, which refreshes per-turn credentials.
   const memoryEnv =
     'GOMEMLIMIT = "1536MiB"\n' +
     'NODE_OPTIONS = "--max-old-space-size=1536"\n' +

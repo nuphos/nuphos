@@ -133,7 +133,7 @@ test('every bash, nested ones included, reads the current conversation token', (
   assert.equal(run(), 'turn-1 turn-1')
   writeFileSync(join(dir, 'NUPHOS_TOKEN'), 'turn-2')
   writeFileSync(join(dir, 'NUPHOS_PLAN_API_TOKEN'), 'turn-2')
-  assert.equal(run({ NUPHOS_RUNTIME_GUARD: '1' }), 'turn-2 turn-2')
+  assert.equal(run(), 'turn-2 turn-2')
   assert.equal(run({ OPENAB_CREDENTIALS_DIR: '' }), 'spawn spawn')
   rmSync(join(dir, 'NUPHOS_TOKEN'))
   assert.equal(run(), ' turn-2', 'a revoked credential unsets the stale env token')

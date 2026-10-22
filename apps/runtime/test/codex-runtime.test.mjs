@@ -128,7 +128,7 @@ test('Codex new/resume preserves managed memory budgets without trusting actor o
 
     assert.equal(env.GOMEMLIMIT, '6GiB')
     assert.equal(env.NODE_OPTIONS, '--max-old-space-size=6144')
-    // Fan-out caps and the guard that installs the hard RLIMIT_DATA ceiling
+    // Fan-out caps and the credential-refreshing guard
     // have to survive inherit: 'none' too, and an actor must not be able to
     // widen them or point BASH_ENV at a script of its own.
     assert.equal(env.GOFLAGS, '-p=2')

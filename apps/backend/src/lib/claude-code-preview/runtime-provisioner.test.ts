@@ -143,8 +143,8 @@ describe('runtime object builders', () => {
         pool: { max_sessions: number; session_ttl_hours: number }
       }
 
-      // Per-tool budgets stay well under the container limit: the cgroup runs
-      // with memory.oom.group=1, so one tool reaching it kills every pooled session.
+      // Per-tool budgets stay well under the container limit shared by every
+      // pooled session.
       expect(parsed.agent.env.GOMEMLIMIT).toBe('1536MiB')
       expect(parsed.agent.env.NODE_OPTIONS).toBe('--max-old-space-size=1536')
       expect(parsed.agent.env.GOFLAGS).toBe('-p=2')

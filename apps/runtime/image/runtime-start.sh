@@ -3,6 +3,38 @@
 # provisioner, then becomes the command it was given — openab, by default.
 set -eu
 
+# Log the largest processes, and the conversation each belongs to, while the
+# container's anonymous memory is above three quarters of its limit, so a
+# kernel OOM kill can be traced to the session that caused it. Reads only;
+# checks every 30 s and reports at most once a minute. Polls its parent every
+# second so it exits, and releases stdout, as soon as the runtime does.
+memory_watch() {
+  set +e
+  max=$(cat /sys/fs/cgroup/memory.max 2>/dev/null)
+  case $max in '' | max | *[!0-9]*) return 0 ;; esac
+  parent=$$ tick=0
+  while sleep 1 && kill -0 "$parent" 2>/dev/null; do
+    tick=$((tick + 1))
+    [ "$tick" -ge 30 ] || continue
+    tick=0
+    anon=$(awk '$1 == "anon" { print $2 }' /sys/fs/cgroup/memory.stat 2>/dev/null)
+    [ "${anon:-0}" -ge $((max / 4 * 3)) ] || continue
+    printf 'memory-watch: anon %s MiB of %s MiB; largest processes:\n' $((anon >> 20)) $((max >> 20))
+    ps -eo pid=,rss=,comm= --sort=-rss | head -n 5 | while read -r pid rss comm; do
+      # A tool's conversation is the agent-sessions/<id> on its claude ancestor.
+      session=- p=$pid
+      while [ "${p:-0}" -gt 1 ]; do
+        id=$(tr '\0' '\n' <"/proc/$p/cmdline" 2>/dev/null | grep -o 'agent-sessions/[0-9a-f-]*' | head -n 1)
+        [ -n "$id" ] && { session=${id#agent-sessions/}; break; }
+        p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+      done
+      printf 'memory-watch:   pid=%s rss=%sMiB comm=%s session=%s\n' "$pid" $((rss >> 10)) "$comm" "$session"
+    done
+    tick=-30
+  done
+}
+memory_watch &
+
 # A container handed a join token runs as a device, the way a Box does: the Nuphos CLI
 # host joins with the token once, keeps the credential it gets on the home volume, dials
 # out to Nuphos and runs the agent itself, so nothing below applies. A saved credential

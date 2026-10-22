@@ -2,9 +2,10 @@
 # grep exits 1 when a failure is not memory-related, which is the common path.
 set -uo pipefail
 
-# A Claude Code-native PostToolUseFailure hook. runtime-guard.sh caps each Bash
-# process so a runaway tool dies on its own rlimit instead of taking the whole
-# runtime pod down; this turns that exit into something the agent can act on,
+# A Claude Code-native PostToolUseFailure hook. When the runtime container
+# reaches its memory limit, the kernel kills only its largest process (kubelet
+# singleProcessOOMKill) — usually the runaway tool, which exits 137 — and the
+# pod keeps running; this turns that exit into something the agent can act on,
 # so the conversation continues with a smaller approach instead of the user
 # seeing a dropped connection.
 #
@@ -12,17 +13,14 @@ set -uo pipefail
 # status (its tool_response is just stdout/stderr/interrupted), so matching
 # there would let any successful command that merely prints one of these
 # strings — a log line, a grep hit, a review comment quoting them — fabricate a
-# memory-failure story and push ulimit advice at the agent. The failure event
+# memory-failure story and push memory advice at the agent. The failure event
 # carries `.error`, which is the exit code plus stderr of the command that
 # actually failed.
 #
 # `.error` is still command-controlled: a repository script can print one of
 # these tokens and exit non-zero. Nothing available to a hook can prove the
-# rlimit was the cause, so the classification stays a signature match, stated
-# as such — and the text must never carry an instruction that weakens the
-# sandbox. Raising the ceiling is documented in the runtime's own instructions,
-# where the agent reads it as operator guidance rather than being handed it by
-# the output of the command that just failed.
+# memory limit was the cause, so the classification stays a signature match, stated
+# as such.
 
 payload=$(cat)
 
@@ -32,32 +30,20 @@ payload=$(cat)
 text=$(printf '%s' "$payload" | jq -r 'if .is_interrupt == true then "" else .error // "" end' 2>/dev/null)
 [ -n "$text" ] || exit 0
 
-pattern='fatal error: out of memory'
-pattern+='|runtime: out of memory'
-pattern+='|out of memory allocating'
-pattern+='|JavaScript heap out of memory'
-pattern+='|virtual memory exhausted'
-pattern+='|std::bad_alloc'
-pattern+='|[Cc]annot allocate memory'
-pattern+='|MemoryError'
-pattern+='|ENOMEM'
-pattern+='|signal: killed'
+pattern='signal: killed'
 pattern+='|[Ee]xit (code|status) 137'
+pattern+='|JavaScript heap out of memory'
 
 printf '%s' "$text" | grep -Eq "$pattern" || exit 0
 
-limit_mb=${NUPHOS_MEM_SOFT_LIMIT_MB:-2048}
-
 read -r -d '' context <<EOF || true
-That command failed with output matching a memory-exhaustion signature. This
-sandbox caps each process at ${limit_mb} MiB (RLIMIT_DATA), so running out of memory
-is the likely cause — though the signature comes from the command's own output,
-so treat it as a lead rather than a verdict. Either way the runtime pod is fine
-and no other conversation was affected.
+That command was killed with a memory-exhaustion signature. The runtime
+container's memory is shared with the other conversations in it; when it runs
+out, the kernel kills the largest process, which was most likely this command —
+though the signature comes from the command's own output, so treat it as a lead
+rather than a verdict. The pod and the other conversations kept running.
 
-Do not retry the same command unchanged. The pod's memory limit is shared with
-the other conversations running in it, and its cgroup kills every process at once
-when that limit is reached, which drops the ACP connection for all of them.
+Do not retry the same command unchanged.
 
 Use a smaller approach, and tell the user you are switching:
   - narrow the scope: build or vet one package, not ./...

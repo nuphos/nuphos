@@ -25,10 +25,9 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
   const baseline = Object.fromEntries(
     // These budgets come from the managed runtime's [agent.env], never from
     // actor metadata. Codex otherwise drops them with inherit: 'none'.
-    // BASH_ENV carries the whole hard ceiling: it is what sources
-    // runtime-guard.sh, so dropping it leaves Codex shell commands with no
-    // RLIMIT_DATA at all, and GOFLAGS/MAKEFLAGS are what keep a build's
-    // process tree from adding up to the container limit behind that ceiling.
+    // BASH_ENV sources runtime-guard.sh, which refreshes per-turn credentials,
+    // and GOFLAGS/MAKEFLAGS keep a build's process tree from adding up to the
+    // container limit.
     [
       'PATH',
       'HOME',
