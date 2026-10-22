@@ -5,7 +5,6 @@ import { ObjectId } from 'mongodb'
 import { posthogMetadataPath } from '@/lib/byos/posthog-oauth'
 import { POSTHOG_SCOPE_CEILING } from '@/lib/byos/posthog-scopes'
 import { errorHandler } from '@/lib/errors'
-import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosPosthog } from '@/lib/test/doubles/byos-posthog'
 import { useByosPosthogOAuth } from '@/lib/test/doubles/byos-posthog-oauth'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
@@ -70,12 +69,6 @@ useModels({
     },
     deleteOne: async () => ({ deletedCount: 1 }),
   }),
-})
-
-useAuthMiddleware({
-  requireTeamRole: () => async (_c: unknown, next: () => Promise<void>) => {
-    await next()
-  },
 })
 
 useByosSecrets({

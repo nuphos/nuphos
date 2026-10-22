@@ -86,10 +86,14 @@ export function requireTeamMember(): MiddlewareHandler<{ Variables: TeamAuthVari
   }
 }
 
-export function requireTeamRole(
-  ...allowed: NuphosTeamRole[]
-): MiddlewareHandler<{ Variables: TeamAuthVariables }> {
-  return async (c, next) => {
+/** The roles a team-role gate admits, readable off the middleware so the route
+ *  table test can check every route's gate without calling it. */
+export type TeamRoleGate = MiddlewareHandler<{ Variables: TeamAuthVariables }> & {
+  teamRoles: readonly NuphosTeamRole[]
+}
+
+export function requireTeamRole(...allowed: NuphosTeamRole[]): TeamRoleGate {
+  const gate: MiddlewareHandler<{ Variables: TeamAuthVariables }> = async (c, next) => {
     const role = c.get('teamRole')
 
     if (!allowed.includes(role)) {
@@ -97,6 +101,8 @@ export function requireTeamRole(
     }
     await next()
   }
+
+  return Object.assign(gate, { teamRoles: allowed })
 }
 
 /** Reads, plus the datasource query endpoint, which is a POST but changes nothing. */
