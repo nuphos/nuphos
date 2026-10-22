@@ -1,9 +1,10 @@
 /* eslint-disable max-lines -- Generated copy of Cloudflare's OAuth scope catalog; one list is easier to diff against the API than split files. */
 // Every OAuth scope Cloudflare offers, grouped by Cloudflare's own scope
 // categories. Generated from `GET https://api.cloudflare.com/client/v4/oauth/scopes`;
-// regenerate when Cloudflare adds scopes. The Nuphos OAuth client must be
-// registered with every scope listed here, or Cloudflare rejects the authorize
-// request.
+// regenerate when Cloudflare adds scopes, minus the `*.metadata_read` scopes
+// Cloudflare does not offer OAuth clients (only `workers-scripts.metadata_read`
+// is offered). The Nuphos OAuth client must be registered with every scope
+// listed here, or Cloudflare rejects the authorize request.
 import {
   faBolt,
   faChartLine,
@@ -68,7 +69,6 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
       'cloudchamber.write',
       'constellation.read',
       'constellation.write',
-      'd1.metadata_read',
       'd1.read',
       'd1.write',
       'flagship.evaluate',
@@ -83,11 +83,9 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
       'mcp-portals.read',
       'mcp-portals.write',
       'messaging.edit',
-      'messaging.metadata_read',
       'messaging.read',
       'cfspeed.read',
       'cfspeed.write',
-      'pages.metadata_read',
       'page.read',
       'page.write',
       'pipelines.read',
@@ -95,7 +93,6 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
       'pipelines.write',
       'pubsub.read',
       'pubsub.write',
-      'queues.metadata_read',
       'queues.read',
       'queues.write',
       'realtime.write',
@@ -110,7 +107,6 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
       'containers.read',
       'containers.write',
       'workers-scripts.edit',
-      'workers-kv-storage.metadata_read',
       'workers-kv-storage.read',
       'workers-kv-storage.write',
       'workers-scripts.metadata_read',
@@ -122,7 +118,6 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
       'r2-catalog-sql.read',
       'workers-r2-bucket-item.read',
       'workers-r2-bucket-item.write',
-      'workers-r2.metadata_read',
       'workers-r2.read',
       'workers-r2.write',
       'workers-routes.read',
@@ -140,12 +135,10 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     scopes: [
       'aiaudit.read',
       'aiaudit.write',
-      'aig.metadata_read',
       'aig.read',
       'aig.run',
       'aig.write',
       'ai-search.index',
-      'ai-search.metadata_read',
       'ai-search.read',
       'ai-search.run',
       'ai-search.write',
@@ -157,13 +150,11 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
       'rag.run',
       'firewall-for-ai.read',
       'firewall-for-ai.write',
-      'websearch.metadata_read',
       'websearch.read',
       'websearch.run',
       'websearch.write',
       'ai-model.read',
       'ai-model.write',
-      'workers_ai.metadata_read',
       'ai.read',
       'ai.write',
     ],
@@ -388,12 +379,10 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     scopes: [
       'calls.read',
       'calls.write',
-      'images.metadata_read',
       'images.read',
       'images.write',
       'moq.read',
       'moq.write',
-      'stream.metadata_read',
       'stream.read',
       'stream.write',
     ],
