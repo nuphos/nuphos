@@ -109,7 +109,7 @@ struct AgentPage: View {
                     var tool = ChatPart.ToolPart(toolCallId: "toolu_preview", toolName: "rm -rf /tmp/build-cache", isDynamic: false, state: .approvalRequested)
                     tool.input = .object(["command": .string("rm -rf /tmp/build-cache"), "description": .string("Clear the build cache")])
                     tool.approval = .init(id: "openab:preview", source: "openab")
-                    tool.authorization = .object(["decision": .string("require_auth"), "reason": .string("OpenAB requested permission before running this tool.")])
+                    tool.authorization = .object(["decision": .string("require_auth")])
                     tool.startedAt = now
                     var reasoning = ChatPart.ReasoningPart(text: "The user wants the cache cleared. That is a destructive delete, so I should ask before running it.", state: .done)
                     reasoning.startedAt = Date.now.addingTimeInterval(-7); reasoning.endedAt = Date.now

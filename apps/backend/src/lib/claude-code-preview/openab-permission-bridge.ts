@@ -121,7 +121,7 @@ export async function handleOpenAbPermissionRequest(
       layer: 'bypass',
       reason: allowed
         ? 'Full Access is enabled for this conversation.'
-        : 'OpenAB did not offer an allow option.',
+        : 'The agent did not offer an allow option.',
     })
 
     return allowed ? { outcome: { outcome: 'selected', optionId: allowed.optionId } } : cancelled()
@@ -173,7 +173,6 @@ export async function handleOpenAbPermissionRequest(
     toolCallId,
     decision: 'require_auth',
     layer: 'openab_acp',
-    reason: 'OpenAB requested permission before running this tool.',
   })
   args.emit({
     type: 'tool-approval-request',

@@ -173,7 +173,6 @@ describe('OpenAB permission bridge', () => {
         toolCallId: 'tool-dangerous',
         decision: 'require_auth',
         layer: 'openab_acp',
-        reason: 'OpenAB requested permission before running this tool.',
       },
       {
         type: 'tool-approval-request',
@@ -252,7 +251,7 @@ describe('OpenAB permission bridge', () => {
       toolCallId: 'tool-dangerous',
       decision: 'deny',
       layer: 'bypass',
-      reason: 'OpenAB did not offer an allow option.',
+      reason: 'The agent did not offer an allow option.',
     })
     expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
   })
