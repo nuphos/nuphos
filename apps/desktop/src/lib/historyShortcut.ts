@@ -1,24 +1,22 @@
-import type { ShortcutInput } from './sessionShortcuts.ts'
-
-export type HistoryShortcutAction = 'history-back' | 'history-forward'
+export type HistoryStep = -1 | 1
 
 /**
  * Back / Forward: ⌘[ / ⌘] on macOS; Alt+← / Alt+→ elsewhere, the browser
  * convention there, since Ctrl+[ is Esc in a terminal.
  */
 export function historyShortcut(
-  input: Pick<ShortcutInput, 'code' | 'meta' | 'control' | 'alt' | 'shift'>,
+  event: Pick<KeyboardEvent, 'code' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
   mac: boolean,
-): HistoryShortcutAction | null {
-  if (input.shift) return null
+): HistoryStep | null {
+  if (event.shiftKey) return null
   const [back, forward] = mac ? ['BracketLeft', 'BracketRight'] : ['ArrowLeft', 'ArrowRight']
   const held = mac
-    ? input.meta && !input.control && !input.alt
-    : input.alt && !input.control && !input.meta
+    ? event.metaKey && !event.ctrlKey && !event.altKey
+    : event.altKey && !event.ctrlKey && !event.metaKey
 
   if (!held) return null
-  if (input.code === back) return 'history-back'
-  if (input.code === forward) return 'history-forward'
+  if (event.code === back) return -1
+  if (event.code === forward) return 1
 
   return null
 }

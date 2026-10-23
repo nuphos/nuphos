@@ -3,6 +3,8 @@ import { Profiler, useEffect } from 'react'
 import { pageLocationForTab } from '../../app/workspaceTabFactory'
 import { Sidebar } from '../../components/Sidebar'
 import { sidebarView } from '../../components/sidebar/view'
+import { historyShortcut } from '../../lib/historyShortcut'
+import { isMac } from '../../lib/platform'
 import { reportShellRender } from '../../lib/tabSwitchLog'
 import {
   MY_PREFERENCES_DEFAULT_SECTION,
@@ -56,15 +58,24 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     workspaceActions,
   } = ws
 
-  // ⌘[ / ⌘] (Alt+← / Alt+→ off macOS) step the same history as the Back and Forward buttons.
-  useEffect(() => {
-    if (typeof window.api.onAppShortcut !== 'function') return
+  // ⌘[ / ⌘] (Alt+← / Alt+→ off macOS) step the same history as Back and Forward.
+  // A terminal or editor that handles the key keeps it, and an overlay pauses it.
+  const historyKeysLive = ws.chatShortcutsLive && !ws.sessionSearchOpen
 
-    return window.api.onAppShortcut((action) => {
-      if (action === 'history-back') navigateHistory(-1)
-      if (action === 'history-forward') navigateHistory(1)
-    })
-  }, [navigateHistory])
+  useEffect(() => {
+    if (!historyKeysLive) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const step = historyShortcut(event, isMac)
+
+      if (step === null || event.defaultPrevented || event.isComposing) return
+      event.preventDefault()
+      navigateHistory(step)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [historyKeysLive, navigateHistory])
 
   if (!scope) return null
   // Only a page with its own navigation (a cloud account, cluster, Grafana,
@@ -85,7 +96,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
   return (
     <Profiler id="sidebar" onRender={(id, _p, ms) => reportShellRender(id, ms)}>
       <Sidebar
-        chatNavKeysLive={ws.chatShortcutsLive && !ws.sessionSearchOpen}
+        chatNavKeysLive={historyKeysLive}
         scope={scope}
         active={active}
         agentSessionId={selectedSessionId}
