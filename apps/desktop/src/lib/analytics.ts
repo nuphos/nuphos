@@ -136,6 +136,11 @@ export function initAnalytics(): void {
     // history changes.
     capture_pageview: false,
     capture_pageleave: true,
+    // The window itself never scrolls (each pane scrolls its own element), so
+    // scroll depth is always 0. Measuring it put a capture-phase scroll
+    // listener on the window that forced a layout on every scroll anywhere in
+    // the app, including each frame of the dock's width transition.
+    disable_scroll_properties: true,
     // This tool renders secrets, tokens, env vars, and pod logs. Record with
     // heavy masking: every input is masked, plus any element tagged sensitive
     // (logs/code/secret values) has its text scrubbed from the replay.
