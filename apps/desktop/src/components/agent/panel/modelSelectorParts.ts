@@ -52,7 +52,7 @@ export function composerOf(chip: HTMLElement | null) {
 }
 
 /** ⌃⇧M belongs to the composer that has focus, or to the only one on screen. */
-export function ownsShortcut(chip: HTMLElement) {
+export function ownsShortcut(chip: HTMLElement, peers = '[data-model-chip]') {
   const scope = composerOf(chip)
   const active = document.activeElement
 
@@ -60,9 +60,8 @@ export function ownsShortcut(chip: HTMLElement) {
 
   return (
     (!active || active === document.body) &&
-    [...document.querySelectorAll<HTMLElement>('[data-model-chip]')].filter((other) =>
-      other.checkVisibility(),
-    ).length === 1
+    [...document.querySelectorAll<HTMLElement>(peers)].filter((other) => other.checkVisibility())
+      .length === 1
   )
 }
 

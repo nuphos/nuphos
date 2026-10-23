@@ -1,10 +1,12 @@
 import clsx from 'clsx'
 import { Check, ChevronDown, ChevronLeft, Loader2, MessageSquare, RotateCcw, X } from 'lucide-react'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
+import { comboText } from '../../../lib/platform'
 import { Button } from '../../ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
+import { useDecisionKeys } from '../panel/useDecisionKeys'
 
 import type { PlanDecisionState } from './usePlanDecision'
 import type { PlanApprovalProgress } from '../../../api'
@@ -45,6 +47,14 @@ export function PlanActionBar({
     reject,
   } = state
   const hasChangeRequest = changeRequest.trim().length > 0
+  const live = decision === 'pending' && showApproveBar && !changesOpen
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const act = useDecisionKeys(cardRef, live, (key) => {
+    if (key.kind !== 'approve') return false
+    void approve()
+
+    return true
+  })
   // Cross-fade the footer when the decision changes, but not on mount, so a
   // card scrolled into history doesn't replay it.
   const [shown, setShown] = useState({ decision, swapped: false })
@@ -53,6 +63,8 @@ export function PlanActionBar({
 
   return (
     <div
+      ref={cardRef}
+      data-decision-card={live ? '' : undefined}
       className={clsx(
         'flex flex-shrink-0 flex-col gap-2.5 px-4',
         floating
@@ -158,7 +170,8 @@ export function PlanActionBar({
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => void approve()}
+                    title={`Approve (${comboText('mod+enter')})`}
+                    onClick={() => act(() => void approve())}
                     className={clsx(
                       'flex-shrink-0 gap-1.5 pl-3 pr-2.5 active:scale-95',
                       onReject && 'rounded-r-none',
