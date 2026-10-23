@@ -1,9 +1,23 @@
-import { app, Menu } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 
 import { checkForUpdatesInteractive } from './updater'
 import { createWindow, dispatchAppShortcut } from './windows'
+import { zoom } from './zoom'
 
+import type { ZoomStep } from './zoom'
 import type { MenuItemConstructorOptions } from 'electron'
+
+// Not the zoomIn / zoomOut roles: those zoom whichever webContents has focus,
+// often a <webview> pane rather than the app (see zoom.ts).
+const zoomItem = (label: string, accelerator: string, step: ZoomStep) => ({
+  label,
+  accelerator,
+  click: () => {
+    const win = BrowserWindow.getFocusedWindow()
+
+    if (win) zoom(win.webContents, step)
+  },
+})
 
 export function installApplicationMenu() {
   const isMac = process.platform === 'darwin'
@@ -92,9 +106,9 @@ export function installApplicationMenu() {
         { role: 'reload' },
         { role: 'toggleDevTools' },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        zoomItem('Actual Size', 'CommandOrControl+0', 'reset'),
+        zoomItem('Zoom In', 'CommandOrControl+Plus', 'in'),
+        zoomItem('Zoom Out', 'CommandOrControl+-', 'out'),
         { type: 'separator' },
         {
           label: 'Toggle Sidebar',
