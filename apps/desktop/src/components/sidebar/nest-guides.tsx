@@ -2,17 +2,11 @@ import { Fragment } from 'react'
 
 import type { ReactNode } from 'react'
 
-// Tree lines for a nested chat row. Every row is 30px tall with its 16px icon
-// centred 16px from its own left edge; nested rows indent NEST_INDENT per level.
+// Tree lines follow the icon centre in either sidebar density.
 const NEST_INDENT = 16
-const ICON_CENTER_X = 16
-const ICON_CENTER_Y = 15
-const ICON_BOTTOM_Y = 24
 const LINE = 'pointer-events-none absolute border-zGray-800/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
 const DOWN = `${LINE} -bottom-0.5 border-l`
-
-const x = (level: number) => ({ left: level * NEST_INDENT + ICON_CENTER_X })
 
 /**
  * A chat row's clipped, indented body plus its tree lines. The lines sit
@@ -21,15 +15,20 @@ const x = (level: number) => ({ left: level * NEST_INDENT + ICON_CENTER_X })
 export function NestedRowBody({
   trail,
   expanded,
+  comfortable = false,
   children,
 }: {
   /** From nestItems: per ancestor level, whether that branch continues below. */
   trail: boolean[]
   /** This row's own children are showing, so a line drops from its icon. */
   expanded: boolean
+  comfortable?: boolean
   children: ReactNode
 }) {
   const own = trail.length - 1
+  const x = (level: number) => ({ left: level * NEST_INDENT + (comfortable ? 23 : 19) })
+  const centerY = comfortable ? 21 : 15
+  const bottomY = comfortable ? 37 : 27
 
   return (
     <>
@@ -47,13 +46,13 @@ export function NestedRowBody({
             <span
               aria-hidden
               className={`${LINE} top-0 w-[6px] rounded-bl-[6px] border-b border-l`}
-              style={{ ...x(level), height: ICON_CENTER_Y }}
+              style={{ ...x(level), height: centerY }}
             />
           )}
         </Fragment>
       ))}
       {expanded && (
-        <span aria-hidden className={DOWN} style={{ ...x(trail.length), top: ICON_BOTTOM_Y }} />
+        <span aria-hidden className={DOWN} style={{ ...x(trail.length), top: bottomY }} />
       )}
     </>
   )

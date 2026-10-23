@@ -6,12 +6,18 @@ import { publishRuntimeStates, useAgentRuntimeStates } from '../../../lib/agentR
 import { threadStatusOf } from './threadStatus'
 
 import type { ThreadStatus } from './threadStatus'
+import type { AgentProvider } from '../../../types/runtime'
 
 // A running turn reads as stopped once its snapshot is 12 s old, so re-read
 // well inside that while the thread works.
 const ACTIVE_POLL_MS = 5_000
 
-type ThreadEntry = { title: string | null; failed: boolean }
+type ThreadEntry = {
+  title: string | null
+  failed: boolean
+  provider?: AgentProvider
+  attached?: boolean
+}
 
 // One read and one poll per thread, however many badges in the chat point at it.
 let entries: ReadonlyMap<string, ThreadEntry> = new Map()
@@ -37,7 +43,12 @@ function read(threadId: string, teamId: string | undefined) {
     .then(
       (detail) => {
         if (detail.runtimeState) publishRuntimeStates([[threadId, detail.runtimeState]])
-        setEntry(key, { title: detail.title || null, failed: false })
+        setEntry(key, {
+          title: detail.title || null,
+          failed: false,
+          provider: detail.agentRuntime,
+          attached: detail.claudeCodeRuntimeAttached,
+        })
       },
       // A failed poll keeps what an earlier read showed.
       () => entries.has(key) || setEntry(key, { title: null, failed: true }),
@@ -79,7 +90,7 @@ const getSnapshot = () => entries
 export function useThreadStatus(
   threadId: string | null,
   teamId: string | undefined,
-): { title: string | null; status: ThreadStatus } {
+): { title: string | null; status: ThreadStatus; provider?: AgentProvider; attached: boolean } {
   const snapshot = useAgentRuntimeStates().get(threadId ?? '')
   const entry = useSyncExternalStore(subscribe, getSnapshot, getSnapshot).get(
     keyOf(threadId ?? '', teamId),
@@ -98,5 +109,10 @@ export function useThreadStatus(
     [active, teamId, threadId],
   )
 
-  return { title: entry?.title ?? null, status: threadId ? status : 'loading' }
+  return {
+    title: entry?.title ?? null,
+    status: threadId ? status : 'loading',
+    provider: entry?.provider,
+    attached: Boolean(entry?.attached),
+  }
 }

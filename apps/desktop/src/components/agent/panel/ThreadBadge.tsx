@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Check, ChevronRight, CircleAlert, Loader2, MessagesSquare, Square } from 'lucide-react'
 
+import { AgentAvatar } from '../AgentAvatar'
 import { ChatLink } from '../MessageResponse'
 
 import { knownThreadTitle, rememberThreadTitle, threadBadgeInfo } from './threadBadges'
@@ -21,7 +22,7 @@ const STATUS: Record<ThreadStatus, { label: string; icon?: LucideIcon; tone: str
 }
 
 const BADGE =
-  'group/thread inline-flex h-7 max-w-full items-center gap-2 rounded-lg border border-zGray-800 bg-zGray-900/60 pl-2 pr-1.5 text-[13px] leading-none text-main no-underline transition-colors duration-150 motion-reduce:transition-none'
+  'group/thread inline-flex max-w-full items-center gap-2 rounded-lg border border-zGray-800 bg-zGray-900/60 px-2 py-1.5 text-[13px] text-main no-underline transition-colors duration-150 motion-reduce:transition-none'
 const LINKED =
   'hover:border-zGray-700 hover:bg-zGray-850 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent'
 
@@ -67,25 +68,32 @@ export function ThreadBadge({
   onOpen?: OpenLink
 }) {
   const info = threadBadgeInfo(part)
-  const { title, status } = useThreadStatus(info?.threadId ?? null, teamId)
+  const { title, status, provider, attached } = useThreadStatus(info?.threadId ?? null, teamId)
 
   if (!info) return null
   rememberThreadTitle(info.threadId, title ?? info.title)
   const known = title ?? info.title ?? knownThreadTitle(info.threadId)
-  const name = known ?? (status === 'unavailable' ? 'a thread you can’t open' : 'a thread')
+  const name = known ?? (status === 'unavailable' ? 'Agent unavailable' : 'Agent')
   const verb = info.verb === 'started' ? 'Started' : 'Messaged'
   const href = threadHref(teamId, info.threadId, status)
   const body = (
     <>
-      <MessagesSquare aria-hidden strokeWidth={1.75} className="size-3.5 shrink-0 text-tertiary" />
-      <span className="shrink-0 text-tertiary">{verb}</span>
-      <span className={clsx('min-w-0 max-w-[44ch] truncate leading-5', known && 'font-medium')}>
-        {name}
-      </span>
-      {/* The fallback name already says the thread can't be opened. */}
-      {(known !== null || status !== 'unavailable') && (
-        <StatusLabel status={status} pending={info.pending} />
+      {info.threadId ? (
+        <AgentAvatar agentId={info.threadId} provider={provider} attached={attached} />
+      ) : (
+        <MessagesSquare aria-hidden strokeWidth={1.75} className="size-6 shrink-0 text-tertiary" />
       )}
+      <span className="min-w-0 max-w-[44ch]">
+        <span className="block truncate font-medium leading-5" title={name}>
+          {name}
+        </span>
+        <span className="flex items-center gap-2 text-[12px] leading-4 text-tertiary">
+          <span>{verb}</span>
+          {(known !== null || status !== 'unavailable') && (
+            <StatusLabel status={status} pending={info.pending} />
+          )}
+        </span>
+      </span>
     </>
   )
 

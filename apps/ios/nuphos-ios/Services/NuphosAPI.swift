@@ -83,7 +83,7 @@ extension NuphosAPI {
     /// `GET /agent/conversations/:sessionId?teamId=&tail=` — the last `tail`
     /// messages of a conversation.
     static func conversationDetail(
-        token: String, teamId: String, sessionId: String, tail: Int = 100
+        token: String, teamId: String, sessionId: String, tail: Int = 100, displayed: Bool = true
     ) async throws -> AgentConversationDetail {
         let detail: AgentConversationDetail = try await get(
             "agent/conversations/\(sessionId)",
@@ -91,7 +91,7 @@ extension NuphosAPI {
             token: token,
             timeout: 20
         )
-        ConversationUnread.shared.receive(team: teamId, session: sessionId, activity: detail.activitySeq, read: detail.readSeq, displayed: true)
+        ConversationUnread.shared.receive(team: teamId, session: sessionId, activity: detail.activitySeq, read: detail.readSeq, displayed: displayed)
         return detail
     }
 

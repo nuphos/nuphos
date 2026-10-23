@@ -2,7 +2,10 @@ import { faDisplay, faMoon, faSun } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 
+import { AgentAvatar } from '../../components/agent/AgentAvatar'
+import { Switch } from '../../components/ui/Switch'
 import { useTheme } from '../../hooks/useTheme'
+import { setAgentAppearance, useAgentAppearance } from '../../lib/agentAppearance'
 import { AuditLogView } from '../AuditLogView'
 import { TeamMembersView } from '../TeamMembersView'
 
@@ -68,6 +71,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconDefiniti
 
 export function AppearanceSection() {
   const { preference, setPreference } = useTheme()
+  const { botAvatars, density } = useAgentAppearance()
 
   return (
     <div>
@@ -99,6 +103,60 @@ export function AppearanceSection() {
           })}
         </div>
       </Field>
+      <div className="mt-8 space-y-5">
+        <h3 className="text-[14px] font-semibold text-main">Agents</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-[13px] font-medium text-main">Bot avatars</div>
+            <p className="mt-1 text-[12px] text-tertiary">
+              Give Agents a character avatar. Turn off to show Runtime icons.
+            </p>
+          </div>
+          <Switch
+            label="Bot avatars"
+            checked={botAvatars}
+            onChange={(next) => setAgentAppearance({ botAvatars: next })}
+          />
+        </div>
+        <fieldset>
+          <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">
+            Sidebar density
+          </legend>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Sidebar density">
+            {(['compact', 'comfortable'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={density === value}
+                onClick={() => setAgentAppearance({ density: value })}
+                className={clsx(
+                  'rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors',
+                  density === value
+                    ? 'border-zViolet-500/70 bg-zViolet-500/10 text-main'
+                    : 'border-zGray-800 bg-surface text-secondary hover:text-main',
+                )}
+              >
+                {value === 'compact' ? 'Compact' : 'Comfortable'}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <div
+          className="rounded-lg border border-zGray-800 bg-surface p-3"
+          aria-label="Agent appearance preview"
+        >
+          <div className="mb-2 text-[11px] text-tertiary">Preview</div>
+          <div
+            className={clsx(
+              'flex items-center gap-2.5 text-[14px] text-secondary',
+              density === 'compact' ? 'h-[30px]' : 'h-[42px]',
+            )}
+          >
+            <AgentAvatar agentId="appearance-preview" provider="claude-code" sidebar />
+            <span>Product design</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

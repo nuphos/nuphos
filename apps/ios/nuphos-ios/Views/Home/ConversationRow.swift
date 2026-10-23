@@ -24,9 +24,9 @@ struct ConversationRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            OwnerAvatar(owner: conversation.owner, size: 36)
+            AgentAvatar(agentId: conversation.sessionId, runtime: conversation.agentRuntime, size: 36)
                 .opacity(conversation.owner?.deactivated == true ? 0.5 : 1)
-                .overlay(alignment: .bottomTrailing) {
+                .overlay(alignment: .topTrailing) {
                     if pinned {
                         Image(systemName: "pin.fill")
                             .font(.system(size: 7, weight: .bold))
@@ -34,7 +34,7 @@ struct ConversationRow: View {
                             .frame(width: 15, height: 15)
                             .background(Circle().fill(Theme.muted))
                             .overlay(Circle().stroke(Theme.canvas, lineWidth: 1.5))
-                            .offset(x: 3, y: 3)
+                            .offset(x: 3, y: -3)
                             .accessibilityLabel("Pinned")
                     }
                 }
