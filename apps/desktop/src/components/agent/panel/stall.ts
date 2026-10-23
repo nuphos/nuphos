@@ -29,7 +29,7 @@ export function normalizeAgentError(message: string): string {
   // calm, recoverable message rather than the raw fetch error — the backend
   // usually kept running, so a retry (or reopening the chat) recovers.
   if (isNetworkError(base)) {
-    return 'Lost connection to the server. Your work is safe — check your connection and try again.'
+    return 'Lost connection to the agent. Your work is safe — try again.'
   }
   const mentionsSandbox = normalized.includes('sandbox')
   const isSandboxTeardown =

@@ -216,3 +216,52 @@ for (const [failure, message] of [
     }
   }, 10_000)
 }
+
+test('admission waits out a slow socket open that status readers give up on', async () => {
+  // A computer's tunnel can take a few seconds to open a stream. A status read
+  // falls back to 'disconnected' and is asked again; admission decides whether a
+  // turn runs at all, so it must not lose the turn to the same delay.
+  const server = Bun.serve({
+    port: 0,
+    async fetch(request, socketServer) {
+      await Bun.sleep(4_000)
+      if (socketServer.upgrade(request)) return
+
+      return new Response('upgrade required', { status: 400 })
+    },
+    websocket: {
+      message(ws, data) {
+        const frame = JSON.parse(String(data))
+        const result =
+          frame.method === 'initialize'
+            ? { protocolVersion: 1 }
+            : {
+                schemaVersion: 2,
+                epoch: 'runtime',
+                revision: 1,
+                state: 'idle',
+                phase: 'idle',
+                label: 'Ready',
+                tools: [],
+                actions: { send: true, cancel: false, steer: false },
+              }
+
+        ws.send(JSON.stringify({ jsonrpc: '2.0', id: frame.id, result }))
+      },
+    },
+  })
+
+  endpoint = `ws://127.0.0.1:${String(server.port)}/acp`
+  const conversation = {
+    sessionId: 'slow-open',
+    teamId: 'team',
+    agentRuntime: 'claude-code',
+  } as AgentConversation
+
+  try {
+    expect((await probeExecutionState(conversation)).actions?.send).toBe(true)
+    expect(await conversationExecutionState(conversation)).toEqual({ state: 'disconnected' })
+  } finally {
+    await server.stop(true)
+  }
+}, 20_000)

@@ -39,7 +39,8 @@ type ExecutionStateConversation = Pick<
 export async function conversationExecutionState(
   conversation: ExecutionStateConversation,
 ): Promise<SessionExecutionState> {
-  const state = await probeExecutionState(conversation).catch(
+  // Status reads are polled and fall back to 'disconnected', so they wait briefly.
+  const state = await probeExecutionState(conversation, 3_000).catch(
     (error: unknown): SessionExecutionState => ({
       state:
         error instanceof OpenAbRpcError && error.code === -32601 ? 'unsupported' : 'disconnected',
@@ -49,9 +50,14 @@ export async function conversationExecutionState(
   return withSessionDesktops(state, conversation)
 }
 
-/** Prompt admission must retain probe failures rather than treating them as runtime state. */
+/**
+ * Prompt admission must retain probe failures rather than treating them as runtime state.
+ * It also keeps the default connect timeout: a computer's tunnel can be slow to open a
+ * stream, and admission failing loses the turn (a scheduled one is not retried).
+ */
 export async function probeExecutionState(
   conversation: ExecutionStateConversation,
+  connectTimeoutMs?: number,
 ): Promise<SessionExecutionState> {
   const attachment = liveAttachment(conversation)
 
@@ -75,7 +81,7 @@ export async function probeExecutionState(
       return { state: 'disconnected' }
     client = await OpenAbAcpClient.connect({
       ...(await reachableRuntimeEndpoint(endpoint)),
-      connectTimeoutMs: 3_000,
+      connectTimeoutMs,
       callTimeoutMs: 3_000,
     })
     await client.initialize()
