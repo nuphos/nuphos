@@ -17,6 +17,7 @@ import type { TeamMember } from '../../types'
 type Props = {
   teamId: string
   teamName: string
+  otherTeams?: { id: string; name: string }[]
   userId: string
   onClose: () => void
   onOpen: (sessionId: string, beside: boolean) => void
@@ -27,6 +28,7 @@ type Props = {
 export function SessionSearchDialog({
   teamId,
   teamName,
+  otherTeams,
   userId,
   onClose,
   onOpen,
@@ -149,6 +151,7 @@ export function SessionSearchDialog({
               key={JSON.stringify([teamId, mode, owner?.id, searchQuery])}
               teamId={teamId}
               teamName={teamName}
+              otherTeams={otherTeams}
               userId={userId}
               loadPeople={loadPeople}
               mode={mode}

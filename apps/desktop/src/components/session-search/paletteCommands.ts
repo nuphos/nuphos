@@ -1,4 +1,4 @@
-import { Keyboard, PanelLeft, Plus, Settings, SquarePen, Users } from 'lucide-react'
+import { ArrowLeftRight, Keyboard, PanelLeft, Plus, Settings, SquarePen, Users } from 'lucide-react'
 
 import { launcherMatchRank } from '../../lib/launcherMatch.ts'
 import { SHORTCUT_GROUPS } from '../../lib/shortcutsCatalog.ts'
@@ -59,15 +59,29 @@ export const PALETTE_COMMANDS: PaletteCommand[] = [
   })),
 ]
 
-/** Commands whose name matches, best match first (as in the dock's New Tab);
- *  none for an empty query, so recents stay on top. */
-export function matchPaletteCommands(query: string): PaletteCommand[] {
-  if (!query.trim()) return []
+/** The palette id that switches to a team; usePaletteCommand reads it back. */
+export const SWITCH_TEAM_PREFIX = 'switch-team:'
 
-  return PALETTE_COMMANDS.map((command) => ({
-    command,
-    rank: launcherMatchRank(command.label, query),
+/** Commands whose name matches, best match first (as in the dock's New Tab);
+ *  none for an empty query, so recents stay on top. Other teams join as
+ *  "Switch to …" actions. */
+export function matchPaletteCommands(
+  query: string,
+  otherTeams: { id: string; name: string }[] = [],
+): PaletteCommand[] {
+  if (!query.trim()) return []
+  const teamCommands = otherTeams.map((team) => ({
+    id: `${SWITCH_TEAM_PREFIX}${team.id}`,
+    label: `Switch to ${team.name}`,
+    group: 'Actions' as const,
+    icon: ArrowLeftRight,
   }))
+
+  return [...PALETTE_COMMANDS, ...teamCommands]
+    .map((command) => ({
+      command,
+      rank: launcherMatchRank(command.label, query),
+    }))
     .filter((match): match is { command: PaletteCommand; rank: number } => match.rank !== null)
     .sort((a, b) => a.rank - b.rank)
     .map(({ command }) => command)

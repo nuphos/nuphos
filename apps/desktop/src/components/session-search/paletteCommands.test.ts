@@ -26,3 +26,16 @@ test('a label that starts with the query ranks ahead of one that only contains i
 test('an empty query lists no commands', () => {
   assert.deepEqual(matchPaletteCommands('  '), [])
 })
+
+test('another team is found by name and switches to it', () => {
+  const teams = [
+    { id: 't1', name: 'Zeabur Inc.' },
+    { id: 't2', name: 'Design Team' },
+  ]
+
+  assert.deepEqual(
+    matchPaletteCommands('design', teams).map(({ id, label }) => ({ id, label })),
+    [{ id: 'switch-team:t2', label: 'Switch to Design Team' }],
+  )
+  assert.ok(matchPaletteCommands('switch', teams).length >= 2)
+})

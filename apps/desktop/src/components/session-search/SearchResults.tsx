@@ -18,6 +18,7 @@ export function SearchResults({
   teamId,
   userId,
   teamName,
+  otherTeams = [],
   mode,
   query,
   owner,
@@ -31,6 +32,8 @@ export function SearchResults({
   teamId: string
   userId: string
   teamName: string
+  /** Teams ⌘K can switch to, as "Switch to …" actions. */
+  otherTeams?: { id: string; name: string }[]
   mode: 'sessions' | 'people'
   query: string
   owner: TeamMember | null
@@ -45,8 +48,8 @@ export function SearchResults({
   const [selected, setSelected] = useState(0)
   const listId = useId()
   const commands = useMemo(
-    () => (mode === 'sessions' && !owner ? matchPaletteCommands(query) : []),
-    [mode, owner, query],
+    () => (mode === 'sessions' && !owner ? matchPaletteCommands(query, otherTeams) : []),
+    [mode, owner, query, otherTeams],
   )
   const resultCount = mode === 'people' ? results.people.length : results.sessions.length
   const busy = pending || results.loading

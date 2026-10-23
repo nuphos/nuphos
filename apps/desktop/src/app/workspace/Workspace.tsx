@@ -277,6 +277,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
             key={scope.teamId}
             teamId={scope.teamId}
             teamName={ws.currentTeam?.name ?? 'Workspace'}
+            otherTeams={ws.teams.filter((team) => team.id !== scope.teamId)}
             userId={user.id}
             onClose={() => ws.setSessionSearchOpen(false)}
             onCommand={runPaletteCommand}
