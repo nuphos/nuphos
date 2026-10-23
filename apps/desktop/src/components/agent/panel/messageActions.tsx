@@ -1,9 +1,12 @@
 import clsx from 'clsx'
 import { Check, Copy, Pencil, ThumbsDown, ThumbsUp } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { comboText, isMac } from '../../../lib/platform'
 import { toast } from '../../ui/toast'
 
+import { isCopyReplyKey } from './copyReplyKey'
+import { ownsShortcut } from './modelSelectorParts'
 import { formatMessageTimestamp } from './streamText'
 
 import type { MessageRating } from './model'
@@ -11,8 +14,19 @@ import type { MessageRating } from './model'
 // Action row under a completed assistant response. Copy-only for now; the
 // layout deliberately leaves room for thumbs up/down + share to slot in later
 // without rework.
-export function CopyMessageButton({ text, label }: { text: string; label: string }) {
+export function CopyMessageButton({
+  text,
+  label,
+  shortcut = false,
+}: {
+  text: string
+  label: string
+  /** The latest reply answers ⌥⌘C in the panel holding focus. */
+  shortcut?: boolean
+}) {
   const [copied, setCopied] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const idleTitle = shortcut ? `Copy (${comboText('mod+alt+c')})` : 'Copy'
   const handleCopy = useCallback(() => {
     void navigator.clipboard
       .writeText(text)
@@ -25,12 +39,30 @@ export function CopyMessageButton({ text, label }: { text: string; label: string
       })
   }, [text])
 
+  useEffect(() => {
+    if (!shortcut) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const button = buttonRef.current
+
+      if (event.defaultPrevented || !isCopyReplyKey(event, isMac)) return
+      if (!button || !ownsShortcut(button, '[data-copy-latest]')) return
+      event.preventDefault()
+      handleCopy()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [shortcut, handleCopy])
+
   return (
     <button
+      ref={buttonRef}
       type="button"
+      data-copy-latest={shortcut ? '' : undefined}
       onClick={handleCopy}
       className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent"
-      title={copied ? 'Copied' : 'Copy'}
+      title={copied ? 'Copied' : idleTitle}
       aria-label={copied ? 'Copied' : label}
     >
       <span className="t-icon-swap" data-state={copied ? 'b' : 'a'}>
@@ -106,7 +138,7 @@ export function AssistantMessageActions({
           'opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100',
       )}
     >
-      <CopyMessageButton text={text} label="Copy response" />
+      <CopyMessageButton text={text} label="Copy response" shortcut={alwaysVisible} />
       {onSelectRating && ratingButton('up')}
       {onSelectRating && ratingButton('down')}
       {typeof createdAt === 'number' && (

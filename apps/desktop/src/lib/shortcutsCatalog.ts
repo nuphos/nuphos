@@ -63,6 +63,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Deny tool', combos: ['mod+backspace'] },
       { label: 'Pick option 1–9', combos: ['mod+alt+1'] },
       { label: 'Stop response', combos: ['esc'] },
+      { label: 'Copy last reply', combos: ['mod+alt+c'] },
       { label: 'Find in conversation', combos: ['mod+f'] },
       { label: 'Scroll conversation', combos: ['pageup', 'pagedown'] },
       { label: 'Toggle agent summary', combos: ['mod+i'] },
