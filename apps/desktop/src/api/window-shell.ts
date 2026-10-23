@@ -23,6 +23,7 @@ export type AppShortcutAction =
   | 'open-settings'
   | 'open-team-settings'
   | 'toggle-sidebar'
+  | 'toggle-dock'
   | 'toggle-dock-expanded'
   | 'shortcuts-help'
   | 'reopen-closed-tab'

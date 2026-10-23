@@ -219,6 +219,9 @@ export function createWindow(): BrowserWindow {
     const key = input.key.toLowerCase()
     const code = input.code
     const commandOrControl = input.meta || input.control
+    // ⌘ alone on macOS, where ⌃J and ⌃K are terminal keys; Ctrl alone elsewhere.
+    const modOnly =
+      process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
     // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, so they run
     // before the ⌥ bail-out below.
     const sessionAction = liveSessionShortcut(win.webContents, input)
@@ -242,11 +245,7 @@ export function createWindow(): BrowserWindow {
     if (input.shift && key === 'n') {
       event.preventDefault()
       createWindow()
-    } else if (
-      !input.shift &&
-      key === 'k' &&
-      (process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta)
-    ) {
+    } else if (!input.shift && key === 'k' && modOnly) {
       sendShortcut('search-sessions')
     } else if (!input.shift && key === 'n') {
       sendShortcut('new-chat')
@@ -266,6 +265,8 @@ export function createWindow(): BrowserWindow {
       sendShortcut('toggle-sidebar')
     } else if (input.shift && key === 'enter') {
       sendShortcut('toggle-dock-expanded')
+    } else if (!input.shift && key === 'j' && modOnly) {
+      sendShortcut('toggle-dock')
     } else if (!input.shift && (key === '/' || code === 'Slash')) {
       sendShortcut('shortcuts-help')
     } else if (input.shift && key === 't') {
