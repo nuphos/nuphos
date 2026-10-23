@@ -33,9 +33,12 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: 'App',
     entries: [
       { label: 'Search agents and people', combos: ['mod+k'] },
+      { label: 'Switch agent', combos: ['alt+up', 'alt+down'] },
+      { label: 'Agent needing you', combos: ['alt+shift+up', 'alt+shift+down'] },
       { label: 'User settings', combos: ['mod+,'] },
       { label: 'Team settings', combos: ['mod+shift+,'] },
       { label: 'Toggle sidebar', combos: ['mod+b'] },
+      { label: 'Toggle workspace panel', combos: ['mod+j'] },
       { label: 'Expand / restore workspace panel', combos: ['mod+shift+enter'] },
       { label: 'Keyboard shortcuts', combos: ['mod+/'] },
       { label: 'Zoom in / out', combos: ['mod+plus', 'mod+minus'] },

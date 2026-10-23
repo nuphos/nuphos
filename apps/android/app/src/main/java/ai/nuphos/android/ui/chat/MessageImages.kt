@@ -132,7 +132,7 @@ private fun imageLoad(source: String, edge: Int, loader: MessageImageLoader): St
 }
 
 @Composable
-internal fun MessageImages(images: List<String>, messageId: String, loader: MessageImageLoader = inlineImageLoader) {
+internal fun MessageImages(images: List<String>, messageId: String, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline) {
     // Save only the selected index, never duplicate base64 in saved instance state.
     var selected by rememberSaveable(messageId) { mutableIntStateOf(-1) }
     images.take(4).forEachIndexed { index, source ->
@@ -152,12 +152,12 @@ internal fun MessageImages(images: List<String>, messageId: String, loader: Mess
         }
     }
     if (selected >= 0 && images.isNotEmpty()) {
-        MessageImagePager(images, selected.coerceAtMost(images.lastIndex), { selected = it }, loader, onDismiss = { selected = -1 })
+        MessageImagePager(images, selected.coerceAtMost(images.lastIndex), { selected = it }, loader, originalWriter = originalWriter, onDismiss = { selected = -1 })
     }
 }
 
 @Composable
-internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, loader: MessageImageLoader = inlineImageLoader, onDismiss: () -> Unit) {
+internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val view = LocalView.current
         DisposableEffect(view) {
@@ -200,6 +200,7 @@ internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: 
                     key(page, images[page]) { ZoomImage(images[page], page, images.size, zoomed, loader) { zoomed = it } }
                 }
             }
+            key(images[pager.currentPage]) { ImageExportActions(images[pager.currentPage], originalWriter) }
             if (images.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { zoomed = false; scope.launch { pager.scrollToPage((pager.currentPage - 1 + images.size) % images.size) } }) {
                     Text("Previous image", color = Color.White)

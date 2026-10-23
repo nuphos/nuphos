@@ -26,9 +26,10 @@ require(releaseVersionName.matches(Regex("[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}"))) {
     "nuphosVersionName must contain 1-64 filename-safe characters"
 }
 
-require(listOf("nuphosIsolatedAdaptiveFixture", "nuphosIsolatedEmailFixture", "nuphosIsolatedContentFixture")
-    .count { providers.gradleProperty(it).orNull == "true" } <= 1) {
-    "Choose one isolated fixture package per build"
+val enabledIsolationFlags = providers.gradlePropertiesPrefixedBy("nuphosIsolated").get()
+    .filterValues { it == "true" }.keys
+require(enabledIsolationFlags.size <= 1) {
+    "Enable only one isolated fixture flag: ${enabledIsolationFlags.sorted().joinToString()}"
 }
 
 android {
@@ -55,6 +56,7 @@ android {
                 applicationIdSuffix = ".contentinput1337"
             }
             if (providers.gradleProperty("nuphosIsolatedAdaptiveFixture").orNull == "true") applicationIdSuffix = ".adaptivefixture"
+            if (providers.gradleProperty("nuphosIsolatedImageExportFixture").orNull == "true") applicationIdSuffix = ".imageexport1336"
             buildConfigField("String", "PUSH_BASE_URL", "\"$debugPushBaseUrl\"")
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }

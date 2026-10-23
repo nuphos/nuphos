@@ -15,6 +15,7 @@ import { SidebarIdentitySelector, SidebarInvitations } from './parts'
 import { SidebarSectionList } from './sections-list'
 import { teamSections } from './sections-services'
 import { settingsBackTarget } from './types'
+import { useChatNavKeys } from './use-chat-nav-keys'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
@@ -62,6 +63,7 @@ export function Sidebar({
   collapsed = false,
   onToggleCollapse,
   dynamicNavigation = false,
+  chatNavKeysLive = false,
 }: SidebarProps) {
   const [renameTarget, setRenameTarget] = useState<{ sessionId: string; title: string } | null>(
     null,
@@ -130,6 +132,8 @@ export function Sidebar({
     : renderSections.filter(
         (section, index) => index === 0 || section.title === 'Pinned' || section.title === 'Agents',
       )
+
+  useChatNavKeys(sidebarSections, chrome.isGroupCollapsed, onSelect, chatNavKeysLive)
 
   const showSidebar = !collapsed || peek
 

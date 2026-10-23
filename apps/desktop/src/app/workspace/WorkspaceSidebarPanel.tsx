@@ -75,6 +75,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
   return (
     <Profiler id="sidebar" onRender={(id, _p, ms) => reportShellRender(id, ms)}>
       <Sidebar
+        chatNavKeysLive={ws.chatShortcutsLive && !ws.sessionSearchOpen}
         scope={scope}
         active={active}
         agentSessionId={selectedSessionId}

@@ -186,6 +186,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   <Composer
                     onSend={(text, filePaths) => void sendInActive(text, filePaths)}
                     onStop={stopActive}
+                    autoFocus={focusComposerOnOpen}
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}

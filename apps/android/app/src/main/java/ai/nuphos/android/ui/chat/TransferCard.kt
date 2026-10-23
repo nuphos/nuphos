@@ -113,7 +113,13 @@ internal fun TransferCard(
             if (loading || unavailable) attachment.names.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             if (loading) Text("Loading attachments…", style = MaterialTheme.typography.bodySmall)
             val images = files.filter { it.isImage }.map { it.id }
-            if (images.isNotEmpty()) MessageImages(images, "transfer.${attachment.groupId}", imageLoader)
+            if (images.isNotEmpty()) MessageImages(images, "transfer.${attachment.groupId}", imageLoader,
+                originalWriter = { id, destination ->
+                    val remote = fresh(id)
+                    destination.outputStream().use { downloads.copy(remote, it) { latestAllowed() } }
+                    check(latestAllowed())
+                    remote.safeName
+                })
             files.forEach { file ->
                 Text(file.fileName, style = MaterialTheme.typography.bodySmall)
                 TextButton(enabled = busy == null && pendingSave == null, onClick = {

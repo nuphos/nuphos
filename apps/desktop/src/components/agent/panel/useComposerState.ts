@@ -18,6 +18,7 @@ export function useComposerState({
   readOnlyPlaceholder,
   streaming,
   autoFocus,
+  focusKey,
   promptSuggestion,
 }: {
   hero: boolean
@@ -25,6 +26,8 @@ export function useComposerState({
   readOnlyPlaceholder?: string
   streaming: boolean
   autoFocus: boolean
+  /** The conversation shown; switching to another one takes the caret even mid-reply or with a draft. */
+  focusKey?: string
   promptSuggestion?: string | null
 }) {
   // One suggestion per composer mount, picked at random. Rotating it moved the
@@ -217,6 +220,16 @@ export function useComposerState({
 
     return () => window.cancelAnimationFrame(frame)
   }, [autoFocus, isEmpty, readOnly, streaming])
+
+  useEffect(() => {
+    if (!autoFocus || readOnly) return
+    const frame = window.requestAnimationFrame(() => {
+      ref.current?.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusKey])
 
   useEffect(() => {
     const next = readOnly

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Kbd } from '../../components/ui/kbd'
 import { Tooltip } from '../../components/ui/tooltip'
+import { comboText } from '../../lib/platform'
 
 import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -54,13 +55,19 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     if (!dockOpen) setWorkspaceDockExpanded(false)
   }, [dockOpen, setWorkspaceDockExpanded])
 
-  // ⇧⌘↩ — expand or restore the dock; from closed it opens straight to expanded.
+  // ⌘J opens or closes the dock. ⇧⌘↩ expands or restores it; from closed it
+  // opens straight to expanded.
   const paneActive = useWorkspacePane()?.active ?? true
 
   useEffect(() => {
     if (!paneActive || !scope?.teamId || typeof window.api.onAppShortcut !== 'function') return
 
     return window.api.onAppShortcut((action) => {
+      if (action === 'toggle-dock') {
+        workspaceActions.toggleDock()
+
+        return
+      }
       if (action !== 'toggle-dock-expanded') return
       if (dockOpen) {
         setWorkspaceDockExpanded((expanded) => !expanded)
@@ -157,7 +164,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
             'workspace-dock-toggle titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
             dockOpen ? 'bg-zGray-800/60 text-main' : 'text-secondary',
           )}
-          title={dockOpen ? 'Close workspace panel' : 'Open workspace panel'}
+          title={`${dockOpen ? 'Close workspace panel' : 'Open workspace panel'} (${comboText('mod+j')})`}
           aria-label={dockOpen ? 'Close workspace panel' : 'Open workspace panel'}
           aria-pressed={dockOpen}
         >

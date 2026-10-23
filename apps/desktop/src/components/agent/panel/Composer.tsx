@@ -122,6 +122,7 @@ export function Composer({
     readOnlyPlaceholder,
     streaming,
     autoFocus,
+    focusKey: draftKey,
     promptSuggestion,
   })
 

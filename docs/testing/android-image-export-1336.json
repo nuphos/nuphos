@@ -1,0 +1,60 @@
+{
+  "base": "2bae389422c3573e641f0885957f7b4ad373ed3c",
+  "applicationId": "ai.nuphos.android.imageexport1336",
+  "testPackage": "ai.nuphos.android.imageexport1336.test",
+  "targetPackage": "ai.nuphos.android.imageexport1336",
+  "runner": "androidx.test.runner.AndroidJUnitRunner",
+  "apkSha256": {
+    "apps/android/app/build/outputs/apk/debug/app-debug.apk": "44f6ffc01641d4f6ea4a5184e5295af0c993242e25cc2b331afc21f095733655",
+    "apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "2782fa2d9c29d040dd4c7f65827f50fadf098b055b019c42f006d2fc09fcf839"
+  },
+  "signature": "Signer #1 certificate DN: CN=Synthetic image export fixture\nSigner #1 certificate SHA-256 digest: df974736176c4c3c0627d68ff13547356b9c5e57301f34ee45b6dd6cd45b4b92\nSigner #1 certificate SHA-1 digest: e7f26b73d99307be0f012b5cef9df7e713921e44\nSigner #1 certificate MD5 digest: b5c5fe50f66c23d013713a004c7fbe20\n",
+  "validation": {
+    "jvmTests": 356,
+    "jvmFailures": 0,
+    "lint": "passed",
+    "pixel8Tests": 13,
+    "pixel8Failures": 0,
+    "pixel8Seconds": 16.454,
+    "exclusiveFlags": "rejected two true flags as expected",
+    "limits": [
+      "Synthetic fixtures only; no real account or attachment",
+      "No external receiver launched; cross-UID receiver behaviour not exercised",
+      "No release, production signing, Play changes or merge"
+    ],
+    "cancellationHandoffRegression": {
+      "controlHead": "9b28f62dd458f623d0222032d02dd5970340faca",
+      "oldHelperResult": "FAIL: expected empty export directory, observed renamed synthetic PNG",
+      "fixedHelperResult": "PASS",
+      "cancelledHandoffs": 25,
+      "ordering": "IO rename complete -> caller delivery queued -> cancel -> run delivery -> assert no new files",
+      "capacityRecovery": "Successful normal export after all 25 cancellations, then caller deletes owned file"
+    }
+  },
+  "sourceSha256": {
+    "apps/android/README.md": "83bdeaa8a8a20267a7a8eb72f4a16257f60d938e172f9434eb6e40767eaa3945",
+    "apps/android/app/build.gradle.kts": "32bb27b1ee409a337b5ddc71004e088cbb6cf64e8c3fe695c33b9d3fa6c3d84c",
+    "apps/android/app/src/main/AndroidManifest.xml": "2fa703b83120bf25691c9655c6dfddbda055f514c28de226e2187afecc71ec23",
+    "apps/android/app/src/main/res/xml/image_export_paths.xml": "c6c29d947f927de0db1fd490247cb02df5364aafd297b7ca464a2b1bb9deea20",
+    "apps/android/app/src/main/java/ai/nuphos/android/ui/chat/MessageImages.kt": "dc416480d5424bff62dba0e5a98d314556a70b9db1f0137415482338ee492a93",
+    "apps/android/app/src/main/java/ai/nuphos/android/ui/chat/TransferCard.kt": "28680dd59e4c63e09679fc097ff0c156ecad4ce68b60f05b1ca75bfd18b792dc",
+    "apps/android/app/src/main/java/ai/nuphos/android/ui/chat/ImageExports.kt": "5b507f3a68f0980f4a636615efe84fa70b9e704029321dde5c77ae82955e85dc",
+    "apps/android/app/src/main/java/ai/nuphos/android/ui/chat/ImageExportActions.kt": "0899bf5dde50cf597baebb572627ae7907145969f6e0a6368c5b66e2e639416a",
+    "apps/android/app/src/main/java/ai/nuphos/android/ui/chat/ImageExportProvider.kt": "6332cacf3b9e688f8645c9c78f95d20b24cd3fb3135f906e161dffd471b0c0de",
+    "apps/android/app/src/androidTest/java/ai/nuphos/android/ImageExportsFixtureDeviceTest.kt": "eecd83769ae5aa6c5e76c6be1c2fd1a943143a871ec759c769e0a1601d200688"
+  },
+  "validationSourceCommit": "5e42581a3ca859855b688b646a78376ba5658588",
+  "integrationValidation": {
+    "upstreamMain": "0e19c69c5ac68c8e3d466015f9155a850e1bf99a",
+    "signedBaseMerge": "a82a82d8c62ec82520446e2eb9994178b3e46590",
+    "resolvedConflict": "apps/android/README.md",
+    "retainedSections": ["Composer rich content", "Image sharing and saving"],
+    "unchangedImageSourceFiles": 8,
+    "changedComparedWithValidatedHead": [
+      "apps/android/README.md",
+      "apps/android/app/build.gradle.kts"
+    ],
+    "gradleChange": "Preserve upstream nuphosIsolatedContentFixture alongside adaptive/image flags and generic mutual exclusion guard",
+    "deviceRetest": "Not repeated: integration resolution changes documentation only; prior Pixel 8 evidence applies to unchanged image product code. Integrated CI is required."
+  }
+}

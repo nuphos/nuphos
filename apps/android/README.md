@@ -464,3 +464,30 @@ temporary permission grant or cross-app drag/drop. Verify those separately on
 a dedicated device with a third-party source app.
 Run existing composer draft, mention and voice fixtures after changing the text
 field implementation. Never install the fixture over the Play package.
+
+### Image sharing and saving
+
+The full-screen message image pager offers Share image and Save image. Both use
+original bytes, never the sampled display bitmap. Inline data images are decoded
+locally; transfer images refresh their scoped group and use the existing
+credential-free storage downloader. Unsupported remote inline URLs remain
+unavailable; they are never sent to another app as a fallback.
+
+Sharing uses a read-only FileProvider URI and Android's chooser. Only the
+`image-exports` cache directory is exposed; copies expire after 24 hours and are
+pruned on a later export, with at most 20 pending copies. Saving uses a pending
+MediaStore Images entry under Pictures/Nuphos and deletes it on write failure.
+No storage permission is requested. Existing transfer Save file remains available.
+
+`ImageExportsFixtureDeviceTest` requires a separate application ID ending in
+`.imageexport1336` (`-PnuphosIsolatedImageExportFixture=true`). It uses synthetic images to check original SHA-256, detected
+MIME, MediaStore publication, URI grants, expiry and failed downloads. It deletes
+its own saved images and never launches a share receiver or reads account data.
+
+Enable only one `nuphosIsolated*` flag per build; configuration rejects multiple
+true flags before selecting a suffix. Before installing a fixture, inspect the
+built application and androidTest APK manifests and record their SHA-256, actual
+package IDs, instrumentation runner, targetPackage and signing certificate in the
+validation evidence. Expected image fixture values are
+`ai.nuphos.android.imageexport1336`, its separate test package and
+`androidx.test.runner.AndroidJUnitRunner`; build properties alone are not proof.
