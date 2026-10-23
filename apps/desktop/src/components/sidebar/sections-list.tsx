@@ -164,8 +164,8 @@ export function SidebarSectionList({
                       const foldToggle = hasChildren ? (
                         <span
                           role="button"
-                          aria-label={folded ? 'Show threads' : 'Hide threads'}
-                          title={folded ? 'Show threads' : 'Hide threads'}
+                          aria-label={folded ? 'Show sub-agents' : 'Hide sub-agents'}
+                          title={folded ? 'Show sub-agents' : 'Hide sub-agents'}
                           onClick={(e) => {
                             e.stopPropagation()
                             toggleGroup({ title: item.key })
