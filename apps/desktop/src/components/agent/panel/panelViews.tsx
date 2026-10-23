@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { useStableCallback } from '../../../hooks/useStableCallback'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
@@ -72,16 +73,55 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     () => sentHistory(activeMessages ?? [], currentUserId, foreignChat),
     [activeMessages, currentUserId, foreignChat],
   )
+  // Every message in the transcript receives these handlers. Stable identities
+  // keep the messages memoized when this page renders again — opening the dock,
+  // a background refresh — instead of rendering the whole transcript each time.
+  const fork = useStableCallback(forkConversation)
+  const approvePlan = useStableCallback((planId: string) => {
+    if (activeTab?.readOnly) return
+    track('agent_plan_approved', {
+      plan_id: planId,
+      surface: 'inline_card',
+    })
+    // Persist approval; the usePlan poll reflects the new status.
+    void api
+      .agentUpdatePlan(planId, { status: 'approved' }, teamId)
+      .then((updated) => {
+        // A vote may leave the plan proposed under a team quorum. Only
+        // the request that completes the gate resumes Agent execution.
+        // Slack-bound conversations execute through the backend's plan
+        // resume in the bound thread — sending a proceed turn here too
+        // would race it and could run the plan twice.
+        if (updated.status === 'approved' && !activeTab?.slackThread) {
+          void sendInActive(
+            `Approved plan #${planId} — please proceed with plan #${planId}.`,
+            [],
+            'plan-approval',
+          )
+        }
+      })
+      .catch((err: unknown) => {
+        console.warn('[plan] failed to mark approved', err)
+        toast.apiError('Could not approve plan', err, {
+          fallback: 'The plan was not approved. Please try again.',
+        })
+      })
+  })
+  const rejectPlan = useStableCallback(
+    (planId: string, reason: string, mode: 'revise' | 'delete') => {
+      void handleRejectPlan(planId, reason, mode, 'the plan')
+    },
+  )
   const editMessage = useMemo(
     () =>
       editableSessionId
         ? {
             allowed: (message: Message) => canEditMessage(message, currentUserId, foreignChat),
             edit: (messageId: string, text: string) =>
-              void forkConversation(editableSessionId, { messageId, text }),
+              void fork(editableSessionId, { messageId, text }),
           }
         : undefined,
-    [currentUserId, editableSessionId, foreignChat, forkConversation],
+    [currentUserId, editableSessionId, foreignChat, fork],
   )
   const modelSession =
     activeTab?.sessionId && !activeTab.foreign && teamId && serverHasConversation(activeTab)
@@ -131,39 +171,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
                   }
                   onStop={stopActive}
-                  onApprovePlan={(planId) => {
-                    if (activeTab.readOnly) return
-                    track('agent_plan_approved', {
-                      plan_id: planId,
-                      surface: 'inline_card',
-                    })
-                    // Persist approval; the usePlan poll reflects the new status.
-                    void api
-                      .agentUpdatePlan(planId, { status: 'approved' }, teamId)
-                      .then((updated) => {
-                        // A vote may leave the plan proposed under a team quorum. Only
-                        // the request that completes the gate resumes Agent execution.
-                        // Slack-bound conversations execute through the backend's plan
-                        // resume in the bound thread — sending a proceed turn here too
-                        // would race it and could run the plan twice.
-                        if (updated.status === 'approved' && !activeTab.slackThread) {
-                          void sendInActive(
-                            `Approved plan #${planId} — please proceed with plan #${planId}.`,
-                            [],
-                            'plan-approval',
-                          )
-                        }
-                      })
-                      .catch((err: unknown) => {
-                        console.warn('[plan] failed to mark approved', err)
-                        toast.apiError('Could not approve plan', err, {
-                          fallback: 'The plan was not approved. Please try again.',
-                        })
-                      })
-                  }}
-                  onRejectPlan={(planId, reason, mode) => {
-                    void handleRejectPlan(planId, reason, mode, 'the plan')
-                  }}
+                  onApprovePlan={approvePlan}
+                  onRejectPlan={rejectPlan}
                   activePlanCanAct={activePlanCanAct}
                   onOpenNuphosLink={onOpenNuphosLink}
                   onOpenAgentSettings={onOpenAgentSettings}
