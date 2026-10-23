@@ -6,6 +6,7 @@ import { Kbd } from '../../components/ui/kbd'
 import { Tooltip } from '../../components/ui/tooltip'
 import { comboText } from '../../lib/platform'
 
+import { moveFocusWithDock } from './dockFocus'
 import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
 import { WorkspaceTabStrip } from './WorkspaceTabStrip'
@@ -55,8 +56,8 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     if (!dockOpen) setWorkspaceDockExpanded(false)
   }, [dockOpen, setWorkspaceDockExpanded])
 
-  // ⌘J opens or closes the dock. ⇧⌘↩ expands or restores it; from closed it
-  // opens straight to expanded.
+  // ⌘J opens or closes the dock, taking the caret along. ⇧⌘↩ expands or
+  // restores it; from closed it opens straight to expanded.
   const paneActive = useWorkspacePane()?.active ?? true
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     return window.api.onAppShortcut((action) => {
       if (action === 'toggle-dock') {
         workspaceActions.toggleDock()
+        window.requestAnimationFrame(() => moveFocusWithDock(dockRef.current, !dockOpen))
 
         return
       }
