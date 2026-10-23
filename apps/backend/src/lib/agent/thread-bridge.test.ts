@@ -459,12 +459,17 @@ describe('conversation-scoped thread tools', () => {
   test.each([
     ['another owner', { userId: 'teammate' }],
     ['another team', { teamId: 'other-team' }],
-    ['archived target', { archivedAt: new Date() }],
   ])('refuses %s', async (_, change) => {
     Object.assign(target, change)
     await expect(sendAgentThreadMessage(actor, 'target', 'Do work')).rejects.toThrow()
     await Bun.sleep(20)
     expect(claims).toHaveLength(0)
+  })
+
+  test('delivers to an archived thread, whose turn then restores it', async () => {
+    target.archivedAt = new Date()
+    await sendAgentThreadMessage(actor, 'target', 'Do work')
+    expect(claims).toHaveLength(1)
   })
 
   test('delivers to an own thread with another runtime or credential selection', async () => {

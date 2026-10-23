@@ -73,8 +73,6 @@ async function dropStale(userId: string, sessionId: string, target: AgentConvers
 async function ready(userId: string, sessionId: string, target: AgentConversation | null) {
   // The holder runs this again when it lets go.
   if (await turnRunner.hasActiveAgentRunForSession(userId, sessionId)) return false
-  // An archived conversation stops polling; the send that restores it starts the queue.
-  if (target?.archivedAt) return false
   // Runtime-owned work (an automatic continuation) holds no backend claim.
   if (target?.claudeCodePreview && !runtimeAccepts(await conversationExecutionState(target))) {
     retryQueuedTurn(userId, sessionId)

@@ -35,7 +35,7 @@ test('a refused change reaches the agent as its reason, not an internal error', 
   })
 
   expect(result).toMatchObject({ isError: true })
-  expect(JSON.stringify(result)).toContain('another unarchived conversation you own')
+  expect(JSON.stringify(result)).toContain('another conversation you own')
 })
 
 test('a thread message publishes its own frames, since the runtime hides nuphos-tools calls', async () => {

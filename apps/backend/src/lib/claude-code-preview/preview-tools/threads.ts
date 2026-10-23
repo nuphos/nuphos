@@ -132,6 +132,7 @@ export function threadToolModule(
           'The target keeps its own runtime and credential selection. status is "started" when an ' +
           'idle thread started a turn now, "queued" when a busy thread will run it as its own turn ' +
           'after the turns ahead of it; neither means the task is done. ' +
+          'An archived target is restored when the message runs. ' +
           'Use the Nuphos threadId from create_thread or session_id from list_recent_conversations. ' +
           'Do not send acknowledgement loops.',
         inputSchema: toolInputJsonSchema(send),
@@ -142,9 +143,9 @@ export function threadToolModule(
           'Archive a Nuphos conversation you own in this team, or restore it with archived=false. ' +
           'Use when its work is done or the user asks; the current conversation counts too. ' +
           'Archiving hides it and stops resource-event wakeups, but does not stop a running turn. ' +
-          'Its sub-agent threads, recursively, are archived and restored with it; ' +
-          'archived threads stop accepting send_message_to_thread. ' +
-          'A new human message restores it. Use threadId from create_thread or session_id from ' +
+          'Its sub-agent threads, recursively, are archived and restored with it. ' +
+          'A new human message or send_message_to_thread restores it. ' +
+          'Use threadId from create_thread or session_id from ' +
           'list_recent_conversations.',
         inputSchema: toolInputJsonSchema(archive),
       },

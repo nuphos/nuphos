@@ -55,10 +55,9 @@ export async function authorizeThreadDelivery(
     !target ||
     target.sessionId === source.sessionId ||
     target.userId !== data.userId ||
-    target.teamId !== data.teamId ||
-    target.archivedAt
+    target.teamId !== data.teamId
   ) {
-    throw new Error('Target must be another unarchived conversation you own in this team.')
+    throw new Error('Target must be another conversation you own in this team.')
   }
 
   return { source, target }

@@ -212,9 +212,20 @@ test('a queued message whose turn fails tells its sender', async () => {
   expect(noticeText()).toContain('did not run: Thread run failed')
 })
 
-test('a message left in a queue that never runs is dropped before its TTL and reported', async () => {
-  // Archived after the send: the queue never becomes ready, so only the expiry ends it.
+test("a message queued before its thread was archived runs as the thread's turn", async () => {
+  await enqueuePendingUserMessage('owner', 'target', threadMessage())
   archived = true
+
+  await startQueuedTurn('owner', 'target')
+  await settle()
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+  // Origin 'user' is what restores the archived thread when its turn starts.
+  expect(runs.map(({ sessionId, origin }) => ({ sessionId, origin }))).toEqual([
+    { sessionId: 'target', origin: 'user' },
+  ])
+})
+
+test('a message left in a queue that never runs is dropped before its TTL and reported', async () => {
   await enqueuePendingUserMessage(
     'owner',
     'target',
