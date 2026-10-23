@@ -129,7 +129,6 @@ export function Conversation({
       )}
       <div
         ref={ref}
-        data-transcript
         onScroll={handleScroll}
         onWheel={handleWheel}
         onPointerDown={handleUserScrollIntent}

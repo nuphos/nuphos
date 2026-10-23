@@ -5,12 +5,10 @@ import { transcriptPageStep } from './transcriptKeys'
 
 import type { RefObject } from 'react'
 
-const TRANSCRIPT = '[data-transcript]'
-
 /**
- * PageUp / PageDown page the transcript of the panel holding focus, or of the
- * only one on screen when focus is on <body>. Paging up holds the reader in
- * history like a wheel scroll; reaching the bottom resumes following.
+ * PageUp / PageDown page the transcript of the panel holding focus. With focus
+ * on <body> the browser already pages whatever was clicked last. Paging up
+ * holds the reader in history like a wheel scroll; the bottom resumes following.
  */
 export function useTranscriptPageKeys(
   ref: RefObject<HTMLElement | null>,
@@ -22,7 +20,9 @@ export function useTranscriptPageKeys(
       const el = ref.current
       const step = transcriptPageStep(event)
 
-      if (!el || step === null || !ownsTranscriptKeys(el)) return
+      const active = document.activeElement
+
+      if (!el || step === null || !active || !composerOf(el)?.contains(active)) return
       event.preventDefault()
       if (step < 0) lockScrollToHistory()
       else handleUserScrollIntent()
@@ -33,16 +33,4 @@ export function useTranscriptPageKeys(
 
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [ref, lockScrollToHistory, handleUserScrollIntent])
-}
-
-function ownsTranscriptKeys(el: HTMLElement) {
-  const active = document.activeElement
-
-  if (active && active !== document.body) return Boolean(composerOf(el)?.contains(active))
-
-  return (
-    [...document.querySelectorAll<HTMLElement>(TRANSCRIPT)].filter((other) =>
-      other.checkVisibility(),
-    ).length === 1
-  )
 }
