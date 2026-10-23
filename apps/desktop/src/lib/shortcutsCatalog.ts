@@ -33,11 +33,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: 'App',
     entries: [
       { label: 'Search agents and people', combos: ['mod+k'] },
-      { label: 'Previous / next agent in sidebar', combos: ['alt+up', 'alt+down'] },
-      {
-        label: 'Previous / next agent needing attention',
-        combos: ['alt+shift+up', 'alt+shift+down'],
-      },
+      { label: 'Switch agent', combos: ['alt+up', 'alt+down'] },
+      { label: 'Agent needing you', combos: ['alt+shift+up', 'alt+shift+down'] },
       { label: 'User settings', combos: ['mod+,'] },
       { label: 'Team settings', combos: ['mod+shift+,'] },
       { label: 'Toggle sidebar', combos: ['mod+b'] },
