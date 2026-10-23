@@ -1,12 +1,26 @@
 name: Release provenance
 
-# The first job of every tag-triggered release: the tagged commit must be one
-# the merge queue put on main (see scripts/verify-release-provenance.sh).
-# Release jobs need this one, so nothing builds or waits for a release
-# environment until it passes.
+# The first job of every release. Releases are dispatched from main with the
+# tag to publish as an input, never triggered by a tag push: a tag push would
+# load the release workflow from the tagged commit, which could simply drop this
+# job. Dispatched from main, main's reviewed definition always runs it, and the
+# release jobs build the commit it returns. A dispatch from any other branch
+# runs that branch's definition, so the release environments accept only main.
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      prefix:
+        description: Tag prefix of the component, e.g. backend-v
+        type: string
+        required: true
+    outputs:
+      sha:
+        description: The release commit, for every later checkout
+        value: ${{ jobs.verify.outputs.sha }}
 
 permissions:
   contents: read
@@ -14,15 +28,26 @@ permissions:
 
 jobs:
   verify:
+    if: github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
     steps:
-      # main's copy of the check, so the commit under test does not supply it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
+          fetch-tags: true
           persist-credentials: false
       - name: Verify the release commit
+        id: verify
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash scripts/verify-release-provenance.sh "$GITHUB_SHA"
+          TAG: ${{ inputs.tag }}
+          PREFIX: ${{ inputs.prefix }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^${PREFIX}(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "::error::tag must look like ${PREFIX}X.Y.Z, got '$TAG'"; exit 1; }
+          SHA="$(git rev-parse --verify --quiet "refs/tags/${TAG}^{commit}")" || { echo "::error::tag $TAG does not exist"; exit 1; }
+          bash scripts/verify-release-provenance.sh "$SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"

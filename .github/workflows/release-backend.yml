@@ -1,8 +1,13 @@
 name: Release Backend Image
 
 on:
-  push:
-    tags: ['backend-v*']
+  # Dispatch from main after creating the tag; see release-provenance.yml.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: backend-vX.Y.Z tag to publish (on a merge-queue commit of main)
+        type: string
+        required: true
 
 concurrency:
   group: release-backend-image
@@ -13,8 +18,10 @@ permissions:
 
 jobs:
   provenance:
-    if: github.repository == 'nuphos/nuphos' && startsWith(github.ref, 'refs/tags/backend-v')
     uses: ./.github/workflows/release-provenance.yml
+    with:
+      tag: ${{ inputs.tag }}
+      prefix: backend-v
     permissions:
       contents: read
       actions: read
@@ -33,6 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.provenance.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -41,7 +49,7 @@ jobs:
       - name: Validate release tag
         id: version
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./apps/backend/package.json').version")
@@ -69,7 +77,7 @@ jobs:
           tags: ghcr.io/nuphos/backend:v${{ steps.version.outputs.version }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ needs.provenance.outputs.sha }}
             org.opencontainers.image.licenses=Apache-2.0
           provenance: mode=max
           sbom: true
@@ -77,11 +85,14 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
-      # Keyless signature bound to this workflow's GitHub OIDC identity.
+      # Keyless signature bound to this workflow's GitHub OIDC identity. The
+      # identity names main (where this runs), so the signed `commit`
+      # annotation records the release commit it built.
       - name: Sign image
         env:
           IMAGE: ghcr.io/nuphos/backend@${{ steps.image.outputs.digest }}
-        run: cosign sign --yes "$IMAGE"
+          COMMIT: ${{ needs.provenance.outputs.sha }}
+        run: cosign sign --yes -a "commit=$COMMIT" "$IMAGE"
 
   announce:
     needs: publish

@@ -1,12 +1,17 @@
 name: Release CLI
 
-# Push a `cli-vX.Y.Z` tag on main, matching apps/cli/Cargo.toml, to publish
+# Dispatch from main with a `cli-vX.Y.Z` tag, matching apps/cli/Cargo.toml, to publish
 # the `nuphos` binaries as a GitHub Release. apps/cli/install.sh and
 # `nuphos update` install from the newest of these releases.
 
 on:
-  push:
-    tags: ['cli-v*']
+  # Dispatch from main after creating the tag; see release-provenance.yml.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: cli-vX.Y.Z tag to publish (on a merge-queue commit of main)
+        type: string
+        required: true
 
 concurrency:
   group: release-cli
@@ -17,8 +22,10 @@ permissions:
 
 jobs:
   provenance:
-    if: github.repository == 'nuphos/nuphos' && startsWith(github.ref, 'refs/tags/cli-v')
     uses: ./.github/workflows/release-provenance.yml
+    with:
+      tag: ${{ inputs.tag }}
+      prefix: cli-v
     permissions:
       contents: read
       actions: read
@@ -33,12 +40,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.provenance.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Validate release tag
         id: version
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' apps/cli/Cargo.toml | head -1)
@@ -50,7 +58,7 @@ jobs:
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -60,7 +68,7 @@ jobs:
           fi
 
   build:
-    needs: validate
+    needs: [provenance, validate]
     # Only macOS needs Desktop's signing secrets and its release approval.
     environment: ${{ contains(matrix.target, 'apple-darwin') && 'desktop-release' || '' }}
     strategy:
@@ -86,6 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.provenance.outputs.sha }}
           persist-credentials: false
       - name: Install musl tools
         if: contains(matrix.target, 'musl')
@@ -116,7 +125,7 @@ jobs:
       - name: Upload to the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag }}
           TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
@@ -128,7 +137,7 @@ jobs:
   # The runtime `nuphos agent` fetches on first use: the desktop's staged
   # local runtime (openab and the ACP adapters) plus its host for plain Node.
   agent:
-    needs: validate
+    needs: [provenance, validate]
     strategy:
       fail-fast: true
       matrix:
@@ -152,6 +161,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.provenance.outputs.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
@@ -175,7 +185,7 @@ jobs:
       - name: Pack and upload
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag }}
           TARGETS: ${{ matrix.targets }}
         run: |
           set -euo pipefail
@@ -189,7 +199,7 @@ jobs:
           done
 
   publish:
-    needs: [validate, build, agent]
+    needs: [provenance, validate, build, agent]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -197,5 +207,5 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag }}
         run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false

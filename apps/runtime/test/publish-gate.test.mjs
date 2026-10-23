@@ -27,7 +27,7 @@ test('publishes images only from commits already on main', () => {
     build,
     /^ {2}plan:\n {4}if: github\.ref == 'refs\/heads\/main' && vars\.RUNTIME_PUBLISH_ENABLED == 'true'$/mu,
   )
-  assert.match(plan, /git merge-base --is-ancestor "\$BUILD_SHA" origin\/main/)
+  assert.match(plan, /bash \.\.\/\.\.\/scripts\/verify-release-provenance\.sh "\$BUILD_SHA"/)
   assert.match(
     plan,
     /"\$RELEASE_TAG" != "runtime-v\$\{VERSION\}"/,

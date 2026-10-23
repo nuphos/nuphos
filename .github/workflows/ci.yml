@@ -111,6 +111,7 @@ jobs:
               - '.github/workflows/ci.yml'
             dev_scripts:
               - 'scripts/**'
+              - '.github/workflows/release-*.yml'
               - 'eslint.config.mjs'
               - 'eslint-rules/**'
               - '.claude/hooks/**'
@@ -425,6 +426,8 @@ jobs:
         run: bun run lint
       - name: Test the dev launcher's local stack wiring
         run: node --test --experimental-strip-types scripts/dev*.test.ts
+      - name: Test that every release runs the provenance gate
+        run: node --test scripts/release-workflows.test.mjs
       # BLOCKING. The custom comment-discipline rules are only worth having if
       # they still fire; a rule that silently stops reporting is worse than no
       # rule. These suites fail if any of the three does.

@@ -10,17 +10,23 @@ TestFlight; they do not deploy the hosted service.
    fixes and other changes, or a Minor when adding features. Major versions need
    an explicit maintainer decision and an `X.0.0` baseline.
 2. Tag that reviewed commit on `main`: `vX.Y.Z` for Desktop, `backend-vX.Y.Z`
-   for Backend or `ios-vX.Y.Z` for iOS. The version must exactly match the
-   component's package version.
-3. Push the tag. The corresponding release workflow first checks that the
-   commit is one the merge queue put on `main` (reachable from `main`, signed by
-   GitHub, and the head of a successful `merge_group` run), then validates the
-   version before publishing. A tag on any other commit fails before it builds.
+   for Backend, `cli-vX.Y.Z` for the CLI or `ios-vX.Y.Z` for iOS. The version
+   must exactly match the component's package version. Pushing the tag does not
+   start anything.
+3. Dispatch the release from `main` with the tag as input, for example
+   `gh workflow run release-backend.yml --ref main -f tag=backend-vX.Y.Z`. Its
+   first job checks that the tagged commit is one the merge queue put on `main`
+   (reachable from `main`, signed by GitHub, and the head of a successful
+   `merge_group` run); every later job builds that commit. A tag on any other
+   commit fails before anything builds.
 
-Release workflows run only from tag pushes. To retry, re-run the failed jobs of
-the tag's workflow run (`gh run rerun <run-id> --failed`). Forks skip
-publication. Do not move an existing release tag; publish a new version
-when the source changes. Maintainers must restrict creation and deletion of
+Releases are dispatched from `main` rather than triggered by tag pushes because
+a tag push runs the workflow file of the tagged commit, which could leave out the
+check. A dispatch from any other branch runs that branch's file, so each release
+Environment must allow deployments from the `main` branch only. To retry,
+re-run the failed jobs of the run (`gh run rerun <run-id> --failed`) or dispatch
+again with the same tag. Forks skip publication. Do not move an existing release
+tag; publish a new version when the source changes. Maintainers must restrict creation and deletion of
 `v*`, `cli-v*`, `backend-v*` and `ios-v*` tags with repository rulesets.
 
 ## Desktop
@@ -37,10 +43,8 @@ Before the first release, a repository administrator must configure the
 `desktop-release` GitHub Environment:
 
 - Require maintainer approval, prevent self-review, and disable administrator
-  bypass. Allow deployments from the protected `v*` and `cli-v*` release tags.
-  CLI builds reuse this environment for Developer ID signing; add `cli-v*` to
-  both the environment tag policy and the repository tag ruleset before enabling
-  CLI signing, or the environment gate will block every CLI build job.
+  bypass. Allow deployments from the `main` branch only. CLI builds reuse this
+  environment for Developer ID signing.
 - Store `MAC_CERTS` (base64 Developer ID certificate), `MAC_CERTS_PASSWORD`,
   `APPLE_API_KEY_BASE64` (base64 App Store Connect `.p8` key), `APPLE_API_KEY_ID`,
   `APPLE_API_ISSUER`, and `APPLE_TEAM_ID` as Environment secrets.
@@ -74,7 +78,9 @@ release notes. Backend releases do not replace the Desktop latest release. The D
 locked production dependencies and scripts, not deployment configuration.
 
 Configure the `backend-release` Environment with maintainer approval, no
-self-review or administrator bypass, and only protected `backend-v*` tags.
+self-review or administrator bypass, and deployments from the `main` branch only.
+The image signature names `release-backend.yml@refs/heads/main` and carries the
+release commit as its `commit` annotation; verify both before deploying.
 GitHub packages are private by default on first publication: an administrator
 must set this package's visibility to **public** and verify an anonymous pull
 before advertising it for self-hosting. There is no floating `latest` tag; pin a
@@ -100,7 +106,7 @@ notes, so update it in the version-only PR. The new App Store version copies the
 remaining metadata from the live version.
 
 Configure the `ios-release` Environment with maintainer approval, no self-review
-or administrator bypass, and only protected `ios-v*` tags. Store these as
+or administrator bypass, and deployments from the `main` branch only. Store these as
 Environment secrets:
 
 - `APPLE_API_KEY_BASE64` (base64 App Store Connect `.p8` key), `APPLE_API_KEY_ID`

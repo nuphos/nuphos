@@ -196,10 +196,12 @@ message carries the pick, as the desktop's new-agent picker does.
 
 ## Releasing
 
-Bump `version` in `Cargo.toml`, merge, then push a matching tag on main:
+Bump `version` in `Cargo.toml`, merge, push a matching tag on main, then
+dispatch the release from main (see `docs/releases.md`):
 
 ```sh
 git tag cli-v0.2.0 && git push origin cli-v0.2.0
+gh workflow run release-cli.yml --ref main -f tag=cli-v0.2.0
 ```
 
 `.github/workflows/release-cli.yml` builds the four binaries, and the
