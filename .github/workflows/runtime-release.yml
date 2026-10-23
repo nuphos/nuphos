@@ -63,6 +63,7 @@ jobs:
     if: needs.tag.outputs.version != ''
     uses: ./.github/workflows/runtime-build.yml
     permissions:
+      actions: read # the provenance check in runtime-build.yml
       contents: write
       packages: write
       id-token: write # keyless image signing in runtime-build.yml

@@ -48,8 +48,8 @@ xcrun devicectl device process launch --device <udid> ai.nuphos.ios
 
 `.github/workflows/release-ios.yml` archives, signs with the team's App Store
 Connect API key (cloud-managed distribution certificate) and uploads to
-TestFlight. It runs when the version in `apps/ios/package.json` changes on
-`main`, or from the Actions tab. The build number is the workflow run number;
+TestFlight. It runs when an `ios-vX.Y.Z` tag matching `apps/ios/package.json`
+is pushed on `main`. The build number is the workflow run number;
 `MARKETING_VERSION` in the
 project only matters for local builds.
 

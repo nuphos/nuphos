@@ -3,7 +3,6 @@ name: Release Desktop
 on:
   push:
     tags: ['v*']
-  workflow_dispatch: {}
 
 concurrency:
   group: release-desktop
@@ -13,8 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  provenance:
     if: github.repository == 'nuphos/nuphos' && startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/release-provenance.yml
+    permissions:
+      contents: read
+      actions: read
+
+  validate:
+    needs: provenance
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -35,7 +41,6 @@ jobs:
           VERSION=$(node -p "require('./apps/desktop/package.json').version")
           [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo '::error::Expected a stable SemVer version'; exit 1; }
           [[ "$RELEASE_TAG" == "v$VERSION" ]] || { echo '::error::Tag must match the component package version'; exit 1; }
-          git merge-base --is-ancestor HEAD origin/main || { echo '::error::Release commit must be on main'; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   build:

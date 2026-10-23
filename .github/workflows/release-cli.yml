@@ -7,7 +7,6 @@ name: Release CLI
 on:
   push:
     tags: ['cli-v*']
-  workflow_dispatch: {}
 
 concurrency:
   group: release-cli
@@ -17,8 +16,15 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  provenance:
     if: github.repository == 'nuphos/nuphos' && startsWith(github.ref, 'refs/tags/cli-v')
+    uses: ./.github/workflows/release-provenance.yml
+    permissions:
+      contents: read
+      actions: read
+
+  validate:
+    needs: provenance
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -38,7 +44,6 @@ jobs:
           VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' apps/cli/Cargo.toml | head -1)
           [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo '::error::Expected a stable SemVer version'; exit 1; }
           [[ "$RELEASE_TAG" == "cli-v$VERSION" ]] || { echo '::error::Tag must match apps/cli/Cargo.toml'; exit 1; }
-          git merge-base --is-ancestor HEAD origin/main || { echo '::error::Release commit must be on main'; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       # A draft until every binary is attached, so the installer never sees a
       # release with missing assets.

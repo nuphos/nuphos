@@ -1,0 +1,28 @@
+name: Release provenance
+
+# The first job of every tag-triggered release: the tagged commit must be one
+# the merge queue put on main (see scripts/verify-release-provenance.sh).
+# Release jobs need this one, so nothing builds or waits for a release
+# environment until it passes.
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      # main's copy of the check, so the commit under test does not supply it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/verify-release-provenance.sh "$GITHUB_SHA"

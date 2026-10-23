@@ -12,12 +12,14 @@ TestFlight; they do not deploy the hosted service.
 2. Tag that reviewed commit on `main`: `vX.Y.Z` for Desktop, `backend-vX.Y.Z`
    for Backend or `ios-vX.Y.Z` for iOS. The version must exactly match the
    component's package version.
-3. Push the tag. The corresponding release workflow validates the version and
-   checks that the commit belongs to `main` before publishing.
+3. Push the tag. The corresponding release workflow first checks that the
+   commit is one the merge queue put on `main` (reachable from `main`, signed by
+   GitHub, and the head of a successful `merge_group` run), then validates the
+   version before publishing. A tag on any other commit fails before it builds.
 
-To retry, run the corresponding workflow manually with the existing release
-**tag** selected. A manual run on a branch will skip publication. Forks also
-skip publication. Do not move an existing release tag; publish a new version
+Release workflows run only from tag pushes. To retry, re-run the failed jobs of
+the tag's workflow run (`gh run rerun <run-id> --failed`). Forks skip
+publication. Do not move an existing release tag; publish a new version
 when the source changes. Maintainers must restrict creation and deletion of
 `v*`, `cli-v*`, `backend-v*` and `ios-v*` tags with repository rulesets.
 
