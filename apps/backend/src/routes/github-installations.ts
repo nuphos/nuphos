@@ -1,19 +1,17 @@
 import { Hono } from 'hono'
-import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { githubReviewScope, assertGithubReviewRequest } from '@/lib/agent/github-review-scope'
 import { findGithubInstallation } from '@/lib/byos/account'
 import {
   GithubApiError,
-  buildInstallUrl,
   getGithubAppSlug,
   getInstallation,
   getInstallationToken,
   invalidateInstallationToken,
-  isGithubAppConfigured,
   listInstallationRepositories,
 } from '@/lib/byos/github'
+import { githubInstallStartUrl, signInstallFlowState } from '@/lib/byos/github-install-flow'
 import { AppError } from '@/lib/errors'
 import { getNuphosUserById } from '@/lib/identity'
 import { parseObjectId } from '@/lib/objectid'
@@ -25,7 +23,6 @@ import { registerGithubRepoDataRoutes } from '@/routes/github-installations/repo
 import { handleGithubError, publicView } from '@/routes/github-installations/shared'
 
 import type { TeamAuthVariables, GithubInstallationVariables } from '@/middleware/auth'
-import type { GithubInstallationBinding } from '@/models'
 
 export { publicView } from '@/routes/github-installations/shared'
 
@@ -64,87 +61,46 @@ githubInstallationsRoutes.get('/', async (c) => {
 
 githubInstallationsRoutes.get('/install-url', requireTeamRole('ADMINISTRATOR'), (c) => {
   const slug = getGithubAppSlug()
+  const state = c.req.query('state')
+  const url = githubInstallStartUrl(
+    signInstallFlowState({
+      t: c.get('teamId'),
+      u: c.get('userId'),
+      ...(state ? { s: state } : {}),
+    }),
+  )
 
-  if (!slug) {
+  if (!slug || !url) {
     throw new AppError(
       503,
       'github_app_not_configured',
-      'GitHub App slug is not configured (set GITHUB_APP_SLUG)',
+      'GitHub App is not configured (set GITHUB_APP_SLUG and NUPHOS_PUBLIC_BACKEND_URL)',
     )
-  }
-  const state = c.req.query('state') ?? undefined
-  const url = buildInstallUrl(state)
-
-  if (!url) {
-    throw new AppError(503, 'github_app_not_configured', 'Failed to build install URL')
   }
 
   return c.json({ url, appSlug: slug })
 })
 
+// The GitHub setup callback binds after verifying the installer; this only
+// confirms the result to clients that finish the flow by calling it.
 githubInstallationsRoutes.post(
   '/',
   requireTeamRole('ADMINISTRATOR'),
   zv('json', bindSchema),
   async (c) => {
-    if (!isGithubAppConfigured()) {
-      throw new AppError(
-        503,
-        'github_app_not_configured',
-        'GitHub App is not configured on the server',
-      )
-    }
-
     const { installationId } = c.req.valid('json')
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const binding = await findGithubInstallation(
+      parseObjectId(c.get('teamId'), 'teamId'),
+      installationId,
+    )
 
-    const existing = await findGithubInstallation(teamId, installationId)
-
-    if (existing) {
+    if (!binding) {
       throw new AppError(
-        409,
-        'installation_already_bound',
-        `GitHub installation ${String(installationId)} is already bound`,
+        403,
+        'github_installation_not_verified',
+        'GitHub did not confirm that you can access this installation. Install or configure the GitHub App from Nuphos again.',
       )
     }
-
-    let info
-
-    try {
-      info = await getInstallation(installationId)
-    } catch (e) {
-      handleGithubError(e, 'Failed to verify GitHub installation')
-    }
-
-    const id = new ObjectId()
-    const createdAt = new Date()
-    const binding: GithubInstallationBinding = {
-      id,
-      installationId,
-      accountLogin: info.account.login,
-      accountType: info.account.type,
-      accountId: info.account.id,
-      targetType: info.repositorySelection,
-      createdAt,
-    }
-
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $push: { githubInstallations: binding },
-        $set: { updatedAt: createdAt },
-        $setOnInsert: {
-          awsRoles: [],
-          gcpServiceAccounts: [],
-          grafanaInstances: [],
-          cloudflareAccounts: [],
-          linodeAccounts: [],
-          tailscaleClients: [],
-          zeaburProviders: [],
-        },
-      },
-      { upsert: true },
-    )
 
     return c.json(publicView(binding), 201)
   },

@@ -14,6 +14,16 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;')
 }
 
+const PAGE_STYLE = `<style>
+  *{box-sizing:border-box}
+  body{font-family:Geist,-apple-system,'Segoe UI',Roboto,sans-serif;background:#18181b;color:#fff;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center;padding:24px}
+  .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:32px;width:400px;max-width:100%;text-align:center}
+  h1{font-size:19px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  p.sub{color:rgba(255,255,255,.65);font-size:13.5px;margin:0 0 20px;line-height:1.6}
+  button.btn{border:0;cursor:pointer;font-family:inherit}
+  .btn{display:inline-block;padding:10px 18px;border-radius:6px;background:#7d36ec;box-shadow:inset 0 -2px 0 #5621aa;color:#fff;font-size:14px;font-weight:500;text-decoration:none}
+</style>`
+
 export function desktopCallbackPage(deepLink: string): string {
   const href = escapeHtml(deepLink)
   const js = JSON.stringify(deepLink).replaceAll('<', '\\u003c')
@@ -22,14 +32,7 @@ export function desktopCallbackPage(deepLink: string): string {
 <html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Nuphos</title>
 <link rel="icon" href="https://nuphos.ai/favicon.svg" type="image/svg+xml" />
-<style>
-  *{box-sizing:border-box}
-  body{font-family:Geist,-apple-system,'Segoe UI',Roboto,sans-serif;background:#18181b;color:#fff;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center;padding:24px}
-  .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:32px;width:400px;max-width:100%;text-align:center}
-  h1{font-size:19px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
-  p.sub{color:rgba(255,255,255,.65);font-size:13.5px;margin:0 0 20px;line-height:1.6}
-  .btn{display:inline-block;padding:10px 18px;border-radius:6px;background:#7d36ec;box-shadow:inset 0 -2px 0 #5621aa;color:#fff;font-size:14px;font-weight:500;text-decoration:none}
-</style></head>
+${PAGE_STYLE}</head>
 <body><div class="card">
   <h1>Returning to Nuphos&hellip;</h1>
   <p class="sub">You can close this window. If the app didn't open, use the button below.</p>
@@ -52,4 +55,26 @@ export function desktopCallbackResponse(
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
 
   return c.html(desktopCallbackPage(u.toString()))
+}
+
+/** Asks the person who finished GitHub's flow to confirm where the installation goes. */
+export function githubInstallConfirmPage(args: {
+  accountLogin: string
+  teamName: string
+  action: string
+  state: string
+}): string {
+  return `<!doctype html>
+<html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Nuphos</title>
+<link rel="icon" href="https://nuphos.ai/favicon.svg" type="image/svg+xml" />
+${PAGE_STYLE}</head>
+<body><div class="card">
+  <h1>Connect GitHub to Nuphos</h1>
+  <p class="sub">Give the Nuphos team <strong>${escapeHtml(args.teamName)}</strong> access to the GitHub App installation on <strong>${escapeHtml(args.accountLogin)}</strong>? Only continue if you started this from that team.</p>
+  <form method="post" action="${escapeHtml(args.action)}">
+    <input type="hidden" name="state" value="${escapeHtml(args.state)}" />
+    <button class="btn" type="submit">Connect</button>
+  </form>
+</div></body></html>`
 }

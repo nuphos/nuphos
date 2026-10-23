@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 
-import { exchangeGithubCode, githubAuthorizeUrl } from './github'
+import { exchangeGithubCode, githubAuthorizeUrl, githubUserInstallationIds } from './github'
 
 afterEach(() => {
   ;(globalThis.fetch as unknown as { mockRestore?: () => void }).mockRestore?.()
@@ -58,5 +58,22 @@ describe('exchangeGithubCode', () => {
     )
 
     await expect(exchange()).rejects.toThrow('expired code')
+  })
+})
+
+describe('githubUserInstallationIds', () => {
+  test('reads every page of the user installations', async () => {
+    const pages = [Array.from({ length: 100 }, (_, i) => ({ id: i + 1 })), [{ id: 101 }]]
+
+    spyOn(globalThis, 'fetch').mockImplementation(((input: string | URL | Request) => {
+      const page = Number(new URL(input as string).searchParams.get('page'))
+
+      return Promise.resolve(Response.json({ installations: pages[page - 1] ?? [] }))
+    }) as typeof fetch)
+
+    const ids = await githubUserInstallationIds('token')
+
+    expect(ids).toHaveLength(101)
+    expect(ids.at(-1)).toBe(101)
   })
 })

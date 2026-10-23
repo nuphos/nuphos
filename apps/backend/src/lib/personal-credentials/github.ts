@@ -123,12 +123,17 @@ export async function getGithubUser(token: string): Promise<{ id: string; login:
 
 /** Installations of this App that the member can access. */
 export async function githubUserInstallationIds(token: string): Promise<number[]> {
-  const data = await userRequest<{ installations: { id: number }[] }>(
-    token,
-    '/user/installations?per_page=100',
-  )
+  const ids: number[] = []
 
-  return data.installations.map((installation) => installation.id)
+  for (let page = 1; ; page++) {
+    const data = await userRequest<{ installations: { id: number }[] }>(
+      token,
+      `/user/installations?per_page=100&page=${String(page)}`,
+    )
+
+    ids.push(...data.installations.map((installation) => installation.id))
+    if (data.installations.length < 100) return ids
+  }
 }
 
 /** Best-effort: deletes this one token at GitHub. */
