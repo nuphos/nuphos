@@ -4,6 +4,8 @@
  * use the 'mod+key' notation from src/lib/platform.ts.
  */
 
+import { isMac } from './platform.ts'
+
 export type ShortcutEntry = {
   label: string
   /** One or more equivalent combos, each rendered as its own key cap group. */
@@ -35,6 +37,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Search agents and people', combos: ['mod+k'] },
       { label: 'Switch agent', combos: ['alt+up', 'alt+down'] },
       { label: 'Agent needing you', combos: ['alt+shift+up', 'alt+shift+down'] },
+      {
+        label: 'Back / forward',
+        combos: isMac ? ['mod+[', 'mod+]'] : ['alt+left', 'alt+right'],
+      },
       { label: 'User settings', combos: ['mod+,'] },
       { label: 'Team settings', combos: ['mod+shift+,'] },
       { label: 'Toggle sidebar', combos: ['mod+b'] },

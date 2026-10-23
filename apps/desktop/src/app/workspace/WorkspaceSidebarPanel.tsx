@@ -1,4 +1,4 @@
-import { Profiler } from 'react'
+import { Profiler, useEffect } from 'react'
 
 import { pageLocationForTab } from '../../app/workspaceTabFactory'
 import { Sidebar } from '../../components/Sidebar'
@@ -55,6 +55,16 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     mainPageOpen,
     workspaceActions,
   } = ws
+
+  // ⌘[ / ⌘] (Alt+← / Alt+→ off macOS) step the same history as the Back and Forward buttons.
+  useEffect(() => {
+    if (typeof window.api.onAppShortcut !== 'function') return
+
+    return window.api.onAppShortcut((action) => {
+      if (action === 'history-back') navigateHistory(-1)
+      if (action === 'history-forward') navigateHistory(1)
+    })
+  }, [navigateHistory])
 
   if (!scope) return null
   // Only a page with its own navigation (a cloud account, cluster, Grafana,
