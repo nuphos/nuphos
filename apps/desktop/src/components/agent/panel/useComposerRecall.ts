@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { caretAtEdge, historyStep, IDLE_CURSOR, recallKey } from './composerRecall'
-import { restoreEditorText, serializeNode } from './composerSerialize'
+import { focusAtEnd, restoreEditorText, serializeNode } from './composerSerialize'
 
 import type { ComposerRecall } from './composerRecall'
 import type { ComposerState } from './useComposerState'
@@ -16,13 +16,7 @@ function replaceDraft(state: ComposerState, text: string, filePaths: string[] = 
   if (filePaths.length > 0)
     state.setFilePaths((prev) => Array.from(new Set([...prev, ...filePaths])))
   state.syncEmpty()
-  el.focus()
-  const caret = document.createRange()
-
-  caret.selectNodeContents(el)
-  caret.collapse(false)
-  window.getSelection()?.removeAllRanges()
-  window.getSelection()?.addRange(caret)
+  focusAtEnd(el)
 }
 
 /** The editor's text on each side of the caret, or null with no caret in it. */

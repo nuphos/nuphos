@@ -84,6 +84,17 @@ export function readEditorText(el: HTMLDivElement | null): string {
  * chips. `[Image #N]` becomes a chip only when the caller restores the same
  * images (a draft); a recalled message has none, so it stays plain text.
  */
+/** Focus the editor with the caret after its last character. */
+export function focusAtEnd(el: HTMLElement) {
+  el.focus({ preventScroll: true })
+  const caret = document.createRange()
+
+  caret.selectNodeContents(el)
+  caret.collapse(false)
+  window.getSelection()?.removeAllRanges()
+  window.getSelection()?.addRange(caret)
+}
+
 export function restoreEditorText(el: HTMLDivElement, text: string, images = 0) {
   const nodes: Node[] = []
 

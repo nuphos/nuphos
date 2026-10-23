@@ -5,7 +5,7 @@ import { composerTextState } from '../../../lib/composerTextState'
 import { cssDurationMs } from '../../../lib/motion'
 
 import { isImageAttachmentPath } from './attachments'
-import { readEditorText, renumberImageRefs } from './composerSerialize'
+import { focusAtEnd, readEditorText, renumberImageRefs } from './composerSerialize'
 import { AGENT_COMPACT_PLACEHOLDER, AGENT_PLACEHOLDER_PROMPTS } from './constants'
 
 import type { LocalAgentSessionInfo, LocalSessionSource } from '../../../api'
@@ -223,8 +223,9 @@ export function useComposerState({
 
   useEffect(() => {
     if (!autoFocus || readOnly) return
+    // After the draft restore, so typing continues the draft rather than prefixing it.
     const frame = window.requestAnimationFrame(() => {
-      ref.current?.focus({ preventScroll: true })
+      if (ref.current) focusAtEnd(ref.current)
     })
 
     return () => window.cancelAnimationFrame(frame)
