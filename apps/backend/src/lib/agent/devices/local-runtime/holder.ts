@@ -66,7 +66,6 @@ export async function attachRuntimeTunnel(
   let recorded: string | undefined
   let metrics: BoxMetrics | undefined
   let metricsReceivedAt: number | undefined
-  let metricsLeaseUntil = 0
   const heartbeatMs = deps.heartbeatMs ?? RUNTIME_PRESENCE_HEARTBEAT_MS
   let lastFrameAt = Date.now()
   let presenceAt = 0
@@ -179,7 +178,6 @@ export async function attachRuntimeTunnel(
         if (message.conn === conn && Number.isFinite(message.leaseMs)) {
           const leaseMs = Math.min(12_000, Math.max(0, message.leaseMs))
 
-          metricsLeaseUntil = Date.now() + leaseMs
           connection.send({ t: 'metrics', leaseMs })
         }
 
@@ -244,9 +242,10 @@ export async function attachRuntimeTunnel(
 
       switch (frame.t) {
         case 'metrics':
-          if (Date.now() >= metricsLeaseUntil) break
           metrics = frame.metrics
           metricsReceivedAt = Date.now()
+          // This write is also the heartbeat, so a 5-second report adds none.
+          presenceAt = metricsReceivedAt
           void refreshPresence()
           break
         case 'status': {

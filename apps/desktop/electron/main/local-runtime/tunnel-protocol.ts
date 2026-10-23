@@ -13,7 +13,6 @@ export type BackendFrame =
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string; reason?: string }
   | { t: 'ping' }
-  | { t: 'metrics'; leaseMs: number }
 
 export function parseFrame(raw: unknown): BackendFrame | null {
   if (typeof raw !== 'string') return null

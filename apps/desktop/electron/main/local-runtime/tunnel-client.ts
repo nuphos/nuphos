@@ -1,5 +1,5 @@
 import { InstanceStreams } from './instance-streams.ts'
-import { createMetricsLease } from './metrics-lease.ts'
+import { reportMetrics } from './metrics-report.ts'
 import { parseFrame } from './tunnel-protocol.ts'
 import { connectLocalStream } from './tunnel-streams.ts'
 
@@ -81,7 +81,7 @@ export class RuntimeTunnelClient {
   private readonly instanceStreams: InstanceStreams
   private socket: SocketLike | undefined
   private readonly streams = new Map<string, { runtime: SocketLike; pending: string[] }>()
-  private readonly metrics: ReturnType<typeof createMetricsLease>
+  private stopMetrics: (() => void) | undefined
   private running = false
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
@@ -91,9 +91,6 @@ export class RuntimeTunnelClient {
   constructor(deps: TunnelClientDeps) {
     this.deps = deps
     this.instanceStreams = new InstanceStreams(deps.instances, (frame) => this.send(frame))
-    this.metrics = createMetricsLease(deps.sampleMetrics, (metrics) =>
-      this.send({ t: 'metrics', metrics }),
-    )
   }
 
   start(): void {
@@ -135,7 +132,7 @@ export class RuntimeTunnelClient {
   }
 
   private drop(): void {
-    this.metrics.stop()
+    this.stopMetrics?.()
     clearTimeout(this.reconnectTimer)
     clearTimeout(this.idleTimer)
     for (const { runtime } of this.streams.values()) runtime.close()
@@ -179,6 +176,10 @@ export class RuntimeTunnelClient {
       if (this.socket !== socket) return
       this.attempt = 0
       this.sendStatus()
+      // Reported from the start, so a viewer's first look is already live.
+      this.stopMetrics = reportMetrics(this.deps.sampleMetrics, (metrics) =>
+        this.send({ t: 'metrics', metrics }),
+      )
       this.deps.onChange?.(true, false)
     })
     socket.addEventListener('message', (event) => {
@@ -221,10 +222,6 @@ export class RuntimeTunnelClient {
 
   private handle(frame: BackendFrame): void {
     switch (frame.t) {
-      case 'metrics':
-        this.metrics.renew(frame.leaseMs)
-
-        return
       case 'ping':
         this.send({ t: 'pong' })
 

@@ -78,7 +78,7 @@ for (const [name, namedExports] of Object.entries(boundaries)) mock.module(name,
 /* eslint-enable @typescript-eslint/no-extraneous-class */
 await import('./index.ts')
 
-test('Desktop advertises and sends metrics only while a remote viewer requests them', async (t) => {
+test('Desktop advertises metrics and sends them as soon as it connects', async (t) => {
   const frames: { t: string; status?: { localMetrics?: boolean }; metrics?: typeof sample }[] = []
   const listeners = new Map<string, (event: { data?: string }) => void>()
 
@@ -112,8 +112,6 @@ test('Desktop advertises and sends metrics only while a remote viewer requests t
     tunnel.start()
     listeners.get('open')?.({})
     assert.equal(frames.find((frame) => frame.t === 'status')?.status?.localMetrics, true)
-    assert.equal(samples, 0)
-    listeners.get('message')?.({ data: JSON.stringify({ t: 'metrics', leaseMs: 12_000 }) })
     await new Promise((resolve) => setImmediate(resolve))
     assert.equal(samples, 1)
     assert.deepEqual(frames.find((frame) => frame.t === 'metrics')?.metrics, sample)

@@ -46,7 +46,7 @@ function setup(sampleMetrics: () => Promise<typeof sample | null>) {
   return { socket, client }
 }
 
-test('only demand samples every 5 seconds; expired lease and disconnect stop sampling', async (t) => {
+test('reports on connect and every 5 seconds after the last sample; stop ends it', async (t) => {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1_000_000 })
   let count = 0
   const { socket, client } = setup(() => {
@@ -61,44 +61,37 @@ test('only demand samples every 5 seconds; expired lease and disconnect stop sam
         (frame) =>
           frame.t === 'status' && (frame.status as { localMetrics?: boolean }).localMetrics,
       ),
-      'advertise metrics before the backend requests a sample',
     )
-    assert.equal(count, 0)
+    await flush()
+    assert.equal(count, 1)
+    assert.equal(socket.sent.filter((frame) => frame.t === 'metrics').length, 1)
+    // An older backend's lease is ignored; it neither adds nor delays samples.
     socket.emit({ t: 'metrics', leaseMs: 12_000 })
     await flush()
     assert.equal(count, 1)
     t.mock.timers.tick(4_999)
+    await flush()
     assert.equal(count, 1)
     t.mock.timers.tick(1)
     await flush()
     assert.equal(count, 2)
-    socket.emit({ t: 'ping' })
-    t.mock.timers.tick(5_000)
-    await flush()
-    assert.equal(count, 3)
-    socket.emit({ t: 'ping' })
-    t.mock.timers.tick(5_000)
-    await flush()
-    assert.equal(count, 3)
-    socket.emit({ t: 'metrics', leaseMs: 12_000 })
-    await flush()
-    assert.equal(count, 4)
     client.stop()
     t.mock.timers.tick(5_000)
     await flush()
-    assert.equal(count, 4)
-    assert.equal(socket.sent.filter((frame) => frame.t === 'metrics').length, 4)
+    assert.equal(count, 2)
+    assert.equal(socket.sent.filter((frame) => frame.t === 'metrics').length, 2)
   } finally {
     client.stop()
   }
 })
 
-test('slow failing probe cannot overlap across TTL; failure backs off 5 seconds', async (t) => {
+test('a slow or failed sample never overlaps and is retried 5 seconds later', async (t) => {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1_000_000 })
   let finish!: (result: typeof sample | null) => void
   let count = 0
   const { socket, client } = setup(() => {
     count += 1
+    if (count === 2) return Promise.reject(new Error('probe failed'))
 
     return new Promise((resolve) => {
       finish = resolve
@@ -106,19 +99,19 @@ test('slow failing probe cannot overlap across TTL; failure backs off 5 seconds'
   })
 
   try {
-    socket.emit({ t: 'metrics', leaseMs: 12_000 })
-    await flush()
-    t.mock.timers.tick(6_000)
-    socket.emit({ t: 'metrics', leaseMs: 12_000 })
+    t.mock.timers.tick(10_000)
     assert.equal(count, 1)
+    // Keeps the tunnel's idle timeout from dropping the connection mid-test.
+    socket.emit({ t: 'ping' })
     finish(null)
     await flush()
-    t.mock.timers.tick(4_999)
-    assert.equal(count, 1)
-    socket.emit({ t: 'ping' })
-    t.mock.timers.tick(1)
+    t.mock.timers.tick(5_000)
     await flush()
     assert.equal(count, 2)
+    socket.emit({ t: 'ping' })
+    t.mock.timers.tick(5_000)
+    await flush()
+    assert.equal(count, 3)
     client.stop()
     finish(sample)
     await flush()
@@ -126,20 +119,4 @@ test('slow failing probe cannot overlap across TTL; failure backs off 5 seconds'
   } finally {
     client.stop()
   }
-})
-
-test('stopping before a queued sample starts discards demand without sampling', async (t) => {
-  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1_000_000 })
-  let count = 0
-  const { socket, client } = setup(() => {
-    count += 1
-
-    return Promise.resolve(sample)
-  })
-
-  socket.emit({ t: 'metrics', leaseMs: 12_000 })
-  client.stop()
-  await flush()
-  assert.equal(count, 0)
-  assert.equal(socket.sent.filter((frame) => frame.t === 'metrics').length, 0)
 })

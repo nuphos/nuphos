@@ -29,6 +29,7 @@ export async function readBoxMetrics(
 
   if (!presence) return { ...empty, metricsStatus: 'offline' }
   if (!presence.status?.localMetrics) return { ...empty, metricsStatus: 'unsupported' }
+  // Current hosts report on their own; only older ones still wait for this demand. Remove once they are gone.
   if (demand)
     await deps.bus.publish(
       holderChannel(userId, deviceId),

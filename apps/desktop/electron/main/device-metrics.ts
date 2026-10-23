@@ -17,7 +17,7 @@ function cpuTimes() {
 
 let sample: { at: number; value: Promise<DeviceMetrics | null>; pending: boolean } | undefined
 
-/** Only sampled while the devices page asks; no permanent polling process. */
+/** Shared by the tunnel's 5-second report and this computer's own devices list; one sample per 5 seconds. */
 export function readDeviceMetrics(): Promise<DeviceMetrics | null> {
   if (sample && (sample.pending || Date.now() - sample.at < 5_000)) return sample.value
   const value = (async () => {

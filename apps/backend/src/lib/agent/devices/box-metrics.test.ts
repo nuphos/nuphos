@@ -1,4 +1,4 @@
-import { afterEach, expect, spyOn, test } from 'bun:test'
+import { afterEach, expect, test } from 'bun:test'
 
 import { readBoxMetrics } from './box-metrics'
 import { createLocalTunnelBus } from './local-runtime/bus'
@@ -38,7 +38,7 @@ test('offline and old hosts never open a connection or lease', async () => {
   unsubscribe()
 })
 
-test('one existing tunnel receives demand; reports get server timestamps and become stale', async () => {
+test('a host report is live on the first read; demand still reaches older hosts', async () => {
   const bus = createLocalTunnelBus()
   const presence = createMemoryPresenceStore()
   const frames: BackendFrame[] = []
@@ -61,15 +61,7 @@ test('one existing tunnel receives demand; reports get server timestamps and bec
   const deps = { bus, presence }
 
   expect((await readBoxMetrics('u', 'd', false, deps)).metricsStatus).toBe('waiting')
-  await tick()
-  expect(frames.some((f) => f.t === 'metrics')).toBe(false)
-  // Unsolicited samples are rejected even on an authenticated tunnel.
-  tunnel.receive(JSON.stringify({ t: 'metrics', metrics: sample }))
-  await tick()
-  expect((await presence.get('u', 'd'))?.metrics).toBeUndefined()
-  await readBoxMetrics('u', 'd', true, deps)
-  await tick()
-  expect(frames.filter((f) => f.t === 'metrics')).toEqual([{ t: 'metrics', leaseMs: 12_000 }])
+  // Hosts report without being asked, so the first look already has a live reading.
   tunnel.receive(JSON.stringify({ t: 'metrics', metrics: sample }))
   await tick()
   const reading = await readBoxMetrics('u', 'd', false, deps)
@@ -83,15 +75,13 @@ test('one existing tunnel receives demand; reports get server timestamps and bec
     (await readBoxMetrics('u', 'd', false, { ...deps, now: () => receivedAt + 12_000 }))
       .metricsStatus,
   ).toBe('stale')
-  const clock = spyOn(Date, 'now').mockReturnValue(receivedAt + 13_000)
-
-  try {
-    tunnel.receive(JSON.stringify({ t: 'metrics', metrics: { ...sample, cpuPercent: 99 } }))
-    await tick()
-    expect((await presence.get('u', 'd'))?.metrics?.cpuPercent).toBe(sample.cpuPercent)
-  } finally {
-    clock.mockRestore()
-  }
+  tunnel.receive(JSON.stringify({ t: 'metrics', metrics: { ...sample, cpuPercent: 99 } }))
+  await tick()
+  expect((await presence.get('u', 'd'))?.metrics?.cpuPercent).toBe(99)
+  expect(frames.some((f) => f.t === 'metrics')).toBe(false)
+  await readBoxMetrics('u', 'd', true, deps)
+  await tick()
+  expect(frames.filter((f) => f.t === 'metrics')).toEqual([{ t: 'metrics', leaseMs: 12_000 }])
   tunnel.closed()
   await tick()
   expect((await readBoxMetrics('u', 'd', true, deps)).metricsStatus).toBe('offline')
