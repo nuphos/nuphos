@@ -5,7 +5,7 @@ const FOCUSABLE =
 
 function focusables(root: Element): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    (el) => el.checkVisibility() && !el.closest('[inert]'),
+    (el) => el.tabIndex >= 0 && el.checkVisibility() && !el.closest('[inert]'),
   )
 }
 
@@ -41,8 +41,8 @@ export function trapTab(event: KeyboardEvent, panel: HTMLElement) {
 }
 
 /**
- * Keeps focus inside an open modal and hands it back on close. What had focus
- * is read as `open` flips, before a child's autoFocus moves it.
+ * Keeps focus inside an open modal and hands it back when it closes or
+ * unmounts. What had focus is read as `open` flips, before a child's autoFocus.
  */
 export function useModalFocus(open: boolean) {
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -59,28 +59,26 @@ export function useModalFocus(open: boolean) {
   }
 
   useEffect(() => {
-    if (!open) return
-    const frame = requestAnimationFrame(() => {
-      if (panelRef.current) focusIntoModal(panelRef.current, bodyRef.current)
-    })
-    const onTab = (event: KeyboardEvent) => {
-      if (panelRef.current) trapTab(event, panelRef.current)
-    }
+    const panel = panelRef.current
+
+    if (!open || !panel) return
+    const frame = requestAnimationFrame(() => focusIntoModal(panel, bodyRef.current))
+    const onTab = (event: KeyboardEvent) => trapTab(event, panel)
 
     document.addEventListener('keydown', onTab)
 
+    // Runs on close and on unmount alike: many callers mount `<Modal open>`
+    // conditionally and never flip `open`. A detached panel leaves focus on body.
     return () => {
       cancelAnimationFrame(frame)
       document.removeEventListener('keydown', onTab)
+      const active = document.activeElement
+      const lost = !active || active === document.body || panel.contains(active)
+
+      if (lost && returnTo instanceof HTMLElement && returnTo.isConnected) {
+        returnTo.focus({ preventScroll: true })
+      }
     }
-  }, [open])
-
-  useEffect(() => {
-    if (open || !(returnTo instanceof HTMLElement) || !returnTo.isConnected) return
-    const active = document.activeElement
-
-    if (active && active !== document.body && !panelRef.current?.contains(active)) return
-    returnTo.focus({ preventScroll: true })
   }, [open, returnTo])
 
   return { panelRef, bodyRef, titleId }
