@@ -73,7 +73,7 @@ struct AgentThreadBadge: View {
             guard scenePhase == .active, let token = auth.token else { return }
             while !Task.isCancelled {
                 await agents.read(id: reference.id, team: teamId, token: token)
-                guard status == "Running" || status == "Needs input" else { return }
+                // Idle targets can restart; keep visible observations within their freshness window.
                 do { try await Task.sleep(for: .seconds(5)) } catch { return }
             }
         }
