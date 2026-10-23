@@ -14,6 +14,19 @@ export function resourceLabel(resource: SessionResource): string {
   return resource.title.split(/\s+/, 1)[0]
 }
 
+const HEALTH_TEXT = {
+  checks_failed: 'checks failing',
+  changes_requested: 'changes requested',
+  conflict: 'merge conflict',
+} as const
+
+/** A resource's state as a person would say it, e.g. `open · checks failing`. */
+export function resourceStatus(resource: SessionResource): string {
+  return resource.state === 'open' && resource.health
+    ? `open · ${HEALTH_TEXT[resource.health]}`
+    : resource.state
+}
+
 /** The whole name, as a list shows it: a PR's number and title, or anything else's title. */
 export function resourceFullLabel(resource: SessionResource): string {
   return resource.provider === 'github'

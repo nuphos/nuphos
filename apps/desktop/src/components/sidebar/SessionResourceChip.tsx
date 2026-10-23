@@ -3,7 +3,7 @@ import { Terminal, X } from 'lucide-react'
 import { ResourcePreview } from '../ui/resource-preview'
 
 import { ResourceListMenu } from './ResourceListMenu'
-import { chipNames, resourceLabel } from './sessionResourcePresentation'
+import { chipNames, resourceLabel, resourceStatus } from './sessionResourcePresentation'
 import { menuChipClass, resourceStyle, titlebarChip } from './sessionResourceStyle'
 
 import type { ResourceActions } from './ResourceListMenu'
@@ -125,7 +125,7 @@ function ResourceBadge({
             : 'inline-flex min-w-0 max-w-40 items-center gap-1'
         }
         title={github ? undefined : `${resource.title} · ${resource.state}`}
-        aria-label={`${label} · ${resource.state}`}
+        aria-label={`${label} · ${resourceStatus(resource)}`}
       >
         <span className="inline-flex shrink-0">{icon}</span>
         <span className="truncate">{label}</span>
@@ -141,7 +141,7 @@ function ResourceBadge({
       repository={resource.repository ?? 'GitHub'}
       identifier={label}
       title={resource.title}
-      state={resource.state}
+      state={resourceStatus(resource)}
     >
       {badge}
     </ResourcePreview>

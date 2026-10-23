@@ -69,6 +69,13 @@ const linearStates: Partial<Record<string, { glyph: ReactNode; color: string }>>
   duplicate: { glyph: cutout('M5 5l4 4M9 5l-4 4'), color: 'text-tertiary' },
 }
 
+const openColor = {
+  none: 'session-resource-open',
+  checks_failed: 'session-resource-failing',
+  changes_requested: 'session-resource-blocked',
+  conflict: 'session-resource-blocked',
+} as const
+
 export function resourceStyle(resource: SessionResource): { icon: ReactNode; color: string } {
   if (resource.provider === 'linear') {
     const state = linearStates[resource.stateType ?? '']
@@ -107,5 +114,9 @@ export function resourceStyle(resource: SessionResource): { icon: ReactNode; col
       color: 'session-resource-closed',
     }
 
-  return { icon: <GitPullRequest className={iconClass} />, color: 'session-resource-open' }
+  // Open: green, unless something holds it up. Red needs a fix; yellow waits on a person.
+  return {
+    icon: <GitPullRequest className={iconClass} />,
+    color: openColor[resource.health ?? 'none'],
+  }
 }

@@ -8,6 +8,7 @@ import {
   resourceChips,
   resourceFullLabel,
   resourceLabel,
+  resourceStatus,
 } from './sessionResourcePresentation.ts'
 
 import type { SessionResource } from '../../api/session-resource-types'
@@ -114,4 +115,17 @@ test('two PRs and five terminals fold from the end as the titlebar narrows', () 
   // Then the PRs: #630 +2, and at the row's minimum, +3 alone.
   assert.equal(shown(119), 1)
   assert.equal(shown(minimumRowWidth(widths, 24)), 0)
+})
+
+test('an open PR says what holds it up; merged, closed and unblocked PRs say their state', () => {
+  assert.equal(resourceStatus(resource({ health: 'checks_failed' })), 'open · checks failing')
+  assert.equal(
+    resourceStatus(resource({ health: 'changes_requested' })),
+    'open · changes requested',
+  )
+  assert.equal(resourceStatus(resource({ health: 'conflict' })), 'open · merge conflict')
+  assert.equal(resourceStatus(resource({ health: null })), 'open')
+  assert.equal(resourceStatus(resource({})), 'open')
+  // A stale health never outlives the merge.
+  assert.equal(resourceStatus(resource({ state: 'merged', health: 'conflict' })), 'merged')
 })

@@ -9,6 +9,8 @@ export type SessionResource = {
   stateType?: string
   repository?: string
   number?: number
+  /** What blocks an open PR: failing checks (red), or requested changes or a conflict (yellow). */
+  health?: 'checks_failed' | 'changes_requested' | 'conflict' | null
   linkedAt: string
 }
 
