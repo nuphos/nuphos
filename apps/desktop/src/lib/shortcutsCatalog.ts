@@ -45,6 +45,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Team settings', combos: ['mod+shift+,'] },
       { label: 'Toggle sidebar', combos: ['mod+b'] },
       { label: 'Toggle workspace panel', combos: ['mod+j'] },
+      { label: 'Next / previous area', combos: ['F6', 'shift+F6'] },
       { label: 'Expand / restore workspace panel', combos: ['mod+shift+enter'] },
       { label: 'Keyboard shortcuts', combos: ['mod+/'] },
       { label: 'Zoom in / out', combos: ['mod+plus', 'mod+minus'] },

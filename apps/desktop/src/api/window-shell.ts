@@ -7,6 +7,7 @@ import type {
 } from './local-terminal-types'
 import type { Plan } from './plan-types.ts'
 import type { K8sWatchEvent, K8sWatchKind, K8sWatchSubscribeResult } from './watch-types.ts'
+import type { RegionShortcutAction } from '../lib/regionShortcut'
 import type { SessionShortcutAction } from '../lib/sessionShortcuts'
 import type { PodExecEvent, SshTerminalEvent } from '../types/aws-compute.ts'
 import type { PodPort } from '../types/k8s-core.ts'
@@ -29,6 +30,7 @@ export type AppShortcutAction =
   | 'reopen-closed-tab'
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
   | SessionShortcutAction
+  | RegionShortcutAction
 
 export type WindowShellApi = {
   acceptDockTerminal(id: string): Promise<boolean>

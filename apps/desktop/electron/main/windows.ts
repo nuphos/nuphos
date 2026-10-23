@@ -3,15 +3,16 @@ import { fileURLToPath } from 'node:url'
 
 import { BrowserWindow } from 'electron'
 
+import { regionShortcut } from '../../src/lib/regionShortcut'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
 import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
-import { liveSessionShortcut } from './session-shortcuts'
 import { APP_NAME, isDev } from './env'
 import { openExternal } from './open-external'
+import { liveSessionShortcut } from './session-shortcuts'
 import { titleBarOverlayFor } from './window-titlebar'
 import { trafficLightPositionFor, zoom, zoomStepForKey } from './zoom'
 
@@ -205,9 +206,9 @@ export function createWindow(): BrowserWindow {
     // ⌘ alone on macOS, where ⌃J and ⌃K are terminal keys; Ctrl alone elsewhere.
     const modOnly =
       process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
-    // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, so they run
-    // before the ⌥ bail-out below.
-    const sessionAction = liveSessionShortcut(win.webContents, input)
+    // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, and F6 has no
+    // modifier at all, so they run before the bail-out below. F6 must leave a terminal.
+    const sessionAction = liveSessionShortcut(win.webContents, input) ?? regionShortcut(input)
 
     if (sessionAction) {
       event.preventDefault()

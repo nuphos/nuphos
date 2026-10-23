@@ -79,6 +79,7 @@ export function SidebarNavItem({
         if (event.currentTarget.matches(':focus-visible')) start()
       }}
       onBlur={stop}
+      aria-current={active ? 'page' : undefined}
       onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => {
         // Navigate on press, not on release — same reasoning as the tab strip:
         // waiting for `click` adds the held mouse button to perceived latency.

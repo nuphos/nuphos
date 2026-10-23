@@ -170,6 +170,7 @@ export function Sidebar({
         // other way — the native traffic lights, out of the window — is a hole
         // in the hover region, not an exit.
         onMouseLeave={collapsed ? (event) => setPeek(event.clientX < width) : undefined}
+        data-focus-region={showSidebar ? 'sidebar' : undefined}
         className={clsx(
           'sidebar-surface absolute left-0 top-0 bottom-0 z-40 flex flex-col',
           'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',

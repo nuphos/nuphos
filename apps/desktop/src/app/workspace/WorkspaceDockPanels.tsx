@@ -6,7 +6,7 @@ import { Kbd } from '../../components/ui/kbd'
 import { Tooltip } from '../../components/ui/tooltip'
 import { comboText } from '../../lib/platform'
 
-import { moveFocusWithDock } from './dockFocus'
+import { cycleFocusRegion, moveFocusWithDock } from './dockFocus'
 import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
 import { WorkspaceTabStrip } from './WorkspaceTabStrip'
@@ -64,6 +64,14 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     if (!paneActive || !scope?.teamId || typeof window.api.onAppShortcut !== 'function') return
 
     return window.api.onAppShortcut((action) => {
+      if (action === 'focus-next-region' || action === 'focus-previous-region') {
+        // Not behind Settings or a takeover, the gate the chat's own keys use.
+        if (ws.chatShortcutsLive) {
+          cycleFocusRegion(dockRef.current, dockOpen, action === 'focus-next-region' ? 1 : -1)
+        }
+
+        return
+      }
       if (action === 'toggle-dock') {
         workspaceActions.toggleDock()
         window.requestAnimationFrame(() => moveFocusWithDock(dockRef.current, !dockOpen))
@@ -79,7 +87,14 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
       workspaceActions.setDockOpen(true)
       setWorkspaceDockExpanded(true)
     })
-  }, [paneActive, scope?.teamId, dockOpen, workspaceActions, setWorkspaceDockExpanded])
+  }, [
+    paneActive,
+    scope?.teamId,
+    dockOpen,
+    workspaceActions,
+    setWorkspaceDockExpanded,
+    ws.chatShortcutsLive,
+  ])
 
   return (
     <>
