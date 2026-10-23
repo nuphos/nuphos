@@ -13,6 +13,7 @@ import { computeStatus } from './status'
 import { TurnRail } from './TurnRail'
 import { useConversationRead } from './useConversationRead'
 import { useConversationScroll } from './useConversationScroll'
+import { useTranscriptPageKeys } from './useTranscriptPageKeys'
 
 import type { ConversationProps } from './conversationProps'
 
@@ -90,6 +91,7 @@ export function Conversation({
   })
 
   useConversationRead(tab.sessionId, visible)
+  useTranscriptPageKeys(ref, lockScrollToHistory, handleUserScrollIntent)
 
   useEffect(() => {
     if (!hasRunningTool) return
@@ -127,6 +129,7 @@ export function Conversation({
       )}
       <div
         ref={ref}
+        data-transcript
         onScroll={handleScroll}
         onWheel={handleWheel}
         onPointerDown={handleUserScrollIntent}

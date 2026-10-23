@@ -18,6 +18,8 @@ const MAC_PARTS: Record<string, string> = {
   down: '↓',
   left: '←',
   right: '→',
+  pageup: 'PgUp',
+  pagedown: 'PgDn',
   plus: '+',
   minus: '−',
 }
@@ -34,6 +36,8 @@ const OTHER_PARTS: Record<string, string> = {
   down: '↓',
   left: '←',
   right: '→',
+  pageup: 'PgUp',
+  pagedown: 'PgDn',
   plus: '+',
   minus: '−',
 }

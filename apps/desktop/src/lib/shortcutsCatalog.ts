@@ -55,6 +55,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Previous / next agent', combos: ['up', 'down'] },
       { label: 'Stop response', combos: ['esc'] },
       { label: 'Find in conversation', combos: ['mod+f'] },
+      { label: 'Scroll conversation', combos: ['pageup', 'pagedown'] },
       { label: 'Toggle agent summary', combos: ['mod+i'] },
     ],
   },
