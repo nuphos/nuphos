@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
@@ -23,7 +23,9 @@ import { sectionsFor, sidebarView } from './view'
 
 import type { Item, SidebarProps } from './types'
 
-export function Sidebar({
+// Memoized: the workspace renders its sidebar on every update; this skips the
+// ones whose props are unchanged.
+export const Sidebar = memo(function Sidebar({
   scope,
   active,
   agentSessionId = null,
@@ -290,4 +292,4 @@ export function Sidebar({
       )}
     </>
   )
-}
+})

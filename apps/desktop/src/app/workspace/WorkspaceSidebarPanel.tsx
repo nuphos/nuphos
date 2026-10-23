@@ -1,8 +1,9 @@
-import { Profiler, useEffect } from 'react'
+import { Profiler, useEffect, useMemo } from 'react'
 
 import { pageLocationForTab } from '../../app/workspaceTabFactory'
 import { Sidebar } from '../../components/Sidebar'
 import { sidebarView } from '../../components/sidebar/view'
+import { useStableCallback } from '../../hooks/useStableCallback'
 import { historyShortcut } from '../../lib/historyShortcut'
 import { isMac } from '../../lib/platform'
 import { reportShellRender } from '../../lib/tabSwitchLog'
@@ -77,6 +78,48 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [historyKeysLive, navigateHistory])
 
+  // The sidebar is memoized; stable handlers let it skip the workspace updates
+  // (a ⌘T makes several) that change nothing it shows.
+  const inDatasourceExplorer =
+    activeTab?.active === 'observability.datasources' &&
+    Boolean(activeTab.logDatasourceTarget ?? activeTab.traceDatasourceTarget)
+  const closeArchivedChatTabs = useStableCallback((sessionId: string) => {
+    if (selectedSessionId === sessionId)
+      workspaceActions.selectSession(null, { keepMainPage: true })
+  })
+  const connectSlack = useStableCallback(() => {
+    onSidebarSelect('team.integrations')
+    setSlackBindRequested(true)
+  })
+  const goBack = useStableCallback(() => navigateHistory(-1))
+  const goForward = useStableCallback(() => navigateHistory(1))
+  const history = useMemo(
+    () => ({
+      entries: surfaceHistory,
+      index: surfaceHistoryIndex,
+      onJump: workspaceActions.goToSurface,
+    }),
+    [surfaceHistory, surfaceHistoryIndex, workspaceActions.goToSurface],
+  )
+  const sidebarBackToParent = useStableCallback(() => {
+    // In a datasource explorer, back closes the explorer instead of leaving Grafana.
+    if (inDatasourceExplorer)
+      updateActiveTab((tab) => ({ ...tab, traceDatasourceTarget: null, logDatasourceTarget: null }))
+    else if (sidebarBack) enterScope(sidebarBack.scope, sidebarBack.active)
+  })
+  const openSettings = useStableCallback(() => {
+    setSettingsInitialSection(null)
+    setSettingsOpen(true)
+  })
+  const openMyPreferences = useStableCallback(() =>
+    openSettingsSection(MY_PREFERENCES_DEFAULT_SECTION),
+  )
+  const openUserSettings = useStableCallback(() =>
+    openSettingsSection(USER_SETTINGS_DEFAULT_SECTION),
+  )
+  const openSearch = useStableCallback(() => ws.setSessionSearchOpen(true))
+  const openShortcutsHelp = useStableCallback(() => setShortcutsHelpOpen(true))
+
   if (!scope) return null
   // Only a page with its own navigation (a cloud account, cluster, Grafana,
   // repo) takes over the sidebar when its tab goes full screen; any other page
@@ -88,10 +131,6 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     ws.workspaceDockExpanded && pageHasOwnNavigation,
     ws.sidebarActive,
   )
-  const closeArchivedChatTabs = (sessionId: string) => {
-    if (selectedSessionId === sessionId)
-      workspaceActions.selectSession(null, { keepMainPage: true })
-  }
 
   return (
     <Profiler id="sidebar" onRender={(id, _p, ms) => reportShellRender(id, ms)}>
@@ -119,50 +158,20 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
         slackConnected={
           Boolean(accounts?.slackInstallation) || (accounts?.slackLinkedChannels?.count ?? 0) > 0
         }
-        onConnectSlack={() => {
-          onSidebarSelect('team.integrations')
-          setSlackBindRequested(true)
-        }}
+        onConnectSlack={connectSlack}
         celebrating={landingCelebration}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
-        onBack={() => navigateHistory(-1)}
-        onForward={() => navigateHistory(1)}
-        history={{
-          entries: surfaceHistory,
-          index: surfaceHistoryIndex,
-          onJump: workspaceActions.goToSurface,
-        }}
-        onSidebarBack={
-          activeTab?.active === 'observability.datasources' &&
-          (activeTab.logDatasourceTarget || activeTab.traceDatasourceTarget)
-            ? // Inside a datasource explorer, back means "close the explorer"
-              // (up one level to the datasource list), not "leave Grafana".
-              () =>
-                updateActiveTab((tab) => ({
-                  ...tab,
-                  traceDatasourceTarget: null,
-                  logDatasourceTarget: null,
-                }))
-            : sidebarBack
-              ? () => enterScope(sidebarBack.scope, sidebarBack.active)
-              : undefined
-        }
+        onBack={goBack}
+        onForward={goForward}
+        history={history}
+        onSidebarBack={inDatasourceExplorer || sidebarBack ? sidebarBackToParent : undefined}
         hierarchy={breadcrumb}
-        onOpenSettings={
-          currentTeam
-            ? () => {
-                setSettingsInitialSection(null)
-                setSettingsOpen(true)
-              }
-            : undefined
-        }
-        onOpenMyPreferences={
-          currentTeam ? () => openSettingsSection(MY_PREFERENCES_DEFAULT_SECTION) : undefined
-        }
-        onOpenUserSettings={() => openSettingsSection(USER_SETTINGS_DEFAULT_SECTION)}
-        onSearch={() => ws.setSessionSearchOpen(true)}
-        onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+        onOpenSettings={currentTeam ? openSettings : undefined}
+        onOpenMyPreferences={currentTeam ? openMyPreferences : undefined}
+        onOpenUserSettings={openUserSettings}
+        onSearch={openSearch}
+        onOpenShortcutsHelp={openShortcutsHelp}
         onCreateTeam={openCreateTeam}
         pendingInvitations={pendingInvitations}
         onAcceptInvitation={acceptInvitation}
