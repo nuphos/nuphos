@@ -57,18 +57,17 @@ export function ContextMenu({ x, y, items, onClose: dismiss }: Props) {
   // A zero-size virtual element pinned at the cursor for Base UI to anchor to.
   const anchor = useMemo(
     () => ({
-      getBoundingClientRect: () =>
-        ({
-          x,
-          y,
-          top: y,
-          left: x,
-          right: x,
-          bottom: y,
-          width: 0,
-          height: 0,
-          toJSON() {},
-        }),
+      getBoundingClientRect: () => ({
+        x,
+        y,
+        top: y,
+        left: x,
+        right: x,
+        bottom: y,
+        width: 0,
+        height: 0,
+        toJSON() {},
+      }),
     }),
     [x, y],
   )
