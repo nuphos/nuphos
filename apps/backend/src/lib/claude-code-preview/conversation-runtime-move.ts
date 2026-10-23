@@ -52,7 +52,7 @@ export async function moveConversationRuntime(
       'runtime_environment_mismatch',
       'This conversation belongs to another environment. Open it there to move it to another agent. Nothing has been changed.',
     )
-  const target = await requireRuntimeInstance(teamId, targetId, userId)
+  const target = await requireRuntimeInstance(teamId, targetId, userId, { shared: true })
 
   // Local and self-hosted agents run on someone's own machine, with the owner's
   // credentials; only the owner puts a session there.
@@ -90,7 +90,11 @@ export async function moveConversationRuntime(
         'workspace_unavailable',
         'A local agent cannot receive a workspace. Choose conversation history only.',
       )
-    endpoints.push(await resolveLocalRuntimeEndpoint(teamId, target.id, userId, 'transport'))
+    endpoints.push(
+      await resolveLocalRuntimeEndpoint(teamId, target.id, userId, 'transport', undefined, {
+        source: conversation.metadata?.source,
+      }),
+    )
   }
   const endpoint = endpoints.find((entry) => entry.runtimeId === target.id)
 
@@ -143,7 +147,7 @@ export async function moveConversationRuntime(
       await restoreRuntimeWorkspace(archive, target.provider, endpoint.url)
     }
     await assertRuntimeNotDeleting(teamId, target.id)
-    const latestTarget = await requireRuntimeInstance(teamId, target.id, userId)
+    const latestTarget = await requireRuntimeInstance(teamId, target.id, userId, { shared: true })
 
     if (latestTarget.status !== 'active')
       throw new AppError(

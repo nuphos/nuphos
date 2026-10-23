@@ -14,8 +14,16 @@ export const LOCAL_AGENT_SHARING_NOTE =
 /** The confirmation a move needs before it puts the session on a computer:
  *  from then on only the owner can send messages, so anyone who could reply
  *  before is left read-only. */
-export function localAgentMoveWarning(target: Pick<RuntimeInstance, 'kind'>): string | undefined {
-  return target.kind === 'local'
-    ? 'This runtime runs on your computer. After the move, only you can send messages in this agent. People you shared it with can still read it.'
-    : undefined
+export function localAgentMoveWarning(
+  target: Pick<RuntimeInstance, 'kind' | 'local'>,
+): string | undefined {
+  if (target.kind !== 'local') return undefined
+  const shared = target.local?.shared
+
+  if (shared)
+    return `This runtime runs on a teammate’s own computer, which they share with you. It runs as them, and they can see what runs there.${
+      shared.level === 'approve' ? ' They approve this agent before its first message runs.' : ''
+    } Only you can send messages in this agent.`
+
+  return 'This runtime runs on your computer. After the move, only you can send messages in this agent. People you shared it with can still read it.'
 }

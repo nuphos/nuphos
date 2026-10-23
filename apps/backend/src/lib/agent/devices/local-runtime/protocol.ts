@@ -205,7 +205,8 @@ export type HolderMessage =
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }
   /** Close what one person opened; the tunnel and everyone else's streams stay. */
-  | { t: 'revoke-actor'; actorId: string }
+  /** Without a team, every team's streams of that person close; with one, only that team's. */
+  | { t: 'revoke-actor'; actorId: string; teamId?: string }
   | { t: 'ping'; conn: string }
   | { t: 'metrics'; conn: string; leaseMs: number }
 

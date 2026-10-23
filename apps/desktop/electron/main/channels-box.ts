@@ -18,6 +18,12 @@ import {
   pauseBox,
   resumeBox,
 } from '../atlas/boxes.ts'
+import {
+  decideShareApproval,
+  getDeviceShare,
+  listShareApprovals,
+  setDeviceShare,
+} from '../atlas/local-share.ts'
 
 import { LOCAL_AGENT_PROVIDERS } from './local-runtime/providers.ts'
 
@@ -25,6 +31,7 @@ import type {
   AgentDeviceListOptions,
   BoxAccess,
   LocalAgentProvider,
+  LocalShareInput,
 } from '../../src/api/device-types.ts'
 
 function string(value: unknown): string {
@@ -59,6 +66,15 @@ function historyRange(value: unknown): '1d' | '7d' | '30d' {
 }
 function optionalString(value: unknown): string | undefined {
   return value === undefined ? undefined : string(value)
+}
+
+function localShare(value: unknown): LocalShareInput {
+  const input = value as Partial<LocalShareInput> | null
+  const level = (['off', 'approve', 'full'] as const).find((known) => known === input?.level)
+
+  if (!level || !input) throw new TypeError('Expected a sharing level')
+
+  return { level, ...boxAccess(input) }
 }
 
 export const boxChannels = {
@@ -121,4 +137,14 @@ export const boxChannels = {
     openSessionDesktop(string(teamId), string(sessionId)),
   'box:rename': (_e: unknown, deviceId: unknown, teamId: unknown, label: unknown) =>
     renameBox(string(deviceId), string(teamId), string(label)),
+  'localShare:get': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    getDeviceShare(string(deviceId), string(teamId)),
+  'localShare:set': (_e: unknown, deviceId: unknown, teamId: unknown, input: unknown) =>
+    setDeviceShare(string(deviceId), string(teamId), localShare(input)),
+  'localShare:approvals': (_e: unknown, teamId: unknown) => listShareApprovals(string(teamId)),
+  'localShare:decide': (_e: unknown, approvalId: unknown, approve: unknown) => {
+    if (typeof approve !== 'boolean') throw new TypeError('Expected a decision')
+
+    return decideShareApproval(string(approvalId), approve)
+  },
 }

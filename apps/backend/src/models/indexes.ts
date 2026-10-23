@@ -5,6 +5,7 @@ import { backfillConversationWatchers, setupAgentIndexes } from '@/lib/agent/db'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
 import { setupDeviceJoinTokenIndexes } from '@/lib/agent/devices/join-tokens'
+import { setupShareApprovalIndexes } from '@/lib/agent/devices/local-share-store'
 import { setupAgentDeviceIndexes } from '@/lib/agent/devices/store'
 import { setupDirectoryIndexes } from '@/lib/agent/directory'
 import { runMemoryProviderSetup } from '@/lib/agent/memory-slots'
@@ -106,6 +107,7 @@ export async function setupIndexes(): Promise<void> {
     ['push-devices', setupPushDeviceIndexes],
     ['push-live-activities', setupLiveActivityIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
+    ['agent-device-shares', setupShareApprovalIndexes],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],

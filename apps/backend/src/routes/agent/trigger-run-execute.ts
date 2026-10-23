@@ -85,7 +85,11 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const streamId = randomUUID()
   const isPotentialNewConversation = messages.length === 1 && messages[0]?.role === 'user'
   const existingConversation = await getConversationBySessionId(sessionId)
-  const chatRuntime = await resolveConversationChatRuntime(teamId, existingConversation, { userId })
+  const chatRuntime = await resolveConversationChatRuntime(teamId, existingConversation, {
+    userId,
+    sessionId,
+    source,
+  })
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
 

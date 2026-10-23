@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
+import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
 import { DangerZone } from './DangerZone'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
@@ -142,6 +143,7 @@ export function GeneralSection({
           </form>
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
+          <LocalAgentSharingCeilingCard team={team} onTeamUpdated={onTeamUpdated} />
 
           <DangerZone team={team} onTeamRemoved={onTeamRemoved} />
         </>

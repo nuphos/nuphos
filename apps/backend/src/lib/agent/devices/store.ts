@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 
 import type { AgentAddition, RegisteredAgent } from './agent-registry'
+import type { LocalAgentShare } from './local-share-types'
 import type { RequestOrigin } from '@/lib/request-origin'
 import type { Collection } from 'mongodb'
 
@@ -34,6 +35,8 @@ export type AgentDevice = {
   model?: string
   allowLocalExec: boolean
   box?: AgentDeviceBox
+  /** Teams in which its owner shares this computer's Local Agent; never on a Box. See local-share. */
+  shares?: LocalAgentShare[]
   /** Agents this computer has ever had signed in; see agent-registry. */
   agents?: RegisteredAgent[]
   /** Who added each of its added agents; absent for agents added before this was recorded. */

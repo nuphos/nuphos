@@ -113,6 +113,7 @@ agent.post('/chat', async (c) => {
   if (body.resume) return await resumeFromRedisOrThrow(resumeParams)
   const chatRuntime = await resolveConversationChatRuntime(teamId, conversationForResume, {
     userId,
+    sessionId: id,
     ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
     ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
   }).catch((error: unknown) => queueForOfflineBox(error, resumeParams))

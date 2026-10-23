@@ -1,3 +1,4 @@
+import { localShareCeiling } from '@/lib/agent/devices/local-share-types'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { db } from '@/lib/db'
 
@@ -38,6 +39,8 @@ export type NuphosTeamDoc = {
   allowedEmailDomains?: string[]
   /** Stored value; the retired `nuphos` and absent both map to Claude Code. */
   agentRuntime?: string
+  /** The most a member may grant when sharing their own computer; unset is `approve`. */
+  localAgentSharing?: string
   members: {
     userId: ObjectId
     role: NuphosTeamRole
@@ -83,6 +86,7 @@ export function mapTeam(team: NuphosTeamDoc): NuphosTeam {
     contactEmails: team.contactEmails,
     allowedEmailDomains: team.allowedEmailDomains ?? [],
     agentRuntime: runtimeProvider(team.agentRuntime),
+    localAgentSharing: localShareCeiling(team.localAgentSharing),
     createdAt: team.createdAt.toISOString(),
     billing: summarizeBilling(),
   }

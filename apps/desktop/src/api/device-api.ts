@@ -3,6 +3,7 @@ import type {
   BoxAccess,
   LocalAgentProvider,
   LocalRuntimeState,
+  LocalShareInput,
   SleepPreferences,
 } from './device-types.ts'
 
@@ -54,6 +55,12 @@ export const deviceApi = {
     window.api.boxRename(deviceId, teamId, label),
   boxSetAccess: (deviceId: string, teamId: string, access: BoxAccess) =>
     window.api.boxSetAccess(deviceId, teamId, access),
+  localShareGet: (deviceId: string, teamId: string) => window.api.localShareGet(deviceId, teamId),
+  localShareSet: (deviceId: string, teamId: string, input: LocalShareInput) =>
+    window.api.localShareSet(deviceId, teamId, input),
+  localShareApprovals: (teamId: string) => window.api.localShareApprovals(teamId),
+  localShareDecide: (approvalId: string, approve: boolean) =>
+    window.api.localShareDecide(approvalId, approve),
   boxUsage: (teamId: string) => window.api.boxUsage(teamId),
   boxUsageHistory: (teamId: string, range: '1d' | '7d' | '30d') =>
     window.api.boxUsageHistory(teamId, range),
