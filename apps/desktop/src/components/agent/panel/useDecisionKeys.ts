@@ -47,9 +47,9 @@ export function useDecisionKeys(
 
       if (!key || event.defaultPrevented || !card || !ownsShortcut(card, LIVE_CARD)) return
       if (!act(() => latest.current(key))) return
-      // Capture phase, so the composer's Enter doesn't also send.
+      // Capture phase, so the composer's Enter doesn't also send; first live card wins.
       event.preventDefault()
-      event.stopPropagation()
+      event.stopImmediatePropagation()
     }
 
     window.addEventListener('keydown', onKeyDown, true)

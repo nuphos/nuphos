@@ -36,17 +36,33 @@ test('⌘⌫ keeps deleting while the focused box holds text', () => {
   })
 })
 
-test('⌥1–⌥9 pick an option by physical key, whatever character ⌥ composes', () => {
-  assert.deepEqual(decisionKey(press('¡', 'Digit1', { altKey: true }), true, false), {
+test('⌥⌘1–⌥⌘9 pick an option by physical key', () => {
+  const pick = { altKey: true, metaKey: true }
+
+  assert.deepEqual(decisionKey(press('¡', 'Digit1', pick), true, true), {
     kind: 'option',
     index: 0,
   })
-  assert.deepEqual(decisionKey(press('ª', 'Digit9', { altKey: true }), true, false), {
+  assert.deepEqual(decisionKey(press('ª', 'Digit9', pick), true, false), {
     kind: 'option',
     index: 8,
   })
-  assert.equal(decisionKey(press('º', 'Digit0', { altKey: true }), true, false), null)
-  assert.equal(decisionKey(press('1', 'Digit1'), true, false), null)
+  assert.equal(decisionKey(press('º', 'Digit0', pick), true, false), null)
+})
+
+test('⌥ digits alone stay characters, e.g. ⌥5 is [ on a German Mac layout', () => {
+  assert.equal(decisionKey(press('[', 'Digit5', { altKey: true }), true, true), null)
+  assert.equal(decisionKey(press('[', 'Digit5', { altKey: true }), true, false), null)
+})
+
+test('off macOS Ctrl+Alt+digit picks only when it still reads as the digit (not AltGr)', () => {
+  const pick = { altKey: true, ctrlKey: true }
+
+  assert.deepEqual(decisionKey(press('2', 'Digit2', pick), false, false), {
+    kind: 'option',
+    index: 1,
+  })
+  assert.equal(decisionKey(press('{', 'Digit7', pick), false, false), null)
 })
 
 test('plain Enter, ⇧ variants and IME composition are left alone', () => {

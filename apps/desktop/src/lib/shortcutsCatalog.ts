@@ -55,7 +55,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Recall sent message', combos: ['up', 'down'] },
       { label: 'Approve tool or plan', combos: ['mod+enter'] },
       { label: 'Deny tool', combos: ['mod+backspace'] },
-      { label: 'Pick option 1–9', combos: ['alt+1'] },
+      { label: 'Pick option 1–9', combos: ['mod+alt+1'] },
       { label: 'Stop response', combos: ['esc'] },
       { label: 'Find in conversation', combos: ['mod+f'] },
       { label: 'Toggle agent summary', combos: ['mod+i'] },

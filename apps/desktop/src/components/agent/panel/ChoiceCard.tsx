@@ -67,7 +67,7 @@ export function ChoiceCard({
               size="sm"
               className="h-auto min-h-7 whitespace-normal px-2.5 py-1 text-left text-[12.5px]"
               disabled={!interactive}
-              title={index < 9 ? comboText(`alt+${String(index + 1)}`) : undefined}
+              title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
               onClick={() => act(() => choose(option))}
             >
               {option}
