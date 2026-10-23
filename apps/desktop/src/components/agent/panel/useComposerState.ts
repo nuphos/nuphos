@@ -108,7 +108,13 @@ export function useComposerState({
   }
 
   function syncEmpty() {
-    const state = composerTextState(readText())
+    const text = readText()
+
+    // Chromium leaves a <br> behind once everything is deleted. The text is
+    // empty, so make the DOM empty too; otherwise the next insertion (a Tab
+    // suggestion, a slash command) lands after that <br>, on a second line.
+    if (!text && !composingRef.current) ref.current?.replaceChildren()
+    const state = composerTextState(text)
 
     setHasEditorContent(state.hasContent)
     setIsEmpty(!state.canSendText)
