@@ -51,6 +51,19 @@ export function SessionRowSurface({
             ? 'bg-[var(--sidebar-overlay-active)]'
             : 'hover:bg-[var(--sidebar-overlay-hover)]'),
       )}
+      onKeyDown={
+        props.onContextMenu
+          ? (event) => {
+              // ⇧F10 opens the row's menu from the keyboard, anchored under the row.
+              if (!event.shiftKey || event.key !== 'F10') return
+              event.preventDefault()
+              const row = event.currentTarget.getBoundingClientRect()
+              const init = { bubbles: true, clientX: row.left + 24, clientY: row.bottom }
+
+              event.currentTarget.dispatchEvent(new window.MouseEvent('contextmenu', init))
+            }
+          : undefined
+      }
       // A press may start a drag, so a draggable row navigates on release.
       onPointerDown={sessionId ? undefined : activate}
       onClick={sessionId ? activate : undefined}

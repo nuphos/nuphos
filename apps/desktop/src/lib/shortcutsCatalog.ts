@@ -70,6 +70,9 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
   {
     title: 'General',
-    entries: [{ label: 'Close dialog or overlay', combos: ['esc'] }],
+    entries: [
+      { label: 'Close dialog or overlay', combos: ['esc'] },
+      { label: 'Sidebar row menu', combos: ['shift+F10'] },
+    ],
   },
 ]
