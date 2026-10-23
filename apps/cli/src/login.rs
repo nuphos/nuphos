@@ -205,7 +205,7 @@ async fn browser(api_url: &str) -> Result<Session> {
         .await?;
     let handle = registered["handle"].as_str().ok_or_else(|| anyhow!("Malformed sign-in response"))?;
 
-    let mut start = url::Url::parse(&config::login_url())?.join("/api/google/start")?;
+    let mut start = url::Url::parse(&config::login_url(api_url))?;
     start.query_pairs_mut().append_pair("handle", handle);
     println!("Opening your browser to sign in to Nuphos…\nIf it does not open, visit:\n\n  {start}\n");
     let _ = open::that(start.as_str());

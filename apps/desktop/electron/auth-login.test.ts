@@ -48,10 +48,7 @@ let registrations: Registration[] = []
 let nativeSupported = true
 /** How the fake landing page answers GET /api/google/start. */
 let landingStart: () => Response = () =>
-  new Response(null, {
-    status: 302,
-    headers: { location: 'https://accounts.google.com/o/oauth2/v2/auth' },
-  })
+  new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })
 let redeemQueue: (() => Response)[] = []
 let redeemCalls = 0
 /** Bodies POSTed to /auth/native/session/redeem, so tests can assert on them. */
@@ -86,11 +83,11 @@ before(async () => {
       readFile: async () => {
         throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
       },
-      mkdir: async () => undefined,
+      mkdir: async () => {},
       writeFile: async (_path: string, data: string) => {
         configWrites.push(data)
       },
-      chmod: async () => undefined,
+      chmod: async () => {},
       stat: async () => ({ mtimeMs: 0 }),
     },
   })
@@ -104,7 +101,7 @@ before(async () => {
     // Loopback requests are real — that listener is the thing under test.
     if (url.includes('127.0.0.1') || url.includes('localhost:')) return realFetch(input, init)
 
-    if (url.includes('/api/google/start')) return landingStart()
+    if (url.includes('/auth/social/login')) return landingStart()
 
     if (url.endsWith('/auth/native/session')) {
       if (!nativeSupported)
@@ -137,10 +134,7 @@ beforeEach(() => {
   registrations = []
   nativeSupported = true
   landingStart = () =>
-    new Response(null, {
-      status: 302,
-      headers: { location: 'https://accounts.google.com/o/oauth2/v2/auth' },
-    })
+    new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })
   redeemQueue = [readySession]
   redeemCalls = 0
   redeemBodies = []
@@ -187,14 +181,14 @@ const lastConfig = () =>
 
 // ── Native flow ──────────────────────────────────────────────────────────────
 
-test('native: one browser hop to Google, with the target registered up front', async () => {
+test('native: one browser hop to the provider chooser, with the target registered up front', async () => {
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
 
   const opened = await waitForBrowser()
 
-  assert.equal(opened.pathname, '/api/google/start')
+  assert.equal(opened.pathname, '/auth/social/login')
   assert.equal(opened.searchParams.get('handle'), HANDLE)
   assert.equal(opened.searchParams.get('state'), null, 'no caller-supplied state in the URL')
 
@@ -214,7 +208,7 @@ test('native: one browser hop to Google, with the target registered up front', a
 test('native: redemption presents the verifier and the delivery code together', async () => {
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
@@ -235,7 +229,7 @@ test('native: redemption presents the verifier and the delivery code together', 
 test('native: only a challenge is published, never the verifier', async () => {
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
   await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
   await loginPromise
@@ -262,7 +256,7 @@ test('native: the success page is only rendered once the session is in hand', as
 
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   const res = await hitCallback(registeredPort(), {
@@ -284,7 +278,7 @@ test('native: nothing is redeemed until the browser reaches this machine', async
   // be attempted before it arrives.
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   await new Promise((r) => setTimeout(r, 300))
@@ -299,7 +293,7 @@ test('native: nothing is redeemed until the browser reaches this machine', async
 test('native: a callback carrying no delivery code fails rather than hanging', async () => {
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   // What a landing page that dropped the code would send.
@@ -323,7 +317,7 @@ test('native: a rejected redemption fails the sign-in and stores nothing', async
 
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
   await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
 
@@ -336,7 +330,7 @@ test('native: an error reported by the browser fails fast', async () => {
 
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   const res = await hitCallback(registeredPort(), {
@@ -358,7 +352,7 @@ test('native: a backend failure delivered as an error code stops the wait', asyn
 
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   const res = await hitCallback(registeredPort(), {
@@ -380,7 +374,7 @@ test('native: a backend failure delivered as an error code stops the wait', asyn
 test('native: a bare error code still produces readable copy', async () => {
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   const res = await hitCallback(registeredPort(), {
@@ -397,7 +391,7 @@ test('native: a failure page never echoes markup back into the browser', async (
   // untrusted input to a page we render.
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   const res = await hitCallback(registeredPort(), {
@@ -416,7 +410,7 @@ test('native: a failure page never echoes markup back into the browser', async (
 test('native: a callback with the wrong state is ignored', async () => {
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   await waitForBrowser()
 
   const forged = await hitCallback(registeredPort(), { state: 'forged-state', error: 'go away' })
@@ -436,7 +430,7 @@ test('falls back to the legacy flow when the backend has no native endpoint', as
 
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   const opened = await waitForBrowser()
 
   assert.equal(opened.pathname, '/login')
@@ -454,101 +448,6 @@ test('falls back to the legacy flow when the backend has no native endpoint', as
   assert.equal(lastConfig().token, TOKEN)
 })
 
-test('falls back to the legacy flow when the landing page has no start endpoint', async () => {
-  landingStart = () => new Response('Not found', { status: 404 })
-
-  const loginPromise = auth.login()
-
-  loginPromise.catch(() => undefined)
-  const opened = await waitForBrowser()
-
-  assert.equal(opened.pathname, '/login')
-  assert.equal(redeemCalls, 0, 'must not poll a flow the landing page cannot start')
-  assert.equal(registrations.length, 0, 'a legacy fallback must not orphan a registration')
-
-  const state = legacyState(opened)
-
-  await hitCallback(new URL(state.callbackUrl).port, {
-    token: TOKEN,
-    state: state.clientState,
-    user: encodeUser(USER),
-  })
-  assert.deepEqual(await loginPromise, USER)
-})
-
-test('falls back to the legacy flow when the landing page 3xxs everything', async () => {
-  // An older landing page that 301s unknown paths — apex to www, http to https
-  // — answers the probe with a 3xx while having no /api/google/start at all.
-  // Taking that as support selects the native flow against a deployment that
-  // cannot run it, and the sign-in then hangs to the five-minute timeout.
-  landingStart = () =>
-    new Response(null, {
-      status: 301,
-      headers: { location: 'https://www.nuphos.ai/api/google/start' },
-    })
-
-  const loginPromise = auth.login()
-
-  loginPromise.catch(() => undefined)
-  const opened = await waitForBrowser()
-
-  assert.equal(opened.pathname, '/login', 'a bare redirect is not evidence the endpoint exists')
-
-  const state = legacyState(opened)
-
-  await hitCallback(new URL(state.callbackUrl).port, {
-    token: TOKEN,
-    state: state.clientState,
-    user: encodeUser(USER),
-  })
-  assert.deepEqual(await loginPromise, USER)
-})
-
-test('native: a redirect chain that reaches Google still counts as support', async () => {
-  // The legitimate shape of the same thing: apex 301s to www, and www really
-  // does have the endpoint.
-  let hops = 0
-
-  landingStart = () => {
-    hops += 1
-
-    return hops === 1
-      ? new Response(null, {
-          status: 301,
-          headers: { location: 'https://www.nuphos.ai/api/google/start?handle=x' },
-        })
-      : new Response(null, {
-          status: 302,
-          headers: { location: 'https://accounts.google.com/o/oauth2/v2/auth' },
-        })
-  }
-
-  const loginPromise = auth.login()
-
-  loginPromise.catch(() => undefined)
-  const opened = await waitForBrowser()
-
-  assert.equal(opened.pathname, '/api/google/start')
-
-  await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
-  assert.deepEqual(await loginPromise, USER)
-})
-
-test('the probe never spends the real handle', async () => {
-  // It runs before registration, so it has none to spend — and the handle that
-  // does get registered is the one the browser is sent with.
-  const loginPromise = auth.login()
-
-  loginPromise.catch(() => undefined)
-  const opened = await waitForBrowser()
-
-  assert.equal(registrations.length, 1)
-  assert.equal(opened.searchParams.get('handle'), HANDLE)
-
-  await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
-  await loginPromise
-})
-
 test('legacy: falls back to /auth/me when no user is forwarded', async () => {
   nativeSupported = false
   let meCalls = 0
@@ -561,7 +460,7 @@ test('legacy: falls back to /auth/me when no user is forwarded', async () => {
 
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   const state = legacyState(await waitForBrowser())
 
   await hitCallback(new URL(state.callbackUrl).port, { token: TOKEN, state: state.clientState })
@@ -576,7 +475,7 @@ test('legacy: a failed /auth/me never renders the success page', async () => {
 
   const loginPromise = auth.login()
 
-  loginPromise.catch(() => undefined)
+  loginPromise.catch(() => {})
   const state = legacyState(await waitForBrowser())
 
   const res = await hitCallback(new URL(state.callbackUrl).port, {
@@ -589,4 +488,21 @@ test('legacy: a failed /auth/me never renders the success page', async () => {
 
   await assert.rejects(loginPromise)
   assert.equal(configWrites.length, 0)
+})
+
+test('falls back when the backend has no provider chooser', async () => {
+  landingStart = () => new Response('not found', { status: 404 })
+  const result = auth.login()
+  const opened = await waitForBrowser()
+
+  assert.equal(opened.pathname, '/login')
+  assert.equal(registrations.length, 0)
+  const state = legacyState(opened)
+
+  await hitCallback(new URL(state.callbackUrl).port, {
+    token: TOKEN,
+    state: state.clientState,
+    user: encodeUser(USER),
+  })
+  await result
 })

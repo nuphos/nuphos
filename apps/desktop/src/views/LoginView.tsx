@@ -138,7 +138,7 @@ export function LoginView({ onLogin }: Props) {
               >
                 <span className="flex flex-1 items-center gap-2">
                   <FontAwesomeIcon icon={faGoogle} />
-                  Continue with Google
+                  Continue with Google or Apple
                 </span>
                 <FontAwesomeIcon
                   icon={faArrowRight}

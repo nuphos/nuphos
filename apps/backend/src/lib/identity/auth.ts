@@ -15,6 +15,7 @@ export { signNuphosToken } from '@/lib/identity/token'
 export async function setupIdentityIndexes(): Promise<void> {
   await Promise.all([
     users().createIndex({ email: 1 }, { unique: true, background: true }),
+    users().createIndex({ appleID: 1 }, { unique: true, sparse: true, background: true }),
     users().createIndex({ googleID: 1 }, { unique: true, sparse: true, background: true }),
     users().createIndex({ username: 1 }, { unique: true, background: true }),
     teams().createIndex({ ownerID: 1 }, { background: true }),
@@ -182,7 +183,7 @@ async function authenticateNuphosToken(token: string): Promise<NuphosUser | null
   return getNuphosUserForCredential(claims.sub, new Date(claims.iat * 1000))
 }
 
-async function uniqueUsername(email: string): Promise<string> {
+export async function uniqueUsername(email: string): Promise<string> {
   const local = email.split('@')[0] ?? 'user'
   const base = local.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'user'
   let candidate = base

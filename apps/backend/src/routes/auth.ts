@@ -2,12 +2,8 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 
-import type { NativeDeliveryTarget } from '@/lib/native-auth'
-import type { AuthVariables } from '@/middleware/auth'
-
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
-import { clientIp } from '@/lib/request-origin'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
@@ -23,10 +19,17 @@ import {
   redeemNativeSession,
   registerNativeSession,
 } from '@/lib/native-auth'
+import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 
+import { socialAuth } from './auth-social'
+
+import type { NativeDeliveryTarget } from '@/lib/native-auth'
+import type { AuthVariables } from '@/middleware/auth'
+
 export const auth = new Hono<{ Variables: AuthVariables }>()
+auth.route('/social', socialAuth)
 
 auth.get('/me', requireAuth, (c) => {
   const cliToken = c.get('cliToken')
