@@ -219,7 +219,6 @@ test("a message queued before its thread was archived runs as the thread's turn"
   await startQueuedTurn('owner', 'target')
   await settle()
   expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
-  // Origin 'user' is what restores the archived thread when its turn starts.
   expect(runs.map(({ sessionId, origin }) => ({ sessionId, origin }))).toEqual([
     { sessionId: 'target', origin: 'user' },
   ])

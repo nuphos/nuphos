@@ -59,11 +59,11 @@ Never print or persist the secret in a skill, receipt, log, or final answer.
 Any trigger type also accepts `targetSessionId`, which delivers every fire into
 that existing conversation instead of opening a new one:
 
-- The session must be in the same team, not archived, and owned by the
+- The session must be in the same team and owned by the
   trigger's execution principal. It cannot be combined with `sessionRouting`,
   a Watch Group, or `incidentMode`.
 - If the session is mid-turn, the fire queues and runs when that turn ends.
-  Fires into a session archived later are skipped; deleting it pauses the
+  A fire into an archived session restores it; deleting it pauses the
   trigger.
 - The session id is the last segment of its `/agent/<sessionId>` link; for the
   current conversation use `$NUPHOS_SESSION_ID`.

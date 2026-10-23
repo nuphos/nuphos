@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 
 import { signNuphosToken } from '@/lib/identity'
-import { logEvent } from '@/lib/observability'
 import { SLACK_INCIDENT_BUSY_POSTS_PER_HOUR } from '@/lib/slack/incident-notifications'
 import { runAgentForTrigger } from '@/routes/agent'
 import { persistedMessageToUiMessage } from '@/routes/slack/messages'
@@ -195,14 +194,6 @@ async function deliverToTargetSession(
   const triggerId = trigger._id!.toHexString()
   const { sessionId } = target
 
-  if (target.archivedAt) {
-    logEvent('info', 'agent.trigger.target_session_archived', {
-      trigger_id: triggerId,
-      session_id: sessionId,
-    })
-
-    return
-  }
   await executeConversationTurn(
     {
       userId: target.userId,

@@ -148,7 +148,7 @@ async function statusEvents(commit: NonNullable<ReturnType<typeof githubStatusCo
   const prefix = `github/${String(commit.installationId)}/${String(commit.repositoryId)}/`
   // Statuses are frequent; only ask GitHub which PRs hold the commit when one is linked here.
   const linked = await agentConversations().findOne(
-    { 'linkedResources.key': { $regex: `^${prefix}` }, archivedAt: { $exists: false } },
+    { 'linkedResources.key': { $regex: `^${prefix}` } },
     { projection: { _id: 1 } },
   )
 
@@ -231,7 +231,6 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
   for (const routed of events) {
     const conversations = agentConversations().find({
       'linkedResources.key': routed.key,
-      archivedAt: { $exists: false },
     })
 
     for await (const conversation of conversations) {
@@ -263,12 +262,7 @@ export async function authorizedResourceTurn(data: ResourceTurn) {
     (entry) => entry.id === data.resourceId,
   )
 
-  if (
-    !conversation ||
-    conversation.archivedAt ||
-    !resource ||
-    !(await resourceCredentialAllowed(conversation, resource))
-  )
+  if (!conversation || !resource || !(await resourceCredentialAllowed(conversation, resource)))
     return null
 
   return { conversation, resource }

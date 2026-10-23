@@ -6,14 +6,6 @@ import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 
 type ArchivableConversation = Pick<AgentConversation, 'sessionId' | 'archivedAt'>
 
-/** Trigger turns run headless, so they leave the archive alone. */
-export function shouldRestoreArchivedForTurn(
-  conversation: ArchivableConversation | null | undefined,
-  origin: AgentSessionOrigin,
-): conversation is ArchivableConversation {
-  return Boolean(conversation?.archivedAt) && origin === 'user'
-}
-
 /** Best-effort: a failed restore must never cost the user their admitted turn. */
 export async function restoreArchivedSession(
   sessionId: string,
@@ -28,11 +20,10 @@ export async function restoreArchivedSession(
   }
 }
 
+/** Any turn brings an archived conversation back: a person's, an agent's or an event's. */
 export async function restoreArchivedForTurn(
   conversation: ArchivableConversation | null | undefined,
   origin: AgentSessionOrigin,
 ): Promise<void> {
-  if (shouldRestoreArchivedForTurn(conversation, origin)) {
-    await restoreArchivedSession(conversation.sessionId, origin)
-  }
+  if (conversation?.archivedAt) await restoreArchivedSession(conversation.sessionId, origin)
 }

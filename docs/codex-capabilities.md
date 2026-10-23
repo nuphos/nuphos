@@ -45,8 +45,8 @@ checks, and refuses a parent nested below the thread.
 `archive_thread` archives a conversation the actor owns in the current team,
 or restores it with `archived=false`. The current conversation is supported.
 The tool verifies source ownership, current membership, and target ownership
-and team. Archiving does not cancel an active turn; a new human message restores
-the conversation.
+and team. Archiving does not cancel an active turn; any new turn restores the
+conversation: a human message, a thread message, or a bound resource or Trigger event.
 
 The Redis trigger scheduler must be running: there is no detached-process
 fallback. Queue acceptance means **queued**, not completed. A stalled job that

@@ -248,15 +248,16 @@ describe('a Trigger bound to an existing session', () => {
     }
   })
 
-  test('skips an archived session', async () => {
+  test('wakes an archived session, whose turn then restores it', async () => {
     runs.length = 0
     conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1', archivedAt: new Date() }
     try {
-      await executeTrigger(bound, undefined, { runKind: 'scheduled' })
+      await executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'archived' })
     } finally {
       conversation = null
     }
-    expect(runs).toHaveLength(0)
+    expect(runs).toHaveLength(1)
+    expect(runs[0]?.sessionId).toBe(sessionId)
   })
 
   test('pauses instead of firing when the session is gone', async () => {

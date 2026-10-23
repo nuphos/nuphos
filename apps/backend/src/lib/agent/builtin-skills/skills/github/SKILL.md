@@ -246,4 +246,4 @@ Bound GitHub PR events durably wake this conversation with its existing permissi
 A receipt means the binding exists, not that an event was delivered or that checks
 passed. Never promise a sandbox watcher will survive the turn. Use
 `unlink_session_resource` when asked to stop following a resource; it does not
-modify the external PR or issue. Archived sessions do not wake.
+modify the external PR or issue. An event restores an archived session.

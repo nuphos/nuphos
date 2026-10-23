@@ -2,12 +2,16 @@ import { describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
-import { restoreArchivedSession, shouldRestoreArchivedForTurn } from './turn-unarchive'
+import { restoreArchivedForTurn, restoreArchivedSession } from './turn-unarchive'
 
 import type * as dbActual from '@/lib/db'
 
-let updateOne: () => Promise<{ modifiedCount: number }> = () =>
-  Promise.resolve({ modifiedCount: 1 })
+let restores = 0
+let updateOne: () => Promise<{ modifiedCount: number }> = () => {
+  restores++
+
+  return Promise.resolve({ modifiedCount: 1 })
+}
 
 useDb({
   db: (() => ({
@@ -18,18 +22,19 @@ useDb({
 const archived = { sessionId: 's1', archivedAt: new Date('2026-09-01T00:00:00Z') }
 const active = { sessionId: 's2' }
 
-describe('shouldRestoreArchivedForTurn', () => {
-  test('a human turn brings an archived conversation back', () => {
-    expect(shouldRestoreArchivedForTurn(archived, 'user')).toBe(true)
+describe('restoreArchivedForTurn', () => {
+  test('any turn brings an archived conversation back, a resource or Trigger event too', async () => {
+    restores = 0
+    await restoreArchivedForTurn(archived, 'user')
+    await restoreArchivedForTurn(archived, 'trigger')
+    expect(restores).toBe(2)
   })
 
-  test('headless trigger turns leave the archive alone', () => {
-    expect(shouldRestoreArchivedForTurn(archived, 'trigger')).toBe(false)
-  })
-
-  test('unarchived and brand-new conversations need no restore', () => {
-    expect(shouldRestoreArchivedForTurn(active, 'user')).toBe(false)
-    expect(shouldRestoreArchivedForTurn(null, 'user')).toBe(false)
+  test('unarchived and brand-new conversations need no restore', async () => {
+    restores = 0
+    await restoreArchivedForTurn(active, 'user')
+    await restoreArchivedForTurn(null, 'trigger')
+    expect(restores).toBe(0)
   })
 })
 

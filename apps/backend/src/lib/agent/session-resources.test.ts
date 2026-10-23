@@ -105,10 +105,11 @@ test('reply-only participants cannot enable autonomous wakeups', async () => {
   conversation.managerIds = ['participant']
   expect(await resourceConversation({ ...actor, userId: 'participant' }, true)).toBe(conversation)
 })
-test('worker rechecks archive, unlink, membership, selection and disconnected integrations', async () => {
+test('worker rechecks unlink, membership, selection and disconnected integrations', async () => {
   expect(await authorizedResourceTurn(delivery)).not.toBeNull()
+  // An archived conversation still wakes; its turn restores it.
   conversation.archivedAt = new Date()
-  expect(await authorizedResourceTurn(delivery)).toBeNull()
+  expect(await authorizedResourceTurn(delivery)).not.toBeNull()
   delete conversation.archivedAt
   conversation.linkedResources = []
   expect(await authorizedResourceTurn(delivery)).toBeNull()

@@ -45,7 +45,6 @@ useAgentDb({
     findOne: async (filter: unknown) => {
       expect(filter).toEqual({
         'linkedResources.key': { $regex: '^github/12/34/' },
-        archivedAt: { $exists: false },
       })
 
       return repoLinked ? conversation : null
@@ -53,7 +52,6 @@ useAgentDb({
     find: (filter: unknown) => {
       expect(filter).toEqual({
         'linkedResources.key': 'github/12/34/56',
-        archivedAt: { $exists: false },
       })
 
       return {

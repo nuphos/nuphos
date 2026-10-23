@@ -107,7 +107,7 @@ export function validateIncidentConfiguration(input: {
   }
 }
 
-/** A Trigger may only wake a live conversation its execution principal owns. */
+/** A Trigger may only wake a conversation its execution principal owns. */
 export async function assertBindableSession(
   sessionId: string,
   teamId: string | undefined,
@@ -115,17 +115,11 @@ export async function assertBindableSession(
 ): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  if (
-    !teamId ||
-    !target ||
-    target.teamId !== teamId ||
-    target.userId !== principalUserId ||
-    target.archivedAt
-  ) {
+  if (!teamId || !target || target.teamId !== teamId || target.userId !== principalUserId) {
     throw new AppError(
       400,
       'invalid_target_session',
-      'targetSessionId must be an unarchived conversation of the Trigger owner in this team',
+      'targetSessionId must be a conversation of the Trigger owner in this team',
     )
   }
 }
