@@ -1,1 +1,7 @@
-Expanding or collapsing a step group, reasoning, tool run or plan in a conversation no longer makes its title jump. The rest of the transcript stays where it is.
+Nuphos has new names: the machines your agents run on are computers, the Claude Code or Codex installs on them are runtimes, and your conversations are agents.
+
+Every agent now has its own character avatar in the list, the chat header and its messages, the same one you see on Desktop. You can switch to runtime icons with Bot avatars in your profile. Profile photos uploaded to Nuphos, including the avatar an agent sets for itself, now show next to messages.
+
+The runtime picker groups runtimes by computer, shows each computer's CPU, memory and disk, and lists only runtimes that are ready to work.
+
+Tapping a nuphos.ai link to an agent or a plan now opens it in the app.
