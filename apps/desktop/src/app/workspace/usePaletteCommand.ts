@@ -6,7 +6,6 @@ import {
   USER_SETTINGS_DEFAULT_SECTION,
 } from '../../views/settings/settingsNav'
 
-
 import type { WorkspaceController } from './useWorkspaceController'
 
 /** Runs a ⌘K page or action through the same paths as the sidebar and the app shortcuts. */
