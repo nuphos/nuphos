@@ -16,6 +16,7 @@ export function useChatNavKeys(
   sections: Section[],
   isGroupCollapsed: (section: Pick<Section, 'title' | 'defaultCollapsed'>) => boolean,
   onSelect: (key: string) => void,
+  live: boolean,
 ) {
   const runtimeStates = useAgentRuntimeStates()
   const unread = useAgentUnreadSessions()
@@ -26,35 +27,37 @@ export function useChatNavKeys(
   })
 
   useEffect(() => {
+    // Behind an overlay the keys stay with its text fields.
+    if (!live) return
     const onKeyDown = (event: KeyboardEvent) => {
       const nav = chatNavKey(event)
 
       if (!nav) return
       event.preventDefault()
-      const live = latest.current
+      const now = latest.current
       const needsAttention = (item: Item) => {
         const sessionId = item.key.slice('agent-session:'.length)
         const indicator = chatRowIndicator(
-          live.runtimeStates.get(sessionId),
-          live.unread.has(sessionId),
+          now.runtimeStates.get(sessionId),
+          now.unread.has(sessionId),
         )
 
         return indicator === 'unread' || indicator === 'error'
       }
       const target = chatRowToward(
-        live.sections,
-        live.isGroupCollapsed,
+        now.sections,
+        now.isGroupCollapsed,
         nav.step,
         nav.attentionOnly ? needsAttention : undefined,
       )
 
       if (!target) return
       if (target.onActivate) target.onActivate(false)
-      else live.onSelect(target.key)
+      else now.onSelect(target.key)
     }
 
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [live])
 }

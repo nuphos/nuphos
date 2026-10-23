@@ -195,4 +195,6 @@ export type SidebarProps = {
   onToggleCollapse?: () => void
   /** Restore scope-specific resource navigation while the workspace is expanded. */
   dynamicNavigation?: boolean
+  /** ⌥↑ / ⌥↓ switch agents only while no overlay (Settings, search, …) covers the workspace. */
+  chatNavKeysLive?: boolean
 }

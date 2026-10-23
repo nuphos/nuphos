@@ -62,6 +62,7 @@ export function Sidebar({
   collapsed = false,
   onToggleCollapse,
   dynamicNavigation = false,
+  chatNavKeysLive = false,
 }: SidebarProps) {
   const [renameTarget, setRenameTarget] = useState<{ sessionId: string; title: string } | null>(
     null,
@@ -131,7 +132,7 @@ export function Sidebar({
         (section, index) => index === 0 || section.title === 'Pinned' || section.title === 'Agents',
       )
 
-  useChatNavKeys(sidebarSections, chrome.isGroupCollapsed, onSelect)
+  useChatNavKeys(sidebarSections, chrome.isGroupCollapsed, onSelect, chatNavKeysLive)
 
   const showSidebar = !collapsed || peek
 
