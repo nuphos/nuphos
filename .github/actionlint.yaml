@@ -10,3 +10,4 @@ self-hosted-runner:
     - blacksmith-4vcpu-ubuntu-2404
     - blacksmith-4vcpu-windows-2025
     - blacksmith-6vcpu-macos-26
+    - xcode-27

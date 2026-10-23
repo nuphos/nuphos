@@ -170,7 +170,10 @@ jobs:
     name: iOS (simulator build)
     needs: changes
     if: needs.changes.outputs.ios == 'true'
-    runs-on: macos-26
+    # Same Xcode as release-ios.yml.
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
