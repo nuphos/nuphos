@@ -223,12 +223,11 @@ export async function reportUndelivered(
     try {
       const sender = await getConversationBySessionId(senderId)
 
-      // The same owner and team the delivery was authorized for, and still open.
+      // The same owner and team the delivery was authorized for; an archived one is restored.
       if (
         sender?.userId !== data.userId ||
         !sender.teamId ||
-        (data.teamId && sender.teamId !== data.teamId) ||
-        sender.archivedAt
+        (data.teamId && sender.teamId !== data.teamId)
       )
         continue
       const excerpt = message.renderedText.slice(0, 200)

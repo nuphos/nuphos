@@ -44,7 +44,8 @@ const base = {
   agentRuntime: 'claude-code',
   runtimeId: 'runtime',
 } as AgentConversation
-let archived = false
+// The one conversation, if any, that reads as archived.
+let archived: string | null = null
 let deleted = false
 let runtimeError: Error | null = null
 let boxResuming = false
@@ -71,7 +72,7 @@ useAgentDb({
       : {
           ...base,
           sessionId: id,
-          ...(archived && id === 'target' ? { archivedAt: new Date() } : {}),
+          ...(archived === id ? { archivedAt: new Date() } : {}),
         },
   getConversationWithMessages: async (id) => ({
     conversation: { ...base, sessionId: id },
@@ -103,7 +104,7 @@ function threadMessage(receivedAt = new Date().toISOString()) {
 }
 
 beforeEach(() => {
-  archived = false
+  archived = null
   deleted = false
   runtimeError = null
   boxResuming = false
@@ -212,9 +213,31 @@ test('a queued message whose turn fails tells its sender', async () => {
   expect(noticeText()).toContain('did not run: Thread run failed')
 })
 
+test('an archived sender is still told, and its notice turn restores it', async () => {
+  installTurnRunner({
+    claimAgentRunForSession: async () => () => {},
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      if (args.sessionId === 'target') return { status: 'failed' }
+
+      return { status: 'completed' }
+    },
+  })
+  await enqueuePendingUserMessage('owner', 'target', threadMessage())
+  archived = 'source'
+
+  await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('Thread run failed')
+  await settle()
+  expect(notices()).toHaveLength(1)
+  expect(notices()[0]?.origin).toBe('user')
+  expect(noticeText()).toContain('did not run: Thread run failed')
+})
+
 test("a message queued before its thread was archived runs as the thread's turn", async () => {
   await enqueuePendingUserMessage('owner', 'target', threadMessage())
-  archived = true
+  archived = 'target'
 
   await startQueuedTurn('owner', 'target')
   await settle()
