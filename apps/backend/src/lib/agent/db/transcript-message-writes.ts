@@ -2,7 +2,7 @@ import { BSON } from 'mongodb'
 
 import { redactSignedTokens } from '@/lib/claude-code-preview/mcp-token'
 
-import { preserveRuntimeToolResults } from './transcript-runtime-tool-results'
+import { preserveRuntimeToolResults, runtimeToolResults } from './transcript-runtime-tool-results'
 import { withoutToolOutputs } from './transcript-tool-output'
 
 import type { AgentMessage } from './shared'
@@ -64,6 +64,9 @@ export function messageWrites(
   },
 ) {
   const { attribution, runtimeToolParts, storedAt, now } = stored
+  // Once per sync: rebuilt per message, this scanned every stored part for
+  // every message and stalled the event loop for seconds on long conversations.
+  const results = runtimeToolResults(runtimeToolParts)
 
   return data.messages.flatMap((message, index) => {
     const fields = {
@@ -78,7 +81,7 @@ export function messageWrites(
             attribution.get(message.id)?.role === 'user'
               ? attribution.get(message.id)!.parts
               : message.parts,
-            runtimeToolParts,
+            results,
           ),
         ),
       ),
