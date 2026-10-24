@@ -20,8 +20,8 @@ export const ownsMachine = (credential: DeviceCredential | null): boolean =>
 
 export type JoinRequest = { token: string; label: string; platform: string }
 
-export const tunnelUrlFor = (apiUrl: string, deviceId: string) =>
-  `${apiUrl}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel`
+export const tunnelUrlFor = (apiUrl: string, deviceId: string, reclaim = false) =>
+  `${apiUrl}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel${reclaim ? '?reclaim=1' : ''}`
 
 /** A service manager treats this exit as final, so a revoked computer does not restart. */
 export const EXIT_REVOKED = 78

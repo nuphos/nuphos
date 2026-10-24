@@ -27,6 +27,7 @@ import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
+import { tunnelUrlFor } from './device-credential.ts'
 import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
@@ -55,12 +56,6 @@ const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 
 export async function userEnv(): Promise<NodeJS.ProcessEnv> {
   return { ...process.env, ...((await resolveShellEnv()) ?? {}) }
-}
-
-function tunnelUrl(): string {
-  const { deviceId } = readDeviceIdentity()
-
-  return `${apiUrl().replace(/^http/u, 'ws')}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel`
 }
 
 function broadcastState(): void {
@@ -119,14 +114,16 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       instances,
       sampleMetrics: readDeviceMetrics,
       activity: sleep.taskActivity,
-      connectBackend: () => {
+      connectBackend: (reclaim) => {
         if (!deviceRegistrationAllowed(isDev))
           throw new Error('Development builds do not register computers with Nuphos Cloud')
         const token = authSession.current()
 
         if (!token) throw new Error('Not signed in')
 
-        return new WebSocket(tunnelUrl(), {
+        const url = tunnelUrlFor(apiUrl(), readDeviceIdentity().deviceId, reclaim)
+
+        return new WebSocket(url.replace(/^http/u, 'ws'), {
           headers: {
             authorization: `Bearer ${token}`,
             [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,

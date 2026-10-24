@@ -35,6 +35,7 @@ class FakeSocket {
 
 function setup(runtimeUp = true) {
   const backends: FakeSocket[] = []
+  const reclaims: boolean[] = []
   const runtimes: { purpose: string; socket: FakeSocket }[] = []
   const changes: [boolean, boolean][] = []
   const activity = new RuntimeTaskActivity(() => {
@@ -42,10 +43,11 @@ function setup(runtimeUp = true) {
   })
   const client = new RuntimeTunnelClient({
     activity,
-    connectBackend: () => {
+    connectBackend: (reclaim) => {
       const socket = new FakeSocket()
 
       backends.push(socket)
+      reclaims.push(reclaim)
 
       return socket
     },
@@ -65,7 +67,7 @@ function setup(runtimeUp = true) {
   const backend = () => backends.at(-1) as FakeSocket
   const frames = () => backend().sent.map((raw) => JSON.parse(raw) as Record<string, unknown>)
 
-  return { client, backends, backend, runtimes, frames, changes, activity }
+  return { client, backends, reclaims, backend, runtimes, frames, changes, activity }
 }
 
 test('connected once the socket opens, and it announces the runtime status', () => {
@@ -193,16 +195,29 @@ test('waking up redials at once instead of waiting out the backoff', () => {
   client.stop()
 })
 
-test('a takeover by another app on this computer stops redialing', (t) => {
+test('a takeover by another app on this computer asks back until that app is gone', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
-  const { backend, backends, changes } = setup()
+  const { backend, reclaims, changes, client } = setup()
 
   backend().emit('open')
   backend().emit('close', { code: 4000 })
-  t.mock.timers.tick(60_000)
-
   assert.deepEqual(changes.at(-1), [false, true])
-  assert.equal(backends.length, 1)
+
+  // Asks back with backoff, and the backend refuses while the other app holds it.
+  t.mock.timers.tick(500)
+  assert.deepEqual(reclaims, [false, true])
+  backend().emit('error')
+  backend().emit('close', { code: 1006 })
+  assert.deepEqual(changes.at(-1), [false, true])
+
+  // The other app is gone: the next ask gets the computer back, and later dials are normal.
+  t.mock.timers.tick(1_000)
+  backend().emit('open')
+  assert.deepEqual(changes.at(-1), [true, false])
+  backend().emit('close', { code: 1006 })
+  t.mock.timers.tick(500)
+  assert.deepEqual(reclaims, [false, true, true, false])
+  client.stop()
 })
 
 test('a revoked computer stops redialing and says so once', (t) => {

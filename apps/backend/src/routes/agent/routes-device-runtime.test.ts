@@ -212,6 +212,64 @@ describe('device runtime tunnel route', () => {
     desktop.close()
   })
 
+  test('a taken-over app gets the computer back only once the newer connection is gone', async () => {
+    const host = serve('owner')
+    const tunnel = `ws://${host}/agent/devices/d1/runtime-tunnel`
+    const newer = new WebSocket(tunnel)
+
+    newer.addEventListener('message', (event) => {
+      if ((JSON.parse(String(event.data)) as { t: string }).t === 'ping')
+        newer.send(JSON.stringify({ t: 'pong' }))
+    })
+    await waitFor<void>((resolve) => {
+      const poll = () =>
+        void presence.get('owner', 'd1').then((found) => {
+          if (found) resolve()
+          else setTimeout(poll, 5)
+        })
+
+      poll()
+    })
+
+    // While the newer connection holds the computer, asking back is refused.
+    const refused = new WebSocket(`${tunnel}?reclaim=1`)
+    let opened = false
+
+    refused.addEventListener('open', () => {
+      opened = true
+    })
+    await waitFor<void>((resolve) => {
+      refused.addEventListener('close', () => {
+        resolve()
+      })
+      setTimeout(() => {
+        refused.close()
+      }, 200)
+    })
+    expect(opened).toBe(false)
+    expect(newer.readyState).toBe(WebSocket.OPEN)
+
+    newer.close()
+    await waitFor<void>((resolve) => {
+      const poll = () =>
+        void presence.get('owner', 'd1').then((found) => {
+          if (found) setTimeout(poll, 5)
+          else resolve()
+        })
+
+      poll()
+    })
+
+    const older = new WebSocket(`${tunnel}?reclaim=1`)
+
+    await waitFor<void>((resolve) => {
+      older.addEventListener('open', () => {
+        resolve()
+      })
+    })
+    older.close()
+  })
+
   test('revoking the device closes its tunnel with 4003', async () => {
     const host = serve('owner')
     const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`)

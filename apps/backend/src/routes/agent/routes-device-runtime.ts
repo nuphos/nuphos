@@ -137,6 +137,10 @@ export function createDeviceRuntimeRoutes(
     await requireOwnDevice(c.req.header('Authorization'), userId, deviceId)
     if (c.req.header('upgrade')?.toLowerCase() !== 'websocket')
       throw new AppError(426, 'upgrade_required', 'Connect with a WebSocket')
+    // An app that was taken over asks back with ?reclaim=1; it gets the computer
+    // only once the connection that took it over is gone.
+    if (c.req.query('reclaim') === '1' && (await deps.holder.presence.get(userId, deviceId)))
+      throw new AppError(409, 'device_held', 'Another connection holds this computer')
 
     const from = requestOrigin((name) => c.req.header(name))
     const { recordAgents } = deps.holder

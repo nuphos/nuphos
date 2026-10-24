@@ -31,8 +31,8 @@ export type SocketLike = {
 }
 
 export type TunnelClientDeps = {
-  /** Opens the WebSocket to the backend's tunnel route, authenticated as the signed-in user. */
-  connectBackend: () => SocketLike
+  /** Opens the backend tunnel as the signed-in user; `reclaim` only takes a free computer. */
+  connectBackend: (reclaim: boolean) => SocketLike
   /** Opens one ACP WebSocket to that agent's loopback openab with the key for `purpose`. */
   connectRuntime: (
     purpose: TunnelPurpose,
@@ -83,6 +83,8 @@ export class RuntimeTunnelClient {
   private readonly streams = new Map<string, { runtime: SocketLike; pending: string[] }>()
   private stopMetrics: (() => void) | undefined
   private running = false
+  /** Another app on this computer took the tunnel; dial back only once it is gone. */
+  private superseded = false
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
   private idleTimer: ReturnType<typeof setTimeout> | undefined
@@ -96,6 +98,7 @@ export class RuntimeTunnelClient {
   start(): void {
     if (this.running) return
     this.running = true
+    this.superseded = false
     this.attempt = 0
     this.connect()
   }
@@ -155,7 +158,7 @@ export class RuntimeTunnelClient {
     this.idleTimer = setTimeout(() => {
       if (this.socket !== socket) return
       this.drop()
-      this.deps.onChange?.(false, false)
+      this.deps.onChange?.(false, this.superseded)
       this.scheduleReconnect()
     }, TUNNEL_IDLE_TIMEOUT_MS)
   }
@@ -164,7 +167,7 @@ export class RuntimeTunnelClient {
     let socket: SocketLike
 
     try {
-      socket = this.deps.connectBackend()
+      socket = this.deps.connectBackend(this.superseded)
     } catch {
       this.scheduleReconnect()
 
@@ -175,6 +178,7 @@ export class RuntimeTunnelClient {
     socket.addEventListener('open', () => {
       if (this.socket !== socket) return
       this.attempt = 0
+      this.superseded = false
       this.sendStatus()
       // Reported from the start, so a viewer's first look is already live.
       this.stopMetrics = reportMetrics(this.deps.sampleMetrics, (metrics) =>
@@ -192,19 +196,18 @@ export class RuntimeTunnelClient {
     socket.addEventListener('close', (event) => {
       if (this.socket !== socket) return
       this.drop()
-      const superseded = event.code === CLOSE_SUPERSEDED
-
-      this.deps.onChange?.(false, superseded)
+      // Taken over: redial with reclaim, which the backend refuses while the other app holds it.
+      if (event.code === CLOSE_SUPERSEDED) this.superseded = true
+      this.deps.onChange?.(false, this.superseded)
       if (event.code === CLOSE_REVOKED) {
         this.running = false
         this.deps.onRevoked?.()
-      } else if (superseded) this.running = false
-      else this.scheduleReconnect()
+      } else this.scheduleReconnect()
     })
     socket.addEventListener('error', () => {
       if (this.socket !== socket) return
       this.drop()
-      this.deps.onChange?.(false, false)
+      this.deps.onChange?.(false, this.superseded)
       this.scheduleReconnect()
     })
   }

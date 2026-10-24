@@ -192,12 +192,12 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
           )
         : instances,
       sampleMetrics: readDeviceMetrics,
-      connectBackend: () => {
+      connectBackend: (reclaim) => {
         const fresh = deviceCredential?.credential ?? currentToken()
 
         if (!fresh || (!deviceCredential && fresh !== signedIn)) throw new Error('Signed out')
 
-        return new WebSocket(tunnelUrlFor(apiUrl(), deviceId).replace(/^http/u, 'ws'), {
+        return new WebSocket(tunnelUrlFor(apiUrl(), deviceId, reclaim).replace(/^http/u, 'ws'), {
           headers: { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion },
         })
       },
