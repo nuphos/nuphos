@@ -1,3 +1,4 @@
+import { POLL_MS } from './k8s-metrics-shared.ts'
 import {
   aggregateWorkloadResources,
   getAppsApi,
@@ -7,18 +8,17 @@ import {
   podMatchesSelector,
   podMetricsToUsageMap,
   withAuthRetry,
-} from './k8s'
-import { POLL_MS } from './k8s-metrics-shared'
+} from './k8s.ts'
 
-import type { MetricsUpdate } from './k8s-metrics-shared'
+import type { MetricsUpdate } from './k8s-metrics-shared.ts'
 import type * as k8s from '@kubernetes/client-node'
 
 // Workload-level (Deployment / StatefulSet / DaemonSet / ReplicaSet / Job)
 // metrics. Each poll fetches the workload list + pods + pod metrics, then
 // aggregates per workload using the same selector logic as the
 // `list*` functions in k8s.ts. Cache is keyed by (context, kind,
-// namespace/name) — the watch system's mapRow reads from here when a row
-// first arrives, and the poller's onUpdates patches subsequent changes.
+// namespace/name) per subscription — the watch system's mapRow reads from here
+// when a row first arrives, and the poller's onUpdates patches subsequent changes.
 export type WorkloadKind = 'Deployment' | 'StatefulSet' | 'DaemonSet' | 'ReplicaSet' | 'Job'
 
 type WorkloadSubscriber = {
@@ -27,6 +27,8 @@ type WorkloadSubscriber = {
   namespace: string | null
   kind: WorkloadKind
   onUpdates: (updates: MetricsUpdate[]) => void
+  /** The last poll's aggregate per workload rowKey; only lists workloads that exist. */
+  latest: Map<string, WorkloadEntry>
 }
 
 const workloadSubscribers = new Map<string, WorkloadSubscriber>()
@@ -39,11 +41,6 @@ type WorkloadEntry = {
   memory_request: number | null
   cpu_limit: number | null
   memory_limit: number | null
-}
-const latestWorkloadResources = new Map<string, WorkloadEntry>()
-
-function workloadKey(context: string, kind: WorkloadKind, rowKey: string): string {
-  return `${context}\x1f${kind}\x1f${rowKey}`
 }
 
 function workloadEqual(a: WorkloadEntry | undefined, b: WorkloadEntry): boolean {
@@ -136,6 +133,7 @@ async function pollWorkloadOnce(scopeKey: string) {
   if (!workloads || !podsRes) return
   const usageByKey = podMetricsToUsageMap(metricsRes)
   const updates: MetricsUpdate[] = []
+  const latest = new Map<string, WorkloadEntry>()
 
   for (const wl of workloads) {
     const ns = wl.metadata?.namespace ?? ''
@@ -145,10 +143,9 @@ async function pollWorkloadOnce(scopeKey: string) {
     )
     const aggregate = aggregateWorkloadResources(matched, usageByKey)
     const rowKey = `${ns}/${name}`
-    const cacheKey = workloadKey(context, kind, rowKey)
 
-    if (!workloadEqual(latestWorkloadResources.get(cacheKey), aggregate)) {
-      latestWorkloadResources.set(cacheKey, aggregate)
+    latest.set(rowKey, aggregate)
+    if (!workloadEqual(sub.latest.get(rowKey), aggregate)) {
       updates.push({
         rowKey,
         cpu: aggregate.cpu,
@@ -160,6 +157,7 @@ async function pollWorkloadOnce(scopeKey: string) {
       })
     }
   }
+  sub.latest = latest
   if (updates.length > 0) sub.onUpdates(updates)
 }
 
@@ -170,7 +168,14 @@ export function attachWorkloadMetricsSubscriber(
   namespace: string | null,
   onUpdates: (updates: MetricsUpdate[]) => void,
 ) {
-  workloadSubscribers.set(scopeKey, { scopeKey, context, namespace, kind, onUpdates })
+  workloadSubscribers.set(scopeKey, {
+    scopeKey,
+    context,
+    namespace,
+    kind,
+    onUpdates,
+    latest: new Map(),
+  })
   if (workloadTimers.has(scopeKey)) return
   void pollWorkloadOnce(scopeKey)
   const t = setInterval(() => void pollWorkloadOnce(scopeKey), POLL_MS)
@@ -188,15 +193,6 @@ export function detachWorkloadMetricsSubscriber(scopeKey: string) {
   }
 }
 
-export function getWorkloadResourcesFor(
-  context: string,
-  kind: WorkloadKind,
-  rowKey: string,
-): WorkloadEntry | null {
-  return latestWorkloadResources.get(workloadKey(context, kind, rowKey)) ?? null
+export function getWorkloadResourcesFor(scopeKey: string, rowKey: string): WorkloadEntry | null {
+  return workloadSubscribers.get(scopeKey)?.latest.get(rowKey) ?? null
 }
-
-// No global "context change" reset needed anymore — metrics state is keyed by
-// context, so a tab switching to a different cluster simply uses a different
-// row in `latestUsage` / `subscribers`. Old metric pollers stay alive while
-// their watch subscribers do.

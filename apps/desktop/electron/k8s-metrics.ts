@@ -1,19 +1,18 @@
-import { getMetricsClient, podMetricsToUsageMap, withAuthRetry } from './k8s'
-import { POLL_MS, shapeUsage, usageKey } from './k8s-metrics-shared'
+import { POLL_MS, shapeUsage } from './k8s-metrics-shared.ts'
+import { getMetricsClient, podMetricsToUsageMap, withAuthRetry } from './k8s.ts'
 
-import type { MetricsUpdate, Subscriber } from './k8s-metrics-shared'
+import type { MetricsUpdate, Subscriber } from './k8s-metrics-shared.ts'
 
-export * from './k8s-metrics-nodes'
-export * from './k8s-metrics-shared'
-export * from './k8s-metrics-workloads'
+export * from './k8s-metrics-nodes.ts'
+export * from './k8s-metrics-shared.ts'
+export * from './k8s-metrics-workloads.ts'
 
-const subscribers = new Map<string, Subscriber>() // scopeKey → subscriber
+type Usage = { cpu: number; memory: number }
+
+// scopeKey → subscriber. `latest` holds the last poll's usage per row, so it
+// lives and dies with the subscription and only ever lists pods that exist.
+const subscribers = new Map<string, Subscriber & { readonly latest: Map<string, Usage> }>()
 const timers = new Map<string, NodeJS.Timeout>() // scopeKey → poll timer
-// Latest known per-row metrics, keyed by `${context}\x1f${ns}/${name}` so a
-// pod named `default/nginx` on cluster A doesn't collide with `default/nginx`
-// on cluster B. The unit-separator avoids any ambiguity with context names
-// that happen to contain colons or slashes.
-const latestUsage = new Map<string, { cpu: number; memory: number }>()
 
 async function pollOnce(scopeKey: string) {
   const sub = subscribers.get(scopeKey)
@@ -37,14 +36,15 @@ async function pollOnce(scopeKey: string) {
 
   for (const [rowKey, raw] of usageMap) {
     const shaped = shapeUsage(raw.cpu, raw.memory)
-    const key = usageKey(sub.context, rowKey)
-    const prev = latestUsage.get(key)
+    const prev = sub.latest.get(rowKey)
 
     if (prev?.cpu !== shaped.cpu || prev.memory !== shaped.memory) {
-      latestUsage.set(key, shaped)
+      sub.latest.set(rowKey, shaped)
       updates.push({ rowKey, cpu: shaped.cpu, memory: shaped.memory })
     }
   }
+  // Pods the poll no longer reports are gone; keep only those that exist.
+  for (const rowKey of sub.latest.keys()) if (!usageMap.has(rowKey)) sub.latest.delete(rowKey)
   if (updates.length > 0) sub.onUpdates(updates)
 }
 
@@ -56,7 +56,7 @@ export function attachMetricsSubscriber(
 ) {
   // Only one subscriber per scope today; the watch manager handles fan-out to
   // multiple windows internally.
-  subscribers.set(scopeKey, { scopeKey, context, namespace, onUpdates })
+  subscribers.set(scopeKey, { scopeKey, context, namespace, onUpdates, latest: new Map() })
   if (timers.has(scopeKey)) return
   // Kick off an immediate poll so newly-mounted views see metrics fast.
   void pollOnce(scopeKey)
@@ -75,9 +75,6 @@ export function detachMetricsSubscriber(scopeKey: string) {
   }
 }
 
-export function getPodUsageFor(
-  context: string,
-  rowKey: string,
-): { cpu: number; memory: number } | null {
-  return latestUsage.get(usageKey(context, rowKey)) ?? null
+export function getPodUsageFor(scopeKey: string, rowKey: string): Usage | null {
+  return subscribers.get(scopeKey)?.latest.get(rowKey) ?? null
 }

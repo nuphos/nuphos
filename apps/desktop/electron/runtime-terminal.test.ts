@@ -81,6 +81,9 @@ test('reattaches to one connection, acknowledges bytes, and closes with its owne
   assert.equal(socket.sent.filter((frame) => JSON.parse(frame).type === 'resize').length, 1)
   host.value.emit('destroyed')
   assert.equal(socket.closed, true)
+  for (const event of ['destroyed', 'render-process-gone', 'did-start-navigation']) {
+    assert.equal(host.value.listenerCount(event), 0, event)
+  }
 })
 test('closing during credential lookup never opens a connection', async () => {
   let resolve!: (value: string) => void

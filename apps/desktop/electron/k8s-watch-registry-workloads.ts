@@ -8,7 +8,7 @@ import {
   mapStatefulSetRow,
 } from './k8s'
 import { getWorkloadResourcesFor } from './k8s-metrics'
-import { defaultKeyFromObject } from './k8s-watch-shared'
+import { defaultKeyFromObject, scopeKeyFor } from './k8s-watch-shared'
 
 import type { WatchRegistryEntry } from './k8s-watch-shared'
 import type * as k8s from '@kubernetes/client-node'
@@ -32,7 +32,7 @@ export const WORKLOAD_REGISTRY: Record<
     mapRow: (obj, scope) => {
       const d = obj as k8s.V1Deployment
       const rowKey = defaultKeyFromObject(d)
-      const resources = getWorkloadResourcesFor(scope.context, 'Deployment', rowKey)
+      const resources = getWorkloadResourcesFor(scopeKeyFor(scope), rowKey)
 
       return mapDeploymentRow(d, resources)
     },
@@ -54,7 +54,7 @@ export const WORKLOAD_REGISTRY: Record<
     mapRow: (obj, scope) => {
       const r = obj as k8s.V1ReplicaSet
       const rowKey = defaultKeyFromObject(r)
-      const resources = getWorkloadResourcesFor(scope.context, 'ReplicaSet', rowKey)
+      const resources = getWorkloadResourcesFor(scopeKeyFor(scope), rowKey)
 
       return mapReplicaSetRow(r, resources)
     },
@@ -76,7 +76,7 @@ export const WORKLOAD_REGISTRY: Record<
     mapRow: (obj, scope) => {
       const s = obj as k8s.V1StatefulSet
       const rowKey = defaultKeyFromObject(s)
-      const resources = getWorkloadResourcesFor(scope.context, 'StatefulSet', rowKey)
+      const resources = getWorkloadResourcesFor(scopeKeyFor(scope), rowKey)
 
       return mapStatefulSetRow(s, resources)
     },
@@ -98,7 +98,7 @@ export const WORKLOAD_REGISTRY: Record<
     mapRow: (obj, scope) => {
       const d = obj as k8s.V1DaemonSet
       const rowKey = defaultKeyFromObject(d)
-      const resources = getWorkloadResourcesFor(scope.context, 'DaemonSet', rowKey)
+      const resources = getWorkloadResourcesFor(scopeKeyFor(scope), rowKey)
 
       return mapDaemonSetRow(d, resources)
     },
@@ -119,7 +119,7 @@ export const WORKLOAD_REGISTRY: Record<
     mapRow: (obj, scope) => {
       const j = obj as k8s.V1Job
       const rowKey = defaultKeyFromObject(j)
-      const resources = getWorkloadResourcesFor(scope.context, 'Job', rowKey)
+      const resources = getWorkloadResourcesFor(scopeKeyFor(scope), rowKey)
 
       return mapJobRow(j, resources)
     },

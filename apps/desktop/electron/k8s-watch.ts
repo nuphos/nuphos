@@ -7,19 +7,20 @@ import {
   detachMetricsSubscriber,
   detachNodeMetricsSubscriber,
   detachWorkloadMetricsSubscriber,
-} from './k8s-metrics'
-import { ensureInformer, scheduleTeardown } from './k8s-watch-informer'
-import { restartInformer } from './k8s-watch-reconnect'
-import { REGISTRY } from './k8s-watch-registry'
-import { informers, safeSend, scopeKeyFor, subscriptions } from './k8s-watch-shared'
+} from './k8s-metrics.ts'
+import { ensureInformer, scheduleTeardown } from './k8s-watch-informer.ts'
+import { restartInformer } from './k8s-watch-reconnect.ts'
+import { REGISTRY } from './k8s-watch-registry.ts'
+import { informers, safeSend, scopeKeyFor, subscriptions } from './k8s-watch-shared.ts'
+import { onPageGone } from './page-owner.ts'
 
-import type { DeploymentRow, NodeRow, PodRow, StatefulSetRow } from './k8s'
-import type { MetricsUpdate } from './k8s-metrics'
-import type { WatchStreamState } from './k8s-watch-liveness'
-import type { Scope, Subscription, WatchKind, WatchRow } from './k8s-watch-shared'
+import type { MetricsUpdate } from './k8s-metrics.ts'
+import type { WatchStreamState } from './k8s-watch-liveness.ts'
+import type { Scope, Subscription, WatchKind, WatchRow } from './k8s-watch-shared.ts'
+import type { DeploymentRow, NodeRow, PodRow, StatefulSetRow } from './k8s.ts'
 import type { WebContents } from 'electron'
 
-export * from './k8s-watch-shared'
+export * from './k8s-watch-shared.ts'
 
 export async function subscribe(
   webContents: WebContents,
@@ -34,13 +35,14 @@ export async function subscribe(
 }> {
   const scope: Scope = { context, kind, namespace }
   const entry = await ensureInformer(scope)
+  const id = randomUUID()
   const sub: Subscription = {
-    id: randomUUID(),
+    id,
     scope,
     scopeKey: entry.scopeKey,
     webContents,
     primed: true,
-    onDestroyed: () => unsubscribe(sub.id),
+    release: onPageGone(webContents, () => unsubscribe(id)),
   }
 
   entry.subscribers.add(sub)
@@ -103,7 +105,6 @@ export async function subscribe(
       )
     }
   }
-  webContents.once('destroyed', sub.onDestroyed)
   const snapshot = [...entry.cache.values()]
 
   return { subscriptionId: sub.id, snapshot, state: entry.state, error: entry.lastError }
@@ -128,7 +129,7 @@ export function unsubscribe(subscriptionId: string) {
 
   if (!sub) return
   subscriptions.delete(subscriptionId)
-  sub.webContents.off('destroyed', sub.onDestroyed)
+  sub.release()
   const entry = informers.get(sub.scopeKey)
 
   if (!entry) return

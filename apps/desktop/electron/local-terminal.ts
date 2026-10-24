@@ -3,6 +3,7 @@ import { basename } from 'node:path'
 
 import { spawn } from 'node-pty'
 
+import { onPageGone } from './page-owner.ts'
 import { userShell } from './shell-env.ts'
 
 import type { LocalTerminalEvent } from '../src/api/local-terminal-types.ts'
@@ -20,6 +21,7 @@ type TerminalSession = {
   replayed: boolean
   exited: boolean
   agentScope?: string
+  release: () => void
 }
 
 export function isIdleShell(name: string, shell: string): boolean {
@@ -44,7 +46,6 @@ export function terminalSize(value: number, fallback: number): number {
 /** Sessions never outlive the renderer that owns them. */
 export class LocalTerminalSessions {
   private sessions = new Map<string, TerminalSession>()
-  private owners = new WeakSet<WebContents>()
 
   /**
    * Opens the shell for `id` — the dock tab that owns it — or returns the one
@@ -92,6 +93,7 @@ export class LocalTerminalSessions {
       replayed: false,
       exited: false,
       agentScope,
+      release: onPageGone(owner, () => this.close(owner, id)),
     }
 
     this.sessions.set(id, session)
@@ -100,14 +102,6 @@ export class LocalTerminalSessions {
       session.exited = true
       this.send(session, { id, type: 'exit', code: exitCode })
     })
-    if (!this.owners.has(owner)) {
-      this.owners.add(owner)
-      owner.once('destroyed', () => this.closeOwner(owner))
-      owner.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
-        if (isMainFrame && !isInPlace) this.closeOwner(owner)
-      })
-      owner.on('render-process-gone', () => this.closeOwner(owner))
-    }
 
     return { id, shell }
   }
@@ -204,13 +198,8 @@ export class LocalTerminalSessions {
     const session = this.owned(owner, id)
 
     this.sessions.delete(id)
+    session.release()
     if (!session.exited) session.pty.kill()
-  }
-
-  private closeOwner(owner: WebContents): void {
-    for (const [id, session] of this.sessions) {
-      if (session.owner === owner) this.close(owner, id)
-    }
   }
 
   closeAll(): void {

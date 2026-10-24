@@ -24,10 +24,6 @@ export type Subscriber = {
 
 export const POLL_MS = 10_000
 
-export function usageKey(context: string, rowKey: string): string {
-  return `${context}\x1f${rowKey}`
-}
-
 export function shapeUsage(cpu: number, memory: number): { cpu: number; memory: number } {
   return {
     cpu: Math.round(cpu),

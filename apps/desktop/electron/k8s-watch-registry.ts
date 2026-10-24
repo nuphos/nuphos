@@ -21,7 +21,7 @@ import {
   getPodUsageFor,
 } from './k8s-metrics'
 import { WORKLOAD_REGISTRY } from './k8s-watch-registry-workloads'
-import { defaultKeyFromObject } from './k8s-watch-shared'
+import { defaultKeyFromObject, scopeKeyFor } from './k8s-watch-shared'
 
 import type { NodeUsage, PodUsage } from './k8s'
 import type { WatchKind, WatchRegistryEntry } from './k8s-watch-shared'
@@ -47,7 +47,7 @@ export const REGISTRY: Record<WatchKind, WatchRegistryEntry> = {
       const rowKey = defaultKeyFromObject(pod)
       // Pull the latest known metrics for this row, so newly-arrived pods immediately
       // surface usage if the metrics poller has already seen them.
-      const usage: PodUsage | null = getPodUsageFor(scope.context, rowKey) ?? null
+      const usage: PodUsage | null = getPodUsageFor(scopeKeyFor(scope), rowKey) ?? null
 
       return mapPodRow(pod, usage)
     },
@@ -79,9 +79,10 @@ export const REGISTRY: Record<WatchKind, WatchRegistryEntry> = {
     mapRow: (obj, scope) => {
       const n = obj as k8s.V1Node
       const name = n.metadata?.name ?? ''
-      const usage: NodeUsage | null = getNodeUsageFor(scope.context, name) ?? null
-      const requests = getNodeRequestsFor(scope.context, name)
-      const podCount = getNodePodCountFor(scope.context, name)
+      const scopeKey = scopeKeyFor(scope)
+      const usage: NodeUsage | null = getNodeUsageFor(scopeKey, name) ?? null
+      const requests = getNodeRequestsFor(scopeKey, name)
+      const podCount = getNodePodCountFor(scopeKey, name)
 
       return mapNodeRow(n, usage, requests, podCount)
     },

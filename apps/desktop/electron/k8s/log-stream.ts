@@ -3,11 +3,12 @@ import { Writable } from 'node:stream'
 
 import * as k8s from '@kubernetes/client-node'
 
-import { parseTimestampedLine } from '../logParse'
+import { parseTimestampedLine } from '../logParse.ts'
+import { onPageGone } from '../page-owner.ts'
 
-import { getClients, withAuthRetry } from './client'
-import { podLogContainers } from './log-containers'
-import { podMatchesSelector } from './rows-workloads'
+import { getClients, withAuthRetry } from './client.ts'
+import { podLogContainers } from './log-containers.ts'
+import { podMatchesSelector } from './rows-workloads.ts'
 
 // Read just the selector of a workload — the Pods + Logs tabs in the
 // workload detail view need this to client-side filter the live pod
@@ -93,6 +94,7 @@ type LogStreamSession = {
   // resolves after cancellation gets aborted immediately instead of
   // leaking a live HTTP connection.
   cancelled: boolean
+  release: () => void
 }
 
 const logSessions = new Map<string, LogStreamSession>()
@@ -120,12 +122,10 @@ export function startWorkloadLogStream(
     failedKeys: new Set(),
     reconcileTimer: null,
     cancelled: false,
+    release: onPageGone(webContents, () => stopWorkloadLogStream(sessionId)),
   }
 
   logSessions.set(sessionId, session)
-  webContents.once('destroyed', () => {
-    stopWorkloadLogStream(sessionId)
-  })
 
   let reconciling = false
   let selectorLoaded = false
@@ -278,6 +278,7 @@ export function stopWorkloadLogStream(sessionId: string): void {
   if (!s) return
   s.cancelled = true
   logSessions.delete(sessionId)
+  s.release()
   if (s.reconcileTimer) clearInterval(s.reconcileTimer)
   for (const c of s.controllers) {
     try {
