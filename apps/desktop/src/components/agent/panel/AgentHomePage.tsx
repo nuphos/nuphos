@@ -13,6 +13,7 @@ import { StarterSuggestionsBlock } from './starterSuggestions'
 import { homeGreeting } from './textUtils'
 import { useEntranceCount } from './useEntranceCount'
 
+import type { SendResult } from './composerSend'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
 import type { RuntimeControl } from './RuntimeSelector'
@@ -71,7 +72,7 @@ export function AgentHomePage({
    *  they are for a team that has not started a conversation yet. */
   conversations: AgentConversation[]
   loading: boolean
-  onSend: (text: string, filePaths: string[]) => void
+  onSend: (text: string, filePaths: string[]) => SendResult
   onStop: () => void
   credentialSelector?: CredentialSelectorControl
   runtimeControl?: RuntimeControl
@@ -187,7 +188,7 @@ export function AgentHomePage({
                   <StarterSuggestionsBlock
                     loading={starterSuggestionsLoading}
                     suggestions={starterSuggestions}
-                    onPick={(prompt) => onSend(prompt, [])}
+                    onPick={(prompt) => void onSend(prompt, [])}
                   />
                 </RevealedHistoryBlock>
               )}

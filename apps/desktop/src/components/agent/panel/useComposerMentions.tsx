@@ -6,9 +6,11 @@ import { AppAlertDialog } from '../../ui/alert-dialog'
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
 import { MENTION_ATTR, optionChip } from './composerMentionChips'
 import { MentionPicker } from './composerMentionOptions'
+import { settleSend } from './composerSend'
 import { announceTimelineChange } from './timelineEvents'
 
 import type { MentionOption } from './composerMentionChips'
+import type { SendResult } from './composerSend'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { TeamMember } from '../../../types'
@@ -185,15 +187,22 @@ export function useComposerMentions(
   }
 
   /** Read the mentions before the composer clears; ask about them once sent. */
-  function wrapSend(send: (text: string, filePaths: string[]) => void) {
-    return (text: string, filePaths: string[]) => {
+  function wrapSend(send: (text: string, filePaths: string[]) => SendResult) {
+    return (text: string, filePaths: string[]): SendResult => {
       const ids = mentionedUserIds(editorRef.current)
+      const result = send(text, filePaths)
 
-      send(text, filePaths)
       setQuery(null)
-      // A brand-new conversation may not exist server-side yet; then there is
-      // simply no one to offer.
-      offerInvites(ids).catch(() => setUninvited([]))
+      // Only a message that went out can have mentioned anyone. A brand-new
+      // conversation may not exist server-side yet; then there is simply no
+      // one to offer.
+      settleSend(result, {
+        accepted: () => {
+          offerInvites(ids).catch(() => setUninvited([]))
+        },
+      })
+
+      return result
     }
   }
 

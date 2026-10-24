@@ -91,7 +91,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         userName={c.userName}
         conversations={history}
         loading={historyLoading}
-        onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+        onSend={(text, filePaths) => sendInActive(text, filePaths)}
         onStop={stopActive}
         credentialSelector={visibleHomeCredentialSelector}
         runtimeControl={runtimeControl}
@@ -110,10 +110,10 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   ) : (
     <>
       {addAgent.dialog}
-      <Welcome onPick={(prompt) => startChatWith(prompt)} />
+      <Welcome onPick={(prompt) => void startChatWith(prompt)} />
       <Composer
         newChat
-        onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+        onSend={(text, filePaths) => sendInActive(text, filePaths)}
         onStop={stopActive}
         credentialSelector={visibleHomeCredentialSelector}
         runtimeControl={runtimeControl}

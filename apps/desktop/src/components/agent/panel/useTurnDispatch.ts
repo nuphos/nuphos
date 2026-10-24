@@ -15,6 +15,7 @@ import { fileNameFromPath } from './textUtils'
 import { useQueueActions } from './useQueueActions'
 import { useSteering } from './useSteering'
 
+import type { SendResult } from './composerSend'
 import type { PanelCtx } from './ctx'
 import type { Message } from './model'
 import type { TransferUploadPart } from './parts'
@@ -77,7 +78,7 @@ export function useTurnDispatch(acc: Acc) {
         messageId: string
         run: (sessionId: string | undefined) => Promise<TransferUploadPart>
       },
-    ) => {
+    ): SendResult => {
       const start = (runtime: typeof newConversationRuntime) =>
         runStartChatWith(
           {
@@ -103,19 +104,19 @@ export function useTurnDispatch(acc: Acc) {
         )
 
       if (!newConversationRuntime?.starting || !teamId) {
-        start(newConversationRuntime)
-
-        return
+        return Promise.resolve(start(newConversationRuntime))
       }
-      void awaitListedAgent(newConversationRuntime.id, () =>
+
+      return awaitListedAgent(newConversationRuntime.id, () =>
         api.atlasListRuntimeInstances(teamId),
       ).then((listed) => {
-        if (listed) start(listed)
-        else
-          toast.error(
-            'The local runtime is still starting',
-            'Try again in a moment, or check User settings › This computer › Local runtime.',
-          )
+        if (listed) return start(listed)
+        toast.error(
+          'The local runtime is still starting',
+          'Try again in a moment, or check User settings › This computer › Local runtime.',
+        )
+
+        return false
       })
     },
     [
@@ -192,15 +193,17 @@ export function useTurnDispatch(acc: Acc) {
     fallback: dispatchTurn,
   })
 
+  // Reports whether the draft was taken (see SendResult): every refusal here
+  // happens before a message or queued entry exists, so the composer keeps it.
   const sendInActive = useCallback(
-    async (text: string, filePaths: string[] = [], turnKind?: Message['turnKind']) => {
+    async (text: string, filePaths: string[] = [], turnKind?: Message['turnKind']): SendResult => {
       const trimmed = text.trim()
 
-      if (!trimmed && filePaths.length === 0) return
+      if (!trimmed && filePaths.length === 0) return false
       if (filePaths.length > 0 && !teamId) {
         toast.error('No team selected', 'Select a team before attaching files.')
 
-        return
+        return false
       }
       if (activeId === HOME_TAB_ID) {
         const title = trimmed || filePaths.map(fileNameFromPath).join(', ')
@@ -214,40 +217,43 @@ export function useTurnDispatch(acc: Acc) {
           { turnKind, currentUser },
         )
 
-        startChatWith(
+        return startChatWith(
           title,
           buildUserMsg(filePaths.length > 0 ? optimisticPart() : null),
           filePaths.length > 0 ? { messageId, run: runUpload } : undefined,
         )
-
-        return
       }
       const tab = tabsRef.current.find((t) => t.id === activeId)
 
-      if (!tab) return
-      if (tab.readOnly) return
+      if (!tab || tab.readOnly) return false
       // The backend decides whose turn it is: a refused steer is sent as a
-      // message and waits its turn in the server queue.
+      // message and waits its turn in the server queue. Either way the draft
+      // is a queued entry from the first step on, so it is taken here.
       if (
         runtimeAllows(tab.runtimeState, 'steer') &&
         !runtimeAllows(tab.runtimeState, 'reply') &&
-        !turnKind
+        !turnKind &&
+        tab.sessionId
       ) {
-        await sendSteering(activeId, trimmed, filePaths)
+        void sendSteering(activeId, trimmed, filePaths)
 
-        return
+        return true
       }
       if (!runtimeAllows(tab.runtimeState, 'reply') && !runtimeMayAcceptLater(tab.runtimeState)) {
         toast.error(runtimeStateLabel(tab.runtimeState))
 
-        return
+        return false
       }
       if (uploadingTabsRef.current.has(activeId)) {
         toast.error('Attachment upload is still in progress')
 
-        return
+        return false
       }
+      // Past the checks above, dispatchTurn puts the message in the
+      // conversation before anything it awaits; a later failure shows there.
       void dispatchTurn(activeId, trimmed, filePaths, turnKind)
+
+      return true
     },
     [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )

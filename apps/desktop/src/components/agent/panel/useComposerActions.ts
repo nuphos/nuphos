@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../../../api'
 import { useStableCallback } from '../../../hooks/useStableCallback'
@@ -12,9 +12,12 @@ import {
   dropAttachmentPaths,
   saveClipboardAttachments,
 } from './composerSerialize'
+import { submitDraft } from './composerSend'
 import { useComposerRecall } from './useComposerRecall'
+import { useComposerSeed } from './useComposerSeed'
 
 import type { ComposerRecall } from './composerRecall'
+import type { SendResult } from './composerSend'
 import type { AgentPromptSeed } from './model'
 import type { ComposerState } from './useComposerState'
 import type { LocalAgentSessionInfo, LocalSessionSource } from '../../../api'
@@ -35,7 +38,7 @@ export function useComposerActions(
     readOnly: boolean
     sendBlocked?: boolean
     streaming: boolean
-    onSend: (text: string, filePaths: string[]) => void
+    onSend: (text: string, filePaths: string[]) => SendResult
     pendingSeed?: AgentPromptSeed | null
     onSeedConsumed?: () => void
     dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
@@ -43,6 +46,20 @@ export function useComposerActions(
   },
 ) {
   const recalls = useComposerRecall(state, readOnly, recall)
+  // A send whose acceptance is still unknown; further submits wait for it.
+  const sendPendingRef = useRef(false)
+  // The latest attachments, for a late acceptance to compare against.
+  const filePathsRef = useRef(state.filePaths)
+
+  useEffect(() => {
+    filePathsRef.current = state.filePaths
+  }, [state.filePaths])
+
+  function clearDraft() {
+    state.clearEditor()
+    state.setFilePaths([])
+    state.setFolderPaths(new Set())
+  }
 
   function insertMention(url: string, opts?: { appendToEnd?: boolean }) {
     const el = state.ref.current
@@ -69,43 +86,17 @@ export function useComposerActions(
     state.syncEmpty()
   }
 
-  // ------------------------------------------------------------------------
-  // Effects: seed the editor when a row link is "Open in chat"'d.
-  // ------------------------------------------------------------------------
-  useEffect(() => {
-    if (!pendingSeed) return
-    if (readOnly) return
-    if (pendingSeed.autoSend && (streaming || sendBlocked)) return
-    if (state.seedAlreadySeen(pendingSeed.nonce)) return
-    requestAnimationFrame(() => {
-      const seedFiles = pendingSeed.filePaths ?? []
-
-      if (pendingSeed.autoSend) {
-        onSend(pendingSeed.text, seedFiles)
-        state.clearEditor()
-        state.setFilePaths([])
-        state.setFolderPaths(new Set())
-        onSeedConsumed?.()
-
-        return
-      }
-      if (pendingSeed.replace) {
-        state.clearEditor()
-      }
-      if (seedFiles.length > 0) {
-        state.setFilePaths((prev) => Array.from(new Set([...prev, ...seedFiles])))
-      }
-      if (pendingSeed.text) {
-        if (pendingSeed.mode === 'mention') {
-          insertMention(pendingSeed.text, { appendToEnd: true })
-        } else {
-          insertText(pendingSeed.text, { appendToEnd: true })
-        }
-      }
-      onSeedConsumed?.()
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingSeed, readOnly, streaming, sendBlocked])
+  useComposerSeed(state, {
+    readOnly,
+    sendBlocked,
+    streaming,
+    pendingSeed,
+    onSend,
+    onSeedConsumed,
+    clearDraft,
+    insertText,
+    insertMention,
+  })
 
   function submit() {
     if (readOnly || sendBlocked) return
@@ -113,10 +104,13 @@ export function useComposerActions(
     const v = state.readText().trim()
 
     if (!v && state.filePaths.length === 0) return
-    onSend(v, state.filePaths)
-    state.clearEditor()
-    state.setFilePaths([])
-    state.setFolderPaths(new Set())
+    const sentPaths = state.filePaths
+
+    submitDraft(() => onSend(v, sentPaths), {
+      pending: sendPendingRef,
+      clear: clearDraft,
+      unchanged: () => state.readText().trim() === v && filePathsRef.current === sentPaths,
+    })
   }
 
   async function selectFile() {
