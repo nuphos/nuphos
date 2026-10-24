@@ -1,4 +1,4 @@
-import type { SessionConfigOption, SessionConfigPick } from '../../../api/session-config-types'
+import type { SessionConfigPick, SessionConfigState } from '../../../api/session-config-types'
 
 /** The agent and model settings the next new chat starts with, saved per team. */
 export type NewChatChoice = { runtimeId: string; pick?: SessionConfigPick }
@@ -59,10 +59,16 @@ export function chooseAgent(choice: NewChatChoice | undefined, runtimeId: string
   return choice?.runtimeId === runtimeId ? choice : { runtimeId }
 }
 
-/** What a chat's agent confirmed is also what the next new chat starts with. */
-export function confirmedChoice(runtimeId: string, options: SessionConfigOption[]): NewChatChoice {
+/** The next new chat starts with the agent and settings of the chat a message was last sent in. */
+export function sentChatChoice(
+  runtimeId: string | undefined,
+  config: SessionConfigState | undefined,
+): NewChatChoice | undefined {
+  // Unknown settings (not loaded yet, or the agent unreachable) leave the choice as it was.
+  if (!runtimeId || !config || config.status === 'offline') return undefined
+
   return {
     runtimeId,
-    pick: Object.fromEntries(options.map((option) => [option.kind, option.currentValue])),
+    pick: Object.fromEntries(config.options.map((option) => [option.kind, option.currentValue])),
   }
 }

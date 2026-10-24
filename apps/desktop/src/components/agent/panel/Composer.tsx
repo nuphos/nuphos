@@ -141,7 +141,7 @@ export function Composer({
     sendBlocked,
     readOnly,
     streaming,
-    onSend: mentions.wrapSend(slash.wrapSend(onSend)),
+    onSend: mentions.wrapSend(slash.wrapSend(modelControl.wrapSend(onSend))),
     pendingSeed,
     onSeedConsumed,
     dropRegisterRef,

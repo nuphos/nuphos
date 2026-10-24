@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../../api'
 
-import { confirmedChoice, newChatChoiceKey, saveNewChatChoice } from './newChatChoice'
+import { newChatChoiceKey, saveNewChatChoice, sentChatChoice } from './newChatChoice'
 import { SessionConfigSync } from './sessionConfigSync'
 
 import type { SessionConfigSelection } from '../../../api/session-config-types'
@@ -18,17 +18,9 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     () =>
       new SessionConfigSync({
         read: () => api.agentGetSessionConfig(sessionId!, teamId!),
-        write: async (selection) => {
-          const data = await api.agentSetSessionConfig(sessionId!, teamId!, selection)
-
-          // Cmd+N starts from the last settings chosen, here or on a new chat.
-          if (runtimeId)
-            saveNewChatChoice(newChatChoiceKey(teamId), confirmedChoice(runtimeId, data.options))
-
-          return data
-        },
+        write: (selection) => api.agentSetSessionConfig(sessionId!, teamId!, selection),
       }),
-    [sessionId, teamId, runtimeId],
+    [sessionId, teamId],
   )
   const state = useSyncExternalStore(sync.subscribe, sync.getSnapshot)
 
@@ -59,5 +51,14 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
       void sync.select(selection)
     },
     refresh: () => void sync.refresh(),
+    /** Cmd+N starts from the chat a message was last sent in. */
+    wrapSend:
+      <A extends unknown[]>(send: (...args: A) => void) =>
+      (...args: A) => {
+        const choice = sentChatChoice(runtimeId, state.data)
+
+        if (choice) saveNewChatChoice(newChatChoiceKey(teamId), choice)
+        send(...args)
+      },
   }
 }

@@ -3,11 +3,11 @@ import { test } from 'node:test'
 
 import {
   chooseAgent,
-  confirmedChoice,
   newChatChoiceKey,
   parseNewChatChoice,
   readNewChatChoice,
   saveNewChatChoice,
+  sentChatChoice,
 } from './newChatChoice.ts'
 
 test('the model and effort picked for a new chat are saved with its agent', () => {
@@ -75,31 +75,44 @@ test('a saved choice is read once and stays the same object until changed', () =
   assert.equal(stored.get('test.saved'), '{"runtimeId":"claude"}')
 })
 
-test('a model switched inside a chat is what the next new chat (Cmd+N) starts with', () => {
+test('sending in a chat makes its agent and settings what the next new chat (Cmd+N) starts with', () => {
   const stored = new Map<string, string>()
   const storage = () => ({
     getItem: (key: string) => stored.get(key) ?? null,
     setItem: (key: string, value: string) => void stored.set(key, value),
   })
-  const key = newChatChoiceKey('team-switch')
+  const key = newChatChoiceKey('team-sent')
   const option = (kind: 'model' | 'effort', currentValue: string) => ({
-    id: kind,
+    // Codex names its effort option reasoning_effort; the choice is kept by kind.
+    id: kind === 'effort' ? 'reasoning_effort' : kind,
     name: kind,
     kind,
     currentValue,
     options: [],
   })
+  // The last choice was an agent switch on the new-chat page, with no model.
+  saveNewChatChoice(key, { runtimeId: 'codex' }, storage)
+  const sent = sentChatChoice('claude', {
+    status: 'ready',
+    options: [option('model', 'opus'), option('effort', 'high')],
+  })
 
-  saveNewChatChoice(key, { runtimeId: 'codex', pick: { model: 'sol', effort: 'low' } }, storage)
-  saveNewChatChoice(
-    key,
-    confirmedChoice('codex', [option('model', 'astra'), option('effort', 'high')]),
-    storage,
-  )
-
+  assert.ok(sent)
+  saveNewChatChoice(key, sent, storage)
   assert.deepEqual(readNewChatChoice(key, storage), {
-    runtimeId: 'codex',
-    pick: { model: 'astra', effort: 'high' },
+    runtimeId: 'claude',
+    pick: { model: 'opus', effort: 'high' },
   })
   assert.deepEqual(parseNewChatChoice(stored.get(key) ?? null), readNewChatChoice(key, storage))
+})
+
+test('a chat whose settings are unknown leaves the next new chat as it was', () => {
+  assert.equal(sentChatChoice(undefined, { status: 'ready', options: [] }), undefined)
+  assert.equal(sentChatChoice('claude', undefined), undefined)
+  assert.equal(sentChatChoice('claude', { status: 'offline', options: [] }), undefined)
+  // An agent without model controls is still the agent the next chat starts on.
+  assert.deepEqual(sentChatChoice('custom', { status: 'unsupported', options: [] }), {
+    runtimeId: 'custom',
+    pick: {},
+  })
 })
