@@ -6,6 +6,7 @@ import type { NuphosUserDoc } from '@/lib/identity/shared'
 import type { AuthenticatedIdentity, NuphosUser } from '@/lib/identity/types'
 
 import { upsertCachedUser } from '@/lib/agent/directory'
+import { AppError } from '@/lib/errors'
 import { getGoogleAccessToken, getGoogleProfile } from '@/lib/identity/google'
 import { mapUser, teams, users } from '@/lib/identity/shared'
 import { signNuphosToken, verifyNuphosToken } from '@/lib/identity/token'
@@ -35,6 +36,16 @@ export async function authenticateToken(token: string): Promise<AuthenticatedIde
   return null
 }
 
+/**
+ * A deleted account is a disabled one. Signing in with its email or Google
+ * identity is refused rather than creating a second account for that email.
+ */
+function refuseDisabled<T extends { deletedAt?: Date } | null>(user: T): T {
+  if (user?.deletedAt) throw new AppError(403, 'account_disabled', 'This account has been disabled')
+
+  return user
+}
+
 export async function signInWithGoogleCode(
   code: string,
   redirectUri: string,
@@ -50,9 +61,10 @@ export async function signInWithGoogleCode(
   }
 
   const normalizedEmail = profile.email.toLowerCase()
-  let user =
-    (await users().findOne({ googleID: profile.id, deletedAt: { $exists: false } })) ??
-    (await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } }))
+  let user = refuseDisabled(
+    (await users().findOne({ googleID: profile.id })) ??
+      (await users().findOne({ email: normalizedEmail })),
+  )
 
   const now = new Date()
 
@@ -85,9 +97,10 @@ export async function signInWithGoogleCode(
       await users().insertOne(user)
     } catch (err) {
       if (!(err instanceof MongoServerError) || err.code !== 11000) throw err
-      user =
-        (await users().findOne({ googleID: profile.id, deletedAt: { $exists: false } })) ??
-        (await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } }))
+      user = refuseDisabled(
+        (await users().findOne({ googleID: profile.id })) ??
+          (await users().findOne({ email: normalizedEmail })),
+      )
       if (!user) throw err
     }
   }
@@ -105,7 +118,7 @@ export async function signInWithVerifiedEmail(
   email: string,
 ): Promise<{ token: string; user: NuphosUser }> {
   const normalizedEmail = email.toLowerCase()
-  let user = await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } })
+  let user = refuseDisabled(await users().findOne({ email: normalizedEmail }))
 
   if (!user) {
     const now = new Date()
@@ -125,7 +138,7 @@ export async function signInWithVerifiedEmail(
       user = candidate
     } catch (err) {
       if (!(err instanceof MongoServerError) || err.code !== 11000) throw err
-      user = await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } })
+      user = refuseDisabled(await users().findOne({ email: normalizedEmail }))
       if (!user) throw err
     }
   }

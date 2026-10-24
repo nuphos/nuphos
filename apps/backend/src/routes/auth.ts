@@ -266,14 +266,17 @@ auth.post('/google/sign-in', async (c) => {
         errors: [
           {
             message: 'Failed to sign in',
-            extensions: { description: e instanceof Error ? e.message : String(e) },
+            extensions: {
+              description: e instanceof Error ? e.message : String(e),
+              ...(e instanceof AppError ? { code: e.code } : {}),
+            },
           },
         ],
         // Lets the landing page bounce the browser back to the app with the
         // failure, rather than leave it waiting on a listener nothing will hit.
         ...(delivery ? { nativeDelivery: delivery } : {}),
       },
-      400,
+      e instanceof AppError && e.status === 403 ? 403 : 400,
     )
   }
 })

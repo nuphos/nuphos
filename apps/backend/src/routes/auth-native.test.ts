@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
-import { errorHandler } from '@/lib/errors'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
@@ -546,5 +546,17 @@ describe('the legacy path still works', () => {
   test('missing code or redirectUri is still rejected the same way', async () => {
     expect((await post('/auth/google/sign-in', { redirectUri: NUPHOS_CALLBACK })).status).toBe(400)
     expect((await post('/auth/google/sign-in', { code: 'c' })).status).toBe(400)
+  })
+
+  test('a disabled account is answered with 403 and its code', async () => {
+    googleSignIn = async () => {
+      throw new AppError(403, 'account_disabled', 'This account has been disabled')
+    }
+
+    const res = await post('/auth/google/sign-in', { code: 'c', redirectUri: NUPHOS_CALLBACK })
+    const body = (await res.json()) as { errors: { extensions: { code?: string } }[] }
+
+    expect(res.status).toBe(403)
+    expect(body.errors[0]?.extensions.code).toBe('account_disabled')
   })
 })
