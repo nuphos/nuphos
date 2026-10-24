@@ -90,6 +90,7 @@ test('sending in a chat makes its agent and settings what the next new chat (Cmd
     currentValue,
     options: [],
   })
+
   // The last choice was an agent switch on the new-chat page, with no model.
   saveNewChatChoice(key, { runtimeId: 'codex' }, storage)
   const sent = sentChatChoice('claude', {
