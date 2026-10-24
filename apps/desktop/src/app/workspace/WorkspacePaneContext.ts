@@ -14,6 +14,8 @@ export type WorkspacePaneValue = {
   toggleSidebarCollapsed: () => void
   isTabFocused: () => boolean
   closePane: () => void
+  /** More than one pane is showing, so this one can be closed. */
+  split: boolean
   active: boolean
   primary: boolean
   /** The window's one sidebar; the active pane hands it what to show. */

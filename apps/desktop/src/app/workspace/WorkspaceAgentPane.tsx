@@ -15,8 +15,8 @@ import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
-import { PaneCloseButton } from './PaneCloseButton'
 import { PaneGrip } from './PaneGrip'
+import { PaneMenu } from './PaneMenu'
 import { SessionFindBar } from './SessionFindBar'
 import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -33,7 +33,8 @@ export function WorkspaceAgentPane({
   user: UserInfo
   workspaceExpanded?: boolean
 }) {
-  const paneActive = useWorkspacePane()?.active ?? true
+  const pane = useWorkspacePane()
+  const paneActive = pane?.active ?? true
   const {
     accounts,
     activeKubeContext,
@@ -217,10 +218,10 @@ export function WorkspaceAgentPane({
               warnLocalAgent={mayRename && isLocalAgentRuntime(currentHeading.runtimeId)}
             />
           )}
-          {selectedSessionId && currentHeading.saved !== false && (
+          {savedSessionId ? (
             <SessionHeaderMenu
-              key={`menu-${selectedSessionId}`}
-              sessionId={selectedSessionId}
+              key={`menu-${savedSessionId}`}
+              sessionId={savedSessionId}
               teamId={teamId}
               userId={user.id}
               title={currentHeading.title}
@@ -228,13 +229,15 @@ export function WorkspaceAgentPane({
               canArchive={currentHeading.canArchive === true}
               watching={currentHeading.watching}
               shortcutsActive={ws.chatShortcutsLive && !ws.mainPageOpen && !workspaceExpanded}
-              onRename={() => setRenamingSessionId(selectedSessionId)}
-              onFork={() => setAgentSidebarPendingFork(selectedSessionId)}
+              onRename={() => setRenamingSessionId(savedSessionId)}
+              onFork={() => setAgentSidebarPendingFork(savedSessionId)}
               canFork={!selectedSessionReadOnly}
+              onClosePane={pane?.split ? pane.closePane : undefined}
             />
+          ) : (
+            pane?.split && <PaneMenu onClosePane={pane.closePane} />
           )}
           {savedSessionId && <ChatSummaryToggle active={paneActive && !ws.mainPageOpen} />}
-          <PaneCloseButton />
           {/* The rest of the header moves the window, so a pane moves by its grip. Electron cuts
             no-drag holes in page order, so the grip comes after the drag area it sits over. */}
           <PaneGrip label={currentHeading.title} />
