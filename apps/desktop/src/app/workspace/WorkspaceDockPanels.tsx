@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import { Maximize2, Minimize2, PanelRight } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { Kbd } from '../../components/ui/kbd'
 import { Tooltip } from '../../components/ui/tooltip'
@@ -51,6 +51,13 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
   }, [dragging])
 
   useEffect(() => localStorage.setItem('nuphos.workspaceDockWidthVw', String(widthVw)), [widthVw])
+  // The chat column beside the dock lays out at its settled width from this.
+  useLayoutEffect(() => {
+    dockRef.current?.parentElement?.style.setProperty(
+      '--workspace-dock-width',
+      `${String(widthVw)}cqw`,
+    )
+  }, [widthVw, scope?.teamId])
 
   useEffect(() => {
     if (!dockOpen) setWorkspaceDockExpanded(false)

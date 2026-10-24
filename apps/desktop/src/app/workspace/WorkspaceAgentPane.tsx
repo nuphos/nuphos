@@ -113,37 +113,7 @@ export function WorkspaceAgentPane({
   )
   const handleLocateConsumed = useCallback(() => setAuditChatLocate(null), [setAuditChatLocate])
 
-  // The dock covers this column instead of reflowing it: while expanded the
-  // content keeps the width it had and the shrinking column clips it, until
-  // the dock has finished its width transition back.
-  const contentRef = useRef<HTMLDivElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
-
-  useLayoutEffect(() => {
-    const content = contentRef.current
-
-    if (!content) return
-    if (workspaceExpanded) {
-      content.style.minWidth = `${String(content.offsetWidth)}px`
-
-      return
-    }
-    const release = (event: TransitionEvent) => {
-      const target = event.target
-
-      if (
-        event.propertyName === 'width' &&
-        target instanceof HTMLElement &&
-        target.dataset.workspaceFocusSurface === 'tab'
-      ) {
-        content.style.minWidth = ''
-      }
-    }
-
-    document.addEventListener('transitionend', release)
-
-    return () => document.removeEventListener('transitionend', release)
-  }, [workspaceExpanded])
 
   if (!teamId) return null
   const mayRename = currentHeading.canRename === true
@@ -159,7 +129,13 @@ export function WorkspaceAgentPane({
         ws.mainPageOpen ? 'hidden' : 'flex',
       )}
     >
-      <div ref={contentRef} className="flex min-h-0 w-full flex-1 flex-col">
+      <div
+        // Laid out at the width the column has once the dock settles, so the
+        // dock's width transition slides over or uncovers it instead of
+        // reflowing the transcript on every frame. Expanded keeps the docked width.
+        style={{ width: dockOpen ? 'calc(100cqw - var(--workspace-dock-width))' : '100cqw' }}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <div
           className={clsx(
             'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
