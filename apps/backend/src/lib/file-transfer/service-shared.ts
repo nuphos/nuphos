@@ -68,6 +68,19 @@ export function objectKey(teamId: ObjectId, groupId: ObjectId, itemId: ObjectId)
   return `transfers/${teamId.toHexString()}/${groupId.toHexString()}/${itemId.toHexString()}`
 }
 
+function formatTransferSize(bytes: number): string {
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
+  let value = bytes
+  let unit = 0
+
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+
+  return `${Number(value.toFixed(2))} ${units[unit]}`
+}
+
 export function validateInputs(files: FileIntentInput[]): void {
   const cfg = config.fileTransfer
 
@@ -95,7 +108,7 @@ export function validateInputs(files: FileIntentInput[]): void {
       throw new AppError(
         413,
         'file_too_large',
-        `Each file must be 1..${String(cfg.maxBytes)} bytes`,
+        `Each file must be between 1 B and ${formatTransferSize(cfg.maxBytes)}`,
         {
           max: cfg.maxBytes,
           fileName: f.fileName,
@@ -109,7 +122,7 @@ export function validateInputs(files: FileIntentInput[]): void {
     throw new AppError(
       413,
       'transfer_too_large',
-      `Total transfer exceeds ${String(cfg.maxTotalBytes)} bytes`,
+      `Total transfer exceeds ${formatTransferSize(cfg.maxTotalBytes)}`,
       {
         max: cfg.maxTotalBytes,
         total,
