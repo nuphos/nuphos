@@ -3,19 +3,30 @@ import { createHash } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 
 import { db } from '@/lib/db'
+import { consumeQuota } from '@/lib/download-handoff-rate-limit'
 import { verifyEmailOtp } from '@/lib/email-otp'
 import { AppError } from '@/lib/errors'
 import { mapUser, users } from '@/lib/identity/shared'
 import { signNuphosToken } from '@/lib/identity/token'
+import { sha256Hex } from '@/lib/journal/hashing'
+
+import type { NuphosUser } from '@/lib/identity'
 
 const attempts = () =>
   db().collection<{ _id: string; count: number; expiresAt: Date }>('password_login_attempts')
 const WINDOW_MS = 15 * 60 * 1000
+// Per-process Argon2 concurrency. This is a global gate, not per-user, so it
+// also caps the work an attacker can force through unknown-email verification.
+const MAX_PASSWORD_WORK = 4
+// Per-IP attempt cap. Email-otp uses the same primitive for its IP quota, so
+// this is the same shape: a Redis window that survives across replicas.
+const IP_LIMIT = 30
+const IP_WINDOW_SECONDS = 15 * 60
 let activePasswordWork = 0
 
 // Bound Argon2 memory/CPU even when an attacker rotates email addresses.
 async function passwordWork<T>(work: () => Promise<T>): Promise<T> {
-  if (activePasswordWork >= 4)
+  if (activePasswordWork >= MAX_PASSWORD_WORK)
     throw new AppError(429, 'login_busy', 'Sign-in is busy. Please try again shortly')
   activePasswordWork++
   try {
@@ -45,7 +56,20 @@ function credentials(input: unknown) {
   return { email, password }
 }
 
-async function admit(email: string) {
+async function admit(email: string, ip: string | undefined) {
+  // IP quota first: it is the only thing that survives an attacker rotating
+  // addresses, and it costs no Mongo write. Redis down is fail-open, matching
+  // email-otp — a rate limit must not take the auth path down with it.
+  const ipQuota = await consumeQuota({
+    key: `password-login:ip:${sha256Hex(ip ?? 'unknown')}`,
+    limit: IP_LIMIT,
+    windowSeconds: IP_WINDOW_SECONDS,
+  })
+
+  if (ipQuota === 'limited') {
+    throw new AppError(429, 'login_busy', 'Sign-in is busy. Please try again shortly')
+  }
+
   const bucket = Math.floor(Date.now() / WINDOW_MS)
   const key = createHash('sha256')
     .update(`${email}:${String(bucket)}`)
@@ -65,10 +89,13 @@ async function admit(email: string) {
   }
 }
 
-export async function signInWithPassword(input: unknown) {
+export async function signInWithPassword(
+  input: unknown,
+  ip?: string,
+): Promise<{ token: string; user: NuphosUser }> {
   const { email, password } = credentials(input)
 
-  await admit(email)
+  await admit(email, ip)
   const user = await users().findOne({ email, deletedAt: { $exists: false } })
   // Verify an equivalent hash even for an unknown email. No account-enumeration
   // distinction in either the response or password hashing work.
