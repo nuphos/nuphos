@@ -145,6 +145,9 @@ struct AgentPage: View {
     private func openPushTarget() {
         guard let target = PushNotifications.shared.pendingTarget, store.teamsPhase == .loaded else { return }
         PushNotifications.shared.pendingTarget = nil
+        // The chat on screen already has this session loaded. A new session
+        // with the same id keeps the view's identity, so it would never load.
+        guard target.sessionId != openChat?.id else { return }
         if let team = store.teams.first(where: { $0.id == target.teamId }) { store.select(team: team) }
         openChat = OpenChat(session: store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId))
     }
