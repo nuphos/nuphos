@@ -16,8 +16,14 @@ import { signNuphosToken } from './token'
 
 import type { NuphosUserDoc } from './shared'
 
+import type { QuotaWindow } from '@/lib/download-handoff-rate-limit'
+
 import { errorHandler } from '@/lib/errors'
+
+import { sha256Hex } from '@/lib/journal/hashing'
+
 import { useDb } from '@/lib/test/doubles/db'
+import { useDownloadHandoffRateLimit } from '@/lib/test/doubles/download-handoff-rate-limit'
 import { useEmailOtp } from '@/lib/test/doubles/email-otp'
 import { real as realIdentity, useIdentity } from '@/lib/test/doubles/identity'
 import { requireAuth } from '@/middleware/auth/core'
@@ -107,8 +113,32 @@ useEmailOtp({
   },
 })
 
+// Password sign-in now consumes an IP quota through the same primitive as
+// email-otp. Redis is absent in tests, so it returns 'unavailable' — fail-open,
+// exactly as production does. The per-email lockout below still applies.
+//
+// The per-test installer below carries the recorder: it records every
+// consumeQuota call and answers 'unavailable' by default, swapping in a
+// 'limited' stub for the assertions that need it. A no-arg call drops back to
+// this recording base, so the fail-open default stays in place for every test.
+const calls: QuotaWindow[] = []
+
+// Per-test installer for the IP-quota test. Captured at suite scope so the
+// stub can be swapped inside a test body without re-registering
+// beforeEach/afterAll, which the double registry does for every install call.
+// The recording base answers 'unavailable' (fail-open) for every other test;
+// the IP-quota test swaps in 'limited' via setRateLimit({...}).
+const setRateLimit = useDownloadHandoffRateLimit({
+  consumeQuota: (window: QuotaWindow) => {
+    calls.push(window)
+
+    return Promise.resolve('unavailable')
+  },
+})
+
 beforeEach(() => {
   collections.clear()
+  calls.length = 0
   otpValid = true
   docs('users').push({
     _id: USER,
@@ -304,4 +334,57 @@ test('deletion can use the account password without access to the email inbox', 
   expect(otpValid).toBe(false)
   // The member's own GitHub / Linear grants stop working right away.
   expect(docs('personal_credentials')).toHaveLength(0)
+})
+
+test('password sign-in is bounded per IP, not per email', async () => {
+  // An attacker who rotates addresses cannot exhaust the shared Argon2 pool.
+  // The IP quota is the gate that stops a flood of unknown emails from
+  // returning 429 login_busy for legitimate users. The IP gate runs before any
+  // Mongo write, so a limited IP never leaves a per-email attempt behind.
+  const ip = '1.2.3.4'
+  const ipKey = `password-login:ip:${sha256Hex(ip)}`
+
+  setRateLimit({
+    consumeQuota: (window: QuotaWindow) => {
+      calls.push(window)
+
+      return Promise.resolve('limited')
+    },
+  })
+
+  await expect(
+    signInWithPassword({ email: 'victim@example.com', password: testPassword }, ip),
+  ).rejects.toMatchObject({ code: 'login_busy' })
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.key).toBe(ipKey)
+  expect(calls[0]!.limit).toBe(30)
+  expect(calls[0]!.windowSeconds).toBe(15 * 60)
+  // The IP quota fires before the per-email Mongo upsert: no attempt is
+  // recorded, so the counter stays empty.
+  expect(docs('password_login_attempts')).toHaveLength(0)
+
+  // Rotating the email address does not reset the IP cap, and every call still
+  // uses the same IP-keyed window.
+  calls.length = 0
+  await expect(
+    signInWithPassword({ email: 'attacker-2@example.com', password: testPassword }, ip),
+  ).rejects.toMatchObject({ code: 'login_busy' })
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.key).toBe(ipKey)
+  expect(calls[0]!.limit).toBe(30)
+  expect(calls[0]!.windowSeconds).toBe(15 * 60)
+  expect(docs('password_login_attempts')).toHaveLength(0)
+
+  // A different IP is not limited by this quota: Redis returns fail-open and
+  // the IP cap does not gate the request, so the real failure is the wrong
+  // password, not a 429. Drop back to the recording file-level base.
+  calls.length = 0
+  setRateLimit()
+  await expect(
+    signInWithPassword({ email: 'victim@example.com', password: wrongPassword }, '5.6.7.8'),
+  ).rejects.toMatchObject({ code: 'invalid_credentials' })
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.key).toBe(`password-login:ip:${sha256Hex('5.6.7.8')}`)
+  expect(calls[0]!.limit).toBe(30)
+  expect(calls[0]!.windowSeconds).toBe(15 * 60)
 })

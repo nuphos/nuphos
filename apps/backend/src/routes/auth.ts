@@ -74,7 +74,12 @@ auth.put('/me/avatar', requireAuth, avatarBodyLimit, async (c) =>
 auth.delete('/me/avatar', requireAuth, async (c) => c.json(await removeAvatar(c.get('userId'))))
 
 auth.post('/password/sign-in', async (c) =>
-  c.json(await signInWithPassword(await c.req.json().catch(() => null))),
+  c.json(
+    await signInWithPassword(
+      await c.req.json().catch(() => null),
+      clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
+    ),
+  ),
 )
 
 auth.post('/password/set', async (c) =>
