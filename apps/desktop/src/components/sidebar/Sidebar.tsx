@@ -38,6 +38,7 @@ export const Sidebar = memo(function Sidebar({
   scopeChipForPath,
   kubeconfigContext = null,
   user,
+  onUserUpdated,
   onLogout,
   grafanaInstance,
   teamSegment,
@@ -73,12 +74,13 @@ export const Sidebar = memo(function Sidebar({
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } = useSidebarChats({
-    teamId,
-    agentSessionId,
-    chatShown,
-    onArchived: onChatArchived,
-  })
+  const { chatItems, agentSessions, newChatActive, archiveChat, unlinkChat, archivingIds } =
+    useSidebarChats({
+      teamId,
+      agentSessionId,
+      chatShown,
+      onArchived: onChatArchived,
+    })
 
   // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
@@ -204,6 +206,9 @@ export const Sidebar = memo(function Sidebar({
         <SidebarTeamSwitcher
           teamSegment={teamSegment}
           loading={teamSkeleton}
+          user={user}
+          onUserUpdated={onUserUpdated}
+          badgeData={{ teamId, sessions: agentSessions }}
           onOpenSettings={onOpenSettings}
           onOpenMyPreferences={onOpenMyPreferences}
           onCreateTeam={onCreateTeam}

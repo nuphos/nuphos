@@ -9,11 +9,12 @@ import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
 import { clientIp } from '@/lib/request-origin'
 import { AppError } from '@/lib/errors'
-import { signInWithGoogleCode } from '@/lib/identity'
+import { getTeamMembership, signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
 import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
 import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
 import { signInWithPassword, setPasswordWithEmailCode } from '@/lib/identity/password'
+import { countMergedPrs, setBadgeStat, setProfileCharacter } from '@/lib/identity/character'
 import { updateProfile } from '@/lib/identity/profile'
 import {
   abandonNativeSession,
@@ -51,6 +52,24 @@ auth.put('/ai-consent', requireAuth, async (c) =>
 auth.patch('/me', requireAuth, async (c) =>
   c.json(await updateProfile(c.get('userId'), await c.req.json())),
 )
+
+auth.put('/me/character', requireAuth, async (c) =>
+  c.json(await setProfileCharacter(c.get('userId'), await c.req.json().catch(() => null))),
+)
+
+auth.put('/me/badge-stat', requireAuth, async (c) =>
+  c.json(await setBadgeStat(c.get('userId'), await c.req.json().catch(() => null))),
+)
+
+auth.get('/me/merged-prs', requireAuth, async (c) => {
+  const userId = c.get('userId')
+  const teamId = c.req.query('teamId') ?? ''
+
+  if (!/^[a-f\d]{24}$/i.test(teamId) || !(await getTeamMembership(userId, teamId)))
+    throw new AppError(404, 'team_not_found', 'Team not found')
+
+  return c.json(await countMergedPrs(userId, teamId, c.req.query('timeZone')))
+})
 
 export const avatarBodyLimit = bodyLimit({
   maxSize: MAX_AVATAR_UPLOAD_BYTES,

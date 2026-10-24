@@ -15,6 +15,7 @@ import { integrationsApi } from './preload-parts/api-integrations'
 import { k8sAppApi } from './preload-parts/api-k8s-app'
 import { localTerminalApi } from './preload-parts/api-local-terminal'
 import { plaudApi } from './preload-parts/api-plaud'
+import { profileApi } from './preload-parts/api-profile'
 import { posthogApi } from './preload-parts/api-posthog'
 import { sessionAccessApi } from './preload-parts/api-session-access'
 import { teamApi } from './preload-parts/api-team'
@@ -35,6 +36,7 @@ const api = {
   ...integrationsApi,
   ...posthogApi,
   ...plaudApi,
+  ...profileApi,
   ...sessionAccessApi,
   ...connectApi,
   ...instructionsApi,

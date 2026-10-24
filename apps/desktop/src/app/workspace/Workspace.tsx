@@ -135,6 +135,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           active=""
           onSelect={() => {}}
           user={user}
+          onUserUpdated={onUserUpdated}
           onLogout={handleLogout}
           teamSkeleton={!teamsLoaded && !error}
           onCreateTeam={openCreateTeam}

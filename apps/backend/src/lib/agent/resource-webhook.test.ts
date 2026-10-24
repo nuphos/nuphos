@@ -218,13 +218,15 @@ test('own merges update the linked tag state even though they never wake a sessi
     ...base,
     action: 'closed',
     sender: { type: 'Bot', login: 'nuphos[bot]' },
-    pull_request: { number: 56, state: 'closed', merged: true },
+    pull_request: { number: 56, state: 'closed', merged: true, merged_at: '2026-10-20T12:00:00Z' },
   }
 
   expect(githubResourceEvents('pull_request', merged)).toEqual([])
+  // The merge time is kept, so the sidebar can count PRs merged this month.
   expect(githubPullState('pull_request', merged)).toEqual({
     key: 'github/12/34/56',
     state: 'merged',
+    mergedAt: '2026-10-20T12:00:00Z',
   })
   expect(
     githubPullState('pull_request', {

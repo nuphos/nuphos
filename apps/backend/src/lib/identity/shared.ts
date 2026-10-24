@@ -5,6 +5,8 @@ import type {
   NuphosTeam,
   NuphosTeamRole,
   NuphosUser,
+  ProfileCharacter,
+  BadgeStat,
   TeamBilling,
   TeamBillingSummary,
 } from '@/lib/identity/types'
@@ -21,6 +23,10 @@ export type NuphosUserDoc = {
   passwordHash?: string
   sessionsInvalidBefore?: number
   profileEdited?: boolean
+  /** The person's profile character; absent until they pick one. */
+  character?: ProfileCharacter
+  /** What the sidebar badge counts; absent means the default, PRs merged this month. */
+  badgeStat?: BadgeStat
   googleID?: string
   createdAt: Date
   updatedAt: Date
@@ -71,6 +77,8 @@ export function mapUser(user: NuphosUserDoc): NuphosUser {
     avatarURL: user.avatarURL,
     language: user.language,
     createdAt: user.createdAt.toISOString(),
+    ...(user.character ? { character: user.character } : {}),
+    ...(user.badgeStat ? { badgeStat: user.badgeStat } : {}),
   }
 }
 

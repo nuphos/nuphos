@@ -1,10 +1,10 @@
 import { useReducedMotion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
+import { usePlayOnce } from '../../hooks/usePlayOnce'
 import {
-  BOT_AVATAR_LOOP_MS,
+  imageMotion,
   loopingBotAvatarUrl,
-  playOnceBotAvatarUrl,
   readyLoopingBotAvatarUrl,
 } from '../../lib/botAvatarMotion'
 
@@ -27,20 +27,11 @@ export function BotAvatarImage({
   className?: string
   style?: React.CSSProperties
 }) {
-  const reduceMotion = useReducedMotion() ?? false
-  const loop = looping && !reduceMotion
+  const src = `/bot-avatars/${file}`
+  const motion = imageMotion({ reduceMotion: useReducedMotion() ?? false, looping })
+  const loop = motion === 'loop'
   const [, setLoaded] = useState(0)
-  const [once, setOnce] = useState<{ file: BotAvatarFile; url: string }>()
-  const playing = useRef(false)
-  const mounted = useRef(true)
-
-  useEffect(() => {
-    mounted.current = true
-
-    return () => {
-      mounted.current = false
-    }
-  }, [])
+  const once = usePlayOnce(src)
 
   useEffect(() => {
     if (!loop || readyLoopingBotAvatarUrl(file)) return
@@ -55,44 +46,16 @@ export function BotAvatarImage({
     }
   }, [file, loop])
 
-  const release = () => {
-    playing.current = false
-  }
-
-  const endPlay = (url: string) => {
-    release()
-    URL.revokeObjectURL(url)
-    if (mounted.current) setOnce((shown) => (shown?.url === url ? undefined : shown))
-  }
-
-  const playOnce = async () => {
-    if (loop || reduceMotion || playing.current) return
-    playing.current = true
-    const url = await playOnceBotAvatarUrl(file)
-
-    if (!url) {
-      release()
-
-      return
-    }
-    if (!mounted.current) {
-      endPlay(url)
-
-      return
-    }
-    setOnce({ file, url })
-    window.setTimeout(() => endPlay(url), BOT_AVATAR_LOOP_MS)
-  }
-
-  const played = once?.file === file ? once.url : undefined
-  const moving = loop ? readyLoopingBotAvatarUrl(file) : played
+  const moving = loop ? readyLoopingBotAvatarUrl(file) : once.url
 
   return (
     <img
-      src={moving ?? `/bot-avatars/${file}`}
+      src={moving ?? src}
       alt=""
       draggable={false}
-      onPointerEnter={() => void playOnce()}
+      onPointerEnter={() => {
+        if (motion === 'on-request') once.play()
+      }}
       className={className}
       style={style}
     />

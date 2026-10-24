@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 
+import { ProfileCharacterSection } from './ProfileCharacterSection'
 import { ProfilePhoto } from './ProfilePhoto'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
@@ -99,6 +100,7 @@ export function ProfileSection({
           {saving ? 'Saving…' : 'Save changes'}
         </Button>
       </form>
+      <ProfileCharacterSection user={user} onUserUpdated={onUserUpdated} />
       <div className="mt-6 flex items-center justify-between rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
         <div className="text-[13px] text-secondary">Log out of Nuphos on this computer.</div>
         <Button type="button" size="sm" variant="secondary" onClick={onSignOut} disabled={saving}>

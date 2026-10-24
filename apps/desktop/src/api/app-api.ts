@@ -15,6 +15,8 @@ import type {
   ChangelogState,
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
+  BadgeStat,
+  ProfileCharacter,
   UpdaterState,
 } from '../types/team.ts'
 
@@ -26,6 +28,10 @@ export const appApi = {
     window.api.atlasStartPersonalCredential(provider),
   atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
     window.api.atlasDeletePersonalCredential(provider),
+  authSetCharacter: (character: ProfileCharacter | null) => window.api.authSetCharacter(character),
+  authSetBadgeStat: (badgeStat: BadgeStat) => window.api.authSetBadgeStat(badgeStat),
+  authReadMergedPrs: (teamId: string, timeZone: string) =>
+    window.api.authReadMergedPrs(teamId, timeZone),
   authUploadAvatar: (image: Uint8Array) => window.api.authUploadAvatar(image),
   authRemoveAvatar: () => window.api.authRemoveAvatar(),
   authStatus: () => window.api.authStatus(),

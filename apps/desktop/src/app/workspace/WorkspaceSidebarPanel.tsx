@@ -148,6 +148,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
         onOpenKey={onSidebarOpenKey}
         scopeChipForPath={scopeChipForPath}
         user={user}
+        onUserUpdated={ws.onUserUpdated}
         onLogout={handleLogout}
         grafanaInstance={grafanaInstance}
         teamSegment={teamSegment}

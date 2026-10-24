@@ -8,7 +8,16 @@ export type NuphosUser = {
   avatarURL: string
   language: string
   createdAt: string
+  character?: ProfileCharacter
+  badgeStat?: BadgeStat
 }
+
+/** What the sidebar badge counts. */
+export type BadgeStat = 'merged-prs' | 'running' | 'waiting' | 'quota' | 'none'
+
+/** A profile character: a look (boy or girl) and one of its three hairstyles. */
+export type ProfileCharacter =
+  'boy-fringe' | 'boy-side' | 'boy-curly' | 'girl-waves' | 'girl-bangs' | 'girl-pony'
 
 export type NuphosTeamRole = 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER'
 

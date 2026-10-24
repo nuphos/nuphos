@@ -5,7 +5,7 @@ import { deleteCookie, setCookie } from 'hono/cookie'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
-import { routeResourceWebhook } from '@/lib/agent/resource-webhook'
+import { recordPullMerge, routeResourceWebhook } from '@/lib/agent/resource-webhook'
 import { routeGithubWebhook } from '@/lib/agent/webhook-session-router'
 import { removeGithubInstallationFromAllTeams } from '@/lib/byos/account'
 import {
@@ -283,6 +283,8 @@ githubAppRoutes.post('/webhook', async (c) => {
     logEvent('info', 'github.webhook.ignored', { delivery, github_event: event })
   }
 
+  // Linked PRs keep their merge time, for the sidebar's PRs merged this month.
+  await recordPullMerge(event, payload)
   // Preserve installation cleanup and existing trigger routing even if resource delivery fails.
   await routeResourceWebhook(event, payload, delivery === '?' ? '' : delivery)
 

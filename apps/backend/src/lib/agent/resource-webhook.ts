@@ -26,7 +26,11 @@ const payloadSchema = z.object({
   action: z.string().max(100).optional(),
   sender: z.object({ type: z.string(), login: z.string() }).optional(),
   pull_request: pr
-    .extend({ state: z.string().optional(), merged: z.boolean().optional() })
+    .extend({
+      state: z.string().optional(),
+      merged: z.boolean().optional(),
+      merged_at: z.string().datetime().nullable().optional(),
+    })
     .optional(),
   issue: pr.extend({ pull_request: z.unknown().optional() }).optional(),
   check_suite: z
@@ -200,7 +204,23 @@ export function githubPullState(event: string, payload: unknown) {
   return {
     key: `github/${String(installation.id)}/${String(repository.id)}/${String(pull.number)}`,
     state: pull.merged ? 'merged' : pull.state,
+    ...(pull.merged && pull.merged_at ? { mergedAt: pull.merged_at } : {}),
   }
+}
+
+/**
+ * Keeps when a linked PR merged, so the sidebar can count PRs merged this month. It
+ * reads the same closed event as `githubPullState`, from GitHub's payload, with no lookup.
+ */
+export async function recordPullMerge(event: string, payload: unknown) {
+  const merge = githubPullState(event, payload)
+
+  if (!merge?.mergedAt) return
+  await agentConversations().updateMany(
+    { 'linkedResources.key': merge.key },
+    { $set: { 'linkedResources.$[resource].mergedAt': merge.mergedAt } },
+    { arrayFilters: [{ 'resource.key': merge.key }] },
+  )
 }
 
 export type ResourceTurn = {

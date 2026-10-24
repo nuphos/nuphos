@@ -10,10 +10,11 @@ import { toast } from '../../components/ui/toast'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
 import { DangerZone } from './DangerZone'
+import { SidebarBadgeSection } from './SidebarBadgeSection'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
-import type { AtlasTeam } from '../../types'
+import type { AtlasTeam, UserInfo } from '../../types'
 import type { FormEvent } from 'react'
 
 // Click-to-copy team id — needed verbatim for things like the AWS role trust
@@ -53,12 +54,14 @@ function CopyableTeamId({ id }: { id: string }) {
 
 export function GeneralSection({
   team,
-  userEmail,
+  user,
+  onUserUpdated,
   onTeamUpdated,
   onTeamRemoved,
 }: {
   team: AtlasTeam | undefined
-  userEmail: string
+  user: UserInfo
+  onUserUpdated: (user: UserInfo) => void
   onTeamUpdated: (team: AtlasTeam) => void
   onTeamRemoved: (teamId: string) => void
 }) {
@@ -141,7 +144,13 @@ export function GeneralSection({
             </div>
           </form>
 
-          <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
+          <SidebarBadgeSection user={user} team={team} onUserUpdated={onUserUpdated} />
+
+          <AllowedEmailDomainCard
+            team={team}
+            userEmail={user.email}
+            onTeamUpdated={onTeamUpdated}
+          />
 
           <DangerZone team={team} onTeamRemoved={onTeamRemoved} />
         </>

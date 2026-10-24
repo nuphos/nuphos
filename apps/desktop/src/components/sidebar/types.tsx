@@ -152,6 +152,8 @@ export type SidebarProps = {
   /** Resolved kubeconfig context for the active cluster tab. */
   kubeconfigContext?: string | null
   user: UserInfo | null
+  /** Saves the person after they pick a character in the header. */
+  onUserUpdated?: (user: UserInfo) => void
   onLogout: () => void
   grafanaInstance?: { id: string; name: string; url: string } | null
   teamSegment?: BreadcrumbSegment

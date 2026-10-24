@@ -33,6 +33,8 @@ export async function setupAgentIndexes(): Promise<void> {
       { background: true, partialFilterExpression: { archivedAt: { $exists: true } } },
     )
     await c.createIndex({ 'linkedResources.key': 1 }, { background: true })
+    // Sidebar badge: a person's linked PRs merged this month.
+    await c.createIndex({ userId: 1, 'linkedResources.mergedAt': 1 }, { background: true })
     await c.createIndex({ sessionId: 1 }, { unique: true, background: true })
     await c.createIndex({ teamId: 1, 'claudeCodePreview.runtimeUrl': 1 }, { background: true })
     await c.createIndex({ teamId: 1, previousRuntimeUrls: 1 }, { background: true })

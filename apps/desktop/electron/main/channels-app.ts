@@ -10,7 +10,14 @@ import { apiUrl, setApiUrl } from '../api-endpoint'
 import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
-import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
+import {
+  readMergedPrs,
+  removeAvatar,
+  setBadgeStat,
+  setCharacter,
+  updateProfile,
+  uploadAvatar,
+} from '../auth/profile'
 import * as fileTransfer from '../fileTransfer'
 import { readImageAttachment, registerAttachment } from '../imageAttachment'
 import { raiseWindow } from '../window-raise'
@@ -28,7 +35,7 @@ import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
 import type { ThemeSource } from './theme'
-import type { PersonalCredentialProvider } from '../../src/types/team'
+import type { BadgeStat, PersonalCredentialProvider, ProfileCharacter } from '../../src/types/team'
 import type { IpcMainInvokeEvent } from 'electron'
 
 export const appChannels = {
@@ -41,6 +48,10 @@ export const appChannels = {
     atlas.startPersonalCredential(provider),
   'atlas:deletePersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
     atlas.deletePersonalCredential(provider),
+  'auth:setCharacter': (_e: unknown, character: ProfileCharacter | null) => setCharacter(character),
+  'auth:setBadgeStat': (_e: unknown, badgeStat: BadgeStat) => setBadgeStat(badgeStat),
+  'auth:readMergedPrs': (_e: unknown, teamId: string, timeZone: string) =>
+    readMergedPrs(teamId, timeZone),
   'auth:uploadAvatar': (_e: unknown, image: Uint8Array) => uploadAvatar(image),
   'auth:removeAvatar': () => removeAvatar(),
   'auth:status': () => auth.status(),
