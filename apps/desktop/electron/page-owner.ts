@@ -11,6 +11,8 @@ function watch(owner: WebContents): Page {
     if (details.isMainFrame && !details.isSameDocument) gone()
   }
   const detach = () => {
+    // Once gone, a release may subscribe again and the owner gets a new page.
+    if (pages.get(owner)?.releases !== releases) return
     pages.delete(owner)
     owner.off('destroyed', gone)
     owner.off('render-process-gone', gone)

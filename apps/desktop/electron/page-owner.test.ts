@@ -80,6 +80,22 @@ test('the page keeps its listeners until its last subscription unregisters', () 
   assert.equal(released, 0)
 })
 
+test('a release that subscribes again keeps that new subscription watched', () => {
+  const { emitter, owner, listeners } = page()
+  let released = 0
+  const later: { off?: () => void } = {}
+
+  onPageGone(owner, () => onPageGone(owner, () => released++))
+  onPageGone(owner, () => later.off?.())
+  later.off = onPageGone(owner, () => released++)
+  emitter.emit('destroyed')
+  assert.equal(listeners(), PAGE_EVENTS.length)
+  onPageGone(owner, () => released++)
+  assert.equal(listeners(), PAGE_EVENTS.length)
+  emitter.emit('destroyed')
+  assert.equal(released, 2)
+})
+
 test('unregistering removes every listener without releasing', () => {
   const { emitter, owner, listeners } = page()
   let released = 0
