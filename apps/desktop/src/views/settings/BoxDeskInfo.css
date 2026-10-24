@@ -1,0 +1,184 @@
+/* Each machine's readings, then its agents: on a laptop's screen, over its wallpaper, or in a card
+   beside a box. The app's colour tokens are comma lists, so translucent colours use
+   rgba(var(--token), alpha). */
+.desk-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.desk-panel.is-screen {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  padding: 14px 18px;
+}
+
+/* The box's card, over the box's right quarter in the same 248px space, on the same baseline. */
+.desk-side {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 8px;
+  width: 140px;
+  padding: 10px 10px 11px;
+  border: 1px solid rgb(var(--color-border));
+  border-radius: 12px;
+  background: rgb(var(--color-background-surface));
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.desk-art.is-open .desk-side {
+  opacity: 1;
+  transition: opacity 0.37s ease-out 0.61s;
+}
+
+.desk-side .desk-gauges {
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+.desk-gauges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.desk-gauge {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  row-gap: 5px;
+  min-width: 0;
+}
+
+/* "11.2 of 16 GB": under its meter in a box's card, beside its label on a laptop's screen. */
+.desk-gauge-detail {
+  display: none;
+  grid-column: 1 / -1;
+  margin-top: -1px;
+  font-size: 10.5px;
+  line-height: 13px;
+  color: rgb(var(--color-text-tertiary));
+  font-variant-numeric: tabular-nums;
+}
+
+.desk-side .desk-gauge-detail {
+  display: block;
+}
+
+/* A laptop's screen has the width for one gauge per line, so each reads as one line of text. */
+.desk-panel.is-screen .desk-gauges {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.desk-panel.is-screen .desk-gauge {
+  grid-template-columns: auto 1fr auto;
+  column-gap: 8px;
+}
+
+.desk-panel.is-screen .desk-gauge-detail {
+  display: block;
+  grid-row: 1;
+  grid-column: 2;
+  margin-top: 0;
+}
+
+.desk-panel.is-screen .desk-gauge-value {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+.desk-gauge-label {
+  font-size: 11px;
+  line-height: 14px;
+  color: rgb(var(--color-text-tertiary));
+}
+
+.desk-gauge-value {
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 14px;
+  color: rgb(var(--color-text-secondary));
+  font-variant-numeric: tabular-nums;
+}
+
+.desk-meter {
+  grid-column: 1 / -1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(var(--color-zGray-800), 0.9);
+}
+
+.desk-meter > i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: rgb(var(--color-zViolet-400));
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.desk-meter > i.is-high {
+  background: rgb(var(--color-warning));
+}
+
+/* A stale reading keeps its numbers but greys them and says how old they are. */
+.desk-readings.is-stale .desk-gauge-value {
+  color: rgb(var(--color-text-tertiary));
+}
+
+.desk-readings.is-stale .desk-meter > i {
+  background: rgb(var(--color-zGray-500));
+}
+
+.desk-stale {
+  margin-bottom: 6px;
+  font-size: 11px;
+  line-height: 14px;
+  color: rgb(var(--color-warning));
+}
+
+.desk-note {
+  font-size: 11.5px;
+  line-height: 16px;
+  color: rgb(var(--color-text-tertiary));
+}
+
+.desk-link {
+  color: rgb(var(--color-zViolet-accent));
+  font-weight: 500;
+}
+
+.desk-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.desk-agents {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.desk-side .desk-agents {
+  gap: 4px;
+}
+
+/* A touch smaller than elsewhere, so a row of agents stays light on the machine. */
+.desk-agents button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-meter > i {
+    transition: none;
+  }
+}
