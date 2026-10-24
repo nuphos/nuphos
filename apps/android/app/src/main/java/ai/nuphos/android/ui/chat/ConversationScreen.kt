@@ -334,6 +334,13 @@ fun ConversationScreen(
                 val draft = remember(draftAccount, draftTeam, sessionId, draftAuth.generation, ai.nuphos.android.session.AiAccess.revision) {
                     draftAccount?.let { draftAuth.composerDrafts.bind(it, draftTeam, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(sessionId), ai.nuphos.android.session.AiAccess.bind(draftAuth.token.orEmpty())) }
                 }
+                val draftApp = androidx.compose.ui.platform.LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication
+                LaunchedEffect(session.draftAccessInvalidated, draft) {
+                    if (session.draftAccessInvalidated && draft != null && draftApp.incomingShares.hasDraft(draft.key)) {
+                        draftApp.incomingShares.drop(draft.key)
+                        draft.write("")
+                    }
+                }
                 val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(draftAuth.token, session.teamId)
                 if (showAgent && draftAuth.token != null && draftAuth.aiAllowed) {
                     val generation = draftAuth.generation
@@ -386,7 +393,8 @@ fun ConversationScreen(
                     agentLabel = session.runtimeDeviceLabel,
                     agentQuota = session.runtimeId?.let { quotas[it] },
                     draft = draft,
-                    draftingEnabled = draft != null && draftAuth.aiAllowed && store.selectedTeam != null,
+                    draftingEnabled = draft != null && draftAuth.aiAllowed && store.selectedTeam != null &&
+                        session.loaded && session.loadError == null && !session.readOnly && !session.isArchived,
                     isStreaming = session.isStreaming && !session.isNative,
                     onSend = session::send,
                     canSubmit = session.canSubmit && session.uploadDraft == null,

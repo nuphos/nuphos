@@ -36,7 +36,7 @@ fun IncomingShareSheet(nav: NavHostController) {
     val auth = LocalAuthSession.current
     val store = LocalAgentStore.current
     val account = auth.user?.id ?: return
-    LaunchedEffect(account, request.id) { mailbox.bindAccount(account) }
+    LaunchedEffect(account, request.id) { if (auth.user?.id == account && auth.aiAllowed) mailbox.bindAccount(account) }
     if (request.accountId != account || !auth.aiAllowed) return
     val team = store.selectedTeam
     var query by remember(request.id, team?.id) { mutableStateOf("") }
@@ -57,9 +57,9 @@ fun IncomingShareSheet(nav: NavHostController) {
     }
     // Keep cancellation available if a destination fails to open or its composer is unavailable.
     if (request.destination != null && request.error == null) {
-        AlertDialog(onDismissRequest = { mailbox.cancel() }, title = { Text("Opening draft") },
+        AlertDialog(onDismissRequest = { mailbox.cancel(request.id) }, title = { Text("Opening draft") },
             text = { Text("Your share is waiting for the selected composer. Nothing has been sent.") },
-            confirmButton = { TextButton(onClick = { mailbox.cancel() }) { Text("Cancel share") } })
+            confirmButton = { TextButton(onClick = { mailbox.cancel(request.id) }) { Text("Cancel share") } })
         return
     }
     fun choose(sessionId: String?) {
@@ -79,6 +79,8 @@ fun IncomingShareSheet(nav: NavHostController) {
                         store.selectedTeam?.id != selected.id || mailbox.state.value?.id != request.id) return@withContext
                     val destination = if (sessionId == null) ComposerDrafts.Destination.NewChat else ComposerDrafts.Destination.Chat(sessionId)
                     if (!mailbox.choose(request.id, ComposerDrafts.Key(account, selected.id, destination))) return@withContext
+                    if (auth.generation != generation || auth.user?.id != account || !auth.aiAllowed ||
+                        store.selectedTeam?.id != selected.id || mailbox.state.value?.id != request.id) return@withContext
                     if (sessionId == null) nav.navigate("home") { popUpTo("home"); launchSingleTop = true }
                     else nav.navigate("conversation/${android.net.Uri.encode(sessionId)}") { popUpTo("home"); launchSingleTop = true }
                 }
@@ -94,7 +96,7 @@ fun IncomingShareSheet(nav: NavHostController) {
         }
     }
     AlertDialog(
-        onDismissRequest = { if (!choosing) mailbox.cancel() },
+        onDismissRequest = { if (!choosing) mailbox.cancel(request.id) },
         title = { Text("Add share to a draft") },
         text = {
             Column {
@@ -127,6 +129,6 @@ fun IncomingShareSheet(nav: NavHostController) {
                 }
             }
         },
-        confirmButton = { TextButton(enabled = !choosing, onClick = { mailbox.cancel() }) { Text("Cancel share") } },
+        confirmButton = { TextButton(enabled = !choosing, onClick = { mailbox.cancel(request.id) }) { Text("Cancel share") } },
     )
 }

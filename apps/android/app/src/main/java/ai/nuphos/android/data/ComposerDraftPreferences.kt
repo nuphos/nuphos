@@ -32,6 +32,10 @@ class ComposerDraftPreferences internal constructor(private val prefs: SharedPre
     override fun write(key: ComposerDrafts.Key, text: String) {
         prefs.edit().apply { if (text.isEmpty()) remove(key(key)) else putString(key(key), text) }.apply()
     }
+    /** Retiring a shared journal tombstone must not reveal an older asynchronous text write. */
+    fun erase(keys: Set<ComposerDrafts.Key>): Boolean = prefs.edit().apply {
+        keys.forEach { remove(key(it)) }
+    }.commit()
     override fun clear() {
         // Also remove drafts whose identity was never restored (e.g. expired token).
         prefs.edit().clear().apply()

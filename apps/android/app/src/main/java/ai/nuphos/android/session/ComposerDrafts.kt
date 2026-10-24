@@ -28,6 +28,9 @@ class ComposerDrafts(private val persistence: Persistence? = null) {
             if (id != null) texts.putAll(persistence?.load(id).orEmpty().filterKeys { it.accountId == id })
         }
     }
+    /** Disk preferences were already erased on IO; retire any earlier in-memory restore on Main too. */
+    @Synchronized fun eraseMemory(keys: Set<Key>) { keys.forEach(texts::remove) }
+
     @Synchronized fun clear() {
         generation++
         persistence?.clear()

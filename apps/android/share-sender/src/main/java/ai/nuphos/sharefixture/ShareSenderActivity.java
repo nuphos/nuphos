@@ -13,8 +13,8 @@ import java.util.ArrayList;
 public class ShareSenderActivity extends Activity {
     private String pendingMode;
     private boolean pendingChooser;
-    private static final String RECEIVER = "ai.nuphos.android.shareinput1355";
-    private Uri uri(String name) { return Uri.parse("content://ai.nuphos.shareinput1355.sender.files/" + name); }
+    private static final String RECEIVER = (BuildConfig.APPLICATION_ID.contains("sharepersist1359") ? "ai.nuphos.android.sharepersist1359" : "ai.nuphos.android.shareinput1355");
+    private Uri uri(String name) { return Uri.parse("content://" + BuildConfig.APPLICATION_ID + ".files/" + name); }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         pendingMode = getIntent().getStringExtra("fixtureMode");

@@ -169,27 +169,42 @@ fun ChatComposer(
     modifier: Modifier = Modifier,
 ) {
     val store = LocalAgentStore.current
+    val context = LocalContext.current
+    val incomingShares = (context.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
     val scope = rememberCoroutineScope()
+    val shareReady by incomingShares.ready.collectAsState()
+    val shareRevision by incomingShares.revision.collectAsState()
+    val storageError by incomingShares.persistenceError.collectAsState()
+    // Reading the projection revision makes restored/committed text observable without any disk access.
+    @Suppress("UNUSED_VARIABLE") val observedShareRevision = shareRevision
+    val effectiveDraftingEnabled = draftingEnabled && shareReady && (draft == null || incomingShares.isBound(draft.key.accountId))
+    var savingSend by remember { mutableStateOf(false) }
+    val latestSendAllowed by rememberUpdatedState(effectiveDraftingEnabled && canSubmit)
+    val latestSendKey by rememberUpdatedState(draft?.key)
+    val latestOnSend by rememberUpdatedState(onSend)
     var showModel by remember(modelSettings) { mutableStateOf(false) }
     var picking by remember(draft) { mutableStateOf(false) }
     var pickerError by remember(draft) { mutableStateOf<String?>(null) }
     var focused by remember { mutableStateOf(false) }
     var localText by remember(draft) { mutableStateOf("") }
-    val fieldState = remember(draft) {
-        val initial = draft?.text ?: localText
+    val fieldState = remember(draft, effectiveDraftingEnabled) {
+        val initial = if (effectiveDraftingEnabled) draft?.let { incomingShares.text(it.key) ?: it.text } ?: localText else ""
         TextFieldState(initial, TextRange(initial.length))
     }
     val text = fieldState.text.toString()
     fun updateText(value: String) {
-        if (!draftingEnabled) return
+        if (!effectiveDraftingEnabled || savingSend) return
+        try { draft?.key?.let { incomingShares.writeText(it, value) } }
+        catch (_: Exception) { pickerError = "Could not save this draft. Free storage and try again."; return }
         fieldState.edit {
             replace(0, length, value)
             this.selection = TextRange(value.length)
         }
         if (draft != null) draft.write(value) else localText = value
     }
-    val externalText = draft?.text ?: localText
+    val externalText = if (effectiveDraftingEnabled) draft?.let { incomingShares.text(it.key) ?: it.text } ?: localText else ""
     LaunchedEffect(draft, externalText) {
+        if (effectiveDraftingEnabled && draft != null && incomingShares.text(draft.key) != null) draft.write(externalText)
         if (externalText != fieldState.text.toString()) {
             fieldState.edit {
                 replace(0, length, externalText)
@@ -199,7 +214,7 @@ fun ChatComposer(
     }
     val fieldValue = TextFieldValue(text, fieldState.selection)
     var dismissedAt by remember(draft, mentions?.teamId) { mutableIntStateOf(-1) }
-    val mentionQuery = if (draftingEnabled && focused && mentions != null) SessionMention.query(fieldValue) else null
+    val mentionQuery = if (effectiveDraftingEnabled && focused && mentions != null) SessionMention.query(fieldValue) else null
     val activeMention = mentionQuery?.takeUnless { text.lastIndexOf('@') == dismissedAt }
     var mentionRows by remember(activeMention, draft, mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>>(emptyList()) }
     var mentionLoading by remember(activeMention, draft, mentions) { mutableStateOf(activeMention != null) }
@@ -246,20 +261,17 @@ fun ChatComposer(
             if (currentCoroutineContext().isActive) devicesLoading = false
         }
     }
-    val context = LocalContext.current
-    val incomingShares = (context.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
-    val attachments = remember(draft) {
-        mutableStateListOf<ComposerAttachment>().apply { draft?.key?.let { addAll(incomingShares.attachments(it)) } }
+    val attachments = remember(draft, effectiveDraftingEnabled) {
+        mutableStateListOf<ComposerAttachment>().apply { if (effectiveDraftingEnabled) draft?.key?.let { addAll(incomingShares.attachments(it)) } }
     }
     var attachmentJob by remember(draft) { mutableStateOf<Job?>(null) }
     DisposableEffect(draft, attachments) {
         onDispose {
             attachmentJob?.cancel()
             // Successful Send clears this list after ownership moves to the session.
-            attachments.forEach { attachment ->
-                if (draft?.key?.let { incomingShares.owns(it, attachment.id) } != true) attachment.releaseOwnedCopy()
-            }
+            val abandoned = attachments.toList()
             attachments.clear()
+            incomingShares.releaseLater(abandoned)
         }
     }
     var menu by remember { mutableStateOf(false) }
@@ -274,7 +286,7 @@ fun ChatComposer(
     val voiceServices = remember(context, injectedVoice) { injectedVoice ?: deviceVoiceServices(context) }
     val latestText by rememberUpdatedState(text)
     val latestWrite by rememberUpdatedState<(String) -> Unit> { words ->
-        if (draftingEnabled) {
+        if (effectiveDraftingEnabled) {
             val appended = appendDictation(latestText, words)
             updateText(appended)
         }
@@ -287,7 +299,7 @@ fun ChatComposer(
         permissionTarget = null
     }
     fun startVoice() {
-        if (voice.active || !draftingEnabled || !canSubmit || picking) return
+        if (voice.active || !effectiveDraftingEnabled || !canSubmit || picking) return
         try {
             if (voiceServices.settings.key() == null) { askingVoiceKey = true; return }
             focusManager.clearFocus()
@@ -312,7 +324,7 @@ fun ChatComposer(
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer); voice.cancel() }
     }
-    LaunchedEffect(draftingEnabled, canSubmit) { if (!draftingEnabled || !canSubmit) { attachmentJob?.cancel(); voice.cancel(); askingVoiceKey = false } }
+    LaunchedEffect(effectiveDraftingEnabled, canSubmit) { if (!effectiveDraftingEnabled || !canSubmit) { attachmentJob?.cancel(); voice.cancel(); askingVoiceKey = false } }
     BackHandler(enabled = voice.active) { voice.cancel() }
     if (askingVoiceKey) OpenAIKeyDialog(voiceServices, onDismiss = { askingVoiceKey = false }, onSaved = { askingVoiceKey = false; startVoice() })
     voice.error?.let { message ->
@@ -322,7 +334,8 @@ fun ChatComposer(
     val hasText = text.isNotBlank()
     val hasPayload = hasText || attachments.isNotEmpty()
     val expanded = (focused || hasPayload) && !collapsedByUser
-    LaunchedEffect(rejectedSubmission, text.isEmpty(), attachments.isEmpty()) {
+    LaunchedEffect(rejectedSubmission, text.isEmpty(), attachments.isEmpty(), savingSend) {
+        if (savingSend) return@LaunchedEffect
         if (rejectedSubmission != null && text.isEmpty() && attachments.isEmpty()) {
             updateText(rejectedSubmission.text)
             attachments.addAll(rejectedSubmission.attachments)
@@ -331,7 +344,7 @@ fun ChatComposer(
     }
 
     fun loadSelection(uris: List<Uri>, images: Boolean, permissionOwner: Any? = null) {
-        if (!draftingEnabled || !canSubmit || voice.active) return
+        if (!effectiveDraftingEnabled || savingSend || !canSubmit || voice.active) return
         if (picking) { pickerError = "Wait for the current files to finish loading, then try again."; return }
         if (uris.isEmpty()) return
         picking = true
@@ -364,7 +377,7 @@ fun ChatComposer(
     val files = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { loadSelection(it, false) }
 
     val receiveContent = ReceiveContentListener { content ->
-        if (!draftingEnabled || !canSubmit || voice.active) content else {
+        if (!effectiveDraftingEnabled || !canSubmit || voice.active) content else {
             val uris = mutableListOf<Uri>()
             val remaining = content.consume { item ->
                 val uri = item.uri
@@ -379,21 +392,44 @@ fun ChatComposer(
     }
 
     val incomingShare by incomingShares.state.collectAsState()
-    LaunchedEffect(incomingShare, draft, draftingEnabled, store.selectedTeam?.id) {
+    LaunchedEffect(incomingShare, draft, effectiveDraftingEnabled, store.selectedTeam?.id, savingSend) {
         val shared = incomingShare ?: return@LaunchedEffect
         val lease = draft ?: return@LaunchedEffect
-        if (!draftingEnabled || store.selectedTeam?.id != lease.key.teamId || shared.destination != lease.key || shared.loading || shared.error != null) return@LaunchedEffect
-        // No suspension between validation, transfer and consumption: rotation cannot append twice.
+        if (savingSend || !effectiveDraftingEnabled || store.selectedTeam?.id != lease.key.teamId || shared.destination != lease.key || shared.loading || shared.error != null) return@LaunchedEffect
+        var staged = emptyList<ComposerAttachment>()
+        val before = attachments.toList()
         try {
-            require(attachments.size + shared.attachments.size <= AttachmentTransfers.MAX_FILES) { "This draft already has too many attachments." }
-            if (attachments.isNotEmpty() || shared.attachments.isNotEmpty()) AttachmentTransfers().retain(attachments.toList() + shared.attachments)
-            val merged = listOf(text, shared.text).filter { it.isNotEmpty() }.joinToString("\n\n")
-            if (!lease.write(merged)) return@LaunchedEffect
-            updateText(merged)
-            attachments.addAll(shared.attachments)
-            incomingShares.consumed(shared.id, lease.key)
-        } catch (_: Exception) {
-            incomingShares.failed(shared.id, "This share does not fit in the selected draft. Cancel it and try fewer or smaller attachments.")
+            require(before.size + shared.attachments.size <= AttachmentTransfers.MAX_FILES)
+            if (before.isNotEmpty() || shared.attachments.isNotEmpty()) AttachmentTransfers().retain(before + shared.attachments)
+            withContext(Dispatchers.IO) {
+                val work = currentCoroutineContext()
+                staged = incomingShares.prepare(before + shared.attachments) { work.ensureActive() }
+            }
+            withContext(Dispatchers.Main.immediate) {
+                if (!effectiveDraftingEnabled || store.selectedTeam?.id != lease.key.teamId || incomingShares.state.value?.id != shared.id ||
+                    attachments.map { it.id } != before.map { it.id }) throw CancellationException("Draft changed")
+                val merged = listOf(fieldState.text.toString(), shared.text).filter { it.isNotEmpty() }.joinToString("\n\n")
+                // Durable transaction consumes the share and publishes text+files together before any preference update.
+                val receivingJob = currentCoroutineContext()
+                if (!incomingShares.consumed(shared.id, lease.key, merged, staged) {
+                        // Publish the IO-committed projection and update this composer before clearing the pending-share flow.
+                        if (receivingJob.isActive && effectiveDraftingEnabled && store.selectedTeam?.id == lease.key.teamId &&
+                            attachments.map { it.id } == before.map { it.id } && lease.write(merged)) {
+                            fieldState.edit { replace(0, length, merged); this.selection = TextRange(merged.length) }
+                            attachments.clear()
+                            attachments.addAll(staged)
+                            incomingShares.releaseLater(before.filter { old -> staged.none { it === old } })
+                        }
+                    }) throw CancellationException("Share changed")
+            }
+        } catch (failure: Exception) {
+            withContext(kotlinx.coroutines.NonCancellable + Dispatchers.Main.immediate) {
+                // Queue cleanup after any already-enqueued consumption/deletion, so cancellation cannot unlink an in-flight commit.
+                incomingShares.releaseUnowned(staged.filter { file -> before.none { it === file } && shared.attachments.none { it === file } })
+                if (failure !is CancellationException)
+                    incomingShares.failed(shared.id, "Could not save this share. Check the draft limits and free storage, then try again.")
+            }
+            if (failure is CancellationException) throw failure
         }
     }
 
@@ -401,12 +437,35 @@ fun ChatComposer(
     val resolvedMode = mode ?: store.permissionMode
 
     fun send() {
-        if (!hasPayload || !canSubmit || !draftingEnabled || picking || voice.active) return
-        if (!onSend(ComposerSubmission(text.trim(), attachments.toList()))) return
-        if (draft != null) draft.submitted(true, text) else localText = ""
-        fieldState.edit { replace(0, length, "") }
-        draft?.key?.let(incomingShares::sent)
-        attachments.clear()
+        if (!hasPayload || !canSubmit || !effectiveDraftingEnabled || picking || savingSend || incomingShare != null || voice.active) return
+        val key = draft?.key
+        val submittedText = text
+        val submittedFiles = attachments.toList()
+        savingSend = true
+        scope.launch {
+            var accepted = false
+            try {
+                key?.let { incomingShares.checkWritable(it) }
+                if (!latestSendAllowed || latestSendKey != key || incomingShares.state.value != null ||
+                    (key != null && (!incomingShares.isBound(key.accountId) || store.selectedTeam?.id != key.teamId)) ||
+                    fieldState.text.toString() != submittedText || attachments.map { it.id } != submittedFiles.map { it.id }) return@launch
+                accepted = latestOnSend(ComposerSubmission(submittedText.trim(), submittedFiles))
+                if (accepted) {
+                    if (key != null) incomingShares.sent(key, submittedFiles) else incomingShares.handoff(submittedFiles)
+                }
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                pickerError = if (accepted) "Message accepted, but saved draft cleanup failed. Do not resend it."
+                    else "Could not update saved drafts. Free storage before sending."
+            } finally {
+                if (accepted) {
+                    if (draft != null) draft.submitted(true, submittedText) else localText = ""
+                    if (fieldState.text.toString() == submittedText) fieldState.edit { replace(0, length, "") }
+                    attachments.removeAll { file -> submittedFiles.any { it.id == file.id } }
+                }
+                savingSend = false
+            }
+        }
     }
 
     fun collapse() {
@@ -458,7 +517,7 @@ fun ChatComposer(
                             computers.isEmpty() -> Text("No matching computers", style = MaterialTheme.typography.bodySmall)
                             else -> computers.forEach { device ->
                                 Column(Modifier.fillMaxWidth().clickable(enabled = !device.unavailable, role = Role.Button) {
-                                    if (SessionMention.query(fieldValue) == activeMention && draftingEnabled) {
+                                    if (SessionMention.query(fieldValue) == activeMention && effectiveDraftingEnabled) {
                                         // Do not insert text on rejected selection; never interpret typed @text as IAM.
                                         if (devices.pick(device)) {
                                             val inserted = SessionMention.insert(text, "@" + device.label)
@@ -496,7 +555,7 @@ fun ChatComposer(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) {
                                     // Recheck the current draft; never insert a result from a replaced query.
-                                    if (SessionMention.query(fieldValue) == activeMention && draftingEnabled) {
+                                    if (SessionMention.query(fieldValue) == activeMention && effectiveDraftingEnabled) {
                                         val inserted = SessionMention.insert(text, SessionMention.link(mentions.teamId, row.sessionId))
                                         updateText(inserted)
                                     }
@@ -509,7 +568,7 @@ fun ChatComposer(
             }
             if (rejectedSubmission != null) Text("A rejected message is retained. Clear this draft to restore it.", modifier = Modifier.padding(horizontal = 12.dp))
             if (picking) Text("Reading files…", modifier = Modifier.padding(horizontal = 12.dp))
-            pickerError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp)) }
+            (pickerError ?: storageError)?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp)) }
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn() + expandVertically(),
@@ -574,14 +633,20 @@ fun ChatComposer(
                 if (voice.active) VoiceRecordingBar(voice) else BasicTextField(
                     state = fieldState,
                     inputTransformation = InputTransformation {
-                        if (!draftingEnabled) revertAllChanges()
+                        if (!effectiveDraftingEnabled || savingSend) revertAllChanges()
                         else {
                             val value = asCharSequence().toString()
                             if (SessionMention.query(value) == null) dismissedAt = -1
-                            if (draft != null) draft.write(value) else localText = value
+                            try {
+                                draft?.key?.let { incomingShares.writeText(it, value) }
+                                if (draft != null) draft.write(value) else localText = value
+                            } catch (_: Exception) {
+                                revertAllChanges()
+                                pickerError = "Could not save this draft. Free storage and try again."
+                            }
                         }
                     },
-                    enabled = draftingEnabled,
+                    enabled = effectiveDraftingEnabled && !savingSend,
                     modifier = Modifier
                         .weight(1f)
                         .contentReceiver(receiveContent)
@@ -630,9 +695,16 @@ fun ChatComposer(
                 ) {
                     items(attachments, key = { it.id }) { attachment ->
                         AttachmentTile(attachment) {
-                            draft?.key?.let { incomingShares.forgetAttachment(it, attachment.id) }
-                            attachments.removeAll { it.id == attachment.id }
-                            attachment.releaseOwnedCopy()
+                            if (!savingSend) scope.launch {
+                                try {
+                                    draft?.key?.let { incomingShares.forgetAttachment(it, attachment.id) }
+                                    attachments.removeAll { it.id == attachment.id }
+                                    withContext(Dispatchers.IO) { attachment.releaseOwnedCopy() }
+                                } catch (failure: Exception) {
+                                    if (failure is CancellationException) throw failure
+                                    pickerError = "Could not remove this saved attachment. Check storage and try again."
+                                }
+                            }
                         }
                     }
                 }
@@ -670,7 +742,7 @@ fun ChatComposer(
                             Icon(Icons.Outlined.PlaylistAdd, contentDescription = "Queue message")
                         }
                     }
-                    VoiceMic(enabled = canSubmit && draftingEnabled && !picking && !voice.active, onClick = ::startVoice)
+                    VoiceMic(enabled = canSubmit && effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     TrailingButton(
                         isStreaming = isStreaming,
                         hasPayload = hasPayload && canSubmit && !picking && !voice.active,
@@ -848,7 +920,11 @@ private val RemoveBadgeHitOverhang = (RemoveBadgeHitSize - RemoveBadgeSize) / 2 
 @Composable
 private fun AttachmentThumbnail(attachment: ComposerAttachment) {
     Box(Modifier.size(64.dp)) {
-        when (val kind = attachment.kind) {
+        val retainedImage = (attachment.kind as? ComposerAttachment.Kind.RetainedFile)?.takeIf { it.image }
+        if (retainedImage != null) {
+            coil3.compose.AsyncImage(model = retainedImage.source.file, contentDescription = attachment.name,
+                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+        } else when (val kind = attachment.kind) {
             is ComposerAttachment.Kind.Image -> {
                 val bmp = remember(kind) { BitmapFactory.decodeByteArray(kind.jpeg, 0, kind.jpeg.size)?.asImageBitmap() }
                 if (bmp != null) {

@@ -129,6 +129,7 @@ fun HomeRoute(
     plansStore: PlansStore,
     connectorsStore: ConnectorsStore,
 ) {
+    val shareDrafts = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
     val membershipAuth = LocalAuthSession.current
     // Keep the controller registered for Activity state restoration while memberships load.
     val nav = rememberNavController()
@@ -213,7 +214,12 @@ fun HomeRoute(
             } catch (e: Exception) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
                     if (current()) {
-                        links.complete(request)
+                        if (e is NuphosApi.Failure.Unauthorized || (e is NuphosApi.Failure.Http && e.code in setOf(403, 404))) {
+                            val key = ai.nuphos.android.session.ComposerDrafts.Key(user.id, request.destination.teamId,
+                                ai.nuphos.android.session.ComposerDrafts.Destination.Chat(request.destination.conversationId))
+                            shareDrafts.drop(key)
+                        }
+                        if (!current()) return@withContext
                         linkError = when (e) {
                             is NuphosApi.Failure.Unauthorized -> "Sign-in has expired. Sign in again to open this agent."
                             is NuphosApi.Failure.Http -> if (e.code == 403 || e.code == 404)
@@ -221,6 +227,8 @@ fun HomeRoute(
                                 else "We could not open this agent. Please try the link again."
                             else -> "We could not open this agent. Check your connection and try the link again."
                         }
+                        // Completing this request cancels its LaunchedEffect; do it after the awaited cleanup and error update.
+                        links.complete(request)
                     }
                 }
             }

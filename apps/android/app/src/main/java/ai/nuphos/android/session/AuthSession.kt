@@ -67,6 +67,8 @@ class AuthSession(
     private var consentRequest = 0L
 
     var onIdentityReset: () -> Unit = {}
+    /** Optional durable cleanup barrier; the application supplies its ordered shared-draft actor. */
+    var awaitIdentityCleanup: (suspend () -> Unit)? = null
 
     private fun beginIdentity(preserveDrafts: Boolean = false): Long {
         if (state !is State.Restoring) onIdentityReset()
@@ -116,6 +118,7 @@ class AuthSession(
                     }
                 } else {
                     composerDrafts.clear()
+                    onIdentityReset()
                     runtimeSelections.clear()
                     AiAccess.revoke()
                     if (result.version != AccountApi.AI_CONSENT_VERSION) {
@@ -162,6 +165,7 @@ class AuthSession(
                         }
                     } else {
                         composerDrafts.clear()
+                        onIdentityReset()
                         runtimeSelections.clear()
                         AiAccess.revokeIfCurrent(current, revision)
                     }
@@ -392,14 +396,28 @@ class AuthSession(
     }
 
     fun signOut(error: String? = null) {
-        beginIdentity()
+        val expected = beginIdentity()
         customTabsOpen = false
         cancelLogin()
         clearToken()
-        state = State.SignedOut(error)
+        val cleanup = awaitIdentityCleanup
+        if (cleanup == null) state = State.SignedOut(error)
+        else {
+            // Hide authenticated UI immediately, but do not acknowledge logout before queued private-draft deletion.
+            state = State.Restoring
+            scope.launch {
+                val cleanupError = try { cleanup(); null }
+                catch (failure: Exception) {
+                    if (failure is kotlinx.coroutines.CancellationException) throw failure
+                    "Signed out, but saved draft cleanup failed. Check storage before closing the app."
+                }
+                if (generation == expected && token == null) state = State.SignedOut(cleanupError ?: error)
+            }
+        }
     }
 
     private fun clearToken() {
+        onIdentityReset()
         // Remove BYOK credentials without needing to decrypt a broken keystore.
         app.deleteSharedPreferences("nuphos.voice")
         composerDrafts.clear()

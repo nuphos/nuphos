@@ -1,9 +1,10 @@
 package ai.nuphos.android
 
+import ai.nuphos.android.session.IncomingShareMailbox as IncomingShares
+
 import ai.nuphos.android.data.AttachmentRetention
 import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.session.ComposerDrafts
-import ai.nuphos.android.session.IncomingShares
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.file.Files

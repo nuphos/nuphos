@@ -4,7 +4,6 @@ Native Android client built with Kotlin and Jetpack Compose. This contribution
 contains the app, Gradle wrapper, JVM tests, and isolated device fixture tests.
 It does not contain credentials, APK files, IDE settings, or personal test data.
 
-
 ### Password sign-in
 
 The welcome screen also supports existing accounts with an email and a password
@@ -13,7 +12,6 @@ Google sign-in remains available. Passwords are not saved; only a validated
 session token is passed to the existing token store. This option does not create
 accounts or set/reset passwords. Store review credentials belong in Play Console,
 never in the repository.
-
 
 ## Requirements
 
@@ -304,6 +302,7 @@ synthetic data, without reading auth/preferences or calling live endpoints.
 It must run in an isolated fixture package on a personal device, never over the
 installed Play application. These fixtures do not prove a real inference or
 production runtime setting change.
+
 ### New conversation credential defaults
 
 Each app launch and workspace switch starts a fresh in-memory credential draft.
@@ -441,7 +440,6 @@ isolated-account test plan.
 `EmailSessionFixtureDeviceTest` intercepts every request while testing duplicate
 submission, cancellation, token persistence and consent loading in the same isolated package.
 
-
 ### Composer rich content
 
 The composer receives content-provider attachments through native paste, keyboard
@@ -500,15 +498,92 @@ existing agent, then review the editable draft. Sharing never sends a message.
 Existing text is preserved and shared text is appended. Binary inputs must be
 content-provider URIs; at most 20 attachments, 100 MiB per file and 500 MiB total
 are accepted, using the composer's existing image conversion and size limits.
-Shared text is limited to 100,000 characters. Shared attachment drafts together
-are capped at 500 MiB per process. Files are copied before relying
-on them after the sender's temporary read grant expires.
+Shared text and the resulting merged draft are limited to 100,000 characters.
 
-Pending shares and imported shared attachments survive Activity recreation and
-composer switching while the process lives. Ordinary picker attachments keep
-their existing temporary behavior. They are
-canceled on identity replacement or AI consent withdrawal; the first sign-in
-can claim an unowned share. Finish or cancel a pending share before starting
-another. As with other composer attachments, pending shares and their attachments
-are not restored after process death; share again if Android restarts the app.
-Only imported text uses the existing persistent composer draft store.
+Pending shares and imported drafts survive process death and normal app restart.
+Payloads live in the app-private [no-backup directory](https://developer.android.com/identity/data/autobackup); metadata has an explicit
+version, bounded parsing, validation and atomic replacement. Only our copies are
+restored, never provider URIs or persisted read grants. JPEGs remain file-backed
+and are streamed for upload. Only an explicit Send generates the existing inline
+JPEG wire representation, one file at a time; it is never persisted in metadata. No credentials or tokens are written to this journal.
+The old process-local directory is discarded once on upgrade because it had no
+recoverable metadata; existing text drafts remain compatible.
+
+Each saved record expires seven days after its last modification, checked at app
+startup. Across all shared drafts and one pending share the limits are 64 draft
+records, 128 retained payloads, 500 MiB of payload bytes and 1,000,000 text characters;
+metadata is limited to 8 MiB. Expiry, permission loss and send cleanup also erase
+older text preferences. An empty journal tombstone is kept if that erase fails,
+and expiry cleanup retries the erase at a later startup before that tombstone
+can be retired. Independent per-address authority markers survive journal loss;
+only confirmed legacy-text erasure allows an orphan marker to be retired at startup.
+Each marker contains an address and transaction epoch/revision, never text or payloads;
+at most 256 markers of 2 KiB each are accepted. A prepared marker whose publication
+never committed is distinguished by the prior journal revision, preserving ordinary drafts.
+Malformed markers suppress legacy fallback without deleting unidentified preferences. Physical quota checks also count in-flight and
+unreferenced copies, so repeated interrupted imports cannot grow storage without bound. Per-draft attachment limits still apply. Incomplete
+copies and unreferenced payloads are pruned at the next process start. Invalid,
+unknown-version, expired, missing or changed payload metadata fails closed. No
+metadata-derived pathname is trusted; symlinks are not followed during cleanup.
+If storage cannot publish a cancellation/identity deletion, the journal is
+unlinked to prevent canceled content reappearing; other saved shared drafts may
+then be discarded too. Import/edit failures retain the prior committed snapshot.
+
+After restart a pending share requires explicit destination selection again and
+fresh access checks. Already imported text and attachments are one transaction:
+a crash before updating older text preferences cannot append the share twice.
+Subsequent edits update that shared draft journal. A single IO actor owns journal,
+authority and legacy-preference IO; UI callbacks read immutable projections.
+Typing updates an optimistic in-memory value and coalesces only the trailing edit,
+never across a consumption/deletion/identity barrier. Consumption and send preflight
+wait for durable IO before updating the composer or accepting submission. Pending
+cancellation is acknowledged after its ordered deletion; identity changes immediately
+hide the previous account while its IO cleanup remains ordered ahead of any new bind.
+Logout acknowledges completion only after that cleanup barrier succeeds; a failed
+fire-and-forget cleanup is reported by the barrier and retried before a new bind.
+Workspace pruning and pending cancellation carry their original account/share scope.
+If a write fails, unsaved text remains visible with an error and Send retries that
+value before handoff. Startup also retires already-loaded in-memory legacy text on
+Main before exposing the restored projection. Ordinary picker attachments
+remain temporary until they are merged with a system share, when the whole
+combined attachment draft is retained. Selecting another workspace never moves
+content between draft keys. Membership removal, denied/read-only/archived agent
+access, sign-out, account replacement and AI consent withdrawal remove affected
+saved copies. A newly captured unowned share may be claimed by the first sign-in;
+identified content is never restored to a different account.
+
+Cancel removes the pending share. Removing an attachment removes its saved copy.
+Explicit Send transfers ownership to the existing local submission workflow and
+writes an empty draft tombstone, preventing older text preferences from restoring
+it. In-flight uploads/submissions are not resumed automatically after process
+death; this journal is a draft store, not a durable message outbox. All restored
+content remains editable and nothing sends automatically.
+
+Build the isolated persistence fixture with
+`-PnuphosIsolatedPersistentShareFixture=true` (receiver
+`ai.nuphos.android.sharepersist1359`, test package with `.test`, sender
+`ai.nuphos.sharepersist1359.sender`). Preserve installed Play/preview apps.
+`IncomingShareFixtureDeviceTest` still covers cold/warm receive and Activity
+recreation. `PersistentShareProcessDeviceTest` is explicitly phase-driven; run
+one phase per instrumentation invocation with `-e persistentSharePhase PHASE`,
+force-stop **only** its receiver and synthetic sender between phases, and require
+different recorded target PIDs. Sequence: `seedPending`, `consumeExisting`,
+`verifyExisting`, `verifyEditedAndWarmCancel`, `consumeNew`, `verifyNewAndHandoff`,
+`verifyNoReplay`; additional independent sequences cover pending cancel,
+account replacement, membership removal and denied conversation access.
+`verifyNewAndHandoff` simulates the accepted local-submission boundary without a
+backend message; it is not evidence of a real successful server send. All HTTP
+uses synthetic intercepted responses and rejects non-GET requests. These tests
+must not run against an installed real account or package.
+
+With only these isolated packages installed, run the full process sequence from
+an available device slot:
+
+```sh
+python3 scripts/verify_share_persistence.py --serial DEVICE_SERIAL --evidence-dir /tmp/share-process-evidence
+```
+
+The driver force-stops only the named persistence receiver/sender, checks they
+have no process, requires a new recorded PID per phase, and stops on the first
+failed instrumentation result. It does not install, uninstall, clear app data,
+change accessibility settings, or start a real backend message.

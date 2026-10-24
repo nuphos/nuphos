@@ -422,7 +422,7 @@ data class ComposerAttachment(
             override fun equals(other: Any?) = other is File && bytes.contentEquals(other.bytes)
             override fun hashCode() = bytes.contentHashCode()
         }
-        data class RetainedFile(val source: ai.nuphos.android.data.OwnedAttachmentFile, val mime: String) : Kind()
+        data class RetainedFile(val source: ai.nuphos.android.data.OwnedAttachmentFile, val mime: String, val image: Boolean = false) : Kind()
     }
 
     val sizeBytes: Long get() = when (val value = kind) {
@@ -433,11 +433,19 @@ data class ComposerAttachment(
 
     fun releaseOwnedCopy() { (kind as? Kind.RetainedFile)?.source?.release() }
 
-    val isImage: Boolean get() = kind is Kind.Image
+    val isImage: Boolean get() = kind is Kind.Image || (kind as? Kind.RetainedFile)?.image == true
 
     val dataUrl: String?
-        get() = (kind as? Kind.Image)?.let {
-            "data:image/jpeg;base64," + android.util.Base64.encodeToString(it.jpeg, android.util.Base64.NO_WRAP)
+        get() = when (val value = kind) {
+            is Kind.Image -> "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(value.jpeg)
+            is Kind.RetainedFile -> if (!value.image) null else {
+                // Only explicit Send needs the existing inline-image wire representation.
+                // Stream one private JPEG into its encoder; storage/restore never materialize a binary batch.
+                val output = java.io.ByteArrayOutputStream()
+                java.util.Base64.getEncoder().wrap(output).use { encoded -> value.source.open().use { it.copyTo(encoded, 8192) } }
+                "data:image/jpeg;base64," + output.toString(Charsets.US_ASCII.name())
+            }
+            is Kind.File -> null
         }
 
     val fileExtension: String

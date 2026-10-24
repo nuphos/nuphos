@@ -7,7 +7,7 @@ import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** The only deletable file is the app-created copy, never its selected source. */
-class OwnedAttachmentFile private constructor(private val file: File, val size: Long) {
+class OwnedAttachmentFile private constructor(internal val file: File, val size: Long) {
     private val released = AtomicBoolean(false)
     val exists: Boolean get() = !released.get() && file.isFile
     internal fun open(): InputStream {
@@ -19,6 +19,11 @@ class OwnedAttachmentFile private constructor(private val file: File, val size: 
     }
 
     internal companion object {
+        fun restore(file: File, size: Long): OwnedAttachmentFile {
+            require(size > 0 && file.isFile && file.length() == size && !java.nio.file.Files.isSymbolicLink(file.toPath()))
+            return OwnedAttachmentFile(file, size)
+        }
+
         fun copy(directory: File, input: InputStream, limit: Long, check: () -> Unit): OwnedAttachmentFile {
             require(limit > 0) { "Attachment batch exceeds its size limit." }
             require(directory.isDirectory || directory.mkdirs()) { "Could not retain the selected file." }

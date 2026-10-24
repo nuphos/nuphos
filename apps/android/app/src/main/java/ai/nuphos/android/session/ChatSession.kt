@@ -280,6 +280,9 @@ class ChatSession(
         permissionMode = mode
     }
 
+    var draftAccessInvalidated by mutableStateOf(false)
+        private set
+
     suspend fun load() {
         if (!hasAiAccess) return
         recallRows = emptySet()
@@ -296,6 +299,7 @@ class ChatSession(
             baseIndex = detail.messagesFirstIndex ?: 0
             isArchived = detail.archivedAt != null
             readOnly = browsingOnly || (detail.readOnly ?: false)
+            draftAccessInvalidated = readOnly || isArchived
             if (browsingOnly) loadError = null
             detail.title?.takeIf { it.isNotEmpty() }?.let { title = it }
             detail.credentialAccess?.let {
@@ -330,6 +334,7 @@ class ChatSession(
             }
         } catch (e: Exception) {
             if (!hasAiAccess || detailGeneration != detailLoadGeneration) return
+            draftAccessInvalidated = e is NuphosApi.Failure.Unauthorized || (e is NuphosApi.Failure.Http && e.code in setOf(403, 404))
             loadError = e.message
             loaded = true
         }
