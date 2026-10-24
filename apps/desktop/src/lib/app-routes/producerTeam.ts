@@ -29,9 +29,16 @@ export function teamPageLocation(
   if (active === 'team.agent') {
     const base = `/teams/${pathSegment(scope.teamId)}/agent`
 
-    return pageLocation(
-      navigation.agentSessionId ? `${base}/${pathSegment(navigation.agentSessionId)}` : base,
-    )
+    if (!navigation.agentSessionId) return pageLocation(base)
+    const artifact = navigation.agentArtifact
+    const query = artifact
+      ? `?${new URLSearchParams({
+          artifact: artifact.artifactId,
+          ...(artifact.version ? { version: String(artifact.version) } : {}),
+        })}`
+      : ''
+
+    return pageLocation(`${base}/${pathSegment(navigation.agentSessionId)}${query}`)
   }
   if (active === 'team.observability') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/observability`)
@@ -159,6 +166,12 @@ export function teamPageLocation(
     const query = navigation.filter ? `?${new URLSearchParams({ path: navigation.filter })}` : ''
 
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/files${query}`)
+  }
+  if (active === 'team.artifact') {
+    // One tab per artifact, opened from its card in the chat; there is no list page.
+    const base = `/teams/${pathSegment(scope.teamId)}/artifacts`
+
+    return pageLocation(navigation.filter ? `${base}/${pathSegment(navigation.filter)}` : base)
   }
   if (active === 'team.terminal') {
     const base = `/teams/${pathSegment(scope.teamId)}/terminal`

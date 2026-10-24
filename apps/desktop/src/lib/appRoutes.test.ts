@@ -39,6 +39,13 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
     nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.agent', { agentSessionId: 'sess-1' }),
   },
   {
+    name: 'agent artifact link',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.agent', {
+      agentSessionId: 'sess-1',
+      agentArtifact: { artifactId: 'spend-page', version: 2 },
+    }),
+  },
+  {
     name: 'agent memories',
     nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.agent-memories'),
   },
@@ -73,6 +80,10 @@ const CASES: { name: string; nav: NavigationSnapshot }[] = [
     nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.files', {
       filter: '/workspace/src/報告 1.md',
     }),
+  },
+  {
+    name: 'artifact',
+    nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.artifact', { filter: 'q3-report' }),
   },
   { name: 'terminal', nav: emptyNavigation({ kind: 'team', teamId: T }, 'team.terminal') },
   {
@@ -1178,5 +1189,21 @@ test('Kubernetes route parser rejects inherited object keys as providers', () =>
   assert.equal(
     navigationFromAppPath(`/teams/${T}/k8s/toString/account/region/cluster/workloads/pods`),
     null,
+  )
+})
+
+test('an artifact link opens its conversation with the artifact and version, ignoring junk', () => {
+  const link = navigationFromAppPath(`/teams/${T}/agent/sess-1?artifact=spend-page&version=3`)
+
+  assert.equal(link?.active, 'team.agent')
+  assert.equal(link?.agentSessionId, 'sess-1')
+  assert.deepEqual(link?.agentArtifact, { artifactId: 'spend-page', version: 3 })
+  assert.deepEqual(
+    navigationFromAppPath(`/teams/${T}/agent/sess-1?artifact=spend-page&version=0`)?.agentArtifact,
+    { artifactId: 'spend-page' },
+  )
+  assert.equal(
+    navigationFromAppPath(`/teams/${T}/agent/sess-1?artifact=../../x`)?.agentArtifact,
+    undefined,
   )
 })

@@ -92,6 +92,9 @@ export type LinearNavState =
       team?: LinearTeamRef
     }
 
+/** An artifact in a conversation: its id and, when the link pins one, a version. */
+export type AgentArtifactRef = { artifactId: string; version?: number }
+
 export type NavigationSnapshot = {
   scope: Scope
   active: string
@@ -109,6 +112,9 @@ export type NavigationSnapshot = {
   gitlabNav?: GitlabNavState
   repoProvider: RepoProvider
   agentSessionId: string | null
+  // An artifact to open beside the conversation (a teammate's artifact link).
+  // Optional: older snapshots omit it.
+  agentArtifact?: AgentArtifactRef | null
   s3Detail: AwsS3Detail | null
   // Optional: older persisted snapshots omit it and restore to the list view.
   awsDetail?: AwsResourceDetailRef | null

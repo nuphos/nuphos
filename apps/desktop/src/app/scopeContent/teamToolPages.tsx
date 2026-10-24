@@ -13,6 +13,7 @@ import {
 import { NuphosDashboardsView } from '../../dashboards/NuphosDashboardsView'
 import { dashboardsPageTitle } from '../../dashboards/view/pageTitle'
 import { ArchitectureView } from '../../views/ArchitectureView'
+import { ArtifactView } from '../../views/ArtifactView'
 import { ArchivedChatsView } from '../../views/ArchivedChatsView'
 import { AuditLogView } from '../../views/AuditLogView'
 import { BrowserView } from '../../views/BrowserView'
@@ -77,6 +78,17 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
 
   if (active === 'team.files') {
     return <RuntimeFilesView key={filter} teamId={scope.teamId} filePath={filter} />
+  }
+
+  if (active === 'team.artifact') {
+    return (
+      <ArtifactView
+        key={filter}
+        teamId={scope.teamId}
+        artifactId={filter}
+        onAskAgent={(prompt) => ctx.openInChat(prompt, { mode: 'text' })}
+      />
+    )
   }
 
   if (active === 'team.terminal') return <TerminalView teamId={scope.teamId} filter={filter} />

@@ -10,11 +10,13 @@ export { toolModuleFromAiSdkTools } from './preview-tools/ai-sdk-adapter'
 
 export const NUPHOS_TOOLS_INSTRUCTIONS =
   "Nuphos's native tools for this conversation: memory (save_memory / " +
-  'memory_get), charts, team-skill authoring, decisions, local Desktop actions, ' +
+  'memory_get), charts, artifacts, team-skill authoring, decisions, local Desktop actions, ' +
   'connector setup (create_connector), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread), and channel delivery. ' +
   'When the user asks for a sub-agent (in any language), use create_thread, not your ' +
   "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. " +
   'List yours with list_recent_conversations children:true. ' +
+  'When the user asks for an artifact, a document, or to see HTML, an SVG or a full file ' +
+  'rendered, show it with render_artifact; it opens beside the chat. ' +
   'Domain resources use native skills backed by the ' +
   'canonical Nuphos REST API. Every call renders its own card in the Nuphos chat UI — ' +
   'do not re-describe the output in prose beyond what the user needs. Every ' +

@@ -309,3 +309,9 @@ test('a run opens for an earlier pending approval but not for a failed call', ()
   assert.equal(pendingApproval([waiting, tool() as ToolPart]), waiting)
   assert.equal(pendingApproval([failed, errored, tool() as ToolPart]), undefined)
 })
+
+test('an artifact card is lifted out of a folded turn to sit under the answer', () => {
+  const parts = [text('Making it.'), tool(), tool('render_artifact'), text('Here it is.')]
+
+  assert.deepEqual(foldedTurnLayout(parts, 0, 3), { planIndices: [2], foldHasWork: true })
+})

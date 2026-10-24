@@ -16,6 +16,7 @@ import {
   teamIdFromAppPath,
 } from '../../lib/appRoutes'
 import { parseAtlasLink } from '../../lib/atlasLinkMention'
+import { requestArtifactOpen } from '../../lib/sessionArtifacts'
 import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { settingsLinkTarget, settingsSectionForPage } from '../../views/settings/settingsNav'
@@ -128,6 +129,19 @@ export function useWorkspaceLinkOpeners(a: Args) {
         return true
       }
 
+      // An artifact link opens its conversation, which then opens the artifact
+      // beside it, once it has loaded for someone allowed to read it.
+      if (
+        navigation.active === 'team.agent' &&
+        navigation.agentSessionId &&
+        navigation.agentArtifact
+      ) {
+        requestArtifactOpen(
+          navigation.agentSessionId,
+          navigation.agentArtifact.artifactId,
+          navigation.agentArtifact.version,
+        )
+      }
       if (beside) {
         const sessionId = navigation.active === 'team.agent' ? navigation.agentSessionId : null
 

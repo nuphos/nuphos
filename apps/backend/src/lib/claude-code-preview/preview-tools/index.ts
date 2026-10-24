@@ -9,6 +9,7 @@ import { createMemoryObserver, resolveTurnFromStamp } from '@/lib/agent/memory-s
 import { createTurnMemoryAccumulator } from '@/lib/agent/memory-slots/turn-accumulator'
 import { listActivePlansForConversation } from '@/lib/agent/plans'
 import { createSessionTools } from '@/lib/agent/tools-sessions'
+import { createArtifactTool } from '@/lib/agent/tools-skilled/artifact-tool'
 import { createChartTool } from '@/lib/agent/tools-skilled/chart-tool'
 
 import { publishPreviewFrame } from '../run-frame-bridge'
@@ -152,6 +153,7 @@ export async function previewAiSdkToolSets(
     memory,
     skills,
     chart: { render_chart: createChartTool() },
+    artifact: { render_artifact: createArtifactTool() },
     sessions: createSessionTools(ctx.userId, ctx.sessionId, ctx.teamId),
   }
 }

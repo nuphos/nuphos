@@ -1,3 +1,4 @@
+import { ArtifactToolPart } from '../artifacts/ArtifactCard'
 import { PermissionGrantCard } from '../PermissionGrantCard'
 
 import { extractProposalIdFromOutput } from './applyEvent'
@@ -36,6 +37,9 @@ export function renderCardToolPart(
     return <TriggerCard key={key} part={part} teamId={teamId} onOpen={onOpen} />
   }
   if (part.toolName === 'render_chart') return <ChartToolPart key={key} part={part} now={now} />
+  if (part.toolName === 'render_artifact') {
+    return <ArtifactToolPart key={key} part={part} now={now} teamId={teamId} onOpen={onOpen} />
+  }
   if (isDecisionCardPart(part)) {
     return <DecisionToolPart key={key} part={part} now={now} teamId={teamId} canAct={canAct} />
   }

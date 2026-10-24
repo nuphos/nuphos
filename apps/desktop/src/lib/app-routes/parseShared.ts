@@ -3,7 +3,7 @@ import { isAppWebUrl } from '../webBaseUrl.ts'
 import { clusterPageSegment } from './sections.ts'
 import { DEFAULT_GITHUB_NAV, DEFAULT_KEY, DEFAULT_REPO_PROVIDER } from './types.ts'
 
-import type { NavigationSnapshot } from './types.ts'
+import type { AgentArtifactRef, NavigationSnapshot } from './types.ts'
 import type { GithubInstallation, GithubRepository, Scope } from '../../types'
 
 // ---------------------------------------------------------------------------
@@ -127,4 +127,27 @@ export function clusterActiveForPageSegments(segs: string[]): string | null {
   const candidate = segs.length === 1 ? `cluster.${segs[0]}` : `${segs[0]}.${segs[1]}`
 
   return clusterPageSegment(candidate) === joined ? candidate : null
+}
+
+const ARTIFACT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/
+
+/**
+ * A conversation route's extras: the session, and the artifact a teammate's
+ * link asks to open beside it (`?artifact=<id>&version=<n>`). Anything
+ * malformed in the query is ignored.
+ */
+export function agentSession(
+  agentSessionId: string,
+  query: URLSearchParams,
+): Partial<NavigationSnapshot> {
+  const artifactId = query.get('artifact') ?? ''
+
+  if (!ARTIFACT_ID.test(artifactId)) return { agentSessionId }
+  const version = Number(query.get('version'))
+  const agentArtifact: AgentArtifactRef =
+    Number.isInteger(version) && version > 0 && version <= 10_000
+      ? { artifactId, version }
+      : { artifactId }
+
+  return { agentSessionId, agentArtifact }
 }

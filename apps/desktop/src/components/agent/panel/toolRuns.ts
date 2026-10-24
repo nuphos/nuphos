@@ -16,10 +16,15 @@ export type PartSegment =
   // between calls ends the run so it stays where it happened in the turn.
   | { kind: 'toolRun'; indices: number[] }
 
-// Tool calls that render as their own card (chart, plan, permission grant)
+// Tool calls that render as their own card (chart, artifact, plan, permission grant)
 // carry content the user came for, so they never hide inside a run. So does a
 // user decision: a Connect card for an integration, a question card otherwise.
-const CARD_TOOL_NAMES = new Set(['render_chart', 'plan', 'propose_permission_grant'])
+const CARD_TOOL_NAMES = new Set([
+  'render_chart',
+  'render_artifact',
+  'plan',
+  'propose_permission_grant',
+])
 
 export function isDecisionCardPart(part: Part): boolean {
   return (
@@ -123,12 +128,15 @@ export function segmentParts(parts: readonly Part[], from: number, to: number): 
   return segments
 }
 
-/** Plan and decision cards: lifted out of a folded turn so they sit under the answer. */
+/** Plan, decision and artifact cards: lifted out of a folded turn so they sit under the answer. */
 export function isLiftedCardPart(part: Part): part is ToolPart {
   if (part.type !== 'tool' || part.state === 'output-error') return false
 
   return (
-    part.toolName === 'plan' || isPlanProposalToolName(part.toolName) || isDecisionCardPart(part)
+    part.toolName === 'plan' ||
+    part.toolName === 'render_artifact' ||
+    isPlanProposalToolName(part.toolName) ||
+    isDecisionCardPart(part)
   )
 }
 
