@@ -59,6 +59,8 @@ export type AtlasTeam = {
   contactEmails?: string[]
   allowedEmailDomains?: string[]
   agentRuntime?: AgentProvider
+  /** The most a member may grant when sharing their own computer; absent from older backends. */
+  localAgentSharing?: 'off' | 'approve' | 'full'
   createdAt?: string
   isOwner?: boolean
   role?: TeamRole

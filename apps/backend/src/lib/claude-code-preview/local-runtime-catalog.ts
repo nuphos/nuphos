@@ -11,6 +11,7 @@ import {
 } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
+import { localShareDeps, orSharedDevice, withSharedDevices } from '@/lib/agent/devices/local-share'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
@@ -28,6 +29,8 @@ import type {
   LocalAgentStatus,
   LocalRuntimeStatus,
 } from '@/lib/agent/devices/local-runtime/protocol'
+import type { LocalShareDeps } from '@/lib/agent/devices/local-share'
+import type { LocalShareLevel, SharedLocalRuntimeUse } from '@/lib/agent/devices/local-share-types'
 import type { AgentDeviceBox } from '@/lib/agent/devices/store'
 
 export type LocalRuntimeSummary = {
@@ -52,6 +55,8 @@ export type LocalRuntimeSummary = {
   usageAt?: string
   /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
   box?: Pick<AgentDeviceBox, 'provider'>
+  /** Present when it is a teammate's own computer they share with the viewer; see local-share. */
+  shared?: { level: Exclude<LocalShareLevel, 'off'> }
 }
 
 export type LocalRuntimeInstance = {
@@ -68,10 +73,13 @@ export type LocalRuntimeCatalogDeps = {
   access: DeviceAccessDeps
   isMember: (userId: string, teamId: string) => Promise<boolean>
   getPresence: (userId: string, deviceId: string) => Promise<LocalRuntimePresence | null>
+  /** Teammates' shared computers; without it only the viewer's own and their Boxes are listed. */
+  share?: LocalShareDeps
 }
 
 const defaultDeps: LocalRuntimeCatalogDeps = {
   access: deviceAccessDeps,
+  share: localShareDeps,
   isMember: (userId, teamId) => isActiveTeamMember(userId, teamId),
   getPresence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
 }
@@ -88,16 +96,20 @@ export function reportedLocalAgent(
     : status?.agents[ref.provider]
 }
 
-/** The user's own computers whose local agent is connected right now, in a team they belong to. */
+/**
+ * The agents this person may place a conversation on, in a team they belong to:
+ * their own computers, the Boxes shared with them, and teammates' computers shared with them.
+ */
 export async function listOwnLocalRuntimes(
   teamId: string,
   userId: string,
   deps: LocalRuntimeCatalogDeps = defaultDeps,
 ): Promise<LocalRuntimeInstance[]> {
   if (!(await deps.isMember(userId, teamId))) return []
-  const devices = await listAccessibleDevices(userId, teamId, deps.access)
+  const own = await listAccessibleDevices(userId, teamId, deps.access)
+  const devices = await withSharedDevices(own, userId, teamId, deps.share)
   const listed = await Promise.all(
-    devices.map(async (device): Promise<LocalRuntimeInstance[]> => {
+    devices.map(async ({ device, shared }): Promise<LocalRuntimeInstance[]> => {
       const presence = await deps.getPresence(device.userId, device.deviceId)
       // Every agent this computer ever had signed in, plus whatever it reports now (an
       // added agent appears once signed in; until then only its sign-in reaches it).
@@ -124,7 +136,8 @@ export async function listOwnLocalRuntimes(
           return {
             id,
             provider,
-            label: `${label ?? runtimeLabel(provider)} in ${device.label}`,
+            // A teammate's computer says so wherever its agents are listed.
+            label: `${label ?? runtimeLabel(provider)} in ${device.label}${shared ? ' (shared)' : ''}`,
             status: 'active',
             kind: 'local',
             createdAt: device.createdAt.toISOString(),
@@ -135,6 +148,7 @@ export async function listOwnLocalRuntimes(
               ...(label ? { agentLabel: label } : {}),
               agentInstances: presence?.status?.agentInstances === true,
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
+              ...(shared ? { shared: { level: shared } } : {}),
               ...(instanceId ? { instanceId } : {}),
               ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
               // Reachable right now; offline, the last report still says who is signed in.
@@ -166,8 +180,9 @@ function notAvailable(): AppError {
 }
 
 /**
- * Checked on every turn and control call: only the computer's owner may run it,
- * and only in a team they still belong to.
+ * Checked on every turn and control call: the computer's owner, a member of a
+ * Box, or (for a conversation's own calls) a teammate it is shared with; and only
+ * in a team they still belong to.
  */
 export async function resolveLocalRuntimeEndpoint(
   teamId: string,
@@ -176,6 +191,8 @@ export async function resolveLocalRuntimeEndpoint(
   /** `login` is the control channel for the agent's own sign-in, so signed out is fine. */
   purpose: 'transport' | 'control' | 'login',
   deps: LocalRuntimeCatalogDeps = defaultDeps,
+  /** Set only by a conversation's own calls; anything else never reaches a shared computer. */
+  use?: SharedLocalRuntimeUse,
 ): Promise<TeamRuntimeEndpoint & { runtimeId: string }> {
   const ref = parseLocalRuntimeId(runtimeId)
 
@@ -184,7 +201,11 @@ export async function resolveLocalRuntimeEndpoint(
 
   try {
     // Anyone a Box is shared with may sign in its agents, as they may add them.
-    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use', deps.access)
+    const device = await orSharedDevice(
+      requireDeviceAccess(userId, teamId, ref.deviceId, 'use', deps.access),
+      { teamId, ref, userId, purpose, use },
+      deps.share,
+    )
 
     if (device.userId !== ref.userId) throw notAvailable()
     deviceLabel = device.label

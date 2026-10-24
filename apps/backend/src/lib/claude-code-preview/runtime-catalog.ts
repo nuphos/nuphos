@@ -133,17 +133,37 @@ export async function withRuntimeReadiness(
   )
 }
 
+/** A teammate's shared computer only for callers that place or run a conversation. */
+export function acceptsRuntimeInstance(
+  instance: RuntimeInstance,
+  options: { shared?: boolean },
+): boolean {
+  return options.shared === true || instance.kind !== 'local' || !instance.local?.shared
+}
+
 export async function requireRuntimeInstance(
   teamId: string,
   runtimeId: string,
   userId?: string,
+  /**
+   * Whether a teammate's shared computer counts. Only placing and running a
+   * conversation sets it; terminal, files, desktop and sign-in stay with the owner.
+   */
+  options: { shared?: boolean } = {},
 ): Promise<RuntimeInstance> {
   const instance = (await listRuntimeInstances(teamId, userId)).find(
-    (candidate) => candidate.id === runtimeId,
+    (candidate) => candidate.id === runtimeId && acceptsRuntimeInstance(candidate, options),
   )
 
   if (!instance && userId && isLocalRuntimeId(runtimeId))
-    await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'transport')
+    await resolveLocalRuntimeEndpoint(
+      teamId,
+      runtimeId,
+      userId,
+      'transport',
+      undefined,
+      options.shared ? {} : undefined,
+    )
   if (!instance)
     throw new AppError(
       404,

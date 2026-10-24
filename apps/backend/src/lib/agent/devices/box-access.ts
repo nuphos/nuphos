@@ -107,7 +107,12 @@ export async function requireDeviceAccess(
  * refused by the access check. Best effort: a missed message leaves a stream only
  * until its next reconnect.
  */
-export async function revokeBoxStreams(devices: AgentDevice[], actorIds: string[]): Promise<void> {
+export async function revokeBoxStreams(
+  devices: AgentDevice[],
+  actorIds: string[],
+  /** Only streams opened in this team; the same person may use the computer in another. */
+  teamId?: string,
+): Promise<void> {
   const bus = tunnelBus()
 
   await Promise.all(
@@ -116,7 +121,11 @@ export async function revokeBoxStreams(devices: AgentDevice[], actorIds: string[
         bus
           .publish(
             holderChannel(device.userId, device.deviceId),
-            JSON.stringify({ t: 'revoke-actor', actorId } satisfies HolderMessage),
+            JSON.stringify({
+              t: 'revoke-actor',
+              actorId,
+              ...(teamId ? { teamId } : {}),
+            } satisfies HolderMessage),
           )
           .catch(() => {}),
       ),
@@ -126,5 +135,5 @@ export async function revokeBoxStreams(devices: AgentDevice[], actorIds: string[
 
 /** For a person who left the team, was removed, or lost a role: every Box of that team. */
 export async function revokeTeamBoxStreams(teamId: string, actorId: string): Promise<void> {
-  await revokeBoxStreams(await listTeamBoxes(teamId).catch(() => []), [actorId])
+  await revokeBoxStreams(await listTeamBoxes(teamId).catch(() => []), [actorId], teamId)
 }

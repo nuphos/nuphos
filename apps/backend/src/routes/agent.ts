@@ -19,10 +19,12 @@ import './agent/routes-device-runtime'
 
 import { agent } from './agent/router'
 import { conversationParticipantsRoutes } from './agent/routes-conversation-participants'
+import { createDeviceShareRoutes } from './agent/routes-devices-share'
 import { sessionConfigRoutes } from './agent/routes-session-config'
 
 agent.route('/', conversationParticipantsRoutes)
 agent.route('/', sessionConfigRoutes)
+agent.route('/', createDeviceShareRoutes())
 
 export { chatSurfaceMessage } from './agent/chat-surface'
 export { launchQueuedChatTurn } from './agent/session-queue-turn'

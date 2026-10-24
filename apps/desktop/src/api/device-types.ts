@@ -119,6 +119,25 @@ export type LocalRuntimeActivityPage = {
 export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
 /** A Box: a device Nuphos runs in a sandbox for its owner. */
+/** How far an owner lets teammates use their own computer's Local Agent. */
+export type LocalShareLevel = 'off' | 'approve' | 'full'
+
+/** Who a computer is shared with in one team, and how far. */
+export type LocalShareInput = { level: LocalShareLevel; everyone: boolean; userIds: string[] }
+
+/** A computer's share in one team, and the most the team's administrators allow. */
+export type LocalAgentShareState = { share: LocalShareInput; ceiling: LocalShareLevel }
+
+/** A teammate's conversation waiting for the owner's answer before it runs on their computer. */
+export type LocalShareApproval = {
+  id: string
+  deviceId: string
+  deviceLabel: string
+  sessionId: string
+  actorId: string
+  requestedAt: string
+}
+
 /** Who may use a Box besides the team's admins, who always may. */
 export type BoxAccess = { everyone: boolean; userIds: string[] }
 

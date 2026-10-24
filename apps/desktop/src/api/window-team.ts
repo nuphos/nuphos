@@ -155,6 +155,10 @@ export type WindowTeamApi = {
   atlasUpdateTeam(teamId: string, input: { name?: string; avatarUrl?: string }): Promise<AtlasTeam>
   atlasSetTeamEmailDomainDiscovery(teamId: string, enabled: boolean): Promise<AtlasTeam>
   atlasSetTeamAgentRuntime(teamId: string, runtime: AgentProvider): Promise<AtlasTeam>
+  atlasSetTeamLocalAgentSharing(
+    teamId: string,
+    level: 'off' | 'approve' | 'full',
+  ): Promise<AtlasTeam>
   atlasListDiscoverableTeams(): Promise<DiscoverableTeam[]>
   atlasJoinDiscoverableTeam(teamId: string): Promise<AtlasTeam>
   atlasListTeamMembers(teamId: string, includeRemoved?: boolean): Promise<TeamMember[]>

@@ -112,6 +112,8 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:setTeamEmailDomainDiscovery', teamId, enabled),
   atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>
     ipcRenderer.invoke('atlas:setTeamAgentRuntime', teamId, runtime),
+  atlasSetTeamLocalAgentSharing: (teamId: string, level: string) =>
+    ipcRenderer.invoke('atlas:setTeamLocalAgentSharing', teamId, level),
   atlasListDiscoverableTeams: () => ipcRenderer.invoke('atlas:listDiscoverableTeams'),
   atlasJoinDiscoverableTeam: (teamId: string) =>
     ipcRenderer.invoke('atlas:joinDiscoverableTeam', teamId),

@@ -61,6 +61,7 @@ import {
   requireUserOrConversationAuth,
 } from '@/routes/teams/conversation-auth'
 import { registerTeamInvitationRoutes } from '@/routes/teams/invitations'
+import { registerLocalAgentSharingRoutes } from '@/routes/teams/local-agent-sharing'
 import { registerTeamManagementRoutes } from '@/routes/teams/management'
 import { registerTeamsRootRoutes } from '@/routes/teams/root'
 import { tencentAccountsRoutes } from '@/routes/tencent-accounts'
@@ -92,6 +93,7 @@ teamScoped.use('*', requireTeamMember())
 teamScoped.use('*', dispatchConversationTeamApi)
 
 registerTeamManagementRoutes(teamScoped)
+registerLocalAgentSharingRoutes(teamScoped)
 registerTeamInvitationRoutes(teamScoped)
 registerAgentRuntimeRoutes(teamScoped)
 registerExternalRuntimeRoute(teamScoped)

@@ -60,7 +60,7 @@ export async function attachRuntimeTunnel(
   deps: TunnelHolderDeps,
 ): Promise<RuntimeTunnel> {
   const conn = randomUUID()
-  const streams = new Map<string, string>()
+  const streams = new Map<string, { actorId: string; teamId: string }>() // who opened it, in which team
   const channel = holderChannel(userId, deviceId)
   let status: LocalRuntimeStatus | undefined
   let recorded: string | undefined
@@ -133,7 +133,7 @@ export async function attachRuntimeTunnel(
 
       return
     }
-    streams.set(message.s, message.actorId)
+    streams.set(message.s, { actorId: message.actorId, teamId: message.teamId })
     connection.send({
       t: 'open',
       s: message.s,
@@ -158,14 +158,14 @@ export async function attachRuntimeTunnel(
 
         return
       case 'revoke-actor':
-        for (const [s, actorId] of streams)
-          if (actorId === message.actorId) {
+        for (const [s, { actorId, teamId }] of streams)
+          if (actorId === message.actorId && (message.teamId ?? teamId) === teamId) {
             streams.delete(s)
             connection.send({ t: 'close', s })
             void toStream(s, {
               t: 'close',
               code: 4003,
-              reason: 'Your access to this Box was removed',
+              reason: 'Your access to this computer was removed',
             })
           }
 

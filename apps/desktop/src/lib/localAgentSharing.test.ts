@@ -18,6 +18,22 @@ test('the Share note no longer says teammates can run commands on the computer',
   assert.doesNotMatch(LOCAL_AGENT_SHARING_NOTE, /run commands on your computer/)
 })
 
+test('a move onto a teammate’s shared computer says whose it is and whether they approve', () => {
+  const local = { ownerUserId: 'mate', deviceId: 'mac', deviceLabel: 'Mac', signedIn: true }
+  const approve = localAgentMoveWarning({
+    kind: 'local',
+    local: { ...local, shared: { level: 'approve' } },
+  })
+  const full = localAgentMoveWarning({
+    kind: 'local',
+    local: { ...local, shared: { level: 'full' } },
+  })
+
+  assert.match(approve ?? '', /teammate’s own computer/)
+  assert.match(approve ?? '', /They approve this agent/)
+  assert.doesNotMatch(full ?? '', /They approve/)
+})
+
 test('moves onto hosted agents need no Local Agent consent', () => {
   assert.equal(localAgentMoveWarning({ kind: 'managed' }), undefined)
   assert.equal(localAgentMoveWarning({ kind: 'external' }), undefined)

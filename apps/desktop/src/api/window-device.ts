@@ -16,6 +16,9 @@ import type {
   DeviceIdentity,
   LocalRuntimeActivityPage,
   LocalRuntimeState,
+  LocalAgentShareState,
+  LocalShareApproval,
+  LocalShareInput,
 } from './device-types.ts'
 
 export type WindowDeviceApi = {
@@ -63,6 +66,14 @@ export type WindowDeviceApi = {
   ): Promise<{ ok: true }>
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
   boxSetAccess(deviceId: string, teamId: string, access: BoxAccess): Promise<unknown>
+  localShareGet(deviceId: string, teamId: string): Promise<LocalAgentShareState>
+  localShareSet(
+    deviceId: string,
+    teamId: string,
+    input: LocalShareInput,
+  ): Promise<LocalAgentShareState>
+  localShareApprovals(teamId: string): Promise<LocalShareApproval[]>
+  localShareDecide(approvalId: string, approve: boolean): Promise<{ id: string; status: string }>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
   openSessionDesktop(teamId: string, sessionId: string): Promise<{ display: number }>
   boxUsage(teamId: string): Promise<BoxUsage>

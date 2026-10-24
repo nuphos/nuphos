@@ -44,6 +44,7 @@ export function BoxRow({
   agents,
   onSelect,
   onChanged,
+  onShare,
 }: {
   thisComputer: boolean
   teamId: string
@@ -51,6 +52,8 @@ export function BoxRow({
   agents: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
   onChanged: () => void
+  /** The person's own computer: share its local runtime with teammates. */
+  onShare?: () => void
 }) {
   const [busy, setBusy] = useState(false)
   // An older host's existing agent, signing in.
@@ -170,6 +173,7 @@ export function BoxRow({
               {canShareBox(device) && (
                 <MenuItem onClick={() => setSharing(true)}>Manage access…</MenuItem>
               )}
+              {onShare && <MenuItem onClick={onShare}>Share with teammates…</MenuItem>}
               {actions.resume && (
                 <MenuItem onClick={() => void resume()}>
                   {state === 'error' ? 'Retry' : 'Resume'}

@@ -174,6 +174,13 @@ export const teamChannels = {
     atlas.setTeamEmailDomainDiscovery(teamId, enabled),
   'atlas:setTeamAgentRuntime': (_e: unknown, teamId: string, runtime: AgentProvider) =>
     atlas.setTeamAgentRuntime(teamId, runtime),
+  'atlas:setTeamLocalAgentSharing': (_e: unknown, teamId: string, level: unknown) => {
+    const known = (['off', 'approve', 'full'] as const).find((value) => value === level)
+
+    if (!known) throw new TypeError('Expected a sharing level')
+
+    return atlas.setTeamLocalAgentSharing(teamId, known)
+  },
   'atlas:listDiscoverableTeams': () => atlas.listDiscoverableTeams(),
   'atlas:joinDiscoverableTeam': (_e: unknown, teamId: string) => atlas.joinDiscoverableTeam(teamId),
   'atlas:listTeamMembers': (_e: unknown, teamId: string, includeRemoved?: boolean) =>

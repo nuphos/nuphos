@@ -1,3 +1,4 @@
+import type { LocalShareLevel } from '@/lib/agent/devices/local-share-types'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
 export type NuphosUser = {
@@ -20,6 +21,7 @@ export type NuphosTeam = {
   contactEmails: string[]
   allowedEmailDomains: string[]
   agentRuntime: OpenAbProvider
+  localAgentSharing: LocalShareLevel
   createdAt: string
   role?: NuphosTeamRole
   billing: TeamBillingSummary

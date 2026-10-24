@@ -93,6 +93,8 @@ export const teamApi = {
     window.api.atlasSetTeamEmailDomainDiscovery(teamId, enabled),
   atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>
     window.api.atlasSetTeamAgentRuntime(teamId, runtime),
+  atlasSetTeamLocalAgentSharing: (teamId: string, level: 'off' | 'approve' | 'full') =>
+    window.api.atlasSetTeamLocalAgentSharing(teamId, level),
   atlasListDiscoverableTeams: () => window.api.atlasListDiscoverableTeams(),
   atlasJoinDiscoverableTeam: (teamId: string) => window.api.atlasJoinDiscoverableTeam(teamId),
   atlasListTeamMembers: (teamId: string, includeRemoved?: boolean) =>

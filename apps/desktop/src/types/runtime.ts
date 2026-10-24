@@ -38,6 +38,8 @@ export type LocalRuntimeSummary = {
   usageAt?: string
   /** Set when this computer is one of the owner's Boxes. */
   box?: { state: BoxState }
+  /** Set when it is a teammate's own computer they share with the viewer. */
+  shared?: { level: 'approve' | 'full' }
 }
 
 export type RuntimeInstance = {

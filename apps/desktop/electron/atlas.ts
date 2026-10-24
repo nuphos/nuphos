@@ -48,6 +48,7 @@ export * from './atlas/tailscale'
 export * from './atlas/team-extras'
 export * from './atlas/teams'
 export * from './atlas/claude-code'
+export { setTeamLocalAgentSharing } from './atlas/local-share'
 export * from './atlas/uptime-kuma'
 
 export * from './atlas/runtime-instances'

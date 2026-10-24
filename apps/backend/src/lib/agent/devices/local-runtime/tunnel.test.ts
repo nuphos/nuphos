@@ -189,6 +189,27 @@ describe('local runtime tunnel', () => {
     expect(bob.events.some((event) => event.type === 'close')).toBe(false)
   })
 
+  test('revoking someone in one team leaves their streams in another team open', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    await connectDesktop(bus, presence, new Set(['t1', 't2']), { echo: true })
+    const inT1 = openStream(bus, presence, 't1', 'alice')
+    const inT2 = openStream(bus, presence, 't2', 'alice')
+
+    await eventually(() => inT1.events.some((event) => event.type === 'open'))
+    await eventually(() => inT2.events.some((event) => event.type === 'open'))
+    await bus.publish(
+      holderChannel(owner.userId, owner.deviceId),
+      JSON.stringify({ t: 'revoke-actor', actorId: 'alice', teamId: 't1' }),
+    )
+    await eventually(() => inT1.events.some((event) => event.type === 'close'))
+    inT2.socket.send('still here')
+    await eventually(() => inT2.events.some((event) => event.type === 'message'))
+
+    expect(inT2.events.some((event) => event.type === 'close')).toBe(false)
+  })
+
   test('an offline computer fails the connection instead of hanging, and says why', async () => {
     let events: { type: string; reason?: string }[] = []
     const lines = await logged('warn', async () => {
