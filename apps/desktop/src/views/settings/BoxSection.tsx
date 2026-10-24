@@ -12,6 +12,7 @@ import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxP
 import { boxRestartEnded } from './boxRestartPresentation'
 import { boxRestarts } from './boxRestartStore'
 import { BoxRow } from './BoxRow'
+import { LocalAgentSharingCard } from './LocalAgentSharingCard'
 import { NewBoxDialog } from './NewBoxDialog'
 import { PanelHeading } from './RuntimePanel'
 import { useAgentDevices } from './useAgentDevices'
@@ -47,6 +48,7 @@ export function BoxSection({
 }) {
   const thisComputer = useThisComputer()
   const [creating, setCreating] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const previous = useRef<AgentDevice[]>([])
   const { usage, reload: reloadUsage } = useBoxUsage(teamId)
   const { isActive } = useWorkspaceTab()
@@ -87,6 +89,10 @@ export function BoxSection({
 
   // Everything ever registered stays listed; only its status follows presence.
   const owned = list?.devices ?? []
+  // Sharing is for the person's own computer, never a Box: its card sits under the computers.
+  const ownComputer = owned.find(
+    (device) => device.box === undefined && device.deviceId === thisComputer?.deviceId,
+  )
 
   return (
     <section aria-label="Computers" className="min-w-0">
@@ -147,6 +153,7 @@ export function BoxSection({
                   device={device}
                   agents={boxAgents(device.deviceId, instances)}
                   onSelect={onSelect}
+                  {...(device === ownComputer ? { onShare: () => setSharing(true) } : {})}
                   onChanged={() => {
                     reload()
                     reloadUsage()
@@ -154,6 +161,17 @@ export function BoxSection({
                 />
               ))}
             </ul>
+          )}
+          {ownComputer && thisComputer && (
+            <div className="mt-3">
+              <LocalAgentSharingCard
+                teamId={teamId}
+                currentUserId={thisComputer.userId}
+                device={ownComputer}
+                editing={sharing}
+                onEditingChange={setSharing}
+              />
+            </div>
           )}
         </div>
       </div>

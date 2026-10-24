@@ -177,7 +177,7 @@ export function LocalAgentCard({
           <div className="mt-0.5 text-[12px] text-tertiary">
             Once {name} is installed and signed in, your own agents in any of your teams can run it
             here while Nuphos is open — including shell commands with your user&apos;s access.
-            Nobody else can use it unless you share this computer below. {connectors}
+            Nobody else can use it. {connectors}
           </div>
         </div>
       </div>

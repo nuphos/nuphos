@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 import { LOCAL_AGENT_CARD, LocalAgentCard } from './LocalAgentCard'
-import { LocalAgentSharingCard } from './LocalAgentSharingCard'
 import { LocalRuntimeActivity } from './LocalRuntimeActivity'
 import { SectionHeader } from './shared'
 import { SleepPreventionSettings } from './SleepPreventionSettings'
@@ -57,11 +56,9 @@ function LocalAgentSkeleton() {
 
 export function LocalRuntimeSection({
   currentTeamId,
-  currentUserId,
   onOpenConversation,
 }: {
   currentTeamId?: string
-  currentUserId?: string
   onOpenConversation?: (sessionId: string) => void
 }) {
   const [state, setState] = useState<LocalRuntimeState | null>(null)
@@ -97,7 +94,7 @@ export function LocalRuntimeSection({
     <div>
       <SectionHeader
         title="Local runtime"
-        description="Claude Code and Codex on this computer, with your own sign-in, for your own agents unless you share it. Always on while Nuphos is open."
+        description="Claude Code and Codex on this computer, with your own sign-in, for your own agents only. Always on while Nuphos is open."
       />
 
       <SkeletonReveal ready={state !== null} skeleton={<LocalAgentSkeleton />}>
@@ -120,10 +117,6 @@ export function LocalRuntimeSection({
                 onCheck={() => void refresh()}
               />
             ))}
-
-            {currentTeamId && currentUserId && (
-              <LocalAgentSharingCard teamId={currentTeamId} currentUserId={currentUserId} />
-            )}
 
             {state.workspace && (
               <div

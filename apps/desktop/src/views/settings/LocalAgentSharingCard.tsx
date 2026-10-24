@@ -11,29 +11,30 @@ import { LOCAL_AGENT_CARD } from './LocalAgentCard'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { effectiveShare, shareSummary } from './localAgentSharingPresentation'
 
-import type {
-  DeviceIdentity,
-  LocalAgentShareState,
-  LocalShareApproval,
-} from '../../api/device-types'
+import type { LocalAgentShareState, LocalShareApproval } from '../../api/device-types'
 
 const APPROVAL_POLL_MS = 10_000
 
 /**
- * Sharing this computer's local runtime with teammates in the current team, and the
- * agents of theirs waiting for this person's approval before they run here.
+ * Sharing the person's own computer's local runtime with teammates in the current team,
+ * and the agents of theirs waiting for this person's approval before they run there.
+ * Shown on the Computers page under that computer; its menu opens the same dialog.
  */
 export function LocalAgentSharingCard({
   teamId,
   currentUserId,
+  device,
+  editing,
+  onEditingChange,
 }: {
   teamId: string
   currentUserId: string
+  device: { deviceId: string; label: string }
+  editing: boolean
+  onEditingChange: (editing: boolean) => void
 }) {
-  const [device, setDevice] = useState<DeviceIdentity | null>(null)
   const [state, setState] = useState<LocalAgentShareState | null>(null)
   const [approvals, setApprovals] = useState<LocalShareApproval[]>([])
-  const [editing, setEditing] = useState(false)
   const [deciding, setDeciding] = useState<string | null>(null)
   const members = useTeamMembers(teamId)
 
@@ -41,20 +42,16 @@ export function LocalAgentSharingCard({
     const live = { current: true }
 
     void api
-      .deviceGetIdentity()
-      .then(async (identity) => {
-        const next = await api.localShareGet(identity.deviceId, teamId)
-
-        if (!live.current) return
-        setDevice(identity)
-        setState(next)
+      .localShareGet(device.deviceId, teamId)
+      .then((next) => {
+        if (live.current) setState(next)
       })
       .catch(() => null)
 
     return () => {
       live.current = false
     }
-  }, [teamId])
+  }, [device.deviceId, teamId])
 
   const loadApprovals = useCallback(async () => {
     setApprovals(await api.localShareApprovals(teamId).catch(() => []))
@@ -81,7 +78,7 @@ export function LocalAgentSharingCard({
     }
   }
 
-  if (!device || !state) return null
+  if (!state) return null
   // Everyone but the viewer, once the members have loaded.
   const teammates = members.length > 0 ? members.length - 1 : undefined
   const nameOf = (userId: string) => {
@@ -94,7 +91,9 @@ export function LocalAgentSharingCard({
     <div className={LOCAL_AGENT_CARD}>
       <div className="flex items-center justify-between gap-4 px-4 py-3.5">
         <div className="min-w-0">
-          <div className="text-[13px] font-medium text-main">Share with teammates</div>
+          <div className="truncate text-[13px] font-medium text-main">
+            Share {device.label} with teammates
+          </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {state.ceiling === 'off'
               ? 'Your team’s administrators have turned off sharing your own computer.'
@@ -105,7 +104,7 @@ export function LocalAgentSharingCard({
           variant="ghost"
           size="sm"
           disabled={state.ceiling === 'off' && state.share.level === 'off'}
-          onClick={() => setEditing(true)}
+          onClick={() => onEditingChange(true)}
         >
           <Users strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
           {state.share.level === 'off' ? 'Share' : 'Change'}
@@ -153,7 +152,7 @@ export function LocalAgentSharingCard({
           deviceLabel={device.label}
           currentUserId={currentUserId}
           state={state}
-          onClose={() => setEditing(false)}
+          onClose={() => onEditingChange(false)}
           onSaved={setState}
         />
       )}

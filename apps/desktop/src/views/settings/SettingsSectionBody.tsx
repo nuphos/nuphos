@@ -37,12 +37,8 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   ),
   'account.personalCredentials': () => <PersonalCredentialsSection />,
   'device.appearance': () => <AppearanceSection />,
-  'device.localRuntime': ({ team, user, onOpenConversation }) => (
-    <LocalRuntimeSection
-      currentTeamId={team?.id}
-      currentUserId={user.id}
-      onOpenConversation={onOpenConversation}
-    />
+  'device.localRuntime': ({ team, onOpenConversation }) => (
+    <LocalRuntimeSection currentTeamId={team?.id} onOpenConversation={onOpenConversation} />
   ),
   'device.localExec': ({ team, onOpenConversation }) => (
     <LocalExecSection currentTeamId={team?.id} onOpenConversation={onOpenConversation} />
