@@ -49,6 +49,7 @@ export function BoxSection({
   const thisComputer = useThisComputer()
   const [creating, setCreating] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [shareable, setShareable] = useState(false)
   const previous = useRef<AgentDevice[]>([])
   const { usage, reload: reloadUsage } = useBoxUsage(teamId)
   const { isActive } = useWorkspaceTab()
@@ -153,7 +154,9 @@ export function BoxSection({
                   device={device}
                   agents={boxAgents(device.deviceId, instances)}
                   onSelect={onSelect}
-                  {...(device === ownComputer ? { onShare: () => setSharing(true) } : {})}
+                  {...(device === ownComputer && shareable
+                    ? { onShare: () => setSharing(true) }
+                    : {})}
                   onChanged={() => {
                     reload()
                     reloadUsage()
@@ -170,6 +173,7 @@ export function BoxSection({
                 device={ownComputer}
                 editing={sharing}
                 onEditingChange={setSharing}
+                onShareableChange={setShareable}
               />
             </div>
           )}

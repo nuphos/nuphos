@@ -26,12 +26,15 @@ export function LocalAgentSharingCard({
   device,
   editing,
   onEditingChange,
+  onShareableChange,
 }: {
   teamId: string
   currentUserId: string
   device: { deviceId: string; label: string }
   editing: boolean
   onEditingChange: (editing: boolean) => void
+  /** Whether there is anything to change: false when administrators turned sharing off and it is not shared. */
+  onShareableChange?: (shareable: boolean) => void
 }) {
   const [state, setState] = useState<LocalAgentShareState | null>(null)
   const [approvals, setApprovals] = useState<LocalShareApproval[]>([])
@@ -52,6 +55,12 @@ export function LocalAgentSharingCard({
       live.current = false
     }
   }, [device.deviceId, teamId])
+
+  const shareable = state ? !(state.ceiling === 'off' && state.share.level === 'off') : false
+
+  useEffect(() => {
+    onShareableChange?.(shareable)
+  }, [shareable, onShareableChange])
 
   const loadApprovals = useCallback(async () => {
     setApprovals(await api.localShareApprovals(teamId).catch(() => []))
@@ -103,7 +112,7 @@ export function LocalAgentSharingCard({
         <Button
           variant="ghost"
           size="sm"
-          disabled={state.ceiling === 'off' && state.share.level === 'off'}
+          disabled={!shareable}
           onClick={() => onEditingChange(true)}
         >
           <Users strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
@@ -145,7 +154,7 @@ export function LocalAgentSharingCard({
           ))}
         </ul>
       )}
-      {editing && (
+      {editing && shareable && (
         <LocalAgentShareDialog
           teamId={teamId}
           deviceId={device.deviceId}
