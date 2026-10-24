@@ -1,4 +1,4 @@
-![Nuphos — The Agent Workspace for your team.](https://cdn.zeabur.com/nuphos-banner.png)
+![Nuphos — The Agent Workspace for your team.](assets/nuphos-banner.png)
 
 # Nuphos
 
