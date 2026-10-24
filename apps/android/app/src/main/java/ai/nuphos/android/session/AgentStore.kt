@@ -190,6 +190,61 @@ class AgentStore(
         reload()
     }
 
+    var rowActionSessionId: String? by mutableStateOf(null)
+        private set
+    var rowActionError: String? by mutableStateOf(null)
+        private set
+    fun clearRowActionError() { rowActionError = null }
+    fun canPin(row: AgentConversation) = currentActionRow(row) != null && favorites != null && !favoritesLoading
+    fun canArchive(row: AgentConversation) = currentActionRow(row)?.let {
+        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+    } == true
+
+    private fun currentActionRow(row: AgentConversation): AgentConversation? {
+        val team = selectedTeam?.id ?: return null
+        if (disposed || !hasAiAccess() || (row.teamId != null && row.teamId != team)) return null
+        return conversations.firstOrNull { it.sessionId == row.sessionId && (it.teamId ?: team) == team }
+    }
+
+    /** Read fresh server metadata without opening a chat or resuming its active turn. */
+    private suspend fun rowAction(row: AgentConversation, archive: Boolean?, pinned: Boolean?) {
+        val current = currentActionRow(row) ?: return
+        val team = selectedTeam?.id ?: return
+        if (rowActionSessionId != null || (pinned != null && !canPin(current)) ||
+            (archive != null && (!canArchive(current) || current.isArchived != row.isArchived))) return
+        val revision = workspaceRevision
+        fun valid() = !disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision && currentActionRow(row) != null
+        rowActionSessionId = current.sessionId
+        rowActionError = null
+        try {
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            if (!valid()) return
+            if (archive != null) {
+                require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
+                // A retained confirmation must not invert a concurrently changed archive state.
+                require((detail.archivedAt != null) == row.isArchived)
+                ConversationActions.archive(token, team, current.sessionId, archive)
+                if (valid()) reload()
+            } else if (pinned != null) {
+                if (!canPin(current)) return
+                val ticket = favoritesRequests.begin(team)
+                val saved = ConversationActions.pin(token, team, current.sessionId, detail.title ?: current.displayTitle, pinned)
+                if (valid() && favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) {
+                    favorites = saved
+                    favoritesError = null
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (valid()) rowActionError = "Action failed. Refresh the list and try again."
+        } finally {
+            if (workspaceRevision == revision) rowActionSessionId = null
+        }
+    }
+    suspend fun pin(row: AgentConversation, pinned: Boolean) = rowAction(row, archive = null, pinned = pinned)
+    suspend fun archive(row: AgentConversation, archived: Boolean) = rowAction(row, archive = archived, pinned = null)
+
     var watchingSessionId: String? by mutableStateOf(null)
         private set
     var watchError: String? by mutableStateOf(null)
@@ -395,6 +450,8 @@ class AgentStore(
             val pick = loaded.firstOrNull { it.id == remembered } ?: loaded.firstOrNull()
             if (pick != selectedTeam) {
                 workspaceRevision++
+                rowActionSessionId = null
+                rowActionError = null
                 watchingSessionId = null
                 watchError = null
                 unlinkingSessionId = null
@@ -428,6 +485,8 @@ class AgentStore(
             val refreshed = saved.firstOrNull { it.id == old.id }
             if (refreshed == null) {
                 workspaceRevision++
+                rowActionSessionId = null
+                rowActionError = null
                 watchingSessionId = null
                 watchError = null
                 unlinkingSessionId = null
@@ -440,6 +499,8 @@ class AgentStore(
                 if (refreshed != old) {
                     credentials = credentials.reset()
                     workspaceRevision++
+                    rowActionSessionId = null
+                    rowActionError = null
                     watchingSessionId = null
                     watchError = null
                     unlinkingSessionId = null
@@ -457,6 +518,8 @@ class AgentStore(
         val verified = teams.firstOrNull { it.id == team.id } ?: return
         if (verified == selectedTeam) return
         workspaceRevision++
+        rowActionSessionId = null
+        rowActionError = null
         watchingSessionId = null
         watchError = null
         unlinkingSessionId = null
@@ -636,6 +699,8 @@ class AgentStore(
         credentials = credentials.reset()
         membershipRequest++
         workspaceRevision++
+        rowActionSessionId = null
+        rowActionError = null
         watchingSessionId = null
         watchError = null
         unlinkingSessionId = null

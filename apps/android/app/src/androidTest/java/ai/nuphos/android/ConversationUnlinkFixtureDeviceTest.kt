@@ -46,6 +46,10 @@ class ConversationUnlinkFixtureDeviceTest {
     private var preferences: Map<String, *> = emptyMap<String, Any>()
     @Volatile private var responseCode = 200
     @Volatile private var responseBody = """{"ok":true,"parentSessionId":null}"""
+    @Volatile private var detailBody = """{"messages":[],"title":"Synthetic child","isOwner":true,"canManage":true,"readOnly":false}"""
+    @Volatile private var detailCode = 200
+    private var detailEntered: java.util.concurrent.CountDownLatch? = null
+    private var detailRelease: java.util.concurrent.CountDownLatch? = null
     private var entered: java.util.concurrent.CountDownLatch? = null
     private var release: java.util.concurrent.CountDownLatch? = null
     private val entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
@@ -68,17 +72,28 @@ class ConversationUnlinkFixtureDeviceTest {
             val client = OkHttpClient.Builder().addInterceptor { chain ->
                 val req = chain.request(); requests += req
                 val path = req.url.encodedPath
+                if (path == "/agent/conversations/child" && req.method == "GET") {
+                    detailEntered?.countDown()
+                    check(detailRelease?.await(10, java.util.concurrent.TimeUnit.SECONDS) != false)
+                }
                 if (req.method == "DELETE") {
                     entered?.countDown()
                     check(release?.await(10, java.util.concurrent.TimeUnit.SECONDS) != false)
                 }
                 val text = when (path) {
                     "/agent/conversations/child/parent" -> responseBody
+                    "/agent/conversations/child" -> detailBody
+                    "/agent/conversations/child/archive" -> """{"ok":true,"archived":true}"""
                     "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites" -> """{"revision":1,"entries":$entries}"""
-                    "/agent/conversations" -> """{"conversations":[],"hasMore":false}"""
+                    "/agent/conversations" -> """{"conversations":${kotlinx.serialization.json.Json.encodeToString(kotlinx.serialization.builtins.ListSerializer(AgentConversation.serializer()), if (::store.isInitialized) store.conversations else emptyList())},"hasMore":false}"""
                     else -> "{}"
                 }
-                val code = if (path == "/agent/conversations/child/parent") responseCode else if (path in setOf("/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites", "/agent/conversations")) 200 else 404
+                val code = when (path) {
+                    "/agent/conversations/child/parent" -> responseCode
+                    "/agent/conversations/child" -> detailCode
+                    "/agent/conversations/child/archive", "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites", "/agent/conversations" -> 200
+                    else -> 404
+                }
                 Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                     .body(text.toResponseBody(Http.jsonMedia)).build()
             }.build()
@@ -152,7 +167,8 @@ class ConversationUnlinkFixtureDeviceTest {
     private fun deletes() = requests.count { it.method == "DELETE" }
     private fun child() = store.conversations.first { it.sessionId == "child" }
     private fun openConfirm() {
-        compose.onAllNodesWithText("Unlink")[0].performClick()
+        compose.onNodeWithTag("row-more:child").performClick()
+        compose.onNodeWithTag("menu-unlink:child").performClick()
         waitText("Unlink agent?")
     }
     private fun confirm() { compose.onAllNodesWithText("Unlink").onLast().performClick() }
@@ -194,7 +210,9 @@ class ConversationUnlinkFixtureDeviceTest {
             child().copy(readOnly = true), child().copy(parentSessionId = null), child().copy(teamId = "bbbbbbbbbbbbbbbbbbbbbbbb"))
         for (row in denied) {
             compose.runOnIdle { state(store, "conversations").value = listOf(row) }
-            compose.onAllNodesWithText("Unlink").assertCountEquals(0)
+            compose.onNodeWithTag("row-more:child").performClick()
+            compose.onNodeWithTag("menu-unlink:child").assertDoesNotExist()
+            androidx.test.espresso.Espresso.pressBack()
             runBlocking(Dispatchers.Main) { store.unlinkParent(row) }
         }
         assertEquals(0, deletes())
@@ -223,5 +241,84 @@ class ConversationUnlinkFixtureDeviceTest {
         compose.runOnIdle { store.disposeForConsent() }
         release!!.countDown(); Thread.sleep(400); compose.waitForIdle()
         assertTrue(store.conversations.isEmpty()); assertNull(store.unlinkError)
+    }
+
+    @Test fun rowArchiveReadsCurrentPermissionsAndDoesNotResumeAChat() {
+        render()
+        val target = child()
+        detailBody = """{"messages":[],"isOwner":true,"canManage":false,"readOnly":false}"""
+        runBlocking(Dispatchers.Main) { store.archive(target, true) }
+        assertNotNull(store.rowActionError)
+        assertTrue(requests.none { it.method == "PATCH" })
+        detailBody = """{"messages":[],"isOwner":true,"canManage":true,"readOnly":false}"""
+        runBlocking(Dispatchers.Main) { store.archive(target, true) }
+        assertEquals(1, requests.count { it.method == "PATCH" && it.url.encodedPath.endsWith("/archive") })
+        assertNull(store.rowActionError)
+        assertTrue(requests.none { it.url.encodedPath.contains("stream") || it.url.encodedPath.contains("bypass") })
+    }
+
+    @Test fun deniedDetailPreventsPinWriteAndRetainsRetry() {
+        render()
+        compose.waitUntil(5_000) { store.favorites != null }
+        detailCode = 403
+        runBlocking(Dispatchers.Main) { store.pin(child(), true) }
+        assertNotNull(store.rowActionError)
+        assertTrue(requests.none { it.method == "PUT" })
+        assertNull(store.rowActionSessionId)
+    }
+
+    @Test fun archiveConfirmationCancelAndFullSwipeDoNotWrite() {
+        render()
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        assertTrue(requests.none { it.method in setOf("PUT", "PATCH", "DELETE") })
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithTag("row-more:child").performClick()
+        compose.onNodeWithTag("menu-archive:child").performClick()
+        compose.onNodeWithText("Archive agent?").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        assertTrue(requests.none { it.method in setOf("PUT", "PATCH", "DELETE") })
+    }
+
+    @Test fun rowPinReadsMetadataAndRejectsDuplicateWhilePending() {
+        render()
+        compose.waitUntil(5_000) { store.favorites != null && !store.favoritesLoading }
+        detailEntered = java.util.concurrent.CountDownLatch(1)
+        detailRelease = java.util.concurrent.CountDownLatch(1)
+        val target = child()
+        val job = CoroutineScope(Dispatchers.Main).launch { store.pin(target, true) }
+        assertTrue(detailEntered!!.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        runBlocking(Dispatchers.Main) { store.pin(target, true); store.archive(target, true) }
+        assertEquals(1, requests.count { it.url.encodedPath == "/agent/conversations/child" })
+        detailRelease!!.countDown()
+        runBlocking { job.join() }
+        assertEquals(1, requests.count { it.method == "PUT" })
+        assertTrue(requests.none { it.method == "PATCH" || it.url.encodedPath.contains("stream") })
+    }
+
+    @Test fun rowMetadataReadCannotWriteAfterWorkspaceRoundTrip() {
+        render()
+        compose.waitUntil(5_000) { store.favorites != null && !store.favoritesLoading }
+        detailEntered = java.util.concurrent.CountDownLatch(1)
+        detailRelease = java.util.concurrent.CountDownLatch(1)
+        val job = CoroutineScope(Dispatchers.Main).launch { store.pin(child(), true) }
+        assertTrue(detailEntered!!.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        compose.runOnIdle {
+            store.select(Team("bbbbbbbbbbbbbbbbbbbbbbbb", "Fixture B"))
+            store.select(Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A"))
+        }
+        detailRelease!!.countDown()
+        runBlocking { job.join() }
+        assertTrue(requests.none { it.method in setOf("PUT", "PATCH", "DELETE") })
+        assertNull(store.rowActionSessionId)
+    }
+
+    @Test fun reorderingLoadedRowsClosesRevealedActions() {
+        render()
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("row-rail:child").assertExists()
+        compose.runOnIdle { state(store, "conversations").value = store.conversations.reversed() }
+        compose.onNodeWithTag("row-rail:child").assertDoesNotExist()
+        assertTrue(requests.none { it.method in setOf("PUT", "PATCH", "DELETE") })
     }
 }

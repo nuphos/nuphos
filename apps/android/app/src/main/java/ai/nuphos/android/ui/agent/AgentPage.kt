@@ -2,11 +2,8 @@ package ai.nuphos.android.ui.agent
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -32,6 +29,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.LinkOff
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
@@ -104,6 +105,31 @@ fun AgentPage(
     val consentRevision = ai.nuphos.android.session.AiAccess.revision
     LaunchedEffect(store, team, revision) { store.loadCredentialOptions() }
     val authGeneration = auth.generation
+    val rowInteractions = remember(store, revision, consentRevision, authGeneration, team?.id) { ConversationRowInteractions() }
+    val rowOrder = store.conversations.map { it.sessionId to it.parentSessionId }
+    LaunchedEffect(rowOrder, store.sort, store.search, store.archivedOnly) { rowInteractions.dismiss() }
+    LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) rowInteractions.dismiss() }
+    var archiveTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
+    if (store.rowActionError != null && archiveTarget == null) AlertDialog(
+        onDismissRequest = { store.clearRowActionError() }, title = { Text("Action failed") },
+        text = { Text(store.rowActionError.orEmpty()) },
+        confirmButton = { TextButton(onClick = { store.clearRowActionError(); scope.launch { store.reload(); store.loadFavorites() } }) { Text("Refresh") } },
+    )
+    archiveTarget?.takeIf { store.canArchive(it) }?.let { target ->
+        val busy = store.rowActionSessionId != null
+        AlertDialog(onDismissRequest = { if (!busy) { archiveTarget = null; store.clearRowActionError() } },
+            title = { Text(if (target.isArchived) "Restore agent?" else "Archive agent?") },
+            text = { Column {
+                Text(if (target.isArchived) "Move this agent to Active." else "You can restore this agent from Archived.")
+                store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            } },
+            confirmButton = { TextButton(enabled = !busy, onClick = { scope.launch {
+                store.archive(target, !target.isArchived)
+                if (store.rowActionError == null) archiveTarget = null
+            } }) { Text(if (busy) "Saving…" else if (target.isArchived) "Restore" else "Archive") } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { archiveTarget = null; store.clearRowActionError() }) { Text("Cancel") } },
+        )
+    }
 
     var unlinkTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
     if (store.watchError != null) AlertDialog(onDismissRequest = { store.clearWatchError() },
@@ -131,6 +157,7 @@ fun AgentPage(
         ConversationNesting.nest(store.conversations, pins.mapTo(mutableSetOf()) { it.sessionId }, foldedIds.toSet(), account)
     }
     val treeSections = remember(tree) { tree.rows.groupBy { it.section } }
+    LaunchedEffect(tree.rows.map { Triple(it.conversation.sessionId, it.depth, it.section) }) { rowInteractions.dismiss() }
     val shortcuts = pins.filter { it.sessionId !in tree.loadedPinnedIds }
     LaunchedEffect(store, store.selectedTeam?.id) { store.loadFavorites() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
@@ -143,7 +170,7 @@ fun AgentPage(
             }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().dismissRowActionsOnOutsidePress(rowInteractions)) {
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = !store.archivedOnly, onClick = { store.updateArchivedOnly(false) }, label = { Text("Active") })
             FilterChip(selected = store.archivedOnly, onClick = { store.updateArchivedOnly(true) }, label = { Text("Archived") })
@@ -237,6 +264,11 @@ fun AgentPage(
                                     watchBusy = store.watchingSessionId != null,
                                     onUnlink = if (store.canUnlink(row.conversation)) ({ store.clearUnlinkError(); unlinkTarget = row.conversation }) else null,
                                     unlinking = store.unlinkingSessionId == row.conversation.sessionId,
+                                    interactions = rowInteractions,
+                                    onPin = { scope.launch { store.pin(row.conversation, store.favorites?.contains(row.conversation.sessionId) != true) } },
+                                    pinEnabled = store.canPin(row.conversation),
+                                    onArchive = if (store.canArchive(row.conversation)) ({ store.clearRowActionError(); archiveTarget = row.conversation }) else null,
+                                    actionBusy = store.rowActionSessionId != null,
                                     onToggle = {
                                         foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
                                     },
@@ -271,68 +303,77 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 
 /** Cap visual indentation so malformed/deep trees cannot squeeze the title off-screen. */
 @Composable
-internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false) {
+internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false) {
     val depth = row.depth.coerceAtMost(4)
     val line = MaterialTheme.colorScheme.outlineVariant
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-        if (depth > 0) Canvas(Modifier.width((depth * 16).dp).fillMaxHeight()) {
-            val x = size.width - 8.dp.toPx()
+    Box(Modifier.fillMaxWidth().drawBehind {
+        if (depth > 0) {
+            val indent = (depth * 16).dp.toPx()
+            val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+            val x = if (rtl) size.width - indent + 8.dp.toPx() else indent - 8.dp.toPx()
+            val end = if (rtl) size.width - indent else indent
             drawLine(line, Offset(x, 0f), Offset(x, size.height / 2), 1.dp.toPx())
-            drawLine(line, Offset(x, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
+            drawLine(line, Offset(x, size.height / 2), Offset(end, size.height / 2), 1.dp.toPx())
         }
-        Box(Modifier.weight(1f).semantics { stateDescription = "Sub-agent level ${row.depth}"; this.selected = selected }) {
-            ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected)
-        }
+    }.padding(start = (depth * 16).dp).semantics {
+        stateDescription = "Sub-agent level ${row.depth}"; this.selected = selected
+    }) {
+        ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onPin, pinEnabled, onArchive, actionBusy)
     }
 }
 
 @Composable
-private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(0.dp),
-    ) {
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false) {
+    val actions = buildList {
+        if (onWatch != null) add(ConversationRowAction("watch", if (conversation.watching == true) "Unwatch" else "Watch",
+            if (conversation.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, !watchBusy && !actionBusy, onWatch))
+        if (onUnlink != null) add(ConversationRowAction("unlink", if (unlinking) "Unlinking…" else "Unlink", Icons.Outlined.LinkOff, !unlinking && !actionBusy, onUnlink))
+        if (onPin != null) add(ConversationRowAction("pin", if (pinned) "Unpin" else "Pin", Icons.Outlined.PushPin, pinEnabled && !actionBusy, onPin))
+        if (onArchive != null) add(ConversationRowAction("archive", if (conversation.isArchived) "Restore" else "Archive",
+            if (conversation.isArchived) Icons.Outlined.Unarchive else Icons.Outlined.Archive, !actionBusy, onArchive))
+    }
+    ConversationRowActions(conversation.sessionId, actions, interactions, onClick) { surface, more ->
+        Card(
+            modifier = Modifier.fillMaxWidth().then(surface),
+            colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow),
+            shape = MaterialTheme.shapes.large,
+            elevation = CardDefaults.cardElevation(0.dp),
         ) {
-            NuphosAvatar(
-                NuphosUser(
-                    id = conversation.owner?.id.orEmpty(),
-                    email = conversation.owner?.email.orEmpty(),
-                    name = conversation.owner?.name.orEmpty(),
-                    avatarURL = conversation.owner?.avatarURL.orEmpty(),
-                ),
-                size = 40.dp,
-            )
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(conversation.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (status != null) Text(status, style = MaterialTheme.typography.labelSmall)
-                else if (HistoryStatus.unread(conversation)) Text("Unread", style = MaterialTheme.typography.labelSmall)
-                Text(meta(conversation), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (threads > 0) {
-                TextButton(onClick = onToggle, modifier = Modifier.semantics {
-                    stateDescription = if (folded) "Collapsed" else "Expanded"
-                }) {
-                    Text("$threads")
-                    Icon(if (folded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
-                        contentDescription = "${if (folded) "Show" else "Hide"} $threads sub-agents")
+            Row(
+                Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NuphosAvatar(
+                    NuphosUser(
+                        id = conversation.owner?.id.orEmpty(),
+                        email = conversation.owner?.email.orEmpty(),
+                        name = conversation.owner?.name.orEmpty(),
+                        avatarURL = conversation.owner?.avatarURL.orEmpty(),
+                    ),
+                    size = 40.dp,
+                )
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(conversation.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (status != null) Text(status, style = MaterialTheme.typography.labelSmall)
+                    else if (HistoryStatus.unread(conversation)) Text("Unread", style = MaterialTheme.typography.labelSmall)
+                    Text(meta(conversation), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-            }
-            if (onWatch != null) TextButton(onClick = onWatch, enabled = !watchBusy) {
-                Text(if (conversation.watching == true) "Unwatch" else "Watch")
-            }
-            if (onUnlink != null) TextButton(onClick = onUnlink, enabled = !unlinking) {
-                Text(if (unlinking) "Unlinking…" else "Unlink")
-            }
-            if (pinned) {
-                Icon(Icons.Outlined.PushPin, contentDescription = "Pinned agent", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
-            }
-            if (conversation.isArchived) {
-                Icon(Icons.Outlined.Archive, contentDescription = "Archived", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                if (threads > 0) {
+                    TextButton(onClick = onToggle, modifier = Modifier.semantics {
+                        stateDescription = if (folded) "Collapsed" else "Expanded"
+                    }) {
+                        Text("$threads")
+                        Icon(if (folded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+                            contentDescription = "${if (folded) "Show" else "Hide"} $threads sub-agents")
+                    }
+                }
+                more()
+                if (pinned) {
+                    Icon(Icons.Outlined.PushPin, contentDescription = "Pinned agent", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                }
+                if (conversation.isArchived) {
+                    Icon(Icons.Outlined.Archive, contentDescription = "Archived", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }

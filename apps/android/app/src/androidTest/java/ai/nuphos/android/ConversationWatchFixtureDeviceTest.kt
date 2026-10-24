@@ -55,7 +55,7 @@ class ConversationWatchFixtureDeviceTest {
     private val network = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-            require(app.packageName == "ai.nuphos.android.watchfixture") { "Use the independent watch fixture package; never the Play installation." }
+            require(app.packageName in setOf("ai.nuphos.android.watchfixture", "ai.nuphos.android.rowactions1357")) { "Use an independent fixture package; never the Play installation." }
             require(InstrumentationRegistry.getArguments().getString("isolatedWatch") == "true")
             preferences = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all.toMap()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -160,7 +160,8 @@ class ConversationWatchFixtureDeviceTest {
     @Test fun sharedReaderCanUnwatchCascadeAndWatchAgainFromListAndMenu() {
         render()
         shot("list-before")
-        compose.onAllNodesWithText("Unwatch")[0].performClick()
+        compose.onNodeWithTag("row-more:parent").performClick()
+        compose.onNodeWithTag("menu-watch:parent").performClick()
         compose.waitUntil(5_000) { !watched && store.watchingSessionId == null && store.conversations.all { it.watching == false } }
         shot("list-after-cascade")
         compose.onNodeWithText("Synthetic shared parent").performClick()
@@ -220,14 +221,16 @@ class ConversationWatchFixtureDeviceTest {
     @Test fun failedWriteLeavesStateAndAllowsExplicitRetry() {
         render()
         rejectNext = true
-        compose.onAllNodesWithText("Unwatch")[0].performClick()
+        compose.onNodeWithTag("row-more:parent").performClick()
+        compose.onNodeWithTag("menu-watch:parent").performClick()
         waitText("Watch update failed")
         assertTrue(watched)
         assertEquals(true, store.conversations.first().watching)
         shot("failure-retry")
         compose.onNodeWithText("Refresh").performClick()
         compose.waitUntil(5_000) { store.watchError == null }
-        compose.onAllNodesWithText("Unwatch")[0].performClick()
+        compose.onNodeWithTag("row-more:parent").performClick()
+        compose.onNodeWithTag("menu-watch:parent").performClick()
         compose.waitUntil(5_000) { !watched && store.watchingSessionId == null }
         assertEquals(2, requests.count { it.method == "DELETE" })
     }

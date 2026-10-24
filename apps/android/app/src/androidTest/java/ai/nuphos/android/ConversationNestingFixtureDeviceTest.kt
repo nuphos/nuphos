@@ -66,7 +66,7 @@ class ConversationNestingFixtureDeviceTest {
                 val path = req.url.encodedPath
                 val text = when (path) {
                     "/teams/A/favorites" -> """{"revision":1,"entries":$entries}"""
-                    "/agent/conversations" -> """{"conversations":[],"hasMore":false}"""
+                    "/agent/conversations" -> """{"conversations":${kotlinx.serialization.json.Json.encodeToString(kotlinx.serialization.builtins.ListSerializer(AgentConversation.serializer()), if (::store.isInitialized) store.conversations else emptyList())},"hasMore":false}"""
                     else -> "{}"
                 }
                 val code = if (path in setOf("/teams/A/favorites", "/agent/conversations")) 200 else 404
