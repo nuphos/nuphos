@@ -11,11 +11,13 @@ import {
   Pencil,
   Pin,
   PinOff,
+  X,
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { toggleChatSummary, useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
 import {
@@ -40,6 +42,7 @@ import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
 
 import { agentSessionUrl } from './sessionUrl'
+import { SummaryIcon } from './summary/ChatSummaryToggle'
 import { useArchiveSession } from './useArchiveSession'
 
 type Props = {
@@ -58,6 +61,10 @@ type Props = {
   onFork: () => void
   /** False for read-only (audit) views, which must never offer a fork. */
   canFork: boolean
+  /** Closes this pane of a split window, as ⌘W does; absent when it is the only pane. */
+  onClosePane?: () => void
+  /** The pane is too narrow for the summary button, so the menu offers it. */
+  summaryInMenu?: boolean
 }
 
 function findPin(userId: string, teamId: string, sessionId: string) {
@@ -92,8 +99,11 @@ export function SessionHeaderMenu({
   onRename,
   onFork,
   canFork,
+  onClosePane,
+  summaryInMenu = false,
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
+  const summaryOpen = useChatSummaryOpen()
   const pin = useSessionPin(userId, teamId, sessionId)
   // What the server said when the chat opened; a toggle here wins after that.
   const [toggled, setToggled] = useState<boolean | undefined>(undefined)
@@ -111,6 +121,9 @@ export function SessionHeaderMenu({
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
   const renameOnClose = useRef(false)
+  // Closing the pane waits too: the menu hands focus back to its trigger in this
+  // pane, which would make the closed pane the active one again.
+  const closePaneOnClose = useRef(false)
 
   function togglePin() {
     if (pin) {
@@ -159,7 +172,12 @@ export function SessionHeaderMenu({
   return (
     <Menu
       onOpenChangeComplete={(open) => {
-        if (open || !renameOnClose.current) return
+        if (open) return
+        if (closePaneOnClose.current) {
+          closePaneOnClose.current = false
+          onClosePane?.()
+        }
+        if (!renameOnClose.current) return
         renameOnClose.current = false
         onRename()
       }}
@@ -173,6 +191,18 @@ export function SessionHeaderMenu({
         </MenuTrigger>
       </Tooltip>
       <MenuContent align="end" className="w-max min-w-[200px]">
+        {summaryInMenu && (
+          <>
+            <MenuItem
+              icon={<SummaryIcon />}
+              hint={<ShortcutHint combo="mod+i" className="pl-4" />}
+              onClick={toggleChatSummary}
+            >
+              {summaryOpen ? 'Hide agent summary' : 'Show agent summary'}
+            </MenuItem>
+            <MenuSeparator />
+          </>
+        )}
         {canRename && (
           <MenuItem
             icon={<Pencil className="h-3.5 w-3.5" />}
@@ -239,6 +269,20 @@ export function SessionHeaderMenu({
               onClick={() => void archive()}
             >
               {archiving ? 'Archiving…' : 'Archive agent'}
+            </MenuItem>
+          </>
+        )}
+        {onClosePane && (
+          <>
+            <MenuSeparator />
+            <MenuItem
+              icon={<X className="h-3.5 w-3.5" />}
+              hint={<ShortcutHint combo="mod+w" className="pl-4" />}
+              onClick={() => {
+                closePaneOnClose.current = true
+              }}
+            >
+              Close pane
             </MenuItem>
           </>
         )}

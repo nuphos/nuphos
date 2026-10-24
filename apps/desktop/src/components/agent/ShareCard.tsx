@@ -1,6 +1,6 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { Check, Copy, Link2, Loader2 } from 'lucide-react'
+import { Check, Copy, Link2, Loader2, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
@@ -34,13 +34,20 @@ const AVATAR_SIZE = 22
 const AVATAR_CHROME = 'shrink-0 !rounded-full border-2 border-agentCanvas !shadow-none'
 const VISIBLE_AVATARS = 3
 
-export function AvatarStack({ participants }: { participants: AgentConversationParticipant[] }) {
+export function AvatarStack({
+  participants,
+  visible = VISIBLE_AVATARS,
+}: {
+  participants: AgentConversationParticipant[]
+  /** A narrow pane header shows one avatar, then "+N". */
+  visible?: number
+}) {
   if (participants.length === 0) return null
-  const hidden = participants.length - VISIBLE_AVATARS
+  const hidden = participants.length - visible
 
   return (
     <span className="flex -space-x-1.5">
-      {participants.slice(0, VISIBLE_AVATARS).map((participant) => (
+      {participants.slice(0, visible).map((participant) => (
         <Avatar
           key={participant.id}
           src={participant.avatarURL}
@@ -61,6 +68,31 @@ export function AvatarStack({ participants }: { participants: AgentConversationP
         </span>
       )}
     </span>
+  )
+}
+
+/** The titlebar Share button's face. A narrow pane keeps one avatar, or an icon. */
+export function ShareButtonFace({
+  participants,
+  compact,
+}: {
+  participants: AgentConversationParticipant[]
+  compact?: boolean
+}) {
+  if (!compact)
+    return (
+      <>
+        <AvatarStack participants={participants} />
+        Share
+      </>
+    )
+
+  return (
+    <>
+      <AvatarStack participants={participants} visible={1} />
+      {participants.length === 0 && <UserPlus className="h-3.5 w-3.5" aria-hidden />}
+      <span className="sr-only">Share</span>
+    </>
   )
 }
 

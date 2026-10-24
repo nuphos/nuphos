@@ -13,8 +13,8 @@ import { agentSessionUrl } from './sessionUrl'
 import { GeneralAccessRow, RoleMenu } from './ShareAccess'
 import {
   AddedReceipt,
-  AvatarStack,
   ParticipantList,
+  ShareButtonFace,
   ShareLink,
   TitlebarDragSuspender,
 } from './ShareCard'
@@ -47,6 +47,7 @@ export function SessionParticipants({
   currentUserId,
   canManage,
   warnLocalAgent,
+  compact,
 }: {
   sessionId: string
   teamId: string
@@ -56,6 +57,8 @@ export function SessionParticipants({
   canManage: boolean
   /** The viewer owns this session and it runs on their own computer's Local Agent. */
   warnLocalAgent: boolean
+  /** A narrow pane header: one avatar and no "Share" label. */
+  compact?: boolean
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
   const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
@@ -194,8 +197,7 @@ export function SessionParticipants({
         )}
         title="Share this agent with a teammate"
       >
-        <AvatarStack participants={participants} />
-        Share
+        <ShareButtonFace participants={participants} compact={compact} />
       </Popover.Trigger>
       <Popover.Portal>
         <TitlebarDragSuspender />

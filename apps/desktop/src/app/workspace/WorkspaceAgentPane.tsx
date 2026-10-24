@@ -15,9 +15,10 @@ import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
-import { PaneCloseButton } from './PaneCloseButton'
 import { PaneGrip } from './PaneGrip'
+import { PaneMenu } from './PaneMenu'
 import { SessionFindBar } from './SessionFindBar'
+import { useTitlebarFit } from './titlebarFit'
 import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -33,7 +34,9 @@ export function WorkspaceAgentPane({
   user: UserInfo
   workspaceExpanded?: boolean
 }) {
-  const paneActive = useWorkspacePane()?.active ?? true
+  const pane = useWorkspacePane()
+  const paneActive = pane?.active ?? true
+  const paneInFront = paneActive && !ws.mainPageOpen
   const {
     accounts,
     activeKubeContext,
@@ -118,6 +121,7 @@ export function WorkspaceAgentPane({
   // the dock has finished its width transition back.
   const contentRef = useRef<HTMLDivElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
+  const [titlebarRef, { compact, tight }] = useTitlebarFit()
 
   useLayoutEffect(() => {
     const content = contentRef.current
@@ -161,6 +165,7 @@ export function WorkspaceAgentPane({
     >
       <div ref={contentRef} className="flex min-h-0 w-full flex-1 flex-col">
         <div
+          ref={titlebarRef}
           className={clsx(
             'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
             // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
@@ -169,11 +174,10 @@ export function WorkspaceAgentPane({
             dockOpen ? 'pr-3' : 'pr-12',
           )}
         >
-          {/* Keep the native drag rectangle beside the Share action so hit testing
-            never relies on a no-drag hole inside its draggable ancestor. */}
+          {/* Drag area sits beside Share (no no-drag hole); it clips so chips never cover Share. */}
           <div
             key={`heading-${selectedSessionId ?? 'home'}`}
-            className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 text-[13px] font-medium text-secondary"
+            className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary"
           >
             {selectedSessionId && (
               <AgentAvatar
@@ -215,12 +219,13 @@ export function WorkspaceAgentPane({
               currentUserId={user.id}
               canManage={mayRename}
               warnLocalAgent={mayRename && isLocalAgentRuntime(currentHeading.runtimeId)}
+              compact={compact}
             />
           )}
-          {selectedSessionId && currentHeading.saved !== false && (
+          {savedSessionId && (
             <SessionHeaderMenu
-              key={`menu-${selectedSessionId}`}
-              sessionId={selectedSessionId}
+              key={`menu-${savedSessionId}`}
+              sessionId={savedSessionId}
               teamId={teamId}
               userId={user.id}
               title={currentHeading.title}
@@ -228,13 +233,15 @@ export function WorkspaceAgentPane({
               canArchive={currentHeading.canArchive === true}
               watching={currentHeading.watching}
               shortcutsActive={ws.chatShortcutsLive && !ws.mainPageOpen && !workspaceExpanded}
-              onRename={() => setRenamingSessionId(selectedSessionId)}
-              onFork={() => setAgentSidebarPendingFork(selectedSessionId)}
+              onRename={() => setRenamingSessionId(savedSessionId)}
+              onFork={() => setAgentSidebarPendingFork(savedSessionId)}
               canFork={!selectedSessionReadOnly}
+              onClosePane={pane?.split ? pane.closePane : undefined}
+              summaryInMenu={tight}
             />
           )}
-          {savedSessionId && <ChatSummaryToggle active={paneActive && !ws.mainPageOpen} />}
-          <PaneCloseButton />
+          {!savedSessionId && pane?.split && <PaneMenu onClosePane={pane.closePane} />}
+          {savedSessionId && <ChatSummaryToggle active={paneInFront} hidden={tight} />}
           {/* The rest of the header moves the window, so a pane moves by its grip. Electron cuts
             no-drag holes in page order, so the grip comes after the drag area it sits over. */}
           <PaneGrip label={currentHeading.title} />
@@ -242,7 +249,7 @@ export function WorkspaceAgentPane({
         <SessionFindBar
           key={selectedSessionId ?? 'home'}
           rootRef={transcriptRef}
-          active={paneActive && !ws.mainPageOpen && !workspaceExpanded}
+          active={paneInFront && !workspaceExpanded}
         />
         <div className="@container relative flex min-h-0 min-w-0 flex-1">
           <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">

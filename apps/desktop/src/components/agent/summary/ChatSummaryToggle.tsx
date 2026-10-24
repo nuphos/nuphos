@@ -9,7 +9,7 @@ import { isMac } from '../../../lib/platform'
 import { Kbd } from '../../ui/kbd'
 import { Tooltip } from '../../ui/tooltip'
 
-function SummaryIcon() {
+export function SummaryIcon() {
   return (
     <svg
       viewBox="0 0 16 16"
@@ -29,9 +29,16 @@ function SummaryIcon() {
 
 /**
  * Titlebar button for the chat summary panel. The open state is the window's,
- * so only the focused pane answers ⌘I.
+ * so only the focused pane answers ⌘I. A narrow pane hides the button (the ⋯
+ * menu offers it instead) but keeps the shortcut.
  */
-export function ChatSummaryToggle({ active }: { active: boolean }) {
+export function ChatSummaryToggle({
+  active,
+  hidden = false,
+}: {
+  active: boolean
+  hidden?: boolean
+}) {
   const open = useChatSummaryOpen()
 
   useEffect(() => {
@@ -46,6 +53,8 @@ export function ChatSummaryToggle({ active }: { active: boolean }) {
 
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [active])
+
+  if (hidden) return null
 
   return (
     <Tooltip
