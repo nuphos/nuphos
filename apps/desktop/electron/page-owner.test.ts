@@ -52,6 +52,34 @@ test('a crash or a closed window releases', () => {
   }
 })
 
+test('many subscriptions on one page share one listener set', () => {
+  const { emitter, owner, listeners } = page()
+  let released = 0
+  const offs = Array.from({ length: 12 }, () => onPageGone(owner, () => released++))
+
+  // Past EventEmitter's default of 10 per event, Node warns of a leak.
+  assert.equal(listeners(), PAGE_EVENTS.length)
+  offs[0]?.()
+  offs[1]?.()
+  emitter.emit('did-start-navigation', { isMainFrame: true, isSameDocument: false })
+  assert.equal(released, 10)
+  assert.equal(listeners(), 0)
+})
+
+test('the page keeps its listeners until its last subscription unregisters', () => {
+  const { owner, listeners } = page()
+  let released = 0
+  const first = onPageGone(owner, () => released++)
+  const second = onPageGone(owner, () => released++)
+
+  first()
+  first()
+  assert.equal(listeners(), PAGE_EVENTS.length)
+  second()
+  assert.equal(listeners(), 0)
+  assert.equal(released, 0)
+})
+
 test('unregistering removes every listener without releasing', () => {
   const { emitter, owner, listeners } = page()
   let released = 0
