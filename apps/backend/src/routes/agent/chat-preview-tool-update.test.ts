@@ -203,6 +203,10 @@ describe('oneLineTitle', () => {
     expect(title.endsWith('…')).toBe(true)
   })
 
+  test('a blank title is empty, so the call keeps its known name', () => {
+    expect(oneLineTitle('  \n  ')).toBe('')
+  })
+
   test('a short title is unchanged', () => {
     expect(oneLineTitle('Run kubectl get pods')).toBe('Run kubectl get pods')
   })

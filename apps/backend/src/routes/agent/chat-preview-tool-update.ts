@@ -85,7 +85,8 @@ export function handlePreviewToolUpdate(
   update: Extract<PreviewAgentUpdate, { kind: 'tool' }>,
 ): void {
   const known = log.states.get(update.toolCallId)
-  const name = update.title === '' ? (known?.name ?? 'tool') : oneLineTitle(update.title)
+  const title = oneLineTitle(update.title)
+  const name = title === '' ? (known?.name ?? 'tool') : title
   const classic = nuphosToolName(update.mcpToolId) ?? known?.mcpToolName
   const result = classic ? runtimeToolResult(update.rawOutput) : null
 
