@@ -53,7 +53,7 @@ struct RuntimePickerSheet: View {
                 }
             }
             .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
-            .navigationDestination(isPresented: $managing) { SelectorManagementView() }
+            .navigationDestination(isPresented: $managing) { RuntimesPage().navigationTitle("Runtimes") }
             .alert("Move to \(pendingLocal?.label ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
                 Button("Move") { onMove(runtime); dismiss() }
                 Button("Cancel", role: .cancel) {}
@@ -140,11 +140,12 @@ struct RuntimePickerSheet: View {
     }
 }
 
-private struct SelectorBoxHeader: View {
+struct SelectorBoxHeader: View {
     let box: SelectorBox
     let current: Bool
     let expanded: Bool
     let metricsUnavailable: Bool
+    var showsChevron = true
     private var metrics: AgentDevice.Metrics? { metricsUnavailable ? nil : box.device?.liveMetrics }
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -170,8 +171,10 @@ private struct SelectorBoxHeader: View {
                 }
             }
             Spacer(minLength: 6)
-            Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted).padding(.top, 4)
+            if showsChevron {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted).padding(.top, 4)
+            }
         }
         .frame(minHeight: 48).contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -203,7 +206,7 @@ private struct SelectorMeter: View {
     }
 }
 
-private struct SelectorAgentRow: View {
+struct SelectorAgentRow: View {
     let runtime: RuntimeInstance
     let quota: RuntimeQuota?
     let selected: Bool
@@ -225,44 +228,10 @@ private struct SelectorAgentRow: View {
     }
     @ViewBuilder private var details: some View {
         if SelectorBox.agentName(runtime) != runtime.providerName { Text(runtime.providerName).font(.system(size: detailSize)).foregroundStyle(Theme.muted) }
+        if runtime.status != .active || runtime.local?.online == false {
+            Text(runtime.status != .active ? "Disabled" : "Offline").font(.system(size: detailSize)).foregroundStyle(Theme.muted)
+        }
         if let quota { QuotaLine(quota: quota) }
-    }
-}
-
-private struct AgentSignInInstructions: View {
-    let runtime: RuntimeInstance
-    var body: some View {
-        List {
-            VStack(spacing: 12) {
-                BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 56)
-                Text(runtime.local.map { "Sign in on \($0.deviceLabel)" } ?? "Ask an administrator to sign in").font(.title3.weight(.semibold))
-                Text(runtime.label).font(.subheadline).foregroundStyle(Theme.muted)
-                Text(runtime.local.map { "Open Nuphos on \($0.deviceLabel), go to Settings → Runtimes, then choose Sign in for this runtime." } ?? "A workspace administrator can sign in to this runtime in Settings → Runtimes.")
-                    .font(.subheadline).foregroundStyle(Theme.body).multilineTextAlignment(.center)
-            }.frame(maxWidth: .infinity).padding(.vertical, 16).listRowBackground(Color.clear)
-        }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Sign in").navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-private struct SelectorManagementView: View {
-    @Environment(AgentStore.self) private var store
-    var body: some View {
-        List {
-            Section { Text("Open Settings → Runtimes in Nuphos Desktop to manage your computers and runtimes.").font(.subheadline).foregroundStyle(Theme.body) }
-            ForEach(SelectorBox.grouped(store.runtimes, devices: store.agentDevices)) { box in
-                Section(box.label) {
-                    ForEach(box.agents) { runtime in
-                        if let team = store.selectedTeam, runtime.tier == .cloud, team.isAdministrator {
-                            NavigationLink(SelectorBox.agentName(runtime)) { AgentDetailView(team: team, runtime: runtime) }
-                        } else if let team = store.selectedTeam, box.canSignIn(runtime, administrator: team.isAdministrator) {
-                            NavigationLink(SelectorBox.agentName(runtime)) { AgentSetupView(team: team, runtime: runtime, selectOnCompletion: false) }
-                        } else {
-                            NavigationLink(SelectorBox.agentName(runtime)) { AgentSignInInstructions(runtime: runtime) }
-                        }
-                    }
-                }.listRowBackground(Theme.surface)
-            }
-        }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Computers and runtimes")
     }
 }
 
