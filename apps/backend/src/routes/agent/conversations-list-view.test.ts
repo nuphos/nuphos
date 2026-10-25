@@ -86,3 +86,38 @@ test('a stored idle snapshot is listed as-is without asking the run store', asyn
   expect(busy?.activeRun).toMatchObject({ streamId: 'stream-2' })
   expect(runLookups).toEqual(['busy'])
 })
+
+test('a row leaves out what only the open conversation or the server reads', async () => {
+  const [row] = (await serializeConversationList(
+    [
+      {
+        ...conversation('slim'),
+        title: 'Slim',
+        credentialAccess: { awsRoleIds: ['role-a'] },
+        claudeCodePreviewContext: { cwd: '/w' },
+        initialSessionConfig: { model: 'm' },
+        compactionSummary: 'summary',
+        tokenUsage: {
+          inputTokens: 1_000_000,
+          providers: [
+            { provider: 'vertex.anthropic', modelId: 'claude-opus-5', inputTokens: 1_000_000 },
+          ],
+        },
+      },
+    ],
+    { userId: 'user-a' } as never,
+    'team-a',
+  )) as Record<string, unknown>[]
+
+  expect(row?.title).toBe('Slim')
+  expect(row?.tokenUsage).toEqual({ costUsd: 5 })
+  for (const field of [
+    'credentialAccess',
+    'claudeCodePreview',
+    'claudeCodePreviewContext',
+    'initialSessionConfig',
+    'compactionSummary',
+  ]) {
+    expect(row).not.toHaveProperty(field)
+  }
+})
