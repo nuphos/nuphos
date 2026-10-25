@@ -27,7 +27,6 @@ struct RuntimesPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
-        .navigationDestination(for: RuntimeInstance.self) { RuntimeDestination(runtime: $0).environment(store) }
         .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false).environment(store) } }
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
@@ -63,7 +62,9 @@ struct RuntimesPage: View {
                     SelectorBoxHeader(box: box, current: false, expanded: true, metricsUnavailable: store.agentDevicesError, showsChevron: false)
                         .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
                     ForEach(box.agents) { runtime in
-                        NavigationLink(value: runtime) {
+                        NavigationLink {
+                            RuntimeDestination(runtime: runtime).environment(store)
+                        } label: {
                             SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: false)
                         }
                         .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
