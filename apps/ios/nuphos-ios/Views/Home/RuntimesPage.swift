@@ -12,7 +12,9 @@ struct RuntimesPage: View {
     private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
 
     var body: some View {
-        Group {
+        // Pushed views do not inherit the store here, so they are handed this one.
+        let store = store
+        return Group {
             if !store.runtimesLoaded, let error = store.runtimesError {
                 ContentUnavailableView {
                     Label("Couldn't load runtimes", systemImage: "wifi.exclamationmark")
@@ -25,8 +27,8 @@ struct RuntimesPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
-        .navigationDestination(for: RuntimeInstance.self) { RuntimeDestination(runtime: $0) }
-        .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false) } }
+        .navigationDestination(for: RuntimeInstance.self) { RuntimeDestination(runtime: $0).environment(store) }
+        .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false).environment(store) } }
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
             async let agents: Void = store.loadRuntimes(force: true)
