@@ -85,7 +85,7 @@ export function handlePreviewToolUpdate(
   update: Extract<PreviewAgentUpdate, { kind: 'tool' }>,
 ): void {
   const known = log.states.get(update.toolCallId)
-  const name = update.title === '' ? (known?.name ?? 'tool') : update.title
+  const name = update.title === '' ? (known?.name ?? 'tool') : oneLineTitle(update.title)
   const classic = nuphosToolName(update.mcpToolId) ?? known?.mcpToolName
   const result = classic ? runtimeToolResult(update.rawOutput) : null
 
@@ -221,4 +221,17 @@ export function trackSteerCutOff(
       cutOff = []
     },
   }
+}
+
+const TITLE_MAX = 120
+
+/**
+ * A call's title as one short line. Codex titles a shell call with its whole
+ * command, which the call's input already carries, so every stored and
+ * streamed command went out twice.
+ */
+export function oneLineTitle(title: string): string {
+  const line = title.trimStart().split('\n', 1)[0] ?? ''
+
+  return line.length > TITLE_MAX ? `${line.slice(0, TITLE_MAX - 1)}…` : line
 }
