@@ -8,6 +8,10 @@ on:
         description: ios-vX.Y.Z tag to publish (on a merge-queue commit of main)
         type: string
         required: true
+      build:
+        description: Build number already on App Store Connect to submit instead of archiving a new one
+        type: string
+        required: false
 
 concurrency:
   group: release-ios
@@ -127,12 +131,18 @@ jobs:
       # would restart below them.
       - name: Choose the build number
         id: build
-        run: echo "number=$(date -u +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+        env:
+          BUILD: ${{ inputs.build }}
+        run: |
+          set -euo pipefail
+          [[ -z "$BUILD" || "$BUILD" =~ ^[0-9]+$ ]] || { echo '::error::build must be a number'; exit 1; }
+          echo "number=${BUILD:-$(date -u +%Y%m%d%H%M)}" >> "$GITHUB_OUTPUT"
 
       # Signing settings live in the app target's Release configuration, not
       # here: a setting passed on the command line reaches every target in the
       # build, and the SPM package targets reject a provisioning profile.
       - name: Archive
+        if: inputs.build == ''
         working-directory: apps/ios
         env:
           VERSION: ${{ needs.validate.outputs.version }}
@@ -147,6 +157,7 @@ jobs:
             archive | tail -40
 
       - name: Upload to TestFlight
+        if: inputs.build == ''
         working-directory: apps/ios
         env:
           KEY_PATH: ${{ steps.restore_key.outputs.key_path }}
@@ -203,10 +214,15 @@ jobs:
             echo "::warning::Build $BUILD_NUMBER is still processing after 30 minutes; attach it to $GROUP by hand."
             exit 0
           fi
-          asc builds add-groups --app "$APP_ID" --platform IOS --build-number "$BUILD_NUMBER" \
-            --group "$GROUP" --submit --confirm
-          echo "Build $BUILD_NUMBER added to $GROUP and submitted for Beta App Review." >> "$GITHUB_STEP_SUMMARY"
           echo "build_id=$(jq -r .id <<<"$BUILD")" >> "$GITHUB_OUTPUT"
+          # App Store review does not depend on Beta App Review, which takes
+          # one build of a train at a time; a refusal here must not block it.
+          if asc builds add-groups --app "$APP_ID" --platform IOS --build-number "$BUILD_NUMBER" \
+            --group "$GROUP" --submit --confirm; then
+            echo "Build $BUILD_NUMBER added to $GROUP and submitted for Beta App Review." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Build $BUILD_NUMBER was not submitted for Beta App Review; see the error above."
+          fi
 
       # One App Store version is prepared at a time. A release cut while the
       # previous one is still in review withdraws that submission and reuses its
