@@ -28,6 +28,7 @@ struct RuntimesPage: View {
         .navigationDestination(for: RuntimeInstance.self) { destination($0) }
         .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false) } }
         .task(id: store.selectedTeam?.id) {
+            if store.teams.isEmpty { await store.loadTeams() }
             async let agents: Void = store.loadRuntimes(force: true)
             async let quotas: Void = store.loadQuotas()
             _ = await (agents, quotas)
