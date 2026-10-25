@@ -146,13 +146,13 @@ export async function serializeConversationList<T extends ListedConversation>(
 
 /**
  * A list row without what only the open conversation or the server reads.
- * Clients poll the whole list every few seconds, and these fields were over
- * half of each row: the credential selection, the runtime attachment and the
- * per-model token breakdown. Lists show only the cost.
+ * Clients poll the whole list every few seconds, and the runtime attachment
+ * and the per-model token breakdown were a third of each row. Lists show only
+ * the cost. The credential selection stays: the desktop chat summary counts
+ * it from the polled row.
  */
 function listRow(row: Record<string, unknown>): Record<string, unknown> {
   const {
-    credentialAccess: _credentialAccess,
     claudeCodePreview: _claudeCodePreview,
     claudeCodePreviewContext: _claudeCodePreviewContext,
     claudeCodePreviewWorkLost: _claudeCodePreviewWorkLost,

@@ -111,8 +111,9 @@ test('a row leaves out what only the open conversation or the server reads', asy
 
   expect(row?.title).toBe('Slim')
   expect(row?.tokenUsage).toEqual({ costUsd: 5 })
+  // The desktop chat summary counts connectors and devices from the polled row.
+  expect(row?.credentialAccess).toEqual({ awsRoleIds: ['role-a'] })
   for (const field of [
-    'credentialAccess',
     'claudeCodePreview',
     'claudeCodePreviewContext',
     'initialSessionConfig',
