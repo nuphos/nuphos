@@ -270,9 +270,11 @@ export async function getConversationWithMessages(
   )
 
   if (!conversation) return null
-  const messages = await getConversationMessages(sessionId, conversation.userId, {
-    tail: options?.tail,
-  })
+  // `tail: 0` asks for none; Mongo would read `limit(0)` as no limit.
+  const messages =
+    options?.tail === 0
+      ? []
+      : await getConversationMessages(sessionId, conversation.userId, { tail: options?.tail })
 
   return { conversation, messages }
 }

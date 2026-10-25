@@ -173,7 +173,7 @@ export type WindowAgentApi = {
   agentGetConversation(
     sessionId: string,
     teamId?: string,
-    options?: { tail?: number; runtimeState?: 'omit' },
+    options?: { tail?: number; runtimeState?: 'omit'; messages?: 'omit' },
   ): Promise<AgentConversationDetail>
   agentGetConversationMessages(
     sessionId: string,

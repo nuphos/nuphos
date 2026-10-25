@@ -131,7 +131,7 @@ export const agentApi = {
   agentGetConversation: async (
     sessionId: string,
     teamId?: string,
-    options?: { tail?: number; runtimeState?: 'omit' },
+    options?: { tail?: number; runtimeState?: 'omit'; messages?: 'omit' },
   ) => {
     const requestedAt = Date.now()
     const detail = await window.api.agentGetConversation(sessionId, teamId, options)

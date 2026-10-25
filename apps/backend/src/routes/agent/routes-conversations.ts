@@ -146,7 +146,11 @@ agent.get('/conversations/:sessionId', async (c) => {
   if (tailRaw !== undefined && (!Number.isInteger(tail) || tail! < 1 || tail! > 1000)) {
     throw new AppError(400, 'invalid_request', 'tail must be an integer between 1 and 1000')
   }
-  const result = await getConversationWithMessages(sessionId, userId, teamId, { tail })
+  // `messages=omit`: a status read (desktop polls one every few seconds) that
+  // uses none of the messages.
+  const result = await getConversationWithMessages(sessionId, userId, teamId, {
+    tail: c.req.query('messages') === 'omit' ? 0 : tail,
+  })
 
   if (!result) {
     throw new AppError(404, 'not_found', 'Conversation not found')

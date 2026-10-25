@@ -64,13 +64,14 @@ export async function pickUpConversationInSlack(
 export async function getConversation(
   sessionId: string,
   teamId?: string,
-  options?: { tail?: number; runtimeState?: 'omit' },
+  options?: { tail?: number; runtimeState?: 'omit'; messages?: 'omit' },
 ): Promise<ConversationDetail> {
   const params = new URLSearchParams()
 
   if (teamId) params.set('teamId', teamId)
   if (options?.tail) params.set('tail', String(options.tail))
   if (options?.runtimeState) params.set('runtimeState', options.runtimeState)
+  if (options?.messages) params.set('messages', options.messages)
   const q = params.toString() ? `?${String(params)}` : ''
 
   return callJson<ConversationDetail>(

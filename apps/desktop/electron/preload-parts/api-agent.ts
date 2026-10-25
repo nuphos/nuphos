@@ -26,7 +26,7 @@ export const agentApi = {
   agentGetConversation: (
     sessionId: string,
     teamId?: string,
-    options?: { tail?: number; runtimeState?: 'omit' },
+    options?: { tail?: number; runtimeState?: 'omit'; messages?: 'omit' },
   ) => ipcRenderer.invoke('agent:getConversation', sessionId, teamId, options),
   agentGetConversationMessages: (
     sessionId: string,
