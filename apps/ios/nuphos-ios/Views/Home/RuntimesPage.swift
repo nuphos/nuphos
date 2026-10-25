@@ -25,7 +25,7 @@ struct RuntimesPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
-        .navigationDestination(for: RuntimeInstance.self) { destination($0) }
+        .navigationDestination(for: RuntimeInstance.self) { RuntimeDestination(runtime: $0) }
         .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false) } }
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
@@ -81,13 +81,20 @@ struct RuntimesPage: View {
         .listSectionSpacing(20)
         .scrollContentBackground(.hidden)
     }
+}
 
-    @ViewBuilder
-    private func destination(_ runtime: RuntimeInstance) -> some View {
+/// Where a runtime row leads: its own page, its sign-in, or how to sign it in elsewhere.
+/// A view of its own, so it reads the store where it is shown.
+private struct RuntimeDestination: View {
+    @Environment(AgentStore.self) private var store
+    let runtime: RuntimeInstance
+
+    var body: some View {
         if let team = store.selectedTeam {
             if runtime.tier == .cloud, team.isAdministrator {
                 AgentDetailView(team: team, runtime: runtime)
-            } else if boxes.first(where: { $0.agents.contains(runtime) })?.canSignIn(runtime, administrator: team.isAdministrator) == true {
+            } else if SelectorBox.grouped(store.runtimes, devices: store.agentDevices)
+                .first(where: { $0.agents.contains(runtime) })?.canSignIn(runtime, administrator: team.isAdministrator) == true {
                 AgentSetupView(team: team, runtime: runtime, selectOnCompletion: false)
             } else {
                 AgentSignInInstructions(runtime: runtime)
