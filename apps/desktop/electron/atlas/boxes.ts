@@ -1,4 +1,4 @@
-import { signedIn } from '../account-request.ts'
+import { signedIn, stillCurrent } from '../account-request.ts'
 import { readDeviceMetrics } from '../main/device-metrics.ts'
 
 import { call } from './client.ts'
@@ -190,10 +190,12 @@ const BILLING_ERRORS: Record<string, string> = {
  * and Content-Type, hence a plain fetch. Answers the error code instead of throwing it.
  */
 async function billing(teamId: string, method: 'GET' | 'POST', page: string, body?: unknown) {
+  // One account throughout: the billing URL and the token it is sent with.
+  const account = await signedIn()
   const { billingUrl } = await getBoxUsage(teamId)
 
+  stillCurrent(account)
   if (!billingUrl) throw new Error('This deployment has no billing service')
-  const account = await signedIn()
   const response = await fetch(`${billingUrl}/teams/${encodeURIComponent(teamId)}/${page}`, {
     method,
     signal: account.signal,

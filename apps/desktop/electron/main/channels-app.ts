@@ -6,7 +6,7 @@ import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electro
 
 import * as agentChatSkill from '../agent-chat-skill'
 import { resetAnalyticsUser, setAnalyticsTeam, setAnalyticsUser } from '../analytics'
-import { apiUrl, setApiUrl } from '../api-endpoint'
+import { apiUrl } from '../api-endpoint'
 import { setSendDiagnostics } from '../crash-reporter'
 import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
@@ -72,7 +72,7 @@ export const appChannels = {
   },
   'diagnostics:set': (_e: unknown, send: unknown) => setSendDiagnostics(send),
   'app:getVersion': () => app.getVersion(),
-  'app:setApiEndpoint': (_e: unknown, url: string | null) => setApiUrl(url),
+  'app:setApiEndpoint': (_e: unknown, url: string | null) => auth.changeBackend(url),
   'app:getPlatform': () => process.platform,
   'app:selectAsciiInputSource': () => selectAsciiInputSource(),
   'app:setNativeTheme': (_e: unknown, source: ThemeSource) => {

@@ -12,7 +12,6 @@ test('another account aborts the work of the one before it', () => {
   session.set('tok-b', 'b')
   assert.equal(a.signal.aborted, true)
   assert.ok(a.signal.reason instanceof AccountChangedError)
-  assert.throws(() => session.assertCurrent(a), AccountChangedError)
   assert.equal(session.context().signal.aborted, false)
   assert.ok(session.context().epoch > a.epoch)
 })
@@ -36,7 +35,16 @@ test('signing in from no session keeps the signal, so startup reads are not cut 
   session.set('tok-a', 'a')
   assert.equal(before.signal.aborted, false)
   assert.equal(session.settled(), true)
-  assert.doesNotThrow(() => session.assertCurrent({ api: before.api, token: 'tok-a' }))
+  assert.equal(session.context().signal, before.signal)
+})
+
+test('a sign-out during the startup check ends what read the token from disk', () => {
+  const session = new AuthSession()
+  const before = session.context()
+
+  session.set(null, null)
+  assert.equal(before.signal.aborted, true)
+  assert.equal(session.context().signal.aborted, false)
 })
 
 test('a new backend ends the session: its token is never used there', () => {
@@ -68,14 +76,17 @@ test('the same token and user again is not a change', () => {
   session.set('tok-a', 'a')
   assert.equal(changes, 1)
   assert.equal(session.context(), a)
+  assert.equal(a.signal.aborted, false)
 })
 
-test('the launch backend can be set only before the session is used', () => {
+test('the launch backend applies only before the session is used, without failing after', (t) => {
   const session = new AuthSession()
 
+  t.mock.method(console, 'warn', () => {})
   session.start('http://127.0.0.1:3718')
   assert.equal(session.context().api, 'http://127.0.0.1:3718')
   assert.equal(session.context().epoch, 0)
   session.set('tok-a', 'a')
-  assert.throws(() => session.start('https://api.nuphos.ai'))
+  assert.doesNotThrow(() => session.start('https://api.nuphos.ai'))
+  assert.equal(session.context().api, 'http://127.0.0.1:3718')
 })

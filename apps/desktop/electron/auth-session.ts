@@ -48,9 +48,13 @@ export class AuthSession {
     return this.known
   }
 
-  /** The backend the app was launched with; only before anything else uses the session. */
+  /** The backend the app was launched with; ignored once anything has used the session. */
   start(api: string): void {
-    if (this.known || this.ctx.epoch > 0) throw new Error('The session has already started')
+    if (this.known) {
+      console.warn('auth: the session started before its backend was set; keeping', this.ctx.api)
+
+      return
+    }
     this.ctx = { ...this.ctx, api }
   }
 
@@ -76,11 +80,6 @@ export class AuthSession {
     if (api !== this.ctx.api) this.replace(api, null, null)
   }
 
-  /** Throws if `ctx`'s session is no longer the signed-in one. */
-  assertCurrent(ctx: Pick<AccountContext, 'api' | 'token'>): void {
-    if (this.ctx.api !== ctx.api || this.ctx.token !== ctx.token) throw new AccountChangedError()
-  }
-
   subscribe(listener: AuthSessionListener): () => void {
     this.listeners.add(listener)
 
@@ -91,18 +90,26 @@ export class AuthSession {
 
   private replace(api: string, token: string | null, userId: string | null): void {
     const prev = this.ctx
+    const same = api === prev.api && token === prev.token && userId === prev.userId
+    // Work holds the previous context's token or, before the startup check,
+    // the one on disk. Signing in keeps the signal for what read that same
+    // token from disk; a sign-out, even before the check, ends it.
+    const unchecked = !this.known && token === null
+    const ends = same ? unchecked : prev.token !== null || unchecked
 
     this.known = true
-    if (api === prev.api && token === prev.token && userId === prev.userId) return
+    if (ends) this.end()
+    if (same) return
+    this.ctx = { epoch: prev.epoch + 1, api, token, userId, signal: this.controller.signal }
+    for (const listener of this.listeners) listener(this.ctx, prev)
+  }
+
+  private end(): void {
     const ended = this.controller
 
-    // Only a token in use can have work out: signing in from no session keeps
-    // the signal, so a request that read the token from disk before the
-    // startup check is not cut off by that check.
-    if (prev.token) this.controller = new AbortController()
-    this.ctx = { epoch: prev.epoch + 1, api, token, userId, signal: this.controller.signal }
-    if (prev.token) ended.abort(new AccountChangedError())
-    for (const listener of this.listeners) listener(this.ctx, prev)
+    this.controller = new AbortController()
+    this.ctx = { ...this.ctx, signal: this.controller.signal }
+    ended.abort(new AccountChangedError())
   }
 }
 

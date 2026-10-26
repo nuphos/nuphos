@@ -44,6 +44,7 @@ mock.module('../account-request.ts', {
       userId: 'u1',
       signal: new AbortController().signal,
     }),
+    stillCurrent: () => {},
   },
 })
 mock.module('../main/device-identity.ts', {
