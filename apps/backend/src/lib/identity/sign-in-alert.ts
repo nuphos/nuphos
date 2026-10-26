@@ -1,7 +1,7 @@
 import { escapeHtml, isEmailConfigured, sendEmail } from '@/lib/email'
 import { userSessions } from '@/lib/identity/sessions'
 import { logEvent } from '@/lib/observability'
-import { describeSignInSource } from '@/lib/request-origin'
+import { signInDevice, signInPlace } from '@/lib/request-origin'
 
 import type { NuphosUser } from '@/lib/identity/types'
 import type { SignInSource } from '@/lib/request-origin'
@@ -11,7 +11,7 @@ import type { SignInSource } from '@/lib/request-origin'
  * against the account's other live sessions, before the new one exists:
  *
  *   - familiar: another session has the same IP, or the same app in the same
- *     country — no email;
+ *     city — no email;
  *   - no other live session (a brand-new account, or every earlier sign-in
  *     ended): nothing to compare with — no email;
  *   - otherwise it is new — email.
@@ -29,7 +29,8 @@ export async function isNewSignIn(userId: string, source: SignInSource): Promise
       (source.ip !== undefined && s.ip === source.ip) ||
       (source.client !== undefined &&
         s.client === source.client &&
-        source.country !== undefined &&
+        source.city !== undefined &&
+        s.city === source.city &&
         s.country === source.country),
   )
 }
@@ -37,13 +38,13 @@ export async function isNewSignIn(userId: string, source: SignInSource): Promise
 /** Best effort: a failed alert is logged, never a failed sign-in. */
 export async function sendNewSignInAlert(user: NuphosUser, source: SignInSource): Promise<void> {
   if (!isEmailConfigured()) return
-  const { device, place } = describeSignInSource(source)
   const when = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
+  // Time and IP are what the server saw; place and device are only hints.
   const rows: [string, string][] = [
     ['Time', when],
-    ['Device', device],
-    ['Location', place],
     ['IP address', source.ip ?? 'Unknown'],
+    ['Approximate location', signInPlace(source) ?? 'Unknown'],
+    ['Device', signInDevice(source)],
   ]
 
   try {

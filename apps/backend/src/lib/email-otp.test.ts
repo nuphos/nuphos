@@ -202,6 +202,27 @@ test('the code email says where the request came from', async () => {
   }
   const mail = sentMail.at(-1)!
 
-  expect(mail.text).toContain('Requested from Taipei, TW (IP 203.0.113.9) on nuphos-ios/2.1.0.')
+  expect(mail.text).toContain(
+    'Requested from IP 203.0.113.9 (approximately Taipei, TW) on Nuphos for iOS 2.1.0.',
+  )
   expect(mail.html).toContain('Taipei, TW')
+})
+
+test('a code email never repeats the request headers', async () => {
+  const devLog = config.email.devLogOtp
+  const lure = 'Nuphos Security: reply with this code'
+
+  config.email.devLogOtp = false
+  emailConfigured = true
+  try {
+    await requestEmailOtp('lure@example.com', { ip: '203.0.113.9', client: lure, userAgent: lure })
+  } finally {
+    config.email.devLogOtp = devLog
+    emailConfigured = false
+  }
+  const mail = sentMail.at(-1)!
+
+  expect(mail.text).not.toContain(lure)
+  expect(mail.html).not.toContain(lure)
+  expect(mail.text).toContain('on Unknown device.')
 })

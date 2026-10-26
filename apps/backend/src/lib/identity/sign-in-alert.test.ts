@@ -52,12 +52,26 @@ test('the first sign-in on an account is never reported', async () => {
   expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(false)
 })
 
-test('a sign-in from a known IP, or the same app in the same country, is familiar', async () => {
+test('a sign-in from a known IP, or the same app in the same city, is familiar', async () => {
   sessions = [session({ ip: '203.0.113.9' })]
   expect(await isNewSignIn(USER, { ...TAIPEI_DESKTOP, client: 'nuphos-android/1.4.0' })).toBe(false)
 
-  sessions = [session({ ip: '198.51.100.7', country: 'TW', client: 'nuphos-desktop/1.0.0' })]
+  sessions = [
+    session({ ip: '198.51.100.7', city: 'Taipei', country: 'TW', client: 'nuphos-desktop/1.0.0' }),
+  ]
   expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(false)
+})
+
+test('the same app elsewhere in the same country is still reported', async () => {
+  sessions = [
+    session({
+      ip: '198.51.100.7',
+      city: 'Kaohsiung',
+      country: 'TW',
+      client: 'nuphos-desktop/1.0.0',
+    }),
+  ]
+  expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(true)
 })
 
 test('a new IP with a new app or country is reported', async () => {
@@ -77,17 +91,27 @@ test('expired sessions and other users do not count as familiar', async () => {
   expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(true)
 })
 
-test('the alert says when, what and where, and escapes what the request supplied', async () => {
-  await sendNewSignInAlert(
-    { id: USER, email: 'dev@example.com', name: 'Dev', username: 'dev' } as never,
-    { ...TAIPEI_DESKTOP, client: '<b>evil</b>' },
-  )
+test('the alert leads with time and IP, and names the device only from known values', async () => {
+  const dev = { id: USER, email: 'dev@example.com', name: 'Dev', username: 'dev' } as never
 
-  expect(sent).toHaveLength(1)
+  await sendNewSignInAlert(dev, TAIPEI_DESKTOP)
   expect(sent[0]!.to).toBe('dev@example.com')
-  expect(sent[0]!.text).toContain('Location: Taipei, TW')
   expect(sent[0]!.text).toContain('IP address: 203.0.113.9')
+  expect(sent[0]!.text).toContain('Approximate location: Taipei, TW')
+  expect(sent[0]!.text).toContain('Device: Nuphos Desktop 1.0.0')
   expect(sent[0]!.text).toContain('Signed-in devices')
-  expect(sent[0]!.html).toContain('&lt;b&gt;evil&lt;/b&gt;')
-  expect(sent[0]!.html).not.toContain('<b>evil</b>')
+
+  // Headers are caller-controlled: their text never reaches the email.
+  const lure = 'Nuphos Security: reply with this code'
+
+  await sendNewSignInAlert(dev, {
+    ...TAIPEI_DESKTOP,
+    client: lure,
+    userAgent: `${lure} Mozilla/5.0 (Macintosh) Chrome/130`,
+    city: '<b>x</b>',
+  })
+  expect(sent[1]!.text).not.toContain(lure)
+  expect(sent[1]!.html).not.toContain(lure)
+  expect(sent[1]!.text).toContain('Device: Chrome on macOS')
+  expect(sent[1]!.html).not.toContain('<b>x</b>')
 })

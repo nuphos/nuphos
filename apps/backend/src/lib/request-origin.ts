@@ -47,12 +47,46 @@ export function signInSource(header: (name: string) => string | undefined): Sign
   }
 }
 
-/** Plain-text labels for emails; HTML callers must escape them. */
-export function describeSignInSource(source: SignInSource): { device: string; place: string } {
-  const place = [source.city, source.country].filter(Boolean).join(', ')
+const APPS: Record<string, string> = {
+  'nuphos-desktop': 'Nuphos Desktop',
+  'nuphos-ios': 'Nuphos for iOS',
+  'nuphos-android': 'Nuphos for Android',
+  'nuphos-cli': 'Nuphos CLI',
+}
+const APP_CLIENT = /^(nuphos-(?:desktop|ios|android|cli))\/([0-9][\w.+-]{0,31})$/
+const BROWSERS: [RegExp, string][] = [
+  [/Edg\//, 'Edge'],
+  [/Firefox\//, 'Firefox'],
+  [/Chrome\//, 'Chrome'],
+  [/Safari\//, 'Safari'],
+]
+const SYSTEMS: [RegExp, string][] = [
+  [/iPhone|iPad/, 'iOS'],
+  [/Android/, 'Android'],
+  [/Macintosh|Mac OS X/, 'macOS'],
+  [/Windows/, 'Windows'],
+  [/Linux/, 'Linux'],
+]
 
-  return {
-    device: source.client ?? source.userAgent?.slice(0, 120) ?? 'Unknown device',
-    place: place || 'Unknown location',
-  }
+/**
+ * A device name safe to put in an email. Both headers are whatever the caller
+ * sends, so their text is never echoed: a known app name, a browser and system
+ * picked from a fixed list, or "Unknown device".
+ */
+export function signInDevice(source: SignInSource): string {
+  const app = APP_CLIENT.exec(source.client ?? '')
+
+  if (app) return `${APPS[app[1]!]!} ${app[2]!}`
+  const ua = source.userAgent ?? ''
+  const browser = BROWSERS.find(([re]) => re.test(ua))?.[1]
+  const system = SYSTEMS.find(([re]) => re.test(ua))?.[1]
+
+  if (browser && system) return `${browser} on ${system}`
+
+  return browser ?? (system ? `A browser on ${system}` : 'Unknown device')
+}
+
+/** City and country as Cloudflare guessed them from the IP; only a hint. */
+export function signInPlace(source: SignInSource): string | undefined {
+  return [source.city, source.country].filter(Boolean).join(', ') || undefined
 }

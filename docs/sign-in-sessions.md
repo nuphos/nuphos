@@ -18,15 +18,21 @@ These need a sign-in session. A sign-in from before sessions existed gets
 
 When a sign-in starts, it is compared with the account's other live sessions:
 
-| Other live sessions                                | Matching one                             | Email |
-| -------------------------------------------------- | ---------------------------------------- | ----- |
-| none (new account, or every earlier sign-in ended) | —                                        | no    |
-| some                                               | same IP, or same app in the same country | no    |
-| some                                               | none of the above                        | yes   |
+| Other live sessions                                | Matching one                          | Email |
+| -------------------------------------------------- | ------------------------------------- | ----- |
+| none (new account, or every earlier sign-in ended) | —                                     | no    |
+| some                                               | same IP, or same app in the same city | no    |
+| some                                               | none of the above                     | yes   |
 
-The email gives the time (UTC), device, city and country, and IP, and says how
-to sign that device out and reset the password. Sending is best effort and
-never blocks the sign-in.
+The email leads with what the server saw, the time (UTC) and IP, then the
+approximate location and device as hints, and says how to sign that device out
+and reset the password. Sending is best effort and never blocks the sign-in.
+
+The device name in any email is never the request's header text: `x-atlas-client`
+and `User-Agent` are whatever the caller sends, and the sign-in code endpoint is
+public. Emails show a known app name (`nuphos-desktop/1.2.0` → "Nuphos Desktop
+1.2.0"), a browser and system from a fixed list, or "Unknown device". The raw
+values stay on the session record.
 
 The sign-in code email also says where the code was requested from.
 

@@ -13,7 +13,7 @@ import { escapeHtml, isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
 import { signInWithVerifiedEmail } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
-import { describeSignInSource } from '@/lib/request-origin'
+import { signInDevice, signInPlace } from '@/lib/request-origin'
 import { redisEnabled } from '@/lib/redis'
 
 const CODE_TTL_MS = 10 * 60 * 1000
@@ -216,11 +216,11 @@ function safeEqual(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
-/** One line saying where a code was requested from. */
+/** One line saying where a code was requested from: the IP first, the rest as hints. */
 function requestedFrom(from: SignInSource): string {
-  const { device, place } = describeSignInSource(from)
+  const place = signInPlace(from)
 
-  return `Requested from ${place}${from.ip ? ` (IP ${from.ip})` : ''} on ${device}.`
+  return `Requested from ${from.ip ? `IP ${from.ip}` : 'an unknown address'}${place ? ` (approximately ${place})` : ''} on ${signInDevice(from)}.`
 }
 
 function otpEmailHtml(code: string, from: SignInSource): string {
