@@ -6,33 +6,30 @@ import { signInDevice, signInPlace } from '@/lib/request-origin'
 import type { NuphosUser } from '@/lib/identity/types'
 import type { SignInSource } from '@/lib/request-origin'
 
+const NEW_ACCOUNT_MS = 60 * 60 * 1000
+
 /**
- * Whether a sign-in about to start should be reported to its user. Checked
- * against the account's other live sessions, before the new one exists:
+ * Whether a sign-in about to start should be reported to its user. Only the
+ * IP decides, checked against the account's other sessions (all from the last
+ * 30 days, the longest a session lives) before the new one exists:
  *
- *   - familiar: another session has the same IP, or the same app in the same
- *     city — no email;
- *   - no other live session (a brand-new account, or every earlier sign-in
- *     ended): nothing to compare with — no email;
- *   - otherwise it is new — email.
+ *   - an earlier session used this exact IP: familiar, no email;
+ *   - the account was created within the hour and has no other session: its
+ *     first sign-in, no email;
+ *   - otherwise: email.
+ *
+ * City and country only describe the sign-in in the email.
  */
-export async function isNewSignIn(userId: string, source: SignInSource): Promise<boolean> {
+export async function isNewSignIn(user: NuphosUser, source: SignInSource): Promise<boolean> {
   const others = await userSessions()
-    .find({ userId, expiresAt: { $gt: new Date() } })
+    .find({ userId: user.id, expiresAt: { $gt: new Date() } })
     .limit(200)
     .toArray()
 
-  if (others.length === 0) return false
+  if (source.ip !== undefined && others.some((s) => s.ip === source.ip)) return false
+  if (others.length === 0 && Date.now() - Date.parse(user.createdAt) < NEW_ACCOUNT_MS) return false
 
-  return !others.some(
-    (s) =>
-      (source.ip !== undefined && s.ip === source.ip) ||
-      (source.client !== undefined &&
-        s.client === source.client &&
-        source.city !== undefined &&
-        s.city === source.city &&
-        s.country === source.country),
-  )
+  return true
 }
 
 /** Best effort: a failed alert is logged, never a failed sign-in. */

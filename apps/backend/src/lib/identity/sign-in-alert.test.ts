@@ -48,47 +48,39 @@ beforeEach(() => {
   sent.length = 0
 })
 
-test('the first sign-in on an account is never reported', async () => {
-  expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(false)
+const account = (ageMs: number) =>
+  ({
+    id: USER,
+    email: 'dev@example.com',
+    createdAt: new Date(Date.now() - ageMs).toISOString(),
+  }) as never
+const OLD = account(90 * 24 * 60 * 60 * 1000)
+
+test('a brand-new account’s first sign-in is not reported', async () => {
+  expect(await isNewSignIn(account(5 * 60 * 1000), TAIPEI_DESKTOP)).toBe(false)
 })
 
-test('a sign-in from a known IP, or the same app in the same city, is familiar', async () => {
+test('an older account with no session to compare with is reported', async () => {
+  expect(await isNewSignIn(OLD, TAIPEI_DESKTOP)).toBe(true)
+})
+
+test('only the exact IP of an earlier session is familiar', async () => {
   sessions = [session({ ip: '203.0.113.9' })]
-  expect(await isNewSignIn(USER, { ...TAIPEI_DESKTOP, client: 'nuphos-android/1.4.0' })).toBe(false)
+  expect(await isNewSignIn(OLD, { ...TAIPEI_DESKTOP, client: 'nuphos-android/1.4.0' })).toBe(false)
 
+  // Same app, same city and country, another IP: still reported.
   sessions = [
-    session({ ip: '198.51.100.7', city: 'Taipei', country: 'TW', client: 'nuphos-desktop/1.0.0' }),
+    session({ ip: '203.0.113.10', city: 'Taipei', country: 'TW', client: 'nuphos-desktop/1.0.0' }),
   ]
-  expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(false)
+  expect(await isNewSignIn(OLD, TAIPEI_DESKTOP)).toBe(true)
 })
 
-test('the same app elsewhere in the same country is still reported', async () => {
+test('expired sessions and other users’ sessions are not familiar', async () => {
   sessions = [
-    session({
-      ip: '198.51.100.7',
-      city: 'Kaohsiung',
-      country: 'TW',
-      client: 'nuphos-desktop/1.0.0',
-    }),
-  ]
-  expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(true)
-})
-
-test('a new IP with a new app or country is reported', async () => {
-  sessions = [session({ ip: '198.51.100.7', country: 'US', client: 'nuphos-desktop/1.0.0' })]
-  expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(true)
-
-  sessions = [session({ ip: '198.51.100.7', country: 'TW', client: 'nuphos-cli/0.5.0' })]
-  expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(true)
-})
-
-test('expired sessions and other users do not count as familiar', async () => {
-  sessions = [
-    session({ ip: '198.51.100.7' }),
     session({ ip: '203.0.113.9', expiresAt: new Date(Date.now() - 1) }),
     { userId: 'someone-else', ip: '203.0.113.9', expiresAt: later },
   ]
-  expect(await isNewSignIn(USER, TAIPEI_DESKTOP)).toBe(true)
+  expect(await isNewSignIn(OLD, TAIPEI_DESKTOP)).toBe(true)
 })
 
 test('the alert leads with time and IP, and names the device only from known values', async () => {

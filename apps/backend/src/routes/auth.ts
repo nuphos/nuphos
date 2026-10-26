@@ -37,7 +37,7 @@ export const auth = new Hono<{ Variables: AuthVariables }>()
 async function startSession(c: Context, user: NuphosUser) {
   const source = signInSource((name) => c.req.header(name))
   // Compared with the account's other sessions before this one joins them.
-  const isNew = await isNewSignIn(user.id, source)
+  const isNew = await isNewSignIn(user, source)
   const token = await createUserSession(user.id, source)
 
   if (isNew) void sendNewSignInAlert(user, source)

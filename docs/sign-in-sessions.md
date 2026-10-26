@@ -16,13 +16,16 @@ These need a sign-in session. A sign-in from before sessions existed gets
 
 ## New sign-in alert
 
-When a sign-in starts, it is compared with the account's other live sessions:
+When a sign-in starts, only its IP decides, checked against the account's
+other sessions (all from the last 30 days, the longest a session lives):
 
-| Other live sessions                                | Matching one                          | Email |
-| -------------------------------------------------- | ------------------------------------- | ----- |
-| none (new account, or every earlier sign-in ended) | —                                     | no    |
-| some                                               | same IP, or same app in the same city | no    |
-| some                                               | none of the above                     | yes   |
+| Situation                                                   | Email |
+| ----------------------------------------------------------- | ----- |
+| an earlier session used this exact IP                       | no    |
+| account created within the hour, no other session (sign-up) | no    |
+| anything else                                               | yes   |
+
+City and country only describe the sign-in in the email.
 
 The email leads with what the server saw, the time (UTC) and IP, then the
 approximate location and device as hints, and says how to sign that device out
