@@ -6,7 +6,7 @@ const APPS: Record<string, string> = {
   'nuphos-android': 'Nuphos for Android',
   'nuphos-cli': 'Nuphos CLI',
 }
-const APP_CLIENT = /^(nuphos-(?:desktop|ios|android|cli))\/([0-9][\w.+-]{0,31})$/
+const APP_CLIENT = /^(nuphos-(?:desktop|ios|android|cli))\/(\d[\w.+-]{0,31})$/
 const BROWSERS: [RegExp, string][] = [
   [/Edg\//, 'Edge'],
   [/Firefox\//, 'Firefox'],
