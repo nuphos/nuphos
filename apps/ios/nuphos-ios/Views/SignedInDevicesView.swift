@@ -106,10 +106,13 @@ struct SignedInDevicesView: View {
                             .fixedSize()
                     }
                 }
-                Text("\(SignInSessions.place(device)) · \(SignInSessions.activity(device))")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(2)
+                Group {
+                    Text(SignInSessions.place(device))
+                    Text(SignInSessions.activity(device))
+                }
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
             }
             Spacer(minLength: 0)
             if !device.isCurrent {
