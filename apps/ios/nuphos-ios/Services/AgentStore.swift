@@ -220,6 +220,16 @@ final class AgentStore {
         }
     }
 
+    /// Reloads devices until cancelled: every 5s, but after 1s while a host
+    /// has no fresh reading yet, since older hosts only start sampling once asked.
+    func pollAgentDevices() async {
+        for round in 0... {
+            await loadAgentDevices()
+            let settling = round < 5 && agentDevices.contains { $0.metricsStatus == "waiting" || $0.metricsStatus == "stale" }
+            do { try await Task.sleep(for: .seconds(settling ? 1 : 5)) } catch { return }
+        }
+    }
+
     func loadQuotas() async {
         guard let team = selectedTeam,
               let list = try? await NuphosAPI.runtimeQuotas(token: token, teamId: team.id),

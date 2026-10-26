@@ -36,10 +36,7 @@ struct RuntimesPage: View {
         }
         .task(id: "\(store.selectedTeam?.id ?? ""): \(scenePhase == .active)") {
             guard scenePhase == .active else { return }
-            while !Task.isCancelled {
-                await store.loadAgentDevices()
-                do { try await Task.sleep(for: .seconds(5)) } catch { return }
-            }
+            await store.pollAgentDevices()
         }
         .refreshable {
             async let agents: Void = store.loadRuntimes(force: true)

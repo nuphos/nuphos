@@ -68,10 +68,7 @@ struct RuntimePickerSheet: View {
             }
             .task(id: "\(store.selectedTeam?.id ?? ""): \(browsing)") {
                 guard browsing else { return }
-                while !Task.isCancelled {
-                    await store.loadAgentDevices()
-                    do { try await Task.sleep(for: .seconds(5)) } catch { return }
-                }
+                await store.pollAgentDevices()
             }
             .onChange(of: store.runtimes) { _, _ in openCurrentBox() }
         }
