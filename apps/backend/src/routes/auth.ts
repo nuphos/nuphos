@@ -33,9 +33,11 @@ import { authSessions } from '@/routes/auth-sessions'
 
 export const auth = new Hono<{ Variables: AuthVariables }>()
 
-/** Every sign-in ends here: the one place a session is started. */
-async function startSession(c: Context, user: NuphosUser) {
-  const source = signInSource((name) => c.req.header(name))
+// Every sign-in starts its session here. `viaWebsite`: nuphos.ai's server made
+// the call, so the address seen is the website's, not the visitor's.
+async function startSession(c: Context, user: NuphosUser, viaWebsite = false) {
+  const seen = signInSource((name) => c.req.header(name))
+  const source = viaWebsite ? { client: seen.client, userAgent: seen.userAgent } : seen
   // Compared with the account's other sessions before this one joins them.
   const isNew = await isNewSignIn(user, source)
   const token = await createUserSession(user.id, source)
@@ -271,7 +273,8 @@ auth.post('/google/sign-in', async (c) => {
       })
     }
 
-    return c.json({ data: { googleSignIn: await startSession(c, user) } })
+    // Without a handle, only the nuphos.ai website's server calls this.
+    return c.json({ data: { googleSignIn: await startSession(c, user, true) } })
   } catch (e) {
     if (handle) await abandonNativeSession(handle)
 

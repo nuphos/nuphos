@@ -21,10 +21,9 @@ other sessions (all from the last 30 days, the longest a session lives):
 
 | Situation                                                   | Email |
 | ----------------------------------------------------------- | ----- |
-| no trusted IP (not behind Cloudflare)                       | no    |
 | an earlier session used this exact IP                       | no    |
 | account created within the hour, no other session (sign-up) | no    |
-| anything else                                               | yes   |
+| anything else, including an unknown IP                      | yes   |
 
 City and country only describe the sign-in in the email.
 
@@ -44,8 +43,10 @@ The IP, city and country come only from Cloudflare (`CF-Connecting-IP`,
 `CF-IPCity`, `CF-IPCountry`). Hosted Nuphos only accepts traffic from Cloudflare
 (Authenticated Origin Pulls), so these are trustworthy there. `X-Forwarded-For`
 is never used for a sign-in: any caller can set it, and the alert trusts the IP.
-Off Cloudflare the IP is unknown, so sessions show no place and no alert is sent. A browser Google sign-in on
-nuphos.ai is made server-to-server by the website, so its session records the
-website's address rather than the browser's. Until the website passes the
-visitor's address on, a web sign-in after an earlier web sign-in looks familiar
-and is not reported.
+Off Cloudflare the IP is unknown. An unknown IP never counts as familiar, so the
+sign-in is reported with "IP address: Unknown"; a deployment without Cloudflare
+gets an alert for every sign-in except a new account's first. A browser Google sign-in on
+nuphos.ai is made server-to-server by the website, without authentication, so
+the address the backend sees is the website's. That sign-in is recorded with an
+unknown IP (and so always reported) until the website can pass the visitor's
+address on in a way the backend can verify (NUPS-1388).

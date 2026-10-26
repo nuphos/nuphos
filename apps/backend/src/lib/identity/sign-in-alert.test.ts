@@ -75,9 +75,12 @@ test('only the exact IP of an earlier session is familiar', async () => {
   expect(await isNewSignIn(OLD, TAIPEI_DESKTOP)).toBe(true)
 })
 
-test('without a trusted IP there is nothing to compare, so nothing is sent', async () => {
-  sessions = [session({ ip: '198.51.100.7' })]
-  expect(await isNewSignIn(OLD, { ...TAIPEI_DESKTOP, ip: undefined })).toBe(false)
+test('an unknown IP is never familiar, so it is reported', async () => {
+  sessions = [session({ ip: undefined }), session({ ip: '198.51.100.7' })]
+  expect(await isNewSignIn(OLD, { ...TAIPEI_DESKTOP, ip: undefined })).toBe(true)
+  // A brand-new account's first sign-in still isn't.
+  sessions = []
+  expect(await isNewSignIn(account(5 * 60 * 1000), { ip: undefined })).toBe(false)
 })
 
 test('expired sessions and other users’ sessions are not familiar', async () => {

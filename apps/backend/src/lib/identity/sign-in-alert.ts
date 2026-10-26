@@ -13,8 +13,8 @@ const NEW_ACCOUNT_MS = 60 * 60 * 1000
  * IP decides, checked against the account's other sessions (all from the last
  * 30 days, the longest a session lives) before the new one exists:
  *
- *   - no trusted IP (not behind Cloudflare), or an earlier session used this
- *     exact IP: no email;
+ *   - an earlier session used this exact IP: no email (an unknown IP, off
+ *     Cloudflare or via the nuphos.ai website, never matches);
  *   - the account was created within the hour and has no other session: its
  *     first sign-in, no email;
  *   - otherwise: email.
@@ -27,8 +27,8 @@ export async function isNewSignIn(user: NuphosUser, source: SignInSource): Promi
     .limit(200)
     .toArray()
 
-  // Without a trusted IP there is nothing to compare.
-  if (source.ip === undefined || others.some((s) => s.ip === source.ip)) return false
+  // An unknown IP proves nothing, so it is never familiar.
+  if (source.ip !== undefined && others.some((s) => s.ip === source.ip)) return false
   if (others.length === 0 && Date.now() - Date.parse(user.createdAt) < NEW_ACCOUNT_MS) return false
 
   return true
