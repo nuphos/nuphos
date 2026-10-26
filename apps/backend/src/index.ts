@@ -37,6 +37,7 @@ import { dashboardRefreshScheduler } from '@/lib/dashboards/refresh-schedule'
 import { connectDb, closeDb } from '@/lib/db'
 import { watchDevLauncher } from '@/lib/dev-launcher-watchdog'
 import { initDiscordGateway, shutdownDiscordGateway } from '@/lib/discord/gateway'
+import { backfillPersonalTokenExpiry } from '@/lib/identity/cli-tokens'
 import { initJournalSealer, shutdownJournalSealer } from '@/lib/journal/seal-scheduler'
 import { markShuttingDown } from '@/lib/lifecycle'
 import { setupMcpOAuthIndexes } from '@/lib/oauth/store'
@@ -98,6 +99,13 @@ const removedTencent = await migrateLegacyTencentBindings()
 
 if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
+}
+
+// Personal CLI tokens made before they expired get 90 days from deploy.
+const datedCliTokens = await backfillPersonalTokenExpiry()
+
+if (datedCliTokens > 0) {
+  logEvent('info', 'backend.migration.cli_token_expiry_backfilled', { tokens: datedCliTokens })
 }
 
 // A message queued behind a turn starts the next one when that turn lets go.

@@ -20,7 +20,9 @@ import type { NuphosUser } from '@/lib/identity/types'
  *     the account, team membership, or billing (see `cliTokenDenied`).
  *
  * Only the SHA-256 of the secret is stored. A password reset revokes these
- * too, as it does session tokens (`getNuphosUserForCredential`).
+ * too, as it does session tokens (`getNuphosUserForCredential`). A personal
+ * token lapses after PERSONAL_TTL_MS without use; an agent token is a bot its
+ * user made on purpose and lasts until revoked.
  */
 export const CLI_TOKEN_PREFIX = 'nup_'
 
@@ -37,6 +39,8 @@ export type CliTokenDoc = {
   avatarUrl?: string
   createdAt: Date
   lastUsedAt?: Date
+  /** Personal tokens only: pushed out on every use. */
+  expiresAt?: Date
   createdIp?: string
 }
 
@@ -55,10 +59,28 @@ export async function setupCliTokenIndexes(): Promise<void> {
   await Promise.all([
     cliTokens().createIndex({ secretHash: 1 }, { unique: true, name: 'cli_tokens_secret' }),
     cliTokens().createIndex({ userId: 1, createdAt: -1 }, { name: 'cli_tokens_user' }),
+    // Agent tokens have no `expiresAt`, so the reaper never touches them.
+    cliTokens().createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'cli_tokens_ttl' }),
   ])
 }
 
 const LAST_USED_RESOLUTION_MS = 60_000
+const PERSONAL_TTL_MS = 90 * 24 * 60 * 60 * 1000
+
+const personalExpiry = (now: Date) => new Date(now.getTime() + PERSONAL_TTL_MS)
+
+/**
+ * Personal tokens made before they expired get the full lifetime from now
+ * (deploy time) rather than lapsing at once. A no-op once all have one.
+ */
+export async function backfillPersonalTokenExpiry(): Promise<number> {
+  const { modifiedCount } = await cliTokens().updateMany(
+    { kind: 'personal', expiresAt: { $exists: false } },
+    { $set: { expiresAt: personalExpiry(new Date()) } },
+  )
+
+  return modifiedCount
+}
 
 export function isCliToken(token: string): boolean {
   return token.startsWith(CLI_TOKEN_PREFIX)
@@ -85,6 +107,7 @@ export async function mintCliToken(input: {
     name: input.name,
     ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
     createdAt: new Date(),
+    ...(input.kind === 'personal' ? { expiresAt: personalExpiry(new Date()) } : {}),
     ...(input.createdIp ? { createdIp: input.createdIp } : {}),
   }
 
@@ -97,17 +120,26 @@ export async function authenticateCliToken(
   token: string,
 ): Promise<{ user: NuphosUser; cliToken: CliTokenPrincipal } | null> {
   const doc = await cliTokens().findOne({ secretHash: hashToken(token) })
+  const now = new Date()
 
-  if (!doc) return null
+  // The TTL reaper runs about once a minute, so expiry is checked here too.
+  if (!doc || (doc.expiresAt && doc.expiresAt <= now)) return null
   const user = await getNuphosUserForCredential(doc.userId, doc.createdAt)
 
   if (!user) return null
-  const now = new Date()
 
   if (!doc.lastUsedAt || now.getTime() - doc.lastUsedAt.getTime() >= LAST_USED_RESOLUTION_MS) {
     // Best effort: a missed write only makes "last used" a minute staler.
     void cliTokens()
-      .updateOne({ _id: doc._id }, { $set: { lastUsedAt: now } })
+      .updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            lastUsedAt: now,
+            ...(doc.kind === 'personal' ? { expiresAt: personalExpiry(now) } : {}),
+          },
+        },
+      )
       .catch(() => {})
   }
 
@@ -121,6 +153,7 @@ export async function listCliTokens(userId: string) {
     ...toPrincipal(doc),
     createdAt: doc.createdAt.toISOString(),
     lastUsedAt: doc.lastUsedAt?.toISOString() ?? null,
+    expiresAt: doc.expiresAt?.toISOString() ?? null,
   }))
 }
 

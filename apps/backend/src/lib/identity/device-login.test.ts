@@ -12,6 +12,9 @@ type Doc = Record<string, unknown>
 
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([key, expected]) => {
+    if (expected && typeof expected === 'object' && '$exists' in (expected as Doc)) {
+      return (doc[key] !== undefined) === (expected as { $exists: boolean }).$exists
+    }
     if (expected && typeof expected === 'object' && '$gt' in (expected as Doc)) {
       const value = doc[key]
 
@@ -66,6 +69,13 @@ class FakeCollection {
     if (hit) Object.assign(hit, update.$set)
 
     return { matchedCount: hit ? 1 : 0 }
+  }
+  async updateMany(filter: Doc, update: { $set: Doc }) {
+    const hits = this.docs.filter((d) => matches(d, filter))
+
+    for (const hit of hits) Object.assign(hit, update.$set)
+
+    return { modifiedCount: hits.length }
   }
   async findOneAndDelete(filter: Doc) {
     const hit = this.docs.find((d) => matches(d, filter))
@@ -131,6 +141,7 @@ const {
 } = await import('@/lib/identity/device-login')
 const {
   authenticateCliToken,
+  backfillPersonalTokenExpiry,
   cliTokenDenied,
   listCliTokens,
   mintCliToken,
@@ -249,6 +260,52 @@ describe('device login', () => {
     expect(await revokeCliToken('507f1f77bcf86cd799439099', listed!.id)).toBe(false)
     expect(await revokeCliToken(USER.id, listed!.id)).toBe(true)
     expect(await authenticateCliToken(result.token)).toBeNull()
+  })
+})
+
+describe('how long a token lasts', () => {
+  const DAY = 24 * 60 * 60
+
+  test('a personal token lapses after 90 days unused, and each use pushes that out', async () => {
+    const { token } = await mintCliToken({ kind: 'personal', userId: USER.id, name: 'laptop' })
+
+    advance(80 * DAY)
+    expect(await authenticateCliToken(token)).not.toBeNull()
+    advance(80 * DAY)
+    expect(await authenticateCliToken(token)).not.toBeNull()
+    advance(91 * DAY)
+    expect(await authenticateCliToken(token)).toBeNull()
+  })
+
+  test('an agent token lasts until it is revoked', async () => {
+    const { token } = await mintCliToken({
+      kind: 'agent',
+      userId: USER.id,
+      teamId: TEAM,
+      name: 'bot',
+    })
+
+    advance(400 * DAY)
+    expect(await authenticateCliToken(token)).not.toBeNull()
+  })
+
+  test('personal tokens made before expiry existed get 90 days from deploy', async () => {
+    const { token } = await mintCliToken({ kind: 'personal', userId: USER.id, name: 'old' })
+    const { token: bot } = await mintCliToken({
+      kind: 'agent',
+      userId: USER.id,
+      teamId: TEAM,
+      name: 'bot',
+    })
+
+    for (const doc of collection('cli_tokens').docs) delete doc.expiresAt
+    expect(await backfillPersonalTokenExpiry()).toBe(1)
+    expect(await backfillPersonalTokenExpiry()).toBe(0)
+    advance(89 * DAY)
+    expect(await authenticateCliToken(token)).not.toBeNull()
+    advance(91 * DAY)
+    expect(await authenticateCliToken(token)).toBeNull()
+    expect(await authenticateCliToken(bot)).not.toBeNull()
   })
 })
 

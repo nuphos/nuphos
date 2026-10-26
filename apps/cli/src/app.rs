@@ -1047,7 +1047,10 @@ impl App {
                 Some("/archive") => self.archive(),
                 Some("/resume") => self.open_conversation_picker(),
                 Some("/logout") => {
-                    let _ = config::write_session(&config::Session::default());
+                    // The TUI is closing anyway; wait for the sign-out to finish.
+                    let _ = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(crate::login::logout())
+                    });
                     self.is_new = true;
                     self.quit = true;
                 }

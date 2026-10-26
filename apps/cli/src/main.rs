@@ -166,7 +166,7 @@ async fn run(args: Args) -> Result<i32> {
     }
     match &args.command {
         Some(Command::Logout) => {
-            config::write_session(&config::Session::default())?;
+            login::logout().await?;
             println!("Signed out of Nuphos.");
             return Ok(0);
         }
