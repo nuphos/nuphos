@@ -62,6 +62,10 @@ export function createCrashReportRoutes(dependencies: Dependencies) {
       const dump = file instanceof File ? new Uint8Array(await file.arrayBuffer()) : null
 
       if (!dump || !isMinidump(dump)) return c.json({ error: 'invalid_request' }, 400)
+      // The user turned crash reports off after this app launched: Crashpad
+      // only reads that setting at launch, so the app flags the crash and we
+      // drop it here without storing anything.
+      if (fields.upload_off === '1') return c.text('discarded')
       const device =
         typeof fields.device === 'string' && DEVICE.test(fields.device) ? fields.device : 'unknown'
       const limited = quotaError(c, await dependencies.consumeDevice(device))

@@ -123,6 +123,18 @@ describe('POST /desktop/crash-reports', () => {
     expect(saved).toHaveLength(0)
   })
 
+  test('drops a crash flagged as sent after the user turned reports off', async () => {
+    const { routes, saved } = setup()
+    const form = crashForm()
+
+    form.set('upload_off', '1')
+    const res = await post(routes, form)
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('discarded')
+    expect(saved).toHaveLength(0)
+  })
+
   test('a missing or malformed device id shares one "unknown" quota', async () => {
     const { routes, consumed } = setup()
     const form = crashForm()
