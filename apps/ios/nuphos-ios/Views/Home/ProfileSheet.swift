@@ -31,6 +31,12 @@ struct ProfileSheet: View {
                     InfoRow(label: "Email", value: currentUser.email)
                     InfoRow(label: "User ID", value: currentUser.id, monospaced: true)
                     InfoRow(label: "Avatar URL", value: currentUser.avatarURL, monospaced: true)
+                    NavigationLink("Signed-in devices") {
+                        SignedInDevicesView {
+                            dismiss()
+                            session.signOut()
+                        }
+                    }
                 }
                 .listRowBackground(Theme.surface)
 

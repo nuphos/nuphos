@@ -6,12 +6,15 @@ import Foundation
 extension NuphosAPI {
     enum Failure: LocalizedError {
         case unauthorized
+        /// `403 session_required`: this sign-in predates sessions.
+        case sessionRequired
         case http(Int, message: String?)
         case invalidResponse
 
         var errorDescription: String? {
             switch self {
             case .unauthorized: "Your session has expired. Please sign in again."
+            case .sessionRequired: "Sign in again to manage your devices."
             case .http(let code, let message): message ?? "Nuphos returned an unexpected response (\(code))."
             case .invalidResponse: "Nuphos returned something we could not read."
             }

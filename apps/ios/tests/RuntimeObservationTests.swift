@@ -169,6 +169,7 @@ struct RuntimeObservationTests {
         LocalAgentTests.run()
         ImageAttachmentTests.run()
         PastedFileTests.run()
+        SignInSessionsTests.run()
     }
 
     /// Another device starts a turn: this one moves to the new run, and the
