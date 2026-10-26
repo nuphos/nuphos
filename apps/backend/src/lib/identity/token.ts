@@ -17,11 +17,17 @@ type NuphosRunClaims = {
 
 /**
  * Short-lived token the backend hands an agent run so it can act for its user.
- * Sign-ins never get one; they get a revocable session (`sessions.ts`). The
- * lifetime cap is also what refuses the 30-day sign-in JWTs issued before
- * sessions existed.
+ * Sign-ins never get one; they get a revocable session (`sessions.ts`).
  */
 export const MAX_RUN_TOKEN_TTL_SEC = 24 * 60 * 60
+
+/**
+ * Sign-in JWTs issued before sessions existed lived 30 days. They are accepted
+ * until they expire on their own; anything signed for longer is refused. Once
+ * the last of them has expired, verify against MAX_RUN_TOKEN_TTL_SEC instead.
+ * To end them all sooner, rotate NUPHOS_JWT_SECRET.
+ */
+const LEGACY_SIGN_IN_TTL_SEC = 30 * 24 * 60 * 60
 
 export function signNuphosToken(userId: ObjectId | string, ttlSec: number): string {
   const secret = requireJwtSecret()
@@ -78,7 +84,7 @@ export function verifyNuphosToken(token: string): NuphosRunClaims | null {
     claims.from !== 'nuphos' ||
     !claims.sub ||
     claims.exp <= now ||
-    claims.exp - claims.iat > MAX_RUN_TOKEN_TTL_SEC
+    claims.exp - claims.iat > LEGACY_SIGN_IN_TTL_SEC
   )
     return null
 

@@ -325,7 +325,7 @@ test('an expired session is refused', async () => {
   expect(await realIdentity.authenticateToken(token)).toBeNull()
 })
 
-test('sign-in JWTs issued before sessions are refused; agent-run JWTs still work', async () => {
+test('sign-in JWTs issued before sessions work until they expire; longer ones are refused', async () => {
   // Re-signs a run token with a longer lifetime, as the old sign-in code did.
   const forge = (lifetimeSec: number) => {
     const [header, payload] = signNuphosToken(USER, 60).split('.')
@@ -340,7 +340,10 @@ test('sign-in JWTs issued before sessions are refused; agent-run JWTs still work
     return `${header}.${body}.${sig}`
   }
 
-  expect(await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60))).toBeNull()
+  expect((await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60)))?.user.id).toBe(
+    String(USER),
+  )
+  expect(await realIdentity.authenticateToken(forge(31 * 24 * 60 * 60))).toBeNull()
   expect((await realIdentity.authenticateToken(forge(8 * 60 * 60)))?.user.id).toBe(String(USER))
   expect(() => signNuphosToken(USER, 30 * 24 * 60 * 60)).toThrow()
 })
