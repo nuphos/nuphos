@@ -3,30 +3,49 @@ import { bodyLimit } from 'hono/body-limit'
 
 import {
   CRASH_REPORT_MAX_BYTES,
-  consumeCrashReportRateLimit,
+  consumeCrashReportDeviceQuota,
+  consumeCrashReportIpQuota,
   crashReportMetadata,
+  isMinidump,
   saveCrashReport,
 } from '@/lib/crash-reports'
 import { clientIp } from '@/lib/request-origin'
 
 import type { CrashReportMetadata } from '@/lib/crash-reports'
 import type { DownloadHandoffRateLimitResult } from '@/lib/download-handoff-rate-limit'
+import type { Context } from 'hono'
 
+type Quota = Promise<DownloadHandoffRateLimitResult>
 type Dependencies = {
-  consume(input: { device: string; ip: string }): Promise<DownloadHandoffRateLimitResult>
+  consumeIp(ip: string): Quota
+  consumeDevice(device: string): Quota
   save(dump: Uint8Array, metadata: CrashReportMetadata): Promise<{ id: string }>
 }
 
 const DEVICE = /^[a-f0-9]{32}$/
 
+function quotaError(c: Context, result: DownloadHandoffRateLimitResult) {
+  if (result === 'limited') return c.json({ error: 'rate_limited' }, 429)
+  if (result === 'unavailable') return c.json({ error: 'limiter_unavailable' }, 503)
+
+  return null
+}
+
 // Public and unauthenticated: Crashpad's uploader runs outside the app and
-// can't send the user's token. Bounded by a size cap and per-device + per-IP
-// quotas; Redis failure is fail-closed like the other public write routes.
+// can't send the user's token. The per-IP and global quotas are spent before
+// the body is read; then a 10 MB cap, the minidump signature and a per-device
+// quota. Redis failure is fail-closed like the other public write routes.
 export function createCrashReportRoutes(dependencies: Dependencies) {
   const routes = new Hono()
 
   routes.post(
     '/',
+    async (c, next) => {
+      const ip =
+        clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')) ?? 'unknown'
+
+      return quotaError(c, await dependencies.consumeIp(ip)) ?? next()
+    },
     bodyLimit({
       maxSize: CRASH_REPORT_MAX_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -39,24 +58,16 @@ export function createCrashReportRoutes(dependencies: Dependencies) {
       } catch {
         return c.json({ error: 'invalid_request' }, 400)
       }
-      const dump = fields.upload_file_minidump
+      const file = fields.upload_file_minidump
+      const dump = file instanceof File ? new Uint8Array(await file.arrayBuffer()) : null
 
-      if (!(dump instanceof File) || dump.size === 0) {
-        return c.json({ error: 'invalid_request' }, 400)
-      }
+      if (!dump || !isMinidump(dump)) return c.json({ error: 'invalid_request' }, 400)
       const device =
         typeof fields.device === 'string' && DEVICE.test(fields.device) ? fields.device : 'unknown'
-      const ip =
-        clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')) ?? 'unknown'
-      const result = await dependencies.consume({ device, ip })
+      const limited = quotaError(c, await dependencies.consumeDevice(device))
 
-      if (result === 'limited') return c.json({ error: 'rate_limited' }, 429)
-      if (result === 'unavailable') return c.json({ error: 'limiter_unavailable' }, 503)
-
-      const { id } = await dependencies.save(
-        new Uint8Array(await dump.arrayBuffer()),
-        crashReportMetadata(fields),
-      )
+      if (limited) return limited
+      const { id } = await dependencies.save(dump, crashReportMetadata(fields))
 
       // Crashpad records the response body as the server-side report id.
       return c.text(id)
@@ -67,6 +78,7 @@ export function createCrashReportRoutes(dependencies: Dependencies) {
 }
 
 export const crashReportRoutes = createCrashReportRoutes({
-  consume: consumeCrashReportRateLimit,
+  consumeIp: consumeCrashReportIpQuota,
+  consumeDevice: consumeCrashReportDeviceQuota,
   save: saveCrashReport,
 })
