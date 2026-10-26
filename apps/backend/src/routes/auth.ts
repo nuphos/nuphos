@@ -9,7 +9,7 @@ import type { Context } from 'hono'
 
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
-import { signInSource } from '@/lib/request-origin'
+import { clientIp, signInSource } from '@/lib/request-origin'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
@@ -111,6 +111,7 @@ auth.post('/email/request-code', async (c) => {
 
   await requestEmailOtp(
     email,
+    clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
     signInSource((name) => c.req.header(name)),
   )
 

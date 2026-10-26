@@ -190,7 +190,7 @@ test('the code email says where the request came from', async () => {
   config.email.devLogOtp = false
   emailConfigured = true
   try {
-    await requestEmailOtp('where@example.com', {
+    await requestEmailOtp('where@example.com', '203.0.113.9', {
       ip: '203.0.113.9',
       city: 'Taipei',
       country: 'TW',
@@ -215,7 +215,11 @@ test('a code email never repeats the request headers', async () => {
   config.email.devLogOtp = false
   emailConfigured = true
   try {
-    await requestEmailOtp('lure@example.com', { ip: '203.0.113.9', client: lure, userAgent: lure })
+    await requestEmailOtp('lure@example.com', '203.0.113.9', {
+      ip: '203.0.113.9',
+      client: lure,
+      userAgent: lure,
+    })
   } finally {
     config.email.devLogOtp = devLog
     emailConfigured = false

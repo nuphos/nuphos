@@ -42,8 +42,15 @@ export async function setupEmailOtpIndexes(): Promise<void> {
   ])
 }
 
-/** `from` is where the request came from; the email shows it so a stranger's request stands out. */
-export async function requestEmailOtp(email: string, from: SignInSource = {}): Promise<void> {
+/**
+ * `ip` keys the per-IP send cap; `from` is shown in the email so a stranger's
+ * request stands out.
+ */
+export async function requestEmailOtp(
+  email: string,
+  ip?: string,
+  from: SignInSource = {},
+): Promise<void> {
   const normalized = normalizeEmail(email)
 
   if (!config.email.devLogOtp && !isEmailConfigured()) {
@@ -87,7 +94,7 @@ export async function requestEmailOtp(email: string, from: SignInSource = {}): P
   // setups) the quota is unavailable; the cooldown and lockout still apply.
   const quota = await consumePairQuota(
     {
-      key: `email-otp:ip:${sha256(from.ip ?? 'unknown')}`,
+      key: `email-otp:ip:${sha256(ip ?? 'unknown')}`,
       limit: IP_SENDS_PER_HOUR,
       windowSeconds: 3600,
     },

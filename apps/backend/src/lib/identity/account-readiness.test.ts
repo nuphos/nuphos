@@ -301,6 +301,8 @@ test('password reset revokes earlier sessions and run tokens', async () => {
   clock.mockRestore()
   const oldSession = await createUserSession(String(USER))
 
+  docs('cli_tokens').push({ _id: new ObjectId(), userId: String(USER), kind: 'personal' })
+
   await setPasswordWithEmailCode({
     email: 'review@example.com',
     password: testPassword,
@@ -310,6 +312,7 @@ test('password reset revokes earlier sessions and run tokens', async () => {
   expect(await realIdentity.authenticateToken(oldRunToken)).toBeNull()
   expect(await realIdentity.authenticateToken(oldSession)).toBeNull()
   expect(docs('user_sessions')).toHaveLength(0)
+  expect(docs('cli_tokens')).toHaveLength(0)
   expect(
     (await realIdentity.authenticateToken(await createUserSession(String(USER))))?.user.id,
   ).toBe(String(USER))

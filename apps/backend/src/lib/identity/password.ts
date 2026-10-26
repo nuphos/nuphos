@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { verifyEmailOtp } from '@/lib/email-otp'
 import { AppError } from '@/lib/errors'
 import { mapUser, users } from '@/lib/identity/shared'
+import { revokeAllCliTokens } from '@/lib/identity/cli-tokens'
 import { revokeAllUserSessions } from '@/lib/identity/sessions'
 
 const attempts = () =>
@@ -110,8 +111,8 @@ export async function setPasswordWithEmailCode(input: unknown) {
     throw new AppError(401, 'unauthorized', 'Account is no longer available')
 
   // `sessionsInvalidBefore` already refuses them; deleting also drops them
-  // from the user's list of signed-in devices.
-  await revokeAllUserSessions(user.id)
+  // from the user's lists of signed-in devices and CLI tokens.
+  await Promise.all([revokeAllUserSessions(user.id), revokeAllCliTokens(user.id)])
 
   return user
 }

@@ -36,12 +36,18 @@ export function requestOrigin(
 /** Who is signing in from where: the request's origin plus the app that sent it. */
 export type SignInSource = Partial<RequestOrigin> & { client?: string; userAgent?: string }
 
+/**
+ * The IP and place come only from Cloudflare: behind it (hosted Nuphos only
+ * accepts Cloudflare, via Authenticated Origin Pulls) CF-Connecting-IP is the
+ * real client. X-Forwarded-For is whatever the caller sends, and the new
+ * sign-in alert trusts this IP, so without Cloudflare the IP is unknown.
+ */
 export function signInSource(header: (name: string) => string | undefined): SignInSource {
   const client = header('x-atlas-client')?.trim()
   const userAgent = header('User-Agent')?.trim()
 
   return {
-    ...requestOrigin(header),
+    ...(header('CF-Connecting-IP')?.trim() ? requestOrigin(header) : {}),
     ...(client ? { client } : {}),
     ...(userAgent ? { userAgent } : {}),
   }

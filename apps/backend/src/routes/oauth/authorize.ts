@@ -1,6 +1,6 @@
 import { authenticateUserFromCookies } from '@/lib/cookie-auth'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
-import { signInSource } from '@/lib/request-origin'
+import { clientIp, signInSource } from '@/lib/request-origin'
 import { getClient, issueAuthCode } from '@/lib/oauth/store'
 import { signConsentToken, verifyConsentToken } from '@/lib/oauth/tokens'
 import { redirectBackWithError, validateAuthorize } from '@/routes/oauth/authorize-validate'
@@ -77,6 +77,7 @@ export function registerOauthAuthorizeRoutes(oauthRoutes: Hono) {
     try {
       await requestEmailOtp(
         email,
+        clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
         signInSource((name) => c.req.header(name)),
       )
     } catch {

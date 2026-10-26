@@ -75,6 +75,11 @@ test('only the exact IP of an earlier session is familiar', async () => {
   expect(await isNewSignIn(OLD, TAIPEI_DESKTOP)).toBe(true)
 })
 
+test('without a trusted IP there is nothing to compare, so nothing is sent', async () => {
+  sessions = [session({ ip: '198.51.100.7' })]
+  expect(await isNewSignIn(OLD, { ...TAIPEI_DESKTOP, ip: undefined })).toBe(false)
+})
+
 test('expired sessions and other users’ sessions are not familiar', async () => {
   sessions = [
     session({ ip: '203.0.113.9', expiresAt: new Date(Date.now() - 1) }),

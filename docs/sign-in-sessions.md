@@ -21,6 +21,7 @@ other sessions (all from the last 30 days, the longest a session lives):
 
 | Situation                                                   | Email |
 | ----------------------------------------------------------- | ----- |
+| no trusted IP (not behind Cloudflare)                       | no    |
 | an earlier session used this exact IP                       | no    |
 | account created within the hour, no other session (sign-up) | no    |
 | anything else                                               | yes   |
@@ -39,7 +40,10 @@ values stay on the session record.
 
 The sign-in code email also says where the code was requested from.
 
-Location comes from Cloudflare's `CF-IPCity` / `CF-IPCountry` headers, so it is
-missing on deployments not behind Cloudflare. A browser Google sign-in on
+The IP, city and country come only from Cloudflare (`CF-Connecting-IP`,
+`CF-IPCity`, `CF-IPCountry`). Hosted Nuphos only accepts traffic from Cloudflare
+(Authenticated Origin Pulls), so these are trustworthy there. `X-Forwarded-For`
+is never used for a sign-in: any caller can set it, and the alert trusts the IP.
+Off Cloudflare the IP is unknown, so sessions show no place and no alert is sent. A browser Google sign-in on
 nuphos.ai is made server-to-server by the website, so its session records the
 website's address rather than the browser's.

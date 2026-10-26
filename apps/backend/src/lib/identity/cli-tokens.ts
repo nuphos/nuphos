@@ -174,6 +174,19 @@ export async function revokeCliToken(userId: string, id: string): Promise<boolea
 }
 
 /**
+ * Ends every CLI token the user has, as a password reset does. They are
+ * already refused (`sessionsInvalidBefore`); this also drops them from lists.
+ */
+export async function revokeAllCliTokens(userId: string): Promise<void> {
+  const docs = await cliTokens()
+    .find({ userId }, { projection: { _id: 1 } })
+    .toArray()
+
+  await cliTokens().deleteMany({ userId })
+  await Promise.all(docs.map((doc) => deleteUserAvatars(doc._id.toHexString())))
+}
+
+/**
  * Renames an agent token or sets its avatar (`null` removes it). The filter is
  * the whole scope: this one agent token, owned by `userId`. Nothing else is
  * written, so neither the owner's account nor their other tokens are reachable.
