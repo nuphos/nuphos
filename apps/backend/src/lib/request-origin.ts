@@ -1,3 +1,5 @@
+import { isIP } from 'node:net'
+
 /**
  * Cloudflare sets CF-Connecting-IP to the real client. Hosted Nuphos (api.nuphos.ai) enforces
  * Cloudflare Authenticated Origin Pulls, so there the header is trusted. Self-hosted, the
@@ -10,10 +12,14 @@ export function clientIp(
 ): string | undefined {
   const candidates = [cfConnectingIp, ...(forwardedFor?.split(',').toReversed() ?? [])]
 
-  return candidates.map((value) => value?.trim()).find(Boolean)
+  // Only an actual address: these headers can carry any text off Cloudflare.
+  return candidates.map((value) => value?.trim()).find((value) => value && isIP(value) !== 0)
 }
 
 export type RequestOrigin = { ip: string; city?: string; country?: string }
+
+const CITY = /^[\p{L}\p{M} .'-]{1,40}$/u
+const COUNTRY = /^[A-Z]{2}$/
 
 /** Where a request came from; city and country only when Cloudflare's visitor location headers are on. */
 export function requestOrigin(
@@ -25,11 +31,14 @@ export function requestOrigin(
   const city = header('CF-IPCity')?.trim()
   const country = header('CF-IPCountry')?.trim()
 
+  // Shape-checked, since they end up in emails: a place name, an ISO code.
   return {
     ip,
-    ...(city ? { city } : {}),
+    ...(city && CITY.test(city) ? { city } : {}),
     // XX: unknown; T1: Tor.
-    ...(country && country !== 'XX' && country !== 'T1' ? { country } : {}),
+    ...(country && COUNTRY.test(country) && country !== 'XX' && country !== 'T1'
+      ? { country }
+      : {}),
   }
 }
 

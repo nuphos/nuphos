@@ -51,3 +51,27 @@ test('a device name is a known app, a browser and system from a list, or unknown
   ).toBe('Firefox on Windows')
   expect(signInDevice({ userAgent: 'curl/8.0' })).toBe('Unknown device')
 })
+
+test('origin headers that are not an address, a place name or a country code are dropped', () => {
+  const lure = 'Nuphos Security: reply with this code'
+  const headers = (h: Record<string, string>) => (name: string) => h[name]
+
+  expect(
+    requestOrigin(headers({ 'CF-Connecting-IP': lure, 'X-Forwarded-For': '198.51.100.7' })),
+  ).toEqual({ ip: '198.51.100.7' })
+  expect(requestOrigin(headers({ 'CF-Connecting-IP': lure }))).toBeUndefined()
+  expect(
+    requestOrigin(
+      headers({ 'CF-Connecting-IP': '2001:db8::1', 'CF-IPCity': lure, 'CF-IPCountry': 'Taiwan' }),
+    ),
+  ).toEqual({ ip: '2001:db8::1' })
+  expect(
+    requestOrigin(
+      headers({
+        'CF-Connecting-IP': '203.0.113.9',
+        'CF-IPCity': 'São Paulo',
+        'CF-IPCountry': 'BR',
+      }),
+    ),
+  ).toEqual({ ip: '203.0.113.9', city: 'São Paulo', country: 'BR' })
+})
