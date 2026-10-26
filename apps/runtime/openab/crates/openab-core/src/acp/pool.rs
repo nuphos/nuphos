@@ -131,8 +131,17 @@ fn candidate_in_flight(activity: Option<&SessionActivity>) -> bool {
 }
 
 /// Returns true when a session should be treated as stale during idle cleanup.
-fn classify_idle(last_active: Instant, alive: bool, cutoff: Instant) -> bool {
-    last_active < cutoff || !alive
+///
+/// `agent_turn_live` covers an agent-initiated turn that is relaying or parked on a
+/// permission decision: it holds no mutex and leaves `last_active` frozen at the
+/// last client prompt, so age alone would reap it mid-turn.
+fn classify_idle(
+    last_active: Instant,
+    alive: bool,
+    cutoff: Instant,
+    agent_turn_live: bool,
+) -> bool {
+    !alive || (last_active < cutoff && !agent_turn_live)
 }
 
 /// Returns true when a locked, in-flight session has exceeded the hung threshold.
@@ -191,7 +200,7 @@ pub(crate) fn relay_is_streaming(relay_age: std::time::Duration, grace: std::tim
     relay_age < grace
 }
 
-/// Returns true when a session must be skipped by the pool-full eviction scan
+/// Returns true when a session must be skipped by the pool-full eviction scan and the idle sweep
 /// because its agent-initiated relay is still forwarding updates.
 fn candidate_relaying(activity: Option<&SessionActivity>, grace: std::time::Duration) -> bool {
     activity.is_some_and(|a| {
@@ -1349,6 +1358,7 @@ impl SessionPool {
     pub async fn cleanup_idle(&self, ttl_secs: u64) {
         let cutoff = Instant::now() - std::time::Duration::from_secs(ttl_secs);
         let hung_threshold = std::time::Duration::from_secs(self.hung_threshold_secs);
+        let relay_grace = std::time::Duration::from_secs(AGENT_RELAY_GRACE_SECS);
 
         let (snapshot, activity_map, cancel_map, pgid_map) = {
             let state = self.state.read().await;
@@ -1427,13 +1437,17 @@ impl SessionPool {
             // with_connection, so a true in_flight flag is stale (the turn
             // aborted without prompt_done). Self-heal it so the session can
             // never be falsely classified as hung later.
-            if let Some(activity) = activity_map.get(&key) {
+            let activity = activity_map.get(&key).map(Arc::as_ref);
+            if let Some(activity) = activity {
                 if activity.in_flight() {
                     activity.set_in_flight(false);
                     activity.touch();
                 }
             }
-            if classify_idle(conn.last_active, conn.alive(), cutoff) {
+            // The same guards the pool-full eviction scan applies.
+            let agent_turn_live = candidate_relaying(activity, relay_grace)
+                || candidate_awaiting_permission(activity, hung_threshold);
+            if classify_idle(conn.last_active, conn.alive(), cutoff, agent_turn_live) {
                 stale.push((key, conn_handle, conn.acp_session_id.clone()));
             }
         }
@@ -1744,21 +1758,37 @@ mod tests {
         let now = Instant::now();
         let cutoff = now - std::time::Duration::from_secs(60);
         let last_active = now - std::time::Duration::from_secs(120);
-        assert!(classify_idle(last_active, true, cutoff));
+        assert!(classify_idle(last_active, true, cutoff, false));
     }
 
     #[test]
     fn classify_idle_marks_stale_by_death() {
         let now = Instant::now();
         let cutoff = now - std::time::Duration::from_secs(60);
-        assert!(classify_idle(now, false, cutoff));
+        assert!(classify_idle(now, false, cutoff, false));
     }
 
     #[test]
     fn classify_idle_keeps_fresh_alive_sessions() {
         let now = Instant::now();
         let cutoff = now - std::time::Duration::from_secs(60);
-        assert!(!classify_idle(now, true, cutoff));
+        assert!(!classify_idle(now, true, cutoff, false));
+    }
+
+    #[test]
+    fn classify_idle_spares_a_stale_session_with_a_live_agent_turn() {
+        let now = Instant::now();
+        let cutoff = now - std::time::Duration::from_secs(60);
+        let last_active = now - std::time::Duration::from_secs(120);
+        assert!(!classify_idle(last_active, true, cutoff, true));
+    }
+
+    /// A dead agent is reclaimed even if its relay stamp is still fresh.
+    #[test]
+    fn classify_idle_reaps_a_dead_session_with_a_live_agent_turn() {
+        let now = Instant::now();
+        let cutoff = now - std::time::Duration::from_secs(60);
+        assert!(classify_idle(now, false, cutoff, true));
     }
 
     #[test]
