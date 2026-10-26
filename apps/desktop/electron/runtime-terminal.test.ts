@@ -116,8 +116,8 @@ test('authentication transitions close existing runtime sockets', async () => {
 
   socket.frame({ type: 'ready', label: 'Runtime' })
   await pending
-  authSession.set('different-auth-session')
+  authSession.set('different-auth-session', 'u2')
   assert.equal(socket.closed, true)
   assert.equal(runtimeTerminals.describe(host.value, 'auth-tab'), undefined)
-  authSession.set(null)
+  authSession.set(null, null)
 })

@@ -19,7 +19,9 @@ export class AuthSession {
     return this.user
   }
 
-  set(token: string | null, userId: string | null = null): void {
+  // Token and user always change together: tokens are opaque, so a caller
+  // that left the user out would silently forget who is signed in.
+  set(token: string | null, userId: string | null): void {
     const user = token ? userId : null
 
     if (token === this.token && user === this.user) return
