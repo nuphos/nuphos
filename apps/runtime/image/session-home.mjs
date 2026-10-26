@@ -228,14 +228,16 @@ export async function nuphosSweepSessionHomes(root, options = {}) {
     }
     return false
   }
-  // Never follows a symlink: a link is removed, not what it points to.
+  // Never follows a symlink: a link is removed, not what it points to. Never
+  // crosses into another filesystem: a mount inside a home stops its removal.
   let count = 0
-  const remove = async (at) => {
+  const remove = async (at, dev) => {
     const stat = await fs.lstat(at).catch(() => null)
     if (!stat) return
+    if (stat.dev !== dev) throw new Error(`${at} is on another filesystem`)
     if (stat.isDirectory()) {
       await fs.chmod(at, 0o700).catch(() => {})
-      for (const name of await fs.readdir(at)) await remove(path.join(at, name))
+      for (const name of await fs.readdir(at)) await remove(path.join(at, name), dev)
       await fs.rmdir(at)
     } else await fs.unlink(at)
     if (++count % 200 === 0) await sleep(pauseMs)
@@ -256,10 +258,13 @@ export async function nuphosSweepSessionHomes(root, options = {}) {
       if (aside !== dir) await fs.rename(dir, aside)
       const stat = await fs.lstat(aside)
       if (!stat.isDirectory() || stat.mtimeMs > cutoff || used(await processes(), aside, home)) {
-        if (aside !== dir) await fs.rename(aside, dir).catch(() => {})
+        // Not over a home a session has created since: this one stays aside
+        // and is judged again by the next sweep.
+        if (aside !== dir && !(await fs.lstat(dir).catch(() => null)))
+          await fs.rename(aside, dir).catch(() => {})
         continue
       }
-      await remove(aside)
+      await remove(aside, stat.dev)
       removed.push(entry.name)
     } catch {
       /* Taken by another sweep, or partly removed; the next sweep retries. */
