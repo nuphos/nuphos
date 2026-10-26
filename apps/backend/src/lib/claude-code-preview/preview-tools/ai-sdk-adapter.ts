@@ -99,50 +99,56 @@ function adaptExecute(
   ctx: PreviewToolContext,
   publish: PublishPreviewFrame,
 ): ToolHandler {
-  return async (args) => {
-    const toolCallId = `nuphos-${randomUUID()}`
-    const emit = (frame: Record<string, unknown>) =>
-      publish(ctx, frame).catch(() => {
-        // Frames are best-effort UI; the tool result itself still reaches the agent.
-      })
-
-    // New hosting turns consume these marked frames and present only the ACP id.
-    // Old replicas still receive the standard pair during a rolling upgrade.
-    const presentation = { [TOOL_PRESENTATION]: 'runtime', toolName: name }
-
-    await emit({ type: 'tool-input-available', toolCallId, input: args, ...presentation })
-    try {
+  return (args) =>
+    presentedByRuntime(publish, ctx, name, args, async (toolCallId) => {
       // Unlike the AI SDK loop, the MCP protocol dispatcher does not parse
       // arguments against the advertised schema. Do that here so required
       // fields, refinements, and defaults have identical semantics in the
       // Claude Code runtime instead of falling through to an execute branch.
       const input = isZodSchema(tool.inputSchema) ? await tool.inputSchema.parseAsync(args) : args
-      const output = await tool.execute!(input, {
+
+      return tool.execute!(input, {
         toolCallId,
         messages: [],
         abortSignal: new AbortController().signal,
       })
+    })
+}
 
-      await emit({
-        type: 'tool-output-available',
-        toolCallId,
-        output: output ?? null,
-        ...presentation,
-      })
+/**
+ * Runs a Nuphos tool whose card is the runtime's own ACP call, the one the
+ * transcript stores, so a live turn and a reload show the same single card.
+ */
+export async function presentedByRuntime(
+  publish: PublishPreviewFrame,
+  ctx: PreviewToolContext,
+  name: string,
+  args: unknown,
+  run: (toolCallId: string) => unknown,
+) {
+  const toolCallId = `nuphos-${randomUUID()}`
+  const emit = (frame: Record<string, unknown>) =>
+    publish(ctx, frame).catch(() => {
+      // Frames are best-effort UI; the tool result itself still reaches the agent.
+    })
+  // New hosting turns consume these marked frames and present only the ACP id.
+  // Old replicas still receive the standard pair during a rolling upgrade.
+  const presentation = { [TOOL_PRESENTATION]: 'runtime', toolName: name }
+  const _meta = { [TOOL_PRESENTATION]: 'runtime', [TOOL_PRESENTATION_ID]: toolCallId }
 
-      return {
-        ...toolResult(output ?? null),
-        _meta: { [TOOL_PRESENTATION]: 'runtime', [TOOL_PRESENTATION_ID]: toolCallId },
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+  // The work starts only once the input frame is out, so its result never arrives first.
+  await emit({ type: 'tool-input-available', toolCallId, input: args, ...presentation })
+  try {
+    const output = (await run(toolCallId)) ?? null
 
-      await emit({ type: 'tool-output-error', toolCallId, errorText: message, ...presentation })
+    await emit({ type: 'tool-output-available', toolCallId, output, ...presentation })
 
-      return {
-        ...toolError(message),
-        _meta: { [TOOL_PRESENTATION]: 'runtime', [TOOL_PRESENTATION_ID]: toolCallId },
-      }
-    }
+    return { ...toolResult(output), _meta }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+
+    await emit({ type: 'tool-output-error', toolCallId, errorText: message, ...presentation })
+
+    return { ...toolError(message), _meta }
   }
 }
