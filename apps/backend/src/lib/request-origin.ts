@@ -62,12 +62,13 @@ export function signInSource(header: (name: string) => string | undefined): Sign
   }
 }
 
-const APPS: Record<string, string> = {
-  'nuphos-desktop': 'Nuphos Desktop',
-  'nuphos-ios': 'Nuphos for iOS',
-  'nuphos-android': 'Nuphos for Android',
-  'nuphos-cli': 'Nuphos CLI',
-}
+// A Map, so a client like `constructor/1` cannot reach Object.prototype.
+const APPS = new Map([
+  ['nuphos-desktop', 'Nuphos Desktop'],
+  ['nuphos-ios', 'Nuphos for iOS'],
+  ['nuphos-android', 'Nuphos for Android'],
+  ['nuphos-cli', 'Nuphos CLI'],
+])
 const BROWSERS: [RegExp, string][] = [
   [/Edg\//, 'Edge'],
   [/Firefox\//, 'Firefox'],
@@ -88,7 +89,7 @@ const SYSTEMS: [RegExp, string][] = [
  * app name, a browser and system picked from a fixed list, or "Unknown device".
  */
 export function signInDevice(source: SignInSource): string {
-  const app = APPS[source.client?.split('/')[0] ?? '']
+  const app = APPS.get(source.client?.split('/')[0] ?? '')
 
   if (app) return app
   const ua = source.userAgent ?? ''

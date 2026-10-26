@@ -18,6 +18,8 @@ type Load =
   | { state: 'ready'; sessions: SignInSession[] }
   // A sign-in from before sessions: it works, but has no session to manage from.
   | { state: 'signInAgain' }
+  // A backend from before sessions has no such route.
+  | { state: 'unavailable' }
   | { state: 'failed' }
 
 export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void }) {
@@ -30,11 +32,10 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
       .atlasListSignInSessions()
       .then((sessions) => setLoad({ state: 'ready', sessions: sortSessions(sessions) }))
       .catch((err: unknown) => {
-        if (parseAtlasError(err).code === 'session_required') {
-          setLoad({ state: 'signInAgain' })
+        const { code } = parseAtlasError(err)
 
-          return
-        }
+        if (code === 'session_required') return setLoad({ state: 'signInAgain' })
+        if (code === 'route_not_found') return setLoad({ state: 'unavailable' })
         setLoad({ state: 'failed' })
         toast.apiError('Could not load your signed-in devices', err)
       })
@@ -85,6 +86,11 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
             Sign out and sign in again
           </Button>
         </div>
+      )}
+      {load.state === 'unavailable' && (
+        <p className="text-[12.5px] text-tertiary">
+          Device management isn’t available on this server yet.
+        </p>
       )}
       {load.state === 'failed' && (
         <p className="text-[12.5px] text-tertiary">

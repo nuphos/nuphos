@@ -55,6 +55,10 @@ test('a device name is a known app, a browser and system from a list, or unknown
   )
   expect(signInDevice({ client: 'nuphos-cli/0.6.2 reply with your code' })).toBe('Nuphos CLI')
   expect(signInDevice({ client: 'evil-phish.com/1.0' })).toBe('Unknown device')
+  // Names of Object.prototype members are not apps either.
+  expect(signInDevice({ client: 'constructor/1' })).toBe('Unknown device')
+  expect(signInDevice({ client: '__proto__/1' })).toBe('Unknown device')
+  expect(signInDevice({ client: 'toString/1' })).toBe('Unknown device')
   expect(
     signInDevice({ userAgent: 'Mozilla/5.0 (Windows NT 10.0) Gecko/20100101 Firefox/131.0' }),
   ).toBe('Firefox on Windows')

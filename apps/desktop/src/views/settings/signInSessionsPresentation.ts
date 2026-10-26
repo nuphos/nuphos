@@ -6,7 +6,6 @@ const APPS: Record<string, string> = {
   'nuphos-android': 'Nuphos for Android',
   'nuphos-cli': 'Nuphos CLI',
 }
-const APP_CLIENT = /^(nuphos-(?:desktop|ios|android|cli))\/(\d[\w.+-]{0,31})$/
 const BROWSERS: [RegExp, string][] = [
   [/Edg\//, 'Edge'],
   [/Firefox\//, 'Firefox'],
@@ -23,13 +22,14 @@ const SYSTEMS: [RegExp, string][] = [
 
 /**
  * What signed in. The app name and user agent are whatever the signing-in
- * client sent, so their text is never shown: a known app, a browser and system
- * from a fixed list, or "Unknown device" (as the backend's emails do).
+ * client sent, so none of their text is shown, not even an app's version: a
+ * known app, a browser and system from a fixed list, or "Unknown device" (as
+ * the backend's emails do).
  */
 export function sessionDevice(session: Pick<SignInSession, 'client' | 'userAgent'>): string {
-  const app = APP_CLIENT.exec(session.client ?? '')
+  const app = session.client?.split('/')[0] ?? ''
 
-  if (app) return `${APPS[app[1]!]!} ${app[2]!}`
+  if (Object.hasOwn(APPS, app)) return APPS[app]!
   const ua = session.userAgent ?? ''
 
   // The nuphos.ai web sign-in reaches the backend from the website's server.
