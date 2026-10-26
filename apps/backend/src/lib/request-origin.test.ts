@@ -37,7 +37,11 @@ test('a sign-in takes its IP and place only from Cloudflare, never X-Forwarded-F
       }),
     ),
   ).toEqual({ ip: '203.0.113.9', city: 'Taipei', country: 'TW' })
-  // A caller off Cloudflare can claim any X-Forwarded-For (or CF-IPCity): ignored.
+  // A caller off Cloudflare can claim any X-Forwarded-For (or CF-IPCity): ignored,
+  // also when it sends a CF-Connecting-IP that is not an address.
+  expect(
+    signInSource(headers({ 'CF-Connecting-IP': 'not-an-ip', 'X-Forwarded-For': '203.0.113.9' })),
+  ).toEqual({})
   expect(
     signInSource(headers({ 'X-Forwarded-For': '203.0.113.9', 'CF-IPCity': 'Taipei' })),
   ).toEqual({})

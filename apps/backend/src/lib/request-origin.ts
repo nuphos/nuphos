@@ -56,7 +56,7 @@ export function signInSource(header: (name: string) => string | undefined): Sign
   const userAgent = header('User-Agent')?.trim()
 
   return {
-    ...(header('CF-Connecting-IP')?.trim() ? requestOrigin(header) : {}),
+    ...(isIP(header('CF-Connecting-IP')?.trim() ?? '') !== 0 ? requestOrigin(header) : {}),
     ...(client ? { client } : {}),
     ...(userAgent ? { userAgent } : {}),
   }

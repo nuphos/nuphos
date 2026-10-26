@@ -46,4 +46,6 @@ The IP, city and country come only from Cloudflare (`CF-Connecting-IP`,
 is never used for a sign-in: any caller can set it, and the alert trusts the IP.
 Off Cloudflare the IP is unknown, so sessions show no place and no alert is sent. A browser Google sign-in on
 nuphos.ai is made server-to-server by the website, so its session records the
-website's address rather than the browser's.
+website's address rather than the browser's. Until the website passes the
+visitor's address on, a web sign-in after an earlier web sign-in looks familiar
+and is not reported.
