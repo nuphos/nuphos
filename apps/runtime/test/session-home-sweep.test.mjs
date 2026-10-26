@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   chmodSync,
@@ -163,4 +163,39 @@ test('reopening an idle home renews it, so a resumed conversation keeps its logi
   nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'resumed' }, host)
   assert.deepEqual(await nuphosSweepSessionHomes(host.root, { pauseMs: 0 }), [])
   assert.equal(readFileSync(KUBECONFIG, 'utf8'), 'login')
+})
+
+test('a home holding a mount is kept whole, mounted data included', async (t) => {
+  const probe = spawnSync('unshare', ['-rm', 'true'])
+  if (process.platform !== 'linux' || probe.status !== 0)
+    return t.skip('Needs an unprivileged mount namespace (unshare -rm)')
+  const host = runtime(t)
+  const idle = home(host, 'mounted', '.kube/config')
+  mkdirSync(join(idle, 'share'))
+  // In its own mount namespace, so the tmpfs disappears with the process.
+  const script = `
+    import { lutimesSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+    import { execFileSync } from 'node:child_process'
+    import { nuphosSweepSessionHomes } from ${JSON.stringify(new URL('../image/session-home.mjs', import.meta.url).href)}
+    const [idle, root] = process.argv.slice(1)
+    execFileSync('mount', ['-t', 'tmpfs', 'tmpfs', idle + '/share'])
+    writeFileSync(idle + '/share/data', 'outside the home')
+    const old = new Date(Date.now() - 8 * 86400000)
+    for (const at of ['/share/data', '/share', '/.kube/config', '/.kube', ''])
+      lutimesSync(idle + at, old, old)
+    const removed = await nuphosSweepSessionHomes(root, { pauseMs: 0 })
+    console.log(JSON.stringify({ removed, data: existsSync(idle + '/share/data'),
+      config: existsSync(idle + '/.kube/config'), names: readdirSync(root) }))
+  `
+  const run = spawnSync(
+    'unshare',
+    ['-rm', process.execPath, '--input-type=module', '-e', script, idle, host.root],
+    { encoding: 'utf8' },
+  )
+  assert.equal(run.status, 0, run.stderr)
+  const result = JSON.parse(run.stdout)
+  assert.deepEqual(result.removed, [])
+  assert.equal(result.data, true)
+  assert.equal(result.config, true, 'nothing in the home is removed')
+  assert.equal(result.names.includes(sha('mounted')), true)
 })

@@ -214,13 +214,17 @@ export async function nuphosSweepSessionHomes(root, options = {}) {
         seen.includes(item.replace(root, () => at)),
       ),
     )
-  // True when anything in the tree changed after the cutoff, or cannot be read.
+  // Everything removed must sit on the root's own filesystem: a home holding
+  // a mount (bind mount, volume, disk image, network share) is kept whole.
+  const dev = (await fs.lstat(root).catch(() => null))?.dev
+  // True when anything in the tree changed after the cutoff, cannot be read,
+  // or is on another filesystem.
   const fresh = async (dir) => {
     for (const stack = [dir]; stack.length;) {
       const at = stack.pop()
       const stat = await fs.lstat(at).catch(() => null)
       if (!stat) continue
-      if (stat.mtimeMs > cutoff) return true
+      if (stat.mtimeMs > cutoff || stat.dev !== dev) return true
       if (!stat.isDirectory()) continue
       const names = await fs.readdir(at).catch(() => null)
       if (!names) return true
@@ -228,16 +232,16 @@ export async function nuphosSweepSessionHomes(root, options = {}) {
     }
     return false
   }
-  // Never follows a symlink: a link is removed, not what it points to. Never
-  // crosses into another filesystem: a mount inside a home stops its removal.
+  // Never follows a symlink: a link is removed, not what it points to. A mount
+  // that appeared since the check stops the removal before anything in it.
   let count = 0
-  const remove = async (at, dev) => {
+  const remove = async (at) => {
     const stat = await fs.lstat(at).catch(() => null)
     if (!stat) return
     if (stat.dev !== dev) throw new Error(`${at} is on another filesystem`)
     if (stat.isDirectory()) {
       await fs.chmod(at, 0o700).catch(() => {})
-      for (const name of await fs.readdir(at)) await remove(path.join(at, name), dev)
+      for (const name of await fs.readdir(at)) await remove(path.join(at, name))
       await fs.rmdir(at)
     } else await fs.unlink(at)
     if (++count % 200 === 0) await sleep(pauseMs)
@@ -264,7 +268,7 @@ export async function nuphosSweepSessionHomes(root, options = {}) {
           await fs.rename(aside, dir).catch(() => {})
         continue
       }
-      await remove(aside, stat.dev)
+      await remove(aside)
       removed.push(entry.name)
     } catch {
       /* Taken by another sweep, or partly removed; the next sweep retries. */
