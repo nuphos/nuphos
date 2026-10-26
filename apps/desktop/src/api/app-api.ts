@@ -26,6 +26,9 @@ export const appApi = {
     window.api.atlasStartPersonalCredential(provider),
   atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
     window.api.atlasDeletePersonalCredential(provider),
+  atlasListSignInSessions: () => window.api.atlasListSignInSessions(),
+  atlasSignOutSession: (id: string) => window.api.atlasSignOutSession(id),
+  atlasSignOutOtherSessions: () => window.api.atlasSignOutOtherSessions(),
   authUploadAvatar: (image: Uint8Array) => window.api.authUploadAvatar(image),
   authRemoveAvatar: () => window.api.authRemoveAvatar(),
   authStatus: () => window.api.authStatus(),

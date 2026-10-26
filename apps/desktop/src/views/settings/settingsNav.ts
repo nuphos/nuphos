@@ -7,6 +7,7 @@ import {
   FileText,
   KeyRound,
   Monitor,
+  MonitorSmartphone,
   NotebookPen,
   RefreshCw,
   ScrollText,
@@ -95,6 +96,7 @@ const USER_GROUPS: SettingsNavGroup[] = [
     items: [
       { key: 'account.profile', label: 'Profile', icon: CircleUserRound },
       { key: 'account.personalCredentials', label: 'Personal Credentials', icon: KeyRound },
+      { key: 'account.devices', label: 'Signed-in devices', icon: MonitorSmartphone },
     ],
   },
   {

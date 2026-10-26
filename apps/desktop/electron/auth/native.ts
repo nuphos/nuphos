@@ -1,5 +1,6 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { isValidUserInfo } from '../auth-status.ts'
+import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version.ts'
 
 import {
   CALLBACK_WAIT_INTERVAL_MS,
@@ -30,7 +31,11 @@ async function redeemNativeSession(
   try {
     res = await fetch(`${apiUrl()}/auth/native/session/redeem`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      // The app's name labels this sign-in in the account's device list.
+      headers: {
+        'content-type': 'application/json',
+        [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
+      },
       body: JSON.stringify({ handle, codeVerifier, code }),
       signal: AbortSignal.timeout(15_000),
     })

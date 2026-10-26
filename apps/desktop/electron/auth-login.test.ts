@@ -70,6 +70,7 @@ const pendingSession = () =>
 before(async () => {
   mock.module('electron', {
     namedExports: {
+      app: { getVersion: () => '0.0.0-test' },
       shell: {
         openExternal: async (url: string) => {
           openedUrls.push(url)

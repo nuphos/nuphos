@@ -41,6 +41,9 @@ export const appChannels = {
     atlas.startPersonalCredential(provider),
   'atlas:deletePersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
     atlas.deletePersonalCredential(provider),
+  'atlas:listSignInSessions': () => atlas.listSignInSessions(),
+  'atlas:signOutSession': (_e: unknown, id: string) => atlas.signOutSession(id),
+  'atlas:signOutOtherSessions': () => atlas.signOutOtherSessions(),
   'auth:uploadAvatar': (_e: unknown, image: Uint8Array) => uploadAvatar(image),
   'auth:removeAvatar': () => removeAvatar(),
   'auth:status': () => auth.status(),

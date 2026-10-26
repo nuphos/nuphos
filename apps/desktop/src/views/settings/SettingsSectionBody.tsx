@@ -6,6 +6,7 @@ import { LocalSetupSection } from './LocalSetupSection'
 import { PersonalCredentialsSection } from './PersonalCredentialsSection'
 import { AppearanceSection } from './personalSections'
 import { ProfileSection } from './ProfileSection'
+import { SignedInDevicesSection } from './SignedInDevicesSection'
 
 import type { AtlasTeam, UserInfo } from '../../types'
 import type { ReactNode } from 'react'
@@ -36,6 +37,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
     <ProfileSection user={user} onSignOut={onSignOut} onUserUpdated={onUserUpdated} />
   ),
   'account.personalCredentials': () => <PersonalCredentialsSection />,
+  'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
   'device.appearance': () => <AppearanceSection />,
   'device.localRuntime': ({ team, onOpenConversation }) => (
     <LocalRuntimeSection currentTeamId={team?.id} onOpenConversation={onOpenConversation} />
