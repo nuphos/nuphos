@@ -1,1 +1,1 @@
-Tapping a running agent's Live Activity on the Lock Screen or in the Dynamic Island now keeps its chat on screen, instead of opening a blank page. The same goes for a notification about the chat you already have open.
+Scrolling up a little to reread a message now stays put. Before, a small drag up snapped the chat back to the bottom as soon as the next message arrived.
