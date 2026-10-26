@@ -32,3 +32,27 @@ export function requestOrigin(
     ...(country && country !== 'XX' && country !== 'T1' ? { country } : {}),
   }
 }
+
+/** Who is signing in from where: the request's origin plus the app that sent it. */
+export type SignInSource = Partial<RequestOrigin> & { client?: string; userAgent?: string }
+
+export function signInSource(header: (name: string) => string | undefined): SignInSource {
+  const client = header('x-atlas-client')?.trim()
+  const userAgent = header('User-Agent')?.trim()
+
+  return {
+    ...requestOrigin(header),
+    ...(client ? { client } : {}),
+    ...(userAgent ? { userAgent } : {}),
+  }
+}
+
+/** Plain-text labels for emails; HTML callers must escape them. */
+export function describeSignInSource(source: SignInSource): { device: string; place: string } {
+  const place = [source.city, source.country].filter(Boolean).join(', ')
+
+  return {
+    device: source.client ?? source.userAgent?.slice(0, 120) ?? 'Unknown device',
+    place: place || 'Unknown location',
+  }
+}

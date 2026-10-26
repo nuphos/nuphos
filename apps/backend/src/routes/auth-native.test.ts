@@ -41,6 +41,12 @@ class FakeCollection {
 
     return { insertedId: doc._id }
   }
+  // Only the sign-in alert's look at other sessions lists; none exist here.
+  find() {
+    const cursor = { limit: () => cursor, toArray: async () => [] }
+
+    return cursor
+  }
   async findOne(filter: Doc) {
     return this.docs.find((d) => matches(d, filter)) ?? null
   }

@@ -9,7 +9,7 @@ import type { Context } from 'hono'
 
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
-import { clientIp, requestOrigin } from '@/lib/request-origin'
+import { signInSource } from '@/lib/request-origin'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
@@ -18,6 +18,7 @@ import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/ident
 import { signInWithPassword, setPasswordWithEmailCode } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
 import { createUserSession } from '@/lib/identity/sessions'
+import { isNewSignIn, sendNewSignInAlert } from '@/lib/identity/sign-in-alert'
 import {
   abandonNativeSession,
   completeNativeSession,
@@ -34,11 +35,12 @@ export const auth = new Hono<{ Variables: AuthVariables }>()
 
 /** Every sign-in ends here: the one place a session is started. */
 async function startSession(c: Context, user: NuphosUser) {
-  const token = await createUserSession(user.id, {
-    ...requestOrigin((name) => c.req.header(name)),
-    client: c.req.header('x-atlas-client'),
-    userAgent: c.req.header('User-Agent'),
-  })
+  const source = signInSource((name) => c.req.header(name))
+  // Compared with the account's other sessions before this one joins them.
+  const isNew = await isNewSignIn(user.id, source)
+  const token = await createUserSession(user.id, source)
+
+  if (isNew) void sendNewSignInAlert(user, source)
 
   return { token, user }
 }
@@ -109,7 +111,7 @@ auth.post('/email/request-code', async (c) => {
 
   await requestEmailOtp(
     email,
-    clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
+    signInSource((name) => c.req.header(name)),
   )
 
   return c.json({ ok: true })

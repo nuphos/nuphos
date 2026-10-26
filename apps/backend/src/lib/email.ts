@@ -9,6 +9,14 @@ const PROVIDERS = {
   resend: { name: 'Resend', url: 'https://api.resend.com/emails', keyVar: 'RESEND_API_KEY' },
 } as const
 
+/** For values placed in an email's HTML. */
+export function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!,
+  )
+}
+
 export type SendEmailInput = {
   to: string
   subject: string
