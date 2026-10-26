@@ -230,8 +230,8 @@ final class AuthSession {
         webSession = nil
         clearToken()
         ComposerDrafts.clear()
-        // The OpenAI key is billed to whoever entered it, not the next user.
-        Keychain.delete(Whisper.keychainKey)
+        // An OpenAI key saved by builds from before voice input moved to Nuphos.
+        Keychain.delete("openai-api-key")
         state = .signedOut(error: error)
     }
 

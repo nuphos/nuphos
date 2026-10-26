@@ -411,7 +411,7 @@ struct NewChatComposer: View {
                 await store.loadCredentialOptions()
                 return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
             }
-        ), onSend: { submission in
+        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, onSend: { submission in
             if let session = store.newSession() { openChat = AgentPage.OpenChat(session: session, prompt: submission) }
         }) {
             ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)

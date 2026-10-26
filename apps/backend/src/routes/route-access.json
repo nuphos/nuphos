@@ -787,6 +787,7 @@
   "POST /teams/:teamId/uptime-kuma-instances/:instanceId/monitors/:monitorId/pause": "editor",
   "POST /teams/:teamId/uptime-kuma-instances/:instanceId/monitors/:monitorId/resume": "editor",
   "POST /teams/:teamId/vanta-integrations": "admin",
+  "POST /teams/:teamId/voice-transcriptions": "member",
   "POST /teams/:teamId/volcengine-accounts": "admin",
   "POST /teams/:teamId/zeabur-providers": "admin",
   "POST /teams/discoverable/:teamId/join": "user",

@@ -19,6 +19,7 @@ import { messagingConfig } from './config/messaging'
 import { otelConfig } from './config/otel'
 import { platformConfig } from './config/platform'
 import { storageConfig } from './config/storage'
+import { voiceConfig } from './config/voice'
 
 export const config = {
   ...coreConfig(),
@@ -37,4 +38,5 @@ export const config = {
   claudeCodeRuntimeProvisioner: claudeCodeRuntimeProvisionerConfig(),
   dashboards: dashboardsConfig(),
   box: boxConfig(),
+  voice: voiceConfig(),
 }

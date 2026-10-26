@@ -17,11 +17,14 @@ struct ChatComposerBar<Controls: View>: View {
     var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
     /// What an `@` offers: the viewer's devices and other sessions; nil offers none.
     var mentions: MentionSource? = nil
+    /// The team voice input transcribes for; nil hides the microphone.
+    var voiceTeamId: String? = nil
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
     @ViewBuilder var controls: () -> Controls
 
+    @Environment(AuthSession.self) private var session
     @FocusState private var focused: Bool
     /// From focus until the keyboard it raised has finished hiding, so the
     /// page lowers this composer along with its own keyboard.
@@ -35,7 +38,6 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var dictation: VoiceDictation?
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
-    @State private var askingForKey = false
     @State private var mentionResults: [AgentConversation] = []
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -150,7 +152,6 @@ struct ChatComposerBar<Controls: View>: View {
             let found = await mentions.search(query)
             if !Task.isCancelled { mentionResults = found }
         }
-        .sheet(isPresented: $askingForKey) { OpenAIKeySheet(onSave: startDictation) }
         .onDisappear(perform: cancelDictation)
         .onChange(of: focused) { _, focused in if focused { ownsKeyboard = true } }
         #if canImport(UIKit)
@@ -292,19 +293,19 @@ struct ChatComposerBar<Controls: View>: View {
     /// iOS only: the macOS build has no microphone entitlement.
     @ViewBuilder private var micButton: some View {
         #if os(iOS)
-        Button(action: startDictation) {
-            Image(systemName: "mic")
-                .font(.system(size: 17, weight: .medium))
-                .frame(width: 34, height: 34)
-                .foregroundStyle(Theme.body)
-                .contentShape(Rectangle())
+        if voiceTeamId != nil {
+            Button(action: startDictation) {
+                Image(systemName: "mic")
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(Theme.body)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .hoverEffect()
+            .disabled(preparingSubmission)
+            .accessibilityLabel("Voice input")
         }
-        .buttonStyle(.plain)
-        #if os(iOS)
-        .hoverEffect()
-        #endif
-        .disabled(preparingSubmission)
-        .accessibilityLabel("Voice input")
         #endif
     }
 
@@ -351,7 +352,6 @@ struct ChatComposerBar<Controls: View>: View {
 
     private func startDictation() {
         guard dictation == nil else { return }
-        guard Keychain.read(Whisper.keychainKey) != nil else { askingForKey = true; return }
         focused = false
         let take = VoiceDictation()
         dictation = take
@@ -369,10 +369,10 @@ struct ChatComposerBar<Controls: View>: View {
     }
 
     private func finishDictation() {
-        guard let take = dictation, let key = Keychain.read(Whisper.keychainKey) else { return }
+        guard let take = dictation, let token = session.token, let teamId = voiceTeamId else { return }
         transcription = Task {
             do {
-                let words = try await take.finish(apiKey: key)
+                let words = try await take.finish(token: token, teamId: teamId)
                 if !Task.isCancelled, !words.isEmpty {
                     text = text.isEmpty || text.last?.isWhitespace == true ? text + words : text + " " + words
                 }
@@ -541,66 +541,6 @@ extension ChatComposerBar where Controls == EmptyView {
     }
 }
 
-/// Asks for the user's own OpenAI key for voice input and keeps it in the
-/// Keychain. A sheet rather than an alert: an alert's text field is laid out
-/// by UIKit and does not line up with the rest of the alert.
-private struct OpenAIKeySheet: View {
-    var onSave: () -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var key = ""
-    @State private var error: String?
-    @State private var checking = false
-    @FocusState private var focused: Bool
-
-    private var trimmed: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    SecureField("sk-…", text: $key)
-                        .focused($focused)
-                        .submitLabel(.done)
-                        .onSubmit(save)
-                } footer: {
-                    Text("Voice input transcribes with OpenAI Whisper using your own API key. The key stays on this device; recordings are sent to OpenAI and billed to your account.")
-                }
-                if let error { Text(error).foregroundStyle(.red) }
-            }
-            .navigationTitle("OpenAI API key")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    if checking { ProgressView() } else { Button("Save", action: save).disabled(trimmed.isEmpty) }
-                }
-            }
-            .onAppear { focused = true }
-        }
-        .presentationDetents([.medium])
-    }
-
-    private func save() {
-        let key = trimmed
-        guard !key.isEmpty, !checking else { return }
-        checking = true
-        error = nil
-        Task {
-            defer { checking = false }
-            do {
-                try await Whisper.verify(key)
-                try Keychain.write(key, for: Whisper.keychainKey)
-                dismiss()
-                onSave()
-            } catch {
-                self.error = error.localizedDescription
-            }
-        }
-    }
-}
-
 /// The live microphone level, newest at the trailing edge; the part not yet
 /// recorded is a dotted baseline.
 private struct DictationWaveform: View {
@@ -677,4 +617,5 @@ struct BrandLogo: View {
             ComposerChip(title: "Auto Mode")
         }
     }
+    .environment(AuthSession())
 }

@@ -284,6 +284,7 @@ struct ConversationView: View {
                         return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
                     }
                 ),
+                voiceTeamId: session.teamId,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {

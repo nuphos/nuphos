@@ -68,6 +68,7 @@ import { tencentAccountsRoutes } from '@/routes/tencent-accounts'
 import { upstashAccountsRoutes } from '@/routes/upstash-accounts'
 import { uptimeKumaInstancesRoutes } from '@/routes/uptime-kuma-instances'
 import { vantaIntegrationsRoutes } from '@/routes/vanta-integrations'
+import { voiceTranscriptionsRoutes } from '@/routes/voice-transcriptions'
 import { volcengineAccountsRoutes } from '@/routes/volcengine-accounts'
 import { zeaburProvidersRoutes } from '@/routes/zeabur-providers'
 
@@ -124,6 +125,7 @@ teamScoped.get(
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
+teamScoped.route('/voice-transcriptions', voiceTranscriptionsRoutes)
 
 teamScoped.route('/clusters', teamClusters)
 teamScoped.route('/aws-accounts', awsAccountsRoutes)
