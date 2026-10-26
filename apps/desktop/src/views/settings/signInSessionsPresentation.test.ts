@@ -14,15 +14,23 @@ test('an app that names itself is shown by name and version', () => {
     sessionDevice({ client: 'nuphos-android/1.4.0', userAgent: null }),
     'Nuphos for Android 1.4.0',
   )
-  assert.equal(sessionDevice({ client: 'something-else/2', userAgent: null }), 'something-else/2')
+  // Anything else the client sent is never echoed.
+  assert.equal(
+    sessionDevice({ client: 'Nuphos Security: reply with this code', userAgent: null }),
+    'Unknown device',
+  )
 })
 
 test('without an app name, the user agent gives a rough guess', () => {
   assert.equal(sessionDevice({ client: null, userAgent: 'node' }), 'Web sign-in (nuphos.ai)')
   assert.equal(
-    sessionDevice({ client: null, userAgent: 'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15' }),
-    'Web browser',
+    sessionDevice({
+      client: null,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130.0 Safari/537.36',
+    }),
+    'Chrome on macOS',
   )
+  assert.equal(sessionDevice({ client: null, userAgent: 'anything at all' }), 'Unknown device')
   assert.equal(sessionDevice({ client: null, userAgent: null }), 'Unknown device')
 })
 
