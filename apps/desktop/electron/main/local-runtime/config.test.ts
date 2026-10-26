@@ -135,6 +135,10 @@ test('the config quotes paths as TOML strings', () => {
   assert.match(toml, /^\[agent\.env\]$/mu)
 })
 
+test('an idle agent is reaped after an hour', () => {
+  assert.match(openabConfigToml(launch), /^\[pool\]\nsession_ttl_hours = 1$/mu)
+})
+
 test('Codex keeps an isolated home, never the owner’s CODEX_HOME', () => {
   const env = agentEnv({
     ...launch,
