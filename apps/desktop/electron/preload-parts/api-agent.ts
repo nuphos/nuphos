@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron'
 
+import { withTranscriptTail } from '../agent/transcript-window.ts'
+
 import type { AgentProvider } from '../../src/types/runtime'
 
 export const agentApi = {
@@ -95,7 +97,12 @@ export const agentApi = {
       parts: unknown[]
     }[]
     import?: boolean
-  }) => ipcRenderer.invoke('agent:syncConversationTranscript', args),
+  }) =>
+    // An import has no stored prefix: it goes whole, in chunks, from main.
+    ipcRenderer.invoke(
+      'agent:syncConversationTranscript',
+      args.import ? args : withTranscriptTail(args),
+    ),
   agentDeleteConversation: (sessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:deleteConversation', sessionId, teamId),
   agentSendMessageFeedback: (args: {

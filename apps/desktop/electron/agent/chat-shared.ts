@@ -103,18 +103,11 @@ export type ChatStreamState = {
   freshRetryAttempts: number
   initialGatewayRetryAttempts: number
   toolExecutionMayHaveStarted: boolean
-  // Suffix-window protocol: the POST carries only the tail from the
-  // latest user message with `baseIndex` advanced accordingly. Set once the
-  // backend rejects that window with 409 transcript_out_of_sync — the next
-  // attempt (and every later one this turn) sends the untrimmed transcript.
-  sendFullTranscript: boolean
   // The server's stored message count from a 409 transcript_out_of_sync
-  // rejection. When set, the next windowed attempt claims this as its
-  // baseIndex ("rebase onto the server's count") instead of the local
-  // arithmetic — recovers sessions whose local count drifted from the store
-  // without resending the full transcript, which can exceed the ingress
-  // body limit. One attempt only; a second 409 falls back to the full
-  // transcript.
+  // rejection. When set, the next attempt claims this as its baseIndex
+  // ("rebase onto the server's count") instead of the local arithmetic —
+  // recovers sessions whose local count drifted from the store. One attempt
+  // only; a second 409 surfaces the error.
   rebaseBaseIndex: number | undefined
 }
 
@@ -151,7 +144,6 @@ export function createChatStreamState(resumeFrom: number): ChatStreamState {
     // restart the full request after a tool may have begun: that would replay
     // trigger/provider writes even if the failed response never reached us.
     toolExecutionMayHaveStarted: false,
-    sendFullTranscript: false,
     rebaseBaseIndex: undefined,
   }
 }

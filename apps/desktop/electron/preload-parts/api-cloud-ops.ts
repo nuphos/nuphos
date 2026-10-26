@@ -1,6 +1,7 @@
 import type { ListConversationsOptions } from '../agent/conversations-list'
 import type { AgentProvider } from '../../src/types/runtime'
 import { ipcRenderer } from 'electron'
+import { withTranscriptTail } from '../agent/transcript-window.ts'
 
 export const cloudOpsApi = {
   cloudProbeCliVersion: (provider: string, probeId?: string) =>
@@ -227,7 +228,7 @@ export const cloudOpsApi = {
     streamId: string
     sessionId: string
     teamId?: string
-    messages: unknown[]
+    messages: { role?: unknown }[]
     baseIndex?: number
     locale?: string
     url?: string
@@ -249,7 +250,7 @@ export const cloudOpsApi = {
       tailscaleClientIds: string[]
       zeaburIds: string[]
     }
-  }) => ipcRenderer.invoke('agent:start', args),
+  }) => ipcRenderer.invoke('agent:start', withTranscriptTail(args)),
   agentNotifyStopped: (args: { title: string; body: string; sessionId: string; teamId?: string }) =>
     ipcRenderer.invoke('agent:notifyStopped', args),
   agentAbort: (streamId: string) => ipcRenderer.invoke('agent:abort', streamId),

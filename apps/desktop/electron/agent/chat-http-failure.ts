@@ -16,49 +16,28 @@ import { storedMessageCountFromDetails } from './transcript-window.ts'
 import type { ChatStreamCtx } from './chat-shared'
 import type { AgentErrorContext, AgentHttpErrorPayload } from './stream-errors'
 
-// The suffix window did not line up with the stored transcript. When the
-// rejection carries the server's stored count, retry the same window claiming
-// that count as baseIndex first — the full transcript can exceed the ingress
-// body limit on long sessions, so it is the last resort, not the first.
-function handleTranscriptWindowRejection(
-  ctx: ChatStreamCtx,
-  httpError: AgentHttpErrorPayload,
-): 'retry' {
+// The tail did not line up with the stored transcript. When the rejection
+// carries the server's stored count, retry the same tail once claiming that
+// count as baseIndex; otherwise the error surfaces like any other.
+function rebaseOntoStoredCount(ctx: ChatStreamCtx, httpError: AgentHttpErrorPayload): boolean {
   const { streamId, sessionId, state } = ctx
   const storedCount = storedMessageCountFromDetails(httpError.details)
 
-  if (storedCount !== undefined && state.rebaseBaseIndex === undefined) {
-    state.rebaseBaseIndex = storedCount
-    traceStream(
-      'transcript_rebase',
-      { streamId, sessionId },
-      { status: httpError.status, code: httpError.code, stored_message_count: storedCount },
-      'warn',
-    )
-    console.warn('[agent] transcript window rejected; rebasing onto the stored count', {
-      streamId,
-      sessionId,
-      storedCount,
-    })
-
-    return 'retry'
-  }
-  // No stored count to rebase onto (or the rebase itself was rejected):
-  // resend the untrimmed transcript once so the server re-syncs from the
-  // client's view — the pre-window behaviour.
-  state.sendFullTranscript = true
+  if (storedCount === undefined || state.rebaseBaseIndex !== undefined) return false
+  state.rebaseBaseIndex = storedCount
   traceStream(
-    'full_transcript_fallback',
+    'transcript_rebase',
     { streamId, sessionId },
-    { status: httpError.status, code: httpError.code, message: httpError.message },
+    { status: httpError.status, code: httpError.code, stored_message_count: storedCount },
     'warn',
   )
-  console.warn('[agent] transcript window rejected; retrying with the full transcript', {
+  console.warn('[agent] transcript window rejected; rebasing onto the stored count', {
     streamId,
     sessionId,
+    storedCount,
   })
 
-  return 'retry'
+  return true
 }
 
 // A send that failed in transport before the backend stored the conversation
@@ -126,9 +105,9 @@ export async function handleChatHttpFailure(
   if (
     res.status === 409 &&
     httpError.code === 'transcript_out_of_sync' &&
-    !state.sendFullTranscript
+    rebaseOntoStoredCount(ctx, httpError)
   ) {
-    return handleTranscriptWindowRejection(ctx, httpError)
+    return 'retry'
   }
   if (state.reconnectAttempts === 0 && isAgentGatewayStatus(httpError.status)) {
     state.initialGatewayRetryAttempts += 1

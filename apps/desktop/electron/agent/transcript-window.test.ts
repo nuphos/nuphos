@@ -12,7 +12,6 @@ test('keeps the full transcript when the only user message is first', () => {
   assert.deepEqual(windowTranscript(messages, undefined), {
     messages,
     baseIndex: undefined,
-    dropped: 0,
   })
 })
 
@@ -22,7 +21,6 @@ test('sends from the latest user message onward and advances baseIndex', () => {
   assert.deepEqual(windowTranscript(messages, undefined), {
     messages: [u('u3')],
     baseIndex: 4,
-    dropped: 4,
   })
 })
 
@@ -32,7 +30,6 @@ test('keeps the in-flight assistant message after the latest user turn', () => {
   assert.deepEqual(windowTranscript(messages, undefined), {
     messages: [u('u2'), a('a2-in-progress')],
     baseIndex: 2,
-    dropped: 2,
   })
 })
 
@@ -42,12 +39,11 @@ test('stacks on top of a paginated tail baseIndex', () => {
   assert.deepEqual(windowTranscript(messages, 17), {
     messages: [u('u11')],
     baseIndex: 20,
-    dropped: 3,
   })
 })
 
 test('passes through an empty transcript', () => {
-  assert.deepEqual(windowTranscript([], 0), { messages: [], baseIndex: undefined, dropped: 0 })
+  assert.deepEqual(windowTranscript([], 0), { messages: [], baseIndex: undefined })
 })
 
 test('extracts the stored message count from a 409 error payload', () => {

@@ -1,7 +1,7 @@
 import type { AgentProvider } from '../../src/types/runtime'
 import { AtlasHttpError, callJson, callJsonForRenderer, teamQuery } from './http'
 import { importInChunks } from './transcript-import'
-import { storedMessageCountFromDetails, windowTranscript } from './transcript-window'
+import { storedMessageCountFromDetails } from './transcript-window'
 
 import type {
   AgentConversationCredentialsResponse,
@@ -157,46 +157,23 @@ export async function syncConversationTranscript(args: {
 
   // An import has no stored prefix to window against: it goes in chunks.
   if (args.import) return importInChunks(args.messages, put)
-  // Same suffix window as the chat POST: the PUT is delete-absent over the hydrated
-  // transcript, so the current turn's tail is enough and stays under the ingress limit.
-  const window = windowTranscript(args.messages, args.baseIndex)
-
+  // `messages` is already the current turn's tail (the preload windows it, see
+  // transcript-window.ts); the PUT is delete-absent over the hydrated transcript.
   try {
-    await put(window.messages, window.baseIndex)
-  } catch (err) {
-    const outOfSync =
-      window.dropped > 0 &&
-      err instanceof AtlasHttpError &&
-      err.status === 409 &&
-      err.code === 'transcript_out_of_sync'
-
-    if (!outOfSync) throw err
-    // A rejection carrying the server's stored count: retry the same window at that
-    // count before falling back to the full transcript, which can exceed the limit.
-    const storedCount = storedMessageCountFromDetails(err.details)
-
-    if (storedCount !== undefined) {
-      try {
-        console.warn('[agent] transcript window rejected on sync; rebasing onto stored count', {
-          sessionId: args.sessionId,
-          storedCount,
-        })
-        await put(window.messages, storedCount)
-
-        return
-      } catch (rebaseErr) {
-        const rebaseOutOfSync =
-          rebaseErr instanceof AtlasHttpError &&
-          rebaseErr.status === 409 &&
-          rebaseErr.code === 'transcript_out_of_sync'
-
-        if (!rebaseOutOfSync) throw rebaseErr
-      }
-    }
-    console.warn('[agent] transcript window rejected on sync; retrying with the full transcript', {
-      sessionId: args.sessionId,
-    })
     await put(args.messages, args.baseIndex)
+  } catch (err) {
+    // A rejection carrying the server's stored count: retry the same tail at that count.
+    const storedCount =
+      err instanceof AtlasHttpError && err.status === 409 && err.code === 'transcript_out_of_sync'
+        ? storedMessageCountFromDetails(err.details)
+        : undefined
+
+    if (storedCount === undefined) throw err
+    console.warn('[agent] transcript window rejected on sync; rebasing onto stored count', {
+      sessionId: args.sessionId,
+      storedCount,
+    })
+    await put(args.messages, storedCount)
   }
 }
 
