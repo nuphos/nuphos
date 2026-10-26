@@ -279,15 +279,20 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         updateLatestButton()
     }
 
-    private var nearBottom: Bool {
-        layout.collectionViewContentSize.height - collection.bounds.maxY + collection.adjustedContentInset.bottom < 48
+    private var distanceToEnd: CGFloat {
+        layout.collectionViewContentSize.height - collection.bounds.maxY + collection.adjustedContentInset.bottom
     }
 
-    /// At the end, and not holding a just-sent message at the top: the room
-    /// reserved for its reply keeps that message still while the reply grows.
+    /// Close enough that the latest-message button adds nothing.
+    private var nearBottom: Bool { distanceToEnd < 48 }
+
+    /// At the very end, and not holding a just-sent message at the top: the
+    /// room reserved for its reply keeps that message still while it grows.
+    /// A reader who left the end by any distance is reading, not following.
     private var atEnd: Bool {
-        guard nearBottom, let last = rows.indices.last,
-              let frame = layout.layoutAttributesForItem(at: IndexPath(item: last, section: 0))?.frame else { return nearBottom }
+        guard distanceToEnd < 1 else { return false }
+        guard let last = rows.indices.last,
+              let frame = layout.layoutAttributesForItem(at: IndexPath(item: last, section: 0))?.frame else { return true }
         return layout.collectionViewContentSize.height - frame.maxY - layout.settings.additionalInsets.bottom < 1
     }
 
@@ -509,6 +514,14 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         arrive("at_end")
         await pause()
         check("incoming_at_end", nearBottom, "offset=\(collection.contentOffset.y) nearBottom=\(nearBottom)")
+        // A light drag that stops a few points short of the end is reading.
+        collection.contentOffset.y -= 20
+        touch()
+        let peeked = collection.contentOffset.y
+        arrive("light_drag")
+        await pause()
+        check("incoming_after_light_drag", abs(collection.contentOffset.y - peeked) < 1,
+              "before=\(peeked) after=\(collection.contentOffset.y)")
         collection.setContentOffset(CGPoint(x: 0, y: -collection.adjustedContentInset.top), animated: true)
         await pause()
         let readingY = y(of: "user.1")
