@@ -1,6 +1,7 @@
 import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { boxUpdateStatus } from '@/lib/claude-code-preview/box-update'
 import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
@@ -11,7 +12,10 @@ import {
 } from '@/lib/claude-code-preview/runtime-catalog'
 import { requestRuntimeDeletion } from '@/lib/claude-code-preview/runtime-deletion'
 import { createManagedRuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
-import { listRuntimeMetricSamples } from '@/lib/claude-code-preview/runtime-metrics-store'
+import {
+  deviceMetricsRuntimeId,
+  listRuntimeMetricSamples,
+} from '@/lib/claude-code-preview/runtime-metrics-store'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
 import { defaultRuntimeLabel, OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
@@ -147,14 +151,19 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     '/agent-runtimes/:runtimeId/metrics',
     zv('query', z.object({ hours: z.coerce.number().int().min(1).max(168).default(1) })),
     async (c) => {
-      const teamId = c.get('teamId')
-      const instance = await requireRuntimeInstance(teamId, c.req.param('runtimeId'))
+      // With the actor, so a Box's agents are found as well.
+      const instance = await requireRuntimeInstance(
+        c.get('teamId'),
+        c.req.param('runtimeId'),
+        c.get('userId'),
+      )
+      const local = instance.kind === 'local' ? parseLocalRuntimeId(instance.id) : undefined
       const { hours } = c.req.valid('query')
 
       return c.json({
+        // A local agent shows the computer it runs on; every agent there shares one series.
         samples: await listRuntimeMetricSamples(
-          teamId,
-          instance.id,
+          local ? deviceMetricsRuntimeId(local.userId, local.deviceId) : instance.id,
           Date.now() - hours * 3_600_000,
         ),
       })

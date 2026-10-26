@@ -31,8 +31,9 @@ export type TunnelHolderDeps = {
     status: LocalRuntimeStatus,
     from?: RequestOrigin,
   ) => Promise<void>
-  /** Told when the tunnel opens or closes; must not throw. */
+  /** Told when the tunnel opens or closes, and of every usage report; neither may throw. */
   connectionChanged?: (userId: string, deviceId: string) => void
+  recordMetrics?: (userId: string, deviceId: string, metrics: BoxMetrics) => void
 }
 
 export type RuntimeTunnel = {
@@ -247,6 +248,7 @@ export async function attachRuntimeTunnel(
           // This write is also the heartbeat, so a 5-second report adds none.
           presenceAt = metricsReceivedAt
           void refreshPresence()
+          deps.recordMetrics?.(userId, deviceId, frame.metrics)
           break
         case 'status': {
           const reported = frame.status
