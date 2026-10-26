@@ -142,11 +142,7 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
     '[agent.env]',
     ...Object.entries(agentEnv(launch)).map(([key, value]) => `${key} = ${tomlString(value)}`),
     '',
-    // Each idle agent holds about 200–300 MB, so it exits after an hour instead of
-    // openab's default four; its next prompt cold-starts it with session/load.
-    '[pool]',
-    'session_ttl_hours = 1',
-    '',
+    '[pool]\nsession_ttl_hours = 1\n', // idle agents (~250 MB each) exit after 1 h, not 4
   ].join('\n')
 }
 
