@@ -19,6 +19,7 @@ import { fetchSlackChannelName, resolveSlackUserMapping } from '@/routes/slack/i
 import { appendAttachmentNote, buildMessagesForRenderedTurn } from '@/routes/slack/messages'
 import {
   fetchThreadContextSafe,
+  renderMissedThreadMessages,
   renderSlackUserMessage,
   resolveSlackMentionNames,
 } from '@/routes/slack/render'
@@ -159,7 +160,9 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
     return
   }
   // First time the agent is mentioned into a discussion that already has
-  // replies: brief it on what was said before the mention. These lookups are
+  // replies: brief it on what was said before the mention. In a thread it
+  // already follows, hand it what was said since it last replied instead —
+  // the same window a plain addressed reply gets. These lookups are
   // independent — run them concurrently so a cold cache doesn't stack
   // round-trips ahead of the turn (and its 👀 receipt).
   const joinedExistingThread = isNew && Boolean(event.thread_ts) && event.thread_ts !== event.ts
@@ -172,7 +175,11 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
           slackThreadTs,
           event.ts,
         )
-      : Promise.resolve(undefined),
+      : Promise.resolve(
+          renderMissedThreadMessages(
+            (thread.recentMessages ?? []).filter((record) => record.ts !== event.ts),
+          ),
+        ),
     fetchSlackUserName(runtime.botToken, slackWorkspaceId, event.user),
     fetchSlackChannelName(runtime.botToken, slackWorkspaceId, event.channel),
   ])

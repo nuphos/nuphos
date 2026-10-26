@@ -727,3 +727,40 @@ describe('a thread forked off a proactive post', () => {
     expect(agentRuns[0]!.renderedTurn).not.toContain(REPORT)
   })
 })
+
+// A mention in a thread the agent already follows must carry what teammates
+// said there without mentioning it — otherwise "can you see what Tony said
+// above?" is answered from half the conversation.
+describe('a mention in a thread the agent already follows', () => {
+  function threadMentionEnvelope(text: string) {
+    const envelope = mentionEnvelope(text)
+
+    return { ...envelope, event: { ...envelope.event, ts: '100.5', thread_ts: '100.1' } }
+  }
+
+  test('carries the replies posted since the agent last spoke', async () => {
+    state.thread = makeThread({
+      recentMessages: [
+        { ts: '100.1', authorName: 'Yuan', text: 'how many boxes are running?' },
+        { ts: '100.2', authorName: 'Nuphos', text: '8 boxes are running', fromBot: true },
+        { ts: '100.3', authorName: 'Tony', text: 'the oldest one is mine' },
+        { ts: '100.4', authorName: 'Devin', text: 'mine is the 8c16g one' },
+        { ts: '100.5', authorName: 'Yuan', text: 'can you see what Tony and Devin said?' },
+      ],
+    })
+
+    await handleAppMention(
+      threadMentionEnvelope(`<@${BOT_USER}> can you see what Tony and Devin said?`),
+    )
+
+    expect(agentRuns).toHaveLength(1)
+    const turn = agentRuns[0]!.renderedTurn
+
+    expect(turn).toContain('Tony: the oldest one is mine')
+    expect(turn).toContain('Devin: mine is the 8c16g one')
+    // Already answered before the agent's last reply.
+    expect(turn).not.toContain('how many boxes are running?')
+    // The mention itself is delivered on its own, not repeated as missed.
+    expect(turn).not.toContain('Yuan: can you see')
+  })
+})
