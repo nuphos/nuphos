@@ -32,3 +32,25 @@ fun deletionValidationError(confirmation: String, password: String? = null, code
     code != null && code.length != 6 -> "Enter the six-character email code."
     else -> null
 }
+
+/** One of the account's sign-ins, as GET /auth/sessions lists it. Every field but `id` may be null. */
+@Serializable
+data class SignInSession(
+    val id: String,
+    val current: Boolean? = null,
+    val createdAt: String? = null,
+    val lastUsedAt: String? = null,
+    val expiresAt: String? = null,
+    val ip: String? = null,
+    val city: String? = null,
+    val country: String? = null,
+    /** The app's own name and version, e.g. `nuphos-android/1.4.0`. */
+    val client: String? = null,
+    val userAgent: String? = null,
+)
+
+@Serializable
+data class SignInSessionsEnvelope(val sessions: List<SignInSession>)
+
+@Serializable
+data class SignedOutSessions(val revoked: Int)

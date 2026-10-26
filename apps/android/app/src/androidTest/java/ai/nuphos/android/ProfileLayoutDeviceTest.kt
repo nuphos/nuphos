@@ -29,7 +29,7 @@ class ProfileLayoutDeviceTest {
                         ProfileContent(
                             user = NuphosUser("synthetic-profile", "long.synthetic.account@example.invalid", "Synthetic Profile", "synthetic_profile"),
                             canWithdraw = allowed, consentBusy = busy, consentError = null,
-                            onEdit = { calls += "edit" }, onPrivacy = { calls += "privacy" },
+                            onEdit = { calls += "edit" }, onDevices = { calls += "devices" }, onPrivacy = { calls += "privacy" },
                             onWithdraw = { calls += "withdraw" }, onDeletion = { calls += "delete" },
                             onSignOut = { calls += "signout" },
                             voiceSettings = {
@@ -55,11 +55,11 @@ class ProfileLayoutDeviceTest {
         edit.performClick()
         compose.onNodeWithText("Technical details").performClick()
         compose.onNodeWithText("synthetic-profile").assertExists()
-        for ((labelText, call) in listOf("Privacy policy" to "privacy", "Withdraw AI sharing consent" to "withdraw", "Account deletion request" to "delete", "Sign out" to "signout")) {
+        for ((labelText, call) in listOf("Signed-in devices" to "devices", "Privacy policy" to "privacy", "Withdraw AI sharing consent" to "withdraw", "Account deletion request" to "delete", "Sign out" to "signout")) {
             compose.onNodeWithText(labelText).performScrollTo().assertIsDisplayed().performClick()
             assertTrue(calls.contains(call))
         }
-        assertEquals(listOf("edit", "privacy", "withdraw", "delete", "signout"), calls)
+        assertEquals(listOf("edit", "devices", "privacy", "withdraw", "delete", "signout"), calls)
         capture("profile-bottom")
     }
     @Test fun busyConsentCannotInvokeWithdrawal() {

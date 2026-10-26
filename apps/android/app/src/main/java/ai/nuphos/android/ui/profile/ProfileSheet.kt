@@ -47,6 +47,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
     var confirm by remember { mutableStateOf(false) }
     var edit by remember(user.id) { mutableStateOf(false) }
     var deletion by remember(user.id) { mutableStateOf(false) }
+    var devices by remember(user.id) { mutableStateOf(false) }
     var withdraw by remember(user.id) { mutableStateOf(false) }
     val uri = LocalUriHandler.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -59,6 +60,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             consentBusy = auth.consentBusy,
             consentError = auth.consentError,
             onEdit = { edit = true },
+            onDevices = { devices = true },
             onPrivacy = { uri.openUri("https://nuphos.ai/privacy") },
             onWithdraw = { withdraw = true },
             onDeletion = { deletion = true },
@@ -67,6 +69,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
         )
     }
     if (edit) EditProfileSheet(user = auth.user ?: user, onDismiss = { edit = false })
+    if (devices) SignedInDevicesSheet(onDismiss = { devices = false })
     if (deletion) AccountDeletionSheet(onDismiss = { deletion = false })
     if (withdraw) {
         AlertDialog(
@@ -100,6 +103,7 @@ internal fun ProfileContent(
     consentBusy: Boolean,
     consentError: String?,
     onEdit: () -> Unit,
+    onDevices: () -> Unit,
     onPrivacy: () -> Unit,
     onWithdraw: () -> Unit,
     onDeletion: () -> Unit,
@@ -132,6 +136,8 @@ internal fun ProfileContent(
             }
             ProfileGroup("Account") {
                 ProfileAction("Edit profile", onClick = onEdit)
+                HorizontalDivider()
+                ProfileAction("Signed-in devices", onClick = onDevices)
                 HorizontalDivider()
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     ai.nuphos.android.ui.components.TechnicalDetails(user.id) {

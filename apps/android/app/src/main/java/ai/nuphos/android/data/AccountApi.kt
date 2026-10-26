@@ -75,6 +75,20 @@ class AccountApi internal constructor(private val token: String, private val cli
         })
     }
 
+    /**
+     * The account's sign-ins. A sign-in from before sessions gets 403 `session_required`,
+     * thrown as [NuphosApi.Failure.Http]; it is not a reason to sign out.
+     */
+    suspend fun signInSessions(): List<SignInSession> = execute<SignInSessionsEnvelope>("sessions", "GET").sessions
+
+    suspend fun signOutSession(id: String) {
+        require(id.matches(Regex("[0-9a-fA-F]{24}"))) { "Invalid session." }
+        execute<Unit>("sessions/$id", "DELETE")
+    }
+
+    /** Signs out every device but this one; returns how many were signed out. */
+    suspend fun signOutOtherSessions(): Int = execute<SignedOutSessions>("sessions", "DELETE").revoked
+
     /** Ends this device's session on the server. Best effort: failures are ignored. */
     suspend fun endSession() = withContext(Dispatchers.IO) {
         runCatching {
@@ -100,12 +114,12 @@ class AccountApi internal constructor(private val token: String, private val cli
             val text = response.body.string()
             if (response.code == 401) throw NuphosApi.Failure.Unauthorized
             if (!response.isSuccessful) {
-                val message = runCatching {
-                    Http.json.parseToJsonElement(text).jsonObject["error"]?.jsonObject
-                        ?.get("message")?.jsonPrimitive?.contentOrNull
-                }.getOrNull()
-                throw NuphosApi.Failure.Http(response.code, message)
+                val error = runCatching { Http.json.parseToJsonElement(text).jsonObject["error"]?.jsonObject }.getOrNull()
+                val message = runCatching { error?.get("message")?.jsonPrimitive?.contentOrNull }.getOrNull()
+                val code = runCatching { error?.get("code")?.jsonPrimitive?.contentOrNull }.getOrNull()
+                throw NuphosApi.Failure.Http(response.code, message, code)
             }
+            if (T::class == Unit::class) return@use Unit as T
             try {
                 val objectBody = Http.json.parseToJsonElement(text).jsonObject
                 if (T::class == AIConsent::class) {
