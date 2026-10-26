@@ -194,7 +194,6 @@ struct ChatComposerBar<Controls: View>: View {
             if args.contains("-preview-attachments"), attachments.isEmpty { attachments = Self.previewAttachments() }
             if args.contains("-open-photos") { showPhotos = true }
             if args.contains("-open-files") { showFiles = true }
-            if args.contains("-ask-openai-key") { askingForKey = true }
         }
         #endif
     }
