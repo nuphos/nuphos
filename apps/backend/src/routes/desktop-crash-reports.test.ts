@@ -167,4 +167,5 @@ test('IPv6 addresses share a quota per /64', () => {
   // eslint-disable-next-line sonarjs/no-hardcoded-ip -- documentation range
   expect(ipQuotaKey('2001:0db8:0001:0002:ffff:1:2:3')).toBe('2001:db8:1:2')
   expect(ipQuotaKey('2001:db8::5')).toBe('2001:db8:0:0')
+  expect(ipQuotaKey('::ffff:203.0.113.9')).toBe('203.0.113.9')
 })

@@ -649,6 +649,7 @@
   "POST /auth/native/session/redeem": "public",
   "POST /auth/password/set": "public",
   "POST /auth/password/sign-in": "public",
+  "POST /desktop/crash-reports": "public",
   "POST /desktop/download-email": "user",
   "POST /discord/interactions": "public",
   "POST /feedback": "public",

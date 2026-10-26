@@ -73,8 +73,11 @@ export function crashReportMetadata(fields: Record<string, unknown>): CrashRepor
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 
-/** The quota key for an address: IPv4 as is, IPv6 by its /64 network. */
+/** The quota key for an address: IPv4 as is (also when IPv4-mapped), IPv6 by its /64 network. */
 export function ipQuotaKey(ip: string): string {
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip)?.[1]
+
+  if (mapped) return mapped
   if (!ip.includes(':')) return ip
   const [head = '', tail = ''] = ip.toLowerCase().split('::')
   const left = head ? head.split(':') : []
