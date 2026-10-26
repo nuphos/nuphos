@@ -10,16 +10,17 @@ import java.time.Instant
 class SignInSessionsTest {
     private fun device(client: String?, userAgent: String?) = SignInSessions.device(SignInSession("s", client = client, userAgent = userAgent))
 
-    @Test fun anAppThatNamesItselfIsShownByNameAndVersion() {
-        assertEquals("Nuphos Desktop 1.2.0", device("nuphos-desktop/1.2.0", "node"))
-        assertEquals("Nuphos for Android 1.4.0", device("nuphos-android/1.4.0", null))
-        assertEquals("Nuphos for iOS 2.0.1", device("nuphos-ios/2.0.1", null))
-        assertEquals("Nuphos CLI 0.9.0-beta.1", device("nuphos-cli/0.9.0-beta.1", null))
+    @Test fun anAppThatNamesItselfIsShownByNameOnly() {
+        assertEquals("Nuphos Desktop", device("nuphos-desktop/1.2.0", "node"))
+        assertEquals("Nuphos for Android", device("nuphos-android/1.4.0", null))
+        assertEquals("Nuphos for iOS", device("nuphos-ios/2.1.0", null))
+        assertEquals("Nuphos CLI", device("nuphos-cli/0.9.0-beta.1", null))
+        // The version is whatever the client claims, so it is never shown.
+        assertEquals("Nuphos Desktop", device("nuphos-desktop/1.verify-at.evil-phish.com", null))
         // Anything else the client sent is never echoed.
         assertEquals("Unknown device", device("Nuphos Security: reply with this code", null))
-        assertEquals("Unknown device", device("nuphos-android/1.0\nCall us", null))
-        assertEquals("Unknown device", device("nuphos-android/1" + "0".repeat(32), null))
         assertEquals("Unknown device", device("nuphos-web/1.0", null))
+        assertEquals("Unknown device", device("evil-phish.com/nuphos-desktop", null))
     }
 
     @Test fun withoutAnAppNameTheUserAgentGivesARoughGuess() {

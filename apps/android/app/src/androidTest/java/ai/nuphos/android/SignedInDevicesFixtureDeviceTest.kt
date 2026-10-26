@@ -32,6 +32,8 @@ class SignedInDevicesFixtureDeviceTest {
         SignInSession("6a0000000000000000000001", current = true, lastUsedAt = "2026-10-26T12:00:00Z", city = "Taipei", country = "TW", ip = "203.0.113.24", client = "nuphos-android/1.4.0"),
         SignInSession("6a0000000000000000000004", lastUsedAt = "2026-10-14T02:00:00Z", city = "Singapore", country = "SG", ip = "203.0.113.80", client = "nuphos-ios/1.6.0"),
         SignInSession("6a0000000000000000000005", lastUsedAt = "2026-08-20T02:00:00Z", ip = "192.0.2.10", userAgent = "node"),
+        // A claimed version is never shown, so this reads "Nuphos Desktop".
+        SignInSession("6a0000000000000000000007", lastUsedAt = "2026-10-25T02:00:00Z", city = "Amsterdam", country = "NL", ip = "192.0.2.77", client = "nuphos-desktop/1.verify-at.evil-phish.com"),
         // A made-up client name is never shown.
         SignInSession("6a0000000000000000000006", lastUsedAt = "2026-07-01T02:00:00Z", country = "US", ip = "198.51.100.150", client = "Nuphos Security: call +1 555 0100"),
     ))
@@ -57,16 +59,18 @@ class SignedInDevicesFixtureDeviceTest {
     @Test fun listsThisDeviceFirstAndAsksBeforeSigningOut() {
         render(DevicesLoad.Ready(sessions))
         compose.onNodeWithText("This device").assertIsDisplayed()
-        compose.onNodeWithText("Nuphos for Android 1.4.0").assertIsDisplayed()
+        compose.onNodeWithText("Nuphos for Android").assertIsDisplayed()
         compose.onNodeWithText("Taipei, TW · 203.0.113.24 · Active now").assertIsDisplayed()
         compose.onNodeWithText("Chrome on macOS").assertIsDisplayed()
         compose.onNodeWithText("Web sign-in (nuphos.ai)").assertIsDisplayed()
         compose.onNodeWithText("Nuphos Security", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("evil-phish", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("0.95.0", substring = true).assertDoesNotExist()
         compose.onAllNodesWithText("Sign out").assertCountEquals(sessions.size - 1)
         capture("list")
 
         compose.onAllNodesWithText("Sign out")[0].performClick()
-        compose.onNodeWithText("Sign out Nuphos Desktop 0.95.0?").assertIsDisplayed()
+        compose.onNodeWithText("Sign out Nuphos Desktop?").assertIsDisplayed()
         capture("confirm")
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(emptyList<String>(), calls)

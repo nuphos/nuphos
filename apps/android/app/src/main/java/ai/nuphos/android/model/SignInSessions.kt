@@ -11,7 +11,6 @@ object SignInSessions {
         "nuphos-android" to "Nuphos for Android",
         "nuphos-cli" to "Nuphos CLI",
     )
-    private val appClient = Regex("(nuphos-(?:desktop|ios|android|cli))/([0-9][\\w.+-]{0,31})")
     private val webSignIn = Regex("^(node|undici)\\b", RegexOption.IGNORE_CASE)
     private val browsers = listOf(
         Regex("Edg/") to "Edge",
@@ -29,11 +28,12 @@ object SignInSessions {
 
     /**
      * What signed in. The app name and user agent are whatever the signing-in
-     * client sent, so their text is never shown: a known app, a browser and system
-     * from a fixed list, or "Unknown device" (as the backend's emails do).
+     * client sent, so none of their text is shown, not even an app's version: a
+     * known app, a browser and system from a fixed list, or "Unknown device" (as
+     * the backend's emails do).
      */
     fun device(session: SignInSession): String {
-        appClient.matchEntire(session.client.orEmpty())?.let { return "${apps.getValue(it.groupValues[1])} ${it.groupValues[2]}" }
+        apps[session.client.orEmpty().substringBefore('/')]?.let { return it }
         val ua = session.userAgent.orEmpty()
         // The nuphos.ai web sign-in reaches the backend from the website's server.
         if (session.client.isNullOrEmpty() && webSignIn.containsMatchIn(ua)) return "Web sign-in (nuphos.ai)"
