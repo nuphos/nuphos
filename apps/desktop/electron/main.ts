@@ -10,6 +10,7 @@ import {
 } from './analytics'
 import * as asanaInstall from './asana-install'
 import * as cloudflareInstall from './cloudflare-install'
+import { watchCrashes } from './crash-reporter'
 import * as discordInstall from './discord-install'
 import * as githubInstall from './github-install'
 import * as gitlabInstall from './gitlab-install'
@@ -85,13 +86,6 @@ if (process.env.ATLAS_DEV_CDP_PORT) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.ATLAS_DEV_CDP_PORT)
 }
 
-// Crash visibility: route otherwise-fatal main-process errors to PostHog.
-// Use uncaughtExceptionMonitor (not uncaughtException) so we observe the crash
-// WITHOUT suppressing Node's default print-stack-and-exit behavior — adding a
-// plain 'uncaughtException' listener would silently keep the process alive.
-process.on('uncaughtExceptionMonitor', (err) => {
-  captureMainException(err, { kind: 'uncaught_exception' })
-})
 // stdout/stderr are pipes to whoever launched us (the dev launcher, a
 // terminal). When that end closes first, the next console.log raises EPIPE
 // asynchronously on the stream — with no listener that is an uncaught
@@ -101,15 +95,12 @@ for (const stream of [process.stdout, process.stderr]) {
     if (err.code !== 'EPIPE') throw err
   })
 }
-process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason)
-  captureMainException(reason, { kind: 'unhandled_rejection' })
-})
 
 app.setName(APP_NAME)
 if (isDev) {
   app.setPath('userData', path.join(app.getPath('appData'), APP_NAME))
 }
+watchCrashes()
 
 if (process.platform === 'darwin' && process.env.ATLAS_WT_BADGE) {
   app
