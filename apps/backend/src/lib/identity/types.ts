@@ -51,6 +51,8 @@ export type AuthenticatedIdentity = {
   provider: 'nuphos'
   /** Set when the token is a sign-in session rather than an agent-run JWT. */
   sessionId?: string
+  /** A JWT minted for an agent run, not a sign-in. */
+  agentRun?: boolean
 }
 
 /** Compatibility summary for older clients. Access is always free. */

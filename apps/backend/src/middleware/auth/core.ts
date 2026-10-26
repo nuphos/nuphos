@@ -28,7 +28,9 @@ export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
 
   const { user } = result
   const cliToken = 'cliToken' in result ? result.cliToken : undefined
-  const denied = cliToken && cliTokenDenied(cliToken, c.req.method, c.req.path)
+  const limited =
+    cliToken ?? ('agentRun' in result && result.agentRun ? { kind: 'run' as const } : null)
+  const denied = limited && cliTokenDenied(limited, c.req.method, c.req.path)
 
   if (denied) throw new AppError(403, 'cli_token_forbidden', denied)
 

@@ -340,8 +340,12 @@ test('sign-in JWTs issued before sessions work until they expire; longer ones ar
     return `${header}.${body}.${sig}`
   }
 
-  expect((await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60)))?.user.id).toBe(
-    String(USER),
+  const legacy = await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60))
+
+  expect(legacy?.user.id).toBe(String(USER))
+  expect(legacy?.agentRun).toBeUndefined()
+  expect((await realIdentity.authenticateToken(signNuphosToken(USER, 8 * 60 * 60)))?.agentRun).toBe(
+    true,
   )
   expect(await realIdentity.authenticateToken(forge(31 * 24 * 60 * 60))).toBeNull()
   expect((await realIdentity.authenticateToken(forge(8 * 60 * 60)))?.user.id).toBe(String(USER))

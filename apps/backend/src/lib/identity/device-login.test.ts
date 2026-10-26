@@ -209,6 +209,9 @@ describe('device login', () => {
 
     if (result.status !== 'approved') throw new Error(result.status)
     expect(result.cliToken).toMatchObject({ kind: 'personal', name: 'laptop' })
+    expect(result.cliToken.expiresAt).toBe(
+      new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+    )
     expect(result.cliToken.teamId).toBeUndefined()
   })
 

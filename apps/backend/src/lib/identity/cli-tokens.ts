@@ -52,6 +52,8 @@ export type CliTokenPrincipal = {
   name: string
   teamId?: string
   avatarUrl?: string
+  /** Personal tokens only. */
+  expiresAt?: string
 }
 
 export const cliTokens = () => db().collection<CliTokenDoc>('cli_tokens')
@@ -214,12 +216,14 @@ function toPrincipal(doc: CliTokenDoc): CliTokenPrincipal {
     name: doc.name,
     ...(doc.teamId ? { teamId: doc.teamId } : {}),
     ...(doc.avatarUrl ? { avatarUrl: doc.avatarUrl } : {}),
+    ...(doc.expiresAt ? { expiresAt: doc.expiresAt.toISOString() } : {}),
   }
 }
 
 /**
- * Both kinds: minting credentials takes a real sign-in, so a leaked CLI token
- * cannot outlive its own revocation. That covers tokens, device-code approval
+ * Both kinds, and agent runs too: minting credentials takes a real sign-in, so
+ * a leaked CLI token or a run's short-lived JWT cannot outlive its own
+ * revocation or expiry. That covers tokens, device-code approval
  * and device join tokens (redeemed into an independent device credential).
  */
 const SESSION_ONLY: [RegExp, RegExp][] = [
@@ -250,15 +254,15 @@ const AGENT_DENIED: [RegExp, RegExp][] = [
   [/./, /^\/teams\/[^/]+\/(leave|billing|transfer-ownership)(\/|$)/],
 ]
 
-/** Why this CLI token may not make this request, or null when it may. */
+/** Why this CLI token or agent run may not make this request, or null when it may. */
 export function cliTokenDenied(
-  cliToken: Pick<CliTokenPrincipal, 'kind'>,
+  cliToken: { kind: CliTokenKind | 'run' },
   method: string,
   path: string,
 ): string | null {
   const hit = (rules: [RegExp, RegExp][]) => rules.some(([m, p]) => m.test(method) && p.test(path))
 
-  if (hit(SESSION_ONLY)) return 'Sign in on nuphos.ai to do this; a CLI token cannot.'
+  if (hit(SESSION_ONLY)) return 'Sign in on nuphos.ai to do this; a CLI token or agent run cannot.'
   if (cliToken.kind === 'agent' && hit(AGENT_DENIED)) {
     return 'An agent token cannot manage the account, its tokens, computers, team membership or billing.'
   }

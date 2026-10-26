@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
+import { requireAuth } from '@/middleware/auth'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useIdentitySessions } from '@/lib/test/doubles/identity-sessions'
 
@@ -20,7 +21,8 @@ useIdentity({
   authenticateToken: (async (token: string) => {
     if (token === 'session')
       return { user: USER, cacheHit: false, provider: 'nuphos', sessionId: CURRENT }
-    if (token === 'run') return { user: USER, cacheHit: false, provider: 'nuphos' }
+    if (token === 'run') return { user: USER, cacheHit: false, provider: 'nuphos', agentRun: true }
+    if (token === 'legacy') return { user: USER, cacheHit: false, provider: 'nuphos' }
 
     return null
   }) as unknown as typeof identityActual.authenticateToken,
@@ -77,4 +79,20 @@ test('an agent-run token cannot see or end sign-in sessions', async () => {
   expect((await call('GET', '/auth/sessions', 'run')).status).toBe(403)
   expect((await call('DELETE', '/auth/sessions/current', 'run')).status).toBe(403)
   expect(revoked).toEqual([])
+})
+
+test('an agent run cannot mint lasting credentials; a sign-in can', async () => {
+  const minting = new Hono().onError(errorHandler).use('*', requireAuth)
+
+  for (const path of ['/auth/cli-tokens', '/auth/device/approve', '/agent/devices/join-tokens'])
+    minting.post(path, (c) => c.json({ minted: true }))
+  const post = (path: string, token: string) =>
+    minting.request(path, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+
+  for (const path of ['/auth/cli-tokens', '/auth/device/approve', '/agent/devices/join-tokens']) {
+    expect((await post(path, 'run')).status).toBe(403)
+    expect((await post(path, 'session')).status).toBe(200)
+    // Sign-ins from before sessions still work until they expire.
+    expect((await post(path, 'legacy')).status).toBe(200)
+  }
 })
