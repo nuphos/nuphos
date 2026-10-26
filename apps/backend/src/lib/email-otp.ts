@@ -226,8 +226,10 @@ function safeEqual(a: string, b: string): boolean {
 /** One line saying where a code was requested from: the IP first, the rest as hints. */
 function requestedFrom(from: SignInSource): string {
   const place = signInPlace(from)
+  const address = from.ip ? 'IP ' + from.ip : 'an unknown address'
+  const approx = place ? ' (approximately ' + place + ')' : ''
 
-  return `Requested from ${from.ip ? `IP ${from.ip}` : 'an unknown address'}${place ? ` (approximately ${place})` : ''} on ${signInDevice(from)}.`
+  return `Requested from ${address}${approx} on ${signInDevice(from)}.`
 }
 
 function otpEmailHtml(code: string, from: SignInSource): string {
