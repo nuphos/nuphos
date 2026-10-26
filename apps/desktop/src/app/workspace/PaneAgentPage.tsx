@@ -1,5 +1,3 @@
-import { MessageSquare } from 'lucide-react'
-
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 
@@ -77,7 +75,7 @@ export function PaneAgentPage({
           onImportConsumed={onPagePendingImportConsumed}
           pendingPrompt={pendingChatPrompt}
           onPromptConsumed={onChatPromptConsumed}
-          onTitleChange={(title, reportedSessionId, claudeCodeRuntimeAttached, agentRuntime) => {
+          onTitleChange={(title, reportedSessionId, agentRuntime) => {
             // Reported with its session because the publish also fires on a
             // session change, while the panel still holds the outgoing
             // conversation — a stale title would flicker through both the tab
@@ -88,12 +86,8 @@ export function PaneAgentPage({
             setPageMeta({
               pageKey: 'team.agent',
               title: title || 'Agent',
-              iconKey: claudeCodeRuntimeAttached ? (agentRuntime ?? 'claude-code') : 'agent',
-              icon: claudeCodeRuntimeAttached ? (
-                <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />
-              ) : (
-                <MessageSquare className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
-              ),
+              iconKey: agentRuntime ?? 'claude-code',
+              icon: <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />,
               canonicalHref: pageHref,
             })
           }}

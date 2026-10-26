@@ -25,7 +25,6 @@ export function useSessionHeading(selectedSessionId: string | null) {
     (
       nextTitle: string,
       sessionId: string | null,
-      runtimeAttached: boolean,
       agentRuntime?: AgentProvider,
       canRename?: boolean,
       runtimeId?: string,
@@ -41,7 +40,7 @@ export function useSessionHeading(selectedSessionId: string | null) {
         watching,
         runtimeId,
         title: nextTitle || 'Agent',
-        runtime: runtimeAttached ? (agentRuntime ?? 'claude-code') : null,
+        runtime: agentRuntime ?? null,
       })
     },
     [],

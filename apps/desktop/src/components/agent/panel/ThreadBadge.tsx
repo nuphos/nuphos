@@ -68,7 +68,7 @@ export function ThreadBadge({
   onOpen?: OpenLink
 }) {
   const info = threadBadgeInfo(part)
-  const { title, status, provider, attached } = useThreadStatus(info?.threadId ?? null, teamId)
+  const { title, status, provider } = useThreadStatus(info?.threadId ?? null, teamId)
 
   if (!info) return null
   rememberThreadTitle(info.threadId, title ?? info.title)
@@ -79,7 +79,7 @@ export function ThreadBadge({
   const body = (
     <>
       {info.threadId ? (
-        <AgentAvatar agentId={info.threadId} provider={provider} attached={attached} />
+        <AgentAvatar agentId={info.threadId} provider={provider} />
       ) : (
         <MessagesSquare aria-hidden strokeWidth={1.75} className="size-6 shrink-0 text-tertiary" />
       )}
