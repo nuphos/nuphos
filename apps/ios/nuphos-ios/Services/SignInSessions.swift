@@ -24,25 +24,15 @@ enum SignInSessions {
         "nuphos-android": "Nuphos for Android",
         "nuphos-cli": "Nuphos CLI",
     ]
-    // ASCII classes, not `\w`: ICU's `\w` also matches non-Latin letters.
-    private static let appClient = try! NSRegularExpression(
-        pattern: #"^(nuphos-(?:desktop|ios|android|cli))/([0-9][A-Za-z0-9_.+-]{0,31})$"#
-    )
     private static let browsers = [("Edg/", "Edge"), ("Firefox/", "Firefox"), ("Chrome/", "Chrome"), ("Safari/", "Safari")]
     private static let systems = [("iPhone|iPad", "iOS"), ("Android", "Android"), ("Macintosh|Mac OS X", "macOS"), ("Windows", "Windows"), ("Linux", "Linux")]
 
     /// What signed in. The app name and user agent are whatever the signing-in
-    /// client sent, so their text is never shown: a known app, a browser and
-    /// system from a fixed list, or "Unknown device" (as the backend's emails do).
+    /// client sent, so none of their text is shown, not even an app's version:
+    /// a known app, a browser and system from a fixed list, or "Unknown device"
+    /// (as the backend's emails do).
     static func device(_ session: SignInSession) -> String {
-        let client = session.client ?? ""
-        let whole = NSRange(client.startIndex..., in: client)
-        // The range check keeps ICU's `$` from accepting a trailing newline.
-        if let match = appClient.firstMatch(in: client, range: whole), match.range == whole,
-           let app = Range(match.range(at: 1), in: client), let version = Range(match.range(at: 2), in: client),
-           let name = apps[String(client[app])] {
-            return "\(name) \(client[version])"
-        }
+        if let name = apps[String((session.client ?? "").prefix { $0 != "/" })] { return name }
         let ua = session.userAgent ?? ""
         // The nuphos.ai web sign-in reaches the backend from the website's server.
         if session.client == nil, ua.range(of: #"^(node|undici)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {

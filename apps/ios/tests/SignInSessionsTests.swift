@@ -29,22 +29,21 @@ enum SignInSessionsTests {
     }
 
     private static func namesKnownApps() {
-        expect(device(client: "nuphos-desktop/0.95.0"), "Nuphos Desktop 0.95.0", "desktop")
-        expect(device(client: "nuphos-ios/0.14.3"), "Nuphos for iOS 0.14.3", "ios")
-        expect(device(client: "nuphos-android/1.2.0-beta+7"), "Nuphos for Android 1.2.0-beta+7", "android")
-        expect(device(client: "nuphos-cli/0.3.1", userAgent: "curl/8"), "Nuphos CLI 0.3.1", "cli")
+        expect(device(client: "nuphos-desktop/0.95.0"), "Nuphos Desktop", "desktop")
+        expect(device(client: "nuphos-ios/0.14.3"), "Nuphos for iOS", "ios")
+        expect(device(client: "nuphos-android/1.4.0"), "Nuphos for Android", "android")
+        expect(device(client: "nuphos-cli/0.3.1", userAgent: "curl/8"), "Nuphos CLI", "cli")
+        expect(device(client: "nuphos-ios"), "Nuphos for iOS", "no version")
     }
 
     private static func neverShowsClientOrUserAgentText() {
-        let unknown = [
-            "nuphos-ios/abc", "nuphos-ios/1.0 evil", "nuphos-ios/1.0\n", "nuphos-ios/1.0\nVisit evil.example",
-            "nuphos-tv/1.0", "Nuphos-ios/1.0", "nuphos-ios/1.é", "nuphos-ios/1" + String(repeating: "0", count: 32),
-        ]
+        // The version is the client's claim, so none of it is shown.
+        expect(device(client: "nuphos-desktop/1.verify-at.evil-phish.com"), "Nuphos Desktop", "phish version")
+        expect(device(client: "nuphos-ios/1.0\nVisit evil.example"), "Nuphos for iOS", "newline version")
+        let unknown = ["nuphos-tv/1.0", "Nuphos-ios/1.0", "nuphos-ios 1.0", "/nuphos-ios", "evil.example/nuphos-ios", ""]
         for client in unknown {
             expect(device(client: client), "Unknown device", "client \(client.debugDescription)")
         }
-        // 32 characters after the leading digit is the limit.
-        expect(device(client: "nuphos-ios/1" + String(repeating: "0", count: 31)), "Nuphos for iOS 1" + String(repeating: "0", count: 31), "long version")
         expect(device(userAgent: "Totally legit device, call +1 555"), "Unknown device", "free text")
         expect(device(), "Unknown device", "nothing")
     }
