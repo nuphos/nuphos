@@ -18,7 +18,6 @@ const noop = () => {}
 const userData = mkdtempSync(path.join(tmpdir(), 'crash-reporter-'))
 const settingFile = path.join(userData, 'diagnostics.json')
 let started: StartOptions | undefined
-let uploads: boolean[] = []
 let analytics: boolean[] = []
 let broadcasts: unknown[][] = []
 let syncHandler: ((event: { returnValue?: unknown }) => void) | undefined
@@ -64,7 +63,6 @@ before(() => {
         start: (options: StartOptions) => {
           started = options
         },
-        setUploadToServer: (value: boolean) => uploads.push(value),
         addExtraParameter: (key: string, value: string) => extra.set(key, value),
       },
     },
@@ -82,9 +80,9 @@ before(() => {
 
 beforeEach(() => {
   started = undefined
-  uploads = []
   analytics = []
   broadcasts = []
+  extra.clear()
 })
 
 test('uploads plain minidumps to the backend with non-identifying annotations', async () => {
@@ -103,14 +101,15 @@ test('uploads plain minidumps to the backend with non-identifying annotations', 
   }
 })
 
-test('the setting defaults on, and turning it off stops uploads and analytics at once', async () => {
+test('the setting defaults on; turning it off stops analytics and flags later crashes', async () => {
   const { setSendDiagnostics } = await launch()
 
   assert.deepEqual(analytics, [true])
+  assert.equal(extra.get('upload_off'), undefined)
   assert.equal(syncValue(), true)
 
   assert.equal(setSendDiagnostics(false), false)
-  assert.deepEqual(uploads, [false])
+  assert.equal(extra.get('upload_off'), '1')
   assert.deepEqual(analytics, [true, false])
   assert.deepEqual(broadcasts, [['diagnostics:changed', false]])
   assert.equal(syncValue(), false)

@@ -30,9 +30,9 @@ export function PrivacySection() {
           <p className="mt-1 text-[12px] text-tertiary">
             Helps us find and fix problems. Crash reports include the app version, system details
             and a snapshot of what the app was doing when it crashed, which can contain fragments of
-            on-screen content. Usage data covers how features are used. Turning this off takes
-            effect right away and is saved on this computer only. Crash reports saved while it is
-            off are sent if you turn it back on.
+            on-screen content. Usage data covers how features are used. Turning this off stops usage
+            data right away. Crash reports stop being sent after Nuphos restarts; any sent before
+            then are deleted without being stored. Saved on this computer only.
           </p>
         </div>
         <Switch

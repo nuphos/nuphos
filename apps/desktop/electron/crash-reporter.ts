@@ -5,7 +5,8 @@
 // against Electron's public symbols. Packaged builds only.
 //
 // One setting, "Send crash reports and usage data" (default on, saved on this
-// computer), gates crash uploads and both PostHog clients, and applies live.
+// computer), gates crash reports and both PostHog clients. Usage data stops at
+// once; Crashpad's own upload consent follows at the next launch.
 // Electron itself adds ver, _version, platform and
 // process_type; we add arch, a hashed device id (rate limiting only) and the
 // heap / uptime numbers that tell a slow leak from a sudden spike.
@@ -38,10 +39,13 @@ function readSendDiagnostics(): boolean {
 function applySendDiagnostics(send: boolean): void {
   sendDiagnostics = send
   setMainAnalyticsEnabled(send)
-  if (crashpadStarted) crashReporter.setUploadToServer(send)
+  // Crashpad reads upload consent only at start (a runtime setUploadToServer
+  // never reaches it), and skips every report while consent is off. After a
+  // mid-session switch off, flag crashes so the backend drops them unstored.
+  if (crashpadStarted) crashReporter.addExtraParameter('upload_off', send ? '0' : '1')
 }
 
-/** Saves the setting and applies it now: crash uploads, main and renderer PostHog. */
+/** Saves the setting and applies it now to crash reports and both PostHog clients. */
 export function setSendDiagnostics(value: unknown): boolean {
   if (typeof value !== 'boolean') throw new Error('Invalid diagnostics setting')
   mkdirSync(app.getPath('userData'), { recursive: true })
