@@ -136,20 +136,4 @@ describe('acceptClientTail', () => {
     expect(error?.status).toBe(409)
     expect(error?.details).toEqual({ storedMessageCount: 1 })
   })
-
-  test('answers 409 with a stored count of 0 when no conversation is stored yet', async () => {
-    const error = await acceptClientTail(
-      { id: 'sess', messages: tail, baseIndex: 2 },
-      'sess',
-      'owner',
-      null,
-    ).then(
-      () => null,
-      (err: unknown) => err as AppError,
-    )
-
-    expect(error?.status).toBe(409)
-    expect(error?.code).toBe('transcript_out_of_sync')
-    expect(error?.details).toEqual({ storedMessageCount: 0 })
-  })
 })

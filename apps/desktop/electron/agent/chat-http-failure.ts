@@ -16,14 +16,14 @@ import { storedMessageCountFromDetails } from './transcript-window.ts'
 import type { ChatStreamCtx } from './chat-shared'
 import type { AgentErrorContext, AgentHttpErrorPayload } from './stream-errors'
 
-// The tail did not line up with the stored transcript. When the rejection
-// carries the server's stored count, retry the same tail once claiming that
-// count as baseIndex; otherwise the error surfaces like any other.
+// The tail did not line up with the stored transcript: retry it once claiming
+// the server's stored count as baseIndex. The backend omits the count only
+// when it has no conversation at all, so a missing count means 0 stored.
 function rebaseOntoStoredCount(ctx: ChatStreamCtx, httpError: AgentHttpErrorPayload): boolean {
   const { streamId, sessionId, state } = ctx
-  const storedCount = storedMessageCountFromDetails(httpError.details)
+  const storedCount = storedMessageCountFromDetails(httpError.details) ?? 0
 
-  if (storedCount === undefined || state.rebaseBaseIndex !== undefined) return false
+  if (state.rebaseBaseIndex !== undefined) return false
   state.rebaseBaseIndex = storedCount
   traceStream(
     'transcript_rebase',

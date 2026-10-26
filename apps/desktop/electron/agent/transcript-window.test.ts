@@ -42,6 +42,22 @@ test('stacks on top of a paginated tail baseIndex', () => {
   })
 })
 
+test('keeps earlier user messages that never got a reply, so the stored count lines up', () => {
+  // u2's send failed before the backend stored it: the store holds u1, a1 (2).
+  const messages = [u('u1'), a('a1'), u('u2'), u('u3')]
+
+  assert.deepEqual(windowTranscript(messages, undefined), {
+    messages: [u('u2'), u('u3')],
+    baseIndex: 2,
+  })
+})
+
+test('sends everything when no reply was ever stored', () => {
+  const messages = [u('u1'), u('u2')]
+
+  assert.deepEqual(windowTranscript(messages, undefined), { messages, baseIndex: undefined })
+})
+
 test('passes through an empty transcript', () => {
   assert.deepEqual(windowTranscript([], 0), { messages: [], baseIndex: undefined })
 })

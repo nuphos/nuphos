@@ -222,6 +222,10 @@ test('an out-of-sync tail rebases onto the stored count once, then surfaces the 
   assert.equal(await resumeAfterReconnect(state, outOfSync({ storedMessageCount: 7 })), 'stop')
 })
 
-test('an out-of-sync rejection without a stored count never resends the full transcript', async () => {
-  assert.equal(await resumeAfterReconnect(createChatStreamState(0), outOfSync()), 'stop')
+test('an older backend that omits the count (no conversation) gets the tail on an empty prefix', async () => {
+  const state = createChatStreamState(0)
+
+  assert.equal(await resumeAfterReconnect(state, outOfSync()), 'retry')
+  assert.equal(state.rebaseBaseIndex, 0)
+  assert.equal(await resumeAfterReconnect(state, outOfSync()), 'stop')
 })

@@ -118,9 +118,9 @@ export async function acceptClientTail(
   const messages = body.messages
 
   if (baseIndex > 0) {
-    // Nothing stored yet (e.g. the first send failed before persisting): the
-    // stored count is 0, so the client rebases its tail onto an empty prefix.
-    if (!conversationForResume) throw transcriptOutOfSync(0, baseIndex)
+    if (!conversationForResume) {
+      throw new AppError(409, 'transcript_out_of_sync', 'Conversation not found for baseIndex')
+    }
     const stored = await agentMessages().countDocuments({ sessionId, userId: runOwnerUserId })
 
     if (stored < baseIndex) throw transcriptOutOfSync(stored, baseIndex)

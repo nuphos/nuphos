@@ -3,10 +3,11 @@
 //
 // The backend persists every finalized turn and accepts `baseIndex` + a tail,
 // hydrating the stored prefix by count. So only the tail that can still be
-// unsettled client-side is sent: from the most recent user message onward.
-// That always contains the current turn (in-flight assistant message,
-// client-tool results, permission decisions), while everything before it was
-// finalized or synced already.
+// unsettled client-side is sent: from the user messages since the last
+// assistant reply onward. That always contains the current turn (in-flight
+// assistant message, client-tool results, permission decisions) and any
+// earlier user message that never got a reply (a send that failed before the
+// backend stored it), while everything before it was finalized or synced.
 //
 // The preload windows before ipcRenderer.invoke, so the whole tab transcript
 // never crosses IPC into the main process: copying it into the main heap on
@@ -35,6 +36,7 @@ export function windowTranscript<M extends RoleCarrier>(
       break
     }
   }
+  while (lastUser > 0 && messages[lastUser - 1]?.role === 'user') lastUser--
   if (lastUser <= 0) return { messages, baseIndex: base > 0 ? base : undefined }
 
   return {
