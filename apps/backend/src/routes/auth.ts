@@ -9,7 +9,7 @@ import type { Context } from 'hono'
 
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
-import { clientIp } from '@/lib/request-origin'
+import { clientIp, requestOrigin } from '@/lib/request-origin'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
@@ -35,7 +35,8 @@ export const auth = new Hono<{ Variables: AuthVariables }>()
 /** Every sign-in ends here: the one place a session is started. */
 async function startSession(c: Context, user: NuphosUser) {
   const token = await createUserSession(user.id, {
-    ip: clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
+    ...requestOrigin((name) => c.req.header(name)),
+    client: c.req.header('x-atlas-client'),
     userAgent: c.req.header('User-Agent'),
   })
 

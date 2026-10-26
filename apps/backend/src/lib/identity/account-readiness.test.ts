@@ -11,7 +11,12 @@ import {
 } from './account-deletion'
 import { AI_CONSENT_VERSION, readAIConsent, saveAIConsent } from './ai-consent'
 import { setPasswordWithEmailCode, signInWithPassword } from './password'
-import { createUserSession, revokeUserSession } from './sessions'
+import {
+  createUserSession,
+  listUserSessions,
+  revokeOtherUserSessions,
+  revokeUserSession,
+} from './sessions'
 import { mapUser } from './shared'
 import { signNuphosToken } from './token'
 
@@ -40,7 +45,7 @@ function matches(doc: Doc, filter: Doc): boolean {
     if (value instanceof ObjectId) return String(doc[key]) === String(value)
     if (value && typeof value === 'object') {
       if ('$exists' in value) return (doc[key] !== undefined) === value.$exists
-      if ('$ne' in value) return doc[key] !== value.$ne
+      if ('$ne' in value) return String(doc[key]) !== String(value.$ne)
       if ('$gt' in value) return doc[key] > value.$gt
     }
 
@@ -92,8 +97,17 @@ useDb({
       },
       deleteMany: async (filter: Doc) => {
         const kept = docs(name).filter((doc) => !matches(doc, filter))
+        const deletedCount = docs(name).length - kept.length
 
         collections.set(name, kept)
+
+        return { deletedCount }
+      },
+      find: (filter: Doc) => {
+        const hits = docs(name).filter((doc) => matches(doc, filter))
+        const cursor = { sort: () => cursor, limit: () => cursor, toArray: async () => hits }
+
+        return cursor
       },
       findOneAndDelete: async (filter: Doc) => {
         const doc = docs(name).find((doc) => matches(doc, filter)) ?? null
@@ -316,6 +330,29 @@ test('a session authenticates until it is revoked, and only it carries a session
   expect(await revokeUserSession(String(OTHER), signedIn!.sessionId!)).toBe(false)
   expect(await revokeUserSession(String(USER), signedIn!.sessionId!)).toBe(true)
   expect(await realIdentity.authenticateToken(token)).toBeNull()
+})
+
+test('a session remembers where it came from, and signing out the others keeps this one', async () => {
+  const here = await createUserSession(String(USER), {
+    ip: '203.0.113.9',
+    city: 'Taipei',
+    country: 'TW',
+    client: 'nuphos-desktop/1.0.0',
+  })
+
+  await createUserSession(String(USER), { ip: '198.51.100.7' })
+  const current = (await realIdentity.authenticateToken(here))!.sessionId!
+  const listed = await listUserSessions(String(USER), current)
+
+  expect(listed.find((s) => s.current)).toMatchObject({
+    ip: '203.0.113.9',
+    city: 'Taipei',
+    country: 'TW',
+    client: 'nuphos-desktop/1.0.0',
+  })
+  expect(await revokeOtherUserSessions(String(USER), current)).toBe(1)
+  expect(docs('user_sessions')).toHaveLength(1)
+  expect(await realIdentity.authenticateToken(here)).not.toBeNull()
 })
 
 test('an expired session is refused', async () => {

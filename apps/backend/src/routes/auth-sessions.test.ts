@@ -15,9 +15,12 @@ const USER = {
 }
 const CURRENT = '64b7f0c2a1b2c3d4e5f60001'
 const revoked: [string, string][] = []
+const othersRevoked: [string, string][] = []
 
 useIdentity({
   authenticateToken: (async (token: string) => {
+    // A 30-day sign-in JWT from before sessions: a user, but no session.
+    if (token === 'old-sign-in') return { user: USER, cacheHit: false, provider: 'nuphos' }
     if (token === 'session')
       return { user: USER, cacheHit: false, provider: 'nuphos', sessionId: CURRENT }
     if (token === 'run') return { user: USER, cacheHit: false, provider: 'nuphos' }
@@ -37,6 +40,11 @@ useIdentitySessions({
       userAgent: userId,
     },
   ],
+  revokeOtherUserSessions: async (userId: string, keepId: string) => {
+    othersRevoked.push([userId, keepId])
+
+    return 2
+  },
   revokeUserSession: async (userId: string, id: string) => {
     revoked.push([userId, id])
 
@@ -51,6 +59,22 @@ const call = (method: string, path: string, token: string) =>
 
 beforeEach(() => {
   revoked.length = 0
+  othersRevoked.length = 0
+})
+
+test('signing out the other devices keeps this one', async () => {
+  const res = await call('DELETE', '/auth/sessions', 'session')
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ revoked: 2 })
+  expect(othersRevoked).toEqual([[USER.id, CURRENT]])
+})
+
+test('a sign-in from before sessions is asked to sign in again', async () => {
+  const res = await call('GET', '/auth/sessions', 'old-sign-in')
+
+  expect(res.status).toBe(403)
+  expect(((await res.json()) as { error: { code: string } }).error.code).toBe('session_required')
 })
 
 test('a session lists the account sessions and sees which one it is', async () => {

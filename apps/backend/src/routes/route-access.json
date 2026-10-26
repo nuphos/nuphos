@@ -20,6 +20,7 @@
   "DELETE /auth/cli-tokens/:id": "user",
   "DELETE /auth/cli-tokens/:id/avatar": "user",
   "DELETE /auth/me/avatar": "user",
+  "DELETE /auth/sessions": "user",
   "DELETE /auth/sessions/:id": "user",
   "DELETE /lark/mappings/:chatId": "user",
   "DELETE /lark/user-mappings/:openId": "user",

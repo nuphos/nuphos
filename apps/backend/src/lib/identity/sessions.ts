@@ -27,11 +27,18 @@ export type UserSessionDoc = {
   lastUsedAt: Date
   expiresAt: Date
   ip?: string
+  /** Cloudflare's guess from the IP; absent off Cloudflare. */
+  city?: string
+  country?: string
+  /** The app's own name and version (`x-atlas-client`), when it sends one. */
+  client?: string
   userAgent?: string
 }
 
 /** Where a sign-in came from, kept so the user can recognise it later. */
-export type SessionClient = { ip?: string; userAgent?: string }
+export type SessionClient = Partial<
+  Pick<UserSessionDoc, 'ip' | 'city' | 'country' | 'client' | 'userAgent'>
+>
 
 export const userSessions = () => db().collection<UserSessionDoc>('user_sessions')
 
@@ -62,6 +69,9 @@ export async function createUserSession(userId: string, client: SessionClient = 
     lastUsedAt: now,
     expiresAt: new Date(now.getTime() + IDLE_MS),
     ...(client.ip ? { ip: client.ip } : {}),
+    ...(client.city ? { city: client.city.slice(0, 128) } : {}),
+    ...(client.country ? { country: client.country.slice(0, 8) } : {}),
+    ...(client.client ? { client: client.client.slice(0, 128) } : {}),
     ...(client.userAgent ? { userAgent: client.userAgent.slice(0, 256) } : {}),
   })
 
@@ -105,6 +115,9 @@ export async function listUserSessions(userId: string, currentId?: string) {
     lastUsedAt: doc.lastUsedAt.toISOString(),
     expiresAt: doc.expiresAt.toISOString(),
     ip: doc.ip ?? null,
+    city: doc.city ?? null,
+    country: doc.country ?? null,
+    client: doc.client ?? null,
     userAgent: doc.userAgent ?? null,
   }))
 }
@@ -114,6 +127,17 @@ export async function revokeUserSession(userId: string, id: string): Promise<boo
   const { deletedCount } = await userSessions().deleteOne({ _id: new ObjectId(id), userId })
 
   return deletedCount === 1
+}
+
+/** Signs out every other device; returns how many sessions ended. */
+export async function revokeOtherUserSessions(userId: string, keepId: string): Promise<number> {
+  if (!ObjectId.isValid(keepId)) return 0
+  const { deletedCount } = await userSessions().deleteMany({
+    userId,
+    _id: { $ne: new ObjectId(keepId) },
+  })
+
+  return deletedCount
 }
 
 export async function revokeAllUserSessions(userId: string): Promise<void> {

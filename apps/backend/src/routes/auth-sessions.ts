@@ -4,7 +4,11 @@ import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
 import { AppError } from '@/lib/errors'
-import { listUserSessions, revokeUserSession } from '@/lib/identity/sessions'
+import {
+  listUserSessions,
+  revokeOtherUserSessions,
+  revokeUserSession,
+} from '@/lib/identity/sessions'
 import { requireAuth } from '@/middleware/auth'
 
 /** The account's sign-in sessions, mounted at /auth/sessions. */
@@ -21,6 +25,11 @@ function requireSession(c: Context<{ Variables: AuthVariables }>): string {
 
 authSessions.get('/', requireAuth, async (c) =>
   c.json({ sessions: await listUserSessions(c.get('userId'), requireSession(c)) }),
+)
+
+// Signs out every device but this one.
+authSessions.delete('/', requireAuth, async (c) =>
+  c.json({ revoked: await revokeOtherUserSessions(c.get('userId'), requireSession(c)) }),
 )
 
 // `current` signs this client out.
