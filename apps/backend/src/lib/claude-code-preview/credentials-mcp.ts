@@ -98,8 +98,6 @@ export type PreviewSessionAccessOptions = {
   backendUrl?: string
   /** The actor sent this turn's message; otherwise the turn acts as the session owner. */
   humanTurn?: boolean
-  /** Token lifetime; the default suits runtimes that cannot renew it mid-turn. */
-  ttlSec?: number
 }
 
 export function previewSessionAccess(
@@ -108,15 +106,7 @@ export function previewSessionAccess(
   userId: string,
   conversationOwnerUserId = userId,
   options?: PreviewSessionAccessOptions,
-): {
-  mcpServers: AcpHttpMcpServer[]
-  runtimeEnv?: Record<string, string>
-  /** The same access with a different token lifetime. */
-  renew?: (ttlSec: number) => {
-    runtimeEnv?: Record<string, string>
-    mcpServers: AcpHttpMcpServer[]
-  }
-} {
+): { mcpServers: AcpHttpMcpServer[]; runtimeEnv?: Record<string, string> } {
   const base = previewMcpBaseUrl(options?.external, options?.backendUrl)
 
   if (!base || !userId) return { mcpServers: [] }
@@ -128,18 +118,10 @@ export function previewSessionAccess(
     teamId,
     apiOrigin: base,
     humanTurn: options?.humanTurn,
-    ttlSec: options?.ttlSec,
   })
   const headers = [{ name: 'Authorization', value: `Bearer ${token}` }]
 
-  const renew = (ttlSec: number) =>
-    previewSessionAccess(conversationId, teamId, userId, conversationOwnerUserId, {
-      ...options,
-      ttlSec,
-    })
-
   return {
-    renew,
     mcpServers: [
       { name: 'nuphos-credentials', type: 'http', url: `${mount}/mcp`, headers },
       { name: 'nuphos-tools', type: 'http', url: `${mount}/mcp-tools`, headers },

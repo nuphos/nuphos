@@ -150,7 +150,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       endpoint: args.endpoint,
       mcpServers: access.mcpServers,
       runtime: { provider: args.endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
-      renewAccess: access.renew,
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta, metadata) => {
