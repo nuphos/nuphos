@@ -1,9 +1,11 @@
+import { accountFailure, accountSignal, signedIn, stillCurrent } from '../account-request.ts'
 import { apiUrl } from '../api-endpoint.ts'
-import { sessionToken } from '../auth/config.ts'
-import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
+import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
 import { buildAtlasError } from './error.ts'
+
+import type { SignedIn } from '../account-request.ts'
 
 /** Expose the resolved backend base URL to the renderer. Used by features
  *  that need to construct public URLs (e.g. webhook URLs in TriggersView). */
@@ -11,16 +13,14 @@ export function getApiUrl(): string {
   return apiUrl()
 }
 
-export function readToken(): Promise<string | null> {
-  return sessionToken()
-}
-
 // Default per-request timeout. Multi-region sweeps (e.g. Aliyun ECS/SWAS across
 // a large fleet) pass a longer timeoutMs — the backend bounds itself below it.
 const DEFAULT_TIMEOUT_MS = 15_000
 
+/** Fetches `route` on the account's backend, retrying failures until the account changes. */
 export async function fetchWithRetry(
-  url: string,
+  account: SignedIn,
+  route: string,
   init: RequestInit,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<Response> {
@@ -30,9 +30,17 @@ export async function fetchWithRetry(
 
   for (let i = 0; i < attempts; i++) {
     try {
-      return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
+      const res = await fetch(`${account.api}${route}`, {
+        ...init,
+        signal: accountSignal(account, timeoutMs),
+      })
+
+      stillCurrent(account)
+
+      return res
     } catch (e) {
-      lastErr = e
+      lastErr = accountFailure(account, e)
+      if (account.signal.aborted) break
       if (i < attempts - 1) await new Promise((r) => setTimeout(r, backoffMs[i]))
     }
   }
@@ -45,11 +53,9 @@ export async function call<T>(
   body?: unknown,
   opts?: { retry?: boolean; timeoutMs?: number },
 ): Promise<T> {
-  const token = await readToken()
-
-  if (!token) throw new Error('Not signed in')
+  const account = await signedIn()
   const headers: Record<string, string> = {
-    authorization: `Bearer ${token}`,
+    authorization: `Bearer ${account.token}`,
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
   }
   const requestId = tagRequest(headers)
@@ -65,13 +71,14 @@ export async function call<T>(
   try {
     res =
       opts?.retry === false
-        ? await fetch(`${apiUrl()}${route}`, {
+        ? await fetch(`${account.api}${route}`, {
             ...init,
-            signal: AbortSignal.timeout(timeoutMs),
+            signal: accountSignal(account, timeoutMs),
           })
-        : await fetchWithRetry(`${apiUrl()}${route}`, init, timeoutMs)
+        : await fetchWithRetry(account, route, init, timeoutMs)
+    stillCurrent(account)
   } catch (e) {
-    throw backendFailure(e, route, requestId)
+    throw backendFailure(accountFailure(account, e), route, requestId)
   }
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`
@@ -98,28 +105,30 @@ export async function call<T>(
     throw buildAtlasError(message, code, details)
   }
   if (res.status === 204) return undefined as T
+  const value = (await res.json()) as T
 
-  return (await res.json()) as T
+  stillCurrent(account)
+
+  return value
 }
 
 export async function callText(method: string, route: string): Promise<string> {
-  const token = await readToken()
-
-  if (!token) throw new Error('Not signed in')
+  const account = await signedIn()
   const headers: Record<string, string> = {
-    authorization: `Bearer ${token}`,
+    authorization: `Bearer ${account.token}`,
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
   }
   const requestId = tagRequest(headers)
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${apiUrl()}${route}`, { method, headers })
+    res = await fetchWithRetry(account, route, { method, headers })
   } catch (error) {
     throw backendFailure(error, route, requestId)
   }
   const text = await res.text()
 
+  stillCurrent(account)
   if (!res.ok) throw new Error(text || `HTTP ${String(res.status)}`)
 
   return text
@@ -131,9 +140,7 @@ export async function callMultipart<T>(
   file: { filename: string; bytes: Uint8Array; contentType?: string },
   opts?: { timeoutMs?: number },
 ): Promise<T> {
-  const token = await readToken()
-
-  if (!token) throw new Error('Not signed in')
+  const account = await signedIn()
   const form = new FormData()
 
   for (const [key, value] of Object.entries(fields)) {
@@ -146,18 +153,14 @@ export async function callMultipart<T>(
   )
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const headers: Record<string, string> = {
-    authorization: `Bearer ${token}`,
+    authorization: `Bearer ${account.token}`,
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
   }
   const requestId = tagRequest(headers)
   let res: Response
 
   try {
-    res = await fetchWithRetry(
-      `${apiUrl()}${route}`,
-      { method: 'POST', headers, body: form },
-      timeoutMs,
-    )
+    res = await fetchWithRetry(account, route, { method: 'POST', headers, body: form }, timeoutMs)
   } catch (e) {
     throw backendFailure(e, route, requestId)
   }
@@ -183,8 +186,11 @@ export async function callMultipart<T>(
     throw buildAtlasError(message, code, details)
   }
   if (res.status === 204) return undefined as T
+  const value = (await res.json()) as T
 
-  return (await res.json()) as T
+  stillCurrent(account)
+
+  return value
 }
 
 export function appendQuery(

@@ -1,6 +1,4 @@
-import { apiUrl } from '../api-endpoint.ts'
-
-import { readToken } from './http.ts'
+import { agentAccount } from './http.ts'
 
 /** What the backend did with the abort, or why we could not find out. */
 export type AbortChatResult = {
@@ -22,13 +20,14 @@ export type AbortChatResult = {
  * could still hold the session busy.
  */
 export async function abortChat(streamId: string): Promise<AbortChatResult> {
-  const token = await readToken()
+  const account = await agentAccount().catch(() => null)
 
-  if (!token) return { status: 'unauthenticated' }
+  if (!account) return { status: 'unauthenticated' }
   try {
-    const res = await fetch(`${apiUrl()}/agent/chat/${encodeURIComponent(streamId)}/abort`, {
+    const res = await fetch(`${account.api}/agent/chat/${encodeURIComponent(streamId)}/abort`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${account.token}` },
+      signal: account.signal,
     })
 
     if (res.status === 404) return { status: 'not_found' }

@@ -1,4 +1,3 @@
-import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 import { readDeviceIdentity } from '../main/device-identity.ts'
@@ -10,6 +9,7 @@ import {
 } from './chat-shared'
 import { formatAgentLocalError } from './stream-errors'
 
+import type { SignedIn } from '../account-request.ts'
 import type { ChatStreamCtx, StartChatArgs } from './chat-shared'
 
 /**
@@ -21,7 +21,7 @@ import type { ChatStreamCtx, StartChatArgs } from './chat-shared'
 export async function postChatAttempt(
   ctx: ChatStreamCtx,
   args: StartChatArgs,
-  token: string,
+  account: SignedIn,
   attemptAc: AbortController,
   shouldResume: boolean,
 ): Promise<Response | null> {
@@ -30,7 +30,7 @@ export async function postChatAttempt(
     args
   const headers: Record<string, string> = {
     'content-type': 'application/json',
-    authorization: `Bearer ${token}`,
+    authorization: `Bearer ${account.token}`,
     accept: 'text/event-stream',
     'accept-encoding': 'identity',
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
@@ -73,7 +73,7 @@ export async function postChatAttempt(
     },
   )
   try {
-    res = await fetch(`${apiUrl()}/agent/chat`, {
+    res = await fetch(`${account.api}/agent/chat`, {
       method: 'POST',
       headers,
       body: JSON.stringify({

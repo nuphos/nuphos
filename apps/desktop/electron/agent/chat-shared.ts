@@ -1,9 +1,8 @@
 import type { AgentProvider } from '../../src/types/runtime.ts'
 import type { SessionConfigPick } from '../../src/api/session-config-types.ts'
 import { captureMain } from '../analytics.ts'
-import { apiUrl } from '../api-endpoint.ts'
 
-import { readToken } from './http.ts'
+import { agentAccount } from './http.ts'
 
 import type { AgentCredentialSelection } from './types.ts'
 
@@ -153,13 +152,14 @@ export function createChatStreamState(resumeFrom: number): ChatStreamState {
 // Best-effort and fire-and-forget — telemetry must never block the UI.
 export function reportFailure(streamId: string, payload: Record<string, unknown>): void {
   void (async () => {
-    const token = await readToken()
+    const account = await agentAccount().catch(() => null)
 
-    if (!token) return
+    if (!account) return
     try {
-      await fetch(`${apiUrl()}/agent/chat/${encodeURIComponent(streamId)}/report-failure`, {
+      await fetch(`${account.api}/agent/chat/${encodeURIComponent(streamId)}/report-failure`, {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${account.token}`, 'content-type': 'application/json' },
+        signal: account.signal,
         body: JSON.stringify(payload),
       })
     } catch {

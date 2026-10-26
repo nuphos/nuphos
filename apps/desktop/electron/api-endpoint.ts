@@ -1,15 +1,16 @@
 // The backend this app talks to: a launch-time NUPHOS_API_URL (e.g. from
 // `bun run dev`), else the endpoint saved on the sign-in screen, else Nuphos
-// Cloud. It lives in process.env so spawned helpers inherit it, and is read
-// per call, so changing it takes effect without a relaunch.
+// Cloud. It is part of the account context (auth-session.ts), so a request's
+// backend and token are always read together, and is mirrored in process.env
+// so spawned helpers inherit it.
 
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { authSession } from './auth-session.ts'
 import { CLI_CONFIG_PATH } from './cli-config-path.ts'
 
 const DEFAULT_API_URL = 'https://api.nuphos.ai'
-const listeners = new Set<() => void>()
 
 // What this process was launched with; resetting the switch returns here, so a
 // `bun run dev` build never falls through to Nuphos Cloud.
@@ -29,8 +30,14 @@ if (!process.env.NUPHOS_API_URL && !process.env.ATLAS_API_URL) {
   }
 }
 
-export function apiUrl(): string {
+function fromEnv(): string {
   return process.env.NUPHOS_API_URL || process.env.ATLAS_API_URL || DEFAULT_API_URL
+}
+
+authSession.start(fromEnv())
+
+export function apiUrl(): string {
+  return authSession.context().api
 }
 
 /** A dev window may use Cloud, but must not advertise this computer there. */
@@ -40,18 +47,11 @@ export function deviceRegistrationAllowed(dev: boolean): boolean {
   return new URL(apiUrl()).hostname.replace(/\.$/u, '') !== new URL(DEFAULT_API_URL).hostname
 }
 
-export function onApiUrlChange(listener: () => void): () => void {
-  listeners.add(listener)
-
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-/** Saves the endpoint (`null` restores the launch-time one, else Nuphos Cloud) and returns the new one. */
+/**
+ * Saves the endpoint (`null` restores the launch-time one, else Nuphos Cloud)
+ * and returns the new one. A different backend ends the session in memory.
+ */
 export function setApiUrl(raw: string | null): string {
-  const previous = apiUrl()
-
   delete process.env.ATLAS_API_URL
   if (raw === null) {
     fs.rmSync(SAVED_PATH, { force: true })
@@ -66,7 +66,7 @@ export function setApiUrl(raw: string | null): string {
     process.env.NUPHOS_API_URL = url.origin
   }
 
-  if (apiUrl() !== previous) for (const listener of listeners) listener()
+  authSession.moveTo(fromEnv())
 
   return apiUrl()
 }

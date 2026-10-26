@@ -6,7 +6,7 @@ import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
 import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
-import { apiUrl, deviceRegistrationAllowed, onApiUrlChange } from '../../api-endpoint.ts'
+import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
@@ -33,6 +33,7 @@ import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
 
+import type { AccountContext } from '../../auth-session.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { LocalRuntimeState, LocalRuntimeViewState } from './controller-types.ts'
 
@@ -116,11 +117,11 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       connectBackend: (reclaim) => {
         if (!deviceRegistrationAllowed(isDev))
           throw new Error('Development builds do not register computers with Nuphos Cloud')
-        const token = authSession.current()
+        const { api, token } = authSession.context()
 
         if (!token) throw new Error('Not signed in')
 
-        const url = tunnelUrlFor(apiUrl(), readDeviceIdentity().deviceId, reclaim)
+        const url = tunnelUrlFor(api, readDeviceIdentity().deviceId, reclaim)
 
         return new WebSocket(url.replace(/^http/u, 'ws'), {
           headers: {
@@ -217,8 +218,10 @@ export function cancelLocalCodexLogin(): void {
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {
   sleep.initSleepPrevention(broadcastState)
-  const follow = (token: string | null) => {
-    const userId = token && deviceRegistrationAllowed(isDev) ? authSession.userId() : null
+  // A new backend always comes with a new session, so this one subscription
+  // also follows the endpoint.
+  const follow = (account: Pick<AccountContext, 'token' | 'userId'>) => {
+    const userId = account.token && deviceRegistrationAllowed(isDev) ? account.userId : null
 
     if (userId !== controller.state().userId) {
       cancelLocalClaudeLogin()
@@ -228,8 +231,7 @@ export function initLocalRuntime(): void {
   }
 
   authSession.subscribe(follow)
-  onApiUrlChange(() => follow(authSession.current()))
-  follow(authSession.current())
+  follow(authSession.context())
   if (devBuild())
     watchDevBundle(bundleRoot(), {
       bundle: () => void controller.refresh(true),

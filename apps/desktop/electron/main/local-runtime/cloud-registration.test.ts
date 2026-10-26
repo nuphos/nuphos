@@ -111,8 +111,12 @@ test('Cloud sign-in stays usable without registering a dev device or opening its
   assert.deepEqual(sockets, [])
 })
 
-test('switching endpoints stops hosting on Cloud and resumes on the dev backend', async () => {
+test('switching endpoints ends the session, so hosting stops until a sign-in on the new backend', async () => {
   setApiUrl(null)
+  await settle()
+  assert.equal(authSession.current(), null, 'a Cloud token is never sent to the dev backend')
+  assert.deepEqual(requests, [])
+  authSession.set(token, 'alice')
   await until(() => sockets.length === 1)
   assert.equal(getLocalRuntimeState().userId, 'alice')
   assert.deepEqual(requests, ['/agent/devices'])
@@ -121,25 +125,26 @@ test('switching endpoints stops hosting on Cloud and resumes on the dev backend'
   await settle()
   assert.equal(getLocalRuntimeState().userId, null)
   assert.ok(stopped > 0)
+  assert.equal(authSession.current(), null)
   assert.throws(() => connectBackend?.(), /do not register computers with Nuphos Cloud/u)
   assert.equal(requests.length, 1)
   assert.equal(sockets.length, 1)
-  assert.equal(authSession.current(), token)
-  setApiUrl(null)
-  await until(() => sockets.length === 2)
-  assert.equal(getLocalRuntimeState().userId, 'alice')
-  assert.equal(requests.length, 2)
-  assert.equal(sockets.length, 2)
 })
 
-test('switching between two allowed backends with the same account moves hosting to the new one', async () => {
+test('another allowed backend hosts only after signing in there', async () => {
+  setApiUrl('http://127.0.0.1:3718')
+  authSession.set(token, 'alice')
+  await until(() => sockets.length === 2)
   const stops = stopped
 
   setApiUrl('http://127.0.0.1:3719')
-  await until(() => sockets.length === 3)
+  await settle()
   assert.ok(stopped > stops)
+  assert.equal(getLocalRuntimeState().userId, null)
+  assert.equal(sockets.length, 2)
+  authSession.set('nus_alice-on-3719', 'alice')
+  await until(() => sockets.length === 3)
   assert.equal(getLocalRuntimeState().userId, 'alice')
   assert.equal(requests.length, 3)
   assert.equal(sockets[2], 'ws://127.0.0.1:3719/agent/devices/dev-device/runtime-tunnel')
-  assert.equal(authSession.current(), token)
 })

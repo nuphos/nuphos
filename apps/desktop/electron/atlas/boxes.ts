@@ -1,6 +1,7 @@
+import { signedIn } from '../account-request.ts'
 import { readDeviceMetrics } from '../main/device-metrics.ts'
 
-import { call, readToken } from './client.ts'
+import { call } from './client.ts'
 import { buildAtlasError } from './error.ts'
 
 import type {
@@ -192,10 +193,12 @@ async function billing(teamId: string, method: 'GET' | 'POST', page: string, bod
   const { billingUrl } = await getBoxUsage(teamId)
 
   if (!billingUrl) throw new Error('This deployment has no billing service')
+  const account = await signedIn()
   const response = await fetch(`${billingUrl}/teams/${encodeURIComponent(teamId)}/${page}`, {
     method,
+    signal: account.signal,
     headers: {
-      Authorization: `Bearer ${(await readToken()) ?? ''}`,
+      Authorization: `Bearer ${account.token}`,
       'Content-Type': 'application/json',
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),

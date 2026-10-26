@@ -30,9 +30,12 @@ const boundaries: Record<string, Record<string, unknown>> = {
   '../../api-endpoint.ts': {
     apiUrl: () => 'https://example.test',
     deviceRegistrationAllowed: () => true,
-    onApiUrlChange: noop,
   },
-  '../../auth-session.ts': { authSession: { current: () => 'test-token' } },
+  '../../auth-session.ts': {
+    authSession: {
+      context: () => ({ api: 'https://example.test', token: 'test-token', userId: 'u1' }),
+    },
+  },
   '../../auth-status.ts': { unverifiedTokenSubject: noop },
   '../../client-version.ts': { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
   '../../shell-env.ts': { resolveShellEnv: noop },

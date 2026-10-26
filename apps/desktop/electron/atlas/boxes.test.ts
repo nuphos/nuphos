@@ -33,7 +33,17 @@ mock.module('./client.ts', {
 
       return path.endsWith('/box-usage') ? { billingUrl: 'http://billing.test' } : list
     },
-    readToken: async () => 'session-token',
+  },
+})
+mock.module('../account-request.ts', {
+  namedExports: {
+    signedIn: async () => ({
+      epoch: 1,
+      api: 'https://api.example.test',
+      token: 'session-token',
+      userId: 'u1',
+      signal: new AbortController().signal,
+    }),
   },
 })
 mock.module('../main/device-identity.ts', {

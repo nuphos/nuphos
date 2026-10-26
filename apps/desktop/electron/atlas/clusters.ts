@@ -1,7 +1,7 @@
-import { apiUrl } from '../api-endpoint.ts'
+import { signedIn, stillCurrent } from '../account-request.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
-import { appendQuery, call, fetchWithRetry, readToken } from './client'
+import { appendQuery, call, fetchWithRetry } from './client'
 
 export type Cluster = {
   provider: 'aws' | 'gcp'
@@ -93,15 +93,13 @@ export async function listAzureClusters(
 }
 
 export async function fetchKubeconfig(route: string): Promise<KubeconfigResponse> {
-  const token = await readToken()
-
-  if (!token) throw new Error('Not signed in')
-  const headers: Record<string, string> = { authorization: `Bearer ${token}` }
+  const account = await signedIn()
+  const headers: Record<string, string> = { authorization: `Bearer ${account.token}` }
   const requestId = tagRequest(headers)
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${apiUrl()}${route}`, { headers })
+    res = await fetchWithRetry(account, route, { headers })
   } catch (e) {
     throw backendFailure(e, route, requestId)
   }
@@ -118,10 +116,11 @@ export async function fetchKubeconfig(route: string): Promise<KubeconfigResponse
     throw new Error(message)
   }
 
-  return {
-    yaml: await res.text(),
-    expiresAt: res.headers.get('x-kubeconfig-expires-at'),
-  }
+  const kubeconfig = await res.text()
+
+  stillCurrent(account)
+
+  return { yaml: kubeconfig, expiresAt: res.headers.get('x-kubeconfig-expires-at') }
 }
 
 export async function getKubeconfig(

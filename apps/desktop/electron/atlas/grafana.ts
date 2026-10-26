@@ -1,9 +1,9 @@
-import { apiUrl } from '../api-endpoint.ts'
+import { signedIn, stillCurrent } from '../account-request.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 import { classifyGrafanaFailure, summarizeGrafanaBody } from '../grafanaProxyError'
 
-import { call, fetchWithRetry, readToken } from './client'
+import { call, fetchWithRetry } from './client'
 
 export type GrafanaInstance = {
   id: string
@@ -49,16 +49,14 @@ export async function grafanaProxy<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const token = await readToken()
-
-  if (!token) throw new Error('Not signed in')
+  const account = await signedIn()
   const cleanPath = path.startsWith('/') ? path.slice(1) : path
   const route = `/teams/${teamId}/grafana-instances/${instanceId}/proxy/${cleanPath}`
   // Disable compression — the Nuphos backend proxy currently mis-handles
   // Content-Encoding (forwards the gzip header but ships decoded bytes), which
   // makes undici fail with `Z_DATA_ERROR: incorrect header check`.
   const headers: Record<string, string> = {
-    authorization: `Bearer ${token}`,
+    authorization: `Bearer ${account.token}`,
     'accept-encoding': 'identity',
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
   }
@@ -72,7 +70,7 @@ export async function grafanaProxy<T>(
   let res: Response
 
   try {
-    res = await fetchWithRetry(`${apiUrl()}${route}`, init)
+    res = await fetchWithRetry(account, route, init)
   } catch (e) {
     throw backendFailure(e, route, requestId)
   }
@@ -88,8 +86,11 @@ export async function grafanaProxy<T>(
     throw new Error(failure.message)
   }
   if (res.status === 204) return undefined as T
+  const value = (await res.json()) as T
 
-  return (await res.json()) as T
+  stillCurrent(account)
+
+  return value
 }
 
 // ---------- Monitoring overview (BYOS aggregation) ----------

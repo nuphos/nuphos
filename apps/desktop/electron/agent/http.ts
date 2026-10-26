@@ -1,7 +1,11 @@
-import { apiUrl } from '../api-endpoint.ts'
+import { accountFailure, accountSignal, signedIn, stillCurrent } from '../account-request.ts'
 import { buildAtlasError } from '../atlas/error.ts'
-import { sessionToken } from '../auth/config.ts'
+import { requestContext } from '../auth/config.ts'
+import { authSession } from '../auth-session.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
+
+import type { SignedIn } from '../account-request.ts'
+import type { AccountContext } from '../auth-session.ts'
 
 export function teamIdFromUrl(url?: string): string | undefined {
   if (!url) return undefined
@@ -12,15 +16,16 @@ export function teamIdFromUrl(url?: string): string | undefined {
   }
 }
 
-let tokenSource = sessionToken
+let accountSource: () => Promise<AccountContext> = requestContext
 
 /** `nuphos agent`'s host reads the token through the CLI rather than the keychain. */
 export function setTokenSource(source: () => Promise<string | null>) {
-  tokenSource = source
+  accountSource = async () => ({ ...authSession.context(), token: await source() })
 }
 
-export function readToken(): Promise<string | null> {
-  return tokenSource()
+/** The signed-in account agent requests go out as; throws when signed out. */
+export function agentAccount(): Promise<SignedIn> {
+  return signedIn(accountSource)
 }
 
 /**
@@ -71,17 +76,10 @@ export async function callJson<T>(
   body?: unknown,
   timeoutMs?: number,
 ): Promise<T> {
-  const baseUrl = apiUrl()
-  const token = await readToken()
-
-  if (!token) throw new Error('Not signed in')
-  const headers: Record<string, string> = { authorization: `Bearer ${token}` }
+  const account = await agentAccount()
+  const headers: Record<string, string> = { authorization: `Bearer ${account.token}` }
   const requestId = tagRequest(headers)
-  const init: RequestInit = {
-    method,
-    headers,
-    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
-  }
+  const init: RequestInit = { method, headers, signal: accountSignal(account, timeoutMs) }
 
   if (body !== undefined) {
     headers['content-type'] = 'application/json'
@@ -90,9 +88,10 @@ export async function callJson<T>(
   let res: Response
 
   try {
-    res = await fetch(`${baseUrl}${route}`, init)
+    res = await fetch(`${account.api}${route}`, init)
+    stillCurrent(account)
   } catch (error) {
-    throw backendFailure(error, route, requestId)
+    throw backendFailure(accountFailure(account, error), route, requestId)
   }
 
   if (!res.ok) {
@@ -114,8 +113,11 @@ export async function callJson<T>(
     throw new AtlasHttpError(message, res.status, code, details)
   }
   if (res.status === 204) return undefined as T
+  const value = (await res.json()) as T
 
-  return (await res.json()) as T
+  stillCurrent(account)
+
+  return value
 }
 
 export function teamQuery(teamId?: string): string {

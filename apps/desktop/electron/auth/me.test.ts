@@ -39,7 +39,7 @@ test('a rejected token clears the session and notifies authenticated transport o
   const h = harness()
   const sessions: (string | null)[] = []
 
-  h.session.subscribe((token) => sessions.push(token))
+  h.session.subscribe(({ token }) => sessions.push(token))
   await status(h.deps)
   h.setProbe({ ok: false, transient: false })
   assert.deepEqual(await status(h.deps), { loggedIn: false })

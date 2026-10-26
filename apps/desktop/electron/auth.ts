@@ -6,7 +6,7 @@ import { shell } from 'electron'
 // is how auth-login.test.ts drives login().
 import { apiUrl } from './api-endpoint.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
-import { apiErrorMessage, sessionToken, writeConfig } from './auth/config.ts'
+import { apiErrorMessage, requestContext, writeConfig } from './auth/config.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
@@ -107,12 +107,12 @@ export async function logout() {
     pendingServer.close()
     pendingServer = null
   }
-  const token = await sessionToken()
+  const { api, token } = await requestContext()
 
   // Signed out here first; ending the session on the server is best effort.
   await writeConfig({})
   if (token) {
-    await fetch(`${apiUrl()}/auth/sessions/current`, {
+    await fetch(`${api}/auth/sessions/current`, {
       method: 'DELETE',
       headers: { authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(5_000),

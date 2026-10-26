@@ -9,6 +9,7 @@ import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 
+import type { AccountContext } from '../auth-session.ts'
 import type { UserInfo } from '../auth-status.ts'
 import type { TokenStore } from './token-store.ts'
 
@@ -193,9 +194,19 @@ const defaultConfigFile = configFile({
 export const readConfig = defaultConfigFile.read
 export const writeConfig = defaultConfigFile.write
 
-/** The signed-in token, kept in memory once the startup check has run. */
-export async function sessionToken(): Promise<string | null> {
-  return authSession.current() ?? (await readConfig()).token ?? null
+/**
+ * The account a request goes out as: one context, so its backend, token and
+ * signal always belong together. Until the startup check has run the token
+ * comes from the file; once anything has set the session, only from memory.
+ */
+export async function requestContext(): Promise<AccountContext> {
+  const ctx = authSession.context()
+
+  if (ctx.token || authSession.settled()) return ctx
+  const { token } = await readConfig()
+  const now = authSession.context()
+
+  return now === ctx && token ? { ...ctx, token } : now
 }
 
 export async function apiErrorMessage(res: Response): Promise<string> {
