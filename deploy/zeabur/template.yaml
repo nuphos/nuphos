@@ -204,7 +204,7 @@ spec:
       template: PREBUILT_V2
       spec:
         source:
-          image: ghcr.io/nuphos/backend:v0.101.14
+          image: ghcr.io/nuphos/backend:v0.101.15
         ports:
           - id: web
             port: 3000
