@@ -11,7 +11,6 @@ export function chatRowIcon(conversation: AgentConversation): Pick<Item, 'icon' 
         agentId={conversation.sessionId}
         avatar={conversation.avatar}
         provider={conversation.agentRuntime}
-        attached={conversation.claudeCodeRuntimeAttached}
         sidebar
         animated
       />

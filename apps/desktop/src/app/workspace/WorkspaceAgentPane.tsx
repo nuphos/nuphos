@@ -159,7 +159,6 @@ export function WorkspaceAgentPane({
               <AgentAvatar
                 agentId={selectedSessionId}
                 provider={currentHeading.runtime}
-                attached={Boolean(currentHeading.runtime)}
                 animated
               />
             )}

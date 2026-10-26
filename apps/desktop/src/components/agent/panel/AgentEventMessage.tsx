@@ -46,7 +46,6 @@ export function AgentEventMessage({
       <AgentAvatar
         agentId={metadata.sourceSessionId ?? metadata.sender.id}
         provider={metadata.sender.agentRuntime}
-        attached={Boolean(metadata.sender.agentRuntime)}
       />
     )
   else if (metadata.source === 'agent.resource' && resourceProvider)
