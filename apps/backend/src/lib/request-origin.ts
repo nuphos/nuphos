@@ -68,7 +68,6 @@ const APPS: Record<string, string> = {
   'nuphos-android': 'Nuphos for Android',
   'nuphos-cli': 'Nuphos CLI',
 }
-const APP_CLIENT = /^(nuphos-(?:desktop|ios|android|cli))\/(\d[\w.+-]{0,31})$/
 const BROWSERS: [RegExp, string][] = [
   [/Edg\//, 'Edge'],
   [/Firefox\//, 'Firefox'],
@@ -85,13 +84,13 @@ const SYSTEMS: [RegExp, string][] = [
 
 /**
  * A device name safe to put in an email. Both headers are whatever the caller
- * sends, so their text is never echoed: a known app name, a browser and system
- * picked from a fixed list, or "Unknown device".
+ * sends, so none of their text is echoed, not even an app's version: a known
+ * app name, a browser and system picked from a fixed list, or "Unknown device".
  */
 export function signInDevice(source: SignInSource): string {
-  const app = APP_CLIENT.exec(source.client ?? '')
+  const app = APPS[source.client?.split('/')[0] ?? '']
 
-  if (app) return `${APPS[app[1]!]!} ${app[2]!}`
+  if (app) return app
   const ua = source.userAgent ?? ''
   const browser = BROWSERS.find(([re]) => re.test(ua))?.[1]
   const system = SYSTEMS.find(([re]) => re.test(ua))?.[1]

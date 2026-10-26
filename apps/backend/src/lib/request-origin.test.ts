@@ -48,8 +48,13 @@ test('a sign-in takes its IP and place only from Cloudflare, never X-Forwarded-F
 })
 
 test('a device name is a known app, a browser and system from a list, or unknown', () => {
-  expect(signInDevice({ client: 'nuphos-cli/0.6.2' })).toBe('Nuphos CLI 0.6.2')
-  expect(signInDevice({ client: 'nuphos-cli/0.6.2 reply with your code' })).toBe('Unknown device')
+  expect(signInDevice({ client: 'nuphos-cli/0.6.2' })).toBe('Nuphos CLI')
+  // Not even the version is echoed: it is whatever the caller sends.
+  expect(signInDevice({ client: 'nuphos-desktop/1.verify-at.evil-phish.com' })).toBe(
+    'Nuphos Desktop',
+  )
+  expect(signInDevice({ client: 'nuphos-cli/0.6.2 reply with your code' })).toBe('Nuphos CLI')
+  expect(signInDevice({ client: 'evil-phish.com/1.0' })).toBe('Unknown device')
   expect(
     signInDevice({ userAgent: 'Mozilla/5.0 (Windows NT 10.0) Gecko/20100101 Firefox/131.0' }),
   ).toBe('Firefox on Windows')

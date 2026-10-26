@@ -98,7 +98,7 @@ test('the alert leads with time and IP, and names the device only from known val
   expect(sent[0]!.to).toBe('dev@example.com')
   expect(sent[0]!.text).toContain('IP address: 203.0.113.9')
   expect(sent[0]!.text).toContain('Approximate location: Taipei, TW')
-  expect(sent[0]!.text).toContain('Device: Nuphos Desktop 1.0.0')
+  expect(sent[0]!.text).toContain('Device: Nuphos Desktop\n')
   expect(sent[0]!.text).toContain('Signed-in devices')
 
   // Headers are caller-controlled: their text never reaches the email.
@@ -114,4 +114,11 @@ test('the alert leads with time and IP, and names the device only from known val
   expect(sent[1]!.html).not.toContain(lure)
   expect(sent[1]!.text).toContain('Device: Chrome on macOS')
   expect(sent[1]!.html).not.toContain('<b>x</b>')
+
+  await sendNewSignInAlert(dev, {
+    ...TAIPEI_DESKTOP,
+    client: 'nuphos-desktop/1.verify-at.evil-phish.com',
+  })
+  expect(sent[2]!.text).not.toContain('evil-phish')
+  expect(sent[2]!.html).not.toContain('evil-phish')
 })
