@@ -8,7 +8,6 @@ import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed, onApiUrlChange } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
-import { unverifiedTokenSubject } from '../../auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { syncDeviceRegistration } from '../device-controller.ts'
@@ -219,8 +218,7 @@ export function cancelLocalCodexLogin(): void {
 export function initLocalRuntime(): void {
   sleep.initSleepPrevention(broadcastState)
   const follow = (token: string | null) => {
-    const userId =
-      token && deviceRegistrationAllowed(isDev) ? (unverifiedTokenSubject(token) ?? null) : null
+    const userId = token && deviceRegistrationAllowed(isDev) ? authSession.userId() : null
 
     if (userId !== controller.state().userId) {
       cancelLocalClaudeLogin()

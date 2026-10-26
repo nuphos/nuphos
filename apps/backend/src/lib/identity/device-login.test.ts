@@ -271,6 +271,13 @@ describe('what each token kind may call', () => {
     expect(cliTokenDenied(personal, 'DELETE', '/auth/cli-tokens/abc')).toBeNull()
   })
 
+  test('no CLI token sees or ends sign-in sessions', () => {
+    for (const token of [personal, agent]) {
+      expect(cliTokenDenied(token, 'GET', '/auth/sessions')).not.toBeNull()
+      expect(cliTokenDenied(token, 'DELETE', '/auth/sessions/current')).not.toBeNull()
+    }
+  })
+
   test('an agent token stays off the account, tokens, membership and billing', () => {
     for (const [method, path] of [
       ['GET', '/auth/cli-tokens'],

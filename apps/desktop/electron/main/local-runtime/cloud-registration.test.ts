@@ -86,7 +86,7 @@ mock.method(globalThis, 'WebSocket', function (url: string) {
 const { setApiUrl } = await import('../../api-endpoint.ts')
 const { authSession } = await import('../../auth-session.ts')
 const { initLocalRuntime, getLocalRuntimeState, stopLocalRuntime } = await import('./index.ts')
-const token = `test.${Buffer.from(JSON.stringify({ sub: 'alice' })).toString('base64url')}.test`
+const token = 'nus_alice-session'
 const settle = async () => {
   for (let i = 0; i < 20; i++) await new Promise((resolve) => setTimeout(resolve, 5))
 }
@@ -102,7 +102,7 @@ after(async () => {
 
 test('Cloud sign-in stays usable without registering a dev device or opening its tunnel', async () => {
   setApiUrl('https://api.nuphos.ai')
-  authSession.set(token)
+  authSession.set(token, 'alice')
   initLocalRuntime()
   await settle()
   assert.equal(authSession.current(), token)

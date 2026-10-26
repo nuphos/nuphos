@@ -35,7 +35,7 @@ type ConfigFileDeps = {
   store: TokenStore
   secure: () => boolean
   apiUrl: () => string
-  onToken: (token: string | null) => void
+  onToken: (token: string | null, userId: string | null) => void
   /** The CLI's cli.yaml, which this app shared before it had its own file. */
   legacyPath?: string
 }
@@ -116,7 +116,7 @@ export function configFile(deps: ConfigFileDeps) {
     }
     if (previous.keychainAccount !== stored.keychainAccount) await forget(previous.keychainAccount)
     await writeFile(deps.path, cfg.token ? stored : {})
-    deps.onToken(cfg.token ?? null)
+    deps.onToken(cfg.token ?? null, cfg.userInfo?.id ?? null)
   }
 
   /**
@@ -172,7 +172,7 @@ export function configFile(deps: ConfigFileDeps) {
     read: () => inTurn(load),
     write: (cfg: Config) => {
       // A sign-out takes effect in memory at once, before its turn.
-      if (!cfg.token) deps.onToken(null)
+      if (!cfg.token) deps.onToken(null, null)
 
       return inTurn(() => save(cfg))
     },
@@ -185,8 +185,8 @@ const defaultConfigFile = configFile({
   store: keychainStore,
   secure: () => secureStorageEnabled(),
   apiUrl,
-  onToken: (token) => {
-    authSession.set(token)
+  onToken: (token, userId) => {
+    authSession.set(token, userId)
   },
 })
 

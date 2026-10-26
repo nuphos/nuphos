@@ -55,7 +55,7 @@ export async function requestAccountDeletion(user: NuphosUser, input: unknown) {
       ? await signInWithPassword({ email: user.email, password: body.password })
       : await verifyEmailOtp(user.email, body.code as string)
 
-  if (verified.user.id !== user.id)
+  if (verified.id !== user.id)
     throw new AppError(403, 'account_mismatch', 'Verify this account’s email')
   const now = new Date()
 

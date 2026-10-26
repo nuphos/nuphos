@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import { AppError, errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useIdentitySessions } from '@/lib/test/doubles/identity-sessions'
 
 import type * as dbActual from '@/lib/db'
 import type * as identityActual from '@/lib/identity'
@@ -93,13 +94,11 @@ const USER = {
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
-let googleSignIn: (
-  code: string,
-  redirectUri: string,
-) => Promise<{ token: string; user: typeof USER }> = async (_code, _redirectUri) => ({
-  token: 'google-session-token',
-  user: USER,
-})
+let googleSignIn: (code: string, redirectUri: string) => Promise<typeof USER> = async (
+  _code,
+  _redirectUri,
+) => USER
+const sessionsStarted: string[] = []
 
 useDb({ db: (() => ({ collection })) as unknown as typeof dbActual.db })
 useIdentity({
@@ -107,8 +106,13 @@ useIdentity({
     googleSignIn(code, redirectUri)) as unknown as typeof identityActual.signInWithGoogleCode,
   getNuphosUserById: (async (id: string) =>
     id === USER.id ? USER : null) as unknown as typeof identityActual.getNuphosUserById,
-  signNuphosToken: ((userId: string) =>
-    `minted-for-${userId}`) as unknown as typeof identityActual.signNuphosToken,
+})
+useIdentitySessions({
+  createUserSession: async (userId: string) => {
+    sessionsStarted.push(userId)
+
+    return `minted-for-${userId}`
+  },
 })
 
 const { auth } = await import('@/routes/auth')
@@ -168,7 +172,8 @@ beforeEach(() => {
   collections.forEach((c) => {
     c.docs = []
   })
-  googleSignIn = async () => ({ token: 'google-session-token', user: USER })
+  googleSignIn = async () => USER
+  sessionsStarted.length = 0
 })
 
 describe('the native handoff', () => {
@@ -194,7 +199,9 @@ describe('the native handoff', () => {
     expect(delivery.redirectUri).toBe(REDIRECT)
     expect(delivery.clientState).toBe('corr123')
     expect(delivery.code).toMatch(/^[A-Za-z0-9_-]{20,}$/)
-    expect(JSON.stringify(body)).not.toContain('google-session-token')
+    expect(JSON.stringify(body)).not.toContain('minted-for-')
+    // Only the app's redemption may start a session, not the browser leg.
+    expect(sessionsStarted).toEqual([])
     const google = (
       body.data as {
         googleSignIn?: { token?: string; user?: { id: string } }
@@ -294,7 +301,7 @@ describe('the native handoff', () => {
     googleSignIn = async () => {
       called = true
 
-      return { token: 't', user: USER }
+      return USER
     }
 
     const res = await post('/auth/google/sign-in', {
@@ -523,7 +530,7 @@ describe('the legacy path still works', () => {
 
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
-      data: { googleSignIn: { token: 'google-session-token', user: USER } },
+      data: { googleSignIn: { token: `minted-for-${USER.id}`, user: USER } },
     })
     // Nothing was registered, so nothing is left behind either.
     expect(collection('native_auth_sessions').docs).toHaveLength(0)

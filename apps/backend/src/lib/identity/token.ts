@@ -6,7 +6,7 @@ import { config } from '@/config'
 
 import type { ObjectId } from 'mongodb'
 
-type NuphosSessionClaims = {
+type NuphosRunClaims = {
   aud: 'nuphos'
   sub: string
   iat: number
@@ -15,23 +15,30 @@ type NuphosSessionClaims = {
   scope: 'all'
 }
 
-// Exported so server-initiated agent runs (trigger fires) can mint a token for
-// the user instead of forwarding a Bearer token from an inbound request.
-// ttlSec defaults to the normal session TTL; trigger fires should pass a short
-// run-scoped value (≤ 28800) so the token expires well before the session would.
-export function signNuphosToken(userId: ObjectId | string, ttlSec?: number): string {
+/**
+ * Short-lived token the backend hands an agent run so it can act for its user.
+ * Sign-ins never get one; they get a revocable session (`sessions.ts`). The
+ * lifetime cap is also what refuses the 30-day sign-in JWTs issued before
+ * sessions existed.
+ */
+export const MAX_RUN_TOKEN_TTL_SEC = 24 * 60 * 60
+
+export function signNuphosToken(userId: ObjectId | string, ttlSec: number): string {
   const secret = requireJwtSecret()
   const sub = typeof userId === 'string' ? userId : userId.toHexString()
 
   if (!MongoObjectId.isValid(sub)) {
     throw new Error(`Cannot sign Nuphos token: invalid user id ${sub}`)
   }
+  if (!(ttlSec > 0 && ttlSec <= MAX_RUN_TOKEN_TTL_SEC)) {
+    throw new Error(`Cannot sign Nuphos token: ttl ${String(ttlSec)}s is out of range`)
+  }
   const now = Math.floor(Date.now() / 1000)
-  const claims: NuphosSessionClaims = {
+  const claims: NuphosRunClaims = {
     aud: 'nuphos',
     sub,
     iat: now,
-    exp: now + (ttlSec ?? config.auth.sessionTtlSec),
+    exp: now + ttlSec,
     from: 'nuphos',
     scope: 'all',
   }
@@ -44,7 +51,7 @@ export function signNuphosToken(userId: ObjectId | string, ttlSec?: number): str
   return `${header}.${payload}.${signature}`
 }
 
-export function verifyNuphosToken(token: string): NuphosSessionClaims | null {
+export function verifyNuphosToken(token: string): NuphosRunClaims | null {
   const secret = config.auth.jwtSecret
 
   if (!secret) return null
@@ -57,16 +64,22 @@ export function verifyNuphosToken(token: string): NuphosSessionClaims | null {
   const expected = createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url')
 
   if (!safeEqual(expected, signature)) return null
-  let claims: NuphosSessionClaims
+  let claims: NuphosRunClaims
 
   try {
-    claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as NuphosSessionClaims
+    claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as NuphosRunClaims
   } catch {
     return null
   }
   const now = Math.floor(Date.now() / 1000)
 
-  if (claims.aud !== 'nuphos' || claims.from !== 'nuphos' || !claims.sub || claims.exp <= now)
+  if (
+    claims.aud !== 'nuphos' ||
+    claims.from !== 'nuphos' ||
+    !claims.sub ||
+    claims.exp <= now ||
+    claims.exp - claims.iat > MAX_RUN_TOKEN_TTL_SEC
+  )
     return null
 
   return claims

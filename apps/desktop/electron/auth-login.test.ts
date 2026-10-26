@@ -24,10 +24,7 @@ const USER: UserInfo = {
 
 const b64url = (value: string) => Buffer.from(value, 'utf8').toString('base64url')
 const encodeUser = (user: unknown) => b64url(JSON.stringify(user))
-const tokenFor = (sub: string) =>
-  `${b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))}.${b64url(JSON.stringify({ aud: 'nuphos', sub }))}.sig`
-
-const TOKEN = tokenFor(USER.id)
+const TOKEN = 'nus_test-session'
 const HANDLE = 'h'.repeat(43)
 /** What the landing page puts on the loopback redirect after a real sign-in. */
 const DELIVERY_CODE = 'd'.repeat(43)
@@ -56,9 +53,7 @@ let redeemQueue: (() => Response)[] = []
 let redeemCalls = 0
 /** Bodies POSTed to /auth/native/session/redeem, so tests can assert on them. */
 let redeemBodies: { handle: string; codeVerifier: string; code?: string }[] = []
-let meHandler: () => Promise<Response> = () => {
-  throw new Error('unexpected /auth/me call')
-}
+let meHandler: () => Promise<Response> = async () => json(USER)
 
 let auth: typeof import('./auth.ts')
 const realFetch = globalThis.fetch
@@ -144,9 +139,7 @@ beforeEach(() => {
   redeemQueue = [readySession]
   redeemCalls = 0
   redeemBodies = []
-  meHandler = () => {
-    throw new Error('unexpected /auth/me call')
-  }
+  meHandler = async () => json(USER)
 })
 
 after(() => {
@@ -549,7 +542,7 @@ test('the probe never spends the real handle', async () => {
   await loginPromise
 })
 
-test('legacy: falls back to /auth/me when no user is forwarded', async () => {
+test('legacy: the user comes from /auth/me, not the callback', async () => {
   nativeSupported = false
   let meCalls = 0
 
@@ -564,7 +557,12 @@ test('legacy: falls back to /auth/me when no user is forwarded', async () => {
   loginPromise.catch(() => undefined)
   const state = legacyState(await waitForBrowser())
 
-  await hitCallback(new URL(state.callbackUrl).port, { token: TOKEN, state: state.clientState })
+  // A forwarded identity is ignored: only the backend can say whose token it is.
+  await hitCallback(new URL(state.callbackUrl).port, {
+    token: TOKEN,
+    state: state.clientState,
+    user: encodeUser({ ...USER, id: '507f1f77bcf86cd799439099' }),
+  })
 
   assert.deepEqual(await loginPromise, USER)
   assert.equal(meCalls, 1)

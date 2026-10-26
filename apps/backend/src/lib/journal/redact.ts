@@ -44,6 +44,11 @@ const RULES: Rule[] = [
     pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/g,
   },
   {
+    // Nuphos sign-in sessions (nus_) and CLI tokens (nup_).
+    kind: 'nuphos-token',
+    pattern: /\bnu[ps]_[A-Za-z0-9_-]{20,}/g,
+  },
+  {
     kind: 'github-token',
     pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
   },

@@ -186,6 +186,7 @@ function toPrincipal(doc: CliTokenDoc): CliTokenPrincipal {
  */
 const SESSION_ONLY: [RegExp, RegExp][] = [
   [/^POST$/, /^\/auth\/cli-tokens\/?$/],
+  [/./, /^\/auth\/sessions(\/|$)/],
   [/./, /^\/auth\/device\/approve\/?$/],
   [/^POST$/, /^\/agent\/devices\/join-tokens\/?$/],
 ]

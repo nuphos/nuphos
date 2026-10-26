@@ -128,10 +128,7 @@ export async function requestEmailOtp(email: string, ip?: string): Promise<void>
   }
 }
 
-export async function verifyEmailOtp(
-  email: string,
-  code: string,
-): Promise<{ token: string; user: NuphosUser }> {
+export async function verifyEmailOtp(email: string, code: string): Promise<NuphosUser> {
   const normalized = normalizeEmail(email)
 
   if (!/^\d{6}$/.test(code)) {

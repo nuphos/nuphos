@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
-import { getNuphosUserById, signNuphosToken } from '@/lib/identity'
+import { getNuphosUserById } from '@/lib/identity'
 import { generateOpaqueToken, hashToken, safeEqualStr, verifyPkceS256 } from '@/lib/oauth/tokens'
 
 import type { NuphosUser } from '@/lib/identity'
@@ -236,14 +236,14 @@ export async function abandonNativeSession(handle: string): Promise<void> {
 
 /**
  * Note what is *not* stored between the browser leg and this call: only a user
- * id. The token is minted here, so a snapshot of this collection contains no
- * usable credential.
+ * id. The caller starts the session, so a snapshot of this collection contains
+ * no usable credential.
  */
 export async function redeemNativeSession(
   handle: unknown,
   codeVerifier: unknown,
   deliveryCode: unknown,
-): Promise<{ token: string; user: NuphosUser }> {
+): Promise<NuphosUser> {
   const invalid = new AppError(400, 'invalid_handle', 'This sign-in request is no longer valid')
 
   if (typeof handle !== 'string' || handle === '') throw invalid
@@ -273,7 +273,7 @@ export async function redeemNativeSession(
   }
 
   // Single-use, atomically. Two concurrent correct redemptions: exactly one
-  // wins the delete and gets a token.
+  // wins the delete and gets a session.
   const consumed = await nativeAuthSessions().findOneAndDelete({ _id: id, status: 'ready' })
 
   if (!consumed) throw invalid
@@ -282,5 +282,5 @@ export async function redeemNativeSession(
 
   if (!user) throw invalid
 
-  return { token: signNuphosToken(user.id), user }
+  return user
 }

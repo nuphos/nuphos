@@ -58,6 +58,7 @@ export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   c.set('userName', user.name)
   c.set('user', user)
   c.set('authToken', token)
+  if ('sessionId' in result && result.sessionId) c.set('sessionId', result.sessionId)
   if (cliToken) c.set('cliToken', cliToken)
   if (cliToken?.teamId) return runInTokenTeamScope(cliToken.teamId, next)
   await next()

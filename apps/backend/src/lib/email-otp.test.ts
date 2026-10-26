@@ -59,11 +59,7 @@ const logged: { event: string; properties?: Doc }[] = []
 
 useDb({ db: () => ({ collection: () => collection }) })
 useIdentity({
-  signInWithVerifiedEmail: (email: string) =>
-    Promise.resolve({
-      token: `token-for-${email}`,
-      user: { email },
-    }),
+  signInWithVerifiedEmail: (email: string) => Promise.resolve({ email }),
 })
 useObservability({
   logEvent: (_level, event, properties) => {
@@ -110,7 +106,7 @@ describe('email OTP dev log', () => {
 
     expect(code).toMatch(/^\d{6}$/)
     expect(await verifyEmailOtp('dev@example.com', code)).toMatchObject({
-      token: 'token-for-dev@example.com',
+      email: 'dev@example.com',
     })
   })
 })

@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
 
 import { beforeEach, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
@@ -11,6 +11,7 @@ import {
 } from './account-deletion'
 import { AI_CONSENT_VERSION, readAIConsent, saveAIConsent } from './ai-consent'
 import { setPasswordWithEmailCode, signInWithPassword } from './password'
+import { createUserSession, revokeUserSession } from './sessions'
 import { mapUser } from './shared'
 import { signNuphosToken } from './token'
 
@@ -40,6 +41,7 @@ function matches(doc: Doc, filter: Doc): boolean {
     if (value && typeof value === 'object') {
       if ('$exists' in value) return (doc[key] !== undefined) === value.$exists
       if ('$ne' in value) return doc[key] !== value.$ne
+      if ('$gt' in value) return doc[key] > value.$gt
     }
 
     return doc[key] === value
@@ -49,6 +51,17 @@ useDb({
   db: () => ({
     collection: (name: string) => ({
       findOne: async (filter: Doc) => docs(name).find((doc) => matches(doc, filter)) ?? null,
+      insertOne: async (doc: Doc) => {
+        docs(name).push(doc)
+      },
+      deleteOne: async (filter: Doc) => {
+        const kept = docs(name).filter((doc) => !matches(doc, filter))
+        const deletedCount = docs(name).length - kept.length
+
+        collections.set(name, kept)
+
+        return { deletedCount }
+      },
       findOneAndUpdate: async (filter: Doc, update: Doc) => {
         let doc = docs(name).find((doc) => matches(doc, filter))
 
@@ -103,7 +116,7 @@ useEmailOtp({
     otpValid = false
     const doc = docs('users').find((doc) => doc.email === email)!
 
-    return { user: mapUser(doc as NuphosUserDoc), token: 'verified-session' }
+    return mapUser(doc as NuphosUserDoc)
   },
 })
 
@@ -197,7 +210,7 @@ test('password setup needs email verification and never stores or returns plaint
   expect(docs('users')[0]!.passwordHash).toStartWith('$argon2id$')
   const result = await signInWithPassword(input)
 
-  expect(result.user.id).toBe(String(USER))
+  expect(result.id).toBe(String(USER))
   expect(JSON.stringify(result)).not.toContain('passwordHash')
   await expect(signInWithPassword({ ...input, password: wrongPassword })).rejects.toMatchObject({
     code: 'invalid_credentials',
@@ -266,20 +279,70 @@ test('iOS AI requests require current saved consent, including after withdrawal'
   ).toBe(401)
 })
 
-test('password reset revokes previous sessions and issues a usable new session', async () => {
+test('password reset revokes earlier sessions and run tokens', async () => {
   const earlier = Date.now() - 60_000
   const clock = spyOn(Date, 'now').mockReturnValue(earlier)
-  const oldToken = signNuphosToken(USER)
+  const oldRunToken = signNuphosToken(USER, 60 * 60)
 
   clock.mockRestore()
-  const result = await setPasswordWithEmailCode({
+  const oldSession = await createUserSession(String(USER))
+
+  await setPasswordWithEmailCode({
     email: 'review@example.com',
     password: testPassword,
     code: '123456',
   })
 
-  expect(await realIdentity.authenticateToken(oldToken)).toBeNull()
-  expect((await realIdentity.authenticateToken(result.token))?.user.id).toBe(String(USER))
+  expect(await realIdentity.authenticateToken(oldRunToken)).toBeNull()
+  expect(await realIdentity.authenticateToken(oldSession)).toBeNull()
+  expect(docs('user_sessions')).toHaveLength(0)
+  expect(
+    (await realIdentity.authenticateToken(await createUserSession(String(USER))))?.user.id,
+  ).toBe(String(USER))
+})
+
+test('a session authenticates until it is revoked, and only it carries a session id', async () => {
+  const token = await createUserSession(String(USER), { ip: '203.0.113.9', userAgent: 'test' })
+
+  expect(token).toStartWith('nus_')
+  expect(JSON.stringify(docs('user_sessions'))).not.toContain(token)
+  const signedIn = await realIdentity.authenticateToken(token)
+
+  expect(signedIn?.user.id).toBe(String(USER))
+  expect(signedIn?.sessionId).toBe(String(docs('user_sessions')[0]!._id))
+  expect(
+    (await realIdentity.authenticateToken(signNuphosToken(USER, 60)))?.sessionId,
+  ).toBeUndefined()
+  expect(await revokeUserSession(String(OTHER), signedIn!.sessionId!)).toBe(false)
+  expect(await revokeUserSession(String(USER), signedIn!.sessionId!)).toBe(true)
+  expect(await realIdentity.authenticateToken(token)).toBeNull()
+})
+
+test('an expired session is refused', async () => {
+  const token = await createUserSession(String(USER))
+
+  docs('user_sessions')[0]!.expiresAt = new Date(Date.now() - 1)
+  expect(await realIdentity.authenticateToken(token)).toBeNull()
+})
+
+test('sign-in JWTs issued before sessions are refused; agent-run JWTs still work', async () => {
+  // Re-signs a run token with a longer lifetime, as the old sign-in code did.
+  const forge = (lifetimeSec: number) => {
+    const [header, payload] = signNuphosToken(USER, 60).split('.')
+    const claims = JSON.parse(Buffer.from(payload!, 'base64url').toString()) as { iat: number }
+    const body = Buffer.from(JSON.stringify({ ...claims, exp: claims.iat + lifetimeSec })).toString(
+      'base64url',
+    )
+    const sig = createHmac('sha256', process.env.NUPHOS_JWT_SECRET!)
+      .update(`${header}.${body}`)
+      .digest('base64url')
+
+    return `${header}.${body}.${sig}`
+  }
+
+  expect(await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60))).toBeNull()
+  expect((await realIdentity.authenticateToken(forge(8 * 60 * 60)))?.user.id).toBe(String(USER))
+  expect(() => signNuphosToken(USER, 30 * 24 * 60 * 60)).toThrow()
 })
 
 test('deletion can use the account password without access to the email inbox', async () => {

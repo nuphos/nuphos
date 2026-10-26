@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 import { verifyEmailOtp } from '@/lib/email-otp'
 import { AppError } from '@/lib/errors'
 import { mapUser, users } from '@/lib/identity/shared'
-import { signNuphosToken } from '@/lib/identity/token'
+import { revokeAllUserSessions } from '@/lib/identity/sessions'
 
 const attempts = () =>
   db().collection<{ _id: string; count: number; expiresAt: Date }>('password_login_attempts')
@@ -79,7 +79,7 @@ export async function signInWithPassword(input: unknown) {
     throw new AppError(401, 'invalid_credentials', 'Incorrect email or password')
   }
 
-  return { token: signNuphosToken(user._id), user: mapUser(user) }
+  return mapUser(user)
 }
 
 const dummyHash = Bun.password.hash('not-a-real-account-password-32', { algorithm: 'argon2id' })
@@ -91,12 +91,12 @@ export async function setPasswordWithEmailCode(input: unknown) {
 
   if (typeof code !== 'string')
     throw new AppError(400, 'invalid_code', 'Enter the email verification code')
-  const signedIn = await verifyEmailOtp(email, code)
+  const user = await verifyEmailOtp(email, code)
   const passwordHash = await passwordWork(() =>
     Bun.password.hash(password, { algorithm: 'argon2id' }),
   )
   const result = await users().updateOne(
-    { _id: new ObjectId(signedIn.user.id), deletedAt: { $exists: false } },
+    { _id: new ObjectId(user.id), deletedAt: { $exists: false } },
     {
       $set: {
         passwordHash,
@@ -109,5 +109,9 @@ export async function setPasswordWithEmailCode(input: unknown) {
   if (!result.matchedCount)
     throw new AppError(401, 'unauthorized', 'Account is no longer available')
 
-  return { user: signedIn.user, token: signNuphosToken(signedIn.user.id) }
+  // `sessionsInvalidBefore` already refuses them; deleting also drops them
+  // from the user's list of signed-in devices.
+  await revokeAllUserSessions(user.id)
+
+  return user
 }

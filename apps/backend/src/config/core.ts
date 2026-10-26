@@ -27,10 +27,6 @@ export function coreConfig() {
     },
     auth: {
       jwtSecret: optional('NUPHOS_JWT_SECRET') ?? optional('JWT_SECRET_KEY'),
-      sessionTtlSec: boundedInt('NUPHOS_SESSION_TTL_SEC', 60 * 60 * 24 * 30, {
-        min: 60,
-        max: 60 * 60 * 24 * 365,
-      }),
       publicBaseUrl: (
         optional('NUPHOS_AUTH_BASE_URL') ??
         optional('NUPHOS_PUBLIC_URL') ??

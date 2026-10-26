@@ -150,9 +150,7 @@ export function registerOauthAuthorizeRoutes(oauthRoutes: Hono) {
       const code = get('code')
 
       try {
-        const result = await verifyEmailOtp(email, code)
-
-        userId = result.user.id
+        userId = (await verifyEmailOtp(email, code)).id
       } catch {
         const client = await getClient(validation.params.clientId)
 

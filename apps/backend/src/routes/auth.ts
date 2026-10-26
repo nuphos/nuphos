@@ -2,8 +2,10 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 
+import type { NuphosUser } from '@/lib/identity'
 import type { NativeDeliveryTarget } from '@/lib/native-auth'
 import type { AuthVariables } from '@/middleware/auth'
+import type { Context } from 'hono'
 
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
@@ -15,6 +17,7 @@ import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
 import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
 import { signInWithPassword, setPasswordWithEmailCode } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
+import { createUserSession } from '@/lib/identity/sessions'
 import {
   abandonNativeSession,
   completeNativeSession,
@@ -25,8 +28,21 @@ import {
 } from '@/lib/native-auth'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
+import { authSessions } from '@/routes/auth-sessions'
 
 export const auth = new Hono<{ Variables: AuthVariables }>()
+
+/** Every sign-in ends here: the one place a session is started. */
+async function startSession(c: Context, user: NuphosUser) {
+  const token = await createUserSession(user.id, {
+    ip: clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
+    userAgent: c.req.header('User-Agent'),
+  })
+
+  return { token, user }
+}
+
+auth.route('/sessions', authSessions)
 
 auth.get('/me', requireAuth, (c) => {
   const cliToken = c.get('cliToken')
@@ -74,11 +90,13 @@ auth.put('/me/avatar', requireAuth, avatarBodyLimit, async (c) =>
 auth.delete('/me/avatar', requireAuth, async (c) => c.json(await removeAvatar(c.get('userId'))))
 
 auth.post('/password/sign-in', async (c) =>
-  c.json(await signInWithPassword(await c.req.json().catch(() => null))),
+  c.json(await startSession(c, await signInWithPassword(await c.req.json().catch(() => null)))),
 )
 
 auth.post('/password/set', async (c) =>
-  c.json(await setPasswordWithEmailCode(await c.req.json().catch(() => null))),
+  c.json(
+    await startSession(c, await setPasswordWithEmailCode(await c.req.json().catch(() => null))),
+  ),
 )
 
 // Email OTP sign-in/sign-up for teams not on Google Workspace. Errors follow
@@ -103,9 +121,8 @@ auth.post('/email/verify-code', async (c) => {
   } | null
   const email = typeof body?.email === 'string' ? body.email : ''
   const code = typeof body?.code === 'string' ? body.code.trim() : ''
-  const { token, user } = await verifyEmailOtp(email, code)
 
-  return c.json({ token, user })
+  return c.json(await startSession(c, await verifyEmailOtp(email, code)))
 })
 
 // ── Native-app sign-in (RFC 8252). These endpoints are unauthenticated by
@@ -139,9 +156,9 @@ auth.post('/native/session/delivery', async (c) => {
 
 auth.post('/native/session/redeem', async (c) => {
   const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
-  const { token, user } = await redeemNativeSession(body?.handle, body?.codeVerifier, body?.code)
+  const user = await redeemNativeSession(body?.handle, body?.codeVerifier, body?.code)
 
-  return c.json({ token, user })
+  return c.json(await startSession(c, user))
 })
 
 // `nuphos agent --join`: a one-time token from the device's owner becomes a
@@ -215,11 +232,11 @@ auth.post('/google/sign-in', async (c) => {
   }
 
   try {
-    const { token, user } = await signInWithGoogleCode(code, redirectUri)
+    const user = await signInWithGoogleCode(code, redirectUri)
 
     if (handle && delivery) {
-      // The token is deliberately dropped here: the app mints a fresh one by
-      // redeeming, so neither the landing page nor the browser sees a credential.
+      // No session here: the app starts its own by redeeming, so neither the
+      // landing page nor the browser sees a credential.
       const completed = await completeNativeSession(handle, user.id)
 
       if (!completed) {
@@ -250,14 +267,7 @@ auth.post('/google/sign-in', async (c) => {
       })
     }
 
-    return c.json({
-      data: {
-        googleSignIn: {
-          token,
-          user,
-        },
-      },
-    })
+    return c.json({ data: { googleSignIn: await startSession(c, user) } })
   } catch (e) {
     if (handle) await abandonNativeSession(handle)
 

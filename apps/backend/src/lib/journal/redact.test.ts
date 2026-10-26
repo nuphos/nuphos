@@ -84,6 +84,15 @@ describe('redactSecrets', () => {
     expect(matches.some((m) => m.kind === 'jwt')).toBe(true)
   })
 
+  test('Nuphos session and CLI tokens anywhere in the text', () => {
+    const session = 'nus_Q2hhbmdlTWVQbGVhc2VJdElzTm90QVJlYWxUb2tlbjAx'
+    const cli = 'nup_Q2hhbmdlTWVQbGVhc2VJdElzTm90QVJlYWxUb2tlbjAy'
+    const { redacted } = redactSecrets(`NUPHOS_TOKEN=${session} other=${cli}`)
+
+    expect(redacted).not.toContain(session)
+    expect(redacted).not.toContain(cli)
+  })
+
   test('connection-string passwords keep the user, drop the password', () => {
     const { redacted } = redactSecrets(
       'mongosh mongodb://admin:sup3r-s3cret@cluster0.mongodb.net/prod',

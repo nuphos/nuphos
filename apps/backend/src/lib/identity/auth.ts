@@ -9,7 +9,8 @@ import { upsertCachedUser } from '@/lib/agent/directory'
 import { AppError } from '@/lib/errors'
 import { getGoogleAccessToken, getGoogleProfile } from '@/lib/identity/google'
 import { mapUser, teams, users } from '@/lib/identity/shared'
-import { signNuphosToken, verifyNuphosToken } from '@/lib/identity/token'
+import { findLiveSession, isSessionToken } from '@/lib/identity/sessions'
+import { verifyNuphosToken } from '@/lib/identity/token'
 
 export { signNuphosToken } from '@/lib/identity/token'
 
@@ -24,16 +25,30 @@ export async function setupIdentityIndexes(): Promise<void> {
   ])
 }
 
+/**
+ * A sign-in session (`nus_…`), or a short-lived JWT the backend minted for an
+ * agent run. Only a session carries `sessionId`; routes that manage the
+ * account's sign-ins require it.
+ */
 export async function authenticateToken(token: string): Promise<AuthenticatedIdentity | null> {
-  const nuphosUser = await authenticateNuphosToken(token)
+  const session = isSessionToken(token) ? await findLiveSession(token) : null
+  const claims = session ? null : verifyNuphosToken(token)
+  const credential = session
+    ? { userId: session.userId, issuedAt: session.createdAt }
+    : claims && { userId: claims.sub, issuedAt: new Date(claims.iat * 1000) }
 
-  if (nuphosUser) {
-    upsertCachedUser(nuphosUser)
+  if (!credential) return null
+  const user = await getNuphosUserForCredential(credential.userId, credential.issuedAt)
 
-    return { user: nuphosUser, cacheHit: false, provider: 'nuphos' }
+  if (!user) return null
+  upsertCachedUser(user)
+
+  return {
+    user,
+    cacheHit: false,
+    provider: 'nuphos',
+    ...(session ? { sessionId: session._id.toHexString() } : {}),
   }
-
-  return null
 }
 
 /**
@@ -46,10 +61,7 @@ function refuseDisabled<T extends { deletedAt?: Date } | null>(user: T): T {
   return user
 }
 
-export async function signInWithGoogleCode(
-  code: string,
-  redirectUri: string,
-): Promise<{ token: string; user: NuphosUser }> {
+export async function signInWithGoogleCode(code: string, redirectUri: string): Promise<NuphosUser> {
   const accessToken = await getGoogleAccessToken(code, redirectUri)
   const profile = await getGoogleProfile(accessToken)
 
@@ -109,14 +121,12 @@ export async function signInWithGoogleCode(
 
   upsertCachedUser(nuphosUser)
 
-  return { token: signNuphosToken(user._id), user: nuphosUser }
+  return nuphosUser
 }
 
 // Sign in (or sign up) with an email address whose ownership has already been
 // proven — e.g. via an OTP code. Callers must never pass an unverified email.
-export async function signInWithVerifiedEmail(
-  email: string,
-): Promise<{ token: string; user: NuphosUser }> {
+export async function signInWithVerifiedEmail(email: string): Promise<NuphosUser> {
   const normalizedEmail = email.toLowerCase()
   let user = refuseDisabled(await users().findOne({ email: normalizedEmail }))
 
@@ -147,7 +157,7 @@ export async function signInWithVerifiedEmail(
 
   upsertCachedUser(nuphosUser)
 
-  return { token: signNuphosToken(user._id), user: nuphosUser }
+  return nuphosUser
 }
 
 /** Loads a live (non-deleted) user by id. */
@@ -185,14 +195,6 @@ export async function getNuphosUserForCredential(
     return null
 
   return mapUser(user)
-}
-
-async function authenticateNuphosToken(token: string): Promise<NuphosUser | null> {
-  const claims = verifyNuphosToken(token)
-
-  if (!claims) return null
-
-  return getNuphosUserForCredential(claims.sub, new Date(claims.iat * 1000))
 }
 
 async function uniqueUsername(email: string): Promise<string> {

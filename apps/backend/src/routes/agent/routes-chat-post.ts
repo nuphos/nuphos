@@ -5,6 +5,7 @@ import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
+import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
 import { shouldInitializePermissionMode } from './chat-permission-mode'
@@ -223,7 +224,9 @@ agent.post('/chat', async (c) => {
       requestId,
       streamId,
       userId,
-      nuphosToken: c.get('authToken'),
+      // The runtime gets its own short-lived token, never this sign-in session.
+      // A CLI token is passed on as is so an agent token keeps its team limit.
+      nuphosToken: c.get('cliToken') ? c.get('authToken') : signNuphosToken(userId, 8 * 60 * 60),
       locale,
       currentUrl:
         c.req.header('X-Atlas-Url') ?? c.req.header('referer') ?? c.req.header('origin') ?? null,
