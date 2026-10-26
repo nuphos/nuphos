@@ -24,7 +24,7 @@ kubectl --context aws/123456789012/prod-main get pods -A
 
 - **Always pass `--context` explicitly** on every command. There is deliberately no current-context — running against an implicit cluster is how wrong-cluster accidents happen, and naming the target in the command also makes approvals reviewable.
 - **Credential renewal is built in.** Some contexts carry a long-lived credential; others fetch a short-lived one on demand. Do not run provider kubeconfig commands (`gcloud container clusters get-credentials`, `aws eks update-kubeconfig`, …) or `scripts/sync-clusters.sh`, and do not edit `~/.kube/config` by hand. This also covers helm/flux/argocd, which read the same kubeconfig.
-- **Call `get_kubeconfig` again and rewrite the file** when kubectl reports an authentication error, when a context you expect is missing, or when the user just connected a cluster.
+- **Call `get_kubeconfig` again and rewrite the file** when kubectl reports an authentication error, a connection timeout, connection refused or `no such host` (the cluster's API endpoint may have moved), when a context you expect is missing, or when the user just connected a cluster.
 - If `kubectl: command not found`, install it first (idempotent): `bash skills/kubectl/scripts/install.sh`
 
 ## Reaching a service inside an on-prem cluster
