@@ -61,6 +61,8 @@ const realFetch = globalThis.fetch
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
+/** DELETE /auth/sessions/current calls, so sign-out can be asserted on. */
+const sessionEnds: { method?: string; authorization: string | null }[] = []
 const readySession = () => json({ token: TOKEN, user: USER })
 const pendingSession = () =>
   json({ error: { code: 'authorization_pending', message: 'not yet' } }, 409)
@@ -119,6 +121,15 @@ before(async () => {
     }
 
     if (url.includes('/auth/me')) return meHandler()
+
+    if (url.endsWith('/auth/sessions/current')) {
+      sessionEnds.push({
+        method: init?.method,
+        authorization: new Headers(init?.headers).get('authorization'),
+      })
+
+      return new Response(null, { status: 204 })
+    }
 
     throw new Error(`unexpected fetch: ${url}`)
   }) as typeof fetch
@@ -587,4 +598,18 @@ test('legacy: a failed /auth/me never renders the success page', async () => {
 
   await assert.rejects(loginPromise)
   assert.equal(configWrites.length, 0)
+})
+
+test('signing out ends the session on the server', async () => {
+  const loginPromise = auth.login()
+
+  await waitForBrowser()
+  await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
+  await loginPromise
+  sessionEnds.length = 0
+
+  await auth.logout()
+
+  assert.deepEqual(sessionEnds, [{ method: 'DELETE', authorization: `Bearer ${TOKEN}` }])
+  assert.deepEqual(lastConfig(), {})
 })

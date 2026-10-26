@@ -25,4 +25,13 @@ enum AccountAPI {
         }
         return try JSONDecoder().decode(T.self, from: data)
     }
+
+    /// Ends this device's session on the server. Best effort: sign-out never waits on it.
+    static func endSession(token: String) async {
+        var request = URLRequest(url: NuphosAPI.baseURL.appending(path: "auth/sessions/current"))
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 10
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        _ = try? await URLSession.shared.data(for: request)
+    }
 }

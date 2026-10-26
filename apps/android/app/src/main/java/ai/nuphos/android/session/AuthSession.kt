@@ -69,6 +69,8 @@ class AuthSession(
     var onIdentityReset: () -> Unit = {}
     /** Optional durable cleanup barrier; the application supplies its ordered shared-draft actor. */
     var awaitIdentityCleanup: (suspend () -> Unit)? = null
+    /** Runs before a sign-out ends its session on the server, for work that still needs the token. */
+    var beforeSessionEnd: suspend () -> Unit = {}
 
     private fun beginIdentity(preserveDrafts: Boolean = false): Long {
         if (state !is State.Restoring) onIdentityReset()
@@ -396,7 +398,13 @@ class AuthSession(
     }
 
     fun signOut(error: String? = null) {
+        val ended = token
         val expected = beginIdentity()
+        // Signed out here at once; ending the session on the server is best effort.
+        if (ended != null) scope.launch {
+            beforeSessionEnd()
+            AccountApi(ended).endSession()
+        }
         customTabsOpen = false
         cancelLogin()
         clearToken()

@@ -220,7 +220,12 @@ final class AuthSession {
 
     func signOut(error: String? = nil) {
         Analytics.shared.track("logout")
-        Task { await PushNotifications.shared.deactivate() }
+        let token = token
+        // Push unregisters with the token, so the session ends after it.
+        Task {
+            await PushNotifications.shared.deactivate()
+            if let token { await AccountAPI.endSession(token: token) }
+        }
         webSession?.cancel()
         webSession = nil
         clearToken()

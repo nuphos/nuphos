@@ -75,6 +75,18 @@ class AccountApi internal constructor(private val token: String, private val cli
         })
     }
 
+    /** Ends this device's session on the server. Best effort: failures are ignored. */
+    suspend fun endSession() = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder().url("${NuphosApi.BASE_URL}/auth/sessions/current")
+                .header("Authorization", "Bearer $token")
+                .header("x-atlas-client", Http.clientHeader())
+                .delete().build()
+            client.newCall(request).execute().close()
+        }
+        Unit
+    }
+
     private suspend inline fun <reified T> execute(
         path: String, method: String, body: JsonObject? = null, authenticated: Boolean = true, allowRedirects: Boolean = true,
     ): T = withContext(Dispatchers.IO) {

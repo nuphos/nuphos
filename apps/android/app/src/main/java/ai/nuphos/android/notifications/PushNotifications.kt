@@ -8,6 +8,7 @@ import ai.nuphos.android.data.Http
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -32,6 +33,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     @Volatile private var registration: Pair<String, String>? = null
     @Volatile private var started = 0
     @Volatile private var reading: LocalNotificationTarget? = null
+    @Volatile private var unregistering: Job? = null
 
     fun reading(target: LocalNotificationTarget) {
         reading = target
@@ -55,11 +57,16 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
         }
         app.localNotifications.clear(clearPending)
         if (FirebaseApp.getApps(app).isNotEmpty()) FirebaseMessaging.getInstance().isAutoInitEnabled = false
-        if (oldLogin != null && oldRegistration != null) scope.launch {
+        if (oldLogin != null && oldRegistration != null) unregistering = scope.launch {
             mutex.withLock {
                 if (registration != oldRegistration) runCatching { unregister(oldLogin.second, oldRegistration.second) }
             }
         }
+    }
+
+    /** Waits for the last reset's unregistration, which still needs the old sign-in. */
+    suspend fun awaitUnregistered() {
+        unregistering?.join()
     }
 
     fun sync(account: String?, token: String?, allowed: Boolean) {

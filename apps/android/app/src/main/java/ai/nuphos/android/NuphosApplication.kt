@@ -38,6 +38,7 @@ class NuphosApplication : Application() {
         ai.nuphos.android.session.AiAccess.onRevoked = { pushNotifications.reset(clearPending = false); incomingShares.identityReset() }
         authSession.onIdentityReset = { pushNotifications.reset(); incomingShares.identityReset() }
         authSession.awaitIdentityCleanup = { incomingShares.awaitIdle() }
+        authSession.beforeSessionEnd = { pushNotifications.awaitUnregistered() }
         registerActivityLifecycleCallbacks(pushNotifications)
     }
 }
