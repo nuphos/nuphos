@@ -77,7 +77,8 @@ export function kubeconfigToolModule(
           'Credentials renew themselves; if kubectl starts failing with ' +
           'authentication errors, connection timeouts, connection refused or ' +
           '"no such host" (the API endpoint may have moved), call this tool ' +
-          'again and rewrite the file.',
+          'again and rewrite the file once; if the same error persists, report ' +
+          'it instead of fetching again.',
         inputSchema: {
           type: 'object',
           properties: {
