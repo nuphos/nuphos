@@ -5,6 +5,7 @@ import { AppError } from '@/lib/errors'
 import { getNuphosUserForCredential } from '@/lib/identity'
 import { deleteUserAvatars, pruneAvatars, storeAvatar } from '@/lib/identity/avatar-upload'
 import { generateOpaqueToken, hashToken } from '@/lib/oauth/tokens'
+import { logEvent } from '@/lib/observability'
 
 import type { NuphosUser } from '@/lib/identity/types'
 
@@ -78,6 +79,10 @@ export async function backfillPersonalTokenExpiry(): Promise<number> {
     { kind: 'personal', expiresAt: { $exists: false } },
     { $set: { expiresAt: personalExpiry(new Date()) } },
   )
+
+  if (modifiedCount > 0) {
+    logEvent('info', 'backend.migration.cli_token_expiry_backfilled', { tokens: modifiedCount })
+  }
 
   return modifiedCount
 }

@@ -101,12 +101,7 @@ if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
 }
 
-// Personal CLI tokens made before they expired get 90 days from deploy.
-const datedCliTokens = await backfillPersonalTokenExpiry()
-
-if (datedCliTokens > 0) {
-  logEvent('info', 'backend.migration.cli_token_expiry_backfilled', { tokens: datedCliTokens })
-}
+await backfillPersonalTokenExpiry()
 
 // A message queued behind a turn starts the next one when that turn lets go.
 installQueuedTurnStarter(startQueuedTurn)
