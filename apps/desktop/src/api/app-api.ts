@@ -37,6 +37,8 @@ export const appApi = {
   analyticsIdentify: (userId: string, props?: Record<string, unknown>) =>
     window.api.analyticsIdentify(userId, props),
   analyticsSetTeam: (teamId: string | null) => window.api.analyticsSetTeam(teamId),
+  sendDiagnostics: () => window.api.sendDiagnostics(),
+  setSendDiagnostics: (send: boolean) => window.api.setSendDiagnostics(send),
   appGetVersion: () => window.api.appGetVersion(),
   appSetApiEndpoint: (url: string | null) => window.api.appSetApiEndpoint(url),
   appGetPlatform: () => window.api.appGetPlatform(),

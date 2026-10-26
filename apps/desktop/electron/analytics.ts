@@ -50,8 +50,18 @@ function resetAnonymousIdentity(): void {
   aliased = false
 }
 
+// The "Send crash reports and usage data" setting (see crash-reporter.ts).
+let enabled = true
+
+export function setMainAnalyticsEnabled(on: boolean): void {
+  enabled = on
+  if (!client) {
+    if (on) initMainAnalytics()
+  } else void (on ? client.enable() : client.disable())
+}
+
 export function initMainAnalytics(): void {
-  if (client || !KEY) return
+  if (client || !KEY || !enabled) return
   client = new PostHog(KEY, {
     host: HOST,
     flushAt: 1,

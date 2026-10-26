@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ScrollText,
   Settings,
+  ShieldCheck,
   Sparkles,
   SquareTerminal,
   SunMedium,
@@ -103,6 +104,7 @@ const USER_GROUPS: SettingsNavGroup[] = [
       { key: 'device.appearance', label: 'Appearance', icon: SunMedium },
       { key: 'device.localExec', label: 'Local exec', icon: SquareTerminal },
       { key: 'device.localRuntime', label: 'Local runtime', icon: Monitor },
+      { key: 'device.privacy', label: 'Privacy', icon: ShieldCheck },
     ],
   },
 ]
