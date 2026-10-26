@@ -11,6 +11,7 @@ import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
+import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from './client-version.ts'
 
 import type { AuthStatus, UserInfo } from './auth-status.ts'
 import type { Server } from 'node:http'
@@ -60,7 +61,8 @@ export async function login(): Promise<UserInfo> {
 export async function requestEmailCode(email: string): Promise<void> {
   const res = await fetch(`${apiUrl()}/auth/email/request-code`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    // The code email names the app that asked for it.
+    headers: { 'content-type': 'application/json', [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
     body: JSON.stringify({ email }),
     signal: AbortSignal.timeout(20_000),
   })
@@ -73,7 +75,8 @@ export async function requestEmailCode(email: string): Promise<void> {
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
   const res = await fetch(`${apiUrl()}/auth/email/verify-code`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    // The app's name labels this sign-in in the account's device list.
+    headers: { 'content-type': 'application/json', [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
     body: JSON.stringify({ email, code }),
     signal: AbortSignal.timeout(20_000),
   })

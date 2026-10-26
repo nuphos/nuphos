@@ -63,6 +63,8 @@ const json = (body: unknown, status = 200) =>
 
 /** DELETE /auth/sessions/current calls, so sign-out can be asserted on. */
 const sessionEnds: { method?: string; authorization: string | null }[] = []
+/** x-atlas-client sent with each sign-in code request. */
+const codeRequestClients: (string | null)[] = []
 const readySession = () => json({ token: TOKEN, user: USER })
 const pendingSession = () =>
   json({ error: { code: 'authorization_pending', message: 'not yet' } }, 409)
@@ -70,6 +72,7 @@ const pendingSession = () =>
 before(async () => {
   mock.module('electron', {
     namedExports: {
+      app: { getVersion: () => '0.0.0-test' },
       shell: {
         openExternal: async (url: string) => {
           openedUrls.push(url)
@@ -121,6 +124,12 @@ before(async () => {
     }
 
     if (url.includes('/auth/me')) return meHandler()
+
+    if (url.endsWith('/auth/email/request-code')) {
+      codeRequestClients.push(new Headers(init?.headers).get('x-atlas-client'))
+
+      return json({ ok: true })
+    }
 
     if (url.endsWith('/auth/sessions/current')) {
       sessionEnds.push({
@@ -612,4 +621,11 @@ test('signing out ends the session on the server', async () => {
 
   assert.deepEqual(sessionEnds, [{ method: 'DELETE', authorization: `Bearer ${TOKEN}` }])
   assert.deepEqual(lastConfig(), {})
+})
+
+test('asking for a sign-in code names the app, so the email can say so', async () => {
+  codeRequestClients.length = 0
+  await auth.requestEmailCode('dev@example.com')
+
+  assert.deepEqual(codeRequestClients, ['nuphos-desktop/0.0.0-test'])
 })
