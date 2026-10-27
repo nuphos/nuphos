@@ -26,12 +26,25 @@ function write(key: string, value: string) {
 const inWindow = typeof window !== 'undefined'
 let open = inWindow && read(OPEN_KEY) === '1'
 
+// Bumped by each openChatSummaryChanges call, even one that changes nothing
+// else, so the panel can scroll to the list again. `revealFor` is the chat
+// whose list should do so, asked at `revealAt`, until that list takes it, the
+// panel closes or REVEAL_LIFETIME_MS passes.
+let revealRequest = 0
+let revealFor: string | null = null
+let revealAt = 0
+
+/** A reveal not taken by then is stale: coming back to the chat later should not scroll it. */
+export const REVEAL_LIFETIME_MS = 5000
+
 function notify() {
   for (const listener of listeners) listener()
 }
 
 export function setChatSummaryOpen(next: boolean): void {
   open = next
+  // Closing drops a reveal the panel never made, so a later open stays put.
+  if (!next) revealFor = null
   write(OPEN_KEY, next ? '1' : '0')
   notify()
 }
@@ -60,11 +73,30 @@ export function setChangesFilter(next: ChangesFilter): void {
   notify()
 }
 
-/** Opens the panel on its Changes list showing only `filter`, as the merged badge does. */
-export function openChatSummaryChanges(filter: ChangesFilter): void {
+/**
+ * Opens the panel on its Changes list showing only `filter`, as the merged
+ * badge does, and asks the list of chat `sessionId` to come into view. Call it
+ * before or after switching to that chat; another chat's list ignores it.
+ */
+export function openChatSummaryChanges(filter: ChangesFilter, sessionId: string): void {
   changesFilter = filter
   write(FILTER_KEY, filter)
+  revealRequest += 1
+  revealFor = sessionId
+  revealAt = Date.now()
   setChatSummaryOpen(true)
+}
+
+/**
+ * True once per openChatSummaryChanges call, only for the chat it named and
+ * within REVEAL_LIFETIME_MS: the caller brings that chat's Changes list into
+ * view. Other chats' lists, such as another split's, leave it in place.
+ */
+export function takeChangesReveal(sessionId: string, now = Date.now()): boolean {
+  if (revealFor !== sessionId || now - revealAt > REVEAL_LIFETIME_MS) return false
+  revealFor = null
+
+  return true
 }
 
 function subscribe(listener: () => void) {
@@ -86,6 +118,15 @@ export function useChangesFilter(): ChangesFilter {
     subscribe,
     () => changesFilter,
     () => 'all',
+  )
+}
+
+/** Changes with every openChatSummaryChanges call; pair with takeChangesReveal. */
+export function useChangesRevealRequest(): number {
+  return useSyncExternalStore(
+    subscribe,
+    () => revealRequest,
+    () => 0,
   )
 }
 
