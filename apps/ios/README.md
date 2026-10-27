@@ -25,6 +25,8 @@ It also checks a locally updated asynchronous card: its measured height must
 match the allocated cell height, and the following message must sit below it.
 Step expansion is sampled for title drift, and new sends must install their
 short presentation-only arrival animation without changing the scroll geometry.
+Finally it rotates to landscape and back; on every frame no row may be
+animating, since an animated rotation draws rows over each other.
 Relaunch without `-scroll-regression` to return to the signed-in app.
 
 The iOS transcript uses ChatLayout 2.5.2 and self-sizing UIKit cells hosting

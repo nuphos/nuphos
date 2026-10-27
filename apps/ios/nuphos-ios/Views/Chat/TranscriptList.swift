@@ -573,6 +573,29 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             eventProbe.stop()
             check(name, down < 1 && nearBottom, "maxDownward=\(down) frames=\(frames) nearBottom=\(nearBottom)")
         }
+        // A rotation must move rows straight to their new layout. Animated,
+        // each row cross-fades between two cells and its text stretches, so
+        // rows draw over each other until the rotation ends.
+        func animatedRows() -> Int {
+            collection.subviews.compactMap { $0 as? TranscriptCell }.filter { cell in
+                var layers = [cell.layer]
+                while let layer = layers.popLast() {
+                    if layer.animationKeys()?.isEmpty == false { return true }
+                    layers += layer.sublayers ?? []
+                }
+                return false
+            }.count
+        }
+        for (name, orientation) in [("rotate_landscape", UIInterfaceOrientationMask.landscapeRight), ("rotate_portrait", .portrait)] {
+            let width = collection.bounds.width
+            var worst = 0
+            let rotationProbe = TranscriptFrameProbe { worst = max(worst, animatedRows()) }
+            view.window?.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: orientation))
+            try? await Task.sleep(for: .seconds(1.5))
+            rotationProbe.stop()
+            check(name, collection.bounds.width != width && worst == 0,
+                  "width=\(width)->\(collection.bounds.width) maxAnimatedRows=\(worst)")
+        }
         check("suite_complete", true, "")
     }
     #endif
