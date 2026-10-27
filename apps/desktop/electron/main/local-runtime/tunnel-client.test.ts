@@ -210,6 +210,18 @@ test('once back, it tells the backend why it gave up the last tunnel, and only o
   client.stop()
 })
 
+test('a dial that never opened is not reported as a lost tunnel', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { backend, frames, client } = setup()
+
+  backend().emit('close', { code: 1006 })
+  t.mock.timers.tick(500)
+  backend().emit('open')
+
+  assert.equal(frames().filter((frame) => frame.t === 'dropped').length, 0)
+  client.stop()
+})
+
 test('waking up redials at once instead of waiting out the backoff', () => {
   const { backend, backends, client } = setup()
 

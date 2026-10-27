@@ -214,6 +214,8 @@ export type HolderMessage =
   /** Close what one person opened; the tunnel and everyone else's streams stay. */
   /** Without a team, every team's streams of that person close; with one, only that team's. */
   | { t: 'revoke-actor'; actorId: string; teamId?: string }
+  /** The holder's own echo, proving its subscription still delivers. */
+  | { t: 'ping'; conn: string }
   | { t: 'metrics'; conn: string; leaseMs: number }
 
 /** The holder → the replica that opened one stream. */

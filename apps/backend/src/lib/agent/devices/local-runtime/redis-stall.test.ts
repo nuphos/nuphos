@@ -120,4 +120,40 @@ describe('local runtime tunnel during a Redis stall', () => {
       tunnel.closed()
     }
   })
+
+  test('ends the tunnel when its subscription stops delivering, so streams are not lost', async () => {
+    stalled = false
+    let closed: { code: number; reason: string } | undefined
+    const tunnel = await attachRuntimeTunnel(
+      'u1',
+      'd1',
+      {
+        // The computer itself is fine and answers every direct ping.
+        send: (frame) => {
+          if (frame.t === 'ping') tunnel.receive(JSON.stringify({ t: 'pong' }))
+        },
+        close: (code, reason) => {
+          closed = { code, reason }
+        },
+      },
+      {
+        // Publishes succeed, but a half-open subscriber delivers nothing back.
+        bus: { publish: () => Promise.resolve(), subscribe: () => Promise.resolve(() => {}) },
+        presence: createRedisPresenceStore(),
+        isMember: async () => true,
+        heartbeatMs: 10,
+        idleTimeoutMs: 40,
+        channelTimeoutMs: 80,
+      },
+    )
+
+    try {
+      await tick(40)
+      expect(closed).toBeUndefined()
+      await tick(120)
+      expect(closed).toEqual({ code: 4001, reason: 'Device channel unavailable' })
+    } finally {
+      tunnel.closed()
+    }
+  })
 })

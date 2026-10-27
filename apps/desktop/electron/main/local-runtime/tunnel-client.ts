@@ -63,12 +63,6 @@ export const TUNNEL_IDLE_TIMEOUT_MS = 12_000
 const CLOSE_SUPERSEDED = 4000
 const CLOSE_REVOKED = 4003
 
-export function tunnelReconnectDelayMs(attempt: number): number {
-  return (
-    RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)] ?? 10_000
-  )
-}
-
 /** One reconnecting backend tunnel; agent runtime listeners stay on loopback. */
 export class RuntimeTunnelClient {
   private readonly instanceStreams: InstanceStreams
@@ -81,7 +75,7 @@ export class RuntimeTunnelClient {
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
   private idleTimer: ReturnType<typeof setTimeout> | undefined
-  private lastFrameAt = 0
+  private lastFrameAt: number | undefined // unset until the socket opens
   private dropped: TunnelDrop | undefined // why the last live socket was given up
   private readonly deps: TunnelClientDeps
 
@@ -130,7 +124,8 @@ export class RuntimeTunnelClient {
   }
 
   private drop(reason?: TunnelDrop['reason'], code?: number): void {
-    if (reason && this.socket)
+    // Only a socket that opened counts; a failed dial is not a lost tunnel.
+    if (reason && this.lastFrameAt !== undefined)
       this.dropped ??= { reason, code, silentMs: Date.now() - this.lastFrameAt }
     this.stopMetrics?.()
     clearTimeout(this.reconnectTimer)
@@ -171,12 +166,13 @@ export class RuntimeTunnelClient {
       return
     }
     this.socket = socket
-    this.lastFrameAt = Date.now()
+    this.lastFrameAt = undefined
     this.armIdle(socket)
     socket.addEventListener('open', () => {
       if (this.socket !== socket) return
       this.attempt = 0
       this.superseded = false
+      this.lastFrameAt = Date.now()
       this.sendStatus()
       if (this.dropped) this.send({ t: 'dropped', ...this.dropped })
       this.dropped = undefined
@@ -215,7 +211,7 @@ export class RuntimeTunnelClient {
 
   private scheduleReconnect(): void {
     if (!this.running) return
-    const delay = tunnelReconnectDelayMs(this.attempt)
+    const delay = RECONNECT_BACKOFF_MS[Math.min(this.attempt, RECONNECT_BACKOFF_MS.length - 1)]
 
     this.attempt += 1
     clearTimeout(this.reconnectTimer)
