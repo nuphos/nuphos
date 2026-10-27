@@ -9,12 +9,14 @@ enum TurnLiveActivity {
     static func show(sessionId: String, teamId: String, title: String, agent: String?, runtime: String?,
                      startedAt: Date?, authToken: String) {
         let running = ActivityContent(state: TurnActivityAttributes.ContentState(phase: .running), staleDate: nil)
-        if let activity = Activity<TurnActivityAttributes>.activities.first(where: {
-            $0.attributes.sessionId == sessionId && $0.activityState == .active
-        }) {
+        let activities = Activity<TurnActivityAttributes>.activities.filter { $0.attributes.sessionId == sessionId }
+        if let activity = activities.first(where: { $0.activityState == .active }) {
             if activity.content.state != running.state { Task { await activity.update(running) } }
             return
         }
+        // An ended turn stays on the Lock Screen for a while, and iOS can't
+        // reopen it, so the new turn's card takes its place.
+        for activity in activities { Task { await activity.end(nil, dismissalPolicy: .immediate) } }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = TurnActivityAttributes(
             sessionId: sessionId, title: title,
