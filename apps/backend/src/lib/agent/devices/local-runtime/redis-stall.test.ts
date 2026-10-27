@@ -123,6 +123,7 @@ describe('local runtime tunnel during a Redis stall', () => {
 
   test('ends the tunnel when its subscription stops delivering, so streams are not lost', async () => {
     stalled = false
+    let reconnects = 0
     let closed: { code: number; reason: string } | undefined
     const tunnel = await attachRuntimeTunnel(
       'u1',
@@ -138,7 +139,13 @@ describe('local runtime tunnel during a Redis stall', () => {
       },
       {
         // Publishes succeed, but a half-open subscriber delivers nothing back.
-        bus: { publish: () => Promise.resolve(), subscribe: () => Promise.resolve(() => {}) },
+        bus: {
+          publish: () => Promise.resolve(),
+          subscribe: () => Promise.resolve(() => {}),
+          reconnect: () => {
+            reconnects += 1
+          },
+        },
         presence: createRedisPresenceStore(),
         isMember: async () => true,
         heartbeatMs: 10,
@@ -152,6 +159,8 @@ describe('local runtime tunnel during a Redis stall', () => {
       expect(closed).toBeUndefined()
       await tick(120)
       expect(closed).toEqual({ code: 4001, reason: 'Device channel unavailable' })
+      // The next tunnel must not subscribe on the same dead connection.
+      expect(reconnects).toBe(1)
     } finally {
       tunnel.closed()
     }

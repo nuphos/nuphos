@@ -176,8 +176,12 @@ export async function attachRuntimeTunnel(
   heartbeat = setInterval(() => {
     if (Date.now() - lastFrameAt > (deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS))
       return shut(TUNNEL_CLOSE_IDLE, 'No frames from the computer')
-    if (Date.now() - lastEchoAt > (deps.channelTimeoutMs ?? DEFAULT_CHANNEL_TIMEOUT_MS))
+    if (Date.now() - lastEchoAt > (deps.channelTimeoutMs ?? DEFAULT_CHANNEL_TIMEOUT_MS)) {
+      // Else the computer's next tunnel waits forever on the same dead subscription.
+      deps.bus.reconnect?.()
+
       return shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable')
+    }
     connection.send({ t: 'ping' })
     void deps.bus
       .publish(channel, JSON.stringify({ t: 'ping', conn } satisfies HolderMessage))

@@ -1,4 +1,4 @@
-import { getRedis, getSubscriber, redisEnabled } from '@/lib/redis'
+import { getRedis, getSubscriber, reconnectSubscriber, redisEnabled } from '@/lib/redis'
 
 import { processSingleton } from './singleton'
 
@@ -8,6 +8,8 @@ export type TunnelBus = {
   publish(channel: string, message: string): Promise<void>
   /** Resolves once the subscription is live, so a publish that follows cannot race past it. */
   subscribe(channel: string, handler: TunnelBusHandler): Promise<() => void>
+  /** Replaces a subscription that stopped delivering; ioredis resubscribes on the new connection. */
+  reconnect?(): void
 }
 
 type Handlers = Map<string, Set<TunnelBusHandler>>
@@ -70,6 +72,7 @@ export function createRedisTunnelBus(): TunnelBus {
     async publish(channel, message) {
       await getRedis().publish(channel, message)
     },
+    reconnect: reconnectSubscriber,
     async subscribe(channel, handler) {
       listen()
       const set = handlers.get(channel) ?? new Set()
