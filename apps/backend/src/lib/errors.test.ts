@@ -34,32 +34,32 @@ function appThrowing(err: unknown): Hono {
 
 describe('errorHandler', () => {
   // Cloudflare swaps an origin 502/504 for its own page and drops this body.
-  test('answers an upstream AppError with 424 and keeps its reason', async () => {
+  test('answers our own upstream 502 with 503 and keeps our JSON body', async () => {
     const res = await appThrowing(
       new AppError(502, 'tailscale_api_error', 'token revoked'),
     ).request('/')
 
-    expect(res.status).toBe(424)
+    expect(res.status).toBe(503)
     const body = (await res.json()) as { error: { code: string; message: string } }
 
     expect(body.error).toMatchObject({ code: 'tailscale_api_error', message: 'token revoked' })
   })
 
-  test('answers a cloud SDK 4xx with 424 cloud_api_error and the upstream status', async () => {
+  test('answers a cloud SDK 4xx with 503 cloud_api_error and the upstream status', async () => {
     const err = Object.assign(new Error('PERMISSION_DENIED: unable to impersonate'), {
       response: { status: 403 },
     })
     const res = await appThrowing(err).request('/')
 
-    expect(res.status).toBe(424)
+    expect(res.status).toBe(503)
     const body = (await res.json()) as { error: { code: string; upstreamStatus: number } }
 
     expect(body.error).toMatchObject({ code: 'cloud_api_error', upstreamStatus: 403 })
   })
 
   test('leaves other statuses unchanged', async () => {
-    const res = await appThrowing(new AppError(503, 'unavailable', 'later')).request('/')
+    const res = await appThrowing(new AppError(409, 'conflict', 'taken')).request('/')
 
-    expect(res.status).toBe(503)
+    expect(res.status).toBe(409)
   })
 })

@@ -82,7 +82,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
     rememberErrorCode(c, 'cloud_api_error')
     logError('http.cloud_api_error', err, {
       context: c,
-      status: 424,
+      status: 503,
       error_code: 'cloud_api_error',
       upstream_status: cloudStatus,
     })
@@ -96,7 +96,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
           requestId: c.get('requestId'),
         },
       },
-      424,
+      503,
     )
   }
 
@@ -115,12 +115,11 @@ export const errorHandler: ErrorHandler = (err, c) => {
 }
 
 // Cloudflare replaces an origin's 502 and 504 with its own "error code: 502"
-// page, so the JSON errorHandler sends (the actual reason) never arrives. The
-// backend therefore never answers with those two itself: an upstream failure
-// is a failed dependency of this request. Real gateway 502/504s stay
-// unambiguous for the clients that retry on them.
+// page, dropping this JSON (the actual reason); passing them through is an
+// Enterprise-only zone setting. 503 is passed through and stays a retryable
+// 5xx, so our own upstream failures answer with it instead.
 function edgeSafeStatus(status: ContentfulStatusCode): ContentfulStatusCode {
-  return status === 502 || status === 504 ? 424 : status
+  return status === 502 || status === 504 ? 503 : status
 }
 
 const ERROR_CODE_KEY = 'errorCode'
