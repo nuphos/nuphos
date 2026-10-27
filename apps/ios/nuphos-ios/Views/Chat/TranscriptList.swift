@@ -56,8 +56,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        root.rotating = true
-        coordinator.animate(alongsideTransition: nil) { [root] _ in root.rotating = false }
+        // Without a queued animation there is no completion to clear it.
+        root.rotating = coordinator.animate(alongsideTransition: nil) { [root] _ in root.rotating = false }
     }
 
     override func viewDidLoad() {
