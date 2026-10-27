@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { getReadableConversation } from '@/lib/agent/db'
+import { liveAttachment } from '@/lib/agent/db/shared'
+import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { pushDeviceStore } from '@/lib/push/devices'
@@ -9,6 +11,7 @@ import { liveActivityDeps, registerLiveActivityToken } from '@/lib/push/live-act
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 
+import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { PushDeviceStore } from '@/lib/push/devices'
 import type { LiveActivityRow, LiveActivityToken } from '@/lib/push/live-activities'
 import type { AuthVariables } from '@/middleware/auth'
@@ -82,16 +85,22 @@ const liveActivitySchema = z.object({
   environment: z.enum(['sandbox', 'production']),
 })
 
-/** The conversation, for its title on the card's row; null when the user cannot read it. */
+/** The conversation, for its title on the card's row and its runtime's current
+ *  state; null when the user cannot read it. */
 export type ReadConversation = (
   userId: string,
   teamId: string,
   sessionId: string,
-) => Promise<{ title?: string } | null>
+) => Promise<{ title?: string; runtimeState?: SessionExecutionState | null } | null>
 
 /** Puts a conversation on the phone's Live Activity, so its turns reach the Lock Screen. */
 export function createLiveActivityRoutes(
-  register: (sessionId: string, token: LiveActivityToken, row: LiveActivityRow) => Promise<void>,
+  register: (
+    sessionId: string,
+    token: LiveActivityToken,
+    row: LiveActivityRow,
+    state: SessionExecutionState | null,
+  ) => Promise<void>,
   readConversation: ReadConversation,
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
@@ -107,6 +116,7 @@ export function createLiveActivityRoutes(
       { token: token.toLowerCase(), userId, environment },
       // Older conversations may have no title; their row still shows.
       { teamId, title: conversation.title ?? '' },
+      conversation.runtimeState ?? null,
     )
 
     return c.json({ ok: true })
@@ -117,8 +127,13 @@ export function createLiveActivityRoutes(
 
 async function readConversation(userId: string, teamId: string, sessionId: string) {
   if (!(await getTeamMembership(userId, teamId))) return null
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  return getReadableConversation(sessionId, userId, teamId)
+  if (!conversation) return null
+  const openabSessionId = liveAttachment(conversation)?.openabSessionId
+  const [runtimeState] = await readRuntimeStates(teamId, [openabSessionId])
+
+  return { title: conversation.title, runtimeState }
 }
 
 export const pushRoutes = new Hono<{ Variables: AuthVariables }>()
@@ -128,7 +143,8 @@ pushRoutes.route('/', createPushDeviceRoutes(pushDeviceStore))
 pushRoutes.route(
   '/',
   createLiveActivityRoutes(
-    (sessionId, token, row) => registerLiveActivityToken(liveActivityDeps, sessionId, token, row),
+    (sessionId, token, row, state) =>
+      registerLiveActivityToken(liveActivityDeps, sessionId, token, row, state),
     readConversation,
   ),
 )

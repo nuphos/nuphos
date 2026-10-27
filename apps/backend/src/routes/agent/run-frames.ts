@@ -2,7 +2,6 @@ import { bumpConversationActivity } from '@/lib/agent/db/read-state'
 import { mirrorAgentRunFrame } from '@/lib/agent/run-store'
 import { RunHandoff } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
-import { notifyLiveActivities } from '@/lib/push/live-activities'
 import { notifyAgentRunEnded, notifyApprovalRequested } from '@/lib/push/notify'
 import { drainRunsUntilForcePause } from '@/lib/shutdown-budget'
 
@@ -56,7 +55,6 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   }
   if (frameType === 'tool-approval-request') {
     notifyApprovalRequested(run)
-    notifyLiveActivities(run, 'approval')
   }
   for (const subscriber of run.subscribers) subscriber.poke()
 }
@@ -152,7 +150,6 @@ export function finishAgentRun(run: AgentRun, terminalPauseReason = 'stream-ende
   })
   for (const subscriber of run.subscribers) subscriber.poke()
   notifyAgentRunEnded(run)
-  notifyLiveActivities(run, 'ended')
   scheduleAgentRunCleanup(run)
 }
 

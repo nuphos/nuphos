@@ -59,7 +59,7 @@ const settle = () => Bun.sleep(real && redisOn ? 20 : 0)
 
 function cases() {
   test('a held session’s push is what the list reads back, epoch and revision intact', async () => {
-    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a', 'conv-a')
 
     push(connection, 'sess-a', snapshot)
     await settle()
@@ -73,7 +73,7 @@ function cases() {
   })
 
   test('another connection, or a session nobody here opened, cannot store state', async () => {
-    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a', 'conv-a')
 
     push(intruder, 'sess-a', snapshot)
     push(connection, 'sess-b', snapshot)
@@ -86,8 +86,8 @@ function cases() {
   })
 
   test('another runtime reusing a held session id does not displace its holder', async () => {
-    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
-    const releaseOther = holdRuntimeState(intruder, 'team-b', 'sess-a')
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a', 'conv-a')
+    const releaseOther = holdRuntimeState(intruder, 'team-b', 'sess-a', 'conv-a')
 
     push(connection, 'sess-a', snapshot)
     push(intruder, 'sess-a', { ...snapshot, state: 'active', revision: 8 })
@@ -102,42 +102,57 @@ function cases() {
   })
 
   test('the key is per team: another team reading the same session id sees nothing', async () => {
-    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never, 'conv-a')
     await settle()
 
     expect(await readRuntimeStates('team-b', ['sess-a'])).toEqual([null])
   })
 
   test('an older revision of the same epoch never replaces a newer one', async () => {
-    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 9 } as never)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 9 } as never, 'conv-a')
     await settle()
-    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, state: 'active', revision: 8 } as never)
-    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, state: 'active', revision: 9 } as never)
+    rememberRuntimeState(
+      'team-a',
+      'sess-a',
+      { ...snapshot, state: 'active', revision: 8 } as never,
+      'conv-a',
+    )
+    rememberRuntimeState(
+      'team-a',
+      'sess-a',
+      { ...snapshot, state: 'active', revision: 9 } as never,
+      'conv-a',
+    )
     await settle()
 
     expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.revision).toBe(9)
     expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.state).toBe('idle')
 
-    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 10 } as never)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 10 } as never, 'conv-a')
     await settle()
     expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.revision).toBe(10)
   })
 
   test('a new runtime epoch replaces the old one whatever its revision', async () => {
-    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 50 } as never)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 50 } as never, 'conv-a')
     await settle()
-    rememberRuntimeState('team-a', 'sess-a', {
-      ...snapshot,
-      epoch: 'runtime-2',
-      revision: 1,
-    } as never)
+    rememberRuntimeState(
+      'team-a',
+      'sess-a',
+      {
+        ...snapshot,
+        epoch: 'runtime-2',
+        revision: 1,
+      } as never,
+      'conv-a',
+    )
     await settle()
 
     expect((await readRuntimeStates('team-a', ['sess-a']))[0]?.epoch).toBe('runtime-2')
   })
 
   test('a lost transport clears the entry, so the list stops reporting the old state', async () => {
-    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never, 'conv-a')
     await settle()
     forgetRuntimeState('team-a', 'sess-a')
     await settle()
@@ -146,7 +161,7 @@ function cases() {
   })
 
   test('an invalid snapshot is not stored', async () => {
-    const release = holdRuntimeState(connection, 'team-a', 'sess-a')
+    const release = holdRuntimeState(connection, 'team-a', 'sess-a', 'conv-a')
 
     push(connection, 'sess-a', { state: 'idle' })
     await settle()
@@ -164,10 +179,10 @@ describe('in memory (one self-hosted backend, no Redis)', () => {
   test('an open tab probing an unchanged session keeps its entry past the TTL', async () => {
     const start = Date.now()
 
-    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never, 'conv-a')
     for (let minute = 1; minute <= 25; minute++) {
       setSystemTime(start + minute * 60_000)
-      rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+      rememberRuntimeState('team-a', 'sess-a', snapshot as never, 'conv-a')
     }
     expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([snapshot as never])
 
@@ -179,9 +194,9 @@ describe('in memory (one self-hosted backend, no Redis)', () => {
   test('an older revision does not extend the entry', async () => {
     const start = Date.now()
 
-    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never, 'conv-a')
     setSystemTime(start + 9 * 60_000)
-    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 6 } as never)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 6 } as never, 'conv-a')
     setSystemTime(start + 11 * 60_000)
 
     expect(await readRuntimeStates('team-a', ['sess-a'])).toEqual([null])
@@ -195,13 +210,13 @@ describe.skipIf(!real)('Redis compare-and-set', () => {
   cases()
 
   test('an open tab probing an unchanged session keeps its entry past the TTL', async () => {
-    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never, 'conv-a')
     await settle()
     const stored = 'agent:runtime-state:team-a:sess-a'
 
     // Stand in for most of the TTL having passed: one second left.
     await real?.expire(stored, 1)
-    rememberRuntimeState('team-a', 'sess-a', snapshot as never)
+    rememberRuntimeState('team-a', 'sess-a', snapshot as never, 'conv-a')
     await settle()
     await Bun.sleep(1_200)
 
@@ -210,7 +225,7 @@ describe.skipIf(!real)('Redis compare-and-set', () => {
 
     // An older revision neither replaces nor extends it.
     await real?.expire(stored, 1)
-    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 6 } as never)
+    rememberRuntimeState('team-a', 'sess-a', { ...snapshot, revision: 6 } as never, 'conv-a')
     await settle()
     await Bun.sleep(1_200)
 

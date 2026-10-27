@@ -44,13 +44,18 @@ const conversation = (sessionId: string) => ({
 })
 
 const stored = (sessionId: string, state: string) =>
-  rememberRuntimeState('team-a', `openab-${sessionId}`, {
-    state,
-    schemaVersion: 2,
-    actions: { send: state !== 'active', cancel: state === 'active', steer: false },
-    epoch: 'runtime-1',
-    revision: 1,
-  } as never)
+  rememberRuntimeState(
+    'team-a',
+    `openab-${sessionId}`,
+    {
+      state,
+      schemaVersion: 2,
+      actions: { send: state !== 'active', cancel: state === 'active', steer: false },
+      epoch: 'runtime-1',
+      revision: 1,
+    } as never,
+    sessionId,
+  )
 
 async function list(...sessionIds: string[]) {
   return (await serializeConversationList(

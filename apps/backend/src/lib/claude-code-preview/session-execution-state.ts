@@ -91,7 +91,13 @@ export async function probeExecutionState(
       ),
     )
 
-    if (attachment) rememberRuntimeState(conversation.teamId, attachment.openabSessionId, state)
+    if (attachment)
+      rememberRuntimeState(
+        conversation.teamId,
+        attachment.openabSessionId,
+        state,
+        conversation.sessionId,
+      )
 
     // A continuation parked on a lost output connection moves again only when
     // a prompt reattaches it (runClaudeCodePreviewPrompt). The runtime says

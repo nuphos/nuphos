@@ -3,9 +3,8 @@ import ActivityKit
 import Foundation
 
 /// The app's one Live Activity. A running turn puts its conversation on the
-/// card, starting the card when there is none. The backend keeps the card
-/// current over APNs, so it moves on while the app is suspended; the app also
-/// updates it when it sees a turn start or end for certain.
+/// card, starting the card when there is none. Everything after that comes
+/// from the backend over APNs, which follows the runtime's own status.
 enum TurnLiveActivity {
     private typealias Card = TurnActivityAttributes.ContentState
 
@@ -47,22 +46,6 @@ enum TurnLiveActivity {
                 for session in activity.content.state.sessions where session.phase.isActive {
                     register(session, on: activity, authToken: authToken)
                 }
-            }
-        }
-    }
-
-    /// Only for a turn that certainly ended; the backend's push covers the rest.
-    static func finish(sessionId: String, phase: TurnActivityAttributes.Phase) {
-        guard let activity = card else { return }
-        var state = activity.content.state
-        guard let session = state.sessions.first(where: { $0.id == sessionId && $0.phase.isActive }) else { return }
-        state.put(.init(id: session.id, teamId: session.teamId, title: session.title, phase: phase))
-        let content = ActivityContent(state: state, staleDate: nil)
-        Task {
-            if state.active > 0 {
-                await activity.update(content)
-            } else {
-                await activity.end(content, dismissalPolicy: .after(.now.addingTimeInterval(30 * 60)))
             }
         }
     }

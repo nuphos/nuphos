@@ -3,12 +3,13 @@ import Foundation
 
 /// The app's one Live Activity: the conversations whose turns run, on the Lock
 /// Screen and in the Dynamic Island. The app starts it when a turn runs and
-/// adds later ones to it; the backend's `liveactivity` pushes keep it current
-/// and end it once nothing runs (`apps/backend/src/lib/push/live-activities.ts`).
+/// adds later ones to it; the backend's `liveactivity` pushes keep each row on
+/// the runtime's own status and end it once nothing runs
+/// (`apps/backend/src/lib/push/live-activities.ts`).
 nonisolated struct TurnActivityAttributes: ActivityAttributes {
     /// Matches the backend's `LiveActivityPhase`.
     enum Phase: String, Codable, Hashable, Sendable {
-        case running, approval, done, failed, stopped
+        case running, approval, done, stopped
 
         /// Still needs the card: running, or waiting for approval.
         var isActive: Bool { self == .running || self == .approval }

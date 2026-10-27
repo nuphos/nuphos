@@ -1,3 +1,4 @@
+import { notifyLiveActivities } from '@/lib/push/live-activities'
 import { redisEnabled, withRedis } from '@/lib/redis'
 
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
@@ -49,10 +50,13 @@ return 1`
 // own memory holds every session it observes.
 const local = new Map<string, { snapshot: SessionExecutionState; expiresAt: number }>()
 
+/** Stores the session's newest runtime state; a newer one also moves its
+ *  Live Activity, so the card shows what the app shows. */
 export function rememberRuntimeState(
   teamId: string,
   openabSessionId: string,
   snapshot: SessionExecutionState,
+  conversationId: string,
 ) {
   const id = key(teamId, openabSessionId)
 
@@ -62,6 +66,7 @@ export function rememberRuntimeState(
     const verdict = live ? compare(live.snapshot, snapshot) : 'write'
 
     if (verdict === 'skip') return
+    if (verdict === 'write') notifyLiveActivities(conversationId, snapshot)
     local.delete(id)
     local.set(id, {
       snapshot: verdict === 'refresh' && live ? live.snapshot : snapshot,
@@ -85,7 +90,9 @@ export function rememberRuntimeState(
       String(snapshot.revision ?? -1),
       String(TTL_SECONDS),
     ),
-  )
+  ).then((written) => {
+    if (written === 1) notifyLiveActivities(conversationId, snapshot)
+  })
 }
 
 // Sessions this backend opened, per connection that holds them. A runtime,
@@ -93,11 +100,17 @@ export function rememberRuntimeState(
 // only for a session its own connection holds, under the team the backend
 // opened it for. Keyed by connection first, so one runtime reusing another
 // runtime's session id cannot displace that holder.
-const held = new WeakMap<object, Map<string, { teamId: string }>>()
+type Holder = { teamId: string; conversationId: string }
+const held = new WeakMap<object, Map<string, Holder>>()
 
-export function holdRuntimeState(connection: object, teamId: string, openabSessionId: string) {
-  const sessions = held.get(connection) ?? new Map<string, { teamId: string }>()
-  const entry = { teamId }
+export function holdRuntimeState(
+  connection: object,
+  teamId: string,
+  openabSessionId: string,
+  conversationId: string,
+) {
+  const sessions = held.get(connection) ?? new Map<string, Holder>()
+  const entry = { teamId, conversationId }
 
   held.set(connection, sessions)
   sessions.set(openabSessionId, entry)
@@ -123,6 +136,7 @@ export function rememberPushedRuntimeState(connection: object, params: unknown) 
       holder.teamId,
       sessionId,
       parseSessionExecutionState(update.snapshot as Record<string, unknown>),
+      holder.conversationId,
     )
   } catch {
     // Not a snapshot this backend can read; the list keeps the previous one.

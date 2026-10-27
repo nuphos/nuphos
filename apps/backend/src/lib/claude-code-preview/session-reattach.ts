@@ -25,7 +25,12 @@ const sleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 export function observeSession(session: TeamSession): void {
   observeAutonomousUpdates(session)
   const transport = session.client
-  const release = holdRuntimeState(transport, session.teamId, session.openabSessionId)
+  const release = holdRuntimeState(
+    transport,
+    session.teamId,
+    session.openabSessionId,
+    session.conversationId,
+  )
   const onLost = () => {
     // The list falls back to dormant until the reattached transport reports.
     forgetRuntimeState(session.teamId, session.openabSessionId)

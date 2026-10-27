@@ -1,22 +1,18 @@
-import { MongoServerError } from 'mongodb'
-
 import { db } from '@/lib/db'
 import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
-import { classifyTurn } from './turn-outcome'
 
 import type { ApnsCredentials, ApnsEnvironment, ApnsRequest, ApnsResponse } from './apns'
-import type { NotifiableRun } from './notify'
-import type { TurnOutcome } from './turn-outcome'
+import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { Collection } from 'mongodb'
 
 /** Must match `TurnActivityAttributes.Phase` in the iOS app. */
-export type LiveActivityPhase = 'running' | 'approval' | 'done' | 'failed' | 'stopped'
+export type LiveActivityPhase = 'running' | 'approval' | 'done' | 'stopped'
 
 export type LiveActivityToken = { token: string; userId: string; environment: ApnsEnvironment }
 
-/** A conversation's newest turn phase and the Live Activities showing it.
+/** A conversation's runtime status and the Live Activities showing it.
  *  A phone has one activity for all its running conversations, so one token
  *  sits on every session that phone's card lists. */
 export type LiveActivitySession = {
@@ -25,8 +21,6 @@ export type LiveActivitySession = {
   teamId?: string
   title?: string
   phase?: LiveActivityPhase
-  /** Orders writes: a run's start, approval and end, and later runs after earlier ones. */
-  version?: number
   tokens: LiveActivityToken[]
   updatedAt: Date
 }
@@ -34,13 +28,8 @@ export type LiveActivitySession = {
 export type LiveActivityRow = { teamId: string; title: string }
 
 export type LiveActivityStore = {
-  /** Null when a newer phase is already stored. A run's start only updates a
-   *  session that has a Live Activity; there is nothing to reset otherwise. */
-  setPhase: (
-    sessionId: string,
-    phase: LiveActivityPhase,
-    version: number,
-  ) => Promise<LiveActivitySession | null>
+  /** Null unless the session has a Live Activity and its phase changed. */
+  setPhase: (sessionId: string, phase: LiveActivityPhase) => Promise<LiveActivitySession | null>
   addToken: (
     sessionId: string,
     token: LiveActivityToken,
@@ -72,21 +61,12 @@ export async function setupLiveActivityIndexes(): Promise<void> {
 }
 
 export const liveActivityStore: LiveActivityStore = {
-  async setPhase(sessionId, phase, version) {
-    try {
-      return await sessions().findOneAndUpdate(
-        { sessionId, $or: [{ version: { $lt: version } }, { version: { $exists: false } }] },
-        {
-          $set: { phase, version, updatedAt: new Date() },
-          $setOnInsert: { tokens: [] },
-        },
-        { upsert: phase !== 'running', returnDocument: 'after' },
-      )
-    } catch (error) {
-      // The filter missed an existing session holding a newer phase.
-      if (error instanceof MongoServerError && error.code === 11000) return null
-      throw error
-    }
+  async setPhase(sessionId, phase) {
+    return sessions().findOneAndUpdate(
+      { sessionId, phase: { $ne: phase } },
+      { $set: { phase, updatedAt: new Date() } },
+      { returnDocument: 'after' },
+    )
   },
   async addToken(sessionId, token, row) {
     await sessions().updateOne({ sessionId }, { $pull: { tokens: { token: token.token } } })
@@ -116,15 +96,16 @@ export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
 export const LIVE_ACTIVITY_RETRY_MS = [5_000, 30_000, 120_000]
 
-/** A silent pause (the client resumes on its own) leaves the activity running. */
-export function liveActivityPhase(
-  outcome: TurnOutcome | null,
-  aborted: boolean,
-): LiveActivityPhase | null {
-  if (!outcome) return aborted ? 'stopped' : null
-  if (outcome.kind === 'finished') return 'done'
+/** The status the app shows for this runtime state (iOS `AgentThreadBadge`).
+ *  Null when the runtime cannot say: the card keeps what it last showed. */
+export function liveActivityPhase(state: SessionExecutionState): LiveActivityPhase | null {
+  if (state.schemaVersion !== 2 || state.state === 'disconnected' || state.state === 'unsupported')
+    return null
+  if (state.phase === 'resume_disconnected') return 'stopped'
+  if ((state.permissionWaits ?? 0) > 0) return 'approval'
+  if (state.state === 'active' || state.phase === 'background_tools') return 'running'
 
-  return outcome.kind
+  return 'done'
 }
 
 export type LiveActivityDeps = {
@@ -156,8 +137,8 @@ export function liveActivityCard(sessions: LiveActivitySession[]) {
 /** Sends each token its whole card. While anything on it runs or waits for
  *  approval the card updates; otherwise it ends. A token is dropped only once
  *  it has ended or APNs says it is dead; anything else is retried, so a
- *  throttled end still reaches the phone, unless a newer phase replaced this
- *  one meanwhile (its own delivery covers those tokens). */
+ *  throttled end still reaches the phone, unless the phase changed meanwhile
+ *  (its own delivery covers those tokens). */
 async function deliver(
   deps: LiveActivityDeps,
   session: LiveActivitySession,
@@ -227,37 +208,41 @@ async function retryIfCurrent(
 ): Promise<void> {
   const current = await deps.liveActivities.get(session.sessionId)
 
-  if (!current || current.version !== session.version) return
+  if (!current || current.phase !== session.phase) return
   const registered = tokens.filter((t) => current.tokens.some((c) => c.token === t.token))
 
   if (registered.length > 0) await deliver(deps, current, registered, attempt)
 }
 
-/** Stores the session's newest phase and pushes the cards that list it. */
-export async function recordLiveActivityPhase(
-  deps: LiveActivityDeps,
-  sessionId: string,
-  phase: LiveActivityPhase,
-  version: number,
-): Promise<void> {
-  const session = await deps.liveActivities.setPhase(sessionId, phase, version)
-
-  if (session) await deliver(deps, session, session.tokens)
-}
-
-/** Puts a session on an activity's card and, when the turn already moved on
- *  (it can end before the phone gets a token), brings that card up to date.
- *  The token is stored first, so a turn ending meanwhile either sees it or is
- *  seen here. */
+/** Puts a session on an activity's card and brings that card up to the
+ *  runtime's current state (a turn can end before the phone gets a token).
+ *  The token is stored first, so a state arriving meanwhile either sees it or
+ *  is the one read here. */
 export async function registerLiveActivityToken(
   deps: LiveActivityDeps,
   sessionId: string,
   token: LiveActivityToken,
   row: LiveActivityRow,
+  state: SessionExecutionState | null,
 ): Promise<void> {
-  const session = await deps.liveActivities.addToken(sessionId, token, row)
+  const added = await deps.liveActivities.addToken(sessionId, token, row)
+  const phase = state && liveActivityPhase(state)
+  const changed = phase ? await deps.liveActivities.setPhase(sessionId, phase) : null
 
-  if (session.phase && session.phase !== 'running') await deliver(deps, session, [token])
+  if (changed) await deliver(deps, changed, changed.tokens)
+  else if (added.phase && added.phase !== 'running') await deliver(deps, added, [token])
+}
+
+/** Moves the session's Live Activities to the runtime's newest state. */
+export async function recordLiveActivityState(
+  deps: LiveActivityDeps,
+  sessionId: string,
+  state: SessionExecutionState,
+): Promise<void> {
+  const phase = liveActivityPhase(state)
+  const session = phase ? await deps.liveActivities.setPhase(sessionId, phase) : null
+
+  if (session) await deliver(deps, session, session.tokens)
 }
 
 export const liveActivityDeps: LiveActivityDeps = {
@@ -270,26 +255,9 @@ export const liveActivityDeps: LiveActivityDeps = {
   },
 }
 
-const EVENT_ORDER = { started: 0, approval: 1, ended: 2 } as const
-
-/** Moves the conversation's Live Activities to where the run now stands. */
-export function notifyLiveActivities(run: NotifiableRun, event: keyof typeof EVENT_ORDER): void {
+export function notifyLiveActivities(sessionId: string, state: SessionExecutionState): void {
   if (!apnsCredentials()) return
-  const aborted = run.abortController.signal.aborted
-  const phase =
-    event === 'started'
-      ? 'running'
-      : event === 'approval'
-        ? 'approval'
-        : liveActivityPhase(classifyTurn({ ...run, aborted }), aborted)
-
-  if (!phase) return
-  void recordLiveActivityPhase(
-    liveActivityDeps,
-    run.sessionId,
-    phase,
-    run.createdAt * 4 + EVENT_ORDER[event],
-  ).catch((error: unknown) => {
+  void recordLiveActivityState(liveActivityDeps, sessionId, state).catch((error: unknown) => {
     logError('push.live_activity_failed', error)
   })
 }

@@ -95,7 +95,6 @@ extension TurnActivityAttributes.Phase {
         case .running: "Running"
         case .approval: "Needs approval"
         case .done: "Done"
-        case .failed: "Failed"
         case .stopped: "Stopped"
         }
     }
@@ -105,7 +104,6 @@ extension TurnActivityAttributes.Phase {
         case .running: "circle.dotted"
         case .approval: "hand.raised.fill"
         case .done: "checkmark.circle.fill"
-        case .failed: "exclamationmark.triangle.fill"
         case .stopped: "stop.circle.fill"
         }
     }
@@ -115,7 +113,6 @@ extension TurnActivityAttributes.Phase {
         case .running: .secondary
         case .approval: .orange
         case .done: .green
-        case .failed: .red
         case .stopped: .secondary
         }
     }
