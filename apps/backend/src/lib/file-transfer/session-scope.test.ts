@@ -26,16 +26,16 @@ function matches(doc: Doc, filter: Doc): boolean {
   })
 }
 
-const collections: Record<string, Doc[]> = { agent_conversations: [], file_transfer_groups: [] }
+const collections = { agent_conversations: [] as Doc[], file_transfer_groups: [] as Doc[] }
+const docs = (name: string) => collections[name as keyof typeof collections]
 
 useDb({
   db: (() => ({
     collection: (name: string) => ({
       find: (filter: Doc) => ({
-        toArray: async () => (collections[name] ?? []).filter((d) => matches(d, filter)),
+        toArray: async () => docs(name).filter((d) => matches(d, filter)),
       }),
-      findOne: async (filter: Doc) =>
-        (collections[name] ?? []).find((d) => matches(d, filter)) ?? null,
+      findOne: async (filter: Doc) => docs(name).find((d) => matches(d, filter)) ?? null,
     }),
   })) as unknown as typeof dbActual.db,
 })
@@ -45,8 +45,12 @@ const otherTeamId = new ObjectId()
 const groupId = new ObjectId()
 
 // root ── parent ── child (pushes the group); root ── sibling; unrelated stands alone.
-// "other-user" owns a conversation nested under parent in the same team.
-function conversation(sessionId: string, parentSessionId?: string, userId = 'owner', team = teamId) {
+function conversation(
+  sessionId: string,
+  parentSessionId?: string,
+  userId = 'owner',
+  team = teamId,
+) {
   return {
     sessionId,
     userId,
