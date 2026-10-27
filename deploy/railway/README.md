@@ -108,13 +108,14 @@ not publish or create Railway resources in CI.
 npm ci
 npm run check
 npm test
-# Docker required: verifies the wrapper starts as uid 1000 and preserves home/workspace.
+# Docker required: tests the Mongo bootstrap across a restart, and verifies the
+# runtime wrapper starts as uid 1000 and preserves home/workspace.
 python3 smoke.py
 ```
 
 CI evaluates both specs with the official SDK, checks service/credential
-separation and shell syntax, and tests the runtime wrapper across container
-replacement.
+separation and shell syntax, tests Mongo authentication and transactions
+across a restart, and tests the runtime wrapper across container replacement.
 Railway routing, DNS, email delivery and model inference require a real deployment
 and are not exercised by these offline checks.
 
