@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  changeStatus,
   chipNames,
   fittingChipCount,
   minimumRowWidth,
@@ -160,4 +161,23 @@ test('an unblocked, merged or closed PR, or a Linear issue, has no mark', () => 
   assert.equal(resourceMark(resource({ state: 'merged', health: 'checks_failed' })), null)
   assert.equal(resourceMark(resource({ state: 'closed', health: 'conflict' })), null)
   assert.equal(resourceMark(resource({ provider: 'linear', health: 'conflict' })), null)
+})
+
+test('a change is open, merged or closed, a completed issue counting as merged', () => {
+  assert.equal(changeStatus(resource({ state: 'open' })), 'open')
+  assert.equal(changeStatus(resource({ state: 'merged' })), 'merged')
+  assert.equal(changeStatus(resource({ state: 'closed' })), 'closed')
+  assert.equal(
+    changeStatus(resource({ provider: 'linear', state: 'Done', stateType: 'completed' })),
+    'merged',
+  )
+  assert.equal(
+    changeStatus(resource({ provider: 'linear', state: 'Canceled', stateType: 'canceled' })),
+    'closed',
+  )
+  assert.equal(
+    changeStatus(resource({ provider: 'linear', state: 'In Progress', stateType: 'started' })),
+    'open',
+  )
+  assert.equal(changeStatus(resource({ provider: 'slack', state: 'linked' })), 'open')
 })

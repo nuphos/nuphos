@@ -42,6 +42,25 @@ export function pullStateColor(resource: SessionResource) {
   return 'session-resource-open'
 }
 
+/**
+ * Where a pull request or issue stands, as the Changes filter and the merged
+ * badge group them: still open, merged (or a completed issue), or closed
+ * unmerged (or a canceled issue). A chat thread is always open.
+ */
+export type ChangeStatus = 'open' | 'merged' | 'closed'
+
+export function changeStatus(resource: SessionResource): ChangeStatus {
+  if (resource.provider === 'linear') {
+    if (resource.stateType === 'completed') return 'merged'
+
+    return resource.stateType === 'canceled' ? 'closed' : 'open'
+  }
+  if (resource.provider !== 'github') return 'open'
+  if (resource.state === 'merged') return 'merged'
+
+  return resource.state === 'closed' ? 'closed' : 'open'
+}
+
 const HEALTH_MARK = {
   checks_failed: { glyph: 'cross', color: 'session-resource-failing' },
   changes_requested: { glyph: 'dot', color: 'session-resource-pending' },

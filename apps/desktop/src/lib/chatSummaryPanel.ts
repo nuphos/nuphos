@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
+import type { ChangeStatus } from '../components/sidebar/sessionResourcePresentation'
+
 // One value per window: each Electron window has its own sessionStorage,
 // which also survives a reload of that window.
 const OPEN_KEY = 'nuphos.chatSummaryOpen'
@@ -38,6 +40,33 @@ export function toggleChatSummary(): void {
   setChatSummaryOpen(!open)
 }
 
+/** Which pull requests and issues the panel's Changes list shows. */
+export type ChangesFilter = 'all' | ChangeStatus
+
+const FILTER_KEY = 'nuphos.chatSummaryChangesFilter'
+const FILTERS: readonly ChangesFilter[] = ['all', 'open', 'merged', 'closed']
+
+function storedFilter(): ChangesFilter {
+  const stored = read(FILTER_KEY)
+
+  return FILTERS.find((filter) => filter === stored) ?? 'all'
+}
+
+let changesFilter: ChangesFilter = inWindow ? storedFilter() : 'all'
+
+export function setChangesFilter(next: ChangesFilter): void {
+  changesFilter = next
+  write(FILTER_KEY, next)
+  notify()
+}
+
+/** Opens the panel on its Changes list showing only `filter`, as the merged badge does. */
+export function openChatSummaryChanges(filter: ChangesFilter): void {
+  changesFilter = filter
+  write(FILTER_KEY, filter)
+  setChatSummaryOpen(true)
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
 
@@ -49,6 +78,14 @@ export function useChatSummaryOpen(): boolean {
     subscribe,
     () => open,
     () => false,
+  )
+}
+
+export function useChangesFilter(): ChangesFilter {
+  return useSyncExternalStore(
+    subscribe,
+    () => changesFilter,
+    () => 'all',
   )
 }
 
