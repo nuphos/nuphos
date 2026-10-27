@@ -112,10 +112,11 @@ enum AgentChatAPI {
         let token: String
         let teamId: String
         let sessionId: String
+        let title: String
         let environment: String
     }
 
-    /// `PUT /push/live-activities` — where the backend sends the turn's end.
+    /// `PUT /push/live-activities` — puts the conversation on the phone's card.
     static func registerLiveActivity(token: String, activity: LiveActivityToken) async throws {
         try await send("PUT", "push/live-activities", token: token, body: activity, timeout: 15)
     }

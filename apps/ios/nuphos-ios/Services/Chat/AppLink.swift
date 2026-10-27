@@ -6,6 +6,7 @@ import Foundation
 enum AppLink: Equatable {
     case session(teamId: String, sessionId: String)
     case plan(PlanLink.Target)
+    case conversations
 
     /// The page `url` points at: a nuphos.ai URL, a bare path, or the
     /// `nuphos://open?url=<page>` hand-off nuphos.ai uses to open the app.
@@ -16,6 +17,8 @@ enum AppLink: Equatable {
             self = .session(teamId: link.teamId, sessionId: link.sessionId)
         } else if let plan = PlanLink.target(in: page) {
             self = .plan(plan)
+        } else if page == SessionLink.conversations {
+            self = .conversations
         } else {
             return nil
         }

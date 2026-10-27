@@ -5,6 +5,8 @@ import Foundation
 /// path, `ATLAS_WEB_BASE_URL` the origin).
 enum SessionLink {
     static let webBase = "https://nuphos.ai"
+    /// Where the Live Activity sends a tap outside its rows: the conversation list.
+    static let conversations = URL(string: "\(webBase)/agent")!
 
     /// `https://nuphos.ai/teams/<teamId>/agent/<sessionId>`, with both
     /// segments percent-encoded the way `encodeURIComponent` encodes them.

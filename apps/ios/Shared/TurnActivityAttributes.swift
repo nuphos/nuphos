@@ -1,27 +1,46 @@
 import ActivityKit
 import Foundation
 
-/// A conversation's turn on the Lock Screen and in the Dynamic Island. The
-/// app starts it while a turn runs; the backend's `liveactivity` push moves
-/// it to approval or ends it (`apps/backend/src/lib/push/live-activities.ts`).
+/// The app's one Live Activity: the conversations whose turns run, on the Lock
+/// Screen and in the Dynamic Island. The app starts it when a turn runs and
+/// adds later ones to it; the backend's `liveactivity` pushes keep it current
+/// and end it once nothing runs (`apps/backend/src/lib/push/live-activities.ts`).
 nonisolated struct TurnActivityAttributes: ActivityAttributes {
     /// Matches the backend's `LiveActivityPhase`.
     enum Phase: String, Codable, Hashable, Sendable {
         case running, approval, done, failed, stopped
+
+        /// Still needs the card: running, or waiting for approval.
+        var isActive: Bool { self == .running || self == .approval }
     }
 
-    struct ContentState: Codable, Hashable, Sendable {
+    struct Session: Codable, Hashable, Sendable, Identifiable {
+        let id: String
+        let teamId: String
+        let title: String
         var phase: Phase
-        /// Unix seconds; the push that ends the turn sets it.
-        var endedAt: Double?
     }
 
-    let sessionId: String
-    let title: String
-    /// Asset name of the agent's mark.
-    let logo: String
-    /// The agent, or the computer it runs on.
-    let runtime: String?
-    let startedAt: Date
-    let url: URL?
+    /// Matches the backend's `liveActivityCard`.
+    struct ContentState: Codable, Hashable, Sendable {
+        /// The most recently updated first, at most `rows` of them.
+        var sessions: [Session]
+        /// Conversations past those.
+        var more: Int
+        /// Running or waiting for approval, shown or not.
+        var active: Int
+
+        static let rows = 3
+
+        /// Moves `session` to the top, as the backend orders it.
+        mutating func put(_ session: Session) {
+            let old = sessions.firstIndex { $0.id == session.id }.map { sessions.remove(at: $0) }
+            active += (session.phase.isActive ? 1 : 0) - (old?.phase.isActive == true ? 1 : 0)
+            sessions.insert(session, at: 0)
+            if sessions.count > Self.rows {
+                sessions.removeLast()
+                more += 1
+            }
+        }
+    }
 }

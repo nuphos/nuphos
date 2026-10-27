@@ -37,8 +37,6 @@ final class ChatSession {
     private(set) var stoppedByUser = false
     /// Stop was sent; the runtime has not yet closed the turn.
     private(set) var isStopping = false
-    /// When the current reply started — for "Worked for Xs".
-    private(set) var turnStartedAt: Date?
     /// New conversation: sent on the first POST. Existing: mirrors the
     /// server's bypass flag — change it with `setPermissionMode`.
     private(set) var permissionMode: PermissionMode = .auto
@@ -136,17 +134,13 @@ final class ChatSession {
     private func showLiveActivity() {
         #if os(iOS)
         guard isStreaming else { return }
-        TurnLiveActivity.show(
-            sessionId: sessionId, teamId: teamId, title: title,
-            agent: agentRuntime ?? runtime?.provider.rawValue, runtime: runtimeDisplayName,
-            startedAt: turnStartedAt, authToken: token
-        )
+        TurnLiveActivity.show(sessionId: sessionId, teamId: teamId, title: title, authToken: token)
         #endif
     }
     /// Only for a turn that certainly ended; the backend's push covers the rest.
     private func endLiveActivity(_ phase: TurnActivityAttributes.Phase) {
         #if os(iOS)
-        TurnLiveActivity.end(sessionId: sessionId, phase: phase)
+        TurnLiveActivity.finish(sessionId: sessionId, phase: phase)
         #endif
     }
     /// The turn parked on an approval or a question rather than ending.
@@ -761,7 +755,6 @@ final class ChatSession {
         isStopping = false
         stoppedByUser = false
         error = nil
-        turnStartedAt = .now
         currentStreamId = options.streamId
         awaitingAdmission = isNativeRuntime && !options.explicitResume
         showLiveActivity()

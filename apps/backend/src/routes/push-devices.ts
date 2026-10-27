@@ -10,7 +10,7 @@ import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 
 import type { PushDeviceStore } from '@/lib/push/devices'
-import type { LiveActivityToken } from '@/lib/push/live-activities'
+import type { LiveActivityRow, LiveActivityToken } from '@/lib/push/live-activities'
 import type { AuthVariables } from '@/middleware/auth'
 
 const apnsToken = z.string().regex(/^[0-9a-f]{64,200}$/i)
@@ -79,6 +79,8 @@ const liveActivitySchema = z.object({
   token: apnsToken,
   teamId: z.string().trim().min(1).max(64),
   sessionId: z.string().trim().min(1).max(128),
+  // Older apps send no title; their rows show the card without one.
+  title: z.string().trim().max(200).default(''),
   environment: z.enum(['sandbox', 'production']),
 })
 
@@ -88,20 +90,20 @@ export type CanReadConversation = (
   sessionId: string,
 ) => Promise<boolean>
 
-/** A Live Activity's push token, so the end of the turn reaches the Lock Screen. */
+/** Puts a conversation on the phone's Live Activity, so its turns reach the Lock Screen. */
 export function createLiveActivityRoutes(
-  register: (sessionId: string, token: LiveActivityToken) => Promise<void>,
+  register: (sessionId: string, token: LiveActivityToken, row: LiveActivityRow) => Promise<void>,
   canRead: CanReadConversation,
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.put('/live-activities', zv('json', liveActivitySchema), async (c) => {
-    const { token, teamId, sessionId, environment } = c.req.valid('json')
+    const { token, teamId, sessionId, title, environment } = c.req.valid('json')
     const userId = c.get('userId')
 
     if (!(await canRead(userId, teamId, sessionId)))
       throw new AppError(404, 'not_found', 'Conversation not found')
-    await register(sessionId, { token: token.toLowerCase(), userId, environment })
+    await register(sessionId, { token: token.toLowerCase(), userId, environment }, { teamId, title })
 
     return c.json({ ok: true })
   })
@@ -122,7 +124,7 @@ pushRoutes.route('/', createPushDeviceRoutes(pushDeviceStore))
 pushRoutes.route(
   '/',
   createLiveActivityRoutes(
-    (sessionId, token) => registerLiveActivityToken(liveActivityDeps, sessionId, token),
+    (sessionId, token, row) => registerLiveActivityToken(liveActivityDeps, sessionId, token, row),
     canReadConversation,
   ),
 )

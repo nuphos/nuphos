@@ -162,6 +162,12 @@ struct HomeView: View {
         .onChange(of: PushNotifications.shared.pendingTarget, initial: true) { _, target in
             if target != nil { page = .agent }
         }
+        .onChange(of: PushNotifications.shared.pendingConversations, initial: true) { _, show in
+            guard show else { return }
+            PushNotifications.shared.pendingConversations = false
+            page = .agent
+            openChat = nil
+        }
     }
 
     /// DEBUG: `-page monitoring` opens that page directly, for UI checks.

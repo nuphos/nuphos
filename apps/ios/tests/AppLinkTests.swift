@@ -23,6 +23,8 @@ enum AppLinkTests {
             precondition(route(link) == .plan(PlanLink.Target(teamId: team, planId: "42")), link)
         }
         precondition(route("/teams/\(team)/agent/\(child)") == .session(teamId: team, sessionId: child))
+        // The Live Activity's own link outside its rows opens the conversation list.
+        precondition(route(SessionLink.conversations.absoluteString) == .conversations)
 
         // Pages without an app screen keep the app where it is.
         for page in [

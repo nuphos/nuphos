@@ -5,13 +5,13 @@ import { errorHandler } from '@/lib/errors'
 import { createLiveActivityRoutes, createPushDeviceRoutes } from '@/routes/push-devices'
 
 import type { PushDeviceRegistration, PushDeviceStore } from '@/lib/push/devices'
-import type { LiveActivityToken } from '@/lib/push/live-activities'
+import type { LiveActivityRow, LiveActivityToken } from '@/lib/push/live-activities'
 import type { AuthVariables } from '@/middleware/auth'
 
 const TOKEN = 'AB'.repeat(32)
 let registered: { userId: string; device: PushDeviceRegistration }[]
 let unregistered: { userId: string; token: string }[]
-let activities: { sessionId: string; token: LiveActivityToken }[]
+let activities: { sessionId: string; token: LiveActivityToken; row: LiveActivityRow }[]
 
 const store: PushDeviceStore = {
   register: async (userId, device) => {
@@ -34,8 +34,8 @@ app.route('/push', createPushDeviceRoutes(store))
 app.route(
   '/push',
   createLiveActivityRoutes(
-    async (sessionId, token) => {
-      activities.push({ sessionId, token })
+    async (sessionId, token, row) => {
+      activities.push({ sessionId, token, row })
     },
     async (userId, teamId, sessionId) =>
       userId === 'user-1' && teamId === 'team-1' && sessionId === 'readable',
@@ -148,12 +148,19 @@ describe('Live Activity registration', () => {
     })
   }
 
-  test('stores the token for a conversation the user can read', async () => {
+  test('stores the token and row for a conversation the user can read', async () => {
+    expect((await putActivity({ sessionId: 'readable', title: ' Fix login ' })).status).toBe(200)
     expect((await putActivity({ sessionId: 'readable' })).status).toBe(200)
     expect(activities).toEqual([
       {
         sessionId: 'readable',
         token: { token: TOKEN.toLowerCase(), userId: 'user-1', environment: 'production' },
+        row: { teamId: 'team-1', title: 'Fix login' },
+      },
+      {
+        sessionId: 'readable',
+        token: { token: TOKEN.toLowerCase(), userId: 'user-1', environment: 'production' },
+        row: { teamId: 'team-1', title: '' },
       },
     ])
   })

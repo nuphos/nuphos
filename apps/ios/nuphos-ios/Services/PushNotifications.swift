@@ -37,6 +37,8 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 
     var pendingTarget: PushTarget?
     var pendingPlan: PlanLink.Target?
+    /// The Live Activity was tapped outside its rows: show the conversation list.
+    var pendingConversations = false
 
     /// Shows a nuphos.ai page in-app — a link tapped in a chat or one that
     /// opened the app. False when the app has no screen for it.
@@ -45,6 +47,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         switch AppLink(url) {
         case .session(let teamId, let sessionId): pendingTarget = PushTarget(teamId: teamId, sessionId: sessionId)
         case .plan(let plan): pendingPlan = plan
+        case .conversations: pendingConversations = true
         case nil: return false
         }
         return true
@@ -160,6 +163,9 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         PushNotifications.shared.install()
+        #if os(iOS)
+        TurnLiveActivity.dropExtras()
+        #endif
         return true
     }
 

@@ -16,18 +16,22 @@ export type LiveActivityPhase = 'running' | 'approval' | 'done' | 'failed' | 'st
 
 export type LiveActivityToken = { token: string; userId: string; environment: ApnsEnvironment }
 
-/** A conversation's newest turn phase and the iOS Live Activities showing it.
- *  Any phone watching the conversation can start one, so this is per session. */
+/** A conversation's newest turn phase and the Live Activities showing it.
+ *  A phone has one activity for all its running conversations, so one token
+ *  sits on every session that phone's card lists. */
 export type LiveActivitySession = {
   sessionId: string
+  /** The card's row: the conversation's team (for its link) and title. */
+  teamId?: string
+  title?: string
   phase?: LiveActivityPhase
-  /** Unix seconds; set for the phases that end the activity. */
-  endedAt?: number | null
   /** Orders writes: a run's start, approval and end, and later runs after earlier ones. */
   version?: number
   tokens: LiveActivityToken[]
   updatedAt: Date
 }
+
+export type LiveActivityRow = { teamId: string; title: string }
 
 export type LiveActivityStore = {
   /** Null when a newer phase is already stored. A run's start only updates a
@@ -36,11 +40,17 @@ export type LiveActivityStore = {
     sessionId: string,
     phase: LiveActivityPhase,
     version: number,
-    endedAt: number | null,
   ) => Promise<LiveActivitySession | null>
-  addToken: (sessionId: string, token: LiveActivityToken) => Promise<LiveActivitySession>
-  removeToken: (sessionId: string, token: string) => Promise<void>
+  addToken: (
+    sessionId: string,
+    token: LiveActivityToken,
+    row: LiveActivityRow,
+  ) => Promise<LiveActivitySession>
+  /** Drops the token from every session: its activity is over. */
+  removeToken: (token: string) => Promise<void>
   get: (sessionId: string) => Promise<LiveActivitySession | null>
+  /** The sessions on one activity's card, most recently updated first. */
+  forToken: (token: string) => Promise<LiveActivitySession[]>
 }
 
 // iOS ends an activity after 8 hours and removes it from the Lock Screen
@@ -54,6 +64,7 @@ export async function setupLiveActivityIndexes(): Promise<void> {
   const collection = sessions()
 
   await collection.createIndex({ sessionId: 1 }, { unique: true, name: 'live_activity_session' })
+  await collection.createIndex({ 'tokens.token': 1 }, { name: 'live_activity_token' })
   await collection.createIndex(
     { updatedAt: 1 },
     { expireAfterSeconds: LIVE_ACTIVITY_TTL_SECONDS, name: 'live_activity_ttl' },
@@ -61,12 +72,12 @@ export async function setupLiveActivityIndexes(): Promise<void> {
 }
 
 export const liveActivityStore: LiveActivityStore = {
-  async setPhase(sessionId, phase, version, endedAt) {
+  async setPhase(sessionId, phase, version) {
     try {
       return await sessions().findOneAndUpdate(
         { sessionId, $or: [{ version: { $lt: version } }, { version: { $exists: false } }] },
         {
-          $set: { phase, version, endedAt, updatedAt: new Date() },
+          $set: { phase, version, updatedAt: new Date() },
           $setOnInsert: { tokens: [] },
         },
         { upsert: phase !== 'running', returnDocument: 'after' },
@@ -77,26 +88,31 @@ export const liveActivityStore: LiveActivityStore = {
       throw error
     }
   },
-  async addToken(sessionId, token) {
+  async addToken(sessionId, token, row) {
     await sessions().updateOne({ sessionId }, { $pull: { tokens: { token: token.token } } })
     const session = await sessions().findOneAndUpdate(
       { sessionId },
-      { $push: { tokens: token }, $set: { updatedAt: new Date() } },
+      { $push: { tokens: token }, $set: { ...row, updatedAt: new Date() } },
       { upsert: true, returnDocument: 'after' },
     )
 
     return session!
   },
-  async removeToken(sessionId, token) {
-    await sessions().updateOne({ sessionId }, { $pull: { tokens: { token } } })
+  async removeToken(token) {
+    await sessions().updateMany({ 'tokens.token': token }, { $pull: { tokens: { token } } })
   },
   async get(sessionId) {
     return sessions().findOne({ sessionId })
   },
+  async forToken(token) {
+    return sessions().find({ 'tokens.token': token }).sort({ updatedAt: -1 }).toArray()
+  },
 }
 
-// How long a finished turn stays on the Lock Screen.
+// How long the card stays on the Lock Screen once nothing runs.
 export const LIVE_ACTIVITY_DISMISS_S = 30 * 60
+// Rows on the card; the rest are counted.
+export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
 export const LIVE_ACTIVITY_RETRY_MS = [5_000, 30_000, 120_000]
 
@@ -119,10 +135,28 @@ export type LiveActivityDeps = {
   schedule: (work: () => void, delayMs: number) => void
 }
 
-/** Running and approval update the activity; every other phase ends it. A
- *  token is dropped only once it has ended or APNs says it is dead; anything
- *  else is retried, so a throttled end still reaches the phone, unless a newer
- *  phase replaced this one meanwhile (its own delivery covers those tokens). */
+const isActive = (phase?: LiveActivityPhase) => !phase || phase === 'running' || phase === 'approval'
+
+/** Must match `TurnActivityAttributes.ContentState` in the iOS app. A session
+ *  registered before its run reported a phase is running. */
+export function liveActivityCard(sessions: LiveActivitySession[]) {
+  return {
+    sessions: sessions.slice(0, LIVE_ACTIVITY_ROWS).map((s) => ({
+      id: s.sessionId,
+      teamId: s.teamId ?? '',
+      title: s.title ?? '',
+      phase: s.phase ?? 'running',
+    })),
+    more: Math.max(0, sessions.length - LIVE_ACTIVITY_ROWS),
+    active: sessions.filter((s) => isActive(s.phase)).length,
+  }
+}
+
+/** Sends each token its whole card. While anything on it runs or waits for
+ *  approval the card updates; otherwise it ends. A token is dropped only once
+ *  it has ended or APNs says it is dead; anything else is retried, so a
+ *  throttled end still reaches the phone, unless a newer phase replaced this
+ *  one meanwhile (its own delivery covers those tokens). */
 async function deliver(
   deps: LiveActivityDeps,
   session: LiveActivitySession,
@@ -130,33 +164,32 @@ async function deliver(
   attempt = 0,
 ): Promise<void> {
   const credentials = deps.credentials()
-  const { sessionId, phase, endedAt } = session
 
-  if (!credentials || !phase) return
-  const ends = phase !== 'running' && phase !== 'approval'
+  if (!credentials) return
   const now = Math.floor(deps.now() / 1000)
-  const payload = {
-    aps: {
-      timestamp: now,
-      event: ends ? 'end' : 'update',
-      'content-state': ends ? { phase, endedAt } : { phase },
-      ...(ends ? { 'dismissal-date': now + LIVE_ACTIVITY_DISMISS_S } : {}),
-    },
-  }
   const retry: LiveActivityToken[] = []
 
   await Promise.all(
     tokens.map(async (token) => {
       try {
+        const card = liveActivityCard(await deps.liveActivities.forToken(token.token))
+        const ends = card.active === 0
         const response = await deps.send(credentials, {
           deviceToken: token.token,
           environment: token.environment,
           pushType: 'liveactivity',
-          payload,
+          payload: {
+            aps: {
+              timestamp: now,
+              event: ends ? 'end' : 'update',
+              'content-state': card,
+              ...(ends ? { 'dismissal-date': now + LIVE_ACTIVITY_DISMISS_S } : {}),
+            },
+          },
         })
 
         if (isDeadToken(response) || (ends && response.status === 200)) {
-          await deps.liveActivities.removeToken(sessionId, token.token)
+          await deps.liveActivities.removeToken(token.token)
         } else if (response.status !== 200) {
           logEvent('warn', 'push.live_activity.rejected', {
             status: response.status,
@@ -166,7 +199,7 @@ async function deliver(
           retry.push(token)
         }
       } catch (error) {
-        logError('push.live_activity.send_failed', error, { session_id: sessionId, attempt })
+        logError('push.live_activity.send_failed', error, { session_id: session.sessionId, attempt })
         retry.push(token)
       }
     }),
@@ -196,29 +229,29 @@ async function retryIfCurrent(
   if (registered.length > 0) await deliver(deps, current, registered, attempt)
 }
 
-/** Stores the session's newest phase and pushes it to its activities. */
+/** Stores the session's newest phase and pushes the cards that list it. */
 export async function recordLiveActivityPhase(
   deps: LiveActivityDeps,
   sessionId: string,
   phase: LiveActivityPhase,
   version: number,
 ): Promise<void> {
-  const ends = phase !== 'running' && phase !== 'approval'
-  const endedAt = ends ? Math.floor(deps.now() / 1000) : null
-  const session = await deps.liveActivities.setPhase(sessionId, phase, version, endedAt)
+  const session = await deps.liveActivities.setPhase(sessionId, phase, version)
 
   if (session) await deliver(deps, session, session.tokens)
 }
 
-/** Adds an activity's token and, when the turn already moved on (it can end
- *  before the phone gets a token), brings that activity up to date. The token
- *  is stored first, so a turn ending meanwhile either sees it or is seen here. */
+/** Puts a session on an activity's card and, when the turn already moved on
+ *  (it can end before the phone gets a token), brings that card up to date.
+ *  The token is stored first, so a turn ending meanwhile either sees it or is
+ *  seen here. */
 export async function registerLiveActivityToken(
   deps: LiveActivityDeps,
   sessionId: string,
   token: LiveActivityToken,
+  row: LiveActivityRow,
 ): Promise<void> {
-  const session = await deps.liveActivities.addToken(sessionId, token)
+  const session = await deps.liveActivities.addToken(sessionId, token, row)
 
   if (session.phase && session.phase !== 'running') await deliver(deps, session, [token])
 }
