@@ -271,7 +271,11 @@ test('a phone send while an agent message runs is queued in order, never refused
 
   try {
     expect((await admit('first', phone('first')))?.mode).toBe('queued')
-    const outcome = await claimAgentRunOrEnqueue({ userId: OWNER, sessionId: SESSION, message: thread })
+    const outcome = await claimAgentRunOrEnqueue({
+      userId: OWNER,
+      sessionId: SESSION,
+      message: thread,
+    })
 
     expect(outcome.mode).toBe('queued')
     expect((await admit('second', phone('second')))?.mode).toBe('queued')
