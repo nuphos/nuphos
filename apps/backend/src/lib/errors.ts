@@ -50,7 +50,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
           requestId: c.get('requestId'),
         },
       },
-      err.status,
+      edgeSafeStatus(err.status),
     )
   }
   if (err instanceof HTTPException) {
@@ -58,7 +58,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
 
     return c.json(
       { error: { code: 'http_exception', message: err.message, requestId: c.get('requestId') } },
-      err.status,
+      edgeSafeStatus(err.status),
     )
   }
   if (err instanceof ZodError) {
@@ -82,7 +82,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
     rememberErrorCode(c, 'cloud_api_error')
     logError('http.cloud_api_error', err, {
       context: c,
-      status: 502,
+      status: 424,
       error_code: 'cloud_api_error',
       upstream_status: cloudStatus,
     })
@@ -96,7 +96,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
           requestId: c.get('requestId'),
         },
       },
-      502,
+      424,
     )
   }
 
@@ -112,6 +112,15 @@ export const errorHandler: ErrorHandler = (err, c) => {
     },
     500,
   )
+}
+
+// Cloudflare replaces an origin's 502 and 504 with its own "error code: 502"
+// page, so the JSON errorHandler sends (the actual reason) never arrives. The
+// backend therefore never answers with those two itself: an upstream failure
+// is a failed dependency of this request. Real gateway 502/504s stay
+// unambiguous for the clients that retry on them.
+function edgeSafeStatus(status: ContentfulStatusCode): ContentfulStatusCode {
+  return status === 502 || status === 504 ? 424 : status
 }
 
 const ERROR_CODE_KEY = 'errorCode'

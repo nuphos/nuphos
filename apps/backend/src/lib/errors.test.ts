@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
-import { notFoundHandler } from '@/lib/errors'
+import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 
 describe('notFoundHandler', () => {
   test('labels router 404s route_not_found, separate from missing-record not_found', async () => {
@@ -18,5 +18,48 @@ describe('notFoundHandler', () => {
     // decideErrorToast (apps/desktop/src/api.ts) also matches this message shape
     // to suppress router 404s from backends released before the code existed.
     expect(body.error.message).toMatch(/^Route [A-Z]+ \S* not found$/)
+  })
+})
+
+function appThrowing(err: unknown): Hono {
+  const app = new Hono()
+
+  app.onError(errorHandler)
+  app.get('/', () => {
+    throw err
+  })
+
+  return app
+}
+
+describe('errorHandler', () => {
+  // Cloudflare swaps an origin 502/504 for its own page and drops this body.
+  test('answers an upstream AppError with 424 and keeps its reason', async () => {
+    const res = await appThrowing(
+      new AppError(502, 'tailscale_api_error', 'token revoked'),
+    ).request('/')
+
+    expect(res.status).toBe(424)
+    const body = (await res.json()) as { error: { code: string; message: string } }
+
+    expect(body.error).toMatchObject({ code: 'tailscale_api_error', message: 'token revoked' })
+  })
+
+  test('answers a cloud SDK 4xx with 424 cloud_api_error and the upstream status', async () => {
+    const err = Object.assign(new Error('PERMISSION_DENIED: unable to impersonate'), {
+      response: { status: 403 },
+    })
+    const res = await appThrowing(err).request('/')
+
+    expect(res.status).toBe(424)
+    const body = (await res.json()) as { error: { code: string; upstreamStatus: number } }
+
+    expect(body.error).toMatchObject({ code: 'cloud_api_error', upstreamStatus: 403 })
+  })
+
+  test('leaves other statuses unchanged', async () => {
+    const res = await appThrowing(new AppError(503, 'unavailable', 'later')).request('/')
+
+    expect(res.status).toBe(503)
   })
 })
