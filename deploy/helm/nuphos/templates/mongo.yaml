@@ -7,7 +7,7 @@ metadata:
     {{- include "nuphos.labels" . | nindent 4 }}
     {{- include "nuphos.selectorLabels" (list . "mongo") | nindent 4 }}
 data:
-  # Same bootstrap as deploy/zeabur/template.yaml: keyfile auth, then a one-node replica set.
+  # Same bootstrap as deploy/railway/mongo.sh: keyfile auth, then a one-node replica set.
   start.sh: |
     #!/bin/bash
     set -euo pipefail

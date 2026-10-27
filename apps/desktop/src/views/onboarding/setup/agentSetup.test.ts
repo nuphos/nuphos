@@ -63,8 +63,8 @@ test('the stepper marks local first and every cloud screen second', () => {
   assert.equal(setupStep('done'), undefined)
 })
 
-test('self-hosted platforms are exactly Zeabur, Railway and Docker Compose, each with an https link', () => {
-  assert.deepEqual(SELF_HOSTED_PLATFORM_IDS, ['zeabur', 'railway', 'compose'])
+test('self-hosted platforms are exactly Railway and Docker Compose, each with an https link', () => {
+  assert.deepEqual(SELF_HOSTED_PLATFORM_IDS, ['railway', 'compose'])
   for (const id of SELF_HOSTED_PLATFORM_IDS)
     assert.equal(new URL(SELF_HOSTED_PLATFORMS[id].url).protocol, 'https:')
 })

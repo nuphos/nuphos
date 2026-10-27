@@ -102,7 +102,7 @@ export function CloudAgentStep({
               selected={choice === 'self-hosted'}
               icon={<Server className="h-4 w-4" />}
               title="Self-hosted"
-              description="Run it on your own account: Zeabur, Railway or any server with Docker Compose."
+              description="Run it on your own account: Railway or any server with Docker Compose."
             />
           </RadioGroup>
         )}

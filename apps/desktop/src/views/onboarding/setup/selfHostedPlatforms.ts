@@ -1,10 +1,5 @@
 /** Where a self-hosted cloud agent can run, and the one link that deploys it there. */
 export const SELF_HOSTED_PLATFORMS = {
-  zeabur: {
-    name: 'Zeabur',
-    tag: 'Template',
-    url: 'https://github.com/nuphos/nuphos/tree/main/deploy/zeabur',
-  },
   railway: {
     name: 'Railway',
     tag: 'Template',
