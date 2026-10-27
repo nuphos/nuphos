@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
@@ -12,9 +12,12 @@ import { ChangesSection } from './ChatSummaryChanges'
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName } from './chatSummaryModel'
 import { SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
+import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
+import { inputRequestKey } from './sessionInputRequests'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
+import type { AgentConversation } from '../../../api/agent-types'
 import type { KeyboardEvent } from 'react'
 
 type Props = {
@@ -22,6 +25,9 @@ type Props = {
   teamId: string
   onOpenLink: (url: string, external: boolean) => void
   onOpenSession: (sessionId: string) => void
+  requests: AgentConversation[]
+  requestsLoaded: boolean
+  requestsFailed: boolean
 }
 
 const PANE = '[data-workspace-focus-surface="session"]'
@@ -106,8 +112,17 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null) {
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */
-function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
+function SummaryBody({
+  sessionId,
+  teamId,
+  onOpenLink,
+  onOpenSession,
+  requests,
+  requestsLoaded,
+  requestsFailed,
+}: Props) {
   const rootRef = useRef<HTMLElement>(null)
+  const [selected, setSelected] = useState<AgentConversation | null>(null)
   const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
   const runtimeStates = useAgentRuntimeStates()
   const changes = changesOf(conversation?.linkedResources ?? [])
@@ -119,39 +134,63 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
       onKeyDown={(event) => closeOnEscape(event, rootRef.current)}
       className={clsx(
         't-summary-in',
-        'absolute inset-y-0 right-0 z-10 flex w-[304px] flex-shrink-0 flex-col gap-3 overflow-y-auto border-l border-zGray-800/60 bg-main px-3.5 py-3 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
-        '@[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent @[760px]:shadow-none',
+        'absolute inset-y-0 right-0 z-10 flex max-w-full flex-shrink-0 flex-col border-l border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
+        selected
+          ? 'w-[440px] overflow-hidden @[1000px]:static'
+          : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3 @[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent',
+        '@[1000px]:shadow-none',
       )}
     >
-      {!loaded && <Skeleton />}
-      {changes.length > 0 && (
-        <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
-      )}
-      {threads.length > 0 && (
-        <SummarySection title={t('Sub-agents')}>
-          {threads.map((thread) => (
-            <ThreadRow
-              key={thread.sessionId}
-              conversation={thread}
-              runtimeState={runtimeStates.get(thread.sessionId)}
-              onOpen={onOpenSession}
-            />
-          ))}
-        </SummarySection>
-      )}
-      {conversation && <ChatSummaryEnvironment conversation={conversation} />}
-      {outputs.length > 0 && (
-        <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
-      )}
-      {loaded && !conversation && (
-        <div className="px-1 pt-1 text-[13px] leading-5">
-          <p className="text-main">{t('Nothing here yet')}</p>
-          <p className="text-tertiary">
-            {t(
-              'Pull requests, sub-agents and files from this agent appear here after its first reply.',
-            )}
-          </p>
-        </div>
+      {selected ? (
+        <SessionInputReply
+          key={inputRequestKey(selected)}
+          request={selected}
+          requests={requests}
+          teamId={teamId}
+          onSelect={setSelected}
+          onBack={() => setSelected(null)}
+          onClose={() => setChatSummaryOpen(false)}
+          onOpenSession={onOpenSession}
+        />
+      ) : (
+        <>
+          <SessionInputQueue
+            requests={requests}
+            loaded={requestsLoaded}
+            failed={requestsFailed}
+            onSelect={setSelected}
+          />
+          {!loaded && <Skeleton />}
+          {changes.length > 0 && (
+            <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
+          )}
+          {threads.length > 0 && (
+            <SummarySection title={t('Sub-agents')}>
+              {threads.map((thread) => (
+                <ThreadRow
+                  key={thread.sessionId}
+                  conversation={thread}
+                  runtimeState={runtimeStates.get(thread.sessionId)}
+                  onOpen={onOpenSession}
+                />
+              ))}
+            </SummarySection>
+          )}
+          {conversation && <ChatSummaryEnvironment conversation={conversation} />}
+          {outputs.length > 0 && (
+            <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
+          )}
+          {loaded && !conversation && (
+            <div className="px-1 pt-1 text-[13px] leading-5">
+              <p className="text-main">{t('Nothing here yet')}</p>
+              <p className="text-tertiary">
+                {t(
+                  'Pull requests, sub-agents and files from this agent appear here after its first reply.',
+                )}
+              </p>
+            </div>
+          )}
+        </>
       )}
     </aside>
   )

@@ -10,6 +10,7 @@ import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
+import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
@@ -70,6 +71,7 @@ export function WorkspaceAgentPane({
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
+  const inputQueue = useSessionInputRequests(savedSessionId, teamId)
   const connectedResources = useMemo(
     () =>
       connectedResourceLabels(
@@ -212,7 +214,13 @@ export function WorkspaceAgentPane({
             />
           )}
           {!savedSessionId && pane?.split && <PaneMenu onClosePane={pane.closePane} />}
-          {savedSessionId && <ChatSummaryToggle active={paneInFront} hidden={tight} />}
+          {savedSessionId && (
+            <ChatSummaryToggle
+              active={paneInFront}
+              hidden={tight}
+              pendingCount={inputQueue.requests.length}
+            />
+          )}
           {/* The rest of the header moves the window, so a pane moves by its grip. Electron cuts
             no-drag holes in page order, so the grip comes after the drag area it sits over. */}
           <PaneGrip label={currentHeading.title} />
@@ -262,6 +270,9 @@ export function WorkspaceAgentPane({
               teamId={teamId}
               onOpenLink={stableOpenSessionResource}
               onOpenSession={handleSessionChange}
+              requests={inputQueue.requests}
+              requestsLoaded={inputQueue.loaded}
+              requestsFailed={inputQueue.failed}
             />
           )}
         </div>

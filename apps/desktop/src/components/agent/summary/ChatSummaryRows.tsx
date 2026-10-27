@@ -188,6 +188,16 @@ export function ThreadRow({
   // The list that listed this thread published its state to the shared store.
   const indicator = chatRowIndicator(runtimeState, false)
   const running = indicator === 'turn' || indicator === 'background'
+  let note: ReactNode = t('Done')
+
+  if (conversation.pendingDecision) note = <span className="text-warning">Waiting for you</span>
+  else if (running)
+    note = (
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="size-1.5 rounded-full bg-success" />
+        {t('Running')}
+      </span>
+    )
 
   return (
     <SummaryRow
@@ -200,16 +210,7 @@ export function ThreadRow({
         />
       }
       label={conversation.title || conversation.firstMessage || t('Untitled agent')}
-      note={
-        running ? (
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden className="size-1.5 rounded-full bg-success" />
-            {t('Running')}
-          </span>
-        ) : (
-          t('Done')
-        )
-      }
+      note={note}
       onClick={() => onOpen(conversation.sessionId)}
     />
   )

@@ -217,7 +217,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     onSeedConsumed={onPromptConsumed}
                     sidebar={isSidebarMode}
                     dropRegisterRef={conversationDropRef}
-                    draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                    draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
                     recall={{ retract: retractLatest, history: [] }}
                     mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
@@ -245,7 +245,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onSeedConsumed={onPromptConsumed}
                   sidebar={isSidebarMode}
                   dropRegisterRef={conversationDropRef}
-                  draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                  draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
                   recall={{ retract: retractLatest, history }}
                   mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                 />

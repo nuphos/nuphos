@@ -107,6 +107,8 @@ type Props = {
   autoFocusComposer?: boolean
   /** An opened conversation focuses its composer; the Inbox keeps focus on its list instead. */
   focusComposerOnOpen?: boolean
+  /** A request's reply draft is separate from the same session's normal composer. */
+  composerDraftId?: string
   /**
    * The workspace tab's currently-bound kubeconfig context, if any. Forwarded
    * to `agentStart` as `kubeContext` so the backend can tell the agent which
@@ -166,6 +168,7 @@ export const AgentPanel = memo(function AgentPanel({
   newChatRequest = 0,
   autoFocusComposer = false,
   focusComposerOnOpen = true,
+  composerDraftId,
   kubeContext,
   runtimeKubeContextRef,
   isTeamAdmin = false,
@@ -200,6 +203,7 @@ export const AgentPanel = memo(function AgentPanel({
     newChatRequest,
     autoFocusComposer,
     focusComposerOnOpen,
+    composerDraftId,
     kubeContext,
     runtimeKubeContextRef,
     connectedResources,
