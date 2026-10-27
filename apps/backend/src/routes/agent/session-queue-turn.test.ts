@@ -257,10 +257,10 @@ test('everyone in the conversation sees the queue; only the sender takes a messa
   expect((await request(`/conversations/${SESSION}/queue/mine`, 'DELETE')).status).toBe(404)
 })
 
-// e83a6fec, 2026-10-27 22:31Z: an agent.thread turn held the session; a phone
-// send was admitted on the runtime status alone, refused by the runtime, and
-// lost when the app stopped resending. Whatever the client declares, a person's
-// message now waits in the server queue, in order, around agent messages.
+// A phone send that lands while an agent.thread turn holds the session waits in
+// the server queue, in order, around agent messages. Admitted on the runtime
+// status alone, the runtime refused it, and it was lost once the app stopped
+// resending.
 test('a phone send while an agent message runs is queued in order, never refused', async () => {
   const done = busy()
   const phone = (id: string) => ({
