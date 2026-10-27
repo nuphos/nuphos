@@ -9,7 +9,11 @@ import { generateConversationTitle } from '@/lib/agent/title-generator'
 import { logError } from '@/lib/observability'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
-import { OpenAbConnectionLostError, runtimeProductStateMessage } from './openab-acp-errors'
+import {
+  OpenAbConnectionLostError,
+  claudeNotice,
+  runtimeProductStateMessage,
+} from './openab-acp-errors'
 import { attributeReceipt } from './steering-receipt'
 import { RuntimeStateProbeError } from './turn-diagnostics'
 
@@ -80,7 +84,9 @@ export function classifyPreviewInterruption(
     message:
       !aborted && error instanceof RuntimeStateProbeError
         ? error.message
-        : INTERRUPTION_MESSAGES[reason],
+        : // The runtime's own reason, the same line the stream error carries.
+          ((reason === 'error' && !aborted ? claudeNotice(error) : undefined) ??
+          INTERRUPTION_MESSAGES[reason]),
   }
 }
 

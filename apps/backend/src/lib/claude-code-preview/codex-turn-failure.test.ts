@@ -10,6 +10,8 @@ import { classifyPreviewInterruption } from './preview-transcript'
 
 import type { UIMessage } from 'ai'
 
+import { formatAgentStreamError } from '@/routes/agent/errors'
+
 const NOTICE =
   'This request was blocked by our safety systems. Reason: Potentially unintended activity.\n\n'
 
@@ -83,14 +85,30 @@ test("only the gateway wrapper's first line names a usage limit", () => {
   )
   const unwrapped = new Error("Internal error: You've hit your session limit")
 
+  // Not a usage limit: each keeps the runtime's own first line, or the plain fallback.
+  expect(classifyPreviewInterruption(memory, false).message).toBe("You're out of memory")
+  expect(classifyPreviewInterruption(quoted, false).message).toBe('boom')
+  expect(classifyPreviewInterruption(unwrapped, false).message).toBe(
+    'The agent failed before it could answer.',
+  )
   for (const error of [memory, quoted, unwrapped]) {
-    expect(classifyPreviewInterruption(error, false).message).toBe(
-      'The agent failed before it could answer.',
-    )
     expect(withoutFailureNotice("You've hit your session limit", error)).toBe(
       "You've hit your session limit",
     )
   }
+})
+
+test('a dead Claude Code process is one line: the runtime names why, live and stored alike', () => {
+  const cause =
+    "Claude Code ran out of memory: this computer's agents reached their memory limit (3.6 GB) and the system stopped it. Send a message to continue."
+  const error = new OpenAbRpcError(
+    `**Internal Error** (code: -32603)\nInternal error: ${cause}`,
+    -32603,
+  )
+
+  expect(classifyPreviewInterruption(error, false)).toEqual({ reason: 'error', message: cause })
+  expect(formatAgentStreamError(error)).toBe(cause)
+  expect(classifyPreviewInterruption(error, true).reason).toBe('cancelled')
 })
 
 test('a Claude sign-in failure is one line: the streamed notice gives way to the sign-in guidance', () => {

@@ -1,10 +1,9 @@
 import { readFileSync as nuphosDeathRead } from 'node:fs'
 import { dirname as nuphosDeathDirname } from 'node:path'
 
-// Why Claude Code died, in words the person can act on. The adapter's own text
-// ("exited unexpectedly, start a new session") hid the cause and was wrong once
-// the next message resumes the session. A SIGKILL while this cgroup's OOM kill
-// count went up is the memory limit; anything else keeps the process's own reason.
+// Why Claude Code died, in words the person can act on. A SIGKILL while this
+// cgroup's OOM kill count went up is the memory limit; any other death keeps its
+// own reason. Either way the next message resumes the session.
 const NUPHOS_CGROUP_ROOT = '/sys/fs/cgroup'
 
 function nuphosDeathText(file) {

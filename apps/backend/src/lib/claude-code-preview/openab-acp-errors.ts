@@ -95,7 +95,8 @@ const CLAUDE_USAGE_LIMIT =
 /** A credential the CLI holds but can no longer use, e.g. `Failed to authenticate: OAuth session expired …`. */
 const CLAUDE_AUTH_FAILED = /^Failed to authenticate\b/u
 
-function claudeNotice(error: unknown): string | undefined {
+/** The runtime's own reason for a failed turn: the first line after `Internal error: `. */
+export function claudeNotice(error: unknown): string | undefined {
   if (!(error instanceof OpenAbRpcError) || error.code !== -32603) return undefined
 
   return CLAUDE_NOTICE.exec(error.message)?.[1]?.trim()

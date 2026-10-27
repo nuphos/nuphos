@@ -1,4 +1,5 @@
 import {
+  claudeNotice,
   isRuntimeAuthRequired,
   RUNTIME_AUTH_REQUIRED_CODE,
   RUNTIME_USAGE_EXHAUSTED_CODE,
@@ -85,7 +86,7 @@ export function formatAgentStreamError(error: unknown): string {
   const productState = runtimeProductStateMessage(error)
 
   if (productState) return productState
-  const message = getErrorMessage(error)
+  const message = claudeNotice(error) ?? getErrorMessage(error)
 
   // The Bedrock provider sometimes prefixes messages with a literal
   // "undefined: " when the upstream error type is missing — pure noise for
