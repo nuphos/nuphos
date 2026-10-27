@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  awaitsShareApproval,
   capShareLevel,
   exceedsCeiling,
   isUnattendedSource,
@@ -282,4 +283,18 @@ test('a teammate’s shared computer offers its models to the person it is share
     return Promise.resolve({ id: 'runtime' } as RuntimeInstance)
   })
   expect(calls).toEqual([['team', 'runtime', 'mate', { shared: true }]])
+})
+
+test('a teammate’s turns wait in the queue only while the owner has not answered', async () => {
+  const runtimeId = localRuntimeId({ userId: 'owner', deviceId: 'mac', provider: 'codex' })
+  const answered = (status?: ShareApproval['status']) => ({
+    findApproval: async () => (status ? ({ status } as ShareApproval) : null),
+  })
+  const chat = { sessionId: 'chat', runtimeId }
+
+  expect(await awaitsShareApproval(chat, 'mate', answered('pending'))).toBe(true)
+  expect(await awaitsShareApproval(chat, 'mate', answered('approved'))).toBe(false)
+  expect(await awaitsShareApproval(chat, 'mate', answered())).toBe(false)
+  expect(await awaitsShareApproval(chat, 'owner', answered('pending'))).toBe(false)
+  expect(await awaitsShareApproval({ sessionId: 'chat' }, 'mate', answered('pending'))).toBe(false)
 })

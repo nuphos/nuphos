@@ -9,6 +9,8 @@ import {
 import { LOCAL_SHARE_LEVELS } from './local-share-types'
 import { getAgentDevice, isActiveTeamMember } from './store'
 
+import { parseLocalRuntimeId } from './local-runtime/address'
+
 import type { LocalAgentRef } from './local-runtime/address'
 import type { ShareApproval } from './local-share-store'
 import type { LocalAgentShare, LocalShareLevel, SharedLocalRuntimeUse } from './local-share-types'
@@ -172,6 +174,23 @@ export async function requireShareApproval(
     'local_share_approval_required',
     `${device.label} is shared with you on the condition that its owner approves each agent. They have been asked; send again once they approve.`,
   )
+}
+
+/**
+ * Whether this person's turns in this conversation wait for the owner of the
+ * shared computer it runs on: its queue holds them until the owner answers.
+ */
+export async function awaitsShareApproval(
+  conversation: { sessionId: string; runtimeId?: string },
+  actorId: string,
+  deps: Pick<LocalShareDeps, 'findApproval'> = localShareDeps,
+): Promise<boolean> {
+  const ref = conversation.runtimeId ? parseLocalRuntimeId(conversation.runtimeId) : undefined
+
+  if (!ref || ref.userId === actorId) return false
+  const found = await deps.findApproval(ref.userId, ref.deviceId, conversation.sessionId, actorId)
+
+  return found?.status === 'pending'
 }
 
 /** One call on a local agent, as resolveLocalRuntimeEndpoint received it. */

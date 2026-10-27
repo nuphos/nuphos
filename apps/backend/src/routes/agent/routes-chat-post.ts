@@ -12,8 +12,6 @@ import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { admitPreviewTurn } from './chat-preview-steering'
-import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import {
   buildSlackBoundTurnPlan,
@@ -27,6 +25,8 @@ import { agent } from './router'
 import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from './run-registry'
 import { streamAgentRunResponse } from './run-stream'
 import { admitRuntimeChat } from './runtime-chat-admission'
+import { isQueued, queuedReply, queueForWaitingRuntime } from './session-queue-share-approval'
+import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
 import {
   assertConversationSendable,
   readTeamIdCandidate,
@@ -117,9 +117,9 @@ agent.post('/chat', async (c) => {
     sessionId: id,
     ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
     ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-  }).catch((error: unknown) => queueForOfflineBox(error, resumeParams))
+  }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams))
 
-  if (!chatRuntime) return c.json({ status: 'queued', streamId }, 202)
+  if (isQueued(chatRuntime)) return c.json(queuedReply(streamId, chatRuntime), 202)
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
   let releaseAgentRunClaim: (() => void) | null = null

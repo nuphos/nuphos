@@ -94,6 +94,11 @@ export function applyStreamEvent(
       }
       if (evType === 'queued') {
         // The server holds the message in its queue: it waits in the queue strip.
+        // A teammate's computer says why: its owner is asked, and approving sends it.
+        if (typeof ev.message === 'string' && !busyNoticeShownForStream.has(streamId)) {
+          busyNoticeShownForStream.add(streamId)
+          toast.info('Waiting for approval', ev.message)
+        }
         const nextTab = showTurnQueued(t, dispatchedDraft(streamId))
 
         queueTranscriptSync(nextTab, 250)

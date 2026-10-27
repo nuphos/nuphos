@@ -134,6 +134,8 @@ export type LocalShareApproval = {
   deviceId: string
   deviceLabel: string
   sessionId: string
+  /** The waiting conversation's title, when it has one. */
+  title?: string
   actorId: string
   requestedAt: string
 }

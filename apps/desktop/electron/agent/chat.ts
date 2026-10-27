@@ -15,7 +15,7 @@ import { setSessionTeam } from './client-tools'
 import { agentAccount, teamIdFromUrl } from './http'
 import { logLocalTool } from './local-exec'
 import { broadcast } from './notify'
-import { abortableSleep, formatAgentLocalError } from './stream-errors'
+import { abortableSleep, formatAgentLocalError, queuedNotice } from './stream-errors'
 
 import type { ChatStreamCtx, StartChatArgs } from './chat-shared'
 
@@ -151,9 +151,9 @@ export async function startChat(args: StartChatArgs): Promise<void> {
         const res = await postChatAttempt(ctx, args, account, attemptAc, shouldResume)
 
         if (!res) return
-        // The session was busy: the message waits in its server queue.
+        // The session was busy, or its owner has yet to approve: the message waits in its server queue.
         if (res.status === 202) {
-          emit({ type: 'queued' })
+          emit({ type: 'queued', ...(await queuedNotice(res)) })
 
           return
         }

@@ -211,6 +211,9 @@ export async function resolveLocalRuntimeEndpoint(
     deviceLabel = device.label
   } catch (error) {
     if (error instanceof AppError && error.status === 404) throw notAvailable()
+    // The placement just authorized: a send waits in its queue for the owner (queueForShareApproval).
+    if (error instanceof AppError && error.code === 'local_share_approval_required')
+      throw new AppError(error.status, error.code, error.message, { runtimeId })
     throw error
   }
   // An offline Box is not woken here: the session queue waits for it (queued-turn.ts).
