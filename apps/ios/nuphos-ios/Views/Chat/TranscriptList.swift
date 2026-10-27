@@ -51,6 +51,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private lazy var composerHeight = composer.view.heightAnchor.constraint(equalToConstant: 0)
     private let latestButton = UIButton(type: .system)
 
+    private let root = RotationLayoutView()
+    override func loadView() { view = root }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        root.rotating = true
+        coordinator.animate(alongsideTransition: nil) { [root] _ in root.rotating = false }
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
@@ -599,6 +608,21 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         check("suite_complete", true, "")
     }
     #endif
+}
+
+/// A rotation resizes the transcript inside the system's animation. Animated,
+/// the collection view cross-fades each row between its old and new layout
+/// and the drawn text stretches, so rows draw over each other for a moment.
+/// While rotating, the whole subtree takes its new size at once instead.
+private final class RotationLayoutView: UIView {
+    var rotating = false
+    override func layoutSubviews() {
+        guard rotating else { return super.layoutSubviews() }
+        UIView.performWithoutAnimation {
+            super.layoutSubviews()
+            for subview in subviews { subview.layoutIfNeeded() }
+        }
+    }
 }
 
 /// Explicit width-constrained measurement is essential for the embedded
