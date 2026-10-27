@@ -1,6 +1,7 @@
-import { t } from '../../i18n/index.ts'
+import { locale, t } from '../../i18n/index.ts'
 
 import type { SessionResource } from '../../api/session-resource-types'
+import type { ChangesFilter } from '../../lib/chatSummaryPanel'
 import type { TerminalProcess } from '../../lib/sessionTerminalProcesses'
 
 export type ResourceChip =
@@ -95,6 +96,70 @@ export function chipNames(chips: ResourceChip[]): string[] {
 
     return chip.terminals.map((terminal) => terminal.name)
   })
+}
+
+type FinishedWord = 'merged' | 'done' | 'closed' | 'canceled'
+
+/** How the merged badge names one finished item: a PR merged or closed, an issue done or canceled. */
+function finishedWord(resource: SessionResource): FinishedWord {
+  const merged = changeStatus(resource) === 'merged'
+
+  if (resource.provider === 'linear') return merged ? 'done' : 'canceled'
+
+  return merged ? 'merged' : 'closed'
+}
+
+/** A count of finished items as the badge says it, e.g. `15 merged`. */
+function finishedCount(word: FinishedWord, n: number): string {
+  if (word === 'merged') return n === 1 ? t('1 merged') : t('{n} merged', { n })
+  if (word === 'done') return n === 1 ? t('1 done') : t('{n} done', { n })
+  if (word === 'closed') return n === 1 ? t('1 closed') : t('{n} closed', { n })
+
+  return n === 1 ? t('1 canceled') : t('{n} canceled', { n })
+}
+
+/**
+ * What the merged badge says, the count on the Changes pill it opens: merged
+ * PRs and completed issues as `13 merged` (`2 done` when none is a PR), or
+ * when nothing merged, the closed and canceled ones as `1 closed`.
+ */
+export function finishedLabel(resources: SessionResource[]): string {
+  const merged = resources.filter((resource) => changeStatus(resource) === 'merged')
+
+  if (!merged.length) return finishedCount('closed', resources.length)
+  const word = merged.some((resource) => resource.provider === 'github') ? 'merged' : 'done'
+
+  return finishedCount(word, merged.length)
+}
+
+/**
+ * How the finished items break down, most common first, listed the way the
+ * app's language lists things: `15 merged, 2 closed, 1 done` in English.
+ */
+export function finishedBreakdown(resources: SessionResource[], language: string = locale): string {
+  const counts = new Map<FinishedWord, number>()
+
+  for (const resource of resources) {
+    const word = finishedWord(resource)
+
+    counts.set(word, (counts.get(word) ?? 0) + 1)
+  }
+
+  const items = [...counts]
+    .sort((a, b) => b[1] - a[1])
+    .map(([word, count]) => finishedCount(word, count))
+
+  return new Intl.ListFormat(language, { style: 'narrow', type: 'conjunction' }).format(items)
+}
+
+/** The merged badge's tooltip: its breakdown, then one name per line. */
+export function finishedTooltip(resources: SessionResource[]): string {
+  return [finishedBreakdown(resources), ...resources.map(resourceFullLabel)].join('\n')
+}
+
+/** The Changes filter the merged badge opens: Merged when it holds anything merged, else Closed. */
+export function finishedFilter(resources: SessionResource[]): ChangesFilter {
+  return resources.some((resource) => changeStatus(resource) === 'merged') ? 'merged' : 'closed'
 }
 
 /**

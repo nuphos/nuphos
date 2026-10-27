@@ -4,6 +4,10 @@ import { test } from 'node:test'
 import {
   changeStatus,
   chipNames,
+  finishedBreakdown,
+  finishedFilter,
+  finishedLabel,
+  finishedTooltip,
   fittingChipCount,
   minimumRowWidth,
   pullStateColor,
@@ -180,4 +184,62 @@ test('a change is open, merged or closed, a completed issue counting as merged',
     'open',
   )
   assert.equal(changeStatus(resource({ provider: 'slack', state: 'linked' })), 'open')
+})
+
+const merged = (id: string, number: number) =>
+  resource({ id, number, state: 'merged', title: `Merged ${String(number)}` })
+
+test('the badge counts what its Changes pill counts: merged first, else closed', () => {
+  const done = resource({ id: 'l1', provider: 'linear', title: 'ENG-1 x', stateType: 'completed' })
+  const canceled = resource({
+    id: 'l2',
+    provider: 'linear',
+    title: 'ENG-2 x',
+    stateType: 'canceled',
+  })
+  const closed = resource({ id: 'c1', state: 'closed' })
+
+  assert.equal(finishedLabel([merged('m1', 1), merged('m2', 2)]), '2 merged')
+  assert.equal(finishedLabel([merged('m1', 1), closed, done]), '2 merged')
+  assert.equal(finishedLabel([done, canceled]), '1 done')
+  assert.equal(finishedLabel([closed, canceled]), '2 closed')
+})
+
+test('the badge tooltip breaks the items down, most common first, then names them', () => {
+  const items = [
+    resource({ id: 'l1', provider: 'linear', title: 'ENG-1 Ship it', stateType: 'completed' }),
+    resource({ id: 'c1', number: 9, state: 'closed', title: 'Old idea' }),
+    merged('m1', 56),
+    merged('m2', 58),
+    resource({ id: 'l2', provider: 'linear', title: 'ENG-2 Drop', stateType: 'canceled' }),
+  ]
+
+  assert.equal(finishedBreakdown(items), '2 merged, 1 done, 1 closed, 1 canceled')
+  assert.equal(finishedBreakdown(items, 'ja'), '2 merged、1 done、1 closed、1 canceled')
+  assert.equal(
+    finishedTooltip(items),
+    [
+      '2 merged, 1 done, 1 closed, 1 canceled',
+      'ENG-1 Ship it',
+      '#9 Old idea',
+      '#56 Merged 56',
+      '#58 Merged 58',
+      'ENG-2 Drop',
+    ].join('\n'),
+  )
+})
+
+test('the badge opens Merged when it holds anything merged, else Closed', () => {
+  assert.equal(finishedFilter([merged('m1', 1), resource({ state: 'closed' })]), 'merged')
+  assert.equal(
+    finishedFilter([resource({ provider: 'linear', title: 'ENG-1 x', stateType: 'completed' })]),
+    'merged',
+  )
+  assert.equal(
+    finishedFilter([
+      resource({ state: 'closed' }),
+      resource({ provider: 'linear', title: 'ENG-2 x', stateType: 'canceled' }),
+    ]),
+    'closed',
+  )
 })
