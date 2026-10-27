@@ -124,7 +124,7 @@ agent.post('/chat', async (c) => {
   let releaseAgentRunClaim: (() => void) | null = null
   let queuedItem: PendingUserMessage | undefined
 
-  // The runtime says whether it can take work; a serverQueue send also holds the session claim.
+  // The runtime says whether it can take work; a new message also holds the session claim.
   const runtimeSnapshot = conversationForResume?.claudeCodePreview
     ? await conversationExecutionState(conversationForResume)
     : undefined
