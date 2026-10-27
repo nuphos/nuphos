@@ -4,7 +4,7 @@
 // agent's memory tools did this turn.
 import { randomUUID } from 'node:crypto'
 
-import { getConversationMessagesHead, syncConversationTranscript } from '@/lib/agent/db'
+import { appendConversationMessages, getConversationMessagesHead } from '@/lib/agent/db'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
@@ -118,7 +118,7 @@ export async function finishPreviewTurn(args: {
   const transcriptMessages = uiMessagesToTranscript([...args.messages, ...tail])
 
   try {
-    await syncConversationTranscript({
+    const { count } = await appendConversationMessages({
       sessionId,
       userId,
       teamId,
@@ -131,9 +131,9 @@ export async function finishPreviewTurn(args: {
     })
     // Emit the stored timestamps too: download cards use them to stay with
     // their original turn instead of briefly piling onto the latest reply.
-    const stored = await getConversationMessagesHead(sessionId, userId, transcriptMessages.length)
+    const stored = await getConversationMessagesHead(sessionId, userId, count)
 
-    args.emit(transcriptTailFrame(stored, transcriptMessages.length - tail.length))
+    args.emit(transcriptTailFrame(stored, count - tail.length))
   } catch (err) {
     traceAgentChatError('agent.chat.preview_transcript_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,
@@ -228,7 +228,7 @@ export async function persistInterruptedPreviewTurn(args: {
   ])
 
   try {
-    await syncConversationTranscript({
+    const { count } = await appendConversationMessages({
       sessionId,
       userId,
       teamId,
@@ -241,9 +241,9 @@ export async function persistInterruptedPreviewTurn(args: {
     })
     // Emit the stored timestamps too: download cards use them to stay with
     // their original turn instead of briefly piling onto the latest reply.
-    const stored = await getConversationMessagesHead(sessionId, userId, transcriptMessages.length)
+    const stored = await getConversationMessagesHead(sessionId, userId, count)
 
-    args.emit(transcriptTailFrame(stored, transcriptMessages.length - args.steered.length - 1))
+    args.emit(transcriptTailFrame(stored, count - args.steered.length - 1))
   } catch (err) {
     traceAgentChatError('agent.chat.preview_interrupted_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,
@@ -278,7 +278,7 @@ export async function persistHandedOffPreviewTurn(args: {
   ])
 
   try {
-    await syncConversationTranscript({
+    await appendConversationMessages({
       sessionId: args.sessionId,
       userId: args.userId,
       teamId: args.teamId,

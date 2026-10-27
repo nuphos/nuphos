@@ -17,10 +17,10 @@ const persisted: { messages: { role: string; parts: unknown[] }[] }[] = []
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 useAgentDb({
-  syncConversationTranscript: (args) => {
+  appendConversationMessages: (args) => {
     persisted.push({ messages: args.messages })
 
-    return Promise.resolve(null)
+    return Promise.resolve({ isNew: false, count: args.messages.length })
   },
 })
 useChatPreviewPrepare({

@@ -61,14 +61,17 @@ export function messageWrites(
     /** Stored docs already at their incoming index. */
     storedAt: Map<number, AgentMessage>
     now: Date
+    /** Index of the first message in `data.messages`. */
+    offset?: number
   },
 ) {
-  const { attribution, runtimeToolParts, storedAt, now } = stored
+  const { attribution, runtimeToolParts, storedAt, now, offset = 0 } = stored
   // Once per sync: rebuilt per message, this scanned every stored part for
   // every message and stalled the event loop for seconds on long conversations.
   const results = runtimeToolResults(runtimeToolParts)
 
-  return data.messages.flatMap((message, index) => {
+  return data.messages.flatMap((message, position) => {
+    const index = offset + position
     const fields = {
       ...(attribution.get(message.id) || message.metadata
         ? { metadata: attribution.get(message.id)?.metadata ?? message.metadata }
