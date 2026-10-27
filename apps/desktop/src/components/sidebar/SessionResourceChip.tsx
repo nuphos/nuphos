@@ -97,7 +97,7 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
 /**
  * The merged badge: finished PRs and issues as one chip, quieter than the open
  * ones, with merged purple only on its icon. It opens the summary panel's
- * Changes list.
+ * Changes list; in the sidebar the click also reaches the row and opens the chat.
  */
 function FinishedBadge({
   resources,

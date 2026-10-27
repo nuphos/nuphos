@@ -98,7 +98,9 @@ export function SessionResources({
   }
 
   // In the sidebar a chip opens nothing itself: the click reaches the row and
-  // opens the chat. Lists that open things live in the titlebar only.
+  // opens the chat. Lists that open things live in the titlebar only. The
+  // merged badge is the exception: it also opens the panel, which stays open
+  // per window, so the chat the row opens shows its Changes on that filter.
   const actions: ResourceActions = {
     openResource: (resource, event) => {
       if (!titlebar) return
@@ -113,8 +115,7 @@ export function SessionResources({
       onOpenTab?.(tabId)
     },
     openChanges: (finished, event) => {
-      if (!titlebar) return
-      event.stopPropagation()
+      if (titlebar) event.stopPropagation()
       openChatSummaryChanges(finishedFilter(finished), sessionId)
     },
   }
