@@ -1,11 +1,19 @@
-import { Terminal, X } from 'lucide-react'
+import { GitMerge, Terminal, X } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { ResourcePreview } from '../ui/resource-preview'
 
 import { ResourceListMenu } from './ResourceListMenu'
 import { ResourceMark } from './ResourceMark'
-import { chipNames, resourceLabel, resourceStatus } from './sessionResourcePresentation'
+import {
+  chipNames,
+  finishedBreakdown,
+  finishedFilter,
+  finishedLabel,
+  finishedTooltip,
+  resourceLabel,
+  resourceStatus,
+} from './sessionResourcePresentation'
 import { menuChipClass, resourceStyle, titlebarChip } from './sessionResourceStyle'
 
 import type { ResourceActions } from './ResourceListMenu'
@@ -37,6 +45,7 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
   const { titlebar, measure, actions } = props
 
   if (chip.kind === 'resource') return <ResourceBadge resource={chip.resource} {...props} />
+  if (chip.kind === 'finished') return <FinishedBadge resources={chip.resources} {...props} />
 
   if (chip.kind === 'terminals') {
     const content = (
@@ -82,6 +91,26 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
       <Terminal className="size-3 shrink-0" />
       <span className="truncate">{name}</span>
     </Label>
+  )
+}
+
+/**
+ * The merged badge: finished PRs and issues as one chip, quieter than the open
+ * ones, with merged purple only on its icon.
+ */
+function FinishedBadge({ resources, titlebar }: ChipProps & { resources: SessionResource[] }) {
+  const label = finishedLabel(resources)
+  const merged = finishedFilter(resources) === 'merged'
+
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 text-tertiary ${titlebar ? titlebarChip : ''}`}
+      title={finishedTooltip(resources)}
+      aria-label={finishedBreakdown(resources)}
+    >
+      <GitMerge className={`size-3 shrink-0 ${merged ? 'session-resource-merged' : ''}`} />
+      <span>{label}</span>
+    </span>
   )
 }
 

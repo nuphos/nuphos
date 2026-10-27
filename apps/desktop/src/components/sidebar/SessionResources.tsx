@@ -8,7 +8,7 @@ import { toast } from '../ui/toast'
 
 import { ResourceListMenu } from './ResourceListMenu'
 import { SessionResourceChip } from './SessionResourceChip'
-import { chipNames, resourceChips } from './sessionResourcePresentation'
+import { chipNames, overflowLabel, resourceChips } from './sessionResourcePresentation'
 import { menuChipClass } from './sessionResourceStyle'
 import { useFittingChips } from './useFittingChips'
 
@@ -154,7 +154,7 @@ export function SessionResources({
                   }
                 : undefined
             }
-            label={t('{n} more linked resources, show all', { n: hidden })}
+            label={overflowLabel(chips.slice(shown))}
             className={`${menuChipClass(titlebar)} titlebar-no-drag`}
           >
             +{hidden}

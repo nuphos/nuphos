@@ -8,6 +8,7 @@ export type ResourceChip =
   | { kind: 'resource'; key: string; resource: SessionResource }
   | { kind: 'terminal'; key: string; terminal: TerminalProcess }
   | { kind: 'terminals'; key: string; terminals: TerminalProcess[] }
+  | { kind: 'finished'; key: string; resources: SessionResource[] }
 
 /** What a chip says: a PR number, a thread's title, or an issue's identifier. */
 export function resourceLabel(resource: SessionResource): string {
@@ -93,6 +94,7 @@ export function chipNames(chips: ResourceChip[]): string[] {
   return chips.flatMap((chip) => {
     if (chip.kind === 'resource') return [resourceFullLabel(chip.resource)]
     if (chip.kind === 'terminal') return [chip.terminal.name]
+    if (chip.kind === 'finished') return chip.resources.map(resourceFullLabel)
 
     return chip.terminals.map((terminal) => terminal.name)
   })
@@ -163,24 +165,50 @@ export function finishedFilter(resources: SessionResource[]): ChangesFilter {
 }
 
 /**
- * One chip per linked resource. Open terminals are interchangeable shells, so
- * two or more share a single chip that lists them, leaving room for the links.
+ * One chip per open linked resource. Open terminals are interchangeable
+ * shells, so two or more share a single chip that lists them, leaving room for
+ * the links. Merged and closed PRs and done or canceled issues are worth
+ * knowing but no longer need attention, so they fold into one quiet badge
+ * last, the first chip to fold into "+N" on a narrow row.
  */
 export function resourceChips(
   resources: SessionResource[],
   terminals: TerminalProcess[],
 ): ResourceChip[] {
-  const chips: ResourceChip[] = resources.map((resource) => ({
-    kind: 'resource',
-    key: resource.id,
-    resource,
-  }))
+  const finished = resources.filter((resource) => changeStatus(resource) !== 'open')
+  const chips: ResourceChip[] = resources
+    .filter((resource) => changeStatus(resource) === 'open')
+    .map((resource) => ({ kind: 'resource', key: resource.id, resource }))
 
   if (terminals.length > 1) chips.push({ kind: 'terminals', key: 'terminals', terminals })
   else if (terminals.length === 1)
     chips.push({ kind: 'terminal', key: terminals[0].tabId, terminal: terminals[0] })
+  if (finished.length) chips.push({ kind: 'finished', key: 'finished', resources: finished })
 
   return chips
+}
+
+/**
+ * The "+N" chip's accessible name, from what it folds: other links and
+ * terminals by count, and the merged badge by its own label, e.g.
+ * `3 more linked resources and 15 merged, show all`. Its visible text stays a
+ * count of chips, so a folded badge adds one.
+ */
+export function overflowLabel(hidden: ResourceChip[]): string {
+  const n = chipNames(hidden.filter((chip) => chip.kind !== 'finished')).length
+  const finished = hidden.find((chip) => chip.kind === 'finished')
+
+  if (!finished)
+    return n === 1
+      ? t('1 more linked resource, show all')
+      : t('{n} more linked resources, show all', { n })
+  const badge = finishedLabel(finished.resources)
+
+  if (!n) return t('{badge}, show all', { badge })
+
+  return n === 1
+    ? t('1 more linked resource and {badge}, show all', { badge })
+    : t('{n} more linked resources and {badge}, show all', { n, badge })
 }
 
 /**

@@ -65,7 +65,7 @@ export function ResourceListMenu({
           )
         })}
         {chips.flatMap((chip) => {
-          if (chip.kind === 'resource') return []
+          if (chip.kind === 'resource' || chip.kind === 'finished') return []
           const terminals = chip.kind === 'terminal' ? [chip.terminal] : chip.terminals
 
           return terminals.map(({ tabId, name }) => (

@@ -10,6 +10,7 @@ import {
   finishedTooltip,
   fittingChipCount,
   minimumRowWidth,
+  overflowLabel,
   pullStateColor,
   resourceChips,
   resourceFullLabel,
@@ -242,4 +243,70 @@ test('the badge opens Merged when it holds anything merged, else Closed', () => 
     ]),
     'closed',
   )
+})
+
+test('finished PRs and issues fold into one badge after the open chips and terminals', () => {
+  const chips = resourceChips(
+    [
+      merged('m1', 56),
+      resource({ id: 'o1', number: 7 }),
+      resource({ id: 'c1', number: 9, state: 'closed' }),
+      resource({ id: 'l1', provider: 'linear', title: 'ENG-1 Done', stateType: 'completed' }),
+      resource({ id: 'l2', provider: 'linear', title: 'ENG-2 Doing', stateType: 'started' }),
+    ],
+    [{ tabId: 't1', name: 'dev' }],
+  )
+
+  assert.deepEqual(
+    chips.map((chip) => chip.key),
+    ['o1', 'l2', 't1', 'finished'],
+  )
+  const badge = chips[3]
+
+  assert.equal(badge.kind, 'finished')
+  assert.deepEqual(badge.kind === 'finished' && badge.resources.map((item) => item.id), [
+    'm1',
+    'c1',
+    'l1',
+  ])
+})
+
+test('a session with only finished links shows only the badge, and none without them', () => {
+  assert.deepEqual(
+    resourceChips([merged('m1', 1), merged('m2', 2)], []).map((chip) => chip.kind),
+    ['finished'],
+  )
+  assert.deepEqual(
+    resourceChips([resource({ id: 'o1' })], []).map((chip) => chip.kind),
+    ['resource'],
+  )
+})
+
+test('the badge names every item it holds', () => {
+  assert.deepEqual(chipNames(resourceChips([merged('m1', 56), merged('m2', 58)], [])), [
+    '#56 Merged 56',
+    '#58 Merged 58',
+  ])
+})
+
+test('on a narrow row the badge, last in the row, folds into +N first', () => {
+  // Two open PRs, a terminal and the badge; the badge is the widest.
+  const widths = [40, 40, 50, 70]
+
+  assert.equal(fittingChipCount(widths, 212, 4, 24), 4)
+  assert.equal(fittingChipCount(widths, 180, 4, 24), 3)
+  assert.equal(fittingChipCount([70], 40, 4, 24), 1)
+})
+
+test('the +N label names what it folds, the badge by its own label', () => {
+  const terminals = ['a', 'b'].map((name) => ({ tabId: name, name }))
+  const chips = resourceChips(
+    [resource({ id: 'o1' }), resource({ id: 'o2' }), merged('m1', 1), merged('m2', 2)],
+    terminals,
+  )
+
+  assert.equal(overflowLabel(chips.slice(1)), '3 more linked resources and 2 merged, show all')
+  assert.equal(overflowLabel(chips.slice(3)), '2 merged, show all')
+  assert.equal(overflowLabel(chips.slice(1, 2)), '1 more linked resource, show all')
+  assert.equal(overflowLabel([chips[1], chips[3]]), '1 more linked resource and 2 merged, show all')
 })
