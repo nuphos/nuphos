@@ -433,8 +433,7 @@ struct ChatComposerBar<Controls: View>: View {
     private func paste(_ providers: [NSItemProvider]) {
         Task {
             for provider in providers {
-                if provider.suggestedName == nil,
-                   provider.registeredContentTypes.allSatisfy({ $0.conforms(to: .text) }),
+                if PastedFile.isText(provider),
                    let string = await withCheckedContinuation({ continuation in
                        _ = provider.loadTransferable(type: String.self) { continuation.resume(returning: try? $0.get()) }
                    }) {
@@ -647,7 +646,7 @@ final class ComposerPaste: NSObject, UITextPasteDelegate {
     func textPasteConfigurationSupporting(_ textPasteConfigurationSupporting: any UITextPasteConfigurationSupporting,
                                           transform item: any UITextPasteItem) {
         let provider = item.itemProvider
-        guard provider.registeredContentTypes.allSatisfy({ $0.conforms(to: .text) }) else {
+        guard PastedFile.isText(provider) else {
             onAttach([provider])
             return item.setNoResult()
         }
