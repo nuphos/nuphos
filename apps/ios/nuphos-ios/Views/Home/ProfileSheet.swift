@@ -56,6 +56,9 @@ struct ProfileSheet: View {
 
                 Section {
                     Toggle("Bot avatars", isOn: $botAvatars)
+                    #if os(iOS)
+                    NavigationLink("App icon") { AppIconPicker() }
+                    #endif
                 } header: {
                     Text("Appearance")
                 } footer: {

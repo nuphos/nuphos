@@ -1,11 +1,15 @@
 import { faDisplay, faMoon, faSun } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { useEffect, useState } from 'react'
 
+import { api } from '../../api'
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { Switch } from '../../components/ui/Switch'
+import { toast } from '../../components/ui/toast'
 import { useTheme } from '../../hooks/useTheme'
 import { setAgentAppearance, useAgentAppearance } from '../../lib/agentAppearance'
+import { isMac } from '../../lib/platform'
 import { AuditLogView } from '../AuditLogView'
 import { TeamMembersView } from '../TeamMembersView'
 
@@ -69,6 +73,59 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconDefiniti
   { value: 'dark', label: 'Dark', icon: faMoon },
 ]
 
+// Rendered by scripts/render-app-icons.mjs; A is the bundled mark.
+const APP_ICON_CHARACTERS = ['Napoleon', 'Pearl Earring', 'Van Gogh', 'The Scream', 'Son of Man']
+const APP_ICON_LAYOUTS = ['Classic', 'Bleed', 'Peek']
+const APP_ICONS = [
+  { id: 'A', name: 'Nuphos' },
+  ...APP_ICON_CHARACTERS.flatMap((character, c) =>
+    APP_ICON_LAYOUTS.map((layout, l) => ({
+      id: `${'BCDEF'[c]}${String(l + 1)}`,
+      name: `${character}, ${layout}`,
+    })),
+  ),
+]
+
+function AppIconPicker() {
+  const [selected, setSelected] = useState<string>()
+
+  useEffect(() => {
+    void api.appGetAppIcon().then(setSelected)
+  }, [])
+
+  const choose = (id: string) => {
+    setSelected(id)
+    api.appSetAppIcon(id).catch((e: unknown) => toast.apiError('Could not change the app icon', e))
+  }
+
+  return (
+    <fieldset className="mt-8">
+      <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">App icon</legend>
+      <div className="grid grid-cols-8 gap-2" role="group" aria-label="App icon">
+        {APP_ICONS.map(({ id, name }) => (
+          <button
+            key={id}
+            type="button"
+            title={name}
+            aria-label={name}
+            aria-pressed={selected === id}
+            onClick={() => choose(id)}
+            className={clsx(
+              'aspect-square rounded-xl border-2 p-1 transition-colors',
+              selected === id
+                ? 'border-zViolet-500/70 bg-zViolet-500/10'
+                : 'border-transparent hover:border-zGray-700',
+            )}
+          >
+            <img src={`/app-icons/${id}.png`} alt="" className="w-full h-full" draggable={false} />
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[12px] text-tertiary">Shown in the Dock while Nuphos runs.</p>
+    </fieldset>
+  )
+}
+
 export function AppearanceSection() {
   const { preference, setPreference } = useTheme()
   const { botAvatars, density } = useAgentAppearance()
@@ -103,6 +160,7 @@ export function AppearanceSection() {
           })}
         </div>
       </Field>
+      {isMac && <AppIconPicker />}
       <div className="mt-8 space-y-5">
         <h3 className="text-[14px] font-semibold text-main">Agents</h3>
         <div className="flex items-center justify-between gap-4">

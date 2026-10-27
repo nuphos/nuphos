@@ -153,6 +153,7 @@ internal fun ProfileContent(
                     voiceSettings()
                 }
             }
+            ProfileGroup("App icon") { AppIconPicker() }
             ProfileGroup("Privacy") {
                 ProfileAction("Privacy policy", onClick = onPrivacy)
                 if (canWithdraw) {

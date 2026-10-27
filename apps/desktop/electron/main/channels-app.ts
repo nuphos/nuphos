@@ -23,6 +23,7 @@ import { importLocalSession } from '../agent/local-session-import'
 
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
 import { openExternal } from './open-external'
+import { readAppIcon, setAppIcon } from './app-icon'
 import { writePersistedThemeSource } from './theme'
 import { autoUpdater, checkForUpdatesOnce, getUpdaterState, setUpdaterState } from './updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
@@ -82,6 +83,8 @@ export const appChannels = {
     nativeTheme.themeSource = source
     writePersistedThemeSource(source)
   },
+  'app:getAppIcon': () => readAppIcon(),
+  'app:setAppIcon': (_e: unknown, icon: string) => setAppIcon(icon),
   'app:hideWindow': (e: IpcMainInvokeEvent) => {
     const win = BrowserWindow.fromWebContents(e.sender)
 

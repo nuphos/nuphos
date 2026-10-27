@@ -67,6 +67,8 @@ export type WindowAppApi = {
   appGetPlatform(): Promise<string>
   appSelectAsciiInputSource(): Promise<void>
   appSetNativeTheme(source: 'system' | 'light' | 'dark'): Promise<void>
+  appGetAppIcon(): Promise<string>
+  appSetAppIcon(icon: string): Promise<void>
   onNativeThemeUpdated(cb: (payload: { shouldUseDarkColors: boolean }) => void): () => void
   getZoomFactor(): number
   notifyZoom(): void

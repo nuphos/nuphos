@@ -47,6 +47,8 @@ export const appApi = {
   appGetPlatform: () => window.api.appGetPlatform(),
   appSelectAsciiInputSource: () => window.api.appSelectAsciiInputSource(),
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') => window.api.appSetNativeTheme(source),
+  appGetAppIcon: () => window.api.appGetAppIcon(),
+  appSetAppIcon: (icon: string) => window.api.appSetAppIcon(icon),
   onNativeThemeUpdated: (cb: (payload: { shouldUseDarkColors: boolean }) => void) =>
     window.api.onNativeThemeUpdated?.(cb) ?? (() => {}),
   appHideWindow: () => window.api.appHideWindow(),

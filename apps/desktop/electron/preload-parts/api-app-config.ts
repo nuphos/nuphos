@@ -18,6 +18,8 @@ export const appConfigApi = {
 
     return () => ipcRenderer.off('diagnostics:changed', handler)
   },
+  appGetAppIcon: (): Promise<string> => ipcRenderer.invoke('app:getAppIcon'),
+  appSetAppIcon: (icon: string): Promise<void> => ipcRenderer.invoke('app:setAppIcon', icon),
   webBaseUrl: WEB_BASE_URL,
   allowedWebHosts: [...ALLOWED_WEB_HOSTS],
 }
