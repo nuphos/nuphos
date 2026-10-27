@@ -9,9 +9,11 @@ struct PastedFile: Sendable {
     let name: String
 
     /// Tries each advertised type in order: an earlier one may fail to load
-    /// where a later one works.
+    /// where a later one works. Types without a file extension go last: a
+    /// copied image leads with UIKit's private archive, which no one can read.
     static func load(_ provider: NSItemProvider) async -> PastedFile? {
-        for type in provider.registeredContentTypes {
+        let types = provider.registeredContentTypes
+        for type in types.filter({ $0.preferredFilenameExtension != nil }) + types.filter({ $0.preferredFilenameExtension == nil }) {
             let file: PastedFile? = await withCheckedContinuation { continuation in
                 _ = provider.loadFileRepresentation(for: type, openInPlace: false) { url, _, _ in
                     continuation.resume(returning: url.flatMap { copy($0, type: type, name: provider.suggestedName) })
