@@ -229,7 +229,6 @@ export type WindowAgentApi = {
     sessionId: string,
     teamId?: string,
     eventId?: string,
-    turnKey?: string,
   ): Promise<AgentMemoryIngestEventPage>
   agentGetMemoryAttribution(
     sessionId: string,

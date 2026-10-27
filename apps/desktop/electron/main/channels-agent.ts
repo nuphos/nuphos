@@ -208,8 +208,7 @@ export const agentChannels = {
     sessionId: string,
     teamId?: string,
     eventId?: string,
-    turnKey?: string,
-  ) => agent.getMemoryIngestEvent(sessionId, teamId, eventId, turnKey),
+  ) => agent.getMemoryIngestEvent(sessionId, teamId, eventId),
   'agent:getMemoryAttribution': (
     _e: unknown,
     sessionId: string,

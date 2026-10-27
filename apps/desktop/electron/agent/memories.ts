@@ -105,13 +105,11 @@ export async function getMemoryIngestEvent(
   sessionId: string,
   teamId?: string,
   eventId?: string,
-  turnKey?: string,
 ): Promise<MemoryIngestEventPage> {
   const params = new URLSearchParams()
 
   if (teamId) params.set('teamId', teamId)
   if (eventId) params.set('eventId', eventId)
-  if (turnKey) params.set('turnKey', turnKey)
   const q = params.toString() ? `?${String(params)}` : ''
 
   return callJson<MemoryIngestEventPage>(

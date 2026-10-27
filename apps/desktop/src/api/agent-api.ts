@@ -190,12 +190,8 @@ export const agentApi = {
   ) => window.api.agentListMemories(cursor, limit, teamId, scope, state),
   agentGetMemory: (memoryId: string, teamId?: string, scope?: AgentMemoryScope) =>
     window.api.agentGetMemory(memoryId, teamId, scope),
-  agentGetMemoryIngestEvent: (
-    sessionId: string,
-    teamId?: string,
-    eventId?: string,
-    turnKey?: string,
-  ) => window.api.agentGetMemoryIngestEvent(sessionId, teamId, eventId, turnKey),
+  agentGetMemoryIngestEvent: (sessionId: string, teamId?: string, eventId?: string) =>
+    window.api.agentGetMemoryIngestEvent(sessionId, teamId, eventId),
   agentGetMemoryAttribution: (sessionId: string, teamId?: string, turnKey?: string) =>
     window.api.agentGetMemoryAttribution(sessionId, teamId, turnKey),
   agentGetMemoryScorecard: (teamId?: string, ids?: string[]) =>

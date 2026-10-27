@@ -11,9 +11,6 @@ import type {
 } from '../../../api'
 
 export function usePanelRefs() {
-  // A3 auto-ingest: streamIds whose post-turn learned-chip fetch is already
-  // scheduled (StrictMode double-dispatch guard).
-  const autoLearnedFetchedRef = useRef(new Set<string>())
   // Tabs with a transfer upload in flight. The tab stays
   // `streaming: false` during the upload, so without this a second send could
   // race the upload and clobber messages; sends treat these tabs as busy.
@@ -66,7 +63,7 @@ export function usePanelRefs() {
   // atlas-turn-complete SSE arrives; consumed when the matching `end` event
   // fires and decides whether to finalize the turn or auto-resume. Entries are
   // deleted as they're consumed so stale streamIds can't fool a later run.
-  const turnCompleteRef = useRef<Map<string, { turnKey?: string }>>(new Map())
+  const turnCompleteRef = useRef(new Set<string>())
   // Same shape, for the atlas-turn-paused signal. Presence means the backend
   // stopped the turn and told us why; the reason is shown to the user when the
   // matching `end` event finalizes the turn.
@@ -90,7 +87,6 @@ export function usePanelRefs() {
   const pendingEndEffectsRef = useRef<(() => void)[]>([])
 
   return {
-    autoLearnedFetchedRef,
     uploadingTabsRef,
     homeDropRef,
     conversationDropRef,

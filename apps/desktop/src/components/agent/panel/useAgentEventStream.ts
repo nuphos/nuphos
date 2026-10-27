@@ -6,7 +6,6 @@ import type { PanelCtx } from './ctx'
 
 type Acc = Pick<
   PanelCtx,
-  | 'autoLearnedFetchedRef'
   | 'enqueueTextDelta'
   | 'flushTextBuffer'
   | 'handleEndEvent'
@@ -16,7 +15,6 @@ type Acc = Pick<
   | 'stoppedRunIdsRef'
   | 'syncTimersRef'
   | 'tabsRef'
-  | 'teamIdRef'
   | 'textBuffersRef'
   | 'turnCompleteRef'
   | 'turnPausedRef'
@@ -24,7 +22,6 @@ type Acc = Pick<
 
 export function useAgentEventStream(acc: Acc) {
   const {
-    autoLearnedFetchedRef,
     enqueueTextDelta,
     flushTextBuffer,
     handleEndEvent,
@@ -34,7 +31,6 @@ export function useAgentEventStream(acc: Acc) {
     stoppedRunIdsRef,
     syncTimersRef,
     tabsRef,
-    teamIdRef,
     textBuffersRef,
     turnCompleteRef,
     turnPausedRef,
@@ -57,8 +53,6 @@ export function useAgentEventStream(acc: Acc) {
           flushTextBuffer,
           handleEndEvent,
           queueTranscriptSync,
-          autoLearnedFetchedRef,
-          teamIdRef,
         },
         streamId,
         event,
@@ -79,8 +73,6 @@ export function useAgentEventStream(acc: Acc) {
     flushTextBuffer,
     handleEndEvent,
     queueTranscriptSync,
-    autoLearnedFetchedRef,
-    teamIdRef,
   ])
 
   useEffect(() => {

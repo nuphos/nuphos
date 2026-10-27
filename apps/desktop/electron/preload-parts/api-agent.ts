@@ -121,12 +121,8 @@ export const agentApi = {
   ) => ipcRenderer.invoke('agent:listMemories', cursor, limit, teamId, scope, state),
   agentGetMemory: (memoryId: string, teamId?: string, scope?: 'personal' | 'team') =>
     ipcRenderer.invoke('agent:getMemory', memoryId, teamId, scope),
-  agentGetMemoryIngestEvent: (
-    sessionId: string,
-    teamId?: string,
-    eventId?: string,
-    turnKey?: string,
-  ) => ipcRenderer.invoke('agent:getMemoryIngestEvent', sessionId, teamId, eventId, turnKey),
+  agentGetMemoryIngestEvent: (sessionId: string, teamId?: string, eventId?: string) =>
+    ipcRenderer.invoke('agent:getMemoryIngestEvent', sessionId, teamId, eventId),
   agentGetMemoryAttribution: (sessionId: string, teamId?: string, turnKey?: string) =>
     ipcRenderer.invoke('agent:getMemoryAttribution', sessionId, teamId, turnKey),
   agentGetMemoryScorecard: (teamId?: string, ids?: string[]) =>

@@ -1,87 +1,16 @@
-import { api } from '../../../api'
 import { rememberTerminalRuntimeStream } from '../../../lib/runtimeWakeup'
 import { toast } from '../../ui/toast'
 
 import { applyStreamEvent } from './agentEventsApply'
 import { handleSseControlFrame } from './agentEventsSse'
-import { appendMemoryIngestPart } from './applyEvent'
 import { adoptSideStream, dispatchedDraft, takeSideSend, withoutQueued } from './queuedAutoSend'
 import { observeTurnUnread } from './turnUnread'
 
 import type { PanelCtx } from './ctx'
 import type { Tab } from './model'
 
-const LEARNED_MEMORY_POLL_DELAYS_MS = [4_000, 8_000, 12_000, 12_000] as const
-
-function appendLearnedMemories(
-  ctx: Pick<PanelCtx, 'queueTranscriptSync' | 'setTabs'>,
-  sessionId: string,
-  memories: Awaited<ReturnType<typeof api.agentGetMemoryIngestEvent>>['memories'],
-  turnKey?: string,
-  targetMessageId?: string,
-) {
-  if (memories.length === 0) return
-
-  const firstMemory = memories[0]
-
-  ctx.setTabs((prev) =>
-    prev.map((t) => {
-      if (t.sessionId !== sessionId) return t
-      const nextTab = appendMemoryIngestPart(
-        t,
-        {
-          type: 'memory-ingest',
-          id: turnKey
-            ? `${sessionId}:auto-ingest-turn:${turnKey}`
-            : `${sessionId}:auto-ingest:${firstMemory.id}`,
-          sessionId,
-          kind: 'ok',
-          text:
-            memories.length === 1
-              ? '1 memory learned'
-              : `${String(memories.length)} memories learned`,
-          createdAt: firstMemory.createdAt,
-          memories,
-          detailsLoadedAt: new Date().toISOString(),
-        },
-        targetMessageId,
-      )
-
-      if (nextTab !== t) ctx.queueTranscriptSync(nextTab, 250)
-
-      return nextTab
-    }),
-  )
-}
-
-function pollLearnedMemories(
-  ctx: Pick<PanelCtx, 'queueTranscriptSync' | 'setTabs' | 'teamIdRef'>,
-  sessionId: string,
-  turnKey: string,
-  targetMessageId: string | undefined,
-  attempt = 0,
-) {
-  const delay = LEARNED_MEMORY_POLL_DELAYS_MS.at(attempt)
-
-  if (delay === undefined) return
-  window.setTimeout(() => {
-    void api
-      .agentGetMemoryIngestEvent(sessionId, ctx.teamIdRef.current, undefined, turnKey)
-      .then((page) => {
-        if (page.status === 'pending') {
-          pollLearnedMemories(ctx, sessionId, turnKey, targetMessageId, attempt + 1)
-
-          return
-        }
-        appendLearnedMemories(ctx, sessionId, page.memories, turnKey, targetMessageId)
-      })
-      .catch(() => pollLearnedMemories(ctx, sessionId, turnKey, targetMessageId, attempt + 1))
-  }, delay)
-}
-
 export type AgentEventCtx = Pick<
   PanelCtx,
-  | 'autoLearnedFetchedRef'
   | 'enqueueTextDelta'
   | 'flushTextBuffer'
   | 'handleEndEvent'
@@ -91,7 +20,6 @@ export type AgentEventCtx = Pick<
   | 'stoppedRunIdsRef'
   | 'syncTimersRef'
   | 'tabsRef'
-  | 'teamIdRef'
   | 'textBuffersRef'
   | 'turnCompleteRef'
   | 'turnPausedRef'
@@ -135,16 +63,7 @@ function followSideSend(
 const SIDE_SEND_FAILED = new Set(['runtime-not-ready', 'error', 'aborted', 'agent-setup-required'])
 
 export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: unknown) {
-  const {
-    tabsRef,
-    setTabs,
-    streamOwnersRef,
-    textBuffersRef,
-    syncTimersRef,
-    autoLearnedFetchedRef,
-    teamIdRef,
-    handleEndEvent,
-  } = ctx
+  const { tabsRef, setTabs, streamOwnersRef, textBuffersRef, syncTimersRef, handleEndEvent } = ctx
   const ev = event as Record<string, unknown>
   const evType = ev.type as string | undefined
 
@@ -203,42 +122,6 @@ export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: un
   // a side-effecting auto-resume — handled out-of-band from the main
   // reducer below.
   if (evType === 'end') {
-    // A3 auto-ingest: the distiller resolves seconds AFTER the stream closes,
-    // so the learned chip often can't ride the live SSE. Poll this exact turn
-    // to completion; part-id dedup absorbs the rare live-frame overlap.
-    const endedTab = tabsRef.current.find((t) => t.streamId === streamId)
-    const endedSessionId = endedTab?.sessionId
-    const endedAssistantMessageId = [...(endedTab?.messages ?? [])]
-      .reverse()
-      .find((message) => message.role === 'assistant')?.id
-    const turnKey = ctx.turnCompleteRef.current.get(streamId)?.turnKey
-
-    if (endedSessionId && !autoLearnedFetchedRef.current.has(streamId)) {
-      autoLearnedFetchedRef.current.add(streamId)
-
-      if (turnKey) pollLearnedMemories(ctx, endedSessionId, turnKey, endedAssistantMessageId)
-      else {
-        // Backward compatibility for a backend that predates terminal turnKey.
-        const turnEndedAt = Date.now()
-
-        window.setTimeout(() => {
-          void api
-            .agentGetMemoryIngestEvent(endedSessionId, teamIdRef.current)
-            .then((page) =>
-              appendLearnedMemories(
-                ctx,
-                endedSessionId,
-                page.memories.filter(
-                  (memory) => Date.parse(memory.createdAt) > turnEndedAt - 3 * 60_000,
-                ),
-                undefined,
-                endedAssistantMessageId,
-              ),
-            )
-            .catch(() => null)
-        }, 12_000)
-      }
-    }
     handleEndEvent(streamId)
 
     return

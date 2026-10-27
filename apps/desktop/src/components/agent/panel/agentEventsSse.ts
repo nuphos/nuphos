@@ -113,9 +113,7 @@ export function handleSseControlFrame(
   }
   // Transcript boundary only; execution comes from runtime-state.
   if (sse.type === AGENT_TURN_COMPLETE_EVENT) {
-    turnCompleteRef.current.set(streamId, {
-      ...(typeof sse.turnKey === 'string' ? { turnKey: sse.turnKey } : {}),
-    })
+    turnCompleteRef.current.add(streamId)
 
     return true
   }
