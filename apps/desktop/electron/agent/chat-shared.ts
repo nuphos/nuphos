@@ -56,6 +56,7 @@ export const CHAT_STREAM_NO_CONTENT_TIMEOUT_MS = 40 * 60_000
 export const CHAT_STREAM_IDLE_MAX_ATTEMPTS = 3
 
 export type StartChatArgs = {
+  decisionReplyTo?: string
   streamId: string
   sessionId: string
   teamId?: string

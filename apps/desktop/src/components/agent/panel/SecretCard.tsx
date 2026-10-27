@@ -11,10 +11,12 @@ import { AgentQuote } from './ConnectCardRows'
  * runtime, and only the file's path is sent as the reply.
  */
 export function SecretCard({
+  toolCallId,
   name,
   reason,
   canAct,
 }: {
+  toolCallId: string
   name: string
   reason: string
   /** The latest reply and no turn running: only then can the value be sent. */
@@ -32,7 +34,7 @@ export function SecretCard({
 
       setValue('')
       setPhase('sent')
-      ctx.send(`🔒 ${name} saved to ${path}`)
+      ctx.send(`🔒 ${name} saved to ${path}`, toolCallId)
     } catch {
       setPhase('error')
     }

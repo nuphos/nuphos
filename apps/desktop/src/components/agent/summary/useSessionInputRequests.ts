@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { api } from '../../../api'
-import { useOpenedConversation } from '../../../lib/openedConversation'
-import { useSwrCache } from '../../../lib/swrCache'
-import { agentSessionsCacheKey } from '../../sidebar/state'
+import { api } from '../../../api.ts'
+import { useOpenedConversation } from '../../../lib/openedConversation.ts'
+import { useSwrCache } from '../../../lib/swrCache.ts'
+import { agentSessionsCacheKey } from '../../sidebar/state.ts'
 
-import { sessionInputRequests } from './sessionInputRequests'
+import { sessionInputRequests } from './sessionInputRequests.ts'
 
 import type { AgentConversation } from '../../../api/agent-types'
 

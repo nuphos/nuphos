@@ -71,11 +71,13 @@ function currentAvailable(
 }
 
 export function ConnectCard({
+  toolCallId,
   teamId,
   providers,
   reason,
   canAct,
 }: {
+  toolCallId: string
   teamId?: string
   providers: ConnectProvider[]
   reason: string
@@ -165,7 +167,7 @@ export function ConnectCard({
         <ContinueFooter
           onContinue={() => {
             setContinued(true)
-            ctx?.send('continue')
+            ctx?.send('continue', toolCallId)
           }}
         />
       )}
@@ -202,6 +204,7 @@ export function DecisionToolPart({
   if (connect) {
     return (
       <ConnectCard
+        toolCallId={part.toolCallId}
         teamId={teamId}
         providers={connect.providers}
         reason={connect.reason}
@@ -209,8 +212,8 @@ export function DecisionToolPart({
       />
     )
   }
-  if (secret) return <SecretCard {...secret} canAct={canAct} />
-  if (choice) return <ChoiceCard {...choice} canAct={canAct} />
+  if (secret) return <SecretCard {...secret} toolCallId={part.toolCallId} canAct={canAct} />
+  if (choice) return <ChoiceCard {...choice} toolCallId={part.toolCallId} canAct={canAct} />
 
   return <ToolPartView part={part} now={now} />
 }

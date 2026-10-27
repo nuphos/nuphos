@@ -30,9 +30,10 @@ useAgentDb({
 
 const { persistPreviewTurnContext } = await import('./chat-preview-prepare')
 
-const turn = (localToolsEnabled: boolean, humanTurn = false) =>
+const turn = (localToolsEnabled: boolean, humanTurn = false, explicitDecisionReplies = true) =>
   ({
     humanTurn,
+    explicitDecisionReplies,
     sessionId: 'conv-1',
     teamId: 'team-1',
     userId: 'u1',
@@ -82,10 +83,10 @@ test('a capable turn rides out a total write failure', async () => {
   expect(cleared).toEqual([])
 })
 
-test('a human turn answers the decision the session was waiting on', async () => {
+test('a human follow-up leaves the pending question intact until an explicit reply', async () => {
   await persistPreviewTurnContext(turn(true, true), 'req-5')
 
-  expect(answered).toEqual(['conv-1'])
+  expect(answered).toEqual([])
 })
 
 test('an agent-thread or resource turn leaves the decision waiting for the person', async () => {
@@ -93,4 +94,16 @@ test('an agent-thread or resource turn leaves the decision waiting for the perso
   await persistPreviewTurnContext(turn(true, false), 'req-6')
 
   expect(answered).toEqual([])
+})
+
+test('non-Desktop channels keep their existing human text-reply behavior', async () => {
+  await persistPreviewTurnContext(turn(false, true, false), 'req-7')
+
+  expect(answered).toEqual(['conv-1'])
+})
+
+test('older Desktop versions keep their text-reply behavior until upgraded', async () => {
+  await persistPreviewTurnContext(turn(true, true, false), 'req-8')
+
+  expect(answered).toEqual(['conv-1'])
 })

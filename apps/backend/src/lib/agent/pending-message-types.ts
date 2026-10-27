@@ -9,6 +9,7 @@ export type QueuedChatTurn = {
   message: UIMessage
   locale: string
   localTools: boolean
+  decisionReplies?: boolean
   kubeContext?: string
   diagramId?: string
   currentUrl?: string | null

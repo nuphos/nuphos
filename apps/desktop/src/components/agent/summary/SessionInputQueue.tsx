@@ -1,6 +1,8 @@
 import { ArrowLeft, ArrowUpRight, MessageCircleQuestion, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { api } from '../../../api'
+import { toast } from '../../ui/toast'
 import { AgentPanel } from '../AgentPanel'
 
 import { SummarySection } from './ChatSummaryRows'
@@ -78,11 +80,31 @@ export function SessionInputReply({
 }) {
   const stillPending = requests.some((item) => inputRequestKey(item) === inputRequestKey(request))
   const next = requests.find((item) => inputRequestKey(item) !== inputRequestKey(request))
+  const [dismissed, setDismissed] = useState(false)
+  const [dismissing, setDismissing] = useState(false)
   const [locate, setLocate] = useState(
     request.pendingDecision
       ? { sessionId: request.sessionId, target: { toolCallId: request.pendingDecision.toolCallId } }
       : null,
   )
+
+  async function dismiss() {
+    if (!request.pendingDecision || dismissing) return
+    setDismissing(true)
+    try {
+      await api.agentResolveDecision(
+        request.sessionId,
+        request.pendingDecision.toolCallId,
+        teamId,
+        'dismissed',
+      )
+      setDismissed(true)
+    } catch (error) {
+      toast.apiError('Could not dismiss question', error)
+    } finally {
+      setDismissing(false)
+    }
+  }
 
   return (
     <>
@@ -119,7 +141,7 @@ export function SessionInputReply({
         <p className="text-[12px] leading-5 text-main">{request.pendingDecision?.question}</p>
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-tertiary">
           <span role="status">
-            {stillPending
+            {stillPending && !dismissed
               ? 'Your reply goes to this agent only.'
               : 'This request is no longer pending.'}
           </span>
@@ -134,13 +156,24 @@ export function SessionInputReply({
           )}
         </div>
       </div>
+      {stillPending && !dismissed && !request.readOnly && (
+        <button
+          type="button"
+          disabled={dismissing}
+          onClick={() => void dismiss()}
+          className="shrink-0 self-end px-4 py-2 text-[11px] text-tertiary hover:text-main"
+        >
+          {dismissing ? 'Dismissing...' : 'Dismiss question'}
+        </button>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1">
         <AgentPanel
           variant="page"
           open
           teamId={teamId}
           sessionId={request.sessionId}
-          sessionReadOnly={(request.readOnly ?? false) || !stillPending}
+          sessionReadOnly={(request.readOnly ?? false) || !stillPending || dismissed}
+          decisionReplyTo={request.pendingDecision?.toolCallId}
           composerDraftId={`input:${inputRequestKey(request)}`}
           focusComposerOnOpen={false}
           pendingLocate={locate}

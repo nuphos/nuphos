@@ -67,6 +67,7 @@ export type PanelCtx = {
   autoFocusComposer: boolean
   focusComposerOnOpen: boolean
   composerDraftId?: string
+  decisionReplyTo?: string
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
   connectedResources?: string[]
@@ -209,11 +210,13 @@ export type PanelCtx = {
     text: string,
     filePaths: string[],
     turnKind?: Message['turnKind'],
+    decisionReplyTo?: string,
   ) => Promise<void>
   sendInActive: (
     text: string,
     filePaths?: string[],
     turnKind?: Message['turnKind'],
+    decisionReplyTo?: string,
   ) => Promise<void>
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
   handleRejectPlan: (

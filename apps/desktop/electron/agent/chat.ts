@@ -1,7 +1,7 @@
-import { postChatAttempt } from './chat-attempt'
-import { handleChatHttpFailure } from './chat-http-failure'
-import { resolveStreamOutcome } from './chat-outcome'
-import { consumeChatStream } from './chat-read'
+import { postChatAttempt } from './chat-attempt.ts'
+import { handleChatHttpFailure } from './chat-http-failure.ts'
+import { resolveStreamOutcome } from './chat-outcome.ts'
+import { consumeChatStream } from './chat-read.ts'
 import {
   CHAT_STREAM_CONNECT_STALL_BEACON_MS,
   CHAT_STREAM_RECONNECT_BASE_MS,
@@ -10,14 +10,15 @@ import {
   createChatStreamState,
   reportFailure,
   traceStream,
-} from './chat-shared'
-import { setSessionTeam } from './client-tools'
-import { agentAccount, teamIdFromUrl } from './http'
-import { logLocalTool } from './local-exec'
-import { broadcast } from './notify'
-import { abortableSleep, formatAgentLocalError, queuedNotice } from './stream-errors'
+} from './chat-shared.ts'
+import { setSessionTeam } from './client-tools.ts'
+import { resolveDecision } from './decisions.ts'
+import { agentAccount, teamIdFromUrl } from './http.ts'
+import { logLocalTool } from './local-exec.ts'
+import { broadcast } from './notify.ts'
+import { abortableSleep, formatAgentLocalError, queuedNotice } from './stream-errors.ts'
 
-import type { ChatStreamCtx, StartChatArgs } from './chat-shared'
+import type { ChatStreamCtx, StartChatArgs } from './chat-shared.ts'
 
 export const activeStreams = new Map<string, AbortController>()
 
@@ -56,6 +57,7 @@ export async function startChat(args: StartChatArgs): Promise<void> {
   }
   const state = createChatStreamState(Math.max(0, Math.floor(args.resumeFrom ?? 0)))
   let firstFrameSeen = false
+  let queued = false
   let connectStallReported = false
   const turnStartedAtMs = Date.now()
   // Fresh turns only: a mid-turn re-attach (resumeFrom > 0) can legitimately
@@ -154,6 +156,7 @@ export async function startChat(args: StartChatArgs): Promise<void> {
         // The session was busy, or its owner has yet to approve: the message waits in its server queue.
         if (res.status === 202) {
           emit({ type: 'queued', ...(await queuedNotice(res)) })
+          queued = true
 
           return
         }
@@ -255,6 +258,11 @@ export async function startChat(args: StartChatArgs): Promise<void> {
       emit({ type: 'error', error: msg })
     }
   } finally {
+    if (args.decisionReplyTo && !ac.signal.aborted && (queued || state.completedSuccessfully)) {
+      await resolveDecision(sessionId, args.decisionReplyTo, teamId).catch(() => {
+        console.warn('[agent] reply delivered, but its pending question could not be resolved')
+      })
+    }
     if (connectStallTimer) clearTimeout(connectStallTimer)
     if (activeStreams.get(streamId) === ac) {
       emit({ type: 'end' })

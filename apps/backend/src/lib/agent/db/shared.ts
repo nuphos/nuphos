@@ -3,6 +3,7 @@ import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
+import type { PendingDecision } from './pending-decision'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
@@ -44,8 +45,7 @@ export function liveAttachment(
   return !attachment || attachment.forceNew ? null : attachment
 }
 
-// Per-turn desktop context the Claude Code runtime's MCP calls cannot carry
-// themselves (they only know the conversation id).
+// Desktop context MCP calls cannot carry themselves (they only know the conversation id).
 export type ConversationPreviewContext = {
   diagramId?: string
   kubeContext?: string
@@ -64,6 +64,7 @@ export type ConversationPreviewContext = {
 export type { ConversationTimelineEvent }
 
 export type AgentConversation = {
+  pendingDecision?: PendingDecision
   _id?: ObjectId
   sessionId: string // Frontend-generated UUID
   userId: string // Nuphos user id

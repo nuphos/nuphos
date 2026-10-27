@@ -33,8 +33,7 @@ type Props = {
  * Teammates asking to use the viewer's own computer, above every conversation
  * waiting on the viewer, beside the one being answered —
  * the Chats reader's own list and panel, listing only `pendingDecision`. The
- * answer is typed into that conversation's composer; the human turn clears
- * the decision (#565) and the next listing moves on.
+ * answer names the selected question; only delivery or dismissal clears it.
  */
 export function InboxView({
   teamId,
@@ -193,6 +192,10 @@ export function InboxView({
                 focusComposerOnOpen={false}
                 teamId={teamId}
                 sessionId={selected.sessionId}
+                decisionReplyTo={
+                  items?.find((item) => item.sessionId === selected.sessionId)?.pendingDecision
+                    ?.toolCallId
+                }
                 onSessionChange={(sessionId) => select(sessionId, items ?? [])}
               />
             )}

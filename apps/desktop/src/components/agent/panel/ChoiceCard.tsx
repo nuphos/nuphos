@@ -18,11 +18,13 @@ const TITLE: Record<string, string> = {
 
 /** A user decision other than a Connect card: the question, with each option sent as the reply. */
 export function ChoiceCard({
+  toolCallId,
   category,
   question,
   options,
   canAct,
 }: {
+  toolCallId: string
   category: string
   question: string
   options: string[]
@@ -36,7 +38,7 @@ export function ChoiceCard({
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
     setSent(true)
-    ctx?.send(option)
+    ctx?.send(option, toolCallId)
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
     const option = key.kind === 'option' ? options[key.index] : undefined

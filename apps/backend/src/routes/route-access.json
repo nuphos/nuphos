@@ -617,6 +617,7 @@
   "POST /agent/chat/:streamId/abort": "user",
   "POST /agent/chat/:streamId/report-failure": "user",
   "POST /agent/conversations/:sessionId/cancel-runtime": "user",
+  "POST /agent/conversations/:sessionId/decisions/:toolCallId/resolve": "user",
   "POST /agent/conversations/:sessionId/messages/:messageId/feedback": "user",
   "POST /agent/conversations/:sessionId/messages/:messageId/retract": "user",
   "POST /agent/conversations/:sessionId/participants": "user",

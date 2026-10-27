@@ -26,6 +26,7 @@ type Acc = Pick<
   | 'credentialAccessRef'
   | 'credentialOptions'
   | 'defaultPermissionMode'
+  | 'decisionReplyTo'
   | 'kubeContextRef'
   | 'lastCredentialSyncedRef'
   | 'newConversationRuntime'
@@ -50,6 +51,7 @@ export function useTurnDispatch(acc: Acc) {
     credentialAccessRef,
     credentialOptions,
     defaultPermissionMode,
+    decisionReplyTo,
     kubeContextRef,
     lastCredentialSyncedRef,
     newConversationRuntime,
@@ -149,10 +151,17 @@ export function useTurnDispatch(acc: Acc) {
   // loading card; bytes stream Electron-main -> S3 in the background and the
   // turn only starts once the upload finalizes (the agent then pulls the files).
   const dispatchTurn = useCallback(
-    (tabId: string, text: string, filePaths: string[], turnKind?: Message['turnKind']) =>
+    (
+      tabId: string,
+      text: string,
+      filePaths: string[],
+      turnKind?: Message['turnKind'],
+      questionId?: string,
+    ) =>
       runDispatchTurn(
         {
           currentUser,
+          decisionReplyTo: questionId ?? decisionReplyTo,
           teamId,
           tabsRef,
           uploadingTabsRef,
@@ -171,6 +180,7 @@ export function useTurnDispatch(acc: Acc) {
       ),
     [
       currentUser,
+      decisionReplyTo,
       teamId,
       tabsRef,
       uploadingTabsRef,
@@ -194,7 +204,12 @@ export function useTurnDispatch(acc: Acc) {
   })
 
   const sendInActive = useCallback(
-    async (text: string, filePaths: string[] = [], turnKind?: Message['turnKind']) => {
+    async (
+      text: string,
+      filePaths: string[] = [],
+      turnKind?: Message['turnKind'],
+      questionId?: string,
+    ) => {
       const trimmed = text.trim()
 
       if (!trimmed && filePaths.length === 0) return
@@ -232,7 +247,9 @@ export function useTurnDispatch(acc: Acc) {
       if (
         runtimeAllows(tab.runtimeState, 'steer') &&
         !runtimeAllows(tab.runtimeState, 'reply') &&
-        !turnKind
+        !turnKind &&
+        !questionId &&
+        !decisionReplyTo
       ) {
         await sendSteering(activeId, trimmed, filePaths)
 
@@ -248,9 +265,9 @@ export function useTurnDispatch(acc: Acc) {
 
         return
       }
-      void dispatchTurn(activeId, trimmed, filePaths, turnKind)
+      void dispatchTurn(activeId, trimmed, filePaths, turnKind, questionId)
     },
-    [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
+    [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser, decisionReplyTo],
   )
 
   const { steerQueued, removeQueued } = useQueueActions({ tabsRef, setTabs, teamId, sendSteering })

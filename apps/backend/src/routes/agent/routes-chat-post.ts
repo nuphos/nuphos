@@ -102,7 +102,7 @@ agent.post('/chat', async (c) => {
     clientView,
     slackBound: Boolean(slackThread),
     credentialAccess: requestedCredentialAccess?.access,
-    context: queuedChatContext(c, locale, localToolsEnabled, kubeContext),
+    context: queuedChatContext(c, locale, body.clientCapabilities, kubeContext),
   }
 
   if (existingRun) {

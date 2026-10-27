@@ -38,6 +38,8 @@ export type AgentChatBody = {
   initialSessionConfig?: RuntimeDefaults
   clientCapabilities?: {
     localTools?: boolean
+    /** Questions are resolved explicitly by id, separately from ordinary messages. */
+    decisionReplies?: boolean
     /** The client keeps a message refused with runtime_not_accepting_message and sends it again. */
     resendsRefusal?: boolean
     /** The client reads a 202 for a queued message. Without it, a queued send gets an SSE that ends at once. */

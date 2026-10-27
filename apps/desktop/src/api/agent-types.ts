@@ -71,7 +71,7 @@ export type AgentConversation = {
   /** Owner-only: assistant turn boundaries so far, and how many were read on any device. */
   activitySeq?: number
   readSeq?: number
-  /** The question this session is waiting on the owner to answer; the next human message clears it. */
+  /** The question this session awaits; Desktop resolves it by question id after a reply or dismissal. */
   pendingDecision?: AgentPendingDecision
 }
 

@@ -180,6 +180,7 @@ export function launchAcceptedChatTurn(args: {
           if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
+        explicitDecisionReplies: body.clientCapabilities?.decisionReplies === true,
         clientResendsRefusal: body.clientCapabilities?.resendsRefusal === true,
         ...(args.queued ? { queued: args.queued } : {}),
         ...(body.continueAfterInterruption

@@ -3,8 +3,8 @@
 // any messages queued while no turn was running (they ride the first prompt).
 
 import {
-  clearConversationPreviewLocalTools,
   clearPendingDecision,
+  clearConversationPreviewLocalTools,
   clearConversationPreviewTurn,
   openConversationPromptSuggestion,
   setConversationPreviewContext,
@@ -129,8 +129,10 @@ export async function persistPreviewTurnContext(
   args: PreviewChatTurnArgs,
   requestId: string,
 ): Promise<void> {
-  // A person speaking in the session answers whatever it was waiting on.
-  if (args.humanTurn) await clearPendingDecision(args.sessionId, args.userId)
+  // Updated clients name the question they answered. Older clients and channel
+  // integrations keep their existing next-human-message behavior.
+  if (args.humanTurn && !args.explicitDecisionReplies)
+    await clearPendingDecision(args.sessionId, args.userId)
   try {
     await setConversationPreviewContext(args.sessionId, args.teamId, {
       activeTurnKey: requestId,

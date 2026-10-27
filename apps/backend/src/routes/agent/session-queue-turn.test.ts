@@ -131,7 +131,13 @@ test('a busy session queues the message with the context its device sent it with
   const done = busy()
 
   try {
-    expect((await admit('later'))?.mode).toBe('queued')
+    expect(
+      (
+        await admit('later', {
+          context: { locale: 'en', localTools: true, kubeContext: 'prod', decisionReplies: true },
+        })
+      )?.mode,
+    ).toBe('queued')
   } finally {
     done()
   }
@@ -142,7 +148,13 @@ test('a busy session queues the message with the context its device sent it with
     source: 'app',
     actorUserId: OWNER,
     renderedText: 'text later',
-    chat: { streamId: 'stream-later', localTools: true, kubeContext: 'prod', locale: 'en' },
+    chat: {
+      streamId: 'stream-later',
+      localTools: true,
+      kubeContext: 'prod',
+      locale: 'en',
+      decisionReplies: true,
+    },
   })
 })
 

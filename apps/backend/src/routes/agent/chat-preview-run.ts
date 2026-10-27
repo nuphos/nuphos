@@ -32,6 +32,7 @@ export type PreviewChatTurnArgs = {
   origin: AgentSessionOrigin
   /** The actor sent this turn's message themselves, so their Personal Credentials apply. */
   humanTurn?: boolean
+  explicitDecisionReplies?: boolean
   messages: UIMessage[]
   firstMessage: string
   locale: string

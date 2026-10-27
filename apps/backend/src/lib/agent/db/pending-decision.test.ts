@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { getConversations } from './conversations-list'
-import { clearPendingDecision, setPendingDecision } from './pending-decision'
+import { resolvePendingDecision, setPendingDecision } from './pending-decision'
 
 import type * as dbActual from '@/lib/db'
 
@@ -52,12 +52,12 @@ describe('pending decision', () => {
     ])
   })
 
-  test('clearing only touches a conversation that is waiting', async () => {
-    await clearPendingDecision('s1', 'owner')
+  test('resolving only touches the exact question, preserving any replacement', async () => {
+    expect(await resolvePendingDecision('s1', 'owner', 'nuphos-1')).toBe(true)
 
     expect(updates).toEqual([
       {
-        filter: { sessionId: 's1', userId: 'owner', pendingDecision: { $exists: true } },
+        filter: { sessionId: 's1', userId: 'owner', 'pendingDecision.toolCallId': 'nuphos-1' },
         update: { $unset: { pendingDecision: '' } },
       },
     ])

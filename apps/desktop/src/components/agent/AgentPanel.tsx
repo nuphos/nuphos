@@ -109,6 +109,7 @@ type Props = {
   focusComposerOnOpen?: boolean
   /** A request's reply draft is separate from the same session's normal composer. */
   composerDraftId?: string
+  decisionReplyTo?: string
   /**
    * The workspace tab's currently-bound kubeconfig context, if any. Forwarded
    * to `agentStart` as `kubeContext` so the backend can tell the agent which
@@ -169,6 +170,7 @@ export const AgentPanel = memo(function AgentPanel({
   autoFocusComposer = false,
   focusComposerOnOpen = true,
   composerDraftId,
+  decisionReplyTo,
   kubeContext,
   runtimeKubeContextRef,
   isTeamAdmin = false,
@@ -204,6 +206,7 @@ export const AgentPanel = memo(function AgentPanel({
     autoFocusComposer,
     focusComposerOnOpen,
     composerDraftId,
+    decisionReplyTo,
     kubeContext,
     runtimeKubeContextRef,
     connectedResources,
