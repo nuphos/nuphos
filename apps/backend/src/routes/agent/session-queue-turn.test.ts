@@ -19,7 +19,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat, launchQueuedChatTurn } from './session-queue-turn'
+import { admitQueueableChat, launchQueuedChatTurn, queuedChatReply } from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
@@ -271,6 +271,8 @@ test('a phone send while an agent message runs is queued in order, never refused
 
   try {
     expect((await admit('first', phone('first')))?.mode).toBe('queued')
+    // A resent copy of a waiting message is that message, not a second one.
+    expect((await admit('first', phone('first')))?.mode).toBe('queued')
     const outcome = await claimAgentRunOrEnqueue({
       userId: OWNER,
       sessionId: SESSION,
@@ -290,6 +292,25 @@ test('a phone send while an agent message runs is queued in order, never refused
     'second',
     'third',
   ])
+})
+
+test('a queued send ends cleanly for a phone that reads only an event stream', async () => {
+  const desktop = queuedChatReply(
+    { id: SESSION, messages: [], clientCapabilities: { serverQueue: true } },
+    'stream-d',
+  )
+
+  expect(desktop.status).toBe(202)
+  expect(await desktop.json()).toEqual({ status: 'queued', streamId: 'stream-d' })
+  // An error frame would offer Retry, which resends under a new id.
+  const phone = queuedChatReply(
+    { id: SESSION, messages: [], clientCapabilities: { resendsRefusal: true } },
+    'stream-p',
+  )
+
+  expect(phone.status).toBe(200)
+  expect(phone.headers.get('content-type')).toStartWith('text/event-stream')
+  expect(await phone.text()).toBe('data: {"type":"atlas-stream-done"}\n\n')
 })
 
 test('a message id that could match another message is refused', async () => {

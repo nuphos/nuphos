@@ -159,6 +159,21 @@ export async function admitQueueableChat(
 }
 
 /**
+ * The reply to a send that waits in the queue. iOS and Android up to their
+ * current releases read only an event stream: it ends this send cleanly, and
+ * their idle poll follows the queued turn when it starts. Delete the stream
+ * once both declare serverQueue.
+ */
+export function queuedChatReply(body: AgentChatBody, streamId: string): Response {
+  if (body.clientCapabilities?.serverQueue === true)
+    return Response.json({ status: 'queued', streamId }, { status: 202 })
+
+  return new Response(`data: ${JSON.stringify({ type: 'atlas-stream-done' })}\n\n`, {
+    headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' },
+  })
+}
+
+/**
  * Runs a queued app send as its sender's chat turn, with the context and stream
  * the sender's device sent it with. The caller's session claim passes to the
  * turn, which lets go of it when it ends.
