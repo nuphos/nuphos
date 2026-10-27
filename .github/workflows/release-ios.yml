@@ -12,6 +12,10 @@ on:
         description: Build number already on App Store Connect to submit instead of archiving a new one
         type: string
         required: false
+      review:
+        description: Submit the version for App Store review; off ships to TestFlight only and leaves a pending review alone
+        type: boolean
+        default: true
 
 concurrency:
   group: release-ios
@@ -229,7 +233,7 @@ jobs:
       # version record. A new record starts from the live version's metadata.
       # What's New and the screenshots always come from the repository.
       - name: Submit the version for App Store review
-        if: steps.beta.outputs.build_id != ''
+        if: steps.beta.outputs.build_id != '' && inputs.review
         working-directory: apps/ios
         env:
           APP_ID: '6812533633'

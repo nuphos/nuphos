@@ -1,1 +1,7 @@
-Voice input is now included with a Nuphos subscription. You no longer need to enter your own OpenAI API key: tap the microphone and speak, and Nuphos sends the recording to OpenAI to transcribe it.
+One Live Activity now shows every conversation that's running, instead of one per conversation.
+
+A new Runtimes page replaces Monitoring and Triggers, so you can see your computers and agents in one place.
+
+Nuphos has a new app icon, and you can choose from 16 icons in Settings.
+
+Screenshots you paste into the composer are now attached to your message.
