@@ -82,30 +82,31 @@ const liveActivitySchema = z.object({
   environment: z.enum(['sandbox', 'production']),
 })
 
-/** The conversation's title for the card's row; null when the user cannot read it. */
-export type ReadConversationTitle = (
+/** The conversation, for its title on the card's row; null when the user cannot read it. */
+export type ReadConversation = (
   userId: string,
   teamId: string,
   sessionId: string,
-) => Promise<string | null>
+) => Promise<{ title?: string } | null>
 
 /** Puts a conversation on the phone's Live Activity, so its turns reach the Lock Screen. */
 export function createLiveActivityRoutes(
   register: (sessionId: string, token: LiveActivityToken, row: LiveActivityRow) => Promise<void>,
-  readTitle: ReadConversationTitle,
+  readConversation: ReadConversation,
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.put('/live-activities', zv('json', liveActivitySchema), async (c) => {
     const { token, teamId, sessionId, environment } = c.req.valid('json')
     const userId = c.get('userId')
-    const title = await readTitle(userId, teamId, sessionId)
+    const conversation = await readConversation(userId, teamId, sessionId)
 
-    if (title === null) throw new AppError(404, 'not_found', 'Conversation not found')
+    if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
     await register(
       sessionId,
       { token: token.toLowerCase(), userId, environment },
-      { teamId, title },
+      // Older conversations may have no title; their row still shows.
+      { teamId, title: conversation.title ?? '' },
     )
 
     return c.json({ ok: true })
@@ -114,10 +115,10 @@ export function createLiveActivityRoutes(
   return routes
 }
 
-async function readConversationTitle(userId: string, teamId: string, sessionId: string) {
+async function readConversation(userId: string, teamId: string, sessionId: string) {
   if (!(await getTeamMembership(userId, teamId))) return null
 
-  return (await getReadableConversation(sessionId, userId, teamId))?.title ?? null
+  return getReadableConversation(sessionId, userId, teamId)
 }
 
 export const pushRoutes = new Hono<{ Variables: AuthVariables }>()
@@ -128,6 +129,6 @@ pushRoutes.route(
   '/',
   createLiveActivityRoutes(
     (sessionId, token, row) => registerLiveActivityToken(liveActivityDeps, sessionId, token, row),
-    readConversationTitle,
+    readConversation,
   ),
 )
