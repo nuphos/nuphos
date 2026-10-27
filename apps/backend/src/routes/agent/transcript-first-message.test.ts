@@ -19,6 +19,11 @@ useIdentity({ authenticateToken: async () => ({ user: { id: OWNER } }) })
 useSlackAgentBot({ getSlackAgentThreadBySessionId: async () => null })
 useAgentDb({
   getConversationBySessionId: async () => conversation,
+  syncConversationTranscript: async (data) => {
+    stored = data.messages.map((message) => ({ ...message, messageId: message.id }))
+
+    return { isNew: true }
+  },
   appendTranscriptMessages: async (data) => {
     stored = data.messages.map((message) => ({ ...message, messageId: message.id }))
 
