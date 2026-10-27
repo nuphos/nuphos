@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
@@ -107,6 +107,55 @@ export async function stopStaleOpenab(
   for (const pid of stale) signal(pid, 'SIGKILL')
 }
 
+/**
+ * On a Box, agents share one memory-capped cgroup apart from the host. Running out of
+ * memory then OOM-kills an agent inside it, while the host keeps the tunnel alive;
+ * sharing the host's cgroup, a thrashing agent starved the host of the heartbeat.
+ * Only MemoryMax: without swap, MemoryHigh stalls an agent instead of killing it.
+ * Needs the user's systemd manager; without it agents run as before.
+ */
+export const AGENT_SLICE = 'nuphos-agents.slice'
+let agentSlice: Promise<boolean> | undefined
+
+/** What `systemctl --user` and `systemd-run --user` need to reach the user's manager. */
+const systemdUserEnv = (): Record<string, string> | undefined =>
+  process.env.XDG_RUNTIME_DIR ? { XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR } : undefined
+
+function capAgentMemory(): Promise<boolean> {
+  agentSlice ??= new Promise((resolve) => {
+    const env = systemdUserEnv()
+
+    if (!env) {
+      resolve(false)
+
+      return
+    }
+    execFile(
+      'systemctl',
+      ['--user', 'set-property', '--runtime', AGENT_SLICE, 'MemoryMax=85%'],
+      { timeout: 5_000, env: { ...env, PATH: process.env.PATH ?? '' } },
+      (error) => {
+        resolve(!error)
+      },
+    )
+  })
+
+  return agentSlice
+}
+
+const AGENT_SCOPE = ['--user', '--scope', '--quiet', '--collect', `--slice=${AGENT_SLICE}`]
+
+/** `systemd-run --scope` execs openab in the same process, inside the agents' cgroup. */
+export function openabCommand(
+  openab: string,
+  configPath: string,
+  capped: boolean,
+): [string, string[]] {
+  const args = ['run', '-c', configPath]
+
+  return capped ? ['systemd-run', [...AGENT_SCOPE, '--', openab, ...args]] : [openab, args]
+}
+
 /** One openab + adapter process tree on a fresh loopback port and a fresh key. */
 export class OpenabProcess {
   private readonly machine: Pick<LocalRuntimeLaunch, 'ownsMachine'>
@@ -139,8 +188,11 @@ export class OpenabProcess {
     const log = createWriteStream(path.join(options.logDir, 'openab.log'), { flags: 'a' })
 
     log.write(`\n=== ${new Date().toISOString()} openab on 127.0.0.1:${String(port)} ===\n`)
-    const child = spawn(options.bundle.openab, ['run', '-c', configPath], {
-      env: openabEnv(launch),
+    const capped =
+      process.platform === 'linux' && this.machine.ownsMachine === true && (await capAgentMemory())
+    const [command, args] = openabCommand(options.bundle.openab, configPath, capped)
+    const child = spawn(command, args, {
+      env: { ...openabEnv(launch), ...(capped ? systemdUserEnv() : {}) },
       cwd: options.workspace,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
