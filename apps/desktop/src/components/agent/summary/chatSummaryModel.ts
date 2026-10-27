@@ -1,9 +1,12 @@
+import { changeStatus } from '../../sidebar/sessionResourcePresentation.ts'
 import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
 import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
 import type { SessionResource } from '../../../api/session-resource-types.ts'
+import type { ChangesFilter } from '../../../lib/chatSummaryPanel.ts'
 import type { FileTransferGroup } from '../../../types/app-misc.ts'
+import type { ChangeStatus } from '../../sidebar/sessionResourcePresentation.ts'
 
 /**
  * The chat itself: from the owner's list, then the shared list, which the
@@ -46,6 +49,82 @@ export function changesOf(resources: readonly SessionResource[]): SessionResourc
   return resources
     .filter((resource) => resource.provider === 'github' || resource.provider === 'linear')
     .sort((a, b) => b.linkedAt.localeCompare(a.linkedAt))
+}
+
+const STATUS_ORDER: readonly ChangeStatus[] = ['open', 'merged', 'closed']
+
+/** How many changes are in each status. */
+export function changeCounts(changes: readonly SessionResource[]): Record<ChangeStatus, number> {
+  const counts = { open: 0, merged: 0, closed: 0 }
+
+  for (const change of changes) counts[changeStatus(change)] += 1
+
+  return counts
+}
+
+/**
+ * A status as the filter names it. Completed Linear issues share the merged
+ * group, so the group reads "Done" until it holds a pull request.
+ */
+export function changeStatusLabel(
+  status: ChangeStatus,
+  changes: readonly SessionResource[],
+): string {
+  if (status === 'open') return 'Open'
+  if (status === 'closed') return 'Closed'
+
+  return changes.some((change) => change.provider === 'github' && changeStatus(change) === 'merged')
+    ? 'Merged'
+    : 'Done'
+}
+
+export type ChangesFilterOption = { filter: ChangesFilter; label: string; count: number }
+
+/**
+ * All, then each status that has changes. Empty when every change shares one
+ * status, since a filter would then have nothing to tell apart.
+ */
+export function changesFilterOptions(changes: readonly SessionResource[]): ChangesFilterOption[] {
+  const counts = changeCounts(changes)
+  const statuses = STATUS_ORDER.filter((status) => counts[status] > 0)
+
+  if (statuses.length < 2) return []
+
+  return [
+    { filter: 'all', label: 'All', count: changes.length },
+    ...statuses.map((status) => ({
+      filter: status,
+      label: changeStatusLabel(status, changes),
+      count: counts[status],
+    })),
+  ]
+}
+
+/**
+ * The filter to show among `options`: the stored one, or All when it matches
+ * nothing here, so another chat never opens on an empty list. The stored value
+ * stays as it is.
+ */
+export function shownChangesFilter(
+  stored: ChangesFilter,
+  options: readonly ChangesFilterOption[],
+): ChangesFilter {
+  return options.some((option) => option.filter === stored) ? stored : 'all'
+}
+
+/**
+ * The changes a filter shows. All lists open, then merged, then closed; each
+ * status keeps the order it came in (newest link first from changesOf).
+ */
+export function filterChanges(
+  changes: readonly SessionResource[],
+  filter: ChangesFilter,
+): SessionResource[] {
+  if (filter !== 'all') return changes.filter((change) => changeStatus(change) === filter)
+
+  return STATUS_ORDER.flatMap((status) =>
+    changes.filter((change) => changeStatus(change) === status),
+  )
 }
 
 /** "nuphos #12" for a pull request, the issue key ("ENG-12") for Linear. */
