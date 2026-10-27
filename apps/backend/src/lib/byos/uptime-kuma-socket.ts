@@ -148,7 +148,14 @@ export async function getRawMonitor(
   socket: Socket,
   monitorId: number,
 ): Promise<UptimeKumaRawMonitor> {
-  const res = assertOk(await emitAck(socket, 'getMonitor', monitorId), 'getMonitor')
+  const ack = await emitAck(socket, 'getMonitor', monitorId)
+
+  // Uptime Kuma answers an unknown id by dereferencing the null row it looked up
+  // (server.js "getMonitor"), so that TypeError message is the only signal.
+  if (ack?.ok === false && /\bof null\b/.test(String(ack.msg))) {
+    throw new UptimeKumaApiError(404, `Uptime Kuma monitor ${String(monitorId)} does not exist`)
+  }
+  const res = assertOk(ack, 'getMonitor')
 
   if (!isUptimeKumaMonitor(res.monitor)) {
     throw new UptimeKumaApiError(404, `Uptime Kuma monitor ${String(monitorId)} was not returned`)

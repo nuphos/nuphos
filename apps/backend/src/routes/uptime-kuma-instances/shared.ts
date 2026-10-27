@@ -47,12 +47,12 @@ export function uptimeKumaInstancesView(
 
 export function uptimeKumaError(err: unknown, fallback: string): AppError {
   if (err instanceof UptimeKumaApiError) {
-    const code =
-      err.status === 401 || err.status === 403
-        ? 'invalid_uptime_kuma_credentials'
-        : 'uptime_kuma_api_error'
+    if (err.status === 401 || err.status === 403) {
+      return new AppError(400, 'invalid_uptime_kuma_credentials', err.message)
+    }
+    if (err.status === 404) return new AppError(404, 'monitor_not_found', err.message)
 
-    return new AppError(err.status === 401 || err.status === 403 ? 400 : 502, code, err.message)
+    return new AppError(502, 'uptime_kuma_api_error', err.message)
   }
 
   return new AppError(502, 'uptime_kuma_api_error', err instanceof Error ? err.message : fallback)
