@@ -121,7 +121,8 @@ let agentSlice: Promise<boolean> | undefined
 const systemdUserEnv = (): Record<string, string> | undefined =>
   process.env.XDG_RUNTIME_DIR ? { XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR } : undefined
 
-function capAgentMemory(): Promise<boolean> {
+/** Remembers only success, so a miss (the user manager not up yet) is retried next start. */
+async function capAgentMemory(): Promise<boolean> {
   agentSlice ??= new Promise((resolve) => {
     const env = systemdUserEnv()
 
@@ -139,8 +140,11 @@ function capAgentMemory(): Promise<boolean> {
       },
     )
   })
+  const capped = await agentSlice
 
-  return agentSlice
+  if (!capped) agentSlice = undefined
+
+  return capped
 }
 
 const AGENT_SCOPE = ['--user', '--scope', '--quiet', '--collect', `--slice=${AGENT_SLICE}`]
