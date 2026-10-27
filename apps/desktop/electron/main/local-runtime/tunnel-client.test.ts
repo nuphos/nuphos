@@ -184,6 +184,32 @@ test('a silent socket is treated as dead and redialed', (t) => {
   client.stop()
 })
 
+test('once back, it tells the backend why it gave up the last tunnel, and only once', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { backend, frames, client } = setup()
+
+  backend().emit('open')
+  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
+  t.mock.timers.tick(500)
+  // A redial that fails does not replace the drop being reported.
+  backend().emit('error')
+  t.mock.timers.tick(1_000)
+  backend().emit('open')
+
+  assert.deepEqual(
+    frames().filter((frame) => frame.t === 'dropped'),
+    [{ t: 'dropped', reason: 'idle', silentMs: TUNNEL_IDLE_TIMEOUT_MS }],
+  )
+  backend().emit('close', { code: 1006 })
+  t.mock.timers.tick(500)
+  backend().emit('open')
+  assert.deepEqual(
+    frames().filter((frame) => frame.t === 'dropped'),
+    [{ t: 'dropped', reason: 'closed', code: 1006, silentMs: 0 }],
+  )
+  client.stop()
+})
+
 test('waking up redials at once instead of waiting out the backoff', () => {
   const { backend, backends, client } = setup()
 

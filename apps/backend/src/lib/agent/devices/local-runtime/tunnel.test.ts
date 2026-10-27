@@ -287,6 +287,27 @@ describe('local runtime tunnel', () => {
     )
   })
 
+  test('the computer reports why it gave up its last tunnel', async () => {
+    const desktop = await connectDesktop(
+      createLocalTunnelBus(),
+      createMemoryPresenceStore(),
+      new Set(['t1']),
+    )
+    const lines = await logged('log', async () => {
+      desktop.send({ t: 'dropped', reason: 'idle', silentMs: 12_004 })
+      await tick()
+    })
+
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_closed',
+        closed_by: 'desktop',
+        reason: 'idle',
+        silent_ms: 12_004,
+      }),
+    )
+  })
+
   test('a backlog of data without pongs keeps the tunnel open and present', async () => {
     const bus = createLocalTunnelBus()
     const presence = createMemoryPresenceStore()

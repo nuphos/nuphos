@@ -82,7 +82,8 @@ export function createRedisPresenceStore(): LocalRuntimePresenceStore {
         ),
       )
 
-      return updated === 1
+      // Only Redis saying another conn holds it ends the tunnel; a timed-out write proves nothing.
+      return updated !== 0
     },
     async clear(userId, deviceId, conn) {
       await withRedis((c) => c.eval(CLEAR_IF_CONN, 1, presenceKey(userId, deviceId), conn))

@@ -70,6 +70,14 @@ export const TUNNEL_IDLE_TIMEOUT_MS = 12_000
 const CLOSE_SUPERSEDED = 4000
 const CLOSE_REVOKED = 4003
 
+/** Why this computer gave up its last tunnel; the backend never sees that close itself. */
+type TunnelDrop = {
+  reason: 'idle' | 'error' | 'closed' | 'reconnect'
+  code?: number
+  /** Time since the last frame from the backend. */
+  silentMs: number
+}
+
 export function tunnelReconnectDelayMs(attempt: number): number {
   return (
     RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)] ?? 10_000
@@ -88,6 +96,9 @@ export class RuntimeTunnelClient {
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
   private idleTimer: ReturnType<typeof setTimeout> | undefined
+  private lastFrameAt = 0
+  /** The first drop since the tunnel was last open, reported once it is open again. */
+  private dropped: TunnelDrop | undefined
   private readonly deps: TunnelClientDeps
 
   constructor(deps: TunnelClientDeps) {
@@ -112,6 +123,7 @@ export class RuntimeTunnelClient {
   /** Dials again now instead of waiting out the backoff, e.g. after the computer woke up. */
   reconnectNow(): void {
     if (!this.running) return
+    if (this.socket) this.noteDrop('reconnect')
     this.drop()
     this.attempt = 0
     this.connect()
@@ -149,6 +161,14 @@ export class RuntimeTunnelClient {
     else socket?.close(1000, 'reconnecting')
   }
 
+  private noteDrop(reason: TunnelDrop['reason'], code?: number): void {
+    this.dropped ??= {
+      reason,
+      ...(code === undefined ? {} : { code }),
+      silentMs: Date.now() - this.lastFrameAt,
+    }
+  }
+
   private send(frame: object): void {
     if (this.socket?.readyState === OPEN) this.socket.send(JSON.stringify(frame))
   }
@@ -157,6 +177,7 @@ export class RuntimeTunnelClient {
     clearTimeout(this.idleTimer)
     this.idleTimer = setTimeout(() => {
       if (this.socket !== socket) return
+      this.noteDrop('idle')
       this.drop()
       this.deps.onChange?.(false, this.superseded)
       this.scheduleReconnect()
@@ -174,12 +195,15 @@ export class RuntimeTunnelClient {
       return
     }
     this.socket = socket
+    this.lastFrameAt = Date.now()
     this.armIdle(socket)
     socket.addEventListener('open', () => {
       if (this.socket !== socket) return
       this.attempt = 0
       this.superseded = false
       this.sendStatus()
+      if (this.dropped) this.send({ t: 'dropped', ...this.dropped })
+      this.dropped = undefined
       // Reported from the start, so a viewer's first look is already live.
       this.stopMetrics = reportMetrics(this.deps.sampleMetrics, (metrics) =>
         this.send({ t: 'metrics', metrics }),
@@ -188,6 +212,7 @@ export class RuntimeTunnelClient {
     })
     socket.addEventListener('message', (event) => {
       if (this.socket !== socket) return
+      this.lastFrameAt = Date.now()
       this.armIdle(socket)
       const frame = parseFrame(event.data)
 
@@ -195,6 +220,7 @@ export class RuntimeTunnelClient {
     })
     socket.addEventListener('close', (event) => {
       if (this.socket !== socket) return
+      this.noteDrop('closed', event.code)
       this.drop()
       // Taken over: redial with reclaim, which the backend refuses while the other app holds it.
       if (event.code === CLOSE_SUPERSEDED) this.superseded = true
@@ -206,6 +232,7 @@ export class RuntimeTunnelClient {
     })
     socket.addEventListener('error', () => {
       if (this.socket !== socket) return
+      this.noteDrop('error')
       this.drop()
       this.deps.onChange?.(false, this.superseded)
       this.scheduleReconnect()

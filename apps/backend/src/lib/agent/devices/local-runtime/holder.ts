@@ -110,12 +110,13 @@ export async function attachRuntimeTunnel(
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
   }
   // Every close is logged once with its reason, whichever side ended the tunnel.
-  const logClosed = (code: number | undefined, reason: string) =>
+  const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
     logEvent('info', 'agent.local_runtime.tunnel_closed', {
       user_id: userId,
       device_id: deviceId,
       code,
       reason,
+      ...extra,
     })
   const shut = (code: number, reason: string) => {
     if (ended) return
@@ -171,10 +172,6 @@ export async function attachRuntimeTunnel(
           }
 
         return
-      case 'ping':
-        if (message.conn === conn) connection.send({ t: 'ping' })
-
-        return
       case 'metrics':
         if (message.conn === conn && Number.isFinite(message.leaseMs)) {
           const leaseMs = Math.min(12_000, Math.max(0, message.leaseMs))
@@ -197,15 +194,14 @@ export async function attachRuntimeTunnel(
   }
 
   unsubscribe = await deps.bus.subscribe(channel, onHolderMessage)
+  // Pings go straight to the socket: a slow Redis must not read as a dead computer.
   heartbeat = setInterval(() => {
     if (Date.now() - lastFrameAt > (deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS)) {
       shut(TUNNEL_CLOSE_IDLE, 'No frames from the computer')
 
       return
     }
-    void deps.bus
-      .publish(channel, JSON.stringify({ t: 'ping', conn } satisfies HolderMessage))
-      .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable'))
+    connection.send({ t: 'ping' })
   }, heartbeatMs)
 
   try {
@@ -216,7 +212,6 @@ export async function attachRuntimeTunnel(
         channel,
         JSON.stringify({ t: 'supersede', conn, previous } satisfies HolderMessage),
       )
-    await deps.bus.publish(channel, JSON.stringify({ t: 'ping', conn } satisfies HolderMessage))
   } catch (error) {
     end()
     throw error
@@ -272,6 +267,10 @@ export async function attachRuntimeTunnel(
         }
         case 'pong':
           // Answers the heartbeat; it counts as liveness like every other frame.
+          break
+        case 'dropped':
+          // The old tunnel died on the computer's side; its close never reached us.
+          logClosed(frame.code, frame.reason, { closed_by: 'desktop', silent_ms: frame.silentMs })
           break
         case 'opened':
           if (streams.has(frame.s)) void toStream(frame.s, { t: 'opened' })
