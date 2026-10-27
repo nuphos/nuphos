@@ -28,8 +28,14 @@ import {
   registerNativeSession,
 } from '@/lib/native-auth'
 import { zv } from '@/lib/validate'
-import { requireAuth } from '@/middleware/auth'
+import * as authMiddleware from '@/middleware/auth'
 import { authSessions } from '@/routes/auth-sessions'
+
+// Read per request, not captured when this module loads: a suite that loads
+// this router before another registers its @/middleware/auth double would
+// otherwise pin the real check here for every later suite in the process.
+const requireAuth: typeof authMiddleware.requireAuth = (c, next) =>
+  authMiddleware.requireAuth(c, next)
 
 export const auth = new Hono<{ Variables: AuthVariables }>()
 
