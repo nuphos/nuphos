@@ -115,7 +115,7 @@ When the user asks for monitoring of any kind — "monitor X", "add uptime for Y
 Routing procedure:
 
 1. Discover what the team has bound (both calls are cheap): `GET /teams/$TEAM/betterstack-integrations` for Better Stack bindings, `GET /teams/$TEAM/grafana-instances` for Grafana instances.
-2. Exactly one provider bound → use it without asking. Multiple → ask the user which one, once. None → explain that a team admin can connect Better Stack or Grafana under Integrations, and that Zeabur can also provision a managed Better Stack team for them on request (a human operator does this; tell them to contact Zeabur).
+2. Exactly one provider bound → use it without asking. Multiple → ask the user which one, once. None → explain that a team admin can connect Better Stack or Grafana under Integrations.
 3. Do the work with the provider's native vocabulary and APIs:
    - **Better Stack** → the `betterstack` skill. HTTP/TCP uptime monitors, heartbeats, incidents. Typical create: `POST https://uptime.betterstack.com/api/v2/monitors` with `{"url": ..., "monitor_type": "status", "check_frequency": 180}`.
    - **Grafana** → the `grafana` skill (Nuphos proxy). Alert rules via `/api/v1/provisioning/alert-rules`; the target must be observable through one of the instance's existing datasources — check `/api/datasources` first and don't invent metrics that aren't there.
