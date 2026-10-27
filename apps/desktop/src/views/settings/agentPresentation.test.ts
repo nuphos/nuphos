@@ -6,6 +6,7 @@ import {
   agentOffline,
   agentRunsOn,
   localRemovalId,
+  thisComputerSignIn,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
@@ -183,4 +184,25 @@ test("a computer's agent goes by the name given to it, else its provider's", () 
 
   assert.equal(agentName(agent), 'Codex')
   assert.equal(agentName({ ...agent, local: { ...agent.local!, agentLabel: 'Review' } }), 'Review')
+})
+
+test("this computer's signed-out agent signs in right here; others do not", () => {
+  const here = { userId: 'owner', deviceId: 'mac' }
+
+  assert.equal(thisComputerSignIn(local('a', 'mac', false), here), 'codex')
+  assert.equal(thisComputerSignIn(local('a', 'mac', null), here), 'codex')
+  assert.equal(thisComputerSignIn(local('a', 'mac', true), here), undefined)
+  assert.equal(thisComputerSignIn(local('a', 'box1', false), here), undefined)
+  assert.equal(
+    thisComputerSignIn(local('a', 'mac', false), { ...here, userId: 'other' }),
+    undefined,
+  )
+  assert.equal(thisComputerSignIn(local('a', 'mac', false), null), undefined)
+  const extra = local('a', 'mac', false)
+
+  assert.equal(
+    thisComputerSignIn({ ...extra, local: { ...extra.local!, instanceId: 'x' } }, here),
+    undefined,
+  )
+  assert.equal(thisComputerSignIn({ ...extra, provider: 'grok' }, here), undefined)
 })
