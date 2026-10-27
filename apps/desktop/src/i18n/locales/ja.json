@@ -1934,6 +1934,7 @@
   "{a}, {b}, and {n} others": "{a}、{b} ほか {n} 人",
   "{badge}, show all": "{badge}、すべて表示",
   "{box} is offline.": "{box} はオフラインです。",
+  "{breakdown}, show in Changes": "{breakdown}、「変更」に表示",
   "{browser} on {system}": "{system} 上の {browser}",
   "{character}, {layout}": "{character}、{layout}",
   "{count} active": "{count} 件アクティブ",

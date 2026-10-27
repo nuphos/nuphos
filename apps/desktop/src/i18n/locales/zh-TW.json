@@ -1934,6 +1934,7 @@
   "{a}, {b}, and {n} others": "{a}、{b} 和另外 {n} 人",
   "{badge}, show all": "{badge}，顯示全部",
   "{box} is offline.": "{box} 已離線。",
+  "{breakdown}, show in Changes": "{breakdown}，在「變更」中顯示",
   "{browser} on {system}": "{system} 上的 {browser}",
   "{character}, {layout}": "{character}，{layout}",
   "{count} active": "{count} 個使用中",

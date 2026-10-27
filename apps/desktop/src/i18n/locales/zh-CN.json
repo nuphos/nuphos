@@ -1934,6 +1934,7 @@
   "{a}, {b}, and {n} others": "{a}、{b} 和另外 {n} 人",
   "{badge}, show all": "{badge}，显示全部",
   "{box} is offline.": "{box} 已离线。",
+  "{breakdown}, show in Changes": "{breakdown}，在“变更”中显示",
   "{browser} on {system}": "{system} 上的 {browser}",
   "{character}, {layout}": "{character}，{layout}",
   "{count} active": "{count} 个活跃",

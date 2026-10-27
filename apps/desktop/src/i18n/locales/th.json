@@ -1934,6 +1934,7 @@
   "{a}, {b}, and {n} others": "{a}, {b} และอีก {n} คน",
   "{badge}, show all": "{badge} แสดงทั้งหมด",
   "{box} is offline.": "{box} ออฟไลน์อยู่",
+  "{breakdown}, show in Changes": "{breakdown} แสดงในการเปลี่ยนแปลง",
   "{browser} on {system}": "{browser} บน {system}",
   "{character}, {layout}": "{character}, {layout}",
   "{count} active": "ใช้งานอยู่ {count}",

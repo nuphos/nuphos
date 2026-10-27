@@ -3,12 +3,18 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { agentApi } from '../../api/agent-api'
 import { t } from '../../i18n'
 import { useAgentAppearance } from '../../lib/agentAppearance'
+import { openChatSummaryChanges } from '../../lib/chatSummaryPanel'
 import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
 import { toast } from '../ui/toast'
 
 import { ResourceListMenu } from './ResourceListMenu'
 import { SessionResourceChip } from './SessionResourceChip'
-import { chipNames, overflowLabel, resourceChips } from './sessionResourcePresentation'
+import {
+  chipNames,
+  finishedFilter,
+  overflowLabel,
+  resourceChips,
+} from './sessionResourcePresentation'
 import { menuChipClass } from './sessionResourceStyle'
 import { useFittingChips } from './useFittingChips'
 
@@ -105,6 +111,11 @@ export function SessionResources({
       if (!titlebar) return
       event.stopPropagation()
       onOpenTab?.(tabId)
+    },
+    openChanges: (finished, event) => {
+      if (!titlebar) return
+      event.stopPropagation()
+      openChatSummaryChanges(finishedFilter(finished), sessionId)
     },
   }
 

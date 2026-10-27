@@ -14,6 +14,8 @@ import type { MouseEvent, ReactNode } from 'react'
 export type ResourceActions = {
   openResource: (resource: SessionResource, event: MouseEvent) => void
   openTerminal: (tabId: string, event: MouseEvent) => void
+  /** The merged badge: opens the summary panel's Changes list on these items' filter. */
+  openChanges: (resources: SessionResource[], event: MouseEvent) => void
 }
 
 /**

@@ -1934,6 +1934,7 @@
   "{a}, {b}, and {n} others": "{a}, {b} 외 {n}명",
   "{badge}, show all": "{badge}, 모두 보기",
   "{box} is offline.": "{box} 오프라인 상태입니다.",
+  "{breakdown}, show in Changes": "{breakdown}, 변경 사항에서 보기",
   "{browser} on {system}": "{browser} · {system}",
   "{character}, {layout}": "{character}, {layout}",
   "{count} active": "{count}개 활성",

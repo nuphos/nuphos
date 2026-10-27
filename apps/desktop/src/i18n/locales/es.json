@@ -1934,6 +1934,7 @@
   "{a}, {b}, and {n} others": "{a}, {b} y {n} personas más",
   "{badge}, show all": "{badge}; mostrar todos",
   "{box} is offline.": "{box} está sin conexión.",
+  "{breakdown}, show in Changes": "{breakdown}; mostrar en Cambios",
   "{browser} on {system}": "{browser} en {system}",
   "{character}, {layout}": "{character}, {layout}",
   "{count} active": "{count} activos",

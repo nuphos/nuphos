@@ -96,21 +96,30 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
 
 /**
  * The merged badge: finished PRs and issues as one chip, quieter than the open
- * ones, with merged purple only on its icon.
+ * ones, with merged purple only on its icon. It opens the summary panel's
+ * Changes list.
  */
-function FinishedBadge({ resources, titlebar }: ChipProps & { resources: SessionResource[] }) {
+function FinishedBadge({
+  resources,
+  titlebar,
+  measure,
+  actions,
+}: ChipProps & { resources: SessionResource[] }) {
+  const Label = titlebar ? 'button' : 'span'
   const label = finishedLabel(resources)
   const merged = finishedFilter(resources) === 'merged'
 
   return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 text-tertiary ${titlebar ? titlebarChip : ''}`}
+    <Label
+      onPointerDown={stopTitlebarPointer(titlebar)}
+      onClick={(event) => actions.openChanges(resources, event)}
+      className={`inline-flex shrink-0 items-center gap-1 text-tertiary ${titlebar ? titlebarChip : ''} ${titlebar && !measure ? 'titlebar-no-drag' : ''}`}
       title={finishedTooltip(resources)}
-      aria-label={finishedBreakdown(resources)}
+      aria-label={t('{breakdown}, show in Changes', { breakdown: finishedBreakdown(resources) })}
     >
       <GitMerge className={`size-3 shrink-0 ${merged ? 'session-resource-merged' : ''}`} />
       <span>{label}</span>
-    </span>
+    </Label>
   )
 }
 
