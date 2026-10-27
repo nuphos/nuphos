@@ -7,9 +7,10 @@ import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen } from '../../../lib/chatSummaryPanel'
 import { toast } from '../../ui/toast'
 
+import { ChangesSection } from './ChatSummaryChanges'
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName } from './chatSummaryModel'
-import { ChangeRow, SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
+import { SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
@@ -121,11 +122,7 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
     >
       {!loaded && <Skeleton />}
       {changes.length > 0 && (
-        <SummarySection title="Changes">
-          {changes.map((resource) => (
-            <ChangeRow key={resource.id} resource={resource} onOpen={onOpenLink} />
-          ))}
-        </SummarySection>
+        <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
       )}
       {threads.length > 0 && (
         <SummarySection title="Sub-agents">
