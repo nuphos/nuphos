@@ -38,7 +38,7 @@ app.route(
       activities.push({ sessionId, token, row })
     },
     async (userId, teamId, sessionId) =>
-      userId === 'user-1' && teamId === 'team-1' && sessionId === 'readable',
+      userId === 'user-1' && teamId === 'team-1' && sessionId === 'readable' ? 'Fix login' : null,
   ),
 )
 app.onError(errorHandler)
@@ -148,19 +148,13 @@ describe('Live Activity registration', () => {
     })
   }
 
-  test('stores the token and row for a conversation the user can read', async () => {
-    expect((await putActivity({ sessionId: 'readable', title: ' Fix login ' })).status).toBe(200)
-    expect((await putActivity({ sessionId: 'readable' })).status).toBe(200)
+  test("stores the token with the conversation's own title, not the client's", async () => {
+    expect((await putActivity({ sessionId: 'readable', title: 'Spoofed' })).status).toBe(200)
     expect(activities).toEqual([
       {
         sessionId: 'readable',
         token: { token: TOKEN.toLowerCase(), userId: 'user-1', environment: 'production' },
         row: { teamId: 'team-1', title: 'Fix login' },
-      },
-      {
-        sessionId: 'readable',
-        token: { token: TOKEN.toLowerCase(), userId: 'user-1', environment: 'production' },
-        row: { teamId: 'team-1', title: '' },
       },
     ])
   })

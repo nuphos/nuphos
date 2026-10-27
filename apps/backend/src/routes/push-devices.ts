@@ -79,31 +79,34 @@ const liveActivitySchema = z.object({
   token: apnsToken,
   teamId: z.string().trim().min(1).max(64),
   sessionId: z.string().trim().min(1).max(128),
-  // Older apps send no title; their rows show the card without one.
-  title: z.string().trim().max(200).default(''),
   environment: z.enum(['sandbox', 'production']),
 })
 
-export type CanReadConversation = (
+/** The conversation's title for the card's row; null when the user cannot read it. */
+export type ReadConversationTitle = (
   userId: string,
   teamId: string,
   sessionId: string,
-) => Promise<boolean>
+) => Promise<string | null>
 
 /** Puts a conversation on the phone's Live Activity, so its turns reach the Lock Screen. */
 export function createLiveActivityRoutes(
   register: (sessionId: string, token: LiveActivityToken, row: LiveActivityRow) => Promise<void>,
-  canRead: CanReadConversation,
+  readTitle: ReadConversationTitle,
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.put('/live-activities', zv('json', liveActivitySchema), async (c) => {
-    const { token, teamId, sessionId, title, environment } = c.req.valid('json')
+    const { token, teamId, sessionId, environment } = c.req.valid('json')
     const userId = c.get('userId')
+    const title = await readTitle(userId, teamId, sessionId)
 
-    if (!(await canRead(userId, teamId, sessionId)))
-      throw new AppError(404, 'not_found', 'Conversation not found')
-    await register(sessionId, { token: token.toLowerCase(), userId, environment }, { teamId, title })
+    if (title === null) throw new AppError(404, 'not_found', 'Conversation not found')
+    await register(
+      sessionId,
+      { token: token.toLowerCase(), userId, environment },
+      { teamId, title },
+    )
 
     return c.json({ ok: true })
   })
@@ -111,10 +114,10 @@ export function createLiveActivityRoutes(
   return routes
 }
 
-async function canReadConversation(userId: string, teamId: string, sessionId: string) {
-  if (!(await getTeamMembership(userId, teamId))) return false
+async function readConversationTitle(userId: string, teamId: string, sessionId: string) {
+  if (!(await getTeamMembership(userId, teamId))) return null
 
-  return Boolean(await getReadableConversation(sessionId, userId, teamId))
+  return (await getReadableConversation(sessionId, userId, teamId))?.title ?? null
 }
 
 export const pushRoutes = new Hono<{ Variables: AuthVariables }>()
@@ -125,6 +128,6 @@ pushRoutes.route(
   '/',
   createLiveActivityRoutes(
     (sessionId, token, row) => registerLiveActivityToken(liveActivityDeps, sessionId, token, row),
-    canReadConversation,
+    readConversationTitle,
   ),
 )

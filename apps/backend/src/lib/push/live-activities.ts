@@ -135,7 +135,8 @@ export type LiveActivityDeps = {
   schedule: (work: () => void, delayMs: number) => void
 }
 
-const isActive = (phase?: LiveActivityPhase) => !phase || phase === 'running' || phase === 'approval'
+const isActive = (phase?: LiveActivityPhase) =>
+  !phase || phase === 'running' || phase === 'approval'
 
 /** Must match `TurnActivityAttributes.ContentState` in the iOS app. A session
  *  registered before its run reported a phase is running. */
@@ -199,7 +200,10 @@ async function deliver(
           retry.push(token)
         }
       } catch (error) {
-        logError('push.live_activity.send_failed', error, { session_id: session.sessionId, attempt })
+        logError('push.live_activity.send_failed', error, {
+          session_id: session.sessionId,
+          attempt,
+        })
         retry.push(token)
       }
     }),

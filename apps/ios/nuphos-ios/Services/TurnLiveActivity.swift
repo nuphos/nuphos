@@ -79,7 +79,7 @@ enum TurnLiveActivity {
             do {
                 try await AgentChatAPI.registerLiveActivity(
                     token: authToken,
-                    activity: .init(token: token, teamId: session.teamId, sessionId: session.id, title: session.title,
+                    activity: .init(token: token, teamId: session.teamId, sessionId: session.id,
                                     environment: PushNotifications.environment)
                 )
             } catch {

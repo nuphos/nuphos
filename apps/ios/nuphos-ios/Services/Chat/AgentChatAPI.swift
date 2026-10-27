@@ -112,7 +112,6 @@ enum AgentChatAPI {
         let token: String
         let teamId: String
         let sessionId: String
-        let title: String
         let environment: String
     }
 
