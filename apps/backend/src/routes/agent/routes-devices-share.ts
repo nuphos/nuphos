@@ -13,6 +13,7 @@ import { getTeamLocalAgentSharing } from '@/lib/agent/devices/local-share-ceilin
 import {
   decideShareApproval,
   dropShareApprovals,
+  findOwnShareApproval,
   listPendingShareApprovals,
   setDeviceShare,
 } from '@/lib/agent/devices/local-share-store'
@@ -42,6 +43,7 @@ const shareSchema = z.object({
   userIds: z.array(z.string().trim().min(1).max(64)).max(500),
 })
 const decisionSchema = z.object({ approve: z.boolean() })
+const ownApprovalQuery = z.object({ sessionId: z.string().trim().min(1).max(128) })
 
 export type DeviceShareRouteDependencies = {
   access: DeviceAccessDeps
@@ -54,6 +56,7 @@ export type DeviceShareRouteDependencies = {
   dropApprovals: typeof dropShareApprovals
   pendingApprovals: (ownerId: string, teamId: string) => Promise<ShareApproval[]>
   decide: typeof decideShareApproval
+  ownApproval: typeof findOwnShareApproval
   settleQueue: (approval: ShareApproval) => Promise<void>
   conversationTitles: (sessionIds: string[]) => Promise<Map<string, string>>
 }
@@ -82,6 +85,7 @@ const defaultDependencies: DeviceShareRouteDependencies = {
   dropApprovals: dropShareApprovals,
   pendingApprovals: listPendingShareApprovals,
   decide: decideShareApproval,
+  ownApproval: findOwnShareApproval,
   settleQueue: settleShareApprovalQueue,
   conversationTitles: getConversationTitles,
 }
@@ -183,6 +187,13 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
         requestedAt: approval.requestedAt.toISOString(),
       })),
     })
+  })
+
+  // The requester's side: whether their conversation still waits for the owner.
+  routes.get('/devices/share-approvals/mine', zv('query', ownApprovalQuery), async (c) => {
+    const found = await deps.ownApproval(c.req.valid('query').sessionId, c.get('userId'))
+
+    return c.json({ status: found?.status ?? null })
   })
 
   routes.post(

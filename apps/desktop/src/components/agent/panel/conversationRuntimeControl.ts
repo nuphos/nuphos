@@ -137,6 +137,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
 
     return {
       teamId,
+      sessionId,
       canUpdateTeamAgents: isTeamAdmin,
       value: {
         id: tab?.runtimeId,

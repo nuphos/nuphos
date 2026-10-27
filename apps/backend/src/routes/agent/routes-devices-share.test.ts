@@ -79,6 +79,19 @@ function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?
       calls.push({ settled: `${approval.sessionId}:${approval.status}` })
     },
     conversationTitles: async () => new Map([['s1', 'Today’s weather']]),
+    ownApproval: async (sessionId, actorId) =>
+      sessionId === 's1' && actorId === 'mate'
+        ? {
+            _id: 'waiting',
+            ownerId: 'owner',
+            deviceId: 'mac',
+            teamId: TEAM,
+            sessionId: 's1',
+            actorId: 'mate',
+            status: 'pending',
+            requestedAt: new Date(0),
+          }
+        : null,
   }
   const server = new Hono<{ Variables: AuthVariables }>()
 
@@ -194,4 +207,15 @@ test('the owner sees which conversation asks', async () => {
       requestedAt: new Date(0).toISOString(),
     },
   ])
+})
+
+test('the requester sees whether their own conversation still waits', async () => {
+  const status = async (userId: string, sessionId: string) =>
+    (await (
+      await app({ userId }).server.request(`/devices/share-approvals/mine?sessionId=${sessionId}`)
+    ).json()) as { status: string | null }
+
+  expect(await status('mate', 's1')).toEqual({ status: 'pending' })
+  expect(await status('other', 's1')).toEqual({ status: null })
+  expect(await status('mate', 's2')).toEqual({ status: null })
 })

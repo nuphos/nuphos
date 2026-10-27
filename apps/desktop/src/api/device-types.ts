@@ -129,6 +129,9 @@ export type LocalShareInput = { level: LocalShareLevel; everyone: boolean; userI
 export type LocalAgentShareState = { share: LocalShareInput; ceiling: LocalShareLevel }
 
 /** A teammate's conversation waiting for the owner's answer before it runs on their computer. */
+/** Where a person's own conversation stands with the owner of a shared computer; null when never asked. */
+export type ShareApprovalStatus = 'pending' | 'approved' | 'denied' | null
+
 export type LocalShareApproval = {
   id: string
   deviceId: string

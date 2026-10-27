@@ -80,6 +80,7 @@ export const deviceApi = {
   localShareSet: (deviceId: string, teamId: string, input: unknown) =>
     ipcRenderer.invoke('localShare:set', deviceId, teamId, input),
   localShareApprovals: (teamId: string) => ipcRenderer.invoke('localShare:approvals', teamId),
+  localShareStatus: (sessionId: string) => ipcRenderer.invoke('localShare:status', sessionId),
   localShareDecide: (approvalId: string, approve: boolean) =>
     ipcRenderer.invoke('localShare:decide', approvalId, approve),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),

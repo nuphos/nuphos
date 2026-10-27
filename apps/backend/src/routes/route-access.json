@@ -193,6 +193,7 @@
   "GET /agent/devices/:deviceId/runtime-tunnel": "user",
   "GET /agent/devices/:deviceId/share": "user",
   "GET /agent/devices/share-approvals": "user",
+  "GET /agent/devices/share-approvals/mine": "user",
   "GET /agent/memories": "user",
   "GET /agent/memories/:memoryId": "user",
   "GET /agent/memories/attribution/:sessionId": "user",

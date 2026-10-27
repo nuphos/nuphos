@@ -29,6 +29,8 @@ export type RuntimeControl = {
     status?: RuntimeInstance['status']
   } | null
   options?: RuntimeInstance[]
+  /** The open conversation: a teammate's computer may still be asking its owner about it. */
+  sessionId?: string
   /** Provider usage per runtime id, for the trigger and the list. */
   quotas?: ReadonlyMap<string, RuntimeQuota>
   /** Picks the agent: the one a new conversation starts on, or — for an open

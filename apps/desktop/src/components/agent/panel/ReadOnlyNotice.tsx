@@ -1,7 +1,7 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ExternalLink, KeyRound, Loader2, WifiOff } from 'lucide-react'
+import { Ban, ExternalLink, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
@@ -14,6 +14,7 @@ import { ASK_ADMIN_TO_RECONNECT } from './AgentSetupRequiredCard'
 import { ConversationActivityBadges } from './historyRows'
 import { selectedAgentReachability } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
+import { useShareApprovalWait } from './useShareApprovalWait'
 
 import type { RuntimeControl } from './RuntimeSelector'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
@@ -85,10 +86,19 @@ const BANNER = {
     tint: 'bg-warning/10',
   },
   offline: { Icon: WifiOff, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  waiting: {
+    Icon: Hourglass,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+  declined: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
 } as const
 
+type BannerKind = keyof typeof BANNER
+
 function bannerCopy(
-  reachability: 'signIn' | 'offline',
+  reachability: BannerKind,
   { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings }: RuntimeControl,
   onSwitchAgent?: () => void,
 ): { text: string; action: { label: string; run: () => void } | null } {
@@ -96,6 +106,20 @@ function bannerCopy(
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
   const switchAgent = onSwitchAgent && { label: 'Switch runtime', run: onSwitchAgent }
 
+  if (reachability === 'waiting' || reachability === 'declined') {
+    const computer =
+      options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel ?? 'this computer'
+
+    return reachability === 'waiting'
+      ? {
+          text: `Waiting for the owner of ${computer} to approve. Your message is sent once they do.`,
+          action: null,
+        }
+      : {
+          text: `The owner of ${computer} declined this conversation.`,
+          action: switchAgent ?? null,
+        }
+  }
   if (reachability === 'offline') {
     const box = options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel
 
@@ -135,7 +159,13 @@ export function AgentStatusBanner({
   onSwitchAgent?: () => void
 }) {
   const reachability = selectedAgentReachability(control)
-  const blocked = reachability === 'signIn' || reachability === 'offline' ? reachability : null
+  // A teammate's computer that asks its owner first: this conversation waits, or was declined.
+  const shareApproval = useShareApprovalWait(control, control.sessionId)
+  const unreachable = reachability === 'signIn' || reachability === 'offline' ? reachability : null
+  // Reachability comes first: an offline computer cannot run it even once approved.
+  const blocked: BannerKind | null =
+    unreachable ??
+    (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // The words stay while the banner leaves, so it closes on what it said.
   const [shown, setShown] = useState(blocked)
 
