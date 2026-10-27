@@ -65,7 +65,10 @@ async function turn(user: string, reply: string) {
     .map(persistedMessageToUiMessage)
     .filter((message) => message !== null)
     .map(({ id, role, parts }) => ({ id, role: role as Doc['role'], parts: parts as unknown[] }))
-  const asked = [...history, { id: user, role: 'user' as const, parts: [{ type: 'text', text: user }] }]
+  const asked = [
+    ...history,
+    { id: user, role: 'user' as const, parts: [{ type: 'text', text: user }] },
+  ]
   const sync = (messages: typeof asked) =>
     appendTranscriptMessages({
       sessionId: SESSION,
@@ -78,7 +81,10 @@ async function turn(user: string, reply: string) {
 
   await sync(asked)
 
-  return await sync([...asked, { id: reply, role: 'assistant', parts: [{ type: 'text', text: reply }] }])
+  return await sync([
+    ...asked,
+    { id: reply, role: 'assistant', parts: [{ type: 'text', text: reply }] },
+  ])
 }
 
 test('agent and trigger turns keep stored messages their history cannot represent', async () => {
