@@ -171,10 +171,12 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
   )
   registerRuntimeQuotaRoutes(teamScoped)
   teamScoped.get('/agent-runtimes/:runtimeId/status', async (c) => {
+    // A teammate's shared computer reports its status too, or its agent reads as offline.
     const instance = await requireRuntimeInstance(
       c.get('teamId'),
       c.req.param('runtimeId'),
       c.get('userId'),
+      { shared: true },
     )
 
     if (instance.kind === 'local') {
