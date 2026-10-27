@@ -65,7 +65,7 @@ ARG CLAUDE_AGENT_SDK_VERSION=0.3.311
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
-     claude-agent-acp/project-instructions.mjs \
+     claude-agent-acp/project-instructions.mjs claude-agent-acp/process-death.mjs \
      /opt/nuphos-claude-agent-acp/
 # The lockfile carries no libc field, so npm installs the musl build of the
 # SDK's native CLI beside the glibc one this Debian image runs.
