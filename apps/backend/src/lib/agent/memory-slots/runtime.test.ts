@@ -1,5 +1,4 @@
-// T5: runtime resolution discipline, observer factory, recall budget race.
-// Unwired in Phase 1 — Phase 2 swaps the call sites onto these functions.
+// T5: runtime resolution discipline and the observer factory.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
@@ -10,7 +9,6 @@ import {
   capabilitiesOf,
   createMemoryObserver,
   gateResolutionOnAvailability,
-  raceRecallBudget,
   refOf,
   resolveForNewSession,
   resolveForTurn,
@@ -20,7 +18,7 @@ import {
 
 import { resetMemoryProviderSetupState, runMemoryProviderSetup } from './index'
 
-import type { MemoryProvider, RecallInput } from './types'
+import type { MemoryProvider } from './types'
 
 const errors: { event: string }[] = []
 
@@ -29,13 +27,6 @@ useObservability({
     errors.push({ event })
   },
 })
-
-const RECALL_INPUT: RecallInput = {
-  userId: 'u1',
-  teamId: null,
-  query: 'q',
-  conversationId: 'c1',
-}
 
 const minimalProvider = (over: Partial<MemoryProvider> = {}): MemoryProvider => ({
   meta: {
@@ -47,7 +38,7 @@ const minimalProvider = (over: Partial<MemoryProvider> = {}): MemoryProvider => 
   collectionPrefix: 'memory_fake_',
   setup: async () => {},
   availability: async () => ({ state: 'ready' }),
-  recall: { render: async () => null },
+  tools: { create: () => ({}) },
   ...over,
 })
 
@@ -272,75 +263,6 @@ describe('createMemoryObserver', () => {
   })
 })
 
-describe('raceRecallBudget', () => {
-  test('absent recall slot → null', async () => {
-    const provider = minimalProvider({ recall: undefined, tools: { create: () => ({}) } })
-
-    expect(await raceRecallBudget(provider, RECALL_INPUT)).toBeNull()
-  })
-
-  test('fast success passes the rendered context through', async () => {
-    const provider = minimalProvider({
-      recall: { render: async () => ({ block: 'B', recalled: [] }) },
-    })
-
-    expect(await raceRecallBudget(provider, RECALL_INPUT)).toEqual({ block: 'B', recalled: [] })
-  })
-
-  test('throwing render resolves null — never rejects', async () => {
-    const provider = minimalProvider({
-      recall: {
-        render: async () => {
-          throw new Error('vendor down')
-        },
-      },
-    })
-
-    await expect(raceRecallBudget(provider, RECALL_INPUT)).resolves.toBeNull()
-  })
-
-  test('a hung render is abandoned at the per-provider budget (signal aborted)', async () => {
-    let aborted = false
-    const provider = minimalProvider({
-      recall: {
-        budgetMs: 20,
-        render: (_input, opts) =>
-          // Never resolves. A well-behaved provider resolves on abort; a hung
-          // one never does — the race must not care.
-          new Promise(() => {
-            opts.signal.addEventListener('abort', () => {
-              aborted = true
-            })
-          }),
-      },
-    })
-    const started = Date.now()
-    const result = await raceRecallBudget(provider, RECALL_INPUT)
-
-    expect(result).toBeNull()
-    expect(aborted).toBe(true)
-    // Bounded by the 20ms budget, not the 5s default.
-    expect(Date.now() - started).toBeLessThan(2_000)
-  })
-
-  test('a post-abort rejection is swallowed, not an unhandled rejection', async () => {
-    const provider = minimalProvider({
-      recall: {
-        budgetMs: 10,
-        render: (_input, opts) =>
-          new Promise((_resolve, reject) => {
-            opts.signal.addEventListener('abort', () => reject(new Error('aborted')))
-          }),
-      },
-    })
-
-    await expect(raceRecallBudget(provider, RECALL_INPUT)).resolves.toBeNull()
-    // Give the late rejection a tick to fire; the test fails on unhandled
-    // rejection if the race did not attach a catch handler.
-    await new Promise((r) => setTimeout(r, 20))
-  })
-})
-
 describe('refOf / capabilitiesOf', () => {
   test('refOf stamps the provider tag', () => {
     expect(refOf('native', 'm1')).toEqual({ provider: 'native', id: 'm1' })
@@ -348,29 +270,23 @@ describe('refOf / capabilitiesOf', () => {
 
   test('capabilities derive from slot presence — native', () => {
     expect(capabilitiesOf(nativeMemoryProvider)).toEqual({
-      recall: true,
       tools: true,
-      ingest: true,
       records: true,
       recordsDelete: true,
       recordsRestore: true,
       feedback: false,
-      webhook: false,
       purge: false,
       cursorTier: 'strict',
     })
   })
 
-  test('capabilities derive from slot presence — minimal recall-only vendor', () => {
+  test('capabilities derive from slot presence — minimal tools-only vendor', () => {
     expect(capabilitiesOf(minimalProvider())).toEqual({
-      recall: true,
-      tools: false,
-      ingest: false,
+      tools: true,
       records: false,
       recordsDelete: false,
       recordsRestore: false,
       feedback: false,
-      webhook: false,
       purge: false,
       cursorTier: null,
     })

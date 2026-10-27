@@ -12,7 +12,6 @@ import {
   filterOwnedMemoryIds,
   purgeConversationAttribution,
   recordAttributionSignal,
-  recordTurnDistillOutcome,
 } from './attribution-store'
 
 import type { MemoryAttributionEvent, AttributionSignalEntry } from './attribution-types'
@@ -172,23 +171,6 @@ describe('recordAttributionSignal', () => {
 
     expect(row.signals[0]!.note!.length).toBeLessThanOrEqual(300)
     expect(row.signals[0]!.note).not.toContain('AKIAIOSFODNN7EXAMPLE')
-  })
-})
-
-describe('recordTurnDistillOutcome', () => {
-  beforeEach(() =>
-    byName.forEach((c) => {
-      c.docs = []
-    }),
-  )
-
-  test('overwrites the capture-time default on the existing turn row only', async () => {
-    // Capture wrote the row first (same chain); the hook must update, not upsert.
-    turnRows().push({ conversationId: 'c1', turnKey: 't1', distill: 'skipped_disabled' })
-    await recordTurnDistillOutcome('c1', 't1', 'no_learn')
-    expect(turnRows()[0]!.distill).toBe('no_learn')
-    await recordTurnDistillOutcome('c1', 'other-turn', 'saved')
-    expect(turnRows()).toHaveLength(1) // no phantom row for an unknown turn
   })
 })
 

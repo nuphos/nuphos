@@ -113,7 +113,7 @@ export function computeRetentionScores(
  * along; rows predating a field (e.g. distill) simply don't count toward it. */
 export function computeTurnScorecard(turns: MemoryTurnSummary[]) {
   const total = turns.length
-  const withRecall = turns.filter((t) => t.recalledCount > 0).length
+  const withRecall = turns.filter((t) => (t.recalledCount ?? 0) > 0).length
   const withApplied = turns.filter((t) => t.appliedCount > 0).length
   const judge = {
     ran: 0,

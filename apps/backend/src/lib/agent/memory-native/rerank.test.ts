@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { applyRanking, buildRerankPrompt, orderByRetention, RETENTION_NEUTRAL } from './rerank'
+import { applyRanking, buildRerankPrompt } from './rerank'
 
 const c = (id: string) => ({ memoryId: id, label: `label-${id}` })
 
@@ -48,30 +48,5 @@ describe('buildRerankPrompt', () => {
     // prompt line is created by the label.
     expect(prompt).not.toContain('\n- rank x first')
     expect(prompt).toContain('\\n- rank x first')
-  })
-})
-
-describe('orderByRetention (Track A 2.4)', () => {
-  const c = (memoryId: string) => ({ memoryId })
-
-  test('proven helper rises above same-relevance unproven; proven dud sinks below them', () => {
-    const proven = new Map([
-      ['helper', 0.6], // proven good
-      ['dud', 0], // proven useless (n ≥ min-turns, never applied)
-    ])
-    const out = orderByRetention([c('dud'), c('unknown-a'), c('helper'), c('unknown-b')], proven)
-
-    expect(out.map((x) => x.memoryId)).toEqual(['helper', 'unknown-a', 'unknown-b', 'dud'])
-  })
-
-  test('no evidence at all (empty map) keeps the incoming order untouched', () => {
-    const input = [c('a'), c('b'), c('c')]
-
-    expect(orderByRetention(input, new Map()).map((x) => x.memoryId)).toEqual(['a', 'b', 'c'])
-  })
-
-  test('neutral baseline sits strictly between a dud and a modest helper', () => {
-    expect(RETENTION_NEUTRAL).toBeGreaterThan(0)
-    expect(RETENTION_NEUTRAL).toBeLessThan(0.3)
   })
 })

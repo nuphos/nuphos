@@ -67,8 +67,9 @@ export type TurnDistillOutcome =
   | 'skipped_disabled' // MEMORY_AUTO_INGEST off
   | 'failed' // distiller model error/timeout
 
-/** One row per (conversationId, turnKey). deliveryMode lives here (A4⑤):
- * attribution rows reach it by joining on (conversationId, turnKey). */
+/** One row per (conversationId, turnKey). deliveryMode, recalledCount,
+ * recallOutcome and distill only exist on rows written while the runtime
+ * still recalled and learned on its own; newer rows omit them. */
 export type MemoryTurnSummary = {
   _id?: ObjectId
   provider: string
@@ -76,8 +77,8 @@ export type MemoryTurnSummary = {
   userId: string
   conversationId: string
   turnKey: string
-  deliveryMode: string // config.agent.memoryDeliveryMode at capture time
-  recalledCount: number
+  deliveryMode?: string
+  recalledCount?: number
   recallOutcome?: TurnRecallOutcome
   fetchedCount: number
   judge:
@@ -88,7 +89,7 @@ export type MemoryTurnSummary = {
     | 'failed'
     | 'pending'
   appliedCount: number
-  distill: TurnDistillOutcome
+  distill?: TurnDistillOutcome
   at: Date
 }
 

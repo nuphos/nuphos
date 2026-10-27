@@ -8,14 +8,11 @@ import { MEMORY_SPI_VERSION } from './types'
 
 import type {
   AttributionTier,
-  IngestOutcome,
   MemoryFetchedEvent,
   MemoryProvider,
   MemoryRecordItem,
   MemorySavedEvent,
   MemorySessionOrigin,
-  RenderedMemoryContext,
-  TurnDigest,
 } from './types'
 
 describe('MEMORY_SPI_VERSION', () => {
@@ -39,18 +36,15 @@ describe('provider literals compile against the SPI', () => {
     collectionPrefix: 'memory_minimal_',
     setup: async () => {},
     availability: async () => ({ state: 'unconfigured', missing: ['MINIMAL_API_KEY'] }),
-    recall: {
-      render: async () => null,
+    tools: {
+      create: () => ({}),
     },
   }
 
   test('minimal provider: only the required surface plus one slot', () => {
     expect(minimal.meta.spiVersion).toBe(MEMORY_SPI_VERSION)
-    expect(minimal.tools).toBeUndefined()
-    expect(minimal.ingest).toBeUndefined()
     expect(minimal.records).toBeUndefined()
     expect(minimal.feedback).toBeUndefined()
-    expect(minimal.webhook).toBeUndefined()
     expect(minimal).not.toHaveProperty('purgeUser')
     expect(minimal).not.toHaveProperty('purgeTeam')
     expect(minimal).not.toHaveProperty('storageDescriptor')
@@ -58,8 +52,7 @@ describe('provider literals compile against the SPI', () => {
   })
 
   // Full-slot literal exercising EVERY amended field (A5/A6 folds):
-  // budgetMs, placement, kind-primary/type-alias, IngestOutcome status +
-  // diagnostics, webhook, cursorTier, optional delete/restore, action
+  // kind-primary/type-alias, cursorTier, optional delete/restore, action
   // 'deleted' with scope omitted, storageDescriptor, availabilityCacheTtlMs,
   // purgeUser/purgeTeam.
   const deletedEvent: MemorySavedEvent = {
@@ -68,21 +61,6 @@ describe('provider literals compile against the SPI', () => {
     kind: 'playbook',
     title: 'vendor-autonomous removal',
     action: 'deleted',
-  }
-
-  const rendered: RenderedMemoryContext = {
-    block: '## Memories\n- m1 — a fact',
-    recalled: [
-      { id: 'm1', scope: 'team', kind: 'playbook', label: 'a fact', snippet: 'a fact, expanded' },
-    ],
-    diagnostics: { teamTotal: 3, cacheState: 'warm', degraded: false },
-    placement: 'user-message-tail',
-  }
-
-  const pendingOutcome: IngestOutcome = {
-    saved: [deletedEvent],
-    status: 'pending',
-    diagnostics: { vendorJobId: 'job-1', queued: true, attempts: 1 },
   }
 
   const record: MemoryRecordItem = {
@@ -112,20 +90,8 @@ describe('provider literals compile against the SPI', () => {
     availability: async () => ({ state: 'ready' }),
     availabilityCacheTtlMs: 60_000,
     storageDescriptor: () => ({ kind: 'mongo', collections: ['memory_full_items'] }),
-    recall: {
-      budgetMs: 10_000,
-      render: async () => rendered,
-    },
     tools: {
       create: () => ({}),
-    },
-    ingest: {
-      onTurnFinished: async () => pendingOutcome,
-    },
-    webhook: {
-      path: '/webhooks/memory/full',
-      verifySignature: ({ headers }) => headers['x-signature'] !== undefined,
-      handle: async () => ({ saved: [], status: 'completed' }),
     },
     records: {
       cursorTier: 'best-effort',
@@ -142,39 +108,14 @@ describe('provider literals compile against the SPI', () => {
     purgeTeam: async () => {},
   }
 
-  test('full provider: every amended field is expressible', async () => {
+  test('full provider: every amended field is expressible', () => {
     expect(full.records?.cursorTier).toBe('best-effort')
-    expect(full.recall?.budgetMs).toBe(10_000)
     expect(full.availabilityCacheTtlMs).toBe(60_000)
     expect(full.storageDescriptor?.()).toEqual({
       kind: 'mongo',
       collections: ['memory_full_items'],
     })
-    const outcome = await full.ingest!.onTurnFinished(
-      {
-        conversationId: 'c1',
-        userId: 'u1',
-        teamId: null,
-        origin: 'user',
-        messages: [
-          { role: 'user', content: 'q' },
-          {
-            role: 'assistant',
-            content: 'a',
-            toolCalls: [{ id: 't1', name: 'x', arguments: '{}' }],
-          },
-          { role: 'tool', toolCallId: 't1', content: 'ok' },
-        ],
-        planId: null,
-        startedAt: '2026-07-25T00:00:00.000Z',
-        finishedAt: '2026-07-25T00:00:01.000Z',
-      },
-      { signal: new AbortController().signal },
-    )
-
-    expect(outcome?.status).toBe('pending')
-    expect(outcome?.saved[0]?.action).toBe('deleted')
-    expect(outcome?.saved[0]?.scope).toBeUndefined()
+    expect(deletedEvent.scope).toBeUndefined()
   })
 
   test('read-only records surface compiles (delete/restore optional per A5①)', () => {
@@ -218,7 +159,7 @@ describe('provider literals compile against the SPI', () => {
     expect(Object.keys(all)).toHaveLength(5)
   })
 
-  test('Phase 2 additive fields compile: saved timestamps, fetched label, delete reason, alreadyRecalled', async () => {
+  test('Phase 2 additive fields compile: saved timestamps, fetched label, delete reason', async () => {
     // MemorySavedEvent carries real doc timestamps — the republished-playbook
     // path has createdAt ≠ updatedAt, so a runtime "now" stamp would lie.
     const timestamped: MemorySavedEvent = {
@@ -253,21 +194,6 @@ describe('provider literals compile against the SPI', () => {
       await full.records!.delete!('m1', viewer, { reason: 'outdated after the migration' }),
     ).toBe(true)
     expect(await full.records!.delete!('m1', viewer)).toBe(true)
-
-    // alreadyRecalled: the distiller's dedup hint, populated by the runtime.
-    const digest: TurnDigest = {
-      conversationId: 'c1',
-      userId: 'u1',
-      teamId: null,
-      origin: 'user',
-      messages: [{ role: 'user', content: 'q' }],
-      planId: null,
-      startedAt: '2026-07-25T00:00:00.000Z',
-      finishedAt: '2026-07-25T00:00:01.000Z',
-      alreadyRecalled: ['OOM triage', 'kubectl preference'],
-    }
-
-    expect(digest.alreadyRecalled).toHaveLength(2)
   })
 
   test('file-backed storage descriptor is expressible (A5⑧)', () => {

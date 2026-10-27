@@ -2,7 +2,6 @@ import { tool } from 'ai'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { DURABLE_KNOWLEDGE_WORDING } from './distill'
 import { playbookToItem } from './records-api'
 import { createMemoryRecord, createProposal, getTeamMemory, publishProposal } from './store'
 import { label, playbookInput, requireEditorAccess } from './tools-shared'
@@ -56,15 +55,13 @@ export function createSaveMemoryTool(deps: {
 
   return tool({
     description:
-      // Personal scope states the same durability bar the automatic distiller
-      // applies (shared wording — the two write paths must not drift): durable
-      // means it spares a future conversation, not that it is secret; skip
-      // volatile readings and anything one quick look would re-answer.
-      `Save a memory. Always choose \`scope\` explicitly; never infer it from a schema default. scope "personal": a preference or durable fact specific to this user — ${DURABLE_KNOWLEDGE_WORDING} — never a volatile reading, and never something one quick look at the code or config would re-answer — provide \`text\`. ` +
+      // Durable means it spares a future conversation, not that it is secret;
+      // skip volatile readings and anything one quick look would re-answer.
+      `Save a memory. Always choose \`scope\` explicitly; never infer it from a schema default. scope "personal": a preference or durable fact specific to this user — knowledge that stays true for months and helps future work: a decision or convention the user stated, a procedure that worked, a root cause that was found, a stable configuration fact — never a volatile reading, and never something one quick look at the code or config would re-answer — provide \`text\`. ` +
       'scope "team": shared infrastructure state or change, an operational decision, or a reusable investigation strategy, visible to the whole team. Provide `text`, `title`, and `keywords` for a shared fact/change; provide `gene` for a reusable Playbook. Save only concrete, verified outcomes, never guesses. In a team conversation, choose team for shared systems and personal only for user-specific preferences or context. ' +
       'Both scopes take effect immediately; the user (or any teammate, for team memories) can inspect and remove them in the Memories view. ' +
-      'Before saving either scope, check the memory indexes in context: if a saved personal memory is now wrong or outdated, save the corrected version with `supersedes` set to the old id instead of stacking a near-duplicate; if a Playbook for the same problem class already exists, load it with memory_get and mention the overlap to the user instead. ' +
-      'For personal memories, always provide `title` and `keywords` — they are what future recall finds. Never save a plan approval or an instruction to proceed; the Plan records its own approval, so save what the work established instead. ' +
+      'Before saving either scope, search with memory_get(query) for a memory on the same subject: if a saved personal memory is now wrong or outdated, save the corrected version with `supersedes` set to the old id instead of stacking a near-duplicate; if a Playbook for the same problem class already exists, load it with memory_get and mention the overlap to the user instead. ' +
+      'For personal memories, always provide `title` and `keywords` — they are what a future memory_get search matches. Never save a plan approval or an instruction to proceed; the Plan records its own approval, so save what the work established instead. ' +
       'Convert relative dates to absolute dates. Never include credentials, tokens, or secret-bearing configuration — the save is rejected if any are detected.',
     inputSchema: z
       .object({
@@ -89,7 +86,7 @@ export function createSaveMemoryTool(deps: {
           .max(80)
           .optional()
           .describe(
-            'For text records in either scope: one-line hook shown in the Saved memories index, same language as the text.',
+            'For text records in either scope: one-line hook shown in search results and the Memories view, same language as the text.',
           ),
         keywords: z
           .array(z.string().min(1).max(40))
@@ -103,7 +100,7 @@ export function createSaveMemoryTool(deps: {
           .string()
           .optional()
           .describe(
-            'id of the outdated memory this one replaces, from the same personal or team memory pool. For a team Playbook, use the Playbook id (EDITOR+ only). The old memory drops out of recall immediately and the correction is recorded as a negative signal against it.',
+            'id of the outdated memory this one replaces, from the same personal or team memory pool. For a team Playbook, use the Playbook id (EDITOR+ only). The old memory drops out of search immediately and the correction is recorded as a negative signal against it.',
           ),
         gene: playbookInput
           .optional()
@@ -123,7 +120,7 @@ export function createSaveMemoryTool(deps: {
           ctx.addIssue({
             code: 'custom',
             path: ['title'],
-            message: 'text records require `title` (the index line hook)',
+            message: 'text records require `title` (the one-line hook)',
           })
         }
         if (value.keywords.length === 0) {

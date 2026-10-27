@@ -25,7 +25,6 @@ export {
   deriveTier,
   purgeConversationAttribution,
   recordAttributionSignal,
-  recordTurnDistillOutcome,
   setupMemoryAttributionIndexes,
 } from './attribution-db'
 export { computeRetentionScores, computeTurnScorecard, MIN_SCORE_TURNS } from './attribution-rollup'
@@ -174,75 +173,4 @@ export async function filterOwnedMemoryIds(
   const allowed = new Set([...ownRecords, ...ownPlaybooks].map((d) => d._id.toHexString()))
 
   return memoryIds.filter((id) => allowed.has(id))
-}
-
-const RECALLED_IDS_TIMEOUT_MS = 500
-
-/** Memories already attached to an earlier turn of this conversation. Fail-open. */
-export async function listConversationRecalledIds(
-  conversationId: string,
-  {
-    timeoutMs = RECALLED_IDS_TIMEOUT_MS,
-    lookup = () =>
-      attributionEvents().distinct(
-        'memoryId',
-        { conversationId, 'signals.signal': 'recall_log' },
-        { maxTimeMS: timeoutMs },
-      ),
-  }: { timeoutMs?: number; lookup?: () => Promise<unknown[]> } = {},
-): Promise<string[]> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-
-  try {
-    const ids = await Promise.race([
-      lookup(),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error(`recalled-ids lookup exceeded ${String(timeoutMs)}ms`))
-        }, timeoutMs)
-      }),
-    ])
-
-    return ids.filter((id): id is string => typeof id === 'string')
-  } catch (err) {
-    logError('memory.recalled_ids_failed', err, { conversationId })
-
-    return []
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-/** Read side of 2.4: memoryId → PROVEN applyRate for ranking. Only lineages
- * with ≥ MIN_SCORE_TURNS observations return a value — everything else is
- * absent, and the caller treats absent as neutral/unproven. Fail-open: any
- * error means an empty map and the lexical order stands. */
-export async function fetchRetentionOrderScores(
-  teamId: string | null,
-  candidates: { memoryId: string }[],
-): Promise<Map<string, number>> {
-  try {
-    const lineageByMemory = await resolveLineages(candidates.map((c) => c.memoryId))
-    const scores = await attributionScores()
-      .find({
-        provider: 'native',
-        teamId,
-        lineage: { $in: [...new Set(lineageByMemory.values())] },
-      })
-      .toArray()
-    const byLineage = new Map(scores.map((s) => [s.lineage, s]))
-    const out = new Map<string, number>()
-
-    for (const [memoryId, lineage] of lineageByMemory) {
-      const s = byLineage.get(lineage)
-
-      if (s && s.turns >= MIN_SCORE_TURNS) out.set(memoryId, s.applyRate)
-    }
-
-    return out
-  } catch (err) {
-    logError('memory.retention_order_failed', err, { teamId })
-
-    return new Map()
-  }
 }

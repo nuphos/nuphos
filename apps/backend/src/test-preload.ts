@@ -13,14 +13,11 @@
 // cache dir in CI. Skills E2E mocks skills-s3 and opts in locally.
 // Memory feature flags are pinned to their DEFAULTS (deleted, not ??=): tests
 // assert default-off behavior, and a developer's .env legitimately flips these
-// for live runs (e.g. the Slack canary sets MEMORY_AUTO_INGEST=true) — ambient
+// for live runs (e.g. MEMORY_ATTRIBUTION_JUDGE=true) — ambient
 // dev config must never change what the suite asserts. Flag-on paths opt in
 // via the config-facade mock (agentOverrides), never via real env.
 delete process.env.MEMORY_ATTRIBUTION_JUDGE
-delete process.env.MEMORY_AUTO_INGEST
-delete process.env.MEMORY_DELIVERY_MODE
 delete process.env.MEMORY_RERANK_ENABLED
-delete process.env.MEMORY_INDEX_RANKING
 delete process.env.MEMORY_PROVIDER
 process.env.MONGODB_URI ??= 'mongodb://unit-test:27017'
 // config.admin.teamId has no default — unset denies admin access — so the admin

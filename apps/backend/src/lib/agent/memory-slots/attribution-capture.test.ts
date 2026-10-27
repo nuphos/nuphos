@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { useDb } from '@/lib/test/doubles/db'
@@ -67,8 +67,6 @@ const baseTurn = {
   userId: 'u1',
   conversationId: 'sess-1',
   turnKey: 'req-1',
-  deliveryMode: 'injection',
-  recallOutcome: 'matched' as const,
 }
 
 describe('captureTurnAttribution', () => {
@@ -78,72 +76,47 @@ describe('captureTurnAttribution', () => {
     }),
   )
 
-  test('recalled + fetched produce rows with correct scope and tier', async () => {
+  test('fetched memories produce rows with correct scope and tier', async () => {
     await captureTurnAttribution({
       ...baseTurn,
-      recalledTeamIds: ['g1', 'g2'],
-      recalledPersonalIds: ['r1'],
-      fetchedTeamIds: ['g1'], // g1 was recalled AND opened
-      fetchedPersonalIds: [],
+      fetchedTeamIds: ['g1'],
+      fetchedPersonalIds: ['r1'],
     })
-    expect(rows()).toHaveLength(3) // g1 merged into one row, not duplicated
+    expect(rows()).toHaveLength(2)
     const g1 = rows().find((r) => r.memoryId === 'g1')!
 
     expect(g1.tier).toBe('fetched')
     expect(g1.scope).toBe('team')
-    // BOTH signals must survive on the merged row — a concurrent write once
-    // lost fetch_log to the recall_log writer (lost-update race).
-    expect((g1.signals as { signal: string }[]).map((s) => s.signal).sort(byCodeUnit)).toEqual([
-      'fetch_log',
-      'recall_log',
-    ])
-    const r1 = rows().find((r) => r.memoryId === 'r1')!
-
-    expect(r1.tier).toBe('recalled')
-    expect(r1.scope).toBe('personal')
+    expect(rows().find((r) => r.memoryId === 'r1')!.scope).toBe('personal')
     expect(rows().every((r) => r.provider === 'native' && r.turnKey === 'req-1')).toBe(true)
   })
 
-  test('fetched-only turn (recall skipped) still records the fetch', async () => {
+  test('turn summary row carries the fetch count and the judge default only', async () => {
     await captureTurnAttribution({
       ...baseTurn,
-      recalledTeamIds: [],
-      recalledPersonalIds: [],
-      fetchedTeamIds: [],
-      fetchedPersonalIds: ['r9'],
-    })
-    expect(rows()).toHaveLength(1)
-    expect(rows()[0]!.tier).toBe('fetched')
-  })
-
-  test('turn summary row carries counts, deliveryMode, judge + distill defaults', async () => {
-    await captureTurnAttribution({
-      ...baseTurn,
-      recalledTeamIds: ['g1'],
-      recalledPersonalIds: ['r1'],
       fetchedTeamIds: ['g1'],
       fetchedPersonalIds: [],
     })
     expect(turns()).toHaveLength(1)
     const t = turns()[0]!
 
-    expect(t.recalledCount).toBe(2)
     expect(t.fetchedCount).toBe(1)
-    expect(t.deliveryMode).toBe('injection')
     expect(t.judge).toBe('skipped_disabled')
-    expect(t.distill).toBe('skipped_disabled')
+    // Nothing recalls or learns on its own anymore, so these stay absent.
+    expect(t).not.toHaveProperty('recalledCount')
+    expect(t).not.toHaveProperty('recallOutcome')
+    expect(t).not.toHaveProperty('deliveryMode')
+    expect(t).not.toHaveProperty('distill')
   })
 
-  test('superseding a recalled memory records the correction and sinks its tier', async () => {
-    // The typical correction flow: old memory recalled → agent notices it is
-    // wrong → saves replacement with supersedes. One row, both signals, and
-    // the negative wins the tier (A4③ precedence: supersede beats fetch/recall).
+  test('superseding a fetched memory records the correction and sinks its tier', async () => {
+    // The typical correction flow: agent loads a memory → notices it is wrong
+    // → saves a replacement with supersedes. One row, both signals, and the
+    // negative wins the tier (A4③ precedence: supersede beats fetch).
     await captureTurnAttribution({
       ...baseTurn,
-      recalledTeamIds: [],
-      recalledPersonalIds: ['r1'],
       fetchedTeamIds: [],
-      fetchedPersonalIds: [],
+      fetchedPersonalIds: ['r1'],
       supersededPersonalIds: ['r1'],
     })
     expect(rows()).toHaveLength(1)
@@ -151,33 +124,23 @@ describe('captureTurnAttribution', () => {
 
     expect(r1.tier).toBe('not_applicable')
     expect((r1.signals as { signal: string }[]).map((s) => s.signal).sort(byCodeUnit)).toEqual([
-      'recall_log',
+      'fetch_log',
       'supersede_correction',
     ])
   })
 
   test('provider defaults to native; an explicit provider stamps rows AND the turn row', async () => {
-    // Default: existing finalizer callers pass no provider — Track A rows
-    // keep their 'native' stamp unchanged.
-    await captureTurnAttribution({
-      ...baseTurn,
-      recalledTeamIds: ['g1'],
-      recalledPersonalIds: [],
-      fetchedTeamIds: [],
-      fetchedPersonalIds: [],
-    })
+    await captureTurnAttribution({ ...baseTurn, fetchedTeamIds: ['g1'], fetchedPersonalIds: [] })
     expect(rows()[0]!.provider).toBe('native')
     expect(turns()[0]!.provider).toBe('native')
 
-    // Phase 2: the runtime stamps the RESOLVED provider at the call boundary
+    // The runtime stamps the RESOLVED provider at the call boundary
     // (decision 3 — a bare id without its provider tag is meaningless).
     await captureTurnAttribution({
       ...baseTurn,
       conversationId: 'sess-2',
       provider: 'vendor-x',
-      recalledTeamIds: ['g9'],
-      recalledPersonalIds: [],
-      fetchedTeamIds: [],
+      fetchedTeamIds: ['g9'],
       fetchedPersonalIds: [],
     })
     const vendorRow = rows().find((r) => r.memoryId === 'g9')!
@@ -186,34 +149,9 @@ describe('captureTurnAttribution', () => {
     expect(turns().find((t) => t.conversationId === 'sess-2')!.provider).toBe('vendor-x')
   })
 
-  test('zero-recall turn writes the denominator row but no attribution rows', async () => {
-    await captureTurnAttribution({
-      ...baseTurn,
-      recalledTeamIds: [],
-      recalledPersonalIds: [],
-      fetchedTeamIds: [],
-      fetchedPersonalIds: [],
-    })
+  test('a turn without fetches writes the denominator row but no attribution rows', async () => {
+    await captureTurnAttribution({ ...baseTurn, fetchedTeamIds: [], fetchedPersonalIds: [] })
     expect(rows()).toHaveLength(0)
     expect(turns()).toHaveLength(1)
-    expect(turns()[0]!.recalledCount).toBe(0)
   })
-})
-
-test('recallOutcome lands on the turns row', async () => {
-  await captureTurnAttribution({
-    ...baseTurn,
-    recallOutcome: 'no_match',
-    recalledTeamIds: [],
-    recalledPersonalIds: [],
-    fetchedTeamIds: [],
-    fetchedPersonalIds: [],
-  })
-
-  const row = turns().find((t) => t.turnKey === 'req-1')
-
-  // The field this investigation lacked: recalledCount 0 alone cannot say
-  // whether the search matched nothing or never ran.
-  expect(row?.recallOutcome).toBe('no_match')
-  expect(row?.recalledCount).toBe(0)
 })

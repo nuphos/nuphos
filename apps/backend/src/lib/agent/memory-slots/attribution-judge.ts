@@ -1,5 +1,5 @@
 // Post-hoc attribution judge (Track A 1.3, A4). Fail-open fire-and-forget:
-// any error floors rows at recalled/fetched and marks the turn row 'failed'.
+// any error floors rows at fetched and marks the turn row 'failed'.
 // Provider-blind: candidates are the runtime's own injection/fetch-time
 // snapshots (A4①) — the judge never reads the memory store.
 import { createHash } from 'node:crypto'
@@ -16,34 +16,25 @@ import { newModelCallId, recordSideCallTokenUsage } from '../token-usage-side-ca
 
 import { attributionTurns, recordAttributionSignal } from './attribution-store'
 
-import type { AutomaticRecallEntry } from '../memory-native/index'
-
 const JUDGE_TIMEOUT_MS = 15_000
 const CANDIDATE_CAP = 12
 
 export type JudgeCandidate = { memoryId: string; scope: 'personal' | 'team'; label: string }
 
-/** Fetched-first, then recalled in injection order; dedup by id; cap 12 (A4②). */
+/** What the agent fetched this turn, in fetch order; cap 12 (A4②). */
 export function buildJudgeCandidates(
-  recalled: AutomaticRecallEntry[],
   fetchedLabels: Map<string, string>,
+  fetchedPersonalIds: readonly string[],
 ): JudgeCandidate[] {
-  const out: JudgeCandidate[] = []
-  const seen = new Set<string>()
-  const recalledById = new Map(recalled.map((r) => [r.memoryId, r]))
+  const personal = new Set(fetchedPersonalIds)
 
-  for (const [memoryId, label] of fetchedLabels) {
-    if (seen.has(memoryId)) continue
-    seen.add(memoryId)
-    out.push({ memoryId, scope: recalledById.get(memoryId)?.scope ?? 'team', label })
-  }
-  for (const r of recalled) {
-    if (seen.has(r.memoryId)) continue
-    seen.add(r.memoryId)
-    out.push({ memoryId: r.memoryId, scope: r.scope, label: r.label })
-  }
-
-  return out.slice(0, CANDIDATE_CAP)
+  return [...fetchedLabels]
+    .slice(0, CANDIDATE_CAP)
+    .map(([memoryId, label]) => ({
+      memoryId,
+      scope: personal.has(memoryId) ? ('personal' as const) : ('team' as const),
+      label,
+    }))
 }
 
 const verdicts = z.object({
@@ -103,8 +94,8 @@ export async function runAttributionJudge(input: {
   turnKey: string
   query: string
   answer: string
-  recalled: AutomaticRecallEntry[]
   fetchedLabels: Map<string, string>
+  fetchedPersonalIds: string[]
 }): Promise<void> {
   if (!config.agent.memoryAttributionJudge) return // turns row keeps 'skipped_disabled'
   const turnFilter = { conversationId: input.conversationId, turnKey: input.turnKey }
@@ -116,7 +107,7 @@ export async function runAttributionJudge(input: {
 
     return
   }
-  const candidates = buildJudgeCandidates(input.recalled, input.fetchedLabels)
+  const candidates = buildJudgeCandidates(input.fetchedLabels, input.fetchedPersonalIds)
 
   if (candidates.length === 0) {
     await attributionTurns().updateOne(turnFilter, { $set: { judge: 'skipped_zero_candidates' } })

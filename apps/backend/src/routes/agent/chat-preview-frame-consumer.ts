@@ -2,9 +2,9 @@ import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-a
 
 import { consumePreviewToolPresentation } from './chat-preview-tool-update'
 
+import type { PreviewTurnMemory } from './chat-preview-memory'
 import type { createPreviewRunState } from './chat-preview-run'
 import type { createPreviewToolLog } from './chat-preview-tool-log'
-import type { PreviewTurnMemory } from '@/lib/claude-code-preview/preview-recall'
 
 export function installPreviewFrameConsumer(
   state: ReturnType<typeof createPreviewRunState>,

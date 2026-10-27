@@ -150,9 +150,9 @@ export function assertRegistryInvariants(
         `memory provider '${meta.id}' is external-residency and must declare vendorName (consent copy)`,
       )
     }
-    if (!provider.recall && !provider.tools && !provider.ingest && !provider.records) {
+    if (!provider.tools && !provider.records) {
       throw new Error(
-        `memory provider '${meta.id}' implements no slot — at least one of recall/tools/ingest/records required (feedback does not count)`,
+        `memory provider '${meta.id}' implements no slot — at least one of tools/records required (feedback does not count)`,
       )
     }
   }

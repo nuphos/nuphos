@@ -74,8 +74,6 @@ export type AgentMemoryRollup = {
   recalledTeamIds?: string[]
   recalledPersonalIds?: string[]
   fetchedIds?: string[]
-  // Injection-time label snapshots now live in the turn accumulator's view
-  // (memory-slots/turn-accumulator): the judge reads view().recall.entries.
 }
 
 export type AgentTurnRollup = {

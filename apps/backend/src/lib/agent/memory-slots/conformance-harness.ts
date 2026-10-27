@@ -4,7 +4,6 @@ import type {
   MemoryProvider,
   MemorySessionOrigin,
   MemoryViewer,
-  TurnDigest,
 } from './types'
 
 export type ConformanceTenant = {
@@ -18,7 +17,7 @@ export type ConformanceHarness = {
   tenantA: ConformanceTenant
   tenantB: ConformanceTenant
   /** Seed one memory via the provider's NATURAL write path (its own tool /
-   * ingest surface, never a raw store write). Returns the new memory id, or
+   * surface, never a raw store write). Returns the new memory id, or
    * null when the provider refused the write (e.g. non-user origin — that
    * refusal is itself under test). `opts.observer` is threaded into the write
    * path so observer corroboration can capture the emitted events. */
@@ -33,7 +32,6 @@ export type ConformanceHarness = {
   existsInRealStore(id: string): Promise<boolean>
   /** Runs fn with the provider's backing store failing. */
   withFaultInjection<T>(fn: () => Promise<T>): Promise<T>
-  makeTurnDigest(tenant: ConformanceTenant, over?: Partial<TurnDigest>): TurnDigest
   cleanup(): Promise<void>
   /** Optional (item 11): every collection name the provider's store touched.
    * Absent ⇒ the collection-prefix integration check is skipped. */

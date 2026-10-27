@@ -98,7 +98,7 @@ export function launchAcceptedChatTurn(args: {
       // The user-turn persist joins the parallel prep group: handleChatRequest
       // awaits it before anything that needs the write to have landed
       // (default-credential persist on a new conversation, telemetry, title
-      // generation), overlapping it with memory recall.
+      // generation), overlapping it with the rest of turn prep.
       const isNewConversationPromise = persistAcceptedConversationTurn({
         sessionId,
         userId: run.userId,

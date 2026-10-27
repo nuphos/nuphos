@@ -63,7 +63,7 @@ const makeProvider = (
   collectionPrefix: `memory_${id}_`,
   setup: over.setup ?? (async () => {}),
   availability: over.availability ?? (async () => ({ state: 'ready' })),
-  recall: { render: async () => null },
+  tools: { create: () => ({}) },
 })
 
 describe('runMemoryProviderSetup', () => {

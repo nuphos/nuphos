@@ -4,16 +4,7 @@
 
 export { setupTeamMemoryIndexes } from './store/indexes'
 export { createProposal, publishProposal } from './store/proposals'
-export {
-  countPersonalMemoryRecords,
-  countSearchablePlaybooks,
-  countTeamMemoryRecords,
-  getMemoryRecord,
-  getTeamMemory,
-  listActivePlaybooks,
-  listConversationMemoryTitles,
-  listPersonalMemoryIndex,
-} from './store/reads'
+export { getMemoryRecord, getTeamMemory } from './store/reads'
 export { createMemoryRecord } from './store/records'
 export {
   recordMemoryFetches,
@@ -35,5 +26,4 @@ export {
   teamMemoryProposals,
 } from './store/shared'
 
-export type { MemoryRecordIndexEntry, TeamIndexEntry } from './store/reads'
 export type { PlaybookSearchHit } from './store/search'

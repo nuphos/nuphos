@@ -1,19 +1,13 @@
 // Native adapter: the in-house Playbook/Case memory implementation exposed
 // through the Memory Provider SPI. This is the ONLY production file allowed to
 // import lib/agent/memory-native/** (dependency rule, enforced by the
-// boundaries guard test). Phase 1 is parallel plumbing: nothing routes through
-// this adapter yet — the call-site swap is Phase 2.
+// boundaries guard test).
 //
 // Boundary translation: the store's legacy 'gene' vocabulary is confined to
 // this file. Everything crossing the SPI speaks 'playbook' / 'record'; the
 // records surface dual-emits `extra: { gene, playbook }` during the rename
 // window to keep today's wire byte-compatible.
 
-import { config } from '@/config'
-import { logError } from '@/lib/observability'
-
-import { renderMemoryContext } from '../memory-native/index'
-import { onTurnFinished } from '../memory-native/ingest-turn'
 import {
   deleteMemoryItem,
   getMemoryItem,
@@ -31,7 +25,6 @@ import type {
   MemoryScope,
   MemoryTool,
   MemoryToolContext,
-  RenderedMemoryContext,
 } from './types'
 import type { MemoryListItem } from '../memory-native/records-api'
 
@@ -98,8 +91,6 @@ function savedEventFromItem(scope: MemoryScope, item: MemoryListItem, title?: st
 }
 
 // ── The provider bundle ──────────────────────────────────────────────────────
-// The ingest slot's onTurnFinished lives in ../memory-native/ingest-turn.
-
 export const nativeMemoryProvider: MemoryProvider = {
   meta: {
     id: 'native',
@@ -118,55 +109,6 @@ export const nativeMemoryProvider: MemoryProvider = {
   setup: () => setupTeamMemoryIndexes(),
   // Needs no keys; Mongo-up is the process's own liveness.
   availability: async () => ({ state: 'ready' }),
-
-  recall: {
-    // Never throws (conformance item 7): a failing store yields "no context",
-    // not an exception into the turn — the runtime treats null as no-op.
-    render: async (input, opts): Promise<RenderedMemoryContext | null> => {
-      try {
-        // Cheap early-out on an already-expired budget; native's Mongo reads
-        // are fast enough that mid-flight cancellation buys nothing (A5④).
-        if (opts?.signal?.aborted) return null
-        const rendered = await renderMemoryContext(
-          input.userId,
-          input.teamId,
-          input.query ?? '',
-          input.conversationId,
-          input.excludeIds,
-        )
-        const diagnostics: Record<string, number | string | boolean> = {
-          teamCount: rendered.teamCount,
-          personalCount: rendered.personalCount,
-          ...(rendered.teamTotal !== undefined ? { teamTotal: rendered.teamTotal } : {}),
-          ...(rendered.personalTotal !== undefined
-            ? { personalTotal: rendered.personalTotal }
-            : {}),
-          ...(rendered.teamRecordTotal !== undefined
-            ? { teamRecordTotal: rendered.teamRecordTotal }
-            : {}),
-        }
-
-        return {
-          block: rendered.block,
-          recalled: rendered.entries.map((entry) => ({
-            id: entry.memoryId,
-            scope: entry.scope,
-            kind: entry.kind === 'gene' ? 'playbook' : 'record',
-            label: entry.label,
-          })),
-          diagnostics,
-          // 'automatic' delivery appends compact matches to the last user
-          // message (A5⑤); the index/summary modes inject a system block.
-          placement:
-            config.agent.memoryDeliveryMode === 'automatic' ? 'user-message-tail' : 'system-block',
-        }
-      } catch (err) {
-        logError('memory.native.recall_failed', err, { userId: input.userId })
-
-        return null
-      }
-    },
-  },
 
   tools: {
     create: (ctx: MemoryToolContext) =>
@@ -215,8 +157,6 @@ export const nativeMemoryProvider: MemoryProvider = {
       }) as Record<string, MemoryTool>,
   },
 
-  ingest: { onTurnFinished },
-
   records: {
     cursorTier: 'strict',
     list: async (input) => {
@@ -254,7 +194,7 @@ export const nativeMemoryProvider: MemoryProvider = {
         scope: viewer.scope,
       }),
   },
-  // feedback / webhook / purgeUser / purgeTeam: absent — absence IS the
-  // capability signal (native needs no attribution push-back or vendor
-  // webhook; erasure ships with the runtime pipeline in a later phase).
+  // feedback / purgeUser / purgeTeam: absent — absence IS the capability
+  // signal (native needs no attribution push-back; erasure ships with the
+  // runtime pipeline in a later phase).
 }

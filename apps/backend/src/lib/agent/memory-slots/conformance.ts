@@ -33,9 +33,9 @@ export function describeMemoryProviderConformance(makeHarness: () => Conformance
   console.log(
     [
       `┌─ memory SPI v${String(MEMORY_SPI_VERSION)} conformance — provider '${provider.meta.id}' (${provider.meta.dataResidency})`,
-      `│ recall=${String(caps.recall)} tools=${String(caps.tools)} ingest=${String(caps.ingest)} records=${String(caps.records)}` +
+      `│ tools=${String(caps.tools)} records=${String(caps.records)}` +
         ` recordsDelete=${String(caps.recordsDelete)} recordsRestore=${String(caps.recordsRestore)}` +
-        ` feedback=${String(caps.feedback)} webhook=${String(caps.webhook)} purge=${String(caps.purge)} cursorTier=${caps.cursorTier ?? '—'}`,
+        ` feedback=${String(caps.feedback)} purge=${String(caps.purge)} cursorTier=${caps.cursorTier ?? '—'}`,
       `└─ items 10 & 12 (no effectiveness writes; call-site imports) are grep guards in boundaries.test.ts`,
     ].join('\n'),
   )
@@ -77,54 +77,6 @@ export function describeMemoryProviderConformance(makeHarness: () => Conformance
     })
 
     registerRecordsConformanceCases({ harness, provider, caps, seedOrThrow })
-
-    test.skipIf(!caps.recall)(
-      '7a. non-blocking recall under fault injection: resolves, never rejects',
-      async () => {
-        let rejected: unknown = null
-        const rendered = await harness
-          .withFaultInjection(() =>
-            provider.recall!.render(
-              {
-                userId: harness.tenantA.userId,
-                teamId: harness.tenantA.teamId,
-                query: 'fault injection probe',
-                conversationId: 'conformance-fault-recall',
-              },
-              abortOpts(),
-            ),
-          )
-          .catch((err: unknown) => {
-            rejected = err
-
-            return null
-          })
-
-        expect(rejected).toBeNull()
-        // Under a failing store the only honest answers are "no context" or a
-        // degraded-notice context — never an exception into the turn.
-        if (rendered !== null) expect(Array.isArray(rendered.recalled)).toBe(true)
-      },
-    )
-
-    test.skipIf(!caps.ingest)(
-      '7b. non-blocking ingest under fault injection: never rejects into the caller',
-      async () => {
-        let rejected: unknown = null
-        const outcome = await harness
-          .withFaultInjection(() =>
-            provider.ingest!.onTurnFinished(harness.makeTurnDigest(harness.tenantA), abortOpts()),
-          )
-          .catch((err: unknown) => {
-            rejected = err
-
-            return null
-          })
-
-        expect(rejected).toBeNull()
-        if (outcome !== null) expect(Array.isArray(outcome.saved)).toBe(true)
-      },
-    )
 
     test.skipIf(!caps.tools)(
       '8. origin gating: durable writes via tools refused unless origin === user',

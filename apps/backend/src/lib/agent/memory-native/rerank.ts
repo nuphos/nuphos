@@ -76,27 +76,6 @@ export function applyRanking<T extends { memoryId: string }>(
   return out
 }
 
-/** Track A 2.4 — retention feeds ranking. Unproven memories (absent from the
- * score map: too few observations, or no rollup yet) sit at this neutral
- * baseline; a PROVEN helper (applyRate above it) rises, a proven dud
- * (applyRate below it) sinks under even the unknowns. */
-export const RETENTION_NEUTRAL = 0.05
-
-/** Stable sort by proven applyRate, descending — ties (including all-absent,
- * i.e. rollup empty) keep the incoming lexical/interleaved order, so this can
- * only ever act on real evidence. Runs BEFORE the LLM rerank: its output is
- * also the fail-open order rerankCandidates falls back to. */
-export function orderByRetention<T extends { memoryId: string }>(
-  candidates: T[],
-  provenApplyRate: Map<string, number>,
-): T[] {
-  return [...candidates].sort(
-    (a, b) =>
-      (provenApplyRate.get(b.memoryId) ?? RETENTION_NEUTRAL) -
-      (provenApplyRate.get(a.memoryId) ?? RETENTION_NEUTRAL),
-  )
-}
-
 /** Billing attribution for the side call. Optional so callers that
  *  genuinely have no user (none today) still compile — a missing user
  *  drops the row rather than mis-attributing it. */
