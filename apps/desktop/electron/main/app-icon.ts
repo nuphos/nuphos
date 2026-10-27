@@ -5,7 +5,8 @@ import { app } from 'electron'
 
 import { isDev } from './env'
 
-// A is the bundled mark; the rest come from scripts/render-app-icons.mjs.
+// B2 is the bundled icon; A is the original mark. All but A come from
+// scripts/render-app-icons.mjs.
 export const APP_ICONS = ['A', ...'BCDEF'.split('').flatMap((c) => [`${c}1`, `${c}2`, `${c}3`])]
 
 const file = () => path.join(app.getPath('userData'), 'app-icon.json')
@@ -19,7 +20,7 @@ export function readAppIcon(): string {
     // No choice saved yet.
   }
 
-  return 'A'
+  return 'B2'
 }
 
 /** Shows the icon on the running Dock tile. Finder keeps the bundled icon. */

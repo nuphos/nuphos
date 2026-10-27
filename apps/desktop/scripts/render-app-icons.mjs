@@ -1,7 +1,8 @@
 // Renders the selectable app icons for Desktop, iOS and Android from the shipped bot-avatar
 // SVGs. Nothing is drawn by hand: each icon is one avatar placed by one of three layouts
 // (the LogoFilm compositions in nuphos/studio) and frozen at a pose of the product's own
-// idle loop. Icon A is the current mark and is copied, not rendered.
+// idle loop. B2 is the bundled icon on every platform. Icon A, the original mark, is
+// a committed asset and is not rendered here.
 //
 //   node apps/desktop/scripts/render-app-icons.mjs
 //
@@ -122,12 +123,15 @@ function write(file, data) {
 const json = (value) => JSON.stringify(value, null, 2) + '\n'
 const xcode = { author: 'xcode', version: 1 }
 
+const BUNDLED = 'B2'
+
 async function writeIos(id, square) {
   const png = await sharp(square).flatten().png().toBuffer()
+  const set = id === BUNDLED ? 'AppIcon' : `AppIcon-${id}`
 
-  write(path.join(iosAssets, `AppIcon-${id}.appiconset/icon-1024.png`), png)
+  write(path.join(iosAssets, `${set}.appiconset/icon-1024.png`), png)
   write(
-    path.join(iosAssets, `AppIcon-${id}.appiconset/Contents.json`),
+    path.join(iosAssets, `${set}.appiconset/Contents.json`),
     json({
       images: [
         { filename: 'icon-1024.png', idiom: 'universal', platform: 'ios', size: '1024x1024' },
@@ -146,20 +150,16 @@ async function writeIos(id, square) {
 }
 
 write(path.join(iosAssets, 'AppIconPreview/Contents.json'), json({ info: xcode }))
-await writeIos('A', fs.readFileSync(path.join(iosAssets, 'AppIcon.appiconset/icon-1024.png')))
-write(
-  path.join(desktop, 'public/app-icons/A.png'),
-  fs.readFileSync(path.join(desktop, 'build/icon.png')),
-)
 
 for (const [letter, file] of Object.entries(CHARACTERS)) {
   for (const [number, layout] of Object.entries(LAYOUTS)) {
     const id = letter + number
 
-    write(
-      path.join(desktop, `public/app-icons/${id}.png`),
-      screenshot(page(file, layout, 0, true), SIZE),
-    )
+    const desktopIcon = screenshot(page(file, layout, 0, true), SIZE)
+
+    write(path.join(desktop, `public/app-icons/${id}.png`), desktopIcon)
+    // electron-builder makes the .icns (and the Windows and Linux icons) from this file.
+    if (id === BUNDLED) write(path.join(desktop, 'build/icon.png'), desktopIcon)
     await writeIos(id, screenshot(page(file, layout, 0, false), SIZE))
     const bled = screenshot(page(file, layout, BLEED, false), SIZE + BLEED * 2)
 

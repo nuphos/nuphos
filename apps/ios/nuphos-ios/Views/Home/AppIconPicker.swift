@@ -3,7 +3,8 @@ import SwiftUI
 import UIKit
 
 /// The Home Screen icon. The icons are rendered by apps/desktop/scripts/render-app-icons.mjs;
-/// A is the primary AppIcon, every other one is the alternate icon set `AppIcon-<id>`.
+/// B2 is the primary AppIcon, every other one (A is the original mark) is the alternate
+/// icon set `AppIcon-<id>`.
 struct AppIconPicker: View {
     private static let characters = ["Napoleon", "Pearl Earring", "Van Gogh", "The Scream", "Son of Man"]
     private static let layouts = ["Classic", "Bleed", "Peek"]
@@ -13,7 +14,7 @@ struct AppIconPicker: View {
         }
 
     static var current: String {
-        UIApplication.shared.alternateIconName.map { String($0.dropFirst("AppIcon-".count)) } ?? "A"
+        UIApplication.shared.alternateIconName.map { String($0.dropFirst("AppIcon-".count)) } ?? "B2"
     }
 
     @State private var selected = Self.current
@@ -24,7 +25,7 @@ struct AppIconPicker: View {
                 ForEach(Self.icons, id: \.id) { icon in
                     Button {
                         selected = icon.id
-                        UIApplication.shared.setAlternateIconName(icon.id == "A" ? nil : "AppIcon-\(icon.id)") { error in
+                        UIApplication.shared.setAlternateIconName(icon.id == "B2" ? nil : "AppIcon-\(icon.id)") { error in
                             if error != nil { selected = Self.current }
                         }
                     } label: {

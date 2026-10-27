@@ -223,9 +223,7 @@ app
       is_dev: isDev,
     })
     nativeTheme.themeSource = readPersistedThemeSource()
-    const appIcon = readAppIcon()
-
-    if (appIcon !== 'A') applyAppIcon(appIcon)
+    applyAppIcon(readAppIcon())
     // When the OS appearance changes while themeSource follows it ('system'), the
     // renderer's own `matchMedia('prefers-color-scheme')` change event is
     // unreliable in Electron, so forward the native signal to every window. The

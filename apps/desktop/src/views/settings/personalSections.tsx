@@ -73,7 +73,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconDefiniti
   { value: 'dark', label: 'Dark', icon: faMoon },
 ]
 
-// Rendered by scripts/render-app-icons.mjs; A is the bundled mark.
+// Rendered by scripts/render-app-icons.mjs; B2 is the bundled icon, A the original mark.
 const APP_ICON_CHARACTERS = ['Napoleon', 'Pearl Earring', 'Van Gogh', 'The Scream', 'Son of Man']
 const APP_ICON_LAYOUTS = ['Classic', 'Bleed', 'Peek']
 const APP_ICONS = [

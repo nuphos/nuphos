@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import ai.nuphos.android.R
 
 // Each icon is a launcher activity-alias `.Icon<id>` in the manifest; the art comes from
-// apps/desktop/scripts/render-app-icons.mjs. A is the original mark.
+// apps/desktop/scripts/render-app-icons.mjs. B2 is the default; A is the original mark.
 private val APP_ICONS = listOf(
     "A" to listOf(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground),
     "B1" to listOf(R.drawable.app_icon_b1), "B2" to listOf(R.drawable.app_icon_b2), "B3" to listOf(R.drawable.app_icon_b3),
@@ -54,7 +54,7 @@ private fun alias(context: Context, id: String) = ComponentName(context, "ai.nup
 
 private fun currentAppIcon(context: Context): String = APP_ICONS.map { it.first }.firstOrNull {
     context.packageManager.getComponentEnabledSetting(alias(context, it)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-} ?: "A"
+} ?: "B2"
 
 private fun setAppIcon(context: Context, id: String) {
     // Enable the new entry first so the launcher never has none.

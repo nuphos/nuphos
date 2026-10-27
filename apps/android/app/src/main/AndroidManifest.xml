@@ -22,9 +22,9 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/app_icon_b2"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/app_icon_b2"
         android:supportsRtl="true"
         android:theme="@style/Theme.Nuphos"
         android:usesCleartextTraffic="false"
@@ -81,7 +81,7 @@
         <!-- The launcher entry, one per app icon (Account > App icon); exactly one is enabled. -->
         <activity-alias
             android:name=".IconA"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:roundIcon="@mipmap/ic_launcher_round"
@@ -105,7 +105,7 @@
         </activity-alias>
         <activity-alias
             android:name=".IconB2"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/app_icon_b2"
             android:roundIcon="@mipmap/app_icon_b2"
