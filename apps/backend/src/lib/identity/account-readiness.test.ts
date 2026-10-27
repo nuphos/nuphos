@@ -20,19 +20,16 @@ import {
 import { mapUser } from './shared'
 import { signNuphosToken } from './token'
 
-import type { NuphosUserDoc } from './shared'
-
-import type { QuotaWindow } from '@/lib/download-handoff-rate-limit'
-
 import { errorHandler } from '@/lib/errors'
-
 import { sha256Hex } from '@/lib/journal/hashing'
-
 import { useDb } from '@/lib/test/doubles/db'
 import { useDownloadHandoffRateLimit } from '@/lib/test/doubles/download-handoff-rate-limit'
 import { useEmailOtp } from '@/lib/test/doubles/email-otp'
 import { real as realIdentity, useIdentity } from '@/lib/test/doubles/identity'
 import { requireAuth } from '@/middleware/auth/core'
+
+import type { QuotaWindow } from '@/lib/download-handoff-rate-limit'
+import type { NuphosUserDoc } from './shared'
 
 type Doc = Record<string, any>
 const testPassword = randomBytes(24).toString('base64url')
