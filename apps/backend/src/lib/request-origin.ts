@@ -29,7 +29,9 @@ export function requestOrigin(
 
   if (!ip) return undefined
   // Cloudflare sends the city as UTF-8 bytes, but header values are read as latin1.
-  const city = Buffer.from(header('CF-IPCity') ?? '', 'latin1').toString('utf8').trim()
+  const city = Buffer.from(header('CF-IPCity') ?? '', 'latin1')
+    .toString('utf8')
+    .trim()
   const country = header('CF-IPCountry')?.trim()
 
   // Shape-checked, since they end up in emails: a place name, an ISO code.
