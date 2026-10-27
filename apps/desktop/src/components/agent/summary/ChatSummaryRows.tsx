@@ -15,21 +15,34 @@ import { changeSubtitle, changeTitle } from './chatSummaryModel'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { SessionResource } from '../../../api/session-resource-types'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 
 export const sectionClass = 'rounded-xl border border-zGray-800 px-3.5 py-3'
 const focusClass =
   'outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-current'
 const hoverRowClass =
   '-mx-1.5 rounded-md px-1.5 transition-colors hover:bg-zGray-800/50 motion-reduce:transition-none'
-const rowFocusClass =
-  'outline-none focus-visible:bg-zGray-800/50 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-zViolet-500/70'
 
-/** A titled block of rows. */
-export function SummarySection({ title, children }: { title: string; children: ReactNode }) {
+export const focusRingClass =
+  'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-zViolet-500/70'
+const rowFocusClass = `focus-visible:bg-zGray-800/50 ${focusRingClass}`
+
+/** A titled block of rows; `header` sits under the title, above the rows. */
+export function SummarySection({
+  title,
+  header,
+  ref,
+  children,
+}: {
+  title: string
+  header?: ReactNode
+  ref?: Ref<HTMLElement>
+  children: ReactNode
+}) {
   return (
-    <section className={sectionClass} aria-label={title}>
+    <section ref={ref} className={sectionClass} aria-label={title}>
       <h3 className="text-[13px] font-medium text-main">{title}</h3>
+      {header}
       <div className="flex flex-col gap-0.5 pt-2">{children}</div>
     </section>
   )
