@@ -97,6 +97,9 @@ struct HomeView: View {
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
+            #if DEBUG
+            .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showProfile = true } }
+            #endif
             .sheet(isPresented: $showProfile) {
                 ProfileSheet(user: user)
             }
