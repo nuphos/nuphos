@@ -92,11 +92,8 @@ useDb({
   db: (() => ({ collection: coll })) as unknown as typeof dbActual.db,
 })
 
-const {
-  getIngestEventSnapshot,
-  listIngestEventSnapshots,
-  setupMemoryIngestEventIndexes,
-} = await import('./ingest-events')
+const { getIngestEventSnapshot, listIngestEventSnapshots, setupMemoryIngestEventIndexes } =
+  await import('./ingest-events')
 
 const rows = () => coll('memory_runtime_ingest_events').docs
 

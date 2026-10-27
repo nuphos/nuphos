@@ -28,13 +28,11 @@ export function buildJudgeCandidates(
 ): JudgeCandidate[] {
   const personal = new Set(fetchedPersonalIds)
 
-  return [...fetchedLabels]
-    .slice(0, CANDIDATE_CAP)
-    .map(([memoryId, label]) => ({
-      memoryId,
-      scope: personal.has(memoryId) ? ('personal' as const) : ('team' as const),
-      label,
-    }))
+  return [...fetchedLabels].slice(0, CANDIDATE_CAP).map(([memoryId, label]) => ({
+    memoryId,
+    scope: personal.has(memoryId) ? ('personal' as const) : ('team' as const),
+    label,
+  }))
 }
 
 const verdicts = z.object({

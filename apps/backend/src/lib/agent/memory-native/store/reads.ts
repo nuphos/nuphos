@@ -1,11 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import {
-  agentMemories,
-  LIVE_RECORD_FILTER,
-  memoryRecordAccessFilter,
-  teamMemories,
-} from './shared'
+import { agentMemories, LIVE_RECORD_FILTER, memoryRecordAccessFilter, teamMemories } from './shared'
 
 import type { AgentMemoryRecord, AgentTeamMemory } from '../types'
 

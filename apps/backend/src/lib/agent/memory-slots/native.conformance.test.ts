@@ -291,7 +291,6 @@ const harness: ConformanceHarness = {
     }
   },
 
-
   async cleanup(): Promise<void> {
     faultInjected = false
     fakeCollections.forEach((c) => {

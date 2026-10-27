@@ -90,8 +90,7 @@ export function turnPrompt(args: {
   const header = last ? attributionHeader(last.id, last.metadata) : ''
 
   return {
-    lead: (history) =>
-      [history, ...turn, args.carried, header].filter(Boolean).join('\n\n'),
+    lead: (history) => [history, ...turn, args.carried, header].filter(Boolean).join('\n\n'),
     text: args.resume ?? (last ? userText(last) : ''),
   }
 }

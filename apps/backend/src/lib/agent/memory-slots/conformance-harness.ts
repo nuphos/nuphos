@@ -1,10 +1,5 @@
 import type { capabilitiesOf } from './runtime'
-import type {
-  MemoryObserver,
-  MemoryProvider,
-  MemorySessionOrigin,
-  MemoryViewer,
-} from './types'
+import type { MemoryObserver, MemoryProvider, MemorySessionOrigin, MemoryViewer } from './types'
 
 export type ConformanceTenant = {
   userId: string

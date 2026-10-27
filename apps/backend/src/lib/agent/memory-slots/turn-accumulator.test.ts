@@ -10,7 +10,6 @@ import { describe, expect, test } from 'bun:test'
 import { renderMemorySavedFrame } from './save-frame'
 import { createTurnMemoryAccumulator } from './turn-accumulator'
 
-
 type RecordedEvent = {
   conversationId: string
   event: string
