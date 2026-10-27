@@ -32,6 +32,7 @@ import * as authMiddleware from '@/middleware/auth' // per request: see auth.lat
 import { authSessions } from '@/routes/auth-sessions'
 
 const requireAuth: typeof authMiddleware.requireAuth = (c, n) => authMiddleware.requireAuth(c, n)
+
 export const auth = new Hono<{ Variables: AuthVariables }>()
 
 // Every sign-in starts its session here. `viaWebsite`: nuphos.ai's server made
@@ -215,8 +216,7 @@ auth.post('/google/sign-in', async (c) => {
     )
   }
 
-  // Resolved up front so both the success and the failure path below can send
-  // the browser back to the app.
+  // Resolved up front so the success and failure paths below can both return to the app.
   let delivery: NativeDeliveryTarget | null = null
 
   if (handle) {
