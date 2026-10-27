@@ -3,8 +3,6 @@ import path from 'node:path'
 
 import { app } from 'electron'
 
-import { isDev } from './env'
-
 // B2 is the bundled icon; A is the original mark. All but A come from
 // scripts/render-app-icons.mjs.
 export const APP_ICONS = ['A', ...'BCDEF'.split('').flatMap((c) => [`${c}1`, `${c}2`, `${c}3`])]
@@ -28,7 +26,7 @@ export function applyAppIcon(icon: string) {
   if (process.platform !== 'darwin') return
   // electron-builder packs public/ into dist/; dev serves it from public/.
   app.dock?.setIcon(
-    path.join(__dirname, '..', isDev ? 'public' : 'dist', 'app-icons', `${icon}.png`),
+    path.join(app.getAppPath(), app.isPackaged ? 'dist' : 'public', 'app-icons', `${icon}.png`),
   )
 }
 
