@@ -1,5 +1,1 @@
-Your agents are listed the way the Desktop sidebar lists them: most recent activity first, with pinned agents in the order you pinned them. The list shows your own agents that aren't archived, so the sort and filter menu is gone.
-
-Account › Signed-in devices shows everywhere your account is signed in, with the app, approximate location and last activity. You can sign out any other device, or all of them at once.
-
-Signing out now also ends the sign-in on the server.
+Voice input is now included with a Nuphos subscription. You no longer need to enter your own OpenAI API key: tap the microphone and speak, and your recording is transcribed by Nuphos.
