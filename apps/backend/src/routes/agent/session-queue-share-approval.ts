@@ -1,12 +1,16 @@
 // A send to a teammate's shared computer waits in the session queue for its owner's answer.
-import { getConversationBySessionId, stampConversationRuntimeInstance } from '@/lib/agent/db'
+import {
+  getConversationBySessionId,
+  stampConversationRuntimeInstance,
+  upsertConversationShell,
+} from '@/lib/agent/db'
 import { listPendingUserMessages, takePendingUserMessages } from '@/lib/agent/pending-queue'
 import { sessionReleased } from '@/lib/agent/session-released'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
 import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat } from './session-queue-turn'
+import { admitQueueableChat, messageText } from './session-queue-turn'
 
 import type { QueueableChat } from './session-queue-turn'
 import type { ShareApproval } from '@/lib/agent/devices/local-share-store'
@@ -24,11 +28,14 @@ export function queuedReply(streamId: string, wait: QueuedSend) {
   return { status: 'queued' as const, streamId, ...(wait ? { message: wait.message } : {}) }
 }
 
+/** A send as the chat route holds it: the conversation may not be stored yet. */
+type WaitingChat = Omit<QueueableChat, 'snapshot' | 'runtimeOffline'> & {
+  sessionId: string
+  teamId?: string
+}
+
 /** A send whose runtime cannot take it yet waits in the queue; anything else is rethrown. */
-export function queueForWaitingRuntime(
-  error: unknown,
-  args: Omit<QueueableChat, 'snapshot' | 'runtimeOffline'>,
-): Promise<QueuedSend> {
+export function queueForWaitingRuntime(error: unknown, args: WaitingChat): Promise<QueuedSend> {
   return queueForOfflineBox(error, args).catch((refused: unknown) =>
     queueForShareApproval(refused, args),
   )
@@ -50,16 +57,24 @@ function approvalPlacement(error: unknown): { runtimeId: string; message: string
  */
 export async function queueForShareApproval(
   error: unknown,
-  args: Omit<QueueableChat, 'snapshot' | 'runtimeOffline'>,
+  args: WaitingChat,
 ): Promise<ShareApprovalWait> {
   const placement = approvalPlacement(error)
-  const conversation = args.conversation
 
-  if (!placement || !conversation) throw error
+  if (!placement) throw error
+  // A new chat's first send is the usual one: it is stored here, on the computer it asked for.
+  const conversation = args.conversation ?? (await startConversation(args, placement.runtimeId))
+
+  if (!conversation) throw error
   // The queue starts the turn from the conversation's placement: keep the one chosen here.
   if (!conversation.runtimeId)
     await stampConversationRuntimeInstance(conversation.sessionId, placement.runtimeId)
-  const queued = await admitQueueableChat({ ...args, snapshot: undefined, runtimeOffline: true })
+  const queued = await admitQueueableChat({
+    ...args,
+    conversation,
+    snapshot: undefined,
+    runtimeOffline: true,
+  })
 
   if (queued?.mode !== 'queued') throw error
 
@@ -68,6 +83,25 @@ export async function queueForShareApproval(
     message:
       'Waiting for the owner of this computer to approve. Your message is sent once they do.',
   }
+}
+
+/** Stores a new chat whose first send waits for the owner, placed on their computer. */
+async function startConversation(args: WaitingChat, runtimeId: string) {
+  const message = args.clientView.at(-1)
+
+  if (!args.teamId || message?.role !== 'user') return null
+  await upsertConversationShell({
+    sessionId: args.sessionId,
+    userId: args.runOwnerUserId,
+    teamId: args.teamId,
+    title: '',
+    firstMessage: messageText(message),
+    locale: args.context.locale,
+    source: 'app',
+    runtimeId,
+  })
+
+  return getConversationBySessionId(args.sessionId)
 }
 
 /**

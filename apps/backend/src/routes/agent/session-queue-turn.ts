@@ -66,7 +66,7 @@ export function queuedChatContext(
   }
 }
 
-function messageText(message: UIMessage): string {
+export function messageText(message: UIMessage): string {
   return message.parts
     .flatMap((part) => (part.type === 'text' && part.text ? [part.text] : []))
     .join('\n\n')
