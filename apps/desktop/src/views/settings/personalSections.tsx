@@ -111,7 +111,7 @@ function AppIconPicker() {
             aria-pressed={selected === id}
             onClick={() => choose(id)}
             className={clsx(
-              'aspect-square rounded-xl border-2 p-1 transition-colors',
+              'aspect-square rounded-xl border-2 transition-colors',
               selected === id
                 ? 'border-zViolet-500/70 bg-zViolet-500/10'
                 : 'border-transparent hover:border-zGray-700',

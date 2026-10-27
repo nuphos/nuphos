@@ -120,6 +120,24 @@ function write(file, data) {
   fs.writeFileSync(file, data)
 }
 
+// macOS icons keep the squircle at 824 of 1024 px with a transparent margin; full-bleed art
+// sits larger than every other icon in the Dock.
+const MAC_MARGIN = 100
+
+function macGrid(png) {
+  return sharp(png)
+    .resize(SIZE - MAC_MARGIN * 2)
+    .extend({
+      top: MAC_MARGIN,
+      bottom: MAC_MARGIN,
+      left: MAC_MARGIN,
+      right: MAC_MARGIN,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer()
+}
+
 const json = (value) => JSON.stringify(value, null, 2) + '\n'
 const xcode = { author: 'xcode', version: 1 }
 
@@ -155,7 +173,7 @@ for (const [letter, file] of Object.entries(CHARACTERS)) {
   for (const [number, layout] of Object.entries(LAYOUTS)) {
     const id = letter + number
 
-    const desktopIcon = screenshot(page(file, layout, 0, true), SIZE)
+    const desktopIcon = await macGrid(screenshot(page(file, layout, 0, true), SIZE))
 
     write(path.join(desktop, `public/app-icons/${id}.png`), desktopIcon)
     // electron-builder makes the .icns (and the Windows and Linux icons) from this file.
