@@ -100,6 +100,6 @@ describe('POST /teams/:teamId/voice-transcriptions', () => {
     globalThis.fetch = (async () =>
       Response.json({ error: { message: 'nope' } }, { status: 500 })) as unknown as typeof fetch
 
-    expect((await transcribe({ file: audio })).status).toBe(502)
+    expect((await transcribe({ file: audio })).status).toBe(503)
   })
 })

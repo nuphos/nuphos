@@ -64,7 +64,7 @@ voiceTranscriptionsRoutes.post(
     } | null
 
     if (!res?.ok || typeof reply?.text !== 'string') {
-      throw new AppError(502, 'transcription_failed', "The recording couldn't be transcribed.")
+      throw new AppError(503, 'transcription_failed', "The recording couldn't be transcribed.")
     }
 
     return c.json({
