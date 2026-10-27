@@ -131,9 +131,9 @@ function capAgentMemory(): Promise<boolean> {
       return
     }
     execFile(
-      'systemctl',
+      '/usr/bin/systemctl',
       ['--user', 'set-property', '--runtime', AGENT_SLICE, 'MemoryMax=85%'],
-      { timeout: 5_000, env: { ...env, PATH: process.env.PATH ?? '' } },
+      { timeout: 5_000, env },
       (error) => {
         resolve(!error)
       },
@@ -153,7 +153,7 @@ export function openabCommand(
 ): [string, string[]] {
   const args = ['run', '-c', configPath]
 
-  return capped ? ['systemd-run', [...AGENT_SCOPE, '--', openab, ...args]] : [openab, args]
+  return capped ? ['/usr/bin/systemd-run', [...AGENT_SCOPE, '--', openab, ...args]] : [openab, args]
 }
 
 /** One openab + adapter process tree on a fresh loopback port and a fresh key. */
