@@ -71,6 +71,7 @@ class ProfileLayoutDeviceTest {
         compose.onNodeWithContentDescription("Van Gogh, Bleed").performScrollTo().performClick()
         assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, state("D2"))
         assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DISABLED, state("A"))
+        compose.onNodeWithContentDescription("Son of Man, Peek").performScrollTo()
         capture("app-icon")
         compose.onNodeWithContentDescription("Nuphos").performClick()
         assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, state("A"))
