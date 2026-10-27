@@ -61,7 +61,7 @@ FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.310
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.311
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
@@ -127,7 +127,7 @@ COPY --from=openab /usr/local/bin/openab /usr/local/bin/openab
 
 # The `nuphos agent` host from that CLI release. A container given NUPHOS_JOIN_TOKEN runs
 # it instead of openab and joins Nuphos as a device, the way a Box does (runtime-start.sh).
-ARG NUPHOS_AGENT_VERSION=0.7.0
+ARG NUPHOS_AGENT_VERSION=0.8.0
 RUN arch=$(case "$(dpkg --print-architecture)" in amd64) echo x64 ;; *) dpkg --print-architecture ;; esac) \
  && asset="nuphos-agent-linux-${arch}.tar.gz" \
  && base="https://github.com/nuphos/nuphos/releases/download/cli-v${NUPHOS_AGENT_VERSION}" \
