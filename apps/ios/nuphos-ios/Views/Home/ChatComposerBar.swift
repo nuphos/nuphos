@@ -39,6 +39,9 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
     @State private var mentionResults: [AgentConversation] = []
+    #if canImport(UIKit)
+    @State private var pasteHandler = ComposerPaste()
+    #endif
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
@@ -237,6 +240,15 @@ struct ChatComposerBar<Controls: View>: View {
             // scroll or select in; empty, a pull down on it closes too.
             .simultaneousGesture(pullDown, isEnabled: !hasText)
             .onSubmit(send)
+            #if canImport(UIKit)
+            .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { note in
+                guard allowsAttachments, let textView = note.object as? UITextView else { return }
+                // Focus lands a moment later; it tells this field from others.
+                Task { @MainActor in
+                    if focused, textView.isFirstResponder { pasteHandler.attach(to: textView) { paste($0) } }
+                }
+            }
+            #endif
             .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
                 Button("OK", role: .cancel) { dictationError = nil }
             } message: {
@@ -618,3 +630,32 @@ struct BrandLogo: View {
     }
     .environment(AuthSession())
 }
+
+#if canImport(UIKit)
+/// SwiftUI's text field takes only text, so a pasted screenshot was dropped.
+/// Allowed to edit attributes, its text view accepts images and files too;
+/// those become attachments, as with the Paste button, and text stays plain.
+final class ComposerPaste: NSObject, UITextPasteDelegate {
+    private var onAttach: ([NSItemProvider]) -> Void = { _ in }
+
+    func attach(to textView: UITextView, onAttach: @escaping ([NSItemProvider]) -> Void) {
+        self.onAttach = onAttach
+        textView.allowsEditingTextAttributes = true
+        textView.pasteDelegate = self
+    }
+
+    func textPasteConfigurationSupporting(_ textPasteConfigurationSupporting: any UITextPasteConfigurationSupporting,
+                                          transform item: any UITextPasteItem) {
+        let provider = item.itemProvider
+        guard provider.registeredContentTypes.allSatisfy({ $0.conforms(to: .text) }) else {
+            onAttach([provider])
+            return item.setNoResult()
+        }
+        _ = provider.loadObject(ofClass: NSString.self) { string, _ in
+            DispatchQueue.main.async {
+                if let string = string as? String { item.setResult(string: string) } else { item.setNoResult() }
+            }
+        }
+    }
+}
+#endif
