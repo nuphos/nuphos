@@ -66,7 +66,7 @@ export {
 export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
 export { retractTrailingUserMessage } from './db/transcript-retract'
 export {
-  appendConversationMessages,
+  appendTranscriptMessages,
   getConversationMessagesHead,
   syncConversationTranscript,
 } from './db/transcript'

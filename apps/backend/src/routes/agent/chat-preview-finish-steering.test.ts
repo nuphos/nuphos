@@ -19,7 +19,7 @@ let createdPlans: unknown[] = []
 let titleGate: Promise<void> = Promise.resolve()
 
 useAgentDb({
-  appendConversationMessages: (args) => {
+  appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
     return Promise.resolve({ isNew: false, count: args.messages.length })

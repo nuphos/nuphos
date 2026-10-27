@@ -4,7 +4,7 @@
 // agent's memory tools did this turn.
 import { randomUUID } from 'node:crypto'
 
-import { appendConversationMessages, getConversationMessagesHead } from '@/lib/agent/db'
+import { appendTranscriptMessages, getConversationMessagesHead } from '@/lib/agent/db'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
@@ -118,7 +118,7 @@ export async function finishPreviewTurn(args: {
   const transcriptMessages = uiMessagesToTranscript([...args.messages, ...tail])
 
   try {
-    const { count } = await appendConversationMessages({
+    const { count } = await appendTranscriptMessages({
       sessionId,
       userId,
       teamId,
@@ -228,7 +228,7 @@ export async function persistInterruptedPreviewTurn(args: {
   ])
 
   try {
-    const { count } = await appendConversationMessages({
+    const { count } = await appendTranscriptMessages({
       sessionId,
       userId,
       teamId,
@@ -278,7 +278,7 @@ export async function persistHandedOffPreviewTurn(args: {
   ])
 
   try {
-    await appendConversationMessages({
+    await appendTranscriptMessages({
       sessionId: args.sessionId,
       userId: args.userId,
       teamId: args.teamId,

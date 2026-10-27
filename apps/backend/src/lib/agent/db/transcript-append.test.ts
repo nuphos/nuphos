@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { appendConversationMessages } from './transcript'
+import { appendTranscriptMessages } from './transcript'
 
 type Doc = {
   sessionId: string
@@ -67,7 +67,7 @@ async function turn(user: string, reply: string) {
     .map(({ id, role, parts }) => ({ id, role: role as Doc['role'], parts: parts as unknown[] }))
   const asked = [...history, { id: user, role: 'user' as const, parts: [{ type: 'text', text: user }] }]
   const sync = (messages: typeof asked) =>
-    appendConversationMessages({
+    appendTranscriptMessages({
       sessionId: SESSION,
       userId: OWNER,
       title: '',

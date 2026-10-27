@@ -17,7 +17,7 @@ const persisted: { messages: { role: string; parts: unknown[] }[] }[] = []
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 useAgentDb({
-  appendConversationMessages: (args) => {
+  appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
     return Promise.resolve({ isNew: false, count: args.messages.length })

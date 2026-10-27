@@ -144,7 +144,7 @@ export async function syncConversationTranscriptUnlocked(
  * parts it cannot represent (an attachment-only message, a steering receipt),
  * so it never rewrites or deletes a stored message. Returns the stored count.
  */
-export async function appendConversationMessages(
+export async function appendTranscriptMessages(
   data: ConversationTranscriptSync,
 ): Promise<{ isNew: boolean; count: number }> {
   return await withTranscriptWriteLock(data.sessionId, data.userId, async () => {
