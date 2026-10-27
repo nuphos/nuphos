@@ -24,7 +24,7 @@ import {
 } from '@/routes/slack/render'
 import {
   explainUnboundNuphosThread,
-  postThreadMessage,
+  postSenderNotice,
   stripBotMention,
   SUBTYPES_WITH_ATTACHMENTS,
 } from '@/routes/slack/shared'
@@ -177,10 +177,11 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
   // be able to drive a team conversation just by replying in its thread.
   // Mirrors the mention handler.
   if (!senderMapping) {
-    await postThreadMessage(
+    await postSenderNotice(
       runtime,
       event.channel,
       event.thread_ts,
+      event.user,
       email
         ? "Your Slack email doesn't match any Nuphos user on this team, so I can't act on your reply. Link your account in Nuphos → Settings → Slack first."
         : "Your Slack account is not linked to Nuphos yet, so I can't act on your reply. Link it in Nuphos → Settings → Slack first.",
@@ -195,6 +196,7 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
       runtime,
       thread,
       senderNuphosUserId: senderMapping.nuphosUserId,
+      senderSlackUserId: event.user,
       channelId: event.channel,
       threadTs: event.thread_ts,
       eventId,

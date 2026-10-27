@@ -1,7 +1,12 @@
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
-import { addSlackReaction, fetchSlackThreadReplies, postSlackMessage } from '@/lib/slack/api'
+import {
+  addSlackReaction,
+  fetchSlackThreadReplies,
+  postSlackEphemeral,
+  postSlackMessage,
+} from '@/lib/slack/api'
 
 import type { SlackChannelMapping, SlackUserMapping } from '@/lib/slack/agent-bot'
 import type { SlackApiResponse } from '@/lib/slack/api'
@@ -129,6 +134,26 @@ export async function postThreadMessage(
   return await postSlackMessage({
     token: runtime.botToken,
     channel,
+    threadTs,
+    text,
+  })
+}
+
+// A notice about the sender alone — their account isn't linked, they may not
+// continue this thread — is shown only to them. Posting it publicly tells
+// everyone else in the thread about one person's setup. Without threadTs it
+// lands next to their top-level message, the way the refusal itself reads.
+export async function postSenderNotice(
+  runtime: SlackRuntime,
+  channel: string,
+  threadTs: string | undefined,
+  user: string,
+  text: string,
+): Promise<SlackApiResponse> {
+  return await postSlackEphemeral({
+    token: runtime.botToken,
+    channel,
+    user,
     threadTs,
     text,
   })

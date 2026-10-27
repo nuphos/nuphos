@@ -24,6 +24,7 @@ import {
   resolveSlackMentionNames,
 } from '@/routes/slack/render'
 import {
+  postSenderNotice,
   postThreadMessage,
   stripBotMention,
   SUBTYPES_WITH_ATTACHMENTS,
@@ -121,10 +122,11 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
   )
 
   if (!userMapping) {
-    await postThreadMessage(
+    await postSenderNotice(
       runtime,
       event.channel,
-      slackThreadTs,
+      event.thread_ts,
+      event.user,
       email
         ? "Your Slack email doesn't match any Nuphos user on this team. Open your DM with me or go to Nuphos → Settings → Slack to link your account."
         : 'Your Slack account is not linked to Nuphos yet. Open your DM with me or link your account in Nuphos → Settings → Slack.',

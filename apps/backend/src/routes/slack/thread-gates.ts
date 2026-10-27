@@ -9,7 +9,7 @@ import {
   recordSlackAddressingVerdict,
 } from '@/lib/slack/agent-bot'
 import { getAgentNotificationReplyAccess } from '@/lib/slack/thread-access'
-import { postThreadMessage } from '@/routes/slack/shared'
+import { postSenderNotice, postThreadMessage } from '@/routes/slack/shared'
 
 import type { SlackAgentThread, SlackThreadMessageRecord } from '@/lib/slack/agent-bot'
 import type { SlackRuntime } from '@/routes/slack/types'
@@ -161,11 +161,12 @@ export async function isReplyAddressedToAgent(args: {
 
 // Gate for replies in agent-notification threads: only the intended recipient
 // (DM) or a current team member may continue them. Returns false after telling
-// the thread and completing the event.
+// the sender (only them) and completing the event.
 export async function checkNotificationReplyAccess(args: {
   runtime: SlackRuntime
   thread: SlackAgentThread
   senderNuphosUserId: string
+  senderSlackUserId: string
   channelId: string
   threadTs: string
   eventId: string
@@ -180,10 +181,11 @@ export async function checkNotificationReplyAccess(args: {
   })
 
   if (!access.allowed) {
-    await postThreadMessage(
+    await postSenderNotice(
       args.runtime,
       args.channelId,
       args.threadTs,
+      args.senderSlackUserId,
       access.reason === 'dm_recipient_only'
         ? 'This incident DM can only be continued by its intended Nuphos recipient.'
         : "Your Slack identity is no longer a member of this Nuphos team, so I can't act on your reply.",
