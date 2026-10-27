@@ -39,10 +39,9 @@ export class MongoTraceSpan {
     parent?: string
     metadata?: Record<string, unknown>
     input?: unknown
-    spanId?: string
   }) {
-    const parent = args.spanId ? undefined : traceParent(args.parent)
-    const spanId = args.spanId ?? randomUUID()
+    const parent = traceParent(args.parent)
+    const spanId = randomUUID()
     const metadata = { ...parent?.metadata, ...args.metadata }
 
     this.context = {
@@ -88,29 +87,4 @@ export class MongoTraceSpan {
   withActive<T>(fn: () => T): T {
     return active.run(this.context, fn)
   }
-}
-
-export function updateMongoParent(
-  exported: string,
-  event: { metadata?: Record<string, unknown>; metrics?: Record<string, number> },
-): void {
-  const parent = traceParent(exported)
-
-  if (!parent) return
-  writeTraceEvent(
-    {
-      spanId: parent.spanId,
-      rootSpanId: parent.rootSpanId,
-      sequence: 0,
-      kind: 'update',
-      ...Object.fromEntries(
-        ['sessionId', 'teamId', 'userId'].flatMap((key) => {
-          const value = event.metadata?.[key] ?? parent.metadata?.[key]
-
-          return typeof value === 'string' ? [[key, value]] : []
-        }),
-      ),
-    },
-    event,
-  )
 }

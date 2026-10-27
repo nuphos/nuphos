@@ -6,14 +6,7 @@ import { z } from 'zod'
 import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
 
-import {
-  aiTelemetry,
-  createConversationParent,
-  startTraceSpan,
-  traced,
-  updateConversationParent,
-  wrapAI,
-} from '../tracing'
+import { aiTelemetry, startTraceSpan, traced, wrapAI } from '../tracing'
 
 import { MongoTraceSpan, traceParent } from './span'
 import { flushTraceWrites, serializeTracePayload } from './store'
@@ -52,13 +45,12 @@ const events = () => [...records.values()].filter((row) => row.collection === 'a
 const payload = (row: Record<string, unknown>) =>
   JSON.parse(row.payload as string) as Record<string, unknown>
 
-test('Mongo spans survive without OTel, preserve nested parents and updates', async () => {
-  const root = await createConversationParent({
-    spanId: 'session-1',
-    input: 'prompt',
-    output: 'answer',
+test('Mongo spans survive without OTel and preserve nested parents', async () => {
+  const rootSpan = new MongoTraceSpan({
+    name: 'conversation',
     metadata: { sessionId: 'session-1', teamId: 'team-1' },
   })
+  const root = rootSpan.export()
 
   await traced({ name: 'turn', parent: root }, async (turn) => {
     const exported = await turn.export()
@@ -71,23 +63,19 @@ test('Mongo spans survive without OTel, preserve nested parents and updates', as
     tool.end()
     tool.end()
   })
-  updateConversationParent(root, { metrics: { total_tokens: 10 } })
   await flushTraceWrites()
   const rows = events()
   const turn = rows.find((row) => row.name === 'turn' && row.kind === 'start')!
   const tool = rows.find((row) => row.name === 'tool' && row.kind === 'start')!
 
-  expect(turn.parentSpanId).toBe('session-1')
+  expect(turn.parentSpanId).toBe(rootSpan.context.spanId)
   expect(tool.parentSpanId).toBe(turn.spanId)
-  expect(tool.rootSpanId).toBe('session-1')
+  expect(tool.rootSpanId).toBe(rootSpan.context.spanId)
   expect(tool.teamId).toBe('team-1')
   expect(rows.filter((row) => row.name === 'tool' && row.kind === 'end')).toHaveLength(1)
   expect(payload(rows.find((row) => row.name === 'tool' && row.kind === 'log')!).output).toEqual({
     text: 'x'.repeat(50_000),
     '$literal.key': 1,
-  })
-  expect(payload(rows.find((row) => row.kind === 'update')!)).toEqual({
-    metrics: { total_tokens: 10 },
   })
 })
 

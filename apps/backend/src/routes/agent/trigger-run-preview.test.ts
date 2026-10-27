@@ -21,12 +21,16 @@ const capturedExceptions: { error: unknown; source: string }[] = []
 let previewError: Error | null = null
 
 const initializedModes: unknown[] = []
+const traceEvents: Record<string, unknown>[] = []
 
 useDb({
   db: () => ({
     collection: (collection: string) => ({
       updateOne: async (filter: unknown, update: unknown) => {
         if (collection === 'auto_mode_authorizations') initializedModes.push({ filter, update })
+        if (collection === 'agent_trace_events') {
+          traceEvents.push((update as { $setOnInsert: Record<string, unknown> }).$setOnInsert)
+        }
       },
       findOne: async () => null,
     }),
@@ -68,6 +72,7 @@ useChatPreviewTurn({
 })
 
 const { runAgentForTrigger } = await import('./trigger-run')
+const { flushTraceWrites } = await import('@/lib/agent/trace-store/store')
 
 describe('runAgentForTrigger on the Claude Code runtime', () => {
   test('runs the turn on the OpenAB runtime and keeps the outcome shape', async () => {
@@ -111,6 +116,33 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
       },
     })
     expect(seen.sinkFrames.some((raw) => raw.includes('pong'))).toBe(true)
+  })
+
+  test('the turn trace records the message count, never message bodies', async () => {
+    const body = 'conversation text that must stay out of traces'
+    const messages = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: body }] },
+      { id: 'm2', role: 'assistant', parts: [{ type: 'text', text: body }] },
+      { id: 'm3', role: 'user', parts: [{ type: 'text', text: body }] },
+    ] as UIMessage[]
+
+    traceEvents.length = 0
+    await runAgentForTrigger({
+      userId: 'actor-1',
+      nuphosToken: 'tok',
+      teamId: 'team-1',
+      sessionId: 'conv-trace',
+      messages,
+      firstMessage: body,
+      source: 'slack.mention',
+    })
+    await flushTraceWrites()
+    const turnStart = traceEvents.find((row) => row.name === 'turn' && row.kind === 'start')!
+    const payload = JSON.parse(turnStart.payload as string) as Record<string, unknown>
+
+    expect(payload.metadata).toMatchObject({ messageCount: 3 })
+    expect(payload).not.toHaveProperty('input')
+    expect(JSON.stringify(traceEvents)).not.toContain(body)
   })
 
   test('opens the run with the message that started the turn, before any output', async () => {

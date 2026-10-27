@@ -18,7 +18,6 @@ import {
   finishAgentRun,
 } from './run-frames'
 import { HUMAN_SENDER_SOURCES, attachAgentRunFrameSink, createAgentRun } from './run-registry'
-import { serializeTelemetryMessages } from './telemetry'
 import { persistAcceptedConversationTurn } from './transcript'
 import { recordTriggerRunFailure } from './trigger-run-observability'
 import { acceptAgentRun } from './turn-start-frame'
@@ -111,11 +110,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       modelId: runtimeModelId,
       region: regionLabel(),
       isNewConversation: isPotentialNewConversation,
-      conversationRootDeferred: true,
       messageCount: messages.length,
-    },
-    input: {
-      messages: serializeTelemetryMessages(messages),
     },
   })
 

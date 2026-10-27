@@ -34,7 +34,6 @@ import {
   resolveVerifiedTeamId,
   sanitizeKubeContextHeader,
 } from './team-scope'
-import { serializeTelemetryMessages } from './telemetry'
 import { getFirstUserMessage } from './transcript'
 import { acceptAgentRun } from './turn-start-frame'
 
@@ -212,11 +211,7 @@ agent.post('/chat', async (c) => {
         modelId: runtimeModelId,
         region: regionLabel(),
         isNewConversation: isPotentialNewConversation,
-        conversationRootDeferred: true,
         messageCount: messages.length,
-      },
-      input: {
-        messages: serializeTelemetryMessages(messages),
       },
     })
 

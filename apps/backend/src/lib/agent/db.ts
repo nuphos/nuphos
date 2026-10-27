@@ -44,7 +44,6 @@ export {
 } from './db/events'
 export {
   deleteConversation,
-  ensureConversationTraceParent,
   getCompactionSummary,
   updateCompactionSummary,
   updateConversationTitle,
