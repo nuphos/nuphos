@@ -147,10 +147,10 @@ describe('liveActivityPhase', () => {
     expect(liveActivityPhase(runtime('dormant'))).toBe('done')
   })
 
-  test('an unreachable or unreadable runtime leaves the card as it was', () => {
-    expect(liveActivityPhase(runtime('disconnected'))).toBeNull()
-    expect(liveActivityPhase(runtime('unsupported'))).toBeNull()
-    expect(liveActivityPhase({ state: 'idle' })).toBeNull()
+  test('an unreachable or unreadable runtime is unavailable', () => {
+    expect(liveActivityPhase(runtime('disconnected'))).toBe('unavailable')
+    expect(liveActivityPhase(runtime('unsupported'))).toBe('unavailable')
+    expect(liveActivityPhase({ state: 'idle' })).toBe('unavailable')
   })
 })
 
@@ -176,14 +176,23 @@ describe('Live Activity pushes', () => {
     expect(tokensOf('session-2')).toEqual(['la-other'])
   })
 
-  test('a lost runtime connection keeps the card running until the runtime reports again', async () => {
+  test('a lost runtime connection shows Unavailable without ending the card', async () => {
     await record('session-1', RUNNING)
     sent = []
-    await record('session-1', runtime('disconnected'))
-    await record('session-1', RUNNING)
+    await record('session-1', { state: 'disconnected' })
 
-    expect(sent).toEqual([])
+    expect(contentOf('la-1')).toEqual({
+      timestamp: 100,
+      event: 'update',
+      'content-state': card([['session-1', 'One', 'unavailable']], 0),
+    })
     expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
+
+    await record('session-1', RUNNING)
+    expect(contentOf('la-1')).toMatchObject({
+      event: 'update',
+      'content-state': card([['session-1', 'One', 'running']], 1),
+    })
   })
 
   test('only a phase change is pushed', async () => {

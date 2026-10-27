@@ -8,7 +8,7 @@ import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-ex
 import type { Collection } from 'mongodb'
 
 /** Must match `TurnActivityAttributes.Phase` in the iOS app. */
-export type LiveActivityPhase = 'running' | 'approval' | 'done' | 'stopped'
+export type LiveActivityPhase = 'running' | 'approval' | 'done' | 'stopped' | 'unavailable'
 
 export type LiveActivityToken = { token: string; userId: string; environment: ApnsEnvironment }
 
@@ -96,11 +96,10 @@ export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
 export const LIVE_ACTIVITY_RETRY_MS = [5_000, 30_000, 120_000]
 
-/** The status the app shows for this runtime state (iOS `AgentThreadBadge`).
- *  Null when the runtime cannot say: the card keeps what it last showed. */
-export function liveActivityPhase(state: SessionExecutionState): LiveActivityPhase | null {
+/** The status the app shows for this runtime state (iOS `AgentThreadBadge`). */
+export function liveActivityPhase(state: SessionExecutionState): LiveActivityPhase {
   if (state.schemaVersion !== 2 || state.state === 'disconnected' || state.state === 'unsupported')
-    return null
+    return 'unavailable'
   if (state.phase === 'resume_disconnected') return 'stopped'
   if ((state.permissionWaits ?? 0) > 0) return 'approval'
   if (state.state === 'active' || state.phase === 'background_tools') return 'running'
@@ -118,6 +117,8 @@ export type LiveActivityDeps = {
 
 const isActive = (phase?: LiveActivityPhase) =>
   !phase || phase === 'running' || phase === 'approval'
+// An unavailable runtime may come back, and an ended card can no longer show it.
+const isFinished = (phase?: LiveActivityPhase) => phase === 'done' || phase === 'stopped'
 
 /** Must match `TurnActivityAttributes.ContentState` in the iOS app. A session
  *  registered before its run reported a phase is running. */
@@ -134,8 +135,8 @@ export function liveActivityCard(sessions: LiveActivitySession[]) {
   }
 }
 
-/** Sends each token its whole card. While anything on it runs or waits for
- *  approval the card updates; otherwise it ends. A token is dropped only once
+/** Sends each token its whole card. Once every row is done or stopped the
+ *  card ends; until then it updates. A token is dropped only once
  *  it has ended or APNs says it is dead; anything else is retried, so a
  *  throttled end still reaches the phone, unless the phase changed meanwhile
  *  (its own delivery covers those tokens). */
@@ -154,8 +155,9 @@ async function deliver(
   await Promise.all(
     tokens.map(async (token) => {
       try {
-        const card = liveActivityCard(await deps.liveActivities.forToken(token.token))
-        const ends = card.active === 0
+        const listed = await deps.liveActivities.forToken(token.token)
+        const card = liveActivityCard(listed)
+        const ends = listed.every((s) => isFinished(s.phase))
         const response = await deps.send(credentials, {
           deviceToken: token.token,
           environment: token.environment,
@@ -226,8 +228,9 @@ export async function registerLiveActivityToken(
   state: SessionExecutionState | null,
 ): Promise<void> {
   const added = await deps.liveActivities.addToken(sessionId, token, row)
-  const phase = state && liveActivityPhase(state)
-  const changed = phase ? await deps.liveActivities.setPhase(sessionId, phase) : null
+  const changed = state
+    ? await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
+    : null
 
   if (changed) await deliver(deps, changed, changed.tokens)
   else if (added.phase && added.phase !== 'running') await deliver(deps, added, [token])
@@ -239,8 +242,7 @@ export async function recordLiveActivityState(
   sessionId: string,
   state: SessionExecutionState,
 ): Promise<void> {
-  const phase = liveActivityPhase(state)
-  const session = phase ? await deps.liveActivities.setPhase(sessionId, phase) : null
+  const session = await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
 
   if (session) await deliver(deps, session, session.tokens)
 }

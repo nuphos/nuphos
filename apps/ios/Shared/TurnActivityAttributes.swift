@@ -9,7 +9,7 @@ import Foundation
 nonisolated struct TurnActivityAttributes: ActivityAttributes {
     /// Matches the backend's `LiveActivityPhase`.
     enum Phase: String, Codable, Hashable, Sendable {
-        case running, approval, done, stopped
+        case running, approval, done, stopped, unavailable
 
         /// Still needs the card: running, or waiting for approval.
         var isActive: Bool { self == .running || self == .approval }

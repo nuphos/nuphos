@@ -96,6 +96,7 @@ extension TurnActivityAttributes.Phase {
         case .approval: "Needs approval"
         case .done: "Done"
         case .stopped: "Stopped"
+        case .unavailable: "Unavailable"
         }
     }
 
@@ -105,6 +106,7 @@ extension TurnActivityAttributes.Phase {
         case .approval: "hand.raised.fill"
         case .done: "checkmark.circle.fill"
         case .stopped: "stop.circle.fill"
+        case .unavailable: "wifi.slash"
         }
     }
 
@@ -114,6 +116,7 @@ extension TurnActivityAttributes.Phase {
         case .approval: .orange
         case .done: .green
         case .stopped: .secondary
+        case .unavailable: .secondary
         }
     }
 }
