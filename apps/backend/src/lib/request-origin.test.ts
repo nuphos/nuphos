@@ -82,7 +82,8 @@ test('origin headers that are not an address, a place name or a country code are
     requestOrigin(
       headers({
         'CF-Connecting-IP': '203.0.113.9',
-        'CF-IPCity': 'São Paulo',
+        // "São Paulo" as UTF-8 bytes, read back as latin1, the way headers arrive.
+        'CF-IPCity': 'SÃ£o Paulo',
         'CF-IPCountry': 'BR',
       }),
     ),
