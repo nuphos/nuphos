@@ -28,15 +28,10 @@ import {
   registerNativeSession,
 } from '@/lib/native-auth'
 import { zv } from '@/lib/validate'
-import * as authMiddleware from '@/middleware/auth'
+import * as authMiddleware from '@/middleware/auth' // per request: see auth.late-binding.test.ts
 import { authSessions } from '@/routes/auth-sessions'
 
-// Read per request, not captured when this module loads: a suite that loads
-// this router before another registers its @/middleware/auth double would
-// otherwise pin the real check here for every later suite in the process.
-const requireAuth: typeof authMiddleware.requireAuth = (c, next) =>
-  authMiddleware.requireAuth(c, next)
-
+const requireAuth: typeof authMiddleware.requireAuth = (c, n) => authMiddleware.requireAuth(c, n)
 export const auth = new Hono<{ Variables: AuthVariables }>()
 
 // Every sign-in starts its session here. `viaWebsite`: nuphos.ai's server made
