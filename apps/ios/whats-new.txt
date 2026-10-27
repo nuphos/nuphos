@@ -1,1 +1,1 @@
-Voice input is now included with a Nuphos subscription. You no longer need to enter your own OpenAI API key: tap the microphone and speak, and your recording is transcribed by Nuphos.
+Voice input is now included with a Nuphos subscription. You no longer need to enter your own OpenAI API key: tap the microphone and speak, and Nuphos sends the recording to OpenAI to transcribe it.
