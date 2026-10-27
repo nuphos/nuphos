@@ -2,7 +2,6 @@ import { isToolSearchTitle, nuphosToolName } from '@/lib/claude-code-preview/pre
 import {
   TOOL_PRESENTATION,
   TOOL_PRESENTATION_FRAME,
-  TOOL_PRESENTATION_ID,
   runtimeToolResult,
   runtimeToolOutput,
 } from '@/lib/claude-code-preview/preview-tool-presentation'
@@ -12,8 +11,6 @@ import type { createPreviewToolLog } from './chat-preview-tool-log'
 import type { PreviewAgentUpdate } from '@/lib/claude-code-preview/preview-agent-update'
 
 const runtimeOwners = new WeakMap<object, Set<string>>()
-const legacyOwners = new WeakMap<object, Set<string>>()
-const handlerModes = new WeakMap<object, Map<string, boolean>>()
 
 /** Consumes backend-only ownership declarations, never forwards them as chat parts. */
 export function consumePreviewToolPresentation(
@@ -21,6 +18,8 @@ export function consumePreviewToolPresentation(
   log: ReturnType<typeof createPreviewToolLog>,
   frame: Record<string, unknown>,
 ): boolean {
+  // A marked frame belongs to the runtime's own ACP call: the transcript stores that
+  // call's id, so the handler's id never becomes a card a client could keep beside it.
   const marked =
     frame[TOOL_PRESENTATION] === 'runtime' &&
     ['tool-input-available', 'tool-output-available', 'tool-output-error'].includes(
@@ -29,32 +28,6 @@ export function consumePreviewToolPresentation(
 
   if (frame.type !== TOOL_PRESENTATION_FRAME && !marked) return false
   if ((!marked && frame.owner !== 'runtime') || typeof frame.toolName !== 'string') return true
-  if (marked) {
-    if (typeof frame.toolCallId !== 'string') return false
-    const modes = handlerModes.get(log) ?? new Map<string, boolean>()
-
-    handlerModes.set(log, modes)
-    const existing = modes.get(frame.toolCallId)
-
-    if (existing !== undefined) return existing
-    // Opaque calls may finish before their bridge frames arrive. Do not infer
-    // an invocation's identity from a different (even completed) call of its class.
-    const opaque = [...log.states.values()].some((state) => !state.mcpToolName)
-    const supported =
-      !legacyOwners.get(log)?.has(frame.toolName) &&
-      !opaque &&
-      [...log.states.values()].some((state) => state.mcpToolName === frame.toolName)
-
-    modes.set(frame.toolCallId, supported)
-    if (!supported) {
-      const legacy = legacyOwners.get(log) ?? new Set<string>()
-
-      legacy.add(frame.toolName)
-      legacyOwners.set(log, legacy)
-
-      return false
-    }
-  } else if (legacyOwners.get(log)?.has(frame.toolName)) return true
   const names = runtimeOwners.get(log) ?? new Set<string>()
 
   runtimeOwners.set(log, names)
@@ -90,28 +63,8 @@ export function handlePreviewToolUpdate(
   const classic = nuphosToolName(update.mcpToolId) ?? known?.mcpToolName
   const result = classic ? runtimeToolResult(update.rawOutput) : null
 
-  const meta = result?._meta as Record<string, unknown> | undefined
-  const handlerId = meta?.[TOOL_PRESENTATION_ID]
-  const mode = typeof handlerId === 'string' ? handlerModes.get(log)?.get(handlerId) : undefined
-  // Result metadata binds this exact ACP completion to the handler invocation.
-  // Previously consumed calls keep their mode even after an opaque call falls back.
-  const resultOwned =
-    result !== null &&
-    classic !== undefined &&
-    (mode ?? (typeof handlerId === 'string' || !legacyOwners.get(log)?.has(classic)))
-
-  if (resultOwned && mode === undefined && typeof handlerId === 'string') {
-    const modes = handlerModes.get(log) ?? new Map<string, boolean>()
-
-    modes.set(handlerId, true)
-    handlerModes.set(log, modes)
-  }
   const runtimeOwned =
-    resultOwned ||
-    (classic !== undefined &&
-      runtimeOwners.get(log)?.has(classic) === true &&
-      !legacyOwners.get(log)?.has(classic) &&
-      [...log.states.values()].every((state) => state.mcpToolName !== undefined))
+    result !== null || (classic !== undefined && runtimeOwners.get(log)?.has(classic) === true)
   const displayName = classic ?? name
   const hidden =
     update.revealed || runtimeOwned

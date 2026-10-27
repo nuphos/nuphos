@@ -2,7 +2,7 @@ import { tool } from 'ai'
 import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 
-import { TOOL_PRESENTATION, TOOL_PRESENTATION_ID } from '../preview-tool-presentation'
+import { TOOL_PRESENTATION } from '../preview-tool-presentation'
 
 import { toolInputJsonSchema, toolModuleFromAiSdkTools } from './ai-sdk-adapter'
 
@@ -86,11 +86,7 @@ describe('toolModuleFromAiSdkTools', () => {
       [TOOL_PRESENTATION]: 'runtime',
     })
     expect(frames[0]?.toolCallId).toBe(frames[1]?.toolCallId)
-    expect(result._meta?.[TOOL_PRESENTATION_ID]).toBe(frames[0]?.toolCallId)
-    expect(result._meta).toMatchObject({
-      [TOOL_PRESENTATION]: 'runtime',
-      [TOOL_PRESENTATION_ID]: expect.any(String),
-    })
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
   })
 
   test('returns errors to the same runtime-owned card', async () => {
@@ -117,10 +113,7 @@ describe('toolModuleFromAiSdkTools', () => {
       errorText: 'diagram is locked',
       [TOOL_PRESENTATION]: 'runtime',
     })
-    expect(result._meta).toMatchObject({
-      [TOOL_PRESENTATION]: 'runtime',
-      [TOOL_PRESENTATION_ID]: expect.any(String),
-    })
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
   })
 
   test('validates MCP arguments with the AI SDK tool schema before execute', async () => {
@@ -145,9 +138,6 @@ describe('toolModuleFromAiSdkTools', () => {
     expect(result.isError).toBe(true)
     expect(executed).toBe(false)
     expect(frames.at(-1)?.type).toBe('tool-output-error')
-    expect(result._meta).toMatchObject({
-      [TOOL_PRESENTATION]: 'runtime',
-      [TOOL_PRESENTATION_ID]: expect.any(String),
-    })
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
   })
 })

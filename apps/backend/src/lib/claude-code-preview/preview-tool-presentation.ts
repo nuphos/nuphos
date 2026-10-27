@@ -1,7 +1,6 @@
 // AI-SDK-adapted MCP tools delegate their card to the runtime's ACP call id.
 // This is an ownership contract, not a match between concurrent invocations.
 export const TOOL_PRESENTATION = 'ai.nuphos/toolPresentation'
-export const TOOL_PRESENTATION_ID = 'ai.nuphos/toolPresentationCallId'
 export const TOOL_PRESENTATION_FRAME = 'nuphos-tool-presentation'
 
 export function runtimeToolResult(value: unknown): Record<string, unknown> | null {

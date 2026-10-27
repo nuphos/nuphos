@@ -7,7 +7,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema'
 
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
-import { TOOL_PRESENTATION, TOOL_PRESENTATION_ID } from '../preview-tool-presentation'
+import { TOOL_PRESENTATION } from '../preview-tool-presentation'
 import { publishPreviewFrame } from '../run-frame-bridge'
 
 import type {
@@ -134,7 +134,7 @@ export async function presentedByRuntime(
   // New hosting turns consume these marked frames and present only the ACP id.
   // Old replicas still receive the standard pair during a rolling upgrade.
   const presentation = { [TOOL_PRESENTATION]: 'runtime', toolName: name }
-  const _meta = { [TOOL_PRESENTATION]: 'runtime', [TOOL_PRESENTATION_ID]: toolCallId }
+  const _meta = { [TOOL_PRESENTATION]: 'runtime' }
 
   // The work starts only once the input frame is out, so its result never arrives first.
   await emit({ type: 'tool-input-available', toolCallId, input: args, ...presentation })

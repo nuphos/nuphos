@@ -118,7 +118,7 @@ describe('runtime-owned MCP presentation', () => {
     expect(h.log.list().map((s) => s.output)).toEqual([{ count: 1 }, { count: 2 }])
   })
 
-  test('early ownership frames retain a legacy card and lost frames use result metadata', async () => {
+  test('handler frames arriving early or lost both leave the ACP card as the only one', async () => {
     for (const lost of [false, true]) {
       const h = harness()
       const module = toolModuleFromAiSdkTools(
@@ -135,9 +135,7 @@ describe('runtime-owned MCP presentation', () => {
 
       h.start('acp-1')
       h.update('acp-1', { status: 'completed', rawOutput: result })
-      expect(visibleIds(h.frames)).toHaveLength(1)
-      if (lost) expect(visibleIds(h.frames)).toEqual(['acp-1'])
-      else expect(visibleIds(h.frames)[0]).not.toBe('acp-1')
+      expect(visibleIds(h.frames)).toEqual(['acp-1'])
       expect(h.history()).toHaveLength(1)
       expect(h.log.list()[0]?.output).toBe('ok')
     }
@@ -243,48 +241,58 @@ describe('runtime-owned MCP presentation', () => {
   })
 
   test.each([false, true])(
-    'unsupported ACP identity shapes retain structured/error handler cards: error=%s',
+    'a native call earlier in the turn keeps one id live and stored, error=%s',
     async (error) => {
       const h = harness()
 
-      h.update('opaque-call', {
-        title: 'Execute native tool',
+      h.update('read-1', {
+        title: 'Read Photo.jpg',
         status: 'in_progress',
-        rawInput: input,
+        rawInput: { path: '/x' },
       })
+      h.update('read-1', { status: 'completed', rawOutput: 'ok' })
+      h.start('acp-1')
       const module = toolModuleFromAiSdkTools(
         {
-          render_chart: {
+          local_exec: {
             execute: () =>
-              error
-                ? Promise.reject(new Error('synthetic error'))
-                : Promise.resolve({ title: 'Synthetic chart', type: 'bar', data: [] }),
+              error ? Promise.reject(new Error('synthetic error')) : Promise.resolve('done'),
           },
         },
         { publish: h.publish },
       )
-      const result = await module.handlers(context).render_chart!(input)
+      const result = await module.handlers(context).local_exec!(input)
 
-      h.update('opaque-call', { status: 'completed', rawOutput: { result } })
-      expect(
-        h.frames.some(
-          (f) =>
-            f.type === 'tool-input-available' && f.toolName === 'render_chart' && f.input === input,
-        ),
-      ).toBe(true)
-      const handlerResult = h.frames.find(
-        (f) =>
-          typeof f.toolCallId === 'string' &&
-          f.toolCallId.startsWith('nuphos-') &&
-          f.type === (error ? 'tool-output-error' : 'tool-output-available'),
+      h.update('acp-1', { status: 'completed', rawOutput: { result } })
+      expect(visibleIds(h.frames)).toEqual(['read-1', 'acp-1'])
+      expect(h.history()).toMatchObject([{ toolCallId: 'read-1' }, { toolCallId: 'acp-1' }])
+      expect(h.frames.at(-1)).toMatchObject(
+        error
+          ? { type: 'tool-output-error', toolCallId: 'acp-1', errorText: 'synthetic error' }
+          : { type: 'tool-output-available', toolCallId: 'acp-1', output: 'done' },
       )
-
-      if (error) expect(handlerResult?.errorText).toBe('synthetic error')
-      else
-        expect(handlerResult?.output).toEqual({ title: 'Synthetic chart', type: 'bar', data: [] })
-      expect(h.frames.some((f) => f.type === TOOL_PRESENTATION_FRAME)).toBe(false)
     },
   )
+
+  test('an unrecognized ACP call keeps its own id; handler frames never add a second card', async () => {
+    const h = harness()
+
+    h.update('opaque-call', {
+      title: 'Execute native tool',
+      status: 'in_progress',
+      rawInput: input,
+    })
+    const module = toolModuleFromAiSdkTools(
+      { render_chart: { execute: () => Promise.resolve({ title: 'Synthetic chart' }) } },
+      { publish: h.publish },
+    )
+    const result = await module.handlers(context).render_chart!(input)
+
+    h.update('opaque-call', { status: 'completed', rawOutput: { result } })
+    expect(visibleIds(h.frames)).toEqual(['opaque-call'])
+    expect(h.history()).toMatchObject([{ toolCallId: 'opaque-call' }])
+    expect(h.frames.some((f) => f.type === TOOL_PRESENTATION_FRAME)).toBe(false)
+  })
 
   test.each([false, true])(
     'an old adapter keeps legacy cards on a new consumer, revealed=%s',
@@ -337,208 +345,6 @@ describe('runtime-owned MCP presentation', () => {
       )
     },
   )
-
-  test.each([false, true])(
-    'legacy ownership stays locked when a recognized same-tool call follows, reverse=%s',
-    async (reverse) => {
-      const h = harness()
-
-      h.update('opaque-first', {
-        title: 'Opaque native invocation',
-        status: 'in_progress',
-        rawInput: input,
-      })
-      const resolvers: ((value: unknown) => void)[] = []
-      const module = toolModuleFromAiSdkTools(
-        {
-          local_exec: {
-            execute: () =>
-              new Promise((resolve) => {
-                resolvers.push(resolve)
-              }),
-          },
-        },
-        { publish: h.publish },
-      )
-      const handlers = module.handlers(context)
-      const first = handlers.local_exec!(input)
-
-      await Bun.sleep(0)
-      expect(resolvers).toHaveLength(1)
-      h.start('recognized-second')
-      const second = handlers.local_exec!(input)
-
-      await Bun.sleep(0)
-      expect(resolvers).toHaveLength(2)
-      const calls = [first, second]
-      const ids = ['opaque-first', 'recognized-second']
-
-      for (const index of reverse ? [1, 0] : [0, 1]) {
-        resolvers[index]!({ count: index + 1 })
-        const result = await calls[index]!
-
-        h.update(ids[index]!, { status: 'completed', rawOutput: { result } })
-      }
-      const starts = h.frames.filter(
-        (f) => f.type === 'tool-input-available' && f.toolName === 'local_exec',
-      )
-
-      expect(starts).toHaveLength(2)
-      expect(new Set(starts.map((f) => f.toolCallId)).size).toBe(2)
-      expect(
-        starts.every((f) => typeof f.toolCallId === 'string' && f.toolCallId.startsWith('nuphos-')),
-      ).toBe(true)
-      expect(h.frames.some((f) => f.toolCallId === 'recognized-second')).toBe(false)
-      const outputs = h.frames.filter(
-        (f) =>
-          f.type === 'tool-output-available' &&
-          typeof f.toolCallId === 'string' &&
-          f.toolCallId.startsWith('nuphos-'),
-      )
-
-      expect(outputs).toHaveLength(2)
-      for (let index = 0; index < 2; index++)
-        expect(outputs.find((f) => f.toolCallId === starts[index]!.toolCallId)?.output).toEqual({
-          count: index + 1,
-        })
-      expect(h.log.list().find((step) => step.toolCallId === 'recognized-second')?.output).toEqual({
-        count: 2,
-      })
-    },
-  )
-
-  test.each([
-    { reverse: false, error: false },
-    { reverse: true, error: false },
-    { reverse: false, error: true },
-    { reverse: true, error: true },
-  ])('recognized then opaque calls keep independent modes: %p', async ({ reverse, error }) => {
-    const h = harness()
-
-    h.start('recognized-first')
-    const pending: { resolve: (value: unknown) => void; reject: (error: Error) => void }[] = []
-    const module = toolModuleFromAiSdkTools(
-      {
-        local_exec: {
-          execute: () =>
-            new Promise((resolve, reject) => {
-              pending.push({ resolve, reject })
-            }),
-        },
-      },
-      { publish: h.publish },
-    )
-    const handlers = module.handlers(context)
-    const first = handlers.local_exec!(input)
-
-    await Bun.sleep(0)
-    expect(pending).toHaveLength(1)
-    h.update('opaque-second', {
-      title: 'Opaque native invocation',
-      status: 'in_progress',
-      rawInput: input,
-    })
-    const second = handlers.local_exec!(input)
-
-    await Bun.sleep(0)
-    expect(pending).toHaveLength(2)
-    const calls = [first, second]
-    const ids = ['recognized-first', 'opaque-second']
-
-    for (const index of reverse ? [1, 0] : [0, 1]) {
-      if (index === 1 && error) pending[index]!.reject(new Error('opaque synthetic failure'))
-      else pending[index]!.resolve({ count: index + 1 })
-      h.update(ids[index]!, { status: 'completed', rawOutput: { result: await calls[index]! } })
-    }
-    expect(
-      h.frames.some(
-        (f) =>
-          f.type === 'tool-output-available' &&
-          f.toolCallId === 'recognized-first' &&
-          JSON.stringify(f.output) === '{"count":1}',
-      ),
-    ).toBe(true)
-    const legacyStarts = h.frames.filter(
-      (f) =>
-        f.type === 'tool-input-available' &&
-        typeof f.toolCallId === 'string' &&
-        f.toolCallId.startsWith('nuphos-'),
-    )
-
-    expect(legacyStarts).toHaveLength(1)
-    const legacyResult = h.frames.find(
-      (f) =>
-        f.toolCallId === legacyStarts[0]!.toolCallId &&
-        f.type === (error ? 'tool-output-error' : 'tool-output-available'),
-    )
-
-    if (error) expect(legacyResult?.errorText).toBe('opaque synthetic failure')
-    else expect(legacyResult?.output).toEqual({ count: 2 })
-    expect(
-      h.frames.some(
-        (f) =>
-          typeof f.toolCallId === 'string' &&
-          f.toolCallId.startsWith('nuphos-') &&
-          JSON.stringify(f.output) === '{"count":1}',
-      ),
-    ).toBe(false)
-    expect(h.log.list().find((step) => step.toolCallId === 'recognized-first')?.output).toEqual({
-      count: 1,
-    })
-  })
-
-  test('opaque completion overtaking its bridge frames still preserves the specialized handler card', async () => {
-    const h = harness()
-
-    h.start('recognized-first')
-    const normal = toolModuleFromAiSdkTools(
-      { local_exec: { execute: () => Promise.resolve({ count: 1 }) } },
-      { publish: h.publish },
-    )
-    const first = await normal.handlers(context).local_exec!(input)
-
-    h.update('recognized-first', { status: 'completed', rawOutput: { result: first } })
-    h.update('opaque-second', {
-      title: 'Opaque native invocation',
-      status: 'in_progress',
-      rawInput: input,
-    })
-    const delayed: Record<string, unknown>[] = []
-    const legacy = toolModuleFromAiSdkTools(
-      {
-        render_chart: {
-          execute: () =>
-            Promise.resolve({ title: 'Synthetic delayed chart', type: 'bar', data: [] }),
-        },
-      },
-      {
-        publish: (_ctx, frame) => {
-          delayed.push(frame)
-
-          return Promise.resolve()
-        },
-      },
-    )
-    const second = await legacy.handlers(context).render_chart!(input)
-
-    h.update('opaque-second', { status: 'completed', rawOutput: { result: second } })
-    for (const frame of delayed) await h.publish({}, frame)
-    expect(
-      h.frames.some(
-        (f) =>
-          f.type === 'tool-input-available' && f.toolName === 'render_chart' && f.input === input,
-      ),
-    ).toBe(true)
-    expect(
-      h.frames.some(
-        (f) =>
-          f.type === 'tool-output-available' &&
-          typeof f.toolCallId === 'string' &&
-          f.toolCallId.startsWith('nuphos-') &&
-          JSON.stringify(f.output) === '{"title":"Synthetic delayed chart","type":"bar","data":[]}',
-      ),
-    ).toBe(true)
-  })
 
   test('handler errors remain errors even when ACP reports the MCP request completed', async () => {
     const h = harness()
