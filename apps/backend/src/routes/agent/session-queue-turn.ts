@@ -73,8 +73,6 @@ export function messageText(message: UIMessage): string {
 
 // A queued id is shown to everyone in the conversation and removed by value.
 const QUEUED_ID = /^[\w-]{1,128}$/
-// Attachments are references; this bounds what one waiting message stores.
-const MAX_QUEUED_MESSAGE_CHARS = 256_000
 
 /** A new message, not a continuation, reply or Slack-bound turn, in an existing conversation. */
 function freshSend({ body, conversation, ...args }: QueueableChat): AgentConversation | null {
@@ -105,8 +103,6 @@ export async function admitQueueableChat(
     return null
   if (!QUEUED_ID.test(message.id))
     throw new AppError(400, 'invalid_request', 'A message id may use letters, digits, - and _')
-  if (JSON.stringify(message).length > MAX_QUEUED_MESSAGE_CHARS)
-    throw new AppError(413, 'message_too_large', 'This message is too large to send')
   const owner = args.runOwnerUserId
   const sessionId = conversation.sessionId
   // Nothing overtakes a message that is already waiting.
@@ -159,14 +155,17 @@ export async function admitQueueableChat(
 }
 
 /**
- * The reply to a send that waits in the queue. iOS and Android up to their
- * current releases read only an event stream: it ends this send cleanly, and
- * their idle poll follows the queued turn when it starts. Delete the stream
- * once both declare serverQueue.
+ * Every reply to a send that waits in the queue: behind a busy session, an
+ * offline Box, or an owner's approval. iOS and Android up to their current
+ * releases read only an event stream: it ends this send cleanly, and their
+ * idle poll follows the queued turn when it starts. Delete the stream once
+ * both declare serverQueue.
  */
-export function queuedChatReply(body: AgentChatBody, streamId: string): Response {
-  if (body.clientCapabilities?.serverQueue === true)
-    return Response.json({ status: 'queued', streamId }, { status: 202 })
+export function queuedChatReply(
+  body: AgentChatBody,
+  reply: { status: 'queued'; streamId: string },
+): Response {
+  if (body.clientCapabilities?.serverQueue === true) return Response.json(reply, { status: 202 })
 
   return new Response(`data: ${JSON.stringify({ type: 'atlas-stream-done' })}\n\n`, {
     headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' },

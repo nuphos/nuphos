@@ -297,7 +297,7 @@ test('a phone send while an agent message runs is queued in order, never refused
 test('a queued send ends cleanly for a phone that reads only an event stream', async () => {
   const desktop = queuedChatReply(
     { id: SESSION, messages: [], clientCapabilities: { serverQueue: true } },
-    'stream-d',
+    { status: 'queued', streamId: 'stream-d' },
   )
 
   expect(desktop.status).toBe(202)
@@ -305,12 +305,46 @@ test('a queued send ends cleanly for a phone that reads only an event stream', a
   // An error frame would offer Retry, which resends under a new id.
   const phone = queuedChatReply(
     { id: SESSION, messages: [], clientCapabilities: { resendsRefusal: true } },
-    'stream-p',
+    { status: 'queued', streamId: 'stream-p' },
   )
 
   expect(phone.status).toBe(200)
   expect(phone.headers.get('content-type')).toStartWith('text/event-stream')
   expect(await phone.text()).toBe('data: {"type":"atlas-stream-done"}\n\n')
+})
+
+test('a phone waiting on an offline Box or an approval gets the same clean end', async () => {
+  const reply = { status: 'queued' as const, streamId: 'stream-o', message: 'Waiting for the Box' }
+  const desktop = queuedChatReply(
+    { id: SESSION, messages: [], clientCapabilities: { serverQueue: true } },
+    reply,
+  )
+
+  expect(desktop.status).toBe(202)
+  expect(await desktop.json()).toEqual(reply)
+  const phone = queuedChatReply({ id: SESSION, messages: [] }, reply)
+
+  expect(phone.headers.get('content-type')).toStartWith('text/event-stream')
+  expect(await phone.text()).toBe('data: {"type":"atlas-stream-done"}\n\n')
+})
+
+test('a message with inline photos waits like any other, as a direct send would take it', async () => {
+  const done = busy()
+  const photo: UIMessage = {
+    id: 'photo',
+    role: 'user',
+    parts: [
+      { type: 'text', text: 'what is this' },
+      { type: 'file', mediaType: 'image/jpeg', url: `data:image/jpeg;base64,${'A'.repeat(600_000)}` },
+    ],
+  }
+
+  try {
+    expect((await admit('photo', { clientView: [photo] }))?.mode).toBe('queued')
+  } finally {
+    done()
+  }
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual(['photo'])
 })
 
 test('a message id that could match another message is refused', async () => {
