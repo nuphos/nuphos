@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { AgentHistoryPage, AgentPanel } from '../components/agent/AgentPanel'
+import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
@@ -168,6 +169,7 @@ export function InboxView({
             target: {
               toolCallId: selectedItem.pendingDecision.toolCallId,
               question: selectedItem.pendingDecision.question,
+              options: selectedItem.pendingDecision.options,
             },
           }
         : null,
@@ -223,14 +225,7 @@ export function InboxView({
                 teamId={teamId}
                 sessionId={selected.sessionId}
                 decisionReplyTo={selectedItem?.pendingDecision?.toolCallId}
-                openQuestions={
-                  selectedItem?.pendingDecision && [
-                    {
-                      id: selectedItem.pendingDecision.toolCallId,
-                      question: selectedItem.pendingDecision.question,
-                    },
-                  ]
-                }
+                openQuestions={selectedItem ? conversationQuestions(selectedItem) : undefined}
                 pendingLocate={locate}
                 onLocateConsumed={consumeLocate}
                 onSessionChange={(sessionId) => select(sessionId, items ?? [])}

@@ -13,8 +13,9 @@ import type { LucideIcon } from 'lucide-react'
 export type JournalChatTarget = {
   messageId?: string
   toolCallId?: string
-  /** A question card's question, for a transcript that keeps the runtime's own call id. */
+  /** A question card's question and options, for a transcript that keeps the runtime's own call id. */
   question?: string
+  options?: string[]
 }
 
 /** Which chat element this event corresponds to (if any). */

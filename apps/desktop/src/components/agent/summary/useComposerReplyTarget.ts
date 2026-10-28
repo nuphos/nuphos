@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
-import { replyChoice } from '../panel/replyTarget'
+import { conversationQuestions, replyChoice } from '../panel/replyTarget'
 
 import type { AgentConversation } from '../../../api/agent-types'
 import type { ComposerReplyTarget, ReplyPick, ReplyQuestion } from '../panel/replyTarget'
@@ -13,9 +13,7 @@ export function useComposerReplyTarget(
   const questions = useMemo<ReplyQuestion[]>(
     () =>
       requests.flatMap((request) =>
-        request.sessionId === sessionId && request.pendingDecision
-          ? [{ id: request.pendingDecision.toolCallId, question: request.pendingDecision.question }]
-          : [],
+        request.sessionId === sessionId ? conversationQuestions(request) : [],
       ),
     [requests, sessionId],
   )

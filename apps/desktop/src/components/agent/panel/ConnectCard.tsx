@@ -151,6 +151,7 @@ export function ConnectCard({
   return (
     <div
       data-tool-call-id={toolCallId}
+      data-decision-question={reason || undefined}
       className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
     >
       <ConnectHeader providers={providers} reason={reason} />
@@ -170,7 +171,7 @@ export function ConnectCard({
         <ContinueFooter
           onContinue={() => {
             setContinued(true)
-            ctx?.send('continue', toolCallId)
+            ctx?.send('continue', { toolCallId, question: reason })
           }}
         />
       )}

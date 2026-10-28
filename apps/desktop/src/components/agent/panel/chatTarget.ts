@@ -1,8 +1,20 @@
+import { matchInputRequest } from './replyTarget.ts'
+
 import type { JournalChatTarget } from '../JournalPanel'
 import type { Part } from './parts'
 
 export function toolAnchorIds(parts: Part[]): string[] {
   return [...new Set(parts.flatMap((part) => (part.type === 'tool' ? [part.toolCallId] : [])))]
+}
+
+function cardOf(element: HTMLElement) {
+  const options = element.getAttribute('data-decision-options')
+
+  return {
+    toolCallId: element.getAttribute('data-tool-call-id') ?? '',
+    question: element.getAttribute('data-decision-question') ?? undefined,
+    options: options ? (JSON.parse(options) as string[]) : undefined,
+  }
 }
 
 function findChatTarget(root: HTMLElement, target: JournalChatTarget): HTMLElement | null {
@@ -12,13 +24,13 @@ function findChatTarget(root: HTMLElement, target: JournalChatTarget): HTMLEleme
 
   if (byId) return byId
   // A native runtime's transcript keeps its own call id for a question Nuphos recorded under
-  // another; the card asking it is the latest one with that question.
-  if (target.question) {
-    const cards = root.querySelectorAll<HTMLElement>(
-      `[data-decision-question="${CSS.escape(target.question)}"]`,
-    )
+  // another: the card is the first one an answer would map to this request.
+  if (target.toolCallId && target.question !== undefined) {
+    const request = { id: target.toolCallId, question: target.question, options: target.options }
 
-    if (cards.length > 0) return cards[cards.length - 1]!
+    for (const card of root.querySelectorAll<HTMLElement>('[data-decision-question]')) {
+      if (matchInputRequest(cardOf(card), [request])) return card
+    }
   }
 
   return target.messageId && !target.toolCallId

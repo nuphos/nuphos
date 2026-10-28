@@ -1,5 +1,27 @@
+import type { AgentConversation } from '../../../api/agent-types'
+
 /** An open question a message can answer. */
-export type ReplyQuestion = { id: string; question: string }
+export type ReplyQuestion = { id: string; question: string; options?: string[] }
+
+/** A question card as the transcript shows it. */
+export type DecisionCardRef = { toolCallId: string; question?: string; options?: string[] }
+
+/** A conversation's open questions, oldest first. */
+export function conversationQuestions(
+  conversation: Pick<AgentConversation, 'pendingDecision'>,
+): ReplyQuestion[] {
+  const open = conversation.pendingDecision
+
+  return open
+    ? [
+        {
+          id: open.toolCallId,
+          question: open.question,
+          ...(open.options && { options: open.options }),
+        },
+      ]
+    : []
+}
 
 /** The main chat's "Replying to" choice for the open conversation. */
 export type ComposerReplyTarget = {
@@ -38,16 +60,32 @@ export function replyChoice(
   return questions.some((question) => question.id === pick.id) ? pick.id : newest
 }
 
+const sameOptions = (a?: readonly string[], b?: readonly string[]) =>
+  !a || !b || (a.length === b.length && a.every((option, index) => option === b[index]))
+
 /**
- * The open question a choice card answers: its own call id, or, where the
- * transcript keeps the runtime's id for it, the open question asking the same.
+ * The open request a question card asked: the one with the card's call id, else (a
+ * native runtime's transcript keeps its own id) the oldest asking the same question
+ * with the same options. The chat, side panel, Inbox and jump to question all use it.
  */
+export function matchInputRequest(
+  card: DecisionCardRef,
+  questions: readonly ReplyQuestion[],
+): ReplyQuestion | undefined {
+  return (
+    questions.find((open) => open.id === card.toolCallId) ??
+    (card.question === undefined
+      ? undefined
+      : questions.find(
+          (open) => open.question === card.question && sameOptions(open.options, card.options),
+        ))
+  )
+}
+
+/** What a card's answer names as decisionReplyTo: its request, else its own call id. */
 export function cardReplyId(
-  toolCallId: string,
-  question: string | undefined,
+  card: DecisionCardRef,
   questions: readonly ReplyQuestion[] | undefined,
 ): string {
-  if (!question || !questions || questions.some((open) => open.id === toolCallId)) return toolCallId
-
-  return questions.findLast((open) => open.question === question)?.id ?? toolCallId
+  return (questions && matchInputRequest(card, questions)?.id) ?? card.toolCallId
 }

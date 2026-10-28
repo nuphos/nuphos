@@ -157,16 +157,12 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   credentials: activeTab.readOnly
                     ? undefined
                     : visibleConversationCredentialSelector,
-                  send: (text, toolCallId, question) =>
+                  send: (text, card) =>
                     void sendInActive(
                       text,
                       [],
                       undefined,
-                      cardReplyId(
-                        toolCallId,
-                        question,
-                        c.replyTarget?.questions ?? c.openQuestions,
-                      ),
+                      cardReplyId(card, c.replyTarget?.questions ?? c.openQuestions),
                     ),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:

@@ -5,6 +5,7 @@ import { api } from '../../../api'
 import { refreshInputRequests } from '../../../lib/inputRequestRefresh'
 import { toast } from '../../ui/toast'
 import { AgentPanel } from '../AgentPanel'
+import { conversationQuestions } from '../panel/replyTarget'
 
 import { SummarySection } from './ChatSummaryRows'
 import { inputRequestKey } from './sessionInputRequests'
@@ -87,6 +88,7 @@ export function SessionInputReply({
   const questionTarget: JournalChatTarget | undefined = request.pendingDecision && {
     toolCallId: request.pendingDecision.toolCallId,
     question: request.pendingDecision.question,
+    options: request.pendingDecision.options,
   }
   const [locate, setLocate] = useState(
     questionTarget ? { sessionId: request.sessionId, target: questionTarget } : null,
@@ -179,14 +181,7 @@ export function SessionInputReply({
           sessionId={request.sessionId}
           sessionReadOnly={(request.readOnly ?? false) || !stillPending || dismissed}
           decisionReplyTo={request.pendingDecision?.toolCallId}
-          openQuestions={
-            request.pendingDecision && [
-              {
-                id: request.pendingDecision.toolCallId,
-                question: request.pendingDecision.question,
-              },
-            ]
-          }
+          openQuestions={conversationQuestions(request)}
           composerDraftId={`input:${inputRequestKey(request)}`}
           focusComposerOnOpen={false}
           pendingLocate={locate}

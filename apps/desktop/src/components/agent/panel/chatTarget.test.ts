@@ -90,38 +90,58 @@ test('a lazy Activity anchor and its nested tool disclosure both open before scr
   assert.deepEqual(calls, ['open Activity', 'open tool run', 'scroll', 'flash'])
 })
 
-test("a question whose recorded id is not the transcript's own is found by its question", (t) => {
+function card(calls: string[], attributes: Record<string, string>) {
+  return {
+    ...target(
+      disclosure(true, () => {}),
+      calls,
+    ),
+    getAttribute: (name: string) => attributes[name] ?? null,
+  }
+}
+
+test("a question whose recorded id is not the transcript's own is found as its answer would map", (t) => {
   browser(t)
   const calls: string[] = []
-  const older = target(
-    disclosure(true, () => {}),
-    calls,
-  )
-  const newer = target(
-    disclosure(true, () => {}),
-    calls,
-  )
-  const selectors: string[] = []
+  const other = card(calls, { 'data-tool-call-id': 'exec-0', 'data-decision-question': 'Cat?' })
+  const older = card(calls, {
+    'data-tool-call-id': 'exec-1',
+    'data-decision-question': 'Red or blue?',
+    'data-decision-options': '["red","blue"]',
+  })
+  const newer = card(calls, {
+    'data-tool-call-id': 'exec-2',
+    'data-decision-question': 'Red or blue?',
+  })
+  let found: unknown
   const root = {
     isConnected: true,
-    querySelector: (selector: string) => {
-      selectors.push(selector)
-
-      return null
-    },
-    querySelectorAll: (selector: string) => {
-      selectors.push(selector)
-
-      return selector.includes('data-decision-question') ? [older, newer] : []
-    },
+    querySelector: () => null,
+    querySelectorAll: () => [other, older, newer],
   } as unknown as HTMLElement
 
-  assert.equal(locateChatTarget(root, { toolCallId: 'nuphos-1', question: 'Red or blue?' }), true)
-  assert.deepEqual(selectors, [
-    '[data-tool-call-id="nuphos-1"]',
-    '[data-decision-question="Red or blue?"]',
-  ])
-  assert.deepEqual(calls, ['scroll', 'flash'])
+  older.scrollIntoView = () => {
+    found = older
+    calls.push('scroll')
+  }
+  assert.equal(
+    locateChatTarget(root, {
+      toolCallId: 'nuphos-1',
+      question: 'Red or blue?',
+      options: ['red', 'blue'],
+    }),
+    true,
+  )
+  assert.equal(found, older)
+  assert.equal(
+    locateChatTarget(root, {
+      toolCallId: 'nuphos-2',
+      question: 'Red or blue?',
+      options: ['green'],
+    }),
+    true,
+    'the card without options still matches',
+  )
 })
 
 test('a tool call that is not rendered is not mistaken for its message', (t) => {
