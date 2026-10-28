@@ -175,14 +175,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
         await send(
           devices,
           {
-            // SESSION_REPLY: the app offers an inline reply on the notification.
-            aps: {
-              alert,
-              badge,
-              sound: 'default',
-              'thread-id': run.sessionId,
-              category: 'SESSION_REPLY',
-            },
+            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId, category: 'REPLY' },
             sessionId: run.sessionId,
             ...(teamId ? { teamId } : {}),
           },

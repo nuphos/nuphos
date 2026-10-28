@@ -74,7 +74,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Session pushes carry this category: long-press to reply without opening the app.
-    private static let replyCategory = "SESSION_REPLY"
+    private static let replyCategory = "REPLY"
 
     func install() {
         let center = UNUserNotificationCenter.current()
