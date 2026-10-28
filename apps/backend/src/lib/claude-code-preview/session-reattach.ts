@@ -145,19 +145,6 @@ async function owned(
   }
 }
 
-async function sameRuntimeSession(session: TeamSession): Promise<boolean> {
-  try {
-    const attachment = await getConversationPreviewAttachment(
-      session.conversationId,
-      session.teamId,
-    )
-
-    return attachment?.openabSessionId === session.openabSessionId
-  } catch {
-    return false
-  }
-}
-
 async function stillOwned(session: TeamSession, transport: TeamPreviewClient): Promise<boolean> {
   if (session.client !== transport) return false
   if (sessionsByConversation.get(`${session.teamId}:${session.conversationId}`) !== session)
@@ -207,15 +194,13 @@ export async function reattachAfterTransportLoss(
       const ownership = await owned(session, transport, attempt)
 
       if (ownership === 'unknown') continue
-      if (ownership === 'no') {
-        // Resumed elsewhere on the same runtime session: its work goes on there.
-        if (failure && (await sameRuntimeSession(session))) failure = undefined
-        break
-      }
+      // Superseded, perhaps long after a wait for the computer: whoever holds
+      // the session now owns its story, so this attempt writes nothing.
+      if (ownership === 'no') return false
       try {
         const client = await registry.acquire(session.teamId, session.endpoint)
 
-        if (session.client !== transport) break
+        if (session.client !== transport) return false
         await resumeSessionOn(session, client)
         logEvent('info', 'agent.openab_session.reattached', {
           team_id: session.teamId,
@@ -231,9 +216,7 @@ export async function reattachAfterTransportLoss(
     // Every retry is spent and the session is still off the air. Whether the
     // process that held it survived is unknown, so the conversation is told
     // that much and no more. Recorded here rather than on the first failure
-    // so a blip the next attempt recovers from says nothing, and recorded on
-    // a break as well as on exhaustion: an attempt that finds the session
-    // superseded hands ownership on without ever resuming. A computer that
+    // so a blip the next attempt recovers from says nothing. A computer that
     // went offline is expected, so this is one warning, not an error per try.
     if (failure) {
       logEvent('warn', 'agent.openab_session.reattach_failed', {
