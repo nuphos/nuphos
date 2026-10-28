@@ -27,6 +27,7 @@ let steeredWith: unknown[] = []
 const conversation = { sessionId: 'shared-control', userId: 'owner', teamId }
 
 let agentToken: { id: string; kind: 'agent'; name: string } | undefined
+
 useIdentity({
   authenticateToken: async () => ({
     user: { id: me },
