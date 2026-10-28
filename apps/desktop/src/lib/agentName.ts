@@ -50,9 +50,14 @@ export function groupAgentsByTier<T extends NamedAgent>(
 
 type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
 
-/** The one rule for an agent a conversation can run on: active, ready and signed in. */
+/** The one rule for an agent a conversation can run on: active, ready, online and signed in. */
 export function usable(agent: SelectableAgent): boolean {
-  return agent.status === 'active' && !agent.notReady && agent.local?.signedIn !== false
+  return (
+    agent.status === 'active' &&
+    !agent.notReady &&
+    agent.local?.online !== false &&
+    agent.local?.signedIn !== false
+  )
 }
 
 /** The picker offers only usable agents, the selected one included. */

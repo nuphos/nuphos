@@ -22,8 +22,7 @@ export function selectorBoxes(
   quotas?: ReadonlyMap<string, RuntimeQuota>,
 ): SelectorBox[] {
   const groups = new Map<string, SelectorBox>()
-  const ready = (agent: RuntimeInstance) =>
-    usable(agent) && agent.local?.online !== false && !quotaSignedOut(quotas?.get(agent.id))
+  const ready = (agent: RuntimeInstance) => usable(agent) && !quotaSignedOut(quotas?.get(agent.id))
 
   for (const agent of agents.filter(ready)) {
     const deviceId = agent.local?.deviceId

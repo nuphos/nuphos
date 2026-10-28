@@ -93,3 +93,20 @@ test('one rule decides what the picker lists and what a new conversation starts 
   assert.equal(defaultAgent([starting, ready], me, (agent) => (agent.id === 'b' ? 0 : 90))?.id, 'a')
   assert.equal(usable(starting), false)
 })
+
+test('an offline computer is never the default, though its unread quota looks emptiest', () => {
+  // A fresh sign-in leaves the old device record of the same computer listed, offline.
+  const offline = {
+    ...here,
+    id: 'local_u1_old',
+    status: 'active' as const,
+    local: { ...here.local, deviceId: 'old', online: false },
+  }
+  const online = { ...here, status: 'active' as const, local: { ...here.local, online: true } }
+
+  assert.equal(usable(offline), false)
+  assert.equal(
+    defaultAgent([offline, online], me, (agent) => (agent.id === online.id ? 40 : undefined))?.id,
+    online.id,
+  )
+})
