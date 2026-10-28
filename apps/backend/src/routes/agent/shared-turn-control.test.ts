@@ -28,7 +28,10 @@ const conversation = { sessionId: 'shared-control', userId: 'owner', teamId }
 
 let agentToken: { id: string; kind: 'agent'; name: string } | undefined
 useIdentity({
-  authenticateToken: async () => ({ user: { id: me }, ...(agentToken ? { cliToken: agentToken } : {}) }),
+  authenticateToken: async () => ({
+    user: { id: me },
+    ...(agentToken ? { cliToken: agentToken } : {}),
+  }),
   getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
 })
 useAgentDb({
@@ -166,7 +169,7 @@ test('a queued message that already left the queue is not steered', async () => 
   expect(steered).toBe(0)
 })
 
-test("a steer sent with an agent token is attributed to that agent, not its user", async () => {
+test('a steer sent with an agent token is attributed to that agent, not its user', async () => {
   agentToken = { id: 'token-1', kind: 'agent', name: 'Release bot' }
   activeActor = me
 
