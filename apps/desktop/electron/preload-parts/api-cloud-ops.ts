@@ -289,6 +289,8 @@ export const cloudOpsApi = {
     groupId?: string,
     queuedId?: string,
   ) => ipcRenderer.invoke('agent:steerConversation', sessionId, text, teamId, groupId, queuedId),
+  agentSaveSecret: (sessionId: string, name: string, value: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:saveSecret', sessionId, name, value, teamId),
   agentSlackPickup: (sessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:slackPickup', sessionId, teamId),
   agentListQueue: (sessionId: string, teamId?: string) =>

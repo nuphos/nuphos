@@ -1,6 +1,7 @@
 import { BSON } from 'mongodb'
 
 import { redactSignedTokens } from '@/lib/claude-code-preview/mcp-token'
+import { redactTokenShapes } from '@/lib/journal/redact'
 
 import { preserveRuntimeToolResults, runtimeToolResults } from './transcript-runtime-tool-results'
 import { withoutToolOutputs } from './transcript-tool-output'
@@ -38,12 +39,18 @@ function alreadyStored(stored: AgentMessage | undefined, fields: Record<string, 
 }
 
 // Agent output arrives in chunks that can split a token, so redact once the
-// message is assembled. Token characters are never JSON-escaped.
+// message is assembled. Token characters are never JSON-escaped. Well-known
+// key shapes are a safety net for a secret an agent printed by mistake.
 function redacted(parts: unknown[]): unknown[] {
   const json = JSON.stringify(parts)
   const clean = redactSignedTokens(json)
 
-  return clean === json ? parts : (JSON.parse(clean) as unknown[])
+  if (redactTokenShapes(clean) === json) return parts
+
+  // Per string, so a match can never span two JSON values.
+  return JSON.parse(clean, (_key, value: unknown) =>
+    typeof value === 'string' ? redactTokenShapes(value) : value,
+  ) as unknown[]
 }
 
 /**

@@ -153,6 +153,42 @@ describe('decision tool module', () => {
     expect(frames[0]).not.toMatchObject({ input: { providers: ['linear'] } })
   })
 
+  test('a credential decision with a secretName asks for the Desktop secure input card', async () => {
+    const frames: Record<string, unknown>[] = []
+    const tools = decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers(ctx)
+    const result = await tools.request_user_decision!({
+      label: 'Ask for the OpenAI key',
+      category: 'credential',
+      question: 'Calling the API needs your OpenAI key.',
+      secretName: 'OPENAI_API_KEY',
+    })
+    const output = result.structuredContent as { secretName?: string; instruction: string }
+
+    expect(output.secretName).toBe('OPENAI_API_KEY')
+    expect(output.instruction).toContain('secure input card')
+    expect(frames[0]).toMatchObject({ input: { secretName: 'OPENAI_API_KEY' } })
+  })
+
+  test('without a Desktop session the secret question goes out without a card', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers({
+      ...ctx,
+      localTools: false,
+    })
+    const result = await tools.request_user_decision!({
+      label: 'Ask for the OpenAI key',
+      category: 'credential',
+      question: 'Calling the API needs your OpenAI key.',
+      secretName: 'OPENAI_API_KEY',
+    })
+
+    expect(result.structuredContent).not.toHaveProperty('secretName')
+    expect((result.structuredContent as { instruction: string }).instruction).not.toContain('card')
+  })
+
   test('client-side tools publish only the input card and return what the desktop ran', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({

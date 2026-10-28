@@ -150,6 +150,45 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
 }
 
 /**
+ * Writes a secret the user typed into a file on the conversation's runtime and
+ * returns its path. It rides the attachment program as an inline data URL, so
+ * the value never lands in the transcript, the database or object storage.
+ */
+export async function putConversationSecret(
+  conversation: AgentConversation,
+  secret: { name: string; value: string; userId: string },
+): Promise<string> {
+  const attachment = liveAttachment(conversation)
+
+  if (!attachment || !conversation.teamId)
+    throw new AppError(409, 'runtime_unavailable', 'This conversation has no running agent')
+  const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation, {
+    purpose: 'control',
+    userId: secret.userId,
+  })
+
+  if (!endpoint || endpoint.url !== attachment.runtimeUrl)
+    throw new AppError(409, 'runtime_unavailable', 'Conversation runtime changed')
+  const bytes = Buffer.from(secret.value, 'utf8')
+  const [file] = await materializeRuntimeAttachments(
+    conversation.teamId,
+    conversation.userId,
+    endpoint,
+    [
+      {
+        name: secret.name,
+        url: `data:application/octet-stream;base64,${bytes.toString('base64')}`,
+        size: bytes.length,
+      },
+    ],
+  )
+  // file:///C:/x on a Windows computer, file:///tmp/x elsewhere.
+  const path = decodeURIComponent(new URL(file!.uri).pathname)
+
+  return /^\/[A-Za-z]:\//u.test(path) ? path.slice(1) : path
+}
+
+/**
  * Deliver to the existing native turn. No queue, resume, or prompt fallback.
  * Returns the text the runtime received, which is also the steering receipt.
  */
