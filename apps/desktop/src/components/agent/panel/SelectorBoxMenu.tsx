@@ -85,6 +85,16 @@ export function SelectorBoxMenu({
   const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
   const BoxIcon = group.device?.box || !group.agents[0]?.local ? Box : Laptop
 
+  if (group.offline)
+    return (
+      <MenuItem disabled icon={<BoxIcon className="h-4 w-4" />} hint="Offline">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-medium">{group.label}</span>
+          {current && <Check aria-label="Current computer" className="h-3 w-3 shrink-0" />}
+        </span>
+      </MenuItem>
+    )
+
   return (
     <MenuSubmenu>
       <MenuSubmenuTrigger className="py-3" chevron={<ChevronRight className="h-3 w-3" />}>

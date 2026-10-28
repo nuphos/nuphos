@@ -50,19 +50,24 @@ export function groupAgentsByTier<T extends NamedAgent>(
 
 type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
 
-/** The one rule for an agent a conversation can run on: active, ready, online and signed in. */
-export function usable(agent: SelectableAgent): boolean {
-  return (
-    agent.status === 'active' &&
-    !agent.notReady &&
-    agent.local?.online !== false &&
-    agent.local?.signedIn !== false
-  )
+/** An agent on a computer that is not reachable now: listed greyed out, never chosen. */
+export function offline(agent: NamedAgent): boolean {
+  return agent.local?.online === false
 }
 
-/** The picker offers only usable agents, the selected one included. */
+/** Active, ready and signed in, whether or not its computer is online. */
+function listable(agent: SelectableAgent): boolean {
+  return agent.status === 'active' && !agent.notReady && agent.local?.signedIn !== false
+}
+
+/** The one rule for an agent a conversation can run on: listed, on a computer that is online. */
+export function usable(agent: SelectableAgent): boolean {
+  return listable(agent) && !offline(agent)
+}
+
+/** The picker lists these; the offline ones it shows but does not offer. */
 export function listedAgents<T extends SelectableAgent>(agents: readonly T[]): T[] {
-  return agents.filter(usable)
+  return agents.filter(listable)
 }
 
 /** A new conversation starts on the usable agent with the most quota left; unknown counts as full. */

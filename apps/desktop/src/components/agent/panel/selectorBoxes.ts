@@ -1,4 +1,4 @@
-import { usable } from '../../../lib/agentName.ts'
+import { listedAgents, offline } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
@@ -10,11 +10,13 @@ export type SelectorBox = {
   label: string
   device?: AgentDevice
   agents: RuntimeInstance[]
+  /** Shown greyed out with nothing to pick. A device's runtimes share its presence. */
+  offline: boolean
 }
 
 /**
- * Only runtimes that can take a turn now, grouped by device id (never display name). A computer
- * that is offline, or whose runtimes all need a sign-in, is left out.
+ * Listed runtimes, grouped by device id (never display name), offline computers last. A computer
+ * whose runtimes all need a sign-in is left out.
  */
 export function selectorBoxes(
   agents: RuntimeInstance[],
@@ -22,9 +24,9 @@ export function selectorBoxes(
   quotas?: ReadonlyMap<string, RuntimeQuota>,
 ): SelectorBox[] {
   const groups = new Map<string, SelectorBox>()
-  const ready = (agent: RuntimeInstance) => usable(agent) && !quotaSignedOut(quotas?.get(agent.id))
+  const listed = listedAgents(agents).filter((agent) => !quotaSignedOut(quotas?.get(agent.id)))
 
-  for (const agent of agents.filter(ready)) {
+  for (const agent of listed) {
     const deviceId = agent.local?.deviceId
     const id = deviceId
       ? `device:${deviceId}`
@@ -42,13 +44,14 @@ export function selectorBoxes(
         label:
           device?.label ?? agent.local?.deviceLabel ?? (id === 'cloud' ? 'Cloud' : agent.label),
         agents: [],
+        offline: offline(agent),
       }
       groups.set(id, group)
     }
     group.agents.push(agent)
   }
 
-  return [...groups.values()]
+  return [...groups.values()].sort((a, b) => Number(a.offline) - Number(b.offline))
 }
 
 export type SelectorMetrics = NonNullable<ReturnType<typeof selectorMetrics>>

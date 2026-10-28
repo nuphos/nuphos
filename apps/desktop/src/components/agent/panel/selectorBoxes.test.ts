@@ -60,7 +60,7 @@ test('agents group by device id in first-seen order; Cloud agents share one grou
   )
 })
 
-test('only runtimes that can run now are listed; a computer left with none is dropped', () => {
+test('listed runtimes only; offline computers come last, greyed; disabled is never offline', () => {
   const local = (deviceId: string, signedIn: boolean, online = true) => ({
     ownerUserId: 'u1',
     deviceId,
@@ -81,6 +81,7 @@ test('only runtimes that can run now are listed; a computer left with none is dr
       agent('disabled', 'box', { status: 'disabled' }),
       agent('not-ready', 'box', { notReady: true }),
       agent('away', 'mac', { local: local('mac', true, false) }),
+      agent('away-signed-out', 'old', { local: local('old', false, false) }),
       agent('only-signed-out', 'pc', { local: local('pc', false) }),
       agent('cloud-ok'),
       agent('cloud-out'),
@@ -90,10 +91,11 @@ test('only runtimes that can run now are listed; a computer left with none is dr
   )
 
   assert.deepEqual(
-    groups.map((group) => [group.id, group.agents.map((item) => item.id)]),
+    groups.map((group) => [group.id, group.offline, group.agents.map((item) => item.id)]),
     [
-      ['device:box', ['ready']],
-      ['cloud', ['cloud-ok']],
+      ['device:box', false, ['ready']],
+      ['cloud', false, ['cloud-ok']],
+      ['device:mac', true, ['away']],
     ],
   )
 })

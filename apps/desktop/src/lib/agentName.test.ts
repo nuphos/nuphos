@@ -105,6 +105,8 @@ test('an offline computer is never the default, though its unread quota looks em
   const online = { ...here, status: 'active' as const, local: { ...here.local, online: true } }
 
   assert.equal(usable(offline), false)
+  // Listed, so the picker can show it greyed out.
+  assert.deepEqual(listedAgents([offline]), [offline])
   assert.equal(
     defaultAgent([offline, online], me, (agent) => (agent.id === online.id ? 40 : undefined))?.id,
     online.id,
