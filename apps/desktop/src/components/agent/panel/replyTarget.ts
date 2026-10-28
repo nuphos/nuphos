@@ -33,31 +33,33 @@ export type ComposerReplyTarget = {
   onChoose: (id: string | null) => void
 }
 
-/** What the user picked, and which questions were open when they did. */
-export type ReplyPick = { sessionId: string; id: string | null; seen: string[] }
+/** The question the user picked, and which questions were open when they did. */
+export type ReplyPick = { sessionId: string; id: string; seen: string[] }
 
 /**
- * The question the next main-chat message answers: the newest open one,
- * unless the user picked another or cleared the chip. A question arriving
- * after that choice brings the default back.
+ * The question the next main-chat message answers: the one the user picked
+ * while it is open, else the newest. Once every open question is one the user
+ * cleared, none; a question arriving after a pick or a clear brings the default back.
  */
 export function replyChoice(
   sessionId: string,
   questions: readonly ReplyQuestion[],
   pick: ReplyPick | null,
+  cleared: readonly string[] = [],
 ): string | null {
   const newest = questions.at(-1)?.id
+  const arrivedSince = (seen: readonly string[]) =>
+    questions.some((question) => !seen.includes(question.id))
 
   if (!newest) return null
   if (
-    !pick ||
-    pick.sessionId !== sessionId ||
-    questions.some((question) => !pick.seen.includes(question.id))
+    pick?.sessionId === sessionId &&
+    !arrivedSince(pick.seen) &&
+    questions.some((question) => question.id === pick.id)
   )
-    return newest
-  if (pick.id === null) return null
+    return pick.id
 
-  return questions.some((question) => question.id === pick.id) ? pick.id : newest
+  return arrivedSince(cleared) ? newest : null
 }
 
 const sameOptions = (a?: readonly string[], b?: readonly string[]) =>

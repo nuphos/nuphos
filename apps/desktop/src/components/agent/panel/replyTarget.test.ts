@@ -25,11 +25,18 @@ test('a picked older question stays chosen until it closes', () => {
 })
 
 test('clearing sends ordinary messages until a new question arrives', () => {
-  const cleared = { sessionId: 's', id: null, seen: ['q1', 'q2'] }
+  const cleared = ['q1', 'q2']
 
-  assert.equal(replyChoice('s', [older, newer], cleared), null)
-  assert.equal(replyChoice('s', [older], cleared), null)
-  assert.equal(replyChoice('s', [older, newer, { id: 'q3', question: 'Tea?' }], cleared), 'q3')
+  assert.equal(replyChoice('s', [older, newer], null, cleared), null)
+  assert.equal(replyChoice('s', [older], null, cleared), null)
+  assert.equal(
+    replyChoice('s', [older, newer, { id: 'q3', question: 'Tea?' }], null, cleared),
+    'q3',
+  )
+  // A pick made before clearing does not outlive the clear's question set.
+  const pick = { sessionId: 's', id: 'q1', seen: ['q1'] }
+
+  assert.equal(replyChoice('s', [older, newer], pick, cleared), null)
 })
 
 test('a card with the request id answers that request', () => {

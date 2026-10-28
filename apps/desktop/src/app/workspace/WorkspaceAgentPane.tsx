@@ -74,7 +74,12 @@ export function WorkspaceAgentPane({
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
   const inputQueue = useSessionInputRequests(savedSessionId, teamId)
-  const replyTarget = useComposerReplyTarget(savedSessionId, inputQueue.requests)
+  const replyTarget = useComposerReplyTarget(
+    savedSessionId,
+    teamId,
+    inputQueue.requests,
+    inputQueue.loaded,
+  )
   const connectedResources = useMemo(
     () =>
       connectedResourceLabels(
