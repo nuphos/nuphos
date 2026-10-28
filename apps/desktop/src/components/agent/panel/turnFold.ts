@@ -1,15 +1,16 @@
-import { failedOutput } from './activity.ts'
 import { BOOKKEEPING_TOOL_NAMES } from './toolRuns.ts'
 
 import type { Part } from './parts.ts'
 
 // Codex-style turn folding: a turn qualifies when its last meaningful part is
 // answer text and every tool before it ran to completion — nothing pending
-// approval, still running, or cut off. HITL turns whose approvals were
-// answered end in terminal tool states, so they fold too; their cards stay
-// inside the fold at their original position. Returns the index of that
-// final text part (the fold boundary), or -1 when the turn must stay fully
-// expanded.
+// approval, still running, or cut off. A call that ran and failed still counts
+// as finished: agents probe as they go, so a grep with no match must not keep
+// the whole turn expanded; the failed row keeps its error styling inside the
+// fold. HITL turns whose approvals were answered end in terminal tool states,
+// so they fold too; their cards stay inside the fold at their original
+// position. Returns the index of that final text part (the fold boundary), or
+// -1 when the turn must stay fully expanded.
 export function collapsedTurnSplitIndex(parts: Part[]): number {
   let finalTextIndex = -1
 
@@ -29,7 +30,7 @@ export function collapsedTurnSplitIndex(parts: Part[]): number {
       if ((p.type === 'text' || p.type === 'reasoning') && p.text.trim()) hasProcess = true
       continue
     }
-    if (p.state !== 'output-available' || failedOutput(p.output)) return -1
+    if (!p.state.startsWith('output-')) return -1
     if (!BOOKKEEPING_TOOL_NAMES.has(p.toolName)) hasProcess = true
   }
 
@@ -52,19 +53,9 @@ export function interruptedTurnSplitIndex(parts: Part[]): number {
   return split
 }
 
-// Approvals and failures need attention even when the turn was interrupted.
-function needsAttention(parts: Part[], to: number): boolean {
-  for (let i = 0; i < to; i++) {
-    const p = parts[i]
-
-    if (
-      p.type === 'tool' &&
-      (p.state === 'approval-requested' || p.state === 'output-error' || failedOutput(p.output))
-    )
-      return true
-  }
-
-  return false
+// An approval the user can still answer keeps an interrupted turn expanded.
+function awaitsApproval(parts: Part[], to: number): boolean {
+  return parts.slice(0, to).some((p) => p.type === 'tool' && p.state === 'approval-requested')
 }
 
 // Where this turn's fold starts, or -1 when the turn stays fully expanded. A
@@ -80,7 +71,7 @@ export function turnFoldSplitIndex(
   if (endedWithoutAnswer === true || parts.some((p) => p.type === 'turn-interrupted')) {
     const split = interruptedTurnSplitIndex(parts)
 
-    return needsAttention(parts, split) ? -1 : split
+    return awaitsApproval(parts, split) ? -1 : split
   }
 
   return collapsedTurnSplitIndex(parts)
