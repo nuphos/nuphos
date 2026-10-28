@@ -7,7 +7,7 @@ import {
   clearPendingDecision,
   clearConversationPreviewTurn,
   openConversationPromptSuggestion,
-  resolvePendingDecision,
+  resolveInputRequest,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
@@ -133,7 +133,7 @@ export async function persistPreviewTurnContext(
   // A person speaking answers what the session waited on: the question an
   // updated client names, or for older clients and channel integrations, any.
   if (args.humanTurn && args.decisionReplyTo)
-    await resolvePendingDecision(args.sessionId, args.userId, args.decisionReplyTo)
+    await resolveInputRequest(args.sessionId, args.userId, args.decisionReplyTo, 'answered')
   else if (args.humanTurn && !args.explicitDecisionReplies)
     await clearPendingDecision(args.sessionId, args.userId)
   try {

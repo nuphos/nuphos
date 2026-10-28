@@ -133,13 +133,13 @@ test('switching to another session and back reloads the same unanswered question
   pending = [question]
   render('first')
   await settle()
-  assert.equal(render('first').requests[0]?.pendingDecision?.toolCallId, 'question-1')
+  assert.equal(render('first').requests[0]?.inputRequest.id, 'question-1')
   render('second')
   await settle()
   assert.deepEqual(render('second').requests, [])
   render('first')
   await settle()
-  assert.equal(render('first').requests[0]?.pendingDecision?.toolCallId, 'question-1')
+  assert.equal(render('first').requests[0]?.inputRequest.id, 'question-1')
 })
 
 test('unmounting the panel preserves the question; a resolved question stays absent on return', async () => {

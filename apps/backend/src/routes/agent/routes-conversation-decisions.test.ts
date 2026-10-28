@@ -49,12 +49,22 @@ beforeEach(() => {
     createdAt: new Date(),
     lastActiveAt: new Date(),
     generalAccess: 'reply',
-    pendingDecision: {
-      category: 'preference',
-      question: 'Which direction?',
-      toolCallId: 'question-1',
-      askedAt: new Date(),
-    },
+    inputRequests: [
+      {
+        id: 'question-1',
+        category: 'preference',
+        question: 'Which direction?',
+        askedAt: new Date('2026-10-27T01:00:00Z'),
+        status: 'open',
+      },
+      {
+        id: 'question-2',
+        category: 'preference',
+        question: 'Which palette?',
+        askedAt: new Date('2026-10-27T02:00:00Z'),
+        status: 'open',
+      },
+    ],
   }
   memory.rows('agent_conversations').push(conversation)
 })
@@ -67,27 +77,44 @@ function resolve(id = 'question-1', resolution: unknown = 'answered', team = TEA
   })
 }
 
-test('an exact answer resolves durably and repeated resolution is harmless', async () => {
+const statusOf = (id: string) => conversation.inputRequests?.find((r) => r.id === id)?.status
+
+test('an exact answer resolves only that request, and repeating it is harmless', async () => {
   const response = await resolve()
 
   expect(response.status).toBe(200)
   expect(await response.json()).toEqual({ ok: true, resolved: true })
-  expect(conversation.pendingDecision).toBeUndefined()
+  expect(statusOf('question-1')).toBe('answered')
+  expect(conversation.inputRequests?.[0]?.resolvedAt).toBeInstanceOf(Date)
+  expect(statusOf('question-2')).toBe('open')
   expect(await (await resolve()).json()).toEqual({ ok: true, resolved: false })
 })
 
-test('a late answer cannot clear a newer question from the same agent', async () => {
-  conversation.pendingDecision!.toolCallId = 'question-2'
+test('a newer question never hides an older open one', async () => {
+  expect(await (await resolve('question-2')).json()).toEqual({ ok: true, resolved: true })
+  expect(statusOf('question-1')).toBe('open')
+})
 
-  expect(await (await resolve()).json()).toEqual({ ok: true, resolved: false })
-  expect(conversation.pendingDecision?.toolCallId).toBe('question-2')
+test('a question stored before request lists still resolves by its id', async () => {
+  delete conversation.inputRequests
+  conversation.pendingDecision = {
+    category: 'preference',
+    question: 'Which direction?',
+    toolCallId: 'question-1',
+    askedAt: new Date(),
+  }
+
+  expect(await (await resolve('question-2')).json()).toEqual({ ok: true, resolved: false })
+  expect(conversation.pendingDecision).toBeDefined()
+  expect(await (await resolve()).json()).toEqual({ ok: true, resolved: true })
+  expect(conversation.pendingDecision).toBeUndefined()
 })
 
 test('a teammate with reply access can dismiss the owner’s question', async () => {
   viewer = TEAMMATE
 
   expect((await resolve('question-1', 'dismissed')).status).toBe(200)
-  expect(conversation.pendingDecision).toBeUndefined()
+  expect(statusOf('question-1')).toBe('dismissed')
 })
 
 test('viewers and former team members cannot resolve a question', async () => {
@@ -96,16 +123,16 @@ test('viewers and former team members cannot resolve a question', async () => {
   expect((await resolve()).status).toBe(403)
   member = false
   expect((await resolve()).status).toBe(404)
-  expect(conversation.pendingDecision?.toolCallId).toBe('question-1')
+  expect(statusOf('question-1')).toBe('open')
 })
 
 test('a different team scope cannot resolve this question', async () => {
   expect((await resolve('question-1', 'answered', 'bbbbbbbbbbbbbbbbbbbbbbbb')).status).toBe(404)
-  expect(conversation.pendingDecision).toBeDefined()
+  expect(statusOf('question-1')).toBe('open')
 })
 
 test('an invalid resolution is refused without changing the question', async () => {
   expect((await resolve('question-1', 'navigated-away')).status).toBe(400)
   expect((await resolve('question-1', { $ne: null })).status).toBe(400)
-  expect(conversation.pendingDecision).toBeDefined()
+  expect(statusOf('question-1')).toBe('open')
 })

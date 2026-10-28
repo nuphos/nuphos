@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { t } from '../../../i18n'
+import { openInputRequests } from '../../../lib/agentInputRequests'
 import { conversationActivityBadges } from '../../../lib/conversationActivityBadges'
 import { triggerRunLabel } from '../../../lib/triggerRunLabel'
 import { Avatar } from '../../Avatar'
@@ -97,6 +98,8 @@ export function HistoryConversationRow({
   // reads better anywhere a run shows up, not only on the Trigger page.
   const runLabel = triggerRunLabel(conversation.triggerRun)
   const triggerBadge = runLabel ? null : badges.find((badge) => badge.kind === 'trigger')
+  const openRequests = openInputRequests(conversation)
+  const waitingOn = openRequests[0]
 
   return (
     <div
@@ -163,10 +166,11 @@ export function HistoryConversationRow({
           </div>
           <div className={clsx('truncate text-[11.5px] text-tertiary', timeClassName)}>
             {/* Waiting on a decision, the question is what the row is about. */}
-            {conversation.pendingDecision
-              ? `${historyTime(conversation.pendingDecision.askedAt)} · ${conversation.pendingDecision.question}`
+            {waitingOn
+              ? `${historyTime(waitingOn.askedAt)} · ${waitingOn.question}`
               : historyTime(conversation.lastActiveAt)}
-            {!conversation.pendingDecision && conversation.messageCount > 0
+            {openRequests.length > 1 ? ` · +${String(openRequests.length - 1)} more` : ''}
+            {!waitingOn && conversation.messageCount > 0
               ? ` · ${t('{n} messages', { n: conversation.messageCount })}`
               : ''}
             {triggerBadge && (

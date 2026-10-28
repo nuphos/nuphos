@@ -97,13 +97,19 @@ describe('decision tool module', () => {
     expect(conversationUpdates.at(-1)).toEqual([
       { sessionId: 'conv-1', userId: 'u1' },
       {
-        $set: {
-          pendingDecision: {
-            category: 'preference',
-            question: '要部署到哪個 region？',
-            options: ['us-east', 'ap-south'],
-            toolCallId: frames[0]!.toolCallId,
-            askedAt: expect.any(Date),
+        $push: {
+          inputRequests: {
+            $each: [
+              {
+                id: frames[0]!.toolCallId,
+                category: 'preference',
+                question: '要部署到哪個 region？',
+                options: ['us-east', 'ap-south'],
+                askedAt: expect.any(Date),
+                status: 'open',
+              },
+            ],
+            $slice: -100,
           },
         },
       },

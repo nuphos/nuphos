@@ -7,7 +7,7 @@
 // bounded wait: the turn never parks on an answer that is not coming.
 import { randomUUID } from 'node:crypto'
 
-import { setPendingDecision } from '@/lib/agent/db/pending-decision'
+import { addInputRequest } from '@/lib/agent/db/pending-decision'
 import { createUserDecisionTools } from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -166,11 +166,11 @@ function passthroughHandler(
     if (name === 'request_user_decision' && !('error' in outcome)) {
       const { category, question, options: choices } = outcome.output as ExplicitUserDecision
 
-      await setPendingDecision(ctx.sessionId, ctx.conversationOwnerUserId ?? ctx.userId, {
+      await addInputRequest(ctx.sessionId, ctx.conversationOwnerUserId ?? ctx.userId, {
+        id: outcome.toolCallId,
         category,
         question,
         ...(choices ? { options: choices } : {}),
-        toolCallId: outcome.toolCallId,
         askedAt: new Date(),
       }).catch((err: unknown) => {
         // The card is already in the transcript; only the Inbox misses it.

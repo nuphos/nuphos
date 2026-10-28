@@ -51,11 +51,7 @@ export {
   setConversationAvatar,
   setConversationParent,
 } from './db/maintenance'
-export {
-  clearPendingDecision,
-  resolvePendingDecision,
-  setPendingDecision,
-} from './db/pending-decision'
+export { addInputRequest, clearPendingDecision, resolveInputRequest } from './db/pending-decision'
 export {
   bumpConversationActivity,
   conversationReadState,

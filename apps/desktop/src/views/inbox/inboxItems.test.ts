@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { listingFor, nextSelection } from './inboxItems.ts'
+import { listingFor, nextSelection, replyTarget } from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -39,4 +39,20 @@ test("after a team switch the last team's count is not shown", () => {
 
   assert.equal(listingFor(listing, 'team-b'), null)
   assert.equal(listingFor(listing, 'team-a'), listing)
+})
+
+test('a reply answers the chosen open question, else the oldest', () => {
+  const ask = (id: string) => ({
+    id,
+    category: 'preference',
+    question: id,
+    askedAt: '2026-10-27T00:00:00Z',
+    status: 'open' as const,
+  })
+  const open = [ask('oldest'), ask('newer')]
+
+  assert.equal(replyTarget(open, null), 'oldest')
+  assert.equal(replyTarget(open, 'newer'), 'newer')
+  assert.equal(replyTarget(open, 'answered-meanwhile'), 'oldest')
+  assert.equal(replyTarget([], 'newer'), undefined)
 })

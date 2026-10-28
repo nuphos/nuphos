@@ -1,4 +1,4 @@
-import type { AgentConversation } from '../../api/agent-types'
+import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 
 /** One listing of the Inbox: whose it is, and which request produced it. */
 export type InboxListing = { teamId: string; count: number; requestNo: number }
@@ -28,4 +28,15 @@ export function nextSelection(
   const index = Math.max(0, Math.min(selected?.index ?? 0, items.length - 1))
 
   return items[index]!.sessionId
+}
+
+/**
+ * The open question a reply from the Inbox answers: the one the reader chose
+ * while it is still open, else the oldest.
+ */
+export function replyTarget(
+  open: readonly AgentInputRequest[],
+  chosen: string | null,
+): string | undefined {
+  return open.find((request) => request.id === chosen)?.id ?? open[0]?.id
 }

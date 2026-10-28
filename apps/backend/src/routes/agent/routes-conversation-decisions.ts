@@ -1,7 +1,7 @@
 import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
-import { getReadableConversation, resolvePendingDecision } from '@/lib/agent/db'
+import { getReadableConversation, resolveInputRequest } from '@/lib/agent/db'
 import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
@@ -26,7 +26,7 @@ agent.post('/conversations/:sessionId/decisions/:toolCallId/resolve', async (c) 
     (resolution !== 'answered' && resolution !== 'dismissed')
   )
     throw new AppError(400, 'invalid_request', 'A question id and resolution are required')
-  const resolved = await resolvePendingDecision(sessionId, conversation.userId, toolCallId)
+  const resolved = await resolveInputRequest(sessionId, conversation.userId, toolCallId, resolution)
 
   if (resolved)
     logEvent('info', 'agent.pending_decision.resolved', {

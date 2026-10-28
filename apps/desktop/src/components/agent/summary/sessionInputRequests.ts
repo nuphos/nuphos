@@ -1,7 +1,12 @@
-import type { AgentConversation } from '../../../api/agent-types.ts'
+import { openInputRequests } from '../../../lib/agentInputRequests.ts'
 
-export function inputRequestKey(conversation: AgentConversation): string {
-  return `${conversation.sessionId}:${conversation.pendingDecision?.toolCallId ?? ''}`
+import type { AgentConversation, AgentInputRequest } from '../../../api/agent-types.ts'
+
+/** One open question and the conversation that asked it. */
+export type SessionInputRequest = AgentConversation & { inputRequest: AgentInputRequest }
+
+export function inputRequestKey(request: SessionInputRequest): string {
+  return `${request.sessionId}:${request.inputRequest.id}`
 }
 
 /** This session and its readable descendants. */
@@ -34,7 +39,7 @@ export function relatedSessionIds(
 export function sessionInputRequests(
   sessionId: string,
   conversations: readonly AgentConversation[],
-): AgentConversation[] {
+): SessionInputRequest[] {
   const related = relatedSessionIds(sessionId, conversations)
 
   return [
@@ -42,10 +47,14 @@ export function sessionInputRequests(
       conversations.map((conversation) => [conversation.sessionId, conversation]),
     ).values(),
   ]
-    .filter((conversation) => related.has(conversation.sessionId) && conversation.pendingDecision)
+    .filter((conversation) => related.has(conversation.sessionId))
+    .flatMap((conversation) =>
+      openInputRequests(conversation).map((inputRequest) => ({ ...conversation, inputRequest })),
+    )
     .sort(
       (a, b) =>
-        (a.pendingDecision?.askedAt ?? '').localeCompare(b.pendingDecision?.askedAt ?? '') ||
-        a.sessionId.localeCompare(b.sessionId),
+        a.inputRequest.askedAt.localeCompare(b.inputRequest.askedAt) ||
+        a.sessionId.localeCompare(b.sessionId) ||
+        a.inputRequest.id.localeCompare(b.inputRequest.id),
     )
 }

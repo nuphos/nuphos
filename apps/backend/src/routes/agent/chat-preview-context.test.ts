@@ -27,7 +27,7 @@ useAgentDb({
   clearPendingDecision: async (sessionId) => {
     answered.push(sessionId)
   },
-  resolvePendingDecision: async (sessionId, userId, toolCallId) => {
+  resolveInputRequest: async (sessionId, userId, toolCallId) => {
     resolved.push([sessionId, userId, toolCallId])
 
     return true

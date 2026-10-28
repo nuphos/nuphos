@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { composerDraftKey } from '../panel/composerDrafts'
 import { loadClearedReplies, saveClearedReplies } from '../panel/composerReplyCleared'
-import { conversationQuestions, replyChoice } from '../panel/replyTarget'
+import { replyChoice, requestQuestion } from '../panel/replyTarget'
 
-import type { AgentConversation } from '../../../api/agent-types'
 import type { ComposerReplyTarget, ReplyPick, ReplyQuestion } from '../panel/replyTarget'
+import type { SessionInputRequest } from './sessionInputRequests'
 
 /**
  * The open conversation's questions, other than secrets, as the main chat's "Replying to" choice.
@@ -14,12 +14,12 @@ import type { ComposerReplyTarget, ReplyPick, ReplyQuestion } from '../panel/rep
 export function useComposerReplyTarget(
   sessionId: string | null,
   teamId: string | undefined,
-  { requests, loaded }: { requests: readonly AgentConversation[]; loaded: boolean },
+  { requests, loaded }: { requests: readonly SessionInputRequest[]; loaded: boolean },
 ): { replyTarget?: ComposerReplyTarget; openQuestions: ReplyQuestion[] } {
   const openQuestions = useMemo(
     () =>
-      requests.flatMap((request) =>
-        request.sessionId === sessionId ? conversationQuestions(request) : [],
+      requests.flatMap(({ sessionId: asker, inputRequest }) =>
+        asker === sessionId ? [requestQuestion(inputRequest)] : [],
       ),
     [requests, sessionId],
   )

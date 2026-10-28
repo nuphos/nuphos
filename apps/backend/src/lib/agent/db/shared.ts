@@ -3,7 +3,7 @@ import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
-import type { PendingDecision } from './pending-decision'
+import type { ConversationInputRequests } from './pending-decision'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
@@ -63,8 +63,7 @@ export type ConversationPreviewContext = {
 
 export type { ConversationTimelineEvent }
 
-export type AgentConversation = {
-  pendingDecision?: PendingDecision
+export type AgentConversation = ConversationInputRequests & {
   _id?: ObjectId
   sessionId: string // Frontend-generated UUID
   userId: string // Nuphos user id

@@ -109,3 +109,27 @@ test('a credential question is a secret, answered in its card', () => {
     'q9',
   )
 })
+
+test('every open request of a conversation is a question, oldest first; settled ones are not', () => {
+  const request = (id: string, askedAt: string, status: 'open' | 'answered') => ({
+    id,
+    category: 'preference',
+    question: `${id}?`,
+    askedAt,
+    status,
+  })
+
+  assert.deepEqual(
+    conversationQuestions({
+      inputRequests: [
+        request('late', '2026-10-28T02:00:00Z', 'open'),
+        request('done', '2026-10-28T00:00:00Z', 'answered'),
+        request('early', '2026-10-28T01:00:00Z', 'open'),
+      ],
+    }),
+    [
+      { id: 'early', question: 'early?' },
+      { id: 'late', question: 'late?' },
+    ],
+  )
+})

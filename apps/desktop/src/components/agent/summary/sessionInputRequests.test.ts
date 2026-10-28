@@ -75,15 +75,29 @@ test('a fresh answered listing removes the pending record instead of duplicating
   assert.deepEqual(sessionInputRequests('parent', [old, answered]), [])
 })
 
-test('a replacement question has its own selection identity and cyclic ancestry terminates', () => {
-  const first = chat('agent', 'parent', 'First')
+test('every open question of one agent is listed, each with its own identity', () => {
+  const agent = chat('agent', 'parent')
+  const ask = (id: string, askedAt: string) => ({
+    id,
+    category: 'preference',
+    question: id,
+    askedAt,
+    status: 'open' as const,
+  })
 
-  assert.ok(first.pendingDecision)
-  const second = {
-    ...first,
-    pendingDecision: { ...first.pendingDecision, toolCallId: 'replacement' },
-  }
+  agent.inputRequests = [
+    ask('later', '2026-10-27T03:00:00Z'),
+    ask('earlier', '2026-10-27T02:00:00Z'),
+  ]
+  const requests = sessionInputRequests('parent', [agent, chat('other', 'parent', 'Other')])
 
-  assert.notEqual(inputRequestKey(first), inputRequestKey(second))
+  assert.deepEqual(
+    requests.map((request) => request.inputRequest.id),
+    ['question-other', 'earlier', 'later'],
+  )
+  assert.equal(new Set(requests.map(inputRequestKey)).size, 3)
+})
+
+test('cyclic ancestry terminates', () => {
   assert.deepEqual(sessionInputRequests('parent', [chat('a', 'b', 'A'), chat('b', 'a', 'B')]), [])
 })

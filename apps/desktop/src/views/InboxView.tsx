@@ -8,9 +8,10 @@ import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { openInputRequests } from '../lib/agentInputRequests'
 import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
-import { nextSelection } from './inbox/inboxItems'
+import { nextSelection, replyTarget } from './inbox/inboxItems'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
@@ -35,8 +36,9 @@ type Props = {
 /**
  * Teammates asking to use the viewer's own computer, above every conversation
  * waiting on the viewer, beside the one being answered —
- * the Chats reader's own list and panel, listing only `pendingDecision`. The
- * answer names the selected question; only delivery or dismissal clears it.
+ * the Chats reader's own list and panel, listing only conversations with open
+ * requests. A conversation with several asks which one the reply answers; the
+ * answer names that question, and only delivery or dismissal clears it.
  */
 export function InboxView({
   teamId,
@@ -52,6 +54,8 @@ export function InboxView({
   const [items, setItems] = useState<AgentConversation[] | null>(null)
   const [selected, setSelected] = useState<{ sessionId: string; index: number } | null>(null)
   const [tick, setTick] = useState(0)
+  // Which of the open conversation's questions the next reply answers.
+  const [chosenRequest, setChosenRequest] = useState<string | null>(null)
   // The question the reader scrolls to once the opened conversation renders it.
   const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
     null,
@@ -83,6 +87,7 @@ export function InboxView({
   useEffect(() => onCount?.(items?.length ?? 0), [items, onCount])
 
   const select = useCallback((sessionId: string | null, list: AgentConversation[]) => {
+    setChosenRequest(null)
     setSelected(
       sessionId
         ? { sessionId, index: list.findIndex((item) => item.sessionId === sessionId) }
@@ -158,18 +163,21 @@ export function InboxView({
 
   const empty = items !== null && items.length === 0 && !query
   const selectedItem = selected && items?.find((item) => item.sessionId === selected.sessionId)
+  const selectedRequests = selectedItem ? openInputRequests(selectedItem) : []
+  const replyTo = replyTarget(selectedRequests, chosenRequest)
+  const replyRequest = selectedRequests.find((request) => request.id === replyTo)
 
-  // Each newly opened conversation starts at its question, not its latest message.
+  // Each newly opened conversation starts at the question a reply answers, not its latest message.
   if (selectedItem && selectedItem.sessionId !== locatedFor) {
     setLocatedFor(selectedItem.sessionId)
     setLocate(
-      selectedItem.pendingDecision
+      replyRequest
         ? {
             sessionId: selectedItem.sessionId,
             target: {
-              toolCallId: selectedItem.pendingDecision.toolCallId,
-              question: selectedItem.pendingDecision.question,
-              options: selectedItem.pendingDecision.options,
+              toolCallId: replyRequest.id,
+              question: replyRequest.question,
+              options: replyRequest.options,
             },
           }
         : null,
@@ -216,6 +224,34 @@ export function InboxView({
         </div>
         {twoPane && !empty && (
           <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
+            {selected && selectedRequests.length > 1 && (
+              <div
+                role="radiogroup"
+                aria-label="Question to answer"
+                className="flex shrink-0 flex-col gap-1 border-b border-zGray-800/60 px-4 py-2.5"
+              >
+                <p className="text-[11px] text-tertiary">
+                  {`${String(selectedRequests.length)} questions waiting. Your reply answers the selected one.`}
+                </p>
+                {selectedRequests.map((request) => (
+                  <button
+                    key={request.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={request.id === replyTo}
+                    onClick={() => setChosenRequest(request.id)}
+                    className={clsx(
+                      'truncate rounded-md px-2 py-1 text-left text-[12px] outline-none focus-visible:ring-1 focus-visible:ring-zViolet-accent',
+                      request.id === replyTo
+                        ? 'bg-zGray-800/70 text-main'
+                        : 'text-secondary hover:bg-zGray-800/40 hover:text-main',
+                    )}
+                  >
+                    {request.question}
+                  </button>
+                ))}
+              </div>
+            )}
             {selected && (
               <AgentPanel
                 key="inbox"
@@ -224,7 +260,7 @@ export function InboxView({
                 focusComposerOnOpen={false}
                 teamId={teamId}
                 sessionId={selected.sessionId}
-                decisionReplyTo={selectedItem?.pendingDecision?.toolCallId}
+                decisionReplyTo={replyTo}
                 openQuestions={selectedItem ? conversationQuestions(selectedItem) : undefined}
                 pendingLocate={locate}
                 onLocateConsumed={consumeLocate}

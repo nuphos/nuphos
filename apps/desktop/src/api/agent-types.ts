@@ -71,8 +71,10 @@ export type AgentConversation = {
   /** Owner-only: assistant turn boundaries so far, and how many were read on any device. */
   activitySeq?: number
   readSeq?: number
-  /** The question this session awaits; Desktop resolves it by question id after a reply or dismissal. */
+  /** The oldest open question, for builds that predate inputRequests. */
   pendingDecision?: AgentPendingDecision
+  /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
+  inputRequests?: AgentInputRequest[]
 }
 
 export type AgentPendingDecision = {
@@ -81,6 +83,16 @@ export type AgentPendingDecision = {
   options?: string[]
   toolCallId: string
   askedAt: string
+}
+
+export type AgentInputRequest = {
+  /** The request_user_decision tool call id. */
+  id: string
+  category: string
+  question: string
+  options?: string[]
+  askedAt: string
+  status: 'open' | 'answered' | 'dismissed'
 }
 
 export type AgentConversationActivitySource = {

@@ -100,7 +100,7 @@ export function useSessionInputRequests(sessionId: string | null, teamId: string
     if (listing && listing.teamId === teamId) {
       // The pending listing is authoritative, including a request that was answered.
       for (const [id, conversation] of rows)
-        rows.set(id, { ...conversation, pendingDecision: undefined })
+        rows.set(id, { ...conversation, pendingDecision: undefined, inputRequests: undefined })
       for (const conversation of listing.conversations)
         rows.set(conversation.sessionId, conversation)
     }

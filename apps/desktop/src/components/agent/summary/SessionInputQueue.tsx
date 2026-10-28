@@ -11,8 +11,8 @@ import { conversationQuestions } from '../panel/replyTarget'
 import { SummarySection } from './ChatSummaryRows'
 import { inputRequestKey } from './sessionInputRequests'
 
-import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
+import type { SessionInputRequest } from './sessionInputRequests'
 
 export function SessionInputQueue({
   requests,
@@ -20,10 +20,10 @@ export function SessionInputQueue({
   loaded,
   onSelect,
 }: {
-  requests: AgentConversation[]
+  requests: SessionInputRequest[]
   failed: boolean
   loaded: boolean
-  onSelect: (request: AgentConversation) => void
+  onSelect: (request: SessionInputRequest) => void
 }) {
   const title = requests.length
     ? t('Needs your input · {count}', { count: requests.length })
@@ -55,7 +55,7 @@ export function SessionInputQueue({
               {request.title || t('Untitled agent')}
             </span>
             <span className="mt-0.5 line-clamp-2 block text-[12px] leading-5 text-secondary">
-              {request.pendingDecision?.question}
+              {request.inputRequest.question}
             </span>
           </span>
         </button>
@@ -74,10 +74,10 @@ export function SessionInputReply({
   onClose,
   onOpenSession,
 }: {
-  request: AgentConversation
-  requests: AgentConversation[]
+  request: SessionInputRequest
+  requests: SessionInputRequest[]
   teamId: string
-  onSelect: (request: AgentConversation) => void
+  onSelect: (request: SessionInputRequest) => void
   onBack: () => void
   onClose: () => void
   onOpenSession: (sessionId: string, target?: JournalChatTarget) => void
@@ -86,22 +86,23 @@ export function SessionInputReply({
   const next = requests.find((item) => inputRequestKey(item) !== inputRequestKey(request))
   const [dismissed, setDismissed] = useState(false)
   const [dismissing, setDismissing] = useState(false)
-  const questionTarget: JournalChatTarget | undefined = request.pendingDecision && {
-    toolCallId: request.pendingDecision.toolCallId,
-    question: request.pendingDecision.question,
-    options: request.pendingDecision.options,
+  const questionTarget: JournalChatTarget = {
+    toolCallId: request.inputRequest.id,
+    question: request.inputRequest.question,
+    options: request.inputRequest.options,
   }
-  const [locate, setLocate] = useState(
-    questionTarget ? { sessionId: request.sessionId, target: questionTarget } : null,
-  )
+  const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>({
+    sessionId: request.sessionId,
+    target: questionTarget,
+  })
 
   async function dismiss() {
-    if (!request.pendingDecision || dismissing) return
+    if (dismissing) return
     setDismissing(true)
     try {
       await api.agentResolveDecision(
         request.sessionId,
-        request.pendingDecision.toolCallId,
+        request.inputRequest.id,
         teamId,
         'dismissed',
       )
@@ -146,12 +147,12 @@ export function SessionInputReply({
         </button>
       </div>
       <div className="shrink-0 border-b border-zGray-800/60 px-4 py-3">
-        <p className="text-[12px] leading-5 text-main">{request.pendingDecision?.question}</p>
+        <p className="text-[12px] leading-5 text-main">{request.inputRequest.question}</p>
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-tertiary">
           <span role="status">
             {!stillPending || dismissed
               ? t('This request is no longer pending.')
-              : request.pendingDecision?.category === 'credential'
+              : request.inputRequest.category === 'credential'
                 ? t('Answer in the secure card below. Never paste a secret in a message.')
                 : t('Your reply goes to this agent only.')}
           </span>
@@ -183,7 +184,7 @@ export function SessionInputReply({
           teamId={teamId}
           sessionId={request.sessionId}
           sessionReadOnly={(request.readOnly ?? false) || !stillPending || dismissed}
-          decisionReplyTo={request.pendingDecision?.toolCallId}
+          decisionReplyTo={request.inputRequest.id}
           openQuestions={conversationQuestions(request)}
           composerDraftId={`input:${inputRequestKey(request)}`}
           focusComposerOnOpen={false}

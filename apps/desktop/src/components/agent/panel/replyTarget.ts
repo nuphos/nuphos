@@ -1,4 +1,6 @@
-import type { AgentConversation } from '../../../api/agent-types'
+import { openInputRequests } from '../../../lib/agentInputRequests.ts'
+
+import type { AgentConversation, AgentInputRequest } from '../../../api/agent-types'
 
 /**
  * An open question a message can answer. A `secret` one (category `credential`)
@@ -9,22 +11,26 @@ export type ReplyQuestion = { id: string; question: string; options?: string[]; 
 /** A question card as the transcript shows it. */
 export type DecisionCardRef = { toolCallId: string; question?: string; options?: string[] }
 
+/** One open request as a question; a `credential` one is a secret. */
+export function requestQuestion({
+  id,
+  question,
+  options,
+  category,
+}: Pick<AgentInputRequest, 'id' | 'question' | 'options' | 'category'>): ReplyQuestion {
+  return {
+    id,
+    question,
+    ...(options && { options }),
+    ...(category === 'credential' && { secret: true as const }),
+  }
+}
+
 /** A conversation's open questions, oldest first. */
 export function conversationQuestions(
-  conversation: Pick<AgentConversation, 'pendingDecision'>,
+  conversation: Pick<AgentConversation, 'inputRequests' | 'pendingDecision'>,
 ): ReplyQuestion[] {
-  const open = conversation.pendingDecision
-
-  return open
-    ? [
-        {
-          id: open.toolCallId,
-          question: open.question,
-          ...(open.options && { options: open.options }),
-          ...(open.category === 'credential' && { secret: true as const }),
-        },
-      ]
-    : []
+  return openInputRequests(conversation).map(requestQuestion)
 }
 
 /** The main chat's "Replying to" choice for the open conversation. */

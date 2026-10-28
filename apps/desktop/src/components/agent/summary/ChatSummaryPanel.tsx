@@ -17,8 +17,8 @@ import { inputRequestKey } from './sessionInputRequests'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
-import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
+import type { SessionInputRequest } from './sessionInputRequests'
 import type { KeyboardEvent } from 'react'
 
 type Props = {
@@ -28,7 +28,7 @@ type Props = {
   onOpenSession: (sessionId: string) => void
   /** Opens the conversation in the main pane at the message asking this question. */
   onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
-  requests: AgentConversation[]
+  requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
 }
@@ -126,7 +126,7 @@ function SummaryBody({
   requestsFailed,
 }: Props) {
   const rootRef = useRef<HTMLElement>(null)
-  const [selected, setSelected] = useState<AgentConversation | null>(null)
+  const [selected, setSelected] = useState<SessionInputRequest | null>(null)
   const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
   const runtimeStates = useAgentRuntimeStates()
   const changes = changesOf(conversation?.linkedResources ?? [])
