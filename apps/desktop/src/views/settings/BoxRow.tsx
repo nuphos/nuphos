@@ -240,7 +240,7 @@ export function BoxRow({
             busy={busy}
             confirming={confirmUpdate}
             onConfirmingChange={setConfirmUpdate}
-            onUpdate={() => void update()}
+            onUpdate={update}
           />
         )}
       </div>

@@ -16,7 +16,8 @@ export function BoxHostUpdate({
   busy: boolean
   confirming: boolean
   onConfirmingChange: (open: boolean) => void
-  onUpdate: () => void
+  /** Resolves once the update has started; the confirmation shows it working until then. */
+  onUpdate: () => Promise<void>
 }) {
   return (
     <>
