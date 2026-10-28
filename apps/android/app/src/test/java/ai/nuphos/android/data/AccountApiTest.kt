@@ -170,12 +170,10 @@ class AccountApiTest {
         try { api.deletion(); fail() } catch (e: NuphosApi.Failure.Http) { assertEquals(403, e.code) }
     }
     @Test fun profileAndDeletionValidatorsMatchFormBoundaries() {
-        assertNull(profileValidationError(" A ", " a-1_ ", "https://lh3.googleusercontent.com/a"))
-        assertNull(profileValidationError("A".repeat(100), "u".repeat(40), ""))
-        for (url in listOf("http://lh3.googleusercontent.com/a", "https://evil.example/a", "https://lh3.googleusercontent.com:444/a", "https://u@lh3.googleusercontent.com/a", "https://lh3.googleusercontent.com.evil/a"))
-            assertNotNull(profileValidationError("A", "u", url))
-        assertNotNull(profileValidationError("A".repeat(101), "u", ""))
-        assertNotNull(profileValidationError("A", "a b", ""))
+        assertNull(profileValidationError(" A ", " a-1_ "))
+        assertNull(profileValidationError("A".repeat(100), "u".repeat(40)))
+        assertNotNull(profileValidationError("A".repeat(101), "u"))
+        assertNotNull(profileValidationError("A", "a b"))
         assertNull(deletionValidationError("DELETE", code = "123456"))
         assertNull(deletionValidationError("DELETE", password = "p".repeat(12)))
         assertNotNull(deletionValidationError(" DELETE ", code = "123456"))

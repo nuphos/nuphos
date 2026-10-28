@@ -4,6 +4,7 @@ import ai.nuphos.android.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -53,11 +54,15 @@ class AccountApi internal constructor(private val token: String, private val cli
     })
 
     suspend fun updateProfile(name: String, username: String, avatarURL: String): NuphosUser {
-        require(profileValidationError(name, username, avatarURL) == null) { "Invalid profile." }
+        require(profileValidationError(name, username) == null) { "Invalid profile." }
         return execute("me", "PATCH", buildJsonObject {
             put("name", name.trim()); put("username", username.trim()); put("avatarURL", avatarURL)
         })
     }
+
+    /** Uploads a profile photo, or removes it with `null`; the backend re-encodes it to a 256px WebP. */
+    suspend fun setAvatar(image: ByteArray?): NuphosUser =
+        execute("me/avatar", if (image == null) "DELETE" else "PUT", upload = image)
 
     suspend fun deletion(): AccountDeletionResponse = execute("account-deletion", "GET")
 
@@ -103,12 +108,13 @@ class AccountApi internal constructor(private val token: String, private val cli
 
     private suspend inline fun <reified T> execute(
         path: String, method: String, body: JsonObject? = null, authenticated: Boolean = true, allowRedirects: Boolean = true,
+        upload: ByteArray? = null,
     ): T = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("${NuphosApi.BASE_URL}/auth/$path")
             .header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader())
             .apply { if (authenticated) header("Authorization", "Bearer $token") }
-            .method(method, body?.toString()?.toRequestBody(Http.jsonMedia)).build()
+            .method(method, upload?.toRequestBody("application/octet-stream".toMediaType()) ?: body?.toString()?.toRequestBody(Http.jsonMedia)).build()
         val transport = if (allowRedirects) client else client.newBuilder().followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
         transport.newCall(request).execute().use { response ->
             val text = response.body.string()
