@@ -61,7 +61,10 @@ export async function call<T>(
   const requestId = tagRequest(headers)
   const init: RequestInit = { method, headers }
 
-  if (body !== undefined) {
+  if (body instanceof Uint8Array) {
+    init.body = body
+    headers['content-type'] = 'application/octet-stream'
+  } else if (body !== undefined) {
     init.body = JSON.stringify(body)
     headers['content-type'] = 'application/json'
   }

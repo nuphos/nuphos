@@ -152,7 +152,8 @@ export type WindowTeamApi = {
     layout: HomeLayout | null,
   ): Promise<void>
   atlasCreateTeam(name: string): Promise<AtlasTeam>
-  atlasUpdateTeam(teamId: string, input: { name?: string; avatarUrl?: string }): Promise<AtlasTeam>
+  atlasUpdateTeam(teamId: string, input: { name: string }): Promise<AtlasTeam>
+  atlasSetTeamAvatar(teamId: string, image: Uint8Array | null): Promise<AtlasTeam>
   atlasSetTeamEmailDomainDiscovery(teamId: string, enabled: boolean): Promise<AtlasTeam>
   atlasSetTeamAgentRuntime(teamId: string, runtime: AgentProvider): Promise<AtlasTeam>
   atlasSetTeamLocalAgentSharing(

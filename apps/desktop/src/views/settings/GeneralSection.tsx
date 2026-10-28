@@ -4,11 +4,11 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { api } from '../../api'
-import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
+import { AvatarPicker } from './AvatarPicker'
 import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
 import { DangerZone } from './DangerZone'
 import { Field, SectionHeader } from './shared'
@@ -64,12 +64,9 @@ export function GeneralSection({
   onTeamRemoved: (teamId: string) => void
 }) {
   const [name, setName] = useState(team?.name ?? '')
-  const [icon, setIcon] = useState(team?.avatarUrl ?? '')
   const [submitting, setSubmitting] = useState(false)
 
-  const dirty = team
-    ? name.trim() !== (team.name ?? '') || icon.trim() !== (team.avatarUrl ?? '')
-    : false
+  const dirty = team ? name.trim() !== (team.name ?? '') : false
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -78,10 +75,7 @@ export function GeneralSection({
     if (!team || !trimmedName || submitting) return
     setSubmitting(true)
     try {
-      const updated = await api.atlasUpdateTeam(team.id, {
-        name: trimmedName,
-        avatarUrl: icon.trim(),
-      })
+      const updated = await api.atlasUpdateTeam(team.id, { name: trimmedName })
 
       onTeamUpdated(updated)
       toast.success('Workspace updated')
@@ -98,21 +92,16 @@ export function GeneralSection({
       {team ? (
         <>
           <form onSubmit={(e) => void submit(e)} className="space-y-5">
-            <div className="flex items-center gap-4">
-              <Avatar
-                key={`${team.id}:${icon}`}
-                src={icon}
-                name={name || team.name || 'Workspace'}
-                size={56}
-                className="rounded-lg !shadow-none"
-              />
-              <div className="min-w-0">
-                <div className="text-[14px] font-medium text-main truncate">
-                  {name || team.name || 'Workspace'}
-                </div>
-                <CopyableTeamId id={team.id} />
-              </div>
-            </div>
+            <AvatarPicker
+              key={team.id}
+              src={team.avatarUrl}
+              name={name || team.name || 'Workspace'}
+              square
+              onUpload={async (image) =>
+                onTeamUpdated(await api.atlasSetTeamAvatar(team.id, image))
+              }
+              onRemove={async () => onTeamUpdated(await api.atlasSetTeamAvatar(team.id, null))}
+            />
 
             <Field label="Name">
               <input
@@ -125,15 +114,10 @@ export function GeneralSection({
               />
             </Field>
 
-            <Field label="Icon URL" hint="A square image works best.">
-              <input
-                type="url"
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                placeholder="https://example.com/icon.png"
-                className={inputClasses}
-              />
-            </Field>
+            <div>
+              <span className="block text-[12.5px] font-medium text-secondary mb-1.5">Team ID</span>
+              <CopyableTeamId id={team.id} />
+            </div>
 
             <div className="flex justify-end pt-1">
               <Button size="sm" type="submit" disabled={!name.trim() || !dirty || submitting}>

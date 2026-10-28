@@ -29,7 +29,6 @@ export type NuphosTeam = {
 
 export type TeamUpdateInput = {
   name?: string
-  avatarUrl?: string
 }
 
 export type TeamMembership = {

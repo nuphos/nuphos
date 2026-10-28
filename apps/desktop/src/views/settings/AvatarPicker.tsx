@@ -2,14 +2,11 @@ import clsx from 'clsx'
 import { Camera } from 'lucide-react'
 import { useRef, useState } from 'react'
 
-import { api } from '../../api'
 import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
-import { trustedAvatarURL } from '../../lib/avatarUrl'
 
 import { AvatarCropDialog } from './AvatarCropDialog'
 
-import type { UserInfo } from '../../types'
 import type { DragEvent } from 'react'
 
 const PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp']
@@ -23,22 +20,30 @@ function validatePhoto(file: File): string | null {
   return null
 }
 
-/** The profile avatar: click or drop an image to crop and upload it, or remove it. */
-export function ProfilePhoto({
-  user,
-  displayName,
-  onUserUpdated,
+/**
+ * An uploaded avatar (a profile photo or a team icon): click or drop an image
+ * to crop and upload it, or remove it.
+ */
+export function AvatarPicker({
+  src,
+  name,
+  square = false,
+  onUpload,
+  onRemove,
 }: {
-  user: UserInfo
-  displayName: string
-  onUserUpdated: (user: UserInfo) => void
+  /** The current image, already checked by the caller; empty shows initials. */
+  src: string | undefined
+  name: string
+  square?: boolean
+  onUpload: (image: Uint8Array) => Promise<void>
+  onRemove: () => Promise<void>
 }) {
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
-  const avatarURL = user.avatarURL ?? ''
+  const shape = square ? 'rounded-lg' : 'rounded-full'
 
   function pickPhoto(file: File | undefined) {
     if (!file) return
@@ -54,15 +59,11 @@ export function ProfilePhoto({
     pickPhoto(event.dataTransfer.files[0])
   }
 
-  async function uploadPhoto(image: Uint8Array) {
-    onUserUpdated(await api.authUploadAvatar(image))
-  }
-
   async function removePhoto() {
     setPhotoBusy(true)
     setPhotoError(null)
     try {
-      onUserUpdated(await api.authRemoveAvatar())
+      await onRemove()
     } catch (err) {
       setPhotoError(err instanceof Error ? err.message : 'Could not remove photo')
     } finally {
@@ -85,19 +86,16 @@ export function ProfilePhoto({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={clsx(
-            'group relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500',
+            'group relative outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500',
+            shape,
             dragging && 'ring-2 ring-zViolet-500 ring-offset-2 ring-offset-zGray-900',
           )}
         >
-          <Avatar
-            src={trustedAvatarURL(avatarURL)}
-            name={displayName}
-            size={64}
-            className="rounded-full !shadow-none"
-          />
+          <Avatar src={src} name={name} size={64} className={clsx(shape, '!shadow-none')} />
           <span
             className={clsx(
-              'absolute inset-0 flex flex-col items-center justify-center gap-0.5 rounded-full bg-black/70 text-[10px] backdrop-blur-[2px] font-medium leading-tight text-white transition-opacity',
+              shape,
+              'absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/70 text-[10px] backdrop-blur-[2px] font-medium leading-tight text-white transition-opacity',
               dragging
                 ? 'opacity-100'
                 : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
@@ -118,7 +116,7 @@ export function ProfilePhoto({
             >
               Upload photo
             </Button>
-            {avatarURL && (
+            {src && (
               <Button
                 type="button"
                 size="sm"
@@ -150,9 +148,7 @@ export function ProfilePhoto({
           {photoError}
         </p>
       )}
-      {photo && (
-        <AvatarCropDialog file={photo} onSave={uploadPhoto} onClose={() => setPhoto(null)} />
-      )}
+      {photo && <AvatarCropDialog file={photo} onSave={onUpload} onClose={() => setPhoto(null)} />}
     </>
   )
 }
