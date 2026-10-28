@@ -197,7 +197,10 @@ test('only the conversation owner can provide a secret, not a teammate who can r
   expect(secretsSaved).toBe(0)
   conversation.userId = me
   try {
-    expect(await (await save()).json()).toEqual({ ok: true, path: '/runtime/nuphos-secret-x/0/KEY' })
+    expect(await (await save()).json()).toEqual({
+      ok: true,
+      path: '/runtime/nuphos-secret-x/0/KEY',
+    })
     expect(secretsSaved).toBe(1)
   } finally {
     conversation.userId = 'owner'
