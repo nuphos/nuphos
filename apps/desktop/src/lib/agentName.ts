@@ -50,22 +50,24 @@ export function groupAgentsByTier<T extends NamedAgent>(
 
 type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
 
-/** An agent on a computer that is not reachable now: listed greyed out, never chosen. */
-export function offline(agent: NamedAgent): boolean {
-  return agent.local?.online === false
+/** Why an agent cannot take a turn now: listed greyed out with this, never chosen. */
+export function unavailable(agent: NamedAgent): 'Offline' | 'Signed out' | null {
+  if (agent.local?.online === false) return 'Offline'
+  if (agent.local?.signedIn === false) return 'Signed out'
+
+  return null
 }
 
-/** Active, ready and signed in, whether or not its computer is online. */
 function listable(agent: SelectableAgent): boolean {
-  return agent.status === 'active' && !agent.notReady && agent.local?.signedIn !== false
+  return agent.status === 'active' && !agent.notReady
 }
 
-/** The one rule for an agent a conversation can run on: listed, on a computer that is online. */
+/** The one rule for an agent a conversation can run on: listed, and not unavailable. */
 export function usable(agent: SelectableAgent): boolean {
-  return listable(agent) && !offline(agent)
+  return listable(agent) && !unavailable(agent)
 }
 
-/** The picker lists these; the offline ones it shows but does not offer. */
+/** The picker lists these; the unavailable ones it shows but does not offer. */
 export function listedAgents<T extends SelectableAgent>(agents: readonly T[]): T[] {
   return agents.filter(listable)
 }

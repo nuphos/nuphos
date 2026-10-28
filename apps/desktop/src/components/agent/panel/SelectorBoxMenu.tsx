@@ -85,9 +85,9 @@ export function SelectorBoxMenu({
   const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
   const BoxIcon = group.device?.box || !group.agents[0]?.local ? Box : Laptop
 
-  if (group.offline)
+  if (group.unavailable)
     return (
-      <MenuItem disabled icon={<BoxIcon className="h-4 w-4" />} hint="Offline">
+      <MenuItem disabled icon={<BoxIcon className="h-4 w-4" />} hint={group.unavailable}>
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium">{group.label}</span>
           {current && <Check aria-label="Current computer" className="h-3 w-3 shrink-0" />}

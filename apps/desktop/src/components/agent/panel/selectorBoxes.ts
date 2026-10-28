@@ -1,4 +1,4 @@
-import { listedAgents, offline } from '../../../lib/agentName.ts'
+import { listedAgents, unavailable } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
@@ -10,13 +10,13 @@ export type SelectorBox = {
   label: string
   device?: AgentDevice
   agents: RuntimeInstance[]
-  /** Shown greyed out with nothing to pick. A device's runtimes share its presence. */
-  offline: boolean
+  /** Why none of its runtimes can be picked: shown greyed out with this. */
+  unavailable: ReturnType<typeof unavailable>
 }
 
 /**
- * Listed runtimes, grouped by device id (never display name), offline computers last. A computer
- * whose runtimes all need a sign-in is left out.
+ * Listed runtimes, grouped by device id (never display name). A computer offers only the runtimes
+ * that can take a turn; with none, it is unavailable for the first one's reason and goes last.
  */
 export function selectorBoxes(
   agents: RuntimeInstance[],
@@ -44,14 +44,23 @@ export function selectorBoxes(
         label:
           device?.label ?? agent.local?.deviceLabel ?? (id === 'cloud' ? 'Cloud' : agent.label),
         agents: [],
-        offline: offline(agent),
+        unavailable: null,
       }
       groups.set(id, group)
     }
     group.agents.push(agent)
   }
 
-  return [...groups.values()].sort((a, b) => Number(a.offline) - Number(b.offline))
+  for (const group of groups.values()) {
+    const ready = group.agents.filter((agent) => !unavailable(agent))
+
+    if (ready.length) group.agents = ready
+    else group.unavailable = group.agents[0] ? unavailable(group.agents[0]) : null
+  }
+
+  return [...groups.values()].sort(
+    (a, b) => Number(a.unavailable !== null) - Number(b.unavailable !== null),
+  )
 }
 
 export type SelectorMetrics = NonNullable<ReturnType<typeof selectorMetrics>>

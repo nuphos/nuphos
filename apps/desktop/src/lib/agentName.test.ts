@@ -7,6 +7,7 @@ import {
   defaultAgent,
   groupAgentsByTier,
   listedAgents,
+  unavailable,
   usable,
 } from './agentName.ts'
 
@@ -84,11 +85,15 @@ test('one rule decides what the picker lists and what a new conversation starts 
   const signedIn = { ...here, status: 'active' as const }
   const signedOut = { ...signedIn, id: 'd', local: { ...here.local, signedIn: false } }
 
+  // Signed out is listed, greyed out; disabled and not-ready are not listed at all.
   assert.deepEqual(listedAgents([ready, starting, disabled, signedIn, signedOut]), [
     ready,
     signedIn,
+    signedOut,
   ])
-  assert.deepEqual(listedAgents([starting, disabled, signedOut]), [])
+  assert.deepEqual(listedAgents([starting, disabled]), [])
+  assert.equal(unavailable(signedOut), 'Signed out')
+  assert.equal(usable(signedOut), false)
   // A not-ready agent is never the default, however much quota it has left.
   assert.equal(defaultAgent([starting, ready], me, (agent) => (agent.id === 'b' ? 0 : 90))?.id, 'a')
   assert.equal(usable(starting), false)
@@ -105,6 +110,7 @@ test('an offline computer is never the default, though its unread quota looks em
   const online = { ...here, status: 'active' as const, local: { ...here.local, online: true } }
 
   assert.equal(usable(offline), false)
+  assert.equal(unavailable(offline), 'Offline')
   // Listed, so the picker can show it greyed out.
   assert.deepEqual(listedAgents([offline]), [offline])
   assert.equal(
