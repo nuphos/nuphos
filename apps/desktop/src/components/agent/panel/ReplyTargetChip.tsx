@@ -1,8 +1,9 @@
 import clsx from 'clsx'
-import { CornerUpLeft, X } from 'lucide-react'
+import { ChevronDown, CornerUpLeft, X } from 'lucide-react'
 import { useRef } from 'react'
 
 import { t } from '../../../i18n'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
 
 import { composerOf } from './modelSelectorParts'
 
@@ -12,7 +13,7 @@ import type { MouseEvent } from 'react'
 // A click on the chip keeps the caret in the composer.
 const keepComposerFocus = (event: MouseEvent) => event.preventDefault()
 
-/** Which open question the next message answers, above the composer. */
+/** Which open question the next message answers, above the composer; with several, a menu picks one. */
 export function ReplyTargetChip({
   target,
   sidebar = false,
@@ -24,8 +25,10 @@ export function ReplyTargetChip({
   const chosen = target.questions.find((question) => question.id === target.chosen)
 
   if (!chosen) return null
+  const composer = () =>
+    composerOf(ref.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? null
   const clear = () => {
-    composerOf(ref.current)?.querySelector<HTMLElement>('[aria-label="Message"]')?.focus()
+    composer()?.focus()
     target.onChoose(null)
   }
 
@@ -36,7 +39,8 @@ export function ReplyTargetChip({
         role="group"
         aria-label={t('Reply target')}
         onKeyDown={(event) => {
-          if (event.key !== 'Escape') return
+          // The menu renders in a portal; its own Esc only closes it.
+          if (event.key !== 'Escape' || !event.currentTarget.contains(event.target as Node)) return
           event.preventDefault()
           event.stopPropagation()
           clear()
@@ -45,9 +49,39 @@ export function ReplyTargetChip({
       >
         <CornerUpLeft aria-hidden className="size-3 shrink-0 text-tertiary" strokeWidth={2.2} />
         <span className="shrink-0 text-tertiary">{t('Replying to:')}</span>
-        <span className="min-w-0 truncate text-secondary" title={chosen.question}>
-          {chosen.question}
-        </span>
+        {target.questions.length > 1 ? (
+          <Menu>
+            <MenuTrigger
+              aria-label={`Replying to ${chosen.question}. Choose another question`}
+              title={chosen.question}
+              className="flex min-w-0 items-center gap-1 rounded-full text-secondary outline-none hover:text-main focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+            >
+              <span className="min-w-0 truncate">{chosen.question}</span>
+              <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60" strokeWidth={2} />
+            </MenuTrigger>
+            <MenuContent
+              side="top"
+              align="start"
+              className="max-w-[min(420px,calc(100vw-32px))]"
+              finalFocus={composer}
+            >
+              {target.questions.map((question) => (
+                <MenuItem
+                  key={question.id}
+                  selected={question.id === chosen.id}
+                  title={question.question}
+                  onClick={() => target.onChoose(question.id)}
+                >
+                  <span className="block truncate">{question.question}</span>
+                </MenuItem>
+              ))}
+            </MenuContent>
+          </Menu>
+        ) : (
+          <span className="min-w-0 truncate text-secondary" title={chosen.question}>
+            {chosen.question}
+          </span>
+        )}
         <button
           type="button"
           onMouseDown={keepComposerFocus}
