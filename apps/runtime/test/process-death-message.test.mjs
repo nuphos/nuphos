@@ -8,7 +8,7 @@ import {
   nuphosOomKills,
   nuphosOwnCgroup,
   nuphosProcessDeathMessage,
-} from '../image/claude-agent-acp/process-death.mjs'
+} from '../image/process-death.mjs'
 
 // A real cgroup path is required for the limit walk, which stops at /sys/fs/cgroup.
 function fakeCgroup(oomKill) {
@@ -36,7 +36,8 @@ test('counts OOM kills from memory.events', () => {
 
 test('a SIGKILL while the OOM kill count rose names the memory limit', () => {
   const text = nuphosProcessDeathMessage(
-    'Claude Code process terminated by signal SIGKILL',
+    'Claude Code',
+    'process terminated by signal SIGKILL',
     fakeCgroup(1),
     0,
   )
@@ -48,7 +49,8 @@ test('a SIGKILL while the OOM kill count rose names the memory limit', () => {
 
 test('a SIGKILL without an OOM kill keeps its signal', () => {
   const text = nuphosProcessDeathMessage(
-    'Claude Code process terminated by signal SIGKILL',
+    'Claude Code',
+    'process terminated by signal SIGKILL',
     fakeCgroup(2),
     2,
   )
@@ -61,7 +63,7 @@ test('a SIGKILL without an OOM kill keeps its signal', () => {
 
 test('another death keeps its own reason, also outside a cgroup', () => {
   assert.equal(
-    nuphosProcessDeathMessage('Claude Code process terminated by signal SIGABRT', null, 0),
-    'Claude Code stopped unexpectedly (process terminated by signal SIGABRT). Send a message to continue.',
+    nuphosProcessDeathMessage('Codex', 'process terminated by signal SIGABRT', null, 0),
+    'Codex stopped unexpectedly (process terminated by signal SIGABRT). Send a message to continue.',
   )
 })
