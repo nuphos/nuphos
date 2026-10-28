@@ -6,6 +6,7 @@ import { t } from '../../../i18n'
 import { openInputRequests } from '../../../lib/agentInputRequests'
 import { conversationActivityBadges } from '../../../lib/conversationActivityBadges'
 import { triggerRunLabel } from '../../../lib/triggerRunLabel'
+import { openQuestionCount } from '../../../views/inbox/inboxItems'
 import { Avatar } from '../../Avatar'
 
 import { ConversationActivityBadgeView, ConversationChannelDot } from './conversationBadges'
@@ -100,6 +101,7 @@ export function HistoryConversationRow({
   const triggerBadge = runLabel ? null : badges.find((badge) => badge.kind === 'trigger')
   const openRequests = openInputRequests(conversation)
   const waitingOn = openRequests[0]
+  const questionCount = openQuestionCount(openRequests.length)
 
   return (
     <div
@@ -155,21 +157,28 @@ export function HistoryConversationRow({
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div
-            className={clsx(
-              'min-w-0 truncate group-hover:text-main',
-              titleTone({ unread, selected }),
-              titleClassName,
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              className={clsx(
+                'min-w-0 truncate group-hover:text-main',
+                titleTone({ unread, selected }),
+                titleClassName,
+              )}
+            >
+              {conversation.title || conversation.firstMessage || t('Untitled agent')}
+            </span>
+            {/* Beside the title, not in the preview, so a narrow column never cuts it off. */}
+            {questionCount && (
+              <span className="inline-flex h-4 flex-shrink-0 items-center rounded-full border border-zGray-800/80 bg-zGray-900/60 px-1.5 text-[10px] font-medium leading-none text-tertiary">
+                {questionCount}
+              </span>
             )}
-          >
-            {conversation.title || conversation.firstMessage || t('Untitled agent')}
           </div>
           <div className={clsx('truncate text-[11.5px] text-tertiary', timeClassName)}>
             {/* Waiting on a decision, the question is what the row is about. */}
             {waitingOn
               ? `${historyTime(waitingOn.askedAt)} · ${waitingOn.question}`
               : historyTime(conversation.lastActiveAt)}
-            {openRequests.length > 1 ? ` · +${String(openRequests.length - 1)} more` : ''}
             {!waitingOn && conversation.messageCount > 0
               ? ` · ${t('{n} messages', { n: conversation.messageCount })}`
               : ''}
