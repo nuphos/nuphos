@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
-import { observeSession, reattachAfterTransportLoss } from './session-reattach'
+import { observeSession, reattachAfterTransportLoss, untilOnline } from './session-reattach'
 
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
+import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import * as lifecycle from '@/lib/lifecycle'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useRedis } from '@/lib/test/doubles/redis'
@@ -325,4 +329,52 @@ test('a draining replica does not hand on a session that moved elsewhere', async
   }
 
   expect(handoffs.size).toBe(0)
+})
+
+const computer = { userId: 'owner', deviceId: 'laptop', provider: 'claude-code' as const }
+const heartbeat = () =>
+  tunnelBus().publish(
+    holderChannel(computer.userId, computer.deviceId),
+    JSON.stringify({ t: 'ping', conn: 'tunnel-2' }),
+  )
+
+test('a computer that comes back after any outage gets its session back on its own', async () => {
+  // Every attempt while the computer is offline used to spend a retry, so an
+  // outage longer than the retry window left the session off the air until
+  // someone reopened the chat. Attempts now wait for the computer instead.
+  const url = localRuntimeUrl(computer, 'team')
+  const replacement = fakeClient('replacement')
+
+  session.endpoint = { ...endpoint, url }
+  attachment = { openabSessionId: 'sess-1', runtimeUrl: url }
+  acquire = spyOn(registry, 'acquire')
+    .mockRejectedValueOnce(new Error('The computer running this agent is offline'))
+    .mockResolvedValue(replacement)
+
+  const reattached = reattachAfterTransportLoss(session, session.client, [0, 1, 1])
+
+  await Bun.sleep(30)
+  expect(acquire).toHaveBeenCalledTimes(1)
+  expect(workLost).toBeNull()
+
+  await heartbeat()
+  expect(await reattached).toBe(true)
+  expect(session.client).toBe(replacement)
+  expect(workLost).toBeNull()
+})
+
+test('untilOnline returns at once for a cloud runtime or a computer whose tunnel is open', async () => {
+  await untilOnline(endpoint.url)
+  // A tunnel claims the computer, then its first report marks it seen.
+  await runtimePresenceStore().claim(computer.userId, computer.deviceId, 'c')
+  await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+    conn: 'c',
+    seenAt: Date.now(),
+  })
+  try {
+    await untilOnline(localRuntimeUrl(computer, 'team'))
+  } finally {
+    await runtimePresenceStore().clear(computer.userId, computer.deviceId, 'c')
+  }
+  acquire = spyOn(registry, 'acquire')
 })
