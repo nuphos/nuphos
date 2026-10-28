@@ -1026,6 +1026,13 @@ final class ChatSession {
                 let conflict = AgentChatAPI.conflict(status: status, body: bodyText)
                 debugLog("HTTP \(status): \(bodyText ?? "")")
                 switch conflict {
+                // The first send failed in transit, so the server never stored the
+                // conversation and there is nothing to resume. Send it fresh once;
+                // with no stored conversation that cannot repeat the message.
+                case .other(code: "not_found"?, message: _, status: 404) where shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback:
+                    usedFreshFallback = true
+                    forceFresh = true
+                    continue
                 case .streamNotResumable where !isNativeRuntime && shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback:
                     usedFreshFallback = true
                     forceFresh = true
