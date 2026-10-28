@@ -1,4 +1,6 @@
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { createMessageMetadata } from '@/lib/agent/message-attribution'
+import { attributionHeader } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
@@ -192,11 +194,14 @@ export async function steerConversationRuntime(
 
   try {
     await client.initialize()
+    // The same attribution a prompt carries: without it the agent cannot tell
+    // a mid-turn instruction or approval from its sender's from anyone else's.
     const result = await client.steerSession(
       attachment.openabSessionId,
       text,
       messageId,
       attachments,
+      attributionHeader(messageId, await createMessageMetadata(steer.userId, 'nuphos')),
     )
 
     if (result.outcome !== 'injected')

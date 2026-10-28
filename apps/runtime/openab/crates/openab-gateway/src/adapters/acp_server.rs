@@ -446,6 +446,16 @@ fn trace_frame(s: &str) -> std::borrow::Cow<'_, str> {
 /// runtime. A `resource_link` needs both `name` and `uri`, as `session/prompt`
 /// requires (R17-F3b), and must be a local `file:` URI: steering forwards local
 /// attachments only, never a remote reference.
+/// The receipt is the sender's words, the steer's last text part. Text ahead of
+/// it (the sender's attribution header, file descriptions) is for the agent only.
+fn steering_receipt_text(prompt: &[Value]) -> &str {
+    prompt
+        .iter()
+        .rev()
+        .find_map(|part| part["text"].as_str())
+        .unwrap_or_default()
+}
+
 fn steering_prompt(params: &Value) -> Option<&Vec<Value>> {
     params["prompt"].as_array().filter(|blocks| {
         !blocks.is_empty()
@@ -2910,11 +2920,7 @@ async fn handle_acp_connection(
                                                 },
                                             );
                                             if let Some((session_id, output)) = route {
-                                                let text = prompt
-                                                    .iter()
-                                                    .filter_map(|part| part["text"].as_str())
-                                                    .collect::<Vec<_>>()
-                                                    .join("\n");
+                                                let text = steering_receipt_text(prompt);
                                                 let _ = output.send(json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session_id,"update":{"sessionUpdate":"steering_message","id":message_id,"text":text}}}).to_string());
                                             }
                                         }
@@ -7954,6 +7960,15 @@ mod acp_ws_integration {
             let _ = axum::serve(listener, app).await;
         });
         (format!("ws://{addr}/acp"), registry, reply_registry, rx)
+    }
+
+    #[test]
+    fn steering_receipt_is_the_last_text_part() {
+        let header = json!({"type":"text","text":"<nuphos_message_metadata>{}</nuphos_message_metadata>"});
+        let link = json!({"type":"resource_link","uri":"file:///tmp/a.png","name":"a.png"});
+        let words = json!({"type":"text","text":"Focus on tests"});
+        assert_eq!(steering_receipt_text(&[header, link, words.clone()]), "Focus on tests");
+        assert_eq!(steering_receipt_text(&[words]), "Focus on tests");
     }
 
     #[test]
