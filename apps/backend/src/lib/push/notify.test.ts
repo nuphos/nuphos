@@ -124,6 +124,7 @@ describe('turn notifier', () => {
           badge: 3,
           sound: 'default',
           'thread-id': 'session-1',
+          category: 'SESSION_REPLY',
         },
         sessionId: 'session-1',
         teamId: 'team-1',

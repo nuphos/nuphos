@@ -46,6 +46,20 @@ enum AgentChatAPI {
         return request
     }
 
+    /// Sends one message from outside the chat screen: a notification reply.
+    /// The server reads the history itself, queues behind a running turn, and
+    /// keeps the turn going after this returns, so only the headers are awaited.
+    static func reply(token: String, teamId: String, sessionId: String, text: String) async throws {
+        let message = ChatMessage(role: .user, parts: [.text(.init(text: text, state: .done))])
+        let request = try chatRequest(token: token, body: .init(
+            id: sessionId, teamId: teamId, messages: [message], streamId: UUID().uuidString.lowercased()))
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        bytes.task.cancel()
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw NuphosAPI.Failure.invalidResponse
+        }
+    }
+
     /// `POST /agent/chat/:streamId/abort`. `local` only means the runtime
     /// was told to stop; the turn ends when its terminal frames arrive.
     enum AbortStatus: String { case local, forwarded, notFound = "not_found", failed }

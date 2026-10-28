@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import ai.nuphos.android.NuphosApplication
+import ai.nuphos.android.data.AgentChatApi
 import ai.nuphos.android.data.Http
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
@@ -157,6 +158,28 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             // Tap routing re-checks current account, team and consent as well.
             LocalNotifications(app, { account }, { prefs.getBoolean("consent_granted", false) }).post(
                 target, "Nuphos", data["body"]?.take(200) ?: "Open Nuphos to view the update", badge)
+        }
+    }
+
+    /** A reply typed on a notification. Sent only while that account is still the one bound here. */
+    fun reply(target: LocalNotificationTarget, text: String, done: () -> Unit) {
+        val token = synchronized(bindingLock) {
+            app.tokenStore.read()?.takeIf {
+                prefs.getBoolean("consent_granted", false) && PushBindingPolicy.accepts(
+                    prefs.getString("account", null), prefs.getString("login_hash", null),
+                    fingerprint(it), target.accountId, false)
+            }
+        }
+        scope.launch {
+            try {
+                val sent = token != null &&
+                    runCatching { AgentChatApi.reply(token, target.teamId, target.sessionId, text) }.getOrDefault(false)
+                // Never lost silently: the text comes back, and a tap opens the conversation.
+                if (sent) app.localNotifications.dismiss(target)
+                else if (token != null) LocalNotifications(app, { target.accountId }, { true }).post(target, "Reply not sent", text)
+            } finally {
+                done()
+            }
         }
     }
 

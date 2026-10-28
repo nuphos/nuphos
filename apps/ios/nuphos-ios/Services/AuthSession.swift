@@ -31,7 +31,7 @@ final class AuthSession {
     private(set) var aiConsentVersion: String?
     private(set) var aiConsentError: String?
 
-    private static let tokenKey = "session-token"
+    static let tokenKey = "session-token"
     private let presentationContext = WebAuthPresentationContext()
     private var webSession: ASWebAuthenticationSession?
 
