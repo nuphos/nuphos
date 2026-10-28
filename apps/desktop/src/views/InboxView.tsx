@@ -239,7 +239,17 @@ export function InboxView({
                     type="button"
                     role="radio"
                     aria-checked={request.id === replyTo}
-                    onClick={() => setChosenRequest(request.id)}
+                    onClick={() => {
+                      setChosenRequest(request.id)
+                      setLocate({
+                        sessionId: selected.sessionId,
+                        target: {
+                          toolCallId: request.id,
+                          question: request.question,
+                          options: request.options,
+                        },
+                      })
+                    }}
                     className={clsx(
                       'truncate rounded-md px-2 py-1 text-left text-[12px] outline-none focus-visible:ring-1 focus-visible:ring-zViolet-accent',
                       request.id === replyTo
