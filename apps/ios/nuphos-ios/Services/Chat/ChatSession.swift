@@ -919,7 +919,7 @@ final class ChatSession {
         var gatewayRetries = 0
         var notReadyRetries = 0
         var forceFresh = false
-        var usedFreshFallback = false
+        var fallback = ResumeFallback()
         var accepted = false
         var sendFullTranscript = false
         var rebaseTo: Int?
@@ -932,7 +932,7 @@ final class ChatSession {
         backlog = StreamBacklog()
 
         while !Task.isCancelled {
-            let shouldResume = !forceFresh && (options.explicitResume || reconnects > 0 || resumeFrom > 0)
+            let shouldResume = !forceFresh && ResumeFallback.resumes(explicit: options.explicitResume, reconnects: reconnects, framesReceived: resumeFrom)
             forceFresh = false
 
             let window = transcriptWindow(full: sendFullTranscript, rebase: rebaseTo)
@@ -1023,20 +1023,13 @@ final class ChatSession {
                     if !accepted && !shouldResume && reconnects == 0 { rejectOversizedSubmission(options.submission) }
                     return .failed(ChatPayload.tooLargeMessage)
                 }
-                let conflict = AgentChatAPI.conflict(status: status, body: bodyText)
                 debugLog("HTTP \(status): \(bodyText ?? "")")
+                if fallback.sendsFresh(status: status, body: bodyText, resumed: shouldResume, framesReceived: resumeFrom, explicit: options.explicitResume, nativeRuntime: isNativeRuntime) {
+                    forceFresh = true
+                    continue
+                }
+                let conflict = AgentChatAPI.conflict(status: status, body: bodyText)
                 switch conflict {
-                // The first send failed in transit, so the server never stored the
-                // conversation and there is nothing to resume. Send it fresh once;
-                // with no stored conversation that cannot repeat the message.
-                case .other(code: "not_found"?, message: _, status: 404) where shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback:
-                    usedFreshFallback = true
-                    forceFresh = true
-                    continue
-                case .streamNotResumable where !isNativeRuntime && shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback:
-                    usedFreshFallback = true
-                    forceFresh = true
-                    continue
                 case .transcriptOutOfSync(let stored) where !sendFullTranscript:
                     if let stored, rebaseTo == nil { rebaseTo = stored } else { sendFullTranscript = true }
                     continue

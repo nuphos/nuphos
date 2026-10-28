@@ -5,6 +5,7 @@ struct RuntimeObservationTests {
     static func main() throws {
         try BotAvatarTests.run()
         LiveActivityCardTests.run()
+        ResumeFallbackTests.run()
         func snapshot(_ json: String, at time: Double) -> RuntimeObservation {
             RuntimeObservation(snapshot: JSONValue.parse(json)!, observedAt: time)
         }
