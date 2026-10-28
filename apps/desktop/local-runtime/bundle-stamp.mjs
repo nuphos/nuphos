@@ -38,6 +38,7 @@ export const RUNTIME_SOURCES = [
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
+  'native-question.mjs',
   'session-home.mjs',
   'process-death.mjs',
   ATTACHMENT_JOB,
@@ -49,6 +50,7 @@ export const RUNTIME_SOURCES = [
     'session-state.mjs',
     'default-effort.mjs',
     'project-instructions.mjs',
+    'ask-user-question.mjs',
   ].map((file) => `claude-agent-acp/${file}`),
   ...[
     'package.json',

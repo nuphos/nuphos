@@ -45,7 +45,7 @@ RUN chmod -R a+rX /opt/nuphos-runtime \
 COPY --chmod=755 sync-skills.sh /usr/local/bin/nuphos-sync-skills
 COPY --chmod=755 seed-codex-auth.sh /usr/local/bin/nuphos-seed-codex-auth
 COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs \
-     process-death.mjs acp-shim.mjs /opt/
+     process-death.mjs acp-shim.mjs native-question.mjs /opt/
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
@@ -66,7 +66,7 @@ ARG CLAUDE_AGENT_SDK_VERSION=0.3.312
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
-     claude-agent-acp/project-instructions.mjs \
+     claude-agent-acp/project-instructions.mjs claude-agent-acp/ask-user-question.mjs \
      /opt/nuphos-claude-agent-acp/
 # The lockfile carries no libc field, so npm installs the musl build of the
 # SDK's native CLI beside the glibc one this Debian image runs.

@@ -134,18 +134,34 @@ export function patchAdapter(source, helper) {
         .replace('await new Promise(', 'await Promise.race([nuphosCodexDeath, new Promise(')
         .replace(/\}\);$/, '})]);'),
     )
+  // request_user_input asks through Nuphos; see native-question.mjs.
+  const servers = '    const requestedMcpServers = request.mcpServers ?? [];\n'
+  const userInput =
+    '  async handleUserInput(params) {\n    if (!clientSupportsFormElicitation(this.clientCapabilities)) {\n      return { answers: {} };'
+  if (withDeath.split(servers).length !== 3 || withDeath.split(userInput).length !== 2)
+    throw new Error('Expected Codex session server and user input handoffs')
+  const asking = withDeath
+    .replaceAll(servers, `${servers}    nuphosRememberDecisionServer(request.mcpServers);\n`)
+    .replace(
+      userInput,
+      userInput.replace('return { answers: {} };', 'return await nuphosAskCodexQuestion(params);'),
+    )
+  const nativeQuestion = readFileSync(
+    new URL('../native-question.mjs', import.meta.url),
+    'utf8',
+  ).replaceAll(/^export /gmu, '')
 
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.
   return patchRuntimeDefaults(
-    withDeath
+    asking
       .replace(
         'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
         'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',
       )
       .replace(
         '// src/index.ts',
-        `${restoreHistory}\n${sessionHome}\n${processDeath}\n${codexDeath}\n${helper}\n${steering}\n${mcpBridge}\n// src/index.ts`,
+        `${restoreHistory}\n${sessionHome}\n${processDeath}\n${codexDeath}\n${helper}\n${steering}\n${mcpBridge}\n${nativeQuestion}\n// src/index.ts`,
       ),
   )
 }
