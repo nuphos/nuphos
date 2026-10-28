@@ -26,8 +26,9 @@ let steered = 0
 let steeredWith: unknown[] = []
 const conversation = { sessionId: 'shared-control', userId: 'owner', teamId }
 
+let agentToken: { id: string; kind: 'agent'; name: string } | undefined
 useIdentity({
-  authenticateToken: async () => ({ user: { id: me } }),
+  authenticateToken: async () => ({ user: { id: me }, ...(agentToken ? { cliToken: agentToken } : {}) }),
   getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
 })
 useAgentDb({
@@ -66,6 +67,7 @@ beforeEach(async () => {
   cancelled = 0
   steered = 0
   refuse = false
+  agentToken = undefined
   await drainPendingUserMessages('owner', 'shared-control')
 })
 const request = (action: string) =>
@@ -162,4 +164,12 @@ test('a refused steer puts the queued message back at the front', async () => {
 test('a queued message that already left the queue is not steered', async () => {
   expect((await steerQueued('gone')).status).toBe(404)
   expect(steered).toBe(0)
+})
+
+test("a steer sent with an agent token is attributed to that agent, not its user", async () => {
+  agentToken = { id: 'token-1', kind: 'agent', name: 'Release bot' }
+  activeActor = me
+
+  expect((await request('steer')).status).toBe(200)
+  expect(steeredWith[0]).toMatchObject({ userId: me, cliToken: agentToken })
 })

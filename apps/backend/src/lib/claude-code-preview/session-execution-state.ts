@@ -15,6 +15,7 @@ import { withSessionDesktops } from './session-desktops'
 import { steeringText } from './steering-receipt'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
+import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { AgentConversation } from '@/lib/agent/db'
 
 /** No live session to report on: the next prompt starts or restores one. */
@@ -154,7 +155,13 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
  */
 export async function steerConversationRuntime(
   conversation: AgentConversation,
-  steer: { text: string; groupId?: string; userId: string },
+  steer: {
+    text: string
+    groupId?: string
+    userId: string
+    deviceId?: string
+    cliToken?: CliTokenPrincipal
+  },
   messageId: string,
 ): Promise<string> {
   const attachment = liveAttachment(conversation)
@@ -201,7 +208,10 @@ export async function steerConversationRuntime(
       text,
       messageId,
       attachments,
-      attributionHeader(messageId, await createMessageMetadata(steer.userId, 'nuphos')),
+      attributionHeader(
+        messageId,
+        await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken),
+      ),
     )
 
     if (result.outcome !== 'injected')

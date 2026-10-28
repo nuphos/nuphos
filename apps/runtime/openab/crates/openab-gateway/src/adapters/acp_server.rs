@@ -442,10 +442,6 @@ fn trace_frame(s: &str) -> std::borrow::Cow<'_, str> {
     std::borrow::Cow::Owned(format!("{}…(+{} chars)", &s[..end], total - CAP))
 }
 
-/// A steer carries text plus references to files the host already placed on the
-/// runtime. A `resource_link` needs both `name` and `uri`, as `session/prompt`
-/// requires (R17-F3b), and must be a local `file:` URI: steering forwards local
-/// attachments only, never a remote reference.
 /// The receipt is the sender's words, the steer's last text part. Text ahead of
 /// it (the sender's attribution header, file descriptions) is for the agent only.
 fn steering_receipt_text(prompt: &[Value]) -> &str {
@@ -456,6 +452,10 @@ fn steering_receipt_text(prompt: &[Value]) -> &str {
         .unwrap_or_default()
 }
 
+/// A steer carries text plus references to files the host already placed on the
+/// runtime. A `resource_link` needs both `name` and `uri`, as `session/prompt`
+/// requires (R17-F3b), and must be a local `file:` URI: steering forwards local
+/// attachments only, never a remote reference.
 fn steering_prompt(params: &Value) -> Option<&Vec<Value>> {
     params["prompt"].as_array().filter(|blocks| {
         !blocks.is_empty()
@@ -7964,10 +7964,14 @@ mod acp_ws_integration {
 
     #[test]
     fn steering_receipt_is_the_last_text_part() {
-        let header = json!({"type":"text","text":"<nuphos_message_metadata>{}</nuphos_message_metadata>"});
+        let header =
+            json!({"type":"text","text":"<nuphos_message_metadata>{}</nuphos_message_metadata>"});
         let link = json!({"type":"resource_link","uri":"file:///tmp/a.png","name":"a.png"});
         let words = json!({"type":"text","text":"Focus on tests"});
-        assert_eq!(steering_receipt_text(&[header, link, words.clone()]), "Focus on tests");
+        assert_eq!(
+            steering_receipt_text(&[header, link, words.clone()]),
+            "Focus on tests"
+        );
         assert_eq!(steering_receipt_text(&[words]), "Focus on tests");
     }
 

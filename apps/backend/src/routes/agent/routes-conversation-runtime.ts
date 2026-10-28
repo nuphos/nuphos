@@ -73,7 +73,14 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
   const claimed = queuedId ? await takeOwnQueued(conversation, userId, queuedId) : null
   const sent = await steerConversationRuntime(
     conversation,
-    { text, groupId, userId },
+    {
+      text,
+      groupId,
+      userId,
+      // Attributed like a chat message: an agent token's steer is that agent's.
+      deviceId: c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
+      cliToken: c.get('cliToken'),
+    },
     messageId,
   ).catch(async (error: unknown) => {
     if (claimed) {
