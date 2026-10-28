@@ -335,7 +335,11 @@ test('a message with inline photos waits like any other, as a direct send would 
     role: 'user',
     parts: [
       { type: 'text', text: 'what is this' },
-      { type: 'file', mediaType: 'image/jpeg', url: `data:image/jpeg;base64,${'A'.repeat(600_000)}` },
+      {
+        type: 'file',
+        mediaType: 'image/jpeg',
+        url: `data:image/jpeg;base64,${'A'.repeat(600_000)}`,
+      },
     ],
   }
 
