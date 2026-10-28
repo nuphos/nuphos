@@ -73,6 +73,9 @@ export function messageText(message: UIMessage): string {
 
 // A queued id is shown to everyone in the conversation and removed by value.
 const QUEUED_ID = /^[\w-]{1,128}$/
+// What a direct send can store: its message becomes one Mongo document, capped
+// at 16 MB. A waiting message (inline photos included) sits in Redis until then.
+const MAX_QUEUED_MESSAGE_CHARS = 12_000_000
 
 /** A new message, not a continuation, reply or Slack-bound turn, in an existing conversation. */
 function freshSend({ body, conversation, ...args }: QueueableChat): AgentConversation | null {
@@ -103,6 +106,8 @@ export async function admitQueueableChat(
     return null
   if (!QUEUED_ID.test(message.id))
     throw new AppError(400, 'invalid_request', 'A message id may use letters, digits, - and _')
+  if (JSON.stringify(message).length > MAX_QUEUED_MESSAGE_CHARS)
+    throw new AppError(413, 'message_too_large', 'This message is too large to send')
   const owner = args.runOwnerUserId
   const sessionId = conversation.sessionId
   // Nothing overtakes a message that is already waiting.

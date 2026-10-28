@@ -351,6 +351,19 @@ test('a message with inline photos waits like any other, as a direct send would 
   expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual(['photo'])
 })
 
+test('a message larger than a stored message can be is refused before it waits', async () => {
+  const huge: UIMessage = {
+    id: 'huge',
+    role: 'user',
+    parts: [{ type: 'text', text: 'A'.repeat(12_000_001) }],
+  }
+
+  await expect(admit('huge', { clientView: [huge] })).rejects.toMatchObject({
+    code: 'message_too_large',
+  })
+  expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
+})
+
 test('a message id that could match another message is refused', async () => {
   const id = 'x|victim'
 
