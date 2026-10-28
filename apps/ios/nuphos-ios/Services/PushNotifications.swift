@@ -81,6 +81,10 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     /// only prompts the first time) and registers with APNs.
     func activate(authToken: String) async {
         self.authToken = authToken
+        #if DEBUG
+        // Simulator scripts cannot answer the permission alert, and it blocks links.
+        if CommandLine.arguments.contains("-preview-no-push") { return }
+        #endif
         let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         guard granted else { return }
         #if canImport(UIKit)

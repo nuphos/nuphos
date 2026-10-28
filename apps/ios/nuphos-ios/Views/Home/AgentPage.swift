@@ -89,6 +89,17 @@ struct AgentPage: View {
                 // actions must not reopen chats (or resend a preview prompt).
                 guard !didHandleLaunchAction, !Task.isCancelled else { return }
                 didHandleLaunchAction = true
+                // `-open-links <url>…`: open each link as if tapped, two seconds
+                // apart. Not tied to this page, which leaves when a chat opens.
+                if let i = CommandLine.arguments.firstIndex(of: "-open-links") {
+                    let links = CommandLine.arguments[(i + 1)...].prefix { !$0.hasPrefix("-") }.compactMap(URL.init(string:))
+                    Task {
+                        for link in links {
+                            try? await Task.sleep(for: .seconds(2))
+                            PushNotifications.shared.open(link)
+                        }
+                    }
+                }
                 if CommandLine.arguments.contains("-open-first-chat") {
                     openChat = store.conversations.first.map { OpenChat(session: store.session(for: $0)) }
                 }
