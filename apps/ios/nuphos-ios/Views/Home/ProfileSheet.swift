@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// The account sheet behind the avatar in the home toolbar: the user record
@@ -179,14 +180,16 @@ private struct EditProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var username: String
-    @State private var avatar: String
+    @State private var photo: PhotosPickerItem?
     @State private var saving = false
     @State private var error: String?
+    private let user: NuphosUser
+    private var currentUser: NuphosUser { session.user ?? user }
 
     init(user: NuphosUser) {
+        self.user = user
         _name = State(initialValue: user.name)
         _username = State(initialValue: user.username)
-        _avatar = State(initialValue: user.avatarURL)
     }
 
     var body: some View {
@@ -197,10 +200,27 @@ private struct EditProfileSheet: View {
                     TextField("Username", text: $username).textInputAutocapitalization(.never).autocorrectionDisabled()
                 }
                 Section {
-                    TextField("Google profile image URL (optional)", text: $avatar)
-                        .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    HStack(spacing: 14) {
+                        AvatarView(user: currentUser, size: 56)
+                        PhotosPicker(currentUser.avatarURL.isEmpty ? "Choose photo" : "Change photo", selection: $photo, matching: .images)
+                    }
+                    if !currentUser.avatarURL.isEmpty {
+                        Button("Remove photo", role: .destructive) { setAvatar(nil) }
+                    }
                 } footer: {
-                    Text("Use an existing Google profile image URL, or leave this empty for your initials.")
+                    Text("Without a photo, your initials are shown.")
+                }
+                .onChange(of: photo) { _, item in
+                    guard let item else { return }
+                    photo = nil
+                    Task {
+                        guard let data = try? await item.loadTransferable(type: Data.self),
+                              let image = ImageAttachment.avatar(from: data) else {
+                            error = "This image could not be read."
+                            return
+                        }
+                        setAvatar(image)
+                    }
                 }
                 if let error { Text(error).foregroundStyle(.red) }
             }
@@ -214,13 +234,22 @@ private struct EditProfileSheet: View {
                         Task {
                             defer { saving = false }
                             do {
-                                try await session.updateProfile(name: name.trimmingCharacters(in: .whitespacesAndNewlines), username: username.trimmingCharacters(in: .whitespacesAndNewlines), avatarURL: avatar.trimmingCharacters(in: .whitespacesAndNewlines))
+                                try await session.updateProfile(name: name.trimmingCharacters(in: .whitespacesAndNewlines), username: username.trimmingCharacters(in: .whitespacesAndNewlines), avatarURL: currentUser.avatarURL)
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }
                     }.disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || username.isEmpty || name.count > 100 || username.count > 40)
                 }
             }
+        }
+    }
+
+    private func setAvatar(_ image: Data?) {
+        saving = true
+        error = nil
+        Task {
+            defer { saving = false }
+            do { try await session.setAvatar(image) } catch { self.error = error.localizedDescription }
         }
     }
 }

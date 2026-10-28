@@ -206,6 +206,13 @@ final class AuthSession {
         state = .signedIn(user)
     }
 
+    /// Uploads a profile photo, or removes it with `nil`.
+    func setAvatar(_ image: Data?) async throws {
+        guard let token else { throw NuphosAPI.Failure.unauthorized }
+        let user: NuphosUser = try await AccountAPI.request("me/avatar", method: image == nil ? "DELETE" : "PUT", token: token, upload: image)
+        state = .signedIn(user)
+    }
+
     func refreshUser() async {
         guard let token, case .signedIn = state else { return }
         do {
