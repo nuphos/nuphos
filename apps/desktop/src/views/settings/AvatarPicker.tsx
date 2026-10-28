@@ -115,7 +115,7 @@ export function AvatarPicker({
               disabled={photoBusy}
               onClick={() => fileInput.current?.click()}
             >
-              Upload {kind}
+              {`Upload ${kind}`}
             </Button>
             {src && (
               <Button
