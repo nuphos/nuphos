@@ -3,12 +3,20 @@ import { afterEach, mock, test } from 'node:test'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
 
+type Effect = () => (() => void) | undefined
 const slots: unknown[] = []
 let cursor = 0
-let dependencies: unknown[] | undefined
-let cleanup: (() => void) | undefined
-let effect: (() => (() => void) | undefined) | undefined
+let effectCursor = 0
+const effects: {
+  deps?: unknown[]
+  cleanup?: () => void
+  next?: Effect
+}[] = []
 let pending: AgentConversation[] = []
+let loads = 0
+let runtimeStates = new Map<string, { state: string }>()
+const runtimeListeners = new Set<() => void>()
+const windowListeners = new Map<string, Set<() => void>>()
 const known = [
   { sessionId: 'first', teamId: 'team' },
   { sessionId: 'second', teamId: 'team' },
@@ -27,7 +35,23 @@ const question = {
 
 mock.module('../../../api.ts', {
   namedExports: {
-    api: { agentListConversations: async () => ({ conversations: pending, nextCursor: null }) },
+    api: {
+      agentListConversations: async () => {
+        loads += 1
+
+        return { conversations: pending, nextCursor: null }
+      },
+    },
+  },
+})
+mock.module('../../../lib/agentRuntimeStates.ts', {
+  namedExports: {
+    getRuntimeStates: () => runtimeStates,
+    subscribeRuntimeStates: (listener: () => void) => {
+      runtimeListeners.add(listener)
+
+      return () => runtimeListeners.delete(listener)
+    },
   },
 })
 mock.module('../../../lib/openedConversation.ts', {
@@ -50,44 +74,58 @@ mock.module('react', {
       ]
     },
     useMemo: (calculate: () => unknown) => calculate(),
-    useEffect: (next: typeof effect, deps: unknown[]) => {
-      if (dependencies && deps.every((value, index) => Object.is(value, dependencies![index])))
-        return
-      cleanup?.()
-      dependencies = deps
-      effect = next
+    useEffect: (next: Effect, deps: unknown[]) => {
+      effects[effectCursor] ??= {}
+      const slot = effects[effectCursor++]!
+
+      if (slot.deps && deps.every((value, index) => Object.is(value, slot.deps![index]))) return
+      slot.deps = deps
+      slot.next = next
     },
   },
 })
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
-  value: { setTimeout: () => 0, clearTimeout: () => {} },
+  value: {
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    addEventListener: (type: string, listener: () => void) => {
+      if (!windowListeners.has(type)) windowListeners.set(type, new Set())
+      windowListeners.get(type)!.add(listener)
+    },
+    removeEventListener: (type: string, listener: () => void) =>
+      windowListeners.get(type)?.delete(listener),
+  },
 })
 
 const { useSessionInputRequests } = await import('./useSessionInputRequests.ts')
+const { refreshInputRequests } = await import('../../../lib/inputRequestRefresh.ts')
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
 function render(sessionId: string) {
   cursor = 0
+  effectCursor = 0
   // eslint-disable-next-line react-hooks/rules-of-hooks -- Test harness drives the hook's lifecycle.
   const result = useSessionInputRequests(sessionId, 'team')
 
-  if (effect) {
-    const next = effect
+  for (const slot of effects) {
+    if (!slot.next) continue
+    const next = slot.next
 
-    effect = undefined
-    cleanup = next()
+    slot.next = undefined
+    slot.cleanup?.()
+    slot.cleanup = next()
   }
 
   return result
 }
 
 function unmount() {
-  cleanup?.()
-  cleanup = undefined
-  effect = undefined
-  dependencies = undefined
+  for (const slot of effects) slot.cleanup?.()
+  effects.length = 0
   slots.length = 0
+  loads = 0
+  runtimeStates = new Map()
 }
 afterEach(unmount)
 
@@ -118,4 +156,50 @@ test('unmounting the panel preserves the question; a resolved question stays abs
   render('first')
   await settle()
   assert.deepEqual(render('first').requests, [])
+})
+
+test('a refresh signal and window focus reload at once, without waiting for the poll', async () => {
+  pending = []
+  render('first')
+  await settle()
+  assert.deepEqual(render('first').requests, [])
+  pending = [question]
+  refreshInputRequests()
+  await settle()
+  assert.equal(render('first').requests[0]?.pendingDecision?.toolCallId, 'question-1')
+  pending = []
+  for (const listener of windowListeners.get('focus') ?? []) listener()
+  await settle()
+  assert.deepEqual(render('first').requests, [])
+})
+
+test('a sub-agent changing runtime state reloads; an unrelated session does not', async () => {
+  pending = [question]
+  render('first')
+  await settle()
+  render('first')
+  const before = loads
+
+  runtimeStates = new Map([['second', { state: 'active' }]])
+  for (const listener of runtimeListeners) listener()
+  await settle()
+  assert.equal(loads, before)
+  runtimeStates = new Map([
+    ['second', { state: 'active' }],
+    ['child', { state: 'idle' }],
+  ])
+  for (const listener of runtimeListeners) listener()
+  await settle()
+  assert.equal(loads, before + 1)
+})
+
+test('unmounting stops listening for refreshes', async () => {
+  pending = []
+  render('first')
+  await settle()
+  unmount()
+  refreshInputRequests()
+  await settle()
+  assert.equal(loads, 0)
+  assert.equal(windowListeners.get('focus')?.size ?? 0, 0)
 })

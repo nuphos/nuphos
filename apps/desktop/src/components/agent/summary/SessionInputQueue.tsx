@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowUpRight, MessageCircleQuestion, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
+import { refreshInputRequests } from '../../../lib/inputRequestRefresh'
 import { toast } from '../../ui/toast'
 import { AgentPanel } from '../AgentPanel'
 
@@ -99,6 +100,7 @@ export function SessionInputReply({
         'dismissed',
       )
       setDismissed(true)
+      refreshInputRequests()
     } catch (error) {
       toast.apiError('Could not dismiss question', error)
     } finally {

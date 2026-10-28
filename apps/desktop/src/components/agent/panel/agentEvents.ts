@@ -1,4 +1,5 @@
 import { t } from '../../../i18n/index.ts'
+import { noteInputRequestFrame } from '../../../lib/inputRequestRefresh.ts'
 import { rememberTerminalRuntimeStream } from '../../../lib/runtimeWakeup'
 import { toast } from '../../ui/toast'
 
@@ -79,6 +80,7 @@ export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: un
     })
   }
   observeTurnUnread(owner?.sessionId ?? streamOwnersRef.current.get(streamId)?.sessionId, ev)
+  if (evType === 'sse') noteInputRequestFrame(ev.data)
   if (
     evType === 'sse' &&
     handleSseControlFrame(ctx, streamId, ev.data as Record<string, unknown>)

@@ -7,6 +7,7 @@ import { AgentHistoryPage, AgentPanel } from '../components/agent/AgentPanel'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
 import { nextSelection } from './inbox/inboxItems'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
@@ -62,9 +63,14 @@ export function InboxView({
   const readerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const interval = setInterval(() => setTick((n) => n + 1), INBOX_REFRESH_MS)
+    const reload = () => setTick((n) => n + 1)
+    const interval = setInterval(reload, INBOX_REFRESH_MS)
+    const stopRefresh = onInputRequestsRefresh(reload)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      stopRefresh()
+    }
   }, [])
   useEffect(() => onLoading?.(items === null), [items, onLoading])
   useEffect(() => onCount?.(items?.length ?? 0), [items, onCount])
