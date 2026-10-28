@@ -6,6 +6,7 @@ import android.os.Bundle
 import ai.nuphos.android.NuphosApplication
 import ai.nuphos.android.data.AgentChatApi
 import ai.nuphos.android.data.Http
+import ai.nuphos.android.session.AiAccess
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.buildJsonObject
@@ -172,11 +175,18 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
         }
         scope.launch {
             try {
+                // A reply can start the process: restore the session as a launch does, so AI
+                // consent is checked again rather than assumed.
+                if (token != null && !AiAccess.allows(token)) {
+                    withContext(Dispatchers.Main) { app.authSession.restore() }
+                    withTimeoutOrNull(10_000) { while (!AiAccess.allows(token)) delay(200) }
+                }
                 val sent = token != null &&
                     runCatching { AgentChatApi.reply(token, target.teamId, target.sessionId, text) }.getOrDefault(false)
                 // Never lost silently: the text comes back, and a tap opens the conversation.
-                if (sent) app.localNotifications.dismiss(target)
-                else if (token != null) LocalNotifications(app, { target.accountId }, { true }).post(target, "Reply not sent", text)
+                // Another account's notification is only cleared, so the reply spinner stops.
+                if (sent || token == null) app.localNotifications.dismiss(target)
+                else LocalNotifications(app, { target.accountId }, { true }).post(target, "Reply not sent", text)
             } finally {
                 done()
             }
