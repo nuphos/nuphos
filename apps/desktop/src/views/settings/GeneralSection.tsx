@@ -96,7 +96,7 @@ export function GeneralSection({
               key={team.id}
               src={team.avatarUrl}
               name={name || team.name || 'Workspace'}
-              square
+              kind="icon"
               onUpload={async (image) =>
                 onTeamUpdated(await api.atlasSetTeamAvatar(team.id, image))
               }
