@@ -181,6 +181,7 @@ export async function putConversationSecret(
         size: bytes.length,
       },
     ],
+    true,
   )
   // file:///C:/x on a Windows computer, file:///tmp/x elsewhere.
   const path = decodeURIComponent(new URL(file!.uri).pathname)

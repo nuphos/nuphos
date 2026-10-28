@@ -77,6 +77,11 @@ export function SecretCard({
             Could not save it on the agent's runtime. Try again.
           </div>
         )}
+        {!ctx?.saveSecret && canAct && (
+          <div className="mt-1.5 text-[11.5px] text-tertiary">
+            Only the owner of this conversation can provide this secret.
+          </div>
+        )}
         {phase !== 'sent' && (
           <div className="mt-1.5 text-[11.5px] text-tertiary">
             The value is written to a file on the agent's runtime and never appears in this

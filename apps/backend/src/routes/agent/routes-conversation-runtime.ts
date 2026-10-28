@@ -109,8 +109,13 @@ agent.post('/conversations/:sessionId/secrets', async (c) => {
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!canReply(conversationAccess(conversation, userId)))
-    throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
+  // The secret lands on the owner's runtime, so only the owner provides it.
+  if (conversation.userId !== userId)
+    throw new AppError(
+      403,
+      'secret_owner_only',
+      'Only the owner of this conversation can provide a secret',
+    )
   const body = await c.req.json<{ name?: unknown; value?: unknown }>()
   const name = typeof body.name === 'string' ? body.name : ''
   const value = typeof body.value === 'string' ? body.value : ''

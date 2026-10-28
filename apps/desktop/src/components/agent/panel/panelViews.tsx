@@ -155,10 +155,13 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? undefined
                     : visibleConversationCredentialSelector,
                   send: (text) => void sendInActive(text),
-                  saveSecret: activeTab.readOnly
-                    ? undefined
-                    : async (name, value) =>
-                        (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId)).path,
+                  // Only the owner provides a secret; it lands on their runtime.
+                  saveSecret:
+                    activeTab.readOnly || activeTab.foreign
+                      ? undefined
+                      : async (name, value) =>
+                          (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
+                            .path,
                 }}
               >
                 <Conversation

@@ -427,11 +427,13 @@ fn trace_frame(s: &str) -> std::borrow::Cow<'_, str> {
         .and_then(|v| {
             v["method"]
                 .as_str()
-                .map(|m| m.starts_with("_openab/runtime/terminal/"))
+                .map(|m| m.starts_with("_openab/runtime/terminal/") || m == "_openab/runtime/job")
         })
         .unwrap_or(false)
     {
-        return std::borrow::Cow::Borrowed("[runtime terminal frame redacted]");
+        // Terminal input and job stdin can carry secrets (a secure input card's value
+        // rides an attachment job's stdin), so neither is ever traced.
+        return std::borrow::Cow::Borrowed("[runtime terminal or job frame redacted]");
     }
     const CAP: usize = 512;
     let total = s.chars().count();
@@ -8610,6 +8612,14 @@ mod acp_ws_integration {
         send(&mut ordinary, request.clone()).await;
         assert_eq!(recv(&mut ordinary).await["error"]["code"], -32003);
         assert!(!trace_frame(&request.to_string()).contains("secret-password"));
+    }
+
+    #[test]
+    fn runtime_job_frames_are_never_traced() {
+        let stdin = r#"{"files":[{"url":"data:application/octet-stream;base64,c2stc2VjcmV0"}]}"#;
+        let request = json!({"jsonrpc":"2.0","id":3,"method":"_openab/runtime/job","params":{"job":"attachments","stdin":stdin}});
+        let frame = request.to_string();
+        assert!(!trace_frame(&frame).contains("c2stc2VjcmV0"));
     }
 
     #[cfg(unix)]
