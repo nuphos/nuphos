@@ -108,7 +108,8 @@ final class ChatSession {
     var submitting: Bool { sending != nil }
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
-    /// Prevent double submission until this request has a runtime admission or terminal response.
+    /// This device's send has had no response yet. Only that response clears it:
+    /// another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
     var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
@@ -118,13 +119,6 @@ final class ChatSession {
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
         showLiveActivity()
-        if runtimeObservation?.executing(at: observations.now) == true { awaitingAdmission = false }
-        // A message the turn could not take goes out once the agent accepts a new one.
-        if isNativeRuntime, !queued.isEmpty, canSubmit, allows("send") {
-            let next = queued.removeFirst()
-            awaitingAdmission = true
-            Task { await dispatch(next) }
-        }
     }
     func tickRuntimeClock() { observations.tick() }
     private func showLiveActivity() {
@@ -426,8 +420,8 @@ final class ChatSession {
                 lastSubmittedRowID = "steering.\(id)"
             }
         } catch AgentChatAPI.Conflict.other(let code, _, _) where code == "runtime_steering_unavailable" {
-            queued.append(text)
-            Analytics.shared.track("agent_message_queued", teamID: teamId)
+            // The turn already ended: send it as a message; the server queues it if needed.
+            await dispatch(text)
         } catch {
             self.error = error.localizedDescription
             failedSubmission = submission
@@ -723,6 +717,9 @@ final class ChatSession {
 
     private enum TurnResult {
         case completed(sawTurnComplete: Bool, paused: Paused?)
+        /// The server holds the message in the session queue; the idle poll
+        /// follows its turn when it starts.
+        case queued
         case failed(String)
         case aborted
     }
@@ -752,6 +749,12 @@ final class ChatSession {
                 switch result {
                 case .aborted:
                     // A cancelled URL request without task cancellation is only a lost subscription.
+                    finishTurn(error: nil)
+                    return
+                case .queued:
+                    // No reply comes on this stream; the queued turn's own does.
+                    if let i = streamAssistantIndex, messages.indices.contains(i) { messages.remove(at: i) }
+                    streamAssistantIndex = nil
                     finishTurn(error: nil)
                     return
                 case .failed(let message):
@@ -949,11 +952,10 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false, "resendsRefusal": true]
+                clientCapabilities: ["localTools": false, "serverQueue": true]
             )
 
             var needsFreshRetry = false
-            var refused = false
             var terminal = false
 
             do {
@@ -965,6 +967,7 @@ final class ChatSession {
                     guard event.data != "[DONE]", let frame = JSONValue.parse(event.data),
                           let type = frame["type"]?.stringValue else { continue }
                     accepted = true
+                    awaitingAdmission = false
                     debugLog("frame \(type)")
                     if type.hasPrefix("tool-") || type == "authorization-decision" || type == "error" || type == "atlas-turn-paused" {
                         debugLog("  \(frame.compact.prefix(600))")
@@ -981,9 +984,9 @@ final class ChatSession {
                         if code == "runtime_auth_required" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
-                        // Another turn took the runtime after admission; nothing was
-                        // recorded, so send the message again like the HTTP refusal.
-                        if code == "runtime_not_accepting_message" { refused = true; break }
+                        // Another turn took the runtime after admission; the server
+                        // put the message back at the head of the session queue.
+                        if code == "message_queued" { return .queued }
                         needsFreshRetry = true
                         continue
                     }
@@ -1006,6 +1009,8 @@ final class ChatSession {
                     applyFrames(backlog.receive(frame, type: type, at: Date()))
                     scheduleBacklogFlush()
                 }
+            } catch SSEClient.Failure.queued {
+                return .queued
             } catch is CancellationError {
                 return .aborted
             } catch let urlError as URLError where urlError.code == .cancelled {
@@ -1028,6 +1033,8 @@ final class ChatSession {
                 case .transcriptOutOfSync(let stored) where !sendFullTranscript:
                     if let stored, rebaseTo == nil { rebaseTo = stored } else { sendFullTranscript = true }
                     continue
+                // A send the server queue does not take (a new conversation, a
+                // continuation) can still meet a runtime that is starting up.
                 case .runtimeNotReady where !accepted && notReadyRetries < 30:
                     notReadyRetries += 1
                     phaseLabel = "Waiting for the runtime to be ready…"
@@ -1060,20 +1067,6 @@ final class ChatSession {
             }
 
             if Task.isCancelled { return .aborted }
-
-            if refused {
-                guard notReadyRetries < 30 else { return .failed(lastErrorText ?? "The agent hit an error.") }
-                notReadyRetries += 1
-                phaseLabel = "Waiting for the runtime to be ready…"
-                if let i = streamAssistantIndex, messages.indices.contains(i) { messages.remove(at: i) }
-                streamAssistantIndex = nil
-                streamReducer = nil
-                accepted = false
-                forceFresh = true
-                resumeFrom = 0
-                try? await Task.sleep(for: backoff(notReadyRetries, base: 0.5, max: 3))
-                continue
-            }
 
             if needsFreshRetry {
                 if isNativeRuntime || options.explicitResume || toolExecutionMayHaveStarted {
