@@ -89,3 +89,48 @@ test('a lazy Activity anchor and its nested tool disclosure both open before scr
   nextFrame()
   assert.deepEqual(calls, ['open Activity', 'open tool run', 'scroll', 'flash'])
 })
+
+test("a question whose recorded id is not the transcript's own is found by its question", (t) => {
+  browser(t)
+  const calls: string[] = []
+  const older = target(
+    disclosure(true, () => {}),
+    calls,
+  )
+  const newer = target(
+    disclosure(true, () => {}),
+    calls,
+  )
+  const selectors: string[] = []
+  const root = {
+    isConnected: true,
+    querySelector: (selector: string) => {
+      selectors.push(selector)
+
+      return null
+    },
+    querySelectorAll: (selector: string) => {
+      selectors.push(selector)
+
+      return selector.includes('data-decision-question') ? [older, newer] : []
+    },
+  } as unknown as HTMLElement
+
+  assert.equal(locateChatTarget(root, { toolCallId: 'nuphos-1', question: 'Red or blue?' }), true)
+  assert.deepEqual(selectors, [
+    '[data-tool-call-id="nuphos-1"]',
+    '[data-decision-question="Red or blue?"]',
+  ])
+  assert.deepEqual(calls, ['scroll', 'flash'])
+})
+
+test('a tool call that is not rendered is not mistaken for its message', (t) => {
+  browser(t)
+  const root = {
+    isConnected: true,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  } as unknown as HTMLElement
+
+  assert.equal(locateChatTarget(root, { toolCallId: 'missing', question: 'Gone?' }), false)
+})

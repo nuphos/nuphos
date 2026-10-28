@@ -149,7 +149,10 @@ export function ConnectCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875">
+    <div
+      data-tool-call-id={toolCallId}
+      className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
+    >
       <ConnectHeader providers={providers} reason={reason} />
       <ul>
         {providers.map((provider) => (

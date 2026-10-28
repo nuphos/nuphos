@@ -14,6 +14,7 @@ import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { AgentConversation } from '../api'
+import type { JournalChatTarget } from '../lib/journalEvent'
 
 // The rail refetches on this beat, so an answered conversation leaves and the next one opens.
 const INBOX_REFRESH_MS = 5_000
@@ -50,6 +51,11 @@ export function InboxView({
   const [items, setItems] = useState<AgentConversation[] | null>(null)
   const [selected, setSelected] = useState<{ sessionId: string; index: number } | null>(null)
   const [tick, setTick] = useState(0)
+  // The question the reader scrolls to once the opened conversation renders it.
+  const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
+    null,
+  )
+  const [locatedFor, setLocatedFor] = useState<string | null>(null)
   // Another team's list and open conversation are no answer for this one.
   const [shownTeamId, setShownTeamId] = useState(teamId)
 
@@ -82,6 +88,7 @@ export function InboxView({
         : null,
     )
   }, [])
+  const consumeLocate = useCallback(() => setLocate(null), [])
   const selectedRef = useRef(selected)
 
   useEffect(() => {
@@ -149,6 +156,23 @@ export function InboxView({
   }, [isActive, twoPane])
 
   const empty = items !== null && items.length === 0 && !query
+  const selectedItem = selected && items?.find((item) => item.sessionId === selected.sessionId)
+
+  // Each newly opened conversation starts at its question, not its latest message.
+  if (selectedItem && selectedItem.sessionId !== locatedFor) {
+    setLocatedFor(selectedItem.sessionId)
+    setLocate(
+      selectedItem.pendingDecision
+        ? {
+            sessionId: selectedItem.sessionId,
+            target: {
+              toolCallId: selectedItem.pendingDecision.toolCallId,
+              question: selectedItem.pendingDecision.question,
+            },
+          }
+        : null,
+    )
+  }
   const caughtUp = empty && shareApprovals.approvals.length === 0
 
   return (
@@ -198,10 +222,9 @@ export function InboxView({
                 focusComposerOnOpen={false}
                 teamId={teamId}
                 sessionId={selected.sessionId}
-                decisionReplyTo={
-                  items?.find((item) => item.sessionId === selected.sessionId)?.pendingDecision
-                    ?.toolCallId
-                }
+                decisionReplyTo={selectedItem?.pendingDecision?.toolCallId}
+                pendingLocate={locate}
+                onLocateConsumed={consumeLocate}
                 onSessionChange={(sessionId) => select(sessionId, items ?? [])}
               />
             )}

@@ -24,6 +24,7 @@ import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
+import type { JournalChatTarget } from '../../lib/journalEvent'
 import type { UserInfo } from '../../types'
 
 export function WorkspaceAgentPane({
@@ -117,6 +118,13 @@ export function WorkspaceAgentPane({
     [setAgentSidebarPendingImport],
   )
   const handleLocateConsumed = useCallback(() => setAuditChatLocate(null), [setAuditChatLocate])
+  const handleOpenRequest = useCallback(
+    (sessionId: string, target?: JournalChatTarget) => {
+      workspaceActions.selectSession(sessionId, { keepMainPage: true })
+      setAuditChatLocate(target ? { sessionId, target } : null)
+    },
+    [setAuditChatLocate, workspaceActions],
+  )
 
   const transcriptRef = useRef<HTMLDivElement>(null)
   const [titlebarRef, { compact, tight }] = useTitlebarFit()
@@ -270,6 +278,7 @@ export function WorkspaceAgentPane({
               teamId={teamId}
               onOpenLink={stableOpenSessionResource}
               onOpenSession={handleSessionChange}
+              onOpenRequest={handleOpenRequest}
               requests={inputQueue.requests}
               requestsLoaded={inputQueue.loaded}
               requestsFailed={inputQueue.failed}

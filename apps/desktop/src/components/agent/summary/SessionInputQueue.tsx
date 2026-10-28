@@ -10,6 +10,7 @@ import { SummarySection } from './ChatSummaryRows'
 import { inputRequestKey } from './sessionInputRequests'
 
 import type { AgentConversation } from '../../../api/agent-types'
+import type { JournalChatTarget } from '../../../lib/journalEvent'
 
 export function SessionInputQueue({
   requests,
@@ -77,16 +78,18 @@ export function SessionInputReply({
   onSelect: (request: AgentConversation) => void
   onBack: () => void
   onClose: () => void
-  onOpenSession: (sessionId: string) => void
+  onOpenSession: (sessionId: string, target?: JournalChatTarget) => void
 }) {
   const stillPending = requests.some((item) => inputRequestKey(item) === inputRequestKey(request))
   const next = requests.find((item) => inputRequestKey(item) !== inputRequestKey(request))
   const [dismissed, setDismissed] = useState(false)
   const [dismissing, setDismissing] = useState(false)
+  const questionTarget: JournalChatTarget | undefined = request.pendingDecision && {
+    toolCallId: request.pendingDecision.toolCallId,
+    question: request.pendingDecision.question,
+  }
   const [locate, setLocate] = useState(
-    request.pendingDecision
-      ? { sessionId: request.sessionId, target: { toolCallId: request.pendingDecision.toolCallId } }
-      : null,
+    questionTarget ? { sessionId: request.sessionId, target: questionTarget } : null,
   )
 
   async function dismiss() {
@@ -125,7 +128,7 @@ export function SessionInputReply({
         <button
           type="button"
           aria-label="Open agent conversation"
-          onClick={() => onOpenSession(request.sessionId)}
+          onClick={() => onOpenSession(request.sessionId, questionTarget)}
           className="rounded p-1 text-secondary hover:text-main"
         >
           <ArrowUpRight aria-hidden className="size-4" />

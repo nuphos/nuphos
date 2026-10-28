@@ -53,6 +53,8 @@ export function ChoiceCard({
     <div
       ref={cardRef}
       data-decision-card={live ? '' : undefined}
+      data-tool-call-id={toolCallId}
+      data-decision-question={question}
       className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
     >
       <div className="px-4 pb-2.5 pt-3.5">

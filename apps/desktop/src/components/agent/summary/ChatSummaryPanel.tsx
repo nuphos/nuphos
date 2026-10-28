@@ -18,6 +18,7 @@ import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
 import type { AgentConversation } from '../../../api/agent-types'
+import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent } from 'react'
 
 type Props = {
@@ -25,6 +26,8 @@ type Props = {
   teamId: string
   onOpenLink: (url: string, external: boolean) => void
   onOpenSession: (sessionId: string) => void
+  /** Opens the conversation in the main pane at the message asking this question. */
+  onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
   requests: AgentConversation[]
   requestsLoaded: boolean
   requestsFailed: boolean
@@ -117,6 +120,7 @@ function SummaryBody({
   teamId,
   onOpenLink,
   onOpenSession,
+  onOpenRequest,
   requests,
   requestsLoaded,
   requestsFailed,
@@ -150,7 +154,7 @@ function SummaryBody({
           onSelect={setSelected}
           onBack={() => setSelected(null)}
           onClose={() => setChatSummaryOpen(false)}
-          onOpenSession={onOpenSession}
+          onOpenSession={onOpenRequest}
         />
       ) : (
         <>
