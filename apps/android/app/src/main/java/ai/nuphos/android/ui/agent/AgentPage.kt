@@ -269,7 +269,7 @@ fun AgentPage(
                                         nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}") { popUpTo("home"); launchSingleTop = true }
                                     }) {
                                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            PinnedAvatar(true) { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null) }
+                                            PinnedAvatar(true) { AgentAvatar(pin.sessionId, null, size = 36.dp) }
                                             Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }

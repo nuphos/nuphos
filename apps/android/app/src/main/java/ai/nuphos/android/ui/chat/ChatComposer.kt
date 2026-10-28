@@ -122,6 +122,7 @@ import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.CredentialSelection
 import ai.nuphos.android.model.PermissionMode
+import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.session.RuntimeSelections
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.agent.AgentChip
@@ -552,18 +553,20 @@ fun ChatComposer(
                         mentionFailed -> Text("Could not search agents. You can keep typing.", style = MaterialTheme.typography.bodySmall)
                         mentionRows.isEmpty() -> Text("No matching agents", style = MaterialTheme.typography.bodySmall)
                         else -> mentionRows.forEach { row ->
-                            Text(
-                                row.displayTitle,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) {
+                            Row(
+                                Modifier.fillMaxWidth().clickable(role = Role.Button) {
                                     // Recheck the current draft; never insert a result from a replaced query.
                                     if (SessionMention.query(fieldValue) == activeMention && effectiveDraftingEnabled) {
                                         val inserted = SessionMention.insert(text, SessionMention.link(mentions.teamId, row.sessionId))
                                         updateText(inserted)
                                     }
                                 }.padding(vertical = 8.dp),
-                            )
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                AgentAvatar(row.sessionId, row.agentRuntime, 20.dp)
+                                Text(row.displayTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                     }
