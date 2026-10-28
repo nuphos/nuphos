@@ -70,6 +70,22 @@ class ConsentInterceptorTest {
         assertTrue("An old account response revoked the current account", AiAccess.allows("new-account"))
     }
 
+    @Test fun notificationReplyFromAColdProcessReachesTheServer() {
+        AiAccess.clear()
+        AiAccess.restore("fixture")
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor(ConsentInterceptor()).addInterceptor { chain ->
+            calls++
+            assertEquals(AccountApi.AI_CONSENT_VERSION, chain.request().header("x-nuphos-ai-consent-version"))
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
+                .body("".toResponseBody()).build()
+        }.build()
+        val reply = AgentChatApi.chatRequest("fixture", AgentChatApi.ChatRequest(
+            id = "session", teamId = "team", messages = listOf(ai.nuphos.android.model.ChatMessage.user("hi")), streamId = "stream"))
+        client.newCall(reply).execute().close()
+        assertEquals(1, calls)
+    }
+
     private fun request(path: String) = Request.Builder().url("${NuphosApi.BASE_URL}/$path")
         .header("Authorization", "Bearer fixture").build()
 }

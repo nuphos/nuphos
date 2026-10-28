@@ -124,4 +124,17 @@ class AiAccessTest {
         assertFalse(retained())
         assertTrue(AiAccess.bind("account")())
     }
+
+    @Test fun savedConsentRestoresOnlyInAFreshProcess() {
+        AiAccess.clear()
+        AiAccess.restore("saved")
+        assertTrue(AiAccess.allows("saved"))
+        // A live session's answer wins: a revoked or unconfirmed login is never re-granted.
+        AiAccess.revoke()
+        AiAccess.restore("saved")
+        assertFalse(AiAccess.allows("saved"))
+        AiAccess.activate("other")
+        AiAccess.restore("other")
+        assertFalse(AiAccess.allows("other"))
+    }
 }

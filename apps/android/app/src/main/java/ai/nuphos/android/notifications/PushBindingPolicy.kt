@@ -5,6 +5,9 @@ object PushBindingPolicy {
     fun accepts(account: String?, boundLogin: String?, currentLogin: String?, messageAccount: String?, readingConversation: Boolean): Boolean =
         !readingConversation && !account.isNullOrBlank() && !boundLogin.isNullOrBlank() &&
             boundLogin == currentLogin && account == messageAccount
+    /** The saved consent counts only for the exact login it was recorded with. */
+    fun restoresConsent(consentGranted: Boolean, boundLogin: String?, currentLogin: String?): Boolean =
+        consentGranted && !boundLogin.isNullOrBlank() && boundLogin == currentLogin
     fun isReading(foreground: Boolean, visible: LocalNotificationTarget?, incoming: LocalNotificationTarget): Boolean =
         foreground && visible == incoming
 }

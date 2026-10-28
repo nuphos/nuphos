@@ -15,8 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.buildJsonObject
@@ -38,6 +36,15 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     @Volatile private var started = 0
     @Volatile private var reading: LocalNotificationTarget? = null
     @Volatile private var unregistering: Job? = null
+
+    init {
+        // One answer for every entry point: a process a notification reply starts has the same
+        // consent the app had, without waiting for a screen to restore the session.
+        app.tokenStore.read()?.let { token ->
+            if (PushBindingPolicy.restoresConsent(prefs.getBoolean("consent_granted", false),
+                    prefs.getString("login_hash", null), fingerprint(token))) AiAccess.restore(token)
+        }
+    }
 
     fun reading(target: LocalNotificationTarget) {
         reading = target
@@ -175,17 +182,11 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
         }
         scope.launch {
             try {
-                // A reply can start the process: restore the session as a launch does, so AI
-                // consent is checked again rather than assumed.
-                if (token != null && !AiAccess.allows(token)) {
-                    withContext(Dispatchers.Main) { app.authSession.restore() }
-                    withTimeoutOrNull(10_000) { while (!AiAccess.allows(token)) delay(200) }
-                }
                 val sent = token != null &&
                     runCatching { AgentChatApi.reply(token, target.teamId, target.sessionId, text) }.getOrDefault(false)
-                // Never lost silently: the text comes back, and a tap opens the conversation.
-                // Another account's notification is only cleared, so the reply spinner stops.
-                if (sent || token == null) app.localNotifications.dismiss(target)
+                // Never lost silently, whatever failed: replacing the notification also stops the
+                // reply spinner, the text comes back, and a tap opens the conversation.
+                if (sent) app.localNotifications.dismiss(target)
                 else LocalNotifications(app, { target.accountId }, { true }).post(target, "Reply not sent", text)
             } finally {
                 done()
