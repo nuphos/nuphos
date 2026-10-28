@@ -1,7 +1,5 @@
-One Live Activity now shows your running conversations together, instead of one per conversation.
+The Live Activity now shows the same status as the app. A conversation no longer shows as Failed while its agent is still working, and a runtime that can't be reached shows as Unavailable.
 
-A new Runtimes page shows your cloud runtimes, Boxes and computers in one place. It takes the place of the Monitoring and Triggers placeholders.
+Conversations opened from a link or a notification now load instead of showing "cancelled".
 
-Nuphos has a new app icon, and you can choose from 16 icons in Account › Appearance › App icon.
-
-Screenshots you paste into the composer are now attached to your message.
+Chat text no longer overlaps for a moment when you rotate your iPhone.
