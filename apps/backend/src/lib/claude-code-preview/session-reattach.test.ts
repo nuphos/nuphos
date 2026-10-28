@@ -243,6 +243,20 @@ test('giving up because the session was superseded still reports the failures se
   expect(workLost).toBe('unreachable')
 })
 
+test('a session another transport resumed meanwhile is not reported lost', async () => {
+  // The wait for an offline computer can be long; if a turn resumed the same
+  // runtime session elsewhere in the meantime, its work goes on there.
+  acquire = spyOn(registry, 'acquire').mockImplementationOnce(async () => {
+    session.client = fakeClient('resumed-by-a-turn')
+    throw new Error('The computer running this agent is offline')
+  })
+  const lost = fakeClient('lost')
+
+  session.client = lost
+  expect(await reattachAfterTransportLoss(session, lost, [0, 0], instant)).toBe(false)
+  expect(workLost).toBeNull()
+})
+
 test('a handoff with no runtime failure behind it reports nothing', async () => {
   // Ownership moved on before the first attempt. Nothing was ever observed
   // about the runtime, so the conversation is told nothing.

@@ -145,6 +145,19 @@ async function owned(
   }
 }
 
+async function sameRuntimeSession(session: TeamSession): Promise<boolean> {
+  try {
+    const attachment = await getConversationPreviewAttachment(
+      session.conversationId,
+      session.teamId,
+    )
+
+    return attachment?.openabSessionId === session.openabSessionId
+  } catch {
+    return false
+  }
+}
+
 async function stillOwned(session: TeamSession, transport: TeamPreviewClient): Promise<boolean> {
   if (session.client !== transport) return false
   if (sessionsByConversation.get(`${session.teamId}:${session.conversationId}`) !== session)
@@ -194,7 +207,11 @@ export async function reattachAfterTransportLoss(
       const ownership = await owned(session, transport, attempt)
 
       if (ownership === 'unknown') continue
-      if (ownership === 'no') break
+      if (ownership === 'no') {
+        // Resumed elsewhere on the same runtime session: its work goes on there.
+        if (failure && (await sameRuntimeSession(session))) failure = undefined
+        break
+      }
       try {
         const client = await registry.acquire(session.teamId, session.endpoint)
 
