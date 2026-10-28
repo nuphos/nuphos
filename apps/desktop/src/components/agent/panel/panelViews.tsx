@@ -22,6 +22,8 @@ import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
 import { waitingMessages } from './queuedAutoSend'
 import { QueuedStrip } from './QueuedStrip'
+import { cardReplyId } from './replyTarget'
+import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
 
 import type { PanelViewCtx } from './ctx'
@@ -155,7 +157,17 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   credentials: activeTab.readOnly
                     ? undefined
                     : visibleConversationCredentialSelector,
-                  send: (text, toolCallId) => void sendInActive(text, [], undefined, toolCallId),
+                  send: (text, toolCallId, question) =>
+                    void sendInActive(
+                      text,
+                      [],
+                      undefined,
+                      cardReplyId(
+                        toolCallId,
+                        question,
+                        c.replyTarget?.questions ?? c.openQuestions,
+                      ),
+                    ),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -223,32 +235,37 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   />
                 </DelayedPanelReveal>
               ) : (
-                <Composer
-                  onSend={(text, filePaths) => void sendInActive(text, filePaths)}
-                  onStop={stopActive}
-                  promptSuggestion={
-                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
-                      ? null
-                      : activeTab.promptSuggestion
-                  }
-                  autoFocus={focusComposerOnOpen}
-                  runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
-                  executing={runtimeIsExecuting(activeTab.runtimeState)}
-                  readOnly={activeTab.readOnly}
-                  activitySource={activeTab.activitySource}
-                  slackThread={activeTab.slackThread}
-                  credentialSelector={visibleConversationCredentialSelector}
-                  runtimeControl={runtimeControl}
-                  modelSession={modelSession}
-                  bypassControl={bypassControl}
-                  pendingSeed={pendingPromptReady}
-                  onSeedConsumed={onPromptConsumed}
-                  sidebar={isSidebarMode}
-                  dropRegisterRef={conversationDropRef}
-                  draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
-                  recall={{ retract: retractLatest, history }}
-                  mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
-                />
+                <>
+                  {c.replyTarget?.sessionId === activeTab.sessionId && !activeTab.readOnly && (
+                    <ReplyTargetChip target={c.replyTarget} sidebar={isSidebarMode} />
+                  )}
+                  <Composer
+                    onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                    onStop={stopActive}
+                    promptSuggestion={
+                      activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                        ? null
+                        : activeTab.promptSuggestion
+                    }
+                    autoFocus={focusComposerOnOpen}
+                    runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                    executing={runtimeIsExecuting(activeTab.runtimeState)}
+                    readOnly={activeTab.readOnly}
+                    activitySource={activeTab.activitySource}
+                    slackThread={activeTab.slackThread}
+                    credentialSelector={visibleConversationCredentialSelector}
+                    runtimeControl={runtimeControl}
+                    modelSession={modelSession}
+                    bypassControl={bypassControl}
+                    pendingSeed={pendingPromptReady}
+                    onSeedConsumed={onPromptConsumed}
+                    sidebar={isSidebarMode}
+                    dropRegisterRef={conversationDropRef}
+                    draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
+                    recall={{ retract: retractLatest, history }}
+                    mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+                  />
+                </>
               )}
             </div>
           </div>

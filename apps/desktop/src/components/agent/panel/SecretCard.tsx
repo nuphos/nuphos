@@ -34,7 +34,7 @@ export function SecretCard({
 
       setValue('')
       setPhase('sent')
-      ctx.send(`🔒 ${name} saved to ${path}`, toolCallId)
+      ctx.send(`🔒 ${name} saved to ${path}`, toolCallId, reason)
     } catch {
       setPhase('error')
     }

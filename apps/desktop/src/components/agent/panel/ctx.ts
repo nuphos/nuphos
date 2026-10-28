@@ -10,6 +10,7 @@ import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed, Message, MessageRating, Tab } from './model'
 import type { AuthorizationDecisionAction, ToolPart, TransferUploadPart } from './parts'
+import type { ComposerReplyTarget, ReplyQuestion } from './replyTarget'
 import type { StallDetail } from './stall'
 import type { TextStreamBuffer } from './streamBuffer'
 import type { useStarterSuggestions } from './useStarterSuggestions'
@@ -68,6 +69,8 @@ export type PanelCtx = {
   focusComposerOnOpen: boolean
   composerDraftId?: string
   decisionReplyTo?: string
+  replyTarget?: ComposerReplyTarget
+  openQuestions?: ReplyQuestion[]
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
   connectedResources?: string[]

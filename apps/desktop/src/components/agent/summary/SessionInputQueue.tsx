@@ -179,6 +179,14 @@ export function SessionInputReply({
           sessionId={request.sessionId}
           sessionReadOnly={(request.readOnly ?? false) || !stillPending || dismissed}
           decisionReplyTo={request.pendingDecision?.toolCallId}
+          openQuestions={
+            request.pendingDecision && [
+              {
+                id: request.pendingDecision.toolCallId,
+                question: request.pendingDecision.question,
+              },
+            ]
+          }
           composerDraftId={`input:${inputRequestKey(request)}`}
           focusComposerOnOpen={false}
           pendingLocate={locate}

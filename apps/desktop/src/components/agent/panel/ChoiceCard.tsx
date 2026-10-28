@@ -38,7 +38,7 @@ export function ChoiceCard({
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
     setSent(true)
-    ctx?.send(option, toolCallId)
+    ctx?.send(option, toolCallId, question)
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
     const option = key.kind === 'option' ? options[key.index] : undefined

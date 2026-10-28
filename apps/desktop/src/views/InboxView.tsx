@@ -223,6 +223,14 @@ export function InboxView({
                 teamId={teamId}
                 sessionId={selected.sessionId}
                 decisionReplyTo={selectedItem?.pendingDecision?.toolCallId}
+                openQuestions={
+                  selectedItem?.pendingDecision && [
+                    {
+                      id: selectedItem.pendingDecision.toolCallId,
+                      question: selectedItem.pendingDecision.question,
+                    },
+                  ]
+                }
                 pendingLocate={locate}
                 onLocateConsumed={consumeLocate}
                 onSessionChange={(sessionId) => select(sessionId, items ?? [])}

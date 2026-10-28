@@ -10,6 +10,7 @@ import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
+import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
@@ -73,6 +74,7 @@ export function WorkspaceAgentPane({
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
   const inputQueue = useSessionInputRequests(savedSessionId, teamId)
+  const replyTarget = useComposerReplyTarget(savedSessionId, inputQueue.requests)
   const connectedResources = useMemo(
     () =>
       connectedResourceLabels(
@@ -256,6 +258,8 @@ export function WorkspaceAgentPane({
               newChatRequest={ws.newChatRequest}
               sessionId={selectedSessionId}
               sessionReadOnly={selectedSessionReadOnly}
+              decisionReplyTo={replyTarget?.chosen ?? undefined}
+              replyTarget={replyTarget}
               onSessionChange={handleSessionChange}
               onOpenNuphosLink={stableOpenNuphosLinkFromChat}
               onOpenAgentSettings={handleOpenAgentSettings}

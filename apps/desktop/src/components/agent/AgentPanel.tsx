@@ -37,6 +37,7 @@ import type { JournalChatTarget } from './JournalPanel'
 import type { AgentProvider } from '../../types/runtime'
 import type { PanelViewCtx } from './panel/ctx'
 import type { AgentPromptSeed, Tab } from './panel/model'
+import type { ComposerReplyTarget, ReplyQuestion } from './panel/replyTarget'
 import type { MutableRefObject } from 'react'
 
 export { AgentHistoryPage } from './panel/AgentHistoryPage'
@@ -110,6 +111,10 @@ type Props = {
   /** A request's reply draft is separate from the same session's normal composer. */
   composerDraftId?: string
   decisionReplyTo?: string
+  /** The main chat's "Replying to" chip; it also sets `decisionReplyTo`. */
+  replyTarget?: ComposerReplyTarget
+  /** Open questions, so a choice card answers its own one whatever id the transcript keeps. */
+  openQuestions?: ReplyQuestion[]
   /**
    * The workspace tab's currently-bound kubeconfig context, if any. Forwarded
    * to `agentStart` as `kubeContext` so the backend can tell the agent which
@@ -171,6 +176,8 @@ export const AgentPanel = memo(function AgentPanel({
   focusComposerOnOpen = true,
   composerDraftId,
   decisionReplyTo,
+  replyTarget,
+  openQuestions,
   kubeContext,
   runtimeKubeContextRef,
   isTeamAdmin = false,
@@ -207,6 +214,8 @@ export const AgentPanel = memo(function AgentPanel({
     focusComposerOnOpen,
     composerDraftId,
     decisionReplyTo,
+    replyTarget,
+    openQuestions,
     kubeContext,
     runtimeKubeContextRef,
     connectedResources,
