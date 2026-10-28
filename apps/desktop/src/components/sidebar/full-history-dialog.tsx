@@ -2,11 +2,12 @@ import { Dialog } from '@base-ui/react/dialog'
 import clsx from 'clsx'
 import { useEffect, useId, useRef, useState } from 'react'
 
+import { AgentAvatar } from '../agent/AgentAvatar'
 import { Kbd } from '../ui/kbd'
 
 import { fullHistoryRows, historyAge } from './historyRows'
 
-import type { HistoryTimeline } from './historyRows'
+import type { ChatLookup, HistoryTimeline } from './historyRows'
 
 /**
  * Everything the main pane showed this session, newest first. Keyboard works
@@ -17,16 +18,16 @@ export function FullHistoryDialog({
   open,
   onOpenChange,
   history,
-  chatTitle,
+  chatOf,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   history: HistoryTimeline
-  chatTitle: (sessionId: string) => string | undefined
+  chatOf: ChatLookup
 }) {
   const listId = useId()
   const listRef = useRef<HTMLDivElement>(null)
-  const rows = open ? fullHistoryRows(history, chatTitle) : []
+  const rows = open ? fullHistoryRows(history, chatOf) : []
   const currentRow = Math.max(
     0,
     rows.findIndex((row) => row.current),
@@ -110,7 +111,16 @@ export function FullHistoryDialog({
                     position === selectedIndex ? 'bg-zGray-750' : 'hover:bg-zGray-800',
                   )}
                 >
-                  <row.icon size={16} className="shrink-0 text-secondary" />
+                  {'icon' in row ? (
+                    <row.icon size={16} className="shrink-0 text-secondary" />
+                  ) : (
+                    <AgentAvatar
+                      agentId={row.chat.sessionId}
+                      avatar={row.chat.avatar}
+                      provider={row.chat.agentRuntime}
+                      size={20}
+                    />
+                  )}
                   <span
                     className={clsx(
                       'min-w-0 flex-1 truncate text-[13px] text-main',

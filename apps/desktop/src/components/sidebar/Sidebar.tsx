@@ -73,12 +73,13 @@ export const Sidebar = memo(function Sidebar({
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } = useSidebarChats({
-    teamId,
-    agentSessionId,
-    chatShown,
-    onArchived: onChatArchived,
-  })
+  const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
+    useSidebarChats({
+      teamId,
+      agentSessionId,
+      chatShown,
+      onArchived: onChatArchived,
+    })
 
   // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
@@ -198,7 +199,7 @@ export const Sidebar = memo(function Sidebar({
           onBack={onBack}
           onForward={onForward}
           history={history}
-          chatTitle={(id) => chatItems.find((chat) => chat.key === `agent-session:${id}`)?.label}
+          chatOf={(id) => agentSessions.find((chat) => chat.sessionId === id)}
         />
 
         <SidebarTeamSwitcher

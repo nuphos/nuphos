@@ -17,7 +17,7 @@ import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
 import { SidebarHistoryButtons } from './history-buttons'
 import { SidebarToggleButton } from './nav-stack'
 
-import type { HistoryTimeline } from './historyRows'
+import type { ChatLookup, HistoryTimeline } from './historyRows'
 import type { UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 
@@ -33,7 +33,7 @@ export function SidebarHeaderBar({
   onBack,
   onForward,
   history,
-  chatTitle,
+  chatOf,
 }: {
   collapsed: boolean
   onToggleCollapse?: () => void
@@ -42,7 +42,7 @@ export function SidebarHeaderBar({
   onBack?: () => void
   onForward?: () => void
   history?: HistoryTimeline
-  chatTitle?: (sessionId: string) => string | undefined
+  chatOf?: ChatLookup
 }) {
   return (
     <div className="titlebar-drag h-[44px] flex-shrink-0 flex items-center justify-between px-3.5">
@@ -59,7 +59,7 @@ export function SidebarHeaderBar({
         onBack={onBack}
         onForward={onForward}
         history={history}
-        chatTitle={chatTitle}
+        chatOf={chatOf}
       />
     </div>
   )

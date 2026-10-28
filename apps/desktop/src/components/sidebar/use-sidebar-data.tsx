@@ -289,5 +289,5 @@ export function useSidebarChats({
   )
   const newChatActive = chatShown && !agentSessionId
 
-  return { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
+  return { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
 }
