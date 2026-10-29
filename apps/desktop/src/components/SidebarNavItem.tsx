@@ -149,7 +149,10 @@ export function SidebarNavItem({
           <span className="relative flex flex-shrink-0 items-center">
             <span
               id={`${id}-trailing`}
-              className="flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden group-has-[:focus-visible]/row:hidden"
+              className={clsx(
+                'flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden',
+                'group-has-[:focus-visible]/row:hidden group-has-[[aria-expanded=true]]/row:hidden',
+              )}
             >
               {trailing}
             </span>
@@ -161,6 +164,8 @@ export function SidebarNavItem({
                 'group-hover:pointer-events-auto group-hover:static group-hover:opacity-100',
                 'group-focus-visible:pointer-events-auto group-focus-visible:static group-focus-visible:opacity-100',
                 'group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:static group-has-[:focus-visible]/row:opacity-100',
+                // An action whose menu is open stays put as the menu's anchor.
+                'group-has-[[aria-expanded=true]]/row:pointer-events-auto group-has-[[aria-expanded=true]]/row:static group-has-[[aria-expanded=true]]/row:opacity-100',
               )}
             >
               {hoverActions}
