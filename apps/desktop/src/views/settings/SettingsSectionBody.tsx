@@ -37,7 +37,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (
     <ProfileSection user={user} onSignOut={onSignOut} onUserUpdated={onUserUpdated} />
   ),
-  'account.personalCredentials': () => <PersonalCredentialsSection />,
+  'account.personalCredentials': ({ team }) => <PersonalCredentialsSection team={team} />,
   'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
   'device.appearance': () => <AppearanceSection />,
   'device.privacy': () => <PrivacySection />,
