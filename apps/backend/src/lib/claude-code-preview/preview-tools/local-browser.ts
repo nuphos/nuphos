@@ -62,8 +62,8 @@ const browserTool: DeviceTool = {
 const definition = {
   name: 'local_browser',
   description:
-    "Operate the browser tabs inside the user's Nuphos Desktop workspace (the in-app browser, not Chrome or Safari): list them, open a page in a new tab, navigate, run JavaScript in a page, or take a screenshot. " +
-    'Pages keep the logins the user made in those tabs. Start with action "tabs" (or "open"), then pass the returned tab id. ' +
+    "Operate this conversation's browser tabs inside the user's Nuphos Desktop workspace (the in-app browser, not Chrome or Safari): open a page in a new tab in this conversation's dock, list the tabs this conversation opened, navigate, run JavaScript in a page, or take a screenshot. " +
+    'Pages keep the logins the user made in the in-app browser. Start with action "open" (or "tabs"), then pass the returned tab id. ' +
     'eval runs `script` in the page as a user gesture and returns its JSON-serializable value (an awaited Promise for async code): read the DOM, click, fill inputs (dispatch input events for frameworks). ' +
     'screenshot only works while the tab is on screen. Use this for the in-app browser; use local_cua for other apps.',
   inputSchema: {
@@ -72,7 +72,8 @@ const definition = {
       action: { type: 'string', enum: [...ACTIONS] },
       tab: {
         type: 'integer',
-        description: 'Tab id from "tabs" or "open"; required by navigate, eval, screenshot.',
+        description:
+          'Tab id from "open" or "tabs" in this conversation; required by navigate, eval, screenshot.',
       },
       url: { type: 'string', description: 'http(s) URL for open and navigate.' },
       script: { type: 'string', description: 'JavaScript expression or IIFE for eval.' },

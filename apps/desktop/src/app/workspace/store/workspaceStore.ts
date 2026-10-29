@@ -1,7 +1,12 @@
 import { createWorkspaceTab } from '../../workspaceTabFactory.ts'
 
 import { workspaceReducer } from './workspaceReducer.ts'
-import { createWorkspaceState, currentSessionKey, selectCurrentBucket } from './workspaceState.ts'
+import {
+  createWorkspaceState,
+  currentSessionKey,
+  selectCurrentBucket,
+  sessionKeyOf,
+} from './workspaceState.ts'
 
 import type {
   OpenTabOptions,
@@ -41,6 +46,8 @@ export type WorkspaceActions = {
   setDockOpen: (open: boolean) => void
   toggleDock: () => void
   openTab: (tab: WorkspaceTabState, options?: OpenTabOptions) => void
+  /** Opens a tab in a conversation's own dock without bringing it on screen. */
+  openTabInSession: (sessionId: string, tab: WorkspaceTabState) => void
   activateTab: (tabId: string) => void
   openTeamTab: (teamId: string) => void
   selectAdjacentTab: (direction: -1 | 1) => void
@@ -125,6 +132,13 @@ export function createWorkspaceStore(
         options: fromMainPage ? { ...options, openDock: true } : options,
       })
     },
+    openTabInSession: (sessionId, tab) =>
+      dispatch({
+        type: 'openTab',
+        sessionKey: sessionKeyOf(sessionId),
+        tab,
+        options: { openDock: true },
+      }),
     activateTab: (tabId) => inCurrentSession({ type: 'activateTab', tabId }),
     openTeamTab: (teamId) => inCurrentSession({ type: 'openTeamTab', teamId }),
     selectAdjacentTab: (direction) => inCurrentSession({ type: 'selectAdjacentTab', direction }),
