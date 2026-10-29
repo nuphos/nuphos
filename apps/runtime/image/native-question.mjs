@@ -11,18 +11,29 @@ export const NUPHOS_QUESTION_ASKED =
   'The question is now shown to the user in Nuphos. End your turn without choosing for them; their answer arrives as the next user message.'
 export const NUPHOS_QUESTION_FAILED =
   'Nuphos could not show this question to the user. Ask it with the nuphos-tools request_user_decision tool instead.'
+// A hung tools server must not hold the agent's turn.
+export const NUPHOS_QUESTION_TIMEOUT_MS = 15_000
 
 // OpenAB runs one adapter process per conversation, so the latest session's
 // server is this conversation's. A load that names no servers keeps it.
 let nuphosDecisionServer
 
-export function nuphosRememberDecisionServer(servers) {
-  const server = Array.isArray(servers)
+function nuphosToolsServer(servers) {
+  return Array.isArray(servers)
     ? servers.find(
         (entry) =>
           entry?.type === 'http' && entry.name === 'nuphos-tools' && typeof entry.url === 'string',
       )
     : undefined
+}
+
+/** Whether a session can ask through Nuphos at all. */
+export function nuphosOffersDecisions(servers) {
+  return Boolean(nuphosToolsServer(servers))
+}
+
+export function nuphosRememberDecisionServer(servers) {
+  const server = nuphosToolsServer(servers)
   if (!server) return
   const header = (Array.isArray(server.headers) ? server.headers : []).find(
     (entry) => entry?.name?.toLowerCase() === 'authorization',
@@ -53,28 +64,39 @@ export function nuphosDecisionArguments(questions) {
   return { label, category: 'preference', question: question.slice(0, 1000) }
 }
 
-/** Registers the questions as a pending decision; true once Nuphos accepted it. */
-export async function nuphosAskInNuphos(questions, env = process.env, request = fetch) {
-  const server = nuphosDecisionServer
-  if (!server || !questions.length) return false
-  // OpenAB keeps the conversation token current here; the session's header may be stale.
-  let authorization = server.authorization
+// Where OpenAB keeps the conversation token, its file is the credential, as in
+// mcp-http-bridge.mjs: a missing or empty file means OpenAB revoked it, and the
+// session's (possibly stale) header is never used in its place.
+async function nuphosAuthorization(server, env) {
+  if (!env.OPENAB_CREDENTIALS_DIR) return server.authorization
   try {
     const { readFile } = await import('node:fs/promises')
-    const token = env.OPENAB_CREDENTIALS_DIR
-      ? (await readFile(`${env.OPENAB_CREDENTIALS_DIR}/NUPHOS_TOKEN`, 'utf8')).trim()
-      : ''
-    if (token) authorization = `Bearer ${token}`
+    const token = (await readFile(`${env.OPENAB_CREDENTIALS_DIR}/NUPHOS_TOKEN`, 'utf8')).trim()
+    return token ? `Bearer ${token}` : undefined
   } catch {
-    // No credential file: the session's own header is all there is.
+    return undefined
   }
+}
+
+/** Registers the questions as a pending decision; true once Nuphos accepted it. */
+export async function nuphosAskInNuphos(
+  questions,
+  env = process.env,
+  request = fetch,
+  timeoutMs = NUPHOS_QUESTION_TIMEOUT_MS,
+) {
+  const server = nuphosDecisionServer
+  if (!server || !questions.length) return false
+  const authorization = await nuphosAuthorization(server, env)
+  if (!authorization) return false
   try {
     const response = await request(server.url, {
       method: 'POST',
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',
-        ...(authorization ? { authorization } : {}),
+        authorization,
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -109,11 +131,16 @@ export async function nuphosAskClaudeQuestion(toolInput, env = process.env, requ
   return { behavior: 'deny', message: asked ? NUPHOS_QUESTION_ASKED : NUPHOS_QUESTION_FAILED }
 }
 
-/** Codex's request_user_input response: every question answered with what to do next. */
+/**
+ * Codex's request_user_input response: every question answered with what to do
+ * next. A secret is never asked this way, since the answer would arrive as a
+ * chat message the model reads; request_user_decision has a secure card for it.
+ */
 export async function nuphosAskCodexQuestion(params, env = process.env, request = fetch) {
   const asked = (Array.isArray(params?.questions) ? params.questions : []).filter(
     (entry) => typeof entry?.id === 'string' && nuphosQuestionText(entry.question),
   )
+  const secret = asked.some((entry) => entry.isSecret === true)
   const questions = asked.map((entry) => ({
     header: nuphosQuestionText(entry.header),
     question: nuphosQuestionText(entry.question),
@@ -121,8 +148,9 @@ export async function nuphosAskCodexQuestion(params, env = process.env, request 
       .map((option) => nuphosQuestionText(option?.label))
       .filter(Boolean),
   }))
-  const reply = (await nuphosAskInNuphos(questions, env, request))
-    ? NUPHOS_QUESTION_ASKED
-    : NUPHOS_QUESTION_FAILED
+  const reply =
+    !secret && (await nuphosAskInNuphos(questions, env, request))
+      ? NUPHOS_QUESTION_ASKED
+      : NUPHOS_QUESTION_FAILED
   return { answers: Object.fromEntries(asked.map((entry) => [entry.id, { answers: [reply] }])) }
 }

@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url'
 
 import { patchRuntimeDefaults } from '../runtime-defaults.mjs'
 
+import { patchCodexUserInput } from './ask-user-input.mjs'
+
 export function patchAdapter(source, helper) {
   const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
   helper = helper.replace("import { nuphosSessionHomeEnv } from '../session-home.mjs'", '')
@@ -135,17 +137,7 @@ export function patchAdapter(source, helper) {
         .replace(/\}\);$/, '})]);'),
     )
   // request_user_input asks through Nuphos; see native-question.mjs.
-  const servers = '    const requestedMcpServers = request.mcpServers ?? [];\n'
-  const userInput =
-    '  async handleUserInput(params) {\n    if (!clientSupportsFormElicitation(this.clientCapabilities)) {\n      return { answers: {} };'
-  if (withDeath.split(servers).length !== 3 || withDeath.split(userInput).length !== 2)
-    throw new Error('Expected Codex session server and user input handoffs')
-  const asking = withDeath
-    .replaceAll(servers, `${servers}    nuphosRememberDecisionServer(request.mcpServers);\n`)
-    .replace(
-      userInput,
-      userInput.replace('return { answers: {} };', 'return await nuphosAskCodexQuestion(params);'),
-    )
+  const asking = patchCodexUserInput(withDeath)
   const nativeQuestion = readFileSync(
     new URL('../native-question.mjs', import.meta.url),
     'utf8',

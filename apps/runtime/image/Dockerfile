@@ -90,7 +90,8 @@ ENV PATH="/opt/nuphos-claude-agent-acp/node_modules/.bin:${PATH}" \
 FROM common AS codex
 COPY codex-acp/package.json codex-acp/package-lock.json \
      codex-acp/patch-adapter.mjs codex-acp/session-config.mjs codex-acp/steering.mjs \
-     codex-acp/restore-history.mjs codex-acp/process-death.mjs /opt/nuphos-codex-acp/
+     codex-acp/restore-history.mjs codex-acp/process-death.mjs codex-acp/ask-user-input.mjs \
+     /opt/nuphos-codex-acp/
 RUN cd /opt/nuphos-codex-acp \
  && npm ci --omit=dev --ignore-scripts --cache /tmp/npm-cache \
  && rm -rf /tmp/npm-cache \

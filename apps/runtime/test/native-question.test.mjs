@@ -5,12 +5,15 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { patchClaudeAskUserQuestion } from '../image/claude-agent-acp/ask-user-question.mjs'
+import { patchCodexUserInput } from '../image/codex-acp/ask-user-input.mjs'
 import {
   NUPHOS_QUESTION_ASKED,
   NUPHOS_QUESTION_FAILED,
   nuphosAskClaudeQuestion,
   nuphosAskCodexQuestion,
+  nuphosAskInNuphos,
   nuphosDecisionArguments,
+  nuphosOffersDecisions,
   nuphosRememberDecisionServer,
 } from '../image/native-question.mjs'
 
@@ -27,7 +30,7 @@ const servers = [
 function recorder(result = { content: [] }, ok = true) {
   const calls = []
   const request = async (url, init) => {
-    calls.push({ url, headers: init.headers, body: JSON.parse(init.body) })
+    calls.push({ url, headers: init.headers, body: JSON.parse(init.body), signal: init.signal })
     return { ok, json: async () => ({ jsonrpc: '2.0', id: 1, result }) }
   }
   return { calls, request }
@@ -179,10 +182,104 @@ test('the Claude patch keeps AskUserQuestion and asks through Nuphos', () => {
     patched,
     /const mcpServers = \{\};\n {8}nuphosRememberDecisionServer\(params\.mcpServers\);/,
   )
-  assert.match(patched, /const disallowedTools = \[\];/)
+  assert.match(
+    patched,
+    /const disallowedTools = elicitationSupport\.form \|\| nuphosOffersDecisions\(params\.mcpServers\) \? \[\] : \["AskUserQuestion"\];/,
+  )
   assert.match(
     patched,
     /!this\.clientCapabilities\?\.elicitation\?\.form\) \{\n.*ensureToolCallEmitted.*\n {16}return nuphosAskClaudeQuestion\(toolInput\);\n {12}\}\n {12}if \(toolName === "AskUserQuestion" && this\.clientCapabilities/,
   )
   assert.throws(() => patchClaudeAskUserQuestion('nothing to patch'))
+})
+
+test('AskUserQuestion stays off for a session that cannot ask through Nuphos', () => {
+  assert.equal(nuphosOffersDecisions(servers), true)
+  assert.equal(nuphosOffersDecisions([servers[0]]), false)
+  assert.equal(nuphosOffersDecisions(undefined), false)
+})
+
+test('a secret question is never asked in chat, so its answer cannot reach the model', async () => {
+  nuphosRememberDecisionServer(servers)
+  const { calls, request } = recorder()
+  const response = await nuphosAskCodexQuestion(
+    {
+      questions: [
+        { id: 'token', header: 'Token', question: 'Paste your API token', isSecret: true },
+        { id: 'region', header: 'Region', question: 'Which region?' },
+      ],
+    },
+    {},
+    request,
+  )
+
+  assert.equal(calls.length, 0)
+  assert.deepEqual(response, {
+    answers: {
+      token: { answers: [NUPHOS_QUESTION_FAILED] },
+      region: { answers: [NUPHOS_QUESTION_FAILED] },
+    },
+  })
+})
+
+test('a hung tools server times out instead of holding the turn', async () => {
+  nuphosRememberDecisionServer(servers)
+  const { calls, request: recorded } = recorder()
+
+  await nuphosAskInNuphos([{ question: 'Proceed?' }], {}, recorded)
+  assert.ok(calls[0].signal instanceof AbortSignal, 'every request carries a timeout signal')
+  const hung = (_url, init) =>
+    new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(init.signal.reason))
+    })
+  const started = Date.now()
+
+  assert.equal(await nuphosAskInNuphos([{ question: 'Proceed?' }], {}, hung, 20), false)
+  assert.ok(Date.now() - started < 5_000)
+})
+
+test('a revoked credential file fails the question instead of using the session header', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'nuphos-question-'))
+  try {
+    nuphosRememberDecisionServer(servers)
+    const { calls, request } = recorder()
+    const missing = await nuphosAskClaudeQuestion(
+      { questions: [{ question: 'Proceed?' }] },
+      { OPENAB_CREDENTIALS_DIR: dir },
+      request,
+    )
+
+    writeFileSync(join(dir, 'NUPHOS_TOKEN'), '\n')
+    const empty = await nuphosAskClaudeQuestion(
+      { questions: [{ question: 'Proceed?' }] },
+      { OPENAB_CREDENTIALS_DIR: dir },
+      request,
+    )
+
+    assert.equal(missing.message, NUPHOS_QUESTION_FAILED)
+    assert.equal(empty.message, NUPHOS_QUESTION_FAILED)
+    assert.equal(calls.length, 0)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('the Codex patch asks through Nuphos at both server handoffs and the user input call', () => {
+  const servers = '    const requestedMcpServers = request.mcpServers ?? [];'
+  const userInput = [
+    '  async handleUserInput(params) {',
+    '    if (!clientSupportsFormElicitation(this.clientCapabilities)) {',
+    '      return { answers: {} };',
+    '    }',
+  ].join('\n')
+  const source = [servers, 'newSession();', servers, 'loadSession();', userInput, ''].join('\n')
+  const patched = patchCodexUserInput(source)
+
+  assert.equal(patched.split('nuphosRememberDecisionServer(request.mcpServers);').length, 3)
+  assert.match(patched, /return await nuphosAskCodexQuestion\(params\);/)
+  assert.doesNotMatch(patched, /return \{ answers: \{\} \};/)
+  // An anchor that moved, vanished or appears more often fails the build.
+  assert.throws(() => patchCodexUserInput([servers, userInput].join('\n')))
+  assert.throws(() => patchCodexUserInput([servers, servers, userInput, userInput].join('\n')))
+  assert.throws(() => patchCodexUserInput('nothing to patch'))
 })
