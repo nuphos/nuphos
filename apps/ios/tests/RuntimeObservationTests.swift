@@ -167,6 +167,7 @@ struct RuntimeObservationTests {
         AppLinkTests.run()
         SessionMentionTests.run()
         SidebarFavoritesTests.run()
+        LaunchCacheTests.run()
         ConversationNestingTests.run()
         ComposerDraftsTests.run()
         CredentialScopeTests.run()
