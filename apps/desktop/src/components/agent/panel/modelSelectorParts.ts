@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { effortLabel, modelChoiceLabel } from '../../../lib/configLabels.ts'
 import { resolvedEffort } from '../../../lib/effortStops.ts'
 import { concreteModelChoices } from '../../../lib/modelChoices.ts'
@@ -36,10 +37,10 @@ export function modelHint(
   busy: boolean,
 ) {
   if (status === 'offline')
-    return 'This runtime is offline. Model settings return when it reconnects.'
-  if (busy) return 'Changes apply after this reply.'
+    return t('This runtime is offline. Model settings return when it reconnects.')
+  if (busy) return t('Changes apply after this reply.')
   if (status === 'dormant' && !hasModel)
-    return 'Send a message to start this agent before changing model settings.'
+    return t('Send a message to start this agent before changing model settings.')
 }
 
 /** The composer around a chip: the nearest ancestor holding its message box. */
@@ -74,7 +75,7 @@ export function fastUnavailableReason(option: SessionConfigOption | undefined) {
   const sentence = reason.replace(/\.$/, '')
 
   return {
-    tooltip: `Fast mode ${sentence}.`,
+    tooltip: t('Fast mode {reason}.', { reason: sentence }),
     detail: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`,
   }
 }

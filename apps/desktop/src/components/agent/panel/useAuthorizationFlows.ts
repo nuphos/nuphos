@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 
 import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
+import { t } from '../../../i18n/index.ts'
 import { track, trackError } from '../../../lib/analytics'
 import { toast } from '../../ui/toast'
 
@@ -62,7 +63,7 @@ export function useAuthorizationFlows(acc: Acc) {
           await api.agentUpdatePlan(planId, { status: 'rejected' }, teamId)
         } catch (err) {
           console.warn('[plan] failed to mark rejected', err)
-          toast.apiError('Could not reject plan', err)
+          toast.apiError(t('Could not reject plan'), err)
 
           return
         }

@@ -15,6 +15,7 @@ import { RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { toast } from '../ui/toast'
 
 import { JournalIntegrityBadge } from './JournalEventBody'
@@ -62,7 +63,7 @@ export function JournalSidePanel({
       })
       .catch((err: unknown) => {
         if (cancelled) return
-        toast.apiError('Failed to load audit journal', err)
+        toast.apiError(t('Failed to load audit journal'), err)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -101,7 +102,7 @@ export function JournalSidePanel({
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex items-center gap-2 border-b border-zGray-800 px-4 py-3">
         <ShieldCheck className="h-4 w-4 text-tertiary" strokeWidth={1.8} />
-        <span className="text-sm font-medium text-main">Audit journal</span>
+        <span className="text-sm font-medium text-main">{t('Audit journal')}</span>
         {integrity && <JournalIntegrityBadge level={integrity.level} />}
         <div className="flex-1" />
         <button
@@ -109,8 +110,8 @@ export function JournalSidePanel({
           onClick={refresh}
           disabled={loading}
           className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main disabled:opacity-50"
-          title="Refresh"
-          aria-label="Refresh journal"
+          title={t('Refresh')}
+          aria-label={t('Refresh journal')}
         >
           <RefreshCw className={clsx('h-3.5 w-3.5', loading && 'animate-spin')} strokeWidth={1.8} />
         </button>
@@ -118,8 +119,8 @@ export function JournalSidePanel({
           type="button"
           onClick={onClose}
           className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
-          title="Close"
-          aria-label="Close journal panel"
+          title={t('Close')}
+          aria-label={t('Close journal panel')}
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.8} />
         </button>
@@ -127,16 +128,27 @@ export function JournalSidePanel({
 
       {integrity && !integrity.chainOk && (
         <div className="border-b border-error/30 bg-error/10 px-4 py-2 text-xs text-error">
-          Chain verification failed ({integrity.violationCount} violation
-          {integrity.violationCount === 1 ? '' : 's'}) — these records can no longer be trusted
-          as-written. First: {integrity.violations[0]?.message ?? 'unknown'}
+          {integrity.violationCount === 1
+            ? t(
+                'Chain verification failed (1 violation) — these records can no longer be trusted as-written.',
+              )
+            : t(
+                'Chain verification failed ({n} violations) — these records can no longer be trusted as-written.',
+                { n: integrity.violationCount },
+              )}{' '}
+          {t('First: {message}', { message: integrity.violations[0]?.message ?? t('unknown') })}
         </div>
       )}
       {integrity && integrity.chainOk && (integrity.contentDivergenceCount ?? 0) > 0 && (
         <div className="border-b border-error/30 bg-error/10 px-4 py-2 text-xs text-error">
-          {integrity.contentDivergenceCount} displayed item
-          {integrity.contentDivergenceCount === 1 ? '' : 's'} no longer match the chained hash — the
-          hot copy was modified after journaling. Items are marked ⚠ below.
+          {integrity.contentDivergenceCount === 1
+            ? t(
+                '1 displayed item no longer match the chained hash — the hot copy was modified after journaling. Items are marked ⚠ below.',
+              )
+            : t(
+                '{n} displayed items no longer match the chained hash — the hot copy was modified after journaling. Items are marked ⚠ below.',
+                { n: integrity.contentDivergenceCount ?? 0 },
+              )}
         </div>
       )}
 
@@ -145,10 +157,10 @@ export function JournalSidePanel({
         className="flex-1 min-h-0 overflow-auto scrollbar-thin px-4 py-3 selectable"
       >
         {loading && !data ? (
-          <div className="py-8 text-center text-xs text-tertiary">Loading journal…</div>
+          <div className="py-8 text-center text-xs text-tertiary">{t('Loading journal…')}</div>
         ) : !data || data.events.length === 0 ? (
           <div className="py-8 text-center text-xs text-tertiary">
-            No journal events yet — they appear as the agent works.
+            {t('No journal events yet — they appear as the agent works.')}
           </div>
         ) : (
           <JournalTimeline
@@ -160,18 +172,23 @@ export function JournalSidePanel({
         )}
         {integrity?.truncated && (
           <div className="py-2 text-center text-[10px] text-tertiary">
-            Showing the first {data?.events.length} of {integrity.eventCount} events.
+            {t('Showing the first {shown} of {total} events.', {
+              shown: data?.events.length ?? 0,
+              total: integrity.eventCount,
+            })}
           </div>
         )}
       </div>
 
       {integrity && (
         <div className="border-t border-zGray-800 px-4 py-2 text-[10px] leading-4 text-tertiary">
-          {integrity.eventCount} events · chain head{' '}
+          {t('{n} events · chain head', { n: integrity.eventCount })}{' '}
           <span className="font-mono">{integrity.headHash?.slice(0, 12) ?? '—'}</span>
           {integrity.lastAnchorAt
-            ? ` · last external anchor ${new Date(integrity.lastAnchorAt).toLocaleString()}`
-            : ' · not externally anchored yet'}
+            ? ` · ${t('last external anchor {time}', {
+                time: new Date(integrity.lastAnchorAt).toLocaleString(),
+              })}`
+            : ` · ${t('not externally anchored yet')}`}
         </div>
       )}
     </div>

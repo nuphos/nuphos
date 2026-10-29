@@ -1,6 +1,7 @@
 import { Bug, FileSearch, Shield, Terminal } from 'lucide-react'
 
 import { isNetworkError } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { reportFrontendError } from '../../../lib/frontendErrorReporter'
 import { markOwnedAgentStream } from '../../../lib/ownedAgentStreams'
 
@@ -69,22 +70,22 @@ export function newAgentStreamId(): string {
 export const PRESETS = [
   {
     icon: FileSearch,
-    title: 'Investigate a CrashLoopBackOff',
+    title: t('Investigate a CrashLoopBackOff'),
     prompt: 'Why is my pod stuck in CrashLoopBackOff and how do I fix it?',
   },
   {
     icon: Terminal,
-    title: 'Tail logs across pods',
+    title: t('Tail logs across pods'),
     prompt: 'Show me logs across all pods of a deployment, filter by level=error.',
   },
   {
     icon: Bug,
-    title: 'Diagnose a flaky service',
+    title: t('Diagnose a flaky service'),
     prompt: 'A service is intermittently 502-ing. Walk me through diagnosing it.',
   },
   {
     icon: Shield,
-    title: 'Review security posture',
+    title: t('Review security posture'),
     prompt: 'Audit the security groups and NACLs in my AWS account for risks.',
   },
 ]

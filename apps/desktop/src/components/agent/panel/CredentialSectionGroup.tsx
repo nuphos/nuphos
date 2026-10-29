@@ -1,5 +1,6 @@
 import { Check, ChevronRight, Minus } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { CloudLogo } from '../../CloudLogo'
 import { MenuCheckboxItem, MenuContent, MenuSubmenu, MenuSubmenuTrigger } from '../../ui/menu'
 
@@ -21,7 +22,7 @@ export function TriBox({ state }: { state: 'all' | 'some' | 'none' }) {
 // checkbox row (no submenu needed). Keeps the menu compact with many bindings.
 const newBadge = (
   <span className="flex-shrink-0 rounded-full bg-zViolet-accent/15 px-1.5 py-px text-[10px] font-medium leading-tight text-zViolet-accent">
-    New
+    {t('New')}
   </span>
 )
 
@@ -86,8 +87,8 @@ export function CredentialSectionGroup({
               chevron={<ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />}
               title={
                 state === 'all'
-                  ? 'Click to deselect all; hover for individual roles'
-                  : 'Click to select all; hover for individual roles'
+                  ? t('Click to deselect all; hover for individual roles')
+                  : t('Click to select all; hover for individual roles')
               }
               // Clicking the parent toggles all roles under it; hovering still
               // opens the submenu for individual selection.

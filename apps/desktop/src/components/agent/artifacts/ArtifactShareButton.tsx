@@ -2,6 +2,7 @@ import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
 import { Download, Link2, Users } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 import { TitlebarDragSuspender } from '../ShareCard'
 
@@ -32,10 +33,10 @@ export function ArtifactShareButton({
     <Popover.Root>
       <Popover.Trigger
         className={clsx(TRIGGER, iconOnly && 'w-7 justify-center px-0')}
-        title="Share with your team"
+        title={t('Share with your team')}
       >
         <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
-        {iconOnly ? <span className="sr-only">Share</span> : 'Share'}
+        {iconOnly ? <span className="sr-only">{t('Share')}</span> : t('Share')}
       </Popover.Trigger>
       <Popover.Portal>
         <TitlebarDragSuspender />
@@ -56,11 +57,13 @@ export function ArtifactShareButton({
               </span>
               <span className="flex min-w-0 flex-col gap-0.5">
                 <Popover.Title className="m-0 text-[13.5px] font-medium text-main">
-                  Share with your team
+                  {t('Share with your team')}
                 </Popover.Title>
                 <Popover.Description className="m-0 text-[12px] leading-5 text-tertiary">
-                  The link opens version {current.version} beside this chat, for teammates who can
-                  already see it. Nothing is published to the web.
+                  {t(
+                    'The link opens version {version} beside this chat, for teammates who can already see it. Nothing is published to the web.',
+                    { version: current.version },
+                  )}
                 </Popover.Description>
               </span>
             </div>
@@ -70,11 +73,11 @@ export function ArtifactShareButton({
               onClick={() => link && void copyArtifactLink(link)}
             >
               <Link2 className="h-3.5 w-3.5" />
-              {`Copy link to version ${String(current.version)}`}
+              {t('Copy link to version {version}', { version: String(current.version) })}
             </Button>
             <div className="mt-3 border-t border-zGray-800/60 pt-3">
               <p className="m-0 mb-2 text-[12px] leading-5 text-tertiary">
-                For anyone else, send the file. It opens anywhere and works offline.
+                {t('For anyone else, send the file. It opens anywhere and works offline.')}
               </p>
               <Button
                 variant="ghost"
@@ -83,7 +86,9 @@ export function ArtifactShareButton({
                 onClick={() => void downloadArtifact(current)}
               >
                 <Download className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">Download {artifactFileName(current)}</span>
+                <span className="truncate">
+                  {t('Download {fileName}', { fileName: artifactFileName(current) })}
+                </span>
               </Button>
             </div>
           </Popover.Popup>

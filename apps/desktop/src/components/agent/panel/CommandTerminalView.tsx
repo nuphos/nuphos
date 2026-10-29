@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Check, Terminal, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
+import { t } from '../../../i18n'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import { LoadingText } from './partChrome'
@@ -41,9 +42,9 @@ export function CommandTerminalView({ part }: { part: ToolPart }) {
         <Terminal className="w-3 h-3" strokeWidth={2} />
         <span>{labelTool}</span>
         <div className="flex-1" />
-        {!done && <LoadingText>running</LoadingText>}
+        {!done && <LoadingText>{t('running')}</LoadingText>}
         {done && exitCode !== null && exitCode !== 0 && (
-          <span className="normal-case text-error">exit {exitCode}</span>
+          <span className="normal-case text-error">{t('exit {code}', { code: exitCode })}</span>
         )}
         {done && !failed && <Check className="h-3 w-3 text-emerald-400" strokeWidth={2.5} />}
         {done && failed && <X className="h-3 w-3 text-error" strokeWidth={2.5} />}

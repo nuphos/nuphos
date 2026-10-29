@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 
 import type { ModelControl } from './ModelSelector'
 import type { SessionConfigPick, SessionConfigState } from '../../../api/session-config-types'
@@ -36,7 +37,7 @@ export function useRuntimeModelConfig(
             key,
             runtimeId,
             data: { status: 'offline', options: [] },
-            error: 'Could not load models. Check the runtime connection and retry.',
+            error: t('Could not load models. Check the runtime connection and retry.'),
           })
       },
     )

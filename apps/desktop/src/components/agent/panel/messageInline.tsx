@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, Download, FileSearch, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { renderMentionChip } from '../../../lib/atlasLinkMention'
 
 import { fileNameFromPath } from './textUtils'
@@ -104,8 +105,8 @@ export function ImageAttachmentThumb({
           type="button"
           onClick={onRemove}
           className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-main bg-elevated text-secondary shadow-sm hover:text-main"
-          title="Remove image"
-          aria-label={`Remove image ${fileName}`}
+          title={t('Remove image')}
+          aria-label={t('Remove image {name}', { name: fileName })}
         >
           <X className="h-2.5 w-2.5" strokeWidth={2.5} />
         </button>
@@ -205,7 +206,7 @@ export function ImageLightbox({
                     type="button"
                     onClick={() => step(-1)}
                     className={clsx(NAV_BUTTON, 'left-4')}
-                    aria-label="Previous image"
+                    aria-label={t('Previous image')}
                   >
                     <ChevronLeft className="h-4 w-4" strokeWidth={2.2} />
                   </button>
@@ -213,7 +214,7 @@ export function ImageLightbox({
                     type="button"
                     onClick={() => step(1)}
                     className={clsx(NAV_BUTTON, 'right-4')}
-                    aria-label="Next image"
+                    aria-label={t('Next image')}
                   >
                     <ChevronRight className="h-4 w-4" strokeWidth={2.2} />
                   </button>
@@ -233,7 +234,7 @@ export function ImageLightbox({
                     className="flex flex-shrink-0 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-white/10 hover:text-white"
                   >
                     <Download className="h-3 w-3" strokeWidth={2.2} />
-                    Download
+                    {t('Download')}
                   </button>
                 )}
               </div>
@@ -241,7 +242,7 @@ export function ImageLightbox({
           )}
           <Dialog.Close
             className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-zGray-900 text-secondary shadow-lg hover:text-main"
-            aria-label="Close preview"
+            aria-label={t('Close preview')}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2.2} />
           </Dialog.Close>

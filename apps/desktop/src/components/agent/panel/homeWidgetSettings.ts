@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { GithubPR, GithubWorkflowRun } from '../../../types'
 import type {
   HomeGithubCard,
@@ -54,15 +56,15 @@ export function toggleItem<T>(list: T[], item: T, key: (t: T) => string): T[] {
 }
 
 export const PULL_STATUSES: { value: HomePullStatus; label: string; empty: string }[] = [
-  { value: 'open', label: 'Open', empty: 'No open pull requests' },
-  { value: 'ready', label: 'Ready for review', empty: 'Nothing ready for review' },
-  { value: 'draft', label: 'Draft', empty: 'No drafts' },
+  { value: 'open', label: t('Open|state'), empty: t('No open pull requests') },
+  { value: 'ready', label: t('Ready for review'), empty: t('Nothing ready for review') },
+  { value: 'draft', label: t('Draft'), empty: t('No drafts') },
 ]
 
 export const RUN_STATUSES: { value: HomeRunStatus; label: string; empty: string }[] = [
-  { value: 'failed', label: 'Failing', empty: 'Nothing failing' },
-  { value: 'running', label: 'Running', empty: 'Nothing running' },
-  { value: 'latest', label: 'Latest', empty: 'No runs yet' },
+  { value: 'failed', label: t('Failing'), empty: t('Nothing failing') },
+  { value: 'running', label: t('Running'), empty: t('Nothing running') },
+  { value: 'latest', label: t('Latest'), empty: t('No runs yet') },
 ]
 
 /** A card's statuses as their labels, in menu order, e.g. "Failing, Running". */

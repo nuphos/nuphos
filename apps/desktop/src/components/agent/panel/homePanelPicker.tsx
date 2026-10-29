@@ -2,6 +2,7 @@ import { ChevronRight, LayoutDashboard } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import {
   MenuCheckboxItem,
   MenuContent,
@@ -45,8 +46,8 @@ function DashboardSubmenu({
         <span className="block min-w-0 flex-1 truncate">{dashboard.name}</span>
       </MenuSubmenuTrigger>
       <MenuContent side="inline-end" align="start" className="w-[260px]">
-        {panels === null && <MenuItem disabled>Loading panels…</MenuItem>}
-        {panels?.length === 0 && <MenuItem disabled>No panels</MenuItem>}
+        {panels === null && <MenuItem disabled>{t('Loading panels…')}</MenuItem>}
+        {panels?.length === 0 && <MenuItem disabled>{t('No panels')}</MenuItem>}
         {panels?.map((p) => {
           const pin = { dashboardId: dashboard.id, panelId: p.id }
 
@@ -89,15 +90,15 @@ export function DashboardPanelsSubmenu({
         chevron={chevron}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="flex-1">Dashboard panels</span>
+          <span className="flex-1">{t('Dashboard panels')}</span>
           <span className="text-[10.5px] text-tertiary tabular-nums">
-            {selected.length || 'Off'}
+            {selected.length || t('Off')}
           </span>
         </span>
       </MenuSubmenuTrigger>
       <MenuContent side="inline-end" align="start" className="w-[240px]">
-        {dashboards === null && <MenuItem disabled>Loading dashboards…</MenuItem>}
-        {dashboards?.length === 0 && <MenuItem disabled>No dashboards yet</MenuItem>}
+        {dashboards === null && <MenuItem disabled>{t('Loading dashboards…')}</MenuItem>}
+        {dashboards?.length === 0 && <MenuItem disabled>{t('No dashboards yet')}</MenuItem>}
         {dashboards?.map((d) => (
           <DashboardSubmenu
             key={d.id}

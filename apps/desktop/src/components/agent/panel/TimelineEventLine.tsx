@@ -1,3 +1,6 @@
+import { Fragment } from 'react'
+
+import { t } from '../../../i18n'
 import { Avatar } from '../../Avatar'
 import { PlanRevealSection } from '../plan-tool/reveal'
 
@@ -66,37 +69,39 @@ function EventLine({ event }: { event: AgentTimelineEvent }) {
 
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
-  if (event.kind === 'runtime_moved' && to)
-    return (
-      <Rule title={title}>
-        <Person person={actor} /> moved this agent{' '}
-        {from && (
-          <>
-            from <Runtime runtime={from} />{' '}
-          </>
-        )}
-        to <Runtime runtime={to} />
-      </Rule>
-    )
-  if (!target) return <Rule title={title}>{event.text}</Rule>
-  if (event.kind === 'participant_invited')
-    return (
-      <Rule title={title}>
-        <Person person={actor} /> invited <Person person={target} /> into this agent
-      </Rule>
-    )
-  if (target.id === actor.id)
-    return (
-      <Rule title={title}>
-        <Person person={actor} /> left this agent
-      </Rule>
-    )
+  if (event.kind === 'runtime_moved' && to) {
+    const people = { actor: <Person person={actor} />, to: <Runtime runtime={to} /> }
 
-  return (
-    <Rule title={title}>
-      <Person person={actor} /> removed <Person person={target} /> from this agent
-    </Rule>
-  )
+    return (
+      <Rule title={title}>
+        {from
+          ? fill(t('{actor} moved this agent from {from} to {to}'), {
+              ...people,
+              from: <Runtime runtime={from} />,
+            })
+          : fill(t('{actor} moved this agent to {to}'), people)}
+      </Rule>
+    )
+  }
+  if (!target) return <Rule title={title}>{event.text}</Rule>
+  const people = { actor: <Person person={actor} />, target: <Person person={target} /> }
+
+  if (event.kind === 'participant_invited')
+    return <Rule title={title}>{fill(t('{actor} invited {target} into this agent'), people)}</Rule>
+  if (target.id === actor.id)
+    return <Rule title={title}>{fill(t('{actor} left this agent'), people)}</Rule>
+
+  return <Rule title={title}>{fill(t('{actor} removed {target} from this agent'), people)}</Rule>
+}
+
+/** Puts the people and runtimes into a translated sentence where its
+ *  `{placeholders}` are, so each language keeps its own word order. */
+function fill(text: string, nodes: Record<string, ReactNode>) {
+  return text.split(/(\{\w+\})/).map((part, i) => {
+    const node = nodes[part.slice(1, -1)]
+
+    return <Fragment key={i}>{part.startsWith('{') && node ? node : part}</Fragment>
+  })
 }
 
 /** The move in flight: rises in, then shimmers (thinking state) until the move's
@@ -106,7 +111,7 @@ export function MovingSessionLine({ label }: { label: string }) {
     <PlanRevealSection revealKey={label}>
       <div role="status">
         <Rule>
-          <LoadingText>{`Moving this agent to ${label}…`}</LoadingText>
+          <LoadingText>{t('Moving this agent to {label}…', { label })}</LoadingText>
         </Rule>
       </div>
     </PlanRevealSection>

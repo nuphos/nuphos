@@ -8,27 +8,35 @@ import { MESSAGES, matchLocale, t } from './index.ts'
 const SRC = join(import.meta.dirname, '..')
 
 /** Every literal passed to t() in the app, unescaped to its runtime value. */
-function usedKeys(): Set<string> {
+function scan(): { keys: Set<string>; dynamic: string[] } {
   const keys = new Set<string>()
+  const dynamic: string[] = []
   const call = /\bt\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
 
   for (const entry of readdirSync(SRC, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile() || !/\.tsx?$/.test(entry.name) || entry.name.includes('.test.')) continue
+    if (entry.parentPath === import.meta.dirname) continue
     const source = readFileSync(join(entry.parentPath, entry.name), 'utf8')
 
     for (const m of source.matchAll(call)) {
       keys.add(m[2].replace(/\\(.)/g, (_, c: string) => (c === 'n' ? '\n' : c)))
     }
+    // A key this test cannot read could go missing from a locale unnoticed.
+    if (/\bt\(\s*[^'"\s]/.test(source)) dynamic.push(entry.name)
   }
 
-  return keys
+  return { keys, dynamic }
 }
+
+const { keys: used, dynamic } = scan()
 
 const placeholders = (s: string) => [...s.matchAll(/\{\w+\}/g)].map((m) => m[0]).sort()
 
-test('every locale translates exactly the strings the app uses', () => {
-  const used = usedKeys()
+test('t() is only called with a string literal', () => {
+  assert.deepEqual(dynamic, [])
+})
 
+test('every locale translates exactly the strings the app uses', () => {
   for (const [code, messages] of Object.entries(MESSAGES)) {
     const missing = [...used].filter((k) => !(k in messages))
     const stale = Object.keys(messages).filter((k) => !used.has(k))
@@ -43,6 +51,7 @@ test('every locale translates exactly the strings the app uses', () => {
 
 test('t falls back to English and fills placeholders', () => {
   assert.equal(t('Not a real key {n}', { n: 3 }), 'Not a real key 3')
+  assert.equal(t('Open|state'), 'Open')
 })
 
 test('matchLocale maps system languages to supported locales', () => {

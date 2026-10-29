@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
 export type CredentialSelectorControl = {
@@ -280,11 +282,12 @@ export function buildDeviceCredentialSections(
     {
       id: 'device',
       provider: 'device' as const,
-      title: 'Computers',
+      title: t('Computers'),
       items: devices.map((device) => ({
         id: device.deviceId,
         label: device.label,
-        sublabel: device.available === false ? `${device.platform} · Unavailable` : device.platform,
+        sublabel:
+          device.available === false ? `${device.platform} · ${t('Unavailable')}` : device.platform,
       })),
     },
   ]

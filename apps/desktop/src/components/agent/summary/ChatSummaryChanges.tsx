@@ -1,6 +1,7 @@
 import { clsx } from 'clsx'
 import { useEffect, useRef } from 'react'
 
+import { t } from '../../../i18n'
 import {
   setChangesFilter,
   takeChangesReveal,
@@ -49,7 +50,7 @@ function ChangesFilterPills({
   return (
     <div
       role="radiogroup"
-      aria-label="Filter changes by status"
+      aria-label={t('Filter changes by status')}
       onKeyDown={onKeyDown}
       className="-mx-1 flex flex-wrap gap-0.5 pt-1.5"
     >
@@ -122,7 +123,7 @@ export function ChangesSection({
   return (
     <SummarySection
       ref={sectionRef}
-      title="Changes"
+      title={t('Changes')}
       header={options.length > 0 && <ChangesFilterPills options={options} selected={filter} />}
     >
       {filterChanges(changes, filter).map((resource) => (

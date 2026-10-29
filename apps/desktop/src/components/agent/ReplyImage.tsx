@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { toast } from '../ui/toast'
 
 import { ImageLightbox } from './panel/messageInline'
@@ -28,14 +29,14 @@ export function MarkdownImage({
   const [preview, setPreview] = useState<number | null>(null)
 
   if (!src) return null
-  const name = alt?.trim() ? alt : (src.split(/[?#]/)[0].split('/').pop() ?? 'Image')
+  const name = alt?.trim() ? alt : (src.split(/[?#]/)[0].split('/').pop() ?? t('Image'))
 
   return (
     <>
       <button
         type="button"
         className="max-w-full cursor-zoom-in align-middle"
-        aria-label={`Preview ${name}`}
+        aria-label={t('Preview {name}', { name })}
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
@@ -107,22 +108,26 @@ export function ReplyImage({
   if (!teamId || error || (group && !file))
     return (
       <span role="status">
-        Image unavailable or expired.{' '}
+        {t('Image unavailable or expired.')}{' '}
         <button type="button" onClick={retry}>
-          Retry
+          {t('Retry')}
         </button>
       </span>
     )
   if (!group || !file?.downloadUrl)
     return (
-      <span role="status" aria-label={`Loading ${alt ?? 'image'}`} className={`my-2 ${FRAME}`} />
+      <span
+        role="status"
+        aria-label={t('Loading {name}', { name: alt ?? t('image') })}
+        className={`my-2 ${FRAME}`}
+      />
     )
   if (Date.parse(group.expiresAt) <= now)
-    return <span role="status">Image expired — files are no longer available.</span>
+    return <span role="status">{t('Image expired — files are no longer available.')}</span>
   const download = () => {
     void api
       .fileTransferDownloadOne({ teamId, groupId, fileId: file.id, fileName: file.fileName })
-      .catch(() => toast.error('Could not download image'))
+      .catch(() => toast.error(t('Could not download image')))
   }
 
   return (
@@ -130,7 +135,7 @@ export function ReplyImage({
       <button
         type="button"
         onClick={() => setPreview(0)}
-        aria-label={`Preview ${alt ?? file.fileName}`}
+        aria-label={t('Preview {name}', { name: alt ?? file.fileName })}
       >
         <img
           src={file.downloadUrl}
@@ -140,9 +145,9 @@ export function ReplyImage({
         />
       </button>
       <span className="block text-xs text-tertiary">
-        Available until {new Date(group.expiresAt).toLocaleString()}.{' '}
+        {t('Available until {time}.', { time: new Date(group.expiresAt).toLocaleString() })}{' '}
         <button type="button" onClick={download}>
-          Download
+          {t('Download')}
         </button>
       </span>
       <ImageLightbox

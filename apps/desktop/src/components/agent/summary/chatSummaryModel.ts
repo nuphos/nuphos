@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { changeStatus } from '../../sidebar/sessionResourcePresentation.ts'
 import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
 import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
@@ -70,12 +71,12 @@ export function changeStatusLabel(
   status: ChangeStatus,
   changes: readonly SessionResource[],
 ): string {
-  if (status === 'open') return 'Open'
-  if (status === 'closed') return 'Closed'
+  if (status === 'open') return t('Open|state')
+  if (status === 'closed') return t('Closed')
 
   return changes.some((change) => change.provider === 'github' && changeStatus(change) === 'merged')
-    ? 'Merged'
-    : 'Done'
+    ? t('Merged')
+    : t('Done')
 }
 
 export type ChangesFilterOption = { filter: ChangesFilter; label: string; count: number }
@@ -91,7 +92,7 @@ export function changesFilterOptions(changes: readonly SessionResource[]): Chang
   if (statuses.length < 2) return []
 
   return [
-    { filter: 'all', label: 'All', count: changes.length },
+    { filter: 'all', label: t('All'), count: changes.length },
     ...statuses.map((status) => ({
       filter: status,
       label: changeStatusLabel(status, changes),
@@ -199,5 +200,5 @@ export function machineName(label: string | undefined, local: boolean): string {
 
   if (name) return name
 
-  return local ? 'This computer' : 'Cloud runtime'
+  return local ? t('This computer') : t('Cloud runtime')
 }

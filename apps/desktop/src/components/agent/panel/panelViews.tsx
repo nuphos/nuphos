@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useStableCallback } from '../../../hooks/useStableCallback'
+import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
@@ -102,8 +103,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       })
       .catch((err: unknown) => {
         console.warn('[plan] failed to mark approved', err)
-        toast.apiError('Could not approve plan', err, {
-          fallback: 'The plan was not approved. Please try again.',
+        toast.apiError(t('Could not approve plan'), err, {
+          fallback: t('The plan was not approved. Please try again.'),
         })
       })
   })
@@ -261,7 +262,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
         strokeWidth={1.7}
         aria-hidden="true"
       />
-      <span className="sr-only">Opening agent</span>
+      <span className="sr-only">{t('Opening agent')}</span>
     </div>
   )
 }

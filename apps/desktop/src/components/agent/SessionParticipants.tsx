@@ -4,6 +4,7 @@ import { Info, Loader2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { LOCAL_AGENT_SHARING_NOTE } from '../../lib/localAgentSharing'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
@@ -29,9 +30,9 @@ import type {
 import type { TeamMember } from '../../types'
 
 function addLabel(count: number) {
-  if (count === 0) return 'Add to agent'
+  if (count === 0) return t('Add to agent')
 
-  return `Add ${String(count)} ${count === 1 ? 'person' : 'people'}`
+  return count === 1 ? t('Add 1 person') : t('Add {n} people', { n: String(count) })
 }
 
 /**
@@ -81,7 +82,7 @@ export function SessionParticipants({
         .then((result) => {
           if (!cancelled) apply(result)
         })
-        .catch((err: unknown) => toast.apiError('Failed to load agent participants', err))
+        .catch((err: unknown) => toast.apiError(t('Failed to load agent participants'), err))
     const reloadIfThisSession = (event: Event) => {
       if ((event as CustomEvent<string>).detail === sessionId) void load()
     }
@@ -109,7 +110,7 @@ export function SessionParticipants({
     api
       .atlasListTeamMembers(teamId)
       .then(setMembers)
-      .catch((err: unknown) => toast.apiError('Failed to load team members', err))
+      .catch((err: unknown) => toast.apiError(t('Failed to load team members'), err))
   }
 
   const togglePicked = (member: TeamMember) =>
@@ -134,7 +135,7 @@ export function SessionParticipants({
         setPicked([])
         announceTimelineChange(sessionId)
       })
-      .catch((err: unknown) => toast.apiError('Failed to add teammates', err))
+      .catch((err: unknown) => toast.apiError(t('Failed to add teammates'), err))
       .finally(() => setPending(null))
   }
 
@@ -145,19 +146,19 @@ export function SessionParticipants({
     announceTimelineChange(sessionId)
   }
 
-  const remove = (participant: AgentConversationParticipant) => {
-    setPending(participant.id)
-    removeIds([participant.id])
-      .catch((err: unknown) => toast.apiError(`Failed to remove ${participant.name}`, err))
+  const remove = ({ id, name }: AgentConversationParticipant) => {
+    setPending(id)
+    removeIds([id])
+      .catch((err: unknown) => toast.apiError(t('Failed to remove {name}', { name }), err))
       .finally(() => setPending(null))
   }
 
-  const changeRole = (participant: AgentConversationParticipant, role: ParticipantRole) => {
-    setPending(participant.id)
+  const changeRole = ({ id, name }: AgentConversationParticipant, role: ParticipantRole) => {
+    setPending(id)
     api
-      .agentSetConversationParticipantRole(sessionId, teamId, participant.id, role)
+      .agentSetConversationParticipantRole(sessionId, teamId, id, role)
       .then(apply)
-      .catch((err: unknown) => toast.apiError(`Failed to change ${participant.name}`, err))
+      .catch((err: unknown) => toast.apiError(t('Failed to change {name}', { name }), err))
       .finally(() => setPending(null))
   }
 
@@ -166,7 +167,7 @@ export function SessionParticipants({
     api
       .agentSetConversationGeneralAccess(sessionId, teamId, value)
       .then(apply)
-      .catch((err: unknown) => toast.apiError('Failed to change general access', err))
+      .catch((err: unknown) => toast.apiError(t('Failed to change general access'), err))
       .finally(() => setPending(null))
   }
 
@@ -180,7 +181,7 @@ export function SessionParticipants({
         setPicked(added)
         setAdded(null)
       })
-      .catch((err: unknown) => toast.apiError('Failed to undo', err))
+      .catch((err: unknown) => toast.apiError(t('Failed to undo'), err))
       .finally(() => setPending(null))
   }
 
@@ -195,7 +196,7 @@ export function SessionParticipants({
           'text-[12px] font-medium text-secondary transition-colors',
           'data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main hover:bg-zGray-800/60 hover:text-main',
         )}
-        title="Share this agent with a teammate"
+        title={t('Share this agent with a teammate')}
       >
         <ShareButtonFace participants={participants} compact={compact} />
       </Popover.Trigger>
@@ -217,8 +218,8 @@ export function SessionParticipants({
                 added={added}
                 detail={
                   inviteRole === 'view' && generalAccess !== 'reply'
-                    ? 'They can view this agent'
-                    : 'They can view and reply'
+                    ? t('They can view this agent')
+                    : t('They can view and reply')
                 }
                 undoing={pending === 'undo'}
                 onUndo={undo}
@@ -227,11 +228,11 @@ export function SessionParticipants({
               <div className="t-share-in flex flex-col gap-3 p-3">
                 <div className="flex items-center gap-2 px-1">
                   <Popover.Title className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">
-                    Share “{title}”
+                    {t('Share “{title}”', { title })}
                   </Popover.Title>
                   <Popover.Close
                     className="rounded p-0.5 text-tertiary hover:bg-zGray-800/60 hover:text-main"
-                    aria-label="Close"
+                    aria-label={t('Close')}
                   >
                     <X className="h-3.5 w-3.5" strokeWidth={2} />
                   </Popover.Close>
@@ -279,13 +280,13 @@ export function SessionParticipants({
                         {pending === 'invite' && (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
                         )}
-                        {pending === 'invite' ? 'Adding…' : addLabel(picked.length)}
+                        {pending === 'invite' ? t('Adding…') : addLabel(picked.length)}
                       </Button>
                     </div>
                   </>
                 ) : (
                   <div className="px-1 text-[12px] text-tertiary">
-                    Only the owner can change who has access.
+                    {t('Only the owner can change who has access.')}
                   </div>
                 )}
               </div>

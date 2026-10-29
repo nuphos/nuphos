@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { track } from '../../../lib/analytics'
 import { readDefaultPermissionMode, writeDefaultPermissionMode } from '../../../lib/permissionMode'
 import { toast } from '../../ui/toast'
@@ -109,8 +110,8 @@ export function usePanelPermissions(acc: Acc) {
         },
         (err: unknown) => {
           setBypassBySession((prev) => ({ ...prev, [sessionId]: !next }))
-          toast.apiError('Could not update Full Access', err, {
-            fallback: 'The change was not saved — please try again.',
+          toast.apiError(t('Could not update Full Access'), err, {
+            fallback: t('The change was not saved — please try again.'),
           })
         },
       )
@@ -177,7 +178,7 @@ export function usePanelPermissions(acc: Acc) {
         }),
       )
     } catch (err) {
-      toast.apiError('Failed to load recent agents', err)
+      toast.apiError(t('Failed to load recent agents'), err)
     } finally {
       setHistoryLoading(false)
     }

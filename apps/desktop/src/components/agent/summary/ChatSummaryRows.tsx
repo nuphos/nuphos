@@ -1,6 +1,7 @@
 import { clsx } from 'clsx'
 import { ArrowUpRight, ExternalLink, Link2, MoreVertical } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { copyLinkWithFeedback } from '../../../lib/copyLink'
 import { chatRowIndicator } from '../../../lib/runtimeExecution'
 import { ResourceMark } from '../../sidebar/ResourceMark'
@@ -98,8 +99,8 @@ function capitalize(text: string): string {
 
 function copyLink(url: string) {
   void copyLinkWithFeedback(url, (text) => navigator.clipboard.writeText(text), {
-    onSuccess: () => toast.success('Link copied', undefined, { timeoutMs: 1200, dedupe: false }),
-    onError: () => toast.error('Could not copy link', 'Clipboard was blocked.'),
+    onSuccess: () => toast.success(t('Link copied'), undefined, { timeoutMs: 1200, dedupe: false }),
+    onError: () => toast.error(t('Could not copy link'), t('Clipboard was blocked.')),
   })
 }
 
@@ -144,7 +145,7 @@ export function ChangeRow({
       </button>
       <Menu>
         <MenuTrigger
-          aria-label={`More actions for ${title}`}
+          aria-label={t('More actions for {title}', { title })}
           className={clsx(
             'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/80 hover:text-main data-[popup-open]:bg-zGray-800/80 data-[popup-open]:text-main motion-reduce:transition-none',
             focusClass,
@@ -157,16 +158,16 @@ export function ChangeRow({
             icon={<ArrowUpRight className="h-3.5 w-3.5" />}
             onClick={() => onOpen(resource.url, false)}
           >
-            Open
+            {t('Open')}
           </MenuItem>
           <MenuItem
             icon={<ExternalLink className="h-3.5 w-3.5" />}
             onClick={() => onOpen(resource.url, true)}
           >
-            Open in browser
+            {t('Open in browser')}
           </MenuItem>
           <MenuItem icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => copyLink(resource.url)}>
-            Copy link
+            {t('Copy link')}
           </MenuItem>
         </MenuContent>
       </Menu>
@@ -198,15 +199,15 @@ export function ThreadRow({
           size={16}
         />
       }
-      label={conversation.title || conversation.firstMessage || 'Untitled agent'}
+      label={conversation.title || conversation.firstMessage || t('Untitled agent')}
       note={
         running ? (
           <span className="flex items-center gap-1.5">
             <span aria-hidden className="size-1.5 rounded-full bg-success" />
-            Running
+            {t('Running')}
           </span>
         ) : (
-          'Done'
+          t('Done')
         )
       }
       onClick={() => onOpen(conversation.sessionId)}

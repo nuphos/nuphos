@@ -1,4 +1,5 @@
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
+import { t } from '../../../i18n/index.ts'
 import { trackError } from '../../../lib/analytics'
 import { CLIENT_SIDE_LOCAL_TOOLS } from '../../../lib/clientToolPhase'
 import { toast } from '../../ui/toast'
@@ -220,7 +221,7 @@ export function runDecideAuthorization(
               },
         ),
       )
-      toast.apiError('Could not record your decision', err)
+      toast.apiError(t('Could not record your decision'), err)
     }
   })()
 }

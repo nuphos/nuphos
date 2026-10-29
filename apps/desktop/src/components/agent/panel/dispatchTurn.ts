@@ -1,4 +1,5 @@
 import { getActiveDiagramId } from '../../../architecture/activeDiagram.ts'
+import { t } from '../../../i18n/index.ts'
 import { track, trackError } from '../../../lib/analytics.ts'
 import { toast } from '../../ui/toast.ts'
 
@@ -60,10 +61,9 @@ export async function runDispatchTurn(
   const trimmed = text.trim()
 
   if (!trimmed && filePaths.length === 0) return
-  // Every attachment, images included, goes through the transfer store; the
-  // runtime receives them as local files.
+  // Every attachment, images included, goes via the transfer store; the runtime gets local files.
   if (filePaths.length > 0 && !teamId) {
-    toast.error('No team selected', 'Select a team before attaching files.')
+    toast.error(t('No team selected'), t('Select a team before attaching files.'))
 
     return
   }
@@ -121,7 +121,7 @@ export async function runDispatchTurn(
 
       setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, messages: patchedMessages } : t)))
       if (current) syncTranscriptNow({ ...current, messages: patchedMessages })
-      toast.apiError('Upload failed', err)
+      toast.apiError(t('Upload failed'), err)
 
       return
     }
@@ -190,7 +190,7 @@ export async function runDispatchTurn(
       )
       .catch((err: unknown) => {
         setTabs((prev) => prev.map((t) => (t.id === tabId ? withoutQueued(t, messageId) : t)))
-        toast.apiError('Could not send your message', err)
+        toast.apiError(t('Could not send your message'), err)
       })
 
     return

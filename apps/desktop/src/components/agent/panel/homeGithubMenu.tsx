@@ -2,6 +2,7 @@ import { ChevronRight, Ellipsis } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import {
   Menu,
   MenuCheckboxItem,
@@ -77,7 +78,7 @@ export function GithubCardMenu({
   return (
     <Menu onOpenChange={(open) => open && load()}>
       <MenuTrigger
-        aria-label="Card settings"
+        aria-label={t('Card settings')}
         className="ml-auto rounded p-0.5 text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main"
       >
         <Ellipsis className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -86,13 +87,15 @@ export function GithubCardMenu({
         <MenuSubmenu>
           <MenuSubmenuTrigger chevron={chevron}>
             <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="flex-1">Repositories</span>
+              <span className="flex-1">{t('Repositories')}</span>
               <span className="text-[10.5px] text-tertiary tabular-nums">{card.repos.length}</span>
             </span>
           </MenuSubmenuTrigger>
           <MenuContent side="inline-end" align="start" className="w-[220px]">
-            {repos === null && <MenuItem disabled>Loading repositories…</MenuItem>}
-            {repos?.length === 0 && <MenuItem disabled>No GitHub repositories connected</MenuItem>}
+            {repos === null && <MenuItem disabled>{t('Loading repositories…')}</MenuItem>}
+            {repos?.length === 0 && (
+              <MenuItem disabled>{t('No GitHub repositories connected')}</MenuItem>
+            )}
             {byNamespace(repos ?? []).map(([namespace, list]) => (
               <MenuSubmenu key={namespace}>
                 <MenuSubmenuTrigger chevron={chevron}>
@@ -123,7 +126,7 @@ export function GithubCardMenu({
         <MenuSubmenu>
           <MenuSubmenuTrigger chevron={chevron}>
             <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="flex-1">Status</span>
+              <span className="flex-1">{t('Status')}</span>
               <span className="truncate text-[10.5px] text-tertiary">{statusLabel(card)}</span>
             </span>
           </MenuSubmenuTrigger>
@@ -146,7 +149,7 @@ export function GithubCardMenu({
         </MenuSubmenu>
         <MenuSeparator />
         <MenuItem destructive onClick={onRemove}>
-          Remove card
+          {t('Remove card')}
         </MenuItem>
       </MenuContent>
     </Menu>

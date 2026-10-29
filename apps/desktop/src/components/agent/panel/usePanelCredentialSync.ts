@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
 import {
@@ -112,7 +113,7 @@ export function usePanelCredentialSync(acc: Acc) {
       .catch((err: unknown) => {
         console.warn('[agent] failed to load credential options', err)
         if (alive) {
-          toast.apiError('Failed to load credential options', err)
+          toast.apiError(t('Failed to load credential options'), err)
           setCredentialOptions(EMPTY_CREDENTIAL_OPTIONS)
         }
       })

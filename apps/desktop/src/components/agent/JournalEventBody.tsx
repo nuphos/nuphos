@@ -5,6 +5,7 @@
 import clsx from 'clsx'
 import { TriangleAlert } from 'lucide-react'
 
+import { t } from '../../i18n'
 import {
   journalContentText,
   parseIntentInput,
@@ -82,7 +83,9 @@ export function PairedToolBody({
   // auditor hunting for a phantom intent event.
   const title =
     parsed?.label ??
-    (isClientReported && !intent ? `${toolName} result reported by desktop` : `${toolName} call`)
+    (isClientReported && !intent
+      ? t('{toolName} result reported by desktop', { toolName })
+      : t('{toolName} call', { toolName }))
 
   return (
     <>
@@ -96,39 +99,45 @@ export function PairedToolBody({
         {serverResult &&
           (failed ? (
             <span className="flex-shrink-0 text-[10px] font-medium text-error">
-              failed
+              {t('failed')}
               {output?.exitCode !== null && output?.exitCode !== 0
-                ? ` · exit ${String(output?.exitCode)}`
+                ? ` · ${t('exit {code}', { code: String(output?.exitCode) })}`
                 : ''}
               {ms ? ` · ${ms}` : ''}
             </span>
           ) : (
-            <span className="flex-shrink-0 text-[10px] text-tertiary">{ms ?? 'ok'}</span>
+            <span className="flex-shrink-0 text-[10px] text-tertiary">{ms ?? t('ok')}</span>
           ))}
         {!result && mayBeRunning && (
-          <span className="flex-shrink-0 text-[10px] text-tertiary">running…</span>
+          <span className="flex-shrink-0 text-[10px] text-tertiary">{t('running…')}</span>
         )}
         {!result && !mayBeRunning && tailTruncated && (
           <span
             className="flex-shrink-0 text-[10px] text-tertiary"
-            title="The journal page is truncated — this call's result may exist beyond the loaded events"
+            title={t(
+              "The journal page is truncated — this call's result may exist beyond the loaded events",
+            )}
           >
-            result not in loaded events
+            {t('result not in loaded events')}
           </span>
         )}
       </div>
       {!result && !mayBeRunning && !tailTruncated && (
         <div
           className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400/90"
-          title="A tool_call_intent was durably journaled but no result event followed — the call was rejected, interrupted, or crashed"
+          title={t(
+            'A tool_call_intent was durably journaled but no result event followed — the call was rejected, interrupted, or crashed',
+          )}
         >
           <TriangleAlert className="h-2.5 w-2.5" strokeWidth={2} />
-          no result recorded — rejected or interrupted
+          {t('no result recorded — rejected or interrupted')}
         </div>
       )}
-      {reasoning ? <ReasoningText text={reasoning} label="Reasoning before this call" /> : null}
+      {reasoning ? (
+        <ReasoningText text={reasoning} label={t('Reasoning before this call')} />
+      ) : null}
       {detail && (
-        <Disclosure summary="command">
+        <Disclosure summary={t('command')}>
           <CommandCard
             command={parsed?.command ?? null}
             rest={parsed?.command ? parsed.rest : detail}
@@ -136,7 +145,7 @@ export function PairedToolBody({
         </Disclosure>
       )}
       {serverResult && output?.raw ? (
-        <Disclosure summary="output">
+        <Disclosure summary={t('output')}>
           <ToolOutputBody payload={serverResult} />
         </Disclosure>
       ) : null}
@@ -170,13 +179,13 @@ export function JournalEventBody({
         <>
           <div className="flex items-center gap-1.5 text-[12px] leading-5 text-main/95">
             <span className="min-w-0 truncate">
-              {intent.label ?? `${toolNameOf(payload, 'tool')} call`}
+              {intent.label ?? t('{toolName} call', { toolName: toolNameOf(payload, 'tool') })}
             </span>
             <AuthorizationChip authorization={payload.authorization} />
             <RedactionChip count={payload.redactionCount} />
           </div>
           {detail && (
-            <Disclosure summary="command">
+            <Disclosure summary={t('command')}>
               <CommandCard command={intent.command} rest={intent.command ? intent.rest : detail} />
             </Disclosure>
           )}
@@ -194,14 +203,16 @@ export function JournalEventBody({
       return (
         <>
           <div className={clsx('text-[12px] leading-5', failed ? 'text-error' : 'text-main/85')}>
-            {toolNameOf(payload, 'tool')} {failed ? 'failed' : 'succeeded'}
+            {failed
+              ? t('{toolName} failed', { toolName: toolNameOf(payload, 'tool') })
+              : t('{toolName} succeeded', { toolName: toolNameOf(payload, 'tool') })}
             {output.exitCode !== null && output.exitCode !== 0
-              ? ` · exit ${String(output.exitCode)}`
+              ? ` · ${t('exit {code}', { code: String(output.exitCode) })}`
               : ''}
             {ms ? ` · ${ms}` : ''}
           </div>
           {output.raw && (
-            <Disclosure summary="output">
+            <Disclosure summary={t('output')}>
               <ToolOutputBody payload={payload} />
             </Disclosure>
           )}
@@ -215,7 +226,7 @@ export function JournalEventBody({
       return (
         <>
           <div className="flex items-center gap-1.5 text-[12px] leading-5 text-main/95">
-            {event.type === 'user_message' ? 'User' : 'Assistant'}
+            {event.type === 'user_message' ? t('User') : t('Assistant')}
             <VerifiedMark verified={event.contentVerified} />
           </div>
           {text ? (
@@ -225,7 +236,9 @@ export function JournalEventBody({
             <ClampedText text={text} limit={140} />
           ) : (
             <div className="text-[11px] text-tertiary">
-              content hash only{event.contentHot === undefined ? ' (recorded before v2)' : ''}
+              {event.contentHot === undefined
+                ? t('content hash only (recorded before v2)')
+                : t('content hash only')}
             </div>
           )}
           {event.type === 'assistant_message' &&
@@ -241,7 +254,9 @@ export function JournalEventBody({
       return (
         <div className="flex items-center gap-1.5 text-[12px] leading-5 text-main/85">
           <span className="min-w-0 truncate">
-            {toolNameOf(payload, 'local tool')} result reported by desktop
+            {t('{toolName} result reported by desktop', {
+              toolName: toolNameOf(payload, t('local tool')),
+            })}
           </span>
           <AuthorizationChip authorization={payload.authorization} />
           <ClientTrustChip />
@@ -250,7 +265,9 @@ export function JournalEventBody({
     case 'credential_grant':
       return (
         <>
-          <div className="text-[12px] leading-5 text-main/95">Credentials granted this turn</div>
+          <div className="text-[12px] leading-5 text-main/95">
+            {t('Credentials granted this turn')}
+          </div>
           <CredentialGrantBody payload={payload} />
         </>
       )
@@ -259,8 +276,10 @@ export function JournalEventBody({
       const rejected = payload.decision === 'rejected'
       const label =
         typeof planNumber === 'number'
-          ? `Plan #${String(planNumber)} ${rejected ? 'rejected' : 'approved'}`
-          : 'User approval recorded'
+          ? rejected
+            ? t('Plan #{n} rejected', { n: String(planNumber) })
+            : t('Plan #{n} approved', { n: String(planNumber) })
+          : t('User approval recorded')
 
       return (
         <div className={clsx('text-[12px] leading-5', rejected ? 'text-error/90' : 'text-main/95')}>
@@ -269,10 +288,10 @@ export function JournalEventBody({
       )
     }
     case 'turn_end':
-      return <div className="text-[11.5px] leading-5 text-tertiary">Turn finished</div>
+      return <div className="text-[11.5px] leading-5 text-tertiary">{t('Turn finished')}</div>
     case 'conversation_retention_tombstone':
     case 'journal_retention_expired':
-      return <div className="text-[12px] leading-5 text-tertiary">Retention tombstone</div>
+      return <div className="text-[12px] leading-5 text-tertiary">{t('Retention tombstone')}</div>
     default:
       return <div className="text-[12px] leading-5 text-main/85">{event.type}</div>
   }

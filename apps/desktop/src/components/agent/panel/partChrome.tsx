@@ -40,7 +40,7 @@ export function ThinkingPartView({ text, live }: { text: string; live: boolean }
           strokeWidth={2}
         />
         <Brain className="h-3 w-3" strokeWidth={2} />
-        Thinking
+        {t('Thinking')}
       </Collapsible.Trigger>
       <Collapsible.Panel className="t-acc-collapsible">
         <div className="mt-1 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-2.5 text-[12px] italic leading-5 text-main/60">
@@ -178,7 +178,7 @@ export function PlanBookkeepingPart({ part, now }: { part: ToolPart; now: number
   return (
     <div className="text-[12.5px] text-tertiary inline-flex max-w-full items-center gap-1.5">
       <LoadingText>
-        {part.toolName === 'plan_update' ? 'Updating plan progress' : 'Reading plan'}
+        {part.toolName === 'plan_update' ? t('Updating plan progress') : t('Reading plan')}
       </LoadingText>
       <ToolElapsedBadge part={part} now={now} />
     </div>

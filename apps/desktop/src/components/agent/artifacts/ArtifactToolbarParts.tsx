@@ -9,6 +9,7 @@ import {
   Wrench,
 } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
 
@@ -39,8 +40,8 @@ export function MoreMenu({
   return (
     <Menu>
       <MenuTrigger
-        aria-label="More"
-        title="More"
+        aria-label={t('More')}
+        title={t('More')}
         className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-secondary outline-none transition-colors hover:bg-zGray-800 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent data-[popup-open]:bg-zGray-800 data-[popup-open]:text-main"
       >
         <MoreHorizontal className="h-3.5 w-3.5" />
@@ -59,14 +60,14 @@ export function MoreMenu({
               selected={view === 'preview'}
               onClick={() => onView('preview')}
             >
-              Preview
+              {t('Preview')}
             </MenuItem>
             <MenuItem
               icon={<Code2 className="size-3.5" />}
               selected={view === 'source'}
               onClick={() => onView('source')}
             >
-              Code
+              {t('Code')}
             </MenuItem>
             <MenuSeparator />
           </>
@@ -78,15 +79,18 @@ export function MoreMenu({
               disabled={!previous}
               onClick={() => previous && onStep(previous)}
             >
-              Previous version
+              {t('Previous version')}
             </MenuItem>
             <MenuItem
               icon={<ChevronRight className="size-3.5" />}
-              hint={`${String(current.version)} of ${String(line.length)}`}
+              hint={t('{version} of {total}', {
+                version: String(current.version),
+                total: String(line.length),
+              })}
               disabled={!next}
               onClick={() => next && onStep(next)}
             >
-              Next version
+              {t('Next version')}
             </MenuItem>
             <MenuSeparator />
           </>
@@ -96,18 +100,18 @@ export function MoreMenu({
             icon={<Wrench className="size-3.5 text-warning" />}
             onClick={() => onAskAgent(fixPrompt(current, errors))}
           >
-            Ask the agent to fix
+            {t('Ask the agent to fix')}
           </MenuItem>
         )}
         <MenuItem icon={<Copy className="size-3.5" />} onClick={() => void copySource(current)}>
-          Copy source
+          {t('Copy source')}
         </MenuItem>
         <MenuItem
           icon={<Download className="size-3.5" />}
           hint={artifactFileName(current)}
           onClick={() => void downloadArtifact(current)}
         >
-          Download
+          {t('Download')}
         </MenuItem>
       </MenuContent>
     </Menu>
@@ -130,11 +134,11 @@ export function VersionStepper({
   onStep: (version: ArtifactVersion) => void
 }) {
   return (
-    <div className="flex shrink-0 items-center" role="group" aria-label="Versions">
+    <div className="flex shrink-0 items-center" role="group" aria-label={t('Versions')}>
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Previous version"
+        aria-label={t('Previous version')}
         disabled={!previous}
         onClick={() => previous && onStep(previous)}
       >
@@ -143,16 +147,19 @@ export function VersionStepper({
       <span
         className="whitespace-nowrap px-0.5 text-[12px] tabular-nums text-secondary"
         aria-live="polite"
-        title={`Version ${String(current.version)} of ${String(total)}`}
+        title={t('Version {version} of {total}', {
+          version: String(current.version),
+          total: String(total),
+        })}
       >
         {short
           ? `${String(current.version)}/${String(total)}`
-          : `v${String(current.version)} of ${String(total)}`}
+          : t('v{version} of {total}', { version: String(current.version), total: String(total) })}
       </span>
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Next version"
+        aria-label={t('Next version')}
         disabled={!next}
         onClick={() => next && onStep(next)}
       >

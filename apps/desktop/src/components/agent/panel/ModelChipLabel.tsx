@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Sparkles, Zap } from 'lucide-react'
 
+import { t } from '../../../i18n'
+
 /** The chip's text: ⚡ when fast mode is on, the model, then the effort muted. */
 export function ModelChipLabel({
   name,
@@ -32,7 +34,7 @@ export function ModelChipLabel({
 
   return loading ? (
     <span
-      aria-label="Loading model"
+      aria-label={t('Loading model')}
       className="h-3 w-24 animate-pulse rounded bg-zGray-700/60 motion-reduce:animate-none"
     />
   ) : (
@@ -77,7 +79,7 @@ export function ModelChipLabel({
               !choosingEffort && 'invisible',
             )}
           >
-            Select effort
+            {t('Select effort')}
           </span>
         )}
       </span>

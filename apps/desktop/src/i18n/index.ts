@@ -71,9 +71,14 @@ export const locale: Locale = detectLocale()
 
 if (typeof document !== 'undefined') document.documentElement.lang = locale
 
-/** Translates English UI text; `{name}` placeholders are filled from `vars`. */
+/**
+ * Translates English UI text; `{name}` placeholders are filled from `vars`. A
+ * `|context` suffix tells apart the same English word used two ways (the
+ * button "Open" vs. a pull request's "Open|state") and is never shown.
+ */
 export function t(text: string, vars?: Record<string, string | number>): string {
-  const translated = locale === 'en' ? text : (MESSAGES[locale][text] ?? text)
+  const translated =
+    (locale === 'en' ? undefined : MESSAGES[locale][text]) ?? text.replace(/\|\w+$/, '')
 
   return vars
     ? translated.replace(/\{(\w+)\}/g, (m, k: string) => String(vars[k] ?? m))

@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { CredentialSection } from './credentialSections'
 import type { AgentCredentialOptions } from '../../../api'
 
@@ -14,7 +16,7 @@ export function buildGithubCredentialSections(
       items: installations.map((installation) => ({
         id: installation.installationId,
         label: installation.accountLogin,
-        sublabel: installation.accountType === 'Organization' ? 'Organization' : 'User',
+        sublabel: installation.accountType === 'Organization' ? t('Organization') : t('User'),
       })),
     },
   ]

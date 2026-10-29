@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Check, Circle, CircleDashed, CircleDot, Loader2, X } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import type { CommandStatus } from './planData'
@@ -98,8 +99,12 @@ export function PlanCommandView({
       {hasOutput && (
         <div className="mt-2 space-y-1 border-t border-zGray-800/70 pt-2">
           <div className="flex items-center gap-2 pl-3 font-sans text-[11px] leading-relaxed text-tertiary">
-            {command.executedBy && <span>Executed by {command.executedBy}</span>}
-            {typeof command.exitCode === 'number' && <span>Exit {command.exitCode}</span>}
+            {command.executedBy && (
+              <span>{t('Executed by {name}', { name: command.executedBy })}</span>
+            )}
+            {typeof command.exitCode === 'number' && (
+              <span>{t('Exit {code}', { code: command.exitCode })}</span>
+            )}
           </div>
           {command.stdout && (
             <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded bg-zGray-950 px-2 py-1.5 text-[11.5px] leading-relaxed text-secondary scrollbar-thin">

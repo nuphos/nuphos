@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { MenuContent, MenuItem, MenuSubmenu, MenuSubmenuTrigger } from '../../ui/menu'
@@ -39,11 +40,11 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
         <span
           key={label}
           role="meter"
-          aria-label={`${label} usage`}
+          aria-label={t('{label} usage', { label })}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={value}
-          aria-valuetext={`${percent(value)} used`}
+          aria-valuetext={t('{percent} used', { percent: percent(value) })}
         >
           <span className="flex justify-between gap-1 text-[10px] text-tertiary">
             <span>{label}</span>
@@ -90,7 +91,7 @@ export function SelectorBoxMenu({
       <MenuItem disabled icon={<BoxIcon className="h-4 w-4" />} hint={group.unavailable}>
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium">{group.label}</span>
-          {current && <Check aria-label="Current computer" className="h-3 w-3 shrink-0" />}
+          {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
         </span>
       </MenuItem>
     )
@@ -103,7 +104,7 @@ export function SelectorBoxMenu({
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className="truncate font-medium">{group.label}</span>
-              {current && <Check aria-label="Current computer" className="h-3 w-3 shrink-0" />}
+              {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
             </span>
             {metrics && <SelectorBoxMeters metrics={metrics} />}
           </span>
@@ -132,8 +133,8 @@ export function SelectorBoxMenu({
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-tertiary">
                   {name !== provider && provider}
-                  {instance.deletion && ' · Being removed'}
-                  {instance.starting && ' · Starting…'}
+                  {instance.deletion && ` · ${t('Being removed')}`}
+                  {instance.starting && ` · ${t('Starting…')}`}
                   <RuntimeUsageBar quota={quotas?.get(instance.id)} />
                 </span>
               </span>
