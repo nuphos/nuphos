@@ -25,3 +25,17 @@ export async function machineState(conn: ConnectionOptions, sandboxId: string): 
 
   return (await sandbox.getInfo()).state
 }
+
+/** Runs a command on a running machine and returns its stdout; a paused one is not woken. */
+export async function runOnRunningMachine(
+  conn: ConnectionOptions,
+  sandboxId: string,
+  cmd: string,
+  envs: Record<string, string>,
+): Promise<string | undefined> {
+  const sandbox = await Sandbox.connect(sandboxId, { ...conn, resume: false })
+
+  if ((await sandbox.getInfo()).state !== 'running') return undefined
+
+  return (await sandbox.commands.run(cmd, { envs, timeoutMs: 60_000 })).stdout
+}
