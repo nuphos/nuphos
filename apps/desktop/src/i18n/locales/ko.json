@@ -1,5 +1,4 @@
 {
-  "\"{label}\" is still available in the Agent history.": "\"{label}\" 에이전트는 에이전트 기록에서 계속 볼 수 있습니다.",
   "\"{title}\" is still available in the Agent history.": "\"{title}\" 에이전트는 에이전트 기록에서 계속 볼 수 있습니다.",
   "(current)": "(현재)",
   "(you)": "(나)",
@@ -1570,6 +1569,7 @@
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "에이전트가 스스로 실행을 결정했습니다. 적용 중인 플랜이나 명령별 승인이 없었습니다",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "에이전트가 연결된 Slack 스레드에서 답장하는 중입니다. 답장이 끝나면 메시지를 다시 보내세요.",
   "The agent is starting the first command.": "에이전트가 첫 번째 명령을 시작하는 중입니다.",
+  "The agent is still archived. Try again from the Agent history.": "에이전트가 아직 보관된 상태입니다. 에이전트 기록에서 다시 시도하세요.",
   "The agent turn is still running on the server": "에이전트 턴이 아직 서버에서 실행 중입니다",
   "The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.": "에이전트가 더 이상 액세스할 수 없습니다. Gmail과 Google 드라이브가 모두 연결 해제되면 Google에서 권한을 취소합니다.",
   "The app caught the crash before the window went blank. Reload to return to a clean state, or copy the diagnostics for debugging.": "창이 비기 전에 앱이 충돌을 감지했습니다. 새로고침하여 깨끗한 상태로 돌아가거나, 디버깅을 위해 진단 정보를 복사하세요.",

@@ -1,5 +1,4 @@
 {
-  "\"{label}\" is still available in the Agent history.": "「{label}」はエージェント履歴から引き続き利用できます。",
   "\"{title}\" is still available in the Agent history.": "「{title}」はエージェント履歴から引き続き利用できます。",
   "(current)": "（現在）",
   "(you)": "（自分）",
@@ -1570,6 +1569,7 @@
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "エージェントが独自の判断で実行しました。プランやコマンド単位の承認はありませんでした",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "エージェントは現在、リンクされた Slack スレッドで返信中です。返信が完了したら、もう一度メッセージを送信してください。",
   "The agent is starting the first command.": "エージェントが最初のコマンドを開始しています。",
+  "The agent is still archived. Try again from the Agent history.": "エージェントはアーカイブされたままです。エージェント履歴からもう一度お試しください。",
   "The agent turn is still running on the server": "エージェントのターンはサーバー上でまだ実行中です",
   "The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.": "エージェントはアクセスできなくなります。Gmail と Google ドライブの両方の接続を解除すると、Google が許可を取り消します。",
   "The app caught the crash before the window went blank. Reload to return to a clean state, or copy the diagnostics for debugging.": "ウィンドウが空白になる前に、アプリがクラッシュを検出しました。再読み込みしてクリーンな状態に戻すか、デバッグ用に診断情報をコピーしてください。",

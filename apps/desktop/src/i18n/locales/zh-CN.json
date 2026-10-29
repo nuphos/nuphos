@@ -1,5 +1,4 @@
 {
-  "\"{label}\" is still available in the Agent history.": "“{label}”仍可在 Agent 历史记录中找到。",
   "\"{title}\" is still available in the Agent history.": "“{title}”仍可在 Agent 历史记录中找到。",
   "(current)": "（当前）",
   "(you)": "（你）",
@@ -1570,6 +1569,7 @@
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "由 Agent 自行决定运行，当时没有生效的计划或单条命令批准",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "Agent 正在关联的 Slack 会话串中回复。请等该回复完成后再重新发送你的消息。",
   "The agent is starting the first command.": "Agent 正在启动第一条命令。",
+  "The agent is still archived. Try again from the Agent history.": "Agent 仍处于归档状态。请在 Agent 历史记录中重试。",
   "The agent turn is still running on the server": "Agent 本轮仍在服务器上运行",
   "The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.": "Agent 将无法再访问。当 Gmail 和 Google 云端硬盘都断开连接后，Google 会撤销授权。",
   "The app caught the crash before the window went blank. Reload to return to a clean state, or copy the diagnostics for debugging.": "应用在窗口变为空白前捕获了崩溃。重新加载即可恢复到干净状态，也可以复制诊断信息用于调试。",

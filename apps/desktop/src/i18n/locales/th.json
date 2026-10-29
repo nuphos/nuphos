@@ -1,5 +1,4 @@
 {
-  "\"{label}\" is still available in the Agent history.": "\"{label}\" ยังคงอยู่ในประวัติเอเจนต์",
   "\"{title}\" is still available in the Agent history.": "\"{title}\" ยังคงอยู่ในประวัติเอเจนต์",
   "(current)": "(ปัจจุบัน)",
   "(you)": "(คุณ)",
@@ -1570,6 +1569,7 @@
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "เอเจนต์ตัดสินใจรันเอง — ไม่มีแผนหรือการอนุมัติรายคำสั่งที่มีผลอยู่",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "เอเจนต์กำลังตอบกลับในเธรด Slack ที่ลิงก์ไว้ ส่งข้อความของคุณอีกครั้งเมื่อการตอบกลับนั้นเสร็จสิ้น",
   "The agent is starting the first command.": "เอเจนต์กำลังเริ่มคำสั่งแรก",
+  "The agent is still archived. Try again from the Agent history.": "เอเจนต์ยังคงถูกเก็บถาวรอยู่ โปรดลองอีกครั้งจากประวัติเอเจนต์",
   "The agent turn is still running on the server": "รอบของเอเจนต์ยังทำงานอยู่บนเซิร์ฟเวอร์",
   "The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.": "เอเจนต์จะไม่มีสิทธิ์เข้าถึงอีกต่อไป Google จะเพิกถอนสิทธิ์เมื่อไม่ได้เชื่อมต่อทั้ง Gmail และ Google Drive แล้ว",
   "The app caught the crash before the window went blank. Reload to return to a clean state, or copy the diagnostics for debugging.": "แอปตรวจพบข้อขัดข้องก่อนที่หน้าต่างจะว่างเปล่า โหลดใหม่เพื่อกลับสู่สถานะเริ่มต้น หรือคัดลอกข้อมูลวินิจฉัยไว้ใช้แก้ไขปัญหา",

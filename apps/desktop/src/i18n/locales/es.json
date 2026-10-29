@@ -1,5 +1,4 @@
 {
-  "\"{label}\" is still available in the Agent history.": "“{label}” sigue disponible en el historial de agentes.",
   "\"{title}\" is still available in the Agent history.": "“{title}” sigue disponible en el historial de agentes.",
   "(current)": "(actual)",
   "(you)": "(tú)",
@@ -1570,6 +1569,7 @@
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "El agente decidió ejecutarlo por su cuenta: no había ningún plan ni aprobación por comando vigente",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "El agente está respondiendo en el hilo de Slack vinculado. Vuelve a enviar tu mensaje cuando termine esa respuesta.",
   "The agent is starting the first command.": "El agente está iniciando el primer comando.",
+  "The agent is still archived. Try again from the Agent history.": "El agente sigue archivado. Inténtalo de nuevo desde el historial de agentes.",
   "The agent turn is still running on the server": "El turno del agente sigue en curso en el servidor",
   "The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.": "El agente ya no tendrá acceso. Google revoca el permiso cuando ni Gmail ni Google Drive están conectados.",
   "The app caught the crash before the window went blank. Reload to return to a clean state, or copy the diagnostics for debugging.": "La app detectó el fallo antes de que la ventana quedara en blanco. Recarga para volver a un estado limpio o copia el diagnóstico para depurar.",

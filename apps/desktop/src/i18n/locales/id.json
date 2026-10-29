@@ -1,5 +1,4 @@
 {
-  "\"{label}\" is still available in the Agent history.": "\"{label}\" masih tersedia di riwayat Agen.",
   "\"{title}\" is still available in the Agent history.": "\"{title}\" masih tersedia di riwayat Agen.",
   "(current)": "(saat ini)",
   "(you)": "(Anda)",
@@ -1570,6 +1569,7 @@
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "Agen memutuskan menjalankan ini sendiri — tidak ada rencana atau persetujuan per perintah yang berlaku",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "Agen sedang membalas di thread Slack yang tertaut. Kirim lagi pesan Anda setelah balasan itu selesai.",
   "The agent is starting the first command.": "Agen sedang memulai perintah pertama.",
+  "The agent is still archived. Try again from the Agent history.": "Agen masih diarsipkan. Coba lagi dari riwayat Agen.",
   "The agent turn is still running on the server": "Giliran agen masih berjalan di server",
   "The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.": "Agen tidak akan memiliki akses lagi. Google mencabut izin setelah Gmail maupun Google Drive tidak lagi terhubung.",
   "The app caught the crash before the window went blank. Reload to return to a clean state, or copy the diagnostics for debugging.": "Aplikasi menangkap crash sebelum jendela menjadi kosong. Muat ulang untuk kembali ke kondisi bersih, atau salin diagnostik untuk debugging.",
