@@ -3,6 +3,8 @@
 // screens. Positions are absolute top-left canvas units; nothing nests — a
 // section "contains" what sits inside its rectangle. Mirrors the backend model.
 
+import { t } from '../i18n/index.ts'
+
 export type DesignFrame = {
   id: string
   type: 'frame'
@@ -131,9 +133,9 @@ export type DesignDetailRef = { designId: string; designName: string }
 
 /** Device presets a frame can take; width × height in canvas units. */
 export const FRAME_PRESETS = {
-  desktop: { label: 'Desktop', width: 1440, height: 900 },
-  tablet: { label: 'Tablet', width: 834, height: 1194 },
-  phone: { label: 'Phone', width: 390, height: 844 },
+  desktop: { label: t('Desktop|device'), width: 1440, height: 900 },
+  tablet: { label: t('Tablet'), width: 834, height: 1194 },
+  phone: { label: t('Phone'), width: 390, height: 844 },
 } as const
 
 export type FramePreset = keyof typeof FRAME_PRESETS

@@ -11,13 +11,13 @@ import {
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 import { FRAME_PRESETS, framePresetOf } from '../schema'
 
 import { useDesignCanvas } from './context'
 import { PRIMARY } from './helpers'
 import { EditableTitle, FrameHandles } from './nodeParts'
 import { useScreenScale } from './useScreenScale'
-import { t } from '../../i18n'
 
 import type { DesignNodeData } from './nodeParts'
 import type { DesignFrame, FramePreset } from '../schema'

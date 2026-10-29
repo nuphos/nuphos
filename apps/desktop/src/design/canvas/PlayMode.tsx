@@ -6,12 +6,17 @@ import { ArtifactFrame } from '../../components/agent/artifacts/ArtifactFrame'
 import { Button } from '../../components/ui/button'
 import { Kbd } from '../../components/ui/kbd'
 import { useElementSize } from '../../grafana/useElementSize'
+import { t } from '../../i18n'
 
 import { playFitScale } from './playFit'
 import { playTarget } from './playTarget'
-import { t } from '../../i18n'
 
 import type { DesignFrame, DesignPage } from '../schema'
+
+// One sentence for translators; each {key} becomes a key cap (odd split parts).
+const PLAY_HINT = t(
+  'Click the screen to follow its links, {left} {right} to move, {esc} to leave',
+).split(/\{(left|right|esc)\}/)
 
 const STAGE_PAD = 24
 
@@ -109,13 +114,12 @@ export function PlayMode({ page, startId, onClose }: Props) {
         </span>
         <span className="flex-1" />
         <span className="hidden items-center gap-1 text-[11px] text-white/50 sm:inline-flex">
-          Click the screen to follow its links, <Kbd combo="left" /> <Kbd combo="right" /> to move,{' '}
-          <Kbd combo="esc" /> to leave
+          {PLAY_HINT.map((part, i) => (i % 2 ? <Kbd key={part} combo={part} /> : part))}
         </span>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Close"
+          aria-label={t('Close')}
           className="text-white hover:bg-white/10 hover:text-white"
           onClick={onClose}
         >
