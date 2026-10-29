@@ -205,8 +205,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size
         if !positioned || following {
-            // Inside the keyboard's animation, so the rows travel with it.
-            positionAtEnd()
+            // Inside the keyboard's animation, so the rows travel with it. A
+            // rotation moves them straight to their new layout instead.
+            if root.rotating { UIView.performWithoutAnimation(positionAtEnd) } else { positionAtEnd() }
         }
         animatePendingSend()
     }
