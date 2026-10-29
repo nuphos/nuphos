@@ -78,9 +78,11 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         collection.register(TranscriptCell.self, forCellWithReuseIdentifier: "row")
         collection.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collection)
-        // The composer rides the keyboard layout guide and the collection ends
-        // at its top. One keyboard source moves both, inside the keyboard's own
-        // animation and interactive drag, and nothing else moves them.
+        // The composer rides the keyboard layout guide and the collection runs
+        // on under it, inset by its height, so rows scroll beneath the
+        // composer's edge effect instead of being cut at its top. One keyboard
+        // source moves both, inside the keyboard's own animation and
+        // interactive drag, and nothing else moves them.
         addChild(composer)
         composer.view.backgroundColor = .clear
         // Its own changes (focus, attachments, a long draft) report a new size
@@ -90,11 +92,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         // SwiftUI's own keyboard avoidance would move it a second time.
         composer.safeAreaRegions = []
         composer.view.translatesAutoresizingMaskIntoConstraints = false
+        let edge = UIScrollEdgeElementContainerInteraction()
+        edge.scrollView = collection
+        edge.edge = .bottom
+        composer.view.addInteraction(edge)
         view.addSubview(composer.view)
         composer.didMove(toParent: self)
         NSLayoutConstraint.activate([
             collection.topAnchor.constraint(equalTo: view.topAnchor),
-            collection.bottomAnchor.constraint(equalTo: composer.view.topAnchor),
+            collection.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             collection.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collection.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             composer.view.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
@@ -131,7 +137,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         view.addSubview(latestButton)
         NSLayoutConstraint.activate([
             latestButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            latestButton.bottomAnchor.constraint(equalTo: collection.bottomAnchor, constant: -12),
+            latestButton.bottomAnchor.constraint(equalTo: composer.view.topAnchor, constant: -12),
         ])
         latestButton.isHidden = true
     }
@@ -205,6 +211,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let height = ceil(composer.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude)).height)
         if composerHeight.constant != height {
             composerHeight.constant = height
+            collection.contentInset.bottom = height
+            collection.verticalScrollIndicatorInsets.bottom = height
             // Counting the composer as part of the keyboard lets a drag pick
             // both up at the composer's top edge.
             view.keyboardLayoutGuide.keyboardDismissPadding = height
@@ -213,7 +221,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        let size = collection.bounds.size
+        // The visible area: the composer changes it through the inset alone.
+        let size = collection.bounds.inset(by: collection.adjustedContentInset).size
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size
         // Never under a finger or a fling: on iPhone Duo the header resizes the

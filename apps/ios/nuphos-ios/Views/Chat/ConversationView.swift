@@ -350,7 +350,10 @@ struct ConversationView: View {
                 .padding(.bottom, rowSpacing(row))
                 .readableWidth())
         }
+        // Under the bars too: the collection insets itself by the safe area,
+        // and rows scroll beneath the bar's edge effect rather than being cut.
         .ignoresSafeArea(.all, edges: .bottom)
+        .ignoresSafeArea(.container, edges: .top)
         #else
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
