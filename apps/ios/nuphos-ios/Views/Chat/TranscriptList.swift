@@ -179,7 +179,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         if sent || follow {
             UIView.performWithoutAnimation { positionAtEnd() }
         } else if let anchor {
-            restore(id: anchor.id, edge: .top, offset: anchor.offset)
+            restore(id: anchor.id, offset: anchor.offset)
         }
         animatePendingSend()
     }
@@ -237,22 +237,31 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     /// The end of the content.
     private func positionAtEnd() {
         guard collection.bounds.height > 0, let last = rows.indices.last else { return }
-        hold {
-            layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
-            let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
-            if collection.contentOffset.y < end { collection.contentOffset.y = end }
-        }
+        hold { scroll(to: .greatestFiniteMagnitude) }
         positioned = true
         following = atEnd
     }
 
-    private func restore(id: String, edge: ChatLayoutPositionSnapshot.Edge, offset: CGFloat) {
+    /// Puts a row's top `offset` points below the top of the visible area.
+    private func restore(id: String, offset: CGFloat) {
         guard let index = rows.firstIndex(where: { $0.id == id }) else { return }
+        let path = IndexPath(item: index, section: 0)
         UIView.performWithoutAnimation {
             hold {
-                layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: index, section: 0), edge: edge, offset: offset))
+                guard let frame = layout.layoutAttributesForItem(at: path)?.frame else { return }
+                scroll(to: frame.minY - offset - collection.adjustedContentInset.top - layout.settings.additionalInsets.top)
             }
         }
+    }
+
+    /// Sets the offset directly, kept within the content. ChatLayout's
+    /// restoreContentOffset is not used: it lays out while answering nil for
+    /// every item, and UIKit aborts when it needs a visible cell's attributes
+    /// in that pass ("missing final attributes for cell").
+    private func scroll(to y: CGFloat) {
+        let top = -collection.adjustedContentInset.top
+        let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
+        collection.contentOffset.y = min(max(y, top), max(top, end))
     }
 
     /// Rows come into view at their estimated height and are measured by the
@@ -429,7 +438,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         fixture = [.hint(id: "async-card", text: "", isError: false),
                    .user(id: "footer", messageId: "footer", text: "This must remain below the card", images: [])]
         apply("user.sent")
-        restore(id: "async-card", edge: .top, offset: 0)
+        restore(id: "async-card", offset: 0)
         await pause()
         let cardPath = IndexPath(item: 0, section: 0)
         let footerPath = IndexPath(item: 1, section: 0)
@@ -495,7 +504,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         showLatest()
         await pause()
         await sendAndStream("bottom")
-        restore(id: "user.20", edge: .top, offset: 0)
+        restore(id: "user.20", offset: 0)
         touch()
         await pause()
         await sendAndStream("up")
@@ -511,7 +520,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             text: String(repeating: "The final answer, long enough to hold the reader.\n\n", count: 60), streaming: true))
         apply("user.ended")
         await pause()
-        restore(id: "text.local.0", edge: .top, offset: -300)
+        restore(id: "text.local.0", offset: -300)
         touch()
         await pause()
         let endedY = y(of: "user.ended")
