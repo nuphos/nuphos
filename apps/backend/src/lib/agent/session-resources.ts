@@ -12,6 +12,7 @@ import { unlinkSessionThread } from './session-thread-resources'
 
 import type { AgentConversation } from './db'
 import type { PullHealth } from './github-pull-health'
+import type { ResolvedResource } from './session-resource-lookup'
 
 export const sessionResourceInput = z.discriminatedUnion('provider', [
   z
@@ -87,7 +88,8 @@ export async function bindSessionResource(
   const key = `${resolved.provider}/${resolved.integrationId}/${resolved.resourceId}`
   const existing = conversation.linkedResources?.find((resource) => resource.key === key)
 
-  if (existing) return existing
+  // Linking again is how a caller asks for current state when no webhook reached us.
+  if (existing) return writeFreshResource(actor.sessionId, existing, resolved)
   const resource: SessionResource = {
     ...resolved,
     key,
@@ -148,10 +150,18 @@ export async function refreshSessionResource(
         }
   const fresh = await resolveResource(conversation, conversation.userId, input)
 
+  return writeFreshResource(conversation.sessionId, resource, fresh)
+}
+
+async function writeFreshResource(
+  sessionId: string,
+  resource: SessionResource,
+  fresh: ResolvedResource,
+): Promise<SessionResource> {
   if (fresh.resourceId !== resource.resourceId)
     throw new AppError(409, 'resource_changed', 'Resource identity changed')
   await agentConversations().updateOne(
-    { sessionId: conversation.sessionId, 'linkedResources.id': resource.id },
+    { sessionId, 'linkedResources.id': resource.id },
     {
       $set: {
         'linkedResources.$.title': fresh.title,
