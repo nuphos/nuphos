@@ -10,6 +10,8 @@ export type QueuedChatTurn = {
   locale: string
   localTools: boolean
   decisionReplies?: boolean
+  /** The question this message answers, resolved when the queued turn is admitted. */
+  decisionReplyTo?: string
   kubeContext?: string
   diagramId?: string
   currentUrl?: string | null

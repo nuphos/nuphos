@@ -11,6 +11,7 @@ import type { PreviewChatTurnArgs } from './chat-preview-turn'
 let written: Record<string, unknown>[] = []
 let cleared: string[] = []
 let answered: string[] = []
+let resolved: string[][] = []
 let writeFails = false
 let clearFails = false
 
@@ -26,14 +27,25 @@ useAgentDb({
   clearPendingDecision: async (sessionId) => {
     answered.push(sessionId)
   },
+  resolvePendingDecision: async (sessionId, userId, toolCallId) => {
+    resolved.push([sessionId, userId, toolCallId])
+
+    return true
+  },
 })
 
 const { persistPreviewTurnContext } = await import('./chat-preview-prepare')
 
-const turn = (localToolsEnabled: boolean, humanTurn = false, explicitDecisionReplies = true) =>
+const turn = (
+  localToolsEnabled: boolean,
+  humanTurn = false,
+  explicitDecisionReplies = true,
+  decisionReplyTo?: string,
+) =>
   ({
     humanTurn,
     explicitDecisionReplies,
+    decisionReplyTo,
     sessionId: 'conv-1',
     teamId: 'team-1',
     userId: 'u1',
@@ -46,6 +58,7 @@ beforeEach(() => {
   written = []
   cleared = []
   answered = []
+  resolved = []
   writeFails = false
   clearFails = false
 })
@@ -106,4 +119,19 @@ test('older Desktop versions keep their text-reply behavior until upgraded', asy
   await persistPreviewTurnContext(turn(true, true, false), 'req-8')
 
   expect(answered).toEqual(['conv-1'])
+})
+
+test('an explicit reply resolves the question it names when its turn is admitted', async () => {
+  await persistPreviewTurnContext(turn(true, true, true, 'nuphos-q1'), 'req-9')
+
+  // On the conversation owner's record, and only that question: others stay open.
+  expect(resolved).toEqual([['conv-1', 'u1', 'nuphos-q1']])
+  expect(answered).toEqual([])
+})
+
+test('a turn that is not a person speaking resolves nothing, even naming a question', async () => {
+  await persistPreviewTurnContext(turn(true, false, true, 'nuphos-q1'), 'req-10')
+
+  expect(resolved).toEqual([])
+  expect(answered).toEqual([])
 })

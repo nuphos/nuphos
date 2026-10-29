@@ -89,6 +89,8 @@ export async function postChatAttempt(
         agentRuntime: args.agentRuntime,
         runtimeId: args.runtimeId,
         initialSessionConfig: args.initialSessionConfig,
+        // Resolved by the server when this turn is admitted; a resume admits nothing.
+        decisionReplyTo: shouldResume ? undefined : args.decisionReplyTo,
         // A busy session queues the message on the server (202); a refusal
         // mid-start puts it back at the head of that queue (message_queued).
         clientCapabilities: { localTools: true, serverQueue: true, decisionReplies: true },

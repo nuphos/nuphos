@@ -11,12 +11,25 @@ type Doc = Record<string, unknown>
 
 const updates: { filter: Doc; update: Doc }[] = []
 let lastQuery: Doc | undefined
+// When set, updates apply to these documents the way Mongo would match them.
+let stored: Doc[] | null = null
+
+const matches = (doc: Doc, filter: Doc) =>
+  Object.entries(filter).every(([key, value]) =>
+    key === 'pendingDecision.toolCallId'
+      ? (doc.pendingDecision as Doc | undefined)?.toolCallId === value
+      : doc[key] === value,
+  )
 
 const collection = {
   async updateOne(filter: Doc, update: Doc) {
     updates.push({ filter, update })
+    if (!stored) return { matchedCount: 1 }
+    const doc = stored.find((candidate) => matches(candidate, filter))
 
-    return { matchedCount: 1 }
+    if (doc && '$unset' in update) delete doc.pendingDecision
+
+    return { matchedCount: doc ? 1 : 0 }
   },
   find(query: Doc) {
     lastQuery = query
@@ -30,6 +43,7 @@ useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbAc
 beforeEach(() => {
   updates.length = 0
   lastQuery = undefined
+  stored = null
 })
 
 const decision = {
@@ -61,6 +75,18 @@ describe('pending decision', () => {
         update: { $unset: { pendingDecision: '' } },
       },
     ])
+  })
+
+  test("an answer from another owner's record or with an unknown id resolves nothing", async () => {
+    const owned = { sessionId: 's1', userId: 'owner', pendingDecision: { toolCallId: 'nuphos-1' } }
+
+    stored = [owned, { sessionId: 's1', userId: 'intruder' }]
+
+    expect(await resolvePendingDecision('s1', 'intruder', 'nuphos-1')).toBe(false)
+    expect(await resolvePendingDecision('s1', 'owner', 'nuphos-unknown')).toBe(false)
+    expect(owned.pendingDecision).toEqual({ toolCallId: 'nuphos-1' })
+    expect(await resolvePendingDecision('s1', 'owner', 'nuphos-1')).toBe(true)
+    expect(owned).not.toHaveProperty('pendingDecision')
   })
 
   test('the Inbox lists waiting conversations, trigger runs included', async () => {

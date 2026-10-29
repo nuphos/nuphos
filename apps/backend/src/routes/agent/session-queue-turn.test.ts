@@ -9,8 +9,8 @@ import {
   enqueuePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
-import { AppError, errorHandler } from '@/lib/errors'
 import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useBoxWake } from '@/lib/test/doubles/box-wake'
 import { useDb } from '@/lib/test/doubles/db'
@@ -18,8 +18,14 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
+import { queuedChatBody } from './session-queue-body'
 import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat, launchQueuedChatTurn, queuedChatReply } from './session-queue-turn'
+import {
+  admitQueueableChat,
+  launchQueuedChatTurn,
+  queuedChatContext,
+  queuedChatReply,
+} from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
@@ -31,7 +37,7 @@ const conversation = { sessionId: SESSION, userId: OWNER, teamId: 'team' } as Ag
 let caller = OWNER
 
 // Turn admission looks the conversation up; none here means no move is running.
-useDb({ db: (() => ({ collection: () => ({ findOne: async () => null }) })) as never })
+useDb({ db: (() => ({ collection: () => ({ findOne: async () => null }) })) })
 useIdentity({ authenticateToken: async () => ({ user: { id: caller } }) })
 let boxOffline = true
 const woken: (string | undefined)[] = []
@@ -498,4 +504,48 @@ test('an ordinary duplicate persisted input still releases its claim without lau
   })
   expect(released).toBe(1)
   expect(historyReads).toBe(0)
+})
+
+test('a queued answer keeps the question it names and is admitted naming it', () => {
+  const c = { req: { header: () => {} } } as unknown as Parameters<
+    typeof queuedChatContext
+  >[0]
+  const context = queuedChatContext(
+    c,
+    'en',
+    {
+      clientCapabilities: { localTools: true, decisionReplies: true },
+      decisionReplyTo: 'nuphos-q1',
+    },
+    undefined,
+  )
+
+  expect(context).toMatchObject({ decisionReplies: true, decisionReplyTo: 'nuphos-q1' })
+  // An id the resolve route would refuse is not carried at all.
+  expect(
+    queuedChatContext(c, 'en', { decisionReplyTo: 'x'.repeat(201) }, undefined),
+  ).not.toHaveProperty('decisionReplyTo')
+  const input = message('queued-answer')
+  const body = queuedChatBody('conv-1', 'team-1', {
+    streamId: 'stream-q',
+    message: input,
+    locale: 'en',
+    localTools: true,
+    decisionReplies: true,
+    decisionReplyTo: 'nuphos-q1',
+  })
+
+  expect(body).toMatchObject({
+    id: 'conv-1',
+    decisionReplyTo: 'nuphos-q1',
+    clientCapabilities: { decisionReplies: true },
+  })
+  expect(
+    queuedChatBody('conv-1', 'team-1', {
+      streamId: 's',
+      message: input,
+      locale: 'en',
+      localTools: true,
+    }),
+  ).not.toHaveProperty('decisionReplyTo')
 })

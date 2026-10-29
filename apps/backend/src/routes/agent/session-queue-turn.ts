@@ -17,7 +17,9 @@ import { logEvent } from '@/lib/observability'
 
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { buildSlackBoundTurnPlan } from './chat-slack-bound'
+import { decisionReplyOf } from './decision-reply'
 import { claimAgentRunForSession, createAgentRun } from './run-registry'
+import { queuedChatBody } from './session-queue-body'
 import { getFirstUserMessage } from './transcript'
 import { acceptAgentRun } from './turn-start-frame'
 
@@ -50,15 +52,18 @@ export type QueueableChat = {
 export function queuedChatContext(
   c: Context,
   locale: string,
-  capabilities: AgentChatBody['clientCapabilities'],
+  body: Pick<AgentChatBody, 'clientCapabilities' | 'decisionReplyTo'>,
   kubeContext: string | undefined,
 ): QueueableChat['context'] {
   const diagramId = c.req.header('X-Atlas-Diagram-Id')?.trim()
+  const capabilities = body.clientCapabilities
+  const decisionReplyTo = decisionReplyOf(body)
 
   return {
     locale,
     localTools: capabilities?.localTools === true,
     ...(capabilities?.decisionReplies === true ? { decisionReplies: true } : {}),
+    ...(decisionReplyTo ? { decisionReplyTo } : {}),
     currentUrl:
       c.req.header('X-Atlas-Url') ?? c.req.header('referer') ?? c.req.header('origin') ?? null,
     ...(kubeContext ? { kubeContext } : {}),
@@ -210,13 +215,7 @@ export async function launchQueuedChatTurn(
 
     return
   }
-  const body: AgentChatBody = {
-    id: sessionId,
-    teamId,
-    messages: [chat.message],
-    streamId: chat.streamId,
-    clientCapabilities: { localTools: chat.localTools, decisionReplies: chat.decisionReplies },
-  }
+  const body = queuedChatBody(sessionId, teamId, chat)
   const { messages } = await buildSlackBoundTurnPlan({
     body,
     clientView: [chat.message],

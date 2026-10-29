@@ -36,6 +36,8 @@ export type AgentChatBody = {
   runtimeId?: string
   /** Model settings picked before the conversation had a session; applied when one starts. */
   initialSessionConfig?: RuntimeDefaults
+  /** The open question this message answers; it is resolved when the turn is admitted. */
+  decisionReplyTo?: string
   clientCapabilities?: {
     localTools?: boolean
     /** Questions are resolved explicitly by id, separately from ordinary messages. */

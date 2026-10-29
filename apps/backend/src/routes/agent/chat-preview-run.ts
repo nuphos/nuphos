@@ -33,6 +33,8 @@ export type PreviewChatTurnArgs = {
   /** The actor sent this turn's message themselves, so their Personal Credentials apply. */
   humanTurn?: boolean
   explicitDecisionReplies?: boolean
+  /** The open question this turn's message answers. */
+  decisionReplyTo?: string
   messages: UIMessage[]
   firstMessage: string
   locale: string
