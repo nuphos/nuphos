@@ -37,7 +37,7 @@ const conversation = { sessionId: SESSION, userId: OWNER, teamId: 'team' } as Ag
 let caller = OWNER
 
 // Turn admission looks the conversation up; none here means no move is running.
-useDb({ db: (() => ({ collection: () => ({ findOne: async () => null }) })) })
+useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })
 useIdentity({ authenticateToken: async () => ({ user: { id: caller } }) })
 let boxOffline = true
 const woken: (string | undefined)[] = []
@@ -507,9 +507,7 @@ test('an ordinary duplicate persisted input still releases its claim without lau
 })
 
 test('a queued answer keeps the question it names and is admitted naming it', () => {
-  const c = { req: { header: () => {} } } as unknown as Parameters<
-    typeof queuedChatContext
-  >[0]
+  const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
   const context = queuedChatContext(
     c,
     'en',
