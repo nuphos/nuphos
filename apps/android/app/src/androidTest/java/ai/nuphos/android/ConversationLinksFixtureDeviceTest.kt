@@ -65,6 +65,7 @@ class ConversationLinksFixtureDeviceTest {
     private val token = "conversation-link-synthetic-no-credentials"
     @Volatile private var detailStatus = 200
     @Volatile private var adaptiveHistory = false
+    private var websiteEnvelope = false
 
     @Suppress("UNCHECKED_CAST")
     private fun setState(value: AuthSession.State) {
@@ -167,7 +168,10 @@ class ConversationLinksFixtureDeviceTest {
         assertTrue("Unexpected requests: $unexpected", unexpected.isEmpty())
     }
 
-    private fun link(team: String = a, id: String = "fixture-chat") = "https://nuphos.ai/teams/$team/agent/$id"
+    private fun link(team: String = a, id: String = "fixture-chat"): String {
+        val url = "https://nuphos.ai/teams/$team/agent/$id"
+        return if (websiteEnvelope) "nuphos://open?url=${Uri.encode(url)}&path=${Uri.encode(Uri.parse(url).path)}" else url
+    }
     private fun awaitActivity(start: () -> Unit): MainActivity {
         // Match the Activity class rather than the original URI: production consumes its intent.
         val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)
@@ -178,10 +182,14 @@ class ConversationLinksFixtureDeviceTest {
                 ?: throw AssertionError("MainActivity did not launch")
         } finally { instrumentation.removeMonitor(monitor) }
     }
+    private fun incomingIntent(url: String): Intent = if (websiteEnvelope)
+        Intent(Intent.ACTION_VIEW, Uri.parse(url)).setPackage(app.packageName)
+            .addCategory(Intent.CATEGORY_BROWSABLE).addCategory(Intent.CATEGORY_DEFAULT)
+    else Intent(app, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setData(Uri.parse(url))
+
     private fun launch(url: String) {
         activity = awaitActivity {
-            app.startActivity(Intent(app, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setData(Uri.parse(url))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            app.startActivity(incomingIntent(url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
     private fun recreate() {
@@ -206,7 +214,7 @@ class ConversationLinksFixtureDeviceTest {
         }
     }
     private fun warm(url: String) {
-        app.startActivity(Intent(app, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setData(Uri.parse(url))
+        app.startActivity(incomingIntent(url)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
     }
     private fun awaitText(text: String) {
@@ -380,6 +388,51 @@ class ConversationLinksFixtureDeviceTest {
         assertEquals("nuphos://github-callback?state=fixture", ConnectorIntents.callback.value)
     }
 
+    @Test fun websiteEnvelopeColdWarmWorkspaceAndRecreation() {
+        websiteEnvelope = true
+        coldAndWarmLaunchUseAuthorizedWorkspaceAndDoNotReplayOnRecreation()
+    }
+
+    @Test fun websiteEnvelopeWaitsForLogin() {
+        websiteEnvelope = true
+        instrumentation.runOnMainSync { setState(AuthSession.State.SignedOut(null)) }
+        launch(link(b))
+        compose.waitUntil(5_000) { app.conversationLinks.value.value != null }
+        assertFalse(requests.any { it.url.encodedPath.startsWith("/agent/conversations") })
+        recreate()
+        assertEquals(b, app.conversationLinks.value.value?.destination?.teamId)
+        identity()
+        awaitText("Fixture content: fixture-chat")
+        assertNull(app.conversationLinks.value.value)
+    }
+
+    @Test fun websiteEnvelopeNonMemberAndDeniedStayFenced() {
+        websiteEnvelope = true
+        nonMemberLinkNeverReadsConversation()
+        detailStatus = 403
+        warm(link(id = "denied-fixture-chat"))
+        compose.waitUntil(10_000) { requests.any { it.url.encodedPath.endsWith("/denied-fixture-chat") } && app.conversationLinks.value.value == null }
+        awaitText("This agent is unavailable or your account does not have access.")
+        assertTrue(compose.onAllNodesWithText("Fixture content: denied-fixture-chat").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test fun invalidWebsiteEnvelopeCannotHijackOAuthOrReadContent() {
+        instrumentation.runOnMainSync { setState(AuthSession.State.SignedOut(null)) }
+        launch("nuphos://open?url=${Uri.encode(link())}&url=${Uri.encode(link(b))}")
+        assertNull(app.conversationLinks.value.value)
+        warm("nuphos://open?url=${Uri.encode("https://evil.example/teams/$a/agent/fixture-chat")}")
+        instrumentation.waitForIdleSync()
+        assertNull(app.conversationLinks.value.value)
+        assertFalse(requests.any { it.url.encodedPath.startsWith("/agent/conversations") })
+        warm("nuphos://google-callback?token=attacker")
+        instrumentation.waitForIdleSync()
+        assertNull(auth.token)
+        assertTrue(auth.state is AuthSession.State.SignedOut)
+        warm("nuphos://github-callback?state=fixture")
+        compose.waitUntil(5_000) { ConnectorIntents.callback.value != null }
+        assertEquals("nuphos://github-callback?state=fixture", ConnectorIntents.callback.value)
+    }
+
     @Test fun platformManifestMatcherCoversOnlySupportedConversationPaths() {
         fun matches(url: String): Boolean {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setPackage(app.packageName)
@@ -387,6 +440,8 @@ class ConversationLinksFixtureDeviceTest {
             return app.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
                 .any { it.activityInfo.name == MainActivity::class.java.name }
         }
+        assertTrue(matches("nuphos://open?url=${Uri.encode(link())}"))
+        assertFalse(matches("nuphos://open.evil?url=${Uri.encode(link())}"))
         assertTrue(matches(link()))
         assertTrue(matches(link() + "/"))
         assertFalse(matches(link() + "/extra"))

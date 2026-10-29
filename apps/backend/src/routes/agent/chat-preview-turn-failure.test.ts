@@ -20,10 +20,10 @@ let carried: PendingUserMessage[] = []
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 useAgentDb({
-  syncConversationTranscript: (args) => {
+  appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
-    return Promise.resolve(null)
+    return Promise.resolve({ isNew: false, count: args.messages.length })
   },
 })
 useChatPreviewPrepare({

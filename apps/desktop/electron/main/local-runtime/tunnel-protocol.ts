@@ -1,6 +1,18 @@
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
-import type { StreamPurpose } from './tunnel-client.ts'
+
+export type TunnelPurpose = 'transport' | 'control'
+/** What a backend stream may ask this computer for: an agent, one of its local tools, or its agent inventory. */
+export type StreamPurpose =
+  | TunnelPurpose
+  | 'exec'
+  | 'file'
+  | 'attachments'
+  | 'terminal'
+  | 'cua'
+  | 'browser'
+  | 'vnc'
+  | 'instances'
 
 export type BackendFrame =
   | {
@@ -13,6 +25,14 @@ export type BackendFrame =
   | { t: 'data'; s: string; d: string }
   | { t: 'close'; s: string; reason?: string }
   | { t: 'ping' }
+
+/** Why this computer gave up its last tunnel; the backend never sees that close itself. */
+export type TunnelDrop = {
+  reason: 'idle' | 'error' | 'closed' | 'reconnect'
+  code: number | undefined
+  /** Time since the last frame from the backend. */
+  silentMs: number
+}
 
 export function parseFrame(raw: unknown): BackendFrame | null {
   if (typeof raw !== 'string') return null

@@ -59,7 +59,7 @@ class SentAttachmentsFixtureDeviceTest {
         File(instrumentation.targetContext.cacheDir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
-    private fun loaded() = compose.waitUntil(10000) { compose.onAllNodesWithText("Save report.txt").fetchSemanticsNodes().isNotEmpty() }
+    private fun loaded() = compose.waitUntil(10000) { compose.onAllNodesWithContentDescription("Save report.txt").fetchSemanticsNodes().isNotEmpty() }
 
     @Test fun imageCardsOpenPagerAndDocumentsSaveThroughSystemContract() {
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
@@ -76,11 +76,11 @@ class SentAttachmentsFixtureDeviceTest {
         try {
             val repo = repository()
             compose.setContent { NuphosTheme { Surface(Modifier.fillMaxSize()) {
-                Column(Modifier.verticalScroll(rememberScrollState())) { TransferCard(attachment, { group() }, true, { true }, repo) }
+                Column(Modifier.verticalScroll(rememberScrollState())) { TransferCard(attachment, { group() }, true, { true }, repo, compact = true) }
             } } }
             loaded()
             screenshot("sent-attachment-card")
-            compose.onNodeWithText("Save report.txt").performScrollTo().performClick()
+            compose.onNodeWithContentDescription("Save report.txt").performScrollTo().performClick()
             try {
                 compose.waitUntil(10000) { runCatching { resolver.openInputStream(output)?.bufferedReader()?.use { it.readText() } }.getOrNull() == "synthetic document" }
             } catch (error: Throwable) {
@@ -116,7 +116,7 @@ class SentAttachmentsFixtureDeviceTest {
         compose.runOnIdle { readable.value = true }
         compose.onNodeWithText("Retry attachments").performClick()
         loaded()
-        compose.onNodeWithText("Save report.txt").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Save report.txt").performScrollTo().performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithText("Couldn't save the file. Try again.").fetchSemanticsNodes().isNotEmpty() }
         screenshot("sent-attachment-save-failed")
         compose.onNodeWithText("Retry attachments").assertHasClickAction()

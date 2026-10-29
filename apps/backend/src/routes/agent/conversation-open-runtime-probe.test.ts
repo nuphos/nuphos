@@ -16,6 +16,7 @@ const userId = 'bbbbbbbbbbbbbbbbbbbbbbbb'
 let run: { streamId: string; startedAt: string } | null = null
 let probes = 0
 let probed: { state: string; schemaVersion?: number } = { state: 'active', schemaVersion: 2 }
+let requestedTail: number | undefined
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: userId } }),
@@ -23,10 +24,19 @@ useIdentity({
   getTeamMembers: async () => [{ id: userId, name: 'Owner', email: '', avatarURL: '' }],
 })
 useAgentDb({
-  getConversationWithMessages: async () => ({
-    conversation: { sessionId: 'open-probe', userId, teamId, title: 'Chat' },
-    messages: [],
-  }),
+  getConversationWithMessages: async (
+    _sessionId: string,
+    _userId: string,
+    _teamId?: string,
+    options?: { tail?: number },
+  ) => {
+    requestedTail = options?.tail
+
+    return {
+      conversation: { sessionId: 'open-probe', userId, teamId, title: 'Chat' },
+      messages: [],
+    }
+  },
 })
 useAgentRunStore({ getActiveAgentRunForSession: async () => run })
 useSessionExecutionState({
@@ -48,6 +58,7 @@ beforeEach(() => {
   run = null
   probes = 0
   probed = { state: 'active', schemaVersion: 2 }
+  requestedTail = undefined
 })
 
 test('opening without a run skips the runtime probe and answers like the list', async () => {
@@ -85,4 +96,12 @@ test('polls without the flag keep reading runtime state', async () => {
 
   expect(probes).toBe(1)
   expect((body.runtimeState as { state: string }).state).toBe('active')
+})
+
+test('a status poll with messages=omit reads no messages', async () => {
+  await open('&messages=omit')
+  expect(requestedTail).toBe(0)
+
+  await open('')
+  expect(requestedTail).toBe(30)
 })

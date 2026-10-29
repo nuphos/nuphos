@@ -120,6 +120,13 @@ export function getSubscriber(): Redis {
   return _subscriber
 }
 
+/** A subscriber can go silent without an error; only a new connection proves it again. */
+export function reconnectSubscriber(): void {
+  if (_subscriber && forceReconnect(_subscriber)) {
+    logEvent('warn', 'redis.subscriber.forced_reconnect', { replica_id: replicaId })
+  }
+}
+
 /** Liveness: a client in `end` never reconnects, so the pod must restart. */
 export function redisClientEnded(): boolean {
   return anyClientEnded([_client, _subscriber])

@@ -66,10 +66,10 @@ class ReviewVisualFixtureDeviceTest {
             NuphosTheme { RuntimeSetupSheet(setup, {}, quotas = mapOf(runtime.id to RuntimeQuota(runtime.id, true,
                 windows = listOf(RuntimeQuota.Window("5h", 31.0, "2030-01-01T12:00:00Z"), RuntimeQuota.Window("7d", 59.0, "2030-01-07T12:00:00Z"))))) }
         }
-        compose.onNodeWithText("5h: 31% used", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Studio laptop").assertIsDisplayed()
         // RuntimeSetupSheet deliberately sets FLAG_SECURE. Verify quota text through
         // semantics without exporting a blank or bypassing its screenshot protection.
-        compose.onNodeWithText("7d: 59% used", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("41% left", substring = true).assertIsDisplayed()
     }
     @Test fun connectors() {
         val json = JsonValue.parse("""{"aws":[{"id":"visual-aws","label":"Production account"}],"upstash":[{"id":"visual-redis","label":"Redis cache"}],"github":[{"id":"visual-github","label":"Source repository"}]}""")!!

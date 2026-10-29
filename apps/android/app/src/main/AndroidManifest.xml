@@ -22,9 +22,9 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/app_icon_b2"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/app_icon_b2"
         android:supportsRtl="true"
         android:theme="@style/Theme.Nuphos"
         android:usesCleartextTraffic="false"
@@ -46,8 +46,10 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nuphos" android:host="open" />
             </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -76,6 +78,199 @@
                 <data android:scheme="nuphos" android:host="github-callback" />
             </intent-filter>
         </activity>
+        <!-- The launcher entry, one per app icon (Account > App icon); exactly one is enabled. -->
+        <activity-alias
+            android:name=".IconA"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconB1"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_b1"
+            android:roundIcon="@mipmap/app_icon_b1"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconB2"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_b2"
+            android:roundIcon="@mipmap/app_icon_b2"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconB3"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_b3"
+            android:roundIcon="@mipmap/app_icon_b3"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconC1"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_c1"
+            android:roundIcon="@mipmap/app_icon_c1"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconC2"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_c2"
+            android:roundIcon="@mipmap/app_icon_c2"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconC3"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_c3"
+            android:roundIcon="@mipmap/app_icon_c3"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconD1"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_d1"
+            android:roundIcon="@mipmap/app_icon_d1"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconD2"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_d2"
+            android:roundIcon="@mipmap/app_icon_d2"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconD3"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_d3"
+            android:roundIcon="@mipmap/app_icon_d3"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconE1"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_e1"
+            android:roundIcon="@mipmap/app_icon_e1"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconE2"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_e2"
+            android:roundIcon="@mipmap/app_icon_e2"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconE3"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_e3"
+            android:roundIcon="@mipmap/app_icon_e3"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconF1"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_f1"
+            android:roundIcon="@mipmap/app_icon_f1"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconF2"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_f2"
+            android:roundIcon="@mipmap/app_icon_f2"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconF3"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_f3"
+            android:roundIcon="@mipmap/app_icon_f3"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <provider
             android:name=".ui.chat.ImageExportProvider"
             android:authorities="${applicationId}.imageexports"
@@ -84,6 +279,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/image_export_paths" />
         </provider>
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <receiver android:name=".notifications.NotificationReplyReceiver" android:exported="false" />
         <service android:name=".notifications.NuphosMessagingService" android:exported="false">
             <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
         </service>

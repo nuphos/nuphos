@@ -2,6 +2,8 @@ package ai.nuphos.android.ui.agent
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
@@ -113,17 +115,15 @@ internal fun ConversationRowActions(
     }
     BoxWithConstraints(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large)
         .onGloballyPositioned { if (active || menuOpen) interactions.bounds = it.boundsInRoot() }) {
-        // Icons retain 48dp targets. Large text/narrow nested rows use two actions + More.
-        val compact = maxWidth < 360.dp || density.fontScale > 1.3f
-        val shown = if (compact && actions.size > 3) actions.take(2) else actions
-        val hasMore = shown.size < actions.size
-        val width = (48 * (shown.size + if (hasMore) 1 else 0)).dp
+        // Every action remains reachable on narrow or deeply nested rows.
+        val shown = actions
+        val width = (48 * shown.size).dp.coerceAtMost(maxWidth)
         val widthPx = with(density) { width.toPx() }
         SideEffect {
             drag.updateAnchors(DraggableAnchors { Reveal.Closed at 0f; Reveal.Open at -widthPx })
         }
         if (active) Row(Modifier.align(Alignment.CenterEnd).width(width).heightIn(min = 48.dp)
-            .testTag("row-rail:$id"), horizontalArrangement = Arrangement.End) {
+            .testTag("row-rail:$id").horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.End) {
             shown.forEach { action ->
                 IconButton(enabled = action.enabled, onClick = {
                     val current = latestActions.firstOrNull { it.id == action.id && it.enabled }
@@ -133,12 +133,11 @@ internal fun ConversationRowActions(
                     Icon(action.icon, action.label)
                 }
             }
-            if (hasMore) IconButton(onClick = { interactions.menu(id) }, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Outlined.MoreVert, "More agent actions")
-            }
+
         }
         val surface = Modifier.offset { IntOffset((drag.offset.takeUnless { it.isNaN() } ?: 0f).roundToInt(), 0) }
             .anchoredDraggable(drag, Orientation.Horizontal, interactionSource = source, enabled = actions.isNotEmpty())
+            .focusRequester(moreFocus)
             .combinedClickable(
                 onClick = { if (interactions.revealedId != null) interactions.dismiss() else onClick() },
                 onLongClickLabel = "Show agent actions",
@@ -153,12 +152,8 @@ internal fun ConversationRowActions(
                     }
                 }
             }.testTag("conversation-row:$id")
-        content(surface) {
-            IconButton(onClick = { interactions.menu(id) }, modifier = Modifier.size(48.dp)
-                .focusRequester(moreFocus).testTag("row-more:$id")) {
-                Icon(Icons.Outlined.MoreVert, "Agent actions")
-            }
-        }
+        content(surface) {}
+
         Box(Modifier.align(Alignment.BottomEnd)) {
             DropdownMenu(expanded = menuOpen, onDismissRequest = ::dismissMenu) {
                 actions.forEach { action ->

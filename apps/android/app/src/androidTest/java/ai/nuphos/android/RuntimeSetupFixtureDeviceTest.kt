@@ -137,6 +137,7 @@ class RuntimeSetupFixtureDeviceTest {
     @Test fun localAgentCanBeSelectedByTouchWithoutProviderWrites() {
         catalog = "[${runtime(runtimeId = "computer", label = "My laptop", kind = "local")},${runtime()}]"
         render()
+        compose.onNodeWithText("Computer").performScrollTo().performClick()
         val card = compose.onNodeWithContentDescription("Use My laptop")
         card.performScrollTo().assertIsDisplayed().assertIsNotSelected()
         card.performTouchInput { click() }

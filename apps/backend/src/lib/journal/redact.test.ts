@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { redactSecrets, shannonEntropy } from './redact'
+import { redactSecrets, redactTokenShapes, shannonEntropy } from './redact'
 
 describe('redactSecrets', () => {
   test('AWS access key ids', () => {
@@ -82,6 +82,15 @@ describe('redactSecrets', () => {
 
     expect(redacted).not.toContain(jwt)
     expect(matches.some((m) => m.kind === 'jwt')).toBe(true)
+  })
+
+  test('Nuphos session and CLI tokens anywhere in the text', () => {
+    const session = 'nus_Q2hhbmdlTWVQbGVhc2VJdElzTm90QVJlYWxUb2tlbjAx'
+    const cli = 'nup_Q2hhbmdlTWVQbGVhc2VJdElzTm90QVJlYWxUb2tlbjAy'
+    const { redacted } = redactSecrets(`NUPHOS_TOKEN=${session} other=${cli}`)
+
+    expect(redacted).not.toContain(session)
+    expect(redacted).not.toContain(cli)
   })
 
   test('connection-string passwords keep the user, drop the password', () => {
@@ -177,5 +186,20 @@ describe('shannonEntropy', () => {
     expect(shannonEntropy('tQ9rX2mK7pL4wZ8vN3jF6hB1cY5dA0sE')).toBeGreaterThan(4.5)
     expect(shannonEntropy('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')).toBe(0)
     expect(shannonEntropy('')).toBe(0)
+  })
+})
+
+describe('redactTokenShapes', () => {
+  test('replaces well-known key shapes', () => {
+    const out = redactTokenShapes('key ghp_abcdefghijklmnopqrstuvwxyz0123 and AKIAIOSFODNN7EXAMPLE')
+
+    expect(out).toBe('key [REDACTED:github-token] and [REDACTED:aws-access-key-id]')
+  })
+
+  test('leaves assignments, ids and commit hashes readable', () => {
+    const text =
+      'password=hunter22 author: Ada sha 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b id aB3xY9qZ7mK2pL5nR8tV1wE4uI6oP0sD'
+
+    expect(redactTokenShapes(text)).toBe(text)
   })
 })

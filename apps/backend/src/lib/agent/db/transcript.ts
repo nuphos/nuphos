@@ -27,12 +27,8 @@ export async function getConversationMessagesHead(
 
 export type { ConversationTranscriptSync } from './transcript-types'
 
-export async function syncConversationTranscriptUnlocked(
-  data: ConversationTranscriptSync,
-): Promise<{ isNew: boolean }> {
-  const now = new Date()
-  const messageIds = data.messages.map((message) => message.id)
-  const shell = await upsertConversationShell({
+function conversationShell(data: ConversationTranscriptSync) {
+  return upsertConversationShell({
     sessionId: data.sessionId,
     userId: data.userId,
     teamId: data.teamId,
@@ -48,6 +44,33 @@ export async function syncConversationTranscriptUnlocked(
     runtimeId: data.runtimeId,
     runtimeLabel: data.runtimeLabel,
   })
+}
+
+async function recordTranscript(data: ConversationTranscriptSync, count: number, now: Date) {
+  const set: Record<string, unknown> = {
+    firstMessage: data.firstMessage.slice(0, 500),
+    messageCount: count,
+    transcriptUpdatedAt: now,
+    lastActiveAt: now,
+    ...(data.teamId ? { teamId: data.teamId } : {}),
+    ...(data.credentialAccess ? { credentialAccess: data.credentialAccess } : {}),
+  }
+
+  if (!data.preserveTitle) set.title = data.title || fallbackTitle(data.firstMessage)
+
+  await agentConversations().updateOne(
+    withTeamScope({ sessionId: data.sessionId, userId: data.userId }, data.teamId),
+    { $set: set },
+  )
+}
+
+/** Makes the stored transcript exactly `data.messages`: what it omits is deleted. */
+export async function syncConversationTranscriptUnlocked(
+  data: ConversationTranscriptSync,
+): Promise<{ isNew: boolean }> {
+  const now = new Date()
+  const messageIds = data.messages.map((message) => message.id)
+  const shell = await conversationShell(data)
 
   let runtimeToolParts: unknown[] = []
   // Stored docs already at their incoming index; rewriting an identical one is
@@ -110,24 +133,48 @@ export async function syncConversationTranscriptUnlocked(
   const writes = messageWrites(data, { attribution, runtimeToolParts, storedAt, now })
 
   if (writes.length > 0) await agentMessages().bulkWrite(writes, { ordered: false })
-
-  const set: Record<string, unknown> = {
-    firstMessage: data.firstMessage.slice(0, 500),
-    messageCount: data.messages.length,
-    transcriptUpdatedAt: now,
-    lastActiveAt: now,
-    ...(data.teamId ? { teamId: data.teamId } : {}),
-    ...(data.credentialAccess ? { credentialAccess: data.credentialAccess } : {}),
-  }
-
-  if (!data.preserveTitle) set.title = data.title || fallbackTitle(data.firstMessage)
-
-  await agentConversations().updateOne(
-    withTeamScope({ sessionId: data.sessionId, userId: data.userId }, data.teamId),
-    { $set: set },
-  )
+  await recordTranscript(data, data.messages.length, now)
 
   return shell
+}
+
+/**
+ * Stores what a turn adds, after everything already stored. A turn's view of
+ * the earlier messages is model input rebuilt from storage, and may have lost
+ * parts it cannot represent (an attachment-only message, a steering receipt),
+ * so it never rewrites or deletes a stored message. Returns the stored count.
+ */
+export async function appendTranscriptMessages(
+  data: ConversationTranscriptSync,
+): Promise<{ isNew: boolean; count: number }> {
+  return await withTranscriptWriteLock(data.sessionId, data.userId, async () => {
+    const now = new Date()
+    const shell = await conversationShell(data)
+    const existing = await agentMessages()
+      .find(
+        { sessionId: data.sessionId, userId: data.userId },
+        { projection: STORED_MESSAGE_FIELDS },
+      )
+      .toArray()
+    const storedIds = new Set(existing.map((message) => message.messageId))
+    const offset = existing.reduce((next, message) => Math.max(next, message.index + 1), 0)
+    const added = { ...data, messages: data.messages.filter((m) => !storedIds.has(m.id)) }
+    const writes = messageWrites(added, {
+      attribution: new Map(),
+      runtimeToolParts: existing.flatMap((message) => message.parts ?? []),
+      storedAt: new Map(),
+      now,
+      offset,
+    })
+
+    if (writes.length > 0) await agentMessages().bulkWrite(writes, { ordered: false })
+    // By count, like getConversationMessagesHead: racing persists can leave index holes.
+    const count = existing.length + added.messages.length
+
+    await recordTranscript(data, count, now)
+
+    return { ...shell, count }
+  })
 }
 
 export async function syncConversationTranscript(

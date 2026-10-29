@@ -4,6 +4,7 @@ import { Code2, Copy, Download, Eye, Wrench } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
 import { useToolbarSlot } from '../../../hooks/useToolbarControls'
+import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 import { Tooltip } from '../../ui/tooltip'
 
@@ -70,12 +71,18 @@ export function ArtifactToolbar(props: ArtifactToolbarProps) {
         createPortal(
           <div className="flex shrink-0 items-center gap-1">
             {density !== 'tiny' && errors.length > 0 && (
-              <Tooltip content={`Ask the agent to fix: ${errors.join(' · ')}`}>
+              <Tooltip
+                content={t('Ask the agent to fix: {errors}', { errors: errors.join(' · ') })}
+              >
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   className="relative h-7 w-7 text-warning hover:text-warning"
-                  aria-label={`Ask the agent to fix ${String(errors.length)} error${errors.length === 1 ? '' : 's'}`}
+                  aria-label={
+                    errors.length === 1
+                      ? t('Ask the agent to fix 1 error')
+                      : t('Ask the agent to fix {n} errors', { n: String(errors.length) })
+                  }
                   onClick={() => onAskAgent(fixPrompt(current, errors))}
                 >
                   <Wrench className="h-3.5 w-3.5" />
@@ -130,16 +137,16 @@ function ViewToggle({
 
         if (chosen) onView(chosen)
       }}
-      aria-label="Show"
+      aria-label={t('Show')}
       className="mr-1 inline-flex shrink-0 divide-x divide-zGray-800 overflow-hidden rounded-md border border-zGray-800"
     >
-      <Tooltip content="Preview">
-        <Toggle value="preview" aria-label="Preview" className={SEGMENT}>
+      <Tooltip content={t('Preview')}>
+        <Toggle value="preview" aria-label={t('Preview')} className={SEGMENT}>
           <Eye className="h-3.5 w-3.5" />
         </Toggle>
       </Tooltip>
-      <Tooltip content="Code">
-        <Toggle value="source" aria-label="Code" className={SEGMENT}>
+      <Tooltip content={t('Code')}>
+        <Toggle value="source" aria-label={t('Code')} className={SEGMENT}>
           <Code2 className="h-3.5 w-3.5" />
         </Toggle>
       </Tooltip>
@@ -150,23 +157,25 @@ function ViewToggle({
 function InlineActions({ current }: { current: ArtifactVersion }) {
   return (
     <>
-      <Tooltip content={`Copy the ${artifactKindLabel(current).toLowerCase()} source`}>
+      <Tooltip
+        content={t('Copy the {kind} source', { kind: artifactKindLabel(current).toLowerCase() })}
+      >
         <Button
           variant="ghost"
           size="icon-sm"
           className="h-7 w-7"
-          aria-label="Copy"
+          aria-label={t('Copy')}
           onClick={() => void copySource(current)}
         >
           <Copy className="h-3.5 w-3.5" />
         </Button>
       </Tooltip>
-      <Tooltip content={`Download ${artifactFileName(current)}`}>
+      <Tooltip content={t('Download {fileName}', { fileName: artifactFileName(current) })}>
         <Button
           variant="ghost"
           size="icon-sm"
           className="mr-1 h-7 w-7"
-          aria-label="Download"
+          aria-label={t('Download')}
           onClick={() => void downloadArtifact(current)}
         >
           <Download className="h-3.5 w-3.5" />

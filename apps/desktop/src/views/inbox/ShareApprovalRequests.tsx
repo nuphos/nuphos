@@ -1,0 +1,88 @@
+import clsx from 'clsx'
+import { useState } from 'react'
+
+import { Button } from '../../components/ui/button'
+import { toast } from '../../components/ui/toast'
+import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
+
+import type { LocalShareApproval } from '../../api/device-types'
+
+/**
+ * Teammates asking to run a conversation on the viewer's own computer. Approving
+ * sends the message that waits for it; declining drops it.
+ */
+export function ShareApprovalRequests({
+  teamId,
+  approvals,
+  decide,
+}: {
+  teamId: string
+  approvals: LocalShareApproval[]
+  decide: (approvalId: string, approve: boolean) => Promise<void>
+}) {
+  const members = useTeamMembers(teamId)
+  const [deciding, setDeciding] = useState<string | null>(null)
+
+  if (approvals.length === 0) return null
+  const nameOf = (userId: string) => {
+    const member = members.find((entry) => entry.id === userId)
+
+    return member ? memberDisplayName(member) : 'A teammate'
+  }
+  const answer = async (approval: LocalShareApproval, approve: boolean) => {
+    setDeciding(approval.id)
+    try {
+      await decide(approval.id, approve)
+    } catch (error) {
+      toast.apiError('Could not answer this request', error)
+    } finally {
+      setDeciding(null)
+    }
+  }
+
+  return (
+    <section className="flex-shrink-0 border-b border-zGray-800/70">
+      <div className="px-4 pt-3 pb-1 text-[12px] font-medium text-tertiary">
+        Requests to use your computer
+      </div>
+      <ul>
+        {approvals.map((approval) => (
+          <li
+            key={approval.id}
+            className={clsx(
+              'flex items-center justify-between gap-3 px-4 py-2.5 text-[12.5px]',
+              deciding === approval.id && 'opacity-60',
+            )}
+          >
+            <span className="min-w-0 text-secondary">
+              <span className="text-main">{nameOf(approval.actorId)}</span> wants to run{' '}
+              {approval.title ? (
+                <span className="text-main">“{approval.title}”</span>
+              ) : (
+                'a conversation'
+              )}{' '}
+              on {approval.deviceLabel}. Their message is sent once you approve.
+            </span>
+            <span className="flex shrink-0 gap-1.5">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={deciding !== null}
+                onClick={() => void answer(approval, false)}
+              >
+                Decline
+              </Button>
+              <Button
+                size="sm"
+                disabled={deciding !== null}
+                onClick={() => void answer(approval, true)}
+              >
+                Approve
+              </Button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

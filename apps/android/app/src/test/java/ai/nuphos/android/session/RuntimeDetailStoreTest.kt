@@ -15,8 +15,9 @@ class RuntimeDetailStoreTest {
     private class Transport(var saved: List<AgentRuntime>) : RuntimeTransport, RuntimeManagementTransport {
         var updates = 0; var removals = 0; var reads = 0
         var failure: Exception? = null; var held: CompletableDeferred<Unit>? = null
+        var catalogHeld: CompletableDeferred<Unit>? = null
         var deleting = true; var wrongIdentity = false
-        override suspend fun catalog(): List<AgentRuntime> { reads++; failure?.let { throw it }; return saved }
+        override suspend fun catalog(): List<AgentRuntime> { reads++; catalogHeld?.await(); failure?.let { throw it }; return saved }
         override suspend fun update(runtimeId: String, label: String?, status: String?): AgentRuntime {
             updates++
             withContext(NonCancellable) { held?.await() }
@@ -31,6 +32,28 @@ class RuntimeDetailStoreTest {
         override suspend fun login(runtimeId: String): RuntimeLogin = error("unused")
         override suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin = error("unused")
         override suspend fun cancel(runtimeId: String, attemptId: String) = error("unused")
+    }
+    @Test fun setupReopenNeverManagesCachedRuntimeWhileFreshReadHeldOrFailed() = runTest {
+        val api = Transport(listOf(runtime))
+        val selected = RuntimeSelections().bind("a", "t")
+        val setup = RuntimeSetupStore(api, this, { true }, { true }, selected, {})
+        setup.open(); advanceUntilIdle()
+        val oldDetail = setup.detail(runtime.id)!!
+        assertTrue(oldDetail.canManage)
+        setup.close(); api.catalogHeld = CompletableDeferred()
+        setup.open(); runCurrent()
+        val nextDetail = setup.detail(runtime.id)!!
+        assertNull(oldDetail.runtime); assertNull(nextDetail.runtime)
+        oldDetail.rename("Stale"); nextDetail.rename("Stale"); nextDetail.remove()
+        advanceUntilIdle(); assertEquals(0, api.updates); assertEquals(0, api.removals)
+        api.failure = IOException("fresh catalog unavailable")
+        api.catalogHeld!!.complete(Unit); advanceUntilIdle()
+        assertNull(nextDetail.runtime); assertFalse(nextDetail.canManage)
+        nextDetail.setEnabled(false); advanceUntilIdle(); assertEquals(0, api.updates)
+        api.failure = null; api.saved = emptyList(); setup.refresh(); advanceUntilIdle()
+        assertNull(nextDetail.runtime); assertNull(oldDetail.runtime)
+        assertEquals(0, api.updates); assertEquals(0, api.removals)
+        oldDetail.close(); nextDetail.close(); setup.close()
     }
     @Test fun renameDisableAndReenableKeepExactIdentityAndSelection() = runTest {
         val api = Transport(listOf(runtime)); val selected = RuntimeSelections().bind("a", "t")

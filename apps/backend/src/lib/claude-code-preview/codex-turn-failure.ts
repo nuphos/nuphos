@@ -48,9 +48,4 @@ export function partsWithoutFailureNotice(
   return text ? [...parts.slice(0, -1), { ...last, text }] : parts.slice(0, -1)
 }
 
-const EMPTY_TURN_SENTINEL = /^_?\(no response\)_?$/
-
-/** Drops the runtime's "(no response)" placeholder, which a cancelled turn emits in place of an answer. */
-export function withoutEmptyTurnSentinel(parts: UIMessage['parts']): UIMessage['parts'] {
-  return parts.filter((part) => part.type !== 'text' || !EMPTY_TURN_SENTINEL.test(part.text.trim()))
-}
+export { withoutEmptyTurnSentinel } from './empty-turn'

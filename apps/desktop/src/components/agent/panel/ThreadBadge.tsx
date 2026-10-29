@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Check, ChevronRight, CircleAlert, Loader2, MessagesSquare, Square } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { AgentAvatar } from '../AgentAvatar'
 import { ChatLink } from '../MessageResponse'
 
@@ -14,11 +15,11 @@ import type { LucideIcon } from 'lucide-react'
 
 const STATUS: Record<ThreadStatus, { label: string; icon?: LucideIcon; tone: string }> = {
   loading: { label: '', tone: 'text-tertiary' },
-  running: { label: 'Running', icon: Loader2, tone: 'text-secondary' },
-  waiting: { label: 'Needs input', icon: CircleAlert, tone: 'text-warning' },
-  done: { label: 'Done', icon: Check, tone: 'text-success' },
-  stopped: { label: 'Stopped', icon: Square, tone: 'text-tertiary' },
-  unavailable: { label: 'Unavailable', tone: 'text-tertiary' },
+  running: { label: t('Running'), icon: Loader2, tone: 'text-secondary' },
+  waiting: { label: t('Needs input'), icon: CircleAlert, tone: 'text-warning' },
+  done: { label: t('Done'), icon: Check, tone: 'text-success' },
+  stopped: { label: t('Stopped'), icon: Square, tone: 'text-tertiary' },
+  unavailable: { label: t('Unavailable'), tone: 'text-tertiary' },
 }
 
 const BADGE =
@@ -31,7 +32,7 @@ function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boole
     label,
     icon: Icon,
     tone,
-  } = pending ? { label: 'Starting', icon: Loader2, tone: 'text-secondary' } : STATUS[status]
+  } = pending ? { label: t('Starting'), icon: Loader2, tone: 'text-secondary' } : STATUS[status]
   const spinning = Icon === Loader2
 
   if (!label) return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-zGray-700" />
@@ -68,18 +69,18 @@ export function ThreadBadge({
   onOpen?: OpenLink
 }) {
   const info = threadBadgeInfo(part)
-  const { title, status, provider, attached } = useThreadStatus(info?.threadId ?? null, teamId)
+  const { title, status, provider } = useThreadStatus(info?.threadId ?? null, teamId)
 
   if (!info) return null
   rememberThreadTitle(info.threadId, title ?? info.title)
   const known = title ?? info.title ?? knownThreadTitle(info.threadId)
-  const name = known ?? (status === 'unavailable' ? 'Agent unavailable' : 'Agent')
-  const verb = info.verb === 'started' ? 'Started' : 'Messaged'
+  const name = known ?? (status === 'unavailable' ? t('Agent unavailable') : t('Agent'))
+  const verb = info.verb === 'started' ? t('Started') : t('Messaged')
   const href = threadHref(teamId, info.threadId, status)
   const body = (
     <>
       {info.threadId ? (
-        <AgentAvatar agentId={info.threadId} provider={provider} attached={attached} />
+        <AgentAvatar agentId={info.threadId} provider={provider} />
       ) : (
         <MessagesSquare aria-hidden strokeWidth={1.75} className="size-6 shrink-0 text-tertiary" />
       )}
@@ -104,7 +105,7 @@ export function ThreadBadge({
           link={href}
           onLinkClick={onOpen}
           className={clsx(BADGE, LINKED)}
-          title={`Open “${name}”`}
+          title={t('Open “{name}”', { name })}
         >
           {body}
           <ChevronRight

@@ -16,6 +16,8 @@ test('bearer tokens and provider keys are redacted', () => {
   )
   assert.equal(sanitizeReportText('token ghp_ABCdef0123456789'), 'token [redacted_key]')
   assert.equal(sanitizeReportText('token xoxb-ABCdef0123456789'), 'token [redacted_key]')
+  assert.equal(sanitizeReportText('token nus_ABCdef0123456789'), 'token [redacted_key]')
+  assert.equal(sanitizeReportText('token nup_ABCdef0123456789'), 'token [redacted_key]')
 })
 
 test('DevOps credentials are redacted', () => {

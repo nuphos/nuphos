@@ -3,6 +3,7 @@ import { Brain, ChevronRight, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { appliedCount, provenanceSummary } from '../../../lib/memoryRibbonSummary'
 
 import { disclosureControlClass } from './partChrome'
@@ -131,9 +132,9 @@ export function MemoryProvenancePartView({
               const m = await api.agentGetMemory(e.id, teamId, e.scope)
               const label = m.title?.trim() || m.text.split('\n')[0].trim().slice(0, 120)
 
-              return [e.id, label || 'Untitled memory'] as const
+              return [e.id, label || t('Untitled memory')] as const
             } catch {
-              return [e.id, 'Memory unavailable'] as const
+              return [e.id, t('Memory unavailable')] as const
             }
           }),
       )
@@ -174,7 +175,9 @@ export function MemoryProvenancePartView({
   const usedCount = appliedCount(shown, tiers)
   const summary =
     section === 'lookedUp'
-      ? `Looked up ${String(shown.length)} ${shown.length === 1 ? 'memory' : 'memories'}`
+      ? shown.length === 1
+        ? t('Looked up 1 memory')
+        : t('Looked up {n} memories', { n: shown.length })
       : provenanceSummary({
           automatic,
           indexRide,
@@ -214,19 +217,19 @@ export function MemoryProvenancePartView({
                     )}
                     title={label}
                   >
-                    {label ?? 'Loading memory…'}
+                    {label ?? t('Loading memory…')}
                   </span>
                   <span className="shrink-0 text-[10.5px] text-quaternary">
-                    {e.scope === 'team' ? 'Team' : 'Personal'}
+                    {e.scope === 'team' ? t('Team') : t('Personal')}
                   </span>
                   {tiers[e.id] === 'applied' && (
                     <span className="shrink-0 rounded px-1.5 py-px text-[10.5px] font-medium bg-emerald-500/10 text-emerald-500">
-                      ✓ used
+                      {t('✓ used')}
                     </span>
                   )}
                   {tiers[e.id] === 'fetched' && (
                     <span className="shrink-0 rounded border border-current/20 px-1.5 py-px text-[10.5px] text-tertiary">
-                      opened
+                      {t('opened')}
                     </span>
                   )}
                 </div>

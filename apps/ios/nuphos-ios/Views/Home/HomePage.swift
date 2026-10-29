@@ -3,16 +3,15 @@ import SwiftUI
 /// The top-level pages the home switcher moves between. Order is the
 /// switcher's order; `.agent` is where the app opens.
 enum HomePage: String, CaseIterable, Identifiable {
-    case agent, monitoring, triggers, plans, connectors
+    case agent, plans, runtimes, connectors
 
     var id: String { rawValue }
 
     var title: LocalizedStringKey {
         switch self {
         case .agent: "Agents"
-        case .monitoring: "Monitoring"
-        case .triggers: "Triggers"
         case .plans: "Plans"
+        case .runtimes: "Runtimes"
         case .connectors: "Connectors"
         }
     }
@@ -20,9 +19,8 @@ enum HomePage: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .agent: "sparkles"
-        case .monitoring: "waveform.path.ecg"
-        case .triggers: "bolt"
         case .plans: "list.bullet.clipboard"
+        case .runtimes: "cpu"
         case .connectors: "app.connected.to.app.below.fill"
         }
     }

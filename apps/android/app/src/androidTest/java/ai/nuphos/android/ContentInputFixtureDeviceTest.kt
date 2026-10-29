@@ -40,9 +40,21 @@ class ContentInputFixtureDeviceTest {
     private fun render(streaming: Boolean = false) {
         assumeTrue("Requires isolated content fixture package", context.packageName == "ai.nuphos.android.contentinput1337")
         inputDescription = if (streaming) "Queue a message" else "Ask Nuphos anything"
+        lease.value?.key?.accountId?.let { account ->
+            kotlinx.coroutines.runBlocking { (context.applicationContext as NuphosApplication).incomingShares.bindAccount(account) }
+        }
         compose.setContent {
             val appContext = LocalContext.current
-            val store = remember { AgentStore("synthetic-no-credentials", appContext) }
+            val store = remember {
+                AgentStore("synthetic-no-credentials", appContext).also { store ->
+                    lease.value?.key?.teamId?.let { team ->
+                        @Suppress("UNCHECKED_CAST")
+                        val selected = AgentStore::class.java.getDeclaredField("selectedTeam\$delegate")
+                            .also { it.isAccessible = true }.get(store) as androidx.compose.runtime.MutableState<ai.nuphos.android.model.Team?>
+                        selected.value = ai.nuphos.android.model.Team(team, "Synthetic workspace")
+                    }
+                }
+            }
             NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store) {
                 ChatComposer(isStreaming = streaming, draft = lease.value, onSend = { sent = it; true })
             } }
@@ -78,6 +90,47 @@ class ContentInputFixtureDeviceTest {
             assertArrayEquals("Synthetic attachment bytes".toByteArray(), file.source.open().use { it.readBytes() })
         } finally { attachment.releaseOwnedCopy() }
     }
+    @Test fun photoPickerVideoKeepsOriginalMimeAndBytesWithoutBitmapDecode() {
+        assumeTrue("Requires isolated content fixture package", context.packageName == "ai.nuphos.android.contentinput1337")
+        val input = ai.nuphos.android.ui.chat.selectionInput(context, uri("clip.mp4"), images = true)
+        assertEquals("video/mp4", input.mime)
+        assertFalse(input.isImage)
+        val directory = java.io.File(context.cacheDir, "video-retention-" + java.util.UUID.randomUUID())
+        val attachment = ai.nuphos.android.data.AttachmentRetention(directory).retain(emptyList(), listOf(input),
+            prepareImage = { _, _ -> error("Video must not be decoded as a bitmap") }).single()
+        try {
+            val retained = attachment.kind as ComposerAttachment.Kind.RetainedFile
+            assertEquals("video/mp4", retained.mime)
+            assertArrayEquals("Synthetic attachment bytes".toByteArray(), retained.source.open().use { it.readBytes() })
+        } finally { attachment.releaseOwnedCopy(); directory.deleteRecursively() }
+    }
+
+    @Test fun photoPickerResultCanSubmitRetainedVideo() {
+        render()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val pickerIntent = androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia(20).createIntent(
+            context, androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+        val monitor = instrumentation.addMonitor(android.content.IntentFilter(requireNotNull(pickerIntent.action)).apply {
+            pickerIntent.type?.let { addDataType(it) }
+            pickerIntent.categories.orEmpty().forEach { addCategory(it) }
+        }, android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_OK,
+            android.content.Intent().setData(uri("clip.mp4"))), true)
+        try {
+            compose.onNodeWithContentDescription(inputDescription).performClick()
+            compose.onNodeWithContentDescription("Photos").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithContentDescription("Send").performClick()
+            compose.waitUntil(10_000) { sent != null }
+            val attachment = sent!!.attachments.single()
+            try {
+                val file = attachment.kind as ComposerAttachment.Kind.RetainedFile
+                assertEquals("video/mp4", file.mime)
+                assertArrayEquals("Synthetic attachment bytes".toByteArray(), file.source.open().use { it.readBytes() })
+                assertEquals(1, monitor.hits)
+            } finally { attachment.releaseOwnedCopy() }
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
+
     @Test fun pastedPngUsesExistingImageConversion() {
         render()
         paste(clip("image.png"))
@@ -148,6 +201,7 @@ class ContentInputFixtureDeviceTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Remove").assertDoesNotExist()
         compose.onNodeWithContentDescription("Send").performClick()
+        compose.waitUntil(10_000) { sent != null }
         assertEquals("second draft", sent?.text)
         assertTrue(sent!!.attachments.isEmpty())
         assertEquals("first draft", first.text)

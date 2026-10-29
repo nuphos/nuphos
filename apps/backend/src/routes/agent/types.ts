@@ -40,7 +40,7 @@ export type AgentChatBody = {
     localTools?: boolean
     /** The client keeps a message refused with runtime_not_accepting_message and sends it again. */
     resendsRefusal?: boolean
-    /** The client sends every message at once: a busy session queues it on the server (202). */
+    /** The client reads a 202 for a queued message. Without it, a queued send gets an SSE that ends at once. */
     serverQueue?: boolean
   }
 }
@@ -96,6 +96,8 @@ export type AgentRun = {
   sessionId: string
   userId: string
   trace?: AgentRunTrace
+  // A turn the runtime started on its own: shown live, never a session claim.
+  runtimeOwned?: boolean
   frames: string[]
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined

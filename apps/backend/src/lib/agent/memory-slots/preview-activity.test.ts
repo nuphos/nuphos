@@ -45,7 +45,6 @@ describe('preview memory activity', () => {
 
     expect(acc.view().fetchedIds).toEqual(['memory-1'])
     expect(acc.view().fetchedLabels.get('memory-1')).toBe('Switched t3 to m7i-flex')
-    expect(acc.view().savedTitles).toEqual(['Use m7i-flex for the shallow pool'])
     expect(frames).toEqual([])
   })
 

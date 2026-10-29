@@ -146,7 +146,7 @@ export function SelfHostedSetup({
   onBack: () => void
   onConnected: (agent: ConnectedCloudAgent) => void
 }) {
-  const [platform, setPlatform] = useState<SelfHostedPlatform>('zeabur')
+  const [platform, setPlatform] = useState<SelfHostedPlatform>('railway')
   const [deploying, setDeploying] = useState(false)
 
   if (deploying)

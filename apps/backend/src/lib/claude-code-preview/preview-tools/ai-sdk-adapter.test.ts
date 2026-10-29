@@ -1,6 +1,8 @@
-import { describe, expect, test } from 'bun:test'
 import { tool } from 'ai'
+import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
+
+import { TOOL_PRESENTATION } from '../preview-tool-presentation'
 
 import { toolInputJsonSchema, toolModuleFromAiSdkTools } from './ai-sdk-adapter'
 
@@ -47,7 +49,7 @@ describe('toolInputJsonSchema', () => {
 })
 
 describe('toolModuleFromAiSdkTools', () => {
-  test('advertises definitions and publishes the classic frame pair per call', async () => {
+  test('advertises definitions and delegates one card to the ACP call', async () => {
     const { frames, publish } = capture()
     const module = toolModuleFromAiSdkTools(
       {
@@ -71,19 +73,23 @@ describe('toolModuleFromAiSdkTools', () => {
     })
 
     expect(result.structuredContent).toEqual({ panelId: 'p1', title: 'EKS spend' })
-    expect(frames.map((frame) => frame.type)).toEqual([
-      'tool-input-available',
-      'tool-output-available',
-    ])
+    expect(frames).toHaveLength(2)
     expect(frames[0]).toMatchObject({
+      type: 'tool-input-available',
       toolName: 'cost_panel_create',
       input: { label: '建立成本面板', title: 'EKS spend' },
+      [TOOL_PRESENTATION]: 'runtime',
     })
-    expect(frames[0]!.toolCallId).toBe(frames[1]!.toolCallId)
-    expect(frames[1]).toMatchObject({ output: { panelId: 'p1', title: 'EKS spend' } })
+    expect(frames[1]).toMatchObject({
+      type: 'tool-output-available',
+      output: { panelId: 'p1', title: 'EKS spend' },
+      [TOOL_PRESENTATION]: 'runtime',
+    })
+    expect(frames[0]?.toolCallId).toBe(frames[1]?.toolCallId)
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
   })
 
-  test('maps a thrown execute into a tool error and an error frame', async () => {
+  test('returns errors to the same runtime-owned card', async () => {
     const { frames, publish } = capture()
     const module = toolModuleFromAiSdkTools(
       {
@@ -105,7 +111,9 @@ describe('toolModuleFromAiSdkTools', () => {
     expect(frames.at(-1)).toMatchObject({
       type: 'tool-output-error',
       errorText: 'diagram is locked',
+      [TOOL_PRESENTATION]: 'runtime',
     })
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
   })
 
   test('validates MCP arguments with the AI SDK tool schema before execute', async () => {
@@ -130,5 +138,6 @@ describe('toolModuleFromAiSdkTools', () => {
     expect(result.isError).toBe(true)
     expect(executed).toBe(false)
     expect(frames.at(-1)?.type).toBe('tool-output-error')
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
   })
 })

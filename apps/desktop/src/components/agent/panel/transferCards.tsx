@@ -5,6 +5,7 @@ import { FileSearch } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
@@ -53,10 +54,10 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     // file the user later deleted.
     toast.success(title, description, {
       action: {
-        label: 'Open in folder',
+        label: t('Open in folder'),
         onClick: () => {
           void Promise.resolve(api.fileTransferRevealInFolder(path)).catch(() =>
-            toast.error('Could not open folder'),
+            toast.error(t('Could not open folder')),
           )
         },
       },
@@ -95,7 +96,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
                 disabled={busy !== null}
                 className="h-auto flex-shrink-0 rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
               >
-                {busy === f.id ? '…' : 'Download'}
+                {busy === f.id ? '…' : t('Download')}
               </Button>
             )}
           </div>
@@ -105,10 +106,10 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
             variant="ghost"
             onClick={() => void downloadZip()}
             disabled={busy !== null}
-            title="Saves every file in this group, images included"
+            title={t('Saves every file in this group, images included')}
             className="h-auto self-start rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
           >
-            {busy === '__zip__' ? 'Zipping…' : 'Download all as zip'}
+            {busy === '__zip__' ? t('Zipping…') : t('Download all as zip')}
           </Button>
         )}
       </div>
@@ -121,9 +122,9 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
       const r = await api.fileTransferDownloadAllZip({ ...base, zipName: group.label || 'files' })
 
       if (r.saved && r.path)
-        savedToast('Saved zip', `${String(r.count ?? ready.length)} file(s)`, r.path)
+        savedToast(t('Saved zip'), t('{n} file(s)', { n: String(r.count ?? ready.length) }), r.path)
     } catch (err) {
-      toast.apiError('Download failed', err)
+      toast.apiError(t('Download failed'), err)
     } finally {
       setBusy(null)
     }
@@ -134,9 +135,9 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     try {
       const r = await api.fileTransferDownloadOne({ ...base, fileId, fileName })
 
-      if (r.saved && r.path) savedToast('Saved', fileName, r.path)
+      if (r.saved && r.path) savedToast(t('Saved'), fileName, r.path)
     } catch (err) {
-      toast.apiError('Download failed', err)
+      toast.apiError(t('Download failed'), err)
     } finally {
       setBusy(null)
     }
@@ -147,7 +148,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
       {expired && (
         <p className="mb-1.5 flex items-center gap-1.5 text-[11.5px] text-tertiary">
           <FileSearch className="h-3 w-3" strokeWidth={2} />
-          Expired — files are no longer available
+          {t('Expired — files are no longer available')}
         </p>
       )}
       {hasPreviews ? (
@@ -225,8 +226,13 @@ function UploadedFilesList({
   useReportVisibleError(errored ? 'Agent attachment upload failed.' : null, 'agent_upload_failed')
   const entries = part.archiveEntryCount
   const archiveSuffix =
-    entries == null ? '' : ` · ${String(entries)} file${entries === 1 ? '' : 's'}`
-  const readySuffix = ready < total ? ` · ${String(ready)}/${String(total)} ready` : ''
+    entries == null
+      ? ''
+      : ` · ${entries === 1 ? t('1 file') : t('{n} files', { n: String(entries) })}`
+  const readySuffix =
+    ready < total
+      ? ` · ${t('{ready}/{total} ready', { ready: String(ready), total: String(total) })}`
+      : ''
 
   return (
     <div className="w-full max-w-[480px] self-end rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2">
@@ -238,12 +244,16 @@ function UploadedFilesList({
         )}
         <span>
           {uploading
-            ? `Uploading ${String(total)} file${total === 1 ? '' : 's'}…`
+            ? total === 1
+              ? t('Uploading 1 file…')
+              : t('Uploading {n} files…', { n: String(total) })
             : errored
-              ? 'Upload failed'
+              ? t('Upload failed')
               : part.archive
-                ? `Uploaded folder${archiveSuffix}`
-                : `Uploaded ${String(total)} file${total === 1 ? '' : 's'}${readySuffix}`}
+                ? `${t('Uploaded folder')}${archiveSuffix}`
+                : (total === 1
+                    ? t('Uploaded 1 file')
+                    : t('Uploaded {n} files', { n: String(total) })) + readySuffix}
         </span>
       </div>
       <div className="flex flex-col gap-1">

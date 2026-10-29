@@ -20,7 +20,6 @@ export const MEMORY_RECORDS_COLLECTION = 'agent_memories'
 const RECORDS = MEMORY_RECORDS_COLLECTION
 
 export const PROPOSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000
-export const INDEX_LIMIT = 50
 
 export const teamMemories = (): Collection<AgentTeamMemory> => db().collection(MEMORIES)
 export const teamMemoryProposals = (): Collection<AgentTeamMemoryProposal> =>

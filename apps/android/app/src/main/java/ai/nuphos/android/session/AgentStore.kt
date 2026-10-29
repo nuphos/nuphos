@@ -1,5 +1,7 @@
 package ai.nuphos.android.session
 
+import kotlinx.coroutines.ensureActive
+
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
@@ -151,6 +153,49 @@ class AgentStore(
         resetHistory()
         storeScope.launch { reload() }
     }
+    fun foldedThreadIds(accountId: String?, teamId: String?): Set<String> {
+        if (accountId == null || teamId == null) return emptySet()
+        return prefs.getStringSet("agent.folded.$accountId.$teamId", emptySet()).orEmpty().toSet()
+    }
+    fun saveFoldedThreadIds(accountId: String?, teamId: String?, ids: Set<String>) {
+        if (accountId == null || teamId == null || selectedTeam?.id != teamId || !hasAiAccess()) return
+        prefs.edit().putStringSet("agent.folded.$accountId.$teamId", ids.toSet()).apply()
+    }
+    private class PinnedHistoryOwner(val teamId: String, val generation: Int, val workspace: Long)
+    private var pinnedHistoryOwner by mutableStateOf<PinnedHistoryOwner?>(null)
+    val loadingPinnedHistory: Boolean
+        get() = pinnedHistoryOwner?.let {
+            it.teamId == selectedTeam?.id && it.generation == loadGeneration && it.workspace == workspaceRevision
+        } == true
+    private suspend fun loadMissingPinnedHistory() {
+
+        if (loadingPinnedHistory || phase != Phase.Loaded || isReloading || search.isNotEmpty() || archivedOnly) return
+        val teamId = selectedTeam?.id ?: return
+        val generation = loadGeneration
+        val workspace = workspaceRevision
+        val owner = PinnedHistoryOwner(teamId, generation, workspace)
+        pinnedHistoryOwner = owner
+        try {
+            // Pins can predate hundreds of rows. Stop on resolved pins or server
+            // exhaustion, not an arbitrary page count; reject repeated cursors.
+            val visitedCursors = mutableSetOf<String>()
+            while (true) {
+                if (disposed || !hasAiAccess() || selectedTeam?.id != teamId || generation != loadGeneration || workspace != workspaceRevision || search.isNotEmpty() || archivedOnly || !hasMore || isLoadingMore) return
+                val loaded = conversations.map { it.sessionId }.toSet()
+                if (pinnedShortcuts.all { it.sessionId in loaded }) return
+                val before = nextCursor ?: return
+                if (!visitedCursors.add(before)) return
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                loadMore(allowDuringRefresh = true)
+
+                if (nextCursor == before) return
+            }
+        } finally {
+            // A held request from an earlier scope must not clear the latest owner.
+            if (pinnedHistoryOwner === owner) pinnedHistoryOwner = null
+        }
+    }
+
     suspend fun loadFavorites() {
         val team = selectedTeam ?: return
         if (!hasAiAccess()) return
@@ -161,6 +206,7 @@ class AgentStore(
             if (!favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) return
             favorites = loaded
             favoritesError = null
+            loadMissingPinnedHistory()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -578,8 +624,8 @@ class AgentStore(
                 sort = sort,
             )
             if (generation != loadGeneration || selectedTeam?.id != team.id || workspace != workspaceRevision || disposed || !hasAiAccess()) return
-            observeHistory(page.conversations, team.id, observedAt)
-            conversations = mergeHistory(page.conversations, team.id).distinctBy { it.sessionId }
+            observeHistory(page.rows, team.id, observedAt)
+            conversations = mergeHistory(page.rows, team.id).distinctBy { it.sessionId }
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = Phase.Loaded
@@ -599,12 +645,15 @@ class AgentStore(
                 }
             }
         }
+        loadMissingPinnedHistory()
     }
 
-    suspend fun loadMore() {
+    suspend fun loadMore() = loadMore(allowDuringRefresh = false)
+
+    private suspend fun loadMore(allowDuringRefresh: Boolean) {
         val team = selectedTeam
         val cursor = nextCursor
-        if (disposed || !hasAiAccess() || isRefreshing || isReloading || phase != Phase.Loaded || !hasMore || isLoadingMore || team == null || cursor == null) return
+        if (disposed || !hasAiAccess() || (!allowDuringRefresh && isRefreshing) || isReloading || phase != Phase.Loaded || !hasMore || isLoadingMore || team == null || cursor == null) return
         isLoadingMore = true
         val generation = loadGeneration
         val workspace = workspaceRevision
@@ -621,8 +670,8 @@ class AgentStore(
                 sort = sort,
             )
             if (generation != loadGeneration || selectedTeam?.id != team.id || workspace != workspaceRevision || disposed || !hasAiAccess()) return
-            observeHistory(page.conversations, team.id, observedAt)
-            val merged = mergeHistory(page.conversations, team.id).distinctBy { it.sessionId }
+            observeHistory(page.rows, team.id, observedAt)
+            val merged = mergeHistory(page.rows, team.id).distinctBy { it.sessionId }
             val seen = conversations.map { it.sessionId }.toSet()
             conversations = conversations.map { current ->
                 merged.firstOrNull { it.sessionId == current.sessionId && (it.teamId ?: team.id) == (current.teamId ?: team.id) } ?: current

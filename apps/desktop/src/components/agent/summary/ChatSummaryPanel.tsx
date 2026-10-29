@@ -3,13 +3,15 @@ import { File, Image as ImageIcon } from 'lucide-react'
 import { useRef } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen } from '../../../lib/chatSummaryPanel'
 import { toast } from '../../ui/toast'
 
+import { ChangesSection } from './ChatSummaryChanges'
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName } from './chatSummaryModel'
-import { ChangeRow, SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
+import { SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
@@ -65,14 +67,14 @@ function OutputsSection({
         fileName,
       })
 
-      if (saved.saved) toast.success('Saved', fileName)
+      if (saved.saved) toast.success(t('Saved'), fileName)
     } catch (error) {
-      toast.apiError('Download failed', error)
+      toast.apiError(t('Download failed'), error)
     }
   }
 
   return (
-    <SummarySection title="Outputs">
+    <SummarySection title={t('Outputs')}>
       {files.map((file) => {
         const [name, extension] = splitFileName(file.fileName)
 
@@ -82,7 +84,7 @@ function OutputsSection({
             icon={file.image ? <ImageIcon className="size-3.5" /> : <File className="size-3.5" />}
             label={name}
             labelEnd={extension}
-            title={`Download ${file.fileName}`}
+            title={t('Download {name}', { name: file.fileName })}
             onClick={() => void download(file)}
           />
         )
@@ -98,7 +100,9 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null) {
   const pane = root?.closest(PANE)
 
   setChatSummaryOpen(false)
-  pane?.querySelector<HTMLElement>('[aria-label="Toggle agent summary"]')?.focus()
+  pane
+    ?.querySelector<HTMLElement>(`[aria-label="${CSS.escape(t('Toggle agent summary'))}"]`)
+    ?.focus()
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */
@@ -111,7 +115,7 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
   return (
     <aside
       ref={rootRef}
-      aria-label="Agent summary"
+      aria-label={t('Agent summary')}
       onKeyDown={(event) => closeOnEscape(event, rootRef.current)}
       className={clsx(
         't-summary-in',
@@ -121,14 +125,10 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
     >
       {!loaded && <Skeleton />}
       {changes.length > 0 && (
-        <SummarySection title="Changes">
-          {changes.map((resource) => (
-            <ChangeRow key={resource.id} resource={resource} onOpen={onOpenLink} />
-          ))}
-        </SummarySection>
+        <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
       )}
       {threads.length > 0 && (
-        <SummarySection title="Sub-agents">
+        <SummarySection title={t('Sub-agents')}>
           {threads.map((thread) => (
             <ThreadRow
               key={thread.sessionId}
@@ -145,9 +145,11 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
       )}
       {loaded && !conversation && (
         <div className="px-1 pt-1 text-[13px] leading-5">
-          <p className="text-main">Nothing here yet</p>
+          <p className="text-main">{t('Nothing here yet')}</p>
           <p className="text-tertiary">
-            Pull requests, sub-agents and files from this agent appear here after its first reply.
+            {t(
+              'Pull requests, sub-agents and files from this agent appear here after its first reply.',
+            )}
           </p>
         </div>
       )}

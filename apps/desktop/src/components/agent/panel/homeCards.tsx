@@ -2,6 +2,7 @@ import { CircleDot, GitPullRequest } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 
 import { GithubCardMenu } from './homeGithubMenu'
 import { PullRows, RunRows } from './homeGithubRows'
@@ -104,7 +105,9 @@ function HomeCard({
   let body = <div className="space-y-0.5">{children}</div>
 
   if (total === 0) {
-    body = <div className="px-1 py-1.5 text-[12px] text-tertiary">Choose repositories from ⋯</div>
+    body = (
+      <div className="px-1 py-1.5 text-[12px] text-tertiary">{t('Choose repositories from ⋯')}</div>
+    )
   } else if (count === null) {
     body = (
       <div className="space-y-1.5">
@@ -115,7 +118,9 @@ function HomeCard({
     )
   } else if (count === 0 && failed.length === total) {
     // Nothing loaded at all: an empty list here would read as all clear.
-    body = <div className="px-1 py-1.5 text-[12px] text-amber-400">Couldn't load from GitHub</div>
+    body = (
+      <div className="px-1 py-1.5 text-[12px] text-amber-400">{t("Couldn't load from GitHub")}</div>
+    )
   } else if (count === 0) {
     body = <div className="px-1 py-1.5 text-[12px] text-tertiary">{empty}</div>
   }
@@ -132,7 +137,7 @@ function HomeCard({
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{body}</div>
       {failed.length > 0 && failed.length < total && (
         <div className="truncate px-1 pt-1.5 text-[11px] text-amber-400" title={failed.join(', ')}>
-          Couldn't check {failed.join(', ')}
+          {t("Couldn't check {repos}", { repos: failed.join(', ') })}
         </div>
       )}
     </section>
@@ -220,7 +225,7 @@ export function GithubCard({
           <CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />
         )
       }
-      title={`${pulls ? 'Pull requests' : 'CI'} · ${statusLabel(card)}`}
+      title={`${pulls ? t('Pull requests') : 'CI'} · ${statusLabel(card)}`}
       menu={<GithubCardMenu teamId={teamId} card={card} onChange={onChange} onRemove={onRemove} />}
       count={count}
       empty={empty}

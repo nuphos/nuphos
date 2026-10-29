@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { ChevronRight, Terminal } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
 import { getToolLabel, isCommandTool } from './toolPartUtils'
 import { pendingApproval } from './toolRuns'
@@ -90,7 +92,9 @@ export function ToolRunView({
           <ToolElapsedBadge part={latest} now={now} />
         </span>
         {count > 1 && (
-          <span className="flex-shrink-0 text-tertiary/70">· {String(count)} calls</span>
+          <span className="flex-shrink-0 text-tertiary/70">
+            · {t('{n} calls', { n: String(count) })}
+          </span>
         )}
         <ChevronRight
           className={clsx(

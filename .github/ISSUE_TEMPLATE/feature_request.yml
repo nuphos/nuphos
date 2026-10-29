@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest a new capability or an improvement to an existing one.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [existing issues](https://github.com/nuphos/nuphos/issues?q=is%3Aissue) first, including closed ones. If one matches, add your use case there instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today? Start from the problem, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How you would like it to work.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use now, or other approaches you thought about.

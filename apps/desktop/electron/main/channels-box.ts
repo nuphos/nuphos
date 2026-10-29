@@ -22,6 +22,7 @@ import {
   decideShareApproval,
   getDeviceShare,
   listShareApprovals,
+  ownShareApprovalStatus,
   setDeviceShare,
 } from '../atlas/local-share.ts'
 
@@ -142,6 +143,8 @@ export const boxChannels = {
   'localShare:set': (_e: unknown, deviceId: unknown, teamId: unknown, input: unknown) =>
     setDeviceShare(string(deviceId), string(teamId), localShare(input)),
   'localShare:approvals': (_e: unknown, teamId: unknown) => listShareApprovals(string(teamId)),
+  'localShare:status': (_e: unknown, sessionId: unknown) =>
+    ownShareApprovalStatus(string(sessionId)),
   'localShare:decide': (_e: unknown, approvalId: unknown, approve: unknown) => {
     if (typeof approve !== 'boolean') throw new TypeError('Expected a decision')
 

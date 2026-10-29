@@ -138,37 +138,3 @@ test('re-resumes a session whose delivered context is stale before prompting', a
   expect(loadedTokens).toEqual(['turn-2'])
   expect(sessionsByConversation.get('team:conversation')?.client).toBe(client)
 })
-
-test('a runtime that renews credentials mid-turn gets a short-lived token', async () => {
-  const renewing = { ...client, credentialRefresh: true, refreshCredentials: async () => ({}) }
-  const lifetimes: number[] = []
-  const renewAccess = (ttlSec: number) => {
-    lifetimes.push(ttlSec)
-
-    return { mcpServers: [], runtimeEnv: { NUPHOS_TOKEN: `short-${ttlSec}` } }
-  }
-
-  placeSession(Date.now())
-  acquire.mockResolvedValue(renewing)
-  await runClaudeCodePreviewPrompt({
-    teamId: 'team',
-    conversationId: 'conversation',
-    userId: 'user',
-    locale: 'en-US',
-    message: '',
-    text: 'Continue',
-    endpoint,
-    runtime: { provider: 'codex', env: { NUPHOS_TOKEN: 'long' } },
-    renewAccess,
-    signal: new AbortController().signal,
-    onTextDelta: noop,
-  })
-  acquire.mockResolvedValue(client)
-  await run('long-2')
-
-  expect(lifetimes).toEqual([30 * 60])
-  expect(promptedContexts.map((context) => context?.runtime?.env?.NUPHOS_TOKEN)).toEqual([
-    'short-1800',
-    'long-2',
-  ])
-})

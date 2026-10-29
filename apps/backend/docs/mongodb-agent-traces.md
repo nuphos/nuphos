@@ -19,29 +19,29 @@ check per-session access, not merely team membership.
 ## Coverage
 
 - Explicit span start, input, output, metadata, metrics, errors (including stack
-  and cause), named events, end, and conversation-root updates.
+  and cause), named events and end.
 - The two current `wrapAI` callers (title generation, starter suggestions): generation options, resolved output format, every
   provider `doGenerate` attempt (including failed attempts), and the final AI
   SDK result including getter-backed text, reasoning, steps, tools, token
   usage, response ids and provider metadata.
-- Existing caller-side message serialization is unchanged;
-  the Mongo sink adds no preview limit. Provider transport bodies and response
+- Turn spans record `messageCount`, never conversation messages: the transcript
+  already lives in the conversation store. The Mongo sink adds no preview limit. Provider transport bodies and response
   headers are excluded, preserving the previous capture contract.
 
 Native `generateText` instrumentation covers current callers; adding another
 SDK function to `wrapAI` requires equivalent instrumentation and parity tests.
-New spans export self-contained `mongo:` parent handles. Conversation roots use
-`conversationTraceParent`; legacy vendor parent fields are left untouched in old
-Mongo documents but are not read or reused. Unrecognized parent handles are ignored; there is no vendor decoder. Ownership metadata
+New spans export self-contained `mongo:` parent handles. Stored
+`conversationTraceParent` values and legacy vendor parent fields are left
+untouched in old Mongo documents but are not read or reused. Unrecognized parent handles are ignored; there is no vendor decoder. Ownership metadata
 survives with OTel disabled.
 
 ## Storage and retention
 
 `agent_trace_events` is append-only. Filter by `sessionId`/`teamId`, `rootSpanId`
-or `spanId`; order one span's events by `ts`, then `sequence`. Start/log/update
+or `spanId`; order one span's events by `ts`, then `sequence`. Start/log
 payloads retain their individual values rather than overwriting earlier logs.
 Use `parentSpanId` for the tree. Pre-existing root handles reference historical
-payloads that are not in Mongo; only new children and updates are captured.
+payloads that are not in Mongo; only new children are captured.
 
 `payload` is JSON text. Binary fields use `{type: "Buffer", encoding: "base64",
 data: "..."}` and retain every byte. Payloads over 512 KiB are UTF-8 chunks in
@@ -83,8 +83,8 @@ guard-flush deadline. It does not cancel writes when the deadline expires.
 Concurrency follows event production and the existing Mongo pool; pending writes
 retain their full snapshots in memory. Large payloads or a slow database can
 increase memory pressure. There is no content truncation or drop-on-full policy.
-JSON snapshotting runs on the caller's thread. Full-history inputs can cause
-quadratic storage growth over long conversations.
+JSON snapshotting runs on the caller's thread. Never log a full conversation
+history: storing it on every turn grows quadratically with conversation length.
 
 Index failures are logged without preventing backend startup.
 

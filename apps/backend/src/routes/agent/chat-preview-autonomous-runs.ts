@@ -2,33 +2,38 @@
 // a turn adopted from a replica that shut down) and their durable transcript.
 import { randomUUID } from 'node:crypto'
 
-import { createClaudeCodeAutonomousUpdateHandler } from './chat-preview-autonomous'
-import { registerBackgroundToolPersistence } from './chat-preview-background-tools'
-import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
-import { handlePreviewToolUpdate } from './chat-preview-tool-update'
-import { appendAgentRunError } from './run-frames'
-import { createAgentRun, registerAgentRun } from './run-registry'
-import { traceAgentChatError } from './trace'
-
-import type { ClaudeCodeAutonomousContext } from '@/lib/claude-code-preview/agent-chat-runtime'
-
 import {
   setClaudeCodeAutonomousPermissionHandler,
   setClaudeCodeAutonomousUpdateHandler,
 } from '@/lib/claude-code-preview/agent-chat-runtime'
 
+import { createClaudeCodeAutonomousUpdateHandler } from './chat-preview-autonomous'
+import { registerBackgroundToolPersistence } from './chat-preview-background-tools'
+import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
+import { consumePreviewToolPresentation, handlePreviewToolUpdate } from './chat-preview-tool-update'
+import { createAgentRun, registerAgentRun } from './run-registry'
+
+import type { ClaudeCodeAutonomousContext } from '@/lib/claude-code-preview/agent-chat-runtime'
+
 export const autonomous = createClaudeCodeAutonomousUpdateHandler({
   begin: (context: ClaudeCodeAutonomousContext, messageId: string) => {
     const streamId = randomUUID()
-    const run = createAgentRun(context.conversationOwnerUserId, context.conversationId, streamId, {
-      requestId: randomUUID(),
-      userId: context.userId,
-      sessionId: context.conversationId,
-      teamId: context.teamId,
+    const run = createAgentRun(
+      context.conversationOwnerUserId,
+      context.conversationId,
       streamId,
-      route: 'claude-code/autonomous',
-      method: 'RUNTIME',
-    })
+      {
+        requestId: randomUUID(),
+        userId: context.userId,
+        sessionId: context.conversationId,
+        teamId: context.teamId,
+        streamId,
+        route: 'claude-code/autonomous',
+        method: 'RUNTIME',
+      },
+      // Shown live, but never a claim: a turn that missed its end must not hold the session.
+      { runtimeOwned: true },
+    )
 
     registerAgentRun(run)
     const state = createPreviewRunState({
@@ -37,6 +42,8 @@ export const autonomous = createClaudeCodeAutonomousUpdateHandler({
       sessionId: context.conversationId,
     })
     const tools = createPreviewToolLog()
+
+    state.consumeFrames((frame) => consumePreviewToolPresentation(state.emit, tools, frame))
 
     state.emit({ type: 'atlas-autonomous-turn-start', messageId })
     state.emit({ type: 'phase', phase: 'thinking' })
@@ -48,11 +55,6 @@ export const autonomous = createClaudeCodeAutonomousUpdateHandler({
         handlePreviewToolUpdate(state.emit, tools, toolUpdate)
       },
       toolSteps: tools.list,
-      reportError: (error: unknown) => {
-        traceAgentChatError('agent.chat.preview_autonomous_persist.error', error, run.trace, {})
-        // Put persistence/runtime failures on the stream before it closes.
-        appendAgentRunError(run, error)
-      },
     }
   },
 })

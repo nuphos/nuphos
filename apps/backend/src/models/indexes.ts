@@ -28,6 +28,7 @@ import { setupDownloadLinkEmailIndexes } from '@/lib/download-link-email'
 import { setupEmailOtpIndexes } from '@/lib/email-otp'
 import { setupIdentityIndexes } from '@/lib/identity'
 import { setupCliTokenIndexes } from '@/lib/identity/cli-tokens'
+import { setupUserSessionIndexes } from '@/lib/identity/sessions'
 import { setupDeviceLoginIndexes } from '@/lib/identity/device-login'
 import { setupPasswordIndexes } from '@/lib/identity/password'
 import { setupLarkAgentIndexes } from '@/lib/lark/agent-bot'
@@ -73,6 +74,7 @@ export async function setupIndexes(): Promise<void> {
     ['download-link-email', setupDownloadLinkEmailIndexes],
     ['native-auth', setupNativeAuthIndexes],
     ['cli-tokens', setupCliTokenIndexes],
+    ['user-sessions', setupUserSessionIndexes],
     ['device-login', setupDeviceLoginIndexes],
     ['runtime-login', setupRuntimeLoginIndexes],
     ['hosted-runtime-slots', setupHostedRuntimeSlotIndexes],

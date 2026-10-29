@@ -14,6 +14,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { recordDeviceAgents } from '@/lib/agent/devices/agent-registry-store'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
+import { recordDeviceMetricSample } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { AppError } from '@/lib/errors'
 import { requestOrigin } from '@/lib/request-origin'
 import { getTeamMembers } from '@/lib/identity'
@@ -53,6 +54,7 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       connectionChanged: (userId, deviceId) => {
         void noteBoxPresence(userId, deviceId, getAgentDevice)
       },
+      recordMetrics: recordDeviceMetricSample,
     },
     listActivity: listLocalRuntimeActivity,
     conversationTitlesFor,

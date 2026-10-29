@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   closeCallsCutOffBySteer,
   handlePreviewToolUpdate,
+  oneLineTitle,
   openToolCalls,
 } from './chat-preview-tool-update'
 import { parseToolUpdate } from '@/lib/claude-code-preview/preview-agent-update'
@@ -187,5 +188,26 @@ describe('closeCallsCutOffBySteer', () => {
 
     closeCallsCutOffBySteer((frame) => frames.push(frame), log, [])
     expect(frames).toEqual([])
+  })
+})
+
+describe('oneLineTitle', () => {
+  test('a multi-line command title keeps its first line; the input holds the rest', () => {
+    expect(oneLineTitle("python3 - <<'EOF'\nprint(1)\nEOF")).toBe("python3 - <<'EOF'")
+  })
+
+  test('a long line is cut with an ellipsis', () => {
+    const title = oneLineTitle(`echo ${'x'.repeat(500)}`)
+
+    expect(title).toHaveLength(120)
+    expect(title.endsWith('…')).toBe(true)
+  })
+
+  test('a blank title is empty, so the call keeps its known name', () => {
+    expect(oneLineTitle('  \n  ')).toBe('')
+  })
+
+  test('a short title is unchanged', () => {
+    expect(oneLineTitle('Run kubectl get pods')).toBe('Run kubectl get pods')
   })
 })

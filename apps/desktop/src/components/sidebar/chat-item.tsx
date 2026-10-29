@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 
 import { chatRowIcon } from './chat-row-icon'
@@ -29,7 +30,7 @@ export function chatSidebarItem({
 
   return {
     key: `agent-session:${conversation.sessionId}`,
-    label: conversation.title || conversation.firstMessage || 'Untitled agent',
+    label: conversation.title || conversation.firstMessage || t('Untitled agent'),
     ...chatRowIcon(conversation),
     description: (
       <SessionResources

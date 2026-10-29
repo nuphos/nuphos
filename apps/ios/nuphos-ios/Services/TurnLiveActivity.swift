@@ -2,47 +2,72 @@
 import ActivityKit
 import Foundation
 
-/// Puts a running turn on the Lock Screen and in the Dynamic Island. The
-/// backend moves it on over APNs, so it finishes while the app is suspended;
-/// the app also ends it when it sees the turn end for certain.
+/// The app's one Live Activity. A running turn puts its conversation on the
+/// card, starting the card when there is none. Everything after that comes
+/// from the backend over APNs, which follows the runtime's own status.
 enum TurnLiveActivity {
-    static func show(sessionId: String, teamId: String, title: String, agent: String?, runtime: String?,
-                     startedAt: Date?, authToken: String) {
-        let running = ActivityContent(state: TurnActivityAttributes.ContentState(phase: .running), staleDate: nil)
-        if let activity = Activity<TurnActivityAttributes>.activities.first(where: {
-            $0.attributes.sessionId == sessionId && $0.activityState == .active
-        }) {
-            if activity.content.state != running.state { Task { await activity.update(running) } }
+    private typealias Card = TurnActivityAttributes.ContentState
+
+    /// Token and conversation pairs already sent to the backend.
+    private static var registered: Set<String> = []
+
+    private static var card: Activity<TurnActivityAttributes>? {
+        Activity<TurnActivityAttributes>.activities.first { $0.activityState == .active }
+    }
+
+    /// At launch: one card at most, the one the app keeps updating.
+    static func dropExtras() {
+        for activity in Activity<TurnActivityAttributes>.activities where activity.id != card?.id {
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+        }
+    }
+
+    static func show(sessionId: String, teamId: String, title: String, authToken: String) {
+        let session = TurnActivityAttributes.Session(id: sessionId, teamId: teamId, title: title, phase: .running)
+        if let activity = card {
+            var state = activity.content.state
+            if !state.sessions.contains(session) {
+                state.put(session)
+                Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
+            }
+            register(session, on: activity, authToken: authToken)
             return
         }
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        let attributes = TurnActivityAttributes(
-            sessionId: sessionId, title: title,
-            logo: agent == nil || agent == "nuphos" ? "NuphosMark" : RuntimeInstance.Provider.logo(agent),
-            runtime: runtime, startedAt: startedAt ?? .now,
-            url: SessionLink.url(teamId: teamId, sessionId: sessionId)
-        )
-        guard let activity = try? Activity.request(attributes: attributes, content: running, pushType: .token) else { return }
+        // Only an ended card can be left; this turn's card takes its place.
+        dropExtras()
+        guard ActivityAuthorizationInfo().areActivitiesEnabled,
+              let activity = try? Activity.request(
+                  attributes: TurnActivityAttributes(),
+                  content: ActivityContent(state: Card(sessions: [session], more: 0, active: 1), staleDate: nil),
+                  pushType: .token
+              ) else { return }
         Task {
-            for await data in activity.pushTokenUpdates {
-                let token = data.map { String(format: "%02x", $0) }.joined()
-                try? await AgentChatAPI.registerLiveActivity(
-                    token: authToken,
-                    activity: .init(token: token, teamId: teamId, sessionId: sessionId,
-                                    environment: PushNotifications.environment)
-                )
+            for await _ in activity.pushTokenUpdates {
+                for session in activity.content.state.sessions where session.phase.isActive {
+                    register(session, on: activity, authToken: authToken)
+                }
             }
         }
     }
 
-    static func end(sessionId: String, phase: TurnActivityAttributes.Phase) {
-        let ended = ActivityContent(
-            state: TurnActivityAttributes.ContentState(phase: phase, endedAt: Date.now.timeIntervalSince1970),
-            staleDate: nil
-        )
-        for activity in Activity<TurnActivityAttributes>.activities
-        where activity.attributes.sessionId == sessionId && activity.activityState == .active {
-            Task { await activity.end(ended, dismissalPolicy: .after(.now.addingTimeInterval(30 * 60))) }
+    /// Tells the backend this card lists the conversation; without a token
+    /// yet, the token's arrival does it.
+    private static func register(_ session: TurnActivityAttributes.Session, on activity: Activity<TurnActivityAttributes>,
+                                 authToken: String) {
+        guard let data = activity.pushToken else { return }
+        let token = data.map { String(format: "%02x", $0) }.joined()
+        let key = token + session.id
+        guard registered.insert(key).inserted else { return }
+        Task {
+            do {
+                try await AgentChatAPI.registerLiveActivity(
+                    token: authToken,
+                    activity: .init(token: token, teamId: session.teamId, sessionId: session.id,
+                                    environment: PushNotifications.environment)
+                )
+            } catch {
+                registered.remove(key)
+            }
         }
     }
 }

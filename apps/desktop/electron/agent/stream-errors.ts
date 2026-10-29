@@ -276,3 +276,10 @@ export function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
     )
   })
 }
+
+/** Why a send waits, when the server says so (a teammate's computer waits for its owner). */
+export async function queuedNotice(res: Response): Promise<{ message?: string }> {
+  const body = (await res.json().catch(() => null)) as { message?: unknown } | null
+
+  return typeof body?.message === 'string' ? { message: body.message } : {}
+}

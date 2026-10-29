@@ -13,12 +13,14 @@ const OUTPUT = 512
 
 type Loaded = { url: string; width: number; height: number; image: HTMLImageElement }
 
-/** Square crop for a picked photo; `onSave` receives the cropped 512px WebP. */
+/** Square crop for a picked photo or icon; `onSave` receives the cropped 512px WebP. */
 export function AvatarCropDialog({
+  kind,
   file,
   onSave,
   onClose,
 }: {
+  kind: 'photo' | 'icon'
   file: File
   onSave: (image: Uint8Array) => Promise<void>
   onClose: () => void
@@ -78,11 +80,11 @@ export function AvatarCropDialog({
         canvas.toBlob(resolve, 'image/webp', 0.92),
       )
 
-      if (!blob) throw new Error('Could not prepare the photo')
+      if (!blob) throw new Error(`Could not prepare the ${kind}`)
       await onSave(new Uint8Array(await blob.arrayBuffer()))
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save the photo')
+      setError(err instanceof Error ? err.message : `Could not save the ${kind}`)
       setSaving(false)
     }
   }
@@ -95,7 +97,7 @@ export function AvatarCropDialog({
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[340px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
           <div className="flex items-center justify-between border-b border-zGray-800 px-5 py-4">
-            <Dialog.Title className="text-[14px] font-semibold text-main">Crop photo</Dialog.Title>
+            <Dialog.Title className="text-[14px] font-semibold text-main">{`Crop ${kind}`}</Dialog.Title>
             <Dialog.Close
               aria-label="Close"
               disabled={saving}
@@ -133,7 +135,11 @@ export function AvatarCropDialog({
               {!loaded && !error && (
                 <Loader2 className="absolute inset-0 m-auto h-5 w-5 animate-spin text-tertiary" />
               )}
-              <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgba(0,0,0,0.55)]" />
+              {/* Same shape as the saved avatar: an icon is AvatarPicker's 64px rounded-lg, scaled. */}
+              <div
+                className="pointer-events-none absolute inset-0 shadow-[0_0_0_999px_rgba(0,0,0,0.55)]"
+                style={{ borderRadius: kind === 'icon' ? VIEWPORT / 8 : '50%' }}
+              />
             </div>
             <label className="flex items-center gap-2 text-tertiary">
               <ZoomOut className="h-3.5 w-3.5 shrink-0" />
@@ -171,7 +177,7 @@ export function AvatarCropDialog({
                 onClick={() => void save()}
                 disabled={!crop || saving}
               >
-                {saving ? 'Saving…' : 'Save photo'}
+                {saving ? 'Saving…' : `Save ${kind}`}
               </Button>
             </div>
           </div>

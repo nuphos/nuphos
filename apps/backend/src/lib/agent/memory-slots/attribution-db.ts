@@ -96,17 +96,6 @@ export async function recordAttributionSignal(input: {
   )
 }
 
-/** Distiller outcome onto the turn row (mirrors the judge's updates). Plain
- * update, no upsert: capture already wrote the row earlier in the same
- * fire-and-forget chain, defaulting distill to 'skipped_disabled'. */
-export async function recordTurnDistillOutcome(
-  conversationId: string,
-  turnKey: string,
-  distill: TurnDistillOutcome,
-): Promise<void> {
-  await attributionTurns().updateOne({ conversationId, turnKey }, { $set: { distill } })
-}
-
 /** A6 erasure — called from deleteConversation. Scores are lineage-keyed and
  * periodically recomputed, so they need no per-conversation purge. */
 export async function purgeConversationAttribution(conversationId: string): Promise<void> {

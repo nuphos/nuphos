@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import { MIN_RAIL_TURNS, pickRailTurns, turnPreview } from './railTurns'
 import { TurnRailCard } from './TurnRailCard'
 import { useTurnRail } from './useTurnRail'
@@ -143,7 +145,7 @@ export function TurnRail({
     >
       <nav
         ref={navRef}
-        aria-label="Conversation turns"
+        aria-label={t('Conversation turns')}
         onKeyDown={onKeyDown}
         onPointerLeave={() => setPointed(null)}
         onBlur={leave}
@@ -158,7 +160,7 @@ export function TurnRail({
               type="button"
               data-turn-id={turn.id}
               tabIndex={i === tabStop ? 0 : -1}
-              aria-label={`Turn ${String(i + 1)}: ${turn.title}`}
+              aria-label={t('Turn {n}: {title}', { n: String(i + 1), title: turn.title })}
               aria-current={i === firstInView ? 'location' : undefined}
               onClick={() => jump(turn.id)}
               onPointerEnter={(e) => point(i, e.currentTarget, false)}

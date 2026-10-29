@@ -1,17 +1,19 @@
 import clsx from 'clsx'
 
+import { t } from '../../../i18n'
+
 import type { PlanLifecycleStatus } from '../../../api'
 
 // Lifecycle status → human label + chip styling. Single source for every
 // surface that shows a plan's status (inline card, side pane, library list).
 const PLAN_STATUS_LABEL: Record<PlanLifecycleStatus, string> = {
-  proposed: 'Proposed',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  executing: 'Executing',
-  completed: 'Completed',
-  failed: 'Failed',
-  cancelled: 'Unplanned',
+  proposed: t('Proposed'),
+  approved: t('Approved'),
+  rejected: t('Rejected'),
+  executing: t('Executing'),
+  completed: t('Completed'),
+  failed: t('Failed'),
+  cancelled: t('Unplanned'),
 }
 
 const PLAN_STATUS_TONE: Record<PlanLifecycleStatus, string> = {

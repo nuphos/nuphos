@@ -13,6 +13,7 @@ sealed class ChatRow {
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
     data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow()
+    data class Downloads(override val id: String, val group: ai.nuphos.android.data.TransferDownloadGroup) : ChatRow()
     data class Memory(override val id: String, val created: Int, val updated: Int) : ChatRow()
     data class MemoryRecall(override val id: String, val entries: List<MemoryEntry>, val fetched: Int) : ChatRow()
     data class Activity(val text: String?, val live: Boolean = true) : ChatRow() {
@@ -34,6 +35,9 @@ sealed class ChatRow {
             phaseLabel = session.phaseLabel,
             error = session.error,
             stoppedByUser = session.stoppedByUser,
+            downloads = if (session.canReadDownloads) session.downloads else emptyList(),
+            timeline = session.timelineEvents,
+            hasEarlier = session.baseIndex > 0,
         )
 
         internal fun rows(
@@ -42,10 +46,19 @@ sealed class ChatRow {
             phaseLabel: String? = null,
             error: String? = null,
             stoppedByUser: Boolean = false,
+            downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
+            timeline: List<AgentConversationDetail.TimelineEvent> = emptyList(),
+            hasEarlier: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
+            val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
+            val events = timeline.distinctBy { it.at to it.text }.sortedBy { it.at }.groupBy { event ->
+                messages.indexOfFirst { it.createdAt?.isAfter(event.at) == true }
+            }
+            fun eventRows(index: Int) = events[index].orEmpty().map { Hint("event.${it.at}.${it.text}", it.text, false) }
             val lastApprovalCallId = lastPendingApproval(messages)
             for ((index, message) in messages.withIndex()) {
+                if (index > 0 || !hasEarlier) rows += eventRows(index)
                 val previous = messages.getOrNull(index - 1)?.createdAt
                 when (message.role) {
                     ChatMessage.Role.User -> {
@@ -66,6 +79,7 @@ sealed class ChatRow {
                     ChatMessage.Role.Assistant -> {
                         val isLive = isStreaming && index == messages.lastIndex
                         rows += assistantRows(message, isLive, lastApprovalCallId)
+                        rows += anchoredDownloads[message.id].orEmpty().map { Downloads("downloads.${it.groupId}", it) }
                         if (message.stoppedByUser == true && !isLive) {
                             val calls = message.parts.count { it is ChatPart.Tool }
                             val suffix = when (calls) { 0 -> ""; 1 -> " · 1 call"; else -> " · $calls calls" }
@@ -75,6 +89,7 @@ sealed class ChatRow {
                     ChatMessage.Role.System -> Unit
                 }
             }
+            rows += eventRows(-1)
             if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
             error?.takeIf { !stoppedByUser }?.let { rows += Hint("error", it, true) }
             rows += Bottom
@@ -133,7 +148,8 @@ sealed class ChatRow {
             if (lastText < 0) return body
             fun foldable(row: ChatRow) = when (row) {
                 is Reasoning -> true
-                is Tool -> row.part.kind != ChatPart.Tool.Kind.Plan && row.part.kind != ChatPart.Tool.Kind.Question && row.part.state != ChatPart.Tool.State.ApprovalRequested
+                is Tool -> row.part.kind != ChatPart.Tool.Kind.Plan && row.part.kind != ChatPart.Tool.Kind.Question &&
+                    row.part.state != ChatPart.Tool.State.ApprovalRequested && ThreadReference.from(row.part) == null
                 else -> false
             }
             val intermediate = body.take(lastText).filter(::foldable)

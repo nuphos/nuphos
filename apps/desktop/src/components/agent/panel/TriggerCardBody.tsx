@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
 import { CronBuilder } from '../../../views/triggers/CronBuilder'
 
@@ -33,15 +34,17 @@ export function NextRuns({ trigger }: { trigger: AgentTrigger }) {
   const runs = nextOccurrencesAfter(trigger.cronExpression ?? '', now, 3)
 
   if (!trigger.enabled) {
-    return <p className="text-[12.5px] text-tertiary">Paused. Turn it on to resume its runs.</p>
+    return (
+      <p className="text-[12.5px] text-tertiary">{t('Paused. Turn it on to resume its runs.')}</p>
+    )
   }
   if (runs.length === 0) {
-    return <p className="text-[12.5px] text-tertiary">No upcoming runs for this schedule.</p>
+    return <p className="text-[12.5px] text-tertiary">{t('No upcoming runs for this schedule.')}</p>
   }
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[11.5px] font-medium text-tertiary">Next runs, your time</span>
+      <span className="text-[11.5px] font-medium text-tertiary">{t('Next runs, your time')}</span>
       <ul className="flex flex-col gap-0.5 text-[12.5px]">
         {runs.map((run) => (
           <li key={run.getTime()} className="flex items-baseline gap-1.5">

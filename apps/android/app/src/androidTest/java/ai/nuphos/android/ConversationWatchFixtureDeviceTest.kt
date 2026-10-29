@@ -55,7 +55,7 @@ class ConversationWatchFixtureDeviceTest {
     private val network = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-            require(app.packageName in setOf("ai.nuphos.android.watchfixture", "ai.nuphos.android.rowactions1357")) { "Use an independent fixture package; never the Play installation." }
+            require(app.packageName in setOf("ai.nuphos.android.watchfixture", "ai.nuphos.android.rowactions1357", "ai.nuphos.android.pinios1370")) { "Use an independent fixture package; never the Play installation." }
             require(InstrumentationRegistry.getArguments().getString("isolatedWatch") == "true")
             preferences = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all.toMap()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {

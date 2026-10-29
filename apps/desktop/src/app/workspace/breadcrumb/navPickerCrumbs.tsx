@@ -1,6 +1,6 @@
 import { faFolder } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { LayoutDashboard, MessageSquare } from 'lucide-react'
+import { LayoutDashboard } from 'lucide-react'
 
 import { activeNavItemFor, activeNavItemsFor } from '../../../app/navItems'
 import { CloudLogo } from '../../../components/CloudLogo'
@@ -24,6 +24,7 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
     connectorDetail,
     agentSessionTitle,
     agentSessionId,
+    agentSessionIcon,
     awsDetail,
     cloudflareDetail,
     updateActiveTab,
@@ -137,7 +138,7 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
       out.push({
         label: agentSessionTitle || 'Agent',
         isResource: true,
-        icon: <MessageSquare className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
+        icon: agentSessionIcon,
       })
     }
     if (inPlanDetail && planNumber) {

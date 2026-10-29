@@ -82,7 +82,13 @@ pub fn format_coded_error(code: i64, message: &str, data_message: Option<&str>) 
             out.push_str("\n> ");
             out.push_str(detail);
         }
-    } else if code == -32603 {
+    } else if code == -32603
+        && message
+            .trim()
+            .trim_start_matches("Internal error")
+            .is_empty()
+    {
+        // Only a bare "Internal error" lacks details; a message that names the cause has them.
         out.push_str(
             "\n\n_The agent did not return any error details. \
              Please check the agent's own logs for more information._",
@@ -264,6 +270,17 @@ mod tests {
     fn format_coded_error_32603_empty_detail_shows_fallback() {
         let result = format_coded_error(-32603, "Internal error", Some(""));
         assert!(result.contains("did not return any error details"));
+    }
+
+    #[test]
+    fn format_coded_error_32603_message_with_cause_no_fallback() {
+        let result = format_coded_error(
+            -32603,
+            "Internal error: Claude Code stopped unexpectedly (terminated by signal SIGKILL).",
+            None,
+        );
+        assert!(result.contains("SIGKILL"));
+        assert!(!result.contains("did not return any error details"));
     }
 
     #[test]

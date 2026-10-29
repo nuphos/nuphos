@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { RuntimeControl } from './RuntimeSelector'
 
 /** Whether the picked agent can take a message now: its Box first, then its sign-in. */
@@ -25,11 +27,11 @@ export function selectedAgentReachability(
 /** Why the next message cannot go, or null when it can: no agent, or one that cannot take it. */
 export function runtimeControlSendBlock(control: RuntimeControl | undefined): string | null {
   if (control?.onSelect && (!control.value || control.value.status === 'disabled'))
-    return 'Choose a runtime to send'
+    return t('Choose a runtime to send')
   const reachability = selectedAgentReachability(control)
 
-  if (reachability === 'offline') return 'Its computer is offline'
-  if (reachability === 'signIn') return 'The runtime needs to sign in'
+  if (reachability === 'offline') return t('Its computer is offline')
+  if (reachability === 'signIn') return t('The runtime needs to sign in')
 
   return null
 }

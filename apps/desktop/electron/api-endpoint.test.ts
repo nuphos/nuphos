@@ -10,8 +10,8 @@ process.env.NUPHOS_CLI_CONFIG = path.join(dir, 'cli.dev.test.yaml')
 process.env.NUPHOS_API_URL = 'http://127.0.0.1:3718'
 delete process.env.ATLAS_API_URL
 
-const { apiUrl, setApiUrl, deviceRegistrationAllowed, onApiUrlChange } =
-  await import('./api-endpoint.ts')
+const { apiUrl, setApiUrl, deviceRegistrationAllowed } = await import('./api-endpoint.ts')
+const { authSession } = await import('./auth-session.ts')
 
 test('resetting the endpoint returns to the launch-time one, not Nuphos Cloud', () => {
   assert.equal(setApiUrl('https://nuphos.example.com/path'), 'https://nuphos.example.com')
@@ -43,7 +43,7 @@ test('dev devices stay off Cloud, including normalized hostnames and alternate p
 test('endpoint changes notify runtime listeners after the new endpoint takes effect', () => {
   setApiUrl(null)
   const allowed: boolean[] = []
-  const unsubscribe = onApiUrlChange(() => allowed.push(deviceRegistrationAllowed(true)))
+  const unsubscribe = authSession.subscribe(() => allowed.push(deviceRegistrationAllowed(true)))
 
   setApiUrl('https://api.nuphos.ai')
   setApiUrl('https://api.nuphos.ai/')

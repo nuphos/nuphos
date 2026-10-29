@@ -1,8 +1,7 @@
 // T6: the native adapter runs the EXACT same conformance suite every vendor
 // bundle will run (decision 10's acid test). Harness: FakeCollection Mongo
 // stand-in (memory-native.test.ts pattern extended with the records-api
-// keyset surface), identity/distill module-mocked, recall under
-// deliveryMode 'injection'. existsInRealStore reads the fake map directly —
+// keyset surface), identity module-mocked. existsInRealStore reads the fake map directly —
 // ground truth bypassing RecordsSurface.
 
 import { afterAll, expect, mock, test } from 'bun:test'
@@ -10,7 +9,6 @@ import { ObjectId } from 'mongodb'
 
 import * as configActual from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
-import { useDistill } from '@/lib/test/doubles/distill'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { MEMORY_RECORDS_COLLECTION } from '../memory-native/store'
@@ -22,12 +20,12 @@ import type { MemoryObserver, MemorySessionOrigin } from './types'
 import type * as dbActual from '@/lib/db'
 import type * as identityActual from '@/lib/identity'
 
-// ── Config: recall conformance under deliveryMode 'injection' ──────────────
+// ── Config: rerank pinned off so search stays deterministic ────────────────
 // Eager namespace snapshots for post-suite restore: once mock.module installs,
 // the `*Actual` live bindings point AT the mock — spreading them later would
 // re-capture the mock. bun runs every test file in one process, so a mock of
-// a shared module (config, distill) leaks into files that need the real one
-// (distill.test.ts). afterAll below re-mocks each specifier with these
+// a shared module (config) leaks into files that need the real one.
+// afterAll below re-mocks each specifier with these
 // snapshots to undo the pollution.
 const configModuleSnapshot = { ...configActual }
 
@@ -43,10 +41,7 @@ await mock.module('@/config', () => ({
     ...realConfig,
     agent: {
       ...realAgent,
-      memoryDeliveryMode: 'injection' as const,
-      memoryAutoIngest: true,
       memoryRerankEnabled: false,
-      memoryIndexRanking: 'recency' as const,
     },
   },
 }))
@@ -56,12 +51,6 @@ useIdentity({
     role: 'EDITOR',
     team: { id: 'conformance-team', name: 'Conformance Team' },
   })) as unknown as typeof identityActual.getTeamMembership,
-})
-
-// Fast, deterministic distiller: the ingest conformance items test the
-// non-rejection contract, not model behavior.
-useDistill({
-  distillTurnMemory: async () => ({ outcome: 'no_learn' }),
 })
 
 // ── Mongo stand-in with fault injection ─────────────────────────────────────
@@ -299,23 +288,6 @@ const harness: ConformanceHarness = {
       return await fn()
     } finally {
       faultInjected = false
-    }
-  },
-
-  makeTurnDigest(tenant: ConformanceTenant, over = {}) {
-    return {
-      conversationId: `conf-conv-${tenant.userId}`,
-      userId: tenant.userId,
-      teamId: tenant.teamId,
-      origin: 'user' as const,
-      messages: [
-        { role: 'user' as const, content: 'conformance turn: canary deploys go first' },
-        { role: 'assistant' as const, content: 'Acknowledged — canary first.' },
-      ],
-      planId: null,
-      startedAt: '2026-07-25T00:00:00.000Z',
-      finishedAt: '2026-07-25T00:00:05.000Z',
-      ...over,
     }
   },
 

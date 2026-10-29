@@ -12,10 +12,10 @@ import {
   traceStream,
 } from './chat-shared'
 import { setSessionTeam } from './client-tools'
-import { readToken, teamIdFromUrl } from './http'
+import { agentAccount, teamIdFromUrl } from './http'
 import { logLocalTool } from './local-exec'
 import { broadcast } from './notify'
-import { abortableSleep, formatAgentLocalError } from './stream-errors'
+import { abortableSleep, formatAgentLocalError, queuedNotice } from './stream-errors'
 
 import type { ChatStreamCtx, StartChatArgs } from './chat-shared'
 
@@ -109,7 +109,7 @@ export async function startChat(args: StartChatArgs): Promise<void> {
   }
 
   try {
-    const token = await readToken()
+    const account = await agentAccount().catch(() => null)
 
     if (ac.signal.aborted) {
       // eslint-disable-next-line require-atomic-updates -- one writer per turn; ChatStreamState is deliberately shared across awaits
@@ -118,11 +118,13 @@ export async function startChat(args: StartChatArgs): Promise<void> {
 
       return
     }
-    if (!token) {
+    if (!account) {
       emit({ type: 'error', error: 'Not signed in' })
 
       return
     }
+    // The turn runs as this account; a sign-out or another account ends it.
+    account.signal.addEventListener('abort', () => ac.abort(), { once: true, signal: ac.signal })
 
     while (!state.completedSuccessfully && !state.aborted) {
       logLocalTool('posting chat', {
@@ -146,12 +148,12 @@ export async function startChat(args: StartChatArgs): Promise<void> {
           (explicitResume || state.reconnectAttempts > 0 || state.resumeFrom > 0)
 
         state.forceFreshStart = false
-        const res = await postChatAttempt(ctx, args, token, attemptAc, shouldResume)
+        const res = await postChatAttempt(ctx, args, account, attemptAc, shouldResume)
 
         if (!res) return
-        // The session was busy: the message waits in its server queue.
+        // The session was busy, or its owner has yet to approve: the message waits in its server queue.
         if (res.status === 202) {
-          emit({ type: 'queued' })
+          emit({ type: 'queued', ...(await queuedNotice(res)) })
 
           return
         }

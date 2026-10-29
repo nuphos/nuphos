@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { isMac } from '../../lib/platform'
 import { searchKeyAction } from '../../lib/searchKeyboard'
 import { searchMatch } from '../../lib/searchMatch'
+import { AgentAvatar } from '../agent/AgentAvatar'
 import { relativeTimeFromNow } from '../agent/panel/textUtils'
 import { Avatar } from '../Avatar'
 
@@ -165,6 +166,7 @@ export function SearchResults({
                   className="shrink-0 rounded-full"
                 />
               }
+              action="View agents"
               onSelect={() => setSelected(index)}
               onOpen={() => onChoosePerson(person)}
             />
@@ -186,6 +188,15 @@ export function SearchResults({
               subtitle={`${conversation.owner?.name || conversation.owner?.email || 'Unknown member'} · ${openedAt ? 'Opened' : 'Updated'} ${relativeTimeFromNow(openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt)}`}
               query={query}
               selected={commands.length + index === selectedIndex}
+              avatar={
+                <AgentAvatar
+                  agentId={conversation.sessionId}
+                  avatar={conversation.avatar}
+                  provider={conversation.agentRuntime}
+                  size={28}
+                />
+              }
+              action="Open"
               onSelect={() => setSelected(commands.length + index)}
               onOpen={(beside) => onOpen(conversation.sessionId, beside)}
             />

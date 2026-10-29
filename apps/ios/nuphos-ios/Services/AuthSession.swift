@@ -31,7 +31,7 @@ final class AuthSession {
     private(set) var aiConsentVersion: String?
     private(set) var aiConsentError: String?
 
-    private static let tokenKey = "session-token"
+    static let tokenKey = "session-token"
     private let presentationContext = WebAuthPresentationContext()
     private var webSession: ASWebAuthenticationSession?
 
@@ -206,6 +206,13 @@ final class AuthSession {
         state = .signedIn(user)
     }
 
+    /// Uploads a profile photo, or removes it with `nil`.
+    func setAvatar(_ image: Data?) async throws {
+        guard let token else { throw NuphosAPI.Failure.unauthorized }
+        let user: NuphosUser = try await AccountAPI.request("me/avatar", method: image == nil ? "DELETE" : "PUT", token: token, upload: image)
+        state = .signedIn(user)
+    }
+
     func refreshUser() async {
         guard let token, case .signedIn = state else { return }
         do {
@@ -220,13 +227,18 @@ final class AuthSession {
 
     func signOut(error: String? = nil) {
         Analytics.shared.track("logout")
-        Task { await PushNotifications.shared.deactivate() }
+        let token = token
+        // Push unregisters with the token, so the session ends after it.
+        Task {
+            await PushNotifications.shared.deactivate()
+            if let token { await AccountAPI.endSession(token: token) }
+        }
         webSession?.cancel()
         webSession = nil
         clearToken()
         ComposerDrafts.clear()
-        // The OpenAI key is billed to whoever entered it, not the next user.
-        Keychain.delete(Whisper.keychainKey)
+        // An OpenAI key saved by builds from before voice input moved to Nuphos.
+        Keychain.delete("openai-api-key")
         state = .signedOut(error: error)
     }
 

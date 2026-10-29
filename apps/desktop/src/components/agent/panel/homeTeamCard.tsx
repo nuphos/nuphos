@@ -5,18 +5,19 @@ import { Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { Avatar } from '../../Avatar'
+import { AgentAvatar } from '../AgentAvatar'
 
-import { AgentProviderIcon } from './icons'
 import { heatmapRows } from './teamActivity'
 
 import type { HeatCell } from './teamActivity'
 import type { TeamActivity, TeamActivityRange } from '../../../types/team.ts'
 
 const RANGES: { value: TeamActivityRange; label: string; slotMinutes: number }[] = [
-  { value: '1d', label: '24h', slotMinutes: 30 },
-  { value: '7d', label: '7d', slotMinutes: 120 },
-  { value: '30d', label: '30d', slotMinutes: 720 },
+  { value: '1d', label: t('24h'), slotMinutes: 30 },
+  { value: '7d', label: t('7d'), slotMinutes: 120 },
+  { value: '30d', label: t('30d'), slotMinutes: 720 },
 ]
 // Empty, then four steps of the busiest cell, GitHub-style. Shades are themed
 // in index.css (--color-heatmap-*).
@@ -27,7 +28,7 @@ const day = (d: Date) =>
   d.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' })
 const span = (c: HeatCell) => `${day(c.start)} ${time(c.start)}–${time(c.end)}`
 const slotLabel = (minutes: number) =>
-  minutes < 60 ? `${String(minutes)} min` : `${String(minutes / 60)} h`
+  minutes < 60 ? t('{n} min', { n: minutes }) : t('{n} h', { n: minutes / 60 })
 
 type Hover = { el: Element; name: string; cell: HeatCell }
 
@@ -64,7 +65,7 @@ function CellTooltip({
                 <div className="px-1 text-main">{hover.name}</div>
                 <div className="mb-1 px-1 text-tertiary">{span(hover.cell)}</div>
                 {hover.cell.sessions.length === 0 ? (
-                  <div className="px-1 text-tertiary">No agents running</div>
+                  <div className="px-1 text-tertiary">{t('No agents running')}</div>
                 ) : (
                   <div className="space-y-px">
                     {hover.cell.sessions.slice(0, MAX_TITLES).map((s) => (
@@ -73,13 +74,13 @@ function CellTooltip({
                         onClick={() => onOpenSession?.(s.id, s.title)}
                         className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:bg-zGray-800/60"
                       >
-                        <AgentProviderIcon provider={s.runtime} className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{s.title || 'Untitled agent'}</span>
+                        <AgentAvatar agentId={s.id} provider={s.runtime} size={14} />
+                        <span className="truncate">{s.title || t('Untitled agent')}</span>
                       </BaseButton>
                     ))}
                     {hover.cell.sessions.length > MAX_TITLES && (
                       <div className="px-1 text-tertiary">
-                        and {hover.cell.sessions.length - MAX_TITLES} more
+                        {t('and {n} more', { n: hover.cell.sessions.length - MAX_TITLES })}
                       </div>
                     )}
                   </div>
@@ -153,8 +154,10 @@ export function TeamActivityCard({
     <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
       <div className="home-card-drag cursor-grab active:cursor-grabbing mb-3 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
-        <span>Team activity</span>
-        <span className="text-tertiary">· {slotLabel(slotMinutes)} per cell</span>
+        <span>{t('Team activity')}</span>
+        <span className="text-tertiary">
+          · {t('{slot} per cell', { slot: slotLabel(slotMinutes) })}
+        </span>
         <div className="ml-auto flex items-center gap-0.5 rounded-md bg-zGray-800/40 p-0.5">
           {RANGES.map((r) => (
             <BaseButton
@@ -210,11 +213,11 @@ export function TeamActivityCard({
             </div>
           </div>
           <div className="flex flex-none items-center justify-end gap-1 pt-1 text-[10.5px] text-tertiary">
-            <span>Less</span>
+            <span>{t('Less')}</span>
             {LEVELS.map((cls) => (
               <span key={cls} className={clsx('h-2.5 w-2.5 rounded-[2px]', cls)} />
             ))}
-            <span>More</span>
+            <span>{t('More|heatmap')}</span>
           </div>
           <CellTooltip
             hover={hover}

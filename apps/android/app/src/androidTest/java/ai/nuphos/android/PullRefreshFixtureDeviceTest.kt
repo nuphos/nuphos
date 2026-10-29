@@ -297,7 +297,7 @@ class PullRefreshFixtureDeviceTest {
         pull(); compose.waitUntil(5_000) { historyReads() > reads }; settled()
         compose.runOnIdle { store.updateScope(ConversationScope.Team); searching.value = true }
         compose.onNodeWithText("Search agents").performTextInput("needle")
-        compose.onNodeWithText("Archived").performClick()
+        compose.runOnIdle { store.updateArchivedOnly(true) }
         hideKeyboard()
         waitText("No matches")
         // Let the debounced search finish before measuring a manual refresh.

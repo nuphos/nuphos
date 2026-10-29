@@ -8,8 +8,18 @@ import type { WebContents } from 'electron'
 
 let token: Promise<string> = Promise.resolve('fixture')
 
-mock.module('./atlas/client.ts', { namedExports: { readToken: () => token } })
-mock.module('./api-endpoint.ts', { namedExports: { apiUrl: () => 'https://backend.test' } })
+mock.module('./account-request.ts', {
+  namedExports: {
+    signedIn: async () => ({
+      epoch: 1,
+      api: 'https://backend.test',
+      token: await token,
+      userId: 'u1',
+      signal: new AbortController().signal,
+    }),
+    stillCurrent: () => undefined,
+  },
+})
 const { RuntimeTerminalSessions, runtimeTerminals } = await import('./runtime-terminal.ts')
 const original = globalThis.WebSocket
 const sockets: FakeSocket[] = []
@@ -116,8 +126,8 @@ test('authentication transitions close existing runtime sockets', async () => {
 
   socket.frame({ type: 'ready', label: 'Runtime' })
   await pending
-  authSession.set('different-auth-session')
+  authSession.set('different-auth-session', 'u2')
   assert.equal(socket.closed, true)
   assert.equal(runtimeTerminals.describe(host.value, 'auth-tab'), undefined)
-  authSession.set(null)
+  authSession.set(null, null)
 })

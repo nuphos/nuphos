@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
@@ -36,7 +37,6 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.MonitorHeart
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,7 +51,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -68,6 +67,17 @@ import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.material3.Checkbox
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
@@ -379,26 +389,13 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    // A tonal pill with a chevron, so the workspace name reads as a
-                    // switcher rather than a static title.
-                    TextButton(
-                        onClick = { showWorkspaces = true },
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        contentPadding = PaddingValues(start = 14.dp, end = 8.dp),
-                    ) {
-                        Text(
-                            store.selectedTeam?.name ?: "Choose workspace",
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        Spacer(Modifier.width(2.dp))
-                        Icon(Icons.Outlined.ExpandMore, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
+                    PageSwitcher(selected = current, onSelect = {
+                        if (it != current) {
+                            if (current == HomePage.Agent) store.updateSearch("")
+                            if (current == HomePage.Plans) plans.search = ""
+                            page = it.route; searching = false
+                        }
+                    })
                     DropdownMenu(showWorkspaces, onDismissRequest = { showWorkspaces = false }) {
                         store.teams.forEach { team ->
                             DropdownMenuItem(text = { Text(team.name) }, onClick = {
@@ -413,7 +410,7 @@ fun HomeScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
                     if (current == HomePage.Agent || current == HomePage.Plans) {
-                        IconButton(onClick = { searching = !searching }) {
+                        IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
                             Icon(Icons.Outlined.Search, contentDescription = "Search")
                         }
                         FilterButton(current)
@@ -438,20 +435,6 @@ fun HomeScreen(
                 .padding(padding)
                 .consumeWindowInsets(padding),
         ) {
-            Text(
-                current.title,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            PageSwitcher(
-                selected = current,
-                onSelect = {
-                    page = it.route
-                    searching = false
-                },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
             if (store.selectedTeam == null && store.teamsPhase == AgentStore.Phase.Loaded) {
                 Column(Modifier.fillMaxWidth().weight(1f).padding(20.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
@@ -461,6 +444,7 @@ fun HomeScreen(
             } else AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
                     HomePage.Agent -> AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
+                    HomePage.Runtimes -> ai.nuphos.android.ui.agent.RuntimesPage()
                     HomePage.Plans -> PlansPage(searching = searching, onSearchingChange = { searching = it }, nav = nav)
                     HomePage.Connectors -> ConnectorsPage()
                     HomePage.Monitoring -> MonitoringPage(monitoring, store.selectedTeam?.id, onOpenConnectors = { page = HomePage.Connectors.route })
@@ -473,34 +457,50 @@ fun HomeScreen(
     }
     if (showSetup) WorkspaceSetupSheet(setup) { showSetup = false }
     if (showProfile) {
-        ProfileSheet(user = user, onDismiss = { showProfile = false })
+        ProfileSheet(user = user, onDismiss = { showProfile = false }, workspaceName = store.selectedTeam?.name, onWorkspace = { showProfile = false; showWorkspaces = true })
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PageSwitcher(
+internal fun PageSwitcher(
     selected: HomePage,
     onSelect: (HomePage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-    ) {
-        HomePage.entries.forEachIndexed { index, page ->
-            val shapes = when (index) {
-                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                HomePage.entries.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-            }
-            ToggleButton(
-                checked = selected == page,
-                onCheckedChange = { onSelect(page) },
-                shapes = shapes,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(page.icon(selected == page), contentDescription = page.title, modifier = Modifier.size(18.dp))
+    var expanded by remember { mutableStateOf(false) }
+    val anchorFocus = remember { FocusRequester() }
+    var restoreFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) {
+        if (!expanded && restoreFocus) {
+            androidx.compose.runtime.withFrameNanos { }
+            anchorFocus.requestFocus()
+            restoreFocus = false
+        }
+    }
+    fun dismiss() { restoreFocus = true; expanded = false }
+    Box(modifier) {
+        TextButton(
+            onClick = { expanded = true },
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+            modifier = Modifier.heightIn(min = 48.dp).focusRequester(anchorFocus).testTag("home-page-switcher")
+                .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+        ) {
+            Text(selected.title, style = MaterialTheme.typography.headlineSmall,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Outlined.ExpandMore, contentDescription = null)
+        }
+        DropdownMenu(expanded, onDismissRequest = ::dismiss, modifier = Modifier.testTag("home-page-menu")) {
+            HomePage.entries.forEach { page ->
+                DropdownMenuItem(
+                    text = { Text(page.title) },
+                    modifier = Modifier.testTag("home-page-${page.route}").semantics { this.selected = selected == page },
+                    leadingIcon = {
+                        if (selected == page) Icon(Icons.Outlined.Check, contentDescription = null)
+                        else Spacer(Modifier.size(24.dp))
+                    },
+                    onClick = { dismiss(); onSelect(page) },
+                )
             }
         }
     }
@@ -508,6 +508,7 @@ private fun PageSwitcher(
 
 private fun HomePage.icon(selected: Boolean): ImageVector = when (this) {
     HomePage.Agent -> if (selected) Icons.Rounded.AutoAwesome else Icons.Outlined.AutoAwesome
+    HomePage.Runtimes -> Icons.Outlined.Computer
     HomePage.Monitoring -> if (selected) Icons.Rounded.MonitorHeart else Icons.Outlined.MonitorHeart
     HomePage.Triggers -> if (selected) Icons.Rounded.Bolt else Icons.Outlined.Bolt
     HomePage.Plans -> if (selected) Icons.Rounded.Assignment else Icons.Outlined.Assignment
@@ -519,8 +520,9 @@ internal fun FilterButton(page: HomePage) {
     val store = LocalAgentStore.current
     val plans = LocalPlansStore.current
     var expanded by remember { mutableStateOf(false) }
+    val active = if (page == HomePage.Agent) store.scope != ConversationScope.Mine || store.archivedOnly || store.sort != ConversationSort.Created else plans.showDismissed
     Box {
-        IconButton(onClick = { expanded = true }) {
+        IconButton(onClick = { expanded = true }, modifier = Modifier.testTag("home-filter").semantics { stateDescription = if (active) "Filters applied" else "Default filters" }) {
             Icon(
                 if ((page == HomePage.Agent && (store.scope != ConversationScope.Mine || store.archivedOnly || store.sort != ConversationSort.Created)) ||
                     (page == HomePage.Plans && plans.showDismissed)
@@ -532,10 +534,14 @@ internal fun FilterButton(page: HomePage) {
             if (page == HomePage.Agent) {
                 DropdownMenuItem(
                     text = { Text("My agents") },
+                    modifier = Modifier.semantics { selected = store.scope == ConversationScope.Mine },
+                    leadingIcon = { if (store.scope == ConversationScope.Mine) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp)) },
                     onClick = { store.updateScope(ConversationScope.Mine); expanded = false },
                 )
                 DropdownMenuItem(
                     text = { Text("Team agents") },
+                    modifier = Modifier.semantics { selected = store.scope == ConversationScope.Team },
+                    leadingIcon = { if (store.scope == ConversationScope.Team) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp)) },
                     onClick = { store.updateScope(ConversationScope.Team); expanded = false },
                 )
                 HorizontalDivider()
@@ -551,6 +557,16 @@ internal fun FilterButton(page: HomePage) {
                         onClick = { store.updateSort(order); expanded = false },
                     )
                 }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Archived") },
+                    modifier = Modifier.testTag("filter-archived").semantics {
+                        toggleableState = if (store.archivedOnly) ToggleableState.On else ToggleableState.Off
+                        role = Role.Checkbox
+                    },
+                    leadingIcon = { Checkbox(store.archivedOnly, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics { }) },
+                    onClick = { store.updateArchivedOnly(!store.archivedOnly); expanded = false },
+                )
             } else {
                 DropdownMenuItem(
                     text = { Text("Show dismissed") },

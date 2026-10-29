@@ -4,12 +4,19 @@ import Foundation
 struct RuntimeObservationTests {
     static func main() throws {
         try BotAvatarTests.run()
+        LiveActivityCardTests.run()
+        ResumeFallbackTests.run()
         func snapshot(_ json: String, at time: Double) -> RuntimeObservation {
             RuntimeObservation(snapshot: JSONValue.parse(json)!, observedAt: time)
         }
         let working = snapshot(#"{"schemaVersion":2,"epoch":"a","revision":4,"state":"active","phase":"running_tools","label":"Running tools…","actions":{"send":false,"cancel":true,"steer":true,"reply":false}}"#, at: 100)
         precondition(working.executing(at: 101) && working.allows("steer", at: 101))
         precondition(!working.allows("send", at: 101))
+        // A busy current runtime still takes a message into the session queue;
+        // only one too old to report its state is not waited on.
+        precondition(working.mayAcceptLater)
+        precondition(snapshot(#"{"state":"disconnected"}"#, at: 100).mayAcceptLater)
+        precondition(!snapshot(#"{"state":"active"}"#, at: 100).mayAcceptLater)
         precondition(!working.executing(at: 112) && !working.allows("steer", at: 112))
         precondition(working.status(at: 112) == "Connection lost — runtime status unavailable")
         precondition(!working.fresh(at: 99))
@@ -169,6 +176,7 @@ struct RuntimeObservationTests {
         LocalAgentTests.run()
         ImageAttachmentTests.run()
         PastedFileTests.run()
+        SignInSessionsTests.run()
     }
 
     /// Another device starts a turn: this one moves to the new run, and the

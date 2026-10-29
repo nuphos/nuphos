@@ -22,7 +22,12 @@ const computer = (extra: Partial<AgentDevice> = {}): AgentDevice => ({
 
 function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?: string } = {}) {
   const device = options.device ?? computer()
-  const calls: { set?: LocalAgentShare | null; revoked?: string[]; dropped?: string[] }[] = []
+  const calls: {
+    set?: LocalAgentShare | null
+    revoked?: string[]
+    dropped?: string[]
+    settled?: string
+  }[] = []
   const deps: DeviceShareRouteDependencies = {
     access: {
       getDevice: async (userId) => (userId === device.userId ? device : null),
@@ -45,7 +50,18 @@ function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?
     dropApprovals: async (_owner, _device, _team, actorIds) => {
       calls.push({ dropped: actorIds })
     },
-    pendingApprovals: async () => [],
+    pendingApprovals: async () => [
+      {
+        _id: 'waiting',
+        ownerId: 'owner',
+        deviceId: 'mac',
+        teamId: TEAM,
+        sessionId: 's1',
+        actorId: 'mate',
+        status: 'pending',
+        requestedAt: new Date(0),
+      },
+    ],
     decide: async (_owner, approvalId, approve) =>
       approvalId === 'known'
         ? {
@@ -56,6 +72,23 @@ function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?
             sessionId: 's1',
             actorId: 'mate',
             status: approve ? 'approved' : 'denied',
+            requestedAt: new Date(0),
+          }
+        : null,
+    settleQueue: async (approval) => {
+      calls.push({ settled: `${approval.sessionId}:${approval.status}` })
+    },
+    conversationTitles: async () => new Map([['s1', 'Today’s weather']]),
+    ownApproval: async (sessionId, actorId) =>
+      sessionId === 's1' && actorId === 'mate'
+        ? {
+            _id: 'waiting',
+            ownerId: 'owner',
+            deviceId: 'mac',
+            teamId: TEAM,
+            sessionId: 's1',
+            actorId: 'mate',
+            status: 'pending',
             requestedAt: new Date(0),
           }
         : null,
@@ -145,8 +178,8 @@ test('reads the current share and the ceiling', async () => {
   })
 })
 
-test('an approval is answered once', async () => {
-  const { server } = app()
+test('an approval is answered once, and starts what waited for it', async () => {
+  const { server, calls } = app()
   const answer = (approvalId: string) =>
     server.request(`/devices/share-approvals/${approvalId}`, {
       method: 'POST',
@@ -156,4 +189,33 @@ test('an approval is answered once', async () => {
 
   expect(await (await answer('known')).json()).toEqual({ id: 'known', status: 'approved' })
   expect((await answer('gone')).status).toBe(404)
+  expect(calls).toEqual([{ settled: 's1:approved' }])
+})
+
+test('the owner sees which conversation asks', async () => {
+  const { server } = app()
+  const response = await server.request(`/devices/share-approvals?teamId=${TEAM}`)
+
+  expect(((await response.json()) as { approvals: unknown }).approvals).toEqual([
+    {
+      id: 'waiting',
+      deviceId: 'mac',
+      deviceLabel: 'Mac',
+      sessionId: 's1',
+      title: 'Today’s weather',
+      actorId: 'mate',
+      requestedAt: new Date(0).toISOString(),
+    },
+  ])
+})
+
+test('the requester sees whether their own conversation still waits', async () => {
+  const status = async (userId: string, sessionId: string) =>
+    (await (
+      await app({ userId }).server.request(`/devices/share-approvals/mine?sessionId=${sessionId}`)
+    ).json()) as { status: string | null }
+
+  expect(await status('mate', 's1')).toEqual({ status: 'pending' })
+  expect(await status('other', 's1')).toEqual({ status: null })
+  expect(await status('mate', 's2')).toEqual({ status: null })
 })

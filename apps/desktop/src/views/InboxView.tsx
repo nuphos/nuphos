@@ -9,6 +9,8 @@ import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 
 import { nextSelection } from './inbox/inboxItems'
+import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
+import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { AgentConversation } from '../api'
 
@@ -28,7 +30,8 @@ type Props = {
 }
 
 /**
- * Every conversation waiting on the viewer, beside the one being answered —
+ * Teammates asking to use the viewer's own computer, above every conversation
+ * waiting on the viewer, beside the one being answered —
  * the Chats reader's own list and panel, listing only `pendingDecision`. The
  * answer is typed into that conversation's composer; the human turn clears
  * the decision (#565) and the next listing moves on.
@@ -55,6 +58,7 @@ export function InboxView({
     setItems(null)
     setSelected(null)
   }
+  const shareApprovals = useShareApprovals(teamId)
   const railRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
 
@@ -140,57 +144,61 @@ export function InboxView({
   }, [isActive, twoPane])
 
   const empty = items !== null && items.length === 0 && !query
+  const caughtUp = empty && shareApprovals.approvals.length === 0
 
   return (
-    <div ref={ref} className="flex min-h-0 flex-1">
-      {empty && (
-        <EmptyState
-          icon={Inbox}
-          title="You're all caught up"
-          description="When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox."
-        />
-      )}
-      {/* Mounted while empty too: its refetch is what brings the next question in. */}
-      <div
-        ref={railRef}
-        className={clsx(
-          'flex h-full min-h-0 flex-col',
-          empty && 'hidden',
-          twoPane ? 'flex-shrink-0 border-r border-zGray-800/70' : 'min-w-0 flex-1',
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ShareApprovalRequests teamId={teamId} {...shareApprovals} />
+      <div ref={ref} className="flex min-h-0 flex-1">
+        {caughtUp && (
+          <EmptyState
+            icon={Inbox}
+            title="You're all caught up"
+            description="When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox."
+          />
         )}
-        style={twoPane ? { width: RAIL_WIDTH } : undefined}
-      >
-        <AgentHistoryPage
-          teamId={teamId}
-          refreshKey={refreshKey + tick}
-          query={query}
-          openingSessionId={null}
-          selectedSessionId={twoPane ? (selected?.sessionId ?? null) : null}
-          layout="rail"
-          pendingDecision
-          historyScope="mine"
-          onOpenConversation={(sessionId) =>
-            twoPane ? select(sessionId, items ?? []) : onOpenConversation(sessionId)
-          }
-          onListLoaded={onListLoaded}
-          keyboardNavigation={isActive && twoPane}
-        />
-      </div>
-      {twoPane && !empty && (
-        <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
-          {selected && (
-            <AgentPanel
-              key="inbox"
-              variant="page"
-              open
-              focusComposerOnOpen={false}
-              teamId={teamId}
-              sessionId={selected.sessionId}
-              onSessionChange={(sessionId) => select(sessionId, items ?? [])}
-            />
+        {/* Mounted while empty too: its refetch is what brings the next question in. */}
+        <div
+          ref={railRef}
+          className={clsx(
+            'flex h-full min-h-0 flex-col',
+            empty && 'hidden',
+            twoPane ? 'flex-shrink-0 border-r border-zGray-800/70' : 'min-w-0 flex-1',
           )}
+          style={twoPane ? { width: RAIL_WIDTH } : undefined}
+        >
+          <AgentHistoryPage
+            teamId={teamId}
+            refreshKey={refreshKey + tick}
+            query={query}
+            openingSessionId={null}
+            selectedSessionId={twoPane ? (selected?.sessionId ?? null) : null}
+            layout="rail"
+            pendingDecision
+            historyScope="mine"
+            onOpenConversation={(sessionId) =>
+              twoPane ? select(sessionId, items ?? []) : onOpenConversation(sessionId)
+            }
+            onListLoaded={onListLoaded}
+            keyboardNavigation={isActive && twoPane}
+          />
         </div>
-      )}
+        {twoPane && !empty && (
+          <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
+            {selected && (
+              <AgentPanel
+                key="inbox"
+                variant="page"
+                open
+                focusComposerOnOpen={false}
+                teamId={teamId}
+                sessionId={selected.sessionId}
+                onSessionChange={(sessionId) => select(sessionId, items ?? [])}
+              />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

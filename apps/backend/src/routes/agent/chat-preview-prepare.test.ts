@@ -137,7 +137,6 @@ test("the user's own words are the prompt's text; their header ends the lead", (
     resume: null,
     inputs: [attributed('m1', '/goal tests pass', 'alice')],
     carried: 'Someone sent this while you were still working: <bob>',
-    recall: '<memory>x</memory>',
   })
 
   expect(text).toBe('/goal tests pass')
@@ -147,7 +146,6 @@ test("the user's own words are the prompt's text; their header ends the lead", (
   expect(parts.at(-1)).toContain('"id":"alice"')
   expect(lead()).not.toContain('/goal')
   expect(lead().indexOf('<bob>')).toBeLessThan(lead().indexOf(header('m1')))
-  expect(lead().indexOf('<memory>')).toBeLessThan(lead().indexOf(header('m1')))
 })
 
 test('earlier inputs of the turn stay attributed in the lead', () => {
@@ -181,12 +179,11 @@ test('a resume prompts its own words with no turn messages', () => {
     resume: 'Carry on',
     inputs: [attributed('m1', 'old task', 'alice')],
     turnContext: 'ctx',
-    carried: '',
-    recall: '<memory>x</memory>',
+    carried: '<bob>',
   })
 
   expect(text).toBe('Carry on')
-  expect(lead()).toBe('<memory>x</memory>')
+  expect(lead()).toBe('<bob>')
 })
 
 test('an image-only message has no text of its own', () => {

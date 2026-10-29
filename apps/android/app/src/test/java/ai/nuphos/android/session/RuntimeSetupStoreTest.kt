@@ -24,6 +24,36 @@ class RuntimeSetupStoreTest {
         override suspend fun cancel(runtimeId: String, attemptId: String) { cancels++ }
     }
     private fun fixture() = Fixture(runtime, attempt)
+    @Test fun reopeningRequiresFreshCatalogAcknowledgmentAndRejectsRemovedRuntime() = runTest {
+        val api = fixture()
+        var gate: CompletableDeferred<Unit>? = null
+        val transport = object : RuntimeTransport by api {
+            override suspend fun catalog(): List<AgentRuntime> { gate?.await(); return api.catalog() }
+        }
+        val selection = RuntimeSelections().bind("a", "t")
+        val store = RuntimeSetupStore(transport, this, { true }, { true }, selection, {})
+        store.open(); advanceUntilIdle()
+        val firstRevision = store.state.catalogRevision
+        assertTrue(store.state.catalogLoaded)
+        store.close()
+        assertFalse(store.state.catalogLoaded)
+        gate = CompletableDeferred(); api.catalog = emptyList()
+        store.open(); runCurrent()
+        assertFalse(store.state.catalogLoaded)
+        assertEquals(firstRevision, store.state.catalogRevision)
+        assertFalse(store.focusSignIn(runtime.id))
+        assertEquals(runtime, selection.catalog.single()) // Cached data cannot authorize entry.
+        gate!!.complete(Unit); advanceUntilIdle()
+        assertTrue(store.state.catalogLoaded)
+        assertTrue(store.state.catalogRevision > firstRevision)
+        assertTrue(selection.catalog.isEmpty())
+        assertFalse(store.focusSignIn(runtime.id))
+        store.close(); api.readError = IOException("fresh read failed")
+        store.open(); advanceUntilIdle()
+        assertFalse(store.state.catalogLoaded)
+        assertFalse(store.focusSignIn(runtime.id))
+        store.close()
+    }
     @Test fun detailSigninFocusPreservesDefaultAndNeverFallsBackWhenTargetDisappears() = runTest {
         val api = fixture(); val other = runtime.copy(id = "external", kind = "external")
         api.catalog = listOf(runtime, other)

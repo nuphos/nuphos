@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { archiveChat } from '../../../lib/archiveChat'
 import { announceChatArchived, announceChatUnarchived } from '../../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../../lib/chatTitleEvents'
@@ -150,7 +151,7 @@ export function AgentHistoryPage({
       })
       .catch((err: unknown) => {
         if (requestIdRef.current !== requestId) return
-        toast.apiError('Failed to load agent history', err)
+        toast.apiError(t('Failed to load agent history'), err)
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setLoading(false)
@@ -185,7 +186,7 @@ export function AgentHistoryPage({
       setNextPage(page.hasMore && page.nextCursor ? { cursor: page.nextCursor, requestId } : null)
     } catch (err) {
       if (requestIdRef.current === requestId) {
-        toast.apiError('Failed to load more agents', err)
+        toast.apiError(t('Failed to load more agents'), err)
       }
     } finally {
       loadMoreInFlightRef.current = false
@@ -199,12 +200,12 @@ export function AgentHistoryPage({
   // conversations, so the row leaves at once; Undo restores it and puts it
   // back where it was rather than waiting for the next listing.
   async function archiveConversation(conversation: AgentConversation) {
-    const label = conversation.title || conversation.firstMessage || 'Untitled agent'
+    const label = conversation.title || conversation.firstMessage || t('Untitled agent')
 
     try {
       await archiveChat(conversation.sessionId, teamId)
     } catch (err) {
-      toast.apiError('Could not archive agent', err)
+      toast.apiError(t('Could not archive agent'), err)
 
       return
     }
@@ -219,9 +220,11 @@ export function AgentHistoryPage({
       return prev.filter((c) => c.sessionId !== conversation.sessionId)
     })
     announceChatArchived({ sessionId: conversation.sessionId, teamId })
-    toast.success('Agent archived', `"${label}" is still available in the Agent history.`, {
+    const detail = t('"{label}" is still available in the Agent history.', { label })
+
+    toast.success(t('Agent archived'), detail, {
       action: {
-        label: 'Undo',
+        label: t('Undo'),
         onClick: () => {
           void api
             .agentSetConversationArchived(conversation.sessionId, false, teamId)
@@ -229,7 +232,7 @@ export function AgentHistoryPage({
               setItems((prev) => prev.toSpliced(index, 0, conversation))
               announceChatUnarchived(conversation.sessionId)
             })
-            .catch((err: unknown) => toast.apiError('Could not restore agent', err))
+            .catch((err: unknown) => toast.apiError(t('Could not restore agent'), err))
         },
       },
     })
@@ -285,7 +288,7 @@ export function AgentHistoryPage({
               sentinelRef={sentinelRef}
               loadingMore={loadingMore}
               loadMore={loadMore}
-              emptyLabel={triggerIds ? "This trigger hasn't run yet." : undefined}
+              emptyLabel={triggerIds ? t("This trigger hasn't run yet.") : undefined}
               onOpenConversation={onOpenConversation}
               onArchive={archiveConversation}
             />

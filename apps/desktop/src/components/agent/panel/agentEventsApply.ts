@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { runtimeStateOf } from '../../../lib/agentRuntimeStates'
 import { trackError } from '../../../lib/analytics'
 import { toast } from '../../ui/toast'
@@ -15,6 +16,15 @@ import type { PanelCtx } from './ctx'
 // per refused send, only in the window that owns the tab — and the setTabs
 // updater can run twice in StrictMode dev. Keyed by streamId (one per send).
 const busyNoticeShownForStream = new Set<string>()
+
+// Module-level: the tab callbacks below shadow `t`.
+const BUSY_TITLE = t('Agent is replying in Slack')
+const BUSY_DETAIL = t(
+  'The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.',
+)
+const WAITING_FOR_APPROVAL = t('Waiting for approval')
+const RUNTIME_NOT_READY_TITLE = t("The runtime isn't ready yet")
+const RUNTIME_NOT_READY_DETAIL = t('Your message was not sent. Send it again.')
 
 export function applyStreamEvent(
   ctx: Pick<PanelCtx, 'flushTextBuffer' | 'queueTranscriptSync' | 'setTabs'>,
@@ -75,10 +85,7 @@ export function applyStreamEvent(
         if (!busyNoticeShownForStream.has(streamId)) {
           busyNoticeShownForStream.add(streamId)
           if (busyNoticeShownForStream.size > 200) busyNoticeShownForStream.clear()
-          toast.error(
-            'Agent is replying in Slack',
-            'The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.',
-          )
+          toast.error(BUSY_TITLE, BUSY_DETAIL)
         }
 
         return {
@@ -94,6 +101,11 @@ export function applyStreamEvent(
       }
       if (evType === 'queued') {
         // The server holds the message in its queue: it waits in the queue strip.
+        // A teammate's computer says why: its owner is asked, and approving sends it.
+        if (typeof ev.message === 'string' && !busyNoticeShownForStream.has(streamId)) {
+          busyNoticeShownForStream.add(streamId)
+          toast.info(WAITING_FOR_APPROVAL, ev.message)
+        }
         const nextTab = showTurnQueued(t, dispatchedDraft(streamId))
 
         queueTranscriptSync(nextTab, 250)
@@ -105,7 +117,7 @@ export function applyStreamEvent(
         // message stays where it is; the person sends it again.
         if (!busyNoticeShownForStream.has(streamId)) {
           busyNoticeShownForStream.add(streamId)
-          toast.error("The runtime isn't ready yet", 'Your message was not sent. Send it again.')
+          toast.error(RUNTIME_NOT_READY_TITLE, RUNTIME_NOT_READY_DETAIL)
         }
 
         return showTurnQueued(t, undefined)

@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentConversations } from '@/lib/agent/db/shared'
-import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { QUICK_TIMEOUT_MS, connection } from '@/lib/agent/devices/box-instabox-client'
+import { runOnRunningMachine } from '@/lib/agent/devices/instabox-machines'
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { getAgentDevice } from '@/lib/agent/devices/store'
 import { logError, logEvent } from '@/lib/observability'
 
 import { controlRegistry } from './agent-chat-registry'
@@ -11,6 +14,7 @@ import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { conversationExecutionState } from './session-execution-state'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
+import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { Filter } from 'mongodb'
 
 // Removes the conversation's CLI homes that apps/runtime/image/session-home.mjs
@@ -48,8 +52,14 @@ const userProcesses = async () => {
     for (let at = pid; at && at !== '0'; at = parent.get(at)) if (at === root) return true;
     return false;
   };
+  // This job and the processes that launched it (instabox exec's sshd-session on a
+  // Box, whose environ is unreadable) run no session, so they never keep a home.
+  const own = new Set();
+  for (let at = String(process.pid); at && at !== '0'; at = parent.get(at)) own.add(at);
   const found = [];
-  for (const pid of parent.keys()) if (await sameUser(pid)) found.push([pid, descends(pid)]);
+  for (const pid of parent.keys()) {
+    if (!own.has(pid) && (await sameUser(pid))) found.push([pid, descends(pid)]);
+  }
   return found;
 };
 // HOME is matched by the original path; a working directory follows the
@@ -103,6 +113,13 @@ for (const name of [id, ...teammates]) results.push(await reclaim(path.join(home
 done(results.includes('in_use') ? 'in_use' : results.includes('removed') ? 'removed' : 'absent');
 `
 
+// The panel job's layout (runner.mjs and params.json in one directory) on a Box over
+// instabox exec. The program and its params arrive as environment, never in the command.
+const BOX_RECLAIM_COMMAND =
+  'd=$(mktemp -d) && printf "%s" "$RECLAIM_RUNNER" > "$d/runner.mjs" && ' +
+  'printf "%s" "$RECLAIM_PARAMS" > "$d/params.json" && node "$d/runner.mjs" "$d"; ' +
+  's=$?; rm -rf "$d"; exit $s'
+
 const RETRY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 // Conversations whose home is no longer needed: archived ones, and trigger runs
@@ -150,8 +167,8 @@ const RECLAIM_PROJECTION = {
 /**
  * Removes a reclaimable conversation's CLI home once the runtime reports no live
  * session for it. Returns false to have a later sweep retry: still reclaimable
- * but in use, or the runtime is unreachable right now. Agents on someone's own
- * computer are not reached; their disk is theirs.
+ * but in use, or the runtime is unreachable right now. A Box is reached over
+ * instabox; agents on someone's own computer are not, their disk is theirs.
  */
 export async function reclaimSessionHome(sessionId: string, now = new Date()): Promise<boolean> {
   // Re-read now: the sweep can run long, and a restored or resumed conversation keeps its home.
@@ -163,7 +180,10 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
   if (!conversation) return false
   const { teamId, runtimeId, agentRuntime: provider = 'claude-code' } = conversation
 
-  if (!teamId || !runtimeId || isLocalRuntimeId(runtimeId)) return true
+  if (!teamId || !runtimeId) return true
+  const local = parseLocalRuntimeId(runtimeId)
+
+  if (local) return reclaimBoxSessionHome(local, sessionId)
   const endpoint =
     runtimeId === `development-${provider}`
       ? developmentRuntimeEndpoint(provider, 'control')
@@ -196,7 +216,27 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
   if (result.timedOut || result.exitCode !== 0 || typeof result.stdout !== 'string')
     throw new Error(`Reclaiming the session home failed: ${JSON.stringify(result)}`)
 
-  const outcome = JSON.parse(result.stdout) as { result?: string; unreadable?: string }
+  return reclaimed(result.stdout, sessionId)
+}
+
+/** A Box is a machine we run, so its homes go too; one that is not running is retried later. */
+async function reclaimBoxSessionHome({ userId, deviceId }: LocalRuntimeRef, sessionId: string) {
+  const sandboxId = (await getAgentDevice(userId, deviceId))?.box?.sandboxId
+
+  if (!sandboxId) return true
+  const stdout = await runOnRunningMachine(
+    connection(QUICK_TIMEOUT_MS),
+    sandboxId,
+    BOX_RECLAIM_COMMAND,
+    { RECLAIM_RUNNER: RECLAIM_SESSION_HOME_PROGRAM, RECLAIM_PARAMS: JSON.stringify({ sessionId }) },
+  )
+
+  return stdout !== undefined && reclaimed(stdout, sessionId)
+}
+
+/** Reads the program's report: false keeps the home for a later sweep. */
+function reclaimed(stdout: string, sessionId: string): boolean {
+  const outcome = JSON.parse(stdout) as { result?: string; unreadable?: string }
 
   // Kept because a process could not be inspected; a host where this repeats
   // never reclaims anything.

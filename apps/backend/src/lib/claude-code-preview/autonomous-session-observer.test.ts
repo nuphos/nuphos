@@ -115,6 +115,38 @@ describe('autonomous Claude session observation', () => {
     expect(seen).toEqual(['status', 'text', 'interrupted'])
   })
 
+  test('a CLI that died between turns is reported once', async () => {
+    const seen: string[] = []
+
+    setClaudeCodeAutonomousUpdateHandler((event) => {
+      seen.push(event.update.kind)
+    })
+    const harness = sessionHarness()
+    const death = {
+      kind: 'interrupted' as const,
+      reason: 'connection_closed',
+      message: 'Out of memory.',
+    }
+
+    // The last turn finished; only background work was left running.
+    harness.emit({ kind: 'status', status: 'active' })
+    harness.emit({ kind: 'text', text: 'Waiting on 3 background agents.' })
+    harness.emit({ kind: 'status', status: 'idle' })
+    harness.emit({ kind: 'status', status: 'interrupted' })
+    harness.emit(death)
+    await Bun.sleep(0)
+    expect(seen).toEqual(['status', 'text', 'complete', 'interrupted'])
+
+    // When a bare interruption already closed the open turn, the cause adds no second notice.
+    seen.length = 0
+    harness.emit({ kind: 'status', status: 'active' })
+    harness.emit({ kind: 'text', text: 'Working…' })
+    harness.emit({ kind: 'status', status: 'interrupted' })
+    harness.emit(death)
+    await Bun.sleep(0)
+    expect(seen).toEqual(['status', 'text', 'interrupted'])
+  })
+
   test('ignores an ordinary prompt usage update when no autonomous content started', () => {
     let calls = 0
 

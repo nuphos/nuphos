@@ -5,6 +5,14 @@ import { requestLog } from './request-log'
 
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 
+import type { MiddlewareHandler } from 'hono'
+
+// Stands in for the auth middleware, which sets userId inside next().
+const signIn: MiddlewareHandler = async (c, next) => {
+  c.set('userId', 'user-1')
+  await next()
+}
+
 function buildApp(lines: Record<string, unknown>[]) {
   const app = new Hono()
 
@@ -20,6 +28,7 @@ function buildApp(lines: Record<string, unknown>[]) {
     })
   })
   app.get('/ok', (c) => c.json({ ok: true }))
+  app.post('/signed-in', signIn, (c) => c.json({ ok: true }))
   app.notFound(notFoundHandler)
   app.onError(errorHandler)
 
@@ -50,4 +59,14 @@ test('unknown routes log route_not_found; successes log no error code', async ()
   expect(lines[0]).toMatchObject({ status: 404, error_code: 'route_not_found' })
   expect(lines[1]?.status).toBe(200)
   expect(lines[1]?.error_code).toBeUndefined()
+})
+
+test('a request made by a signed-in user logs who made it', async () => {
+  const lines: Record<string, unknown>[] = []
+  const app = buildApp(lines)
+
+  await app.request('/signed-in', { method: 'POST' })
+  await app.request('/ok')
+  expect(lines[0]).toMatchObject({ path: '/signed-in', status: 200, user_id: 'user-1' })
+  expect(lines[1]?.user_id).toBeUndefined()
 })

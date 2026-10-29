@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { effortLabel } from '../../../lib/configLabels'
 import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
 import { Tooltip } from '../../ui/tooltip'
@@ -108,20 +109,22 @@ export function ModelEffortPanel({
     resetValue && stops.find((stop) => stop.value === resolvedEffort(effort.options, resetValue))
   const resetHint =
     resetValue === effort.currentValue
-      ? 'Already at the default effort'
+      ? t('Already at the default effort')
       : resetLevel
-        ? `Reset to default (${effortLabel(resetLevel)})`
-        : 'Reset to default'
+        ? t('Reset to default ({level})', { level: effortLabel(resetLevel) })
+        : t('Reset to default')
 
   return (
     <div className="relative px-3 pb-3 pt-2.5">
       {fast && (
         <Tooltip
-          content={fastReason?.tooltip ?? (fastOn ? 'Fast mode is on' : 'Fast mode')}
+          content={fastReason?.tooltip ?? (fastOn ? t('Fast mode is on') : t('Fast mode'))}
           triggerClassName="absolute left-1.5 top-1.5"
         >
           <IconButton
-            label={fastReason?.tooltip ?? (fastOn ? 'Turn off fast mode' : 'Turn on fast mode')}
+            label={
+              fastReason?.tooltip ?? (fastOn ? t('Turn off fast mode') : t('Turn on fast mode'))
+            }
             pressed={fastOn}
             disabled={blocked || saving}
             inert={Boolean(fastReason)}
@@ -147,11 +150,11 @@ export function ModelEffortPanel({
       )}
       <div className="flex flex-col items-center">
         <span className="text-sm font-medium text-zOrangered-400">
-          {current ? effortLabel(current) : 'Default'}
+          {current ? effortLabel(current) : t('Default')}
         </span>
         <button
           type="button"
-          aria-label="Select model"
+          aria-label={t('Select model')}
           disabled={!onOpenModels}
           onClick={onOpenModels}
           className={clsx(
@@ -164,7 +167,7 @@ export function ModelEffortPanel({
         </button>
       </div>
       <Slider.Root
-        aria-label="Effort"
+        aria-label={t('Effort')}
         value={Math.max(index, 0)}
         min={0}
         max={Math.max(stops.length - 1, 1)}
@@ -205,7 +208,7 @@ export function ModelEffortPanel({
             ))}
             <Slider.Thumb
               inputRef={sliderRef}
-              getAriaValueText={() => (current ? effortLabel(current) : 'Default')}
+              getAriaValueText={() => (current ? effortLabel(current) : t('Default'))}
               className={clsx(
                 'h-7 w-7 rounded-full border border-black/10 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-zOrangered-400/60',
                 index < 0 && 'opacity-0',

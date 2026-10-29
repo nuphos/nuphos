@@ -11,9 +11,13 @@ export function requestLog(log: typeof logEvent = logEvent): MiddlewareHandler {
       await next()
     } finally {
       const requestId: unknown = c.get('requestId')
+      // Set by the auth middleware inside next(); answers "who did this?" for
+      // actions like pausing a Box, which leave no other record.
+      const userId: unknown = c.get('userId')
 
       log('info', 'http.request', {
         request_id: typeof requestId === 'string' ? requestId : undefined,
+        user_id: typeof userId === 'string' ? userId : undefined,
         method: c.req.method,
         path: c.req.path,
         status: c.res.status,

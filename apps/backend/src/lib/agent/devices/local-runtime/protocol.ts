@@ -169,6 +169,13 @@ export const desktopFrameSchema = z.discriminatedUnion('t', [
     reason: z.string().max(500).optional(),
   }),
   z.object({ t: z.literal('pong') }),
+  // Why the computer gave up its previous tunnel, sent once the new one is open.
+  z.object({
+    t: z.literal('dropped'),
+    reason: z.enum(['idle', 'error', 'closed', 'reconnect']),
+    code: z.number().int().optional(),
+    silentMs: z.number().int().nonnegative(),
+  }),
 ])
 
 export type DesktopFrame = z.infer<typeof desktopFrameSchema>
@@ -207,6 +214,7 @@ export type HolderMessage =
   /** Close what one person opened; the tunnel and everyone else's streams stay. */
   /** Without a team, every team's streams of that person close; with one, only that team's. */
   | { t: 'revoke-actor'; actorId: string; teamId?: string }
+  /** The holder's own echo, proving its subscription still delivers. */
   | { t: 'ping'; conn: string }
   | { t: 'metrics'; conn: string; leaseMs: number }
 

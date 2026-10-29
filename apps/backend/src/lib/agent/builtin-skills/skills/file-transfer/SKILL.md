@@ -60,6 +60,9 @@ bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> <dest-dir>
 If some files are still uploading/failed the script reports them; re-run to
 pick up late arrivals.
 
+The same command pulls a group pushed by one of your sub-agents (or their
+sub-agents), so you can review what a thread produced.
+
 ### Attached images (vision) you need as actual files
 
 Images the user attaches are shown to you as **vision** — you can see them, but

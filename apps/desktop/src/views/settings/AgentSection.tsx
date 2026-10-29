@@ -32,6 +32,7 @@ export function AgentSection({
   refreshKey,
   onCount,
   onLoading,
+  onOpenSettingsSection,
 }: {
   teamId: string
   isAdmin: boolean
@@ -39,6 +40,8 @@ export function AgentSection({
   refreshKey: number
   onCount: (count: number) => void
   onLoading: (loading: boolean) => void
+  /** For the Computers desk's link to set up this computer's agent. */
+  onOpenSettingsSection?: (section: string) => void
 }) {
   const [adding, setAdding] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -125,6 +128,7 @@ export function AgentSection({
                   instances={catalog.instances}
                   onSelect={select}
                   canCreate={isAdmin}
+                  onOpenSettingsSection={onOpenSettingsSection}
                 />
               ),
               usage: instances.length > 0 && (

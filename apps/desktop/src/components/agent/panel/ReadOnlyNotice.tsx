@@ -1,19 +1,20 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ExternalLink, KeyRound, Loader2, WifiOff } from 'lucide-react'
+import { Ban, ExternalLink, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
 import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
+import { t } from '../../../i18n'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { ASK_ADMIN_TO_RECONNECT } from './AgentSetupRequiredCard'
 import { ConversationActivityBadges } from './historyRows'
 import { selectedAgentReachability } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
+import { useShareApprovalWait } from './useShareApprovalWait'
 
 import type { RuntimeControl } from './RuntimeSelector'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
@@ -35,7 +36,7 @@ export function ReadOnlyConversationNotice({
       <span className="min-w-0 truncate text-[13px] text-secondary">
         {label ?? conversationReadOnlyLabel(activitySource, Boolean(slackThread))}
       </span>
-      {slackThread && <span className="sr-only">Use the Open thread button to reply.</span>}
+      {slackThread && <span className="sr-only">{t('Use the Open thread button to reply.')}</span>}
     </div>
   )
 }
@@ -50,7 +51,7 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
     api
       .appOpenExternal(threadUrl)
       .catch((err: unknown) => {
-        toast.apiError('Failed to open Slack thread', err)
+        toast.apiError(t('Failed to open Slack thread'), err)
       })
       .finally(() => setOpening(false))
   }, [opening, threadUrl])
@@ -63,15 +64,15 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
       onClick={openThread}
       disabled={opening}
       className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium disabled:cursor-wait disabled:opacity-60"
-      title="Open the linked Slack thread"
-      aria-label="Open the linked Slack thread"
+      title={t('Open the linked Slack thread')}
+      aria-label={t('Open the linked Slack thread')}
     >
       {opening ? (
         <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
       ) : (
         <FontAwesomeIcon icon={faSlack} className="h-3 w-3" />
       )}
-      <span>Open thread</span>
+      <span>{t('Open thread')}</span>
       <ExternalLink className="h-3 w-3" strokeWidth={1.8} />
     </Button>
   )
@@ -85,37 +86,69 @@ const BANNER = {
     tint: 'bg-warning/10',
   },
   offline: { Icon: WifiOff, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  waiting: {
+    Icon: Hourglass,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+  declined: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
 } as const
 
+type BannerKind = keyof typeof BANNER
+
 function bannerCopy(
-  reachability: 'signIn' | 'offline',
+  reachability: BannerKind,
   { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings }: RuntimeControl,
   onSwitchAgent?: () => void,
 ): { text: string; action: { label: string; run: () => void } | null } {
-  const name = value?.label ?? 'The runtime'
+  const name = value?.label ?? t('The runtime')
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
-  const switchAgent = onSwitchAgent && { label: 'Switch runtime', run: onSwitchAgent }
+  const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }
 
+  if (reachability === 'waiting' || reachability === 'declined') {
+    const computer =
+      options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel ??
+      t('this computer')
+
+    return reachability === 'waiting'
+      ? {
+          text: t(
+            'Waiting for the owner of {computer} to approve. Your message is sent once they do.',
+            { computer },
+          ),
+          action: null,
+        }
+      : {
+          text: t('The owner of {computer} declined this conversation.', { computer }),
+          action: switchAgent ?? null,
+        }
+  }
   if (reachability === 'offline') {
     const box = options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel
 
     return {
-      text: `${box ?? 'Its computer'} is offline.`,
+      text: box ? t('{box} is offline.', { box }) : t('Its computer is offline.'),
       action: switchAgent ?? {
-        label: 'Retry',
+        label: t('Retry'),
         run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
       },
     }
   }
-  if (switchAgent) return { text: `${name} is signed out.`, action: switchAgent }
+  if (switchAgent) return { text: t('{name} is signed out.', { name }), action: switchAgent }
   // Only an administrator can sign a team agent back in.
   if (isTeamAdmin && onSettings)
     return {
-      text: `${name} is signed out. Sign it in to send messages.`,
-      action: { label: 'Runtime settings', run: onSettings },
+      text: t('{name} is signed out. Sign it in to send messages.', { name }),
+      action: { label: t('Runtime settings'), run: onSettings },
     }
 
-  return { text: `${name} is signed out. ${ASK_ADMIN_TO_RECONNECT}`, action: null }
+  return {
+    text: t('{name} is signed out. Ask a workspace administrator to reconnect this runtime.', {
+      name,
+    }),
+    action: null,
+  }
 }
 
 /**
@@ -135,7 +168,13 @@ export function AgentStatusBanner({
   onSwitchAgent?: () => void
 }) {
   const reachability = selectedAgentReachability(control)
-  const blocked = reachability === 'signIn' || reachability === 'offline' ? reachability : null
+  // A teammate's computer that asks its owner first: this conversation waits, or was declined.
+  const shareApproval = useShareApprovalWait(control, control.sessionId)
+  const unreachable = reachability === 'signIn' || reachability === 'offline' ? reachability : null
+  // Reachability comes first: an offline computer cannot run it even once approved.
+  const blocked: BannerKind | null =
+    unreachable ??
+    (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // The words stay while the banner leaves, so it closes on what it said.
   const [shown, setShown] = useState(blocked)
 

@@ -44,7 +44,6 @@ export {
 } from './db/events'
 export {
   deleteConversation,
-  ensureConversationTraceParent,
   getCompactionSummary,
   updateCompactionSummary,
   updateConversationTitle,
@@ -66,7 +65,11 @@ export {
 } from './db/transcript-autonomous'
 export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
 export { retractTrailingUserMessage } from './db/transcript-retract'
-export { getConversationMessagesHead, syncConversationTranscript } from './db/transcript'
+export {
+  appendTranscriptMessages,
+  getConversationMessagesHead,
+  syncConversationTranscript,
+} from './db/transcript'
 export { getConversations } from './db/conversations-list'
 export { restoreArchivedConversation, setConversationArchived } from './db/archive'
 export { backfillConversationWatchers, setConversationWatched } from './db/watch'

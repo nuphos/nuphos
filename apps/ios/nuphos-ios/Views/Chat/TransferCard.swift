@@ -1,11 +1,13 @@
+import AVFoundation
 import QuickLook
 import SwiftUI
 
 /// The files in one transfer group: what the agent sent, or what the user
-/// uploaded. One image shows whole; several shrink to a grid of square
-/// thumbnails, and the preview swipes through all of them. Videos and other
-/// files are chips. Those open in Quick Look (videos play there) from a
-/// freshly signed link, with Save and Share.
+/// uploaded. Images and videos are one grid of fixed squares, so nothing
+/// grows once it loads; a video shows its first frame under a play glyph.
+/// Images open in the pager, which swipes through all of them. Videos and
+/// other files (chips) open in Quick Look from a freshly signed link, with
+/// Save and Share.
 struct TransferCard: View {
     let groupId: String
     let fromUser: Bool
@@ -26,14 +28,14 @@ struct TransferCard: View {
 
     var body: some View {
         VStack(alignment: fromUser ? .trailing : .leading, spacing: 8) {
-            if images.count > 1 {
-                let columns = Array(repeating: GridItem(.fixed(84), spacing: 6), count: min(images.count, 3))
+            if !media.isEmpty {
+                let columns = Array(repeating: GridItem(.fixed(84), spacing: 6), count: min(media.count, 3))
                 LazyVGrid(columns: columns, spacing: 6) {
-                    ForEach(images) { file in openButton(file) }
+                    ForEach(media) { file in openButton(file) }
                 }
                 .fixedSize()
             }
-            ForEach(images.count > 1 ? others : files) { file in openButton(file) }
+            ForEach(others) { file in openButton(file) }
             if unavailable {
                 ForEach(names, id: \.self) { name in chip(name, icon: "doc") }
             }
@@ -57,7 +59,8 @@ struct TransferCard: View {
     }
 
     private var images: [TransferDownloadGroup.File] { files.filter(\.isImage) }
-    private var others: [TransferDownloadGroup.File] { files.filter { !$0.isImage } }
+    private var media: [TransferDownloadGroup.File] { files.filter { $0.isImage || $0.isVideo } }
+    private var others: [TransferDownloadGroup.File] { files.filter { !$0.isImage && !$0.isVideo } }
 
     private func openButton(_ file: TransferDownloadGroup.File) -> some View {
         Button { Task { await open(file) } } label: { label(file) }
@@ -68,28 +71,33 @@ struct TransferCard: View {
 
     @ViewBuilder
     private func label(_ file: TransferDownloadGroup.File) -> some View {
-        if file.isImage, images.count > 1, let url = file.downloadUrl.flatMap(URL.init(string:)) {
+        if file.isImage || file.isVideo, let url = file.downloadUrl.flatMap(URL.init(string:)) {
             let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Theme.bubble
+            Group {
+                if file.isVideo {
+                    VideoFrame(url: url)
+                } else {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Theme.bubble
+                    }
+                }
             }
             .frame(width: 84, height: 84)
             .clipShape(shape)
+            // Screenshots are mostly white; the outline keeps them off the page.
             .overlay(shape.strokeBorder(Theme.bubble))
-            .overlay { if opening == file.id { ProgressView() } }
-        } else if file.isImage, let url = file.downloadUrl.flatMap(URL.init(string:)) {
-            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFit()
-                    .frame(maxWidth: 280, maxHeight: 280)
-                    .clipShape(shape)
-                    // Screenshots are mostly white; the outline keeps them off the page.
-                    .overlay(shape.strokeBorder(Theme.bubble))
-                    .overlay { if opening == file.id { ProgressView() } }
-            } placeholder: {
-                shape.fill(Theme.bubble).frame(width: 200, height: 140)
+            .overlay {
+                if opening == file.id {
+                    ProgressView()
+                } else if file.isVideo {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(.black.opacity(0.6), in: Circle())
+                }
             }
         } else {
             chip(file.fileName, icon: file.isVideo ? "play.rectangle.fill" : file.isImage ? "photo" : "doc", busy: opening == file.id)
@@ -162,5 +170,25 @@ struct TransferCard: View {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try FileManager.default.moveItem(at: temp, to: local)
         return local
+    }
+}
+
+/// A video's first frame, read from the stream without downloading the file.
+/// Black until it decodes, or if it can't.
+private struct VideoFrame: View {
+    let url: URL
+    @State private var frame: CGImage?
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if let frame { Image(decorative: frame, scale: 1).resizable().scaledToFill() }
+        }
+        .task {
+            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 252, height: 252)
+            frame = try? await generator.image(at: .zero).image
+        }
     }
 }

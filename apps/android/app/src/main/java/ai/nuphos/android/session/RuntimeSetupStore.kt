@@ -10,7 +10,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-data class RuntimeSetupState(val busy: Boolean = false, val catalogLoaded: Boolean = false,
+data class RuntimeSetupState(val busy: Boolean = false, val catalogLoaded: Boolean = false, val catalogRevision: Long = 0,
     val error: String? = null, val message: String? = null,
     val attempt: RuntimeLogin? = null, val loginReconciled: Boolean = false,
     val attemptMismatch: Boolean = false)
@@ -39,15 +39,17 @@ class RuntimeSetupStore(
     private fun loginTargetCurrent() = signInRuntime?.let {
         it.kind in setOf("managed", "external") && it.id == selection.loginRuntimeId && it.provider == selection.loginProvider
     } == true
+    private var opening = 0L
     fun detail(runtimeId: String): RuntimeDetailStore? = (api as? RuntimeManagementTransport)?.let {
-        RuntimeDetailStore(it, api, scope, { active && isSourceCurrent() }, { canAdminister }, selection, runtimeId, expired)
+        val ownerOpening = opening
+        RuntimeDetailStore(it, api, scope, { active && opening == ownerOpening && state.catalogLoaded && isSourceCurrent() }, { canAdminister }, selection, runtimeId, expired)
     }
     fun isSourceCurrent() = selection.valid && sourceCurrent()
     val canAdminister get() = isSourceCurrent() && administrator()
-    fun open() { active = true; refresh() }
+    fun open() { opening++; active = true; refresh() }
     fun close() {
         active = false; generation++; job?.cancel(); poll?.cancel(); job = null; poll = null
-        state = state.copy(busy = false, attempt = null, loginReconciled = false)
+        state = state.copy(busy = false, catalogLoaded = false, attempt = null, loginReconciled = false)
     }
     fun setForeground(resumed: Boolean) {
         foreground = resumed; poll?.cancel(); poll = null
@@ -76,7 +78,7 @@ class RuntimeSetupStore(
         launch { ticket ->
             val saved = api.catalog()
             if (!current(ticket)) return@launch
-            selection.saveCatalog(saved); state = state.copy(catalogLoaded = true)
+            selection.saveCatalog(saved); state = state.copy(catalogLoaded = true, catalogRevision = state.catalogRevision + 1)
             if (canAdminister && selection.loginReview && loginTargetCurrent()) readLogin(ticket)
         }
     }

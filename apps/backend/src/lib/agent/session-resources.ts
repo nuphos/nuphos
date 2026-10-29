@@ -14,10 +14,12 @@ import { getTeamMembership } from '@/lib/identity'
 
 import { agentConversations, getConversationBySessionId } from './db'
 import { canManage, conversationAccess } from './db/access'
+import { fetchPullHealth } from './github-pull-health'
 import { githubReviewScope } from './github-review-scope'
 import { unlinkSessionThread } from './session-thread-resources'
 
 import type { AgentConversation } from './db'
+import type { PullHealth } from './github-pull-health'
 
 export const sessionResourceInput = z.discriminatedUnion('provider', [
   z
@@ -53,6 +55,8 @@ export type SessionResource = {
   stateType?: string
   repository?: string
   number?: number
+  /** What blocks an open PR, kept current by GitHub webhooks; null or absent when nothing does. */
+  health?: PullHealth | null
   linkedAt: string
 }
 export type ResourceActor = { userId: string; teamId: string; sessionId: string }
@@ -150,12 +154,17 @@ async function resolveResource(
       title: string
       state: string
       merged: boolean
+      mergeable_state?: string | null
+      head: { sha: string }
       base: { repo: { id: number; full_name: string } }
     }
 
     if (scope && scope.repositoryId !== pr.base.repo.id)
       throw new AppError(403, 'github_review_scope', 'Resource is outside the review repository')
     const repository = pr.base.repo.full_name
+    const health = await fetchPullHealth(input.installationId, repository, pr.number, pr).catch(
+      () => null,
+    )
 
     return {
       provider: 'github',
@@ -166,6 +175,7 @@ async function resolveResource(
       title: pr.title.slice(0, 300),
       state: pr.merged ? 'merged' : pr.state,
       url: `https://github.com/${repository}/pull/${pr.number}`,
+      health,
     }
   }
   const team = new ObjectId(conversation.teamId!)
@@ -281,6 +291,7 @@ export async function refreshSessionResource(
         'linkedResources.$.state': fresh.state,
         'linkedResources.$.url': fresh.url,
         ...(fresh.stateType ? { 'linkedResources.$.stateType': fresh.stateType } : {}),
+        ...('health' in fresh ? { 'linkedResources.$.health': fresh.health } : {}),
       },
     },
   )

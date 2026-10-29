@@ -1,3 +1,5 @@
+import { isEmptyTurnText } from '@/lib/claude-code-preview/empty-turn'
+
 export type TurnOutcome =
   | { kind: 'finished'; text: string }
   | { kind: 'approval'; toolName?: string }
@@ -69,7 +71,10 @@ function scanFrames(frames: readonly string[]): FrameScan {
     const toolName = stringField(payload, 'toolName')
 
     if (toolCallId && toolName) toolNames.set(toolCallId, toolName)
-    if (type === 'text-delta') {
+    if (type === 'text-start') {
+      scan.finalText = ''
+      textClosed = false
+    } else if (type === 'text-delta') {
       if (textClosed) scan.finalText = ''
       textClosed = false
       scan.finalText += stringField(payload, 'delta') ?? ''
@@ -116,7 +121,7 @@ export function classifyTurn(facts: TurnFacts): TurnOutcome | null {
     return { kind: 'approval', ...(scan.approvalTool ? { toolName: scan.approvalTool } : {}) }
   }
 
-  return { kind: 'finished', text: scan.finalText }
+  return { kind: 'finished', text: isEmptyTurnText(scan.finalText) ? '' : scan.finalText }
 }
 
 export function plainText(input: string): string {

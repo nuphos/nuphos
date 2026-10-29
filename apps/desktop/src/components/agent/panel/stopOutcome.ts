@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { track } from '../../../lib/analytics'
 import { toast } from '../../ui/toast'
 
@@ -30,15 +31,19 @@ export async function reportStopOutcome(args: {
   track('agent_response_stop_failed', { status: outcome.status, phase: outcome.kind })
   if (outcome.kind === 'still_running') {
     toast.error(
-      'The agent turn is still running on the server',
-      'The turn is still active after several stop checks. Try reopening the agent before sending another message.',
+      t('The agent turn is still running on the server'),
+      t(
+        'The turn is still active after several stop checks. Try reopening the agent before sending another message.',
+      ),
     )
 
     return outcome
   }
   toast.error(
-    'Could not stop the turn on the server',
-    'The stop request did not reach the server. Your next message may be refused while the turn is still running.',
+    t('Could not stop the turn on the server'),
+    t(
+      'The stop request did not reach the server. Your next message may be refused while the turn is still running.',
+    ),
   )
 
   return outcome

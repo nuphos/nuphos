@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron'
 
+import { withTranscriptTail } from '../agent/transcript-window.ts'
+
 import type { AgentProvider } from '../../src/types/runtime'
 
 export const agentApi = {
@@ -26,7 +28,7 @@ export const agentApi = {
   agentGetConversation: (
     sessionId: string,
     teamId?: string,
-    options?: { tail?: number; runtimeState?: 'omit' },
+    options?: { tail?: number; runtimeState?: 'omit'; messages?: 'omit' },
   ) => ipcRenderer.invoke('agent:getConversation', sessionId, teamId, options),
   agentGetConversationMessages: (
     sessionId: string,
@@ -95,7 +97,12 @@ export const agentApi = {
       parts: unknown[]
     }[]
     import?: boolean
-  }) => ipcRenderer.invoke('agent:syncConversationTranscript', args),
+  }) =>
+    // An import has no stored prefix: it goes whole, in chunks, from main.
+    ipcRenderer.invoke(
+      'agent:syncConversationTranscript',
+      args.import ? args : withTranscriptTail(args),
+    ),
   agentDeleteConversation: (sessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:deleteConversation', sessionId, teamId),
   agentSendMessageFeedback: (args: {
@@ -114,12 +121,8 @@ export const agentApi = {
   ) => ipcRenderer.invoke('agent:listMemories', cursor, limit, teamId, scope, state),
   agentGetMemory: (memoryId: string, teamId?: string, scope?: 'personal' | 'team') =>
     ipcRenderer.invoke('agent:getMemory', memoryId, teamId, scope),
-  agentGetMemoryIngestEvent: (
-    sessionId: string,
-    teamId?: string,
-    eventId?: string,
-    turnKey?: string,
-  ) => ipcRenderer.invoke('agent:getMemoryIngestEvent', sessionId, teamId, eventId, turnKey),
+  agentGetMemoryIngestEvent: (sessionId: string, teamId?: string, eventId?: string) =>
+    ipcRenderer.invoke('agent:getMemoryIngestEvent', sessionId, teamId, eventId),
   agentGetMemoryAttribution: (sessionId: string, teamId?: string, turnKey?: string) =>
     ipcRenderer.invoke('agent:getMemoryAttribution', sessionId, teamId, turnKey),
   agentGetMemoryScorecard: (teamId?: string, ids?: string[]) =>

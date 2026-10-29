@@ -13,9 +13,11 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
+import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
+import { useInstaboxMachines } from '@/lib/test/doubles/instabox-machines'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
@@ -270,7 +272,7 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
 describe('reclaimSessionHomes', () => {
   const now = new Date('2026-10-13T20:00:00Z')
   const archivedAt = new Date('2026-10-13T19:00:00Z')
-  // A computer's own agent is never reached, so it counts as reclaimed at once.
+  // A computer's own agent is never reached, so it counts as reclaimed at once; a Box is.
   const LOCAL = 'local_owner_device'
   let memory = portabilityDb()
   let state = 'dormant'
@@ -362,6 +364,65 @@ describe('reclaimSessionHomes', () => {
   test('ignores conversations that are not archived', async () => {
     conversation({ archivedAt: undefined, lastActiveAt: new Date('2026-10-12T00:00:00Z') })
     expect(await reclaimSessionHomes(now)).toBe(0)
+  })
+
+  describe('on a Box', () => {
+    const saved = config.box.instabox
+    let report: string | undefined = '{"result":"removed"}'
+    let runs: { sandboxId: string; cmd: string; envs: Record<string, string> }[] = []
+
+    useInstaboxMachines({
+      runOnRunningMachine: async (_conn, sandboxId, cmd, envs) => {
+        runs.push({ sandboxId, cmd, envs })
+
+        return report
+      },
+    })
+    beforeAll(() => {
+      config.box.instabox = { apiKey: 'test-key' } as typeof config.box.instabox
+    })
+    afterAll(() => {
+      config.box.instabox = saved
+    })
+    beforeEach(() => {
+      report = '{"result":"removed"}'
+      runs = []
+      memory.rows('agent_devices').push({
+        userId: 'owner',
+        deviceId: 'device',
+        box: { provider: 'instabox', sandboxId: 'm_box' },
+      })
+    })
+
+    test('reclaims the home over instabox, the session id only in the environment', async () => {
+      const row = conversation({})
+
+      expect(await reclaimSessionHomes(now)).toBe(1)
+      expect(row.sessionHomeReclaimedAt).toEqual(now)
+      expect(runs).toHaveLength(1)
+      expect(runs[0]?.sandboxId).toBe('m_box')
+      expect(runs[0]?.cmd).not.toContain('conversation')
+      expect(JSON.parse(runs[0]?.envs.RECLAIM_PARAMS ?? '{}')).toEqual({
+        sessionId: 'conversation',
+      })
+      expect(runs[0]?.envs.RECLAIM_RUNNER).toBe(RECLAIM_SESSION_HOME_PROGRAM)
+    })
+
+    test('retries while a process still uses the home', async () => {
+      report = '{"result":"in_use"}'
+      const row = conversation({})
+
+      expect(await reclaimSessionHomes(now)).toBe(0)
+      expect(row.sessionHomeReclaimedAt).toBeUndefined()
+    })
+
+    test('retries while the Box is not running', async () => {
+      report = undefined
+      const row = conversation({})
+
+      expect(await reclaimSessionHomes(now)).toBe(0)
+      expect(row.sessionHomeReclaimedAt).toBeUndefined()
+    })
   })
 
   describe('trigger runs', () => {

@@ -4,6 +4,8 @@ import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import { setAttachmentDragData } from './attachmentDrag'
 import { isImageAttachmentPath } from './attachments'
 import { ImageAttachmentThumb, ImageLightbox } from './messageInline'
@@ -58,7 +60,7 @@ export function AttachmentChips({
         }
         const name = fileNameFromPath(filePath)
         const typeLabel = (
-          isFolder ? 'Folder' : name.includes('.') ? name.split('.').pop()! : 'File'
+          isFolder ? t('Folder') : name.includes('.') ? name.split('.').pop()! : t('File')
         ).toUpperCase()
 
         return (
@@ -79,7 +81,7 @@ export function AttachmentChips({
             <div className="flex min-w-0 flex-col">
               <span
                 className="truncate text-[12.5px] leading-tight text-main"
-                title={isFolder ? `${filePath} (folder)` : filePath}
+                title={isFolder ? t('{path} (folder)', { path: filePath }) : filePath}
               >
                 {name}
               </span>
@@ -91,8 +93,10 @@ export function AttachmentChips({
               type="button"
               onClick={removeAttachment}
               className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-main bg-elevated text-secondary shadow-sm hover:text-main"
-              title={isFolder ? 'Remove folder' : 'Remove file'}
-              aria-label={`Remove ${isFolder ? 'folder' : 'file'} ${name}`}
+              title={isFolder ? t('Remove folder') : t('Remove file')}
+              aria-label={
+                isFolder ? t('Remove folder {name}', { name }) : t('Remove file {name}', { name })
+              }
             >
               <X className="h-2.5 w-2.5" strokeWidth={2.5} />
             </button>

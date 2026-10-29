@@ -1,5 +1,6 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import { PlanRevealSection } from './reveal'
@@ -26,9 +27,18 @@ export function PlanBuildingView({ payload }: { payload: PlanPayload }) {
           strokeWidth={2.4}
         />
         <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-medium leading-relaxed text-main">Building plan</div>
+          <div className="text-[12.5px] font-medium leading-relaxed text-main">
+            {t('Building plan')}
+          </div>
           <div className="mt-0.5 text-[12px] leading-relaxed text-tertiary">
-            Waiting for {nextSection}.
+            {
+              {
+                decisions: t('Waiting for decisions.'),
+                steps: t('Waiting for steps.'),
+                cost: t('Waiting for cost.'),
+                risk: t('Waiting for risk.'),
+              }[nextSection]
+            }
           </div>
         </div>
       </div>
@@ -49,10 +59,10 @@ export function PlanExecutionPreparingView() {
         />
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-medium leading-relaxed text-main">
-            Preparing plan execution
+            {t('Preparing plan execution')}
           </div>
           <div className="mt-0.5 text-[12px] leading-relaxed text-secondary">
-            The agent is starting the first command.
+            {t('The agent is starting the first command.')}
           </div>
         </div>
       </div>
@@ -72,7 +82,7 @@ export function PlanExecutionErrorView({ message }: { message: string }) {
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-error" strokeWidth={2} />
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-medium leading-relaxed text-main">
-            Execution failed
+            {t('Execution failed')}
           </div>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-[11.5px] leading-relaxed text-secondary scrollbar-thin">
             {message}

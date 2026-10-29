@@ -51,10 +51,23 @@ android {
 
     buildTypes {
         debug {
+            if (providers.gradleProperty("nuphosIsolatedRuntimeSheetFixture").orNull == "true") {
+                applicationIdSuffix = ".runtimesheet1375"
+                manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.runtimesheet1375.test.contentinput"
+            }
+            if (providers.gradleProperty("nuphosIsolatedRuntimesFixture").orNull == "true") {
+                applicationIdSuffix = ".runtimes1373"
+                manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.runtimes1373.test.contentinput"
+            }
             if (providers.gradleProperty("nuphosIsolatedPersistentShareFixture").orNull == "true") {
                 applicationIdSuffix = ".sharepersist1359"
                 manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.sharepersist1359.test.contentinput"
             }
+            if (providers.gradleProperty("nuphosIsolatedNavigationFixture").orNull == "true") {
+                applicationIdSuffix = ".navigation1371"
+                manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.navigation1371.test.contentinput"
+            }
+            if (providers.gradleProperty("nuphosIsolatedPinIosFixture").orNull == "true") applicationIdSuffix = ".pinios1370"
             if (providers.gradleProperty("nuphosIsolatedRowActionsFixture").orNull == "true") applicationIdSuffix = ".rowactions1357"
             if (providers.gradleProperty("nuphosIsolatedShareFixture").orNull == "true") {
                 applicationIdSuffix = ".shareinput1355"

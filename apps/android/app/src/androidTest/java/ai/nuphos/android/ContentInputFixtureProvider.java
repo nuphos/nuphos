@@ -18,7 +18,7 @@ import java.util.Arrays;
 /** Test APK only; uses framework/Java APIs because its provider runs without the target classpath. */
 public class ContentInputFixtureProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
-    @Override public String getType(Uri uri) { return uri.getLastPathSegment().endsWith(".png") ? "image/png" : "text/plain"; }
+    @Override public String getType(Uri uri) { return uri.getLastPathSegment().endsWith(".png") ? "image/png" : uri.getLastPathSegment().endsWith(".mp4") ? "video/mp4" : "text/plain"; }
     @Override public Cursor query(Uri uri, String[] projection, String selection, String[] args, String sort) {
         MatrixCursor cursor = new MatrixCursor(new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE});
         cursor.addRow(new Object[]{uri.getLastPathSegment(), "oversize.txt".equals(uri.getLastPathSegment()) ? 101L * 1024 * 1024 : null});
@@ -27,7 +27,7 @@ public class ContentInputFixtureProvider extends ContentProvider {
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         String name = uri.getLastPathSegment();
         if ("denied.txt".equals(name)) throw new SecurityException("Synthetic read denied");
-        if (!Arrays.asList("image.png", "fixture.txt", "invalid.png", "empty.txt", "delay.txt").contains(name)) throw new FileNotFoundException("Unknown synthetic fixture");
+        if (!Arrays.asList("image.png", "fixture.txt", "invalid.png", "empty.txt", "delay.txt", "clip.mp4").contains(name)) throw new FileNotFoundException("Unknown synthetic fixture");
         File file = new File(getContext().getCacheDir(), "content-input-" + name);
         if ("delay.txt".equals(name)) android.os.SystemClock.sleep(1200);
         try (FileOutputStream output = new FileOutputStream(file)) {

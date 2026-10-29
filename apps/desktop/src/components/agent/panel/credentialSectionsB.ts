@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { CredentialSection } from './credentialSections'
 import type { AgentCredentialOptions } from '../../../api'
 
@@ -33,7 +35,7 @@ export function buildVantaCredentialSections(
       items: integrations.map((integration) => ({
         id: integration.integrationId,
         label: integration.label,
-        sublabel: integration.authType === 'oauth' ? 'OAuth' : 'Client credentials',
+        sublabel: integration.authType === 'oauth' ? 'OAuth' : t('Client credentials'),
       })),
     },
   ]
@@ -52,7 +54,7 @@ export function buildSecureframeCredentialSections(
       items: integrations.map((integration) => ({
         id: integration.integrationId,
         label: integration.label,
-        sublabel: `${integration.region.toUpperCase()} region`,
+        sublabel: t('{region} region', { region: integration.region.toUpperCase() }),
       })),
     },
   ]
@@ -71,7 +73,8 @@ export function buildResendCredentialSections(
       items: integrations.map((integration) => ({
         id: integration.integrationId,
         label: integration.label,
-        sublabel: integration.permission === 'sending_access' ? 'Can send email' : 'Full access',
+        sublabel:
+          integration.permission === 'sending_access' ? t('Can send email') : t('Full access'),
       })),
     },
   ]
@@ -114,7 +117,7 @@ export function buildUptimeKumaCredentialSections(
       items: instances.map((instance) => ({
         id: instance.instanceId,
         label: instance.label,
-        sublabel: `${instance.authType === 'token' ? 'Auth token' : 'Username/password'} · ${instance.baseUrl.replace(/^https?:\/\//, '')}`,
+        sublabel: `${instance.authType === 'token' ? t('Auth token') : t('Username/password')} · ${instance.baseUrl.replace(/^https?:\/\//, '')}`,
       })),
     },
   ]
@@ -209,7 +212,7 @@ export function buildPlaudCredentialSections(
       items: accounts.map((account) => ({
         id: account.bindingId,
         label: account.label,
-        sublabel: 'Recordings & transcripts',
+        sublabel: t('Recordings & transcripts'),
       })),
     },
   ]

@@ -142,6 +142,7 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
     '[agent.env]',
     ...Object.entries(agentEnv(launch)).map(([key, value]) => `${key} = ${tomlString(value)}`),
     '',
+    '[pool]\nsession_ttl_hours = 1\n', // idle agents (~250 MB each) exit after 1 h, not 4
   ].join('\n')
 }
 

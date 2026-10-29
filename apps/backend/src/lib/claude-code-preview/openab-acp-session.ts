@@ -122,10 +122,6 @@ function runtimeCapability(initializeResult: Record<string, unknown>, name: stri
 export const supportsRuntimeAuthority = (initializeResult: Record<string, unknown>) =>
   runtimeCapability(initializeResult, 'dev.openab/sessionAuthority') === 2
 
-/** The runtime accepts `_openab/session/credentials` while a turn runs. */
-export const supportsCredentialRefresh = (initializeResult: Record<string, unknown>) =>
-  runtimeCapability(initializeResult, 'dev.openab/credentialRefresh') === true
-
 // The skills credential names the turn's sender, whose personal skills the runtime
 // re-syncs before each prompt.
 const REFRESHED_CREDENTIALS = [
@@ -136,7 +132,7 @@ const REFRESHED_CREDENTIALS = [
 
 // OpenAB rewrites these as per-session files on every prompt, so a live agent
 // reads the current value instead of the one its process env was spawned with.
-export function sessionCredentials(env: Record<string, string> = {}) {
+function sessionCredentials(env: Record<string, string> = {}) {
   return Object.fromEntries(REFRESHED_CREDENTIALS.filter((key) => env[key]).map((k) => [k, env[k]]))
 }
 

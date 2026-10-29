@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { SessionResource } from '../../api/session-resource-types'
 import type { TerminalProcess } from '../../lib/sessionTerminalProcesses'
 
@@ -12,6 +14,70 @@ export function resourceLabel(resource: SessionResource): string {
   if (resource.provider === 'slack' || resource.provider === 'discord') return resource.title
 
   return resource.title.split(/\s+/, 1)[0]
+}
+
+const HEALTH_TEXT = {
+  checks_failed: t('open · checks failing'),
+  changes_requested: t('open · changes requested'),
+  conflict: t('open · merge conflict'),
+}
+
+/** What holds up an open PR. A merged or closed PR's last health no longer applies. */
+export function resourceHealth(resource: SessionResource) {
+  return resource.provider === 'github' && resource.state === 'open'
+    ? (resource.health ?? null)
+    : null
+}
+
+/** A resource's state as a person would say it, e.g. `open · checks failing`. */
+export function resourceStatus(resource: SessionResource): string {
+  const health = resourceHealth(resource)
+
+  return health ? HEALTH_TEXT[health] : resource.state
+}
+
+/** A PR tag's color is its GitHub state alone, as on GitHub: open green, merged purple, closed red. */
+export function pullStateColor(resource: SessionResource) {
+  if (resource.state === 'merged') return 'session-resource-merged'
+  if (resource.state === 'closed') return 'session-resource-closed'
+
+  return 'session-resource-open'
+}
+
+/**
+ * Where a pull request or issue stands, as the Changes filter and the merged
+ * badge group them: still open, merged (or a completed issue), or closed
+ * unmerged (or a canceled issue). A chat thread is always open.
+ */
+export type ChangeStatus = 'open' | 'merged' | 'closed'
+
+export function changeStatus(resource: SessionResource): ChangeStatus {
+  if (resource.provider === 'linear') {
+    if (resource.stateType === 'completed') return 'merged'
+
+    return resource.stateType === 'canceled' ? 'closed' : 'open'
+  }
+  if (resource.provider !== 'github') return 'open'
+  if (resource.state === 'merged') return 'merged'
+
+  return resource.state === 'closed' ? 'closed' : 'open'
+}
+
+const HEALTH_MARK = {
+  checks_failed: { glyph: 'cross', color: 'session-resource-failing' },
+  changes_requested: { glyph: 'dot', color: 'session-resource-pending' },
+  conflict: { glyph: 'conflict', color: 'session-resource-pending' },
+} as const
+
+/**
+ * The status mark beside an open PR's tag, kept apart from its state color the
+ * way GitHub shows checks next to a PR: a red cross for failing checks, a
+ * yellow dot for requested changes, a conflict marker for a conflict.
+ */
+export function resourceMark(resource: SessionResource) {
+  const health = resourceHealth(resource)
+
+  return health ? HEALTH_MARK[health] : null
 }
 
 /** The whole name, as a list shows it: a PR's number and title, or anything else's title. */

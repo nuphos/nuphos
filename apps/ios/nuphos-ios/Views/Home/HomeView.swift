@@ -51,20 +51,15 @@ struct HomeView: View {
                 }
                 .sharedBackgroundVisibility(.hidden)
 
-                // Search and filter each get their own glass group
+                // Each control gets its own glass group
                 // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
-                if page == .agent, let store {
+                if page == .agent, store != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             isSearching.toggle()
                         } label: {
                             Label("Search agents", systemImage: "magnifyingglass")
                         }
-                    }
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                    ToolbarItem(placement: .topBarTrailing) {
-                        FilterMenu()
-                            .environment(store)
                     }
                     ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 }
@@ -102,6 +97,9 @@ struct HomeView: View {
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
+            #if DEBUG
+            .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showProfile = true } }
+            #endif
             .sheet(isPresented: $showProfile) {
                 ProfileSheet(user: user)
             }
@@ -111,25 +109,30 @@ struct HomeView: View {
             }
             #endif
         } detail: {
-            if let openChat {
-                ConversationView(session: openChat.session, initialPrompt: openChat.prompt)
-                    .id(openChat.id)
-                    // Compact pops back to the list's composer; wide has
-                    // no back, so this returns the column to it.
-                    .toolbar {
-                        if sizeClass == .regular {
-                            ToolbarItem(placement: .topBarLeading) {
-                                Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
+            // One stable root. Collapsed, swapping the column's root between
+            // these views made a reopened chat appear and vanish at once: its
+            // tasks were cancelled while it stayed on screen, never loading.
+            ZStack {
+                if let openChat {
+                    ConversationView(session: openChat.session, initialPrompt: openChat.prompt)
+                        .id(openChat.id)
+                        // Compact pops back to the list's composer; wide has
+                        // no back, so this returns the column to it.
+                        .toolbar {
+                            if sizeClass == .regular {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
+                                }
                             }
                         }
-                    }
-            } else if page == .agent, store != nil, sizeClass == .regular {
-                Theme.chatCanvas.ignoresSafeArea()
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        NewChatComposer(openChat: $openChat).readableWidth()
-                    }
-            } else {
-                Theme.canvas.ignoresSafeArea()
+                } else if page == .agent, store != nil, sizeClass == .regular {
+                    Theme.chatCanvas.ignoresSafeArea()
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            NewChatComposer(openChat: $openChat).readableWidth()
+                        }
+                } else {
+                    Theme.canvas.ignoresSafeArea()
+                }
             }
         }
         // On the split view itself, so the detail column and pushed
@@ -167,9 +170,15 @@ struct HomeView: View {
         .onChange(of: PushNotifications.shared.pendingTarget, initial: true) { _, target in
             if target != nil { page = .agent }
         }
+        .onChange(of: PushNotifications.shared.pendingConversations, initial: true) { _, show in
+            guard show else { return }
+            PushNotifications.shared.pendingConversations = false
+            page = .agent
+            openChat = nil
+        }
     }
 
-    /// DEBUG: `-page monitoring` opens that page directly, for UI checks.
+    /// DEBUG: `-page runtimes` opens that page directly, for UI checks.
     private static var initialPage: HomePage {
         #if DEBUG
         let args = CommandLine.arguments
@@ -190,45 +199,9 @@ struct HomeView: View {
         case .connectors:
             ConnectorsPage()
                 .onAppear { titleCollapsed = false }
-        case .monitoring, .triggers:
-            // A scroll view like the Agent page, so the bar and the top
-            // edge behave the same way here.
-            ScrollView {
-                VStack(spacing: 0) {
-                    PlaceholderPage(page: page)
-                        .containerRelativeFrame(.vertical) { height, _ in height * 0.8 }
-                }
-            }
-            .background(Theme.canvas)
-            .onAppear { titleCollapsed = false }
-        }
-    }
-}
-
-/// Which conversations the Agent list shows.
-private struct FilterMenu: View {
-    @Environment(AgentStore.self) private var store
-
-    var body: some View {
-        @Bindable var store = store
-        Menu {
-            Picker("Show", selection: $store.scope) {
-                Label("My agents", systemImage: "person").tag(NuphosAPI.ConversationScope.mine)
-                Label("Team agents", systemImage: "person.2").tag(NuphosAPI.ConversationScope.team)
-            }
-            .pickerStyle(.inline)
-            Picker("Sort", selection: $store.sort) {
-                Label("Date created", systemImage: "calendar").tag(NuphosAPI.ConversationSort.created)
-                Label("Recent activity", systemImage: "clock").tag(NuphosAPI.ConversationSort.activity)
-            }
-            .pickerStyle(.inline)
-            Toggle(isOn: $store.showArchived) {
-                Label("Archived", systemImage: "archivebox")
-            }
-        } label: {
-            Label("Filter agents", systemImage: store.scope == .mine && !store.showArchived && store.sort == .created
-                  ? "line.3.horizontal.decrease"
-                  : "line.3.horizontal.decrease.circle.fill")
+        case .runtimes:
+            RuntimesPage()
+                .onAppear { titleCollapsed = false }
         }
     }
 }

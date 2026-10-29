@@ -18,7 +18,7 @@ export type TraceEvent = {
   teamId?: string
   userId?: string
   sequence: number
-  kind: 'start' | 'log' | 'event' | 'end' | 'update'
+  kind: 'start' | 'log' | 'event' | 'end'
 }
 
 const CHUNK_BYTES = 512 * 1024

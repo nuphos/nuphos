@@ -12,6 +12,21 @@ export type UserInfo = {
 
 export type AuthStatus = { loggedIn: false } | { loggedIn: true; user: UserInfo; token: string }
 
+/** One of the account's sign-ins, as GET /auth/sessions lists it. */
+export type SignInSession = {
+  id: string
+  current: boolean
+  createdAt: string
+  lastUsedAt: string
+  expiresAt: string
+  ip: string | null
+  city: string | null
+  country: string | null
+  /** The app's own name and version, e.g. `nuphos-desktop/1.2.0`. */
+  client: string | null
+  userAgent: string | null
+}
+
 export type PersonalCredentialProvider = 'github' | 'linear'
 
 export type PersonalCredential = {

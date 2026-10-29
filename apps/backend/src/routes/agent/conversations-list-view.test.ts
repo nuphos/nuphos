@@ -44,13 +44,18 @@ const conversation = (sessionId: string) => ({
 })
 
 const stored = (sessionId: string, state: string) =>
-  rememberRuntimeState('team-a', `openab-${sessionId}`, {
-    state,
-    schemaVersion: 2,
-    actions: { send: state !== 'active', cancel: state === 'active', steer: false },
-    epoch: 'runtime-1',
-    revision: 1,
-  } as never)
+  rememberRuntimeState(
+    'team-a',
+    `openab-${sessionId}`,
+    {
+      state,
+      schemaVersion: 2,
+      actions: { send: state !== 'active', cancel: state === 'active', steer: false },
+      epoch: 'runtime-1',
+      revision: 1,
+    } as never,
+    sessionId,
+  )
 
 async function list(...sessionIds: string[]) {
   return (await serializeConversationList(
@@ -85,4 +90,40 @@ test('a stored idle snapshot is listed as-is without asking the run store', asyn
   expect(busy?.runtimeState.state).toBe('active')
   expect(busy?.activeRun).toMatchObject({ streamId: 'stream-2' })
   expect(runLookups).toEqual(['busy'])
+})
+
+test('a row leaves out what only the open conversation or the server reads', async () => {
+  const [row] = (await serializeConversationList(
+    [
+      {
+        ...conversation('slim'),
+        title: 'Slim',
+        credentialAccess: { awsRoleIds: ['role-a'] },
+        claudeCodePreviewContext: { cwd: '/w' },
+        initialSessionConfig: { model: 'm' },
+        compactionSummary: 'summary',
+        tokenUsage: {
+          inputTokens: 1_000_000,
+          providers: [
+            { provider: 'vertex.anthropic', modelId: 'claude-opus-5', inputTokens: 1_000_000 },
+          ],
+        },
+      },
+    ],
+    { userId: 'user-a' } as never,
+    'team-a',
+  )) as Record<string, unknown>[]
+
+  expect(row?.title).toBe('Slim')
+  expect(row?.tokenUsage).toEqual({ costUsd: 5 })
+  // The desktop chat summary counts connectors and devices from the polled row.
+  expect(row?.credentialAccess).toEqual({ awsRoleIds: ['role-a'] })
+  for (const field of [
+    'claudeCodePreview',
+    'claudeCodePreviewContext',
+    'initialSessionConfig',
+    'compactionSummary',
+  ]) {
+    expect(row).not.toHaveProperty(field)
+  }
 })

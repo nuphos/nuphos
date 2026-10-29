@@ -1,4 +1,5 @@
-import type { StreamPurpose, TunnelClientDeps } from './tunnel-client.ts'
+import type { TunnelClientDeps } from './tunnel-client.ts'
+import type { StreamPurpose } from './tunnel-protocol.ts'
 
 /** Local tools stay separate from an agent's transport and control connection. */
 export function connectLocalStream(

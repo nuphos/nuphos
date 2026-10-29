@@ -66,3 +66,22 @@ export function agentRunsOn(
 
   return agentOffline(instance, quota) ? `${where} · Offline` : where
 }
+
+/**
+ * The CLI to sign in to right here, for this computer's own Claude Code or Codex agent while it
+ * is not signed in. Another computer's agent signs in on that computer.
+ */
+export function thisComputerSignIn(
+  instance: RuntimeInstance,
+  thisComputer: { userId: string; deviceId: string } | null,
+): 'claude-code' | 'codex' | undefined {
+  const local = instance.local
+
+  if (!local || local.instanceId || local.signedIn === true) return undefined
+  if (local.deviceId !== thisComputer?.deviceId || local.ownerUserId !== thisComputer.userId)
+    return undefined
+
+  return instance.provider === 'claude-code' || instance.provider === 'codex'
+    ? instance.provider
+    : undefined
+}

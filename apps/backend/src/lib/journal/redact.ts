@@ -44,6 +44,11 @@ const RULES: Rule[] = [
     pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/g,
   },
   {
+    // Nuphos sign-in sessions (nus_) and CLI tokens (nup_).
+    kind: 'nuphos-token',
+    pattern: /\bnu[ps]_[A-Za-z0-9_-]{20,}/g,
+  },
+  {
     kind: 'github-token',
     pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
   },
@@ -111,6 +116,25 @@ const RULES: Rule[] = [
     replace: (groups) => `${String(groups[1])}${placeholder('secret-flag')}`,
   },
 ]
+
+// Unambiguous token shapes: safe to apply to any text without hiding prose,
+// ids or commit hashes the way the assignment rules and entropy sweep can.
+const TOKEN_SHAPE_KINDS = new Set([
+  'pem-private-key',
+  'aws-access-key-id',
+  'jwt',
+  'nuphos-token',
+  'github-token',
+  'slack-token',
+])
+
+/** Replaces only well-known token shapes; leaves everything else readable. */
+export function redactTokenShapes(text: string): string {
+  return RULES.filter((rule) => TOKEN_SHAPE_KINDS.has(rule.kind)).reduce(
+    (out, rule) => out.replace(rule.pattern, placeholder(rule.kind)),
+    text,
+  )
+}
 
 /** Shannon entropy in bits per character. */
 export function shannonEntropy(text: string): number {

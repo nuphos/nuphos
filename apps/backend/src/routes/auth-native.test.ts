@@ -3,9 +3,10 @@ import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
-import { errorHandler } from '@/lib/errors'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useIdentitySessions } from '@/lib/test/doubles/identity-sessions'
 
 import type * as dbActual from '@/lib/db'
 import type * as identityActual from '@/lib/identity'
@@ -39,6 +40,12 @@ class FakeCollection {
     this.docs.push({ ...doc })
 
     return { insertedId: doc._id }
+  }
+  // Only the sign-in alert's look at other sessions lists; none exist here.
+  find() {
+    const cursor = { limit: () => cursor, toArray: async () => [] }
+
+    return cursor
   }
   async findOne(filter: Doc) {
     return this.docs.find((d) => matches(d, filter)) ?? null
@@ -93,13 +100,12 @@ const USER = {
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
-let googleSignIn: (
-  code: string,
-  redirectUri: string,
-) => Promise<{ token: string; user: typeof USER }> = async (_code, _redirectUri) => ({
-  token: 'google-session-token',
-  user: USER,
-})
+let googleSignIn: (code: string, redirectUri: string) => Promise<typeof USER> = async (
+  _code,
+  _redirectUri,
+) => USER
+const sessionsStarted: string[] = []
+const sessionSources: { ip?: string }[] = []
 
 useDb({ db: (() => ({ collection })) as unknown as typeof dbActual.db })
 useIdentity({
@@ -107,8 +113,14 @@ useIdentity({
     googleSignIn(code, redirectUri)) as unknown as typeof identityActual.signInWithGoogleCode,
   getNuphosUserById: (async (id: string) =>
     id === USER.id ? USER : null) as unknown as typeof identityActual.getNuphosUserById,
-  signNuphosToken: ((userId: string) =>
-    `minted-for-${userId}`) as unknown as typeof identityActual.signNuphosToken,
+})
+useIdentitySessions({
+  createUserSession: async (userId: string, source?: { ip?: string }) => {
+    sessionsStarted.push(userId)
+    sessionSources.push(source ?? {})
+
+    return `minted-for-${userId}`
+  },
 })
 
 const { auth } = await import('@/routes/auth')
@@ -168,7 +180,9 @@ beforeEach(() => {
   collections.forEach((c) => {
     c.docs = []
   })
-  googleSignIn = async () => ({ token: 'google-session-token', user: USER })
+  googleSignIn = async () => USER
+  sessionsStarted.length = 0
+  sessionSources.length = 0
 })
 
 describe('the native handoff', () => {
@@ -194,7 +208,9 @@ describe('the native handoff', () => {
     expect(delivery.redirectUri).toBe(REDIRECT)
     expect(delivery.clientState).toBe('corr123')
     expect(delivery.code).toMatch(/^[A-Za-z0-9_-]{20,}$/)
-    expect(JSON.stringify(body)).not.toContain('google-session-token')
+    expect(JSON.stringify(body)).not.toContain('minted-for-')
+    // Only the app's redemption may start a session, not the browser leg.
+    expect(sessionsStarted).toEqual([])
     const google = (
       body.data as {
         googleSignIn?: { token?: string; user?: { id: string } }
@@ -294,7 +310,7 @@ describe('the native handoff', () => {
     googleSignIn = async () => {
       called = true
 
-      return { token: 't', user: USER }
+      return USER
     }
 
     const res = await post('/auth/google/sign-in', {
@@ -523,7 +539,7 @@ describe('the legacy path still works', () => {
 
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
-      data: { googleSignIn: { token: 'google-session-token', user: USER } },
+      data: { googleSignIn: { token: `minted-for-${USER.id}`, user: USER } },
     })
     // Nothing was registered, so nothing is left behind either.
     expect(collection('native_auth_sessions').docs).toHaveLength(0)
@@ -547,4 +563,27 @@ describe('the legacy path still works', () => {
     expect((await post('/auth/google/sign-in', { redirectUri: NUPHOS_CALLBACK })).status).toBe(400)
     expect((await post('/auth/google/sign-in', { code: 'c' })).status).toBe(400)
   })
+
+  test('a disabled account is answered with 403 and its code', async () => {
+    googleSignIn = async () => {
+      throw new AppError(403, 'account_disabled', 'This account has been disabled')
+    }
+
+    const res = await post('/auth/google/sign-in', { code: 'c', redirectUri: NUPHOS_CALLBACK })
+    const body = (await res.json()) as { errors: { extensions: { code?: string } }[] }
+
+    expect(res.status).toBe(403)
+    expect(body.errors[0]?.extensions.code).toBe('account_disabled')
+  })
+})
+
+test('a sign-in the website makes for a browser does not take the website’s address', async () => {
+  const res = await app().request('/auth/google/sign-in', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '198.51.100.7' },
+    body: JSON.stringify({ code: 'google-code', redirectUri: NUPHOS_CALLBACK }),
+  })
+
+  expect(res.status).toBe(200)
+  expect(sessionSources[0]?.ip).toBeUndefined()
 })

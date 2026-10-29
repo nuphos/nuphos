@@ -1,4 +1,3 @@
-import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 import { readDeviceIdentity } from '../main/device-identity.ts'
@@ -9,8 +8,8 @@ import {
   traceStream,
 } from './chat-shared'
 import { formatAgentLocalError } from './stream-errors'
-import { windowTranscript } from './transcript-window'
 
+import type { SignedIn } from '../account-request.ts'
 import type { ChatStreamCtx, StartChatArgs } from './chat-shared'
 
 /**
@@ -22,7 +21,7 @@ import type { ChatStreamCtx, StartChatArgs } from './chat-shared'
 export async function postChatAttempt(
   ctx: ChatStreamCtx,
   args: StartChatArgs,
-  token: string,
+  account: SignedIn,
   attemptAc: AbortController,
   shouldResume: boolean,
 ): Promise<Response | null> {
@@ -31,7 +30,7 @@ export async function postChatAttempt(
     args
   const headers: Record<string, string> = {
     'content-type': 'application/json',
-    authorization: `Bearer ${token}`,
+    authorization: `Bearer ${account.token}`,
     accept: 'text/event-stream',
     'accept-encoding': 'identity',
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
@@ -53,19 +52,11 @@ export async function postChatAttempt(
   let res: Response
   const attemptStartedAt = Date.now()
 
-  // Ship only the current turn's tail; the backend hydrates the stored prefix
-  // from `baseIndex`. Keeps the body flat across a long live session instead
-  // of growing until the ingress answers 413.
-  const window = state.sendFullTranscript
-    ? { messages, baseIndex: args.baseIndex, dropped: 0 }
-    : windowTranscript(messages as { role?: unknown }[], args.baseIndex)
-
-  // A 409 rejection that carried the server's stored count: keep the same
-  // window but claim that count as the prefix, so the store's truth wins over
-  // the local arithmetic without resending the whole transcript.
-  if (!state.sendFullTranscript && state.rebaseBaseIndex !== undefined) {
-    window.baseIndex = state.rebaseBaseIndex
-  }
+  // `messages` is already the current turn's tail (the preload windows it,
+  // see transcript-window.ts). A 409 rejection that carried the server's
+  // stored count claims that count as the prefix instead, so the store's truth
+  // wins over the local arithmetic.
+  const baseIndex = state.rebaseBaseIndex ?? args.baseIndex
 
   traceStream(
     'post_attempt',
@@ -77,21 +68,19 @@ export async function postChatAttempt(
       first_byte_timeouts: state.firstByteTimeouts,
       idle_timeouts: state.idleTimeouts,
       fresh_retry_attempts: state.freshRetryAttempts,
-      message_count: window.messages.length,
-      window_dropped: window.dropped,
-      base_index: window.baseIndex ?? 0,
-      full_transcript_fallback: state.sendFullTranscript,
+      message_count: messages.length,
+      base_index: baseIndex ?? 0,
     },
   )
   try {
-    res = await fetch(`${apiUrl()}/agent/chat`, {
+    res = await fetch(`${account.api}/agent/chat`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         id: sessionId,
         teamId,
-        messages: window.messages,
-        baseIndex: window.baseIndex && window.baseIndex > 0 ? window.baseIndex : undefined,
+        messages,
+        baseIndex: baseIndex && baseIndex > 0 ? baseIndex : undefined,
         streamId,
         resume: shouldResume,
         resumeFrom: state.resumeFrom,

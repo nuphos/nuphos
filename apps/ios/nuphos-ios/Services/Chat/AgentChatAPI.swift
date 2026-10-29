@@ -46,6 +46,20 @@ enum AgentChatAPI {
         return request
     }
 
+    /// Sends one message from outside the chat screen: a notification reply.
+    /// The server reads the history itself, queues behind a running turn, and
+    /// keeps the turn going after this returns, so only the headers are awaited.
+    static func reply(token: String, teamId: String, sessionId: String, text: String) async throws {
+        let message = ChatMessage(role: .user, parts: [.text(.init(text: text, state: .done))])
+        let request = try chatRequest(token: token, body: .init(
+            id: sessionId, teamId: teamId, messages: [message], streamId: UUID().uuidString.lowercased()))
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        bytes.task.cancel()
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw NuphosAPI.Failure.invalidResponse
+        }
+    }
+
     /// `POST /agent/chat/:streamId/abort`. `local` only means the runtime
     /// was told to stop; the turn ends when its terminal frames arrive.
     enum AbortStatus: String { case local, forwarded, notFound = "not_found", failed }
@@ -115,7 +129,7 @@ enum AgentChatAPI {
         let environment: String
     }
 
-    /// `PUT /push/live-activities` — where the backend sends the turn's end.
+    /// `PUT /push/live-activities` — puts the conversation on the phone's card.
     static func registerLiveActivity(token: String, activity: LiveActivityToken) async throws {
         try await send("PUT", "push/live-activities", token: token, body: activity, timeout: 15)
     }
@@ -163,12 +177,36 @@ enum AgentChatAPI {
 
     /// `POST /agent/conversations/:id/steer` — hands a message to the turn
     /// already running, without opening a second stream.
-    static func steer(token: String, teamId: String, sessionId: String, text: String) async throws -> String {
-        struct Body: Encodable { var text: String }
+    /// `queuedId` names one of the sender's messages waiting in the session
+    /// queue: the server takes it off the queue as it steers it.
+    static func steer(token: String, teamId: String, sessionId: String, text: String, queuedId: String? = nil) async throws -> String {
+        struct Body: Encodable { var text: String; var queuedId: String? }
         struct Receipt: Decodable { let messageId: String }
         let data = try await send("POST", "agent/conversations/\(sessionId)/steer",
-            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(text: text))
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(text: text, queuedId: queuedId))
         return try JSONDecoder().decode(Receipt.self, from: data).messageId
+    }
+
+    /// One message waiting in the session queue, in the order it runs.
+    struct QueuedMessage: Decodable, Identifiable, Equatable, Sendable {
+        let id: String
+        let mine: Bool
+        let text: String
+    }
+
+    /// `GET /agent/conversations/:id/queue`: everyone's waiting messages.
+    static func queue(token: String, teamId: String, sessionId: String) async throws -> [QueuedMessage] {
+        struct Queue: Decodable { let messages: [QueuedMessage] }
+        let data = try await send("GET", "agent/conversations/\(sessionId)/queue",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
+        return try JSONDecoder().decode(Queue.self, from: data).messages
+    }
+
+    /// `DELETE /agent/conversations/:id/queue/:messageId` takes one of the
+    /// sender's waiting messages back; 404 once its turn started.
+    static func unqueue(token: String, teamId: String, sessionId: String, messageId: String) async throws {
+        _ = try await send("DELETE", "agent/conversations/\(sessionId)/queue/\(messageId)",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
     }
 
     static func cancelRuntime(token: String, teamId: String, sessionId: String) async throws {

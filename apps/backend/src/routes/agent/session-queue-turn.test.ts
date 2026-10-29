@@ -19,7 +19,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat, launchQueuedChatTurn } from './session-queue-turn'
+import { admitQueueableChat, launchQueuedChatTurn, queuedChatReply } from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
@@ -63,7 +63,7 @@ const message = (id: string): UIMessage => ({
 
 function admit(id: string, overrides: Partial<Parameters<typeof admitQueueableChat>[0]> = {}) {
   return admitQueueableChat({
-    body: { id: SESSION, messages: [message(id)], clientCapabilities: { serverQueue: true } },
+    body: { id: SESSION, messages: [message(id)] },
     conversation,
     runOwnerUserId: OWNER,
     userId: OWNER,
@@ -107,16 +107,10 @@ afterEach(async () => {
   await clearPendingUserMessages(OWNER, SESSION)
 })
 
-test('an older client, or a continuation, keeps the earlier admission', async () => {
-  expect(await admit('a', { body: { id: SESSION, messages: [message('a')] } })).toBeNull()
+test('a continuation keeps the earlier admission', async () => {
   expect(
     await admit('a', {
-      body: {
-        id: SESSION,
-        messages: [message('a')],
-        clientCapabilities: { serverQueue: true },
-        continueAfterInterruption: true,
-      },
+      body: { id: SESSION, messages: [message('a')], continueAfterInterruption: true },
     }),
   ).toBeNull()
 })
@@ -152,6 +146,54 @@ test('a busy session queues the message with the context its device sent it with
   })
 })
 
+test('a runtime-started turn that never saw its end does not hold the session', async () => {
+  // A turn the runtime started on its own (here: one carried across a backend
+  // rollout) stayed open after the runtime went idle. Every message then
+  // queued behind it, with nothing left to release the claim.
+  const run = createAgentRun(
+    OWNER,
+    SESSION,
+    'stream-autonomous',
+    {
+      requestId: 'request-autonomous',
+      userId: OWNER,
+      sessionId: SESSION,
+      streamId: 'stream-autonomous',
+      route: 'claude-code/autonomous',
+      method: 'RUNTIME',
+    },
+    { runtimeOwned: true },
+  )
+
+  registerAgentRun(run)
+  try {
+    const admitted = await admit('after-idle', {
+      snapshot: {
+        schemaVersion: 2,
+        state: 'idle',
+        actions: { send: true, cancel: false, steer: false },
+      },
+    })
+
+    expect(admitted?.mode).toBe('run')
+    if (admitted?.mode === 'run') admitted.release()
+    // A busy runtime still holds the message back, through its own status.
+    const waiting = await admit('while-active', {
+      snapshot: {
+        schemaVersion: 2,
+        state: 'active',
+        actions: { send: false, cancel: true, steer: true },
+      },
+    })
+
+    expect(waiting?.mode).toBe('queued')
+  } finally {
+    run.done = true
+    run.releaseOwnership()
+    agentRuns.delete(run.key)
+  }
+})
+
 test('a runtime busy outside any backend turn queues the message too', async () => {
   const admitted = await admit('wait', {
     snapshot: {
@@ -183,7 +225,6 @@ test('a send queues only for the Box its runtime resolution authorized', async (
     body: {
       id: SESSION,
       messages: [message(id)],
-      clientCapabilities: { serverQueue: true },
       runtimeId: 'box-b',
     },
     conversation: {
@@ -264,16 +305,111 @@ test('everyone in the conversation sees the queue; only the sender takes a messa
   expect((await request(`/conversations/${SESSION}/queue/mine`, 'DELETE')).status).toBe(404)
 })
 
-test("an older client's new message waits behind the queue: refused, so it resends", async () => {
+// A phone send that lands while an agent.thread turn holds the session waits in
+// the server queue, in order, around agent messages. Admitted on the runtime
+// status alone, the runtime refused it, and it was lost once the app stopped
+// resending.
+test('a phone send while an agent message runs is queued in order, never refused', async () => {
   const done = busy()
-
-  await admit('first')
-  done()
-  await expect(
-    admit('legacy', { body: { id: SESSION, messages: [message('legacy')] } }),
-  ).rejects.toMatchObject({
-    code: 'runtime_not_accepting_message',
+  const phone = (id: string) => ({
+    body: { id: SESSION, messages: [message(id)], clientCapabilities: { resendsRefusal: true } },
+    clientView: [message(id)],
   })
+  const thread = buildPendingUserMessage({ renderedText: 'CI passed', source: 'agent.thread' })
+
+  try {
+    expect((await admit('first', phone('first')))?.mode).toBe('queued')
+    // A resent copy of a waiting message is that message, not a second one.
+    expect((await admit('first', phone('first')))?.mode).toBe('queued')
+    const outcome = await claimAgentRunOrEnqueue({
+      userId: OWNER,
+      sessionId: SESSION,
+      message: thread,
+    })
+
+    expect(outcome.mode).toBe('queued')
+    expect((await admit('second', phone('second')))?.mode).toBe('queued')
+  } finally {
+    done()
+  }
+  // A free session still lets nothing overtake what waits.
+  expect((await admit('third', phone('third')))?.mode).toBe('queued')
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual([
+    'first',
+    thread.id,
+    'second',
+    'third',
+  ])
+})
+
+test('a queued send ends cleanly for a phone that reads only an event stream', async () => {
+  const desktop = queuedChatReply(
+    { id: SESSION, messages: [], clientCapabilities: { serverQueue: true } },
+    { status: 'queued', streamId: 'stream-d' },
+  )
+
+  expect(desktop.status).toBe(202)
+  expect(await desktop.json()).toEqual({ status: 'queued', streamId: 'stream-d' })
+  // An error frame would offer Retry, which resends under a new id.
+  const phone = queuedChatReply(
+    { id: SESSION, messages: [], clientCapabilities: { resendsRefusal: true } },
+    { status: 'queued', streamId: 'stream-p' },
+  )
+
+  expect(phone.status).toBe(200)
+  expect(phone.headers.get('content-type')).toStartWith('text/event-stream')
+  expect(await phone.text()).toBe('data: {"type":"atlas-stream-done"}\n\n')
+})
+
+test('a phone waiting on an offline Box or an approval gets the same clean end', async () => {
+  const reply = { status: 'queued' as const, streamId: 'stream-o', message: 'Waiting for the Box' }
+  const desktop = queuedChatReply(
+    { id: SESSION, messages: [], clientCapabilities: { serverQueue: true } },
+    reply,
+  )
+
+  expect(desktop.status).toBe(202)
+  expect(await desktop.json()).toEqual(reply)
+  const phone = queuedChatReply({ id: SESSION, messages: [] }, reply)
+
+  expect(phone.headers.get('content-type')).toStartWith('text/event-stream')
+  expect(await phone.text()).toBe('data: {"type":"atlas-stream-done"}\n\n')
+})
+
+test('a message with inline photos waits like any other, as a direct send would take it', async () => {
+  const done = busy()
+  const photo: UIMessage = {
+    id: 'photo',
+    role: 'user',
+    parts: [
+      { type: 'text', text: 'what is this' },
+      {
+        type: 'file',
+        mediaType: 'image/jpeg',
+        url: `data:image/jpeg;base64,${'A'.repeat(600_000)}`,
+      },
+    ],
+  }
+
+  try {
+    expect((await admit('photo', { clientView: [photo] }))?.mode).toBe('queued')
+  } finally {
+    done()
+  }
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual(['photo'])
+})
+
+test('a message larger than a stored message can be is refused before it waits', async () => {
+  const huge: UIMessage = {
+    id: 'huge',
+    role: 'user',
+    parts: [{ type: 'text', text: 'A'.repeat(12_000_001) }],
+  }
+
+  await expect(admit('huge', { clientView: [huge] })).rejects.toMatchObject({
+    code: 'message_too_large',
+  })
+  expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
 })
 
 test('a message id that could match another message is refused', async () => {
@@ -282,7 +418,7 @@ test('a message id that could match another message is refused', async () => {
   await expect(
     admit(id, {
       clientView: [message(id)],
-      body: { id: SESSION, messages: [message(id)], clientCapabilities: { serverQueue: true } },
+      body: { id: SESSION, messages: [message(id)] },
     }),
   ).rejects.toMatchObject({ status: 400 })
 })

@@ -6,6 +6,7 @@ import path from 'node:path'
 
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
+import { OPENCODE_AUTH_LIST, parseOpenCodeAuthList } from './agent-cli-opencode.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
 import { agentCliEnv } from './config.ts'
 import { homeLogin } from './providers.ts'
@@ -75,6 +76,10 @@ async function loginOf(
   if (!runtimeEnv || !agentHome) return { loggedIn: null }
   const fromHome = await homeLogin(provider, agentHome)
 
+  if (fromHome === false && provider === 'opencode')
+    return run(file, OPENCODE_AUTH_LIST, runtimeEnv).then(parseOpenCodeAuthList, () => ({
+      loggedIn: false,
+    }))
   if (fromHome !== undefined) return { loggedIn: fromHome }
   if (provider === 'claude-code') return claudeLogin(runtimeEnv)
 
@@ -105,8 +110,12 @@ async function claudeLogin(
   }
 }
 
+/** OpenCode 2.x prints "opencode v2.1.4"; the others print the bare version. */
 function versionOf(output: string): string | undefined {
-  return output.split(/\s+/u).find((token) => /^\d+\.\d+\.\d+/u.test(token))
+  return output
+    .split(/\s+/u)
+    .find((token) => /^v?\d+\.\d+\.\d+/u.test(token))
+    ?.replace(/^v/u, '')
 }
 
 type UsageRequest = { url: string; headers: Record<string, string> }

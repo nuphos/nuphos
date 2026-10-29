@@ -1,4 +1,4 @@
-// Pre-prompt assembly for a Claude Code runtime turn: memory recall, the
+// Pre-prompt assembly for a Claude Code runtime turn: memory provider, the
 // composed system prompt, the history preamble for a fresh inner session, and
 // any messages queued while no turn was running (they ride the first prompt).
 
@@ -20,19 +20,18 @@ import { takeTurnQueue } from '@/lib/agent/pending-queue'
 import { markCarried } from '@/lib/agent/retract-marks'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
-import { recallForPreviewTurn } from '@/lib/claude-code-preview/preview-recall'
 import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
 import { runtimeAttachments } from '@/lib/claude-code-preview/runtime-attachments'
 
-import { emitRecallStartFrame } from './chat-prep'
+import { resolvePreviewTurnMemory } from './chat-preview-memory'
 import { traceAgentChatError } from './trace'
 import { getUserMessageTexts } from './transcript'
 import { turnInputMessages } from './turn-start-frame'
 
+import type { PreviewTurnMemory } from './chat-preview-memory'
 import type { PreviewChatTurnArgs } from './chat-preview-turn'
 import type { AgentChatBody } from './types'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
-import type { PreviewTurnMemory } from '@/lib/claude-code-preview/preview-recall'
 import type { RuntimeAttachment } from '@/lib/claude-code-preview/runtime-attachments'
 import type { UIMessage } from 'ai'
 
@@ -76,7 +75,6 @@ export function turnPrompt(args: {
   inputs: UIMessage[]
   turnContext?: string
   carried: string
-  recall?: string | null
 }): { lead: (history?: string | null) => string; text: string } {
   const final = args.resume === null ? args.inputs.at(-1) : undefined
   // Only a verified sender's words take the last block; an unattested message
@@ -92,8 +90,7 @@ export function turnPrompt(args: {
   const header = last ? attributionHeader(last.id, last.metadata) : ''
 
   return {
-    lead: (history) =>
-      [history, ...turn, args.carried, args.recall, header].filter(Boolean).join('\n\n'),
+    lead: (history) => [history, ...turn, args.carried, header].filter(Boolean).join('\n\n'),
     text: args.resume ?? (last ? userText(last) : ''),
   }
 }
@@ -180,14 +177,14 @@ export async function preparePreviewTurn(
 
   await persistPreviewTurnContext(args, requestId)
   const [memory, systemPrompt, compactionSummary, drained] = await Promise.all([
-    recallForPreviewTurn({
+    resolvePreviewTurnMemory({
       sessionId,
       userId: actorUserId,
       teamId,
       requestId,
       messages: args.messages,
     }).catch((err: unknown): PreviewTurnMemory | null => {
-      traceAgentChatError('agent.chat.preview_recall.error', err, args.run.trace, {})
+      traceAgentChatError('agent.chat.preview_memory.error', err, args.run.trace, {})
 
       return null
     }),
@@ -228,13 +225,11 @@ export async function preparePreviewTurn(
         images,
       )
 
-  if (memory) emitRecallStartFrame(args.run, sessionId, requestId, memory.recall)
   const { lead, text } = turnPrompt({
     resume: resumeMessage(args.resume),
     inputs,
     turnContext: args.turnContext,
     carried: carried.length > 0 ? renderInjectedUserMessages(carried) : '',
-    recall: memory?.recall.memoryBlock,
   })
 
   return {

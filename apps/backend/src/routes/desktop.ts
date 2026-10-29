@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 
 import { sendDownloadLinkEmail } from '@/lib/download-link-email'
 import { requireAuth } from '@/middleware/auth'
+import { crashReportRoutes } from '@/routes/desktop-crash-reports'
 
 import type { AuthVariables } from '@/middleware/auth'
 
@@ -19,3 +20,6 @@ desktopRoutes.post('/download-email', requireAuth, async (c) => {
 
   return c.json({ ok: true, email })
 })
+
+// Native crash reports (Crashpad minidumps) from the Desktop app.
+desktopRoutes.route('/crash-reports', crashReportRoutes)

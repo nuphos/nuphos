@@ -21,7 +21,7 @@ export async function createMemoryRecord(input: {
   // ADR-0008 track B: authored index line + retrieval keys (see types.ts).
   title?: string | null
   keywords?: string[]
-  source: 'save_memory' | 'auto_ingest'
+  source: 'save_memory'
   conversationId?: string | null
   // save_memory only: id of an existing live record in the same pool that
   // this write replaces (ADR-0006 supersede — the no-edit-tool answer).
@@ -60,15 +60,11 @@ export async function createMemoryRecord(input: {
   let supersededId: ObjectId | null = null
 
   if (input.supersedes) {
-    // Team supersede was refused here while no caller wired the
-    // supersede_correction observer, because silently tombstoning a shared
-    // record would lose the negative signal. Auto-ingest's contradiction check
-    // (memory-native/conflict.ts) earned the path: it records the signal for
-    // both scopes before returning. The duty documented above is unchanged and
-    // still falls on the caller — a new supersede caller that skips it drops
-    // the correction from every retention score.
+    // The caller owns the supersede_correction signal (documented above): a
+    // supersede caller that skips it drops the correction from every
+    // retention score.
     if (!ObjectId.isValid(input.supersedes)) {
-      return { ok: false, error: 'supersedes must be a memory id from the Saved memories index' }
+      return { ok: false, error: 'supersedes must be a memory id returned by memory_get' }
     }
     // Pool-scoped lookup: a model-supplied id can only ever disable a record
     // this same owner/team could already see.

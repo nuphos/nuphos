@@ -73,7 +73,7 @@ class RuntimeDetailFixtureDeviceTest {
     }
     @Test fun lightDetailAndDestructiveConfirmation() {
         render(false)
-        compose.onNodeWithText("5h: 24% used").assertExists()
+        compose.onNodeWithText("5h: 76% left").assertExists()
         capture("agent-detail-light.png")
         click("Remove runtime"); assertEquals(0, removals)
         compose.onNodeWithText("Remove Design workspace?").assertExists()
@@ -111,8 +111,8 @@ class RuntimeDetailFixtureDeviceTest {
             val setup = remember { RuntimeSetupStore(api, scope, { true }, { true }, selection, {}) }
             NuphosTheme { RuntimeSetupSheet(setup, {}) }
         }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Details for Design workspace").fetchSemanticsNodes().isNotEmpty() }
-        click("Details for Design workspace")
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Details for Design workspace").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Details for Design workspace").performClick()
         click("Sign In Again")
         compose.onNodeWithText("Start provider sign-in").assertExists()
         click("Start provider sign-in")

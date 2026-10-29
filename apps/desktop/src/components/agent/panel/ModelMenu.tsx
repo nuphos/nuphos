@@ -1,6 +1,7 @@
 import { Check, ChevronRight } from 'lucide-react'
 import { useRef } from 'react'
 
+import { t } from '../../../i18n'
 import { modelChoiceLabel } from '../../../lib/configLabels'
 import { concreteModelChoices, offeredDefaultModel } from '../../../lib/modelChoices'
 import { claudeModelGroups, isClaudeCatalog } from '../../../lib/modelGroups'
@@ -77,12 +78,12 @@ export function ModelMenu({
     >
       <MenuGroup>
         <MenuGroupLabel className="text-xs font-normal normal-case tracking-normal">
-          Select model
+          {t('Select model')}
         </MenuGroupLabel>
         {inherited && (
           <ModelRow
-            label="Default"
-            description={inherited.description || 'Recommended set of models'}
+            label={t('Default')}
+            description={inherited.description || t('Recommended set of models')}
             inline
             checked={onDefault}
             disabled={blocked}
@@ -109,9 +110,9 @@ export function ModelMenu({
           >
             <MenuSubmenuTrigger chevron={<ChevronRight size={14} />}>
               <span className="flex items-center gap-2">
-                <span className="flex-1">More models</span>
+                <span className="flex-1">{t('More models')}</span>
                 {older.some((choice) => choice.id === current) && (
-                  <Check size={14} strokeWidth={2.4} aria-label="Current model is here" />
+                  <Check size={14} strokeWidth={2.4} aria-label={t('Current model is here')} />
                 )}
               </span>
             </MenuSubmenuTrigger>

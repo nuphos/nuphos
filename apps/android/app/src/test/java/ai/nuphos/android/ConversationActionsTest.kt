@@ -58,4 +58,33 @@ class ConversationActionsTest {
         assertNull(ConversationActions.validTitle(" "))
         assertNull(ConversationActions.validTitle("x".repeat(121)))
     }
+    @Test fun desktopHrefIdentityMatchesKeyAndUnpinPreservesUnrelatedEntries() {
+        val href = JsonValue.obj("label" to JsonValue.Str("Desktop pin"), "href" to JsonValue.Str("https://nuphos.ai/teams/team/agent/s%2B%20x"))
+        val key = JsonValue.obj("key" to JsonValue.Str("agent-session:s+ x"))
+        val other = JsonValue.obj("href" to JsonValue.Str("/teams/team/plans/plan"))
+        assertEquals("s+ x", ConversationActions.favoriteSessionId(href))
+        assertTrue(ConversationActions.Favorites(listOf(href), 1).contains("s+ x"))
+        assertEquals(listOf(href, other), ConversationActions.pinnedEntries(listOf(href, other), "s+ x", "New", true))
+        assertEquals(listOf(other), ConversationActions.pinnedEntries(listOf(href, key, other), "s+ x", "New", false))
+        assertEquals("a+b", ConversationActions.favoriteSessionId(JsonValue.obj("href" to JsonValue.Str("/teams/t/agent/a+b"))))
+    }
+    @Test fun unrelatedMalformedAndEmptyFavoriteRoutesAreNotChatPins() {
+        for (href in listOf("/dashboard", "/teams/t/agent", "/teams/t/agent/", "/teams//agent/s", "/teams/t/agent/s/extra", "/teams/t/agent/%ZZ"))
+            assertNull(href, ConversationActions.favoriteSessionId(JsonValue.obj("href" to JsonValue.Str(href))))
+        val preferred = JsonValue.obj("key" to JsonValue.Str("agent-session:key"), "href" to JsonValue.Str("/teams/t/agent/href"))
+        assertEquals("key", ConversationActions.favoriteSessionId(preferred))
+    }
+
+    @Test fun favoriteHrefMustMatchCanonicalOriginAndRequestedTeam() {
+        fun entry(href: String) = JsonValue.obj("href" to JsonValue.Str(href))
+        assertEquals("s", ConversationActions.favoriteSessionId(entry("/teams/A/agent/s"), "A"))
+        assertEquals("s", ConversationActions.favoriteSessionId(entry("https://nuphos.ai/teams/A/agent/s"), "A"))
+        for (href in listOf("https://example.com/teams/A/agent/s", "//nuphos.ai/teams/A/agent/s", "http://nuphos.ai/teams/A/agent/s", "https://user@nuphos.ai/teams/A/agent/s", "https://nuphos.ai:444/teams/A/agent/s", "/teams/B/agent/s", "/teams/A/agent/s?teamId=B", "/teams/A/agent/s#x"))
+            assertNull(href, ConversationActions.favoriteSessionId(entry(href), "A"))
+        val foreign = entry("/teams/B/agent/s")
+        assertFalse(ConversationActions.Favorites(listOf(foreign), 1, "A").contains("s"))
+        assertEquals(listOf(foreign), ConversationActions.pinnedEntries(listOf(foreign), "s", "Chat", false, "A"))
+        assertEquals(2, ConversationActions.pinnedEntries(listOf(foreign), "s", "Chat", true, "A").size)
+    }
+
 }

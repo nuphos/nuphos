@@ -1,9 +1,11 @@
+import { t } from '../i18n/index.ts'
+
 const EFFORT_LABELS: Record<string, string> = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Extra High',
-  max: 'Max',
+  low: t('Low'),
+  medium: t('Medium'),
+  high: t('High'),
+  xhigh: t('Extra High'),
+  max: t('Max'),
 }
 
 /** Some runtimes name a model by family ("Opus") and put the version only in

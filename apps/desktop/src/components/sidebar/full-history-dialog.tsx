@@ -2,11 +2,13 @@ import { Dialog } from '@base-ui/react/dialog'
 import clsx from 'clsx'
 import { useEffect, useId, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+import { AgentAvatar } from '../agent/AgentAvatar'
 import { Kbd } from '../ui/kbd'
 
 import { fullHistoryRows, historyAge } from './historyRows'
 
-import type { HistoryTimeline } from './historyRows'
+import type { ChatLookup, HistoryTimeline } from './historyRows'
 
 /**
  * Everything the main pane showed this session, newest first. Keyboard works
@@ -17,16 +19,16 @@ export function FullHistoryDialog({
   open,
   onOpenChange,
   history,
-  chatTitle,
+  chatOf,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   history: HistoryTimeline
-  chatTitle: (sessionId: string) => string | undefined
+  chatOf: ChatLookup
 }) {
   const listId = useId()
   const listRef = useRef<HTMLDivElement>(null)
-  const rows = open ? fullHistoryRows(history, chatTitle) : []
+  const rows = open ? fullHistoryRows(history, chatOf) : []
   const currentRow = Math.max(
     0,
     rows.findIndex((row) => row.current),
@@ -60,9 +62,9 @@ export function FullHistoryDialog({
             className="flex max-h-full w-full max-w-[480px] flex-col overflow-hidden rounded-xl border border-main bg-elevated text-main shadow-[0_18px_50px_#00000066] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
           >
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-main px-4">
-              <Dialog.Title className="text-sm font-medium">History</Dialog.Title>
+              <Dialog.Title className="text-sm font-medium">{t('History')}</Dialog.Title>
               <span className="text-xs text-secondary">
-                {rows.length === 1 ? '1 place' : `${String(rows.length)} places`}
+                {rows.length === 1 ? t('1 place') : t('{n} places', { n: rows.length })}
               </span>
             </div>
             <div
@@ -70,7 +72,7 @@ export function FullHistoryDialog({
               id={listId}
               role="listbox"
               tabIndex={0}
-              aria-label="History, newest first"
+              aria-label={t('History, newest first')}
               aria-activedescendant={rows.length ? `${listId}-${String(selectedIndex)}` : undefined}
               onKeyDown={(event) => {
                 const last = rows.length - 1
@@ -110,7 +112,16 @@ export function FullHistoryDialog({
                     position === selectedIndex ? 'bg-zGray-750' : 'hover:bg-zGray-800',
                   )}
                 >
-                  <row.icon size={16} className="shrink-0 text-secondary" />
+                  {'icon' in row ? (
+                    <row.icon size={16} className="shrink-0 text-secondary" />
+                  ) : (
+                    <AgentAvatar
+                      agentId={row.chat.sessionId}
+                      avatar={row.chat.avatar}
+                      provider={row.chat.agentRuntime}
+                      size={20}
+                    />
+                  )}
                   <span
                     className={clsx(
                       'min-w-0 flex-1 truncate text-[13px] text-main',
@@ -121,7 +132,7 @@ export function FullHistoryDialog({
                   </span>
                   {row.current ? (
                     <span className="shrink-0 rounded bg-zViolet-500/15 px-1.5 py-0.5 text-[11px] text-main">
-                      You are here
+                      {t('You are here')}
                     </span>
                   ) : (
                     <span className="shrink-0 text-xs text-secondary">{historyAge(row.at)}</span>
@@ -130,17 +141,17 @@ export function FullHistoryDialog({
               ))}
             </div>
             <div className="flex h-8 shrink-0 items-center gap-2 border-t border-main px-4 text-[11px] text-secondary">
-              <span>Navigate</span>
+              <span>{t('Navigate')}</span>
               <Kbd combo="up" />
               <Kbd combo="down" />
-              <span className="ml-2">Go there</span>
+              <span className="ml-2">{t('Go there')}</span>
               <Kbd combo="enter" />
               <span className="flex-1" />
               <Dialog.Close
-                aria-label="Close history"
+                aria-label={t('Close history')}
                 className="flex items-center gap-2 rounded hover:text-main focus-visible:outline focus-visible:outline-2"
               >
-                <span>Close</span>
+                <span>{t('Close')}</span>
                 <Kbd combo="esc" />
               </Dialog.Close>
             </div>

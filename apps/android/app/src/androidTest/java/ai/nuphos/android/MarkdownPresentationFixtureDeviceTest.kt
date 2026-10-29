@@ -89,6 +89,20 @@ class MarkdownPresentationFixtureDeviceTest {
         compose.onNodeWithText(hint).assertDoesNotExist()
     }
 
+    @Test fun codeHeaderCopiesCompleteLongMultilineContent() {
+        val code = "printf '%s' 'a synthetic command long enough to require horizontal scrolling in this narrow viewport'\nprintf done"
+        compose.setContent { NuphosTheme { Box(Modifier.width(280.dp)) { MarkdownText("```sh\n$code\n```") } } }
+        awaitText("SH")
+        compose.onNodeWithContentDescription("Copy code").assertIsDisplayed().performClick()
+        compose.runOnIdle {
+            val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            assertEquals(code, clipboard.primaryClip?.getItemAt(0)?.text?.toString()?.trimEnd())
+        }
+        compose.onNode(hasScrollAction()).performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("Copy code").assertIsDisplayed()
+    }
+
     @Test fun ordinaryParagraphHasNoTableSwipeHint() {
         compose.setContent { NuphosTheme { MarkdownText("Plain paragraph") } }
         awaitText("Plain paragraph")

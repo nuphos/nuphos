@@ -1,11 +1,17 @@
 import { faDisplay, faMoon, faSun } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { useEffect, useState } from 'react'
 
+import { api } from '../../api'
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
+import { AppSelect } from '../../components/ui/select'
 import { Switch } from '../../components/ui/Switch'
+import { toast } from '../../components/ui/toast'
 import { useTheme } from '../../hooks/useTheme'
+import { LOCALES, locale, setLocale, t } from '../../i18n'
 import { setAgentAppearance, useAgentAppearance } from '../../lib/agentAppearance'
+import { isMac } from '../../lib/platform'
 import { AuditLogView } from '../AuditLogView'
 import { TeamMembersView } from '../TeamMembersView'
 
@@ -25,7 +31,7 @@ export function MembersSection({
   if (!teamId) {
     return (
       <div className="max-w-[640px] mx-auto py-10 px-8 text-[13px] text-tertiary">
-        No workspace selected.
+        {t('No workspace selected.')}
       </div>
     )
   }
@@ -49,7 +55,7 @@ export function AuditSection({
   if (!teamId) {
     return (
       <div className="max-w-[640px] mx-auto py-10 px-8 text-[13px] text-tertiary">
-        No workspace selected.
+        {t('No workspace selected.')}
       </div>
     )
   }
@@ -64,10 +70,73 @@ export function AuditSection({
 }
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconDefinition }[] = [
-  { value: 'system', label: 'System', icon: faDisplay },
-  { value: 'light', label: 'Light', icon: faSun },
-  { value: 'dark', label: 'Dark', icon: faMoon },
+  { value: 'system', label: t('System'), icon: faDisplay },
+  { value: 'light', label: t('Light'), icon: faSun },
+  { value: 'dark', label: t('Dark'), icon: faMoon },
 ]
+
+// Rendered by scripts/render-app-icons.mjs; B2 is the bundled icon, A the original mark.
+const APP_ICON_CHARACTERS = [
+  t('Napoleon'),
+  t('Pearl Earring'),
+  t('Van Gogh'),
+  t('The Scream'),
+  t('Son of Man'),
+]
+const APP_ICON_LAYOUTS = [t('Classic'), t('Bleed'), t('Peek')]
+const APP_ICONS = [
+  { id: 'A', name: 'Nuphos' },
+  ...APP_ICON_CHARACTERS.flatMap((character, c) =>
+    APP_ICON_LAYOUTS.map((layout, l) => ({
+      id: `${'BCDEF'[c]}${String(l + 1)}`,
+      name: t('{character}, {layout}', { character, layout }),
+    })),
+  ),
+]
+
+function AppIconPicker() {
+  const [selected, setSelected] = useState<string>()
+
+  useEffect(() => {
+    void api.appGetAppIcon().then(setSelected)
+  }, [])
+
+  const choose = (id: string) => {
+    setSelected(id)
+    api
+      .appSetAppIcon(id)
+      .catch((e: unknown) => toast.apiError(t('Could not change the app icon'), e))
+  }
+
+  return (
+    <fieldset className="mt-8">
+      <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">{t('App icon')}</legend>
+      <div className="grid grid-cols-8 gap-2" role="group" aria-label={t('App icon')}>
+        {APP_ICONS.map(({ id, name }) => (
+          <button
+            key={id}
+            type="button"
+            title={name}
+            aria-label={name}
+            aria-pressed={selected === id}
+            onClick={() => choose(id)}
+            className={clsx(
+              'aspect-square rounded-xl border-2 transition-colors',
+              selected === id
+                ? 'border-zViolet-500/70 bg-zViolet-500/10'
+                : 'border-transparent hover:border-zGray-700',
+            )}
+          >
+            <img src={`/app-icons/${id}.png`} alt="" className="w-full h-full" draggable={false} />
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[12px] text-tertiary">
+        {t('Shown in the Dock while Nuphos runs.')}
+      </p>
+    </fieldset>
+  )
+}
 
 export function AppearanceSection() {
   const { preference, setPreference } = useTheme()
@@ -75,8 +144,11 @@ export function AppearanceSection() {
 
   return (
     <div>
-      <SectionHeader title="Appearance" description="Choose how the app looks on this device." />
-      <Field label="Theme">
+      <SectionHeader
+        title={t('Appearance')}
+        description={t('Choose how the app looks on this device.')}
+      />
+      <Field label={t('Theme')}>
         <div className="grid grid-cols-3 gap-2">
           {THEME_OPTIONS.map((option) => {
             const active = preference === option.value
@@ -103,26 +175,37 @@ export function AppearanceSection() {
           })}
         </div>
       </Field>
+      <div className="mt-5">
+        <Field label={t('Language')}>
+          <AppSelect
+            value={locale}
+            onValueChange={(next) => setLocale(next as typeof locale)}
+            options={LOCALES.map((l) => ({ value: l.code, label: l.name }))}
+            ariaLabel={t('Language')}
+          />
+        </Field>
+      </div>
+      {isMac && <AppIconPicker />}
       <div className="mt-8 space-y-5">
-        <h3 className="text-[14px] font-semibold text-main">Agents</h3>
+        <h3 className="text-[14px] font-semibold text-main">{t('Agents')}</h3>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <div className="text-[13px] font-medium text-main">Bot avatars</div>
+            <div className="text-[13px] font-medium text-main">{t('Bot avatars')}</div>
             <p className="mt-1 text-[12px] text-tertiary">
-              Give Agents a character avatar. Turn off to show Runtime icons.
+              {t('Give Agents a character avatar. Turn off to show Runtime icons.')}
             </p>
           </div>
           <Switch
-            label="Bot avatars"
+            label={t('Bot avatars')}
             checked={botAvatars}
             onChange={(next) => setAgentAppearance({ botAvatars: next })}
           />
         </div>
         <fieldset>
           <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">
-            Sidebar density
+            {t('Sidebar density')}
           </legend>
-          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Sidebar density">
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label={t('Sidebar density')}>
             {(['compact', 'comfortable'] as const).map((value) => (
               <button
                 key={value}
@@ -136,16 +219,16 @@ export function AppearanceSection() {
                     : 'border-zGray-800 bg-surface text-secondary hover:text-main',
                 )}
               >
-                {value === 'compact' ? 'Compact' : 'Comfortable'}
+                {value === 'compact' ? t('Compact') : t('Comfortable')}
               </button>
             ))}
           </div>
         </fieldset>
         <div
           className="rounded-lg border border-zGray-800 bg-surface p-3"
-          aria-label="Agent appearance preview"
+          aria-label={t('Agent appearance preview')}
         >
-          <div className="mb-2 text-[11px] text-tertiary">Preview</div>
+          <div className="mb-2 text-[11px] text-tertiary">{t('Preview')}</div>
           <div
             className={clsx(
               'flex items-center gap-2.5 text-[14px] text-secondary',
@@ -153,7 +236,7 @@ export function AppearanceSection() {
             )}
           >
             <AgentAvatar agentId="appearance-preview" provider="claude-code" sidebar animated />
-            <span>Product design</span>
+            <span>{t('Product design')}</span>
           </div>
         </div>
       </div>

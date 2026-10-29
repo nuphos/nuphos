@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
+import { t } from '../../../i18n/index.ts'
 import { localAgentMoveWarning } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
@@ -61,7 +62,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
           runtimeId,
           found: Boolean(target),
         })
-        toast.error('Could not move this agent', 'This agent is not ready to move.')
+        toast.error(t('Could not move this agent'), t('This agent is not ready to move.'))
 
         return
       }
@@ -89,7 +90,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
               'history',
             )
 
-            toast.success('Agent moved', 'The working files could not come along.')
+            toast.success(t('Agent moved'), t('The working files could not come along.'))
 
             return moved
           })
@@ -112,11 +113,11 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         setTab({ movingTo: undefined })
         console.warn('[agent] conversation move failed', cause)
         if (decideErrorToast(cause).action === 'show') {
-          toast.apiError('Could not move this agent', cause)
+          toast.apiError(t('Could not move this agent'), cause)
         } else {
           toast.error(
-            'Could not move this agent',
-            'The runtime did not accept the move. Check your connection and try again.',
+            t('Could not move this agent'),
+            t('The runtime did not accept the move. Check your connection and try again.'),
           )
         }
       }
@@ -137,6 +138,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
 
     return {
       teamId,
+      sessionId,
       canUpdateTeamAgents: isTeamAdmin,
       value: {
         id: tab?.runtimeId,
@@ -165,9 +167,9 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       ...(pendingLocal
         ? {
             confirm: {
-              title: `Move to ${pendingLocal.target.label}?`,
+              title: t('Move to {name}?', { name: pendingLocal.target.label }),
               description: pendingLocal.warning,
-              confirmLabel: 'Move',
+              confirmLabel: t('Move'),
               onConfirm: () => {
                 setPendingLocal(null)
                 void move(pendingLocal.target.id)

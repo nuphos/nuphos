@@ -166,9 +166,11 @@ export async function sendApns(
 }
 
 /** The token will never deliver again: uninstalled app, revoked permission,
- *  or a token from the other APNs environment. */
+ *  or a token from an APNs environment our key cannot send to (an Xcode build's
+ *  sandbox token when the key is limited to production). */
 export function isDeadToken(response: ApnsResponse): boolean {
   if (response.status === 410) return true
+  if (response.status === 403) return response.reason === 'BadEnvironmentKeyInToken'
 
   return (
     response.status === 400 &&

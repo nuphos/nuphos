@@ -39,7 +39,7 @@ test('a rejected token clears the session and notifies authenticated transport o
   const h = harness()
   const sessions: (string | null)[] = []
 
-  h.session.subscribe((token) => sessions.push(token))
+  h.session.subscribe(({ token }) => sessions.push(token))
   await status(h.deps)
   h.setProbe({ ok: false, transient: false })
   assert.deepEqual(await status(h.deps), { loggedIn: false })
@@ -70,4 +70,26 @@ test('a transient probe failure with no cached identity leaves the session unaut
 
   assert.equal(h.session.current(), null)
   assert.equal(h.config().token, 'tok-1', 'an unconfirmed token is kept for the next launch')
+})
+
+test('a relaunch keeps the signed-in user, so the local runtime keeps running', async () => {
+  const h = harness()
+
+  // Every launch starts with an empty session, then checks the stored token.
+  await status(h.deps)
+  assert.equal(h.session.userId(), 'u1')
+
+  const relaunched = { ...h.deps, session: new AuthSession() }
+
+  await status(relaunched)
+  assert.equal(relaunched.session.current(), 'tok-1')
+  assert.equal(relaunched.session.userId(), 'u1')
+})
+
+test('offline at launch, the cached user still runs the local runtime', async () => {
+  const h = harness()
+
+  h.setProbe({ ok: false, transient: true })
+  await status(h.deps)
+  assert.equal(h.session.userId(), 'u1')
 })

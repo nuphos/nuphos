@@ -172,3 +172,55 @@ test(
     }
   },
 )
+
+test(
+  'OpenCode 2.x is signed in once its own credential list names a connection',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-opencode2-'))
+    const home = path.join(dir, 'home')
+    const listing = path.join(dir, 'listing.json')
+    const ran = path.join(dir, 'args')
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    writeFileSync(
+      path.join(dir, 'opencode'),
+      `#!/bin/sh\nif [ "$1" = --version ]; then echo opencode v2.1.4; exit; fi\necho "$@" "HOME=$HOME" > '${ran}'\n/bin/cat '${listing}'\n`,
+      { mode: 0o700 },
+    )
+    const env = { PATH: dir, HOME: dir }
+    const probe = () => probeAgentCli('opencode', env, home)
+
+    writeFileSync(listing, '[]')
+    assert.deepEqual(await probe(), {
+      installed: true,
+      path: path.join(dir, 'opencode'),
+      version: '2.1.4',
+      loggedIn: false,
+    })
+    assert.equal(
+      readFileSync(ran, 'utf8').trim(),
+      `auth list --standalone --format json HOME=${home}`,
+      'asked with a private server, in the agent home rather than the shell’s',
+    )
+
+    writeFileSync(
+      listing,
+      JSON.stringify([
+        { id: 'anthropic', name: 'Anthropic', connections: [] },
+        {
+          id: 'opencode',
+          name: 'OpenCode Console',
+          connections: [{ type: 'credential', label: 'Work' }],
+        },
+      ]),
+    )
+    assert.deepEqual(await probe(), {
+      installed: true,
+      path: path.join(dir, 'opencode'),
+      version: '2.1.4',
+      loggedIn: true,
+      account: 'OpenCode Console',
+    })
+  },
+)

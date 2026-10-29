@@ -1,6 +1,7 @@
 import { BSON } from 'mongodb'
 
 import { redactSignedTokens } from '@/lib/claude-code-preview/mcp-token'
+import { redactTokenShapes } from '@/lib/journal/redact'
 
 import { preserveRuntimeToolResults, runtimeToolResults } from './transcript-runtime-tool-results'
 import { withoutToolOutputs } from './transcript-tool-output'
@@ -38,12 +39,18 @@ function alreadyStored(stored: AgentMessage | undefined, fields: Record<string, 
 }
 
 // Agent output arrives in chunks that can split a token, so redact once the
-// message is assembled. Token characters are never JSON-escaped.
+// message is assembled. Token characters are never JSON-escaped. Well-known
+// key shapes are a safety net for a secret an agent printed by mistake.
 function redacted(parts: unknown[]): unknown[] {
   const json = JSON.stringify(parts)
   const clean = redactSignedTokens(json)
 
-  return clean === json ? parts : (JSON.parse(clean) as unknown[])
+  if (redactTokenShapes(clean) === json) return parts
+
+  // Per string, so a match can never span two JSON values.
+  return JSON.parse(clean, (_key, value: unknown) =>
+    typeof value === 'string' ? redactTokenShapes(value) : value,
+  ) as unknown[]
 }
 
 /**
@@ -61,14 +68,17 @@ export function messageWrites(
     /** Stored docs already at their incoming index. */
     storedAt: Map<number, AgentMessage>
     now: Date
+    /** Index of the first message in `data.messages`. */
+    offset?: number
   },
 ) {
-  const { attribution, runtimeToolParts, storedAt, now } = stored
+  const { attribution, runtimeToolParts, storedAt, now, offset = 0 } = stored
   // Once per sync: rebuilt per message, this scanned every stored part for
   // every message and stalled the event loop for seconds on long conversations.
   const results = runtimeToolResults(runtimeToolParts)
 
-  return data.messages.flatMap((message, index) => {
+  return data.messages.flatMap((message, position) => {
+    const index = offset + position
     const fields = {
       ...(attribution.get(message.id) || message.metadata
         ? { metadata: attribution.get(message.id)?.metadata ?? message.metadata }

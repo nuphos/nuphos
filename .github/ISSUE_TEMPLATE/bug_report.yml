@@ -1,0 +1,70 @@
+name: Bug report
+description: Something in Nuphos does not work the way it should.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [existing issues](https://github.com/nuphos/nuphos/issues?q=is%3Aissue) first, including closed ones. If one matches, add your details there instead.
+
+        **Security vulnerabilities must not be reported here.** Use [private vulnerability reporting](https://github.com/nuphos/nuphos/security/advisories/new) as described in [SECURITY.md](https://github.com/nuphos/nuphos/blob/main/SECURITY.md).
+
+        This issue is public. Remove tokens, account IDs, hostnames, private paths and conversation content before posting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe the problem, including any error message you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Desktop (macOS)
+        - Desktop (Windows)
+        - Desktop (Linux)
+        - Web
+        - CLI
+        - iOS
+        - Android
+        - Self-hosted backend
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Nuphos version (for example, the Desktop version in Settings), or the commit SHA if self-hosted.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS version, agent runtime (Claude Code, Codex, ...) and anything else that seems relevant.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log output, with secrets removed.
+      render: text

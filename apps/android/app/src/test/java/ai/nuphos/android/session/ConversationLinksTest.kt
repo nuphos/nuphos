@@ -30,6 +30,41 @@ class ConversationLinksTest {
         ).forEach { assertNull(it, ConversationLink.parse(it)) }
     }
 
+    private fun encoded(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
+    private fun envelope(value: String = url) = "nuphos://open?url=${encoded(value)}"
+
+    @Test fun websiteEnvelopeResolvesToTheSameAuthorizedDestination() {
+        val expected = ConversationLink.parse(url)
+        assertEquals(expected, ConversationLink.parseIncoming(url))
+        assertEquals(expected, ConversationLink.parseIncoming(envelope()))
+        assertEquals(expected, ConversationLink.parseIncoming("${envelope()}&path=${encoded(java.net.URI(url).rawPath)}"))
+        assertEquals(expected, ConversationLink.parseIncoming("nuphos://open?path=${encoded(java.net.URI(url).rawPath)}&url=${encoded(url)}"))
+        assertEquals(expected, ConversationLink.parseIncoming(envelope("$url/")))
+        assertNull("Only the incoming-intent boundary unwraps envelopes", ConversationLink.parse(envelope()))
+    }
+
+    @Test fun rejectAmbiguousEnvelopesAndNestedOrUntrustedDestinations() {
+        listOf(
+            envelope().replace("//open?", "//open/?"),
+            envelope().replace("//open?", "//user@open?"),
+            envelope().replace("//open?", "//open:443?"),
+            envelope().replace("//open?", "//google-callback?"),
+            "${envelope()}#fragment", "${envelope()}&url=${encoded(url)}",
+            "${envelope()}&path=x&path=x", "${envelope()}&unknown=x",
+            "${envelope()}&", "nuphos://open?path=${encoded(java.net.URI(url).rawPath)}",
+            "nuphos://open?%75rl=${encoded(url)}", "nuphos://open?url=%ZZ",
+            "${envelope()}&path=${encoded("/teams/other/agent/other")}",
+            envelope(url.replace("nuphos.ai", "evil.example")), envelope("$url?token=secret"),
+            envelope("$url#fragment"), envelope(url.replace("/teams/", "/%74eams/")),
+            envelope(encoded(url)), envelope(envelope()), envelope(url.replace("https:", "http:")),
+            envelope(url.replace("nuphos.ai", "nuphos.ai.evil.example")),
+            envelope(url.replace("nuphos.ai", "user@nuphos.ai")),
+            envelope(url.replace("nuphos.ai", "www.nuphos.ai")),
+            envelope(url.replace("/agent/", "/agent/%252f")),
+            "nuphos://open?url=${"a".repeat(4096)}",
+        ).forEach { assertNull(it, ConversationLink.parseIncoming(it)) }
+    }
+
     @Test fun pendingSurvivesLoginAndRecreationAndIsConsumedOnce() {
         val pending = PendingConversationLink()
         pending.offer(ConversationLink.parse(url)!!)

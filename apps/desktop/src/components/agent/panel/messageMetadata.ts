@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { trustedAvatarURL } from '../../../lib/avatarUrl.ts'
 import { AGENT_PROVIDERS } from '../../../types/runtime.ts'
 
@@ -61,6 +62,9 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
 /** "Grok Bot · via Yuanlin Lin" for an agent token's message, else the sender. */
 export function senderLabel(sender: AgentMessageMetadata['sender']): string {
   return sender.onBehalfOf?.displayName
-    ? `${sender.displayName} · via ${sender.onBehalfOf.displayName}`
+    ? t('{name} · via {behalf}', {
+        name: sender.displayName,
+        behalf: sender.onBehalfOf.displayName,
+      })
     : sender.displayName
 }

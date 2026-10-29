@@ -3,14 +3,12 @@
 // inline memory.searched sink. Contract under test: exact telemetry payload
 // parity with today's agent.ts sink, supersede keyed by supersededId (never
 // id), frame emission through the runtime renderer, and a view() that carries
-// everything the four onFinish consumers need.
+// everything the finish consumers need.
 
 import { describe, expect, test } from 'bun:test'
 
 import { renderMemorySavedFrame } from './save-frame'
 import { createTurnMemoryAccumulator } from './turn-accumulator'
-
-import type { RenderedMemoryContext } from './types'
 
 type RecordedEvent = {
   conversationId: string
@@ -188,48 +186,6 @@ describe('saved sink', () => {
     expect(frames).toHaveLength(0)
   })
 
-  test('created events accumulate savedTitles in insertion order, exact dups collapsed', () => {
-    const { acc } = make()
-
-    acc.observer.saved({
-      id: 'm1',
-      scope: 'personal',
-      title: 'Prefers canary deploys',
-      action: 'created',
-    })
-    acc.observer.saved({ id: 'm2', scope: 'team', title: 'Release tagging', action: 'created' })
-    // Same fact saved twice (personal + team dupe): one label is enough.
-    acc.observer.saved({
-      id: 'm3',
-      scope: 'team',
-      title: 'Prefers canary deploys',
-      action: 'created',
-    })
-    expect(acc.view().savedTitles).toEqual(['Prefers canary deploys', 'Release tagging'])
-  })
-
-  test('non-created actions never contribute savedTitles', () => {
-    const { acc } = make()
-
-    acc.observer.saved({
-      id: 'a1',
-      scope: 'team',
-      title: 'revised',
-      action: 'updated',
-      supersededId: 'a0',
-    })
-    acc.observer.saved({
-      id: 'a2',
-      scope: 'personal',
-      title: 'replaced',
-      action: 'superseded',
-      supersededId: 'a1',
-    })
-    acc.observer.saved({ id: 'a3', title: 'proposal', action: 'drafted' })
-    acc.observer.saved({ id: 'a4', title: 'gone', action: 'deleted' })
-    expect(acc.view().savedTitles).toEqual([])
-  })
-
   test('throwing emitFrame never propagates (observer arrives pre-wrapped fail-open)', () => {
     const events: RecordedEvent[] = []
     const acc = createTurnMemoryAccumulator({
@@ -278,51 +234,6 @@ describe('fetched sink + view()', () => {
 
     expect(view.fetchedIds).toEqual(['g1'])
     expect(view.fetchedLabels.get('g1')).toBe('second')
-  })
-
-  test('noteRecall populates recall provenance, diagnostics, and alreadyRecalled labels', () => {
-    const { acc } = make()
-    const rendered: RenderedMemoryContext = {
-      block: '## Memories\n- g1\n- r1',
-      recalled: [
-        { id: 'g1', scope: 'team', kind: 'playbook', label: 'OOM triage' },
-        { id: 'r1', scope: 'personal', kind: 'record', label: 'kubectl preference' },
-      ],
-      diagnostics: { teamCount: 1, personalCount: 1 },
-    }
-
-    acc.noteRecall(rendered, 42)
-    const view = acc.view()
-
-    expect(view.recall).not.toBeNull()
-    expect(view.recall!.used).toBe(true)
-    expect(view.recall!.count).toBe(2)
-    expect(view.recall!.durationMs).toBe(42)
-    expect(view.recall!.teamIds).toEqual(['g1'])
-    expect(view.recall!.personalIds).toEqual(['r1'])
-    expect(view.recall!.entries).toEqual(rendered.recalled)
-    expect(view.recall!.diagnostics).toEqual({ teamCount: 1, personalCount: 1 })
-    expect(view.alreadyRecalled).toEqual(['OOM triage', 'kubectl preference'])
-  })
-
-  test('recall never ran / failed (null) → view.recall null, alreadyRecalled empty', () => {
-    const { acc } = make()
-
-    expect(acc.view().recall).toBeNull()
-    acc.noteRecall(null, 17)
-    expect(acc.view().recall).toBeNull()
-    expect(acc.view().alreadyRecalled).toEqual([])
-  })
-
-  test('null block with recalled entries counts as unused but still recalled', () => {
-    const { acc } = make()
-
-    acc.noteRecall({ block: null, recalled: [] }, 5)
-    const view = acc.view()
-
-    expect(view.recall).not.toBeNull()
-    expect(view.recall!.used).toBe(false)
-    expect(view.recall!.count).toBe(0)
   })
 
   test('view carries provider/turn identity for MemoryRef stamping downstream', () => {

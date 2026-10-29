@@ -4,6 +4,7 @@ import { Check, ChevronRight, ChevronUp, Minus, Rocket } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../api'
+import { t } from '../i18n'
 
 import {
   COLLAPSE_KEY,
@@ -188,14 +189,14 @@ export function SidebarOnboardingChecklist({
         <button
           type="button"
           onClick={() => setCollapsedPersisted(!collapsed)}
-          title={collapsed ? 'Expand' : 'Minimize'}
+          title={collapsed ? t('Expand') : t('Minimize')}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Expand checklist' : 'Minimize checklist'}
+          aria-label={collapsed ? t('Expand checklist') : t('Minimize checklist')}
           className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left"
         >
           <Rocket className="h-3.5 w-3.5 flex-shrink-0 text-zViolet-300" strokeWidth={2} />
           <span className="flex-1 truncate text-[12px] font-medium text-secondary">
-            Get started
+            {t('Get started')}
           </span>
           <span className="text-[11px] tabular-nums text-tertiary">
             {doneCount}/{STEPS.length}

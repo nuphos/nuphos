@@ -1,7 +1,7 @@
-import { MessageSquare } from 'lucide-react'
-
+import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { t } from '../../i18n'
 
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
 import type { UserInfo } from '../../types'
@@ -77,7 +77,7 @@ export function PaneAgentPage({
           onImportConsumed={onPagePendingImportConsumed}
           pendingPrompt={pendingChatPrompt}
           onPromptConsumed={onChatPromptConsumed}
-          onTitleChange={(title, reportedSessionId, claudeCodeRuntimeAttached, agentRuntime) => {
+          onTitleChange={(title, reportedSessionId, agentRuntime) => {
             // Reported with its session because the publish also fires on a
             // session change, while the panel still holds the outgoing
             // conversation — a stale title would flicker through both the tab
@@ -87,12 +87,12 @@ export function PaneAgentPage({
             }
             setPageMeta({
               pageKey: 'team.agent',
-              title: title || 'Agent',
-              iconKey: claudeCodeRuntimeAttached ? (agentRuntime ?? 'claude-code') : 'agent',
-              icon: claudeCodeRuntimeAttached ? (
-                <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />
+              title: title || t('Agent'),
+              iconKey: `${reportedSessionId ?? 'new'}:${agentRuntime ?? 'claude-code'}`,
+              icon: reportedSessionId ? (
+                <AgentAvatar agentId={reportedSessionId} provider={agentRuntime} size={16} />
               ) : (
-                <MessageSquare className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
+                <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />
               ),
               canonicalHref: pageHref,
             })

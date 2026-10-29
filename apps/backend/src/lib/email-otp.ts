@@ -3,15 +3,17 @@ import { createHash, createHmac, hkdfSync, randomInt, timingSafeEqual } from 'no
 import { MongoServerError } from 'mongodb'
 
 import type { NuphosUser } from '@/lib/identity'
+import type { SignInSource } from '@/lib/request-origin'
 import type { Collection, ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { db } from '@/lib/db'
 import { consumePairQuota } from '@/lib/download-handoff-rate-limit'
-import { isEmailConfigured, sendEmail } from '@/lib/email'
+import { escapeHtml, isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
 import { signInWithVerifiedEmail } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
+import { signInDevice, signInPlace } from '@/lib/request-origin'
 import { redisEnabled } from '@/lib/redis'
 
 const CODE_TTL_MS = 10 * 60 * 1000
@@ -40,7 +42,15 @@ export async function setupEmailOtpIndexes(): Promise<void> {
   ])
 }
 
-export async function requestEmailOtp(email: string, ip?: string): Promise<void> {
+/**
+ * `ip` keys the per-IP send cap; `from` is shown in the email so a stranger's
+ * request stands out.
+ */
+export async function requestEmailOtp(
+  email: string,
+  ip?: string,
+  from: SignInSource = {},
+): Promise<void> {
   const normalized = normalizeEmail(email)
 
   if (!config.email.devLogOtp && !isEmailConfigured()) {
@@ -114,8 +124,8 @@ export async function requestEmailOtp(email: string, ip?: string): Promise<void>
     await sendEmail({
       to: normalized,
       subject: `${code} is your Nuphos sign-in code`,
-      html: otpEmailHtml(code),
-      text: `Your Nuphos sign-in code is ${code}. It expires in 10 minutes. If you didn't request this, you can ignore this email.`,
+      html: otpEmailHtml(code, from),
+      text: `Your Nuphos sign-in code is ${code}. It expires in 10 minutes.\n\n${requestedFrom(from)}\n\nIf you didn't request this, you can ignore this email.`,
     })
   } catch (err) {
     // Undo the stored code so the cooldown doesn't lock the user out of
@@ -128,10 +138,7 @@ export async function requestEmailOtp(email: string, ip?: string): Promise<void>
   }
 }
 
-export async function verifyEmailOtp(
-  email: string,
-  code: string,
-): Promise<{ token: string; user: NuphosUser }> {
+export async function verifyEmailOtp(email: string, code: string): Promise<NuphosUser> {
   const normalized = normalizeEmail(email)
 
   if (!/^\d{6}$/.test(code)) {
@@ -216,7 +223,16 @@ function safeEqual(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
-function otpEmailHtml(code: string): string {
+/** One line saying where a code was requested from: the IP first, the rest as hints. */
+function requestedFrom(from: SignInSource): string {
+  const place = signInPlace(from)
+  const address = from.ip ? 'IP ' + from.ip : 'an unknown address'
+  const approx = place ? ' (approximately ' + place + ')' : ''
+
+  return `Requested from ${address}${approx} on ${signInDevice(from)}.`
+}
+
+function otpEmailHtml(code: string, from: SignInSource): string {
   return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:32px 16px;background:#f6f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a1e">
@@ -226,7 +242,10 @@ function otpEmailHtml(code: string): string {
       Use this code to finish signing in. It expires in 10 minutes.
     </div>
     <div style="font-size:32px;font-weight:700;letter-spacing:8px;text-align:center;padding:16px;background:#f6f6f8;border-radius:8px">${code}</div>
-    <div style="font-size:12.5px;color:#8a8a94;line-height:1.6;margin-top:24px">
+    <div style="font-size:12.5px;color:#55555e;line-height:1.6;margin-top:24px">
+      ${escapeHtml(requestedFrom(from))}
+    </div>
+    <div style="font-size:12.5px;color:#8a8a94;line-height:1.6;margin-top:8px">
       If you didn't request this code, you can safely ignore this email.
     </div>
   </div>

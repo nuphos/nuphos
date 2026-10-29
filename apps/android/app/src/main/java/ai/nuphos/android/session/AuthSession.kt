@@ -69,6 +69,8 @@ class AuthSession(
     var onIdentityReset: () -> Unit = {}
     /** Optional durable cleanup barrier; the application supplies its ordered shared-draft actor. */
     var awaitIdentityCleanup: (suspend () -> Unit)? = null
+    /** Runs before a sign-out ends its session on the server, for work that still needs the token. */
+    var beforeSessionEnd: suspend () -> Unit = {}
 
     private fun beginIdentity(preserveDrafts: Boolean = false): Long {
         if (state !is State.Restoring) onIdentityReset()
@@ -180,6 +182,25 @@ class AuthSession(
             } finally {
                 if (generation == expected && request == consentRequest) consentBusy = false
             }
+        }
+    }
+
+    /** Uploads a profile photo, or removes it with `null`. */
+    suspend fun setAvatar(image: ByteArray?): Boolean {
+        val current = token ?: return false
+        val expected = generation
+        val id = user?.id ?: return false
+        profileError = null
+        return try {
+            val updated = AccountApi(current).setAvatar(image)
+            if (!matches(expected, current) || updated.id != id) false
+            else { state = State.SignedIn(updated); true }
+        } catch (_: NuphosApi.Failure.Unauthorized) {
+            if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
+            false
+        } catch (e: Exception) {
+            if (matches(expected, current)) profileError = e.message ?: "We could not update your photo."
+            false
         }
     }
 
@@ -396,7 +417,13 @@ class AuthSession(
     }
 
     fun signOut(error: String? = null) {
+        val ended = token
         val expected = beginIdentity()
+        // Signed out here at once; ending the session on the server is best effort.
+        if (ended != null) scope.launch {
+            beforeSessionEnd()
+            AccountApi(ended).endSession()
+        }
         customTabsOpen = false
         cancelLogin()
         clearToken()

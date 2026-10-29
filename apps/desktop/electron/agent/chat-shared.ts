@@ -1,9 +1,8 @@
 import type { AgentProvider } from '../../src/types/runtime.ts'
 import type { SessionConfigPick } from '../../src/api/session-config-types.ts'
 import { captureMain } from '../analytics.ts'
-import { apiUrl } from '../api-endpoint.ts'
 
-import { readToken } from './http.ts'
+import { agentAccount } from './http.ts'
 
 import type { AgentCredentialSelection } from './types.ts'
 
@@ -102,19 +101,12 @@ export type ChatStreamState = {
   usedFreshStartFallback: boolean
   freshRetryAttempts: number
   initialGatewayRetryAttempts: number
-  toolExecutionMayHaveStarted: boolean
-  // Suffix-window protocol: the POST carries only the tail from the
-  // latest user message with `baseIndex` advanced accordingly. Set once the
-  // backend rejects that window with 409 transcript_out_of_sync — the next
-  // attempt (and every later one this turn) sends the untrimmed transcript.
-  sendFullTranscript: boolean
+  turnRan: boolean
   // The server's stored message count from a 409 transcript_out_of_sync
-  // rejection. When set, the next windowed attempt claims this as its
-  // baseIndex ("rebase onto the server's count") instead of the local
-  // arithmetic — recovers sessions whose local count drifted from the store
-  // without resending the full transcript, which can exceed the ingress
-  // body limit. One attempt only; a second 409 falls back to the full
-  // transcript.
+  // rejection. When set, the next attempt claims this as its baseIndex
+  // ("rebase onto the server's count") instead of the local arithmetic —
+  // recovers sessions whose local count drifted from the store. One attempt
+  // only; a second 409 surfaces the error.
   rebaseBaseIndex: number | undefined
 }
 
@@ -147,11 +139,10 @@ export function createChatStreamState(resumeFrom: number): ChatStreamState {
     usedFreshStartFallback: false,
     freshRetryAttempts: 0,
     initialGatewayRetryAttempts: 0,
-    // Sticky for this user turn. A later transport/model failure must never
-    // restart the full request after a tool may have begun: that would replay
-    // trigger/provider writes even if the failed response never reached us.
-    toolExecutionMayHaveStarted: false,
-    sendFullTranscript: false,
+    // Sticky for this user turn. Once the agent has produced output, a later
+    // failure must never restart the full request: that would run the turn
+    // again, repeating its answer and any tool writes.
+    turnRan: false,
     rebaseBaseIndex: undefined,
   }
 }
@@ -161,13 +152,14 @@ export function createChatStreamState(resumeFrom: number): ChatStreamState {
 // Best-effort and fire-and-forget — telemetry must never block the UI.
 export function reportFailure(streamId: string, payload: Record<string, unknown>): void {
   void (async () => {
-    const token = await readToken()
+    const account = await agentAccount().catch(() => null)
 
-    if (!token) return
+    if (!account) return
     try {
-      await fetch(`${apiUrl()}/agent/chat/${encodeURIComponent(streamId)}/report-failure`, {
+      await fetch(`${account.api}/agent/chat/${encodeURIComponent(streamId)}/report-failure`, {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${account.token}`, 'content-type': 'application/json' },
+        signal: account.signal,
         body: JSON.stringify(payload),
       })
     } catch {

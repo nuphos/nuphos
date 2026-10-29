@@ -1,7 +1,6 @@
 import { StringDecoder } from 'node:string_decoder'
 
-import { apiUrl } from './api-endpoint.ts'
-import { readToken } from './atlas/client.ts'
+import { signedIn, stillCurrent } from './account-request.ts'
 import { authSession } from './auth-session.ts'
 import { onPageGone } from './page-owner.ts'
 
@@ -59,18 +58,19 @@ export class RuntimeTerminalSessions {
     return session.ready
   }
   private async connect(session: Session, id: string, cols: number, rows: number) {
-    const token = await readToken()
+    const account = await signedIn().catch(() => null)
 
-    if (!token || session.closed) throw new Error('Terminal closed or signed out')
+    if (!account || session.closed) throw new Error('Terminal closed or signed out')
+    stillCurrent(account)
     const url = new URL(
       `/teams/${encodeURIComponent(session.target.teamId)}/runtime-terminal/${encodeURIComponent(session.target.sessionId)}`,
-      apiUrl(),
+      account.api,
     )
 
     url.searchParams.set('cols', String(cols))
     url.searchParams.set('rows', String(rows))
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = new WebSocket(url, { headers: { authorization: `Bearer ${token}` } })
+    const socket = new WebSocket(url, { headers: { authorization: `Bearer ${account.token}` } })
 
     session.socket = socket
     const decoder = new StringDecoder('utf8')

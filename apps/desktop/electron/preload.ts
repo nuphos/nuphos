@@ -17,6 +17,7 @@ import { localTerminalApi } from './preload-parts/api-local-terminal'
 import { plaudApi } from './preload-parts/api-plaud'
 import { posthogApi } from './preload-parts/api-posthog'
 import { sessionAccessApi } from './preload-parts/api-session-access'
+import { signInSessionsApi } from './preload-parts/api-sign-in-sessions'
 import { teamApi } from './preload-parts/api-team'
 
 const api = {
@@ -36,6 +37,7 @@ const api = {
   ...posthogApi,
   ...plaudApi,
   ...sessionAccessApi,
+  ...signInSessionsApi,
   ...connectApi,
   ...instructionsApi,
 }

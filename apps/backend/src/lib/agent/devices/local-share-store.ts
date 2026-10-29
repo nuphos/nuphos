@@ -132,6 +132,14 @@ export async function requestShareApproval(input: {
   )
 }
 
+/** The latest answer this person has for their own conversation, if they asked. */
+export async function findOwnShareApproval(
+  sessionId: string,
+  actorId: string,
+): Promise<ShareApproval | null> {
+  return shareApprovals().findOne({ sessionId, actorId }, { sort: { requestedAt: -1 } })
+}
+
 /** What waits for this owner, newest first. */
 export async function listPendingShareApprovals(
   ownerId: string,

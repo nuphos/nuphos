@@ -2,18 +2,16 @@
 // lib/agent/memory-slots/types.ts  (THE SPI — what a vendor implements)
 // Memory Provider SPI v1, spec §(a) PART 1 with the accepted A5/A6 amendments
 // folded first-class.
-// SPI file-set root: re-exports types-events / types-ingest / types-records.
+// SPI file-set root: re-exports types-events / types-records.
 // The set imports nothing app-local; the single permitted external import is
 // the runtime's tool type. Enforced by lint boundary + CI guard test.
 // ===========================================================================
 
 import type { MemoryObserver } from './types-events'
-import type { MemoryWebhook, TurnIngestor } from './types-ingest'
 import type { AttributionSink, MemoryStorageDescriptor, RecordsSurface } from './types-records'
 import type { Tool } from 'ai'
 
 export type * from './types-events'
-export type * from './types-ingest'
 export type * from './types-records'
 
 // --- Versioning -------------------------------------------------------------
@@ -36,7 +34,7 @@ export type MemorySessionOrigin = 'user' | 'trigger'
 
 /** Where the provider's memory corpus physically lives. 'external' arms the
  * egress machinery: vendorName required, the per-team override doubles as the
- * consent switch, TurnDigests AND attribution digests are withheld until
+ * consent switch, attribution digests are withheld until
  * consent is recorded, delete MUST propagate to the vendor store
  * (conformance-tested). Per A1, external providers are override-only — the
  * registry rejects an external id as the global default at boot. */
@@ -63,67 +61,7 @@ export type MemoryAvailability =
   /** setup() failed or config is present but invalid. */
   | { state: 'error'; reason: string }
 
-// --- Slot 1 — Recall (context injected at turn start) -----------------------
-
-export type RecallInput = {
-  userId: string
-  teamId: string | null
-  /** First user-message text of the turn. Null never reaches providers today
-   * (runtime skips recall for approval-resume turns) but is typed for
-   * providers that render ambient context without a query. */
-  query: string | null
-  conversationId: string
-  /** Pointers this conversation was already given; do not attach them again. */
-  excludeIds?: string[]
-}
-
-export type RecalledEntry = {
-  id: string
-  scope: MemoryScope
-  lineage?: string
-  kind?: string
-  /** The one-line label as it appears in the injected block. */
-  label: string
-  /** Optional content snapshot (runtime truncates to ~700 chars) used as the
-   * attribution judge's candidate content for this entry; falls back to
-   * `label` when absent. Captured HERE at injection time — the judge never
-   * re-fetches from a provider. */
-  snippet?: string
-}
-
-export type RenderedMemoryContext = {
-  /** The prompt block. EPHEMERAL: injected at API-call time only, never
-   * persisted into the transcript (durably evidenced only by the
-   * memory_recall journal event). Null = nothing to inject (common case,
-   * not an error). */
-  block: string | null
-  /** Every memory surfaced in `block` — this list IS the "recalled"
-   * provenance tier and the attribution judge's candidate denominator.
-   * Empty when block is null. Uniform across providers: this is what makes
-   * every backend measurable by the same yardstick (decision 6). */
-  recalled: RecalledEntry[]
-  /** Provider diagnostics (pool totals, candidate counts, cache state,
-   * degraded/unavailable flags). Logged verbatim on memory.retrieved
-   * telemetry; the runtime NEVER branches on its contents. */
-  diagnostics?: Record<string, number | string | boolean>
-  /** Placement hint (A5⑤): 'user-message-tail' appends to the last user
-   * message (native's 'automatic' delivery mode); default 'system-block'. */
-  placement?: 'system-block' | 'user-message-tail'
-}
-
-export type RecallSource = {
-  /** MUST be fast — a slow backend pre-warms in the background and serves a
-   * cached/partial result here. The runtime races this call against the
-   * recall budget with `signal` aborting at the deadline, and treats
-   * timeout/throw/reject as "no context" — NEVER a turn error. Returning
-   * null fast beats returning late. */
-  render(input: RecallInput, opts: { signal: AbortSignal }): Promise<RenderedMemoryContext | null>
-  /** Per-provider recall budget in ms (A5④); the runtime clamps it to a
-   * ceiling. Absent = runtime default (5 000 ms). */
-  budgetMs?: number
-}
-
-// --- Slot 2 — Tools (model-facing) ------------------------------------------
+// --- Slot — Tools (model-facing) ------------------------------------------
 
 /** The runtime's tool object — Vercel AI SDK `tool()` — exactly what
  * tools-skilled spreads into the model's tool set today. Pinning to `ai` is
@@ -200,16 +138,13 @@ export type MemoryProvider = {
    * collectionPrefix alone. */
   storageDescriptor?(): MemoryStorageDescriptor
   /** Slots. ABSENCE IS THE CAPABILITY SIGNAL — no flags, no stub methods
-   * (decision 2). At least one of recall/tools/ingest/records required (boot
-   * assertion). `feedback` is a passive sink and does NOT count toward the
-   * ≥1-slot rule. */
-  recall?: RecallSource
+   * (decision 2). At least one of tools/records required (boot assertion).
+   * `feedback` is a passive sink and does NOT count toward the ≥1-slot rule.
+   * There is no recall or ingest slot: the agent reads and writes memory
+   * itself through the tools slot. */
   tools?: ToolContributor
-  ingest?: TurnIngestor
   records?: RecordsSurface
   feedback?: AttributionSink
-  /** Provider-inbound callback (A5③); not a slot for the ≥1-slot rule. */
-  webhook?: MemoryWebhook
   /** Erasure hooks (A6): user/team erasure is a runtime pipeline over ALL
    * registered providers, active or dormant. Providers without these document
    * the vendor-contract erasure path in their bundle README; records-only

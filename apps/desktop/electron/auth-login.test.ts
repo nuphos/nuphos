@@ -24,10 +24,7 @@ const USER: UserInfo = {
 
 const b64url = (value: string) => Buffer.from(value, 'utf8').toString('base64url')
 const encodeUser = (user: unknown) => b64url(JSON.stringify(user))
-const tokenFor = (sub: string) =>
-  `${b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))}.${b64url(JSON.stringify({ aud: 'nuphos', sub }))}.sig`
-
-const TOKEN = tokenFor(USER.id)
+const TOKEN = 'nus_test-session'
 const HANDLE = 'h'.repeat(43)
 /** What the landing page puts on the loopback redirect after a real sign-in. */
 const DELIVERY_CODE = 'd'.repeat(43)
@@ -56,9 +53,7 @@ let redeemQueue: (() => Response)[] = []
 let redeemCalls = 0
 /** Bodies POSTed to /auth/native/session/redeem, so tests can assert on them. */
 let redeemBodies: { handle: string; codeVerifier: string; code?: string }[] = []
-let meHandler: () => Promise<Response> = () => {
-  throw new Error('unexpected /auth/me call')
-}
+let meHandler: () => Promise<Response> = async () => json(USER)
 
 let auth: typeof import('./auth.ts')
 const realFetch = globalThis.fetch
@@ -66,6 +61,10 @@ const realFetch = globalThis.fetch
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
+/** DELETE /auth/sessions/current calls, so sign-out can be asserted on. */
+const sessionEnds: { method?: string; authorization: string | null }[] = []
+/** x-atlas-client sent with each sign-in code request. */
+const codeRequestClients: (string | null)[] = []
 const readySession = () => json({ token: TOKEN, user: USER })
 const pendingSession = () =>
   json({ error: { code: 'authorization_pending', message: 'not yet' } }, 409)
@@ -73,6 +72,7 @@ const pendingSession = () =>
 before(async () => {
   mock.module('electron', {
     namedExports: {
+      app: { getVersion: () => '0.0.0-test' },
       shell: {
         openExternal: async (url: string) => {
           openedUrls.push(url)
@@ -125,6 +125,21 @@ before(async () => {
 
     if (url.includes('/auth/me')) return meHandler()
 
+    if (url.endsWith('/auth/email/request-code')) {
+      codeRequestClients.push(new Headers(init?.headers).get('x-atlas-client'))
+
+      return json({ ok: true })
+    }
+
+    if (url.endsWith('/auth/sessions/current')) {
+      sessionEnds.push({
+        method: init?.method,
+        authorization: new Headers(init?.headers).get('authorization'),
+      })
+
+      return new Response(null, { status: 204 })
+    }
+
     throw new Error(`unexpected fetch: ${url}`)
   }) as typeof fetch
 
@@ -144,9 +159,7 @@ beforeEach(() => {
   redeemQueue = [readySession]
   redeemCalls = 0
   redeemBodies = []
-  meHandler = () => {
-    throw new Error('unexpected /auth/me call')
-  }
+  meHandler = async () => json(USER)
 })
 
 after(() => {
@@ -549,7 +562,7 @@ test('the probe never spends the real handle', async () => {
   await loginPromise
 })
 
-test('legacy: falls back to /auth/me when no user is forwarded', async () => {
+test('legacy: the user comes from /auth/me, not the callback', async () => {
   nativeSupported = false
   let meCalls = 0
 
@@ -564,7 +577,12 @@ test('legacy: falls back to /auth/me when no user is forwarded', async () => {
   loginPromise.catch(() => undefined)
   const state = legacyState(await waitForBrowser())
 
-  await hitCallback(new URL(state.callbackUrl).port, { token: TOKEN, state: state.clientState })
+  // A forwarded identity is ignored: only the backend can say whose token it is.
+  await hitCallback(new URL(state.callbackUrl).port, {
+    token: TOKEN,
+    state: state.clientState,
+    user: encodeUser({ ...USER, id: '507f1f77bcf86cd799439099' }),
+  })
 
   assert.deepEqual(await loginPromise, USER)
   assert.equal(meCalls, 1)
@@ -589,4 +607,25 @@ test('legacy: a failed /auth/me never renders the success page', async () => {
 
   await assert.rejects(loginPromise)
   assert.equal(configWrites.length, 0)
+})
+
+test('signing out ends the session on the server', async () => {
+  const loginPromise = auth.login()
+
+  await waitForBrowser()
+  await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
+  await loginPromise
+  sessionEnds.length = 0
+
+  await auth.logout()
+
+  assert.deepEqual(sessionEnds, [{ method: 'DELETE', authorization: `Bearer ${TOKEN}` }])
+  assert.deepEqual(lastConfig(), {})
+})
+
+test('asking for a sign-in code names the app, so the email can say so', async () => {
+  codeRequestClients.length = 0
+  await auth.requestEmailCode('dev@example.com')
+
+  assert.deepEqual(codeRequestClients, ['nuphos-desktop/0.0.0-test'])
 })

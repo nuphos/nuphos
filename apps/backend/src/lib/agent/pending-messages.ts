@@ -94,9 +94,9 @@ export async function enqueuePendingUserMessage(
       `
         for _, raw in ipairs(ARGV[4] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
           local ok, item = pcall(cjson.decode, raw)
-          if ok and type(item) == 'table' and item.source == 'agent.resource'
-            and type(item.metadata) == 'table'
-            and tostring(item.metadata.resourceUrl) .. ' ' .. tostring(item.renderedText) == ARGV[4] then
+          if ok and type(item) == 'table' and (item.source == 'app' and 'app ' .. tostring(item.id)
+            or item.source == 'agent.resource' and type(item.metadata) == 'table'
+            and tostring(item.metadata.resourceUrl) .. ' ' .. tostring(item.renderedText)) == ARGV[4] then
             return redis.call('EXPIRE', KEYS[1], ARGV[3])
           end
         end

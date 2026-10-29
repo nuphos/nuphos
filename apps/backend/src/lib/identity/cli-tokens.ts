@@ -5,6 +5,7 @@ import { AppError } from '@/lib/errors'
 import { getNuphosUserForCredential } from '@/lib/identity'
 import { deleteUserAvatars, pruneAvatars, storeAvatar } from '@/lib/identity/avatar-upload'
 import { generateOpaqueToken, hashToken } from '@/lib/oauth/tokens'
+import { logEvent } from '@/lib/observability'
 
 import type { NuphosUser } from '@/lib/identity/types'
 
@@ -20,7 +21,9 @@ import type { NuphosUser } from '@/lib/identity/types'
  *     the account, team membership, or billing (see `cliTokenDenied`).
  *
  * Only the SHA-256 of the secret is stored. A password reset revokes these
- * too, as it does session tokens (`getNuphosUserForCredential`).
+ * too, as it does session tokens (`getNuphosUserForCredential`). A personal
+ * token lapses after PERSONAL_TTL_MS without use; an agent token is a bot its
+ * user made on purpose and lasts until revoked.
  */
 export const CLI_TOKEN_PREFIX = 'nup_'
 
@@ -37,6 +40,8 @@ export type CliTokenDoc = {
   avatarUrl?: string
   createdAt: Date
   lastUsedAt?: Date
+  /** Personal tokens only: pushed out on every use. */
+  expiresAt?: Date
   createdIp?: string
 }
 
@@ -47,6 +52,8 @@ export type CliTokenPrincipal = {
   name: string
   teamId?: string
   avatarUrl?: string
+  /** Personal tokens only. */
+  expiresAt?: string
 }
 
 export const cliTokens = () => db().collection<CliTokenDoc>('cli_tokens')
@@ -55,10 +62,32 @@ export async function setupCliTokenIndexes(): Promise<void> {
   await Promise.all([
     cliTokens().createIndex({ secretHash: 1 }, { unique: true, name: 'cli_tokens_secret' }),
     cliTokens().createIndex({ userId: 1, createdAt: -1 }, { name: 'cli_tokens_user' }),
+    // Agent tokens have no `expiresAt`, so the reaper never touches them.
+    cliTokens().createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'cli_tokens_ttl' }),
   ])
 }
 
 const LAST_USED_RESOLUTION_MS = 60_000
+const PERSONAL_TTL_MS = 90 * 24 * 60 * 60 * 1000
+
+const personalExpiry = (now: Date) => new Date(now.getTime() + PERSONAL_TTL_MS)
+
+/**
+ * Personal tokens made before they expired get the full lifetime from now
+ * (deploy time) rather than lapsing at once. A no-op once all have one.
+ */
+export async function backfillPersonalTokenExpiry(): Promise<number> {
+  const { modifiedCount } = await cliTokens().updateMany(
+    { kind: 'personal', expiresAt: { $exists: false } },
+    { $set: { expiresAt: personalExpiry(new Date()) } },
+  )
+
+  if (modifiedCount > 0) {
+    logEvent('info', 'backend.migration.cli_token_expiry_backfilled', { tokens: modifiedCount })
+  }
+
+  return modifiedCount
+}
 
 export function isCliToken(token: string): boolean {
   return token.startsWith(CLI_TOKEN_PREFIX)
@@ -85,6 +114,7 @@ export async function mintCliToken(input: {
     name: input.name,
     ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
     createdAt: new Date(),
+    ...(input.kind === 'personal' ? { expiresAt: personalExpiry(new Date()) } : {}),
     ...(input.createdIp ? { createdIp: input.createdIp } : {}),
   }
 
@@ -97,17 +127,26 @@ export async function authenticateCliToken(
   token: string,
 ): Promise<{ user: NuphosUser; cliToken: CliTokenPrincipal } | null> {
   const doc = await cliTokens().findOne({ secretHash: hashToken(token) })
+  const now = new Date()
 
-  if (!doc) return null
+  // The TTL reaper runs about once a minute, so expiry is checked here too.
+  if (!doc || (doc.expiresAt && doc.expiresAt <= now)) return null
   const user = await getNuphosUserForCredential(doc.userId, doc.createdAt)
 
   if (!user) return null
-  const now = new Date()
 
   if (!doc.lastUsedAt || now.getTime() - doc.lastUsedAt.getTime() >= LAST_USED_RESOLUTION_MS) {
     // Best effort: a missed write only makes "last used" a minute staler.
     void cliTokens()
-      .updateOne({ _id: doc._id }, { $set: { lastUsedAt: now } })
+      .updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            lastUsedAt: now,
+            ...(doc.kind === 'personal' ? { expiresAt: personalExpiry(now) } : {}),
+          },
+        },
+      )
       .catch(() => {})
   }
 
@@ -121,6 +160,7 @@ export async function listCliTokens(userId: string) {
     ...toPrincipal(doc),
     createdAt: doc.createdAt.toISOString(),
     lastUsedAt: doc.lastUsedAt?.toISOString() ?? null,
+    expiresAt: doc.expiresAt?.toISOString() ?? null,
   }))
 }
 
@@ -131,6 +171,19 @@ export async function revokeCliToken(userId: string, id: string): Promise<boolea
   if (deletedCount === 1) await deleteUserAvatars(id)
 
   return deletedCount === 1
+}
+
+/**
+ * Ends every CLI token the user has, as a password reset does. They are
+ * already refused (`sessionsInvalidBefore`); this also drops them from lists.
+ */
+export async function revokeAllCliTokens(userId: string): Promise<void> {
+  const docs = await cliTokens()
+    .find({ userId }, { projection: { _id: 1 } })
+    .toArray()
+
+  await cliTokens().deleteMany({ userId })
+  await Promise.all(docs.map((doc) => deleteUserAvatars(doc._id.toHexString())))
 }
 
 /**
@@ -176,16 +229,19 @@ function toPrincipal(doc: CliTokenDoc): CliTokenPrincipal {
     name: doc.name,
     ...(doc.teamId ? { teamId: doc.teamId } : {}),
     ...(doc.avatarUrl ? { avatarUrl: doc.avatarUrl } : {}),
+    ...(doc.expiresAt ? { expiresAt: doc.expiresAt.toISOString() } : {}),
   }
 }
 
 /**
- * Both kinds: minting credentials takes a real sign-in, so a leaked CLI token
- * cannot outlive its own revocation. That covers tokens, device-code approval
+ * Both kinds, and agent runs too: minting credentials takes a real sign-in, so
+ * a leaked CLI token or a run's short-lived JWT cannot outlive its own
+ * revocation or expiry. That covers tokens, device-code approval
  * and device join tokens (redeemed into an independent device credential).
  */
 const SESSION_ONLY: [RegExp, RegExp][] = [
   [/^POST$/, /^\/auth\/cli-tokens\/?$/],
+  [/./, /^\/auth\/sessions(\/|$)/],
   [/./, /^\/auth\/device\/approve\/?$/],
   [/^POST$/, /^\/agent\/devices\/join-tokens\/?$/],
 ]
@@ -211,15 +267,15 @@ const AGENT_DENIED: [RegExp, RegExp][] = [
   [/./, /^\/teams\/[^/]+\/(leave|billing|transfer-ownership)(\/|$)/],
 ]
 
-/** Why this CLI token may not make this request, or null when it may. */
+/** Why this CLI token or agent run may not make this request, or null when it may. */
 export function cliTokenDenied(
-  cliToken: Pick<CliTokenPrincipal, 'kind'>,
+  cliToken: { kind: CliTokenKind | 'run' },
   method: string,
   path: string,
 ): string | null {
   const hit = (rules: [RegExp, RegExp][]) => rules.some(([m, p]) => m.test(method) && p.test(path))
 
-  if (hit(SESSION_ONLY)) return 'Sign in on nuphos.ai to do this; a CLI token cannot.'
+  if (hit(SESSION_ONLY)) return 'Sign in on nuphos.ai to do this; a CLI token or agent run cannot.'
   if (cliToken.kind === 'agent' && hit(AGENT_DENIED)) {
     return 'An agent token cannot manage the account, its tokens, computers, team membership or billing.'
   }

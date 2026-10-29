@@ -1,6 +1,8 @@
 package ai.nuphos.android.session
 
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -10,6 +12,30 @@ data class ConversationLink(val teamId: String, val conversationId: String) {
 
     companion object {
         private val path = Regex("/teams/([a-fA-F0-9]{24})/agent/([A-Za-z0-9][A-Za-z0-9_-]{0,127})/?")
+        /** The website's desktop-compatible envelope is a destination, never an OAuth callback. */
+        fun parseIncoming(value: String): ConversationLink? = runCatching {
+            parse(value)?.let { return it }
+            if (value.length > 4096) return null
+            val envelope = URI(value)
+            if (envelope.scheme != "nuphos" || envelope.rawAuthority != "open" ||
+                !envelope.rawPath.isNullOrEmpty() || envelope.rawFragment != null) return null
+            val fields = (envelope.rawQuery ?: return null).split('&')
+            if (fields.size !in 1..2) return null
+            val parameters = mutableMapOf<String, String>()
+            for (field in fields) {
+                val separator = field.indexOf('=')
+                if (separator < 1) return null
+                val key = field.substring(0, separator)
+                if (key !in setOf("url", "path") || key in parameters) return null
+                // Decode the outer query exactly once. The strict HTTPS parser never decodes paths.
+                parameters[key] = URLDecoder.decode(field.substring(separator + 1), StandardCharsets.UTF_8.name())
+            }
+            val url = parameters["url"] ?: return null
+            val destination = parse(url) ?: return null
+            if (parameters["path"]?.let { it != URI(url).rawPath } == true) return null
+            destination
+        }.getOrNull()
+
         fun parse(value: String): ConversationLink? = runCatching {
             val uri = URI(value)
             if (uri.scheme != "https" || uri.rawAuthority != "nuphos.ai" ||

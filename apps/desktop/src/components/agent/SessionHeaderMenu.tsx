@@ -16,7 +16,9 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { toggleChatSummary, useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
 import {
@@ -41,6 +43,7 @@ import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
 
 import { agentSessionUrl } from './sessionUrl'
+import { SummaryIcon } from './summary/ChatSummaryToggle'
 import { useArchiveSession } from './useArchiveSession'
 
 type Props = {
@@ -61,6 +64,8 @@ type Props = {
   canFork: boolean
   /** Closes this pane of a split window, as ⌘W does; absent when it is the only pane. */
   onClosePane?: () => void
+  /** The pane is too narrow for the summary button, so the menu offers it. */
+  summaryInMenu?: boolean
 }
 
 function findPin(userId: string, teamId: string, sessionId: string) {
@@ -96,8 +101,10 @@ export function SessionHeaderMenu({
   onFork,
   canFork,
   onClosePane,
+  summaryInMenu = false,
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
+  const summaryOpen = useChatSummaryOpen()
   const pin = useSessionPin(userId, teamId, sessionId)
   // What the server said when the chat opened; a toggle here wins after that.
   const [toggled, setToggled] = useState<boolean | undefined>(undefined)
@@ -109,7 +116,7 @@ export function SessionHeaderMenu({
     setToggled(next)
     void api.agentSetConversationWatched(sessionId, next, teamId).catch((err: unknown) => {
       setToggled(!next)
-      toast.apiError(next ? 'Could not watch agent' : 'Could not unwatch agent', err)
+      toast.apiError(next ? t('Could not watch agent') : t('Could not unwatch agent'), err)
     })
   }
   // Rename waits for the popup to finish closing; otherwise focus returning to
@@ -135,8 +142,15 @@ export function SessionHeaderMenu({
   function copy(value: string, what: 'Link' | 'Agent ID') {
     void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
       onSuccess: () =>
-        toast.success(`${what} copied`, undefined, { timeoutMs: 1200, dedupe: false }),
-      onError: () => toast.error(`Could not copy ${what.toLowerCase()}`, 'Clipboard was blocked.'),
+        toast.success(what === 'Link' ? t('Link copied') : t('Agent ID copied'), undefined, {
+          timeoutMs: 1200,
+          dedupe: false,
+        }),
+      onError: () =>
+        toast.error(
+          what === 'Link' ? t('Could not copy link') : t('Could not copy agent id'),
+          t('Clipboard was blocked.'),
+        ),
     })
   }
 
@@ -176,15 +190,27 @@ export function SessionHeaderMenu({
         onRename()
       }}
     >
-      <Tooltip content="More actions" side="bottom">
+      <Tooltip content={t('More actions')} side="bottom">
         <MenuTrigger
-          aria-label="More agent actions"
+          aria-label={t('More agent actions')}
           className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main motion-reduce:transition-none"
         >
           <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
         </MenuTrigger>
       </Tooltip>
       <MenuContent align="end" className="w-max min-w-[200px]">
+        {summaryInMenu && (
+          <>
+            <MenuItem
+              icon={<SummaryIcon />}
+              hint={<ShortcutHint combo="mod+i" className="pl-4" />}
+              onClick={toggleChatSummary}
+            >
+              {summaryOpen ? t('Hide agent summary') : t('Show agent summary')}
+            </MenuItem>
+            <MenuSeparator />
+          </>
+        )}
         {canRename && (
           <MenuItem
             icon={<Pencil className="h-3.5 w-3.5" />}
@@ -193,7 +219,7 @@ export function SessionHeaderMenu({
               renameOnClose.current = true
             }}
           >
-            Rename agent
+            {t('Rename agent')}
           </MenuItem>
         )}
         <MenuItem
@@ -208,12 +234,12 @@ export function SessionHeaderMenu({
             icon={watching ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
             onClick={toggleWatch}
           >
-            {watching ? 'Unwatch agent' : 'Watch agent'}
+            {watching ? t('Unwatch agent') : t('Watch agent')}
           </MenuItem>
         )}
         {canFork && (
           <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
-            Fork agent
+            {t('Fork agent')}
           </MenuItem>
         )}
         <MenuSubmenu>
@@ -221,7 +247,7 @@ export function SessionHeaderMenu({
             icon={<Copy className="h-3.5 w-3.5" />}
             chevron={<ChevronRight className="h-3 w-3" />}
           >
-            Copy
+            {t('Copy')}
           </MenuSubmenuTrigger>
           <MenuContent align="start" className="w-max min-w-[180px]">
             <MenuItem
@@ -231,13 +257,13 @@ export function SessionHeaderMenu({
               }
               onClick={() => copy(agentSessionUrl(teamId, sessionId), 'Link')}
             >
-              Link
+              {t('Link')}
             </MenuItem>
             <MenuItem
               icon={<Hash className="h-3.5 w-3.5" />}
               onClick={() => copy(sessionId, 'Agent ID')}
             >
-              Agent ID
+              {t('Agent ID')}
             </MenuItem>
           </MenuContent>
         </MenuSubmenu>
@@ -250,7 +276,7 @@ export function SessionHeaderMenu({
               disabled={archiving}
               onClick={() => void archive()}
             >
-              {archiving ? 'Archiving…' : 'Archive agent'}
+              {archiving ? t('Archiving…') : t('Archive agent')}
             </MenuItem>
           </>
         )}
@@ -264,7 +290,7 @@ export function SessionHeaderMenu({
                 closePaneOnClose.current = true
               }}
             >
-              Close pane
+              {t('Close pane')}
             </MenuItem>
           </>
         )}

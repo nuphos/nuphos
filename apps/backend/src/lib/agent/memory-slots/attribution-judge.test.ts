@@ -9,12 +9,7 @@ import {
   runAttributionJudge,
 } from './attribution-judge'
 
-const e = (memoryId: string, label: string) => ({
-  memoryId,
-  scope: 'team' as const,
-  kind: 'gene' as const,
-  label,
-})
+const e = (memoryId: string, label: string) => ({ memoryId, scope: 'team' as const, label })
 
 describe('judgeSampledIn', () => {
   const keys = Array.from({ length: 1000 }, (_, i) => `req-${String(i)}`)
@@ -51,31 +46,19 @@ describe('judgeSampledIn', () => {
 })
 
 describe('buildJudgeCandidates (A4②)', () => {
-  test('fetched-first, deduped, capped at 12', () => {
-    const recalled = Array.from({ length: 14 }, (_, i) =>
-      e(`r${String(i)}`, `recalled ${String(i)}`),
+  test('fetched memories in fetch order, capped at 12, scoped by the fetch', () => {
+    const fetched = new Map(
+      Array.from({ length: 14 }, (_, i) => [`f${String(i)}`, `fetched ${String(i)}`] as const),
     )
-    const fetched = new Map([
-      ['f1', 'fetched one'],
-      ['r0', 'also recalled'],
-    ])
-    const out = buildJudgeCandidates(recalled, fetched)
+    const out = buildJudgeCandidates(fetched, ['f1'])
 
     expect(out).toHaveLength(12)
-    expect(out[0]!.memoryId).toBe('f1') // fetched lead
-    expect(out[1]!.memoryId).toBe('r0') // deduped: one entry, fetched rank
-    expect(out.filter((c) => c.memoryId === 'r0')).toHaveLength(1)
-  })
-
-  test('summary mode: fetched-only still judges', () => {
-    const out = buildJudgeCandidates([], new Map([['f1', 'one']]))
-
-    expect(out).toHaveLength(1)
-    expect(out[0]!.memoryId).toBe('f1')
+    expect(out[0]).toEqual({ memoryId: 'f0', scope: 'team', label: 'fetched 0' })
+    expect(out[1]!.scope).toBe('personal')
   })
 
   test('zero candidates stays zero', () => {
-    expect(buildJudgeCandidates([], new Map())).toHaveLength(0)
+    expect(buildJudgeCandidates(new Map(), [])).toHaveLength(0)
   })
 })
 
@@ -93,8 +76,8 @@ describe('runAttributionJudge provider param', () => {
       turnKey: 'req-1',
       query: 'q',
       answer: 'a',
-      recalled: [],
       fetchedLabels: new Map<string, string>(),
+      fetchedPersonalIds: [],
     }
 
     await expect(runAttributionJudge(base)).resolves.toBeUndefined()

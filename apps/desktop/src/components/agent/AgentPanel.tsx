@@ -83,7 +83,6 @@ type Props = {
   onTitleChange?: (
     title: string,
     sessionId: string | null,
-    claudeCodeRuntimeAttached: boolean,
     agentRuntime?: AgentProvider,
     canRename?: boolean,
     runtimeId?: string,

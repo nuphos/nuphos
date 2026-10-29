@@ -9,6 +9,10 @@ struct RuntimeObservation: Equatable, Sendable {
     var revision: Double? { snapshot["revision"]?.numberValue }
     var phase: String? { snapshot["phase"]?.stringValue }
     func fresh(at now: TimeInterval) -> Bool { now >= observedAt && now - observedAt < 12 }
+    /// Desktop's `runtimeMayAcceptLater`: a message this runtime cannot take
+    /// now waits in the session queue. Only a runtime too old to report its
+    /// state is not waited on.
+    var mayAcceptLater: Bool { snapshot["schemaVersion"]?.numberValue == 2 || snapshot["state"]?.stringValue == "disconnected" }
     func allows(_ action: String, at now: TimeInterval) -> Bool {
         fresh(at: now) && snapshot["schemaVersion"]?.numberValue == 2 && snapshot["actions"]?[action]?.boolValue == true
     }

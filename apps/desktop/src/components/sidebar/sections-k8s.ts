@@ -19,20 +19,22 @@ import {
   Workflow,
 } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { Section } from './types'
 
 export function clusterSections(customResourceSections: Section[] = []): Section[] {
   return [
     {
-      title: 'Cluster',
+      title: t('Cluster'),
       items: [
-        { key: 'cluster.events', label: 'Events', icon: Bell, enabled: true },
-        { key: 'cluster.overview', label: 'Overview', icon: Compass, enabled: true },
+        { key: 'cluster.events', label: t('Events'), icon: Bell, enabled: true },
+        { key: 'cluster.overview', label: t('Overview'), icon: Compass, enabled: true },
         { key: 'cluster.nodes', label: 'Nodes', icon: Server, enabled: true },
       ],
     },
     {
-      title: 'Workloads',
+      title: t('Workloads'),
       items: [
         { key: 'helm.releases', label: 'Helm Releases', icon: Package, enabled: true },
         { key: 'workloads.deployments', label: 'Deployments', icon: Layers, enabled: true },
@@ -45,7 +47,7 @@ export function clusterSections(customResourceSections: Section[] = []): Section
       ],
     },
     {
-      title: 'Networking',
+      title: t('Networking'),
       items: [
         { key: 'networking.services', label: 'Services', icon: Network, enabled: true },
         { key: 'networking.ingresses', label: 'Ingresses', icon: Globe, enabled: true },
@@ -64,12 +66,27 @@ export function clusterSections(customResourceSections: Section[] = []): Section
       ],
     },
     {
-      title: 'Access Control',
+      title: t('Access Control'),
       items: [
-        { key: 'access.service-accounts', label: 'Service Accounts', icon: Shield, enabled: true },
+        {
+          key: 'access.service-accounts',
+          label: 'Service Accounts',
+          icon: Shield,
+          enabled: true,
+        },
         { key: 'access.roles', label: 'Roles', icon: ShieldCheck, enabled: true },
-        { key: 'access.role-bindings', label: 'Role Bindings', icon: ShieldCheck, enabled: true },
-        { key: 'access.cluster-roles', label: 'Cluster Roles', icon: ShieldCheck, enabled: true },
+        {
+          key: 'access.role-bindings',
+          label: 'Role Bindings',
+          icon: ShieldCheck,
+          enabled: true,
+        },
+        {
+          key: 'access.cluster-roles',
+          label: 'Cluster Roles',
+          icon: ShieldCheck,
+          enabled: true,
+        },
         {
           key: 'access.cluster-role-bindings',
           label: 'Cluster Role Bindings',
@@ -79,14 +96,14 @@ export function clusterSections(customResourceSections: Section[] = []): Section
       ],
     },
     {
-      title: 'Configuration',
+      title: t('Configuration'),
       items: [
         { key: 'config.configmaps', label: 'ConfigMaps', icon: FileBox, enabled: true },
         { key: 'config.secrets', label: 'Secrets', icon: Shield, enabled: true },
       ],
     },
     {
-      title: 'Storage',
+      title: t('Storage'),
       items: [
         {
           key: 'storage.storage-classes',
@@ -104,10 +121,10 @@ export function clusterSections(customResourceSections: Section[] = []): Section
       ],
     },
     {
-      title: 'Custom Resources',
+      title: t('Custom Resources'),
       items: [
         { key: 'custom.crds', label: 'CRDs', icon: FileBox, enabled: true },
-        { key: 'custom.resources', label: 'Custom Resources', icon: FileBox, enabled: true },
+        { key: 'custom.resources', label: t('Custom Resources'), icon: FileBox, enabled: true },
       ],
     },
     ...customResourceSections,
@@ -117,12 +134,12 @@ export function clusterSections(customResourceSections: Section[] = []): Section
 export function ecsClusterSections(): Section[] {
   return [
     {
-      title: 'Cluster',
+      title: t('Cluster'),
       items: [
         { key: 'ecs.services', label: 'Services', icon: Workflow, enabled: true },
         { key: 'ecs.tasks', label: 'Tasks', icon: Boxes, enabled: true },
-        { key: 'ecs.infrastructure', label: 'Infrastructure', icon: Server, enabled: true },
-        { key: 'ecs.metrics', label: 'Metrics', icon: LayoutDashboard, enabled: true },
+        { key: 'ecs.infrastructure', label: t('Infrastructure'), icon: Server, enabled: true },
+        { key: 'ecs.metrics', label: t('Metrics'), icon: LayoutDashboard, enabled: true },
       ],
     },
   ]

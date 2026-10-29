@@ -50,7 +50,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
           requestId: c.get('requestId'),
         },
       },
-      err.status,
+      edgeSafeStatus(err.status),
     )
   }
   if (err instanceof HTTPException) {
@@ -58,7 +58,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
 
     return c.json(
       { error: { code: 'http_exception', message: err.message, requestId: c.get('requestId') } },
-      err.status,
+      edgeSafeStatus(err.status),
     )
   }
   if (err instanceof ZodError) {
@@ -82,7 +82,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
     rememberErrorCode(c, 'cloud_api_error')
     logError('http.cloud_api_error', err, {
       context: c,
-      status: 502,
+      status: 503,
       error_code: 'cloud_api_error',
       upstream_status: cloudStatus,
     })
@@ -96,7 +96,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
           requestId: c.get('requestId'),
         },
       },
-      502,
+      503,
     )
   }
 
@@ -112,6 +112,14 @@ export const errorHandler: ErrorHandler = (err, c) => {
     },
     500,
   )
+}
+
+// Cloudflare replaces an origin's 502 and 504 with its own "error code: 502"
+// page, dropping this JSON (the actual reason); passing them through is an
+// Enterprise-only zone setting. 503 is passed through and stays a retryable
+// 5xx, so our own upstream failures answer with it instead.
+function edgeSafeStatus(status: ContentfulStatusCode): ContentfulStatusCode {
+  return status === 502 || status === 504 ? 503 : status
 }
 
 const ERROR_CODE_KEY = 'errorCode'

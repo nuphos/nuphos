@@ -6,9 +6,11 @@ import type { NuphosUserDoc } from '@/lib/identity/shared'
 import type { AuthenticatedIdentity, NuphosUser } from '@/lib/identity/types'
 
 import { upsertCachedUser } from '@/lib/agent/directory'
+import { AppError } from '@/lib/errors'
 import { getGoogleAccessToken, getGoogleProfile } from '@/lib/identity/google'
 import { mapUser, teams, users } from '@/lib/identity/shared'
-import { signNuphosToken, verifyNuphosToken } from '@/lib/identity/token'
+import { findLiveSession, isSessionToken } from '@/lib/identity/sessions'
+import { MAX_RUN_TOKEN_TTL_SEC, verifyNuphosToken } from '@/lib/identity/token'
 
 export { signNuphosToken } from '@/lib/identity/token'
 
@@ -23,22 +25,45 @@ export async function setupIdentityIndexes(): Promise<void> {
   ])
 }
 
+/**
+ * A sign-in session (`nus_…`), or a JWT: a short-lived one the backend minted
+ * for an agent run, or a 30-day sign-in from before sessions. Only a session
+ * carries `sessionId`. Anything signed for a day or less is an agent run, which
+ * `requireAuth` keeps off routes that mint credentials.
+ */
 export async function authenticateToken(token: string): Promise<AuthenticatedIdentity | null> {
-  const nuphosUser = await authenticateNuphosToken(token)
+  const session = isSessionToken(token) ? await findLiveSession(token) : null
+  const claims = session ? null : verifyNuphosToken(token)
+  const credential = session
+    ? { userId: session.userId, issuedAt: session.createdAt }
+    : claims && { userId: claims.sub, issuedAt: new Date(claims.iat * 1000) }
 
-  if (nuphosUser) {
-    upsertCachedUser(nuphosUser)
+  if (!credential) return null
+  const user = await getNuphosUserForCredential(credential.userId, credential.issuedAt)
 
-    return { user: nuphosUser, cacheHit: false, provider: 'nuphos' }
+  if (!user) return null
+  upsertCachedUser(user)
+
+  return {
+    user,
+    cacheHit: false,
+    provider: 'nuphos',
+    ...(session ? { sessionId: session._id.toHexString() } : {}),
+    ...(claims && claims.exp - claims.iat <= MAX_RUN_TOKEN_TTL_SEC ? { agentRun: true } : {}),
   }
-
-  return null
 }
 
-export async function signInWithGoogleCode(
-  code: string,
-  redirectUri: string,
-): Promise<{ token: string; user: NuphosUser }> {
+/**
+ * A deleted account is a disabled one. Signing in with its email or Google
+ * identity is refused rather than creating a second account for that email.
+ */
+function refuseDisabled<T extends { deletedAt?: Date } | null>(user: T): T {
+  if (user?.deletedAt) throw new AppError(403, 'account_disabled', 'This account has been disabled')
+
+  return user
+}
+
+export async function signInWithGoogleCode(code: string, redirectUri: string): Promise<NuphosUser> {
   const accessToken = await getGoogleAccessToken(code, redirectUri)
   const profile = await getGoogleProfile(accessToken)
 
@@ -50,9 +75,10 @@ export async function signInWithGoogleCode(
   }
 
   const normalizedEmail = profile.email.toLowerCase()
-  let user =
-    (await users().findOne({ googleID: profile.id, deletedAt: { $exists: false } })) ??
-    (await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } }))
+  let user = refuseDisabled(
+    (await users().findOne({ googleID: profile.id })) ??
+      (await users().findOne({ email: normalizedEmail })),
+  )
 
   const now = new Date()
 
@@ -85,9 +111,10 @@ export async function signInWithGoogleCode(
       await users().insertOne(user)
     } catch (err) {
       if (!(err instanceof MongoServerError) || err.code !== 11000) throw err
-      user =
-        (await users().findOne({ googleID: profile.id, deletedAt: { $exists: false } })) ??
-        (await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } }))
+      user = refuseDisabled(
+        (await users().findOne({ googleID: profile.id })) ??
+          (await users().findOne({ email: normalizedEmail })),
+      )
       if (!user) throw err
     }
   }
@@ -96,16 +123,14 @@ export async function signInWithGoogleCode(
 
   upsertCachedUser(nuphosUser)
 
-  return { token: signNuphosToken(user._id), user: nuphosUser }
+  return nuphosUser
 }
 
 // Sign in (or sign up) with an email address whose ownership has already been
 // proven — e.g. via an OTP code. Callers must never pass an unverified email.
-export async function signInWithVerifiedEmail(
-  email: string,
-): Promise<{ token: string; user: NuphosUser }> {
+export async function signInWithVerifiedEmail(email: string): Promise<NuphosUser> {
   const normalizedEmail = email.toLowerCase()
-  let user = await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } })
+  let user = refuseDisabled(await users().findOne({ email: normalizedEmail }))
 
   if (!user) {
     const now = new Date()
@@ -125,7 +150,7 @@ export async function signInWithVerifiedEmail(
       user = candidate
     } catch (err) {
       if (!(err instanceof MongoServerError) || err.code !== 11000) throw err
-      user = await users().findOne({ email: normalizedEmail, deletedAt: { $exists: false } })
+      user = refuseDisabled(await users().findOne({ email: normalizedEmail }))
       if (!user) throw err
     }
   }
@@ -134,7 +159,7 @@ export async function signInWithVerifiedEmail(
 
   upsertCachedUser(nuphosUser)
 
-  return { token: signNuphosToken(user._id), user: nuphosUser }
+  return nuphosUser
 }
 
 /** Loads a live (non-deleted) user by id. */
@@ -172,14 +197,6 @@ export async function getNuphosUserForCredential(
     return null
 
   return mapUser(user)
-}
-
-async function authenticateNuphosToken(token: string): Promise<NuphosUser | null> {
-  const claims = verifyNuphosToken(token)
-
-  if (!claims) return null
-
-  return getNuphosUserForCredential(claims.sub, new Date(claims.iat * 1000))
 }
 
 async function uniqueUsername(email: string): Promise<string> {

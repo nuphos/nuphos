@@ -102,7 +102,10 @@ export function sanitizeReportText(value: unknown): string | undefined {
       /\beyJ[A-Za-z0-9_-]{5,2048}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\b/g,
       '[redacted_jwt]',
     )
-    .replace(/\b(?:sk|phc|ghp|gho|glpat|xox[a-z])[-_][A-Za-z0-9_-]{8,}\b/g, '[redacted_key]')
+    .replace(
+      /\b(?:sk|phc|ghp|gho|glpat|xox[a-z]|nup|nus)[-_][A-Za-z0-9_-]{8,}\b/g,
+      '[redacted_key]',
+    )
 
   return redactSecretAssignments(specificallyRedacted)
     .replace(EMAIL, '[redacted_email]')

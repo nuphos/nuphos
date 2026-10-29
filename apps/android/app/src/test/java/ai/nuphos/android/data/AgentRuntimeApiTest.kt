@@ -20,6 +20,22 @@ class AgentRuntimeApiTest {
     }.build())
     private fun payload() = Buffer().also { requests.last().body!!.writeTo(it) }.readUtf8()
     private fun login(state: String = "awaiting_authorization") = """{"attemptId":"$attemptId","state":"$state","expiresAt":"2030-01-01T00:00:00Z","verificationUri":"https://example.test/device","userCode":"SYNTHETIC","authorizationUrl":"https://example.test/claude","codeSubmitted":true}"""
+    @Test fun computerObservationAlwaysScopesTeamAndRetainsOnlyDisplayIdentity() = runTest {
+        response = """{"devices":[{"deviceId":"host","label":"Laptop","online":false,"metricsStatus":"offline","lastSeen":{"ip":"must-not-be-retained"}}]}"""
+        assertEquals("host", api.devices().single().id)
+        assertEquals("/agent/devices", requests.last().url.encodedPath)
+        assertEquals("507f1f77bcf86cd799439011", requests.last().url.queryParameter("teamId"))
+        assertEquals("true", requests.last().url.queryParameter("metrics"))
+        response = """{"runtimes":[{"id":"local","provider":"codex","label":"Computer agent","status":"active","kind":"local","local":{"deviceId":"host","deviceLabel":"Laptop","online":false,"signedIn":true}}]}"""
+        assertEquals(RuntimeHost("host", "Laptop", false), api.catalog().single().local)
+    }
+    @Test fun localRuntimeRetainsItsOwnNameSeparatelyFromComputerLabel() = runTest {
+        response = """{"runtimes":[{"id":"local","provider":"codex","label":"Codex in Laptop","status":"active","kind":"local","local":{"deviceId":"host","deviceLabel":"Laptop","agentLabel":"Build helper","online":true}}]}"""
+        val runtime = api.catalog().single()
+        assertEquals("Laptop", runtime.local?.deviceLabel)
+        assertEquals("Build helper", runtime.local?.agentLabel)
+        assertEquals("Codex in Laptop", runtime.label)
+    }
     @Test fun managementUsesExactPatchAndBothDeletionReceipts() = runTest {
         response = runtime
         api.update("saved-id", label = " Renamed ")

@@ -609,3 +609,19 @@ The row fixture renders synthetic Compose content only. It checks real click,
 long press, full swipe, Back, outside tap, disabled actions, RTL/large text, and
 accessibility actions. Its screenshots are `row-actions-*.png` in the fixture
 app's external files directory. Never install it over the Play application.
+
+### Website conversation handoff
+
+Android accepts the website's `nuphos://open?url=<encoded HTTPS URL>&path=<encoded path>`
+conversation handoff as well as verified HTTPS conversation links. The optional `path`
+must agree with the inner URL. Only one `url` and at most one `path` are accepted;
+unknown or duplicate fields, nested envelopes, fragments, external hosts and encoded
+conversation paths are rejected. The outer query is decoded once, then the existing
+strict HTTPS parser and fresh account/workspace/conversation access checks apply.
+OAuth return hosts remain separate.
+
+This fallback does not verify the HTTPS domain, prove browser launch success, or
+change Android's link defaults. The website must separately trust the installed
+Play signing certificate (including the applicable signing lineage/platform), and
+Chrome may require an explicit user tap. An installed development APK's verified
+state does not establish Play verification. No link sends a message.

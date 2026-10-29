@@ -557,6 +557,12 @@
     flex-shrink: 0;
     opacity: 0.95;
   }
+  .atlas-mention-avatar {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    opacity: 1;
+  }
   .atlas-mention-label {
     display: inline-block;
     max-width: 24ch;
@@ -2306,6 +2312,8 @@ html.platform-darwin:not(.window-fullscreen)
   --resource-open: #66d98c;
   --resource-merged: #c4a2ff;
   --resource-closed: #ff9aa3;
+  --resource-failing: #ff9aa3;
+  --resource-pending: #f2c94c;
 }
 html.light {
   --resource-linear: #505fc4;
@@ -2314,6 +2322,8 @@ html.light {
   --resource-open: #16713a;
   --resource-merged: #7541b1;
   --resource-closed: #b42332;
+  --resource-failing: #b42332;
+  --resource-pending: #9a6700;
 }
 .session-resource-linear {
   color: var(--resource-linear);
@@ -2332,6 +2342,12 @@ html.light {
 }
 .session-resource-closed {
   color: var(--resource-closed);
+}
+.session-resource-failing {
+  color: var(--resource-failing);
+}
+.session-resource-pending {
+  color: var(--resource-pending);
 }
 .session-resource-tag {
   border-color: color-mix(in srgb, currentColor 30%, transparent);

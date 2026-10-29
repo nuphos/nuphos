@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.theme.Violet500
 import ai.nuphos.android.ui.theme.Violet700
@@ -53,7 +53,11 @@ fun NuphosAvatar(
                 Text(
                     user.initials,
                     color = androidx.compose.ui.graphics.Color.White,
-                    fontSize = (size.value * 0.36f).sp,
+                    // Initials are part of the fixed avatar artwork, like an image.
+                    fontSize = with(LocalDensity.current) { (size * 0.36f).toSp() },
+                    lineHeight = with(LocalDensity.current) { (size * 0.5f).toSp() },
+                    maxLines = 1,
+                    softWrap = false,
                     style = MaterialTheme.typography.labelLarge,
                 )
             }

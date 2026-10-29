@@ -84,8 +84,11 @@ test('the adapter exits when its Claude Code process dies', async (t) => {
   assert.deepEqual(exits, [1])
   assert.equal(agent.sessions['test-session'], undefined)
   assert.ok(errors.some((e) => e.includes('Claude Agent process died')))
-  // The in-flight turn is failed before the exit, so its error reaches the gateway.
+  // The in-flight turn is failed before the exit, so its error reaches the gateway,
+  // naming the cause and that the next message continues.
   assert.equal(settled.length, 1)
+  assert.match(settled[0].message, /terminated by signal SIGABRT/)
+  assert.match(settled[0].message, /Send a message to continue/)
 })
 
 test('the adapter keeps running after a stream error that is not a process death', async (t) => {

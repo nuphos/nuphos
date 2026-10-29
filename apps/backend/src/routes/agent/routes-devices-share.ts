@@ -7,11 +7,13 @@ import {
   requireDeviceAccess,
   revokeBoxStreams,
 } from '@/lib/agent/devices/box-access'
+import { agentConversations } from '@/lib/agent/db/shared'
 import { exceedsCeiling, teamShare } from '@/lib/agent/devices/local-share'
 import { getTeamLocalAgentSharing } from '@/lib/agent/devices/local-share-ceiling'
 import {
   decideShareApproval,
   dropShareApprovals,
+  findOwnShareApproval,
   listPendingShareApprovals,
   setDeviceShare,
 } from '@/lib/agent/devices/local-share-store'
@@ -19,8 +21,10 @@ import { LOCAL_SHARE_LEVELS } from '@/lib/agent/devices/local-share-types'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 import { zv } from '@/lib/validate'
 
+import { settleShareApprovalQueue } from './session-queue-share-approval'
 import { readTeamIdCandidate } from './team-scope'
 
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
@@ -39,6 +43,7 @@ const shareSchema = z.object({
   userIds: z.array(z.string().trim().min(1).max(64)).max(500),
 })
 const decisionSchema = z.object({ approve: z.boolean() })
+const ownApprovalQuery = z.object({ sessionId: z.string().trim().min(1).max(128) })
 
 export type DeviceShareRouteDependencies = {
   access: DeviceAccessDeps
@@ -51,6 +56,22 @@ export type DeviceShareRouteDependencies = {
   dropApprovals: typeof dropShareApprovals
   pendingApprovals: (ownerId: string, teamId: string) => Promise<ShareApproval[]>
   decide: typeof decideShareApproval
+  ownApproval: typeof findOwnShareApproval
+  settleQueue: (approval: ShareApproval) => Promise<void>
+  conversationTitles: (sessionIds: string[]) => Promise<Map<string, string>>
+}
+
+/** The titles of the conversations waiting, so the owner sees what they approve. */
+async function getConversationTitles(sessionIds: string[]): Promise<Map<string, string>> {
+  if (!sessionIds.length) return new Map()
+  const rows = await agentConversations()
+    .find(
+      { sessionId: { $in: [...new Set(sessionIds)] } },
+      { projection: { sessionId: 1, title: 1 } },
+    )
+    .toArray()
+
+  return new Map(rows.flatMap((row) => (row.title ? [[row.sessionId, row.title] as const] : [])))
 }
 
 const defaultDependencies: DeviceShareRouteDependencies = {
@@ -64,6 +85,9 @@ const defaultDependencies: DeviceShareRouteDependencies = {
   dropApprovals: dropShareApprovals,
   pendingApprovals: listPendingShareApprovals,
   decide: decideShareApproval,
+  ownApproval: findOwnShareApproval,
+  settleQueue: settleShareApprovalQueue,
+  conversationTitles: getConversationTitles,
 }
 
 const OFF = { level: 'off' as const, everyone: false, userIds: [] as string[] }
@@ -150,6 +174,7 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
 
     for (const deviceId of new Set(pending.map((approval) => approval.deviceId)))
       labels.set(deviceId, (await deps.getDevice(userId, deviceId))?.label ?? deviceId)
+    const titles = await deps.conversationTitles(pending.map((approval) => approval.sessionId))
 
     return c.json({
       approvals: pending.map((approval) => ({
@@ -157,10 +182,18 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
         deviceId: approval.deviceId,
         deviceLabel: labels.get(approval.deviceId) ?? approval.deviceId,
         sessionId: approval.sessionId,
+        ...(titles.has(approval.sessionId) ? { title: titles.get(approval.sessionId) } : {}),
         actorId: approval.actorId,
         requestedAt: approval.requestedAt.toISOString(),
       })),
     })
+  })
+
+  // The requester's side: whether their conversation still waits for the owner.
+  routes.get('/devices/share-approvals/mine', zv('query', ownApprovalQuery), async (c) => {
+    const found = await deps.ownApproval(c.req.valid('query').sessionId, c.get('userId'))
+
+    return c.json({ status: found?.status ?? null })
   })
 
   routes.post(
@@ -176,6 +209,12 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
 
       if (!decided)
         throw new AppError(404, 'approval_not_found', 'This request was already answered')
+      // The answer stands even when the waiting sends cannot be settled now; the queue sweep retries.
+      await deps
+        .settleQueue(decided)
+        .catch((error: unknown) =>
+          logError('agent.share_approval.settle_failed', error, { approval_id: decided._id }),
+        )
 
       return c.json({ id: decided._id, status: decided.status })
     },

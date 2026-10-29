@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { t } from '../../../i18n/index.ts'
 import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
@@ -113,8 +114,8 @@ export function useTurnDispatch(acc: Acc) {
         if (listed) start(listed)
         else
           toast.error(
-            'The local runtime is still starting',
-            'Try again in a moment, or check User settings › This computer › Local runtime.',
+            t('The local runtime is still starting'),
+            t('Try again in a moment, or check User settings › This computer › Local runtime.'),
           )
       })
     },
@@ -198,7 +199,7 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!trimmed && filePaths.length === 0) return
       if (filePaths.length > 0 && !teamId) {
-        toast.error('No team selected', 'Select a team before attaching files.')
+        toast.error(t('No team selected'), t('Select a team before attaching files.'))
 
         return
       }
@@ -243,7 +244,7 @@ export function useTurnDispatch(acc: Acc) {
         return
       }
       if (uploadingTabsRef.current.has(activeId)) {
-        toast.error('Attachment upload is still in progress')
+        toast.error(t('Attachment upload is still in progress'))
 
         return
       }

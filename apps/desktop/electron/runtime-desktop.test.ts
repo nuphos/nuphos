@@ -6,11 +6,22 @@ import type { WebContents } from 'electron'
 
 const noop = () => {}
 
-mock.module('./atlas/client.ts', { namedExports: { readToken: () => Promise.resolve('token') } })
+mock.module('./account-request.ts', {
+  namedExports: {
+    signedIn: () =>
+      Promise.resolve({
+        epoch: 1,
+        api: 'https://api.example.test',
+        token: 'token',
+        userId: 'u1',
+        signal: new AbortController().signal,
+      }),
+    stillCurrent: noop,
+  },
+})
 mock.module('./auth-session.ts', {
   namedExports: { authSession: { subscribe: () => noop } },
 })
-mock.module('./api-endpoint.ts', { namedExports: { apiUrl: () => 'https://api.example.test' } })
 
 class FakeSocket extends EventTarget {
   closed = 0

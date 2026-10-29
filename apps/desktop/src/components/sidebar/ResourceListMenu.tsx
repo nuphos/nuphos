@@ -1,8 +1,10 @@
 import { Terminal, X } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/menu'
 
-import { resourceFullLabel, resourceLabel } from './sessionResourcePresentation'
+import { ResourceMark } from './ResourceMark'
+import { resourceFullLabel, resourceLabel, resourceStatus } from './sessionResourcePresentation'
 import { resourceStyle } from './sessionResourceStyle'
 
 import type { ResourceChip } from './sessionResourcePresentation'
@@ -54,10 +56,11 @@ export function ResourceListMenu({
             <MenuItem
               key={resource.id}
               icon={<span className={`inline-flex ${color}`}>{icon}</span>}
-              hint={resource.state}
+              hint={resourceStatus(resource)}
               onClick={(event) => actions.openResource(resource, event)}
             >
-              <span className="break-words">{resourceFullLabel(resource)}</span>
+              <span className="break-words">{resourceFullLabel(resource)}</span>{' '}
+              <ResourceMark resource={resource} />
             </MenuItem>
           )
         })}
@@ -88,7 +91,7 @@ export function ResourceListMenu({
                 unlink.onUnlink(resource.id)
               }}
             >
-              Unlink {resourceLabel(resource)}
+              {t('Unlink {label}', { label: resourceLabel(resource) })}
             </MenuItem>
           ))}
       </MenuContent>

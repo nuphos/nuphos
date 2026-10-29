@@ -124,6 +124,7 @@ describe('turn notifier', () => {
           badge: 3,
           sound: 'default',
           'thread-id': 'session-1',
+          category: 'REPLY',
         },
         sessionId: 'session-1',
         teamId: 'team-1',
@@ -400,4 +401,79 @@ test('Android-only badge changes are debounced and isolated to the configured pr
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(badges).toEqual([0])
   expect(sent).toHaveLength(0)
+})
+
+describe('empty completed turns', () => {
+  test.each(['_(no response)_', '(no response)', '  ', ''])(
+    'does not send APNs or FCM for empty completion: %s',
+    async (text) => {
+      devices.push({ ...device('android'), platform: 'android', projectId: 'project' })
+      const fcm: unknown[] = []
+      const n = notifier({
+        fcmProject: () => 'project',
+        sendFcm: async (_project, request) => {
+          fcm.push(request)
+
+          return { status: 200, deadToken: false }
+        },
+      })
+
+      await n.runEnded(
+        run({
+          frames: [
+            frame({ type: 'text-delta', delta: text }),
+            frame({ type: 'atlas-turn-complete' }),
+          ],
+        }),
+      )
+      expect(sent).toEqual([])
+      expect(fcm).toEqual([])
+      await n.runEnded(run())
+      expect(sent).toHaveLength(2)
+      expect(fcm).toHaveLength(1)
+    },
+  )
+  test('still announces a proposed plan when the final answer is a placeholder', async () => {
+    planNumber = 17
+    await notifier().runEnded(
+      run({
+        frames: [
+          frame({ type: 'text-delta', delta: '_(no response)_' }),
+          frame({ type: 'atlas-turn-complete' }),
+        ],
+      }),
+    )
+    expect(sent[0]?.payload).toMatchObject({
+      aps: { alert: { body: 'Plan #17 is waiting for approval' } },
+    })
+  })
+  test('still announces a real error after placeholder text', async () => {
+    await notifier().runEnded(
+      run({
+        frames: [
+          frame({ type: 'text-delta', delta: '_(no response)_' }),
+          frame({ type: 'error', errorText: 'Provider failed' }),
+          frame({ type: 'atlas-turn-complete' }),
+        ],
+      }),
+    )
+    expect(sent[0]?.payload).toMatchObject({ aps: { alert: { body: 'Provider failed' } } })
+  })
+})
+
+test('placeholder text never suppresses a real permission approval', async () => {
+  await notifier().runEnded(
+    run({
+      awaitingAuthorization: true,
+      frames: [
+        frame({ type: 'tool-input-start', toolCallId: 'permission', toolName: 'Terminal' }),
+        frame({ type: 'tool-approval-request', toolCallId: 'permission' }),
+        frame({ type: 'text-delta', delta: '_(no response)_' }),
+        frame({ type: 'atlas-turn-complete' }),
+      ],
+    }),
+  )
+  expect(sent[0]?.payload).toMatchObject({
+    aps: { alert: { body: 'Waiting for your approval: Terminal' } },
+  })
 })

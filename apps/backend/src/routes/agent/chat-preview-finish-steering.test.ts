@@ -6,12 +6,12 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
-import type { AgentRun } from './types'
-import type { UIMessage } from 'ai'
-
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentPlans } from '@/lib/test/doubles/agent-plans'
 import { useTitleGenerator } from '@/lib/test/doubles/title-generator'
+
+import type { AgentRun } from './types'
+import type { UIMessage } from 'ai'
 
 const persisted: { messages: { id: string; role: string; parts: unknown[] }[] }[] = []
 const storedAt = new Date('2026-10-09T04:00:00.000Z')
@@ -19,10 +19,10 @@ let createdPlans: unknown[] = []
 let titleGate: Promise<void> = Promise.resolve()
 
 useAgentDb({
-  syncConversationTranscript: (args) => {
+  appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
-    return Promise.resolve(null)
+    return Promise.resolve({ isNew: false, count: args.messages.length })
   },
   getConversationMessagesHead: async () =>
     persisted.at(-1)!.messages.map((message) => ({
@@ -279,7 +279,7 @@ for (const interrupted of [false, true]) {
   })
 }
 
-test('a completed turn without text or tools persists no assistant message', async () => {
+test('a completed turn without text or tools preserves its assistant completion boundary', async () => {
   createdPlans = []
   await finishPreviewTurn({
     run: { trace: undefined } as unknown as AgentRun,
@@ -304,5 +304,47 @@ test('a completed turn without text or tools persists no assistant message', asy
   })
   expect(persisted.at(-1)!.messages).toEqual([
     { id: 'question', role: 'user', parts: [{ type: 'text', text: 'start' }] },
+    { id: expect.any(String), role: 'assistant', parts: [] },
   ])
+})
+
+describe('successful empty completion', () => {
+  test.each(['_(no response)_', '(no response)', '   ', ''])(
+    'persists a completion receipt without placeholder text: %s',
+    async (text) => {
+      createdPlans = []
+      const frames: Record<string, unknown>[] = []
+
+      await finishPreviewTurn({
+        run: { trace: undefined } as unknown as AgentRun,
+        sessionId: 'silent',
+        teamId: 't1',
+        userId: 'u1',
+        messages: [
+          { id: 'delivery', role: 'user', parts: [{ type: 'text', text: 'progress notice' }] },
+        ],
+        firstMessage: 'progress notice',
+        locale: 'en-US',
+        provider: 'test',
+        requestId: 'silent',
+        startedAt: 0,
+        text,
+        answer: text,
+        reasoning: '',
+        orderedParts: text ? [{ type: 'text', text }] : [],
+        toolSteps: [],
+        finalStepStart: 0,
+        steered: [],
+        memory: null,
+        emit: (frame) => {
+          frames.push(frame)
+        },
+      })
+      const last = persisted.at(-1)!.messages.at(-1)!
+
+      expect(last.role).toBe('assistant')
+      expect(last.parts).toEqual([])
+      expect(JSON.stringify(frames)).not.toContain('no response')
+    },
+  )
 })

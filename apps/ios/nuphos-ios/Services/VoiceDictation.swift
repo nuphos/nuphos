@@ -62,11 +62,11 @@ final class VoiceDictation {
     }
 
     /// Stops recording and returns what was said.
-    func finish(apiKey: String) async throws -> String {
+    func finish(token: String, teamId: String) async throws -> String {
         stopRecording()
         phase = .transcribing
         defer { try? FileManager.default.removeItem(at: file) }
-        return try await Whisper.transcribe(file, apiKey: apiKey)
+        return try await Whisper.transcribe(file, token: token, teamId: teamId)
     }
 
     func cancel() {
@@ -85,11 +85,9 @@ final class VoiceDictation {
     }
 }
 
-/// OpenAI's transcription endpoint, called with the user's own key (BYOK).
-/// The key lives only in this device's Keychain.
+/// Transcription by OpenAI Whisper through Nuphos, which holds the key and
+/// keeps voice input to teams with a subscription.
 enum Whisper {
-    static let keychainKey = "openai-api-key"
-
     /// The transcription prompt, editable in Account. Whisper copies its
     /// spelling and style, so it lists names Whisper would otherwise guess at.
     /// Whisper reads only its last 224 tokens.
@@ -100,62 +98,39 @@ enum Whisper {
         let errorDescription: String?
     }
 
-    static func transcribe(_ file: URL, apiKey: String) async throws -> String {
+    static func transcribe(_ file: URL, token: String, teamId: String) async throws -> String {
         let boundary = UUID().uuidString
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/audio/transcriptions")!)
+        var request = URLRequest(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/voice-transcriptions"))
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 90
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
+        request.setValue(AgentChatAPI.clientVersion, forHTTPHeaderField: "x-atlas-client")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "content-type")
 
         var body = Data()
-        // verbose_json reports the language for the Traditional Chinese fallback below.
-        var fields = [("model", "whisper-1"), ("response_format", "verbose_json")]
         let prompt = (UserDefaults.standard.string(forKey: promptKey) ?? defaultPrompt).trimmingCharacters(in: .whitespacesAndNewlines)
-        if !prompt.isEmpty { fields.append(("prompt", prompt)) }
-        for (name, value) in fields {
-            body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".utf8))
+        if !prompt.isEmpty {
+            body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\n\(prompt)\r\n".utf8))
         }
         body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"dictation.m4a\"\r\nContent-Type: audio/m4a\r\n\r\n".utf8))
         body.append(try Data(contentsOf: file))
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
 
         let (data, response) = try await URLSession.shared.upload(for: request, from: body)
-        let reply = try reply(data, response)
-        guard var text = reply.text else {
-            throw Failure(errorDescription: "OpenAI couldn't transcribe the recording.")
+        let json = try? JSONDecoder().decode(JSONValue.self, from: data)
+        switch (response as? HTTPURLResponse)?.statusCode {
+        case 200: break
+        case 401: throw NuphosAPI.Failure.unauthorized
+        default:
+            throw Failure(errorDescription: json?["error"]?["message"]?.stringValue ?? "Nuphos couldn't be reached. Try again.")
+        }
+        guard var text = json?["text"]?.stringValue else {
+            throw Failure(errorDescription: "The recording couldn't be transcribed.")
         }
         // Whisper writes Mandarin in Simplified Chinese by default; convert it to Traditional.
-        if reply.language == "chinese" {
+        if json?["language"]?.stringValue == "chinese" {
             text = text.applyingTransform(StringTransform("Hans-Hant"), reverse: false) ?? text
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// Checks a key before it is saved, with a free call it must be allowed to make.
-    static func verify(_ apiKey: String) async throws {
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        _ = try reply(data, response)
-    }
-
-    private struct Reply: Decodable {
-        struct APIError: Decodable { let message: String }
-        let text: String?
-        var language: String? = nil
-        let error: APIError?
-    }
-
-    private static func reply(_ data: Data, _ response: URLResponse) throws -> Reply {
-        let reply = try? JSONDecoder().decode(Reply.self, from: data)
-        switch (response as? HTTPURLResponse)?.statusCode {
-        case 200: return reply ?? Reply(text: nil, error: nil)
-        case 401:
-            // A key OpenAI no longer accepts is forgotten, so the next tap asks again.
-            Keychain.delete(keychainKey)
-            throw Failure(errorDescription: "OpenAI rejected this API key. Tap the microphone to enter a new one.")
-        default:
-            throw Failure(errorDescription: reply?.error?.message ?? "OpenAI couldn't be reached. Try again.")
-        }
     }
 }

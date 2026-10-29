@@ -11,7 +11,7 @@ import ai.nuphos.android.session.ChatSession
 import kotlinx.coroutines.launch
 
 @Composable
-fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> Unit) {
+fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> Unit, onChooseRuntime: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var open by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var share by remember(session, store.workspaceRevision) { mutableStateOf(false) }
@@ -47,6 +47,8 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             onClick = { open = false; perform { store.setWatching(session); error = store.watchError } },
         )
         if (session.canManage) {
+            if (onChooseRuntime != null) DropdownMenuItem(text = { Text("Switch runtime") },
+                enabled = !busy && session.canMoveAgent, onClick = { open = false; onChooseRuntime() })
             DropdownMenuItem(text = { Text("Rename") }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
             DropdownMenuItem(text = { Text(if (session.isArchived) "Restore" else "Archive") }, enabled = !busy, onClick = { open = false; archive = true })
         }

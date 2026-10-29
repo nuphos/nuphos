@@ -1,5 +1,7 @@
 package ai.nuphos.android
 
+import android.content.ComponentName
+import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
@@ -29,7 +31,7 @@ class ProfileLayoutDeviceTest {
                         ProfileContent(
                             user = NuphosUser("synthetic-profile", "long.synthetic.account@example.invalid", "Synthetic Profile", "synthetic_profile"),
                             canWithdraw = allowed, consentBusy = busy, consentError = null,
-                            onEdit = { calls += "edit" }, onPrivacy = { calls += "privacy" },
+                            onEdit = { calls += "edit" }, onDevices = { calls += "devices" }, onPrivacy = { calls += "privacy" },
                             onWithdraw = { calls += "withdraw" }, onDeletion = { calls += "delete" },
                             onSignOut = { calls += "signout" },
                             voiceSettings = {
@@ -55,12 +57,26 @@ class ProfileLayoutDeviceTest {
         edit.performClick()
         compose.onNodeWithText("Technical details").performClick()
         compose.onNodeWithText("synthetic-profile").assertExists()
-        for ((labelText, call) in listOf("Privacy policy" to "privacy", "Withdraw AI sharing consent" to "withdraw", "Account deletion request" to "delete", "Sign out" to "signout")) {
+        for ((labelText, call) in listOf("Signed-in devices" to "devices", "Privacy policy" to "privacy", "Withdraw AI sharing consent" to "withdraw", "Account deletion request" to "delete", "Sign out" to "signout")) {
             compose.onNodeWithText(labelText).performScrollTo().assertIsDisplayed().performClick()
             assertTrue(calls.contains(call))
         }
-        assertEquals(listOf("edit", "privacy", "withdraw", "delete", "signout"), calls)
+        assertEquals(listOf("edit", "devices", "privacy", "withdraw", "delete", "signout"), calls)
         capture("profile-bottom")
+    }
+    @Test fun appIconPickerSwitchesTheLauncherEntry() {
+        render()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        fun state(id: String) = context.packageManager.getComponentEnabledSetting(ComponentName(context, "ai.nuphos.android.Icon$id"))
+        compose.onNodeWithContentDescription("Son of Man, Peek").performScrollTo()
+        compose.onNodeWithContentDescription("Napoleon, Bleed").assertIsSelected()
+        capture("app-icon")
+        compose.onNodeWithContentDescription("Nuphos").performClick()
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, state("A"))
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DISABLED, state("B2"))
+        compose.onNodeWithContentDescription("Napoleon, Bleed").performClick()
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, state("B2"))
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DISABLED, state("A"))
     }
     @Test fun busyConsentCannotInvokeWithdrawal() {
         render(busy = true)

@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { GithubPR, GithubWorkflowRun } from '../../../types'
 import type {
   HomeGithubCard,
@@ -54,15 +56,15 @@ export function toggleItem<T>(list: T[], item: T, key: (t: T) => string): T[] {
 }
 
 export const PULL_STATUSES: { value: HomePullStatus; label: string; empty: string }[] = [
-  { value: 'open', label: 'Open', empty: 'No open pull requests' },
-  { value: 'ready', label: 'Ready for review', empty: 'Nothing ready for review' },
-  { value: 'draft', label: 'Draft', empty: 'No drafts' },
+  { value: 'open', label: t('Open|state'), empty: t('No open pull requests') },
+  { value: 'ready', label: t('Ready for review'), empty: t('Nothing ready for review') },
+  { value: 'draft', label: t('Draft'), empty: t('No drafts') },
 ]
 
 export const RUN_STATUSES: { value: HomeRunStatus; label: string; empty: string }[] = [
-  { value: 'failed', label: 'Failing', empty: 'Nothing failing' },
-  { value: 'running', label: 'Running', empty: 'Nothing running' },
-  { value: 'latest', label: 'Latest', empty: 'No runs yet' },
+  { value: 'failed', label: t('Failing'), empty: t('Nothing failing') },
+  { value: 'running', label: t('Running'), empty: t('Nothing running') },
+  { value: 'latest', label: t('Latest'), empty: t('No runs yet') },
 ]
 
 /** A card's statuses as their labels, in menu order, e.g. "Failing, Running". */
@@ -122,6 +124,16 @@ function defaultSize(key: string): { w: number; h: number } {
   return { w: GRID_COLUMNS / 2, h: 7 }
 }
 
+/**
+ * The smallest a card may be resized to: room for its header and at least one
+ * row, so its content scrolls inside it instead of spilling onto the card below.
+ */
+export function minCardSize(key: string): { minW: number; minH: number } {
+  if (key === 'team') return { minW: GRID_COLUMNS / 2, minH: 4 }
+
+  return { minW: 3, minH: 3 }
+}
+
 const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
@@ -129,10 +141,17 @@ const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
  * The grid for the cards on show, in order: a card keeps its saved place and
  * size, and one without (newly added) takes the first free spot that fits it,
  * row by row — beside a half-width card when there is room, below otherwise.
- * Saved entries for cards no longer on show are dropped.
+ * Saved entries for cards no longer on show are dropped, and a saved size below
+ * the card's minimum grows back to it.
  */
 export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridItem[] {
-  const byKey = new Map(saved.map((item) => [item.i, item]))
+  const byKey = new Map(
+    saved.map((item) => {
+      const { minW, minH } = minCardSize(item.i)
+
+      return [item.i, { ...item, w: Math.max(item.w, minW), h: Math.max(item.h, minH) }]
+    }),
+  )
   const taken = keys.flatMap((k) => byKey.get(k) ?? [])
 
   return keys.map((i) => {

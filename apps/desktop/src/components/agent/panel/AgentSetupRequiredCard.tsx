@@ -1,11 +1,10 @@
 import { KeyRound } from 'lucide-react'
 
 import { useThisComputer } from '../../../hooks/useThisComputer'
+import { t } from '../../../i18n'
 import { agentTier } from '../../../lib/agentName'
 import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
 import { Button } from '../../ui/button'
-
-export const ASK_ADMIN_TO_RECONNECT = 'Ask a workspace administrator to reconnect this runtime.'
 
 export function AgentSetupRequiredCard({
   message,
@@ -33,30 +32,33 @@ export function AgentSetupRequiredCard({
         <KeyRound className="h-4 w-4 text-zViolet-400" strokeWidth={1.8} />
         <span>
           {reason === 'reauthentication'
-            ? 'Sign in again to continue'
-            : 'Connect a runtime to get started'}
+            ? t('Sign in again to continue')
+            : t('Connect a runtime to get started')}
         </span>
       </div>
       <p className="text-[13px] leading-relaxed text-secondary">{message}</p>
       {cliLogin && (
         <LocalAgentSignIn
           provider={runtimeId?.endsWith('_codex') ? 'codex' : 'claude-code'}
-          label="Sign in again"
+          label={t('Sign in again')}
         />
       )}
       {personalAgent && !localAgent && (
         <p className="text-[13px] leading-relaxed text-secondary">
-          Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry
-          your message.
+          {t(
+            'Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry your message.',
+          )}
         </p>
       )}
       {reason === 'reauthentication' && !isTeamAdmin && !personalAgent && (
-        <p className="text-[13px] leading-relaxed text-secondary">{ASK_ADMIN_TO_RECONNECT}</p>
+        <p className="text-[13px] leading-relaxed text-secondary">
+          {t('Ask a workspace administrator to reconnect this runtime.')}
+        </p>
       )}
       {!localAgent && isTeamAdmin && onOpenAgentSettings && (
         <div>
           <Button size="sm" variant="primary" onClick={onOpenAgentSettings}>
-            Open runtime settings
+            {t('Open runtime settings')}
           </Button>
         </div>
       )}

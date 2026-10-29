@@ -10,9 +10,11 @@ import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import {
   cancelConversationRuntime,
   conversationExecutionState,
+  putConversationSecret,
   steerConversationRuntime,
 } from '@/lib/claude-code-preview/session-execution-state'
 import { steeringMessageId, steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
+import { SECRET_NAME } from '@/lib/agent/tools-skilled/decision-tools'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
@@ -73,7 +75,14 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
   const claimed = queuedId ? await takeOwnQueued(conversation, userId, queuedId) : null
   const sent = await steerConversationRuntime(
     conversation,
-    { text, groupId, userId },
+    {
+      text,
+      groupId,
+      userId,
+      // Attributed like a chat message: an agent token's steer is that agent's.
+      deviceId: c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
+      cliToken: c.get('cliToken'),
+    },
     messageId,
   ).catch(async (error: unknown) => {
     if (claimed) {
@@ -89,4 +98,39 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
     text: sent,
     upload: steeringReceipt(messageId, sent).upload,
   })
+})
+
+// The secure input card: the value goes to a file on the runtime and only its
+// path comes back. Never log or store the body.
+agent.post('/conversations/:sessionId/secrets', async (c) => {
+  const userId = c.get('userId')
+  const sessionId = c.req.param('sessionId')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
+
+  if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
+  // The secret lands on the owner's runtime, so only the owner provides it.
+  if (conversation.userId !== userId)
+    throw new AppError(
+      403,
+      'secret_owner_only',
+      'Only the owner of this conversation can provide a secret',
+    )
+  const body = await c.req.json<{ name?: unknown; value?: unknown }>()
+  const name = typeof body.name === 'string' ? body.name : ''
+  const value = typeof body.value === 'string' ? body.value : ''
+
+  if (!SECRET_NAME.test(name) || !value || value.length > 16_384)
+    throw new AppError(400, 'invalid_request', 'A valid name and a value up to 16 KB are required')
+  const path = await putConversationSecret(conversation, { name, value, userId })
+
+  logEvent('info', 'agent.secret.saved', {
+    trace_id: c.get('requestId'),
+    user_id: userId,
+    team_id: teamId,
+    session_id: sessionId,
+    secret_name: name,
+  })
+
+  return c.json({ ok: true, path })
 })

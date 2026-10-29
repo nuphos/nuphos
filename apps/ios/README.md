@@ -25,13 +25,14 @@ It also checks a locally updated asynchronous card: its measured height must
 match the allocated cell height, and the following message must sit below it.
 Step expansion is sampled for title drift, and new sends must install their
 short presentation-only arrival animation without changing the scroll geometry.
+Finally it rotates to landscape and back; on every frame no row may be
+animating, since an animated rotation draws rows over each other.
 Relaunch without `-scroll-regression` to return to the signed-in app.
 
 The iOS transcript uses ChatLayout 2.5.2 and self-sizing UIKit cells hosting
 SwiftUI rows. The controller owns reading position, applies changed rows only,
 and treats `lastSubmittedRowID` as explicit local-send intent. Server updates
-preserve the visible row; sends extend the layout to place the new question near
-the top. Dragging takes over from automatic following. Markdown must be populated
+preserve the visible row; sends return to the end, above the composer. Dragging takes over from automatic following. Markdown must be populated
 before a fresh cell is measured. The existing SwiftUI transcript remains the
 fallback on other platforms.
 

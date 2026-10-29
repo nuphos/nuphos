@@ -7,10 +7,12 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InlineRename } from '../../components/ui/inline-rename'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { useThisComputer } from '../../hooks/useThisComputer'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localRemovalId } from './agentPresentation'
+import { agentName, localRemovalId, thisComputerSignIn } from './agentPresentation'
+import { LocalAgentSignIn } from './LocalAgentSignIn'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
@@ -40,6 +42,7 @@ export function RuntimeInstanceCard({
   isAdmin: boolean
 }) {
   const [signingIn, setSigningIn] = useState(false)
+  const localSignIn = thisComputerSignIn(instance, useThisComputer())
   const [editing, setEditing] = useState(false)
   const [confirmRemoval, setConfirmRemoval] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -222,6 +225,11 @@ export function RuntimeInstanceCard({
                 The runtime’s owner revoked this team’s connection from its console. Generate a new
                 pairing code there, connect again and choose Update existing connection.
               </p>
+            ) : localSignIn ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+                <p className="text-xs leading-relaxed text-tertiary">Not signed in.</p>
+                <LocalAgentSignIn provider={localSignIn} />
+              </div>
             ) : (
               hosted &&
               enabled &&

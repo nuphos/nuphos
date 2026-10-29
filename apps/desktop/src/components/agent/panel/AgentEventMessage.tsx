@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { useId, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { CloudLogo } from '../../CloudLogo'
@@ -46,7 +47,6 @@ export function AgentEventMessage({
       <AgentAvatar
         agentId={metadata.sourceSessionId ?? metadata.sender.id}
         provider={metadata.sender.agentRuntime}
-        attached={Boolean(metadata.sender.agentRuntime)}
       />
     )
   else if (metadata.source === 'agent.resource' && resourceProvider)
@@ -77,7 +77,11 @@ export function AgentEventMessage({
             )}
             <button
               type="button"
-              aria-label={`${open ? 'Hide' : 'Show'} message from ${displayName}`}
+              aria-label={
+                open
+                  ? t('Hide message from {name}', { name: displayName })
+                  : t('Show message from {name}', { name: displayName })
+              }
               aria-expanded={open}
               aria-controls={contentId}
               onClick={() => setOpen((value) => !value)}
@@ -91,13 +95,13 @@ export function AgentEventMessage({
           {!open && (
             <button
               type="button"
-              aria-label={`Preview message from ${displayName}`}
+              aria-label={t('Preview message from {name}', { name: displayName })}
               aria-expanded={false}
               aria-controls={contentId}
               onClick={() => setOpen(true)}
               className="mt-0.5 block w-full truncate pl-8 text-left text-[11.5px] leading-5 text-tertiary hover:text-secondary"
             >
-              {text.split('\n').find((line) => line.trim()) ?? 'View message'}
+              {text.split('\n').find((line) => line.trim()) ?? t('View message')}
             </button>
           )}
         </div>

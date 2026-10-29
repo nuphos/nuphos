@@ -8,10 +8,22 @@ struct PastedFile: Sendable {
     let type: UTType
     let name: String
 
+    /// Text for the draft rather than a file to attach: it reads as a string
+    /// and is no image, movie, PDF or named file. Not every type has to be
+    /// text: a copied link or rich text also lists URL or RTFD types.
+    static func isText(_ provider: NSItemProvider) -> Bool {
+        provider.suggestedName == nil && provider.canLoadObject(ofClass: NSString.self)
+            && !provider.registeredContentTypes.contains { type in
+                [UTType.image, .movie, .pdf, .fileURL].contains { type.conforms(to: $0) }
+            }
+    }
+
     /// Tries each advertised type in order: an earlier one may fail to load
-    /// where a later one works.
+    /// where a later one works. Types without a file extension go last: a
+    /// copied image leads with UIKit's private archive, which no one can read.
     static func load(_ provider: NSItemProvider) async -> PastedFile? {
-        for type in provider.registeredContentTypes {
+        let types = provider.registeredContentTypes
+        for type in types.filter({ $0.preferredFilenameExtension != nil }) + types.filter({ $0.preferredFilenameExtension == nil }) {
             let file: PastedFile? = await withCheckedContinuation { continuation in
                 _ = provider.loadFileRepresentation(for: type, openInPlace: false) { url, _, _ in
                     continuation.resume(returning: url.flatMap { copy($0, type: type, name: provider.suggestedName) })

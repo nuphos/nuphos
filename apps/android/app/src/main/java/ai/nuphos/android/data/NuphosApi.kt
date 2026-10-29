@@ -28,7 +28,7 @@ object NuphosApi {
             override val message = "Your session has expired. Please sign in again."
         }
 
-        data class Http(val code: Int, val serverMessage: String?) : Failure() {
+        data class Http(val code: Int, val serverMessage: String?, val errorCode: String? = null) : Failure() {
             override val message = serverMessage ?: "Nuphos returned an unexpected response ($code)."
         }
 

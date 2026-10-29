@@ -32,6 +32,7 @@ import type {
   PersonalCredential,
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
+  SignInSession,
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
@@ -44,6 +45,9 @@ export type WindowAppApi = {
     provider: PersonalCredentialProvider,
   ): Promise<{ authorizeUrl: string; state: string }>
   atlasDeletePersonalCredential(provider: PersonalCredentialProvider): Promise<void>
+  atlasListSignInSessions(): Promise<SignInSession[]>
+  atlasSignOutSession(id: string): Promise<void>
+  atlasSignOutOtherSessions(): Promise<number>
   authUploadAvatar(image: Uint8Array): Promise<UserInfo>
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
@@ -55,11 +59,16 @@ export type WindowAppApi = {
   authEmailVerifyCode(email: string, code: string): Promise<UserInfo>
   analyticsIdentify(userId: string, props?: Record<string, unknown>): Promise<void>
   analyticsSetTeam(teamId: string | null): Promise<void>
+  sendDiagnostics(): boolean
+  setSendDiagnostics(send: boolean): Promise<boolean>
+  onSendDiagnosticsChanged(listener: (send: boolean) => void): () => void
   appGetVersion(): Promise<string>
   appSetApiEndpoint(url: string | null): Promise<string>
   appGetPlatform(): Promise<string>
   appSelectAsciiInputSource(): Promise<void>
   appSetNativeTheme(source: 'system' | 'light' | 'dark'): Promise<void>
+  appGetAppIcon(): Promise<string>
+  appSetAppIcon(icon: string): Promise<void>
   onNativeThemeUpdated(cb: (payload: { shouldUseDarkColors: boolean }) => void): () => void
   getZoomFactor(): number
   notifyZoom(): void

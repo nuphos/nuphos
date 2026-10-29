@@ -34,6 +34,25 @@ class SseClientTest {
             } finally { executor.shutdownNow() }
         }
     }
+    // A queued message is not a failure: reading the 202 as a broken stream offers Retry, which resends it.
+    @Test fun queuedReplyIsReadAsQueued() = runBlocking {
+        ServerSocket(0).use { server ->
+            val executor = Executors.newSingleThreadExecutor()
+            executor.submit {
+                server.accept().use { socket ->
+                    val body = """{"status":"queued","streamId":"s"}"""
+                    socket.getOutputStream().write(("HTTP/1.1 202 Accepted\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n" + body).toByteArray())
+                    socket.getOutputStream().flush()
+                }
+            }
+            try {
+                val error = runCatching {
+                    withTimeout(5_000) { SseClient.events(Request.Builder().url("http://127.0.0.1:${server.localPort}/chat").build()).toList() }
+                }.exceptionOrNull()
+                assertEquals(SseClient.Failure.Queued, error)
+            } finally { executor.shutdownNow() }
+        }
+    }
     @Test fun cancelingSlowConsumerClosesNetworkAndReleasesProducer() = runBlocking {
         ServerSocket(0).use { server ->
             val executor = Executors.newSingleThreadExecutor()

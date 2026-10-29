@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, setSystemTime, test } from 'bun:test'
 
 import { useCredentialListing } from '@/lib/test/doubles/claude-code-credential-listing'
 
@@ -8,6 +8,7 @@ import {
   previewSessionAccess,
   previewSessionEnv,
 } from './credentials-mcp'
+import { verifyPreviewMcpToken } from './mcp-token'
 
 import type { ClaudeCodeCredentialEntry, UnselectedCredentialEntry } from './credential-listing'
 
@@ -77,6 +78,26 @@ describe('credentialsMcpTools', () => {
       })
 
       expect(automated.runtimeEnv).not.toHaveProperty('NUPHOS_SESSION_ACTOR')
+    }
+  })
+
+  // A live agent keeps the MCP headers it was spawned with for the rest of the
+  // session, so their token must outlive a long turn.
+  test('the MCP header token still verifies after the turn has run 31 minutes', () => {
+    const start = new Date('2026-10-26T12:00:00Z')
+
+    setSystemTime(start)
+    try {
+      const access = previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+        backendUrl: 'https://backend.example',
+      })
+      const header = access.mcpServers[0]?.headers.find((h) => h.name === 'Authorization')
+      const token = header?.value.replace(/^Bearer /u, '') ?? ''
+
+      setSystemTime(new Date(start.getTime() + 31 * 60 * 1000))
+      expect(verifyPreviewMcpToken(token)).toMatchObject({ sid: 'conv-1', tid: 'team-1' })
+    } finally {
+      setSystemTime()
     }
   })
 

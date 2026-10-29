@@ -165,7 +165,6 @@ export function usePanelPlanPane(acc: Acc) {
     onTitleChangeRef.current?.(
       activeTab?.title?.trim() || '',
       activeTab?.sessionId ?? null,
-      activeTab?.claudeCodeRuntimeAttached === true,
       activeTab?.agentRuntime,
       gates.canRename,
       activeTab?.runtimeId,
@@ -178,7 +177,6 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.foreign,
     activeTab?.title,
     activeTab?.sessionId,
-    activeTab?.claudeCodeRuntimeAttached,
     activeTab?.agentRuntime,
     activeTab?.runtimeId,
     activeTab?.canManage,

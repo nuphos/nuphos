@@ -4,13 +4,14 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { api } from '../../api'
-import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
-import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
+import { AvatarPicker } from './AvatarPicker'
 import { DangerZone } from './DangerZone'
+import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
@@ -29,7 +30,7 @@ function CopyableTeamId({ id }: { id: string }) {
       setTimeout(() => setCopied(false), 2000)
     } catch {
       // Local clipboard failure — never an atlas error, so hand-author it.
-      toast.error('Could not copy team ID', 'Clipboard was blocked.')
+      toast.error(t('Could not copy team ID'), t('Clipboard was blocked.'))
     }
   }
 
@@ -37,7 +38,7 @@ function CopyableTeamId({ id }: { id: string }) {
     <button
       type="button"
       onClick={() => void copy()}
-      title="Copy team ID"
+      title={t('Copy team ID')}
       className="group flex items-center gap-1.5 min-w-0 max-w-full text-[12.5px] text-tertiary hover:text-secondary transition-colors"
     >
       <span className="truncate font-mono">{id}</span>
@@ -64,12 +65,9 @@ export function GeneralSection({
   onTeamRemoved: (teamId: string) => void
 }) {
   const [name, setName] = useState(team?.name ?? '')
-  const [icon, setIcon] = useState(team?.avatarUrl ?? '')
   const [submitting, setSubmitting] = useState(false)
 
-  const dirty = team
-    ? name.trim() !== (team.name ?? '') || icon.trim() !== (team.avatarUrl ?? '')
-    : false
+  const dirty = team ? name.trim() !== (team.name ?? '') : false
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -78,15 +76,12 @@ export function GeneralSection({
     if (!team || !trimmedName || submitting) return
     setSubmitting(true)
     try {
-      const updated = await api.atlasUpdateTeam(team.id, {
-        name: trimmedName,
-        avatarUrl: icon.trim(),
-      })
+      const updated = await api.atlasUpdateTeam(team.id, { name: trimmedName })
 
       onTeamUpdated(updated)
-      toast.success('Workspace updated')
+      toast.success(t('Workspace updated'))
     } catch (err) {
-      toast.apiError('Could not update workspace', err)
+      toast.apiError(t('Could not update workspace'), err)
     } finally {
       setSubmitting(false)
     }
@@ -94,27 +89,25 @@ export function GeneralSection({
 
   return (
     <div>
-      <SectionHeader title="General" description="Manage your workspace's name and icon." />
+      <SectionHeader
+        title={t('General')}
+        description={t("Manage your workspace's name and icon.")}
+      />
       {team ? (
         <>
           <form onSubmit={(e) => void submit(e)} className="space-y-5">
-            <div className="flex items-center gap-4">
-              <Avatar
-                key={`${team.id}:${icon}`}
-                src={icon}
-                name={name || team.name || 'Workspace'}
-                size={56}
-                className="rounded-lg !shadow-none"
-              />
-              <div className="min-w-0">
-                <div className="text-[14px] font-medium text-main truncate">
-                  {name || team.name || 'Workspace'}
-                </div>
-                <CopyableTeamId id={team.id} />
-              </div>
-            </div>
+            <AvatarPicker
+              key={team.id}
+              src={team.avatarUrl}
+              name={name || team.name || t('Workspace')}
+              kind="icon"
+              onUpload={async (image) =>
+                onTeamUpdated(await api.atlasSetTeamAvatar(team.id, image))
+              }
+              onRemove={async () => onTeamUpdated(await api.atlasSetTeamAvatar(team.id, null))}
+            />
 
-            <Field label="Name">
+            <Field label={t('Name')}>
               <input
                 type="text"
                 required
@@ -125,19 +118,16 @@ export function GeneralSection({
               />
             </Field>
 
-            <Field label="Icon URL" hint="A square image works best.">
-              <input
-                type="url"
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                placeholder="https://example.com/icon.png"
-                className={inputClasses}
-              />
-            </Field>
+            <div>
+              <span className="block text-[12.5px] font-medium text-secondary mb-1.5">
+                {t('Team ID')}
+              </span>
+              <CopyableTeamId id={team.id} />
+            </div>
 
             <div className="flex justify-end pt-1">
               <Button size="sm" type="submit" disabled={!name.trim() || !dirty || submitting}>
-                {submitting ? 'Saving…' : 'Save changes'}
+                {submitting ? t('Saving…') : t('Save changes')}
               </Button>
             </div>
           </form>
@@ -148,7 +138,7 @@ export function GeneralSection({
           <DangerZone team={team} onTeamRemoved={onTeamRemoved} />
         </>
       ) : (
-        <div className="text-[13px] text-tertiary">No workspace selected.</div>
+        <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
       )}
     </div>
   )

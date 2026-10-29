@@ -111,8 +111,6 @@ describe('every production model call accounts for its tokens', () => {
 
     expect(operations.toSorted(byCodeUnit)).toEqual([
       'memory.attribution_judge',
-      'memory.conflict',
-      'memory.distill',
       'memory.rerank',
       'starter_suggestions',
       'thread_addressing.judge',
@@ -127,8 +125,6 @@ describe('every production model call accounts for its tokens', () => {
     }).map(relative)
 
     expect(accounted.toSorted(byCodeUnit)).toEqual([
-      'lib/agent/memory-native/conflict.ts',
-      'lib/agent/memory-native/distill.ts',
       'lib/agent/memory-native/rerank.ts',
       'lib/agent/memory-slots/attribution-judge.ts',
       'lib/agent/starter-suggestions.ts',
@@ -145,15 +141,7 @@ describe('every production model call accounts for its tokens', () => {
 describe('memory side calls carry real conversation metadata', () => {
   const read = (file: string) => readFileSync(path.join(SRC_ROOT, file), 'utf8')
 
-  test('the conflict check receives and forwards the triggering conversation', () => {
-    expect(read('lib/agent/memory-native/ingest-turn.ts')).toContain(
-      'sessionId: digest.conversationId',
-    )
-    expect(read('lib/agent/memory-native/conflict.ts')).toContain('sessionId: input.sessionId')
-  })
-
-  test('both rerank paths pass the conversation through', () => {
-    expect(read('lib/agent/memory-native/index.ts')).toContain('sessionId: conversationId')
+  test('the memory_get rerank passes the conversation through', () => {
     expect(read('lib/agent/memory-native/tools-get.ts')).toContain('sessionId: conversationId')
   })
 

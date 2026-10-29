@@ -9,6 +9,7 @@ import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 
+import type { AccountContext } from '../auth-session.ts'
 import type { UserInfo } from '../auth-status.ts'
 import type { TokenStore } from './token-store.ts'
 
@@ -35,7 +36,7 @@ type ConfigFileDeps = {
   store: TokenStore
   secure: () => boolean
   apiUrl: () => string
-  onToken: (token: string | null) => void
+  onToken: (token: string | null, userId: string | null) => void
   /** The CLI's cli.yaml, which this app shared before it had its own file. */
   legacyPath?: string
 }
@@ -116,7 +117,7 @@ export function configFile(deps: ConfigFileDeps) {
     }
     if (previous.keychainAccount !== stored.keychainAccount) await forget(previous.keychainAccount)
     await writeFile(deps.path, cfg.token ? stored : {})
-    deps.onToken(cfg.token ?? null)
+    deps.onToken(cfg.token ?? null, cfg.userInfo?.id ?? null)
   }
 
   /**
@@ -172,7 +173,7 @@ export function configFile(deps: ConfigFileDeps) {
     read: () => inTurn(load),
     write: (cfg: Config) => {
       // A sign-out takes effect in memory at once, before its turn.
-      if (!cfg.token) deps.onToken(null)
+      if (!cfg.token) deps.onToken(null, null)
 
       return inTurn(() => save(cfg))
     },
@@ -185,17 +186,27 @@ const defaultConfigFile = configFile({
   store: keychainStore,
   secure: () => secureStorageEnabled(),
   apiUrl,
-  onToken: (token) => {
-    authSession.set(token)
+  onToken: (token, userId) => {
+    authSession.set(token, userId)
   },
 })
 
 export const readConfig = defaultConfigFile.read
 export const writeConfig = defaultConfigFile.write
 
-/** The signed-in token, kept in memory once the startup check has run. */
-export async function sessionToken(): Promise<string | null> {
-  return authSession.current() ?? (await readConfig()).token ?? null
+/**
+ * The account a request goes out as: one context, so its backend, token and
+ * signal always belong together. Until the startup check has run the token
+ * comes from the file; once anything has set the session, only from memory.
+ */
+export async function requestContext(): Promise<AccountContext> {
+  const ctx = authSession.context()
+
+  if (ctx.token || authSession.settled()) return ctx
+  const { token } = await readConfig()
+  const now = authSession.context()
+
+  return now === ctx && token ? { ...ctx, token } : now
 }
 
 export async function apiErrorMessage(res: Response): Promise<string> {

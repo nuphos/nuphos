@@ -97,8 +97,6 @@ useDb({ db: (() => ({ collection })) as unknown as typeof dbActual.db })
 useIdentity({
   getNuphosUserById: (async (id: string) =>
     id === USER.id ? USER : null) as unknown as typeof identityActual.getNuphosUserById,
-  signNuphosToken: ((userId: string) =>
-    `token-for-${userId}`) as unknown as typeof identityActual.signNuphosToken,
 })
 
 const {
@@ -153,10 +151,7 @@ describe('the happy path', () => {
 
     const deliveryCode = await complete(handle)
 
-    const { token, user } = await redeemNativeSession(handle, VERIFIER, deliveryCode)
-
-    expect(token).toBe(`token-for-${USER.id}`)
-    expect(user).toEqual(USER)
+    expect(await redeemNativeSession(handle, VERIFIER, deliveryCode)).toEqual(USER)
   })
 
   test('the handle is never stored in the clear', async () => {
@@ -259,9 +254,7 @@ describe('PKCE binds the handle to the process that registered it', () => {
     const deliveryCode = await complete(handle)
 
     await expect(redeemNativeSession(handle, 'b'.repeat(64), deliveryCode)).rejects.toThrow()
-    const { token } = await redeemNativeSession(handle, VERIFIER, deliveryCode)
-
-    expect(token).toBe(`token-for-${USER.id}`)
+    expect(await redeemNativeSession(handle, VERIFIER, deliveryCode)).toEqual(USER)
   })
 
   test('registration insists on S256 and a well-formed challenge', async () => {
@@ -306,9 +299,7 @@ describe('the delivery code binds the session to the machine that received the r
     await expect(redeemNativeSession(handle, VERIFIER, 'wrong-code')).rejects.toThrow()
     expect(sessions().docs).toHaveLength(1)
 
-    const { token } = await redeemNativeSession(handle, VERIFIER, deliveryCode)
-
-    expect(token).toBe(`token-for-${USER.id}`)
+    expect(await redeemNativeSession(handle, VERIFIER, deliveryCode)).toEqual(USER)
   })
 
   test('a delivery code works exactly once', async () => {
@@ -447,9 +438,7 @@ describe('resolving a handle to its delivery target', () => {
     })
     const deliveryCode = await complete(handle)
 
-    expect((await redeemNativeSession(handle, VERIFIER, deliveryCode)).token).toBe(
-      `token-for-${USER.id}`,
-    )
+    expect(await redeemNativeSession(handle, VERIFIER, deliveryCode)).toEqual(USER)
   })
 
   test('a completed-but-undelivered session still resolves', async () => {

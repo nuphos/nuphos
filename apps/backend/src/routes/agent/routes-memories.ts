@@ -35,11 +35,11 @@ export function memoryViewer(userId: string, teamId: string | undefined, scope: 
 
 async function readIngestSnapshots(sessionId: string, turnKey: string | undefined) {
   if (!turnKey) {
-    return { exactSnapshot: undefined, snapshots: await listIngestEventSnapshots(sessionId) }
+    return listIngestEventSnapshots(sessionId)
   }
   const exactSnapshot = await getIngestEventSnapshot(sessionId, turnKey)
 
-  return { exactSnapshot, snapshots: exactSnapshot ? [exactSnapshot] : [] }
+  return exactSnapshot ? [exactSnapshot] : []
 }
 
 agent.get('/memories', async (c) => {
@@ -93,13 +93,11 @@ agent.post('/memories/:memoryId/restore', async (c) => {
 })
 
 agent.get('/memories/ingest/:sessionId', async (c) => {
-  // A3 auto-ingest: the ingest slot resolves after the SSE stream closes, so
-  // the desktop fetches this turn's learned records here post-hoc (and by
-  // eventId when a persisted chip is expanded without inline details). Served
-  // from the runtime's durable IngestOutcome snapshots
-  // (memory_runtime_ingest_events) — provider-neutral, written by
-  // dispatchTurnIngest from this deploy onward. Legacy xtrace-era chips
-  // (foreign eventId shape) still get an honest empty page.
+  // Learned chips of older conversations: the desktop fetches a chip's
+  // records here when it is expanded without inline details. Served from the
+  // snapshots post-turn auto-ingest left behind (memory_runtime_ingest_events);
+  // nothing writes new ones since the agent saves memory itself. Legacy
+  // xtrace-era chips (foreign eventId shape) still get an honest empty page.
   const userId = c.get('userId')
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
   const sessionId = c.req.param('sessionId')
@@ -117,7 +115,7 @@ agent.get('/memories/ingest/:sessionId', async (c) => {
     if (selector.kind === 'turn') snapshotTurnKey ??= selector.turnKey
     else onlyMemoryId = selector.memoryId
   }
-  const { exactSnapshot, snapshots } = await readIngestSnapshots(sessionId, snapshotTurnKey)
+  const snapshots = await readIngestSnapshots(sessionId, snapshotTurnKey)
   // Tenancy mirrors the legacy Mongo filter: personal-scope items only for
   // their owner, team-scope items only inside the verified team context.
   const visible = (snapshot: { userId: string; teamId: string | null }, scope: MemoryScope) =>
@@ -162,10 +160,5 @@ agent.get('/memories/ingest/:sessionId', async (c) => {
     return c.json({ enabled: true, status: 'ok', memories: legacy })
   }
 
-  // No durable row yet means this exact turn's asynchronous distiller is
-  // still allowed to settle. The client uses a bounded poll, so disabled or
-  // failed ingest cannot leave the UI spinning forever.
-  const status = snapshotTurnKey && exactSnapshot?.status !== 'completed' ? 'pending' : 'ok'
-
-  return c.json({ enabled: true, status, memories })
+  return c.json({ enabled: true, status: 'ok', memories })
 })

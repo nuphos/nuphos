@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
+import { t } from '../../i18n'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
@@ -73,12 +74,13 @@ export const Sidebar = memo(function Sidebar({
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } = useSidebarChats({
-    teamId,
-    agentSessionId,
-    chatShown,
-    onArchived: onChatArchived,
-  })
+  const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
+    useSidebarChats({
+      teamId,
+      agentSessionId,
+      chatShown,
+      onArchived: onChatArchived,
+    })
 
   // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
@@ -126,7 +128,7 @@ export const Sidebar = memo(function Sidebar({
     : [...sections]
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
-    renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
+    renderSections.splice(1, 0, { title: t('Favorites'), items: favoriteItems })
   }
 
   const sidebarSections = dynamicNavigation
@@ -198,7 +200,7 @@ export const Sidebar = memo(function Sidebar({
           onBack={onBack}
           onForward={onForward}
           history={history}
-          chatTitle={(id) => chatItems.find((chat) => chat.key === `agent-session:${id}`)?.label}
+          chatOf={(id) => agentSessions.find((chat) => chat.sessionId === id)}
         />
 
         <SidebarTeamSwitcher

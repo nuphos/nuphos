@@ -1,5 +1,6 @@
 import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { useTeamMembers } from '../../../lib/bindingAccess'
 import {
   Menu,
@@ -103,7 +104,7 @@ export function HomeWidgets({
         <Menu>
           <MenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main">
             <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Customize
+            {t('Customize')}
           </MenuTrigger>
           <MenuContent align="center" className="w-[232px]">
             {hasTeammates && (
@@ -111,7 +112,7 @@ export function HomeWidgets({
                 checked={settings.team}
                 onCheckedChange={(team) => update({ ...settings, team })}
               >
-                Team activity
+                {t('Team activity')}
               </MenuCheckboxItem>
             )}
             <MenuItem
@@ -120,7 +121,7 @@ export function HomeWidgets({
                 addGithub({ id: newId(), kind: 'pulls', repos: [], statuses: ['open'] })
               }
             >
-              Add pull requests card
+              {t('Add pull requests card')}
             </MenuItem>
             <MenuItem
               icon={<CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />}
@@ -128,7 +129,7 @@ export function HomeWidgets({
                 addGithub({ id: newId(), kind: 'ci', repos: [], statuses: ['failed'] })
               }
             >
-              Add CI card
+              {t('Add CI card')}
             </MenuItem>
             <DashboardPanelsSubmenu
               teamId={teamId}
@@ -137,10 +138,10 @@ export function HomeWidgets({
             />
             <MenuSeparator />
             <MenuItem disabled={!home.customized} onClick={home.resetToTeamDefault}>
-              Reset to team default
+              {t('Reset to team default')}
             </MenuItem>
             {isTeamAdmin && (
-              <MenuItem onClick={home.setAsTeamDefault}>Set as team default</MenuItem>
+              <MenuItem onClick={home.setAsTeamDefault}>{t('Set as team default')}</MenuItem>
             )}
           </MenuContent>
         </Menu>

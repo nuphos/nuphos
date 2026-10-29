@@ -26,6 +26,9 @@ export const appApi = {
     window.api.atlasStartPersonalCredential(provider),
   atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
     window.api.atlasDeletePersonalCredential(provider),
+  atlasListSignInSessions: () => window.api.atlasListSignInSessions(),
+  atlasSignOutSession: (id: string) => window.api.atlasSignOutSession(id),
+  atlasSignOutOtherSessions: () => window.api.atlasSignOutOtherSessions(),
   authUploadAvatar: (image: Uint8Array) => window.api.authUploadAvatar(image),
   authRemoveAvatar: () => window.api.authRemoveAvatar(),
   authStatus: () => window.api.authStatus(),
@@ -37,11 +40,15 @@ export const appApi = {
   analyticsIdentify: (userId: string, props?: Record<string, unknown>) =>
     window.api.analyticsIdentify(userId, props),
   analyticsSetTeam: (teamId: string | null) => window.api.analyticsSetTeam(teamId),
+  sendDiagnostics: () => window.api.sendDiagnostics(),
+  setSendDiagnostics: (send: boolean) => window.api.setSendDiagnostics(send),
   appGetVersion: () => window.api.appGetVersion(),
   appSetApiEndpoint: (url: string | null) => window.api.appSetApiEndpoint(url),
   appGetPlatform: () => window.api.appGetPlatform(),
   appSelectAsciiInputSource: () => window.api.appSelectAsciiInputSource(),
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') => window.api.appSetNativeTheme(source),
+  appGetAppIcon: () => window.api.appGetAppIcon(),
+  appSetAppIcon: (icon: string) => window.api.appSetAppIcon(icon),
   onNativeThemeUpdated: (cb: (payload: { shouldUseDarkColors: boolean }) => void) =>
     window.api.onNativeThemeUpdated?.(cb) ?? (() => {}),
   appHideWindow: () => window.api.appHideWindow(),

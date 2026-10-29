@@ -24,6 +24,7 @@ const KEY =
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
 let started = false
+let subscribed = false
 
 /** Closed event-name union so call sites stay consistent and greppable. */
 export type AnalyticsEvent =
@@ -125,7 +126,16 @@ export function setActiveTeam(teamId: string | null): void {
 }
 
 export function initAnalytics(): void {
-  if (started || !KEY) return
+  if (!subscribed && window.api?.onSendDiagnosticsChanged) {
+    subscribed = true
+    // "Send crash reports and usage data" changed (main owns the setting).
+    window.api.onSendDiagnosticsChanged((send) => {
+      if (!started) initAnalytics()
+      else if (send) posthog.opt_in_capturing()
+      else posthog.opt_out_capturing()
+    })
+  }
+  if (started || !KEY || !(window.api?.sendDiagnostics() ?? true)) return
   started = true
   setFrontendErrorReporter(trackError)
   posthog.init(KEY, {
@@ -155,6 +165,8 @@ export function initAnalytics(): void {
     // with full Electron process privileges.
     disable_external_dependency_loading: true,
   })
+  // An opt-out from an earlier session is persisted; the setting is on now.
+  if (posthog.has_opted_out_capturing()) posthog.opt_in_capturing()
 }
 
 // Mirror the identity to the Electron main process so its lifecycle/crash

@@ -59,6 +59,9 @@ import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.KeyboardActionHandler
 import kotlinx.coroutines.Job
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Photo
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
@@ -119,6 +122,7 @@ import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.CredentialSelection
 import ai.nuphos.android.model.PermissionMode
+import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.session.RuntimeSelections
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.agent.AgentChip
@@ -139,8 +143,8 @@ import kotlin.math.abs
 
 /**
  * Collapsed this is a single-line capsule; once focused (or holding
- * text/attachments) it opens into rows: a drag handle, optional controls,
- * the input on its own line, attachment tiles, then + and send/stop.
+ * text/attachments) it opens into runtime controls, the input on its own line,
+ * attachment tiles, then Photos/Files/Paste and send/stop.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -549,18 +553,20 @@ fun ChatComposer(
                         mentionFailed -> Text("Could not search agents. You can keep typing.", style = MaterialTheme.typography.bodySmall)
                         mentionRows.isEmpty() -> Text("No matching agents", style = MaterialTheme.typography.bodySmall)
                         else -> mentionRows.forEach { row ->
-                            Text(
-                                row.displayTitle,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) {
+                            Row(
+                                Modifier.fillMaxWidth().clickable(role = Role.Button) {
                                     // Recheck the current draft; never insert a result from a replaced query.
                                     if (SessionMention.query(fieldValue) == activeMention && effectiveDraftingEnabled) {
                                         val inserted = SessionMention.insert(text, SessionMention.link(mentions.teamId, row.sessionId))
                                         updateText(inserted)
                                     }
                                 }.padding(vertical = 8.dp),
-                            )
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                AgentAvatar(row.sessionId, row.agentRuntime, 20.dp)
+                                Text(row.displayTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                     }
@@ -569,21 +575,6 @@ fun ChatComposer(
             if (rejectedSubmission != null) Text("A rejected message is retained. Clear this draft to restore it.", modifier = Modifier.padding(horizontal = 12.dp))
             if (picking) Text("Reading files…", modifier = Modifier.padding(horizontal = 12.dp))
             (pickerError ?: storageError)?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp)) }
-            AnimatedVisibility(
-                visible = expanded,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                ComposerDragHandle(
-                    modifier = Modifier.composerCollapseGesture(
-                        onDrag = { handleDrag = it },
-                        onCollapse = {
-                            handleDrag = 0f
-                            collapse()
-                        },
-                    ),
-                )
-            }
 
             if (showControls) {
                 AnimatedVisibility(
@@ -598,6 +589,8 @@ fun ChatComposer(
                             .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        if (onChooseAgent != null || agentLabel != null) AgentChip(agent, enabled = agentEnabled,
+                            onClick = onChooseAgent ?: { showAgentUsage = true }, labelOverride = agentLabel)
                         if (modelSettings != null) FilterChip(
                             selected = modelSettings.pending.isNotEmpty(),
                             onClick = { showModel = true },
@@ -606,7 +599,7 @@ fun ChatComposer(
                         FilterChip(
                             selected = !resolvedSelection.isEmpty,
                             onClick = { showIam = true },
-                            label = { Text(if (resolvedSelection.isEmpty) "IAM" else "IAM · ${resolvedSelection.count}") },
+                            label = { Text(if (resolvedSelection.isEmpty) "Credentials" else "Credentials · ${resolvedSelection.count}") },
                             leadingIcon = { Icon(Icons.Outlined.Key, contentDescription = null, modifier = Modifier.size(16.dp)) },
                         )
                         FilterChip(
@@ -674,6 +667,8 @@ fun ChatComposer(
                                 Text(
                                     if (isStreaming) "Queue a message…" else "Ask Nuphos anything…",
                                     style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = if (expanded) 8 else 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     color = colors.onSurfaceVariant,
                                 )
                             }
@@ -681,7 +676,11 @@ fun ChatComposer(
                         }
                     },
                 )
-
+                if (!expanded) {
+                    VoiceMic(enabled = canSubmit && effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
+                    TrailingButton(isStreaming = isStreaming, hasPayload = hasPayload && canSubmit && !picking && !voice.active,
+                        onStop = onStop, onSend = ::send)
+                }
             }
 
             AnimatedVisibility(
@@ -710,39 +709,43 @@ fun ChatComposer(
                 }
             }
 
-            Row(
+            if (expanded) Row(
                     Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box {
-                        IconButton(onClick = { menu = true }, enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Outlined.Add, contentDescription = "Attach")
-                        }
-                        DropdownMenu(menu, onDismissRequest = { menu = false }) {
-                            DropdownMenuItem(text = { Text("Photos") }, onClick = {
-                                menu = false
-                                photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            })
-                            DropdownMenuItem(text = { Text("Files") }, onClick = {
-                                menu = false
-                                files.launch("*/*")
-                            })
-                        }
+                    IconButton(onClick = { photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+                        enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Outlined.Photo, "Photos")
                     }
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                    if (onChooseAgent != null || agentLabel != null) {
-                        AgentChip(agent, enabled = agentEnabled,
-                            onClick = onChooseAgent ?: { showAgentUsage = true },
-                            labelOverride = agentLabel)
+                    IconButton(onClick = { files.launch("*/*") }, enabled = canSubmit && !picking && !voice.active,
+                        modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.AttachFile, "Files") }
+                    IconButton(onClick = {
+                        try {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = clipboard.primaryClip
+                            val uris = mutableListOf<Uri>()
+                            val pasted = StringBuilder()
+                            if (clip != null) for (index in 0 until clip.itemCount) {
+                                val item = clip.getItemAt(index)
+                                val uri = item.uri
+                                if (uri != null) {
+                                    require(uri.scheme == "content") { "Choose this file from Files instead." }
+                                    uris += uri
+                                } else item.text?.let { pasted.append(it) }
+                            }
+                            if (pasted.isNotEmpty()) updateText(text + pasted)
+                            if (uris.isNotEmpty()) loadSelection(uris, false, clip)
+                        } catch (_: Exception) { pickerError = "Could not paste this item. Try choosing it from Files." }
+                    }, enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Outlined.ContentPaste, "Paste")
                     }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    if (isStreaming && hasText && canSubmit && !voice.active) {
-                        IconButton(onClick = ::send, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Outlined.PlaylistAdd, contentDescription = "Queue message")
-                        }
-                    }
+                    Spacer(Modifier.weight(1f))
                     VoiceMic(enabled = canSubmit && effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
+                    if (isStreaming && onStop != null && hasPayload) {
+                        IconButton(onClick = ::send, enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Outlined.PlaylistAdd, "Queue message")
+                        }
+                    }
                     TrailingButton(
                         isStreaming = isStreaming,
                         hasPayload = hasPayload && canSubmit && !picking && !voice.active,
@@ -870,7 +873,7 @@ private fun TrailingButton(
                 disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
             ),
         ) {
-            Icon(Icons.Rounded.ArrowUpward, contentDescription = "Send", modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.ArrowUpward, contentDescription = if (isStreaming) "Queue message" else "Send", modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -961,7 +964,7 @@ internal fun selectionInput(context: android.content.Context, uri: Uri, images: 
         }
     }
     val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-    return AttachmentRetention.Input(name, mime, size, images || mime.startsWith("image/")) {
+    return AttachmentRetention.Input(name, mime, size, (images && !mime.startsWith("video/")) || mime.startsWith("image/")) {
         requireNotNull(context.contentResolver.openInputStream(uri)) { "Could not open the selected file." }
     }
 }

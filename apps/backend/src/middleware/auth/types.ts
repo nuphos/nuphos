@@ -34,6 +34,8 @@ export type AuthVariables = {
   previewConversationOwnerUserId?: string
   /** Set when the request came with a stored CLI token rather than a session. */
   cliToken?: CliTokenPrincipal
+  /** The sign-in session behind the request; absent for CLI and agent-run tokens. */
+  sessionId?: string
 }
 
 export type TeamAuthVariables = AuthVariables & {

@@ -5,14 +5,13 @@ import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
+import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
 import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { admitPreviewTurn } from './chat-preview-steering'
-import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat, queuedChatContext } from './session-queue-turn'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import {
   buildSlackBoundTurnPlan,
@@ -26,6 +25,8 @@ import { agent } from './router'
 import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from './run-registry'
 import { streamAgentRunResponse } from './run-stream'
 import { admitRuntimeChat } from './runtime-chat-admission'
+import { isQueued, queuedReply, queueForWaitingRuntime } from './session-queue-share-approval'
+import { admitQueueableChat, queuedChatContext, queuedChatReply } from './session-queue-turn'
 import {
   assertConversationSendable,
   readTeamIdCandidate,
@@ -33,7 +34,6 @@ import {
   resolveVerifiedTeamId,
   sanitizeKubeContextHeader,
 } from './team-scope'
-import { serializeTelemetryMessages } from './telemetry'
 import { getFirstUserMessage } from './transcript'
 import { acceptAgentRun } from './turn-start-frame'
 
@@ -116,15 +116,15 @@ agent.post('/chat', async (c) => {
     sessionId: id,
     ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
     ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-  }).catch((error: unknown) => queueForOfflineBox(error, resumeParams))
+  }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams))
 
-  if (!chatRuntime) return c.json({ status: 'queued', streamId }, 202)
+  if (isQueued(chatRuntime)) return queuedChatReply(body, queuedReply(streamId, chatRuntime))
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
   let releaseAgentRunClaim: (() => void) | null = null
   let queuedItem: PendingUserMessage | undefined
 
-  // The runtime says whether it can take work; a serverQueue send also holds the session claim.
+  // The runtime says whether it can take work; a new message also holds the session claim.
   const runtimeSnapshot = conversationForResume?.claudeCodePreview
     ? await conversationExecutionState(conversationForResume)
     : undefined
@@ -147,7 +147,7 @@ agent.post('/chat', async (c) => {
     }
     const queue = await admitQueueableChat({ ...resumeParams, snapshot: runtimeSnapshot })
 
-    if (queue?.mode === 'queued') return c.json({ status: 'queued', streamId }, 202)
+    if (queue?.mode === 'queued') return queuedChatReply(body, { status: 'queued', streamId })
     if (queue) [releaseAgentRunClaim, queuedItem] = [queue.release, queue.item]
     else
       await admitRuntimeChat(runtimeSnapshot, {
@@ -211,11 +211,7 @@ agent.post('/chat', async (c) => {
         modelId: runtimeModelId,
         region: regionLabel(),
         isNewConversation: isPotentialNewConversation,
-        conversationRootDeferred: true,
         messageCount: messages.length,
-      },
-      input: {
-        messages: serializeTelemetryMessages(messages),
       },
     })
 
@@ -223,7 +219,9 @@ agent.post('/chat', async (c) => {
       requestId,
       streamId,
       userId,
-      nuphosToken: c.get('authToken'),
+      // The runtime gets its own short-lived token, never this sign-in session.
+      // A CLI token is passed on as is so an agent token keeps its team limit.
+      nuphosToken: c.get('cliToken') ? c.get('authToken') : signNuphosToken(userId, 8 * 60 * 60),
       locale,
       currentUrl:
         c.req.header('X-Atlas-Url') ?? c.req.header('referer') ?? c.req.header('origin') ?? null,

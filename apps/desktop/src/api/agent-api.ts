@@ -122,6 +122,8 @@ export const agentApi = {
     groupId?: string,
     queuedId?: string,
   ) => window.api.agentSteerConversation(sessionId, text, teamId, groupId, queuedId),
+  agentSaveSecret: (sessionId: string, name: string, value: string, teamId?: string) =>
+    window.api.agentSaveSecret(sessionId, name, value, teamId),
   agentListQueue: (sessionId: string, teamId?: string) =>
     window.api.agentListQueue(sessionId, teamId),
   agentUnqueueMessage: (sessionId: string, messageId: string, teamId?: string) =>
@@ -131,7 +133,7 @@ export const agentApi = {
   agentGetConversation: async (
     sessionId: string,
     teamId?: string,
-    options?: { tail?: number; runtimeState?: 'omit' },
+    options?: { tail?: number; runtimeState?: 'omit'; messages?: 'omit' },
   ) => {
     const requestedAt = Date.now()
     const detail = await window.api.agentGetConversation(sessionId, teamId, options)
@@ -190,12 +192,8 @@ export const agentApi = {
   ) => window.api.agentListMemories(cursor, limit, teamId, scope, state),
   agentGetMemory: (memoryId: string, teamId?: string, scope?: AgentMemoryScope) =>
     window.api.agentGetMemory(memoryId, teamId, scope),
-  agentGetMemoryIngestEvent: (
-    sessionId: string,
-    teamId?: string,
-    eventId?: string,
-    turnKey?: string,
-  ) => window.api.agentGetMemoryIngestEvent(sessionId, teamId, eventId, turnKey),
+  agentGetMemoryIngestEvent: (sessionId: string, teamId?: string, eventId?: string) =>
+    window.api.agentGetMemoryIngestEvent(sessionId, teamId, eventId),
   agentGetMemoryAttribution: (sessionId: string, teamId?: string, turnKey?: string) =>
     window.api.agentGetMemoryAttribution(sessionId, teamId, turnKey),
   agentGetMemoryScorecard: (teamId?: string, ids?: string[]) =>

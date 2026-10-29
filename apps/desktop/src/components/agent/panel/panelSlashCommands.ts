@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 
+import { t } from '../../../i18n/index.ts'
 import { ATLAS_WEB_BASE_URL } from '../../../lib/webBaseUrl'
 
 import type { SlashCommand } from './composerSlashCommands'
@@ -16,13 +17,13 @@ export function usePanelSlashCommands(c: PanelViewCtx): SlashCommand[] {
 
   return useMemo(
     () => [
-      { id: 'new', title: 'New agent', description: 'Start a new agent', run: startNewChat },
+      { id: 'new', title: t('New agent'), description: t('Start a new agent'), run: startNewChat },
       ...(forkableSessionId
         ? [
             {
               id: 'fork',
-              title: 'Fork agent',
-              description: 'Fork this agent',
+              title: t('Fork agent'),
+              description: t('Fork this agent'),
               run: () => void forkConversation(forkableSessionId),
             },
           ]
@@ -31,8 +32,8 @@ export function usePanelSlashCommands(c: PanelViewCtx): SlashCommand[] {
         ? [
             {
               id: 'memories',
-              title: 'Memories',
-              description: "Open your team's memories",
+              title: t('Memories'),
+              description: t("Open your team's memories"),
               run: () => {
                 onOpenNuphosLink(
                   `${ATLAS_WEB_BASE_URL}/teams/${encodeURIComponent(teamId)}/agent/memories`,

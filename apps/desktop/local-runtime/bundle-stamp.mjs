@@ -39,6 +39,7 @@ export const RUNTIME_SOURCES = [
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'session-home.mjs',
+  'process-death.mjs',
   ATTACHMENT_JOB,
   ...[
     'package.json',
@@ -56,6 +57,7 @@ export const RUNTIME_SOURCES = [
     'session-config.mjs',
     'steering.mjs',
     'restore-history.mjs',
+    'process-death.mjs',
   ].map((file) => `codex-acp/${file}`),
 ]
 

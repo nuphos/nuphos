@@ -1,5 +1,13 @@
 package ai.nuphos.android.ui.components
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.text.TextStyle
+import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
+import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
+import com.mikepenz.markdown.compose.elements.MarkdownCodeBackground
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -170,10 +178,31 @@ private fun NuphosMarkdown(content: @Composable (MarkdownChrome) -> Unit) {
     )
     val animations = markdownAnimations(animateTextSize = { this })
     val components = markdownComponents(
+        codeFence = { model -> MarkdownCodeFence(model.content, model.node, model.typography.code) { code, language, style ->
+            NuphosCodeBlock(code, language, style)
+        } },
+        codeBlock = { model -> MarkdownCodeBlock(model.content, model.node, model.typography.code) { code, language, style ->
+            NuphosCodeBlock(code, language, style)
+        } },
         checkbox = { MarkdownCheckBox(it.content, it.node, it.typography.text) },
         table = { NuphosMarkdownTable(it) },
     )
     content(MarkdownChrome(colors, typography, animations, components))
+}
+
+@Composable
+private fun NuphosCodeBlock(code: String, language: String?, style: TextStyle) {
+    MarkdownCodeBackground(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        shape = RoundedCornerShape(8.dp),
+        showHeader = true, language = language, code = code,
+    ) {
+        SelectionContainer {
+            Text(code, style = style, modifier = Modifier
+                .horizontalScroll(rememberScrollState()).padding(12.dp))
+        }
+    }
 }
 
 @Composable

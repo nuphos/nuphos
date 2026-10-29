@@ -136,6 +136,7 @@ export async function handleAssistantMessage(envelope: SlackEventEnvelope): Prom
       runtime,
       thread,
       senderNuphosUserId: userMapping.nuphosUserId,
+      senderSlackUserId: event.user,
       channelId: event.channel,
       threadTs,
       eventId,

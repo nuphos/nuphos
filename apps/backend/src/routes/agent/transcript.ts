@@ -1,5 +1,5 @@
 import { config } from '@/config'
-import { syncConversationTranscript } from '@/lib/agent/db'
+import { appendTranscriptMessages } from '@/lib/agent/db'
 import { persistedImagePart } from '@/lib/agent/image-parts'
 import { stripInlineFileData } from '@/lib/agent/inbound-files'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
@@ -245,7 +245,7 @@ export async function persistAcceptedConversationTurn(args: {
 
   if (transcriptMessages.length === 0) return null
 
-  return await syncConversationTranscript({
+  return await appendTranscriptMessages({
     sessionId: args.sessionId,
     userId: args.userId,
     teamId: args.teamId,

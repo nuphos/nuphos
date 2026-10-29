@@ -26,13 +26,14 @@ const text = (value: unknown): CuaToolResult => ({
   ],
 })
 
-/** The workspace's browser tabs: guests of the isolated `persist:browser` session. */
-function browserTabs(): WebContents[] {
-  const browser = session.fromPartition('persist:browser')
+/** The conversation whose `open` created each tab. */
+const openers = new WeakMap<WebContents, string>()
 
+/** The browser tabs this conversation opened, so one conversation never drives another's. */
+function browserTabs(conversation: string): WebContents[] {
   return webContents
     .getAllWebContents()
-    .filter((c) => !c.isDestroyed() && c.getType() === 'webview' && c.session === browser)
+    .filter((c) => !c.isDestroyed() && openers.get(c) === conversation)
 }
 
 function describe(contents: WebContents) {
@@ -102,9 +103,6 @@ function onPage<T>(
   })
 }
 
-/** Tabs an `open` has already taken, so overlapping opens never share one. */
-const claimed = new WeakSet<WebContents>()
-
 const sameUrl = (a: string, b: string) => URL.canParse(a) && new URL(a).href === new URL(b).href
 
 /**
@@ -113,7 +111,7 @@ const sameUrl = (a: string, b: string) => URL.canParse(a) && new URL(a).href ===
  * failed). Null if none does in time; a claimed tab still loading at the
  * deadline is returned as it is.
  */
-function openedTab(url: string): Promise<WebContents | null> {
+function openedTab(url: string, conversation: string): Promise<WebContents | null> {
   const browser = session.fromPartition('persist:browser')
 
   return new Promise((resolve) => {
@@ -136,8 +134,9 @@ function openedTab(url: string): Promise<WebContents | null> {
     const onCreated = (_event: Electron.Event, contents: WebContents) => {
       if (contents.getType() !== 'webview' || contents.session !== browser) return
       const onNavigation = (details: { url: string; isMainFrame: boolean }) => {
-        if (!details.isMainFrame || !sameUrl(details.url, url) || claimed.has(contents)) return
-        claimed.add(contents)
+        // A tab another open already took stays theirs, so overlapping opens never share one.
+        if (!details.isMainFrame || !sameUrl(details.url, url) || openers.has(contents)) return
+        openers.set(contents, conversation)
         tab = contents
         stopWatching()
         contents.once('did-stop-loading', finish)
@@ -154,13 +153,17 @@ function openedTab(url: string): Promise<WebContents | null> {
 
 /** Runs one `local_browser` action against the workspace's browser tabs. */
 export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> {
-  if (call.action === 'tabs') return text(browserTabs().map(describe))
+  // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
+  if (!call.session) return failed('session is required.')
+  if (call.action === 'tabs') return text(browserTabs(call.session).map(describe))
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
-    const opened = openedTab(call.url)
+    const opened = openedTab(call.url, call.session)
     const path = `/teams/${encodeURIComponent(call.team)}/browser?url=${encodeURIComponent(call.url)}`
 
-    handleDeepLink(`nuphos://open?path=${encodeURIComponent(path)}`)
+    handleDeepLink(
+      `nuphos://open?path=${encodeURIComponent(path)}&session=${encodeURIComponent(call.session)}`,
+    )
     const contents = await opened
 
     if (!contents)
@@ -170,10 +173,12 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
 
     return text(describe(contents))
   }
-  const contents = browserTabs().find((c) => c.id === call.tab)
+  const contents = browserTabs(call.session).find((c) => c.id === call.tab)
 
   if (!contents)
-    return failed(`Tab ${String(call.tab)} is not open; list the open tabs with action "tabs".`)
+    return failed(
+      `Tab ${String(call.tab)} is not one this conversation opened; list its tabs with action "tabs".`,
+    )
   if (call.action === 'navigate') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
     // A failed load still leaves the tab on its error page, which `describe` reports.

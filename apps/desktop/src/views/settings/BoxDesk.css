@@ -1,0 +1,534 @@
+/* The Computers desk. Every machine starts seen from straight above; once shown, the view tips
+   back until it faces the viewer. A laptop's lid swings up as it turns; a box (a Mac mini, a Box)
+   shows its front. Every machine stands in the same 248px space on one baseline, 8px above its
+   foot, so a row of them lines up. A laptop's readings are on its screen; a box slides left and
+   its readings card comes in over its right quarter, clear of its ports and power light. */
+.desk-art {
+  position: relative;
+  height: 248px;
+  flex-shrink: 0;
+  /* A long lens keeps the desk from splaying into a trapezoid. */
+  perspective: 2400px;
+  perspective-origin: 50% 20%;
+}
+
+/* The desk area: a 14-inch MacBook Pro's footprint (312.6 x 221.2 mm) at 280px wide. */
+.desk-rig {
+  position: absolute;
+  left: 10px;
+  top: 25px;
+  width: 280px;
+  height: 198px;
+  transform-style: preserve-3d;
+  transform: translateY(0) rotateX(0deg);
+  transition: transform 0.92s cubic-bezier(0.65, 0, 0.35, 1) 0.18s;
+}
+
+.desk-laptop.is-open .desk-rig {
+  transform: translateY(93px) rotateX(86deg);
+  transition-delay: 0s;
+}
+
+.desk-box.is-open .desk-rig {
+  transition-delay: 0s;
+}
+
+.desk-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.desk-glass {
+  position: relative;
+  border-radius: 10.5px 10.5px 3px 3px;
+  background: #050506;
+}
+
+/* The screen wakes once it faces the viewer: a calm wallpaper under the machine's readings. */
+.desk-screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 7.5px 7.5px 1px 1px;
+  background: #060607;
+}
+
+.desk-screen > * {
+  transition: opacity 0.12s;
+}
+
+.desk-art:not(.is-open) .desk-screen > * {
+  opacity: 0;
+}
+
+.desk-art.is-open .desk-screen > * {
+  transition: opacity 0.37s ease-out 0.61s;
+}
+
+/* One smooth diagonal wash in the page's own palette: it reads as "on" without muddy edges or
+   pulling the eye from the readings. */
+.desk-wallpaper {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--color-zViolet-400), 0.2),
+      rgba(var(--color-zViolet-400), 0.06) 55%,
+      rgba(var(--color-zBlue-400), 0.16)
+    ),
+    rgb(var(--color-background-surface));
+}
+
+/* ---------- Laptop ---------- */
+
+/* One light from above throughout: a thin even bezel, a crisp notch, quiet keys a shade off the
+   deck, a slim front edge and short soft shadows. */
+
+.desk-deck {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #3b3b3f, #2e2e32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform-style: preserve-3d;
+  transition: border-radius 0.49s ease 0.31s;
+}
+
+/* Tight near corners once open, so the front edge meets the deck as one slab. */
+.desk-laptop.is-open .desk-deck {
+  border-radius: 12px 12px 4px 4px;
+  transition-delay: 0s;
+}
+
+.desk-keys {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 10px;
+  height: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4px;
+  padding: 2px;
+  border-radius: 4px;
+  background: #242427;
+}
+
+.desk-keyrow {
+  display: flex;
+  flex: 13 1 0;
+  gap: 1.6px;
+}
+
+.desk-keyrow:first-child {
+  flex-grow: 7;
+}
+
+.desk-key {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 1.5px;
+  background: #2c2c30;
+  box-shadow: none;
+}
+
+/* The inverted T: half-height left and right keys around a stacked up and down. */
+.desk-arrows {
+  display: grid;
+  flex: 3 1 0;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 0.8px 1.4px;
+}
+
+.desk-arrows .desk-key:nth-child(1) {
+  grid-area: 2 / 1;
+}
+
+.desk-arrows .desk-key:nth-child(2) {
+  grid-area: 1 / 2;
+}
+
+.desk-arrows .desk-key:nth-child(3) {
+  grid-area: 2 / 2;
+}
+
+.desk-arrows .desk-key:nth-child(4) {
+  grid-area: 2 / 3;
+}
+
+.desk-pad {
+  position: absolute;
+  left: 50%;
+  top: 112px;
+  width: 134px;
+  height: 80px;
+  margin-left: -67px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #34343a, #37373c);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+
+/* The front edge hangs below the deck, so it only shows once the laptop tips toward the viewer.
+   It overlaps the deck by a pixel so no seam shows; edge-on from above it would draw a hairline
+   under the closed lid, so it fades in as the laptop turns. */
+.desk-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% - 1px);
+  height: 7px;
+  border-radius: 0 0 6px 6px;
+  background: linear-gradient(#404045, #232326);
+  box-shadow: 0 6px 8px -5px rgba(0, 0, 0, 0.32);
+  transform-origin: top;
+  transform: rotateX(-90deg);
+  opacity: 0;
+  transition: opacity 0.25s ease 0.18s;
+}
+
+.desk-laptop.is-open .desk-edge {
+  opacity: 1;
+  transition-delay: 0.25s;
+}
+
+/* The thumb scoop for lifting the lid. */
+.desk-edge::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 40px;
+  height: 2px;
+  margin-left: -20px;
+  border-radius: 0 0 6px 6px;
+  background: #1a1a1c;
+}
+
+/* Hinged at the deck's far edge; with the rig's 86deg the lid's 94deg makes a flat 180deg to the
+   viewer. Closed it floats 3px over the deck so the two never fight; open it drops onto the hinge. */
+.desk-lid {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 0;
+  transform-style: preserve-3d;
+  transform: translateZ(3px) rotateX(0deg);
+  transition: transform 0.92s cubic-bezier(0.45, 0.05, 0.25, 1) 0.06s;
+}
+
+.desk-laptop.is-open .desk-lid {
+  transform: translateZ(0) rotateX(94deg);
+  transition-delay: 0.06s;
+}
+
+.desk-outer {
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #46454b, #303034 55%, #27272b);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 14px 20px -14px rgba(0, 0, 0, 0.42);
+}
+
+/* Flipped once here and once by the open lid, so the screen reads upright. A thin rim holds
+   edge-to-edge black glass. */
+.desk-inner {
+  transform: rotateX(180deg);
+  border-radius: 11px 11px 4px 4px;
+  background: linear-gradient(#4b4b50, #2d2d31);
+  padding: 1px 1px 0;
+}
+
+.desk-laptop:not(.is-open) .desk-inner,
+.desk-laptop.is-open .desk-outer {
+  pointer-events: none;
+}
+
+.desk-laptop .desk-glass {
+  height: calc(100% - 3px);
+  padding: 2.5px 2.5px 4px;
+  border-radius: 10px 10px 3px 3px;
+  background: #0a0a0b;
+}
+
+/* The camera housing, centred in the menu bar like macOS draws it. */
+.desk-notch {
+  position: absolute;
+  left: 50%;
+  top: 2.5px;
+  width: 26px;
+  height: 6px;
+  margin-left: -13px;
+  border-radius: 0 0 3.5px 3.5px;
+  background: #0a0a0b;
+}
+
+.desk-notch::after,
+.desk-cam {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 1.5px;
+  width: 2px;
+  height: 2px;
+  margin-left: -1px;
+  border-radius: 50%;
+  background: #262b3d;
+}
+
+/* Without a notch the camera sits in a slightly deeper top bezel. */
+.desk-laptop:not(.is-apple) .desk-glass {
+  padding-top: 6px;
+}
+
+/* The hinge cover between the display and the deck. */
+.desk-hinge {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(#2a2a2e, #141416);
+}
+
+/* A Windows laptop in platinum: light keys on a light deck, as Surface ships them. */
+.desk-laptop.is-windows .desk-outer {
+  background: linear-gradient(180deg, #ebecee, #d6d7da 55%, #c6c7cb);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 14px 20px -14px rgba(0, 0, 0, 0.3);
+}
+
+.desk-laptop.is-windows .desk-deck {
+  background: linear-gradient(180deg, #e3e4e7, #d4d5d9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.desk-laptop.is-windows .desk-keys {
+  background: #c4c5c9;
+}
+
+.desk-laptop.is-windows .desk-key {
+  background: #dadbdf;
+}
+
+.desk-laptop.is-windows .desk-pad {
+  background: #dddee1;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.desk-laptop.is-windows .desk-edge {
+  background: linear-gradient(#e5e6e9, #b4b5b9);
+}
+
+.desk-laptop.is-windows .desk-edge::after {
+  background: #a3a4a8;
+}
+
+.desk-laptop.is-windows .desk-inner {
+  background: linear-gradient(#d8d9dc, #b5b6ba);
+}
+
+.desk-laptop.is-windows .desk-hinge {
+  background: linear-gradient(#acadb1, #8e8f93);
+}
+
+/* Any other laptop, maker unknown, in matte graphite. */
+.desk-laptop.is-other .desk-outer {
+  background: linear-gradient(180deg, #38393d, #2b2c2f 55%, #232427);
+}
+
+.desk-laptop.is-other .desk-deck {
+  background: linear-gradient(180deg, #333437, #28292c);
+}
+
+.desk-laptop.is-other .desk-key {
+  background: #2a2b2e;
+}
+
+.desk-laptop.is-other .desk-inner {
+  background: #2a2b2e;
+}
+
+/* ---------- Box: a Mac mini, or a Box ---------- */
+
+/* Centred in a laptop's 300px from above; turning to show its front, it slides left to make room
+   for its readings card. Not to the cell's edge: in perspective its front is a little wider than
+   its top, and the row's scroll box would cut off the near corner. */
+.desk-box .desk-rig {
+  left: 66px;
+  top: 40px;
+  width: 168px;
+  height: 168px;
+  transform: translate(0, 0) rotateX(0deg);
+}
+
+.desk-box.is-open .desk-rig {
+  /* 68deg, not flatter: enough of the lid shows for its mark to read, with the front still in view. */
+  transform: translate(-36px, 78px) rotateX(68deg);
+}
+
+/* A contact shadow on the desk, under the box. */
+.desk-mini-shadow {
+  position: absolute;
+  inset: 16px 12px 2px;
+  border-radius: 30px;
+  background: rgba(0, 0, 0, 0.26);
+  filter: blur(9px);
+}
+
+/* The 2024 Mac mini: 12.7 cm square and 5 cm tall, round-cornered, floating on a recessed foot,
+   its top edge lit by the same light from above. */
+.desk-mini {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 26px;
+  transform-style: preserve-3d;
+  transform: translateZ(64px);
+  background: linear-gradient(165deg, #f2f2f4, #dedee2 60%, #d1d1d6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  transition: border-radius 0.49s ease 0.31s;
+}
+
+/* Square near corners once facing it, so the top meets the front along one clean edge. */
+.desk-box.is-open .desk-mini {
+  border-radius: 26px 26px 2px 2px;
+  transition-delay: 0s;
+}
+
+.desk-mini .desk-mark.is-nuphos {
+  width: 46px;
+  height: 40px;
+  fill: rgba(255, 255, 255, 0.95);
+  shape-rendering: geometricPrecision;
+}
+
+/* The face: its round corners turn away from the light at both ends; ports on the left, the power
+   light on the right. Edge-on from above it would draw a hairline, so it fades in as the view
+   turns. */
+.desk-mini-front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% - 1px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 56px;
+  padding-left: 30px;
+  border-radius: 0 0 5px 5px;
+  transform-origin: top;
+  transform: rotateX(-90deg);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.1),
+      transparent 10%,
+      transparent 90%,
+      rgba(0, 0, 0, 0.1)
+    ),
+    linear-gradient(#e7e7ea, #d4d4d8 80%, #c6c6cb);
+  opacity: 0;
+  transition: opacity 0.25s ease 0.18s;
+  --desk-led: #f8fafc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.desk-box.is-open .desk-mini-front {
+  opacity: 1;
+  transition-delay: 0.25s;
+}
+
+/* The recessed black foot the body floats on. */
+.desk-mini-front::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 100%;
+  height: 6px;
+  border-radius: 0 0 4px 4px;
+  background: #1c1c1f;
+}
+
+.desk-mini-port {
+  width: 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: #6c6c72;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.desk-mini-jack {
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background: #6c6c72;
+}
+
+.desk-mini-front::after {
+  content: '';
+  position: absolute;
+  /* Left of centre, so the readings card never hides it. */
+  left: 92px;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 50%;
+  background: var(--desk-led);
+  box-shadow: 0 0 3px var(--desk-led);
+}
+
+.desk-art.is-off .desk-mini-front::after {
+  background: #6b6b70;
+  box-shadow: none;
+}
+
+/* A Box: the same footprint in black, Nuphos's mark on top. */
+.desk-box.is-nuphos .desk-mini {
+  background: linear-gradient(165deg, #3c3c41, #2a2a2e 60%, #222225);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.desk-box.is-nuphos .desk-mini-front {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.3),
+      transparent 10%,
+      transparent 90%,
+      rgba(0, 0, 0, 0.3)
+    ),
+    linear-gradient(#2e2e32, #222225 80%, #1b1b1e);
+  --desk-led: #a78bfa;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.desk-box.is-nuphos .desk-mini-front::before {
+  background: #09090a;
+}
+
+.desk-box.is-nuphos .desk-mini-port,
+.desk-box.is-nuphos .desk-mini-jack {
+  background: #0e0e10;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-art,
+  .desk-art * {
+    transition: none !important;
+  }
+}

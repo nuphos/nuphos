@@ -5,6 +5,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.InsertDriveFile
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -28,6 +32,7 @@ internal fun TransferCard(
     canAccess: Boolean,
     allowed: () -> Boolean,
     downloads: TransferDownloads = remember { TransferDownloads() },
+    compact: Boolean = false,
 ) {
     if (!canAccess) {
         Text("Attachments unavailable", style = MaterialTheme.typography.bodySmall)
@@ -108,8 +113,8 @@ internal fun TransferCard(
         }
     }
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.padding(12.dp).widthIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Attachments", style = MaterialTheme.typography.labelMedium)
+        Column(Modifier.padding(if (compact) 4.dp else 12.dp).widthIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (!compact) Text("Attachments", style = MaterialTheme.typography.labelMedium)
             if (loading || unavailable) attachment.names.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             if (loading) Text("Loading attachments…", style = MaterialTheme.typography.bodySmall)
             val images = files.filter { it.isImage }.map { it.id }
@@ -121,8 +126,9 @@ internal fun TransferCard(
                     remote.safeName
                 })
             files.forEach { file ->
-                Text(file.fileName, style = MaterialTheme.typography.bodySmall)
-                TextButton(enabled = busy == null && pendingSave == null, onClick = {
+                if (!compact) Text(file.fileName, style = MaterialTheme.typography.bodySmall)
+                TextButton(modifier = Modifier.semantics { contentDescription = "Save ${file.fileName}" },
+                    enabled = busy == null && pendingSave == null, onClick = {
                     busy = file.id
                     failed = false
                     scope.launch {
@@ -140,7 +146,10 @@ internal fun TransferCard(
                         catch (_: Exception) { failed = true }
                         finally { local?.delete(); busy = null }
                     }
-                }) { Text(if (busy == file.id) "Downloading…" else "Save ${file.fileName}") }
+                }) {
+                    if (compact) Icon(Icons.Outlined.InsertDriveFile, null, modifier = Modifier.size(18.dp).padding(end = 4.dp))
+                    Text(if (busy == file.id) "Downloading…" else if (compact) file.fileName else "Save ${file.fileName}")
+                }
             }
             if (unavailable) Text("Attachments expired or unavailable", style = MaterialTheme.typography.bodySmall)
             if (failed) Text("Couldn't save the file. Try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

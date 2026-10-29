@@ -62,7 +62,7 @@ const USER_WINDOW_MS = 60_000
 
 type Delivery = {
   run: NotifiableRun
-  body: (conversation: PushConversation | null) => Promise<string> | string
+  body: (conversation: PushConversation | null) => Promise<string | null> | string | null
 }
 
 function conversationTitle(conversation: PushConversation | null): string {
@@ -143,9 +143,8 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     const conversation = await deps.conversation(run.sessionId)
     const teamId = run.trace?.teamId ?? conversation?.teamId
     const projectId = deps.fcmProject?.()
-    let text: Promise<string> | undefined
+    let text: Promise<string | null> | undefined
 
-    // Only the people watching a session hear about it; see watch.ts.
     await Promise.all(
       (conversation?.watcherIds ?? []).map(async (userId) => {
         if (!(await deps.canRead(conversation!, userId))) return
@@ -155,9 +154,12 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
             : Boolean(deps.sendFcm) && Boolean(projectId) && device.projectId === projectId,
         )
 
-        if (devices.length === 0 || !admit(userId, run.sessionId)) return
+        if (devices.length === 0) return
         text ??= Promise.resolve(body(conversation))
-        const alert = { title: conversationTitle(conversation), body: await text }
+        const content = await text
+
+        if (content === null || !admit(userId, run.sessionId)) return
+        const alert = { title: conversationTitle(conversation), body: content }
 
         await run.activityRecorded
         const badge = await deps.unreadCount(userId)
@@ -173,7 +175,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
         await send(
           devices,
           {
-            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId },
+            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId, category: 'REPLY' },
             sessionId: run.sessionId,
             ...(teamId ? { teamId } : {}),
           },
@@ -222,11 +224,14 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
       if (!outcome || (outcome.kind === 'approval' && run.approvalPushed)) return
       await deliver({
         run,
-        body: async (conversation) =>
-          outcomeBody(
-            outcome,
-            outcome.kind === 'failed' ? null : await planNumber(run, conversation),
-          ),
+        body: async (conversation) => {
+          const plan = outcome.kind === 'failed' ? null : await planNumber(run, conversation)
+
+          // Silence never hides approvals, errors, or plans discovered outside MCP.
+          if (outcome.kind === 'finished' && !outcome.text.trim() && plan === null) return null
+
+          return outcomeBody(outcome, plan)
+        },
       })
     },
     async approvalRequested(run: NotifiableRun): Promise<void> {

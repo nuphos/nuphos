@@ -5,10 +5,12 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import {
+  isOpenCodeV2,
   loopbackRedirect,
   pastedAddress,
   providerOptions,
   runOpenCodeLogin,
+  runOpenCodeLoginV2,
   writeBedrockOptions,
 } from '../image/opencode-login.mjs'
 
@@ -319,5 +321,244 @@ test('a callback OpenCode answers with false is not a sign-in', async () => {
   const device = { url: 'https://github.com/login/device', method: 'auto', instructions: 'x' }
   await assert.rejects(
     login(['github-copilot', 'github.com'], device, undefined, { callback: async () => false }),
+  )
+})
+
+const INTEGRATIONS = [
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    methods: [{ type: 'key' }, { type: 'env', names: ['ANTHROPIC_API_KEY'] }],
+    connections: [],
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    methods: [{ type: 'key' }],
+    connections: [{ type: 'credential', id: 'cred_1', label: 'Groq', method: 'key' }],
+  },
+  {
+    id: 'only-env',
+    name: 'Only Env',
+    methods: [{ type: 'env', names: ['ONLY_ENV_KEY'] }],
+    connections: [],
+  },
+  // An older 2.x build can list an integration without methods.
+  { id: 'bare', name: 'Bare', connections: [] },
+  {
+    id: 'github-copilot',
+    name: 'GitHub Copilot',
+    methods: [
+      { type: 'env', names: ['GITHUB_TOKEN'] },
+      {
+        id: 'device',
+        type: 'oauth',
+        label: 'Login with GitHub Copilot',
+        form: [
+          {
+            key: 'deploymentType',
+            title: 'Select GitHub deployment type',
+            type: 'string',
+            options: [
+              { value: 'github.com', label: 'GitHub.com', description: 'Public' },
+              { value: 'enterprise', label: 'GitHub Enterprise' },
+            ],
+          },
+          {
+            key: 'enterpriseUrl',
+            title: 'Enter your GitHub Enterprise URL or domain',
+            type: 'string',
+            placeholder: 'company.ghe.com',
+            when: [{ key: 'deploymentType', op: 'eq', value: 'enterprise' }],
+          },
+        ],
+      },
+    ],
+    connections: [],
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode Console',
+    methods: [
+      { type: 'key', label: 'API key (service account)' },
+      {
+        id: 'device',
+        type: 'oauth',
+        label: 'OpenCode Console account',
+        form: [
+          { key: 'server', hidden: true, type: 'string', default: 'https://opencode.ai/console' },
+        ],
+      },
+    ],
+    connections: [],
+  },
+]
+
+/** Drives the 2.x helper against a stand-in for OpenCode's 2.x server, answering in order. */
+async function loginV2(answers, { attempt = {}, statuses = ['complete'] } = {}) {
+  const frames = []
+  const calls = []
+  const polls = [...statuses]
+  const fetchImpl = async (url, init = {}) => {
+    const { pathname } = new URL(url)
+    calls.push({
+      path: pathname,
+      method: init.method ?? 'GET',
+      body: init.body && JSON.parse(init.body),
+    })
+    const json = (data) => ({ ok: true, status: 200, json: async () => ({ data }) })
+    if (pathname === '/api/integration') return json(INTEGRATIONS)
+    if (/\/connect\/(oauth|command)$/u.test(pathname))
+      return json({ attemptID: 'con_1', mode: 'auto', ...attempt })
+    if (/\/connect\/(oauth|command)\/con_1$/u.test(pathname)) {
+      const status = polls.length > 1 ? polls.shift() : polls[0]
+      return json(status === 'failed' ? { status, message: 'Denied' } : { status })
+    }
+    return { ok: true, status: 204, json: async () => assert.fail('a 204 has no body') }
+  }
+  await runOpenCodeLoginV2({
+    server: { base: 'http://127.0.0.1:1', authorization: 'Basic x' },
+    lines: (async function* () {
+      yield* answers
+    })(),
+    emit: (frame) => frames.push(frame),
+    fetchImpl,
+    pollMs: 0,
+  })
+  return { frames, calls }
+}
+
+test('OpenCode 2.x is told apart from 1.x by its integration list', async () => {
+  const server = { base: 'http://127.0.0.1:1', authorization: 'Basic x' }
+  const answering = (response) => async () => response
+
+  assert.equal(
+    await isOpenCodeV2(server, answering({ ok: true, json: async () => ({ data: [] }) })),
+    true,
+  )
+  // 1.x serves its web app for any unknown path.
+  const html = { ok: true, json: async () => JSON.parse('<!doctype html>') }
+  assert.equal(await isOpenCodeV2(server, answering(html)), false)
+  assert.equal(await isOpenCodeV2(server, answering({ ok: false, status: 404 })), false)
+  assert.equal(
+    await isOpenCodeV2(server, async () => {
+      throw new Error('refused')
+    }),
+    false,
+  )
+})
+
+test('2.x: integrations with a sign-in are offered, the connected ones marked', async () => {
+  const { frames } = await loginV2(['anthropic', 'sk-ant'])
+
+  assert.deepEqual(frames[0], {
+    type: 'choose',
+    message: 'Choose a model provider',
+    options: [
+      { value: 'anthropic', label: 'Anthropic' },
+      { value: 'github-copilot', label: 'GitHub Copilot' },
+      { value: 'opencode', label: 'OpenCode Console' },
+      { value: 'groq', label: 'Groq', hint: 'Connected' },
+    ],
+  })
+})
+
+test('2.x: an API key is asked for as a secret and saved through its integration', async () => {
+  const { frames, calls } = await loginV2(['anthropic', 'sk-ant'])
+
+  assert.deepEqual(frames.slice(1), [
+    { type: 'input', message: 'Anthropic API key', secret: true },
+    { type: 'authenticated' },
+  ])
+  assert.deepEqual(calls.at(-1), {
+    path: '/api/integration/anthropic/connect/key',
+    method: 'POST',
+    body: { key: 'sk-ant' },
+  })
+})
+
+test('2.x: a form field is asked only when it applies, and a device page waits for approval', async () => {
+  const { frames, calls } = await loginV2(['github-copilot', 'github.com'], {
+    attempt: { url: 'https://github.com/login/device', instructions: 'Enter code: AB12-CD34' },
+    statuses: ['pending', 'pending', 'complete'],
+  })
+
+  assert.deepEqual(frames.slice(1), [
+    {
+      type: 'choose',
+      message: 'Select GitHub deployment type',
+      options: [
+        { value: 'github.com', label: 'GitHub.com', hint: 'Public' },
+        { value: 'enterprise', label: 'GitHub Enterprise' },
+      ],
+    },
+    {
+      type: 'browser',
+      url: 'https://github.com/login/device',
+      instructions: 'Enter code: AB12-CD34',
+    },
+    { type: 'authenticated' },
+  ])
+  assert.deepEqual(calls.find(({ path }) => path.endsWith('/connect/oauth')).body, {
+    methodID: 'device',
+    answer: { deploymentType: 'github.com' },
+  })
+  assert.equal(calls.filter(({ path }) => path.endsWith('/con_1')).length, 3)
+})
+
+test('2.x: a field that applies is asked for, and hidden fields keep their default', async () => {
+  const enterprise = await loginV2(['github-copilot', 'enterprise', 'company.ghe.com'], {
+    attempt: { url: 'https://company.ghe.com/login/device', instructions: '' },
+  })
+  assert.deepEqual(enterprise.frames[2], {
+    type: 'input',
+    message: 'Enter your GitHub Enterprise URL or domain',
+    placeholder: 'company.ghe.com',
+  })
+
+  const { calls } = await loginV2(['opencode', '1'], {
+    attempt: { url: 'https://opencode.ai/device' },
+  })
+  assert.deepEqual(calls.find(({ path }) => path.endsWith('/connect/oauth')).body, {
+    methodID: 'device',
+    answer: { server: 'https://opencode.ai/console' },
+  })
+})
+
+test('2.x: a page that hands back a code completes the attempt with it', async () => {
+  const { frames, calls } = await loginV2(['opencode', '1', 'the-code'], {
+    attempt: { url: 'https://opencode.ai/auth', instructions: 'Paste the code', mode: 'code' },
+  })
+
+  assert.deepEqual(frames.at(-2), {
+    type: 'browser',
+    url: 'https://opencode.ai/auth',
+    instructions: 'Paste the code',
+    paste: 'code',
+  })
+  assert.deepEqual(calls.find(({ path }) => path.endsWith('/complete')).body, { code: 'the-code' })
+  assert.equal(frames.at(-1).type, 'authenticated')
+})
+
+test('2.x: an attempt OpenCode reports failed is not a sign-in', async () => {
+  await assert.rejects(
+    loginV2(['github-copilot', 'github.com'], {
+      attempt: { url: 'https://github.com/login/device' },
+      statuses: ['failed'],
+    }),
+    /Denied/u,
+  )
+})
+
+test('2.x: an attempt still pending when it expires ends the sign-in instead of polling on', async () => {
+  await assert.rejects(
+    loginV2(['github-copilot', 'github.com'], {
+      attempt: {
+        url: 'https://github.com/login/device',
+        time: { created: 0, expires: Date.now() + 20 },
+      },
+      statuses: ['pending'],
+    }),
+    /Sign-in expired/u,
   )
 })

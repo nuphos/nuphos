@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
         }
         val data = intent?.data ?: return
         if (intent.action == Intent.ACTION_VIEW) {
-            val destination = ai.nuphos.android.session.ConversationLink.parse(data.toString())
+            val destination = ai.nuphos.android.session.ConversationLink.parseIncoming(data.toString())
             if (destination != null) {
                 handledConversationUrl = data.toString()
                 (application as NuphosApplication).conversationLinks.offer(destination)

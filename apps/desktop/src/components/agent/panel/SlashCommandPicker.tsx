@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 
+import { t } from '../../../i18n'
+
 import { ComposerPicker, ComposerPickerRow } from './composerPicker'
 import { SLASH_VISIBLE_ROWS } from './composerSlashCommands'
 
@@ -84,7 +86,7 @@ export function SlashCommandPicker({
     <ComposerPicker
       open={options.length > 0}
       anchor={anchor}
-      label="Commands"
+      label={t('Commands')}
       className="w-[var(--anchor-width)]"
       onClose={onClose}
     >

@@ -1,5 +1,3 @@
-import { MessageSquare } from 'lucide-react'
-
 import { useAgentAppearance } from '../../lib/agentAppearance'
 import { useAgentAvatarPick } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
@@ -16,7 +14,6 @@ export function AgentAvatar({
   agentId,
   avatar,
   provider,
-  attached = true,
   size = 24,
   sidebar = false,
   animated = false,
@@ -25,7 +22,6 @@ export function AgentAvatar({
   /** The picked avatar as last fetched; a newer pick seen anywhere in the app wins. */
   avatar?: string
   provider?: AgentProvider | null
-  attached?: boolean
   size?: number
   sidebar?: boolean
   /** Loops the idle loop while this agent has a running turn. Message rows keep it off; hover still plays it once. */
@@ -37,10 +33,8 @@ export function AgentAvatar({
   const sidebarSize = density === 'compact' ? 22 : 30
   const box = sidebar ? sidebarSize : size
   const badge = box <= 24 ? 9 : 12
-  const runtime = attached ? (
+  const runtime = (
     <AgentProviderIcon provider={provider} style={{ width: '100%', height: '100%' }} />
-  ) : (
-    <MessageSquare style={{ width: '100%', height: '100%' }} />
   )
 
   return (

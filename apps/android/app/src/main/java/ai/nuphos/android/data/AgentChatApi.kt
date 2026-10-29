@@ -45,6 +45,19 @@ object AgentChatApi {
             .build()
     }
 
+    /**
+     * Sends one message from outside the chat screen: a notification reply. The
+     * server reads the history itself, queues behind a running turn, and keeps
+     * the turn going after this returns, so only the headers are awaited.
+     */
+    fun reply(token: String, teamId: String, sessionId: String, text: String): Boolean {
+        val body = ChatRequest(
+            id = sessionId, teamId = teamId, messages = listOf(ChatMessage.user(text)),
+            streamId = java.util.UUID.randomUUID().toString(),
+        )
+        return Http.client.newCall(chatRequest(token, body)).execute().use { it.isSuccessful }
+    }
+
     @Serializable
     private data class ChatRequestBody(
         val id: String,

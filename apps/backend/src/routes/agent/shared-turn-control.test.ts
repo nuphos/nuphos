@@ -26,8 +26,13 @@ let steered = 0
 let steeredWith: unknown[] = []
 const conversation = { sessionId: 'shared-control', userId: 'owner', teamId }
 
+let agentToken: { id: string; kind: 'agent'; name: string } | undefined
+
 useIdentity({
-  authenticateToken: async () => ({ user: { id: me } }),
+  authenticateToken: async () => ({
+    user: { id: me },
+    ...(agentToken ? { cliToken: agentToken } : {}),
+  }),
   getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
 })
 useAgentDb({
@@ -42,6 +47,11 @@ useSessionExecutionState({
   cancelConversationRuntime: async () => {
     cancelled++
   },
+  putConversationSecret: async () => {
+    secretsSaved++
+
+    return '/runtime/nuphos-secret-x/0/KEY'
+  },
   steerConversationRuntime: async (...args) => {
     steered++
     steeredWith = args.slice(1)
@@ -54,6 +64,7 @@ useSessionExecutionState({
   },
 })
 let refuse = false
+let secretsSaved = 0
 let queuedWhileSteering: string[] = []
 const app = new Hono().route('/agent', agent)
 
@@ -66,6 +77,7 @@ beforeEach(async () => {
   cancelled = 0
   steered = 0
   refuse = false
+  agentToken = undefined
   await drainPendingUserMessages('owner', 'shared-control')
 })
 const request = (action: string) =>
@@ -162,4 +174,35 @@ test('a refused steer puts the queued message back at the front', async () => {
 test('a queued message that already left the queue is not steered', async () => {
   expect((await steerQueued('gone')).status).toBe(404)
   expect(steered).toBe(0)
+})
+
+test('a steer sent with an agent token is attributed to that agent, not its user', async () => {
+  agentToken = { id: 'token-1', kind: 'agent', name: 'Release bot' }
+  activeActor = me
+
+  expect((await request('steer')).status).toBe(200)
+  expect(steeredWith[0]).toMatchObject({ userId: me, cliToken: agentToken })
+})
+
+test('only the conversation owner can provide a secret, not a teammate who can reply', async () => {
+  const save = () =>
+    app.request(`/agent/conversations/shared-control/secrets?teamId=${teamId}`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'OPENAI_API_KEY', value: 'sk-test' }),
+    })
+
+  secretsSaved = 0
+  expect((await save()).status).toBe(403)
+  expect(secretsSaved).toBe(0)
+  conversation.userId = me
+  try {
+    expect(await (await save()).json()).toEqual({
+      ok: true,
+      path: '/runtime/nuphos-secret-x/0/KEY',
+    })
+    expect(secretsSaved).toBe(1)
+  } finally {
+    conversation.userId = 'owner'
+  }
 })

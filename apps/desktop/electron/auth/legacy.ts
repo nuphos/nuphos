@@ -1,5 +1,3 @@
-import { parseCallbackUser } from '../auth-status.ts'
-
 import { LOGIN_TIMEOUT_MS, onCallback } from './callback-server.ts'
 import { writeConfig } from './config.ts'
 import { fetchUserInfo } from './me.ts'
@@ -40,9 +38,9 @@ export async function completeLegacyLogin(
 
           // Resolve and persist the identity BEFORE the success page renders:
           // anything that fails here must fail the sign-in visibly rather than
-          // leave the browser claiming success with the token dropped.
-          const user =
-            parseCallbackUser(received.params.get('user'), token) ?? (await fetchUserInfo(token))
+          // leave the browser claiming success with the token dropped. The
+          // token is opaque, so the backend is the only source of who it is.
+          const user = await fetchUserInfo(token)
 
           await writeConfig({
             token,

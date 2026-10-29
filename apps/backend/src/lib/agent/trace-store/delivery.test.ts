@@ -3,7 +3,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { useObservability } from '@/lib/test/doubles/observability'
 
-import { MongoTraceSpan, updateMongoParent } from './span'
+import { MongoTraceSpan } from './span'
 import { flushTraceWrites, purgeConversationTraces, serializeTracePayload } from './store'
 
 let release: (() => void) | undefined
@@ -56,16 +56,16 @@ test('flush deadline is bounded and an eventual write can still be drained', asy
   expect(headers.some((row) => row.spanId === span.context.spanId)).toBe(true)
 })
 
-test('root updates retain session ownership and conversation deletion purges both collections', async () => {
+test('events retain session ownership and conversation deletion purges both collections', async () => {
   const span = new MongoTraceSpan({
     name: 'conversation',
     metadata: { sessionId: 'session', teamId: 'team' },
   })
 
-  updateMongoParent(span.export(), { metrics: { tokens: 4 } })
+  span.end()
   await flushTraceWrites()
   await purgeConversationTraces('session')
-  expect(headers.find((row) => row.kind === 'update')).toMatchObject({
+  expect(headers.find((row) => row.kind === 'end')).toMatchObject({
     sessionId: 'session',
     teamId: 'team',
   })

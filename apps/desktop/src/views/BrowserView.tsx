@@ -10,6 +10,7 @@ import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
 import { localPreviewRecorder } from './browser/localPreviewRecorder'
+import { focusOpenedPage } from './browser/pageFocus'
 import { useBrowserComments } from './browser/useBrowserComments'
 
 import type { WebviewTag } from 'electron'
@@ -121,6 +122,7 @@ export function BrowserView({
     view.addEventListener('page-title-updated', onTitle)
     host.appendChild(view)
     viewRef.current = view
+    if (activeRef.current) focusOpenedPage(view, document)
 
     return () => {
       preview.dispose()
@@ -163,7 +165,10 @@ export function BrowserView({
 
             setAddress(url)
             setError(null)
-            if (viewRef.current) viewRef.current.src = url
+            if (!viewRef.current) return
+            viewRef.current.src = url
+            // Like Chrome, a committed address hands the keyboard to the page.
+            viewRef.current.focus()
           }}
         >
           <button

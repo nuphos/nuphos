@@ -50,14 +50,26 @@ export function groupAgentsByTier<T extends NamedAgent>(
 
 type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
 
-/** The one rule for an agent a conversation can run on: active, ready and signed in. */
-export function usable(agent: SelectableAgent): boolean {
-  return agent.status === 'active' && !agent.notReady && agent.local?.signedIn !== false
+/** Why an agent cannot take a turn now: listed greyed out with this, never chosen. */
+export function unavailable(agent: NamedAgent): 'Offline' | 'Signed out' | null {
+  if (agent.local?.online === false) return 'Offline'
+  if (agent.local?.signedIn === false) return 'Signed out'
+
+  return null
 }
 
-/** The picker offers only usable agents, the selected one included. */
+function listable(agent: SelectableAgent): boolean {
+  return agent.status === 'active' && !agent.notReady
+}
+
+/** The one rule for an agent a conversation can run on: listed, and not unavailable. */
+export function usable(agent: SelectableAgent): boolean {
+  return listable(agent) && !unavailable(agent)
+}
+
+/** The picker lists these; the unavailable ones it shows but does not offer. */
 export function listedAgents<T extends SelectableAgent>(agents: readonly T[]): T[] {
-  return agents.filter(usable)
+  return agents.filter(listable)
 }
 
 /** A new conversation starts on the usable agent with the most quota left; unknown counts as full. */

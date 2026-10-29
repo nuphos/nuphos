@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 
 import { api } from '../../../api'
 import { parseAtlasError } from '../../../api/errors'
+import { t } from '../../../i18n/index.ts'
 import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
@@ -56,7 +57,7 @@ export function useQueueActions({
             candidate.id === tabId ? showQueued(candidate, item) : candidate,
           ),
         )
-        toast.apiError('Could not take the message back', error)
+        toast.apiError(t('Could not take the message back'), error)
       })
     },
     [tabsRef, setTabs, teamId],

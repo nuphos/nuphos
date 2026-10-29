@@ -18,6 +18,7 @@ import type {
   LocalRuntimeState,
   LocalAgentShareState,
   LocalShareApproval,
+  ShareApprovalStatus,
   LocalShareInput,
 } from './device-types.ts'
 
@@ -73,6 +74,7 @@ export type WindowDeviceApi = {
     input: LocalShareInput,
   ): Promise<LocalAgentShareState>
   localShareApprovals(teamId: string): Promise<LocalShareApproval[]>
+  localShareStatus(sessionId: string): Promise<ShareApprovalStatus>
   localShareDecide(approvalId: string, approve: boolean): Promise<{ id: string; status: string }>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
   openSessionDesktop(teamId: string, sessionId: string): Promise<{ display: number }>

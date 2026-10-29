@@ -30,27 +30,6 @@ export function registerRecordsConformanceCases(ctx: ConformanceContext): void {
     },
   )
 
-  test.skipIf(!caps.recall)(
-    "2b. tenancy isolation — recall: tenant B's block never contains A's seeded text",
-    async () => {
-      await seedOrThrow(harness.tenantA, {
-        text: 'tenant-a-secret recall payload',
-        title: 'tenant A recall fact',
-      })
-      const rendered = await provider.recall!.render(
-        {
-          userId: harness.tenantB.userId,
-          teamId: harness.tenantB.teamId,
-          query: 'tenant-a-secret',
-          conversationId: 'conformance-recall-b',
-        },
-        abortOpts(),
-      )
-
-      expect(rendered?.block ?? '').not.toContain('tenant-a-secret')
-    },
-  )
-
   test.skipIf(!caps.recordsDelete)(
     '3. delete propagation: stranger refused + store untouched; owner delete reaches the real store',
     async () => {
@@ -67,19 +46,6 @@ export function registerRecordsConformanceCases(ctx: ConformanceContext): void {
       expect(await provider.records!.delete!(id, viewerOf(harness.tenantA))).toBe(true)
       expect(await harness.existsInRealStore(id)).toBe(false)
       expect(await provider.records!.get(id, viewerOf(harness.tenantA))).toBeNull()
-      if (caps.recall) {
-        const rendered = await provider.recall!.render(
-          {
-            userId: harness.tenantA.userId,
-            teamId: harness.tenantA.teamId,
-            query: 'delete-propagation',
-            conversationId: 'conformance-recall-deleted',
-          },
-          abortOpts(),
-        )
-
-        expect(rendered?.block ?? '').not.toContain('delete-propagation payload')
-      }
     },
   )
 

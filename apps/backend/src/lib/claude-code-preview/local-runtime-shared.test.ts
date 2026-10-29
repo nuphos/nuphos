@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  awaitsShareApproval,
   capShareLevel,
   exceedsCeiling,
   isUnattendedSource,
@@ -12,6 +13,7 @@ import { localRuntimeStatusSchema } from '@/lib/agent/devices/local-runtime/prot
 import { sharedRuntimeUse } from './conversation-chat-route'
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { acceptsRuntimeInstance } from './runtime-catalog'
+import { requireModelRuntimeInstance } from './runtime-models'
 
 import type { LocalShareDeps } from '@/lib/agent/devices/local-share'
 import type { ShareApproval } from '@/lib/agent/devices/local-share-store'
@@ -270,4 +272,29 @@ test('terminal, files, desktop and sign-in never reach a teammate’s shared com
   expect(acceptsRuntimeInstance(local('full'), {})).toBe(false)
   expect(acceptsRuntimeInstance(local('full'), { shared: true })).toBe(true)
   expect(acceptsRuntimeInstance(local(), {})).toBe(true)
+})
+
+test('a teammate’s shared computer offers its models to the person it is shared with', async () => {
+  const calls: unknown[][] = []
+
+  await requireModelRuntimeInstance('team', 'runtime', 'mate', (...args) => {
+    calls.push(args)
+
+    return Promise.resolve({ id: 'runtime' } as RuntimeInstance)
+  })
+  expect(calls).toEqual([['team', 'runtime', 'mate', { shared: true }]])
+})
+
+test('a teammate’s turns wait in the queue only while the owner has not answered', async () => {
+  const runtimeId = localRuntimeId({ userId: 'owner', deviceId: 'mac', provider: 'codex' })
+  const answered = (status?: ShareApproval['status']) => ({
+    findApproval: async () => (status ? ({ status } as ShareApproval) : null),
+  })
+  const chat = { sessionId: 'chat', runtimeId }
+
+  expect(await awaitsShareApproval(chat, 'mate', answered('pending'))).toBe(true)
+  expect(await awaitsShareApproval(chat, 'mate', answered('approved'))).toBe(false)
+  expect(await awaitsShareApproval(chat, 'mate', answered())).toBe(false)
+  expect(await awaitsShareApproval(chat, 'owner', answered('pending'))).toBe(false)
+  expect(await awaitsShareApproval({ sessionId: 'chat' }, 'mate', answered('pending'))).toBe(false)
 })

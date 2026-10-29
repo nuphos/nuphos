@@ -41,7 +41,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     let createdAt: Date
     /// Sort key and pagination cursor.
     let lastActiveAt: Date
-    let archivedAt: Date?
     let owner: Owner?
     let isOwner: Bool?
     let readOnly: Bool?
@@ -78,7 +77,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         return "Untitled agent"
     }
 
-    var isArchived: Bool { archivedAt != nil }
     var ownsChat: Bool { isOwner == true && readOnly != true }
 
     init(from decoder: Decoder) throws {
@@ -90,7 +88,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         messageCount = try c.decodeIfPresent(Int.self, forKey: .messageCount) ?? 0
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .distantPast
         lastActiveAt = try c.decodeIfPresent(Date.self, forKey: .lastActiveAt) ?? createdAt
-        archivedAt = try c.decodeIfPresent(Date.self, forKey: .archivedAt)
         owner = try c.decodeIfPresent(Owner.self, forKey: .owner)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
@@ -110,7 +107,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     init(
         sessionId: String, teamId: String? = nil, title: String, firstMessage: String = "",
-        messageCount: Int, createdAt: Date, lastActiveAt: Date, archivedAt: Date? = nil,
+        messageCount: Int, createdAt: Date, lastActiveAt: Date,
         owner: Owner? = nil, isOwner: Bool? = true, readOnly: Bool? = false,
         tokenUsage: TokenUsage? = nil, activitySource: ActivitySource? = nil,
         agentRuntime: String? = nil, runtimeId: String? = nil, runtimeLabel: String? = nil,
@@ -124,7 +121,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.messageCount = messageCount
         self.createdAt = createdAt
         self.lastActiveAt = lastActiveAt
-        self.archivedAt = archivedAt
         self.owner = owner
         self.isOwner = isOwner
         self.readOnly = readOnly

@@ -25,7 +25,7 @@ const SRC_DIR = join(import.meta.dir, '..', '..', '..')
 
 // ── Rule (a) allowlists ─────────────────────────────────────────────────────
 
-// Phase 2 PR 3 emptied the call-site allowlist: the chat path (recall, tools,
+// Phase 2 PR 3 emptied the call-site allowlist: the chat path (tools,
 // finalizer, save frames) now resolves everything through the memory-slots
 // runtime. What remains is the single grandfathered import below.
 
@@ -52,19 +52,8 @@ const isGrandfatheredIngestFallback = (rel: string, specifier: string): boolean 
 // that makes attribution fully provider-neutral.
 const ATTRIBUTION_GRANDFATHER = new Set([
   'lib/agent/memory-slots/attribution-store.ts', // teamMemories handle for retention rollup
-  'lib/agent/memory-slots/attribution-judge.ts', // AutomaticRecallEntry type
   'lib/agent/memory-slots/attribution-types.ts', // TeamMemoryApplicationAction type
 ])
-
-// ── Rule (d) grandfather ────────────────────────────────────────────────────
-
-// Exact shipped line: the retention-ranking read is the ONE sanctioned
-// native→attribution-store touch point until rerank ordering moves
-// runtime-side. Any drift from this precise (file, line) pair fails.
-const RULE_D_GRANDFATHER = {
-  file: 'lib/agent/memory-native/index.ts',
-  line: "import { fetchRetentionOrderScores } from '../memory-slots/attribution-store'",
-}
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -147,14 +136,8 @@ describe('memory SPI dependency rules (grep guards)', () => {
   })
 
   test("(b) the SPI file-set imports nothing but 'ai' and its own members", () => {
-    const SPI_FILES = ['types.ts', 'types-events.ts', 'types-ingest.ts', 'types-records.ts']
-    const allowed = new Set([
-      'ai',
-      './types',
-      './types-events',
-      './types-ingest',
-      './types-records',
-    ])
+    const SPI_FILES = ['types.ts', 'types-events.ts', 'types-records.ts']
+    const allowed = new Set(['ai', './types', './types-events', './types-records'])
 
     for (const file of SPI_FILES) {
       const text = readFileSync(join(SRC_DIR, `lib/agent/memory-slots/${file}`), 'utf8')
@@ -200,13 +183,7 @@ describe('memory SPI dependency rules (grep guards)', () => {
       if (!isProviderCode) continue
       // Import side: attribution-* modules are runtime-owned.
       for (const spec of importSpecifiers(text)) {
-        if (!spec.includes('attribution-')) continue
-        const grandfathered =
-          rel === RULE_D_GRANDFATHER.file &&
-          text.split('\n').some((l) => l.trim() === RULE_D_GRANDFATHER.line)
-
-        if (grandfathered && spec === '../memory-slots/attribution-store') continue
-        offenders.push(`${rel} imports ${spec}`)
+        if (spec.includes('attribution-')) offenders.push(`${rel} imports ${spec}`)
       }
       // Collection side: memory_runtime_* is the runtime's measurement plane.
       // Comment-only mentions are documentation, not access.
@@ -221,15 +198,6 @@ describe('memory SPI dependency rules (grep guards)', () => {
       `Provider code paths must never write or read the runtime measurement ` +
         `plane (decision 6 — no effectiveness self-report):\n  ${offenders.join('\n  ')}`,
     ).toEqual([])
-  })
-
-  test('(d-fixture) the grandfathered import still exists exactly as encoded', () => {
-    // If the retention-ranking import moves or is rewritten, the grandfather
-    // above silently stops matching anything — this test forces the encoded
-    // line to track reality (either update both or delete both).
-    const text = readFileSync(join(SRC_DIR, RULE_D_GRANDFATHER.file), 'utf8')
-
-    expect(text.split('\n').some((l) => l.trim() === RULE_D_GRANDFATHER.line)).toBe(true)
   })
 
   test('(e) call sites import memory symbols only from memory-slots/', () => {

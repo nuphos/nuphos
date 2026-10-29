@@ -52,7 +52,6 @@ export type PanelCtx = {
   onTitleChange?: (
     title: string,
     sessionId: string | null,
-    claudeCodeRuntimeAttached: boolean,
     agentRuntime?: AgentProvider,
     canRename?: boolean,
     runtimeId?: string,
@@ -85,7 +84,6 @@ export type PanelCtx = {
   activeId: string
   setActiveId: Dispatch<SetStateAction<string>>
   tabsRef: Ref<Tab[]>
-  autoLearnedFetchedRef: Ref<Set<string>>
   uploadingTabsRef: Ref<Set<string>>
   homeDropRef: Ref<((dt: DataTransfer) => void) | null>
   conversationDropRef: Ref<((dt: DataTransfer) => void) | null>
@@ -120,7 +118,7 @@ export type PanelCtx = {
   lastSyncedRef: Ref<Map<string, string>>
   lastCredentialSyncedRef: Ref<Map<string, string>>
   textBuffersRef: Ref<Map<string, TextStreamBuffer>>
-  turnCompleteRef: Ref<Map<string, { turnKey?: string }>>
+  turnCompleteRef: Ref<Set<string>>
   turnPausedRef: Ref<Map<string, { reason: string; detail?: StallDetail }>>
   streamOwnersRef: Ref<Map<string, { sessionId: string; title: string }>>
   clientToolRunsRef: Ref<Map<string, { cancelled: boolean; requestIds?: string[] }>>

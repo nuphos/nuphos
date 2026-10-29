@@ -40,7 +40,7 @@ export function prepareShimHome(provider: LocalAgentProvider, userDir: string): 
   }
 }
 
-/** Grok Build and OpenCode have no status command: their login is this file, as in the cloud runtime. */
+/** Grok Build and OpenCode 1.x have no status command: their login is this file, as in the cloud runtime. */
 const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
   grok: '.grok/auth.json',
   opencode: '.local/share/opencode/auth.json',

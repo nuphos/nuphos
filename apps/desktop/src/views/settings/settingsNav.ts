@@ -7,15 +7,19 @@ import {
   FileText,
   KeyRound,
   Monitor,
+  MonitorSmartphone,
   NotebookPen,
   RefreshCw,
   ScrollText,
   Settings,
+  ShieldCheck,
   Sparkles,
   SquareTerminal,
   SunMedium,
   Users,
 } from 'lucide-react'
+
+import { t } from '../../i18n/index.ts'
 
 import type { LucideIcon } from 'lucide-react'
 
@@ -67,42 +71,44 @@ export function settingsLinkTarget(
 
 const TEAM_GROUPS: SettingsNavGroup[] = [
   {
-    title: 'Team',
+    title: t('Team'),
     items: [
-      { key: 'workspace.general', label: 'General', icon: Settings },
-      { key: 'workspace.members', label: 'Members', icon: Users },
-      { key: 'workspace.billing', label: 'Billing', icon: CreditCard },
-      { key: 'workspace.instructions', label: 'Instructions', icon: FileText },
-      { key: 'workspace.skills', label: 'Skills', icon: Sparkles },
-      { key: 'workspace.memories', label: 'Memories', icon: Brain },
-      { key: 'workspace.triggers', label: 'Triggers', icon: Clock },
-      { key: 'workspace.archived', label: 'Archived agents', icon: Archive },
-      { key: 'workspace.audit', label: 'Audit log', icon: ScrollText },
+      { key: 'workspace.general', label: t('General'), icon: Settings },
+      { key: 'workspace.members', label: t('Members'), icon: Users },
+      { key: 'workspace.billing', label: t('Billing'), icon: CreditCard },
+      { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },
+      { key: 'workspace.skills', label: t('Skills'), icon: Sparkles },
+      { key: 'workspace.memories', label: t('Memories'), icon: Brain },
+      { key: 'workspace.triggers', label: t('Triggers'), icon: Clock },
+      { key: 'workspace.archived', label: t('Archived agents'), icon: Archive },
+      { key: 'workspace.audit', label: t('Audit log'), icon: ScrollText },
     ],
   },
   {
-    title: 'My preferences',
+    title: t('My preferences'),
     items: [
-      { key: 'preferences.instructions', label: 'Personal instructions', icon: NotebookPen },
-      { key: 'preferences.localSetup', label: 'Sync my setup', icon: RefreshCw },
+      { key: 'preferences.instructions', label: t('Personal instructions'), icon: NotebookPen },
+      { key: 'preferences.localSetup', label: t('Sync my setup'), icon: RefreshCw },
     ],
   },
 ]
 
 const USER_GROUPS: SettingsNavGroup[] = [
   {
-    title: 'Account',
+    title: t('Account'),
     items: [
-      { key: 'account.profile', label: 'Profile', icon: CircleUserRound },
-      { key: 'account.personalCredentials', label: 'Personal Credentials', icon: KeyRound },
+      { key: 'account.profile', label: t('Profile'), icon: CircleUserRound },
+      { key: 'account.personalCredentials', label: t('Personal Credentials'), icon: KeyRound },
+      { key: 'account.devices', label: t('Signed-in devices'), icon: MonitorSmartphone },
     ],
   },
   {
-    title: 'This computer',
+    title: t('This computer'),
     items: [
-      { key: 'device.appearance', label: 'Appearance', icon: SunMedium },
-      { key: 'device.localExec', label: 'Local exec', icon: SquareTerminal },
-      { key: 'device.localRuntime', label: 'Local runtime', icon: Monitor },
+      { key: 'device.appearance', label: t('Appearance'), icon: SunMedium },
+      { key: 'device.localExec', label: t('Local exec'), icon: SquareTerminal },
+      { key: 'device.localRuntime', label: t('Local runtime'), icon: Monitor },
+      { key: 'device.privacy', label: t('Privacy'), icon: ShieldCheck },
     ],
   },
 ]

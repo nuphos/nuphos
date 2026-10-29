@@ -21,6 +21,7 @@ import {
   Workflow,
 } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { groupByConnectorCategory } from '../../lib/connectorCategories'
 import { TEAM_SIDEBAR_NAV_ITEMS } from '../../lib/teamOverviewNav'
 
@@ -29,17 +30,17 @@ import type { Item, Section } from './types'
 export function betterStackSections(): Section[] {
   return [
     {
-      title: 'Uptime',
+      title: t('Uptime'),
       items: [
         {
           key: 'betterstack.monitors',
-          label: 'Monitors',
+          label: t('Monitors'),
           iconNode: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'betterstack.incidents',
-          label: 'Incidents',
+          label: t('Incidents'),
           iconNode: (
             <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 text-tertiary" />
           ),
@@ -48,17 +49,17 @@ export function betterStackSections(): Section[] {
       ],
     },
     {
-      title: 'Telemetry',
+      title: t('Telemetry'),
       items: [
         {
           key: 'betterstack.sources',
-          label: 'Sources',
+          label: t('Sources'),
           iconNode: <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'betterstack.dashboards',
-          label: 'Dashboards',
+          label: t('Dashboards'),
           iconNode: <FontAwesomeIcon icon={faTableColumns} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
@@ -70,26 +71,26 @@ export function betterStackSections(): Section[] {
 export function databaseSections(): Section[] {
   return [
     {
-      title: 'Data',
+      title: t('Data'),
       items: [
-        { key: 'database.overview', label: 'Overview', icon: Compass, enabled: true },
-        { key: 'database.collections', label: 'Collections', icon: Layers, enabled: true },
-        { key: 'database.query', label: 'Query', icon: Terminal, enabled: true },
+        { key: 'database.overview', label: t('Overview'), icon: Compass, enabled: true },
+        { key: 'database.collections', label: t('Collections'), icon: Layers, enabled: true },
+        { key: 'database.query', label: t('Query'), icon: Terminal, enabled: true },
       ],
     },
     {
-      title: 'Operations',
+      title: t('Operations'),
       items: [
-        { key: 'database.changes', label: 'Changes', icon: GitPullRequest, enabled: true },
-        { key: 'database.monitoring', label: 'Monitoring', icon: ChartLine, enabled: true },
+        { key: 'database.changes', label: t('Changes'), icon: GitPullRequest, enabled: true },
+        { key: 'database.monitoring', label: t('Monitoring'), icon: ChartLine, enabled: true },
       ],
     },
     {
-      title: 'Governance',
+      title: t('Governance'),
       items: [
-        { key: 'database.access', label: 'Access', icon: ShieldCheck, enabled: true },
-        { key: 'database.audit', label: 'Audit', icon: Scroll, enabled: true },
-        { key: 'database.settings', label: 'Settings', icon: Settings2, enabled: true },
+        { key: 'database.access', label: t('Access'), icon: ShieldCheck, enabled: true },
+        { key: 'database.audit', label: t('Audit'), icon: Scroll, enabled: true },
+        { key: 'database.settings', label: t('Settings'), icon: Settings2, enabled: true },
       ],
     },
   ]
@@ -98,11 +99,11 @@ export function databaseSections(): Section[] {
 export function uptimeKumaSections(): Section[] {
   return [
     {
-      title: 'Uptime',
+      title: t('Uptime'),
       items: [
         {
           key: 'uptime-kuma.monitors',
-          label: 'Monitors',
+          label: t('Monitors'),
           iconNode: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
@@ -115,7 +116,9 @@ export function complianceSections(provider: 'secureframe' | 'vanta'): Section[]
   return [
     {
       title: provider === 'vanta' ? 'Vanta' : 'Secureframe',
-      items: [{ key: 'compliance.tests', label: 'Failed Tests', icon: ShieldAlert, enabled: true }],
+      items: [
+        { key: 'compliance.tests', label: t('Failed Tests'), icon: ShieldAlert, enabled: true },
+      ],
     },
   ]
 }
@@ -158,19 +161,19 @@ export function grafanaSections(instanceName: string): Section[] {
       items: [
         {
           key: 'observability.dashboards',
-          label: 'Dashboards',
+          label: t('Dashboards'),
           icon: LayoutDashboard,
           enabled: true,
         },
         {
           key: 'observability.alerts',
-          label: 'Alerts',
+          label: t('Alerts'),
           icon: Bell,
           enabled: true,
         },
         {
           key: 'observability.datasources',
-          label: 'Datasources',
+          label: t('Datasources'),
           icon: Database,
           enabled: true,
         },
@@ -186,13 +189,13 @@ export function repositorySections(repoName: string): Section[] {
       items: [
         {
           key: 'github.prs',
-          label: 'PRs',
+          label: t('PRs'),
           icon: GitPullRequest,
           enabled: true,
         },
         {
           key: 'github.actions',
-          label: 'Workflows',
+          label: t('Workflows'),
           icon: Workflow,
           enabled: true,
         },

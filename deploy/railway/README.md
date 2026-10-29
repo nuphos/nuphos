@@ -10,8 +10,6 @@ specifications, with no Redis:
   Its single home volume also stores `/workspace`; initialization drops root
   privileges before starting the agent.
 
-The data spec reads the bootstrap scripts from `../zeabur/template.yaml`, so use
-a checkout of this repository, not a standalone copy of this directory.
 These are source templates. Only the runtime has a published marketplace template (see below).
 
 ## Deploy the data project
@@ -110,13 +108,14 @@ not publish or create Railway resources in CI.
 npm ci
 npm run check
 npm test
-# Docker required: verifies the wrapper starts as uid 1000 and preserves home/workspace.
+# Docker required: tests the Mongo bootstrap across a restart, and verifies the
+# runtime wrapper starts as uid 1000 and preserves home/workspace.
 python3 smoke.py
 ```
 
 CI evaluates both specs with the official SDK, checks service/credential
-separation and shell syntax, tests the runtime wrapper across container
-replacement, and tests the shared Mongo bootstrap in the Zeabur job.
+separation and shell syntax, tests Mongo authentication and transactions
+across a restart, and tests the runtime wrapper across container replacement.
 Railway routing, DNS, email delivery and model inference require a real deployment
 and are not exercised by these offline checks.
 

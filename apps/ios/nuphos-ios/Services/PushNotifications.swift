@@ -37,6 +37,8 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 
     var pendingTarget: PushTarget?
     var pendingPlan: PlanLink.Target?
+    /// The Live Activity was tapped outside its rows: show the conversation list.
+    var pendingConversations = false
 
     /// Shows a nuphos.ai page in-app — a link tapped in a chat or one that
     /// opened the app. False when the app has no screen for it.
@@ -45,6 +47,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         switch AppLink(url) {
         case .session(let teamId, let sessionId): pendingTarget = PushTarget(teamId: teamId, sessionId: sessionId)
         case .plan(let plan): pendingPlan = plan
+        case .conversations: pendingConversations = true
         case nil: return false
         }
         return true
@@ -70,14 +73,46 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         #endif
     }
 
+    /// Session pushes carry this category: long-press to reply without opening the app.
+    private static let replyCategory = "REPLY"
+
     func install() {
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        // Unlocking first: a reply can start agent work on the team's accounts.
+        let reply = UNTextInputNotificationAction(
+            identifier: "REPLY", title: String(localized: "Reply"), options: [.authenticationRequired],
+            textInputButtonTitle: String(localized: "Send"), textInputPlaceholder: String(localized: "Message"))
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: Self.replyCategory, actions: [reply], intentIdentifiers: [])
+        ])
+    }
+
+    /// Read from the Keychain: a reply can launch the app in the background,
+    /// before any screen has signed in.
+    private func reply(_ text: String, to target: PushTarget) async {
+        do {
+            guard let token = Keychain.read(AuthSession.tokenKey) else { throw NuphosAPI.Failure.unauthorized }
+            try await AgentChatAPI.reply(token: token, teamId: target.teamId, sessionId: target.sessionId, text: text)
+        } catch {
+            // Never lost silently: the text comes back, and a tap opens the conversation.
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "Reply not sent")
+            content.body = text
+            content.userInfo = ["teamId": target.teamId, "sessionId": target.sessionId]
+            try? await UNUserNotificationCenter.current().add(
+                UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        }
     }
 
     /// Called once a session is signed in: asks for permission (the system
     /// only prompts the first time) and registers with APNs.
     func activate(authToken: String) async {
         self.authToken = authToken
+        #if DEBUG
+        // Simulator scripts cannot answer the permission alert, and it blocks links.
+        if CommandLine.arguments.contains("-preview-no-push") { return }
+        #endif
         let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         guard granted else { return }
         #if canImport(UIKit)
@@ -146,8 +181,13 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let target = PushTarget(userInfo: response.notification.request.content.userInfo)
+        let text = (response as? UNTextInputNotificationResponse)?.userText.trimmingCharacters(in: .whitespacesAndNewlines)
         Task { @MainActor in
-            if let target { PushNotifications.shared.pendingTarget = target }
+            if let text {
+                if let target, !text.isEmpty { await PushNotifications.shared.reply(text, to: target) }
+            } else if let target {
+                PushNotifications.shared.pendingTarget = target
+            }
             completionHandler()
         }
     }
@@ -160,6 +200,9 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         PushNotifications.shared.install()
+        #if os(iOS)
+        TurnLiveActivity.dropExtras()
+        #endif
         return true
     }
 

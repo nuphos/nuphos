@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { captureMain } from './analytics.ts'
+import { AccountChangedError } from './auth-session.ts'
 
 type ErrorLike = {
   name?: unknown
@@ -110,6 +111,7 @@ export function tagRequest(headers: Record<string, string>): string {
  */
 export function backendFailure(error: unknown, route: string, requestId: string): unknown {
   if (error instanceof Error && error.name === 'AbortError') return error
+  if (error instanceof AccountChangedError) return error
   const detail = describeFetchError(error)
 
   console.warn(`[backend] ${route} failed request_id=${requestId}: ${detail}`)

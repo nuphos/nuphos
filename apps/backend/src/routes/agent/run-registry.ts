@@ -8,7 +8,6 @@ import { startAgentRunOwnership } from '@/lib/agent/run-store'
 import { AppError } from '@/lib/errors'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
-import { notifyLiveActivities } from '@/lib/push/live-activities'
 
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { AGENT_RUN_TTL_MS } from './constants'
@@ -52,6 +51,7 @@ export function createAgentRun(
   sessionId: string,
   streamId: string,
   trace?: AgentRunTrace,
+  options: { runtimeOwned?: boolean } = {},
 ): AgentRun {
   const now = Date.now()
   const abortController = new AbortController()
@@ -62,6 +62,7 @@ export function createAgentRun(
     sessionId,
     userId,
     trace,
+    ...(options.runtimeOwned ? { runtimeOwned: true } : {}),
     frames: [],
     done: false,
     abortController,
@@ -72,6 +73,7 @@ export function createAgentRun(
     releaseOwnership: startAgentRunOwnership(userId, sessionId, streamId, {
       actorUserId: trace?.userId ?? userId,
       teamId: trace?.teamId,
+      runtimeOwned: options.runtimeOwned,
       onCancellationRequested: () => {
         abortController.abort()
       },
@@ -95,7 +97,6 @@ export function registerAgentRun(run: AgentRun): void {
     throw new AppError(503, 'server_draining', 'Server is shutting down; please retry')
   }
   agentRuns.set(run.key, run)
-  notifyLiveActivities(run, 'started')
   traceAgentChatEvent('info', 'agent.chat.run.registered', run.trace, {
     run_key: run.key,
     frame_count: run.frames.length,

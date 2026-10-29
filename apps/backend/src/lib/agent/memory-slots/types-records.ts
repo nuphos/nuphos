@@ -126,8 +126,7 @@ export type AttributionSink = {
    * memories owned by this provider. One-way: the scorecard reads exclusively
    * from memory_runtime_*; a provider can use digests to rank better next
    * turn — which is the point — but cannot touch past measurement. For
-   * external residency, digests are consent-gated by the same per-team
-   * switch as TurnDigests. */
+   * external residency, digests are consent-gated by the per-team switch. */
   onAttribution(batch: AttributionDigest[], opts: { signal: AbortSignal }): Promise<void>
 }
 

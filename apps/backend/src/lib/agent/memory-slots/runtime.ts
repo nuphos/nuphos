@@ -1,5 +1,5 @@
 // Runtime discipline for the Memory Provider SPI: session/turn resolution,
-// the fail-open observer factory, the recall budget race, MemoryRef stamping,
+// the fail-open observer factory, MemoryRef stamping,
 // and capabilitiesOf(). Runtime-OWNED — providers never import this module.
 // Phase 1 ships it unwired; Phase 2 swaps the call sites onto it.
 
@@ -17,8 +17,6 @@ import type {
   MemoryProvider,
   MemoryRef,
   MemorySessionOrigin,
-  RecallInput,
-  RenderedMemoryContext,
 } from './types'
 
 // ── Compile-time parity locks ────────────────────────────────────────────────
@@ -191,7 +189,7 @@ export async function gateResolutionOnAvailability(
   return resolution
 }
 
-export { createMemoryObserver, raceRecallBudget } from './runtime-guards'
+export { createMemoryObserver } from './runtime-guards'
 
 // ── MemoryRef stamping + derived capabilities ───────────────────────────────
 
@@ -202,14 +200,11 @@ export function refOf(providerId: string, id: string): MemoryRef {
 }
 
 export type MemoryCapabilities = {
-  recall: boolean
   tools: boolean
-  ingest: boolean
   records: boolean
   recordsDelete: boolean
   recordsRestore: boolean
   feedback: boolean
-  webhook: boolean
   purge: boolean
   cursorTier: 'strict' | 'best-effort' | null
 }
@@ -218,14 +213,11 @@ export type MemoryCapabilities = {
  * (decision 2). Feeds the settings UI chips and the conformance banner. */
 export function capabilitiesOf(provider: MemoryProvider): MemoryCapabilities {
   return {
-    recall: !!provider.recall,
     tools: !!provider.tools,
-    ingest: !!provider.ingest,
     records: !!provider.records,
     recordsDelete: !!provider.records?.delete,
     recordsRestore: !!provider.records?.restore,
     feedback: !!provider.feedback,
-    webhook: !!provider.webhook,
     purge: !!provider.purgeUser || !!provider.purgeTeam,
     cursorTier: provider.records?.cursorTier ?? null,
   }

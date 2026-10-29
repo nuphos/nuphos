@@ -45,33 +45,13 @@ export function agentConfig() {
             modelId('AGENT_MODEL_ID', SMALL_MODEL_DEFAULT),
           ),
     compactionModelId: modelId('AGENT_COMPACTION_MODEL_ID', SMALL_MODEL_DEFAULT),
-    // ADR-0003 memory delivery mode. 'automatic' (default): query the full
-    // native pool from the latest user message, attach up to five compact
-    // matches at the message tail, then let the model load full detail with
-    // memory_get(id). 'injection': the full one-line memory index rides in
-    // context every turn. 'summary': only compact counts are injected and the
-    // model pulls detail on demand via memory_get(query). Default flipped
-    // injection → automatic by product decision: riding the ENTIRE index along
-    // every turn misrepresents recall (~44 entries "shown" regardless of
-    // relevance) and spends context on noise. ADR-0003's "data owns the
-    // default" still holds going forward — the Track A attribution layer
-    // records deliveryMode on every turn row, so automatic-vs-injection
-    // apply-rate/zero-recall comparisons run against live traffic, and
-    // 'injection' stays selectable here for an A/B arm.
-    memoryDeliveryMode:
-      process.env.MEMORY_DELIVERY_MODE === 'summary'
-        ? ('summary' as const)
-        : process.env.MEMORY_DELIVERY_MODE === 'injection'
-          ? ('injection' as const)
-          : ('automatic' as const),
     // ADR-0008 rung 1.5, built-ahead behind a flag (default off): rerank the
-    // top-k lexical candidates with a small model before returning search
-    // results. Turn on when fetch-through degrades vs the G1 baseline.
+    // top-k lexical candidates of a memory_get search with a small model.
+    // Turn on when fetch-through degrades vs the G1 baseline.
     memoryRerankEnabled: process.env.MEMORY_RERANK_ENABLED === 'true',
     // Track A attribution judge: post-hoc LLM verdict (applied/considered/
-    // not_applicable) over the memories a turn recalled/fetched. Fail-open,
-    // fire-and-forget; rows floor honestly at recalled/fetched when off or
-    // failing. Model falls back to the compaction model when unset.
+    // not_applicable) over the memories a turn fetched. Fail-open,
+    // fire-and-forget; rows floor honestly at fetched when off or failing. Model falls back to the compaction model when unset.
     memoryAttributionJudge: process.env.MEMORY_ATTRIBUTION_JUDGE === 'true',
     memoryAttributionJudgeModel: modelId('MEMORY_ATTRIBUTION_JUDGE_MODEL'),
     // Cost knob for the judge: the fraction of turns it actually runs on when
@@ -82,27 +62,11 @@ export function agentConfig() {
       min: 0,
       max: 1,
     }),
-    // Track A3 auto-ingest (complete-loop MVP): post-turn distiller saves at
-    // most ONE durable memory per turn as an 'auto-learned' record. Zero-yield
-    // is the expected common case; volatile observations are never learned.
-    // Fail-open, fire-and-forget, origin-gated to user sessions.
-    memoryAutoIngest: process.env.MEMORY_AUTO_INGEST === 'true',
-    // Before an auto-learned memory is written, check whether it directly
-    // contradicts one already in the same pool and supersede that one instead
-    // of stacking a second opinion. Off by default: it is the only path that
-    // lets ingest tombstone an existing record, so it stays opt-in until the
-    // supersede rate has been watched on real traffic.
-    memoryConflictSupersede: process.env.MEMORY_CONFLICT_SUPERSEDE === 'true',
     // Track B SPI: memory backend id — must name a registered provider (boot
     // assertion in memory-slots/index.ts fails the deploy on a typo, never a
     // turn). External-residency ids are rejected as the global default (A1:
     // override-only, consent-gated).
     memoryProvider: optional('MEMORY_PROVIDER') ?? 'native',
-    // ADR-0008 rung 3 (ranking half only — archive stays unbuilt), built-ahead
-    // behind a flag: order the memory indexes by access-decay score instead of
-    // raw updatedAt. 'recency' (default) | 'decay'.
-    memoryIndexRanking:
-      process.env.MEMORY_INDEX_RANKING === 'decay' ? ('decay' as const) : ('recency' as const),
     // 0 preserves all history. Positive values expire both headers and chunks.
     mongoTraceRetentionDays: boundedInt('AGENT_MONGO_TRACE_RETENTION_DAYS', 0, {
       min: 0,

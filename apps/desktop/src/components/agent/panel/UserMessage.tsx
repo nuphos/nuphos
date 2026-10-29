@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { parseAtlasLink } from '../../../lib/atlasLinkMention'
 import { trustedAvatarURL } from '../../../lib/avatarUrl'
 import { Avatar } from '../../Avatar'
@@ -132,9 +133,11 @@ export const UserMessage = memo(
                 {message.metadata.unattested && (
                   <span
                     className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary"
-                    title="Posted in Discord by someone with no linked Nuphos account. The name is the one they chose."
+                    title={t(
+                      'Posted in Discord by someone with no linked Nuphos account. The name is the one they chose.',
+                    )}
                   >
-                    Discord · unverified
+                    {t('Discord · unverified')}
                   </span>
                 )}
               </div>
@@ -207,7 +210,9 @@ export const UserMessage = memo(
                   </span>
                 )}
                 {canEdit && <EditMessageButton onClick={() => setEditing(true)} />}
-                {copyableText && <CopyMessageButton text={copyableText} label="Copy message" />}
+                {copyableText && (
+                  <CopyMessageButton text={copyableText} label={t('Copy message')} />
+                )}
               </div>
             )}
           </div>

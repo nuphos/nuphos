@@ -33,19 +33,26 @@ import ai.nuphos.android.session.RuntimeSetupStore
 @Composable
 fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     launchBrowser: ((String) -> Unit)? = null,
-    quotas: Map<String, ai.nuphos.android.data.RuntimeQuota> = emptyMap()) {
+    quotas: Map<String, ai.nuphos.android.data.RuntimeQuota> = emptyMap(),
+    initialManaging: Boolean = false, initialRuntimeId: String? = null, devices: List<ai.nuphos.android.data.RuntimeDevice> = emptyList()) {
     var label by remember { mutableStateOf("") }
     var provider by remember { mutableStateOf("codex") }
     var code by remember { mutableStateOf("") }
     var browserError by remember { mutableStateOf(false) }
-    var managing by remember { mutableStateOf(false) }
+    var managing by remember(store) { mutableStateOf(initialManaging) }
     var detailId by remember(store) { mutableStateOf<String?>(null) }
+    val initialCatalogRevision = remember(store) { store.state.catalogRevision }
+    var pendingInitial by remember(store) { mutableStateOf(initialRuntimeId) }
     val detail = remember(store, detailId) { detailId?.let(store::detail) }
+    DisposableEffect(detail) { onDispose { detail?.close() } }
     val scroll = key(managing, detailId) { rememberScrollState() }
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val state = store.state
     val selection = store.selection
+    LaunchedEffect(state.catalogLoaded, state.catalogRevision) {
+        if (state.catalogLoaded && state.catalogRevision > initialCatalogRevision && pendingInitial != null) { detailId = pendingInitial; pendingInitial = null }
+    }
     DisposableEffect(store, lifecycle) {
         store.open()
         val observer = LifecycleEventObserver { _, event ->
@@ -59,72 +66,39 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
         }
     }
     LaunchedEffect(store.signInRuntime?.id, state.attempt?.attemptId, state.attempt?.state, state.attemptMismatch, selection.selectedId, selection.selected?.provider, selection.selected?.status, selection.selected?.kind) { code = ""; browserError = false }
-    ModalBottomSheet(sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { code = ""; onDismiss() }, properties = ModalBottomSheetProperties(securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    ModalBottomSheet(containerColor = MaterialTheme.colorScheme.background, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { code = ""; onDismiss() }, properties = ModalBottomSheetProperties(securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn)) {
+        Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).fillMaxHeight()) {
+            RuntimePickerHeader(title = if (detail != null) "Runtime details" else if (managing) "Manage runtimes" else "Choose runtime", onClose = { code = ""; onDismiss() })
+            HorizontalDivider()
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (detail != null) {
                 RuntimeDetailPage(detail, quotas[detail.runtimeId], onBack = { detailId = null }, onSignIn = {
                     if (store.focusSignIn(detail.runtimeId)) { detailId = null; managing = true }
                 })
             } else {
-                Text(if (managing) "Manage runtimes" else "Choose a runtime", style = MaterialTheme.typography.headlineSmall)
-                if (!managing) Text("Choose a runtime for new agents. Existing agents keep their current runtime. Provider sign-in may still be required.",
+                if (!managing) Text("For new agents. Existing agents keep their current runtime.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (managing) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Back to runtimes") }
-                    else if (store.canAdminister) OutlinedButton(onClick = { code = ""; browserError = false; managing = true }) { Text("Manage runtimes") }
-                    TextButton(onClick = { code = ""; onDismiss() }) { Text("Done") }
+
                 }
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                    if (managing && !state.catalogLoaded) TextButton(onClick = store::refresh, enabled = !state.busy) {
+                        Text("Retry runtime list")
+                    }
+                }
                 state.message?.let { Text(it) }
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (selection.reselectionRequired) Text("The selected runtime is unavailable. Select a saved active runtime before starting a new agent.")
                 if (!managing) {
-                    val groups = listOf(
-                        "Computers" to selection.catalog.filter { it.kind == "local" },
-                        "Cloud and servers" to selection.catalog.filter { it.kind != "local" },
-                    )
-                    groups.filter { it.second.isNotEmpty() }.forEach { (title, runtimes) ->
-                        Text(title, style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        runtimes.forEach { runtime ->
-                            val selected = selection.selectedId == runtime.id
-                            val enabled = !state.busy && state.catalogLoaded && runtime.selectable
-                            val providerName = when (runtime.provider) {
-                                "codex" -> "Codex"
-                                "claude-code" -> "Claude Code"
-                                else -> runtime.provider
-                            }
-                            val description = if (selected) "Selected ${runtime.label}" else "Use ${runtime.label}"
-                            Surface(
-                                onClick = { code = ""; store.select(runtime.id) },
-                                enabled = enabled,
-                                modifier = Modifier.fillMaxWidth().semantics { contentDescription = description; this.selected = selected; role = Role.RadioButton },
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
-                                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-                            ) {
-                                Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Icon(if (runtime.kind == "local") Icons.Outlined.Computer else Icons.Outlined.Cloud,
-                                        contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text(runtime.label, style = MaterialTheme.typography.titleMedium,
-                                            maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                        Text("$providerName · ${if (selected) "Selected" else runtime.status.replaceFirstChar { it.uppercase() }}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        RuntimeUsage(quotas[runtime.id])
-                                    }
-                                    RadioButton(selected = selected, onClick = null, enabled = enabled)
-                                }
-                            }
-                            TextButton(onClick = { detailId = runtime.id }, enabled = !state.busy && state.catalogLoaded) {
-                                Text("Details for ${runtime.label}")
-                            }
-                        }
-                    }
-                    if (state.catalogLoaded && selection.catalog.isEmpty()) Text("No saved runtimes.")
+                    val ready = selection.catalog.filter { it.selectable && it.local?.online != false && quotas[it.id]?.needsSignIn != true }
+                    RuntimeChoiceList(ready, selection.selectedId, quotas,
+                        enabled = !state.busy && state.catalogLoaded, devices = devices,
+                        onDetail = { runtime -> detailId = runtime.id },
+                        onSelect = { runtime -> code = ""; store.select(runtime.id); if (store.selection.selectedId == runtime.id && store.selection.valid) onDismiss() })
+                    if (state.catalogLoaded && ready.isEmpty()) Text("No available runtimes.")
+                    TextButton(onClick = { code = ""; browserError = false; managing = true }) { Text("Manage computers and runtimes") }
                     OutlinedButton(onClick = { store.refresh() }, enabled = !state.busy) { Text("Refresh runtimes") }
                 } else {
                     store.signInRuntime?.let { selected ->
@@ -183,6 +157,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                 }
             }
             Spacer(Modifier.height(16.dp))
+        }
         }
     }
 }

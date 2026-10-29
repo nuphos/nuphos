@@ -112,8 +112,10 @@ export const teamApi = {
   teamSkillsPromote: (teamId: string, name: string) =>
     ipcRenderer.invoke('teamSkills:promote', teamId, name),
   atlasCreateTeam: (name: string) => ipcRenderer.invoke('atlas:createTeam', name),
-  atlasUpdateTeam: (teamId: string, input: { name?: string; avatarUrl?: string }) =>
+  atlasUpdateTeam: (teamId: string, input: { name: string }) =>
     ipcRenderer.invoke('atlas:updateTeam', teamId, input),
+  atlasSetTeamAvatar: (teamId: string, image: Uint8Array | null) =>
+    ipcRenderer.invoke('atlas:setTeamAvatar', teamId, image),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
     ipcRenderer.invoke('atlas:setTeamEmailDomainDiscovery', teamId, enabled),
   atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>

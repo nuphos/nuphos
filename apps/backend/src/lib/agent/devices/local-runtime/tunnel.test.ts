@@ -287,6 +287,27 @@ describe('local runtime tunnel', () => {
     )
   })
 
+  test('the computer reports why it gave up its last tunnel', async () => {
+    const desktop = await connectDesktop(
+      createLocalTunnelBus(),
+      createMemoryPresenceStore(),
+      new Set(['t1']),
+    )
+    const lines = await logged('log', async () => {
+      desktop.send({ t: 'dropped', reason: 'idle', silentMs: 12_004 })
+      await tick()
+    })
+
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_closed',
+        closed_by: 'desktop',
+        reason: 'idle',
+        silent_ms: 12_004,
+      }),
+    )
+  })
+
   test('a backlog of data without pongs keeps the tunnel open and present', async () => {
     const bus = createLocalTunnelBus()
     const presence = createMemoryPresenceStore()
@@ -473,5 +494,40 @@ test('a status report records the signed-in agents once, not on every repeat', a
   expect(records).toEqual([
     ['u1', 'd1', ['claude-code']],
     ['u1', 'd1', ['claude-code']],
+  ])
+})
+
+test('every usage report is handed to the recorder with its device', async () => {
+  const records: [string, string, number][] = []
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send() {}, close() {} },
+    {
+      bus: createLocalTunnelBus(),
+      presence: createMemoryPresenceStore(),
+      isMember: async () => true,
+      recordMetrics: (userId, deviceId, metrics) => {
+        records.push([userId, deviceId, metrics.cpuPercent])
+      },
+    },
+  )
+
+  tunnels.push(tunnel)
+  for (const cpuPercent of [10, 20])
+    tunnel.receive(
+      JSON.stringify({
+        t: 'metrics',
+        metrics: {
+          sampledAt: '2026-10-26T03:40:01.000Z',
+          cpuPercent,
+          memory: { used: 6e9, total: 8e9 },
+          disk: { used: 1e10, total: 1.6e10 },
+        },
+      }),
+    )
+  expect(records).toEqual([
+    ['u1', 'd1', 10],
+    ['u1', 'd1', 20],
   ])
 })

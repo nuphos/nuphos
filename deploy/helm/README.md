@@ -1,7 +1,6 @@
 # Helm chart
 
-[`nuphos/`](nuphos) deploys the same stack as the [Zeabur template](../zeabur/README.md)
-onto any Kubernetes cluster: authenticated single-node MongoDB, RustFS, the
+[`nuphos/`](nuphos) deploys Nuphos onto any Kubernetes cluster: authenticated single-node MongoDB, RustFS, the
 released backend, and an optional Claude Code runtime. There is no Redis, so
 the backend runs as one replica in in-memory mode.
 
@@ -72,7 +71,7 @@ reads only its own password from the Secret, and a NetworkPolicy admits only
 the backend to MongoDB. The policy needs a CNI that enforces NetworkPolicy. For
 stronger separation, set `runtime.enabled=false` and run the runtime on other
 infrastructure, for example with the
-[Zeabur runtime template](../zeabur/runtime-template.yaml).
+[Railway runtime project](../railway/README.md#deploy-the-runtime-project).
 
 The Mongo container runs as root so it can own its keyfile, the same as the
 official image's entrypoint. The release's namespace therefore cannot enforce

@@ -27,7 +27,7 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ComposerAgentFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
-    @Test fun longAgentNameRemainsBesideSendWhenCollapsedAndExpanded() {
+    @Test fun runtimeControlsStayAboveInputWithoutMovingSend() {
         val name = "A very long Agent name that must leave Send visible"
         val selection = RuntimeSelections.Selection("fixture-account", "fixture-team")
         selection.saveCatalog(listOf(AgentRuntime("fixture-agent", "codex", name, "active", "local")))
@@ -40,9 +40,18 @@ class ComposerAgentFixtureDeviceTest {
             compose.onNodeWithContentDescription("Send").assertIsDisplayed()
             val chip = compose.onNodeWithText(name).fetchSemanticsNode().boundsInRoot
             val send = compose.onNodeWithContentDescription("Send").fetchSemanticsNode().boundsInRoot
-            assertTrue("Agent overlaps Send", chip.right <= send.left)
-            assertTrue("Agent and Send are on different rows", chip.center.y in send.top..send.bottom)
+            val input = compose.onNodeWithContentDescription("Ask Nuphos anything").fetchSemanticsNode().boundsInRoot
+            assertTrue("Runtime control belongs above the input", chip.bottom <= input.top)
+            assertTrue("Send remains below the runtime control", send.top >= chip.bottom)
         }
+        compose.onNodeWithText(name).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Photos").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Send").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Voice input").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performClick()
+        compose.onNodeWithContentDescription("Photos").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Files").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Paste").assertIsDisplayed()
         checkRow()
         val send = compose.onNodeWithContentDescription("Send").fetchSemanticsNode().boundsInRoot
         val composer = compose.onNodeWithContentDescription("Ask Nuphos anything").fetchSemanticsNode().boundsInRoot
@@ -59,9 +68,10 @@ class ComposerAgentFixtureDeviceTest {
     @Test fun existingAgentOpensUsageAndUnavailableUsageDoesNotBlockSend() {
         val quota = mutableStateOf<RuntimeQuota?>(RuntimeQuota("fixture-agent", true,
             windows = listOf(RuntimeQuota.Window("5h", 43.0, "2030-01-01T00:00:00Z"))))
-        render { ChatComposer(isStreaming = false, onSend = { true }, agentLabel = "Existing Agent", agentQuota = quota.value) }
+        render { ChatComposer(isStreaming = false, onSend = { true }, showControls = true, agentLabel = "Existing Agent", agentQuota = quota.value) }
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performClick()
         compose.onNodeWithText("Existing Agent").performClick()
-        compose.onNodeWithText("5h: 43% used", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("5h: 57% left", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Done").performClick()
         compose.runOnIdle { quota.value = null }
         compose.onNodeWithText("Existing Agent").performClick()
@@ -69,6 +79,17 @@ class ComposerAgentFixtureDeviceTest {
         compose.onNodeWithText("Done").performClick()
         compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("still can send")
         compose.onNodeWithContentDescription("Send").assertIsEnabled()
+    }
+    @Test fun streamingKeepsQueueAndStopAsSeparateActions() {
+        var queued = 0
+        var stopped = 0
+        render { ChatComposer(isStreaming = true, onSend = { queued++; true }, onStop = { stopped++ }) }
+        compose.onNodeWithContentDescription("Queue a message").performTextInput("Follow up after this turn")
+        compose.onNodeWithContentDescription("Queue message").assertIsEnabled().performClick()
+        compose.waitUntil { queued == 1 }
+        compose.onNodeWithContentDescription("Stop").assertIsDisplayed().performClick()
+        assertEquals(1, stopped)
+        assertEquals(1, queued)
     }
     private fun render(content: @Composable () -> Unit) {
         compose.setContent {

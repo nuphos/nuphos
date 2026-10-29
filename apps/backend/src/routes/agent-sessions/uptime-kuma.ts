@@ -11,12 +11,12 @@ import {
   pauseUptimeKumaMonitor,
   resumeUptimeKumaMonitor,
   updateUptimeKumaMonitor,
-  UptimeKumaApiError,
 } from '@/lib/byos/uptime-kuma'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireUptimeKumaInstance, requireUptimeKumaMemberAccess } from '@/middleware/auth'
 import { getAgentCredentialAccess, requireAgentWriteRole } from '@/routes/agent-sessions/shared'
+import { uptimeKumaError } from '@/routes/uptime-kuma-instances/shared'
 
 import type { UptimeKumaAuthHandle } from '@/lib/byos/uptime-kuma'
 import type { UptimeKumaInstanceVariables } from '@/middleware/auth'
@@ -71,19 +71,6 @@ function uptimeKumaAgentHandle(
   }
 }
 
-function uptimeKumaAgentError(err: unknown, fallback: string): AppError {
-  if (err instanceof UptimeKumaApiError) {
-    const code =
-      err.status === 401 || err.status === 403
-        ? 'invalid_uptime_kuma_credentials'
-        : 'uptime_kuma_api_error'
-
-    return new AppError(err.status === 401 || err.status === 403 ? 400 : 502, code, err.message)
-  }
-
-  return new AppError(502, 'uptime_kuma_api_error', err instanceof Error ? err.message : fallback)
-}
-
 export const uptimeKumaScoped = new Hono<{ Variables: AgentUptimeKumaVars }>()
 
 uptimeKumaScoped.use('*', requireUptimeKumaInstance())
@@ -99,7 +86,7 @@ uptimeKumaScoped.get('/monitors', async (c) => {
   const monitors = await listUptimeKumaMonitors(
     uptimeKumaAgentHandle(c.get('uptimeKumaBinding')),
   ).catch((err: unknown) => {
-    throw uptimeKumaAgentError(err, 'Could not list Uptime Kuma monitors')
+    throw uptimeKumaError(err, 'Could not list Uptime Kuma monitors')
   })
 
   return c.json({ monitors })
@@ -110,7 +97,7 @@ uptimeKumaScoped.post('/monitors', zv('json', uptimeKumaMonitorCreateSchema), as
     uptimeKumaAgentHandle(c.get('uptimeKumaBinding')),
     c.req.valid('json') as Record<string, unknown>,
   ).catch((err: unknown) => {
-    throw uptimeKumaAgentError(err, 'Could not create Uptime Kuma monitor')
+    throw uptimeKumaError(err, 'Could not create Uptime Kuma monitor')
   })
 
   return c.json(result, 201)
@@ -121,7 +108,7 @@ uptimeKumaScoped.get('/monitors/:monitorId', async (c) => {
     uptimeKumaAgentHandle(c.get('uptimeKumaBinding')),
     uptimeKumaMonitorIdParam(c.req.param('monitorId')),
   ).catch((err: unknown) => {
-    throw uptimeKumaAgentError(err, 'Could not get Uptime Kuma monitor')
+    throw uptimeKumaError(err, 'Could not get Uptime Kuma monitor')
   })
 
   return c.json({ monitor })
@@ -136,7 +123,7 @@ uptimeKumaScoped.patch(
       uptimeKumaMonitorIdParam(c.req.param('monitorId')),
       c.req.valid('json') as Record<string, unknown>,
     ).catch((err: unknown) => {
-      throw uptimeKumaAgentError(err, 'Could not update Uptime Kuma monitor')
+      throw uptimeKumaError(err, 'Could not update Uptime Kuma monitor')
     })
 
     return c.json({ monitor })
@@ -148,7 +135,7 @@ uptimeKumaScoped.post('/monitors/:monitorId/pause', async (c) => {
     uptimeKumaAgentHandle(c.get('uptimeKumaBinding')),
     uptimeKumaMonitorIdParam(c.req.param('monitorId')),
   ).catch((err: unknown) => {
-    throw uptimeKumaAgentError(err, 'Could not pause Uptime Kuma monitor')
+    throw uptimeKumaError(err, 'Could not pause Uptime Kuma monitor')
   })
 
   return c.body(null, 204)
@@ -159,7 +146,7 @@ uptimeKumaScoped.post('/monitors/:monitorId/resume', async (c) => {
     uptimeKumaAgentHandle(c.get('uptimeKumaBinding')),
     uptimeKumaMonitorIdParam(c.req.param('monitorId')),
   ).catch((err: unknown) => {
-    throw uptimeKumaAgentError(err, 'Could not resume Uptime Kuma monitor')
+    throw uptimeKumaError(err, 'Could not resume Uptime Kuma monitor')
   })
 
   return c.body(null, 204)
@@ -171,7 +158,7 @@ uptimeKumaScoped.delete('/monitors/:monitorId', async (c) => {
     uptimeKumaMonitorIdParam(c.req.param('monitorId')),
     c.req.query('deleteChildren') === 'true',
   ).catch((err: unknown) => {
-    throw uptimeKumaAgentError(err, 'Could not delete Uptime Kuma monitor')
+    throw uptimeKumaError(err, 'Could not delete Uptime Kuma monitor')
   })
 
   return c.body(null, 204)

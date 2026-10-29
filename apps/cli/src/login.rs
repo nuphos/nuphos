@@ -128,6 +128,28 @@ fn save_device_session(body: &Value) -> Result<Session> {
 
 /// `nuphos login --token`: a token minted on nuphos.ai, checked with
 /// `/auth/me` before it is saved.
+/// Signs this computer out. A device sign-in is a token of its own, so it is
+/// revoked on the server as well. An agent token, Desktop's sign-in and
+/// `NUPHOS_CLI_TOKEN` are used elsewhere too, so those are only forgotten here.
+pub async fn logout() -> Result<()> {
+    let session = config::read_session();
+    if let (Some(token), Some(id)) = (session.token.as_deref(), own_device_token(&session)) {
+        let api = Api::new(config::api_url(), token.to_string());
+        // Best effort: signing out must not depend on reaching the server.
+        let _ = tokio::time::timeout(Duration::from_secs(5), api.revoke_cli_token(&id)).await;
+    }
+    config::write_session(&Session::default())
+}
+
+/// The id of this computer's own device sign-in, if that is what it holds.
+fn own_device_token(session: &Session) -> Option<String> {
+    let record = session.cli_token.as_ref().filter(|t| t["kind"] == "personal")?;
+    if session.from_env {
+        return None;
+    }
+    record["id"].as_str().map(String::from)
+}
+
 pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
     let me = Api::new(api_url.to_string(), token.to_string()).me().await.context("The token did not work")?;
     let session = Session {
@@ -311,4 +333,26 @@ async fn respond(stream: &mut TcpStream, status: u16, message: &str) {
     );
     let _ = stream.write_all(response.as_bytes()).await;
     let _ = stream.shutdown().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn session(record: Option<Value>, from_env: bool) -> Session {
+        Session { token: Some("nup_x".into()), cli_token: record, from_env, ..Session::default() }
+    }
+
+    #[test]
+    fn only_an_own_device_sign_in_is_revoked() {
+        let device = json!({ "id": "64b7f0c2a1b2c3d4e5f60001", "kind": "personal" });
+        assert_eq!(
+            own_device_token(&session(Some(device.clone()), false)).as_deref(),
+            Some("64b7f0c2a1b2c3d4e5f60001")
+        );
+        assert_eq!(own_device_token(&session(Some(device), true)), None);
+        assert_eq!(own_device_token(&session(Some(json!({ "id": "a", "kind": "agent" })), false)), None);
+        assert_eq!(own_device_token(&session(None, false)), None);
+    }
 }

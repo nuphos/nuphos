@@ -87,7 +87,8 @@ const defaultStatusDeps: StatusDeps = {
 export async function status(deps: StatusDeps = defaultStatusDeps): Promise<AuthStatus> {
   const result = await probeStatus(deps)
 
-  deps.session.set(result.loggedIn ? result.token : null)
+  if (result.loggedIn) deps.session.set(result.token, result.user.id)
+  else deps.session.set(null, null)
 
   return result
 }

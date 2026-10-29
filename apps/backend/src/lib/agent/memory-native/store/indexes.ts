@@ -38,9 +38,6 @@ export async function setupTeamMemoryIndexes(): Promise<void> {
   await agentMemories().createIndex({ ownerUserId: 1, scope: 1, updatedAt: -1 })
   await agentMemories().createIndex({ teamId: 1, scope: 1, updatedAt: -1 })
   await agentMemories().createIndex({ textHash: 1 }, { sparse: true })
-  // Backs listConversationMemoryTitles: read once per auto-ingest, on the hot
-  // turn-finish path. Sparse — save_memory records carry no conversationId.
-  await agentMemories().createIndex({ conversationId: 1, createdAt: -1 }, { sparse: true })
   // Full-text recall (ADR-0008 rung 1★): lets memory_get reach the long tail
   // beyond the top-50 index. Community Mongo has no $vectorSearch; $text
   // keyword recall is the no-vector rung. textSearch/searchText hold the

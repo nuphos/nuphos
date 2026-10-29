@@ -62,6 +62,8 @@ before(async () => {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
+      // i18n subscribes to locale changes in other windows on import.
+      addEventListener: () => {},
       api: {
         agentSyncConversationTranscript: (args: SyncArgs) => {
           calls.push(['sync', args])

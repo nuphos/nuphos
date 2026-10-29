@@ -1,12 +1,13 @@
 import { call } from './client.ts'
 
+import type { Team } from './teams.ts'
 import type {
   LocalAgentShareState,
   LocalShareApproval,
   LocalShareInput,
   LocalShareLevel,
+  ShareApprovalStatus,
 } from '../../src/api/device-types.ts'
-import type { Team } from './teams.ts'
 
 // Sharing this person's own computer's Local Agent with teammates in one team.
 
@@ -32,6 +33,16 @@ export async function listShareApprovals(teamId: string): Promise<LocalShareAppr
   )
 
   return approvals
+}
+
+/** Whether this person's own conversation still waits for the owner of the computer it asked for. */
+export async function ownShareApprovalStatus(sessionId: string): Promise<ShareApprovalStatus> {
+  const { status } = await call<{ status: ShareApprovalStatus }>(
+    'GET',
+    `/agent/devices/share-approvals/mine?sessionId=${encodeURIComponent(sessionId)}`,
+  )
+
+  return status
 }
 
 export function decideShareApproval(

@@ -1,5 +1,6 @@
 import { AppWindow, ArrowUpRight } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
 import { ChatLink } from '../MessageResponse'
 
@@ -35,7 +36,10 @@ export function LocalUrlChip({
       link={url.href}
       onLinkClick={onOpen}
       className={CHIP}
-      title={`Open ${url.href} in a browser tab (${isMac ? '⌘' : 'Ctrl'}-click opens it beside)`}
+      title={t('Open {url} in a browser tab ({key}-click opens it beside)', {
+        url: url.href,
+        key: isMac ? '⌘' : 'Ctrl',
+      })}
     >
       <AppWindow aria-hidden className="size-3.5 shrink-0 text-tertiary" strokeWidth={1.75} />
       <span
@@ -48,7 +52,7 @@ export function LocalUrlChip({
         {label ?? url.label}
       </span>
       <span className="inline-flex h-[18px] shrink-0 items-center gap-0.5 rounded px-1 text-[11.5px] font-medium text-zViolet-accent transition-colors duration-150 group-hover/local:bg-zViolet-accent/10 motion-reduce:transition-none">
-        Open
+        {t('Open')}
         <ArrowUpRight aria-hidden className="size-3" strokeWidth={2} />
       </span>
     </ChatLink>

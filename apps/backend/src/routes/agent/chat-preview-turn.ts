@@ -4,7 +4,6 @@ import './chat-preview-autonomous-runs'
 
 import { config } from '@/config'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
-import { consumePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity'
 import { requeueTurnQueue } from '@/lib/agent/session-released'
 import {
   previewRuntimeObservability,
@@ -32,6 +31,7 @@ import {
   persistHandedOffPreviewTurn,
   persistInterruptedPreviewTurn,
 } from './chat-preview-finish'
+import { installPreviewFrameConsumer } from './chat-preview-frame-consumer'
 import {
   CONNECTION_LOST_TOOL_ERROR,
   HANDED_OFF,
@@ -84,9 +84,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const [prepared, desktops] = await Promise.all([preparePreviewTurn(args, requestId), tracking])
   const clearActiveTurn = () => prepared.clearActiveTurn()
 
-  state.consumeFrames((frame) =>
-    consumePreviewMemoryActivity(prepared.memory?.turnMemory.accumulator ?? null, frame),
-  )
+  installPreviewFrameConsumer(state, toolLog, prepared.memory)
+
   const access = previewSessionAccess(sessionId, teamId, actorUserId, userId, {
     ...args.endpoint,
     humanTurn: args.humanTurn,
@@ -151,7 +150,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       endpoint: args.endpoint,
       mcpServers: access.mcpServers,
       runtime: { provider: args.endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
-      renewAccess: access.renew,
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta, metadata) => {

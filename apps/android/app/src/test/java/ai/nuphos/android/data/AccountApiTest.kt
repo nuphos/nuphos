@@ -1,6 +1,7 @@
 package ai.nuphos.android.data
 
 import ai.nuphos.android.model.*
+import ai.nuphos.android.ui.profile.isSessionRequired
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -169,17 +170,57 @@ class AccountApiTest {
         try { api.deletion(); fail() } catch (e: NuphosApi.Failure.Http) { assertEquals(403, e.code) }
     }
     @Test fun profileAndDeletionValidatorsMatchFormBoundaries() {
-        assertNull(profileValidationError(" A ", " a-1_ ", "https://lh3.googleusercontent.com/a"))
-        assertNull(profileValidationError("A".repeat(100), "u".repeat(40), ""))
-        for (url in listOf("http://lh3.googleusercontent.com/a", "https://evil.example/a", "https://lh3.googleusercontent.com:444/a", "https://u@lh3.googleusercontent.com/a", "https://lh3.googleusercontent.com.evil/a"))
-            assertNotNull(profileValidationError("A", "u", url))
-        assertNotNull(profileValidationError("A".repeat(101), "u", ""))
-        assertNotNull(profileValidationError("A", "a b", ""))
+        assertNull(profileValidationError(" A ", " a-1_ "))
+        assertNull(profileValidationError("A".repeat(100), "u".repeat(40)))
+        assertNotNull(profileValidationError("A".repeat(101), "u"))
+        assertNotNull(profileValidationError("A", "a b"))
         assertNull(deletionValidationError("DELETE", code = "123456"))
         assertNull(deletionValidationError("DELETE", password = "p".repeat(12)))
         assertNotNull(deletionValidationError(" DELETE ", code = "123456"))
         assertNotNull(deletionValidationError("DELETE", code = "12345"))
         assertNotNull(deletionValidationError("DELETE", password = "p".repeat(11)))
         assertNotNull(deletionValidationError("DELETE"))
+    }
+
+    @Test fun signInSessionsUseTheSessionsEndpoints() = runTest {
+        response = """{"sessions":[{"id":"6a0000000000000000000001","current":true,"lastUsedAt":"2026-10-26T00:00:00.000Z","ip":"203.0.113.9","city":null,"country":"TW","client":"nuphos-android/1.4.0","userAgent":null,"extra":1},{"id":"6a0000000000000000000002"}]}"""
+        val sessions = api.signInSessions()
+        assertEquals(listOf("6a0000000000000000000001", "6a0000000000000000000002"), sessions.map { it.id })
+        assertEquals(true, sessions[0].current)
+        assertNull(sessions[1].current)
+        assertEquals("GET", requests.last().method)
+        assertEquals("https://api.nuphos.ai/auth/sessions", requests.last().url.toString())
+        assertEquals("Bearer fixture-token", requests.last().header("Authorization"))
+
+        status = 204; response = ""
+        api.signOutSession("6a0000000000000000000002")
+        assertEquals("DELETE", requests.last().method)
+        assertEquals("/auth/sessions/6a0000000000000000000002", requests.last().url.encodedPath)
+
+        status = 200; response = """{"revoked":3}"""
+        assertEquals(3, api.signOutOtherSessions())
+        assertEquals("DELETE", requests.last().method)
+        assertEquals("/auth/sessions", requests.last().url.encodedPath)
+    }
+
+    @Test fun signOutSessionOnlySendsASessionId() = runTest {
+        for (id in listOf("current", "", "../me", "6a00000000000000000000012")) {
+            try { api.signOutSession(id); fail() } catch (_: IllegalArgumentException) { }
+        }
+        assertTrue(requests.isEmpty())
+    }
+
+    @Test fun sessionRequiredIsNotUnauthorized() = runTest {
+        status = 403
+        response = """{"error":{"code":"session_required","message":"Sign in to manage your sessions"}}"""
+        try { api.signInSessions(); fail() }
+        catch (e: NuphosApi.Failure.Http) {
+            assertEquals(403, e.code)
+            assertEquals("session_required", e.errorCode)
+            assertTrue(e.isSessionRequired())
+        }
+        response = """{"error":{"code":"forbidden","message":"No"}}"""
+        try { api.signInSessions(); fail() }
+        catch (e: NuphosApi.Failure.Http) { assertFalse(e.isSessionRequired()) }
     }
 }

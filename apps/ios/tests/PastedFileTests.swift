@@ -26,6 +26,25 @@ enum PastedFileTests {
         precondition(try! Data(contentsOf: file.url) == Data(contentsOf: png))
 
         precondition(wait { await PastedFile.load(NSItemProvider()) } == nil)
+
+        // A copied link or rich text pastes as text; an image or a named file attaches.
+        func copied(_ types: [UTType], name: String? = nil) -> NSItemProvider {
+            let provider = NSItemProvider()
+            provider.suggestedName = name
+            for type in types {
+                provider.registerDataRepresentation(for: type, visibility: .all) { done in
+                    done(Data("https://nuphos.ai".utf8), nil)
+                    return nil
+                }
+            }
+            return provider
+        }
+        precondition(PastedFile.isText(copied([.url, .utf8PlainText])), "a copied link")
+        precondition(PastedFile.isText(copied([.flatRTFD, .rtf, .utf8PlainText])), "copied rich text")
+        precondition(PastedFile.isText(copied([.utf8PlainText])))
+        precondition(!PastedFile.isText(copied([.png])), "a screenshot")
+        precondition(!PastedFile.isText(copied([.png, .utf8PlainText])), "an image that also carries text")
+        precondition(!PastedFile.isText(copied([.utf8PlainText], name: "notes.txt")), "a file from Files")
     }
 
     private final class Box<T>: @unchecked Sendable { var value: T? }

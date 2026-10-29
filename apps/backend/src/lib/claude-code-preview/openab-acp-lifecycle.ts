@@ -1,5 +1,3 @@
-import { sessionCredentials } from './openab-acp-session'
-
 import type { OpenAbPermissionHandler, PendingCallContext } from './openab-acp-session'
 import type { PromptAttachment } from './runtime-attachments'
 
@@ -14,20 +12,6 @@ export type RuntimeJobRequest = {
 
 export abstract class OpenAbAcpLifecycle {
   onTerminalFrame?: (frame: unknown) => void
-  /** Set from `initialize`: the runtime takes fresh credentials mid-turn. */
-  credentialRefresh = false
-  /** Replaces the session's credentials while it still holds `expected`'s. */
-  refreshCredentials(
-    sessionId: string,
-    expected: Record<string, string> | undefined,
-    next: Record<string, string> | undefined,
-  ) {
-    return this.call('_openab/session/credentials', {
-      sessionId,
-      expected: sessionCredentials(expected),
-      credentials: sessionCredentials(next),
-    })
-  }
   terminalRequest(
     operation: 'start' | 'input' | 'resize' | 'close' | 'ack',
     params: Record<string, unknown>,
@@ -60,14 +44,16 @@ export abstract class OpenAbAcpLifecycle {
     return this.call('_openab/runtime/job', request, {}, callTimeoutMs)
   }
 
+  /** `lead` goes ahead of the attachments and text, as in a prompt: the sender's attribution. */
   steerSession(
     sessionId: string,
     text: string,
     messageId: string,
     attachments: PromptAttachment[] = [],
+    lead = '',
   ): Promise<Record<string, unknown>> {
     return this.call('_openab/session/steer', {
-      ...attachmentPrompt(sessionId, text, attachments, {}),
+      ...attachmentPrompt(sessionId, text, attachments, {}, lead),
       messageId,
     })
   }

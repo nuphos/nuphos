@@ -92,21 +92,26 @@ useDb({
   db: (() => ({ collection: coll })) as unknown as typeof dbActual.db,
 })
 
-const {
-  getIngestEventSnapshot,
-  listIngestEventSnapshots,
-  recordIngestEventSnapshot,
-  setupMemoryIngestEventIndexes,
-} = await import('./ingest-events')
+const { getIngestEventSnapshot, listIngestEventSnapshots, setupMemoryIngestEventIndexes } =
+  await import('./ingest-events')
 
 const rows = () => coll('memory_runtime_ingest_events').docs
 
-const baseInput = {
-  provider: 'native',
-  teamId: 't1' as string | null,
-  userId: 'u1',
-  conversationId: 'sess-1',
-  turnKey: 'req-1',
+// Nothing writes snapshots anymore; rows left by the retired auto-ingest are
+// seeded directly, the way they exist in Mongo.
+const seed = (over: Record<string, unknown> = {}) => {
+  rows().push({
+    v: 1,
+    provider: 'native',
+    teamId: 't1',
+    userId: 'u1',
+    conversationId: 'sess-1',
+    turnKey: 'req-1',
+    status: 'completed',
+    saved: [],
+    at: new Date(),
+    ...over,
+  })
 }
 
 describe('ingest event snapshots', () => {
@@ -116,74 +121,10 @@ describe('ingest event snapshots', () => {
     }),
   )
 
-  test('records one snapshot per (conversationId, turnKey) with the outcome payload', async () => {
-    await recordIngestEventSnapshot({
-      ...baseInput,
-      outcome: {
-        saved: [
-          { id: 'm1', scope: 'team', kind: 'record', title: 'Canary first', action: 'created' },
-        ],
-        status: 'completed',
-        diagnostics: { outcome: 'saved' },
-      },
-    })
-    expect(rows()).toHaveLength(1)
-    const doc = rows()[0]!
-
-    expect(doc).toMatchObject({
-      v: 1,
-      provider: 'native',
-      teamId: 't1',
-      userId: 'u1',
-      conversationId: 'sess-1',
-      turnKey: 'req-1',
-      status: 'completed',
-      diagnostics: { outcome: 'saved' },
-    })
-    expect(doc.saved).toEqual([
-      { id: 'm1', scope: 'team', kind: 'record', title: 'Canary first', action: 'created' },
-    ])
-    expect(doc.at).toBeInstanceOf(Date)
-  })
-
-  test('re-recording the same turn REPLACES the snapshot (idempotent retry, pending → completed)', async () => {
-    await recordIngestEventSnapshot({ ...baseInput, outcome: { saved: [], status: 'pending' } })
-    await recordIngestEventSnapshot({
-      ...baseInput,
-      outcome: { saved: [], status: 'completed', diagnostics: { outcome: 'no_learn' } },
-    })
-    expect(rows()).toHaveLength(1)
-    expect(rows()[0]!.status).toBe('completed')
-    expect(rows()[0]!.diagnostics).toEqual({ outcome: 'no_learn' })
-  })
-
-  test('a replace without diagnostics clears the stale ones (a replace IS a replace)', async () => {
-    await recordIngestEventSnapshot({
-      ...baseInput,
-      outcome: { saved: [], status: 'pending', diagnostics: { outcome: 'failed' } },
-    })
-    await recordIngestEventSnapshot({ ...baseInput, outcome: { saved: [], status: 'completed' } })
-    expect(rows()).toHaveLength(1)
-    expect(rows()[0]!.diagnostics).toBeUndefined()
-  })
-
-  test('absent status defaults to completed (SPI: absent means completed)', async () => {
-    await recordIngestEventSnapshot({ ...baseInput, outcome: { saved: [] } })
-    expect(rows()[0]!.status).toBe('completed')
-  })
-
   test('listIngestEventSnapshots serves only the requested session, oldest first', async () => {
-    await recordIngestEventSnapshot({
-      ...baseInput,
-      turnKey: 'req-2',
-      outcome: { saved: [], diagnostics: { outcome: 'no_learn' } },
-    })
-    await recordIngestEventSnapshot({ ...baseInput, outcome: { saved: [] } })
-    await recordIngestEventSnapshot({
-      ...baseInput,
-      conversationId: 'sess-OTHER',
-      outcome: { saved: [] },
-    })
+    seed({ turnKey: 'req-2' })
+    seed()
+    seed({ conversationId: 'sess-OTHER' })
     const listed = await listIngestEventSnapshots('sess-1')
 
     expect(listed).toHaveLength(2)
@@ -191,12 +132,8 @@ describe('ingest event snapshots', () => {
   })
 
   test('getIngestEventSnapshot addresses one exact turn', async () => {
-    await recordIngestEventSnapshot({ ...baseInput, outcome: { saved: [] } })
-    await recordIngestEventSnapshot({
-      ...baseInput,
-      turnKey: 'req-2',
-      outcome: { saved: [], status: 'pending' },
-    })
+    seed()
+    seed({ turnKey: 'req-2', status: 'pending' })
 
     expect((await getIngestEventSnapshot('sess-1', 'req-2'))?.status).toBe('pending')
     expect(await getIngestEventSnapshot('sess-1', 'missing')).toBeNull()

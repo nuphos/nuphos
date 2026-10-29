@@ -34,6 +34,8 @@ const FEATURED = [
   'opencode',
 ]
 const API_KEY = { type: 'api', label: 'API key' }
+// How long a 2.x attempt is polled when OpenCode does not say when it expires.
+const ATTEMPT_MS = 10 * 60_000
 const BEDROCK = 'amazon-bedrock'
 const BEDROCK_METHODS = [
   { value: 'api-key', label: 'Bedrock API key' },
@@ -278,6 +280,158 @@ export async function runOpenCodeLogin({
   emit({ type: 'authenticated' })
 }
 
+/** Whether a 2.x form field applies, given the answers so far. */
+export function fieldApplies(field, answers) {
+  return (field.when ?? []).every(({ key, op, value }) =>
+    op === 'eq' ? answers[key] === value : answers[key] !== value,
+  )
+}
+
+/** OpenCode 2.x lists its integrations here; 1.x answers the path with its web app. */
+export async function isOpenCodeV2(server, fetchImpl = fetch) {
+  const response = await fetchImpl(`${server.base}/api/integration`, {
+    headers: { authorization: server.authorization },
+  }).catch(() => undefined)
+  if (!response?.ok) return false
+  return response.json().then(
+    (body) => Array.isArray(body?.data),
+    () => false,
+  )
+}
+
+/** Asks for every field a 2.x method's form shows, in order; hidden fields keep their default. */
+async function formAnswers(form, { choose, input }) {
+  const answers = {}
+  for (const field of form ?? []) {
+    if (!fieldApplies(field, answers)) continue
+    if (field.hidden) {
+      if (field.default !== undefined) answers[field.key] = field.default
+      continue
+    }
+    const message = field.title ?? field.key
+    // A custom field takes a typed value; its options are only suggestions.
+    answers[field.key] =
+      field.options?.length && !field.custom
+        ? await choose(
+            message,
+            field.options.map(({ value, label, description }) => ({
+              value,
+              label: label ?? value,
+              ...(description ? { hint: description } : {}),
+            })),
+          )
+        : await input({ message, ...(field.placeholder ? { placeholder: field.placeholder } : {}) })
+  }
+  return Object.keys(answers).length ? { answer: answers } : {}
+}
+
+/**
+ * OpenCode 2.x calls providers integrations and keeps the credential in its own database.
+ * Same frames as the 1.x flow above.
+ */
+export async function runOpenCodeLoginV2({
+  server,
+  lines,
+  emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
+  fetchImpl = fetch,
+  pollMs = 2000,
+}) {
+  const api = async (method, path, body) => {
+    const response = await fetchImpl(`${server.base}${path}`, {
+      method,
+      headers: { authorization: server.authorization, 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+    if (!response.ok) throw new LoginError(`OpenCode answered ${String(response.status)}`)
+    return response.status === 204 ? undefined : (await response.json()).data
+  }
+  const answer = async () => {
+    const { value, done } = await lines.next()
+    if (done) throw new LoginError('No answer')
+    return value.trim()
+  }
+  const choose = async (message, options) => {
+    emit({ type: 'choose', message, options })
+    const value = await answer()
+    if (!options.some((option) => option.value === value)) throw new LoginError('Unknown choice')
+    return value
+  }
+  const input = async (frame) => {
+    emit({ type: 'input', ...frame })
+    const value = await answer()
+    if (!value) throw new LoginError('Empty answer')
+    return value
+  }
+  // OpenCode finishes an OAuth or command attempt itself, so it is polled until it expires.
+  const settled = async (path, time) => {
+    const deadline = Number.isFinite(time?.expires) ? time.expires : Date.now() + ATTEMPT_MS
+    while (Date.now() < deadline) {
+      const { status, message } = await api('GET', path)
+      if (status === 'complete') return
+      if (status !== 'pending') throw new LoginError(message ?? `Sign-in ${status}`)
+      await new Promise((resolve) => setTimeout(resolve, pollMs))
+    }
+    throw new LoginError('Sign-in expired')
+  }
+
+  // Environment variables are not a sign-in; an integration with only those is not offered.
+  const all = (await api('GET', '/api/integration')).filter((integration) =>
+    (integration.methods ?? []).some((method) => method.type !== 'env'),
+  )
+  const connected = all.filter(({ connections }) => connections?.length).map(({ id }) => id)
+  const integrationID = await choose('Choose a model provider', providerOptions({ all, connected }))
+  const integration = all.find(({ id }) => id === integrationID)
+  const offered = integration.methods.filter((method) => method.type !== 'env')
+  const choice =
+    offered.length === 1
+      ? '0'
+      : await choose(
+          `Sign in to ${integration.name}`,
+          offered.map((method, i) => ({
+            value: String(i),
+            label: method.label ?? (method.type === 'key' ? API_KEY.label : method.type),
+          })),
+        )
+  const method = offered[Number(choice)]
+  const filled = await formAnswers(method.form, { choose, input })
+  const base = `/api/integration/${encodeURIComponent(integrationID)}/connect`
+
+  if (method.type === 'key') {
+    const label = method.label ?? API_KEY.label
+    const key = await input({ message: `${integration.name} ${label}`, secret: true })
+    await api('POST', `${base}/key`, { key, ...filled })
+  } else if (method.type === 'external') {
+    await api('POST', `${base}/external`, { methodID: method.id, ...filled })
+  } else if (method.type === 'command') {
+    const { attemptID, time } = await api('POST', `${base}/command`, { methodID: method.id })
+    await settled(`${base}/command/${encodeURIComponent(attemptID)}`, time)
+  } else if (method.type === 'oauth') {
+    const attempt = await api('POST', `${base}/oauth`, { methodID: method.id, ...filled })
+    const path = `${base}/oauth/${encodeURIComponent(attempt.attemptID)}`
+    const { url, instructions } = attempt
+    if (attempt.mode === 'code') {
+      emit({ type: 'browser', url, instructions, paste: 'code' })
+      await api('POST', `${path}/complete`, { code: await answer() })
+      await settled(path, attempt.time)
+    } else {
+      // As in 1.x, a loopback listener the browser cannot reach gets its address pasted back.
+      const redirect = loopbackRedirect(url)
+      emit({ type: 'browser', url, instructions, ...(redirect ? { paste: 'address' } : {}) })
+      const done = settled(path, attempt.time)
+      const pasted = redirect && (await Promise.race([answer(), done.then(() => undefined)]))
+      if (pasted) {
+        const address = pastedAddress(pasted, redirect)
+        if (!address) throw new LoginError('Not the sign-in address')
+        await fetchImpl(address, { redirect: 'manual' }).catch(() => {})
+      }
+      await done
+    }
+  } else {
+    throw new LoginError('Unsupported sign-in method')
+  }
+  emit({ type: 'authenticated' })
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   let server
   // Provider output can contain sensitive values; report only a fixed reason.
@@ -293,10 +447,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   setTimeout(fail, 15 * 60_000).unref()
   try {
     server = await startServer({ home: HOME })
-    await runOpenCodeLogin({
-      server,
-      lines: createInterface({ input: process.stdin })[Symbol.asyncIterator](),
-    })
+    const lines = createInterface({ input: process.stdin })[Symbol.asyncIterator]()
+    await ((await isOpenCodeV2(server)) ? runOpenCodeLoginV2 : runOpenCodeLogin)({ server, lines })
     server.stop()
     process.exit(0)
   } catch {

@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// The account sheet behind the avatar in the home toolbar: the user record
@@ -11,8 +12,8 @@ struct ProfileSheet: View {
     @AppStorage(BotAvatars.enabledKey) private var botAvatars = true
 
     @State private var confirmSignOut = false
+    @State private var showAppIcons = false
     @State private var privacyError: String?
-    @State private var hasOpenAIKey = Keychain.read(Whisper.keychainKey) != nil
     @AppStorage(Whisper.promptKey) private var whisperPrompt = Whisper.defaultPrompt
 
     var body: some View {
@@ -31,20 +32,17 @@ struct ProfileSheet: View {
                     InfoRow(label: "Email", value: currentUser.email)
                     InfoRow(label: "User ID", value: currentUser.id, monospaced: true)
                     InfoRow(label: "Avatar URL", value: currentUser.avatarURL, monospaced: true)
+                    NavigationLink("Signed-in devices") {
+                        SignedInDevicesView {
+                            dismiss()
+                            session.signOut()
+                        }
+                    }
                 }
                 .listRowBackground(Theme.surface)
 
                 #if os(iOS)
                 Section {
-                    if hasOpenAIKey {
-                        Text("OpenAI API key saved on this device")
-                        Button("Remove OpenAI API key", role: .destructive) {
-                            Keychain.delete(Whisper.keychainKey)
-                            hasOpenAIKey = false
-                        }
-                    } else {
-                        Text("Tap the microphone in the composer to add your OpenAI API key.")
-                    }
                     TextField("Transcription prompt", text: $whisperPrompt, axis: .vertical)
                         .lineLimit(2...6)
                     if whisperPrompt != Whisper.defaultPrompt {
@@ -53,13 +51,16 @@ struct ProfileSheet: View {
                 } header: {
                     Text("Voice input")
                 } footer: {
-                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Recordings are transcribed by OpenAI Whisper with your own key and billed to your OpenAI account.")
+                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper.")
                 }
                 .listRowBackground(Theme.surface)
                 #endif
 
                 Section {
                     Toggle("Bot avatars", isOn: $botAvatars)
+                    #if os(iOS)
+                    NavigationLink("App icon") { AppIconPicker() }
+                    #endif
                 } header: {
                     Text("Appearance")
                 } footer: {
@@ -95,6 +96,12 @@ struct ProfileSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.canvas)
+            #if os(iOS)
+            .navigationDestination(isPresented: $showAppIcons) { AppIconPicker() }
+            #endif
+            #if DEBUG
+            .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showAppIcons = true } }
+            #endif
             .sheet(isPresented: $editing) { EditProfileSheet(user: currentUser) }
             .refreshable { await session.refreshUser() }
             .navigationTitle("Account")
@@ -173,14 +180,16 @@ private struct EditProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var username: String
-    @State private var avatar: String
+    @State private var photo: PhotosPickerItem?
     @State private var saving = false
     @State private var error: String?
+    private let user: NuphosUser
+    private var currentUser: NuphosUser { session.user ?? user }
 
     init(user: NuphosUser) {
+        self.user = user
         _name = State(initialValue: user.name)
         _username = State(initialValue: user.username)
-        _avatar = State(initialValue: user.avatarURL)
     }
 
     var body: some View {
@@ -191,10 +200,27 @@ private struct EditProfileSheet: View {
                     TextField("Username", text: $username).textInputAutocapitalization(.never).autocorrectionDisabled()
                 }
                 Section {
-                    TextField("Google profile image URL (optional)", text: $avatar)
-                        .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    HStack(spacing: 14) {
+                        AvatarView(user: currentUser, size: 56)
+                        PhotosPicker(currentUser.avatarURL.isEmpty ? "Choose photo" : "Change photo", selection: $photo, matching: .images)
+                    }
+                    if !currentUser.avatarURL.isEmpty {
+                        Button("Remove photo", role: .destructive) { setAvatar(nil) }
+                    }
                 } footer: {
-                    Text("Use an existing Google profile image URL, or leave this empty for your initials.")
+                    Text("Without a photo, your initials are shown.")
+                }
+                .onChange(of: photo) { _, item in
+                    guard let item else { return }
+                    photo = nil
+                    Task {
+                        guard let data = try? await item.loadTransferable(type: Data.self),
+                              let image = ImageAttachment.avatar(from: data) else {
+                            error = "This image could not be read."
+                            return
+                        }
+                        setAvatar(image)
+                    }
                 }
                 if let error { Text(error).foregroundStyle(.red) }
             }
@@ -208,13 +234,22 @@ private struct EditProfileSheet: View {
                         Task {
                             defer { saving = false }
                             do {
-                                try await session.updateProfile(name: name.trimmingCharacters(in: .whitespacesAndNewlines), username: username.trimmingCharacters(in: .whitespacesAndNewlines), avatarURL: avatar.trimmingCharacters(in: .whitespacesAndNewlines))
+                                try await session.updateProfile(name: name.trimmingCharacters(in: .whitespacesAndNewlines), username: username.trimmingCharacters(in: .whitespacesAndNewlines), avatarURL: currentUser.avatarURL)
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }
                     }.disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || username.isEmpty || name.count > 100 || username.count > 40)
                 }
             }
+        }
+    }
+
+    private func setAvatar(_ image: Data?) {
+        saving = true
+        error = nil
+        Task {
+            defer { saving = false }
+            do { try await session.setAvatar(image) } catch { self.error = error.localizedDescription }
         }
     }
 }

@@ -1,4 +1,4 @@
-import { frameMayHaveStartedToolExecution } from '../agent-stream-retry.ts'
+import { frameShowsTurnRan } from '../agent-stream-retry.ts'
 
 import {
   AGENT_STREAM_DONE_EVENT,
@@ -99,9 +99,7 @@ export async function consumeChatStream(
         armContentTimer()
         const data = parsed as Record<string, unknown>
 
-        if (frameMayHaveStartedToolExecution(data)) {
-          state.toolExecutionMayHaveStarted = true
-        }
+        if (frameShowsTurnRan(data)) state.turnRan = true
         if (data.type === AGENT_TURN_COMPLETE_EVENT) {
           // This is the semantic terminal frame. atlas-stream-done only closes
           // the transport envelope, so losing it must not turn an already

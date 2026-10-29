@@ -4,21 +4,14 @@ import { parseFrame } from './tunnel-protocol.ts'
 import { connectLocalStream } from './tunnel-streams.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
-import type { BackendFrame, LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
+import type {
+  BackendFrame,
+  LocalRuntimeTunnelStatus,
+  StreamPurpose,
+  TunnelDrop,
+  TunnelPurpose,
+} from './tunnel-protocol.ts'
 import type { DeviceMetrics } from '../../../src/api/device-types.ts'
-
-export type TunnelPurpose = 'transport' | 'control'
-/** What a backend stream may ask this computer for: an agent, one of its local tools, or its agent inventory. */
-export type StreamPurpose =
-  | TunnelPurpose
-  | 'exec'
-  | 'file'
-  | 'attachments'
-  | 'terminal'
-  | 'cua'
-  | 'browser'
-  | 'vnc'
-  | 'instances'
 
 export type SocketEvent = { data?: unknown; code?: number }
 
@@ -70,12 +63,6 @@ export const TUNNEL_IDLE_TIMEOUT_MS = 12_000
 const CLOSE_SUPERSEDED = 4000
 const CLOSE_REVOKED = 4003
 
-export function tunnelReconnectDelayMs(attempt: number): number {
-  return (
-    RECONNECT_BACKOFF_MS[Math.min(Math.max(attempt, 0), RECONNECT_BACKOFF_MS.length - 1)] ?? 10_000
-  )
-}
-
 /** One reconnecting backend tunnel; agent runtime listeners stay on loopback. */
 export class RuntimeTunnelClient {
   private readonly instanceStreams: InstanceStreams
@@ -88,6 +75,8 @@ export class RuntimeTunnelClient {
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
   private idleTimer: ReturnType<typeof setTimeout> | undefined
+  private lastFrameAt: number | undefined // unset until the socket opens
+  private dropped: TunnelDrop | undefined // why the last live socket was given up
   private readonly deps: TunnelClientDeps
 
   constructor(deps: TunnelClientDeps) {
@@ -112,7 +101,7 @@ export class RuntimeTunnelClient {
   /** Dials again now instead of waiting out the backoff, e.g. after the computer woke up. */
   reconnectNow(): void {
     if (!this.running) return
-    this.drop()
+    this.drop('reconnect')
     this.attempt = 0
     this.connect()
   }
@@ -134,7 +123,10 @@ export class RuntimeTunnelClient {
     })
   }
 
-  private drop(): void {
+  private drop(reason?: TunnelDrop['reason'], code?: number): void {
+    // Only a socket that opened counts; a failed dial is not a lost tunnel.
+    if (reason && this.lastFrameAt !== undefined)
+      this.dropped ??= { reason, code, silentMs: Date.now() - this.lastFrameAt }
     this.stopMetrics?.()
     clearTimeout(this.reconnectTimer)
     clearTimeout(this.idleTimer)
@@ -157,7 +149,7 @@ export class RuntimeTunnelClient {
     clearTimeout(this.idleTimer)
     this.idleTimer = setTimeout(() => {
       if (this.socket !== socket) return
-      this.drop()
+      this.drop('idle')
       this.deps.onChange?.(false, this.superseded)
       this.scheduleReconnect()
     }, TUNNEL_IDLE_TIMEOUT_MS)
@@ -174,12 +166,16 @@ export class RuntimeTunnelClient {
       return
     }
     this.socket = socket
+    this.lastFrameAt = undefined
     this.armIdle(socket)
     socket.addEventListener('open', () => {
       if (this.socket !== socket) return
       this.attempt = 0
       this.superseded = false
+      this.lastFrameAt = Date.now()
       this.sendStatus()
+      if (this.dropped) this.send({ t: 'dropped', ...this.dropped })
+      this.dropped = undefined
       // Reported from the start, so a viewer's first look is already live.
       this.stopMetrics = reportMetrics(this.deps.sampleMetrics, (metrics) =>
         this.send({ t: 'metrics', metrics }),
@@ -188,6 +184,7 @@ export class RuntimeTunnelClient {
     })
     socket.addEventListener('message', (event) => {
       if (this.socket !== socket) return
+      this.lastFrameAt = Date.now()
       this.armIdle(socket)
       const frame = parseFrame(event.data)
 
@@ -195,7 +192,7 @@ export class RuntimeTunnelClient {
     })
     socket.addEventListener('close', (event) => {
       if (this.socket !== socket) return
-      this.drop()
+      this.drop('closed', event.code)
       // Taken over: redial with reclaim, which the backend refuses while the other app holds it.
       if (event.code === CLOSE_SUPERSEDED) this.superseded = true
       this.deps.onChange?.(false, this.superseded)
@@ -206,7 +203,7 @@ export class RuntimeTunnelClient {
     })
     socket.addEventListener('error', () => {
       if (this.socket !== socket) return
-      this.drop()
+      this.drop('error')
       this.deps.onChange?.(false, this.superseded)
       this.scheduleReconnect()
     })
@@ -214,7 +211,7 @@ export class RuntimeTunnelClient {
 
   private scheduleReconnect(): void {
     if (!this.running) return
-    const delay = tunnelReconnectDelayMs(this.attempt)
+    const delay = RECONNECT_BACKOFF_MS[Math.min(this.attempt, RECONNECT_BACKOFF_MS.length - 1)]
 
     this.attempt += 1
     clearTimeout(this.reconnectTimer)

@@ -50,8 +50,21 @@ function resetAnonymousIdentity(): void {
   aliased = false
 }
 
+// The "Send crash reports and usage data" setting (see crash-reporter.ts).
+// The client is only built once the app is ready (initMainAnalytics), after
+// fetch is routed through Chromium; a toggle before that only records it.
+let enabled = true
+let ready = false
+
+export function setMainAnalyticsEnabled(on: boolean): void {
+  enabled = on
+  if (client) void (on ? client.enable() : client.disable())
+  else if (on && ready) initMainAnalytics()
+}
+
 export function initMainAnalytics(): void {
-  if (client || !KEY) return
+  ready = true
+  if (client || !KEY || !enabled) return
   client = new PostHog(KEY, {
     host: HOST,
     flushAt: 1,

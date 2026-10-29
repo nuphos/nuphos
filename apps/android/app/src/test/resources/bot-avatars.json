@@ -1,0 +1,446 @@
+[
+  {
+    "id": "",
+    "file": "10-van-gogh.svg"
+  },
+  {
+    "id": "agent-0",
+    "file": "28-the-sleeping-gypsy.svg"
+  },
+  {
+    "id": "a155f25d-32b1-45d4-837c-9bb6d4e5155e",
+    "file": "20-son-of-man.svg"
+  },
+  {
+    "id": "e83a6fec-ef67-472f-afe8-a3fc51e06045",
+    "file": "07-ada.svg"
+  },
+  {
+    "id": "098c7cf0-7870-4026-8a0f-e76f1cbdba76",
+    "file": "15-cleopatra.svg"
+  },
+  {
+    "id": "ABCDEF01-2345-6789-ABCD-0123456789AB",
+    "file": "14-napoleon.svg"
+  },
+  {
+    "id": "畫中少女",
+    "file": "14-napoleon.svg"
+  },
+  {
+    "id": "é",
+    "file": "01-vermeer-girl.svg"
+  },
+  {
+    "id": "é",
+    "file": "16-athena.svg"
+  },
+  {
+    "id": "🤖agent",
+    "file": "03-mona-lisa.svg"
+  },
+  {
+    "id": "a\r\nb",
+    "file": "12-newton.svg"
+  },
+  {
+    "id": "agent-0",
+    "file": "28-the-sleeping-gypsy.svg"
+  },
+  {
+    "id": "agent-1",
+    "file": "09-frida.svg"
+  },
+  {
+    "id": "agent-2",
+    "file": "10-van-gogh.svg"
+  },
+  {
+    "id": "agent-3",
+    "file": "19-the-fifer.svg"
+  },
+  {
+    "id": "agent-4",
+    "file": "20-son-of-man.svg"
+  },
+  {
+    "id": "agent-5",
+    "file": "01-vermeer-girl.svg"
+  },
+  {
+    "id": "agent-6",
+    "file": "02-leonardo.svg"
+  },
+  {
+    "id": "agent-7",
+    "file": "11-mozart.svg"
+  },
+  {
+    "id": "agent-8",
+    "file": "12-newton.svg"
+  },
+  {
+    "id": "agent-9",
+    "file": "21-the-milkmaid.svg"
+  },
+  {
+    "id": "agent-10",
+    "file": "25-infanta.svg"
+  },
+  {
+    "id": "agent-11",
+    "file": "16-athena.svg"
+  },
+  {
+    "id": "agent-12",
+    "file": "07-ada.svg"
+  },
+  {
+    "id": "agent-13",
+    "file": "26-the-swing.svg"
+  },
+  {
+    "id": "agent-14",
+    "file": "17-the-scream.svg"
+  },
+  {
+    "id": "agent-15",
+    "file": "08-socrates.svg"
+  },
+  {
+    "id": "agent-16",
+    "file": "27-the-astronomer.svg"
+  },
+  {
+    "id": "agent-17",
+    "file": "18-american-gothic.svg"
+  },
+  {
+    "id": "agent-18",
+    "file": "09-frida.svg"
+  },
+  {
+    "id": "agent-19",
+    "file": "28-the-sleeping-gypsy.svg"
+  },
+  {
+    "id": "agent-20",
+    "file": "04-venus.svg"
+  },
+  {
+    "id": "agent-21",
+    "file": "13-shakespeare.svg"
+  },
+  {
+    "id": "agent-22",
+    "file": "10-van-gogh.svg"
+  },
+  {
+    "id": "agent-23",
+    "file": "19-the-fifer.svg"
+  },
+  {
+    "id": "agent-24",
+    "file": "20-son-of-man.svg"
+  },
+  {
+    "id": "agent-25",
+    "file": "01-vermeer-girl.svg"
+  },
+  {
+    "id": "agent-26",
+    "file": "02-leonardo.svg"
+  },
+  {
+    "id": "agent-27",
+    "file": "11-mozart.svg"
+  },
+  {
+    "id": "agent-28",
+    "file": "20-son-of-man.svg"
+  },
+  {
+    "id": "agent-29",
+    "file": "01-vermeer-girl.svg"
+  },
+  {
+    "id": "agent-30",
+    "file": "19-the-fifer.svg"
+  },
+  {
+    "id": "agent-31",
+    "file": "10-van-gogh.svg"
+  },
+  {
+    "id": "agent-32",
+    "file": "09-frida.svg"
+  },
+  {
+    "id": "agent-33",
+    "file": "28-the-sleeping-gypsy.svg"
+  },
+  {
+    "id": "agent-34",
+    "file": "27-the-astronomer.svg"
+  },
+  {
+    "id": "agent-35",
+    "file": "18-american-gothic.svg"
+  },
+  {
+    "id": "agent-36",
+    "file": "17-the-scream.svg"
+  },
+  {
+    "id": "agent-37",
+    "file": "08-socrates.svg"
+  },
+  {
+    "id": "agent-38",
+    "file": "27-the-astronomer.svg"
+  },
+  {
+    "id": "agent-39",
+    "file": "18-american-gothic.svg"
+  },
+  {
+    "id": "agent-40",
+    "file": "26-the-swing.svg"
+  },
+  {
+    "id": "agent-41",
+    "file": "07-ada.svg"
+  },
+  {
+    "id": "agent-42",
+    "file": "16-athena.svg"
+  },
+  {
+    "id": "agent-43",
+    "file": "25-infanta.svg"
+  },
+  {
+    "id": "agent-44",
+    "file": "06-beethoven.svg"
+  },
+  {
+    "id": "agent-45",
+    "file": "15-cleopatra.svg"
+  },
+  {
+    "id": "agent-46",
+    "file": "24-the-blue-boy.svg"
+  },
+  {
+    "id": "agent-47",
+    "file": "05-rembrandt.svg"
+  },
+  {
+    "id": "agent-48",
+    "file": "14-napoleon.svg"
+  },
+  {
+    "id": "agent-49",
+    "file": "23-girl-with-peaches.svg"
+  },
+  {
+    "id": "agent-50",
+    "file": "13-shakespeare.svg"
+  },
+  {
+    "id": "agent-51",
+    "file": "04-venus.svg"
+  },
+  {
+    "id": "agent-52",
+    "file": "23-girl-with-peaches.svg"
+  },
+  {
+    "id": "agent-53",
+    "file": "14-napoleon.svg"
+  },
+  {
+    "id": "agent-54",
+    "file": "21-the-milkmaid.svg"
+  },
+  {
+    "id": "agent-55",
+    "file": "12-newton.svg"
+  },
+  {
+    "id": "agent-56",
+    "file": "03-mona-lisa.svg"
+  },
+  {
+    "id": "agent-57",
+    "file": "22-lady-with-an-ermine.svg"
+  },
+  {
+    "id": "agent-58",
+    "file": "05-rembrandt.svg"
+  },
+  {
+    "id": "agent-59",
+    "file": "24-the-blue-boy.svg"
+  },
+  {
+    "id": "agent-60",
+    "file": "28-the-sleeping-gypsy.svg"
+  },
+  {
+    "id": "agent-61",
+    "file": "09-frida.svg"
+  },
+  {
+    "id": "agent-62",
+    "file": "10-van-gogh.svg"
+  },
+  {
+    "id": "agent-63",
+    "file": "19-the-fifer.svg"
+  },
+  {
+    "id": "agent-64",
+    "file": "08-socrates.svg"
+  },
+  {
+    "id": "agent-65",
+    "file": "17-the-scream.svg"
+  },
+  {
+    "id": "agent-66",
+    "file": "18-american-gothic.svg"
+  },
+  {
+    "id": "agent-67",
+    "file": "27-the-astronomer.svg"
+  },
+  {
+    "id": "agent-68",
+    "file": "12-newton.svg"
+  },
+  {
+    "id": "agent-69",
+    "file": "21-the-milkmaid.svg"
+  },
+  {
+    "id": "agent-70",
+    "file": "15-cleopatra.svg"
+  },
+  {
+    "id": "agent-71",
+    "file": "06-beethoven.svg"
+  },
+  {
+    "id": "agent-72",
+    "file": "05-rembrandt.svg"
+  },
+  {
+    "id": "agent-73",
+    "file": "24-the-blue-boy.svg"
+  },
+  {
+    "id": "agent-74",
+    "file": "07-ada.svg"
+  },
+  {
+    "id": "agent-75",
+    "file": "26-the-swing.svg"
+  },
+  {
+    "id": "agent-76",
+    "file": "25-infanta.svg"
+  },
+  {
+    "id": "agent-77",
+    "file": "16-athena.svg"
+  },
+  {
+    "id": "agent-78",
+    "file": "27-the-astronomer.svg"
+  },
+  {
+    "id": "agent-79",
+    "file": "18-american-gothic.svg"
+  },
+  {
+    "id": "agent-80",
+    "file": "18-american-gothic.svg"
+  },
+  {
+    "id": "agent-81",
+    "file": "27-the-astronomer.svg"
+  },
+  {
+    "id": "agent-82",
+    "file": "08-socrates.svg"
+  },
+  {
+    "id": "agent-83",
+    "file": "17-the-scream.svg"
+  },
+  {
+    "id": "agent-84",
+    "file": "10-van-gogh.svg"
+  },
+  {
+    "id": "agent-85",
+    "file": "19-the-fifer.svg"
+  },
+  {
+    "id": "agent-86",
+    "file": "28-the-sleeping-gypsy.svg"
+  },
+  {
+    "id": "agent-87",
+    "file": "09-frida.svg"
+  },
+  {
+    "id": "agent-88",
+    "file": "10-van-gogh.svg"
+  },
+  {
+    "id": "agent-89",
+    "file": "19-the-fifer.svg"
+  },
+  {
+    "id": "agent-90",
+    "file": "13-shakespeare.svg"
+  },
+  {
+    "id": "agent-91",
+    "file": "04-venus.svg"
+  },
+  {
+    "id": "agent-92",
+    "file": "23-girl-with-peaches.svg"
+  },
+  {
+    "id": "agent-93",
+    "file": "14-napoleon.svg"
+  },
+  {
+    "id": "agent-94",
+    "file": "05-rembrandt.svg"
+  },
+  {
+    "id": "agent-95",
+    "file": "24-the-blue-boy.svg"
+  },
+  {
+    "id": "agent-96",
+    "file": "15-cleopatra.svg"
+  },
+  {
+    "id": "agent-97",
+    "file": "06-beethoven.svg"
+  },
+  {
+    "id": "agent-98",
+    "file": "01-vermeer-girl.svg"
+  },
+  {
+    "id": "agent-99",
+    "file": "20-son-of-man.svg"
+  }
+]

@@ -59,11 +59,18 @@ useGithubHttp({
     if (url.includes('/access_tokens'))
       return Response.json({ token: 'test-token', expires_at: '2099-01-01T00:00:00Z' })
 
+    if (url.includes('/check-runs'))
+      return Response.json({ check_runs: [{ conclusion: 'success' }, { conclusion: 'failure' }] })
+    if (url.endsWith('/status')) return Response.json({ state: 'success', total_count: 1 })
+    if (url.includes('/reviews')) return Response.json([])
+
     return Response.json({
       number: 56,
       title: 'Verified PR',
       state: 'open',
       merged: false,
+      mergeable_state: 'clean',
+      head: { sha: 'a'.repeat(40) },
       base: { repo: { id: 34, full_name: 'org/repo' } },
     })
   },
@@ -174,9 +181,12 @@ test('binding resolves provider-owned identity instead of trusting a caller titl
     key: 'github/12/34/56',
     title: 'Verified PR',
     url: 'https://github.com/org/repo/pull/56',
+    // A failed check run on the head commit: the tag starts red.
+    health: 'checks_failed',
   })
   expect(updates).toHaveLength(1)
-  expect(lookupCount).toBe(2)
+  // The token and the PR, then its check runs, status and reviews (the PR is not fetched twice).
+  expect(lookupCount).toBe(5)
 })
 test('linking the same verified resource is idempotent', async () => {
   expect(

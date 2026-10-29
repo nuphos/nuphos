@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 
 import { api } from '../../../api'
 import { parseAtlasError } from '../../../api/errors'
+import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
 import { optimisticSenderMetadata } from './optimisticSender'
@@ -96,7 +97,7 @@ export function useSteering({
       } catch (error) {
         if (queuedId) {
           markSteering(false)
-          toast.apiError('Could not send into the running turn; it is still in the queue', error)
+          toast.apiError(t('Could not send into the running turn; it is still in the queue'), error)
 
           return
         }
@@ -104,7 +105,9 @@ export function useSteering({
         setTabs((tabs) => tabs.map((t) => (t.id === tabId ? withoutQueued(t, id) : t)))
         if (!isSteeringUnavailable(error))
           toast.apiError(
-            'Could not steer the current turn; it was sent as a message at the back of the queue',
+            t(
+              'Could not steer the current turn; it was sent as a message at the back of the queue',
+            ),
             error,
           )
         await fallback(tabId, text, filePaths)

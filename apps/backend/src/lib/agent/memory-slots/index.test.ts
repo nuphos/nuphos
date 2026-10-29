@@ -18,7 +18,7 @@ const makeProvider = (
     collectionPrefix?: string
     dataResidency?: 'local' | 'external'
     vendorName?: string
-    slots?: Partial<Pick<MemoryProvider, 'recall' | 'tools' | 'ingest' | 'records'>> | null
+    slots?: Partial<Pick<MemoryProvider, 'tools' | 'records'>> | null
   } = {},
 ): MemoryProvider => ({
   meta: {
@@ -32,7 +32,7 @@ const makeProvider = (
   setup: async () => {},
   availability: async () => ({ state: 'ready' }),
   // null = deliberately slotless (invariant violation); default one slot.
-  ...(over.slots === null ? {} : (over.slots ?? { recall: { render: async () => null } })),
+  ...(over.slots === null ? {} : (over.slots ?? { tools: { create: () => ({}) } })),
 })
 
 const reg = (...providers: MemoryProvider[]): Record<string, MemoryProvider> =>
@@ -113,10 +113,8 @@ describe('assertRegistryInvariants', () => {
   })
 
   test('accepts each single slot as sufficient', () => {
-    const slots: Partial<Pick<MemoryProvider, 'recall' | 'tools' | 'ingest' | 'records'>>[] = [
-      { recall: { render: async () => null } },
+    const slots: Partial<Pick<MemoryProvider, 'tools' | 'records'>>[] = [
       { tools: { create: () => ({}) } },
-      { ingest: { onTurnFinished: async () => null } },
       {
         records: {
           cursorTier: 'strict',

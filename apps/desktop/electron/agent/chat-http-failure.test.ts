@@ -205,3 +205,27 @@ test('a fresh start that still finds no conversation surfaces the error', async 
 
   assert.equal(await resumeAfterReconnect(state, conversationNotFound()), 'stop')
 })
+
+const outOfSync = (details?: unknown) =>
+  new Response(
+    JSON.stringify({
+      error: { code: 'transcript_out_of_sync', message: 'out of sync', details },
+    }),
+    { status: 409 },
+  )
+
+test('an out-of-sync tail rebases onto the stored count once, then surfaces the error', async () => {
+  const state = createChatStreamState(0)
+
+  assert.equal(await resumeAfterReconnect(state, outOfSync({ storedMessageCount: 7 })), 'retry')
+  assert.equal(state.rebaseBaseIndex, 7)
+  assert.equal(await resumeAfterReconnect(state, outOfSync({ storedMessageCount: 7 })), 'stop')
+})
+
+test('an older backend that omits the count (no conversation) gets the tail on an empty prefix', async () => {
+  const state = createChatStreamState(0)
+
+  assert.equal(await resumeAfterReconnect(state, outOfSync()), 'retry')
+  assert.equal(state.rebaseBaseIndex, 0)
+  assert.equal(await resumeAfterReconnect(state, outOfSync()), 'stop')
+})

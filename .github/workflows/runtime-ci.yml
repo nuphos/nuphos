@@ -35,6 +35,8 @@ jobs:
         run: npm ci --ignore-scripts --prefix image/codex-acp
       - name: Exercise the patched adapter against a Codex App Server fixture
         run: node test/codex-acp-smoke.mjs image/codex-acp/node_modules/@agentclientprotocol/codex-acp/dist/index.js
+      - name: End the turn and exit when Codex App Server dies
+        run: node --test test/codex-process-death-smoke.mjs
       - name: Steer an active turn through the patched adapter
         run: node --test test/codex-steering.test.mjs test/codex-steering-smoke.mjs
       - name: Verify environment isolation in a real Codex shell

@@ -91,8 +91,10 @@ export const teamApi = {
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: HomeLayout | null) =>
     window.api.atlasPutHomeLayout(teamId, scope, layout),
   atlasCreateTeam: (name: string) => window.api.atlasCreateTeam(name),
-  atlasUpdateTeam: (teamId: string, input: { name?: string; avatarUrl?: string }) =>
+  atlasUpdateTeam: (teamId: string, input: { name: string }) =>
     window.api.atlasUpdateTeam(teamId, input),
+  atlasSetTeamAvatar: (teamId: string, image: Uint8Array | null) =>
+    window.api.atlasSetTeamAvatar(teamId, image),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
     window.api.atlasSetTeamEmailDomainDiscovery(teamId, enabled),
   atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>

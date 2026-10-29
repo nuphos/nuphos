@@ -4,6 +4,13 @@ import type { SessionResourcesResponse } from './session-resource-types'
 /** Who may open a session and what they may do there. */
 export type WindowSessionAccessApi = {
   agentGetSessionResources(sessionId: string, teamId: string): Promise<SessionResourcesResponse>
+  /** Writes a secret to a file on the session's runtime; only the path comes back. */
+  agentSaveSecret(
+    sessionId: string,
+    name: string,
+    value: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean; path: string }>
   agentUnlinkSessionResource(
     sessionId: string,
     teamId: string,

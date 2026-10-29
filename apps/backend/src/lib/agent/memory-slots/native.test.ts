@@ -1,6 +1,6 @@
 // T3: native adapter behind the SPI. Real memory-native flows run against an
 // in-memory Mongo stand-in (same approach as memory-native.test.ts /
-// attribution-store.test.ts); identity + distill are module-mocked. The
+// attribution-store.test.ts); identity is module-mocked. The
 // adapter's contract under test: full delegation, and the internal 'gene'
 // vocabulary NEVER crossing the SPI boundary.
 
@@ -9,7 +9,6 @@ import { ObjectId } from 'mongodb'
 
 import * as configActual from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
-import { useDistill } from '@/lib/test/doubles/distill'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import type {
@@ -19,9 +18,7 @@ import type {
   MemorySearchedEvent,
   MemoryToolContext,
   MemoryViewer,
-  TurnDigest,
 } from './types'
-import type { DistillDecision, distillTurnMemory } from '../memory-native/distill'
 import type * as dbActual from '@/lib/db'
 import type * as identityActual from '@/lib/identity'
 
@@ -31,8 +28,8 @@ import type * as identityActual from '@/lib/identity'
 // Eager namespace snapshots for post-suite restore: once mock.module installs,
 // the `*Actual` live bindings point AT the mock — spreading them later would
 // re-capture the mock. bun runs every test file in one process, so a mock of
-// a shared module (config, distill) leaks into files that need the real one
-// (distill.test.ts). afterAll below re-mocks each specifier with these
+// a shared module (config) leaks into files that need the real one.
+// afterAll below re-mocks each specifier with these
 // snapshots to undo the pollution.
 const configModuleSnapshot = { ...configActual }
 
@@ -61,21 +58,6 @@ useIdentity({
     membershipRole
       ? { role: membershipRole, team: { id: TEAM, name: 'SPI Team' } }
       : null) as unknown as typeof identityActual.getTeamMembership,
-})
-
-// ── Distill: mutable implementation + input capture (alreadyKnown threading) ─
-// Overrides keep the REAL parameter types (double-registry contract), so the
-// capture cannot drift from distillTurnMemory's signature.
-type DistillInput = Parameters<typeof distillTurnMemory>[0]
-let distillImpl: () => Promise<DistillDecision> = async () => ({ outcome: 'no_learn' })
-let lastDistillInput: DistillInput | null = null
-
-useDistill({
-  distillTurnMemory: (input) => {
-    lastDistillInput = input
-
-    return distillImpl()
-  },
 })
 
 // ── Mongo stand-in (memory-native.test.ts pattern, extended with the query
@@ -355,23 +337,6 @@ const viewer = (scope: MemoryViewer['scope'], teamId: string | null = TEAM): Mem
   scope,
 })
 
-const digest = (over: Partial<TurnDigest> = {}): TurnDigest => ({
-  conversationId: CONV,
-  userId: USER,
-  teamId: TEAM,
-  origin: 'user',
-  messages: [
-    { role: 'user', content: 'we always deploy through the canary pipeline first' },
-    { role: 'assistant', content: 'Understood — canary pipeline first, noted for the team.' },
-  ],
-  planId: null,
-  startedAt: '2026-07-25T00:00:00.000Z',
-  finishedAt: '2026-07-25T00:00:05.000Z',
-  ...over,
-})
-
-const abortOpts = () => ({ signal: new AbortController().signal })
-
 // 'gene' must never cross the SPI boundary in vocabulary positions (kind
 // fields). It may legitimately appear INSIDE opaque payloads (extra.gene is
 // the byte-compat wire field; playbook text bodies may mention anything).
@@ -387,13 +352,8 @@ beforeEach(() => {
     c.docs = []
   })
   membershipRole = 'EDITOR'
-  distillImpl = async () => ({ outcome: 'no_learn' })
-  lastDistillInput = null
   for (const key of Object.keys(agentOverrides)) delete agentOverrides[key]
-  agentOverrides.memoryDeliveryMode = 'injection'
-  agentOverrides.memoryAutoIngest = true
   agentOverrides.memoryRerankEnabled = false
-  agentOverrides.memoryIndexRanking = 'recency'
 })
 
 describe('provider surface', () => {
@@ -412,7 +372,8 @@ describe('provider surface', () => {
     expect(await nativeMemoryProvider.availability({ teamId: null })).toEqual({ state: 'ready' })
     expect(await nativeMemoryProvider.availability({ teamId: TEAM })).toEqual({ state: 'ready' })
     expect(nativeMemoryProvider.feedback).toBeUndefined()
-    expect(nativeMemoryProvider.webhook).toBeUndefined()
+    expect(nativeMemoryProvider).not.toHaveProperty('recall')
+    expect(nativeMemoryProvider).not.toHaveProperty('ingest')
     expect(nativeMemoryProvider).not.toHaveProperty('purgeUser')
     expect(nativeMemoryProvider).not.toHaveProperty('purgeTeam')
     expect(nativeMemoryProvider.records?.cursorTier).toBe('strict')
@@ -421,41 +382,6 @@ describe('provider surface', () => {
   test('setup() delegates to the native index builder and is idempotent', async () => {
     await nativeMemoryProvider.setup()
     await nativeMemoryProvider.setup()
-  })
-})
-
-describe('recall.render', () => {
-  test('injection mode: entries translate gene→playbook, counts demote to diagnostics', async () => {
-    const playbookId = seedPlaybook()
-    const recordId = seedRecord()
-    const rendered = await nativeMemoryProvider.recall!.render(
-      { userId: USER, teamId: TEAM, query: 'anything', conversationId: CONV },
-      abortOpts(),
-    )
-
-    expect(rendered).not.toBeNull()
-    expect(rendered!.block).toContain('Pod OOM triage')
-    expect(rendered!.placement).toBe('system-block')
-    const team = rendered!.recalled.find((e) => e.id === playbookId.toHexString())
-    const personal = rendered!.recalled.find((e) => e.id === recordId.toHexString())
-
-    expect(team).toMatchObject({ scope: 'team', kind: 'playbook', label: 'Pod OOM triage' })
-    expect(personal).toMatchObject({ scope: 'personal', kind: 'record' })
-    expect(rendered!.recalled.map((e) => e.kind)).not.toContain('gene')
-    expect(rendered!.diagnostics).toMatchObject({ teamCount: 1, personalCount: 1 })
-  })
-
-  test('automatic mode: empty query renders nothing, placement is user-message-tail', async () => {
-    agentOverrides.memoryDeliveryMode = 'automatic'
-    const rendered = await nativeMemoryProvider.recall!.render(
-      { userId: USER, teamId: TEAM, query: null, conversationId: CONV },
-      abortOpts(),
-    )
-
-    expect(rendered).not.toBeNull()
-    expect(rendered!.block).toBeNull()
-    expect(rendered!.recalled).toEqual([])
-    expect(rendered!.placement).toBe('user-message-tail')
   })
 })
 
@@ -628,196 +554,6 @@ describe('tools.create observer bridging', () => {
     // Search hits are fetches too — translated, never 'gene'.
     expect(events.fetched.length).toBeGreaterThanOrEqual(1)
     expect(kindsOf(events)).not.toContain('gene')
-  })
-})
-
-describe('ingest.onTurnFinished', () => {
-  test('non-user origin (flag on) → skipped_origin diagnostics, never a bare null', async () => {
-    // The dispatcher writes a distill outcome only from diagnostics — a bare
-    // null here would leave 'skipped_disabled' lying about WHY nothing ran.
-    for (const origin of ['trigger'] as const) {
-      expect(
-        await nativeMemoryProvider.ingest!.onTurnFinished(digest({ origin }), abortOpts()),
-      ).toEqual({
-        saved: [],
-        status: 'completed',
-        diagnostics: { outcome: 'skipped_origin' },
-      })
-    }
-  })
-
-  test('flag off → bare null (the dispatcher must write NOTHING)', async () => {
-    agentOverrides.memoryAutoIngest = false
-    expect(await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())).toBeNull()
-    // Flag off wins over origin: still null, not skipped_origin.
-    expect(
-      await nativeMemoryProvider.ingest!.onTurnFinished(digest({ origin: 'trigger' }), abortOpts()),
-    ).toBeNull()
-  })
-
-  test('digest.alreadyRecalled threads into the distiller as alreadyKnown', async () => {
-    await nativeMemoryProvider.ingest!.onTurnFinished(
-      digest({ alreadyRecalled: ['OOM triage', 'kubectl preference'] }),
-      abortOpts(),
-    )
-    expect(lastDistillInput?.alreadyKnown).toEqual(['OOM triage', 'kubectl preference'])
-    // Absent stays a safe empty array, never undefined.
-    await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-    expect(lastDistillInput?.alreadyKnown).toEqual([])
-  })
-
-  test('a same-turn saved title folded into alreadyRecalled reaches alreadyKnown', async () => {
-    // The dispatcher folds explicit-save titles into the SAME hint field —
-    // the adapter must not need a second SPI field to see them.
-    await nativeMemoryProvider.ingest!.onTurnFinished(
-      digest({ alreadyRecalled: ['OOM triage', 'Prefers canary deploys'] }),
-      abortOpts(),
-    )
-    expect(lastDistillInput?.alreadyKnown).toEqual(['OOM triage', 'Prefers canary deploys'])
-  })
-
-  test('thrown distill resolves null — never rejects into the caller', async () => {
-    distillImpl = async () => {
-      throw new Error('model exploded')
-    }
-    await expect(
-      nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts()),
-    ).resolves.toBeNull()
-  })
-
-  test('non-learned outcome → zero-yield with diagnostics', async () => {
-    distillImpl = async () => ({ outcome: 'skipped_short' })
-    const outcome = await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-
-    expect(outcome).toEqual({
-      saved: [],
-      status: 'completed',
-      diagnostics: { outcome: 'skipped_short' },
-    })
-  })
-
-  test('learned + EDITOR → team record, auto-learned category, saved[] mapped', async () => {
-    distillImpl = async () => ({
-      outcome: 'learned',
-      memory: {
-        title: 'Canary first',
-        text: 'Deploys go through canary first',
-        type: 'fact',
-        categories: ['deploy'],
-      },
-    })
-    const outcome = await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-
-    expect(outcome?.diagnostics).toEqual({ outcome: 'saved' })
-    expect(outcome?.status).toBe('completed')
-    expect(outcome?.saved).toHaveLength(1)
-    expect(outcome?.saved[0]).toMatchObject({
-      scope: 'team',
-      kind: 'record',
-      title: 'Canary first',
-      action: 'created',
-      type: 'fact',
-      categories: ['deploy', 'auto-learned'],
-    })
-    // Real timestamps ride the event so the runtime's frame renderer needs no
-    // re-read (auto-ingest records are fresh: createdAt === updatedAt).
-    expect(outcome?.saved[0]?.createdAt).toBeTruthy()
-    expect(outcome?.saved[0]?.updatedAt).toBe(outcome!.saved[0]!.createdAt!)
-    const doc = fakeCollection('agent_memories').docs[0]!
-
-    expect(doc.scope).toBe('team')
-    expect(doc.source).toBe('auto_ingest')
-    expect(doc.categories as string[]).toContain('auto-learned')
-  })
-
-  test('secret-bearing learned memory → saved with the secret masked, redactedKinds diagnostic', async () => {
-    distillImpl = async () => ({
-      outcome: 'learned',
-      memory: {
-        title: 'Staging DB connection',
-        text: 'Staging app reaches its DB via postgres://app:supersecret1@db-host/app; timeouts mean the old host.',
-        type: 'fact',
-        categories: [],
-      },
-    })
-    const outcome = await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-
-    expect(outcome?.diagnostics).toEqual({ outcome: 'saved', redactedKinds: 'url-credentials' })
-    expect(outcome?.saved).toHaveLength(1)
-    expect(outcome?.saved[0]?.text).not.toContain('supersecret1')
-    const doc = fakeCollection('agent_memories').docs[0]!
-
-    expect(doc.text as string).not.toContain('supersecret1')
-    expect(doc.text as string).toContain('postgres://app:[REDACTED:url-credentials]@db-host/app')
-  })
-
-  test('a memory that is ~all secret keeps the rejected outcome, nothing saved', async () => {
-    distillImpl = async () => ({
-      outcome: 'learned',
-      memory: {
-        title: 'T',
-        text: 'password: "hunter2-s3cret-value"',
-        type: 'fact',
-        categories: [],
-      },
-    })
-    const outcome = await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-
-    expect(outcome?.saved).toEqual([])
-    expect(outcome?.diagnostics?.outcome).toBe('rejected')
-    expect(String(outcome?.diagnostics?.reason)).toContain('secret-bearing')
-    expect(String(outcome?.diagnostics?.reason)).not.toContain('hunter2')
-    expect(fakeCollection('agent_memories').docs).toHaveLength(0)
-  })
-
-  test('learned + VIEWER → personal scope (role gate)', async () => {
-    membershipRole = 'VIEWER'
-    distillImpl = async () => ({
-      outcome: 'learned',
-      memory: {
-        title: 'T',
-        text: 'Viewer-learned fact lands personal',
-        type: 'fact',
-        categories: [],
-      },
-    })
-    const outcome = await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-
-    expect(outcome?.saved[0]?.scope).toBe('personal')
-    expect(fakeCollection('agent_memories').docs[0]!.scope).toBe('personal')
-  })
-
-  test('learned without team → personal scope', async () => {
-    distillImpl = async () => ({
-      outcome: 'learned',
-      memory: { title: 'T', text: 'Solo fact', type: 'fact', categories: [] },
-    })
-    const outcome = await nativeMemoryProvider.ingest!.onTurnFinished(
-      digest({ teamId: null }),
-      abortOpts(),
-    )
-
-    expect(outcome?.saved[0]?.scope).toBe('personal')
-  })
-
-  test('identical live record → deduped, empty saved[]', async () => {
-    distillImpl = async () => ({
-      outcome: 'learned',
-      memory: { title: 'T', text: 'Deploys go through canary first', type: 'fact', categories: [] },
-    })
-    const first = await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-
-    expect(first?.diagnostics).toEqual({ outcome: 'saved' })
-    const second = await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-
-    expect(second).toEqual({ saved: [], status: 'completed', diagnostics: { outcome: 'deduped' } })
-  })
-
-  test('never writes the runtime measurement collections (no recordTurnDistillOutcome)', async () => {
-    distillImpl = async () => ({ outcome: 'no_learn' })
-    await nativeMemoryProvider.ingest!.onTurnFinished(digest(), abortOpts())
-    expect(fakeCollection('memory_runtime_turns').docs).toHaveLength(0)
-    expect(fakeCollection('memory_runtime_attributions').docs).toHaveLength(0)
   })
 })
 

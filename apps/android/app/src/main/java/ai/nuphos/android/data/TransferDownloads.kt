@@ -16,7 +16,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 @Serializable
-data class TransferDownloadGroup(val groupId: String, val expiresAt: String, val files: List<TransferDownloadFile>) {
+data class TransferDownloadGroup(val groupId: String, val expiresAt: String, val files: List<TransferDownloadFile>, val createdAt: String? = null) {
     fun readyFiles(expectedId: String, now: Instant = Instant.now()): List<TransferDownloadFile> {
         require(groupId == expectedId && Instant.parse(expiresAt).isAfter(now))
         require(files.size <= 20 && files.map { it.id }.distinct().size == files.size)
@@ -45,6 +45,18 @@ class TransferDownloads(private val storage: Call.Factory = OkHttpClient.Builder
     .followRedirects(false).followSslRedirects(false).build()) {
     companion object {
         const val MAX_BYTES = 104_857_600L
+        @Serializable
+        private data class Listing(val groups: List<TransferDownloadGroup> = emptyList())
+        suspend fun list(token: String, teamId: String, sessionId: String): List<TransferDownloadGroup> {
+            require(teamId.matches(Regex("[a-fA-F0-9]{24}")) && sessionId.matches(Regex("[A-Za-z0-9-]{1,128}")))
+            val response = AgentChatApi.send("GET", "agent-sessions/$sessionId/teams/$teamId/file-transfers/downloads", token)
+            val groups = Http.json.decodeFromString(Listing.serializer(), response).groups
+            require(groups.size <= 200)
+            return groups.distinctBy { it.groupId }.filter { group ->
+                group.groupId.matches(Regex("[a-fA-F0-9]{24}")) &&
+                    runCatching { group.readyFiles(group.groupId).isNotEmpty() }.getOrDefault(false)
+            }
+        }
         suspend fun group(token: String, teamId: String, groupId: String): TransferDownloadGroup {
             require(teamId.matches(Regex("[a-fA-F0-9]{24}")) && groupId.matches(Regex("[a-fA-F0-9]{24}")))
             return Http.json.decodeFromString(AgentChatApi.send("GET", "teams/$teamId/file-transfers/$groupId/download", token))

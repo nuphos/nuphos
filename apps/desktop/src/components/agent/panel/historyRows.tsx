@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { conversationActivityBadges } from '../../../lib/conversationActivityBadges'
 import { triggerRunLabel } from '../../../lib/triggerRunLabel'
 import { Avatar } from '../../Avatar'
@@ -11,6 +12,12 @@ import { conversationOwnerName, formatHistoryTime } from './conversationMeta'
 
 import type { AgentConversation } from '../../../api'
 import type { ReactNode } from 'react'
+
+function historyTime(value: string): string {
+  const time = formatHistoryTime(value)
+
+  return time === 'now' ? t('now') : time
+}
 
 export function RevealedHistoryBlock({
   children,
@@ -152,15 +159,15 @@ export function HistoryConversationRow({
               titleClassName,
             )}
           >
-            {conversation.title || conversation.firstMessage || 'Untitled agent'}
+            {conversation.title || conversation.firstMessage || t('Untitled agent')}
           </div>
           <div className={clsx('truncate text-[11.5px] text-tertiary', timeClassName)}>
             {/* Waiting on a decision, the question is what the row is about. */}
             {conversation.pendingDecision
-              ? `${formatHistoryTime(conversation.pendingDecision.askedAt)} · ${conversation.pendingDecision.question}`
-              : formatHistoryTime(conversation.lastActiveAt)}
+              ? `${historyTime(conversation.pendingDecision.askedAt)} · ${conversation.pendingDecision.question}`
+              : historyTime(conversation.lastActiveAt)}
             {!conversation.pendingDecision && conversation.messageCount > 0
-              ? ` · ${String(conversation.messageCount)} messages`
+              ? ` · ${t('{n} messages', { n: conversation.messageCount })}`
               : ''}
             {triggerBadge && (
               <>
@@ -184,8 +191,8 @@ export function HistoryConversationRow({
       </button>
       {unread && (
         <span
-          aria-label="Unread reply"
-          title="Unread reply"
+          aria-label={t('Unread reply')}
+          title={t('Unread reply')}
           className="mr-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zViolet-500 group-hover:hidden"
         />
       )}

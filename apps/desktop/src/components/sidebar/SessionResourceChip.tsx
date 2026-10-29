@@ -1,9 +1,11 @@
 import { Terminal, X } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { ResourcePreview } from '../ui/resource-preview'
 
 import { ResourceListMenu } from './ResourceListMenu'
-import { chipNames, resourceLabel } from './sessionResourcePresentation'
+import { ResourceMark } from './ResourceMark'
+import { chipNames, resourceLabel, resourceStatus } from './sessionResourcePresentation'
 import { menuChipClass, resourceStyle, titlebarChip } from './sessionResourceStyle'
 
 import type { ResourceActions } from './ResourceListMenu'
@@ -50,7 +52,11 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
       <ResourceListMenu
         chips={[chip]}
         actions={actions}
-        label={`${String(chip.terminals.length)} terminals`}
+        label={
+          chip.terminals.length === 1
+            ? t('1 terminal')
+            : t('{n} terminals', { n: chip.terminals.length })
+        }
         className={`${menuChipClass(titlebar)} titlebar-no-drag`}
       >
         {content}
@@ -97,8 +103,8 @@ function ResourceBadge({
     titlebar && canManage ? (
       <button
         type="button"
-        aria-label={`Unlink ${label}`}
-        title="Unlink resource"
+        aria-label={t('Unlink {label}', { label })}
+        title={t('Unlink resource')}
         disabled={removing}
         className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
         onPointerDown={(event) => event.stopPropagation()}
@@ -108,7 +114,7 @@ function ResourceBadge({
         }}
       >
         <X className="size-3" />
-        {github && <span>Unlink</span>}
+        {github && <span>{t('Unlink')}</span>}
       </button>
     ) : null
 
@@ -125,10 +131,11 @@ function ResourceBadge({
             : 'inline-flex min-w-0 max-w-40 items-center gap-1'
         }
         title={github ? undefined : `${resource.title} · ${resource.state}`}
-        aria-label={`${label} · ${resource.state}`}
+        aria-label={`${label} · ${resourceStatus(resource)}`}
       >
         <span className="inline-flex shrink-0">{icon}</span>
         <span className="truncate">{label}</span>
+        <ResourceMark resource={resource} />
       </Label>
       {!github && unlinkButton}
     </span>
@@ -141,7 +148,7 @@ function ResourceBadge({
       repository={resource.repository ?? 'GitHub'}
       identifier={label}
       title={resource.title}
-      state={resource.state}
+      state={resourceStatus(resource)}
     >
       {badge}
     </ResourcePreview>

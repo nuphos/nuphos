@@ -66,10 +66,14 @@ export function useConversationCatchUp(acc: Acc): void {
       if (state.polling) return
       state.polling = true
       try {
-        // Metadata probe: `activeRun` and `messageCount` do not depend on how
-        // many messages come back, so ask for one. The transcript tail is
-        // fetched below only when the stored count has grown.
-        const probe = await api.agentGetConversation(sessionId, teamId, { tail: 1 })
+        // Metadata probe: `activeRun` and `messageCount` do not depend on the
+        // messages, so ask for none (a server that predates `messages=omit`
+        // sends the one `tail` allows). The transcript tail is fetched below
+        // only when the stored count has grown.
+        const probe = await api.agentGetConversation(sessionId, teamId, {
+          tail: 1,
+          messages: 'omit',
+        })
 
         if (state.stopped) return
         const current = tabsRef.current.find((tab) => tab.sessionId === sessionId)

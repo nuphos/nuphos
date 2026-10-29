@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 import { ChevronDown, ChevronRight, FileSearch, Loader2, Lock, Plus, Unlock } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import {
   Menu,
   MenuContent,
@@ -63,11 +64,11 @@ function SessionSubmenu({
           {loading && <Loader2 className="ml-auto w-3.5 h-3.5 animate-spin" strokeWidth={2} />}
         </div>
         {error ? (
-          <div className="px-2 py-2 text-[12px] text-error">Failed to load sessions</div>
+          <div className="px-2 py-2 text-[12px] text-error">{t('Failed to load sessions')}</div>
         ) : loading && items.length === 0 ? (
-          <div className="px-2 py-2 text-[12px] text-tertiary">Loading...</div>
+          <div className="px-2 py-2 text-[12px] text-tertiary">{t('Loading...')}</div>
         ) : items.length === 0 ? (
-          <div className="px-2 py-2 text-[12px] text-tertiary">No recent sessions</div>
+          <div className="px-2 py-2 text-[12px] text-tertiary">{t('No recent sessions')}</div>
         ) : (
           <div className="max-h-64 overflow-auto scrollbar-thin">
             {items.map((session) => (
@@ -129,7 +130,7 @@ export function ComposerAttachmentMenu({
     <SessionSubmenu
       source={source}
       label={label}
-      title={onImportSession ? 'Continue one of these on the selected runtime' : title}
+      title={onImportSession ? t('Continue one of these on the selected runtime') : title}
       Icon={Icon}
       items={localSessionsBySource[source] ?? []}
       loading={Boolean(localSessionsLoading[source])}
@@ -151,7 +152,7 @@ export function ComposerAttachmentMenu({
             ? 'text-tertiary'
             : 'text-secondary hover:text-main hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main',
         )}
-        title="Add attachment"
+        title={t('Add attachment')}
       >
         <Plus className="w-4 h-4" strokeWidth={2.2} />
       </MenuTrigger>
@@ -160,37 +161,37 @@ export function ComposerAttachmentMenu({
           <MenuSubmenuTrigger
             icon={<FontAwesomeIcon icon={faPaperclip} className="w-3.5 h-3.5" />}
             chevron={<ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />}
-            title="Attach files or a folder"
+            title={t('Attach files or a folder')}
           >
-            Attach
+            {t('Attach')}
           </MenuSubmenuTrigger>
           <MenuContent alignOffset={-6} className="w-44">
             <MenuItem
               icon={<FileSearch className="w-3.5 h-3.5" strokeWidth={2} />}
               onClick={() => onSelectAttachment()}
-              title="Attach files"
+              title={t('Attach files')}
             >
-              Files
+              {t('Files')}
             </MenuItem>
             <MenuItem
               icon={<FontAwesomeIcon icon={faFolder} className="w-3.5 h-3.5" />}
               onClick={() => onSelectFolderAttachment()}
-              title="Attach a folder (uploaded with its structure)"
+              title={t('Attach a folder (uploaded with its structure)')}
             >
-              Folder
+              {t('Folder')}
             </MenuItem>
           </MenuContent>
         </MenuSubmenu>
         {sessionSubmenu(
           'claude-code',
-          onImportSession ? 'Continue a Claude Code session' : 'Claude Code session',
-          'Claude Code sessions',
+          onImportSession ? t('Continue a Claude Code session') : t('Claude Code session'),
+          t('Claude Code sessions'),
           ClaudeCodeIcon,
         )}
         {sessionSubmenu(
           'codex',
-          onImportSession ? 'Continue a Codex session' : 'Codex session',
-          'Codex sessions',
+          onImportSession ? t('Continue a Codex session') : t('Codex session'),
+          t('Codex sessions'),
           CodexIcon,
         )}
       </MenuContent>
@@ -208,13 +209,13 @@ export function BypassControlMenu({
   return (
     <Menu>
       <MenuTrigger
-        aria-label="Authorization mode"
+        aria-label={t('Authorization mode')}
         className={clsx(
           'hidden @[210px]:flex items-center gap-1.5 flex-shrink-0 rounded-full transition-colors',
           hero ? 'h-8 px-1.5 @[400px]:px-3' : 'h-7 px-1.5 @[400px]:px-2.5',
           'text-secondary hover:text-main hover:bg-zGray-800/60',
         )}
-        title="Choose how commands in this agent are authorized"
+        title={t('Choose how commands in this agent are authorized')}
       >
         <span className="text-[12.5px] font-medium flex items-center">
           {bypassControl.active ? (
@@ -223,10 +224,10 @@ export function BypassControlMenu({
             <Lock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
           )}
           <span className="hidden @[400px]:inline @[520px]:hidden">
-            {bypassControl.active ? 'Full' : 'Auto'}
+            {bypassControl.active ? t('Full') : t('Auto')}
           </span>
           <span className="hidden @[520px]:inline">
-            {bypassControl.active ? 'Full Access' : 'Auto Mode'}
+            {bypassControl.active ? t('Full Access') : t('Auto Mode')}
           </span>
         </span>
         <ChevronDown className="w-3 h-3 opacity-60 hidden @[400px]:block" strokeWidth={2} />
@@ -234,14 +235,18 @@ export function BypassControlMenu({
       <MenuContent side="top" align="start" className="w-64">
         <MenuItem selected={!bypassControl.active} onClick={() => bypassControl.onSelect(false)}>
           <div className="flex flex-col">
-            <span>Auto Mode</span>
-            <span className="text-[11px] text-tertiary">Risky commands ask for your approval</span>
+            <span>{t('Auto Mode')}</span>
+            <span className="text-[11px] text-tertiary">
+              {t('Risky commands ask for your approval')}
+            </span>
           </div>
         </MenuItem>
         <MenuItem selected={bypassControl.active} onClick={() => bypassControl.onSelect(true)}>
           <div className="flex flex-col">
-            <span>Full Access</span>
-            <span className="text-[11px] text-tertiary">Run every command without asking</span>
+            <span>{t('Full Access')}</span>
+            <span className="text-[11px] text-tertiary">
+              {t('Run every command without asking')}
+            </span>
           </div>
         </MenuItem>
       </MenuContent>

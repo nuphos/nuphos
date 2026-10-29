@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - 'deploy/compose/**'
-      - 'deploy/zeabur/**'
       - 'deploy/railway/**'
       - 'deploy/helm/**'
       - 'apps/backend/**'
@@ -44,19 +43,6 @@ jobs:
       - name: Remove test containers and volumes
         if: always()
         run: docker compose down -v --remove-orphans
-
-  zeabur-template:
-    name: Zeabur template validation
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install schema validation tools
-        run: python3 -m pip install PyYAML==6.0.3 jsonschema==4.26.0
-      - name: Validate template and Mongo bootstrap
-        run: python3 deploy/zeabur/check.py --mongo
 
   helm-chart:
     name: Helm chart validation

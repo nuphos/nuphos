@@ -2,12 +2,16 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  changeStatus,
   chipNames,
   fittingChipCount,
   minimumRowWidth,
+  pullStateColor,
   resourceChips,
   resourceFullLabel,
   resourceLabel,
+  resourceMark,
+  resourceStatus,
 } from './sessionResourcePresentation.ts'
 
 import type { SessionResource } from '../../api/session-resource-types'
@@ -114,4 +118,66 @@ test('two PRs and five terminals fold from the end as the titlebar narrows', () 
   // Then the PRs: #630 +2, and at the row's minimum, +3 alone.
   assert.equal(shown(119), 1)
   assert.equal(shown(minimumRowWidth(widths, 24)), 0)
+})
+
+test('an open PR says what holds it up; merged, closed and unblocked PRs say their state', () => {
+  assert.equal(resourceStatus(resource({ health: 'checks_failed' })), 'open · checks failing')
+  assert.equal(
+    resourceStatus(resource({ health: 'changes_requested' })),
+    'open · changes requested',
+  )
+  assert.equal(resourceStatus(resource({ health: 'conflict' })), 'open · merge conflict')
+  assert.equal(resourceStatus(resource({ health: null })), 'open')
+  assert.equal(resourceStatus(resource({})), 'open')
+  // A stale health never outlives the merge.
+  assert.equal(resourceStatus(resource({ state: 'merged', health: 'conflict' })), 'merged')
+})
+
+test('a PR tag keeps its GitHub state color whatever holds it up', () => {
+  for (const health of [undefined, null, 'checks_failed', 'changes_requested', 'conflict'] as const)
+    assert.equal(pullStateColor(resource({ health })), 'session-resource-open')
+  assert.equal(pullStateColor(resource({ state: 'merged' })), 'session-resource-merged')
+  assert.equal(pullStateColor(resource({ state: 'closed' })), 'session-resource-closed')
+})
+
+test('an open PR shows a separate mark for failing checks, requested changes or a conflict', () => {
+  assert.deepEqual(resourceMark(resource({ health: 'checks_failed' })), {
+    glyph: 'cross',
+    color: 'session-resource-failing',
+  })
+  assert.deepEqual(resourceMark(resource({ health: 'changes_requested' })), {
+    glyph: 'dot',
+    color: 'session-resource-pending',
+  })
+  assert.deepEqual(resourceMark(resource({ health: 'conflict' })), {
+    glyph: 'conflict',
+    color: 'session-resource-pending',
+  })
+})
+
+test('an unblocked, merged or closed PR, or a Linear issue, has no mark', () => {
+  assert.equal(resourceMark(resource({})), null)
+  assert.equal(resourceMark(resource({ health: null })), null)
+  assert.equal(resourceMark(resource({ state: 'merged', health: 'checks_failed' })), null)
+  assert.equal(resourceMark(resource({ state: 'closed', health: 'conflict' })), null)
+  assert.equal(resourceMark(resource({ provider: 'linear', health: 'conflict' })), null)
+})
+
+test('a change is open, merged or closed, a completed issue counting as merged', () => {
+  assert.equal(changeStatus(resource({ state: 'open' })), 'open')
+  assert.equal(changeStatus(resource({ state: 'merged' })), 'merged')
+  assert.equal(changeStatus(resource({ state: 'closed' })), 'closed')
+  assert.equal(
+    changeStatus(resource({ provider: 'linear', state: 'Done', stateType: 'completed' })),
+    'merged',
+  )
+  assert.equal(
+    changeStatus(resource({ provider: 'linear', state: 'Canceled', stateType: 'canceled' })),
+    'closed',
+  )
+  assert.equal(
+    changeStatus(resource({ provider: 'linear', state: 'In Progress', stateType: 'started' })),
+    'open',
+  )
+  assert.equal(changeStatus(resource({ provider: 'slack', state: 'linked' })), 'open')
 })

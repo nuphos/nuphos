@@ -69,7 +69,9 @@ const addressingCalls: {
 
 const verdictWrites: Omit<SlackAddressingVerdict, '_id'>[] = []
 
+let teamMember = true
 const posted: PostedMessage[] = []
+const ephemerals: (PostedMessage & { user: string })[] = []
 const eventMarks: { eventId: string; status: string }[] = []
 const threadUpserts: unknown[] = []
 const agentRuns: {
@@ -164,6 +166,21 @@ useSlackApi({
 
     return { ok: true, ts: '999.1' }
   },
+  postSlackEphemeral: async (args: {
+    channel: string
+    user: string
+    threadTs?: string
+    text: string
+  }) => {
+    ephemerals.push({
+      channel: args.channel,
+      user: args.user,
+      threadTs: args.threadTs,
+      text: args.text,
+    })
+
+    return { ok: true }
+  },
   slackApiGet: async (_token: string, method: string) => {
     if (method === 'users.info') {
       return { ok: true, user: state.userEmail ? { profile: { email: state.userEmail } } : {} }
@@ -186,7 +203,7 @@ useSlackInstallations({
 
 useIdentity({
   getTeamMembers: async () => [],
-  getTeamMembership: async () => ({ role: 'MEMBER' }),
+  getTeamMembership: async () => (teamMember ? { role: 'MEMBER' } : null),
   signNuphosToken: () => 'test-token',
 })
 
@@ -284,6 +301,8 @@ beforeEach(() => {
   state.planAwaitingApproval = false
   state.threadReplies = []
   posted.length = 0
+  teamMember = true
+  ephemerals.length = 0
   eventMarks.length = 0
   threadUpserts.length = 0
   agentRuns.length = 0
@@ -323,15 +342,22 @@ describe('bare mention', () => {
     expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'completed' }])
   })
 
-  test('from an unlinked Slack user posts the account-link prompt', async () => {
+  test('from an unlinked Slack user shows the account-link prompt to that user only', async () => {
     state.userMapping = null
     state.userEmail = 'stranger@example.com'
 
     await handleAppMention(mentionEnvelope(`<@${BOT_USER}>`))
 
     expect(threadUpserts).toHaveLength(0)
-    expect(posted).toHaveLength(1)
-    expect(posted[0]!.text).toContain("doesn't match any Nuphos user")
+    expect(posted).toHaveLength(0)
+    expect(ephemerals).toEqual([
+      expect.objectContaining({
+        user: SLACK_USER,
+        // A top-level mention: the notice sits beside it, not in a new thread.
+        threadTs: undefined,
+        text: expect.stringContaining("doesn't match any Nuphos user"),
+      }),
+    ])
     expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'completed' }])
   })
 })
@@ -466,6 +492,40 @@ describe('addressing judge decides who the reply is for', () => {
 
     expect(posted).toHaveLength(0)
     expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'ignored' }])
+  })
+
+  test('an unlinked sender who addressed the bot is told privately, not in the thread', async () => {
+    state.thread = makeThread()
+    state.userMapping = null
+
+    await handleThreadMessage(threadReplyEnvelope('can you check prod?'))
+
+    expect(agentRuns).toHaveLength(0)
+    expect(posted).toHaveLength(0)
+    expect(ephemerals).toEqual([
+      expect.objectContaining({
+        user: SLACK_USER,
+        threadTs: '100.1',
+        text: expect.stringContaining('not linked to Nuphos yet'),
+      }),
+    ])
+    expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'completed' }])
+  })
+
+  test('a sender who left the team is refused privately in a notification thread', async () => {
+    state.thread = makeThread({ origin: 'agent_notification' })
+    teamMember = false
+
+    await handleThreadMessage(threadReplyEnvelope('what caused it?'))
+
+    expect(agentRuns).toHaveLength(0)
+    expect(posted).toHaveLength(0)
+    expect(ephemerals).toEqual([
+      expect.objectContaining({
+        user: SLACK_USER,
+        text: expect.stringContaining('no longer a member of this Nuphos team'),
+      }),
+    ])
   })
 
   test('a reply judged addressed to the bot still runs its turn', async () => {
@@ -725,5 +785,42 @@ describe('a thread forked off a proactive post', () => {
 
     expect(agentRuns).toHaveLength(1)
     expect(agentRuns[0]!.renderedTurn).not.toContain(REPORT)
+  })
+})
+
+// A mention in a thread the agent already follows must carry what teammates
+// said there without mentioning it — otherwise "can you see what Tony said
+// above?" is answered from half the conversation.
+describe('a mention in a thread the agent already follows', () => {
+  function threadMentionEnvelope(text: string) {
+    const envelope = mentionEnvelope(text)
+
+    return { ...envelope, event: { ...envelope.event, ts: '100.5', thread_ts: '100.1' } }
+  }
+
+  test('carries the replies posted since the agent last spoke', async () => {
+    state.thread = makeThread({
+      recentMessages: [
+        { ts: '100.1', authorName: 'Yuan', text: 'how many boxes are running?' },
+        { ts: '100.2', authorName: 'Nuphos', text: '8 boxes are running', fromBot: true },
+        { ts: '100.3', authorName: 'Tony', text: 'the oldest one is mine' },
+        { ts: '100.4', authorName: 'Devin', text: 'mine is the 8c16g one' },
+        { ts: '100.5', authorName: 'Yuan', text: 'can you see what Tony and Devin said?' },
+      ],
+    })
+
+    await handleAppMention(
+      threadMentionEnvelope(`<@${BOT_USER}> can you see what Tony and Devin said?`),
+    )
+
+    expect(agentRuns).toHaveLength(1)
+    const turn = agentRuns[0]!.renderedTurn
+
+    expect(turn).toContain('Tony: the oldest one is mine')
+    expect(turn).toContain('Devin: mine is the 8c16g one')
+    // Already answered before the agent's last reply.
+    expect(turn).not.toContain('how many boxes are running?')
+    // The mention itself is delivered on its own, not repeated as missed.
+    expect(turn).not.toContain('Yuan: can you see')
   })
 })

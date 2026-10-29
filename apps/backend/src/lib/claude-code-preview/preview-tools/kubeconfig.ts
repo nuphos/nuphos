@@ -75,7 +75,10 @@ export function kubeconfigToolModule(
           'to ~/.kube/config with mode 0600 and pass --context <name> on every ' +
           'kubectl/helm call — current-context is deliberately unset. ' +
           'Credentials renew themselves; if kubectl starts failing with ' +
-          'authentication errors, call this tool again and rewrite the file.',
+          'authentication errors, connection timeouts, connection refused or ' +
+          '"no such host" (the API endpoint may have moved), call this tool ' +
+          'again and rewrite the file once; if the same error persists, report ' +
+          'it instead of fetching again.',
         inputSchema: {
           type: 'object',
           properties: {

@@ -1,9 +1,9 @@
-// Turn-end free-signal capture (Track A 1.2): recalled/fetched attribution
+// Turn-end free-signal capture (Track A 1.2): fetched attribution
 // rows + the per-turn denominator row. No LLM. Fire-and-forget from the
 // finalizer — callers MUST void+catch; nothing here may throw into the turn.
 import { attributionTurns, recordAttributionSignal } from './attribution-store'
 
-import type { AttributionSignal, MemoryScope, TurnRecallOutcome } from './attribution-types'
+import type { AttributionSignal, MemoryScope } from './attribution-types'
 
 export async function captureTurnAttribution(input: {
   /** Resolved provider id, stamped by the RUNTIME at the call boundary
@@ -14,10 +14,6 @@ export async function captureTurnAttribution(input: {
   userId: string
   conversationId: string // == sessionId (purge joins on this)
   turnKey: string // == requestId
-  deliveryMode: string
-  recallOutcome: TurnRecallOutcome
-  recalledTeamIds: string[]
-  recalledPersonalIds: string[]
   fetchedTeamIds: string[]
   fetchedPersonalIds: string[]
   // Track A 2.1: old memories a save_memory supersede corrected this turn —
@@ -35,21 +31,10 @@ export async function captureTurnAttribution(input: {
     turnKey: input.turnKey,
     lineage: null,
   }
-  // SEQUENTIAL on purpose: a memory that was recalled AND fetched gets two
+  // SEQUENTIAL on purpose: a memory that was fetched AND superseded gets two
   // writes to the SAME row, and recordAttributionSignal is read-modify-write —
-  // concurrent writes lose one signal (observed live: fetch_log vanished when
-  // racing recall_log). ≤13 ops per turn, fire-and-forget: latency is free.
+  // concurrent writes lose one signal. Fire-and-forget: latency is free.
   const writes: [string, MemoryScope, AttributionSignal][] = [
-    ...input.recalledTeamIds.map((id): [string, MemoryScope, AttributionSignal] => [
-      id,
-      'team',
-      'recall_log',
-    ]),
-    ...input.recalledPersonalIds.map((id): [string, MemoryScope, AttributionSignal] => [
-      id,
-      'personal',
-      'recall_log',
-    ]),
     ...input.fetchedTeamIds.map((id): [string, MemoryScope, AttributionSignal] => [
       id,
       'team',
@@ -76,7 +61,7 @@ export async function captureTurnAttribution(input: {
     await recordAttributionSignal({ ...base, memoryId, scope, signal: { signal, at } })
   }
 
-  // Written even at zero recall: this row is the zero-recall-rate denominator.
+  // Written even at zero fetches: this row is the per-turn denominator.
   // judge defaults to skipped_disabled; 1.3's judge overwrites it afterward
   // (capture and judge are chained in one fire-and-forget, so no write race).
   await attributionTurns().updateOne(
@@ -86,15 +71,9 @@ export async function captureTurnAttribution(input: {
         provider,
         teamId: input.teamId,
         userId: input.userId,
-        deliveryMode: input.deliveryMode,
-        recalledCount: input.recalledTeamIds.length + input.recalledPersonalIds.length,
-        recallOutcome: input.recallOutcome,
         fetchedCount: input.fetchedTeamIds.length + input.fetchedPersonalIds.length,
         judge: 'skipped_disabled',
         appliedCount: 0,
-        // Same contract as judge: the auto-ingest hook (chained after this
-        // write) overwrites with the real outcome whenever the flag is on.
-        distill: 'skipped_disabled',
         at,
       },
     },

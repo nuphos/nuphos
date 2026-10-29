@@ -5,6 +5,8 @@ import kotlinx.serialization.json.*
 
 @Serializable
 data class RuntimeQuota(val runtimeId: String, val available: Boolean, val reason: String? = null, val windows: List<Window> = emptyList()) {
+    val needsSignIn: Boolean get() = !available && reason == "Sign in required"
+
     @Serializable
     data class Window(val label: String, val usedPercent: Double, val resetsAt: String? = null)
 }

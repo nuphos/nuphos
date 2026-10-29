@@ -41,11 +41,6 @@ export function aiTelemetry(metadata: AgentTelemetryMetadata):
 }
 
 export { startTraceSpan } from './tracing/spans'
-export {
-  createConversationParent,
-  logSpanError,
-  traced,
-  updateConversationParent,
-} from './tracing/traced'
+export { logSpanError, traced } from './tracing/traced'
 
 export type { SpanLike } from './tracing/shared'

@@ -33,10 +33,10 @@ test('plain Node never reaches the keychain, even beside a keychain sign-in', as
   )
 
   const { keychainStore } = await import('./token-store.ts')
-  const { readConfig, sessionToken, writeConfig } = await import('./config.ts')
+  const { readConfig, requestContext, writeConfig } = await import('./config.ts')
 
   assert.equal((await readConfig()).token, undefined)
-  assert.equal(await sessionToken(), null)
+  assert.equal((await requestContext()).token, null)
   await writeConfig({ token: 'tok-1' })
   await writeConfig({})
   await assert.rejects(keychainStore.get('u1@https://api.nuphos.ai'))

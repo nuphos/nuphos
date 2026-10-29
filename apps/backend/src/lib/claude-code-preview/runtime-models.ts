@@ -267,8 +267,22 @@ export async function discoverModels(
       }
 }
 
+/**
+ * A runtime whose models this person may read. The models of a teammate's shared
+ * computer come from its own report (localRuntimeModels), so nothing runs there,
+ * and its agents are offered wherever a conversation can be placed on it.
+ */
+export function requireModelRuntimeInstance(
+  teamId: string,
+  runtimeId: string,
+  userId?: string,
+  require: typeof requireRuntimeInstance = requireRuntimeInstance,
+): Promise<RuntimeInstance> {
+  return require(teamId, runtimeId, userId, { shared: true })
+}
+
 export const runtimeModelCatalog = createRuntimeModelCatalog({
-  requireInstance: requireRuntimeInstance,
+  requireInstance: requireModelRuntimeInstance,
   discover: async (teamId, instance, model) =>
     resolveDefaultModel(await discoverModels(teamId, instance, model)),
 })

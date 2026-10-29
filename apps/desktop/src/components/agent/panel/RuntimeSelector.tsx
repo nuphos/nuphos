@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
+import { t } from '../../../i18n'
 import { agentName } from '../../../lib/agentName'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
@@ -29,6 +30,8 @@ export type RuntimeControl = {
     status?: RuntimeInstance['status']
   } | null
   options?: RuntimeInstance[]
+  /** The open conversation: a teammate's computer may still be asking its owner about it. */
+  sessionId?: string
   /** Provider usage per runtime id, for the trigger and the list. */
   quotas?: ReadonlyMap<string, RuntimeQuota>
   /** Picks the agent: the one a new conversation starts on, or — for an open
@@ -54,9 +57,9 @@ export type RuntimeControl = {
 }
 
 const AGENT_DOT = {
-  ready: { color: 'bg-success', label: 'Computer online · runtime ready' },
-  signIn: { color: 'bg-warning', label: 'Computer online · runtime needs sign-in' },
-  offline: { color: 'bg-error', label: 'Computer offline' },
+  ready: { color: 'bg-success', label: t('Computer online · runtime ready') },
+  signIn: { color: 'bg-warning', label: t('Computer online · runtime needs sign-in') },
+  offline: { color: 'bg-error', label: t('Computer offline') },
 } as const
 
 export function RuntimeSelector({
@@ -101,8 +104,8 @@ export function RuntimeSelector({
   const label = value
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
-      ? 'Loading runtimes…'
-      : 'Choose runtime'
+      ? t('Loading runtimes…')
+      : t('Choose runtime')
   const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
   const reachability = selectedAgentReachability({ value, options })
   const dot = reachability ? AGENT_DOT[reachability] : null
@@ -111,7 +114,7 @@ export function RuntimeSelector({
       <AgentProviderIcon provider={value?.provider} className="h-3.5 w-3.5 shrink-0" />
       {loading && !value ? (
         <span
-          aria-label="Loading runtime"
+          aria-label={t('Loading runtime')}
           role="status"
           className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
         />
@@ -126,7 +129,7 @@ export function RuntimeSelector({
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot.color}`}
         />
       )}
-      {unavailable && <span className="shrink-0 text-amber-400">· Unavailable</span>}
+      {unavailable && <span className="shrink-0 text-amber-400">· {t('Unavailable')}</span>}
     </>
   )
   const classes = clsx(
@@ -155,7 +158,7 @@ export function RuntimeSelector({
       )}
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
-          aria-label={`Agent runtime: ${label}`}
+          aria-label={t('Agent runtime: {label}', { label })}
           className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
         >
           {content}
@@ -165,7 +168,7 @@ export function RuntimeSelector({
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
           {!loading && !error && groups.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">
-              Connect a runtime in Settings → Runtimes to get started.
+              {t('Connect a runtime in Settings → Runtimes to get started.')}
             </p>
           )}
           <div className="max-h-96 overflow-auto">
@@ -187,11 +190,11 @@ export function RuntimeSelector({
               {groups.length > 0 && <MenuSeparator />}
               {onAddAgent ? (
                 <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
-                  Add new runtime
+                  {t('Add new runtime')}
                 </MenuItem>
               ) : (
                 <MenuItem icon={<Settings2 className="h-3.5 w-3.5" />} onClick={onSettings}>
-                  Manage computers and runtimes
+                  {t('Manage computers and runtimes')}
                 </MenuItem>
               )}
             </>

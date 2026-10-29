@@ -24,6 +24,11 @@ useAgentDb({
 
     return { isNew: true }
   },
+  appendTranscriptMessages: async (data) => {
+    stored = data.messages.map((message) => ({ ...message, messageId: message.id }))
+
+    return { isNew: true, count: stored.length }
+  },
 })
 useDb({
   db: () => ({
