@@ -1,12 +1,15 @@
-import { Flame, GitMerge, Network, Timer } from 'lucide-react'
+import { Cpu, Flame, GitMerge, Hourglass, Network, Timer } from 'lucide-react'
 
 import { t } from '../../../i18n'
 
 import { AgentTimeBody, PullRequestsBody, SessionsBody, StreakBody } from './homeMetricBodies'
 import { metricSize, metricTitle } from './homeMetricFormat'
+import { LongestRunBody, RuntimeMixBody } from './homeMetricRuns'
 
 import type { MetricCardDef } from './homeMetricShell'
 import type { HomeMetricKind } from '../../../types/team.ts'
+
+const NO_TURNS = t('No agent turns in this range')
 
 /**
  * Every kind of metric card, in the order a picker lists them. Each draws
@@ -23,7 +26,7 @@ export const METRIC_CARDS: MetricCardDef[] = [
     note: t(
       'An estimate. Agent time adds up each turn, from your message to the last reply, so agents running side by side count separately. Human time divides it by an 8 hour workday.',
     ),
-    empty: t('No agent turns in this range'),
+    empty: NO_TURNS,
     isEmpty: (s) => s.current.agentMs === 0,
     Body: AgentTimeBody,
   },
@@ -66,6 +69,28 @@ export const METRIC_CARDS: MetricCardDef[] = [
     empty: t('No agent turns in the last 60 days'),
     isEmpty: (s) => s.streak.best === 0,
     Body: StreakBody,
+  },
+  {
+    kind: 'longest-run',
+    title: metricTitle('longest-run'),
+    category: 'metrics',
+    icon: Hourglass,
+    size: metricSize('longest-run'),
+    note: t('The longest single turn, from the message to the last reply.'),
+    empty: NO_TURNS,
+    isEmpty: (s) => !s.longest,
+    Body: LongestRunBody,
+  },
+  {
+    kind: 'runtime-mix',
+    title: metricTitle('runtime-mix'),
+    category: 'metrics',
+    icon: Cpu,
+    size: metricSize('runtime-mix'),
+    note: t("Each agent's share of agent time."),
+    empty: NO_TURNS,
+    isEmpty: (s) => s.runtimes.length === 0,
+    Body: RuntimeMixBody,
   },
 ]
 

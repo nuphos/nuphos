@@ -25,8 +25,8 @@ const TITLES: Record<HomeMetricKind, string> = {
 /** A metric card's title, for the card itself, its picker and its drag grip. */
 export const metricTitle = (kind: HomeMetricKind): string => TITLES[kind]
 
-// A headline number and one line under it, so these sit a row lower than the rest.
-const SHORT = new Set<HomeMetricKind>(['agent-time', 'streak'])
+// A headline number and one line under it, so these are a row shorter than the rest.
+const SHORT = new Set<HomeMetricKind>(['agent-time', 'streak', 'longest-run'])
 
 /** A metric card's size on the 12 column home grid: half a row, as tall as its content. */
 export function metricSize(kind: HomeMetricKind): { w: number; h: number } {
