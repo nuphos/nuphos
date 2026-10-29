@@ -135,7 +135,11 @@ export function AvatarCropDialog({
               {!loaded && !error && (
                 <Loader2 className="absolute inset-0 m-auto h-5 w-5 animate-spin text-tertiary" />
               )}
-              <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgba(0,0,0,0.55)]" />
+              {/* Same shape as the saved avatar: an icon is AvatarPicker's 64px rounded-lg, scaled. */}
+              <div
+                className="pointer-events-none absolute inset-0 shadow-[0_0_0_999px_rgba(0,0,0,0.55)]"
+                style={{ borderRadius: kind === 'icon' ? VIEWPORT / 8 : '50%' }}
+              />
             </div>
             <label className="flex items-center gap-2 text-tertiary">
               <ZoomOut className="h-3.5 w-3.5 shrink-0" />
