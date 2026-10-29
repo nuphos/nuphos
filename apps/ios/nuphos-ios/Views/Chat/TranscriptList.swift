@@ -37,9 +37,10 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var sessionID = ""
     private var submittedID: String?
     private var pendingSentAnimationID: String?
-    /// Whether the reader was at the end where they or the transcript last
-    /// came to rest. Read from the position itself, so no event can leave it
-    /// stale; layout settling under the reader does not count as moving.
+    /// Whether the reader is at the end: kept current while they drag or fling
+    /// and read again where they or the transcript come to rest. Read from the
+    /// position itself, so no event can leave it stale; layout settling under
+    /// the reader does not count as moving.
     private var following = true
     private var positioned = false
     private var applying = false
@@ -327,6 +328,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         UIEventLog.chatScroll(sessionId: sessionID, contentOffset: scrollView.contentOffset)
+        // On iPhone Duo the header shrinks or grows while a fling is still
+        // running, which resizes the transcript before the gesture settles.
+        if scrollView.isDragging { following = atEnd }
         updateLatestButton()
     }
 
