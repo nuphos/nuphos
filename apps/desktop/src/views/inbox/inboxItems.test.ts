@@ -41,7 +41,7 @@ test("after a team switch the last team's count is not shown", () => {
   assert.equal(listingFor(listing, 'team-a'), listing)
 })
 
-test('a reply answers the chosen open question, else the oldest', () => {
+test('a reply answers the chosen open question, else the newest, as the chip does', () => {
   const ask = (id: string) => ({
     id,
     category: 'preference',
@@ -51,9 +51,9 @@ test('a reply answers the chosen open question, else the oldest', () => {
   })
   const open = [ask('oldest'), ask('newer')]
 
-  assert.equal(replyTarget(open, null), 'oldest')
-  assert.equal(replyTarget(open, 'newer'), 'newer')
-  assert.equal(replyTarget(open, 'answered-meanwhile'), 'oldest')
+  assert.equal(replyTarget(open, null), 'newer')
+  assert.equal(replyTarget(open, 'oldest'), 'oldest')
+  assert.equal(replyTarget(open, 'answered-meanwhile'), 'newer')
   assert.equal(replyTarget([], 'newer'), undefined)
 })
 

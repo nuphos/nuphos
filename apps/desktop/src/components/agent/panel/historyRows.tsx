@@ -100,7 +100,8 @@ export function HistoryConversationRow({
   const runLabel = triggerRunLabel(conversation.triggerRun)
   const triggerBadge = runLabel ? null : badges.find((badge) => badge.kind === 'trigger')
   const openRequests = openInputRequests(conversation)
-  const waitingOn = openRequests[0]
+  // The question a reply from the Inbox answers by default: the newest.
+  const waitingOn = openRequests.at(-1)
   const questionCount = openQuestionCount(openRequests.length)
 
   return (

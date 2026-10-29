@@ -32,13 +32,13 @@ export function nextSelection(
 
 /**
  * The open question a reply from the Inbox answers: the one the reader chose
- * while it is still open, else the oldest.
+ * while it is still open, else the newest, the same default as the chat's chip.
  */
 export function replyTarget(
   open: readonly AgentInputRequest[],
   chosen: string | null,
 ): string | undefined {
-  return open.find((request) => request.id === chosen)?.id ?? open[0]?.id
+  return open.find((request) => request.id === chosen)?.id ?? open.at(-1)?.id
 }
 
 /** Shown beside a row's title when the conversation waits on several questions; one shows none. */
