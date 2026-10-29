@@ -2,6 +2,7 @@ import { spawn as nuphosSpawn } from 'node:child_process'
 import { createHash as nuphosHomeHash } from 'node:crypto'
 import {
   mkdirSync as nuphosMkdir,
+  readFileSync as nuphosReadFile,
   lstatSync as nuphosLstat,
   symlinkSync as nuphosSymlink,
   utimesSync as nuphosUtimes,
@@ -90,15 +91,40 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
 
 // Claude's own login/session store belongs to the runtime. Pin its location
 // before giving the SDK child (and its shell tools) the conversation's HOME.
-export function nuphosClaudeSessionEnv(env, sessionEnv, runtimeEnv = process.env) {
+export function nuphosClaudeSessionEnv(
+  env,
+  sessionEnv,
+  runtimeEnv = process.env,
+  now = Date.now(),
+) {
   const isolated = nuphosSessionHomeEnv(sessionEnv, runtimeEnv)
   if (!isolated.HOME) return env
+  const configDir =
+    runtimeEnv.CLAUDE_CONFIG_DIR ||
+    nuphosJoin(runtimeEnv.HOME || runtimeEnv.USERPROFILE || nuphosHostHome(), '.claude')
+  // A token already in the environment was set on purpose and wins.
+  const token = runtimeEnv.CLAUDE_CODE_OAUTH_TOKEN ? null : nuphosLongLivedToken(configDir, now)
   return {
     ...env,
-    CLAUDE_CONFIG_DIR:
-      runtimeEnv.CLAUDE_CONFIG_DIR ||
-      nuphosJoin(runtimeEnv.HOME || runtimeEnv.USERPROFILE || nuphosHostHome(), '.claude'),
+    CLAUDE_CONFIG_DIR: configDir,
+    ...(token ? { CLAUDE_CODE_OAUTH_TOKEN: token } : {}),
     ...isolated,
+  }
+}
+
+// The one-year token claude-login.mjs --long-lived stores. It never refreshes, so
+// sessions starting together cannot spend a refresh token another one still holds.
+// Read at every session start: a new sign-in reaches the next session, and a lapsed
+// token falls back to the runtime's ordinary login, if it still has one.
+export function nuphosLongLivedToken(configDir, now = Date.now()) {
+  try {
+    const record = JSON.parse(
+      nuphosReadFile(nuphosJoin(configDir, '.nuphos-oauth-token.json'), 'utf8'),
+    )
+    if (typeof record.token !== 'string' || !record.token) return null
+    return Date.parse(record.expiresAt) > now ? record.token : null
+  } catch {
+    return null
   }
 }
 

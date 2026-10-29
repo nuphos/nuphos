@@ -40,6 +40,7 @@ async function lookup() {
   let url;
   let headers;
   let plan;
+  let inferenceOnly = false;
   if (params && params.provider === 'grok') {
     // Grok reports its own billing over ACP, so its credential stays inside Grok.
     const { spawn } = await import('node:child_process');
@@ -81,12 +82,22 @@ async function lookup() {
       ...(typeof tokens.account_id === 'string' && tokens.account_id ? { 'chatgpt-account-id': tokens.account_id } : {}),
     };
   } else {
-    const credentials = await read(join(homedir(), '.claude', '.credentials.json'));
+    // A one-year token (claude-login.mjs --long-lived) wins over the ordinary login, as it
+    // does for the agent. It carries only the inference scope, so usage may be refused.
+    const longLived = await read(join(homedir(), '.claude', '.nuphos-oauth-token.json'));
+    const credentials = longLived && typeof longLived.token === 'string' && longLived.token
+      ? null
+      : await read(join(homedir(), '.claude', '.credentials.json'));
     const oauth = credentials && credentials.claudeAiOauth;
-    if (!oauth || typeof oauth.accessToken !== 'string' || !oauth.accessToken)
+    if (credentials === null) {
+      token = longLived.token;
+      inferenceOnly = true;
+    } else if (!oauth || typeof oauth.accessToken !== 'string' || !oauth.accessToken) {
       return { error: 'Sign in required' };
-    token = oauth.accessToken;
-    if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType) plan = oauth.subscriptionType;
+    } else {
+      token = oauth.accessToken;
+      if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType) plan = oauth.subscriptionType;
+    }
     url = 'https://api.anthropic.com/api/oauth/usage';
     headers = { authorization: 'Bearer ' + token, 'anthropic-beta': 'oauth-2025-04-20' };
   }
@@ -94,6 +105,8 @@ async function lookup() {
   // Only now: a fetch that never came back is a network failure, not the
   // provider answering, and it costs nothing to ask again soon.
   asked = true;
+  if (inferenceOnly && (response.status === 401 || response.status === 403))
+    return { error: 'Usage is unavailable with this sign-in type (a one-year token)', asked: true };
   if (!response.ok) return { error: 'HTTP ' + response.status, asked: true };
   const body = await response.text();
   if (body.length > MAX_BODY_CHARS) return { error: 'Usage response was too large', asked: true };
