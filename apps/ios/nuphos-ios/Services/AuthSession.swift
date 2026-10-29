@@ -94,6 +94,8 @@ final class AuthSession {
         do {
             let user = try await NuphosAPI.currentUser(token: saved)
             await loadAIConsent()
+            // Home may already be open from the cache, and signed out since.
+            guard token == saved else { return }
             state = .signedIn(user)
         } catch NuphosAPI.Failure.unauthorized {
             clearToken()
