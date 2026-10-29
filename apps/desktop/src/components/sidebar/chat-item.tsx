@@ -8,23 +8,20 @@ import { SessionResources } from './SessionResources'
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
-import type { ReactNode } from 'react'
 
-/** One chat row in the sidebar, plus whatever `actions` the caller adds. */
+/** One chat row in the sidebar; the caller adds its row actions. */
 export function chatSidebarItem({
   conversation,
   teamId,
   active,
   runtimeState,
   unread,
-  actions,
 }: {
   conversation: AgentConversation
   teamId: string
   active: boolean
   runtimeState: RuntimeExecution | undefined
   unread: boolean
-  actions?: ReactNode
 }): Item {
   const status = <ChatRowStatus runtimeState={runtimeState} unread={unread} />
 
@@ -52,6 +49,5 @@ export function chatSidebarItem({
     ).href,
     trailing: status,
     foldedStatus: status,
-    actions,
   }
 }

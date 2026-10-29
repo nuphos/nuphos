@@ -1,4 +1,4 @@
-import { Archive, FileBox } from 'lucide-react'
+import { FileBox } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -16,6 +16,7 @@ import { toast } from '../ui/toast'
 import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
 import { ARCHIVE_IN_FLIGHT, visibleSidebarChats } from './local-archive-guard'
+import { RowMenuButton } from './row-menu-button'
 import { AGENT_SESSIONS_POLL_MS, agentSessionsCacheKey, crdCacheKey } from './state'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
@@ -265,29 +266,18 @@ export function useSidebarChats({
 
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
-  const chatItems: Item[] = agentSessions.map((conversation) =>
-    chatSidebarItem({
+  const chatItems: Item[] = agentSessions.map((conversation) => {
+    const item = chatSidebarItem({
       conversation,
       teamId,
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),
       unread: unreadSessions.has(conversation.sessionId),
-      actions: (
-        <span
-          role="button"
-          aria-label={t('Archive agent')}
-          title={t('Archive agent')}
-          onClick={(e) => {
-            e.stopPropagation()
-            void archiveChat(conversation.sessionId)
-          }}
-          className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]"
-        >
-          <Archive className="w-3.5 h-3.5" strokeWidth={1.8} />
-        </span>
-      ),
-    }),
-  )
+    })
+
+    // A menu rather than a one-click archive: a stray click only opens it.
+    return { ...item, actions: <RowMenuButton title={item.label} /> }
+  })
   const newChatActive = chatShown && !agentSessionId
 
   return { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
