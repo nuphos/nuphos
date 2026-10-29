@@ -83,7 +83,11 @@ extension NuphosAPI {
     ) async throws -> AgentConversationDetail {
         let detail: AgentConversationDetail = try await get(
             "agent/conversations/\(sessionId)",
-            query: [URLQueryItem(name: "teamId", value: teamId), URLQueryItem(name: "tail", value: String(tail))],
+            // `runtimeState=omit`: the server still probes the runtime when a run is
+            // live, and otherwise answers with the state it last recorded, like the
+            // list. Probing on every read made a slow computer hold each one for 3 s.
+            query: [URLQueryItem(name: "teamId", value: teamId), URLQueryItem(name: "tail", value: String(tail)),
+                    URLQueryItem(name: "runtimeState", value: "omit")],
             token: token,
             timeout: 20
         )

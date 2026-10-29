@@ -76,7 +76,10 @@ final class RuntimeObservations {
         guard let snapshot else { return }
         let key = "\(team)/\(session)"
         let next = RuntimeObservation(snapshot: snapshot, observedAt: observedAt)
-        guard values[key]?.accepts(next) != false else { return }
+        // Polls re-read the same document every few seconds. Rewriting it would
+        // redraw every chat and list row that shows a status.
+        guard let current = values[key] else { values[key] = next; return }
+        guard current.snapshot != next.snapshot, current.accepts(next) else { return }
         values[key] = next
     }
 }

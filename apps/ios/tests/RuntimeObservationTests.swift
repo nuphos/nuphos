@@ -60,6 +60,10 @@ struct RuntimeObservationTests {
         store.receive(working.snapshot, team: "t", session: "s", observedAt: 100)
         store.receive(old.snapshot, team: "t", session: "s", observedAt: 105)
         precondition(store.value(team: "t", session: "s")?.revision == 4)
+        // A poll that re-reads the same document leaves the store untouched,
+        // so views showing it do not redraw.
+        store.receive(working.snapshot, team: "t", session: "s", observedAt: 110)
+        precondition(store.value(team: "t", session: "s")?.observedAt == 100)
         precondition(store.value(team: "other", session: "s") == nil)
         let unread = ConversationUnread()
         unread.receive(team: "t", session: "legacy", activity: nil, read: nil, displayed: false)
