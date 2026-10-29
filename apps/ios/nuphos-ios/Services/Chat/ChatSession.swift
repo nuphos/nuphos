@@ -349,9 +349,6 @@ final class ChatSession {
                 if !readOnly, !transportStreaming { send(text) }
             }
         } catch {
-            // The view went away mid-load (a link or notification replaced
-            // it). That is not a failure: its next appearance loads again.
-            guard !Task.isCancelled else { return }
             loadError = error.localizedDescription
             loaded = true
         }

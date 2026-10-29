@@ -453,7 +453,9 @@ final class AgentStore {
         }
     }
 
-    /// A live session for an existing conversation (loads on first use).
+    /// A live session for an existing conversation, already loading. The
+    /// load belongs to the session, not to the view showing it, so a view
+    /// SwiftUI cancels or keeps cannot leave it unloaded.
     func session(for conversation: AgentConversation) -> ChatSession {
         let session = ChatSession(
             token: token,
@@ -464,6 +466,7 @@ final class AgentStore {
             runtimeLabel: conversation.runtimeLabel
         )
         session.me = me
+        Task { await session.load() }
         return session
     }
 
@@ -472,6 +475,7 @@ final class AgentStore {
     func session(sessionId: String, title: String, teamId: String? = nil) -> ChatSession {
         let session = ChatSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", sessionId: sessionId, title: title)
         session.me = me
+        Task { await session.load() }
         return session
     }
 

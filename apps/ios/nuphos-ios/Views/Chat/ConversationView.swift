@@ -190,8 +190,6 @@ struct ConversationView: View {
             if session.isNew, let initialPrompt, !didSendInitial {
                 didSendInitial = true
                 session.send(initialPrompt)
-            } else if !session.loaded {
-                await session.load()
             }
             #if DEBUG
             // `-approve-plan <id>`: exercise the approval round-trip.
