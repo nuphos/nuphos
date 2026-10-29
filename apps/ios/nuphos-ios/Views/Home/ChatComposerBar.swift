@@ -331,7 +331,8 @@ struct ChatComposerBar<Controls: View>: View {
         #endif
     }
 
-    /// ✕ discards the take; ✓ transcribes it into the input.
+    /// ✕ discards the take; ■ transcribes it into the input; ↑ transcribes
+    /// it and sends.
     private func dictationBar(_ dictation: VoiceDictation) -> some View {
         HStack(spacing: 10) {
             Button(action: cancelDictation) {
@@ -358,16 +359,27 @@ struct ChatComposerBar<Controls: View>: View {
                     .fixedSize()
             }
 
-            Button(action: finishDictation) {
-                Image(systemName: "checkmark")
+            Button { finishDictation(thenSend: false) } label: {
+                Image(systemName: "stop.fill")
+                    .font(Theme.Text.secondary.weight(.bold))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(Theme.heading)
+                    .background(Theme.muted.opacity(0.25), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(dictation.phase != .recording)
+            .accessibilityLabel("Finish voice input")
+
+            Button { finishDictation(thenSend: true) } label: {
+                Image(systemName: "arrow.up")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.chatCanvas)
                     .background(Theme.heading, in: Circle())
             }
             .buttonStyle(.plain)
-            .disabled(dictation.phase != .recording)
-            .accessibilityLabel("Finish voice input")
+            .disabled(dictation.phase != .recording || !canSend)
+            .accessibilityLabel("Send voice input")
         }
         .padding(.vertical, expanded ? 0 : 4)
     }
@@ -390,13 +402,14 @@ struct ChatComposerBar<Controls: View>: View {
         }
     }
 
-    private func finishDictation() {
+    private func finishDictation(thenSend: Bool) {
         guard let take = dictation, let token = session.token, let teamId = voiceTeamId else { return }
         transcription = Task {
             do {
                 let words = try await take.finish(token: token, teamId: teamId)
                 if !Task.isCancelled, !words.isEmpty {
                     text = text.isEmpty || text.last?.isWhitespace == true ? text + words : text + " " + words
+                    if thenSend { send() }
                 }
             } catch {
                 if !Task.isCancelled { dictationError = error.localizedDescription }
