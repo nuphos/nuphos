@@ -2,10 +2,13 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  cardLabel,
+  cardsInReadingOrder,
   editableLayout,
   filterPulls,
   filterRuns,
   gridFor,
+  moveCard,
   starterLayout,
   mergeRepoReads,
   panelKey,
@@ -135,6 +138,65 @@ test('gridFor grows a saved card that was resized below its minimum', () => {
     { i: 'team', x: 0, y: 0, w: 12, h: 4 },
     { i: 'gh:prs', x: 0, y: 1, w: 3, h: 3 },
   ])
+})
+
+test('cardsInReadingOrder reads the grid row by row, left to right', () => {
+  const grid = [
+    { i: 'c', x: 0, y: 7, w: 6, h: 7 },
+    { i: 'b', x: 6, y: 0, w: 6, h: 7 },
+    { i: 'a', x: 0, y: 0, w: 6, h: 7 },
+  ]
+
+  assert.deepEqual(
+    cardsInReadingOrder(grid).map((item) => item.i),
+    ['a', 'b', 'c'],
+  )
+})
+
+test('moveCard trades places with the neighbour in reading order', () => {
+  const grid = [
+    { i: 'team', x: 0, y: 0, w: 12, h: 8 },
+    { i: 'a', x: 0, y: 8, w: 6, h: 7 },
+    { i: 'b', x: 6, y: 8, w: 6, h: 7 },
+  ]
+
+  assert.deepEqual(moveCard(grid, 'b', -1), [
+    { i: 'team', x: 0, y: 0, w: 12, h: 8 },
+    { i: 'b', x: 0, y: 8, w: 6, h: 7 },
+    { i: 'a', x: 6, y: 8, w: 6, h: 7 },
+  ])
+  assert.deepEqual(moveCard(grid, 'team', 1), [
+    { i: 'a', x: 0, y: 0, w: 6, h: 7 },
+    { i: 'team', x: 0, y: 7, w: 12, h: 8 },
+    { i: 'b', x: 0, y: 15, w: 6, h: 7 },
+  ])
+})
+
+test('moveCard keeps sizes and leaves the first and last cards at the ends', () => {
+  const grid = [
+    { i: 'a', x: 0, y: 0, w: 4, h: 5 },
+    { i: 'b', x: 4, y: 0, w: 8, h: 9 },
+  ]
+
+  assert.equal(moveCard(grid, 'a', -1), grid)
+  assert.equal(moveCard(grid, 'b', 1), grid)
+  assert.equal(moveCard(grid, 'missing', 1), grid)
+  assert.deepEqual(moveCard(grid, 'a', 1), [
+    { i: 'b', x: 0, y: 0, w: 8, h: 9 },
+    { i: 'a', x: 8, y: 0, w: 4, h: 5 },
+  ])
+})
+
+test('cardLabel names each kind of card', () => {
+  const layout = {
+    team: true,
+    github: [{ id: 'x', kind: 'ci' as const, repos: [], statuses: ['failed' as const] }],
+    panels: [{ dashboardId: 'd', panelId: 'p' }],
+  }
+
+  assert.equal(cardLabel(layout, 'team'), 'Team activity')
+  assert.equal(cardLabel(layout, 'gh:x'), 'CI · Failing')
+  assert.equal(cardLabel(layout, 'panel:d/p'), 'Dashboard panel')
 })
 
 test('a layout that failed to load is not editable', () => {

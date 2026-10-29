@@ -79,6 +79,11 @@ export function statusLabel(card: HomeGithubCard): string {
     .join(', ')
 }
 
+/** A pull request or CI card's title, e.g. "CI · Failing". */
+export function githubCardTitle(card: HomeGithubCard): string {
+  return `${card.kind === 'pulls' ? t('Pull requests') : 'CI'} · ${statusLabel(card)}`
+}
+
 /** Pull requests in any of `statuses`; `open` takes them all. */
 export function filterPulls(pulls: GithubPR[], statuses: HomePullStatus[]): GithubPR[] {
   if (statuses.includes('open')) return pulls
@@ -172,6 +177,70 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
       }
     }
   })
+}
+
+const readingOrder = (a: HomeGridItem, b: HomeGridItem) => a.y - b.y || a.x - b.x
+
+/** The cards as they read on the grid: row by row, left to right. */
+export function cardsInReadingOrder(grid: HomeGridItem[]): HomeGridItem[] {
+  return [...grid].sort(readingOrder)
+}
+
+/** The first spot for a card of `size` that is free in `taken`, at or after `from`. */
+function nextFreeSpot(
+  taken: HomeGridItem[],
+  size: Pick<HomeGridItem, 'i' | 'w' | 'h'>,
+  from: { x: number; y: number },
+): HomeGridItem {
+  const w = Math.min(size.w, GRID_COLUMNS)
+
+  for (let y = from.y; ; y++) {
+    for (let x = y === from.y ? from.x : 0; x + w <= GRID_COLUMNS; x++) {
+      const spot = { ...size, w, x, y }
+
+      if (!taken.some((other) => overlaps(other, spot))) return spot
+    }
+  }
+}
+
+/**
+ * The grid after moving card `id` one place earlier (-1) or later (1) in
+ * reading order, so it trades places with its neighbour. Every card keeps its
+ * size and they flow again in the new order, each in the first free spot after
+ * the one before it. Unchanged when there is no place to move to.
+ */
+export function moveCard(grid: HomeGridItem[], id: string, step: -1 | 1): HomeGridItem[] {
+  const order = cardsInReadingOrder(grid)
+  const from = order.findIndex((item) => item.i === id)
+  const to = from + step
+
+  if (from === -1 || to < 0 || to >= order.length) return grid
+  const moved = order[from]
+
+  order[from] = order[to]
+  order[to] = moved
+  const placed: HomeGridItem[] = []
+  let cursor = { x: 0, y: 0 }
+
+  for (const item of order) {
+    const spot = nextFreeSpot(placed, item, cursor)
+
+    placed.push(spot)
+    cursor = { x: spot.x + spot.w, y: spot.y }
+  }
+
+  return placed
+}
+
+/** A card's title from its grid key, as screen readers hear it when it moves. */
+export function cardLabel(layout: HomeLayout, key: string): string {
+  if (key === 'team') return t('Team activity')
+  const github = layout.github.find((card) => `gh:${card.id}` === key)
+
+  if (github) return githubCardTitle(github)
+  if (key.startsWith('panel:')) return t('Dashboard panel')
+
+  return key
 }
 
 /**
