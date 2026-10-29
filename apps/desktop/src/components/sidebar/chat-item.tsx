@@ -4,6 +4,7 @@ import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
 import { SessionResources } from './SessionResources'
+import { threadFoldsAway } from './thread-status'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
@@ -49,5 +50,6 @@ export function chatSidebarItem({
     ).href,
     trailing: status,
     foldedStatus: status,
+    finished: threadFoldsAway({ conversation, runtimeState, open: active, unread }),
   }
 }

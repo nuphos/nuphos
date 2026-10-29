@@ -33,6 +33,8 @@ type SidebarNavItemProps = {
   disabled?: boolean
   /** Optional count rendered as a small badge to the right of the label. */
   badge?: number
+  /** Quiet text right after the label, part of the row's name (a done count). */
+  note?: ReactNode
   /** Optional trailing control (e.g. a hover-revealed action). Rendered after
    *  the badge; the caller owns its visibility and click handling (remember to
    *  stopPropagation so the row's onClick doesn't also fire). */
@@ -62,6 +64,7 @@ export function SidebarNavItem({
   onClick,
   disabled = false,
   badge,
+  note,
   trailing,
   edge,
   hoverActions,
@@ -88,7 +91,14 @@ export function SidebarNavItem({
       aria-labelledby={
         hoverActions == null
           ? undefined
-          : [`${id}-label`, badgeShown && `${id}-badge`, `${id}-trailing`].filter(Boolean).join(' ')
+          : [
+              `${id}-label`,
+              note != null && `${id}-note`,
+              badgeShown && `${id}-badge`,
+              `${id}-trailing`,
+            ]
+              .filter(Boolean)
+              .join(' ')
       }
       onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => {
         // Navigate on press, not on release — same reasoning as the tab strip:
@@ -128,6 +138,11 @@ export function SidebarNavItem({
       <span id={`${id}-label`} ref={containerRef} className="t-marquee flex-1 min-w-0 text-left">
         {label}
       </span>
+      {note != null && (
+        <span id={`${id}-note`} className="flex-shrink-0 flex items-center">
+          {note}
+        </span>
+      )}
       {badgeShown && (
         <span
           id={`${id}-badge`}

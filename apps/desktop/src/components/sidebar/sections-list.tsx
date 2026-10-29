@@ -15,7 +15,7 @@ import {
 } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
-import { NestedRowBody } from './nest-guides'
+import { FinishedThreadsBadge, NestedRowBody } from './nest-guides'
 import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
 import { SessionRowSurface } from './SessionRowSurface'
@@ -126,7 +126,7 @@ export function SidebarSectionList({
                   <SidebarSectionSkeleton />
                 ) : (
                   nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
-                    ({ item, trail, hasChildren, hidden }) => {
+                    ({ item, trail, hasChildren, hidden, done }) => {
                       const Icon = item.icon
                       const isActive =
                         item.enabled &&
@@ -230,6 +230,7 @@ export function SidebarSectionList({
                               else onSelect(item.key)
                             }}
                             label={item.label}
+                            note={done.length ? <FinishedThreadsBadge threads={done} /> : undefined}
                             badge={item.badge}
                             trailing={
                               <>

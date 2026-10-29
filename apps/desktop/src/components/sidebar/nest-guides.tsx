@@ -1,5 +1,9 @@
+import { CircleCheck } from 'lucide-react'
 import { Fragment } from 'react'
 
+import { t } from '../../i18n'
+
+import type { Item } from './types'
 import type { ReactNode } from 'react'
 
 // Tree lines follow the icon centre in either sidebar density.
@@ -55,5 +59,29 @@ export function NestedRowBody({
         <span aria-hidden className={DOWN} style={{ ...x(trail.length), top: bottomY }} />
       )}
     </>
+  )
+}
+
+/** How the row names its done count, for screen readers and the tooltip. */
+function finishedThreadsLabel(n: number): string {
+  return n === 1 ? t('1 sub-agent done') : t('{n} sub-agents done', { n })
+}
+
+/**
+ * Sub-agents that finished with nothing left to show, as one quiet count on
+ * their parent row, like the merged badge. The tooltip names each of them.
+ */
+export function FinishedThreadsBadge({ threads }: { threads: Item[] }) {
+  const n = threads.length
+
+  return (
+    <span
+      title={[finishedThreadsLabel(n), ...threads.map((thread) => thread.label)].join('\n')}
+      className="inline-flex items-center gap-1 text-[11px] text-tertiary"
+    >
+      <CircleCheck aria-hidden className="size-3 shrink-0" />
+      <span aria-hidden>{n === 1 ? t('1 done') : t('{n} done', { n })}</span>
+      <span className="sr-only">{finishedThreadsLabel(n)}</span>
+    </span>
   )
 }
