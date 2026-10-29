@@ -51,6 +51,8 @@ export type SessionResource = {
   /** What blocks an open PR, kept current by GitHub webhooks; null or absent when nothing does. */
   health?: PullHealth | null
   linkedAt: string
+  /** When a read last checked the provider for changes webhooks may have missed. */
+  checkedAt?: string
 }
 export type ResourceActor = { userId: string; teamId: string; sessionId: string }
 
