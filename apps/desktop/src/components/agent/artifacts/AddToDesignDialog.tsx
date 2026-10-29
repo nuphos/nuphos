@@ -8,6 +8,7 @@ import { Modal } from '../../Modal'
 import { Button } from '../../ui/button'
 import { AppSelect } from '../../ui/select'
 import { toast } from '../../ui/toast'
+import { t } from '../../../i18n'
 
 import type { ArtifactVersion } from './artifactPayload'
 import type { Design, DesignFrame, DesignSummary, FramePreset } from '../../../design/schema'
@@ -211,12 +212,12 @@ function SizeSelect({
 }) {
   return (
     <label className="flex flex-col gap-1 text-[12px] text-secondary">
-      Size
+      {t('Size')}
       <AppSelect
         value={value}
         onValueChange={(next) => onChange(next as FramePreset)}
         options={SIZE_OPTIONS}
-        ariaLabel="Size"
+        ariaLabel={t('Size')}
       />
     </label>
   )

@@ -9,6 +9,7 @@ import { useElementSize } from '../../grafana/useElementSize'
 
 import { playFitScale } from './playFit'
 import { playTarget } from './playTarget'
+import { t } from '../../i18n'
 
 import type { DesignFrame, DesignPage } from '../schema'
 
@@ -99,7 +100,7 @@ export function PlayMode({ page, startId, onClose }: Props) {
     <div
       className="fixed inset-0 z-[900] flex flex-col bg-[#101013] text-white"
       role="dialog"
-      aria-label="Play"
+      aria-label={t('Play')}
     >
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-white/10 px-3">
         <span className="truncate text-[13px] font-medium">{current.title}</span>

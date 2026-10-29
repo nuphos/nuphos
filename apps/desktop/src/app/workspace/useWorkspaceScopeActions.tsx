@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 
 import { isObservabilityActive } from '../../app/navItems'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { DEFAULT_KEY } from '../../lib/appRoutes'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { isTeamId } from '../../lib/teamId'
@@ -138,11 +139,11 @@ export function useWorkspaceScopeActions(a: Args) {
     (href: string) =>
       copyLinkWithFeedback(href, (value) => navigator.clipboard.writeText(value), {
         onSuccess: () =>
-          toast.success('Link copied', undefined, {
+          toast.success(t('Link copied'), undefined, {
             timeoutMs: 1200,
             dedupe: false,
           }),
-        onError: () => toast.error('Could not copy link', 'Clipboard was blocked.'),
+        onError: () => toast.error(t('Could not copy link'), t('Clipboard was blocked.')),
       }).then(() => {}),
     [],
   )

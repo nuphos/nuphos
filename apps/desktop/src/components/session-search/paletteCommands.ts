@@ -1,5 +1,6 @@
 import { ArrowLeftRight, Keyboard, PanelLeft, Plus, Settings, SquarePen, Users } from 'lucide-react'
 
+import { t } from '../../i18n/index.ts'
 import { launcherMatchRank } from '../../lib/launcherMatch.ts'
 import { SHORTCUT_GROUPS } from '../../lib/shortcutsCatalog.ts'
 import {
@@ -32,12 +33,12 @@ export type PaletteCommand = {
 }
 
 const ACTIONS: { id: PaletteAction; label: string; icon: LucideIcon }[] = [
-  { id: 'new-chat', label: 'New agent', icon: SquarePen },
-  { id: 'new-tab', label: 'New tab', icon: Plus },
-  { id: 'toggle-sidebar', label: 'Toggle sidebar', icon: PanelLeft },
-  { id: 'open-settings', label: 'User settings', icon: Settings },
-  { id: 'open-team-settings', label: 'Team settings', icon: Users },
-  { id: 'shortcuts-help', label: 'Keyboard shortcuts', icon: Keyboard },
+  { id: 'new-chat', label: t('New agent'), icon: SquarePen },
+  { id: 'new-tab', label: t('New tab'), icon: Plus },
+  { id: 'toggle-sidebar', label: t('Toggle sidebar'), icon: PanelLeft },
+  { id: 'open-settings', label: t('User settings'), icon: Settings },
+  { id: 'open-team-settings', label: t('Team settings'), icon: Users },
+  { id: 'shortcuts-help', label: t('Keyboard shortcuts'), icon: Keyboard },
 ]
 
 const comboFor = (label: string) =>
@@ -76,7 +77,7 @@ export function matchPaletteCommands(
   if (!query.trim()) return []
   const teamCommands = otherTeams.map((team) => ({
     id: `${SWITCH_TEAM_PREFIX}${team.id}`,
-    label: `Switch to ${team.name}`,
+    label: t('Switch to {team}', { team: team.name }),
     group: 'Actions' as const,
     icon: ArrowLeftRight,
   }))

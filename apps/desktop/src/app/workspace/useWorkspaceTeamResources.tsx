@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { toast } from '../../components/ui/toast'
 import { mergeIfChanged } from '../../lib/mergeIfChanged'
 
@@ -110,7 +111,7 @@ export function useWorkspaceTeamResources(a: Args) {
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        toast.apiError('Failed to load connectors', e)
+        toast.apiError(t('Failed to load connectors'), e)
       })
       .finally(() => {
         loadDone = true

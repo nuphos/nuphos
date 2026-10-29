@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
+import { t } from '../i18n/index.ts'
 
 import { toast } from './ui/toast'
 
@@ -99,7 +100,7 @@ export function useReadyUpdate(): { version: string; install: () => void } | nul
     version: state.version,
     install: () => {
       void api.updaterInstall().catch(() => {
-        toast.error('Update failed', 'Could not install the update. Please try again.')
+        toast.error(t('Update failed'), t('Could not install the update. Please try again.'))
       })
     },
   }

@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Cloud, Globe, KeyRound } from 'lucide-react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import {
@@ -41,7 +42,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
   if (scope.kind === 'cloudflare-account') {
     if (active === 'cloudflare.iam') {
       return renderActiveNavPage(
-        'IAM Settings',
+        t('IAM Settings'),
         <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <CloudflareIamPermissionsView
           teamId={scope.teamId}
@@ -133,7 +134,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
     }
 
     return renderActiveNavPage(
-      'Domains',
+      t('Domains'),
       <Globe className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CloudflareZonesView
         loader={withResourceListCache(
@@ -156,7 +157,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
 
   if (scope.kind === 'cloudflare-zone') {
     return renderActiveNavPage(
-      'DNS Records',
+      t('DNS Records'),
       <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CloudflareDnsRecordsView
         zoneName={scope.zoneName}

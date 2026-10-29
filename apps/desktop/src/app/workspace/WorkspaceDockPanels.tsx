@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { Kbd } from '../../components/ui/kbd'
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 import { comboText } from '../../lib/platform'
 
 import { cycleFocusRegion, moveFocusWithDock } from './dockFocus'
@@ -154,7 +155,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
             side="bottom"
             content={
               <span className="flex items-center gap-2">
-                {workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'}
+                {workspaceDockExpanded ? t('Restore workspace panel') : t('Expand workspace panel')}
                 <Kbd combo="mod+shift+enter" />
               </span>
             }
@@ -167,7 +168,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
                 workspaceDockExpanded ? 'bg-zGray-800/60 text-main' : 'text-secondary',
               )}
               aria-label={
-                workspaceDockExpanded ? 'Restore workspace panel' : 'Expand workspace panel'
+                workspaceDockExpanded ? t('Restore workspace panel') : t('Expand workspace panel')
               }
               aria-pressed={workspaceDockExpanded}
             >
@@ -188,8 +189,8 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
             'workspace-dock-toggle titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
             dockOpen ? 'bg-zGray-800/60 text-main' : 'text-secondary',
           )}
-          title={`${dockOpen ? 'Close workspace panel' : 'Open workspace panel'} (${comboText('mod+j')})`}
-          aria-label={dockOpen ? 'Close workspace panel' : 'Open workspace panel'}
+          title={`${dockOpen ? t('Close workspace panel') : t('Open workspace panel')} (${comboText('mod+j')})`}
+          aria-label={dockOpen ? t('Close workspace panel') : t('Open workspace panel')}
           aria-pressed={dockOpen}
         >
           <PanelRight className="h-4 w-4" strokeWidth={1.7} />

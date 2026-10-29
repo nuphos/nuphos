@@ -5,6 +5,7 @@ import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
 import { restoreNavigation } from '../../app/workspaceTabFactory'
 import { LAST_TEAM_STORAGE_KEY } from '../../app/workspaceTabState'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { stepNavigation } from '../../lib/navHistory'
 
 import { selectHistoryStep, selectScope } from './store/workspaceState'
@@ -113,8 +114,8 @@ export function useWorkspaceTeams(a: Args) {
           setBackendUnreachable(false)
           // Error detail goes through the global toast (never inline); the gate
           // keeps only a generic Retry affordance via `error`.
-          toast.apiError('Could not load teams', e)
-          setError('Could not load teams.')
+          toast.apiError(t('Could not load teams'), e)
+          setError(t('Could not load teams.'))
         }
       } finally {
         if (token === loadTeamsTokenRef.current) setTeamsLoading(false)

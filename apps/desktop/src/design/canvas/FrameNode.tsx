@@ -17,6 +17,7 @@ import { useDesignCanvas } from './context'
 import { PRIMARY } from './helpers'
 import { EditableTitle, FrameHandles } from './nodeParts'
 import { useScreenScale } from './useScreenScale'
+import { t } from '../../i18n'
 
 import type { DesignNodeData } from './nodeParts'
 import type { DesignFrame, FramePreset } from '../schema'
@@ -126,11 +127,11 @@ export function FrameNode({ data, selected }: NodeProps) {
               <Download className="h-3.5 w-3.5" />
             </Button>
           </Tooltip>
-          <Tooltip content="Play from this screen">
+          <Tooltip content={t('Play from this screen')}>
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Play"
+              aria-label={t('Play')}
               onClick={(e) => {
                 e.stopPropagation()
                 canvas.play(frame.id)

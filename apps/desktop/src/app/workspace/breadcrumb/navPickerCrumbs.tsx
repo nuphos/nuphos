@@ -4,6 +4,7 @@ import { LayoutDashboard } from 'lucide-react'
 
 import { activeNavItemFor, activeNavItemsFor } from '../../../app/navItems'
 import { CloudLogo } from '../../../components/CloudLogo'
+import { t } from '../../../i18n'
 import { CLOUDFLARE_DETAIL_ACTIVE } from '../../../lib/appRoutes'
 import { isSettingsNavigation, isTeamIntegrationsActive } from '../../../lib/connectorScopeCrumb'
 import { planNumberFromFilter } from '../../../lib/planRoute'
@@ -144,14 +145,14 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
     }
     if (inAgentConversation) {
       out.push({
-        label: agentSessionTitle || 'Agent',
+        label: agentSessionTitle || t('Agent'),
         isResource: true,
         icon: agentSessionIcon,
       })
     }
     if (inPlanDetail && planNumber) {
       out.push({
-        label: `Plan #${planNumber}`,
+        label: t('Plan #{n}', { n: planNumber }),
         isResource: true,
         icon: currentNavItem.icon,
       })

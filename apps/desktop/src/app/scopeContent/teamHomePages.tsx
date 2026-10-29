@@ -1,5 +1,6 @@
 import { Cloud } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { TeamHomeView } from '../../views/CloudViews'
 import { ConnectorInfoView } from '../../views/ConnectorInfoView'
 
@@ -66,7 +67,7 @@ export function renderTeamHomePages(ctx: ScopeRenderContext): React.ReactNode | 
   if (scope.kind === 'team') {
     return renderPage(
       'team.integrations',
-      'Connectors',
+      t('Connectors'),
       <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <TeamHomeView
         teamId={scope.teamId}

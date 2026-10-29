@@ -34,13 +34,12 @@ function favoriteToggleAriaLabel(chatRow: boolean, favorited: boolean, label: st
     : t('Add {label} to Favorites', { label })
 }
 
-// 'Agents' and 'Pinned' double as section ids (chat-sections, Sidebar), so they
-// are translated only where they are shown.
-function sectionTitleLabel(title: string): string {
-  if (title === 'Agents') return t('Agents')
-  if (title === 'Pinned') return t('Pinned')
-
-  return title
+// These titles double as section ids (chat-sections, Sidebar) and collapse-state
+// keys, so they are translated only where they are shown.
+const SECTION_LABELS: Record<string, string> = {
+  Agents: t('Agents'),
+  Pinned: t('Pinned'),
+  Favorites: t('Favorites'),
 }
 
 type SectionListProps = {
@@ -104,7 +103,7 @@ export function SidebarSectionList({
                 'w-full hover:text-secondary flex items-center gap-1.5',
               )}
             >
-              <span className="text-left">{sectionTitleLabel(section.title)}</span>
+              <span className="text-left">{SECTION_LABELS[section.title] ?? section.title}</span>
               <span
                 className="t-icon-swap w-3 h-3 flex-shrink-0"
                 data-state={isGroupCollapsed(section) ? 'a' : 'b'}

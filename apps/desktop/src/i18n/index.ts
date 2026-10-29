@@ -71,6 +71,14 @@ export const locale: Locale = detectLocale()
 
 if (typeof document !== 'undefined') document.documentElement.lang = locale
 
+// Shown text back to its English key, so error reports group the same way in
+// every locale.
+const sources = new Map<string, string>()
+
+export function sourceText(shown: string): string {
+  return sources.get(shown) ?? shown
+}
+
 /**
  * Translates English UI text; `{name}` placeholders are filled from `vars`. A
  * `|context` suffix tells apart the same English word used two ways (the
@@ -79,10 +87,16 @@ if (typeof document !== 'undefined') document.documentElement.lang = locale
 export function t(text: string, vars?: Record<string, string | number>): string {
   const translated =
     (locale === 'en' ? undefined : MESSAGES[locale][text]) ?? text.replace(/\|\w+$/, '')
-
-  return vars
+  const out = vars
     ? translated.replace(/\{(\w+)\}/g, (m, k: string) => String(vars[k] ?? m))
     : translated
+
+  if (locale !== 'en') {
+    if (sources.size > 5000) sources.clear()
+    sources.set(out, text.replace(/\|\w+$/, ''))
+  }
+
+  return out
 }
 
 /** Text is read once at startup, so switching reloads every open window. */

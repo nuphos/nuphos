@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 
 import { selectScope } from './store/workspaceState'
 
@@ -100,7 +101,7 @@ export function useWorkspaceInvitations(a: Args) {
       // brand-new account, so route into onboarding. The mount-time auto-entry
       // effect is one-shot and won't re-fire, so trigger it explicitly here.
       if (pending.length === 0 && teams.length === 0) {
-        setError('No teams are available for this account.')
+        setError(t('No teams are available for this account.'))
         setOnboardingActive(true)
       }
     },

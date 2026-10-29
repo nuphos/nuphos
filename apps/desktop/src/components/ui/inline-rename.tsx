@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { renameOutcome } from './inlineRename'
 import { toast } from './toast'
 
@@ -57,7 +59,7 @@ export function InlineRename({
   return canEdit ? (
     <button
       type="button"
-      title={`${shown} — click to rename`}
+      title={t('{name} — click to rename', { name: shown })}
       onClick={() => onEditingChange(true)}
       className={clsx('min-w-0 truncate text-left hover:underline', className)}
     >

@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
+import { t } from '../i18n'
+
 import { renderGroupedOptions } from './toolbar-options'
 import { Menu, MenuContent, MenuTrigger } from './ui/menu'
 
@@ -159,7 +161,7 @@ function SplitCrumb({
       {seg.options!.length > 0 ? (
         renderGroupedOptions(seg.options!)
       ) : (
-        <div className="px-3 py-2 text-[12px] text-tertiary">{seg.emptyText ?? 'No items'}</div>
+        <div className="px-3 py-2 text-[12px] text-tertiary">{seg.emptyText ?? t('No items')}</div>
       )}
     </MenuContent>
   )
@@ -176,7 +178,7 @@ function SplitCrumb({
           openOnHover
           delay={MENU_HOVER_DELAY}
           closeDelay={MENU_HOVER_DELAY}
-          aria-label={`Switch ${seg.label}`}
+          aria-label={t('Switch {label}', { label: seg.label })}
           className={clsx(
             'h-7 rounded-md pl-2 pr-2 flex items-center gap-1.5 text-[13px] text-main outline-none',
             'hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60',
@@ -211,7 +213,7 @@ function SplitCrumb({
             go?.()
           }}
           disabled={!go}
-          title={go ? `Go to ${seg.label}` : undefined}
+          title={go ? t('Go to {label}', { label: seg.label }) : undefined}
           className={clsx(
             // No hover fill of its own: the wrapper carries it, and a second
             // one at the same tint would darken this half on the way past.
@@ -229,8 +231,8 @@ function SplitCrumb({
             openOnHover
             delay={MENU_HOVER_DELAY}
             closeDelay={MENU_HOVER_DELAY}
-            title={`Switch ${seg.label}`}
-            aria-label={`Switch ${seg.label}`}
+            title={t('Switch {label}', { label: seg.label })}
+            aria-label={t('Switch {label}', { label: seg.label })}
             className={clsx(
               // Even padding either side of the glyph: this half fills with its
               // own deeper tint on hover, and an off-centre arrow inside that

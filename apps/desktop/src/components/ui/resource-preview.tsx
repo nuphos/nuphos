@@ -1,6 +1,8 @@
 import { PreviewCard } from '@base-ui/react/preview-card'
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
+
 import type { ReactNode } from 'react'
 
 /** Shared GitHub preview for compact chat links and linked session resources. */
@@ -50,7 +52,7 @@ export function ResourcePreview({
               <span className="shrink-0 tabular-nums">{identifier}</span>
             </div>
             <div className="mt-1.5 break-words text-sm font-medium leading-snug">
-              {title || (loading ? 'Loading details…' : 'GitHub details unavailable')}
+              {title || (loading ? t('Loading details…') : t('GitHub details unavailable'))}
             </div>
             {(state || review) && (
               <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-secondary">
@@ -60,7 +62,7 @@ export function ResourcePreview({
             )}
             {(actionable || actions) && (
               <div className="mt-3 flex items-center justify-between gap-3 border-t border-zGray-800/60 pt-2 text-[11px] text-tertiary">
-                {actionable && <span>Open in browser tab</span>}
+                {actionable && <span>{t('Open in browser tab')}</span>}
                 {actions}
               </div>
             )}
