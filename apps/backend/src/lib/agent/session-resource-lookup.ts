@@ -11,6 +11,7 @@ import { getTeamMembership } from '@/lib/identity'
 
 import { fetchPullHealth } from './github-pull-health'
 import { githubReviewScope } from './github-review-scope'
+import { mergedAtOf } from './merged-at'
 
 import type { AgentConversation } from './db'
 import type { SessionResource, sessionResourceInput } from './session-resources'
@@ -87,10 +88,13 @@ export async function resolveResource(
       title: string
       state: string
       merged: boolean
+      merged_at?: string | null
       mergeable_state?: string | null
       head: { sha: string }
       base: { repo: { id: number; full_name: string } }
     }
+
+    const mergedAt = mergedAtOf(pr.merged_at)
 
     if (scope && scope.repositoryId !== pr.base.repo.id)
       throw new AppError(403, 'github_review_scope', 'Resource is outside the review repository')
@@ -109,6 +113,7 @@ export async function resolveResource(
       state: pr.merged ? 'merged' : pr.state,
       url: `https://github.com/${repository}/pull/${pr.number}`,
       health,
+      ...(mergedAt ? { mergedAt } : {}),
     }
   }
   const team = new ObjectId(conversation.teamId!)

@@ -9,6 +9,7 @@ import { logEvent } from '@/lib/observability'
 
 import { agentConversations, getConversationBySessionId } from './db'
 import { commitPullKeys } from './github-commit-pulls'
+import { mergedAtOf } from './merged-at'
 import {
   githubHealthTargets,
   githubUnattachedSuiteCommit,
@@ -32,7 +33,11 @@ const payloadSchema = z.object({
   action: z.string().max(100).optional(),
   sender: z.object({ type: z.string(), login: z.string() }).optional(),
   pull_request: pr
-    .extend({ state: z.string().optional(), merged: z.boolean().optional() })
+    .extend({
+      state: z.string().optional(),
+      merged: z.boolean().optional(),
+      merged_at: z.string().nullable().optional(),
+    })
     .optional(),
   issue: pr.extend({ pull_request: z.unknown().optional() }).optional(),
   check_suite: z
@@ -169,6 +174,16 @@ export function githubPullState(event: string, payload: unknown) {
   return {
     key: `github/${String(installation.id)}/${String(repository.id)}/${String(pull.number)}`,
     state: pull.merged ? 'merged' : pull.state,
+    ...(pull.merged && mergedAtOf(pull.merged_at) ? { mergedAt: mergedAtOf(pull.merged_at) } : {}),
+  }
+}
+
+/** The fields a PR's open or close sets on every tag linking it. */
+function pullStateSet(pullState: NonNullable<ReturnType<typeof githubPullState>>) {
+  return {
+    'linkedResources.$[resource].state': pullState.state,
+    'linkedResources.$[resource].health': null,
+    ...(pullState.mergedAt ? { 'linkedResources.$[resource].mergedAt': pullState.mergedAt } : {}),
   }
 }
 
@@ -208,10 +223,7 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
       { 'linkedResources.key': pullState.key },
       {
         // Merged or closed is the whole story; reopening re-reads the health below.
-        $set: {
-          'linkedResources.$[resource].state': pullState.state,
-          'linkedResources.$[resource].health': null,
-        },
+        $set: pullStateSet(pullState),
       },
       { arrayFilters: [{ 'resource.key': pullState.key }] },
     )
