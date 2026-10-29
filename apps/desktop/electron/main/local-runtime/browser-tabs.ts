@@ -153,6 +153,8 @@ function openedTab(url: string, conversation: string): Promise<WebContents | nul
 
 /** Runs one `local_browser` action against the workspace's browser tabs. */
 export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> {
+  // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
+  if (!call.session) return failed('session is required.')
   if (call.action === 'tabs') return text(browserTabs(call.session).map(describe))
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')

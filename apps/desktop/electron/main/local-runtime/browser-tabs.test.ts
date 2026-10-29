@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { before, mock, test } from 'node:test'
 
+import type { BrowserCall } from './browser-stream.ts'
 import type { runBrowserCall as RunBrowserCall } from './browser-tabs.ts'
 
 const app = new EventEmitter()
@@ -207,6 +208,13 @@ test('a conversation sees and drives only the tabs it opened', async () => {
 
     assert.equal(result.isError, true)
   }
+})
+
+test('a call without a conversation is refused before it touches any tab', async () => {
+  const stray = new Guest().attach()
+  const call = { action: 'eval', team: 't1', tab: stray.id, script: '1' } as unknown as BrowserCall
+
+  assert.equal((await runBrowserCall(call)).isError, true)
 })
 
 function textOf(result: Awaited<ReturnType<typeof RunBrowserCall>>): string {
