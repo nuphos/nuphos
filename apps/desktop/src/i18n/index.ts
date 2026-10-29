@@ -71,8 +71,8 @@ export const locale: Locale = detectLocale()
 
 if (typeof document !== 'undefined') document.documentElement.lang = locale
 
-// Shown text back to its English key, so error reports group the same way in
-// every locale.
+// Shown text back to the English an English user would see, so error reports
+// match across locales.
 const sources = new Map<string, string>()
 
 export function sourceText(shown: string): string {
@@ -85,16 +85,16 @@ export function sourceText(shown: string): string {
  * button "Open" vs. a pull request's "Open|state") and is never shown.
  */
 export function t(text: string, vars?: Record<string, string | number>): string {
-  const translated =
-    (locale === 'en' ? undefined : MESSAGES[locale][text]) ?? text.replace(/\|\w+$/, '')
-  const out = vars
-    ? translated.replace(/\{(\w+)\}/g, (m, k: string) => String(vars[k] ?? m))
-    : translated
+  const english = text.replace(/\|\w+$/, '')
+  const fill = (s: string) =>
+    vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => String(vars[k] ?? m)) : s
 
-  if (locale !== 'en') {
-    if (sources.size > 5000) sources.clear()
-    sources.set(out, text.replace(/\|\w+$/, ''))
-  }
+  if (locale === 'en') return fill(english)
+  const out = fill(MESSAGES[locale][text] ?? english)
+
+  // A Map keeps insertion order, so the first key is the oldest.
+  if (sources.size >= 5000) sources.delete(sources.keys().next().value!)
+  sources.set(out, fill(english))
 
   return out
 }
