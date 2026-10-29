@@ -38,6 +38,7 @@
   "Monitoring": "モニタリング",
   "Desktop": "デスクトップ",
   "Remove {title} from Favorites": "{title} をお気に入りから削除",
+  "Agent": "エージェント",
   "Could not watch agent": "エージェントをウォッチできませんでした",
   "Could not unwatch agent": "エージェントのウォッチを解除できませんでした",
   "Link copied": "リンクをコピーしました",
@@ -292,6 +293,7 @@
   "Edit message": "メッセージを編集",
   "Sends in a new agent": "新しいエージェントで送信されます",
   "Send": "送信",
+  "Customize": "カスタマイズ",
   "Select model": "モデルを選択",
   "Default": "デフォルト",
   "Recommended set of models": "おすすめのモデル",
@@ -361,5 +363,7 @@
   "Copy response": "回答をコピー",
   "Activity": "アクティビティ",
   "Worked": "処理完了",
-  "Worked for {duration}": "{duration}処理しました"
+  "Worked for {duration}": "{duration}処理しました",
+  "What's up next, {name}?": "{name} さん、次は何をしますか？",
+  "What's up next?": "次は何をしますか？"
 }

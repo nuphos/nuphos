@@ -38,6 +38,7 @@
   "Monitoring": "Pemantauan",
   "Desktop": "Desktop",
   "Remove {title} from Favorites": "Hapus {title} dari Favorit",
+  "Agent": "Agen",
   "Could not watch agent": "Tidak dapat mengikuti agen",
   "Could not unwatch agent": "Tidak dapat berhenti mengikuti agen",
   "Link copied": "Tautan disalin",
@@ -292,6 +293,7 @@
   "Edit message": "Edit pesan",
   "Sends in a new agent": "Dikirim di agen baru",
   "Send": "Kirim",
+  "Customize": "Sesuaikan",
   "Select model": "Pilih model",
   "Default": "Default",
   "Recommended set of models": "Kumpulan model yang direkomendasikan",
@@ -361,5 +363,7 @@
   "Copy response": "Salin respons",
   "Activity": "Aktivitas",
   "Worked": "Selesai bekerja",
-  "Worked for {duration}": "Bekerja selama {duration}"
+  "Worked for {duration}": "Bekerja selama {duration}",
+  "What's up next, {name}?": "Mau mengerjakan apa lagi, {name}?",
+  "What's up next?": "Mau mengerjakan apa lagi?"
 }

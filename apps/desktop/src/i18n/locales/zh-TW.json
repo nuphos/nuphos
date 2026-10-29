@@ -38,6 +38,7 @@
   "Monitoring": "監控",
   "Desktop": "桌面",
   "Remove {title} from Favorites": "從我的最愛移除 {title}",
+  "Agent": "Agent",
   "Could not watch agent": "無法關注 Agent",
   "Could not unwatch agent": "無法取消關注 Agent",
   "Link copied": "已複製連結",
@@ -292,6 +293,7 @@
   "Edit message": "編輯訊息",
   "Sends in a new agent": "將在新的 Agent 中傳送",
   "Send": "傳送",
+  "Customize": "自訂",
   "Select model": "選取模型",
   "Default": "預設",
   "Recommended set of models": "推薦的模型組合",
@@ -361,5 +363,7 @@
   "Copy response": "複製回應",
   "Activity": "活動",
   "Worked": "已處理",
-  "Worked for {duration}": "處理了 {duration}"
+  "Worked for {duration}": "處理了 {duration}",
+  "What's up next, {name}?": "{name}，接下來要做什麼？",
+  "What's up next?": "接下來要做什麼？"
 }

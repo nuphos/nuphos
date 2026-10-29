@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 export function fileNameFromPath(filePath: string): string {
   return filePath.split(/[\\/]/).pop() || filePath
 }
@@ -63,5 +65,5 @@ export function formatLocalFileInstruction(filePath: string, visibleText: string
 export function homeGreeting(displayName: string | undefined): string {
   const firstName = displayName?.trim().split(/\s+/)[0]
 
-  return firstName ? `What's up next, ${firstName}?` : "What's up next?"
+  return firstName ? t("What's up next, {name}?", { name: firstName }) : t("What's up next?")
 }

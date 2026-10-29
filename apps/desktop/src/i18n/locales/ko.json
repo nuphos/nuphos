@@ -38,6 +38,7 @@
   "Monitoring": "모니터링",
   "Desktop": "데스크톱",
   "Remove {title} from Favorites": "즐겨찾기에서 {title} 제거",
+  "Agent": "에이전트",
   "Could not watch agent": "에이전트를 구독할 수 없습니다",
   "Could not unwatch agent": "에이전트 구독을 해제할 수 없습니다",
   "Link copied": "링크를 복사했습니다",
@@ -292,6 +293,7 @@
   "Edit message": "메시지 편집",
   "Sends in a new agent": "새 에이전트에서 전송됩니다",
   "Send": "보내기",
+  "Customize": "사용자 지정",
   "Select model": "모델 선택",
   "Default": "기본값",
   "Recommended set of models": "추천 모델",
@@ -361,5 +363,7 @@
   "Copy response": "응답 복사",
   "Activity": "활동",
   "Worked": "작업 완료",
-  "Worked for {duration}": "{duration} 동안 작업함"
+  "Worked for {duration}": "{duration} 동안 작업함",
+  "What's up next, {name}?": "{name}님, 다음엔 무엇을 할까요?",
+  "What's up next?": "다음엔 무엇을 할까요?"
 }

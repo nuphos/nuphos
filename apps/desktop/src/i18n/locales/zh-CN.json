@@ -38,6 +38,7 @@
   "Monitoring": "监控",
   "Desktop": "桌面",
   "Remove {title} from Favorites": "从收藏中移除 {title}",
+  "Agent": "Agent",
   "Could not watch agent": "无法关注 Agent",
   "Could not unwatch agent": "无法取消关注 Agent",
   "Link copied": "链接已复制",
@@ -292,6 +293,7 @@
   "Edit message": "编辑消息",
   "Sends in a new agent": "将在新 Agent 中发送",
   "Send": "发送",
+  "Customize": "自定义",
   "Select model": "选择模型",
   "Default": "默认",
   "Recommended set of models": "推荐模型",
@@ -361,5 +363,7 @@
   "Copy response": "复制回复",
   "Activity": "活动",
   "Worked": "已处理",
-  "Worked for {duration}": "处理了 {duration}"
+  "Worked for {duration}": "处理了 {duration}",
+  "What's up next, {name}?": "{name}，接下来做什么？",
+  "What's up next?": "接下来做什么？"
 }

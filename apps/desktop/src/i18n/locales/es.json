@@ -38,6 +38,7 @@
   "Monitoring": "Supervisión",
   "Desktop": "Escritorio",
   "Remove {title} from Favorites": "Quitar {title} de Favoritos",
+  "Agent": "Agente",
   "Could not watch agent": "No se pudo seguir el agente",
   "Could not unwatch agent": "No se pudo dejar de seguir el agente",
   "Link copied": "Enlace copiado",
@@ -292,6 +293,7 @@
   "Edit message": "Editar mensaje",
   "Sends in a new agent": "Se enviará en un agente nuevo",
   "Send": "Enviar",
+  "Customize": "Personalizar",
   "Select model": "Seleccionar modelo",
   "Default": "Predeterminado",
   "Recommended set of models": "Conjunto de modelos recomendados",
@@ -361,5 +363,7 @@
   "Copy response": "Copiar respuesta",
   "Activity": "Actividad",
   "Worked": "Trabajó",
-  "Worked for {duration}": "Trabajó durante {duration}"
+  "Worked for {duration}": "Trabajó durante {duration}",
+  "What's up next, {name}?": "¿Qué sigue, {name}?",
+  "What's up next?": "¿Qué sigue?"
 }

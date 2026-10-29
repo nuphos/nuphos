@@ -1,5 +1,6 @@
 import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { useTeamMembers } from '../../../lib/bindingAccess'
 import {
   Menu,
@@ -103,7 +104,7 @@ export function HomeWidgets({
         <Menu>
           <MenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main">
             <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Customize
+            {t('Customize')}
           </MenuTrigger>
           <MenuContent align="center" className="w-[232px]">
             {hasTeammates && (

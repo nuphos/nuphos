@@ -38,6 +38,7 @@
   "Monitoring": "การตรวจสอบ",
   "Desktop": "เดสก์ท็อป",
   "Remove {title} from Favorites": "ลบ {title} ออกจากรายการโปรด",
+  "Agent": "เอเจนต์",
   "Could not watch agent": "ไม่สามารถติดตามเอเจนต์",
   "Could not unwatch agent": "ไม่สามารถเลิกติดตามเอเจนต์",
   "Link copied": "คัดลอกลิงก์แล้ว",
@@ -292,6 +293,7 @@
   "Edit message": "แก้ไขข้อความ",
   "Sends in a new agent": "ส่งในเอเจนต์ใหม่",
   "Send": "ส่ง",
+  "Customize": "ปรับแต่ง",
   "Select model": "เลือกโมเดล",
   "Default": "ค่าเริ่มต้น",
   "Recommended set of models": "ชุดโมเดลที่แนะนำ",
@@ -361,5 +363,7 @@
   "Copy response": "คัดลอกคำตอบ",
   "Activity": "กิจกรรม",
   "Worked": "ทำงานเสร็จแล้ว",
-  "Worked for {duration}": "ทำงาน {duration}"
+  "Worked for {duration}": "ทำงาน {duration}",
+  "What's up next, {name}?": "{name} จะทำอะไรต่อดี?",
+  "What's up next?": "จะทำอะไรต่อดี?"
 }
