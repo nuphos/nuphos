@@ -112,6 +112,9 @@ export const teamChannels = {
     expectedRevision: number,
   ) => atlas.putSidebarFavorites(teamId, entries, expectedRevision),
   'atlas:getHomeLayout': (_e: unknown, teamId: string) => atlas.getHomeLayout(teamId),
+  'atlas:getRuntimeFallback': (_e: unknown, teamId: string) => atlas.getRuntimeFallback(teamId),
+  'atlas:putRuntimeFallback': (_e: unknown, teamId: string, runtimeIds: string[]) =>
+    atlas.putRuntimeFallback(teamId, runtimeIds),
   'atlas:getTeamActivity': (_e: unknown, teamId: string, range: string) =>
     atlas.getTeamActivity(teamId, range),
   'atlas:putHomeLayout': (

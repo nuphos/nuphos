@@ -2064,5 +2064,17 @@
   "Hide conversation": "会話を隠す",
   "Answer in the conversation": "会話内で回答",
   "Mark as done": "完了にする",
-  "Or type a reply below; it answers this question.": "または下に返信を入力すると、この質問への回答になります。"
+  "Or type a reply below; it answers this question.": "または下に返信を入力すると、この質問への回答になります。",
+  "Team agent": "チームのエージェント",
+  "Could not load your fallback agents": "フォールバックエージェントを読み込めませんでした",
+  "Could not save your fallback agents": "フォールバックエージェントを保存できませんでした",
+  "Agent fallback": "エージェントのフォールバック",
+  "When the agent a conversation runs on is low on usage, offline, or fails a turn, Nuphos moves the conversation to the first agent in this list that can take it. A move between agents on the same computer keeps the conversation’s files; any other move carries only the conversation history.": "会話が動いているエージェントの使用量が少なくなったとき、オフラインのとき、またはターンが失敗したとき、Nuphos はこのリストで最初に引き継げるエージェントに会話を移動します。同じコンピューター上のエージェント間の移動では会話のファイルが保持されます。それ以外の移動で引き継がれるのは会話履歴のみです。",
+  "No longer available": "利用できなくなりました",
+  "No fallback agents. Conversations stay on their agent when it runs out.": "フォールバックエージェントはありません。使用量が尽きても、会話は元のエージェントに残ります。",
+  "Add an agent": "エージェントを追加",
+  "No agent in your fallback list could take over": "フォールバックリストに引き継げるエージェントがありません",
+  "{from} was low on usage, so this agent moved to {to}": "{from} の使用量が少なくなったため、このエージェントを {to} に移動しました",
+  "{from} was unreachable, so this agent moved to {to}": "{from} に接続できなかったため、このエージェントを {to} に移動しました",
+  "{from} failed a turn, so this agent moved to {to}": "{from} でターンが失敗したため、このエージェントを {to} に移動しました"
 }

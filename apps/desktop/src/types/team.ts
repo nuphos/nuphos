@@ -184,6 +184,9 @@ export type HomeGridItem = { i: string; x: number; y: number; w: number; h: numb
 /** The caller's own layout and the team default; either is null when unset. */
 export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }
 
+/** The agents the caller's conversations move to, in order, when theirs runs out or breaks. */
+export type RuntimeFallback = { runtimeIds: string[] }
+
 export type TeamActivityRange = '1d' | '7d' | '30d'
 
 /** Who ran which sessions in each slot of a range, oldest slot first. */

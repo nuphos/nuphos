@@ -5,6 +5,7 @@ import { getConversationBySessionId } from '@/lib/agent/db'
 import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
+import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 
@@ -83,7 +84,11 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const requestId = randomUUID()
   const streamId = randomUUID()
   const isPotentialNewConversation = messages.length === 1 && messages[0]?.role === 'user'
-  const existingConversation = await getConversationBySessionId(sessionId)
+  // Callers hold the session's run claim before an existing conversation runs.
+  const existingConversation = await fallBackBeforeTurn(
+    await getConversationBySessionId(sessionId),
+    true,
+  )
   const chatRuntime = await resolveConversationChatRuntime(teamId, existingConversation, {
     userId,
     sessionId,

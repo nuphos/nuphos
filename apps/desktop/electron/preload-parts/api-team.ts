@@ -35,6 +35,10 @@ export const teamApi = {
   atlasPutSidebarFavorites: (teamId: string, entries: unknown[], expectedRevision: number) =>
     ipcRenderer.invoke('atlas:putSidebarFavorites', teamId, entries, expectedRevision),
   atlasGetHomeLayout: (teamId: string) => ipcRenderer.invoke('atlas:getHomeLayout', teamId),
+  atlasGetRuntimeFallback: (teamId: string) =>
+    ipcRenderer.invoke('atlas:getRuntimeFallback', teamId),
+  atlasPutRuntimeFallback: (teamId: string, runtimeIds: string[]) =>
+    ipcRenderer.invoke('atlas:putRuntimeFallback', teamId, runtimeIds),
   atlasGetTeamActivity: (teamId: string, range: string) =>
     ipcRenderer.invoke('atlas:getTeamActivity', teamId, range),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: unknown) =>

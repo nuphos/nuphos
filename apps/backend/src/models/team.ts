@@ -217,6 +217,21 @@ export const teamHomeLayouts = (): Collection<TeamHomeLayout> =>
   db().collection<TeamHomeLayout>('team_home_layouts')
 
 /**
+ * The agents a member's conversations move to, in order, when the one they run
+ * on is out of usage or broken. One document per member and team.
+ */
+export type UserTeamRuntimeFallback = {
+  _id: ObjectId
+  teamId: ObjectId
+  userId: string
+  runtimeIds: string[]
+  updatedAt: Date
+}
+
+export const userTeamRuntimeFallbacks = (): Collection<UserTeamRuntimeFallback> =>
+  db().collection<UserTeamRuntimeFallback>('user_team_runtime_fallbacks')
+
+/**
  * One-time backfill for the Aliyun AccessKey → RAM-role-OIDC migration. Legacy
  * bindings store `accessKeyId`/`encryptedAccessKeySecret` and lack the
  * now-required `roleArn`; they can't be auto-converted (there is no role to

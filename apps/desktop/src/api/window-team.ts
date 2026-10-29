@@ -39,6 +39,7 @@ import type {
   TeamRole,
   HomeLayout,
   HomeLayouts,
+  RuntimeFallback,
   TeamActivity,
   TeamActivityRange,
   SidebarFavoriteCloudEntry,
@@ -153,6 +154,8 @@ export type WindowTeamApi = {
     expectedRevision: number,
   ): Promise<SidebarFavoritesCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
+  atlasGetRuntimeFallback(teamId: string): Promise<RuntimeFallback>
+  atlasPutRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<RuntimeFallback>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasPutHomeLayout(
     teamId: string,

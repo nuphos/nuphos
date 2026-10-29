@@ -17,6 +17,7 @@ import {
   interruptToolSteps,
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
+import { fallBackAfterFailure } from '@/lib/claude-code-preview/runtime-fallback'
 import { isRuntimeRefusal, queuedRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { desktopTracker } from '@/lib/claude-code-preview/session-desktops'
 import {
@@ -251,6 +252,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
     state.unbind()
     await clearActiveTurn()
+    await fallBackAfterFailure(sessionId, err)
     // Handoff errors belong to the continuation; the original run is closed.
     if (!state.handedOff()) throw queuedRefusal(err, args.queued)
     appendAgentRunError(state.current(), queuedRefusal(err, args.queued))

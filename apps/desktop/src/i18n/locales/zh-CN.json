@@ -2064,5 +2064,17 @@
   "Hide conversation": "隐藏对话",
   "Answer in the conversation": "在对话中回答",
   "Mark as done": "标记为完成",
-  "Or type a reply below; it answers this question.": "或在下方输入回复，回复会回答这个问题。"
+  "Or type a reply below; it answers this question.": "或在下方输入回复，回复会回答这个问题。",
+  "Team agent": "团队 Agent",
+  "Could not load your fallback agents": "无法加载你的备用 Agent",
+  "Could not save your fallback agents": "无法保存你的备用 Agent",
+  "Agent fallback": "Agent 备用",
+  "When the agent a conversation runs on is low on usage, offline, or fails a turn, Nuphos moves the conversation to the first agent in this list that can take it. A move between agents on the same computer keeps the conversation’s files; any other move carries only the conversation history.": "当对话所在的 Agent 用量不足、离线或某一轮执行失败时，Nuphos 会把对话移到此列表中第一个能接手的 Agent。在同一台电脑上的 Agent 之间移动会保留对话的文件；其他移动只会带走对话记录。",
+  "No longer available": "已不可用",
+  "No fallback agents. Conversations stay on their agent when it runs out.": "尚未设置备用 Agent。Agent 用量耗尽时，对话会留在原来的 Agent。",
+  "Add an agent": "添加 Agent",
+  "No agent in your fallback list could take over": "备用列表中没有能接手的 Agent",
+  "{from} was low on usage, so this agent moved to {to}": "{from} 用量不足，此 Agent 已移至 {to}",
+  "{from} was unreachable, so this agent moved to {to}": "{from} 无法连接，此 Agent 已移至 {to}",
+  "{from} failed a turn, so this agent moved to {to}": "{from} 有一轮执行失败，此 Agent 已移至 {to}"
 }

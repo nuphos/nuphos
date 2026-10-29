@@ -46,6 +46,7 @@ import { personalCredentialTokenRoutes } from '@/routes/personal-credentials'
 import { plaudAccountsRoutes } from '@/routes/plaud-accounts'
 import { posthogIntegrationsRoutes } from '@/routes/posthog-integrations'
 import { resendIntegrationsRoutes } from '@/routes/resend-integrations'
+import { runtimeFallbackRoutes } from '@/routes/runtime-fallback'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
 import { sentryAccountsRoutes } from '@/routes/sentry-accounts'
 import { sidebarFavoritesRoutes } from '@/routes/sidebar-favorites'
@@ -127,6 +128,7 @@ teamScoped.get(
 )
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
+teamScoped.route('/runtime-fallback', runtimeFallbackRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 teamScoped.route('/voice-transcriptions', voiceTranscriptionsRoutes)
 

@@ -216,6 +216,10 @@ export type AgentTimelineEvent = {
   target?: AgentTimelinePerson
   from?: AgentTimelineRuntime
   to?: AgentTimelineRuntime
+  /** Set when a fallback moved the session: its agent was low on usage, unreachable, or failed a turn. */
+  reason?: 'quota' | 'offline' | 'failure'
+  /** A fallback that found no agent: each one passed over, and why. */
+  skipped?: { label: string; reason: string }[]
 }
 
 export type AgentConversationDetail = AgentConversation & {

@@ -2064,5 +2064,17 @@
   "Hide conversation": "Ocultar conversación",
   "Answer in the conversation": "Responder en la conversación",
   "Mark as done": "Marcar como hecho",
-  "Or type a reply below; it answers this question.": "O escribe una respuesta abajo; responde a esta pregunta."
+  "Or type a reply below; it answers this question.": "O escribe una respuesta abajo; responde a esta pregunta.",
+  "Team agent": "Agente del equipo",
+  "Could not load your fallback agents": "No se pudieron cargar tus agentes de respaldo",
+  "Could not save your fallback agents": "No se pudieron guardar tus agentes de respaldo",
+  "Agent fallback": "Agentes de respaldo",
+  "When the agent a conversation runs on is low on usage, offline, or fails a turn, Nuphos moves the conversation to the first agent in this list that can take it. A move between agents on the same computer keeps the conversation’s files; any other move carries only the conversation history.": "Cuando al agente en el que se ejecuta una conversación le queda poco uso, está sin conexión o falla un turno, Nuphos mueve la conversación al primer agente de esta lista que pueda tomarla. Un cambio entre agentes del mismo equipo conserva los archivos de la conversación; cualquier otro cambio solo lleva el historial de la conversación.",
+  "No longer available": "Ya no está disponible",
+  "No fallback agents. Conversations stay on their agent when it runs out.": "No hay agentes de respaldo. Las conversaciones se quedan en su agente cuando se agota.",
+  "Add an agent": "Añadir un agente",
+  "No agent in your fallback list could take over": "Ningún agente de tu lista de respaldo pudo tomar el relevo",
+  "{from} was low on usage, so this agent moved to {to}": "A {from} le quedaba poco uso, así que este agente se movió a {to}",
+  "{from} was unreachable, so this agent moved to {to}": "{from} no estaba accesible, así que este agente se movió a {to}",
+  "{from} failed a turn, so this agent moved to {to}": "{from} falló un turno, así que este agente se movió a {to}"
 }

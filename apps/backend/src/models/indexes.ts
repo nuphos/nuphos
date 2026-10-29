@@ -41,7 +41,12 @@ import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-noti
 import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
-import { teamHomeLayouts, teamInvitations, userTeamSidebarFavorites } from '@/models/team'
+import {
+  teamHomeLayouts,
+  teamInvitations,
+  userTeamRuntimeFallbacks,
+  userTeamSidebarFavorites,
+} from '@/models/team'
 
 // Mongo 85/86 = an index with this name already exists under a different spec
 // — typically another branch's backend upgraded it on the shared replica set.
@@ -106,6 +111,7 @@ export async function setupIndexes(): Promise<void> {
     ['preview-memory-activity', setupPreviewMemoryActivityIndexes],
     ['sidebar-favorites', setupSidebarFavoritesIndexes],
     ['home-layouts', setupHomeLayoutIndexes],
+    ['runtime-fallbacks', setupRuntimeFallbackIndexes],
     ['push-devices', setupPushDeviceIndexes],
     ['push-live-activities', setupLiveActivityIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
@@ -144,6 +150,13 @@ async function setupHomeLayoutIndexes(): Promise<void> {
   await teamHomeLayouts().createIndex(
     { teamId: 1, userId: 1 },
     { unique: true, name: 'team_home_layouts_scope_unique' },
+  )
+}
+
+async function setupRuntimeFallbackIndexes(): Promise<void> {
+  await userTeamRuntimeFallbacks().createIndex(
+    { teamId: 1, userId: 1 },
+    { unique: true, name: 'user_team_runtime_fallbacks_scope_unique' },
   )
 }
 

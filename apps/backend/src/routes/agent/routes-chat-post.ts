@@ -4,6 +4,7 @@ import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
+import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
@@ -52,7 +53,7 @@ agent.post('/chat', async (c) => {
   const localToolsEnabled = body.clientCapabilities?.localTools === true
   const conversationForResume = body.resume
     ? await resolveReadableConversationForResume(id, userId, teamId)
-    : await assertConversationSendable(id, userId, teamId)
+    : await fallBackBeforeTurn(await assertConversationSendable(id, userId, teamId))
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
   if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {
