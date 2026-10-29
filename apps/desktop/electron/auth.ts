@@ -6,7 +6,15 @@ import { shell } from 'electron'
 // is how auth-login.test.ts drives login().
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
-import { apiErrorMessage, requestContext, writeConfig } from './auth/config.ts'
+import {
+  apiErrorMessage,
+  forgetAccountConfig,
+  listAccountConfigs,
+  parkAccountConfig,
+  requestContext,
+  switchAccountConfig,
+  writeConfig,
+} from './auth/config.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
@@ -116,19 +124,33 @@ export async function logout() {
 
 /**
  * Points the app at another backend (`null` restores the launch-time one). A
- * sign-in belongs to the backend that issued it, so it ends there, on disk as
- * well as in memory: no launch sends it to the new backend.
+ * sign-in belongs to the backend that issued it, so it stops being the active
+ * one, on disk as well as in memory: no launch sends it to the new backend.
+ * It stays signed in there, waiting in the account list.
  */
 export async function changeBackend(url: string | null): Promise<string> {
-  const { api, token } = await requestContext()
+  const { api } = await requestContext()
   const next = setApiUrl(url)
 
-  if (next !== api && token) {
-    await writeConfig({})
-    void endServerSession(api, token)
-  }
+  if (next !== api) await parkAccountConfig(api)
 
   return next
+}
+
+/** The accounts signed in on this computer, the active one first; never their tokens. */
+export const listAccounts = listAccountConfigs
+
+/** Makes another signed-in account the active one, on the backend that issued its token. */
+export const switchAccount = switchAccountConfig
+
+/** Signs one account out of this app and ends its session on its backend. */
+export async function signOutAccount(key: string): Promise<void> {
+  const active = (await listAccounts()).find((a) => a.active)
+
+  if (active?.key === key) return logout()
+  const ended = await forgetAccountConfig(key)
+
+  if (ended) void endServerSession(ended.api, ended.token)
 }
 
 async function endServerSession(api: string, token: string): Promise<void> {
