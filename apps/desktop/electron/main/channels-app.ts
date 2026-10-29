@@ -37,16 +37,10 @@ export const appChannels = {
     input: { name: string; username: string; avatarURL: string },
   ) => updateProfile(input),
   'atlas:listPersonalCredentials': () => atlas.listPersonalCredentials(),
-  'atlas:startPersonalCredential': (
-    _e: unknown,
-    provider: PersonalCredentialProvider,
-    teamId?: string,
-  ) => atlas.startPersonalCredential(provider, teamId),
-  'atlas:deletePersonalCredential': (
-    _e: unknown,
-    provider: PersonalCredentialProvider,
-    teamId?: string,
-  ) => atlas.deletePersonalCredential(provider, teamId),
+  'atlas:startPersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
+    atlas.startPersonalCredential(provider),
+  'atlas:deletePersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
+    atlas.deletePersonalCredential(provider),
   'auth:uploadAvatar': (_e: unknown, image: Uint8Array) => uploadAvatar(image),
   'auth:removeAvatar': () => removeAvatar(),
   'auth:status': () => auth.status(),

@@ -11,7 +11,6 @@ import { toast } from '../../components/ui/toast'
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
 import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
 import { DangerZone } from './DangerZone'
-import { GoogleOAuthClientCard } from './GoogleOAuthClientCard'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
@@ -145,7 +144,6 @@ export function GeneralSection({
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
           <LocalAgentSharingCeilingCard team={team} onTeamUpdated={onTeamUpdated} />
-          <GoogleOAuthClientCard team={team} />
 
           <DangerZone team={team} onTeamRemoved={onTeamRemoved} />
         </>

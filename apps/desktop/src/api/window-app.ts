@@ -42,12 +42,8 @@ export type WindowAppApi = {
   atlasListPersonalCredentials(): Promise<PersonalCredential[]>
   atlasStartPersonalCredential(
     provider: PersonalCredentialProvider,
-    teamId?: string,
   ): Promise<{ authorizeUrl: string; state: string }>
-  atlasDeletePersonalCredential(
-    provider: PersonalCredentialProvider,
-    teamId?: string,
-  ): Promise<void>
+  atlasDeletePersonalCredential(provider: PersonalCredentialProvider): Promise<void>
   authUploadAvatar(image: Uint8Array): Promise<UserInfo>
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>

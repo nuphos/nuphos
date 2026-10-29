@@ -12,14 +12,12 @@ export type UserInfo = {
 
 export type AuthStatus = { loggedIn: false } | { loggedIn: true; user: UserInfo; token: string }
 
-export type PersonalCredentialProvider = 'github' | 'linear' | 'gmail' | 'google-drive'
+export type PersonalCredentialProvider = 'github' | 'linear'
 
 export type PersonalCredential = {
   provider: PersonalCredentialProvider
   login: string
   workspaceName: string | null
-  /** Gmail / Google Drive: the team whose OAuth client issued the grant. */
-  teamId?: string | null
   connectedAt: string
 }
 
