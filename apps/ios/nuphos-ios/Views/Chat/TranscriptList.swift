@@ -322,6 +322,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private func updateLatestButton() { latestButton.isHidden = nearBottom }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        following = false
         layout.keepContentOffsetAtBottomOnBatchUpdates = false
     }
 
