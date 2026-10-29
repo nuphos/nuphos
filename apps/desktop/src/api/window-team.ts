@@ -42,6 +42,8 @@ import type {
   RuntimeFallback,
   TeamActivity,
   TeamActivityRange,
+  AgentStats,
+  AgentStatsQuery,
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
@@ -157,6 +159,7 @@ export type WindowTeamApi = {
   atlasGetRuntimeFallback(teamId: string): Promise<RuntimeFallback>
   atlasPutRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<RuntimeFallback>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
+  atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
   atlasPutHomeLayout(
     teamId: string,
     scope: 'personal' | 'team',

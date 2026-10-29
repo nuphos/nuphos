@@ -105,6 +105,15 @@ export async function getTeamActivity(teamId: string, range: string): Promise<un
   )
 }
 
+export type AgentStatsQuery = { range: string; scope: string; timeZone: string }
+
+export async function getAgentStats(teamId: string, query: AgentStatsQuery): Promise<unknown> {
+  return call(
+    'GET',
+    `/teams/${encodeURIComponent(teamId)}/agent-stats?${new URLSearchParams(query).toString()}`,
+  )
+}
+
 /** The caller's ordered fallback agents; an empty list turns fallback off. */
 export async function getRuntimeFallback(teamId: string): Promise<unknown> {
   return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallback`)

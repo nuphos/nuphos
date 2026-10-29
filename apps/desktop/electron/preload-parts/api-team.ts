@@ -41,6 +41,8 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:putRuntimeFallback', teamId, runtimeIds),
   atlasGetTeamActivity: (teamId: string, range: string) =>
     ipcRenderer.invoke('atlas:getTeamActivity', teamId, range),
+  atlasGetAgentStats: (teamId: string, query: { range: string; scope: string; timeZone: string }) =>
+    ipcRenderer.invoke('atlas:getAgentStats', teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: unknown) =>
     ipcRenderer.invoke('atlas:putHomeLayout', teamId, scope, layout),
   archListDiagrams: (teamId: string) => ipcRenderer.invoke('arch:listDiagrams', teamId),
