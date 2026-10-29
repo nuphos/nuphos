@@ -1094,7 +1094,6 @@
   "Pull requests": "PR",
   "Pull requests, sub-agents and files from this agent appear here after its first reply.": "此 Agent 首次回复后，其 PR、子 Agent 和文件会显示在这里。",
   "Query": "查询",
-  "Question to answer": "要回答的问题",
   "Queue a follow-up — sends when this turn ends…": "排队追加消息，将在本轮结束后发送…",
   "Queued messages": "排队中的消息",
   "Reachability": "可达性",
@@ -1727,7 +1726,6 @@
   "{count} pending questions": "{count} 个待回复的问题",
   "{count} questions": "{count} 个问题",
   "{count} questions need your input": "有 {count} 个问题需要你回复",
-  "{count} questions waiting. Your reply answers the selected one.": "有 {count} 个问题等待回复，你的回复会回答选中的那一个。",
   "{count} redacted": "已脱敏 {count} 项",
   "{count} running in the background": "{count} 个正在后台运行",
   "{count} team invitations": "{count} 个团队邀请",
@@ -1835,5 +1833,11 @@
   "“{name}” will run on its schedule again.": "“{name}”将重新按计划运行。",
   "“{name}” will stop running until someone resumes it.": "“{name}”将停止运行，直到有人恢复它。",
   "“{text}” — send it again.": "“{text}”，请重新发送。",
-  "✓ used": "✓ 已使用"
+  "✓ used": "✓ 已使用",
+  "Show conversation": "显示对话",
+  "Hide conversation": "隐藏对话",
+  "Answer in the conversation": "在对话中回答",
+  "Mark as done": "标记为完成",
+  "Or type a reply below; it answers this question.": "或在下方输入回复，回复会回答这个问题。",
+  "Could not update question": "无法更新问题"
 }

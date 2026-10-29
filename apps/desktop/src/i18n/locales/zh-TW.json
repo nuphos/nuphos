@@ -1094,7 +1094,6 @@
   "Pull requests": "Pull Request",
   "Pull requests, sub-agents and files from this agent appear here after its first reply.": "此 Agent 首次回覆後，其 Pull Request、子 Agent 與檔案會顯示在這裡。",
   "Query": "查詢",
-  "Question to answer": "要回答的問題",
   "Queue a follow-up — sends when this turn ends…": "排入後續訊息，將在本輪結束後傳送…",
   "Queued messages": "佇列中的訊息",
   "Reachability": "連線狀態",
@@ -1727,7 +1726,6 @@
   "{count} pending questions": "{count} 個待回覆的問題",
   "{count} questions": "{count} 個問題",
   "{count} questions need your input": "有 {count} 個問題需要你回覆",
-  "{count} questions waiting. Your reply answers the selected one.": "有 {count} 個問題等待回覆，你的回覆會回答選取的那一個。",
   "{count} redacted": "已遮蔽 {count} 項",
   "{count} running in the background": "{count} 個正在背景執行",
   "{count} team invitations": "{count} 個團隊邀請",
@@ -1835,5 +1833,11 @@
   "“{name}” will run on its schedule again.": "「{name}」將重新依排程執行。",
   "“{name}” will stop running until someone resumes it.": "「{name}」將停止執行，直到有人重新啟用。",
   "“{text}” — send it again.": "「{text}」，請重新傳送。",
-  "✓ used": "✓ 已使用"
+  "✓ used": "✓ 已使用",
+  "Show conversation": "顯示對話",
+  "Hide conversation": "隱藏對話",
+  "Answer in the conversation": "在對話中回答",
+  "Mark as done": "標記為完成",
+  "Or type a reply below; it answers this question.": "或在下方輸入回覆，回覆會回答這個問題。",
+  "Could not update question": "無法更新問題"
 }

@@ -1094,7 +1094,6 @@
   "Pull requests": "풀 리퀘스트",
   "Pull requests, sub-agents and files from this agent appear here after its first reply.": "이 에이전트의 첫 답변 이후 풀 리퀘스트, 하위 에이전트, 파일이 여기에 표시됩니다.",
   "Query": "쿼리",
-  "Question to answer": "답할 질문",
   "Queue a follow-up — sends when this turn ends…": "후속 메시지 대기열에 추가 — 이번 턴이 끝나면 전송됩니다…",
   "Queued messages": "대기 중인 메시지",
   "Reachability": "연결 가능 여부",
@@ -1727,7 +1726,6 @@
   "{count} pending questions": "대기 중인 질문 {count}개",
   "{count} questions": "질문 {count}개",
   "{count} questions need your input": "답변이 필요한 질문 {count}개",
-  "{count} questions waiting. Your reply answers the selected one.": "질문 {count}개가 답변을 기다리고 있습니다. 답장은 선택한 질문에 대한 답이 됩니다.",
   "{count} redacted": "{count}개 가림",
   "{count} running in the background": "백그라운드에서 {count}개 실행 중",
   "{count} team invitations": "팀 초대 {count}건",
@@ -1835,5 +1833,11 @@
   "“{name}” will run on its schedule again.": "“{name}” 트리거가 다시 일정에 따라 실행됩니다.",
   "“{name}” will stop running until someone resumes it.": "“{name}” 트리거는 누군가 재개할 때까지 실행되지 않습니다.",
   "“{text}” — send it again.": "“{text}” — 다시 보내세요.",
-  "✓ used": "✓ 사용됨"
+  "✓ used": "✓ 사용됨",
+  "Show conversation": "대화 보기",
+  "Hide conversation": "대화 숨기기",
+  "Answer in the conversation": "대화에서 답변",
+  "Mark as done": "완료로 표시",
+  "Or type a reply below; it answers this question.": "또는 아래에 답장을 입력하면 이 질문에 대한 답변이 됩니다.",
+  "Could not update question": "질문을 업데이트할 수 없습니다"
 }

@@ -1094,7 +1094,6 @@
   "Pull requests": "Pull request",
   "Pull requests, sub-agents and files from this agent appear here after its first reply.": "Pull request, subagen, dan file dari agen ini muncul di sini setelah balasan pertamanya.",
   "Query": "Kueri",
-  "Question to answer": "Pertanyaan yang dijawab",
   "Queue a follow-up — sends when this turn ends…": "Antrekan pertanyaan lanjutan — dikirim saat giliran ini selesai…",
   "Queued messages": "Pesan dalam antrean",
   "Reachability": "Keterjangkauan",
@@ -1727,7 +1726,6 @@
   "{count} pending questions": "{count} pertanyaan tertunda",
   "{count} questions": "{count} pertanyaan",
   "{count} questions need your input": "{count} pertanyaan perlu masukan Anda",
-  "{count} questions waiting. Your reply answers the selected one.": "{count} pertanyaan menunggu. Balasan Anda menjawab pertanyaan yang dipilih.",
   "{count} redacted": "{count} disamarkan",
   "{count} running in the background": "{count} berjalan di latar belakang",
   "{count} team invitations": "{count} undangan tim",
@@ -1835,5 +1833,11 @@
   "“{name}” will run on its schedule again.": "“{name}” akan kembali berjalan sesuai jadwalnya.",
   "“{name}” will stop running until someone resumes it.": "“{name}” akan berhenti berjalan sampai seseorang melanjutkannya.",
   "“{text}” — send it again.": "“{text}” — kirim lagi.",
-  "✓ used": "✓ dipakai"
+  "✓ used": "✓ dipakai",
+  "Show conversation": "Tampilkan percakapan",
+  "Hide conversation": "Sembunyikan percakapan",
+  "Answer in the conversation": "Jawab di percakapan",
+  "Mark as done": "Tandai selesai",
+  "Or type a reply below; it answers this question.": "Atau ketik balasan di bawah; balasan itu menjawab pertanyaan ini.",
+  "Could not update question": "Tidak dapat memperbarui pertanyaan"
 }

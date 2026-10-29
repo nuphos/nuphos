@@ -90,6 +90,8 @@ export type AgentInputRequest = {
   id: string
   category: string
   question: string
+  /** Markdown the agent wrote so the question can be decided without the chat. */
+  body?: string
   options?: string[]
   askedAt: string
   status: 'open' | 'answered' | 'dismissed'

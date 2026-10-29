@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
 
@@ -149,9 +150,19 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     <ConversationReveal sessionId={activeTab.sessionId}>
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
-          <div className="relative grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr_auto]">
+          <div
+            className={clsx(
+              'relative grid min-h-0 flex-1 grid-cols-1',
+              c.hideTranscript ? 'grid-rows-[0_auto]' : 'grid-rows-[1fr_auto]',
+            )}
+          >
             {/* Keep the transcript above the composer as its height changes. */}
-            <div className="col-start-1 row-start-1 flex min-h-0 flex-col overflow-hidden">
+            <div
+              className={clsx(
+                'col-start-1 row-start-1 flex min-h-0 flex-col overflow-hidden',
+                c.hideTranscript && 'hidden',
+              )}
+            >
               <ConnectCardContext.Provider
                 value={{
                   credentials: activeTab.readOnly

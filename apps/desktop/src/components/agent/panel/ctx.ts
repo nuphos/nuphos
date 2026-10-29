@@ -69,6 +69,7 @@ export type PanelCtx = {
   focusComposerOnOpen: boolean
   composerDraftId?: string
   decisionReplyTo?: string
+  hideTranscript: boolean
   replyTarget?: ComposerReplyTarget
   openQuestions?: ReplyQuestion[]
   kubeContext?: string | null

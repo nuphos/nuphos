@@ -48,6 +48,24 @@ export async function addInputRequest(
   )
 }
 
+/** The agent corrects a request while it is still open; an answered one stays as answered. */
+export async function updateInputRequest(
+  sessionId: string,
+  userId: string,
+  id: string,
+  patch: Partial<Pick<ExplicitUserDecision, 'question' | 'body' | 'options'>>,
+): Promise<boolean> {
+  const set = Object.fromEntries(
+    Object.entries(patch).map(([field, value]) => [`inputRequests.$.${field}`, value]),
+  )
+  const result = await agentConversations().updateOne(
+    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
+    { $set: set },
+  )
+
+  return result.matchedCount > 0
+}
+
 export async function resolveInputRequest(
   sessionId: string,
   userId: string,

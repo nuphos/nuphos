@@ -1094,7 +1094,6 @@
   "Pull requests": "プルリクエスト",
   "Pull requests, sub-agents and files from this agent appear here after its first reply.": "このエージェントのプルリクエスト、サブエージェント、ファイルは、最初の返信後にここに表示されます。",
   "Query": "クエリ",
-  "Question to answer": "回答する質問",
   "Queue a follow-up — sends when this turn ends…": "フォローアップをキューに追加 — このターンの終了後に送信されます…",
   "Queued messages": "キュー内のメッセージ",
   "Reachability": "到達性",
@@ -1727,7 +1726,6 @@
   "{count} pending questions": "未回答の質問 {count} 件",
   "{count} questions": "質問 {count} 件",
   "{count} questions need your input": "{count} 件の質問に回答が必要です",
-  "{count} questions waiting. Your reply answers the selected one.": "{count} 件の質問が回答を待っています。返信は選択した質問への回答になります。",
   "{count} redacted": "{count} 件を秘匿",
   "{count} running in the background": "{count} 件をバックグラウンドで実行中",
   "{count} team invitations": "チームへの招待 {count} 件",
@@ -1835,5 +1833,11 @@
   "“{name}” will run on its schedule again.": "「{name}」はスケジュールどおりに再び実行されます。",
   "“{name}” will stop running until someone resumes it.": "「{name}」は誰かが再開するまで実行されません。",
   "“{text}” — send it again.": "「{text}」— もう一度送信してください。",
-  "✓ used": "✓ 使用済み"
+  "✓ used": "✓ 使用済み",
+  "Show conversation": "会話を表示",
+  "Hide conversation": "会話を隠す",
+  "Answer in the conversation": "会話内で回答",
+  "Mark as done": "完了にする",
+  "Or type a reply below; it answers this question.": "または下に返信を入力すると、この質問への回答になります。",
+  "Could not update question": "質問を更新できませんでした"
 }

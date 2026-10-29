@@ -111,6 +111,8 @@ type Props = {
   /** A request's reply draft is separate from the same session's normal composer. */
   composerDraftId?: string
   decisionReplyTo?: string
+  /** Keep the conversation but show only its composer; the Inbox puts the question above it. */
+  hideTranscript?: boolean
   /** The main chat's "Replying to" chip; it also sets `decisionReplyTo`. */
   replyTarget?: ComposerReplyTarget
   /** Open questions, so a choice card answers its own one whatever id the transcript keeps. */
@@ -176,6 +178,7 @@ export const AgentPanel = memo(function AgentPanel({
   focusComposerOnOpen = true,
   composerDraftId,
   decisionReplyTo,
+  hideTranscript = false,
   replyTarget,
   openQuestions,
   kubeContext,
@@ -214,6 +217,7 @@ export const AgentPanel = memo(function AgentPanel({
     focusComposerOnOpen,
     composerDraftId,
     decisionReplyTo,
+    hideTranscript,
     replyTarget,
     openQuestions,
     kubeContext,

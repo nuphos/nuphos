@@ -1094,7 +1094,6 @@
   "Pull requests": "Pull request",
   "Pull requests, sub-agents and files from this agent appear here after its first reply.": "Pull request เอเจนต์ย่อย และไฟล์จากเอเจนต์นี้จะปรากฏที่นี่หลังการตอบกลับครั้งแรก",
   "Query": "คิวรี",
-  "Question to answer": "คำถามที่จะตอบ",
   "Queue a follow-up — sends when this turn ends…": "เพิ่มคำถามต่อในคิว — จะส่งเมื่อรอบนี้จบ…",
   "Queued messages": "ข้อความในคิว",
   "Reachability": "การเข้าถึงได้",
@@ -1727,7 +1726,6 @@
   "{count} pending questions": "{count} คำถามที่รออยู่",
   "{count} questions": "{count} คำถาม",
   "{count} questions need your input": "มี {count} คำถามที่รอคำตอบจากคุณ",
-  "{count} questions waiting. Your reply answers the selected one.": "มี {count} คำถามที่รอคำตอบ คำตอบของคุณจะตอบคำถามที่เลือกไว้",
   "{count} redacted": "ปกปิด {count} รายการ",
   "{count} running in the background": "{count} รายการทำงานอยู่เบื้องหลัง",
   "{count} team invitations": "คำเชิญเข้าทีม {count} รายการ",
@@ -1835,5 +1833,11 @@
   "“{name}” will run on its schedule again.": "“{name}” จะกลับมาทำงานตามกำหนดเวลาอีกครั้ง",
   "“{name}” will stop running until someone resumes it.": "“{name}” จะหยุดทำงานจนกว่าจะมีคนเริ่มต่อ",
   "“{text}” — send it again.": "“{text}” — ส่งอีกครั้ง",
-  "✓ used": "✓ ใช้แล้ว"
+  "✓ used": "✓ ใช้แล้ว",
+  "Show conversation": "แสดงการสนทนา",
+  "Hide conversation": "ซ่อนการสนทนา",
+  "Answer in the conversation": "ตอบในการสนทนา",
+  "Mark as done": "ทำเครื่องหมายว่าเสร็จ",
+  "Or type a reply below; it answers this question.": "หรือพิมพ์คำตอบด้านล่าง ซึ่งจะเป็นคำตอบของคำถามนี้",
+  "Could not update question": "ไม่สามารถอัปเดตคำถามได้"
 }

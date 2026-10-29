@@ -1094,7 +1094,6 @@
   "Pull requests": "Pull requests",
   "Pull requests, sub-agents and files from this agent appear here after its first reply.": "Las pull requests, los subagentes y los archivos de este agente aparecerán aquí después de su primera respuesta.",
   "Query": "Consulta",
-  "Question to answer": "Pregunta a responder",
   "Queue a follow-up — sends when this turn ends…": "Pon en cola un mensaje: se enviará al terminar este turno…",
   "Queued messages": "Mensajes en cola",
   "Reachability": "Accesibilidad",
@@ -1727,7 +1726,6 @@
   "{count} pending questions": "{count} preguntas pendientes",
   "{count} questions": "{count} preguntas",
   "{count} questions need your input": "{count} preguntas necesitan tu respuesta",
-  "{count} questions waiting. Your reply answers the selected one.": "{count} preguntas esperan respuesta. Tu respuesta contesta la seleccionada.",
   "{count} redacted": "{count} ocultos",
   "{count} running in the background": "{count} en segundo plano",
   "{count} team invitations": "{count} invitaciones de equipo",
@@ -1835,5 +1833,11 @@
   "“{name}” will run on its schedule again.": "“{name}” volverá a ejecutarse según su programación.",
   "“{name}” will stop running until someone resumes it.": "“{name}” dejará de ejecutarse hasta que alguien lo reanude.",
   "“{text}” — send it again.": "“{text}”: vuelve a enviarlo.",
-  "✓ used": "✓ usada"
+  "✓ used": "✓ usada",
+  "Show conversation": "Mostrar conversación",
+  "Hide conversation": "Ocultar conversación",
+  "Answer in the conversation": "Responder en la conversación",
+  "Mark as done": "Marcar como hecho",
+  "Or type a reply below; it answers this question.": "O escribe una respuesta abajo; responde a esta pregunta.",
+  "Could not update question": "No se pudo actualizar la pregunta"
 }
