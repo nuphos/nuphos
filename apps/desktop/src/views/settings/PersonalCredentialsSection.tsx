@@ -7,7 +7,6 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
-import { t } from '../../i18n'
 
 import { PERSONAL_CREDENTIALS_CHANGED, nameOf } from './personalCredentials'
 import { SectionHeader } from './shared'
@@ -18,20 +17,15 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
   {
     provider: 'github',
     name: 'GitHub',
-    description: t(
+    description:
       'Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Agents scoped to one repository keep using nuphos[bot].',
-    ),
   },
   {
     provider: 'linear',
     name: 'Linear',
-    description: t(
-      'Linear issues and comments are authored by you instead of the team’s Linear app.',
-    ),
+    description: 'Linear issues and comments are authored by you instead of the team’s Linear app.',
   },
 ]
-// The login is styled, so split one sentence around it.
-const CONNECTED_AS = t('Connected as {login}').split('{login}')
 
 export function PersonalCredentialsSection() {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
@@ -48,7 +42,7 @@ export function PersonalCredentialsSection() {
       })
       .catch((err: unknown) => {
         setLoadFailed(true)
-        toast.apiError(t('Could not load Personal Credentials'), err)
+        toast.apiError('Could not load Personal Credentials', err)
       })
   }, [])
 
@@ -72,12 +66,9 @@ export function PersonalCredentialsSection() {
       await api.appOpenExternal(authorizeUrl)
     } catch (err) {
       if (parseAtlasError(err).code === 'personal_credential_not_configured') {
-        toast.error(
-          t('Could not connect {name}', { name: nameOf(provider) }),
-          t('Not configured on this server yet'),
-        )
+        toast.error(`Could not connect ${nameOf(provider)}`, 'Not configured on this server yet')
       } else {
-        toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
+        toast.apiError(`Could not connect ${nameOf(provider)}`, err)
       }
     } finally {
       setBusy(null)
@@ -88,9 +79,9 @@ export function PersonalCredentialsSection() {
     setBusy(provider)
     try {
       await api.atlasDeletePersonalCredential(provider)
-      toast.success(t('{name} disconnected', { name: nameOf(provider) }))
+      toast.success(`${nameOf(provider)} disconnected`)
     } catch (err) {
-      toast.apiError(t('Could not disconnect {name}', { name: nameOf(provider) }), err)
+      toast.apiError(`Could not disconnect ${nameOf(provider)}`, err)
     } finally {
       setBusy(null)
       refresh()
@@ -100,14 +91,14 @@ export function PersonalCredentialsSection() {
   return (
     <div>
       <SectionHeader
-        title={t('Personal Credentials')}
-        description={t('Connect your own accounts so the agent acts as you.')}
+        title="Personal Credentials"
+        description="Connect your own accounts so the agent acts as you."
       />
       {!credentials && loadFailed && (
         <p className="text-[12.5px] text-tertiary">
-          {t('Couldn’t load your Personal Credentials.')}{' '}
+          Couldn’t load your Personal Credentials.{' '}
           <Button type="button" size="sm" variant="secondary" onClick={refresh}>
-            {t('Retry')}
+            Retry
           </Button>
         </p>
       )}
@@ -138,9 +129,8 @@ export function PersonalCredentialsSection() {
                       <div className="t-collapse-inner">
                         {credential && (
                           <p className="mt-1.5 text-[12.5px] text-secondary">
-                            {CONNECTED_AS[0]}
+                            Connected as{' '}
                             <span className="font-medium text-main">{credential.login}</span>
-                            {CONNECTED_AS[1]}
                             {credential.workspaceName && ` · ${credential.workspaceName}`}
                           </p>
                         )}
@@ -155,7 +145,7 @@ export function PersonalCredentialsSection() {
                       disabled={busy === provider}
                       onClick={() => setDisconnecting(provider)}
                     >
-                      {t('Disconnect')}
+                      Disconnect
                     </Button>
                   ) : (
                     <Button
@@ -164,7 +154,7 @@ export function PersonalCredentialsSection() {
                       disabled={busy === provider}
                       onClick={() => void connect(provider)}
                     >
-                      {t('Connect')}
+                      Connect
                     </Button>
                   )}
                 </div>
@@ -174,15 +164,13 @@ export function PersonalCredentialsSection() {
         </SkeletonReveal>
       )}
       <p className="mt-4 text-[12px] text-tertiary">
-        {t('Used when you send a message, and for automated runs in agents you own.')}
+        Used when you send a message, and for automated runs in agents you own.
       </p>
       <ConfirmDialog
         open={disconnecting !== null}
-        title={t('Disconnect {name}', { name: disconnecting ? nameOf(disconnecting) : '' })}
-        description={t(
-          'Your messages will use the team’s credentials again. The grant is also revoked at the provider.',
-        )}
-        confirmLabel={t('Disconnect')}
+        title={`Disconnect ${disconnecting ? nameOf(disconnecting) : ''}`}
+        description="Your messages will use the team’s credentials again. The grant is also revoked at the provider."
+        confirmLabel="Disconnect"
         destructive
         onConfirm={() => (disconnecting ? disconnect(disconnecting) : undefined)}
         onClose={() => setDisconnecting(null)}
