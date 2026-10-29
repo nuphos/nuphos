@@ -96,6 +96,8 @@ export type AgentRun = {
   sessionId: string
   userId: string
   trace?: AgentRunTrace
+  // A turn the runtime started on its own: shown live, never a session claim.
+  runtimeOwned?: boolean
   frames: string[]
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined

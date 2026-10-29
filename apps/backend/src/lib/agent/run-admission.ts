@@ -20,11 +20,13 @@ function agentRunSessionReservationKey(userId: string, sessionId: string): strin
 export function getLocalActiveAgentRun(
   userId: string,
   sessionId: string,
+  { claimsOnly = false } = {},
 ): { streamId: string; startedAt: string; actorUserId: string } | null {
   let latest: AgentRun | null = null
 
   // eslint-disable-next-line sonarjs/no-empty-collection -- shared map is populated by registerAgentRun in run-registry
   for (const run of agentRuns.values()) {
+    if (claimsOnly && run.runtimeOwned) continue
     if (run.userId === userId && run.sessionId === sessionId && !run.done) {
       if (!latest || run.createdAt > latest.createdAt) latest = run
     }
@@ -39,11 +41,17 @@ export function getLocalActiveAgentRun(
     : null
 }
 
+/**
+ * The backend turn holding this session's claim. A turn the runtime started on
+ * its own holds none: the runtime's status says whether it can take a message.
+ */
 export async function activeRunForSession(userId: string, sessionId: string) {
-  return (
-    getLocalActiveAgentRun(userId, sessionId) ??
-    (await getActiveAgentRunForSession(userId, sessionId))
-  )
+  const local = getLocalActiveAgentRun(userId, sessionId, { claimsOnly: true })
+
+  if (local) return local
+  const shared = await getActiveAgentRunForSession(userId, sessionId)
+
+  return shared?.runtimeOwned ? null : shared
 }
 
 export async function hasActiveAgentRunForSession(

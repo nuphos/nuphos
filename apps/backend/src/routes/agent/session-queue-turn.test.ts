@@ -146,6 +146,54 @@ test('a busy session queues the message with the context its device sent it with
   })
 })
 
+test('a runtime-started turn that never saw its end does not hold the session', async () => {
+  // A turn the runtime started on its own (here: one carried across a backend
+  // rollout) stayed open after the runtime went idle. Every message then
+  // queued behind it, with nothing left to release the claim.
+  const run = createAgentRun(
+    OWNER,
+    SESSION,
+    'stream-autonomous',
+    {
+      requestId: 'request-autonomous',
+      userId: OWNER,
+      sessionId: SESSION,
+      streamId: 'stream-autonomous',
+      route: 'claude-code/autonomous',
+      method: 'RUNTIME',
+    },
+    { runtimeOwned: true },
+  )
+
+  registerAgentRun(run)
+  try {
+    const admitted = await admit('after-idle', {
+      snapshot: {
+        schemaVersion: 2,
+        state: 'idle',
+        actions: { send: true, cancel: false, steer: false },
+      },
+    })
+
+    expect(admitted?.mode).toBe('run')
+    if (admitted?.mode === 'run') admitted.release()
+    // A busy runtime still holds the message back, through its own status.
+    const waiting = await admit('while-active', {
+      snapshot: {
+        schemaVersion: 2,
+        state: 'active',
+        actions: { send: false, cancel: true, steer: true },
+      },
+    })
+
+    expect(waiting?.mode).toBe('queued')
+  } finally {
+    run.done = true
+    run.releaseOwnership()
+    agentRuns.delete(run.key)
+  }
+})
+
 test('a runtime busy outside any backend turn queues the message too', async () => {
   const admitted = await admit('wait', {
     snapshot: {
