@@ -90,12 +90,12 @@ final class ChatSession {
 
     private let observations = RuntimeObservations.shared
     var runtimeObservation: RuntimeObservation? { observations.value(team: teamId, session: sessionId) }
-    var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing(at: observations.now) == true : transportStreaming }
+    var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing == true : transportStreaming }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }
         guard isNativeRuntime, !isNew else { return nil }
         guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
-        return runtimeObservation.status(at: observations.now)
+        return runtimeObservation.status
     }
     /// What the user just sent, shown as their bubble until the request is
     /// admitted; it goes back to the composer if the upload fails or is cancelled.
@@ -124,12 +124,11 @@ final class ChatSession {
     private(set) var serverQueued: [AgentChatAPI.QueuedMessage] = []
     /// Queued messages being steered into the running turn.
     private(set) var steeringQueued: Set<String> = []
-    private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action, at: observations.now) == true }
+    private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
         showLiveActivity()
     }
-    func tickRuntimeClock() { observations.tick() }
     private func showLiveActivity() {
         #if os(iOS)
         guard isStreaming else { return }
@@ -960,7 +959,6 @@ final class ChatSession {
     func pollWhileIdle() async {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(3))
-            observations.tick()
             guard !Task.isCancelled, loaded, loadError == nil, !messages.isEmpty, !submitting else { continue }
             let observedAt = ProcessInfo.processInfo.systemUptime
             let previousSignature = signature()

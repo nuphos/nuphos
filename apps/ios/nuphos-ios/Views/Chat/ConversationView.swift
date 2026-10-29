@@ -207,12 +207,6 @@ struct ConversationView: View {
             await session.refreshResources()
             if !session.isStreaming { await session.refreshDownloads() }
         }
-        .task {
-            while !Task.isCancelled {
-                session.tickRuntimeClock()
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
     }
 
     /// The conversation's title, with the agent that answers in it on a

@@ -38,10 +38,10 @@ struct AgentThreadBadge: View {
     private var observation: RuntimeObservation? { RuntimeObservations.shared.value(team: teamId, session: reference.id) }
     private var status: String {
         guard detail != nil else { return agents.unavailable.contains(key) ? "Unavailable" : "" }
-        guard let observation, observation.fresh(at: RuntimeObservations.shared.now), !observation.unavailable else { return "Unavailable" }
-        if observation.paused(at: RuntimeObservations.shared.now) { return "Stopped" }
+        guard let observation, !observation.unavailable else { return "Unavailable" }
+        if observation.paused { return "Stopped" }
         if (observation.snapshot["permissionWaits"]?.numberValue ?? 0) > 0 { return "Needs input" }
-        if observation.turnActive(at: RuntimeObservations.shared.now) || observation.backgroundRunning(at: RuntimeObservations.shared.now) { return "Running" }
+        if observation.turnActive || observation.backgroundRunning { return "Running" }
         return "Done"
     }
 

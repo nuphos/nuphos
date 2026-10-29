@@ -10,16 +10,16 @@ struct RuntimeObservationTests {
             RuntimeObservation(snapshot: JSONValue.parse(json)!, observedAt: time)
         }
         let working = snapshot(#"{"schemaVersion":2,"epoch":"a","revision":4,"state":"active","phase":"running_tools","label":"Running tools…","actions":{"send":false,"cancel":true,"steer":true,"reply":false}}"#, at: 100)
-        precondition(working.executing(at: 101) && working.allows("steer", at: 101))
-        precondition(!working.allows("send", at: 101))
+        precondition(working.executing && working.allows("steer"))
+        precondition(!working.allows("send"))
         // A busy current runtime still takes a message into the session queue;
         // only one too old to report its state is not waited on.
         precondition(working.mayAcceptLater)
         precondition(snapshot(#"{"state":"disconnected"}"#, at: 100).mayAcceptLater)
         precondition(!snapshot(#"{"state":"active"}"#, at: 100).mayAcceptLater)
-        precondition(!working.executing(at: 112) && !working.allows("steer", at: 112))
-        precondition(working.status(at: 112) == "Connection lost — runtime status unavailable")
-        precondition(!working.fresh(at: 99))
+        // Time alone never turns a status into "Connection lost": returning
+        // from the background showed that until the next read landed.
+        precondition(working.status == "Running tools…")
         let old = snapshot(#"{"epoch":"a","revision":3,"state":"idle"}"#, at: 105)
         precondition(!working.accepts(old)) // A late HTTP reply cannot clear newer streaming work.
         let replay = snapshot(#"{"epoch":"a","revision":4,"state":"active"}"#, at: 90)
@@ -27,37 +27,35 @@ struct RuntimeObservationTests {
         let retiredEpoch = snapshot(#"{"epoch":"old","revision":999,"state":"active"}"#, at: 90)
         precondition(!working.accepts(retiredEpoch))
         let restart = snapshot(#"{"schemaVersion":2,"epoch":"b","revision":1,"state":"idle","phase":"idle","actions":{"send":true}}"#, at: 105)
-        precondition(working.accepts(restart) && restart.status(at: 106) == nil)
+        precondition(working.accepts(restart) && restart.status == nil)
         let background = snapshot(#"{"schemaVersion":2,"state":"idle","phase":"background_tools","label":"Background tools are still running","actions":{"send":true,"steer":false}}"#, at: 100)
-        precondition(background.backgroundRunning(at: 101) && !background.turnActive(at: 101) && !background.executing(at: 101))
-        precondition(ConversationIndicator(working, at: 101, unread: true) == .turn)
-        precondition(ConversationIndicator(background, at: 101, unread: true) == .background) // Still running beats unread.
-        precondition(ConversationIndicator(background, at: 101, unread: false) == .background)
-        precondition(ConversationIndicator(background, at: 113, unread: true) == .unread) // A stale observation cannot stay orange.
-        precondition(ConversationIndicator(nil, at: 101, unread: true) == .unread && ConversationIndicator(nil, at: 101, unread: false) == .none)
+        precondition(background.backgroundRunning && !background.turnActive && !background.executing)
+        precondition(ConversationIndicator(working, unread: true) == .turn)
+        precondition(ConversationIndicator(background, unread: true) == .background) // Still running beats unread.
+        precondition(ConversationIndicator(background, unread: false) == .background)
+        precondition(ConversationIndicator(nil, unread: true) == .unread && ConversationIndicator(nil, unread: false) == .none)
         for phase in ["idle", "failed", "cancelled"] {
             let finished = snapshot(#"{"schemaVersion":2,"state":"idle","phase":"\#(phase)","actions":{"send":true}}"#, at: 100)
-            precondition(!finished.backgroundRunning(at: 101) && ConversationIndicator(finished, at: 101, unread: true) == .unread)
+            precondition(!finished.backgroundRunning && ConversationIndicator(finished, unread: true) == .unread)
         }
         let disconnected = snapshot(#"{"state":"disconnected"}"#, at: 100)
-        precondition(ConversationIndicator(disconnected, at: 101, unread: false) == .none)
+        precondition(ConversationIndicator(disconnected, unread: false) == .none)
         // The list's warning icon follows what the server said, not how long
-        // ago it said it: leaving the list on screen used to age every row
-        // into "runtime status unavailable" until the next refresh landed.
+        // ago it said it.
         precondition(disconnected.unavailable)
         precondition(snapshot(#"{"state":"unsupported"}"#, at: 100).unavailable)
         precondition(snapshot(#"{"state":"idle"}"#, at: 100).unavailable) // No schemaVersion 2: cannot report.
-        precondition(!working.unavailable && !working.fresh(at: 200))
+        precondition(!working.unavailable)
         precondition(!background.unavailable)
         let paused = snapshot(#"{"schemaVersion":2,"state":"active","phase":"resume_disconnected","label":"Automatic continuation paused: output connection lost","actions":{"send":false}}"#, at: 100)
-        precondition(paused.paused(at: 101) && !paused.turnActive(at: 101) && !paused.backgroundRunning(at: 101))
-        precondition(ConversationIndicator(paused, at: 101, unread: false) == .none)
+        precondition(paused.paused && !paused.turnActive && !paused.backgroundRunning)
+        precondition(ConversationIndicator(paused, unread: false) == .none)
         precondition(!paused.unavailable) // A paused continuation still reports a status.
         let continuing = snapshot(#"{"schemaVersion":2,"state":"active","phase":"resume_pending","actions":{"send":false}}"#, at: 100)
-        precondition(ConversationIndicator(continuing, at: 101, unread: true) == .turn)
-        precondition(background.allows("send", at: 101) && !background.allows("steer", at: 101))
+        precondition(ConversationIndicator(continuing, unread: true) == .turn)
+        precondition(background.allows("send") && !background.allows("steer"))
         let legacy = snapshot(#"{"state":"active","actions":{"steer":true}}"#, at: 100)
-        precondition(!legacy.allows("steer", at: 101))
+        precondition(!legacy.allows("steer"))
         let store = RuntimeObservations()
         store.receive(working.snapshot, team: "t", session: "s", observedAt: 100)
         store.receive(old.snapshot, team: "t", session: "s", observedAt: 105)

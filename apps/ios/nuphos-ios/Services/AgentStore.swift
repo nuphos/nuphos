@@ -496,7 +496,6 @@ final class AgentStore {
     }
 
     private func pollOnce() async {
-        RuntimeObservations.shared.tick()
         guard phase == .loaded, !isLoadingMore else { return }
         await refreshFirstPage()
     }

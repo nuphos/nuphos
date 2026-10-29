@@ -19,7 +19,7 @@ struct ConversationRow: View {
     private func indicator(for row: AgentConversation) -> ConversationIndicator {
         let unread = ConversationUnread.shared.contains(team: team, session: row.sessionId)
         guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observations.value(team: team, session: row.sessionId), at: observations.now, unread: unread)
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread)
     }
 
     var body: some View {
@@ -70,10 +70,10 @@ struct ConversationRow: View {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
                     .accessibilityLabel("Runtime status unavailable")
-            } else if observation?.paused(at: observations.now) == true {
+            } else if observation?.paused == true {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
-                    .accessibilityLabel(observation?.status(at: observations.now) ?? "Automatic continuation paused")
+                    .accessibilityLabel(observation?.status ?? "Automatic continuation paused")
             }
         }
         .padding(.vertical, 6)
@@ -81,8 +81,8 @@ struct ConversationRow: View {
     }
 
     private var meta: String {
-        let status = [.turn, .background].contains(indicator) || observation?.paused(at: observations.now) == true
-        var parts = [status ? (observation?.status(at: observations.now) ?? "Working…") : HistoryTime.format(conversation.lastActiveAt)]
+        let status = [.turn, .background].contains(indicator) || observation?.paused == true
+        var parts = [status ? (observation?.status ?? "Working…") : HistoryTime.format(conversation.lastActiveAt)]
         if let origin = conversation.activitySource?.origin, origin != "nuphos", origin != "unknown" {
             parts.append(origin.capitalized)
         }
