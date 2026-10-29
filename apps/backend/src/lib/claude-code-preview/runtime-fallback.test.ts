@@ -67,7 +67,7 @@ useConversationRuntimeMove({
     to: string,
     _mode: string,
     _userId: string,
-    options: { reason?: string; claimed?: boolean },
+    options: { reason?: string; claimed?: boolean } = {},
   ) => {
     if (refusals[to]) throw new AppError(409, refusals[to], `${to} refused`)
     moves.push({ to, ...options })
