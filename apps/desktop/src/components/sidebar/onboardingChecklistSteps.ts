@@ -1,6 +1,8 @@
 // Step definitions and per-team localStorage persistence for the sidebar
 // onboarding checklist (SidebarOnboardingChecklist.tsx renders them).
 
+import { t } from '../../i18n'
+
 // Historically this key stored a permanent dismissal; it now means "collapsed",
 // so previously-dismissed teams show the compact row instead of nothing.
 export const COLLAPSE_KEY = (teamId: string) => `nuphos.onboarding-checklist.dismissed.${teamId}`
@@ -56,22 +58,22 @@ export type StepDef = {
 export const STEPS: StepDef[] = [
   {
     id: 'integrate',
-    label: 'Connect your cloud assets',
-    description: 'Link a cloud account so Nuphos can manage it.',
+    label: t('Connect your cloud assets'),
+    description: t('Link a cloud account so Nuphos can manage it.'),
     navKey: 'team.integrations',
     completeOnOpen: false,
   },
   {
     id: 'chat',
-    label: 'Ask the agent your first question',
-    description: 'Deploy, debug, or query in plain language.',
+    label: t('Ask the agent your first question'),
+    description: t('Deploy, debug, or query in plain language.'),
     navKey: 'team.agent',
     completeOnOpen: true,
   },
   {
     id: 'invite',
-    label: 'Invite your team',
-    description: 'Work with teammates in the same agents.',
+    label: t('Invite your team'),
+    description: t('Work with teammates in the same agents.'),
     navKey: 'team.members',
     completeOnOpen: false,
   },

@@ -1,5 +1,6 @@
 import { Terminal, X } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/menu'
 
 import { ResourceMark } from './ResourceMark'
@@ -90,7 +91,7 @@ export function ResourceListMenu({
                 unlink.onUnlink(resource.id)
               }}
             >
-              Unlink {resourceLabel(resource)}
+              {t('Unlink {label}', { label: resourceLabel(resource) })}
             </MenuItem>
           ))}
       </MenuContent>

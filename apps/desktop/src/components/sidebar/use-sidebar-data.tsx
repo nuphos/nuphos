@@ -2,6 +2,7 @@ import { Archive, FileBox } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
@@ -73,7 +74,7 @@ export function useSidebarCrdSections({
   return useMemo<Section[]>(() => {
     if (!clusterContext) return []
     if (!customResourceDefinitions) {
-      return [{ title: 'Custom resource types', items: [], loading: true }]
+      return [{ title: t('Custom resource types'), items: [], loading: true }]
     }
 
     const groups = new Map<string, Item[]>()
@@ -230,7 +231,7 @@ export function useSidebarChats({
       if (ok) {
         announceChatArchived({ sessionId, teamId })
       } else {
-        toast.error('Could not archive agent')
+        toast.error(t('Could not archive agent'))
       }
     },
     [teamId],
@@ -242,7 +243,7 @@ export function useSidebarChats({
         await api.agentUnlinkConversationParent(sessionId, teamId)
         void refreshSessions()
       } catch (err) {
-        toast.apiError('Could not unlink agent', err)
+        toast.apiError(t('Could not unlink agent'), err)
       }
     },
     [teamId, refreshSessions],
@@ -274,8 +275,8 @@ export function useSidebarChats({
       actions: (
         <span
           role="button"
-          aria-label="Archive agent"
-          title="Archive agent"
+          aria-label={t('Archive agent')}
+          title={t('Archive agent')}
           onClick={(e) => {
             e.stopPropagation()
             void archiveChat(conversation.sessionId)

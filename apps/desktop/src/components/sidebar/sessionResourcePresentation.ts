@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { SessionResource } from '../../api/session-resource-types'
 import type { TerminalProcess } from '../../lib/sessionTerminalProcesses'
 
@@ -15,10 +17,10 @@ export function resourceLabel(resource: SessionResource): string {
 }
 
 const HEALTH_TEXT = {
-  checks_failed: 'checks failing',
-  changes_requested: 'changes requested',
-  conflict: 'merge conflict',
-} as const
+  checks_failed: t('open · checks failing'),
+  changes_requested: t('open · changes requested'),
+  conflict: t('open · merge conflict'),
+}
 
 /** What holds up an open PR. A merged or closed PR's last health no longer applies. */
 export function resourceHealth(resource: SessionResource) {
@@ -31,7 +33,7 @@ export function resourceHealth(resource: SessionResource) {
 export function resourceStatus(resource: SessionResource): string {
   const health = resourceHealth(resource)
 
-  return health ? `open · ${HEALTH_TEXT[health]}` : resource.state
+  return health ? HEALTH_TEXT[health] : resource.state
 }
 
 /** A PR tag's color is its GitHub state alone, as on GitHub: open green, merged purple, closed red. */

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 import { InputGroup, InputGroupInput } from '../../ui/input-group'
 
@@ -29,7 +30,7 @@ export function EditMessageForm({
         render={<textarea />}
         autoFocus
         value={draft}
-        aria-label="Edit message"
+        aria-label={t('Edit message')}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
           if (event.nativeEvent.isComposing) return
@@ -42,12 +43,14 @@ export function EditMessageForm({
         className="max-h-[40vh] min-h-[44px] w-full resize-none px-1.5 py-1 text-[13.5px] text-main [field-sizing:content]"
       />
       <div className="flex items-center justify-end gap-1.5">
-        <span className="mr-auto pl-1.5 text-[11.5px] text-tertiary">Sends in a new agent</span>
+        <span className="mr-auto pl-1.5 text-[11.5px] text-tertiary">
+          {t('Sends in a new agent')}
+        </span>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button type="submit" size="sm" disabled={!trimmed}>
-          Send
+          {t('Send')}
         </Button>
       </div>
     </InputGroup>

@@ -4,6 +4,7 @@ import { Brain, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 
 import { useTextSwap } from '../../../hooks/useTextSwap'
+import { t } from '../../../i18n'
 
 import { formatWorkDuration } from './streamText'
 
@@ -104,7 +105,13 @@ export function CollapsedWorkView({
             'inline-flex flex-shrink-0 items-center gap-1 text-[13px] text-tertiary hover:text-main/80',
           )}
         >
-          {label ?? (seconds === null ? 'Worked' : `Worked for ${formatWorkDuration(seconds)}`)}
+          {/* 'Activity' doubles as the fold's id above, so it is translated only here. */}
+          {label === 'Activity'
+            ? t('Activity')
+            : (label ??
+              (seconds === null
+                ? t('Worked')
+                : t('Worked for {duration}', { duration: formatWorkDuration(seconds) })))}
           <ChevronRight
             className={clsx('h-3.5 w-3.5 transition-transform', open && 'rotate-90')}
             strokeWidth={2}

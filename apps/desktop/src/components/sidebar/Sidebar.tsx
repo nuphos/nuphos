@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
+import { t } from '../../i18n'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
@@ -127,7 +128,7 @@ export const Sidebar = memo(function Sidebar({
     : [...sections]
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
-    renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
+    renderSections.splice(1, 0, { title: t('Favorites'), items: favoriteItems })
   }
 
   const sidebarSections = dynamicNavigation

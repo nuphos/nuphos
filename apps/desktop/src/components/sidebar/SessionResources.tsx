@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { agentApi } from '../../api/agent-api'
+import { t } from '../../i18n'
 import { useAgentAppearance } from '../../lib/agentAppearance'
 import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
 import { toast } from '../ui/toast'
@@ -84,7 +85,7 @@ export function SessionResources({
       await agentApi.agentUnlinkSessionResource(sessionId, teamId, resourceId)
       setRemoved((ids) => [...ids, resourceId])
     } catch (error) {
-      toast.apiError('Could not unlink resource', error)
+      toast.apiError(t('Could not unlink resource'), error)
     } finally {
       setRemoving((ids) => ids.filter((id) => id !== resourceId))
     }
@@ -127,7 +128,7 @@ export function SessionResources({
           ? 't-session-heading relative flex flex-1 items-center gap-1 overflow-hidden text-[11px] text-tertiary'
           : `relative flex min-w-0 items-center gap-2 overflow-hidden pr-2 text-[11px] text-tertiary ${density === 'compact' ? 'pl-[40px] pb-1' : 'pl-[48px] pb-1.5'}`
       }
-      aria-label="Linked resources"
+      aria-label={t('Linked resources')}
     >
       {chips.slice(0, shown).map((chip) => (
         <SessionResourceChip
@@ -153,7 +154,7 @@ export function SessionResources({
                   }
                 : undefined
             }
-            label={`${String(hidden)} more linked resources, show all`}
+            label={t('{n} more linked resources, show all', { n: hidden })}
             className={`${menuChipClass(titlebar)} titlebar-no-drag`}
           >
             +{hidden}

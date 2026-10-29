@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { ArrowUp, Square } from 'lucide-react'
 import { useLayoutEffect, useRef } from 'react'
 
+import { t } from '../../../i18n'
+
 import { isRichImageDrop } from './attachmentDrag'
 import { AGENT_QUEUE_PLACEHOLDER } from './constants'
 import { OpenSlackThreadButton } from './ReadOnlyNotice'
@@ -65,7 +67,7 @@ export function ComposerEditor({
             // prints both the glyph and the word, the way the key itself
             // does, so neither has to be recognised on its own.
             <kbd
-              title="Press Tab to use this suggestion"
+              title={t('Press Tab to use this suggestion')}
               className="flex flex-shrink-0 items-center gap-1 rounded border border-zGray-700 px-1 py-px font-sans text-[10px] leading-4 text-tertiary/60"
             >
               <span className="text-[11px] leading-none">⇥</span>
@@ -137,7 +139,7 @@ export function ComposerSendControls({
               hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
               'bg-zViolet-500 hover:bg-zViolet-400 text-white flex items-center justify-center transition-colors',
             )}
-            title="Send response"
+            title={t('Send response')}
           >
             <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
           </button>
@@ -148,7 +150,7 @@ export function ComposerSendControls({
             hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
             'bg-zGray-800 hover:bg-zGray-700 text-main flex items-center justify-center transition-colors',
           )}
-          title="Stop agent"
+          title={t('Stop agent')}
         >
           <Square className="w-3 h-3 fill-current" strokeWidth={2.2} />
         </button>
@@ -162,13 +164,15 @@ export function ComposerSendControls({
       <button
         onClick={onSubmit}
         disabled={sendDisabled}
-        aria-label={sendBlockedReason ? `Send (${sendBlockedReason})` : 'Send'}
+        aria-label={
+          sendBlockedReason ? t('Send ({reason})', { reason: sendBlockedReason }) : t('Send')
+        }
         className={clsx(
           hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
           'flex items-center justify-center transition-colors',
           sendDisabled ? 'text-tertiary' : 'bg-zViolet-500 hover:bg-zViolet-400 text-white',
         )}
-        title={sendBlockedReason ? undefined : 'Send'}
+        title={sendBlockedReason ? undefined : t('Send')}
       >
         <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
       </button>

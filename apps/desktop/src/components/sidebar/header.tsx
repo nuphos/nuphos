@@ -1,5 +1,6 @@
 import { ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 import { SkeletonReveal } from '../SkeletonReveal'
 import { Kbd } from '../ui/kbd'
@@ -127,18 +128,18 @@ function TeamSwitcherMenu({
         <MenuContent side="bottom" align="start" className="w-[260px]">
           {onOpenSettings && (
             <MenuItem hint={<Kbd combo="mod+shift+," />} onClick={() => onOpenSettings()}>
-              Team settings
+              {t('Team settings')}
             </MenuItem>
           )}
           {onOpenMyPreferences && (
-            <MenuItem onClick={() => onOpenMyPreferences()}>My preferences</MenuItem>
+            <MenuItem onClick={() => onOpenMyPreferences()}>{t('My preferences')}</MenuItem>
           )}
           <MenuSubmenu>
             <MenuSubmenuTrigger
               chevron={<ChevronRight className="w-3 h-3" />}
               disabled={!teamSegment.options || teamSegment.options.length === 0}
             >
-              Switch workspace
+              {t('Switch workspace')}
             </MenuSubmenuTrigger>
             <MenuContent align="start" className="w-[260px]">
               {teamSegment.options && teamSegment.options.length > 0 ? (
@@ -147,19 +148,19 @@ function TeamSwitcherMenu({
                   {onCreateTeam && (
                     <>
                       <MenuSeparator />
-                      <MenuItem onClick={() => onCreateTeam()}>Create or join team</MenuItem>
+                      <MenuItem onClick={() => onCreateTeam()}>{t('Create or join team')}</MenuItem>
                     </>
                   )}
                 </>
               ) : (
                 <>
                   <div className="px-2.5 py-2 text-tertiary text-[12.5px]">
-                    {teamSegment.emptyText || 'No teams'}
+                    {teamSegment.emptyText || t('No teams')}
                   </div>
                   {onCreateTeam && (
                     <>
                       <MenuSeparator />
-                      <MenuItem onClick={() => onCreateTeam()}>Create or join team</MenuItem>
+                      <MenuItem onClick={() => onCreateTeam()}>{t('Create or join team')}</MenuItem>
                     </>
                   )}
                 </>
@@ -214,11 +215,11 @@ export function SidebarUserEntry({
             hint={<Kbd combo="mod+," />}
             onClick={() => onOpenUserSettings()}
           >
-            Settings
+            {t('Settings')}
           </MenuItem>
         )}
         <MenuItem icon={<LogOut className="h-3.5 w-3.5" />} onClick={() => onLogout()}>
-          Log out
+          {t('Log out')}
         </MenuItem>
       </MenuContent>
     </Menu>

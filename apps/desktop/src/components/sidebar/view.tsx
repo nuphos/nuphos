@@ -1,6 +1,8 @@
 import { faServer } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
+import { t } from '../../i18n'
+
 import {
   aliyunSections,
   awsSections,
@@ -97,11 +99,11 @@ export function sectionsFor(
     case 'tailscale-client':
       return [
         {
-          title: 'Network',
+          title: t('Network'),
           items: [
             {
               key: 'tailscale.devices',
-              label: 'Devices',
+              label: t('Devices'),
               iconNode: (
                 <FontAwesomeIcon
                   icon={faServer}
