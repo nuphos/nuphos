@@ -150,6 +150,7 @@ function hold(conversationId: string, state: Promise<Record<string, unknown>>) {
     conversationOwnerUserId: 'owner',
     locale: 'en-US',
     openabSessionId: `sess_${conversationId}`,
+    endpoint,
     client: {
       getSessionExecutionState: () => state,
       close: () => closed.push(conversationId),
@@ -385,6 +386,7 @@ test('shutdown hands on a session whose runtime still owns work, and leaves idle
     ownerUserId: 'owner',
     actorUserId: 'actor',
     locale: 'en-US',
+    runtimeUrl: endpoint.url,
   })
 })
 
