@@ -89,6 +89,12 @@ export const deviceApi = {
     ipcRenderer.invoke('localShare:untrust', deviceId, teamId, actorId),
   localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
     ipcRenderer.invoke('localShare:notify', approvalId, teamId, title, body),
+  localShareRemind: (teamId: string, runtimeId: string, sessionId: string) =>
+    ipcRenderer.invoke('localShare:remind', teamId, runtimeId, sessionId),
+  runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
+    ipcRenderer.invoke('signIn:ask', teamId, runtimeId, sessionId),
+  runtimeSignInSettle: (teamId: string, runtimeId: string) =>
+    ipcRenderer.invoke('signIn:settle', teamId, runtimeId),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),
   boxUsageHistory: (teamId: string, range: string) =>
     ipcRenderer.invoke('box:usageHistory', teamId, range),

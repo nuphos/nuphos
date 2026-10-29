@@ -173,9 +173,40 @@ describe('input requests', () => {
     })
 
     expect(lastQuery).toMatchObject({ archivedAt: { $exists: false } })
-    expect(lastQuery?.$and).toContainEqual({
-      $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }],
-    })
     expect(lastQuery).not.toHaveProperty(['metadata.trigger.id'])
+    expect(lastQuery).not.toHaveProperty('userId')
+    expect((lastQuery as { $and: unknown[] }).$and).toContainEqual({
+      $or: [
+        {
+          $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }],
+          userId: '642802f4c38340345aa2384d',
+        },
+        {
+          'signInRequest.askedUserIds': '642802f4c38340345aa2384d',
+          'signInRequest.askedAt': { $gt: expect.any(Date) },
+        },
+      ],
+    })
+  })
+
+  test("the Inbox lists a teammate's conversation that asked the viewer to sign in", async () => {
+    await getConversations('642802f4c38340345aa2384d', {
+      teamId: '64b5f1c2e4b0a1d2c3e4f5a6',
+      pendingDecision: true,
+      scope: 'team',
+    })
+    const and = (lastQuery as { $and: Record<string, unknown>[] }).$and
+
+    // Still only what the viewer may read.
+    expect(and[0]).toHaveProperty('$or')
+    expect(and[1]).toEqual({
+      $or: [
+        { $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }] },
+        {
+          'signInRequest.askedUserIds': '642802f4c38340345aa2384d',
+          'signInRequest.askedAt': { $gt: expect.any(Date) },
+        },
+      ],
+    })
   })
 })

@@ -35,6 +35,7 @@ import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
 import type { PendingUserMessage, QueuedChatTurn } from './pending-message-types'
+import type { SignInRequest } from './sign-in-request'
 import type { TurnRunner } from './turn-runner'
 
 const OWNER = 'owner'
@@ -54,6 +55,7 @@ let member = true
 let boxOffline = false
 const wakes: (string | undefined)[] = []
 let fakeRedis: unknown = null
+let signInRequest: SignInRequest | null = null
 
 useRedis({
   withRedis: (async (op: (client: unknown) => unknown) =>
@@ -66,7 +68,11 @@ useIdentity({
 })
 useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
-  getConversationBySessionId: async () => ({ ...conversation, claudeCodePreview: {} as never }),
+  getConversationBySessionId: async () => ({
+    ...conversation,
+    claudeCodePreview: {} as never,
+    ...(signInRequest ? { signInRequest } : {}),
+  }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
 })
 useBoxWake({
@@ -112,6 +118,7 @@ const waiting = async () =>
 
 beforeEach(() => {
   member = true
+  signInRequest = null
   boxOffline = false
   wakes.length = 0
   runtimeSend = true
@@ -542,4 +549,41 @@ test('a queued turn the runtime refuses after its check goes back to the front, 
   } finally {
     await clearPendingUserMessages(OWNER, REFUSED)
   }
+})
+
+test('a send held for a sign-in waits while the ask is open, and runs as its sender once settled', async () => {
+  signInRequest = {
+    runtimeId: 'managed-1',
+    requesterId: 'teammate',
+    requesterName: 'Shant',
+    askedUserIds: ['admin'],
+    askedName: 'Bryan',
+    askedAt: new Date(),
+  }
+  await queue(human('deploy it', 'teammate'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched).toHaveLength(0)
+  expect(await waiting()).toEqual(['deploy it'])
+  // The sign-in settles the ask (sign-in-settle) and releases the session.
+  signInRequest = null
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched.map((item) => item.actorUserId)).toEqual(['teammate'])
+  expect(await waiting()).toEqual([])
+})
+
+test('an ask older than the queue keeps messages no longer holds them', async () => {
+  signInRequest = {
+    runtimeId: 'managed-1',
+    requesterId: 'teammate',
+    requesterName: 'Shant',
+    askedUserIds: ['admin'],
+    askedName: 'Bryan',
+    askedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+  }
+  await queue(human('later', 'teammate'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched).toHaveLength(1)
 })

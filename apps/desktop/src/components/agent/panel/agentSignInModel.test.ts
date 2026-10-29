@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { lastSentText, localRuntimeOwner, signInRoute } from './agentSignInModel.ts'
+import {
+  ASK_OPEN_MS,
+  askState,
+  lastSentText,
+  localRuntimeOwner,
+  signInRoute,
+} from './agentSignInModel.ts'
 
 import type { Message } from './model.ts'
 import type { RuntimeInstance } from '../../../types/runtime.ts'
@@ -90,4 +96,34 @@ test('the last message you sent is what gets resent', () => {
     ] as unknown as Message[]),
     null,
   )
+})
+
+const ask = {
+  runtimeId: managed.id,
+  requesterId: 'u-editor',
+  requesterName: 'Shant',
+  askedUserIds: ['u-first-admin', 'u-late-admin'],
+  askedName: 'Bryan',
+  askedAt: '2026-10-29T10:00:00Z',
+}
+const askedAt = Date.parse(ask.askedAt)
+const reply = (createdAt: number): Message => ({
+  id: `a-${createdAt}`,
+  role: 'assistant',
+  parts: [{ type: 'text', text: 'Done.' }],
+  createdAt,
+})
+
+test('the requester sees their ask, the asked see the sign-in, anyone else nothing', () => {
+  assert.equal(askState(ask, 'u-editor', [], askedAt + 1), 'requester')
+  assert.equal(askState(ask, 'u-late-admin', [], askedAt + 1), 'asked')
+  assert.equal(askState(ask, 'u-other', [], askedAt + 1), null)
+  assert.equal(askState(undefined, 'u-editor', []), null)
+  assert.equal(askState(ask, undefined, []), null)
+})
+
+test('an ask ends when the agent answers after it, or when the queue would drop its message', () => {
+  assert.equal(askState(ask, 'u-editor', [reply(askedAt - 1)], askedAt + 1), 'requester')
+  assert.equal(askState(ask, 'u-editor', [reply(askedAt + 5)], askedAt + 10), null)
+  assert.equal(askState(ask, 'u-first-admin', [], askedAt + ASK_OPEN_MS), null)
 })

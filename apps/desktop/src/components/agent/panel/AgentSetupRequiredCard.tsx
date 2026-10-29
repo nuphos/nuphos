@@ -10,30 +10,42 @@ import { agentTier } from '../../../lib/agentName'
 import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
 import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { Button } from '../../ui/button'
+import { toast } from '../../ui/toast'
 
-import { signInRoute } from './agentSignInModel'
+import { askState, signInRoute } from './agentSignInModel'
 import { ConnectCardContext } from './connectCardContext'
+import { rememberSignInAsk } from './signInAsks'
 
+import type { Message } from './model'
+import type { AgentSignInRequest } from '../../../api/agent-types'
 import type { TeamMember } from '../../../types/team'
 
 export function AgentSetupRequiredCard({
   teamId,
+  sessionId,
   message,
   runtimeId,
   reason,
   details,
   retryText,
+  signInRequest,
+  messages = [],
   isTeamAdmin = false,
   onOpenAgentSettings,
 }: {
   teamId?: string
+  sessionId?: string
   runtimeId?: string
-  message: string
+  /** This viewer's own turn failed with it; absent when shown only for an ask. */
+  message?: string
   reason?: 'reauthentication'
   /** The runtime's own error, kept for support but folded away: the card explains it. */
   details?: string | null
   /** Sent again once the agent is signed in, so nobody retypes it. */
   retryText?: string | null
+  /** Someone asked who can sign this agent in; the people asked see the card from it alone. */
+  signInRequest?: AgentSignInRequest
+  messages?: Message[]
   isTeamAdmin?: boolean
   onOpenAgentSettings?: () => void
 }) {
@@ -42,6 +54,8 @@ export function AgentSetupRequiredCard({
   const { instances } = useRuntimeInstances(teamId)
   const send = useContext(ConnectCardContext)?.send
   const [signingIn, setSigningIn] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [signedInHere, setSignedInHere] = useState(false)
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const personalAgent = runtimeId?.startsWith('local_') === true
   const onThisComputer = Boolean(
@@ -55,10 +69,13 @@ export function AgentSetupRequiredCard({
     instance: instances.find((instance) => instance.id === runtimeId),
     members,
   })
-  const asking = route.kind === 'ask'
+  const asksSomeone = route.kind === 'ask'
+  const ask = askState(signInRequest, viewerId, messages)
+  const failed = message !== undefined
+  const canAsk = Boolean(teamId && sessionId && retryText)
 
   useEffect(() => {
-    if (!asking || !teamId) return
+    if (!asksSomeone || !teamId) return
     let stopped = false
 
     void api.atlasListTeamMembers(teamId).then(
@@ -71,10 +88,40 @@ export function AgentSetupRequiredCard({
     return () => {
       stopped = true
     }
-  }, [asking, teamId])
+  }, [asksSomeone, teamId])
+
+  // Without a failed turn of the viewer's own, the card is about an open ask.
+  if (!failed && (!ask || signedInHere)) return null
 
   const signedIn = (connected: boolean) => {
-    if (connected && retryText && send) send(retryText)
+    if (!connected) return
+    setSignedInHere(true)
+    if (retryText && send) send(retryText)
+    // A runtime sign-in settles the ask itself; this computer's CLI sign-in is not seen by it.
+    if (ask === 'asked' && route.kind === 'cli' && teamId && runtimeId)
+      void api.runtimeSignInSettle(teamId, runtimeId).catch(() => {})
+  }
+  const askToSignIn = async () => {
+    if (!teamId || !runtimeId || !sessionId) return
+    setSending(true)
+    try {
+      const { askedName } = await api.runtimeSignInAsk(teamId, runtimeId, sessionId)
+
+      rememberSignInAsk(sessionId, {
+        runtimeId,
+        requesterId: viewerId ?? '',
+        requesterName: '',
+        askedUserIds: [],
+        askedName,
+        askedAt: new Date().toISOString(),
+      })
+      // The server holds it until they sign in, then runs it as this viewer's message.
+      if (retryText && send) send(retryText)
+    } catch (error) {
+      toast.apiError(t('Could not send the request'), error)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -82,15 +129,19 @@ export function AgentSetupRequiredCard({
       <div className="flex items-center gap-2 text-[13.5px] font-medium text-main">
         <KeyRound className="h-4 w-4 text-zViolet-400" strokeWidth={1.8} />
         <span>
-          {reason === 'reauthentication'
+          {reason === 'reauthentication' || !failed
             ? t('Sign in again to continue')
             : t('Connect a runtime to get started')}
         </span>
       </div>
       <p className="text-[13px] leading-relaxed text-secondary">
-        {route.kind === 'none'
-          ? message
-          : t('This agent needs to be signed in again before it can answer.')}
+        {ask === 'asked' && signInRequest
+          ? t('{name} asked you to sign this agent in. Their message runs once you do.', {
+              name: signInRequest.requesterName,
+            })
+          : route.kind === 'none'
+            ? message
+            : t('This agent needs to be signed in again before it can answer.')}
       </p>
       {route.kind === 'cli' && (
         <LocalAgentSignIn
@@ -106,7 +157,21 @@ export function AgentSetupRequiredCard({
           </Button>
         </div>
       )}
-      {route.kind === 'ask' && (
+      {route.kind === 'ask' && ask === 'requester' && signInRequest && (
+        <p className="text-[13px] leading-relaxed text-secondary">
+          {t('Asked {name}. Your message will run once they sign in.', {
+            name: signInRequest.askedName,
+          })}
+        </p>
+      )}
+      {route.kind === 'ask' && ask !== 'requester' && canAsk && (
+        <div>
+          <Button size="sm" variant="primary" disabled={sending} onClick={() => void askToSignIn()}>
+            {route.name ? t('Ask {name} to sign in', { name: route.name }) : t('Ask to sign in')}
+          </Button>
+        </div>
+      )}
+      {route.kind === 'ask' && ask !== 'requester' && !canAsk && (
         <p className="text-[13px] leading-relaxed text-secondary">
           {route.name
             ? t('Ask {name} to sign this agent in, then resend your message.', {

@@ -1,4 +1,5 @@
 import type { Message } from './model.ts'
+import type { AgentSignInRequest } from '../../../api/agent-types.ts'
 import type { RuntimeInstance } from '../../../types/runtime.ts'
 import type { TeamMember } from '../../../types/team.ts'
 
@@ -88,4 +89,37 @@ export function lastSentText(messages: Message[]): string | null {
   }
 
   return null
+}
+
+/** As long as the server queue keeps the message an ask holds. */
+export const ASK_OPEN_MS = 60 * 60_000
+
+/** The ask while the message it holds can still run; null once it lapsed. */
+export function openAsk(
+  request: AgentSignInRequest | null | undefined,
+  now = Date.now(),
+): AgentSignInRequest | null {
+  return request && now - Date.parse(request.askedAt) < ASK_OPEN_MS ? request : null
+}
+
+/**
+ * Where the viewer stands on an open ask: they made it, or they were asked.
+ * Null once it lapsed, or once the agent answered after it (the sign-in landed).
+ */
+export function askState(
+  request: AgentSignInRequest | null | undefined,
+  viewerId: string | undefined,
+  messages: Message[],
+  now = Date.now(),
+): 'requester' | 'asked' | null {
+  if (!request || !viewerId || !openAsk(request, now)) return null
+  const askedAt = Date.parse(request.askedAt)
+
+  if (
+    messages.some((message) => message.role === 'assistant' && (message.createdAt ?? 0) > askedAt)
+  )
+    return null
+  if (request.requesterId === viewerId) return 'requester'
+
+  return request.askedUserIds.includes(viewerId) ? 'asked' : null
 }

@@ -11,6 +11,7 @@ import { canReply, conversationAccess } from './db/access'
 import { PENDING_TTL_SEC } from './pending-messages'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
 import { queuedTurnSettled, requeueTurnQueue, retryQueuedTurn } from './session-released'
+import { openSignInRequest } from './sign-in-request'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -112,6 +113,8 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
       (await awaitsShareApproval(target, next.actorUserId ?? target.userId))
     )
       return
+    // Someone was asked to sign its agent in: their sign-in starts it (sign-in-settle).
+    if (next?.chat && openSignInRequest(target)) return
 
     // A send never waits for a Box: the queue does, while it resumes in the background.
     if (queue.length > 0 && (await wakeOfflineBox(target?.runtimeId))) {

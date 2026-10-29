@@ -9,6 +9,7 @@ import type {
   ShareApprovalStatus,
   LocalShareTrust,
   ShareTrustDuration,
+  SignInAsk,
 } from '../../src/api/device-types.ts'
 
 // Sharing this person's own computer's Local Agent with teammates in one team.
@@ -83,4 +84,42 @@ export async function dropShareTrust(
 
 export function setTeamLocalAgentSharing(teamId: string, level: LocalShareLevel): Promise<Team> {
   return call<Team>('PUT', `/teams/${teamId}/local-agent-sharing`, { level }, { retry: false })
+}
+
+const runtime = (teamId: string, runtimeId: string) =>
+  `/teams/${encodeURIComponent(teamId)}/agent-runtimes/${encodeURIComponent(runtimeId)}`
+
+/** Asks whoever can sign this conversation's agent in; the next send waits for them. */
+export function askRuntimeSignIn(
+  teamId: string,
+  runtimeId: string,
+  sessionId: string,
+): Promise<SignInAsk> {
+  return call(
+    'POST',
+    `${runtime(teamId, runtimeId)}/sign-in-requests`,
+    { sessionId },
+    { retry: false },
+  )
+}
+
+/** This computer's agent signed in through its own CLI: what waited for it runs now. */
+export function settleRuntimeSignIn(teamId: string, runtimeId: string): Promise<void> {
+  return call('DELETE', `${runtime(teamId, runtimeId)}/sign-in-requests`, undefined, {
+    retry: false,
+  })
+}
+
+/** Reminds the owner of the computer this conversation waits on to approve it. */
+export function remindShareApproval(
+  teamId: string,
+  runtimeId: string,
+  sessionId: string,
+): Promise<SignInAsk> {
+  return call(
+    'POST',
+    `${runtime(teamId, runtimeId)}/share-reminders`,
+    { sessionId },
+    { retry: false },
+  )
 }

@@ -138,6 +138,9 @@ export type ShareTrustDuration = '8h' | 'always'
 /** A teammate the owner trusts on their computer; `expiresAt` null until taken back. */
 export type LocalShareTrust = { actorId: string; expiresAt: string | null }
 
+/** Who was asked to sign an agent in, or reminded to approve; a repeat notifies nobody. */
+export type SignInAsk = { askedName: string; notified: boolean }
+
 export type LocalShareApproval = {
   id: string
   deviceId: string

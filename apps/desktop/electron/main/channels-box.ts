@@ -19,13 +19,16 @@ import {
   resumeBox,
 } from '../atlas/boxes.ts'
 import {
+  askRuntimeSignIn,
   decideShareApproval,
   dropShareTrust,
   getDeviceShare,
   listShareApprovals,
   listShareTrusts,
   ownShareApprovalStatus,
+  remindShareApproval,
   setDeviceShare,
+  settleRuntimeSignIn,
 } from '../atlas/local-share.ts'
 
 import { LOCAL_AGENT_PROVIDERS } from './local-runtime/providers.ts'
@@ -147,6 +150,12 @@ export const boxChannels = {
   'localShare:approvals': (_e: unknown, teamId: unknown) => listShareApprovals(string(teamId)),
   'localShare:status': (_e: unknown, sessionId: unknown) =>
     ownShareApprovalStatus(string(sessionId)),
+  'localShare:remind': (_e: unknown, teamId: unknown, runtimeId: unknown, sessionId: unknown) =>
+    remindShareApproval(string(teamId), string(runtimeId), string(sessionId)),
+  'signIn:ask': (_e: unknown, teamId: unknown, runtimeId: unknown, sessionId: unknown) =>
+    askRuntimeSignIn(string(teamId), string(runtimeId), string(sessionId)),
+  'signIn:settle': (_e: unknown, teamId: unknown, runtimeId: unknown) =>
+    settleRuntimeSignIn(string(teamId), string(runtimeId)),
   'localShare:decide': (_e: unknown, approvalId: unknown, approve: unknown, trust: unknown) => {
     if (typeof approve !== 'boolean') throw new TypeError('Expected a decision')
     if (trust !== undefined && trust !== '8h' && trust !== 'always')
