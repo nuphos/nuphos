@@ -1,28 +1,13 @@
-import { useEffect, useState } from 'react'
-
-import { api } from '../../api'
 import { adminName } from '../../components/agent/panel/agentSignInModel'
+import { useTeamMemberList } from '../../hooks/useTeamMemberList'
 
 /**
- * The administrator a member should ask, by name: the longest-standing one. Null until the
- * team's members load, when they cannot be read, or when `enabled` is false (the viewer is one).
+ * The administrator a member should ask, by name: the longest-standing one. Derived from the
+ * one shared read of the team's members, so a page with several hints asks once. Null until it
+ * lands, when it cannot be read, or when `enabled` is false (the viewer is one).
  */
 export function useAdminName(teamId: string | undefined, enabled = true): string | null {
-  const [found, setFound] = useState<{ teamId: string; name: string | null } | null>(null)
+  const members = useTeamMemberList(teamId, enabled)
 
-  useEffect(() => {
-    if (!teamId || !enabled) return
-    let alive = true
-
-    api.atlasListTeamMembers(teamId).then(
-      (members) => alive && setFound({ teamId, name: adminName(members) }),
-      () => {},
-    )
-
-    return () => {
-      alive = false
-    }
-  }, [teamId, enabled])
-
-  return enabled && found && found.teamId === teamId ? found.name : null
+  return enabled && members ? adminName(members) : null
 }
