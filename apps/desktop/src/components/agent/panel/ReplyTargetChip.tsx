@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { CornerUpLeft, X } from 'lucide-react'
 import { useRef } from 'react'
 
+import { t } from '../../../i18n'
+
 import { composerOf } from './modelSelectorParts'
 
 import type { ComposerReplyTarget } from './replyTarget'
@@ -32,7 +34,7 @@ export function ReplyTargetChip({
       <div
         ref={ref}
         role="group"
-        aria-label="Reply target"
+        aria-label={t('Reply target')}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return
           event.preventDefault()
@@ -42,7 +44,7 @@ export function ReplyTargetChip({
         className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-zGray-800/80 bg-zGray-900/60 py-0.5 pl-2.5 pr-1 text-[12px]"
       >
         <CornerUpLeft aria-hidden className="size-3 shrink-0 text-tertiary" strokeWidth={2.2} />
-        <span className="shrink-0 text-tertiary">Replying to:</span>
+        <span className="shrink-0 text-tertiary">{t('Replying to:')}</span>
         <span className="min-w-0 truncate text-secondary" title={chosen.question}>
           {chosen.question}
         </span>
@@ -51,8 +53,8 @@ export function ReplyTargetChip({
           onMouseDown={keepComposerFocus}
           onClick={clear}
           className="flex size-5 shrink-0 items-center justify-center rounded-full text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
-          title="Send as an ordinary message"
-          aria-label="Send as an ordinary message"
+          title={t('Send as an ordinary message')}
+          aria-label={t('Send as an ordinary message')}
         >
           <X className="size-3" strokeWidth={2.2} />
         </button>

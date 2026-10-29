@@ -190,7 +190,8 @@ export function ThreadRow({
   const running = indicator === 'turn' || indicator === 'background'
   let note: ReactNode = t('Done')
 
-  if (conversation.pendingDecision) note = <span className="text-warning">Waiting for you</span>
+  if (conversation.pendingDecision)
+    note = <span className="text-warning">{t('Waiting for you')}</span>
   else if (running)
     note = (
       <span className="flex items-center gap-1.5">

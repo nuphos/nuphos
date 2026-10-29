@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowUpRight, MessageCircleQuestion, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { refreshInputRequests } from '../../../lib/inputRequestRefresh'
 import { toast } from '../../ui/toast'
 import { AgentPanel } from '../AgentPanel'
@@ -25,20 +26,20 @@ export function SessionInputQueue({
   onSelect: (request: AgentConversation) => void
 }) {
   const title = requests.length
-    ? `Needs your input · ${String(requests.length)}`
-    : 'Needs your input'
+    ? t('Needs your input · {count}', { count: requests.length })
+    : t('Needs your input')
 
   return (
     <SummarySection title={title}>
       {!loaded && !failed && requests.length === 0 && (
-        <p className="py-1 text-[12px] text-tertiary">Checking for questions...</p>
+        <p className="py-1 text-[12px] text-tertiary">{t('Checking for questions...')}</p>
       )}
       {loaded && requests.length === 0 && (
-        <p className="py-1 text-[12px] text-tertiary">No questions waiting for you.</p>
+        <p className="py-1 text-[12px] text-tertiary">{t('No questions waiting for you.')}</p>
       )}
       {failed && (
         <p role="status" className="py-1 text-[12px] text-warning">
-          Could not refresh questions. Retrying automatically.
+          {t('Could not refresh questions. Retrying automatically.')}
         </p>
       )}
       {requests.map((request) => (
@@ -51,7 +52,7 @@ export function SessionInputQueue({
           <MessageCircleQuestion aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[12px] font-medium text-main">
-              {request.title || 'Untitled agent'}
+              {request.title || t('Untitled agent')}
             </span>
             <span className="mt-0.5 line-clamp-2 block text-[12px] leading-5 text-secondary">
               {request.pendingDecision?.question}
@@ -107,7 +108,7 @@ export function SessionInputReply({
       setDismissed(true)
       refreshInputRequests()
     } catch (error) {
-      toast.apiError('Could not dismiss question', error)
+      toast.apiError(t('Could not dismiss question'), error)
     } finally {
       setDismissing(false)
     }
@@ -118,18 +119,18 @@ export function SessionInputReply({
       <div className="flex shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3 py-2.5">
         <button
           type="button"
-          aria-label="Back to pending questions"
+          aria-label={t('Back to pending questions')}
           onClick={onBack}
           className="rounded p-1 text-secondary hover:text-main"
         >
           <ArrowLeft aria-hidden className="size-4" />
         </button>
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">
-          Reply to {request.title || 'agent'}
+          {t('Reply to {name}', { name: request.title || t('Untitled agent') })}
         </span>
         <button
           type="button"
-          aria-label="Open agent conversation"
+          aria-label={t('Open agent conversation')}
           onClick={() => onOpenSession(request.sessionId, questionTarget)}
           className="rounded p-1 text-secondary hover:text-main"
         >
@@ -137,7 +138,7 @@ export function SessionInputReply({
         </button>
         <button
           type="button"
-          aria-label="Close pending questions"
+          aria-label={t('Close pending questions')}
           onClick={onClose}
           className="rounded p-1 text-secondary hover:text-main"
         >
@@ -149,10 +150,10 @@ export function SessionInputReply({
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-tertiary">
           <span role="status">
             {!stillPending || dismissed
-              ? 'This request is no longer pending.'
+              ? t('This request is no longer pending.')
               : request.pendingDecision?.category === 'credential'
-                ? 'Answer in the secure card below. Never paste a secret in a message.'
-                : 'Your reply goes to this agent only.'}
+                ? t('Answer in the secure card below. Never paste a secret in a message.')
+                : t('Your reply goes to this agent only.')}
           </span>
           {next && (
             <button
@@ -160,7 +161,7 @@ export function SessionInputReply({
               onClick={() => onSelect(next)}
               className="shrink-0 text-zViolet-accent"
             >
-              Next question →
+              {t('Next question →')}
             </button>
           )}
         </div>
@@ -172,7 +173,7 @@ export function SessionInputReply({
           onClick={() => void dismiss()}
           className="shrink-0 self-end px-4 py-2 text-[11px] text-tertiary hover:text-main"
         >
-          {dismissing ? 'Dismissing...' : 'Dismiss question'}
+          {dismissing ? t('Dismissing...') : t('Dismiss question')}
         </button>
       )}
       <div className="flex min-h-0 min-w-0 flex-1">

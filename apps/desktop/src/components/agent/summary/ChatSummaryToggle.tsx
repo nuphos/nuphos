@@ -64,9 +64,11 @@ export function ChatSummaryToggle({
       side="bottom"
       content={
         <span className="flex items-center gap-2">
-          {pendingCount
-            ? `${String(pendingCount)} questions need your input`
-            : t('Toggle agent summary')}
+          {pendingCount === 1
+            ? t('1 question needs your input')
+            : pendingCount
+              ? t('{count} questions need your input', { count: pendingCount })
+              : t('Toggle agent summary')}
           <Kbd combo="mod+i" />
         </span>
       }
@@ -81,7 +83,11 @@ export function ChatSummaryToggle({
         <SummaryIcon />
         {pendingCount > 0 && (
           <span
-            aria-label={`${String(pendingCount)} pending questions`}
+            aria-label={
+              pendingCount === 1
+                ? t('1 pending question')
+                : t('{count} pending questions', { count: pendingCount })
+            }
             className="absolute -right-1.5 -top-1 flex min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-semibold leading-4 text-zGray-950"
           >
             {pendingCount > 99 ? '99+' : pendingCount}
