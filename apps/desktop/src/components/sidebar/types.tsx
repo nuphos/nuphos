@@ -39,6 +39,8 @@ export type Item = {
   watching?: boolean
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
+  /** A finished thread with nothing left to show; its parent counts it instead. */
+  finished?: boolean
 }
 
 export type Section = {
