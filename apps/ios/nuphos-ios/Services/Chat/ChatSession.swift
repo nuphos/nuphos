@@ -95,6 +95,14 @@ final class ChatSession {
     private let observations = RuntimeObservations.shared
     var runtimeObservation: RuntimeObservation? { observations.value(team: teamId, session: sessionId) }
     var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing == true : transportStreaming }
+    /// The owner can open this conversation's desktop: its runtime is a Box, or a
+    /// Mac that allows phone control, and says it can show one or already does.
+    var canOpenDesktop: Bool {
+        guard ownsChat, let snapshot = runtimeObservation?.snapshot else { return false }
+        return snapshot["canOpenDesktop"]?.boolValue == true
+            || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
+    }
+    func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }
         guard isNativeRuntime, !isNew else { return nil }

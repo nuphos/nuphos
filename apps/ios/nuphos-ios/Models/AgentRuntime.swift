@@ -19,6 +19,8 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         let signedIn: Bool?
         /// Present when it is a teammate's own computer shared with this person.
         var shared: Shared? = nil
+        /// Its computer opens its own desktop on request; only `ownerUserId` may open it.
+        var desktopOpen: Bool? = nil
     }
 
     /// How a teammate shares their computer: `approve` asks them before each conversation runs.

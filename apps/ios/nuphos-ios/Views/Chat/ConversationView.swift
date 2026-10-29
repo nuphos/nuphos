@@ -31,6 +31,8 @@ struct ConversationView: View {
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
     @State private var showShare = false
+    /// The desktop open from this conversation: beside it where the window is wide, else full screen.
+    @State private var desktop: DesktopSession?
     @State private var referencedAgents = ReferencedAgents()
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
@@ -62,6 +64,7 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .desktop($desktop)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -127,6 +130,9 @@ struct ConversationView: View {
                             } label: {
                                 Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
                             }
+                        }
+                        if session.canOpenDesktop {
+                            Button("Desktop", systemImage: "display") { desktop = session.makeDesktop() }
                         }
                         if session.ownsChat {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }

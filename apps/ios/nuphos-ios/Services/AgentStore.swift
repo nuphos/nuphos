@@ -285,7 +285,7 @@ final class AgentStore {
         didSet { if search != oldValue { scheduleSearch() } }
     }
 
-    private let token: String
+    let token: String
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
@@ -333,6 +333,8 @@ final class AgentStore {
 
     /// The signed-in user, for sessions to label what they send.
     var me: ChatMessage.Sender?
+    /// The signed-in person's id: whose computers open their desktop from the Runtimes page.
+    var userId: String?
 
     init(token: String) {
         self.token = token
