@@ -403,4 +403,6 @@ test('prewarms only the owner’s recently active conversations', () => {
   expect(shouldPrewarm(recent, 'owner', now)).toBe(true)
   expect(shouldPrewarm(old, 'owner', now)).toBe(false)
   expect(shouldPrewarm(recent, 'viewer', now)).toBe(false)
+  // A legacy doc without lastActiveAt fails closed instead of throwing.
+  expect(shouldPrewarm({ userId: 'owner' } as typeof recent, 'owner', now)).toBe(false)
 })

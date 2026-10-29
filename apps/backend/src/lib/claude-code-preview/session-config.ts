@@ -213,7 +213,7 @@ export function shouldPrewarm(
   viewerUserId: string | undefined,
   now = Date.now(),
 ): boolean {
-  const age = now - conversation.lastActiveAt.getTime()
+  const age = now - new Date(conversation.lastActiveAt).getTime()
 
   return viewerUserId === conversation.userId && age < PREWARM_WINDOW_MS
 }
