@@ -11,6 +11,7 @@ import {
 
 import { conversationActivity } from './activity'
 import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
+import { lastSentText } from './agentSignInModel'
 import { AssistantMessage } from './AssistantMessage'
 import { toolAnchorIds } from './chatTarget'
 import { DecisionAnswersContext, decisionAnswers } from './decisionAnswers'
@@ -250,7 +251,7 @@ function MessageList({
         />
       ))}
       {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
-      {statusLabel && (
+      {statusLabel && !tab.agentSetupRequired && (
         <div className="text-[13.5px] flex items-center gap-2">
           {sendingFeedback ? (
             <span role="status" className="text-tertiary">
@@ -265,9 +266,12 @@ function MessageList({
       )}
       {tab.agentSetupRequired && (
         <AgentSetupRequiredCard
+          teamId={teamId}
           runtimeId={tab.runtimeId}
           message={tab.agentSetupRequired.message}
           reason={tab.agentSetupRequired.reason}
+          details={statusLabel}
+          retryText={tab.readOnly || tab.foreign ? null : lastSentText(tab.messages)}
           isTeamAdmin={isTeamAdmin}
           onOpenAgentSettings={onOpenAgentSettings}
         />
