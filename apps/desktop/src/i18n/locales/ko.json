@@ -66,6 +66,7 @@
   "Account": "계정",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Agents scoped to one repository keep using nuphos[bot].": "GitHub에서 본인으로 활동합니다. 커밋, PR, 댓글이 nuphos[bot] 대신 본인 이름으로 작성됩니다. 하나의 저장소로 범위가 지정된 에이전트는 계속 nuphos[bot]을 사용합니다.",
   "Actions": "작업",
+  "Active": "진행 중",
   "Active now": "현재 활성",
   "Activity": "활동",
   "Actual size (1)": "실제 크기(1)",

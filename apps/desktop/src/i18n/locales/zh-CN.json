@@ -66,6 +66,7 @@
   "Account": "账号",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Agents scoped to one repository keep using nuphos[bot].": "在 GitHub 上以你本人身份操作：提交、PR 和评论将以你的名义发布，而非 nuphos[bot]。限定于单个仓库的 Agent 仍使用 nuphos[bot]。",
   "Actions": "操作",
+  "Active": "进行中",
   "Active now": "当前活跃",
   "Activity": "活动",
   "Actual size (1)": "实际大小（1）",

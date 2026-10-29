@@ -10,7 +10,7 @@ import { toast } from '../../ui/toast'
 
 import { ChangesSection } from './ChatSummaryChanges'
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
-import { changesOf, splitFileName } from './chatSummaryModel'
+import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
 import { SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
@@ -128,7 +128,9 @@ function SummaryBody({
   const rootRef = useRef<HTMLElement>(null)
   const [selected, setSelected] = useState<SessionInputRequest | null>(null)
   const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
+  // The lists that listed these threads published their states to the shared store.
   const runtimeStates = useAgentRuntimeStates()
+  const subAgents = subAgentsOf(threads, runtimeStates)
   const changes = changesOf(conversation?.linkedResources ?? [])
 
   return (
@@ -168,13 +170,13 @@ function SummaryBody({
           {changes.length > 0 && (
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
           )}
-          {threads.length > 0 && (
+          {subAgents.length > 0 && (
             <SummarySection title={t('Sub-agents')}>
-              {threads.map((thread) => (
+              {subAgents.map(({ conversation, state }) => (
                 <ThreadRow
-                  key={thread.sessionId}
-                  conversation={thread}
-                  runtimeState={runtimeStates.get(thread.sessionId)}
+                  key={conversation.sessionId}
+                  conversation={conversation}
+                  state={state}
                   onOpen={onOpenSession}
                 />
               ))}

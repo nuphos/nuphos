@@ -1,11 +1,14 @@
 import { t } from '../../../i18n/index.ts'
+import { subAgentState } from '../../../lib/subAgentState.ts'
 import { changeStatus } from '../../sidebar/sessionResourcePresentation.ts'
 import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
 import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
 import type { SessionResource } from '../../../api/session-resource-types.ts'
-import type { ChangesFilter } from '../../../lib/chatSummaryPanel.ts'
+import type { ChangesFilter, SubAgentsFilter } from '../../../lib/chatSummaryPanel.ts'
+import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
+import type { SubAgentState } from '../../../lib/subAgentState.ts'
 import type { FileTransferGroup } from '../../../types/app-misc.ts'
 import type { ChangeStatus } from '../../sidebar/sessionResourcePresentation.ts'
 
@@ -125,6 +128,74 @@ export function filterChanges(
 
   return STATUS_ORDER.flatMap((status) =>
     changes.filter((change) => changeStatus(change) === status),
+  )
+}
+
+export type SubAgent = { conversation: AgentConversation; state: SubAgentState }
+
+/** Each thread with its state, from the states the lists published. */
+export function subAgentsOf(
+  threads: readonly AgentConversation[],
+  runtimeStates: ReadonlyMap<string, RuntimeExecution>,
+): SubAgent[] {
+  return threads.map((conversation) => ({
+    conversation,
+    state: subAgentState(conversation, runtimeStates.get(conversation.sessionId)),
+  }))
+}
+
+type SubAgentStatus = Exclude<SubAgentsFilter, 'all'>
+
+const SUB_AGENT_STATUS_ORDER: readonly SubAgentStatus[] = ['active', 'done']
+
+/** Asking or running is active; the filter tells those apart from finished ones. */
+function subAgentStatus({ state }: SubAgent): SubAgentStatus {
+  return state === 'done' ? 'done' : 'active'
+}
+
+export type SubAgentsFilterOption = { filter: SubAgentsFilter; label: string; count: number }
+
+/**
+ * All, Active and Done with their counts. Empty when every sub-agent is
+ * active or every one is done, since a filter would then tell nothing apart.
+ */
+export function subAgentsFilterOptions(subAgents: readonly SubAgent[]): SubAgentsFilterOption[] {
+  const active = subAgents.filter((subAgent) => subAgentStatus(subAgent) === 'active').length
+  const done = subAgents.length - active
+
+  if (active === 0 || done === 0) return []
+
+  return [
+    { filter: 'all', label: t('All'), count: subAgents.length },
+    { filter: 'active', label: t('Active'), count: active },
+    { filter: 'done', label: t('Done'), count: done },
+  ]
+}
+
+/**
+ * The filter to show among `options`: the stored one, or All when it matches
+ * nothing here. Active is stored until a pill is chosen, so a chat opens on
+ * its active sub-agents when it has some and on all of them otherwise.
+ */
+export function shownSubAgentsFilter(
+  stored: SubAgentsFilter,
+  options: readonly SubAgentsFilterOption[],
+): SubAgentsFilter {
+  return options.some((option) => option.filter === stored) ? stored : 'all'
+}
+
+/**
+ * The sub-agents a filter shows. All lists active ones, then done ones; each
+ * group keeps the order it came in (newest activity first from subThreadsOf).
+ */
+export function filterSubAgents(
+  subAgents: readonly SubAgent[],
+  filter: SubAgentsFilter,
+): SubAgent[] {
+  if (filter !== 'all') return subAgents.filter((subAgent) => subAgentStatus(subAgent) === filter)
+
+  return SUB_AGENT_STATUS_ORDER.flatMap((status) =>
+    subAgents.filter((subAgent) => subAgentStatus(subAgent) === status),
   )
 }
 
