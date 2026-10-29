@@ -174,6 +174,8 @@ export type HomeLayout = {
   /** Pull request and CI cards; there can be any number of each. */
   github: HomeGithubCard[]
   panels: HomePanel[]
+  /** Metric cards, each with its own range and scope. */
+  metrics?: HomeMetricCard[]
   /** Where each card sits, in grid units; a card without an entry goes last. */
   grid?: HomeGridItem[]
 }
