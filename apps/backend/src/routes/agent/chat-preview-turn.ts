@@ -252,7 +252,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
     state.unbind()
     await clearActiveTurn()
-    await fallBackAfterFailure(sessionId, err)
+    if (!state.handedOff()) await fallBackAfterFailure(sessionId, err, actorUserId)
     // Handoff errors belong to the continuation; the original run is closed.
     if (!state.handedOff()) throw queuedRefusal(err, args.queued)
     appendAgentRunError(state.current(), queuedRefusal(err, args.queued))

@@ -87,6 +87,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   // Callers hold the session's run claim before an existing conversation runs.
   const existingConversation = await fallBackBeforeTurn(
     await getConversationBySessionId(sessionId),
+    userId,
     true,
   )
   const chatRuntime = await resolveConversationChatRuntime(teamId, existingConversation, {

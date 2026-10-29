@@ -228,7 +228,8 @@ async function assertTargetCanRun(target: AgentConversation): Promise<void> {
 // message that then does not run is reported to its sender by runTurn.
 export async function startThreadTurn(data: ThreadTurn) {
   const { source, target: delivered } = await authorizeThreadDelivery(data)
-  const target = await fallBackBeforeTurn(delivered)
+  // A thread's turn acts as its owner.
+  const target = await fallBackBeforeTurn(delivered, delivered.userId)
 
   await assertTargetCanRun(target)
   // Lazy so importing the tools does not pull in the route graph.

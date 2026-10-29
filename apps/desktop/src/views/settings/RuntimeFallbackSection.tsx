@@ -23,6 +23,8 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
   const teamId = team?.id
   const { instances } = useRuntimeInstances(teamId)
   const [runtimeIds, setRuntimeIds] = useState<string[] | null>(null)
+  // One save at a time, so a slower earlier save cannot land after a later one.
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!teamId) return
@@ -47,11 +49,14 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
     const previous = runtimeIds
 
     setRuntimeIds(next)
+    setSaving(true)
     try {
       setRuntimeIds((await api.atlasPutRuntimeFallback(teamId, next)).runtimeIds)
     } catch (err) {
       setRuntimeIds(previous)
       toast.apiError(t('Could not save your fallback agents'), err)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -104,7 +109,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
                         variant="ghost"
                         size="icon-sm"
                         aria-label={t('Move up')}
-                        disabled={index === 0}
+                        disabled={saving || index === 0}
                         onClick={() => move(index, -1)}
                       >
                         <ArrowUp size={14} />
@@ -113,7 +118,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
                         variant="ghost"
                         size="icon-sm"
                         aria-label={t('Move down')}
-                        disabled={index === listed.length - 1}
+                        disabled={saving || index === listed.length - 1}
                         onClick={() => move(index, 1)}
                       >
                         <ArrowDown size={14} />
@@ -122,6 +127,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
                         variant="ghost"
                         size="icon-sm"
                         aria-label={t('Remove')}
+                        disabled={saving}
                         onClick={() => void save(listed.filter((entry) => entry !== id))}
                       >
                         <X size={14} />
@@ -143,7 +149,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
             value=""
             placeholder={t('Add an agent')}
             ariaLabel={t('Add an agent')}
-            disabled={choices.length === 0}
+            disabled={saving || choices.length === 0}
             options={choices.map((instance) => ({
               value: instance.id,
               label: instance.label,

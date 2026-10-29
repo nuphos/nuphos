@@ -53,7 +53,7 @@ agent.post('/chat', async (c) => {
   const localToolsEnabled = body.clientCapabilities?.localTools === true
   const conversationForResume = body.resume
     ? await resolveReadableConversationForResume(id, userId, teamId)
-    : await fallBackBeforeTurn(await assertConversationSendable(id, userId, teamId))
+    : await fallBackBeforeTurn(await assertConversationSendable(id, userId, teamId), userId)
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
   if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {
