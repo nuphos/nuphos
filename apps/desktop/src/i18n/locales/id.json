@@ -701,6 +701,7 @@
   "Files": "File",
   "Filter": "Filter",
   "Filter changes by status": "Filter perubahan menurut status",
+  "Filter sub-agents by status": "Filter subagen menurut status",
   "Find in conversation": "Cari di percakapan",
   "Finish signing in in your browser. This updates on its own.": "Selesaikan proses masuk di browser Anda. Status ini akan diperbarui otomatis.",
   "Finishing sign-in with {account}…": "Menyelesaikan proses masuk dengan {account}…",

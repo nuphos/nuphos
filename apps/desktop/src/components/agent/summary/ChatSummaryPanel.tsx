@@ -11,7 +11,8 @@ import { toast } from '../../ui/toast'
 import { ChangesSection } from './ChatSummaryChanges'
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
-import { SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
+import { SummaryRow, SummarySection } from './ChatSummaryRows'
+import { SubAgentsSection } from './ChatSummarySubAgents'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
 import { useChatSummary } from './useChatSummary'
@@ -171,16 +172,7 @@ function SummaryBody({
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
           )}
           {subAgents.length > 0 && (
-            <SummarySection title={t('Sub-agents')}>
-              {subAgents.map(({ conversation, state }) => (
-                <ThreadRow
-                  key={conversation.sessionId}
-                  conversation={conversation}
-                  state={state}
-                  onOpen={onOpenSession}
-                />
-              ))}
-            </SummarySection>
+            <SubAgentsSection sessionId={sessionId} subAgents={subAgents} onOpen={onOpenSession} />
           )}
           {conversation && <ChatSummaryEnvironment conversation={conversation} />}
           {outputs.length > 0 && (

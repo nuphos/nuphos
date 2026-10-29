@@ -701,6 +701,7 @@
   "Files": "ファイル",
   "Filter": "絞り込み",
   "Filter changes by status": "ステータスで変更を絞り込む",
+  "Filter sub-agents by status": "ステータスでサブエージェントを絞り込む",
   "Find in conversation": "会話内を検索",
   "Finish signing in in your browser. This updates on its own.": "ブラウザでサインインを完了してください。この画面は自動的に更新されます。",
   "Finishing sign-in with {account}…": "{account} でのサインインを完了しています…",

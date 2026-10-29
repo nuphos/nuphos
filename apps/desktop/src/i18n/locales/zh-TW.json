@@ -701,6 +701,7 @@
   "Files": "檔案",
   "Filter": "篩選",
   "Filter changes by status": "依狀態篩選變更",
+  "Filter sub-agents by status": "依狀態篩選子 Agent",
   "Find in conversation": "在對話中尋找",
   "Finish signing in in your browser. This updates on its own.": "請在瀏覽器中完成登入。此處會自動更新。",
   "Finishing sign-in with {account}…": "正在完成 {account} 登入…",

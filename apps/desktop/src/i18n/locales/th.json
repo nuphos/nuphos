@@ -701,6 +701,7 @@
   "Files": "ไฟล์",
   "Filter": "กรอง",
   "Filter changes by status": "กรองการเปลี่ยนแปลงตามสถานะ",
+  "Filter sub-agents by status": "กรองเอเจนต์ย่อยตามสถานะ",
   "Find in conversation": "ค้นหาในบทสนทนา",
   "Finish signing in in your browser. This updates on its own.": "ลงชื่อเข้าใช้ในเบราว์เซอร์ให้เสร็จ หน้านี้จะอัปเดตเอง",
   "Finishing sign-in with {account}…": "กำลังลงชื่อเข้าใช้ด้วย {account} ให้เสร็จสิ้น…",

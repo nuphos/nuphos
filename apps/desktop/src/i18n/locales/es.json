@@ -701,6 +701,7 @@
   "Files": "Archivos",
   "Filter": "Filtrar",
   "Filter changes by status": "Filtrar cambios por estado",
+  "Filter sub-agents by status": "Filtrar subagentes por estado",
   "Find in conversation": "Buscar en la conversación",
   "Finish signing in in your browser. This updates on its own.": "Termina de iniciar sesión en tu navegador. Esto se actualizará automáticamente.",
   "Finishing sign-in with {account}…": "Terminando de iniciar sesión con {account}…",
