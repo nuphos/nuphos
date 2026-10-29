@@ -1,15 +1,13 @@
-Reply to an agent straight from its notification. Long-press a notification, type your reply and send it, without opening the app.
+Send voice input in one tap. While recording, tap the arrow to stop and send right away, or the stop button to edit the text first.
 
-You can now upload a profile photo from your library instead of pasting an image URL.
+You can now send a message while the agent is busy. It waits in a queue above the composer, where you can take it back, edit it, or send it into the running turn.
 
-A message you send while an agent is busy is now kept and runs when the agent is free, instead of being lost.
+The app opens straight to your conversations from last time and refreshes them in the background, so launching is faster, even on a slow network.
 
-The runtime picker now lists your offline and signed-out computers, greyed out with the reason, instead of hiding them.
+When you message an agent on a teammate's computer that asks its owner first, the app now tells you your message is waiting for their approval.
 
-Videos the agent sends now show as previews, and images no longer resize after they load.
+A sent message now stays at the bottom of the chat with the reply right below it, instead of jumping to the top of the screen.
 
-The return key on the keyboard now sends your message.
+Signing in an agent on a paused Box now wakes the Box instead of waiting forever.
 
-The Live Activity shows the check mark only when every conversation on it has finished.
-
-Smaller fixes: the reading position stays put when a reply finishes, the chat title is left-aligned without a duplicate runtime icon, chats reopened from a link load instead of spinning, the first message of a new conversation is sent again after a dropped connection, the composer no longer jumps when you swipe back or archive a chat, and leaving a running chat no longer slows down the app.
+Smaller fixes: "Connection lost" no longer flashes when you come back to the app, pasting an image from the menu works every time, the most commonly reported crash in the chat view is addressed, and sheets no longer crash when the app runs on a Mac.
