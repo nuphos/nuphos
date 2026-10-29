@@ -33,6 +33,7 @@ export type StartChatCtx = Pick<
   | 'teamId'
   | 'uploadingTabsRef'
   | 'urlRef'
+  | 'onOpenAgentSettings'
 >
 
 export function runStartChatWith(
@@ -63,12 +64,16 @@ export function runStartChatWith(
     teamId,
     uploadingTabsRef,
     urlRef,
+    onOpenAgentSettings,
   } = ctx
 
   if (newConversationRuntime?.status !== 'active') {
     toast.error(
       t('Choose an available runtime'),
       t('Connect or enable a runtime in Settings → Runtimes.'),
+      onOpenAgentSettings
+        ? { action: { label: t('Runtime settings'), onClick: onOpenAgentSettings } }
+        : undefined,
     )
 
     return

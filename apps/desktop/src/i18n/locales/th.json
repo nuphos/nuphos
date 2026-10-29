@@ -5408,6 +5408,7 @@
   "{name} is now signed in.": "{name} ลงชื่อเข้าใช้แล้ว",
   "{name} is signed out.": "{name} ออกจากระบบแล้ว",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} ออกจากระบบแล้ว ขอให้ผู้ดูแลเวิร์กสเปซเชื่อมต่อรันไทม์นี้ใหม่",
+  "{name} is signed out. Ask the owner of {computer} to sign it in.": "{name} ออกจากระบบแล้ว ขอให้เจ้าของ {computer} ลงชื่อเข้าใช้",
   "{name} is signed out. Sign it in to send messages.": "{name} ออกจากระบบแล้ว ลงชื่อเข้าใช้เพื่อส่งข้อความ",
   "{name} now connects via {host}": "ขณะนี้ {name} เชื่อมต่อผ่าน {host}",
   "{name} remaining": "{name} คงเหลือ",

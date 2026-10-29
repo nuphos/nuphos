@@ -5408,6 +5408,7 @@
   "{name} is now signed in.": "{name} 로그인을 완료했습니다.",
   "{name} is signed out.": "{name} 로그아웃 상태입니다.",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} 로그아웃 상태입니다. 워크스페이스 관리자에게 이 런타임을 다시 연결해 달라고 요청하세요.",
+  "{name} is signed out. Ask the owner of {computer} to sign it in.": "{name}이(가) 로그아웃되었습니다. {computer}의 소유자에게 로그인을 요청하세요.",
   "{name} is signed out. Sign it in to send messages.": "{name} 로그아웃 상태입니다. 메시지를 보내려면 로그인하세요.",
   "{name} now connects via {host}": "{name}이(가) 이제 {host}을(를) 통해 연결됩니다",
   "{name} remaining": "{name} 남음",

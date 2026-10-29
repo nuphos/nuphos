@@ -5408,6 +5408,7 @@
   "{name} is now signed in.": "{name} 已登入。",
   "{name} is signed out.": "{name} 已登出。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} 已登出。請聯絡工作區管理員重新連接此執行環境。",
+  "{name} is signed out. Ask the owner of {computer} to sign it in.": "{name} 已登出。請 {computer} 的擁有者登入。",
   "{name} is signed out. Sign it in to send messages.": "{name} 已登出。請登入後再傳送訊息。",
   "{name} now connects via {host}": "{name} 現在透過 {host} 連線",
   "{name} remaining": "{name} 剩餘額度",

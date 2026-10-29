@@ -11,6 +11,7 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentTier } from '../../../lib/agentName'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
+import { boxRestarts } from '../../../views/settings/boxRestartStore'
 import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
@@ -102,11 +103,23 @@ const BANNER = {
 
 type BannerKind = keyof typeof BANNER
 
+/** What the viewer can do about the agent from here, worked out by the banner. */
+type BannerFix = { signIn?: () => void; resume?: () => void; ownerComputer?: string }
+
+async function resumeBox(deviceId: string, teamId: string) {
+  try {
+    await api.boxResume(deviceId, teamId)
+    boxRestarts.start(deviceId, teamId, 'resume')
+  } catch (error) {
+    toast.apiError(t('Could not resume computer'), error)
+  }
+}
+
 function bannerCopy(
   reachability: BannerKind,
   control: RuntimeControl,
   onSwitchAgent?: () => void,
-  onSignIn?: () => void,
+  fix: BannerFix = {},
 ): { text: string; action: { label: string; run: () => void } | null } {
   const { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings } = control
   const name = value?.label ?? t('The runtime')
@@ -125,17 +138,27 @@ function bannerCopy(
 
     return {
       text: box ? t('{box} is offline.', { box }) : t('Its computer is offline.'),
-      action: switchAgent ?? {
-        label: t('Retry'),
-        run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
-      },
+      action: (fix.resume && { label: t('Resume'), run: fix.resume }) ??
+        switchAgent ?? {
+          label: t('Retry'),
+          run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
+        },
     }
   }
   if (switchAgent) return { text: t('{name} is signed out.', { name }), action: switchAgent }
-  if (onSignIn)
+  if (fix.signIn)
     return {
       text: t('{name} is signed out. Sign it in to send messages.', { name }),
-      action: { label: t('Sign in'), run: onSignIn },
+      action: { label: t('Sign in'), run: fix.signIn },
+    }
+  // A teammate's computer: only its owner can sign it in, administrators included.
+  if (fix.ownerComputer)
+    return {
+      text: t('{name} is signed out. Ask the owner of {computer} to sign it in.', {
+        name,
+        computer: fix.ownerComputer,
+      }),
+      action: null,
     }
   // Only an administrator can sign a team agent back in.
   if (isTeamAdmin && onSettings)
@@ -191,11 +214,24 @@ export function AgentStatusBanner({
     agentTier(selected, thisComputer) === 'remote'
       ? { teamId: control.teamId, instance: selected }
       : null
+  const local = selected?.local
+  const teamId = control.teamId
+  const fix: BannerFix = {
+    ...(ownSignIn && { signIn: () => setSigningIn(true) }),
+    ...(reachability === 'signIn' &&
+      local &&
+      local.ownerUserId !== viewerId && { ownerComputer: local.deviceLabel }),
+    // Your own paused Box wakes from here instead of Retry.
+    ...(reachability === 'offline' &&
+      teamId &&
+      local?.box?.state === 'paused' &&
+      local.ownerUserId === viewerId && { resume: () => void resumeBox(local.deviceId, teamId) }),
+  }
 
   if (blocked && blocked !== shown) setShown(blocked)
   const variant = shown ? BANNER[shown] : null
   const { text, action } = shown
-    ? bannerCopy(shown, control, onSwitchAgent, ownSignIn ? () => setSigningIn(true) : undefined)
+    ? bannerCopy(shown, control, onSwitchAgent, fix)
     : { text: '', action: null }
 
   return (

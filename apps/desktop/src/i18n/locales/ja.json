@@ -5408,6 +5408,7 @@
   "{name} is now signed in.": "{name} にサインインしました。",
   "{name} is signed out.": "{name} はサインアウトしています。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} はサインアウトしています。ワークスペースの管理者にこのランタイムの再接続を依頼してください。",
+  "{name} is signed out. Ask the owner of {computer} to sign it in.": "{name} はサインアウトしています。{computer} の所有者にサインインを依頼してください。",
   "{name} is signed out. Sign it in to send messages.": "{name} はサインアウトしています。メッセージを送信するにはサインインしてください。",
   "{name} now connects via {host}": "{name} は {host} 経由で接続するようになりました",
   "{name} remaining": "{name} の残り",

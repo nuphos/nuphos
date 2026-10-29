@@ -32,6 +32,7 @@ type Acc = Pick<
   | 'newConversationRuntime'
   | 'newConversationSessionConfig'
   | 'newConversationCredentialAccess'
+  | 'onOpenAgentSettings'
   | 'sendableCredentialAccess'
   | 'setActiveId'
   | 'setBypassBySession'
@@ -56,6 +57,7 @@ export function useTurnDispatch(acc: Acc) {
     newConversationRuntime,
     newConversationSessionConfig,
     newConversationCredentialAccess,
+    onOpenAgentSettings,
     sendableCredentialAccess,
     setActiveId,
     setBypassBySession,
@@ -98,6 +100,7 @@ export function useTurnDispatch(acc: Acc) {
             urlRef,
             kubeContextRef,
             uploadingTabsRef,
+            onOpenAgentSettings,
           },
           prompt,
           initialMessage,
@@ -137,6 +140,7 @@ export function useTurnDispatch(acc: Acc) {
       urlRef,
       kubeContextRef,
       uploadingTabsRef,
+      onOpenAgentSettings,
     ],
   )
 
