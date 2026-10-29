@@ -9,6 +9,8 @@ import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
 import type { AgentInputRequest } from '../../api/agent-types'
 
+type Resolution = 'answered' | 'dismissed'
+
 /** Connect and secure-input cards live in the transcript; only there can these be answered. */
 const ANSWERED_IN_CONVERSATION = new Set(['credential', 'integration'])
 
@@ -43,10 +45,11 @@ export function DecisionCards({
   onHideConversation: () => void
   onOpenConversation: () => void
 }) {
-  const [resolving, setResolving] = useState<string | null>(null)
+  // Which question is being resolved, and how: only a dismissal reads as dismissing.
+  const [resolving, setResolving] = useState<{ id: string; resolution: Resolution } | null>(null)
 
-  async function resolve(requestId: string, resolution: 'answered' | 'dismissed') {
-    setResolving(requestId)
+  async function resolve(requestId: string, resolution: Resolution) {
+    setResolving({ id: requestId, resolution })
     try {
       await api.agentResolveDecision(sessionId, requestId, teamId, resolution)
       refreshInputRequests()
@@ -119,7 +122,7 @@ export function DecisionCards({
               ) : (
                 <button
                   type="button"
-                  disabled={resolving === request.id}
+                  disabled={resolving?.id === request.id}
                   onClick={() => void resolve(request.id, 'answered')}
                   className={primaryButton}
                 >
@@ -128,14 +131,16 @@ export function DecisionCards({
               )}
               <button
                 type="button"
-                disabled={resolving === request.id}
+                disabled={resolving?.id === request.id}
                 onClick={(event) => {
                   event.stopPropagation()
                   void resolve(request.id, 'dismissed')
                 }}
                 className="ml-auto text-[11px] text-tertiary hover:text-main"
               >
-                {resolving === request.id ? t('Dismissing...') : t('Dismiss question')}
+                {resolving?.id === request.id && resolving.resolution === 'dismissed'
+                  ? t('Dismissing...')
+                  : t('Dismiss question')}
               </button>
             </div>
             {selected && !inConversation && (
