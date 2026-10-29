@@ -26,7 +26,6 @@ import {
   listShareApprovals,
   listShareTrusts,
   ownShareApprovalStatus,
-  remindShareApproval,
   setDeviceShare,
   settleRuntimeSignIn,
 } from '../atlas/local-share.ts'
@@ -150,8 +149,6 @@ export const boxChannels = {
   'localShare:approvals': (_e: unknown, teamId: unknown) => listShareApprovals(string(teamId)),
   'localShare:status': (_e: unknown, sessionId: unknown) =>
     ownShareApprovalStatus(string(sessionId)),
-  'localShare:remind': (_e: unknown, teamId: unknown, runtimeId: unknown, sessionId: unknown) =>
-    remindShareApproval(string(teamId), string(runtimeId), string(sessionId)),
   'signIn:ask': (_e: unknown, teamId: unknown, runtimeId: unknown, sessionId: unknown) =>
     askRuntimeSignIn(string(teamId), string(runtimeId), string(sessionId)),
   'signIn:settle': (_e: unknown, teamId: unknown, runtimeId: unknown) =>

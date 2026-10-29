@@ -69,8 +69,6 @@ export const deviceApi = {
     window.api.localShareUntrust(deviceId, teamId, actorId),
   localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
     window.api.localShareNotify(approvalId, teamId, title, body),
-  localShareRemind: (teamId: string, runtimeId: string, sessionId: string) =>
-    window.api.localShareRemind(teamId, runtimeId, sessionId),
   runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
     window.api.runtimeSignInAsk(teamId, runtimeId, sessionId),
   runtimeSignInSettle: (teamId: string, runtimeId: string) =>

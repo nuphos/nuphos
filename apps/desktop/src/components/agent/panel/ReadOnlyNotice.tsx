@@ -15,7 +15,7 @@ import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { remindOwner, resumeBox } from './bannerActions'
+import { resumeBox } from './bannerActions'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { selectedAgentName, selectedAgentReachability } from './runtimeControlSignOut'
@@ -107,7 +107,6 @@ type BannerKind = keyof typeof BANNER
 type BannerFix = {
   signIn?: () => void
   resume?: () => void
-  remind?: () => void
   askOwner?: boolean
 }
 
@@ -126,10 +125,7 @@ function bannerCopy(
     const computer = sharedComputerLabel(control)
 
     return reachability === 'waiting'
-      ? {
-          text: shareApprovalText('pending', computer),
-          action: fix.remind ? { label: t('Remind'), run: fix.remind } : null,
-        }
+      ? { text: shareApprovalText('pending', computer), action: null }
       : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
   }
   if (reachability === 'offline') {
@@ -217,13 +213,6 @@ export function AgentStatusBanner({
       teamId &&
       local?.box?.state === 'paused' &&
       local.ownerUserId === viewerId && { resume: () => void resumeBox(local.deviceId, teamId) }),
-    // The owner was asked when this conversation first tried their computer.
-    ...(blocked === 'waiting' &&
-      teamId &&
-      selected &&
-      control.sessionId && {
-        remind: () => void remindOwner(teamId, selected.id, control.sessionId ?? ''),
-      }),
   }
 
   if (blocked && blocked !== shown) setShown(blocked)

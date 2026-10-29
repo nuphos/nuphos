@@ -1,11 +1,9 @@
 // Someone who cannot sign an agent in asks the people who can. The ask lives on
 // the conversation, so their Inbox lists it, and the message it holds runs as
-// soon as anyone signs the agent in. A reminder to approve a shared computer
-// takes the same path, without holding anything.
+// soon as anyone signs the agent in.
 import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
-import { awaitsShareApproval } from '@/lib/agent/devices/local-share'
 import { consumePairQuota } from '@/lib/download-handoff-rate-limit'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
@@ -30,8 +28,8 @@ export type SignInRequest = {
   notifiedAt?: Date
 }
 
-/** A sign-in the requester's messages wait for, or a reminder to approve a shared computer. */
-export type NudgeKind = 'signInRequest' | 'approvalReminder'
+/** A sign-in the requester's messages wait for. */
+export type NudgeKind = 'signInRequest'
 
 export type NudgeConversation = AgentConversation & Partial<Record<NudgeKind, SignInRequest>>
 
@@ -104,7 +102,6 @@ export type NudgePush = { sessionId: string; teamId: string; title: string; body
 export type NudgeDeps = {
   conversation: (sessionId: string) => Promise<NudgeConversation | null>
   members: (teamId: string) => Promise<Member[]>
-  awaitsApproval: (conversation: NudgeConversation, actorId: string) => Promise<boolean>
   /** What the agent reports about its own sign-in; undefined when it cannot say. */
   signedIn: (teamId: string, runtimeId: string, userId: string) => Promise<boolean | undefined>
   quota: (requesterId: string) => Promise<DownloadHandoffRateLimitResult>
@@ -125,7 +122,6 @@ export type NudgeDeps = {
 export const nudgeDeps: NudgeDeps = {
   conversation: (sessionId) => getConversationBySessionId(sessionId),
   members: (teamId) => getTeamMembers(teamId),
-  awaitsApproval: (conversation, actorId) => awaitsShareApproval(conversation, actorId),
   // Loaded on use: the runtime status modules reach the whole runtime graph.
   signedIn: async (teamId, runtimeId, userId) => {
     try {
@@ -145,7 +141,7 @@ export const nudgeDeps: NudgeDeps = {
 
       return status.authenticated
     } catch {
-      return undefined
+      return
     }
   },
   // Shared by every replica: one requester's asks across all conversations.
@@ -180,15 +176,11 @@ const PUSH = {
     title: 'Sign-in requested',
     body: `${name} asked you to sign in ${agent} so their message can run.`,
   }),
-  approvalReminder: (name: string, agent: string) => ({
-    title: 'Approval requested',
-    body: `${name} is waiting for you to approve their conversation on ${agent}.`,
-  }),
 }
 
 /**
- * Asks the people who can act on this conversation's agent: sign it in, or
- * approve it on their computer. A repeat inside NOTIFY_REPEAT_MS notifies nobody.
+ * Asks the people who can sign this conversation's agent in. A repeat inside
+ * NOTIFY_REPEAT_MS notifies nobody.
  */
 export async function nudge(
   kind: NudgeKind,
@@ -208,10 +200,7 @@ export async function nudge(
   if (conversation.runtimeId !== runtimeId)
     throw new AppError(409, 'runtime_mismatch', 'This conversation runs on another agent')
   const members = await deps.members(teamId)
-  const recipients = await recipientsFor(kind, conversation, requesterId, requesterRole, {
-    members,
-    deps,
-  })
+  const recipients = recipientsFor(conversation, requesterId, requesterRole, members)
 
   if (!recipients[0])
     throw new AppError(409, 'nobody_to_ask', 'Nobody in this team can act on this agent')
@@ -268,29 +257,19 @@ export async function nudge(
   return { askedName: record.askedName, notified }
 }
 
-async function recipientsFor(
-  kind: NudgeKind,
+function recipientsFor(
   conversation: NudgeConversation,
   requesterId: string,
   requesterRole: NuphosTeamRole,
-  { members, deps }: { members: Member[]; deps: NudgeDeps },
-): Promise<Member[]> {
-  const runtimeId = conversation.runtimeId ?? ''
+  members: Member[],
+): Member[] {
+  const recipients = signInRecipients(
+    conversation.runtimeId ?? '',
+    { id: requesterId, role: requesterRole },
+    members,
+  )
 
-  if (kind === 'signInRequest') {
-    const recipients = signInRecipients(
-      runtimeId,
-      { id: requesterId, role: requesterRole },
-      members,
-    )
+  if (!recipients) throw new AppError(409, 'can_sign_in', 'You can sign this agent in yourself')
 
-    if (!recipients) throw new AppError(409, 'can_sign_in', 'You can sign this agent in yourself')
-
-    return recipients
-  }
-  if (!(await deps.awaitsApproval(conversation, requesterId)))
-    throw new AppError(409, 'not_waiting', 'This conversation is not waiting for an approval')
-  const owner = parseLocalRuntimeId(runtimeId)?.userId
-
-  return members.filter((member) => member.id === owner && !member.removedAt)
+  return recipients
 }

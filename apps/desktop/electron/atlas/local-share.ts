@@ -109,17 +109,3 @@ export function settleRuntimeSignIn(teamId: string, runtimeId: string): Promise<
     retry: false,
   })
 }
-
-/** Reminds the owner of the computer this conversation waits on to approve it. */
-export function remindShareApproval(
-  teamId: string,
-  runtimeId: string,
-  sessionId: string,
-): Promise<SignInAsk> {
-  return call(
-    'POST',
-    `${runtime(teamId, runtimeId)}/share-reminders`,
-    { sessionId },
-    { retry: false },
-  )
-}

@@ -33,7 +33,6 @@ const members = [
 
 let conversation: NudgeConversation
 let quota: DownloadHandoffRateLimitResult
-let awaiting: boolean
 let signedIn: boolean | undefined
 let now: number
 let stored: { kind: NudgeKind; record: SignInRequest; since?: Date }[]
@@ -43,7 +42,6 @@ function deps(): NudgeDeps {
   return {
     conversation: async () => conversation,
     members: async () => members,
-    awaitsApproval: async () => awaiting,
     signedIn: async () => signedIn,
     quota: async () => quota,
     store: async (target, kind, record, since) => {
@@ -87,7 +85,6 @@ beforeEach(() => {
     lastActiveAt: new Date(0),
   }
   quota = 'allowed'
-  awaiting = false
   signedIn = false
   now = 1_000_000_000
   stored = []
@@ -212,35 +209,6 @@ describe('repeats and the rate limit', () => {
   })
 })
 
-describe('reminding a computer owner to approve', () => {
-  beforeEach(() => {
-    conversation.runtimeId = LOCAL
-    conversation.runtimeLabel = "Bryan's MacBook"
-  })
-
-  test('only a conversation that waits for an approval can remind', async () => {
-    await expect(ask('shant', 'EDITOR', 'approvalReminder')).rejects.toMatchObject({
-      status: 409,
-      code: 'not_waiting',
-    })
-  })
-
-  test('the owner is reminded, and nothing is held', async () => {
-    awaiting = true
-    expect(await ask('shant', 'EDITOR', 'approvalReminder')).toEqual({
-      askedName: 'Bryan',
-      notified: true,
-    })
-    expect(notified[0]).toMatchObject({
-      userIds: ['bryan'],
-      title: 'Approval requested',
-      body: "Shant is waiting for you to approve their conversation on Bryan's MacBook.",
-    })
-    expect(conversation.signInRequest).toBeUndefined()
-    expect(openSignInRequest(conversation)).toBeNull()
-  })
-})
-
 describe('settling', () => {
   test('an ask holds messages only while the queue would keep them', () => {
     const askedAt = new Date(now)
@@ -249,7 +217,7 @@ describe('settling', () => {
       ...conversation.signInRequest!,
       runtimeId: RUNTIME,
       askedAt,
-    } as SignInRequest
+    }
     expect(openSignInRequest(conversation, now + ASK_OPEN_MS - 1)).not.toBeNull()
     expect(openSignInRequest(conversation, now + ASK_OPEN_MS)).toBeNull()
   })

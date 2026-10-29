@@ -703,7 +703,6 @@
   "POST /teams/:teamId/agent-runtimes/:runtimeId/files/transfer": "member",
   "POST /teams/:teamId/agent-runtimes/:runtimeId/login": "member",
   "POST /teams/:teamId/agent-runtimes/:runtimeId/login/code": "member",
-  "POST /teams/:teamId/agent-runtimes/:runtimeId/share-reminders": "member",
   "POST /teams/:teamId/agent-runtimes/:runtimeId/sign-in-requests": "member",
   "POST /teams/:teamId/agent-runtimes/:runtimeId/update": "admin",
   "POST /teams/:teamId/agent-runtimes/external": "admin",
