@@ -9,10 +9,10 @@ import { useGithubHttp } from '@/lib/test/doubles/github-http'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { authorizedResourceTurn } from './resource-webhook'
+import { resourceCredentialAllowed } from './session-resource-lookup'
 import {
   bindSessionResource,
   resourceConversation,
-  resourceCredentialAllowed,
   sessionResourceInput,
   unlinkSessionResource,
 } from './session-resources'

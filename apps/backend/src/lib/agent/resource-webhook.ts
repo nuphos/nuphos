@@ -14,7 +14,7 @@ import {
   githubUnattachedSuiteCommit,
   refreshLinkedPullHealth,
 } from './resource-webhook-health'
-import { resourceCredentialAllowed } from './session-resources'
+import { resourceCredentialAllowed } from './session-resource-lookup'
 import { enqueueResourceTurn } from './thread-queue'
 
 import type { SessionResource } from './session-resources'
