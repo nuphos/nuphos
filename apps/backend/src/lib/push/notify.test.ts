@@ -125,6 +125,7 @@ describe('turn notifier', () => {
           sound: 'default',
           'thread-id': 'session-1',
           category: 'REPLY',
+          'mutable-content': 1,
         },
         sessionId: 'session-1',
         teamId: 'team-1',

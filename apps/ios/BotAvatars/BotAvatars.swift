@@ -3,6 +3,18 @@ import Foundation
 /// Keep this order and hash identical to Desktop's botAvatars.ts.
 enum BotAvatars {
     static let enabledKey = "nuphos.botAvatars"
+
+    /// Shared with the notification extension, which shows the avatar on pushes.
+    static let defaults: UserDefaults = {
+        let shared = UserDefaults(suiteName: "group.ai.nuphos.ios") ?? .standard
+        // The setting used to live in the app's own defaults.
+        if shared.object(forKey: enabledKey) == nil, let old = UserDefaults.standard.object(forKey: enabledKey) {
+            shared.set(old, forKey: enabledKey)
+        }
+        return shared
+    }()
+
+    static var enabled: Bool { defaults.object(forKey: enabledKey) as? Bool ?? true }
     static let files = [
         "01-vermeer-girl.svg",
         "02-leonardo.svg",

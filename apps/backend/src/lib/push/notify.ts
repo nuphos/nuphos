@@ -175,7 +175,15 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
         await send(
           devices,
           {
-            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId, category: 'REPLY' },
+            aps: {
+              alert,
+              badge,
+              sound: 'default',
+              'thread-id': run.sessionId,
+              category: 'REPLY',
+              // Lets the iOS extension show the Agent's avatar.
+              'mutable-content': 1,
+            },
             sessionId: run.sessionId,
             ...(teamId ? { teamId } : {}),
           },
