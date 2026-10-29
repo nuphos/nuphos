@@ -45,13 +45,10 @@ struct ConversationRow: View {
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
 
-                HStack(spacing: 5) {
-                    RuntimeMark(runtime: conversation.isNativeRuntime ? conversation.agentRuntime : nil)
-                    Text(meta)
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
-                }
+                Text(meta)
+                    .font(Theme.Text.label)
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 0)
@@ -93,29 +90,6 @@ struct ConversationRow: View {
             parts.append(label)
         }
         return parts.joined(separator: " · ")
-    }
-}
-
-/// Which agent answers in a conversation, as the desktop sidebar's
-/// `RuntimeChatIcon` shows it: the provider's mark for a runtime, a message
-/// glyph for the built-in agent. It sits at the head of the meta line, so
-/// the trailing indicators can come and go without moving it.
-struct RuntimeMark: View {
-    /// `agentRuntime` for a runtime-backed chat, absent for the built-in one.
-    let runtime: String?
-
-    var body: some View {
-        Group {
-            if let runtime {
-                BrandLogo(name: RuntimeInstance.Provider.logo(runtime), size: 12)
-            } else {
-                Image(systemName: "message")
-                    .font(Theme.Text.caption)
-                    .frame(width: 12, height: 12)
-            }
-        }
-        .foregroundStyle(Theme.muted)
-        .accessibilityLabel(RuntimeInstance.Provider.name(runtime ?? "nuphos"))
     }
 }
 

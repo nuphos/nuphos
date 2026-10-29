@@ -21,6 +21,7 @@ struct ConversationView: View {
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
     @State private var updating = false
+    @State private var width: CGFloat = 0
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
@@ -56,6 +57,7 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
@@ -215,26 +217,26 @@ struct ConversationView: View {
     private var titleBar: some View {
         HStack(spacing: 8) {
             AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
-            VStack(spacing: 1) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(session.title)
                     .font(Theme.Text.label.weight(.semibold))
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
                 if let name = session.runtimeDisplayName {
-                    HStack(spacing: 4) {
-                        RuntimeMark(runtime: session.isNativeRuntime ? session.agentRuntime : nil)
-                        Text(name)
-                            .font(Theme.Text.micro)
-                            .foregroundStyle(Theme.muted)
-                            .lineLimit(1)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Runtime: \(name)")
+                    Text(name)
+                        .font(Theme.Text.micro)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                        .accessibilityLabel("Runtime: \(name)")
                 } else if !session.loaded {
                     Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
             }
         }
+        // The principal item is only as wide as its content and centred, so
+        // it is given all the room between the back and options buttons
+        // (each 44 + 16 margin + 8 gap) to start the title on the left.
+        .frame(width: max(width - 136, 0), alignment: .leading)
     }
 
     /// Plan links open the plan here, approved through this chat; other app
