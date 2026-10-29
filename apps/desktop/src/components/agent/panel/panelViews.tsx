@@ -209,7 +209,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.messages.length === 0 ? (
                 <DelayedPanelReveal>
                   <Composer
-                    onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                    onSend={(text, filePaths) =>
+                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo)
+                    }
                     onStop={stopActive}
                     autoFocus={focusComposerOnOpen}
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
@@ -236,7 +238,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     <ReplyTargetChip target={c.replyTarget} sidebar={isSidebarMode} />
                   )}
                   <Composer
-                    onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                    onSend={(text, filePaths) =>
+                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo)
+                    }
                     onStop={stopActive}
                     promptSuggestion={
                       activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)

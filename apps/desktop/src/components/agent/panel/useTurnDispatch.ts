@@ -11,6 +11,7 @@ import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID } from './model'
 import { runtimeMayAcceptLater } from './queuedAutoSend'
+import { routeSend } from './sendRouting'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
 import { useQueueActions } from './useQueueActions'
@@ -26,7 +27,6 @@ type Acc = Pick<
   | 'credentialAccessRef'
   | 'credentialOptions'
   | 'defaultPermissionMode'
-  | 'decisionReplyTo'
   | 'kubeContextRef'
   | 'lastCredentialSyncedRef'
   | 'newConversationRuntime'
@@ -51,7 +51,6 @@ export function useTurnDispatch(acc: Acc) {
     credentialAccessRef,
     credentialOptions,
     defaultPermissionMode,
-    decisionReplyTo,
     kubeContextRef,
     lastCredentialSyncedRef,
     newConversationRuntime,
@@ -161,7 +160,7 @@ export function useTurnDispatch(acc: Acc) {
       runDispatchTurn(
         {
           currentUser,
-          decisionReplyTo: questionId ?? decisionReplyTo,
+          decisionReplyTo: questionId,
           teamId,
           tabsRef,
           uploadingTabsRef,
@@ -180,7 +179,6 @@ export function useTurnDispatch(acc: Acc) {
       ),
     [
       currentUser,
-      decisionReplyTo,
       teamId,
       tabsRef,
       uploadingTabsRef,
@@ -242,15 +240,11 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
+      const route = routeSend(tab.runtimeState, turnKind, questionId)
+
       // The backend decides whose turn it is: a refused steer is sent as a
       // message and waits its turn in the server queue.
-      if (
-        runtimeAllows(tab.runtimeState, 'steer') &&
-        !runtimeAllows(tab.runtimeState, 'reply') &&
-        !turnKind &&
-        !questionId &&
-        !decisionReplyTo
-      ) {
+      if (route.steer) {
         await sendSteering(activeId, trimmed, filePaths)
 
         return
@@ -265,9 +259,9 @@ export function useTurnDispatch(acc: Acc) {
 
         return
       }
-      void dispatchTurn(activeId, trimmed, filePaths, turnKind, questionId)
+      void dispatchTurn(activeId, trimmed, filePaths, turnKind, route.decisionReplyTo)
     },
-    [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser, decisionReplyTo],
+    [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )
 
   const { steerQueued, removeQueued } = useQueueActions({ tabsRef, setTabs, teamId, sendSteering })
