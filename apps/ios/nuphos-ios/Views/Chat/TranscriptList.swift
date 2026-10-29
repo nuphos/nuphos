@@ -83,8 +83,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         // animation and interactive drag, and nothing else moves them.
         addChild(composer)
         composer.view.backgroundColor = .clear
-        // Its own changes (focus, attachments) then ask for a new layout pass.
-        composer.sizingOptions = .intrinsicContentSize
+        // Its own changes (focus, attachments, a long draft) report a new size
+        // to this controller, which measures it again.
+        composer.sizingOptions = .preferredContentSize
         // The guide already keeps it clear of the keyboard and home indicator;
         // SwiftUI's own keyboard avoidance would move it a second time.
         composer.safeAreaRegions = []
@@ -190,8 +191,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         view.setNeedsLayout()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
+    override func preferredContentSizeDidChange(forChildContentContainer container: UIContentContainer) {
+        super.preferredContentSizeDidChange(forChildContentContainer: container)
+        view.setNeedsLayout()
+    }
+
+    /// Before layout, so the transcript is sized and positioned against the
+    /// composer's new height in the same pass, inside the keyboard's animation.
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
         // Measured at the page's width: the hosting controller's own intrinsic
         // size has no width, so a long draft would never wrap and grow it.
         let height = ceil(composer.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude)).height)
@@ -201,6 +209,10 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             // both up at the composer's top edge.
             view.keyboardLayoutGuide.keyboardDismissPadding = height
         }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
         let size = collection.bounds.size
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size
