@@ -1,5 +1,15 @@
-The Live Activity now shows the same status as the app. A conversation no longer shows as Failed while its agent is still working, and a runtime that can't be reached shows as Unavailable.
+Reply to an agent straight from its notification. Long-press a notification, type your reply and send it, without opening the app.
 
-Conversations opened from a link or a notification now load instead of showing "cancelled".
+You can now upload a profile photo from your library instead of pasting an image URL.
 
-Chat text no longer overlaps for a moment when you rotate your iPhone.
+A message you send while an agent is busy is now kept and runs when the agent is free, instead of being lost.
+
+The runtime picker now lists your offline and signed-out computers, greyed out with the reason, instead of hiding them.
+
+Videos the agent sends now show as previews, and images no longer resize after they load.
+
+The return key on the keyboard now sends your message.
+
+The Live Activity shows the check mark only when every conversation on it has finished.
+
+Smaller fixes: the reading position stays put when a reply finishes, the chat title is left-aligned without a duplicate runtime icon, chats reopened from a link load instead of spinning, the first message of a new conversation is sent again after a dropped connection, the composer no longer jumps when you swipe back or archive a chat, and leaving a running chat no longer slows down the app.
