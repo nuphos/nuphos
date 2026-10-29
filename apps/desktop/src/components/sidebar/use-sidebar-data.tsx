@@ -15,11 +15,12 @@ import { toast } from '../ui/toast'
 
 import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
-import { ARCHIVE_IN_FLIGHT, visibleSidebarChats } from './local-archive-guard'
+import { ARCHIVE_IN_FLIGHT, visibleSidebarChats, withRestoredChats } from './local-archive-guard'
 import { RowMenuButton } from './row-menu-button'
 import { AGENT_SESSIONS_POLL_MS, agentSessionsCacheKey, crdCacheKey } from './state'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
+import type { LocalRestoreGuard } from './local-archive-guard'
 import type { Item, Section } from './types'
 import type { AgentConversation } from '../../api'
 import type { CustomResourceDefinitionItem, Scope } from '../../types'
@@ -150,6 +151,7 @@ export function useSidebarChats({
   const refreshSeqRef = useRef(0)
   const refreshingTeamRef = useRef<string | null>(null)
   const locallyArchivedRef = useRef<Map<string, number>>(new Map())
+  const locallyRestoredRef = useRef<LocalRestoreGuard<AgentConversation>>(new Map())
   const refreshSessions = useCallback(async () => {
     // Workspace's loading skeleton intentionally renders the shared Sidebar
     // with an empty team id. Do not start a team-scoped request until the real
@@ -165,7 +167,8 @@ export function useSidebarChats({
       )
 
       if (!rows) return
-      const conversations = visibleSidebarChats(rows, locallyArchivedRef.current, seq)
+      const restored = withRestoredChats(rows, locallyRestoredRef.current, seq)
+      const conversations = visibleSidebarChats(restored, locallyArchivedRef.current, seq)
 
       writeSwrCache(agentSessionsCacheKey(teamId), conversations)
       setAgentSessions(conversations)
@@ -190,9 +193,11 @@ export function useSidebarChats({
 
   const [archivingIds, setArchivingIds] = useState<ReadonlySet<string>>(() => new Set())
 
-  useSidebarArchiveEvents({
+  const { offerUndo } = useSidebarArchiveEvents({
     teamId,
+    sessions: agentSessions,
     locallyArchivedRef,
+    locallyRestoredRef,
     refreshSeqRef,
     setSessions: setAgentSessions,
     refresh: refreshSessions,
@@ -231,11 +236,12 @@ export function useSidebarChats({
       })
       if (ok) {
         announceChatArchived({ sessionId, teamId })
+        offerUndo(sessionId)
       } else {
         toast.error(t('Could not archive agent'))
       }
     },
-    [teamId],
+    [teamId, offerUndo],
   )
 
   const unlinkChat = useCallback(
