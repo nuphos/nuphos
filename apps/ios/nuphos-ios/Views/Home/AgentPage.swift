@@ -18,6 +18,8 @@ struct AgentPage: View {
     @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
     @State private var showAgentSetup = false
+    @State private var renaming: AgentConversation?
+    @State private var renamedTitle = ""
     #if DEBUG
     /// `-preview-agent-login`: the authorization-code step with a canned attempt.
     @State private var previewLogin = false
@@ -46,6 +48,13 @@ struct AgentPage: View {
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
+            .alert("Rename agent", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
+                let title = renamedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                TextField("Title", text: $renamedTitle)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") { Task { await store.rename(conversation, title: title) } }
+                    .disabled(title.isEmpty || title.count > 120)
+            }
             #if DEBUG
             .sheet(isPresented: $previewLogin) {
                 if let team = store.selectedTeam {
@@ -249,6 +258,15 @@ struct AgentPage: View {
                 Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
             }
             .tint(.teal)
+        }
+        if conversation.ownsChat {
+            Button {
+                renamedTitle = conversation.displayTitle
+                renaming = conversation
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+            .tint(.blue)
         }
         if conversation.ownsChat, conversation.parentSessionId != nil {
             Button {

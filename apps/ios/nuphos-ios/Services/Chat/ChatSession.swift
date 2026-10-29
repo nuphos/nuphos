@@ -610,8 +610,7 @@ final class ChatSession {
 
     func rename(_ name: String) async throws {
         guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can rename it.") }
-        struct Body: Encodable { let title: String }
-        _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
+        try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: sessionId, title: name)
         title = name
     }
 

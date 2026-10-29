@@ -148,6 +148,14 @@ enum AgentChatAPI {
         )
     }
 
+    static func rename(token: String, teamId: String, sessionId: String, title: String) async throws {
+        struct Body: Encodable { let title: String }
+        _ = try await send(
+            "PATCH", "agent/conversations/\(sessionId)/title",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: title)
+        )
+    }
+
     /// `PUT` / `DELETE /agent/conversations/:id/watch` — whether this user gets
     /// the chat's push notifications. Unwatching also unwatches its threads.
     static func setWatching(token: String, teamId: String, sessionId: String, watching: Bool) async throws {
