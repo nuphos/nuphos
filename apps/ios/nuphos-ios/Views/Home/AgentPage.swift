@@ -231,7 +231,7 @@ struct AgentPage: View {
     @ViewBuilder
     private func rowActions(_ conversation: AgentConversation) -> some View {
         if conversation.canManage { Button {
-            Task { await store.archive(conversation) }
+            Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {
             Label("Archive", systemImage: "archivebox")
         }

@@ -130,21 +130,20 @@ struct ConversationView: View {
                             Button("Switch runtime", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
                                 .disabled(session.isStreaming)
                             Button {
+                                // An archived chat leaves the list, so go
+                                // back to it at once and archive from there,
+                                // as a swipe does; a restored one rejoins it.
+                                if !session.isArchived {
+                                    dismiss()
+                                    Task { await store.archive(sessionId: session.sessionId, teamId: session.teamId) }
+                                    return
+                                }
                                 Task {
                                     updating = true
                                     defer { updating = false }
                                     do {
-                                        let archiving = !session.isArchived
-                                        try await session.setArchived(archiving)
-                                        // An archived chat leaves the list,
-                                        // so go back to it; a restored one
-                                        // rejoins it.
-                                        if archiving {
-                                            store.removeFromList(session.sessionId)
-                                            dismiss()
-                                        } else {
-                                            await store.reload()
-                                        }
+                                        try await session.setArchived(false)
+                                        await store.reload()
                                     } catch { archiveError = error.localizedDescription }
                                 }
                             } label: {
@@ -152,11 +151,10 @@ struct ConversationView: View {
                             }
                         }
                     } label: {
-                        // The menu has closed by the time the request runs;
-                        // this is what shows it was taken. A Label, not a bare
-                        // Image: the bar takes it as a native item, so the
-                        // whole glass answers, not just the glyph.
-                        if updating { ProgressView() } else { Label("Agent options", systemImage: "ellipsis") }
+                        // A Label, not a bare Image: the bar takes it as a
+                        // native item, so the whole glass answers, not just
+                        // the glyph.
+                        Label("Agent options", systemImage: "ellipsis")
                     }
                     .disabled(updating)
                     .accessibilityLabel("Agent options")
