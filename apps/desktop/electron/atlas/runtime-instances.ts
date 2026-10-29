@@ -80,8 +80,9 @@ export function removeRuntimeInstance(teamId: string, runtimeId: string): Promis
 export function getRuntimeInstanceStatus(
   teamId: string,
   runtimeId: string,
+  wake = false,
 ): Promise<OpenAbRuntimeStatus> {
-  return call('GET', `${path(teamId, runtimeId)}/status`)
+  return call('GET', `${path(teamId, runtimeId)}/status${wake ? '?wake=1' : ''}`)
 }
 export function getRuntimeInstanceMetrics(
   teamId: string,

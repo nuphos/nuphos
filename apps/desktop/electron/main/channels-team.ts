@@ -80,8 +80,12 @@ export const teamChannels = {
     atlas.getRuntimeModelConfig(...args),
   'atlas:requestRuntimeUpdate': (_e: unknown, teamId: string, runtimeId: string) =>
     atlas.requestRuntimeUpdate(teamId, runtimeId),
-  'atlas:getRuntimeInstanceStatus': (_e: unknown, teamId: string, runtimeId: string) =>
-    atlas.getRuntimeInstanceStatus(teamId, runtimeId),
+  'atlas:getRuntimeInstanceStatus': (
+    _e: unknown,
+    teamId: string,
+    runtimeId: string,
+    wake?: boolean,
+  ) => atlas.getRuntimeInstanceStatus(teamId, runtimeId, wake),
   'atlas:getRuntimeInstanceMetrics': (
     _e: unknown,
     teamId: string,

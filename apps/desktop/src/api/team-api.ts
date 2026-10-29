@@ -70,8 +70,8 @@ export const teamApi = {
     window.api.atlasGetRuntimeModelConfig(teamId, runtimeId, pick),
   atlasRequestRuntimeUpdate: (teamId: string, runtimeId: string) =>
     window.api.atlasRequestRuntimeUpdate(teamId, runtimeId),
-  atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string) =>
-    window.api.atlasGetRuntimeInstanceStatus(teamId, runtimeId),
+  atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string, wake?: boolean) =>
+    window.api.atlasGetRuntimeInstanceStatus(teamId, runtimeId, wake),
   atlasGetRuntimeInstanceMetrics: (teamId: string, runtimeId: string, hours: number) =>
     window.api.atlasGetRuntimeInstanceMetrics(teamId, runtimeId, hours),
 

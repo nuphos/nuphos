@@ -1,6 +1,7 @@
 import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
+import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { boxUpdateStatus } from '@/lib/claude-code-preview/box-update'
 import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
@@ -181,11 +182,12 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
 
     if (instance.kind === 'local') {
       const runtimeUpdate = await boxUpdateStatus(instance.id)
+      const status = await localRuntimeStatus(instance.id)
 
-      return c.json({
-        ...(await localRuntimeStatus(instance.id)),
-        ...(runtimeUpdate ? { runtimeUpdate } : {}),
-      })
+      // Sign-in waits here for the agent to answer, and a paused Box never would.
+      if (!status.online && c.req.query('wake') === '1') await wakeOfflineBox(instance.id)
+
+      return c.json({ ...status, ...(runtimeUpdate ? { runtimeUpdate } : {}) })
     }
 
     return c.json(await runtimeStatusWithUpdate(c.get('teamId'), c.get('userId'), instance))

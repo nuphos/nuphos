@@ -70,7 +70,7 @@ export function useRuntimeLogin(
     }
     // A just-created agent is still starting; sign-in needs it to answer first.
     const whenReachable = () => {
-      void api.atlasGetRuntimeInstanceStatus(teamId, id).then(
+      void api.atlasGetRuntimeInstanceStatus(teamId, id, true).then(
         (status) => {
           if (stopped) return
           if (status.online) start()
