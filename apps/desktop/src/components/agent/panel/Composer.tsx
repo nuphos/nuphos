@@ -58,7 +58,7 @@ export function Composer({
 }: {
   variant?: 'compact' | 'hero'
   newChat?: boolean // a new chat fixes an unusable agent by picking another
-  onSend: (text: string, filePaths: string[]) => void
+  onSend: (text: string, filePaths: string[]) => Promise<boolean>
   onStop: () => void
   runtimeState?: RuntimeExecution
   executing?: boolean

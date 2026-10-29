@@ -200,7 +200,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.messages.length === 0 ? (
                 <DelayedPanelReveal>
                   <Composer
-                    onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                    onSend={(text, filePaths) => sendInActive(text, filePaths)}
                     onStop={stopActive}
                     autoFocus={focusComposerOnOpen}
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
@@ -223,7 +223,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 </DelayedPanelReveal>
               ) : (
                 <Composer
-                  onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                  onSend={(text, filePaths) => sendInActive(text, filePaths)}
                   onStop={stopActive}
                   promptSuggestion={
                     activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)

@@ -45,7 +45,7 @@ export function runStartChatWith(
     messageId: string
     run: (sessionId: string | undefined) => Promise<TransferUploadPart>
   },
-) {
+): boolean {
   const {
     currentUser,
     credentialAccessRef,
@@ -70,7 +70,7 @@ export function runStartChatWith(
       'Connect or enable a runtime in Settings → Runtimes.',
     )
 
-    return
+    return false
   }
   const id = uid()
   const sessionId = uid()
@@ -271,8 +271,10 @@ export function runStartChatWith(
         toast.apiError('Upload failed', err)
       })
 
-    return
+    return true
   }
 
   launch([userMsg], streamId)
+
+  return true
 }
