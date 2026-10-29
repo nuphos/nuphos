@@ -149,7 +149,14 @@ export function AvatarPicker({
           {photoError}
         </p>
       )}
-      {photo && <AvatarCropDialog file={photo} onSave={onUpload} onClose={() => setPhoto(null)} />}
+      {photo && (
+        <AvatarCropDialog
+          kind={kind}
+          file={photo}
+          onSave={onUpload}
+          onClose={() => setPhoto(null)}
+        />
+      )}
     </>
   )
 }
