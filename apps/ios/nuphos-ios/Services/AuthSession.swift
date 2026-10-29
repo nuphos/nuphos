@@ -20,7 +20,11 @@ final class AuthSession {
     private(set) var state: State = .restoring {
         didSet {
             switch state {
-            case .signedIn(let user): Analytics.shared.identify(user)
+            case .signedIn(let user):
+                Analytics.shared.identify(user)
+                if aiConsentAccepted, let version = aiConsentVersion {
+                    LaunchCache.write(LaunchCache.User(user: user, aiConsentVersion: version))
+                }
             case .signedOut: Analytics.shared.reset()
             case .restoring, .signingIn: break
             }
@@ -42,8 +46,10 @@ final class AuthSession {
 
     // MARK: - Launch
 
-    /// Restores a saved session. A token the backend no longer honours is
-    /// discarded; a network failure keeps it and asks the user to retry.
+    /// Restores a saved session. The user the last launch showed opens Home
+    /// at once while the token is checked behind it. A token the backend no
+    /// longer honours is discarded; a network failure keeps it, and without
+    /// a cached user asks the user to retry.
     func restore() async {
         #if DEBUG
         // `-preview-home` launch argument: render the home screen with a
@@ -80,6 +86,11 @@ final class AuthSession {
         }
 
         token = saved
+        if let cached = LaunchCache.read(LaunchCache.User.self), cached.aiConsentVersion == AccountAPI.aiConsentVersion {
+            aiConsentAccepted = true
+            aiConsentVersion = cached.aiConsentVersion
+            state = .signedIn(cached.user)
+        }
         do {
             let user = try await NuphosAPI.currentUser(token: saved)
             await loadAIConsent()
@@ -88,7 +99,9 @@ final class AuthSession {
             clearToken()
             state = .signedOut(error: nil)
         } catch {
-            state = .signedOut(error: "We could not reach Nuphos. Check your connection and try again.")
+            if self.user == nil {
+                state = .signedOut(error: "We could not reach Nuphos. Check your connection and try again.")
+            }
         }
     }
 
@@ -160,9 +173,9 @@ final class AuthSession {
         }
     }
 
+    /// A failed lookup keeps what is known: nothing on a fresh sign-in, the
+    /// cached answer on a launch that already opened Home.
     func loadAIConsent() async {
-        aiConsentAccepted = false
-        aiConsentVersion = nil
         aiConsentError = nil
         guard let token else { return }
         do {
@@ -178,7 +191,10 @@ final class AuthSession {
         }
         let result: AccountAPI.Consent = try await AccountAPI.request("ai-consent", method: "PUT", token: token, body: ["version": version, "accepted": accepted])
         aiConsentAccepted = result.accepted
-        if !accepted { ComposerDrafts.clear() }
+        if !accepted {
+            ComposerDrafts.clear()
+            LaunchCache.clear()
+        }
     }
 
     func emailSignIn(email: String, credential: String, password: Bool, newPassword: String? = nil) async throws {
@@ -244,6 +260,7 @@ final class AuthSession {
 
     private func clearToken() {
         Keychain.delete(Self.tokenKey)
+        LaunchCache.clear()
         token = nil
         aiConsentAccepted = false
         aiConsentVersion = nil

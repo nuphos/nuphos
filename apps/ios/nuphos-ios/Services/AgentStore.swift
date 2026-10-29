@@ -342,6 +342,14 @@ final class AgentStore {
         ConversationUnread.shared.probe = { team, session in
             _ = try? await NuphosAPI.conversationDetail(token: token, teamId: team, sessionId: session, tail: 1)
         }
+        // The list the last launch showed, until `loadTeams` refreshes it.
+        if let cached = LaunchCache.read(LaunchCache.Agents.self) {
+            selectedTeam = cached.team
+            conversations = cached.conversations
+            favorites = cached.favorites
+            selectedRuntimeId = UserDefaults.standard.string(forKey: runtimeKey(for: cached.team))
+            phase = .loaded
+        }
     }
 
     // MARK: - Teams
@@ -351,22 +359,23 @@ final class AgentStore {
     func loadTeams() async {
         teamsPhase = .loading
         do {
+            let firstLoad = self.teams.isEmpty
             let teams = try await NuphosAPI.teams(token: token)
             self.teams = teams
             teamsPhase = .loaded
             let remembered = UserDefaults.standard.string(forKey: Self.lastTeamKey)
             let pick = teams.first { $0.id == remembered } ?? teams.first
-            if pick != selectedTeam {
+            if pick != selectedTeam || phase == .idle {
                 selectedTeam = pick
                 resetTeamScopedState()
                 await reload()
-            } else if phase == .idle {
-                resetTeamScopedState()
+            } else if firstLoad {
+                // Showing the launch cache: refresh it in place.
                 await reload()
             }
         } catch {
             teamsPhase = .failed(error.localizedDescription)
-            if teams.isEmpty { phase = .failed(error.localizedDescription) }
+            if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
     }
 
@@ -407,6 +416,9 @@ final class AgentStore {
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = .loaded
+            if search.isEmpty {
+                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows, favorites: favorites))
+            }
             // A pinned chat stays on top however old it is, so page until each one is listed.
             for _ in 0..<10 where hasMore && search.isEmpty
                 && !Set(pinnedOrder).isSubset(of: conversations.map(\.sessionId)) {
