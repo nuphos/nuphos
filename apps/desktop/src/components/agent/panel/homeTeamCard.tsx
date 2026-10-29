@@ -9,16 +9,12 @@ import { t } from '../../../i18n'
 import { Avatar } from '../../Avatar'
 import { AgentAvatar } from '../AgentAvatar'
 
-import { heatmapRows } from './teamActivity'
+import { RangePill } from './homeRangePill'
+import { ACTIVITY_RANGES, heatmapRows } from './teamActivity'
 
 import type { HeatCell } from './teamActivity'
 import type { TeamActivity, TeamActivityRange } from '../../../types/team.ts'
 
-const RANGES: { value: TeamActivityRange; label: string; slotMinutes: number }[] = [
-  { value: '1d', label: t('24h'), slotMinutes: 30 },
-  { value: '7d', label: t('7d'), slotMinutes: 120 },
-  { value: '30d', label: t('30d'), slotMinutes: 720 },
-]
 // Empty, then four steps of the busiest cell, GitHub-style. Shades are themed
 // in index.css (--color-heatmap-*).
 const LEVELS = ['bg-heatmap-0', 'bg-heatmap-1', 'bg-heatmap-2', 'bg-heatmap-3', 'bg-heatmap-4']
@@ -122,7 +118,7 @@ export function TeamActivityCard({
     closeTimer.current = window.setTimeout(() => setHover(null), CLOSE_DELAY_MS)
   }
   const activity = loaded?.range === range ? loaded : null
-  const slotMinutes = RANGES.find((r) => r.value === range)?.slotMinutes ?? 60
+  const slotMinutes = ACTIVITY_RANGES.find((r) => r.value === range)?.slotMinutes ?? 60
 
   useEffect(() => {
     let alive = true
@@ -158,20 +154,12 @@ export function TeamActivityCard({
         <span className="text-tertiary">
           · {t('{slot} per cell', { slot: slotLabel(slotMinutes) })}
         </span>
-        <div className="ml-auto flex items-center gap-0.5 rounded-md bg-zGray-800/40 p-0.5">
-          {RANGES.map((r) => (
-            <BaseButton
-              key={r.value}
-              onClick={() => setRange(r.value)}
-              className={clsx(
-                'rounded px-2 py-0.5 text-[11px] outline-none transition-colors',
-                r.value === range ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main',
-              )}
-            >
-              {r.label}
-            </BaseButton>
-          ))}
-        </div>
+        <RangePill
+          className="ml-auto"
+          options={ACTIVITY_RANGES}
+          value={range}
+          onChange={setRange}
+        />
       </div>
       {rows ? (
         <div
