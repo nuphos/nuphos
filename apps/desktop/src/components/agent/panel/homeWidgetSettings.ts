@@ -139,7 +139,7 @@ export function minCardSize(key: string): { minW: number; minH: number } {
   return { minW: 3, minH: 3 }
 }
 
-const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
+export const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
 /**
@@ -177,59 +177,6 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
       }
     }
   })
-}
-
-const readingOrder = (a: HomeGridItem, b: HomeGridItem) => a.y - b.y || a.x - b.x
-
-/** The cards as they read on the grid: row by row, left to right. */
-export function cardsInReadingOrder(grid: HomeGridItem[]): HomeGridItem[] {
-  return [...grid].sort(readingOrder)
-}
-
-/** The first spot for a card of `size` that is free in `taken`, at or after `from`. */
-function nextFreeSpot(
-  taken: HomeGridItem[],
-  size: Pick<HomeGridItem, 'i' | 'w' | 'h'>,
-  from: { x: number; y: number },
-): HomeGridItem {
-  const w = Math.min(size.w, GRID_COLUMNS)
-
-  for (let y = from.y; ; y++) {
-    for (let x = y === from.y ? from.x : 0; x + w <= GRID_COLUMNS; x++) {
-      const spot = { ...size, w, x, y }
-
-      if (!taken.some((other) => overlaps(other, spot))) return spot
-    }
-  }
-}
-
-/**
- * The grid after moving card `id` one place earlier (-1) or later (1) in
- * reading order, so it trades places with its neighbour. Every card keeps its
- * size and they flow again in the new order, each in the first free spot after
- * the one before it. Unchanged when there is no place to move to.
- */
-export function moveCard(grid: HomeGridItem[], id: string, step: -1 | 1): HomeGridItem[] {
-  const order = cardsInReadingOrder(grid)
-  const from = order.findIndex((item) => item.i === id)
-  const to = from + step
-
-  if (from === -1 || to < 0 || to >= order.length) return grid
-  const moved = order[from]
-
-  order[from] = order[to]
-  order[to] = moved
-  const placed: HomeGridItem[] = []
-  let cursor = { x: 0, y: 0 }
-
-  for (const item of order) {
-    const spot = nextFreeSpot(placed, item, cursor)
-
-    placed.push(spot)
-    cursor = { x: spot.x + spot.w, y: spot.y }
-  }
-
-  return placed
 }
 
 /** A card's title from its grid key, as screen readers hear it when it moves. */
