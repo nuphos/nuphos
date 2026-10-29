@@ -630,6 +630,37 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             check(name, collection.bounds.width != width && worst == 0,
                   "width=\(width)->\(collection.bounds.width) maxAnimatedRows=\(worst)")
         }
+        // The transcript resizes under a reader who is scrolling up: the
+        // keyboard follows the finger, or the header settles after release.
+        // Neither may pull them back to the end.
+        func resizeWhileReading(_ name: String, decelerate: Bool) async {
+            fixture = fixture0
+            apply()
+            showLatest()
+            await pause()
+            let start = collection.contentOffset.y
+            scrollViewWillBeginDragging(collection)
+            for step in 0..<20 {
+                collection.contentOffset.y -= 60
+                if !decelerate { additionalSafeAreaInsets.bottom = CGFloat(300 - step * 15) }
+                view.layoutIfNeeded()
+                try? await Task.sleep(for: .milliseconds(16))
+            }
+            scrollViewDidEndDragging(collection, willDecelerate: decelerate)
+            if decelerate {
+                additionalSafeAreaInsets.bottom = 80
+                view.layoutIfNeeded()
+                scrollViewDidEndDecelerating(collection)
+            }
+            let released = collection.contentOffset.y
+            await pause()
+            check(name, released < start - 600 && abs(collection.contentOffset.y - released) < 1,
+                  "start=\(start) released=\(released) after=\(collection.contentOffset.y)")
+            additionalSafeAreaInsets.bottom = 0
+            view.layoutIfNeeded()
+        }
+        await resizeWhileReading("resize_while_dragging", decelerate: false)
+        await resizeWhileReading("resize_while_decelerating", decelerate: true)
         check("suite_complete", true, "")
     }
     #endif
