@@ -15,13 +15,14 @@ import { AgentProviderIcon } from './icons'
 import { selectedAgentReachability } from './runtimeControlSignOut'
 import { selectorBoxes } from './selectorBoxes'
 import { SelectorBoxMenu } from './SelectorBoxMenu'
+import { usePickerFixes } from './usePickerFixes'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
   /** Lets the selector ask each agent whether an update is available. */
   teamId?: string
-  /** A team agent's update can be started from the list. */
+  /** A team agent's update can be started from the list: the viewer administers the team. */
   canUpdateTeamAgents?: boolean
   value: {
     id?: string
@@ -38,7 +39,8 @@ export type RuntimeControl = {
   /** Provider usage per runtime id, for the trigger and the list. */
   quotas?: ReadonlyMap<string, RuntimeQuota>
   /** Picks the agent: the one a new conversation starts on, or — for an open
-   *  conversation — the one it moves to. */
+   *  conversation — the one it moves to. Absent, the list still shows each agent's
+   *  state and fixes, with nothing to pick. */
   onSelect?: (runtimeId: string) => void
   /** Nothing can be picked right now (a turn is streaming, or a move is in flight). */
   selectDisabled?: boolean
@@ -110,6 +112,13 @@ export function RuntimeSelector({
       ? t('Loading runtimes…')
       : t('Choose runtime')
   const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
+  const { fixes, dialogs } = usePickerFixes({
+    teamId,
+    isTeamAdmin: Boolean(canUpdateTeamAgents),
+    open,
+    closeMenu: () => setOpen(false),
+    onSettings,
+  })
   const reachability = selectedAgentReachability({ value, options })
   const dot = reachability ? AGENT_DOT[reachability] : null
   const content = (
@@ -140,15 +149,9 @@ export function RuntimeSelector({
     'hidden min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary @[230px]:flex',
   )
 
-  if (!onSelect)
-    return (
-      <span className={classes} title={`${label} · ${providerName}`}>
-        {content}
-      </span>
-    )
-
   return (
     <>
+      {dialogs}
       {confirm && (
         <ConfirmDialog
           open
@@ -162,6 +165,7 @@ export function RuntimeSelector({
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
           aria-label={t('Agent runtime: {label}', { label })}
+          title={`${label} · ${providerName}`}
           className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
         >
           {content}
@@ -183,6 +187,7 @@ export function RuntimeSelector({
                 metricsUnavailable={devices.error}
                 quotas={quotas}
                 updates={updates}
+                fixes={fixes}
                 selectDisabled={selectDisabled}
                 onSelect={onSelect}
               />

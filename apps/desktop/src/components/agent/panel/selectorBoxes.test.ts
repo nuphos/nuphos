@@ -60,7 +60,7 @@ test('agents group by device id in first-seen order; Cloud agents share one grou
   )
 })
 
-test('a computer offers its ready runtimes, or is greyed out and last with why; never disabled', () => {
+test('signed-out runtimes stay listed after the ready ones; an offline computer is one row, last', () => {
   const local = (deviceId: string, signedIn: boolean, online = true) => ({
     ownerUserId: 'u1',
     deviceId,
@@ -94,11 +94,11 @@ test('a computer offers its ready runtimes, or is greyed out and last with why; 
   assert.deepEqual(
     groups.map((group) => [group.id, group.unavailable, group.agents.map((item) => item.id)]),
     [
-      ['device:box', null, ['ready']],
-      ['cloud', null, ['cloud-ok']],
+      ['device:box', null, ['ready', 'signed-out']],
+      ['device:pc', null, ['only-signed-out']],
+      ['cloud', null, ['cloud-ok', 'cloud-out']],
       ['device:mac', 'Offline', ['away']],
       ['device:old', 'Offline', ['away-signed-out']],
-      ['device:pc', 'Signed out', ['only-signed-out']],
     ],
   )
 })
