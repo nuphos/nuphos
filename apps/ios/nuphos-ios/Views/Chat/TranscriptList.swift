@@ -29,7 +29,7 @@ struct TranscriptList: UIViewControllerRepresentable {
 
 final class TranscriptController: UIViewController, UICollectionViewDelegate, ChatLayoutDelegate {
     private let layout = CollectionViewChatLayout()
-    private lazy var collection = UICollectionView(frame: .zero, collectionViewLayout: layout)
+    private lazy var collection = TranscriptCollectionView(frame: .zero, collectionViewLayout: layout)
     private var dataSource: ChatLayoutDiffableDataSource<Int, String>!
     private var rows: [ChatRow] = []
     private var byID: [String: ChatRow] = [:]
@@ -632,6 +632,49 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             check(name, collection.bounds.width != width && worst == 0,
                   "width=\(width)->\(collection.bounds.width) maxAnimatedRows=\(worst)")
         }
+        // The transcript resizes under a reader who drags or flings up. They
+        // are reading and must not be pulled back to the end.
+        func drag(_ steps: Int, by delta: CGFloat, resize: (Int) -> Void) async {
+            collection.simulatedDragging = true
+            scrollViewWillBeginDragging(collection)
+            for step in 0..<steps {
+                collection.contentOffset.y += delta
+                resize(step)
+                view.layoutIfNeeded()
+                try? await Task.sleep(for: .milliseconds(16))
+            }
+            collection.simulatedDragging = false
+        }
+        func atTheEnd() async {
+            fixture = fixture0
+            apply()
+            showLatest()
+            await pause()
+        }
+        await atTheEnd()
+        var start = collection.contentOffset.y
+        await drag(20, by: -60) { self.additionalSafeAreaInsets.bottom = CGFloat(300 - $0 * 15) }
+        scrollViewDidEndDragging(collection, willDecelerate: false)
+        var released = collection.contentOffset.y
+        await pause()
+        check("resize_while_dragging", released < start - 600 && abs(collection.contentOffset.y - released) < 1,
+              "start=\(start) released=\(released) after=\(collection.contentOffset.y)")
+        additionalSafeAreaInsets.bottom = 0
+        await atTheEnd()
+        start = collection.contentOffset.y
+        await drag(20, by: -60) { _ in }
+        collection.simulatedDecelerating = true
+        scrollViewDidEndDragging(collection, willDecelerate: true)
+        additionalSafeAreaInsets.bottom = 80
+        view.layoutIfNeeded()
+        collection.simulatedDecelerating = false
+        scrollViewDidEndDecelerating(collection)
+        released = collection.contentOffset.y
+        await pause()
+        check("resize_while_decelerating", released < start - 600 && abs(collection.contentOffset.y - released) < 1,
+              "start=\(start) released=\(released) after=\(collection.contentOffset.y)")
+        additionalSafeAreaInsets.bottom = 0
+        view.layoutIfNeeded()
         check("suite_complete", true, "")
     }
     #endif
@@ -641,6 +684,19 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
 /// the collection view cross-fades each row between its old and new layout
 /// and the drawn text stretches, so rows draw over each other for a moment.
 /// While rotating, the whole subtree takes its new size at once instead.
+#if DEBUG
+/// Lets the scroll regression stand in for a finger: only a real touch makes
+/// a scroll view report `isDragging` or `isDecelerating`.
+final class TranscriptCollectionView: UICollectionView {
+    var simulatedDragging = false
+    var simulatedDecelerating = false
+    override var isDragging: Bool { simulatedDragging || super.isDragging }
+    override var isDecelerating: Bool { simulatedDecelerating || super.isDecelerating }
+}
+#else
+typealias TranscriptCollectionView = UICollectionView
+#endif
+
 private final class RotationLayoutView: UIView {
     var rotating = false
     override func layoutSubviews() {
