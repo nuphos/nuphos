@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { listingFor, nextSelection, replyTarget } from './inboxItems.ts'
+import { cardReplies, listingFor, nextSelection, replyTarget } from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -55,4 +55,17 @@ test('a reply answers the chosen open question, else the newest, as the chip doe
   assert.equal(replyTarget(open, 'oldest'), 'oldest')
   assert.equal(replyTarget(open, 'answered-meanwhile'), 'newer')
   assert.equal(replyTarget([], 'newer'), undefined)
+})
+
+test('a card replies with its choices, a to-do with "Done.", and a secret only in the chat', () => {
+  assert.deepEqual(cardReplies({ category: 'preference', options: ['us-east-1', 'eu-west-1'] }), [
+    { label: 'us-east-1', reply: 'us-east-1' },
+    { label: 'eu-west-1', reply: 'eu-west-1' },
+  ])
+  // Marking a to-do done answers it like any reply, so the agent goes on.
+  assert.deepEqual(cardReplies({ category: 'approval' }), [
+    { label: 'Mark as done', reply: 'Done.' },
+  ])
+  assert.equal(cardReplies({ category: 'credential' }), null)
+  assert.equal(cardReplies({ category: 'integration', options: ['Connect'] }), null)
 })

@@ -7,17 +7,14 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
+import { cardReplies } from './inboxItems'
+
 import type { AgentInputRequest } from '../../api/agent-types'
-
-type Resolution = 'answered' | 'dismissed'
-
-/** Connect and secure-input cards live in the transcript; only there can these be answered. */
-const ANSWERED_IN_CONVERSATION = new Set(['credential', 'integration'])
 
 /**
  * The open questions of one conversation, each with what the agent wrote to
- * decide it from. A choice is sent as the reply to its own question; typing
- * in the composer below answers the selected one.
+ * decide it from. A choice, or "Done." for a to-do, is sent as the reply to
+ * its own question; typing in the composer below answers the selected one.
  */
 export function DecisionCards({
   teamId,
@@ -45,18 +42,18 @@ export function DecisionCards({
   onHideConversation: () => void
   onOpenConversation: () => void
 }) {
-  // Which question is being resolved, and how: only a dismissal reads as dismissing.
-  const [resolving, setResolving] = useState<{ id: string; resolution: Resolution } | null>(null)
+  // Answers go through the conversation; the card itself only dismisses.
+  const [dismissing, setDismissing] = useState<string | null>(null)
 
-  async function resolve(requestId: string, resolution: Resolution) {
-    setResolving({ id: requestId, resolution })
+  async function dismiss(requestId: string) {
+    setDismissing(requestId)
     try {
-      await api.agentResolveDecision(sessionId, requestId, teamId, resolution)
+      await api.agentResolveDecision(sessionId, requestId, teamId, 'dismissed')
       refreshInputRequests()
     } catch (error) {
-      toast.apiError(t('Could not update question'), error)
+      toast.apiError(t('Could not dismiss question'), error)
     } finally {
-      setResolving(null)
+      setDismissing(null)
     }
   }
 
@@ -82,7 +79,7 @@ export function DecisionCards({
       </div>
       {requests.map((request) => {
         const selected = request.id === replyTo
-        const inConversation = ANSWERED_IN_CONVERSATION.has(request.category)
+        const replies = cardReplies(request)
 
         return (
           <section
@@ -101,49 +98,38 @@ export function DecisionCards({
               </MessageResponse>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {inConversation ? (
-                <button type="button" onClick={onShowConversation} className={primaryButton}>
-                  {t('Answer in the conversation')}
-                </button>
-              ) : request.options?.length ? (
-                request.options.map((option) => (
+              {replies ? (
+                replies.map(({ label, reply }) => (
                   <button
-                    key={option}
+                    key={label}
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation()
-                      onAnswer(request.id, option)
+                      onAnswer(request.id, reply)
                     }}
                     className={primaryButton}
                   >
-                    {option}
+                    {label}
                   </button>
                 ))
               ) : (
-                <button
-                  type="button"
-                  disabled={resolving?.id === request.id}
-                  onClick={() => void resolve(request.id, 'answered')}
-                  className={primaryButton}
-                >
-                  {t('Mark as done')}
+                <button type="button" onClick={onShowConversation} className={primaryButton}>
+                  {t('Answer in the conversation')}
                 </button>
               )}
               <button
                 type="button"
-                disabled={resolving?.id === request.id}
+                disabled={dismissing === request.id}
                 onClick={(event) => {
                   event.stopPropagation()
-                  void resolve(request.id, 'dismissed')
+                  void dismiss(request.id)
                 }}
                 className="ml-auto text-[11px] text-tertiary hover:text-main"
               >
-                {resolving?.id === request.id && resolving.resolution === 'dismissed'
-                  ? t('Dismissing...')
-                  : t('Dismiss question')}
+                {dismissing === request.id ? t('Dismissing...') : t('Dismiss question')}
               </button>
             </div>
-            {selected && !inConversation && (
+            {selected && replies && (
               <p className="mt-2 text-[11px] text-tertiary">
                 {t('Or type a reply below; it answers this question.')}
               </p>

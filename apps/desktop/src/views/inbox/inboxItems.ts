@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 
 /** One listing of the Inbox: whose it is, and which request produced it. */
@@ -39,4 +41,22 @@ export function replyTarget(
   chosen: string | null,
 ): string | undefined {
   return open.find((request) => request.id === chosen)?.id ?? open.at(-1)?.id
+}
+
+/** Connect and secure-input cards live in the transcript; only there can these be answered. */
+const ANSWERED_IN_CONVERSATION = new Set(['credential', 'integration'])
+
+/**
+ * The replies a card offers, each sent to the conversation as the answer to
+ * its question: one per choice, or "Done." for a to-do, so the agent goes on.
+ * Null when the question can only be answered in the conversation.
+ */
+export function cardReplies(
+  request: Pick<AgentInputRequest, 'category' | 'options'>,
+): { label: string; reply: string }[] | null {
+  if (ANSWERED_IN_CONVERSATION.has(request.category)) return null
+  if (request.options?.length)
+    return request.options.map((option) => ({ label: option, reply: option }))
+
+  return [{ label: t('Mark as done'), reply: 'Done.' }]
 }
