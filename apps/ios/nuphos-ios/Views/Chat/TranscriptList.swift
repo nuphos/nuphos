@@ -36,7 +36,6 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var content: ((ChatRow) -> AnyView)?
     private var sessionID = ""
     private var submittedID: String?
-    private var extendedID: String?
     private var pendingSentAnimationID: String?
     /// Whether the reader was at the end where they or the transcript last
     /// came to rest. Read from the position itself, so no event can leave it
@@ -161,16 +160,12 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         if sent {
             submittedID = submittedRowID
             pendingSentAnimationID = submittedRowID
-            extendedID = incoming.first { $0.id == submittedRowID }?.id
         }
         layout.keepContentOffsetAtBottomOnBatchUpdates = positioned && follow
         applying = true
         dataSource.apply(snapshot, animatingDifferences: false, commitAlongsideUpdates: {
             self.rows = incoming
             self.byID = updated
-            self.layout.settings.indexPathForExtendedLayout = self.extendedID.flatMap { id in
-                incoming.firstIndex { $0.id == id }.map { IndexPath(item: $0, section: 0) }
-            }
         }, completion: { [weak self] in
             guard let self else { return }
             self.applying = false
@@ -239,8 +234,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         cell.layer.add(arrival, forKey: "sent-arrival")
     }
 
-    /// The end of the content. While a reply still fits below a just-sent
-    /// message, the room reserved for it puts that message at the top.
+    /// The end of the content.
     private func positionAtEnd() {
         guard collection.bounds.height > 0, let last = rows.indices.last else { return }
         hold {
@@ -312,15 +306,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     /// Close enough that the latest-message button adds nothing.
     private var nearBottom: Bool { distanceToEnd < 48 }
 
-    /// At the very end, and not holding a just-sent message at the top: the
-    /// room reserved for its reply keeps that message still while it grows.
     /// A reader who left the end by any distance is reading, not following.
-    private var atEnd: Bool {
-        guard distanceToEnd < 1 else { return false }
-        guard let last = rows.indices.last,
-              let frame = layout.layoutAttributesForItem(at: IndexPath(item: last, section: 0))?.frame else { return true }
-        return layout.collectionViewContentSize.height - frame.maxY - layout.settings.additionalInsets.bottom < 1
-    }
+    private var atEnd: Bool { distanceToEnd < 1 }
 
     private func updateLatestButton() { latestButton.isHidden = nearBottom }
 
@@ -393,11 +380,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         }
         apply()
         var openingError: CGFloat = 0
-        let probe = TranscriptFrameProbe { [weak self] in
-            guard let self else { return }
-            let gap = self.layout.collectionViewContentSize.height - self.collection.bounds.maxY + self.collection.adjustedContentInset.bottom
-            openingError = max(openingError, abs(gap))
-        }
+        let probe = TranscriptFrameProbe { [unowned self] in openingError = max(openingError, abs(distanceToEnd)) }
         await pause()
         probe.stop()
         check("open_every_frame", openingError < 20, "maxBottomGap=\(openingError)")
@@ -412,26 +395,19 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let sentCell = collection.cellForItem(at: IndexPath(item: fixture.count - 1, section: 0))
         check("sent_transition", sentCell?.layer.animation(forKey: "sent-arrival") != nil,
               "presentation-only duration=0.18")
-        func questionY() -> CGFloat {
-            guard let index = rows.firstIndex(where: { $0.id == "user.sent" }),
-                  let attributes = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0)) else { return .infinity }
-            return attributes.frame.minY - collection.bounds.minY - collection.adjustedContentInset.top
-        }
+        // A send sits at the end, above the composer, like any message.
         var sendingError: CGFloat = 0
-        let sendingProbe = TranscriptFrameProbe {
-            sendingError = max(sendingError, abs(questionY() - 12))
-        }
+        let sendingProbe = TranscriptFrameProbe { [unowned self] in sendingError = max(sendingError, abs(distanceToEnd)) }
         await pause()
         sendingProbe.stop()
-        check("send_every_frame", sendingError < 1, "maxQuestionDrift=\(sendingError)")
-        let sentY = questionY()
+        check("send_every_frame", sendingError < 1, "maxBottomGap=\(sendingError)")
+        let sentOffset = collection.contentOffset.y
         await pause()
-        check("send_stable", abs(questionY() - sentY) < 1 && abs(sentY) < 20,
-              "questionY=\(sentY) after=\(questionY())")
+        check("send_stable", abs(collection.contentOffset.y - sentOffset) < 1 && abs(distanceToEnd) < 1,
+              "before=\(sentOffset) after=\(collection.contentOffset.y) gap=\(distanceToEnd)")
+        // The reply streams in below it and the end stays in view.
         var streamingError: CGFloat = 0
-        let streamingProbe = TranscriptFrameProbe {
-            streamingError = max(streamingError, abs(questionY() - sentY))
-        }
+        let streamingProbe = TranscriptFrameProbe { [unowned self] in streamingError = max(streamingError, abs(distanceToEnd)) }
         fixture.append(.assistantText(id: "answer.sent", messageId: "reply", text: "Starting", streaming: true))
         for step in 1...15 {
             fixture[fixture.count - 1] = .assistantText(id: "answer.sent", messageId: "reply",
@@ -441,9 +417,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         }
         await pause()
         streamingProbe.stop()
-        check("stream_every_frame", streamingError < 1, "maxQuestionDrift=\(streamingError)")
-        check("stream_preserves_question", abs(questionY() - sentY) < 1,
-              "before=\(sentY) after=\(questionY())")
+        check("stream_every_frame", streamingError < 1, "maxBottomGap=\(streamingError)")
         let beforeRefresh = collection.contentOffset.y
         for _ in 0..<5 { apply("user.sent") }
         await pause()
@@ -480,9 +454,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let expandedHeight = layout.layoutAttributesForItem(at: cardPath)?.size.height ?? 0
         check("step_anchor", initialY.isFinite && stepDrift < 1 && expandedHeight > 300,
               "maxTitleDrift=\(stepDrift) expandedHeight=\(expandedHeight)")
-        // A send puts the question at the top; the reply streams into the room
-        // below it, then keeps the end in view. A touch while it streams must
-        // never move the transcript back down, wherever the reader was.
+        // A send returns to the end and its reply keeps the end in view. A
+        // touch while it streams must never move the transcript back down,
+        // wherever the reader was.
         func y(of id: String) -> CGFloat {
             guard let index = rows.firstIndex(where: { $0.id == id }),
                   let attributes = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0)) else { return .infinity }
@@ -497,7 +471,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             fixture.append(.user(id: question, messageId: name, text: "Send while \(name)", images: []))
             apply(question)
             await pause()
-            let pinned = y(of: question)
+            let sentGap = distanceToEnd
             var lastOffset = collection.contentOffset.y, backward: CGFloat = 0
             let probe = TranscriptFrameProbe { [unowned self] in
                 backward = max(backward, lastOffset - collection.contentOffset.y)
@@ -513,8 +487,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             }
             await pause()
             probe.stop()
-            check("pinned_stream_\(name)", abs(pinned - 12) < 1 && backward < 1 && abs(y(of: question) - pinned) < 1,
-                  "pinnedY=\(pinned) maxBackward=\(backward) afterY=\(y(of: question))")
+            check("send_stream_\(name)", abs(sentGap) < 1 && backward < 1 && nearBottom,
+                  "sentGap=\(sentGap) maxBackward=\(backward) nearBottom=\(nearBottom)")
         }
         fixture = fixture0
         apply()
