@@ -8,21 +8,25 @@ import type { AgentConversation } from '../../../api/agent-types'
 import type { ComposerReplyTarget, ReplyPick, ReplyQuestion } from '../panel/replyTarget'
 
 /**
- * The open conversation's questions as the main chat's "Replying to" choice.
+ * The open conversation's questions, other than secrets, as the main chat's "Replying to" choice.
  * A cleared chip is remembered per conversation until a newer question arrives.
  */
 export function useComposerReplyTarget(
   sessionId: string | null,
   teamId: string | undefined,
-  requests: readonly AgentConversation[],
-  loaded: boolean,
-): ComposerReplyTarget | undefined {
-  const questions = useMemo<ReplyQuestion[]>(
+  { requests, loaded }: { requests: readonly AgentConversation[]; loaded: boolean },
+): { replyTarget?: ComposerReplyTarget; openQuestions: ReplyQuestion[] } {
+  const openQuestions = useMemo(
     () =>
       requests.flatMap((request) =>
         request.sessionId === sessionId ? conversationQuestions(request) : [],
       ),
     [requests, sessionId],
+  )
+  // A secret is never typed in the chat: its question is answered in its card.
+  const questions = useMemo(
+    () => openQuestions.filter((question) => !question.secret),
+    [openQuestions],
   )
   const key = sessionId ? composerDraftKey(teamId, sessionId) : null
   const [pick, setPick] = useState<ReplyPick | null>(null)
@@ -58,12 +62,15 @@ export function useComposerReplyTarget(
     [key, questions, sessionId],
   )
 
-  if (!sessionId || questions.length === 0) return undefined
+  if (!sessionId || questions.length === 0) return { openQuestions }
 
   return {
-    sessionId,
-    questions,
-    chosen: replyChoice(sessionId, questions, pick, cleared),
-    onChoose,
+    replyTarget: {
+      sessionId,
+      questions,
+      chosen: replyChoice(sessionId, questions, pick, cleared),
+      onChoose,
+    },
+    openQuestions,
   }
 }

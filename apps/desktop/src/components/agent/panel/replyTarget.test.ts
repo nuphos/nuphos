@@ -88,3 +88,24 @@ test("a conversation's single pending decision is its one open question", () => 
     [older],
   )
 })
+
+test('a credential question is a secret, answered in its card', () => {
+  const pendingDecision = {
+    toolCallId: 'q9',
+    question: 'Paste the deploy token',
+    category: 'credential',
+    askedAt: '2026-10-28T00:00:00Z',
+  }
+
+  assert.deepEqual(conversationQuestions({ pendingDecision }), [
+    { id: 'q9', question: 'Paste the deploy token', secret: true },
+  ])
+  // Its secure card still answers exactly that request.
+  assert.equal(
+    cardReplyId(
+      { toolCallId: 'exec-9', question: 'Paste the deploy token' },
+      conversationQuestions({ pendingDecision }),
+    ),
+    'q9',
+  )
+})

@@ -1,7 +1,10 @@
 import type { AgentConversation } from '../../../api/agent-types'
 
-/** An open question a message can answer. */
-export type ReplyQuestion = { id: string; question: string; options?: string[] }
+/**
+ * An open question a message can answer. A `secret` one (category `credential`)
+ * is answered in its secure card, never by typing in the chat.
+ */
+export type ReplyQuestion = { id: string; question: string; options?: string[]; secret?: true }
 
 /** A question card as the transcript shows it. */
 export type DecisionCardRef = { toolCallId: string; question?: string; options?: string[] }
@@ -18,6 +21,7 @@ export function conversationQuestions(
           id: open.toolCallId,
           question: open.question,
           ...(open.options && { options: open.options }),
+          ...(open.category === 'credential' && { secret: true as const }),
         },
       ]
     : []

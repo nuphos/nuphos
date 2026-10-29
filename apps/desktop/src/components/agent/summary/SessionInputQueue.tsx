@@ -148,9 +148,11 @@ export function SessionInputReply({
         <p className="text-[12px] leading-5 text-main">{request.pendingDecision?.question}</p>
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-tertiary">
           <span role="status">
-            {stillPending && !dismissed
-              ? 'Your reply goes to this agent only.'
-              : 'This request is no longer pending.'}
+            {!stillPending || dismissed
+              ? 'This request is no longer pending.'
+              : request.pendingDecision?.category === 'credential'
+                ? 'Answer in the secure card below. Never paste a secret in a message.'
+                : 'Your reply goes to this agent only.'}
           </span>
           {next && (
             <button

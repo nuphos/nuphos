@@ -74,12 +74,7 @@ export function WorkspaceAgentPane({
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
   const inputQueue = useSessionInputRequests(savedSessionId, teamId)
-  const replyTarget = useComposerReplyTarget(
-    savedSessionId,
-    teamId,
-    inputQueue.requests,
-    inputQueue.loaded,
-  )
+  const { replyTarget, openQuestions } = useComposerReplyTarget(savedSessionId, teamId, inputQueue)
   const connectedResources = useMemo(
     () =>
       connectedResourceLabels(
@@ -265,6 +260,7 @@ export function WorkspaceAgentPane({
               sessionReadOnly={selectedSessionReadOnly}
               decisionReplyTo={replyTarget?.chosen ?? undefined}
               replyTarget={replyTarget}
+              openQuestions={openQuestions}
               onSessionChange={handleSessionChange}
               onOpenNuphosLink={stableOpenNuphosLinkFromChat}
               onOpenAgentSettings={handleOpenAgentSettings}

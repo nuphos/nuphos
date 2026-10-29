@@ -162,7 +162,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       text,
                       [],
                       undefined,
-                      cardReplyId(card, c.replyTarget?.questions ?? c.openQuestions),
+                      cardReplyId(card, c.openQuestions ?? c.replyTarget?.questions),
                     ),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
