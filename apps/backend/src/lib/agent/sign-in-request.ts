@@ -45,13 +45,39 @@ const NUDGES_PER_DAY = 30
 /** An ask holds messages as long as the queue keeps them; after that a send runs as usual. */
 export const ASK_OPEN_MS = PENDING_TTL_SEC * 1000
 
+/** The ask holding this conversation's sends: only one about the agent it runs on now. */
 export function openSignInRequest(
   conversation: Partial<NudgeConversation> | null | undefined,
   now = Date.now(),
 ): SignInRequest | null {
   const ask = conversation?.signInRequest
 
-  return ask && now - new Date(ask.askedAt).getTime() < ASK_OPEN_MS ? ask : null
+  if (!ask || ask.runtimeId !== conversation?.runtimeId) return null
+
+  return now - new Date(ask.askedAt).getTime() < ASK_OPEN_MS ? ask : null
+}
+
+const lapses = new Map<string, ReturnType<typeof setTimeout>>()
+
+/** An ask that lapses unanswered lets what it held run; one timer per conversation. */
+export function releaseWhenAskLapses(
+  key: string,
+  ask: SignInRequest,
+  release: () => void,
+  now = Date.now(),
+  schedule: (work: () => void, delayMs: number) => ReturnType<typeof setTimeout> = (work, ms) =>
+    setTimeout(work, ms).unref(),
+): void {
+  if (lapses.has(key)) return
+  const delayMs = Math.max(new Date(ask.askedAt).getTime() + ASK_OPEN_MS - now, 0) + 1_000
+
+  lapses.set(
+    key,
+    schedule(() => {
+      lapses.delete(key)
+      release()
+    }, delayMs),
+  )
 }
 
 /**
@@ -79,6 +105,8 @@ export type NudgeDeps = {
   conversation: (sessionId: string) => Promise<NudgeConversation | null>
   members: (teamId: string) => Promise<Member[]>
   awaitsApproval: (conversation: NudgeConversation, actorId: string) => Promise<boolean>
+  /** What the agent reports about its own sign-in; undefined when it cannot say. */
+  signedIn: (teamId: string, runtimeId: string, userId: string) => Promise<boolean | undefined>
   quota: (requesterId: string) => Promise<DownloadHandoffRateLimitResult>
   /**
    * Given `since`, replaces the record unless this ask was notified after it;
@@ -98,6 +126,28 @@ export const nudgeDeps: NudgeDeps = {
   conversation: (sessionId) => getConversationBySessionId(sessionId),
   members: (teamId) => getTeamMembers(teamId),
   awaitsApproval: (conversation, actorId) => awaitsShareApproval(conversation, actorId),
+  // Loaded on use: the runtime status modules reach the whole runtime graph.
+  signedIn: async (teamId, runtimeId, userId) => {
+    try {
+      const [{ localRuntimeStatus }, { requireRuntimeInstance }, { runtimeStatusWithUpdate }] =
+        await Promise.all([
+          import('@/lib/claude-code-preview/local-runtime-catalog'),
+          import('@/lib/claude-code-preview/runtime-catalog'),
+          import('@/lib/claude-code-preview/runtime-updates'),
+        ])
+      const status = parseLocalRuntimeId(runtimeId)
+        ? await localRuntimeStatus(runtimeId)
+        : await runtimeStatusWithUpdate(
+            teamId,
+            userId,
+            await requireRuntimeInstance(teamId, runtimeId, userId),
+          )
+
+      return status.authenticated
+    } catch {
+      return undefined
+    }
+  },
   // Shared by every replica: one requester's asks across all conversations.
   quota: (requesterId) =>
     consumePairQuota(
@@ -165,6 +215,13 @@ export async function nudge(
 
   if (!recipients[0])
     throw new AppError(409, 'nobody_to_ask', 'Nobody in this team can act on this agent')
+  // Only an agent that needs a sign-in holds anyone's messages for one.
+  if (kind === 'signInRequest' && (await deps.signedIn(teamId, runtimeId, requesterId)) === true)
+    throw new AppError(
+      409,
+      'already_signed_in',
+      'This agent is signed in. Send your message again.',
+    )
   const now = deps.now()
   const existing = conversation[kind]
   const sameAsk = existing?.runtimeId === runtimeId && existing.requesterId === requesterId
@@ -180,7 +237,8 @@ export async function nudge(
     requesterName: members.find((member) => member.id === requesterId)?.name ?? 'A teammate',
     askedUserIds: recipients.map((member) => member.id),
     askedName: recipients[0].name,
-    askedAt: new Date(now),
+    // Asking again never extends a hold: it lapses when the first open ask would.
+    askedAt: new Date(openSignInRequest(conversation, now)?.askedAt ?? now),
   }
   // Without the shared quota the ask is still stored, so the Inbox lists it.
   const notified =

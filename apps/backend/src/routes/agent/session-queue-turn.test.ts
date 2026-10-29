@@ -552,6 +552,7 @@ test('a queued answer keeps the question it names and is admitted naming it', ()
 test('a send while someone is asked to sign the agent in waits for them, named', async () => {
   const asked = {
     ...conversation,
+    runtimeId: 'managed-1',
     signInRequest: {
       runtimeId: 'managed-1',
       requesterId: TEAMMATE,

@@ -5,6 +5,7 @@ import {
   NOTIFY_REPEAT_MS,
   nudge,
   openSignInRequest,
+  releaseWhenAskLapses,
   signInRecipients,
 } from './sign-in-request'
 import { settleSignInRequests } from './sign-in-settle'
@@ -33,6 +34,7 @@ const members = [
 let conversation: NudgeConversation
 let quota: DownloadHandoffRateLimitResult
 let awaiting: boolean
+let signedIn: boolean | undefined
 let now: number
 let stored: { kind: NudgeKind; record: SignInRequest; since?: Date }[]
 let notified: { userIds: string[]; title: string; body: string; sessionId: string }[]
@@ -42,6 +44,7 @@ function deps(): NudgeDeps {
     conversation: async () => conversation,
     members: async () => members,
     awaitsApproval: async () => awaiting,
+    signedIn: async () => signedIn,
     quota: async () => quota,
     store: async (target, kind, record, since) => {
       stored.push({ kind, record, since })
@@ -85,6 +88,7 @@ beforeEach(() => {
   }
   quota = 'allowed'
   awaiting = false
+  signedIn = false
   now = 1_000_000_000
   stored = []
   notified = []
@@ -241,7 +245,11 @@ describe('settling', () => {
   test('an ask holds messages only while the queue would keep them', () => {
     const askedAt = new Date(now)
 
-    conversation.signInRequest = { ...conversation.signInRequest!, askedAt } as SignInRequest
+    conversation.signInRequest = {
+      ...conversation.signInRequest!,
+      runtimeId: RUNTIME,
+      askedAt,
+    } as SignInRequest
     expect(openSignInRequest(conversation, now + ASK_OPEN_MS - 1)).not.toBeNull()
     expect(openSignInRequest(conversation, now + ASK_OPEN_MS)).toBeNull()
   })
@@ -273,5 +281,58 @@ describe('settling', () => {
     })
 
     expect(settled).toBe(0)
+  })
+})
+
+describe('review: what an ask can hold', () => {
+  test('an ask about another agent holds nothing once the conversation moves', async () => {
+    await ask()
+    expect(openSignInRequest(conversation, now)).not.toBeNull()
+    conversation.runtimeId = 'managed-2'
+    expect(openSignInRequest(conversation, now)).toBeNull()
+  })
+
+  test('asking again, by anyone, never extends the hold', async () => {
+    await ask()
+    const first = conversation.signInRequest!.askedAt
+
+    now += NOTIFY_REPEAT_MS - 1
+    await ask()
+    now += NOTIFY_REPEAT_MS
+    await ask('dana')
+    expect(conversation.signInRequest!.askedAt).toEqual(first)
+    expect(openSignInRequest(conversation, new Date(first).getTime() + ASK_OPEN_MS)).toBeNull()
+  })
+
+  test('an agent that reports itself signed in cannot be asked about', async () => {
+    signedIn = true
+    await expect(ask()).rejects.toMatchObject({ code: 'already_signed_in' })
+    expect(stored).toHaveLength(0)
+    expect(notified).toHaveLength(0)
+    // Unknown is not "signed in": the ask goes ahead.
+    signedIn = undefined
+    expect((await ask()).notified).toBe(true)
+  })
+
+  test('a lapsed ask releases what it held, once per conversation', () => {
+    const scheduled: number[] = []
+    const fire: (() => void)[] = []
+    let released = 0
+    const record = { runtimeId: RUNTIME, askedAt: new Date(now) } as SignInRequest
+    const schedule = (work: () => void, delayMs: number) => {
+      scheduled.push(delayMs)
+      fire.push(work)
+
+      return 0 as unknown as ReturnType<typeof setTimeout>
+    }
+
+    releaseWhenAskLapses('u:s-lapse', record, () => released++, now + 1000, schedule)
+    releaseWhenAskLapses('u:s-lapse', record, () => released++, now + 2000, schedule)
+    expect(scheduled).toEqual([ASK_OPEN_MS])
+    fire[0]?.()
+    expect(released).toBe(1)
+    // After it fired, a later hold schedules again.
+    releaseWhenAskLapses('u:s-lapse', record, () => released++, now, schedule)
+    expect(scheduled).toHaveLength(2)
   })
 })

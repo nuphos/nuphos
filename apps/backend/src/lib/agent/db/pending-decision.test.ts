@@ -184,6 +184,7 @@ describe('input requests', () => {
         {
           'signInRequest.askedUserIds': '642802f4c38340345aa2384d',
           'signInRequest.askedAt': { $gt: expect.any(Date) },
+          $expr: { $eq: ['$signInRequest.runtimeId', '$runtimeId'] },
         },
       ],
     })
@@ -205,7 +206,28 @@ describe('input requests', () => {
         {
           'signInRequest.askedUserIds': '642802f4c38340345aa2384d',
           'signInRequest.askedAt': { $gt: expect.any(Date) },
+          $expr: { $eq: ['$signInRequest.runtimeId', '$runtimeId'] },
         },
+      ],
+    })
+  })
+
+  test('narrowing the team Inbox to one member narrows the sign-in asks too', async () => {
+    await getConversations('642802f4c38340345aa2384d', {
+      teamId: '64b5f1c2e4b0a1d2c3e4f5a6',
+      pendingDecision: true,
+      scope: 'team',
+      ownerId: 'member-1',
+    })
+    const and = (lastQuery as { $and: Record<string, unknown>[] }).$and
+
+    expect(and[1]).toMatchObject({
+      $or: [
+        {
+          $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }],
+          userId: 'member-1',
+        },
+        { userId: 'member-1', 'signInRequest.askedUserIds': '642802f4c38340345aa2384d' },
       ],
     })
   })

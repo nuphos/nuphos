@@ -56,6 +56,7 @@ let boxOffline = false
 const wakes: (string | undefined)[] = []
 let fakeRedis: unknown = null
 let signInRequest: SignInRequest | null = null
+let conversationRuntime = 'managed-1'
 
 useRedis({
   withRedis: (async (op: (client: unknown) => unknown) =>
@@ -71,7 +72,8 @@ useAgentDb({
   getConversationBySessionId: async () => ({
     ...conversation,
     claudeCodePreview: {} as never,
-    ...(signInRequest ? { signInRequest } : {}),
+    // On the agent the ask is about, unless a test moves it.
+    ...(signInRequest ? { signInRequest, runtimeId: conversationRuntime } : {}),
   }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
 })
@@ -119,6 +121,7 @@ const waiting = async () =>
 beforeEach(() => {
   member = true
   signInRequest = null
+  conversationRuntime = 'managed-1'
   boxOffline = false
   wakes.length = 0
   runtimeSend = true
@@ -586,4 +589,20 @@ test('an ask older than the queue keeps messages no longer holds them', async ()
   await startQueuedTurn(OWNER, SESSION)
 
   expect(launched).toHaveLength(1)
+})
+
+test('a conversation moved to another agent is not held by an ask about the old one', async () => {
+  signInRequest = {
+    runtimeId: 'managed-1',
+    requesterId: 'teammate',
+    requesterName: 'Shant',
+    askedUserIds: ['admin'],
+    askedName: 'Bryan',
+    askedAt: new Date(),
+  }
+  conversationRuntime = 'managed-2'
+  await queue(human('deploy it', 'teammate'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched.map((item) => item.actorUserId)).toEqual(['teammate'])
 })
