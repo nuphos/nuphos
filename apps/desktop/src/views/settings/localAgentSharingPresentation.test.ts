@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { allowedLevels, effectiveShare, shareSummary } from './localAgentSharingPresentation.ts'
+import {
+  allowedLevels,
+  effectiveShare,
+  shareSummary,
+  sharingOffText,
+} from './localAgentSharingPresentation.ts'
 
 test('an owner picks only levels at or under the team ceiling', () => {
   assert.deepEqual(allowedLevels('off'), ['off'])
@@ -31,4 +36,15 @@ test('a share above a lowered ceiling shows and edits at the ceiling', () => {
   assert.deepEqual(effectiveShare(full, 'approve'), { ...full, level: 'approve' })
   assert.equal(effectiveShare(full, 'full'), full)
   assert.equal(shareSummary(effectiveShare(full, 'approve')), 'Ask me first · 1 person')
+})
+
+test('sharing turned off names who to ask, or falls back to the administrators', () => {
+  assert.equal(
+    sharingOffText('Bryan'),
+    'Sharing your own computer is turned off for this team. Ask Bryan to turn it on.',
+  )
+  assert.equal(
+    sharingOffText(null),
+    'Your team’s administrators have turned off sharing your own computer.',
+  )
 })

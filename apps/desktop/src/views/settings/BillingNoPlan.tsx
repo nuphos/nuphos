@@ -101,10 +101,15 @@ export function PlanCards({
 export function NoPlan({
   teamId,
   billing,
+  isAdmin,
+  admin,
 }: {
   teamId: string
-  /** Absent for members, who can't buy one. */
+  /** Absent for members, who can't buy one, and where this deployment bills nothing. */
   billing: OpenBilling | null
+  isAdmin: boolean
+  /** Who a member asks; null until known. */
+  admin: string | null
 }) {
   return (
     <>
@@ -121,7 +126,11 @@ export function NoPlan({
       <PlanCards billing={billing} />
       {!billing && (
         <p className="text-[13px] text-tertiary">
-          {t('Ask a team administrator to choose a plan.')}
+          {isAdmin
+            ? t('Plans can’t be bought on this deployment yet.')
+            : admin
+              ? t('Ask {name} to choose a plan.', { name: admin })
+              : t('Ask a team administrator to choose a plan.')}
         </p>
       )}
       <section className="flex flex-col gap-2.5">

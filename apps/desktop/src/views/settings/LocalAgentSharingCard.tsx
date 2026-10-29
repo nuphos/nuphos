@@ -3,6 +3,7 @@ import { Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { adminName } from '../../components/agent/panel/agentSignInModel'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
@@ -12,8 +13,9 @@ import { afterAnswer } from '../inbox/shareTrust'
 
 import { LOCAL_AGENT_CARD } from './LocalAgentCard'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
-import { effectiveShare, shareSummary } from './localAgentSharingPresentation'
+import { effectiveShare, shareSummary, sharingOffText } from './localAgentSharingPresentation'
 import { LocalAgentTrustedList } from './LocalAgentTrustedList'
+import { LoadFailed } from './shared'
 
 import type {
   LocalAgentShareState,
@@ -48,6 +50,8 @@ export function LocalAgentSharingCard({
   const [approvals, setApprovals] = useState<LocalShareApproval[]>([])
   const [deciding, setDeciding] = useState<string | null>(null)
   const [trustVersion, setTrustVersion] = useState(0)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const members = useTeamMembers(teamId)
 
   useEffect(() => {
@@ -56,14 +60,16 @@ export function LocalAgentSharingCard({
     void api
       .localShareGet(device.deviceId, teamId)
       .then((next) => {
-        if (live.current) setState(next)
+        if (!live.current) return
+        setState(next)
+        setFailed(false)
       })
-      .catch(() => null)
+      .catch(() => live.current && setFailed(true))
 
     return () => {
       live.current = false
     }
-  }, [device.deviceId, teamId])
+  }, [device.deviceId, teamId, attempt])
 
   const shareable = state ? !(state.ceiling === 'off' && state.share.level === 'off') : false
 
@@ -101,7 +107,15 @@ export function LocalAgentSharingCard({
     }
   }
 
-  if (!state) return null
+  if (!state)
+    return failed ? (
+      <div className={`${LOCAL_AGENT_CARD} px-4 py-3.5`}>
+        <LoadFailed
+          message={t('Couldn’t load sharing for {device}.', { device: device.label })}
+          onRetry={() => setAttempt((value) => value + 1)}
+        />
+      </div>
+    ) : null
   // Everyone but the viewer, once the members have loaded.
   const teammates = members.length > 0 ? members.length - 1 : undefined
   const nameOf = (userId: string) => {
@@ -119,7 +133,7 @@ export function LocalAgentSharingCard({
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {state.ceiling === 'off'
-              ? t('Your team’s administrators have turned off sharing your own computer.')
+              ? sharingOffText(adminName(members))
               : shareSummary(effectiveShare(state.share, state.ceiling), teammates)}
           </div>
         </div>

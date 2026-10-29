@@ -6,7 +6,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { DeviceActivityList } from './DeviceActivityList'
-import { Field, SectionHeader } from './shared'
+import { Field, LoadFailed, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
 import type { DeviceIdentity } from '../../api'
@@ -21,6 +21,8 @@ export function LocalExecSection({
   const [identity, setIdentity] = useState<DeviceIdentity | null>(null)
   const [label, setLabel] = useState('')
   const [savingLabel, setSavingLabel] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -31,15 +33,17 @@ export function LocalExecSection({
         if (cancelled) return
         setIdentity(result)
         setLabel(result.label)
+        setFailed(false)
       })
       .catch((err: unknown) => {
+        if (!cancelled) setFailed(true)
         toast.apiError(t('Could not load this computer'), err)
       })
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
 
   const trimmedLabel = label.trim()
   const labelDirty = identity !== null && trimmedLabel !== identity.label
@@ -71,6 +75,15 @@ export function LocalExecSection({
         )}
       />
 
+      {!identity &&
+        (failed ? (
+          <LoadFailed
+            message={t('Couldn’t load this computer.')}
+            onRetry={() => setAttempt((value) => value + 1)}
+          />
+        ) : (
+          <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-zGray-800/40" />
+        ))}
       {identity && (
         <div className="space-y-5">
           <form onSubmit={(e) => void saveLabel(e)}>

@@ -2,7 +2,9 @@ import { AlertCircle, Box, CalendarDays, Info, Lock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
+
 import { useOpenBilling } from './billing'
 import { NoPlan } from './BillingNoPlan'
 import {
@@ -17,7 +19,8 @@ import {
 import { blockedStart, boxRows, planDetail, renewal, statusTone } from './billingPresentation'
 import { BOX_PLANS } from './boxPresentation'
 import { BoxUsageChart } from './BoxUsageChart'
-import { SectionHeader } from './shared'
+import { LoadFailed, SectionHeader } from './shared'
+import { useAdminName } from './useAdminName'
 import { useAgentDevices } from './useAgentDevices'
 import { useBoxUsage } from './useBoxUsage'
 
@@ -30,12 +33,16 @@ function PlanCard({
   usage,
   summary,
   error,
+  onRetry,
+  admin,
 }: {
   billing: OpenBilling
   isAdmin: boolean
   usage: BoxUsage
   summary: BillingSummary | null
   error: string | null
+  onRetry: () => void
+  admin: string | null
 }) {
   const plan = BOX_PLANS.find(({ vcpus }) => vcpus === usage.limitVcpus)
   const billed = summary?.plan
@@ -63,9 +70,12 @@ function PlanCard({
       {isAdmin ? (
         <>
           {error && !billed ? (
-            <p className="flex items-center gap-2 text-warning">
+            <p className="flex flex-wrap items-center gap-2 text-warning">
               <AlertCircle size={14} />
               {error}
+              <Button type="button" size="sm" variant="secondary" onClick={onRetry}>
+                {t('Retry')}
+              </Button>
             </p>
           ) : (
             <p className="flex items-center gap-2 text-tertiary">
@@ -84,11 +94,17 @@ function PlanCard({
       ) : (
         <p className="flex items-center gap-2 text-[12px] text-tertiary">
           <Lock size={13} />
-          {t('Only team administrators can change the plan.')}
+          {changePlanText(admin)}
         </p>
       )}
     </section>
   )
+}
+
+function changePlanText(admin: string | null) {
+  return admin
+    ? t('Only {name} can change the plan.', { name: admin })
+    : t('Only team administrators can change the plan.')
 }
 
 function Subscribed({
@@ -98,6 +114,8 @@ function Subscribed({
   usage,
   summary,
   error,
+  onRetry,
+  admin,
 }: {
   teamId: string
   billing: OpenBilling
@@ -105,6 +123,9 @@ function Subscribed({
   usage: BoxUsage
   summary: BillingSummary | null
   error: string | null
+  onRetry: () => void
+  /** Who a member asks to change the plan; null until known. */
+  admin: string | null
 }) {
   const { list } = useAgentDevices(() => 0, teamId, { teamId })
   const rows = boxRows(usage, list?.devices ?? [])
@@ -112,9 +133,23 @@ function Subscribed({
 
   return (
     <>
-      <PlanCard billing={billing} isAdmin={isAdmin} usage={usage} summary={summary} error={error} />
+      <PlanCard
+        billing={billing}
+        isAdmin={isAdmin}
+        usage={usage}
+        summary={summary}
+        error={error}
+        onRetry={onRetry}
+        admin={admin}
+      />
       {blocked && (
-        <LimitCallout billing={billing} isAdmin={isAdmin} usage={usage} message={blocked} />
+        <LimitCallout
+          billing={billing}
+          isAdmin={isAdmin}
+          usage={usage}
+          message={blocked}
+          admin={admin}
+        />
       )}
       <section className="flex flex-col gap-3">
         <InUse usage={usage} rows={rows} blocked={blocked !== null} />
@@ -135,9 +170,7 @@ function Subscribed({
           {t(
             'The limit counts the vCPU of running computers; each computer counts at its own size.',
           )}{' '}
-          {isAdmin
-            ? t('Change plan, card or cancel in Manage billing.')
-            : t('Only team administrators can change the plan.')}
+          {isAdmin ? t('Change plan, card or cancel in Manage billing.') : changePlanText(admin)}
         </p>
       </section>
       {summary && <Invoices invoices={summary.invoices} />}
@@ -150,7 +183,9 @@ function Subscribed({
  * Stripe portal; other members see the plan and its use.
  */
 export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: boolean }) {
-  const { usage, watch } = useBoxUsage(teamId)
+  const { usage, failed, reload, watch } = useBoxUsage(teamId)
+  const admin = useAdminName(teamId, !isAdmin)
+  const [summaryRevision, setSummaryRevision] = useState(0)
   const billing = useOpenBilling(teamId, watch)
   const [summary, setSummary] = useState<BillingSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -162,7 +197,9 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
 
     api.boxBillingSummary(teamId).then(
       (next) => {
-        if (!cancelled) setSummary(next)
+        if (cancelled) return
+        setSummary(next)
+        setError(null)
       },
       () => {
         if (!cancelled) setError(t('Could not load billing details.'))
@@ -172,7 +209,7 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
     return () => {
       cancelled = true
     }
-  }, [teamId, billed, usage?.subscribed, usage?.limitVcpus])
+  }, [teamId, billed, usage?.subscribed, usage?.limitVcpus, summaryRevision])
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -181,7 +218,12 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
           title={t('Billing')}
           description={t("Your team's computer plan, billed monthly.")}
         />
-        {!usage && <p className="text-[13px] text-tertiary">{t('Loading…')}</p>}
+        {!usage &&
+          (failed ? (
+            <LoadFailed message={t('Couldn’t load your plan.')} onRetry={reload} />
+          ) : (
+            <p className="text-[13px] text-tertiary">{t('Loading…')}</p>
+          ))}
         {usage?.limitVcpus === null && (
           <p className="text-[13px] text-tertiary">
             {t('Computers have no vCPU limit on this deployment.')}
@@ -195,10 +237,17 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
             usage={usage}
             summary={summary}
             error={error}
+            onRetry={() => setSummaryRevision((value) => value + 1)}
+            admin={admin}
           />
         )}
         {usage && usage.limitVcpus !== null && !usage.subscribed && (
-          <NoPlan teamId={teamId} billing={isAdmin && usage.billingUrl ? billing : null} />
+          <NoPlan
+            teamId={teamId}
+            billing={isAdmin && usage.billingUrl ? billing : null}
+            isAdmin={isAdmin}
+            admin={admin}
+          />
         )}
       </div>
     </div>

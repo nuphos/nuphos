@@ -32,6 +32,8 @@ export function useArchivedChats({
   const [cursor, setCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [restoringIds, setRestoringIds] = useState<ReadonlySet<string>>(() => new Set())
   const requestIdRef = useRef(0)
 
@@ -47,7 +49,7 @@ export function useArchivedChats({
     [teamId, search],
   )
 
-  const listKey = `${teamId}|${search}|${String(refreshKey)}`
+  const listKey = `${teamId}|${search}|${String(refreshKey)}|${String(attempt)}`
   const [loadingListKey, setLoadingListKey] = useState(listKey)
 
   if (listKey !== loadingListKey) {
@@ -64,10 +66,12 @@ export function useArchivedChats({
         if (requestIdRef.current !== requestId) return
         setItems(page.conversations)
         setCursor(page.hasMore ? page.nextCursor : null)
+        setFailed(false)
       })
       .catch((err: unknown) => {
-        if (requestIdRef.current === requestId)
-          toast.apiError(t('Could not load archived agents'), err)
+        if (requestIdRef.current !== requestId) return
+        setFailed(true)
+        toast.apiError(t('Could not load archived agents'), err)
       })
       .finally(() => {
         if (requestIdRef.current !== requestId) return
@@ -76,7 +80,7 @@ export function useArchivedChats({
       })
     // onLoading is the page shell's setter; its identity is not a reason to refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readPage, refreshKey])
+  }, [readPage, refreshKey, attempt])
 
   const loadMore = useCallback(async () => {
     if (!cursor || loadingMore) return
@@ -129,6 +133,9 @@ export function useArchivedChats({
   return {
     items,
     loading,
+    /** The last load failed: the view offers Retry instead of a false empty list. */
+    failed,
+    retry: () => setAttempt((value) => value + 1),
     loadingMore,
     hasMore: cursor !== null,
     search,
