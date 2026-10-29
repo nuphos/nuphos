@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
 import { ACTIVITY_RANGES, getTeamActivity } from '@/lib/agent/team-activity'
@@ -90,6 +91,12 @@ const activityQuerySchema = z.object({
   range: z.enum(Object.keys(ACTIVITY_RANGES) as [keyof typeof ACTIVITY_RANGES]).default('7d'),
 })
 
+const statsQuerySchema = activityQuerySchema.extend({
+  scope: z.enum(['me', 'team']).default('me'),
+  // Days and hours are the viewer's own, so a streak ends at their midnight.
+  timeZone: z.string().max(64).refine(isTimeZone, 'Unknown time zone').default('UTC'),
+})
+
 const teamScoped = new Hono<{
   Variables: TeamAuthVariables & ConversationTeamAuthVariables
 }>()
@@ -109,6 +116,11 @@ registerClaudeCodeRuntimeRoutes(teamScoped)
 teamScoped.get('/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
 teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) =>
   c.json(await getTeamActivity(c.get('teamId'), c.req.valid('query').range)),
+)
+teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) =>
+  c.json(
+    await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...c.req.valid('query') }),
+  ),
 )
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
