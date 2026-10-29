@@ -5,7 +5,7 @@ import {
   setChangesFilter,
   takeChangesReveal,
   useChangesFilter,
-  useChangesRevealRequest,
+  useSummaryRevealRequest,
 } from '../../../lib/chatSummaryPanel'
 
 import { changesFilterOptions, filterChanges, shownChangesFilter } from './chatSummaryModel'
@@ -32,7 +32,7 @@ export function ChangesSection({
 }) {
   const sectionRef = useRef<HTMLElement>(null)
   const stored = useChangesFilter()
-  const revealRequest = useChangesRevealRequest()
+  const revealRequest = useSummaryRevealRequest()
   const options = changesFilterOptions(changes)
   const filter = shownChangesFilter(stored, options)
 
