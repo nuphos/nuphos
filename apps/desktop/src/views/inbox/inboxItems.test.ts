@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { listingFor, nextSelection, openQuestionCount, replyTarget } from './inboxItems.ts'
+import { listingFor, nextSelection, replyTarget } from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -55,11 +55,4 @@ test('a reply answers the chosen open question, else the newest, as the chip doe
   assert.equal(replyTarget(open, 'oldest'), 'oldest')
   assert.equal(replyTarget(open, 'answered-meanwhile'), 'newer')
   assert.equal(replyTarget([], 'newer'), undefined)
-})
-
-test('a row counts its open questions beside the title only when there are several', () => {
-  assert.equal(openQuestionCount(0), null)
-  assert.equal(openQuestionCount(1), null)
-  assert.equal(openQuestionCount(2), '2 questions')
-  assert.equal(openQuestionCount(7), '7 questions')
 })

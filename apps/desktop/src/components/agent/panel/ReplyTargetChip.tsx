@@ -52,7 +52,9 @@ export function ReplyTargetChip({
         {target.questions.length > 1 ? (
           <Menu>
             <MenuTrigger
-              aria-label={`Replying to ${chosen.question}. Choose another question`}
+              aria-label={t('Replying to {question}. Choose another question', {
+                question: chosen.question,
+              })}
               title={chosen.question}
               className="flex min-w-0 items-center gap-1 rounded-full text-secondary outline-none hover:text-main focus-visible:ring-1 focus-visible:ring-zViolet-accent"
             >

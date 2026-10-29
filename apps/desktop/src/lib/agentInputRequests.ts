@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type { AgentConversation, AgentInputRequest } from '../api/agent-types.ts'
 
 /**
@@ -17,4 +19,9 @@ export function openInputRequests(
   const { toolCallId, ...rest } = legacy
 
   return [{ ...rest, id: toolCallId, status: 'open' }]
+}
+
+/** Shown beside a row's title when the conversation waits on several questions; one shows none. */
+export function openQuestionCount(open: number): string | null {
+  return open > 1 ? t('{count} questions', { count: open }) : null
 }

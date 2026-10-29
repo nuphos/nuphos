@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { openInputRequests } from './agentInputRequests.ts'
+import { openInputRequests, openQuestionCount } from './agentInputRequests.ts'
 
 const legacy = {
   category: 'preference',
@@ -44,4 +44,11 @@ test('the list wins over pendingDecision and keeps only open requests, oldest fi
     open.map((entry) => entry.id),
     ['question-1', 'later'],
   )
+})
+
+test('a row counts its open questions beside the title only when there are several', () => {
+  assert.equal(openQuestionCount(0), null)
+  assert.equal(openQuestionCount(1), null)
+  assert.equal(openQuestionCount(2), '2 questions')
+  assert.equal(openQuestionCount(7), '7 questions')
 })

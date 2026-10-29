@@ -3,10 +3,9 @@ import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { t } from '../../../i18n'
-import { openInputRequests } from '../../../lib/agentInputRequests'
+import { openInputRequests, openQuestionCount } from '../../../lib/agentInputRequests'
 import { conversationActivityBadges } from '../../../lib/conversationActivityBadges'
 import { triggerRunLabel } from '../../../lib/triggerRunLabel'
-import { openQuestionCount } from '../../../views/inbox/inboxItems'
 import { Avatar } from '../../Avatar'
 
 import { ConversationActivityBadgeView, ConversationChannelDot } from './conversationBadges'

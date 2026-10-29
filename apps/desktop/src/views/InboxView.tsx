@@ -8,6 +8,7 @@ import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { openInputRequests } from '../lib/agentInputRequests'
 import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
@@ -227,11 +228,13 @@ export function InboxView({
             {selected && selectedRequests.length > 1 && (
               <div
                 role="radiogroup"
-                aria-label="Question to answer"
+                aria-label={t('Question to answer')}
                 className="flex shrink-0 flex-col gap-1 border-b border-zGray-800/60 px-4 py-2.5"
               >
                 <p className="text-[11px] text-tertiary">
-                  {`${String(selectedRequests.length)} questions waiting. Your reply answers the selected one.`}
+                  {t('{count} questions waiting. Your reply answers the selected one.', {
+                    count: selectedRequests.length,
+                  })}
                 </p>
                 {selectedRequests.map((request) => (
                   <button

@@ -40,8 +40,3 @@ export function replyTarget(
 ): string | undefined {
   return open.find((request) => request.id === chosen)?.id ?? open.at(-1)?.id
 }
-
-/** Shown beside a row's title when the conversation waits on several questions; one shows none. */
-export function openQuestionCount(open: number): string | null {
-  return open > 1 ? `${String(open)} questions` : null
-}
