@@ -25,7 +25,7 @@ export function ShortcutsHelpModal({ open, onClose }: Props) {
                   key={entry.label}
                   className="flex min-h-7 items-center justify-between gap-3 text-[12.5px] text-secondary"
                 >
-                  <span className="min-w-0 truncate">{entry.label}</span>
+                  <span className="min-w-0">{entry.label}</span>
                   <span className="flex flex-shrink-0 items-center gap-1">
                     {entry.combos.map((combo) => (
                       <Kbd key={combo} combo={combo} />
