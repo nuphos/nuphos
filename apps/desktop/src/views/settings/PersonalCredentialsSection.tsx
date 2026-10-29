@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
 import { PERSONAL_CREDENTIALS_CHANGED, nameOf } from './personalCredentials'
@@ -18,25 +19,30 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
   {
     provider: 'github',
     name: 'GitHub',
-    description:
+    description: t(
       'Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Agents scoped to one repository keep using nuphos[bot].',
+    ),
   },
   {
     provider: 'linear',
     name: 'Linear',
-    description: 'Linear issues and comments are authored by you instead of the team’s Linear app.',
+    description: t(
+      'Linear issues and comments are authored by you instead of the team’s Linear app.',
+    ),
   },
   {
     provider: 'gmail',
     name: 'Gmail',
-    description: 'Let the agent read, label, draft and send mail in your own inbox.',
+    description: t('Let the agent read, label, draft and send mail in your own inbox.'),
   },
   {
     provider: 'google-drive',
     name: 'Google Drive',
-    description: 'Let the agent find, read and save files in your own Google Drive.',
+    description: t('Let the agent find, read and save files in your own Google Drive.'),
   },
 ]
+// The login is styled, so split one sentence around it.
+const CONNECTED_AS = t('Connected as {login}').split('{login}')
 
 const isGoogle = (provider: PersonalCredentialProvider) =>
   provider === 'gmail' || provider === 'google-drive'
@@ -58,7 +64,7 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
       })
       .catch((err: unknown) => {
         setLoadFailed(true)
-        toast.apiError('Could not load Personal Credentials', err)
+        toast.apiError(t('Could not load Personal Credentials'), err)
       })
     if (team) {
       void api
@@ -91,9 +97,12 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
       await api.appOpenExternal(authorizeUrl)
     } catch (err) {
       if (parseAtlasError(err).code === 'personal_credential_not_configured') {
-        toast.error(`Could not connect ${nameOf(provider)}`, 'Not configured on this server yet')
+        toast.error(
+          t('Could not connect {name}', { name: nameOf(provider) }),
+          t('Not configured on this server yet'),
+        )
       } else {
-        toast.apiError(`Could not connect ${nameOf(provider)}`, err)
+        toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
       }
     } finally {
       setBusy(null)
@@ -104,9 +113,9 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
     setBusy(provider)
     try {
       await api.atlasDeletePersonalCredential(provider, isGoogle(provider) ? team?.id : undefined)
-      toast.success(`${nameOf(provider)} disconnected`)
+      toast.success(t('{name} disconnected', { name: nameOf(provider) }))
     } catch (err) {
-      toast.apiError(`Could not disconnect ${nameOf(provider)}`, err)
+      toast.apiError(t('Could not disconnect {name}', { name: nameOf(provider) }), err)
     } finally {
       setBusy(null)
       refresh()
@@ -116,14 +125,14 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
   return (
     <div>
       <SectionHeader
-        title="Personal Credentials"
-        description="Connect your own accounts so the agent acts as you."
+        title={t('Personal Credentials')}
+        description={t('Connect your own accounts so the agent acts as you.')}
       />
       {!credentials && loadFailed && (
         <p className="text-[12.5px] text-tertiary">
-          Couldn’t load your Personal Credentials.{' '}
+          {t('Couldn’t load your Personal Credentials.')}{' '}
           <Button type="button" size="sm" variant="secondary" onClick={refresh}>
-            Retry
+            {t('Retry')}
           </Button>
         </p>
       )}
@@ -156,13 +165,13 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
                     <p className="mt-0.5 text-[12.5px] text-tertiary">{description}</p>
                     {!credential && needsTeamClient && (
                       <p className="mt-1.5 text-[12.5px] text-secondary">
-                        Needs a Google OAuth client in Team settings.{' '}
+                        {t('Needs a Google OAuth client in Team settings.')}{' '}
                         <button
                           type="button"
                           className="text-zViolet-accent hover:underline"
                           onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
                         >
-                          Setup guide
+                          {t('Setup guide')}
                         </button>
                       </p>
                     )}
@@ -170,8 +179,9 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
                       <div className="t-collapse-inner">
                         {credential && (
                           <p className="mt-1.5 text-[12.5px] text-secondary">
-                            Connected as{' '}
+                            {CONNECTED_AS[0]}
                             <span className="font-medium text-main">{credential.login}</span>
+                            {CONNECTED_AS[1]}
                             {credential.workspaceName && ` · ${credential.workspaceName}`}
                           </p>
                         )}
@@ -186,7 +196,7 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
                       disabled={busy === provider}
                       onClick={() => setDisconnecting(provider)}
                     >
-                      Disconnect
+                      {t('Disconnect')}
                     </Button>
                   ) : (
                     <Button
@@ -195,7 +205,7 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
                       disabled={busy === provider || needsTeamClient}
                       onClick={() => void connect(provider)}
                     >
-                      Connect
+                      {t('Connect')}
                     </Button>
                   )}
                 </div>
@@ -205,17 +215,21 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
         </SkeletonReveal>
       )}
       <p className="mt-4 text-[12px] text-tertiary">
-        Used when you send a message, and for automated runs in agents you own.
+        {t('Used when you send a message, and for automated runs in agents you own.')}
       </p>
       <ConfirmDialog
         open={disconnecting !== null}
-        title={`Disconnect ${disconnecting ? nameOf(disconnecting) : ''}`}
+        title={t('Disconnect {name}', { name: disconnecting ? nameOf(disconnecting) : '' })}
         description={
           disconnecting === 'github' || disconnecting === 'linear'
-            ? 'Your messages will use the team’s credentials again. The grant is also revoked at the provider.'
-            : 'The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.'
+            ? t(
+                'Your messages will use the team’s credentials again. The grant is also revoked at the provider.',
+              )
+            : t(
+                'The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.',
+              )
         }
-        confirmLabel="Disconnect"
+        confirmLabel={t('Disconnect')}
         destructive
         onConfirm={() => (disconnecting ? disconnect(disconnecting) : undefined)}
         onClose={() => setDisconnecting(null)}

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { inputClasses } from './styles'
 
@@ -35,9 +36,9 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
       await api.atlasSetTeamGoogleClient(team.id, clientId.trim(), clientSecret)
       setSavedClientId(clientId.trim())
       setClientSecret('')
-      toast.success('Google OAuth client saved')
+      toast.success(t('Google OAuth client saved'))
     } catch (err) {
-      toast.apiError('Could not save the Google OAuth client', err)
+      toast.apiError(t('Could not save the Google OAuth client'), err)
     } finally {
       setSaving(false)
     }
@@ -49,9 +50,9 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
       await api.atlasDeleteTeamGoogleClient(team.id)
       setSavedClientId(null)
       setClientId('')
-      toast.success('Google OAuth client removed')
+      toast.success(t('Google OAuth client removed'))
     } catch (err) {
-      toast.apiError('Could not remove the Google OAuth client', err)
+      toast.apiError(t('Could not remove the Google OAuth client'), err)
     } finally {
       setSaving(false)
     }
@@ -60,15 +61,15 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
   return (
     <div className="mt-10">
       <div className="mb-4">
-        <h2 className="text-[15px] font-semibold text-main">Google OAuth client</h2>
+        <h2 className="text-[15px] font-semibold text-main">{t('Google OAuth client')}</h2>
         <p className="mt-1 text-[13px] text-tertiary">
-          Members connect Gmail and Google Drive through your own Google Cloud OAuth client.{' '}
+          {t('Members connect Gmail and Google Drive through your own Google Cloud OAuth client.')}{' '}
           <button
             type="button"
             className="text-zViolet-accent hover:underline"
             onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
           >
-            Setup guide
+            {t('Setup guide')}
           </button>
         </p>
       </div>
@@ -86,8 +87,8 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
             required
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            placeholder="Client ID (…apps.googleusercontent.com)"
-            aria-label="Client ID"
+            placeholder={t('Client ID (…apps.googleusercontent.com)')}
+            aria-label={t('Client ID')}
             className={inputClasses}
           />
           <input
@@ -96,9 +97,11 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
             placeholder={
-              savedClientId ? 'Client secret (saved, enter a new one to replace)' : 'Client secret'
+              savedClientId
+                ? t('Client secret (saved, enter a new one to replace)')
+                : t('Client secret')
             }
-            aria-label="Client secret"
+            aria-label={t('Client secret')}
             autoComplete="off"
             className={inputClasses}
           />
@@ -111,11 +114,11 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
                 disabled={saving}
                 onClick={() => void remove()}
               >
-                Remove
+                {t('Remove')}
               </Button>
             )}
             <Button size="sm" type="submit" disabled={saving || !clientId.trim() || !clientSecret}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('Saving…') : t('Save')}
             </Button>
           </div>
         </form>
@@ -124,8 +127,8 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
           {savedClientId === undefined
             ? '—'
             : savedClientId
-              ? 'Configured. Connect Gmail or Google Drive in Personal Credentials.'
-              : 'Not configured. Ask a workspace administrator to add one.'}
+              ? t('Configured. Connect Gmail or Google Drive in Personal Credentials.')
+              : t('Not configured. Ask a workspace administrator to add one.')}
         </div>
       )}
     </div>
