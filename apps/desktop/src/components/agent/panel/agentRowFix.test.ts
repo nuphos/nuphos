@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentAskText, agentFixLabel, agentProblem } from './agentRowFix.ts'
+import { agentAskText, agentFixLabel, agentProblem, resumeComputer } from './agentRowFix.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime.ts'
 import type { TeamMember } from '../../../types/team.ts'
@@ -133,4 +133,23 @@ test('OpenCode on your own computer signs in with the runtime sign-in, not setti
     kind: 'signIn',
     instance: opencode,
   })
+})
+
+test('a Resume clears its busy state when the call settles, so it can be tried again', async () => {
+  for (const succeeds of [true, false]) {
+    const busy: boolean[] = []
+    const outcome: string[] = []
+
+    await resumeComputer({
+      deviceId: 'd1',
+      resume: async () => {
+        if (!succeeds) throw new Error('503')
+      },
+      setBusy: (on) => busy.push(on),
+      onResumed: () => outcome.push('resumed'),
+      onFailed: () => outcome.push('failed'),
+    })
+    assert.deepEqual(busy, [true, false])
+    assert.deepEqual(outcome, [succeeds ? 'resumed' : 'failed'])
+  }
 })

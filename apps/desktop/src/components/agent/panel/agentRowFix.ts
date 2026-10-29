@@ -102,3 +102,31 @@ export function agentFixLabel(fix: AgentFix): string | null {
 export function agentAskText(fix: Extract<AgentFix, { kind: 'ask' }>): string {
   return fix.name ? t('Ask {name}', { name: fix.name }) : t('Ask an administrator')
 }
+
+/**
+ * Resumes a Box. Its chip is busy only while the call is in flight: a Box that does not come
+ * back, or is paused again, can be resumed again from the same row.
+ */
+export async function resumeComputer({
+  deviceId,
+  resume,
+  setBusy,
+  onResumed,
+  onFailed,
+}: {
+  deviceId: string
+  resume: (deviceId: string) => Promise<unknown>
+  setBusy: (busy: boolean) => void
+  onResumed: () => void
+  onFailed: (error: unknown) => void
+}): Promise<void> {
+  setBusy(true)
+  try {
+    await resume(deviceId)
+    onResumed()
+  } catch (error) {
+    onFailed(error)
+  } finally {
+    setBusy(false)
+  }
+}

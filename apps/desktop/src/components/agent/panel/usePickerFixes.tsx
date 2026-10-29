@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
+import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentTier } from '../../../lib/agentName'
@@ -12,8 +13,9 @@ import { LocalAgentSignIn } from '../../../views/settings/LocalAgentSignIn'
 import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { toast } from '../../ui/toast'
 
+import { resumeComputer } from './agentRowFix'
+
 import type { AgentFix, AgentRowViewer } from './agentRowFix'
-import type { TeamMember } from '../../../types/team'
 
 export type PickerFixes = {
   viewer: AgentRowViewer
@@ -45,25 +47,10 @@ export function usePickerFixes({
 }): { fixes: PickerFixes; dialogs: React.ReactNode } {
   const viewerId = useCurrentUser()?.id
   const thisComputer = useThisComputer()
-  const [members, setMembers] = useState<TeamMember[] | null>(null)
+  // Keyed by team: a selector that outlives a team switch never names the last team's admin.
+  const members = useTeamMemberList(teamId, open)
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
   const [signIn, setSignIn] = useState<Extract<AgentFix, { kind: 'signIn' | 'cli' }> | null>(null)
-  const loadMembers = open && Boolean(teamId) && !members
-
-  useEffect(() => {
-    if (!loadMembers || !teamId) return
-    let stopped = false
-
-    void api.atlasListTeamMembers(teamId).then(
-      (list) => !stopped && setMembers(list),
-      () => {},
-    )
-
-    return () => {
-      stopped = true
-    }
-  }, [loadMembers, teamId])
-
   const mark = (key: string, on: boolean) =>
     setPending((previous) => {
       const next = new Set(previous)
@@ -85,17 +72,20 @@ export function usePickerFixes({
       closeMenu()
       onSettings?.()
     } else if (fix.kind === 'resume' && key && teamId) {
-      mark(key, true)
-      // Stays "Resuming…" until the computer is back and leaves this row.
-      api.boxResume(fix.deviceId, teamId).then(
-        () => boxRestarts.start(fix.deviceId, teamId, 'resume'),
-        (error: unknown) => {
-          mark(key, false)
+      void resumeComputer({
+        deviceId: fix.deviceId,
+        resume: (deviceId) => api.boxResume(deviceId, teamId),
+        setBusy: (on) => mark(key, on),
+        onResumed: () => {
+          boxRestarts.start(fix.deviceId, teamId, 'resume')
+          toast.success(t('Resuming computer'), t('It is ready to pick once it is back online.'))
+        },
+        onFailed: (error) => {
           // A Resume the plan has no room for: the paywall offers one, then resumes.
           if (!openBoxPaywall(teamId, error, () => run(fix)))
             toast.apiError(t('Could not resume computer'), error)
         },
-      )
+      })
     } else if (fix.kind === 'retry' && key) {
       mark(key, true)
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
