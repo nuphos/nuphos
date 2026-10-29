@@ -578,6 +578,7 @@ test('a send while someone is asked to sign the agent in waits for them, named',
   expect(await queueForSignIn(args(asked))).toEqual({
     waiting: 'sign_in',
     message: 'Waiting for Bryan to sign in. Your message is sent once they do.',
+    askedName: 'Bryan',
   })
   const [held] = await listPendingUserMessages(OWNER, SESSION)
 

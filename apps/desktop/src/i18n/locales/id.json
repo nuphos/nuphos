@@ -4865,6 +4865,7 @@
   "Waiting for the updated runtime to come online.": "Menunggu runtime yang diperbarui kembali online.",
   "Waiting for two samples or the required MongoDB privilege.": "Menunggu dua sampel atau hak akses MongoDB yang diperlukan.",
   "Waiting for you": "Menunggu Anda",
+  "Waiting for {name} to sign in": "Menunggu {name} masuk",
   "Waiting for {name}… complete the authorization in your browser.": "Menunggu {name}… selesaikan otorisasi di browser Anda.",
   "Warning": "Peringatan",
   "Warnings": "Peringatan",

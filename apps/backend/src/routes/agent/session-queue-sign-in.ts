@@ -6,7 +6,7 @@ import { admitQueueableChat } from './session-queue-turn'
 import type { QueueableChat } from './session-queue-turn'
 
 /** What the sender is told while the message waits. */
-export type SignInWait = { waiting: 'sign_in'; message: string }
+export type SignInWait = { waiting: 'sign_in'; message: string; askedName: string }
 
 /**
  * Held in the queue, which starts it once anyone signs the agent in
@@ -25,6 +25,7 @@ export async function queueForSignIn(
 
   return {
     waiting: 'sign_in',
+    askedName: ask.askedName,
     message: `Waiting for ${ask.askedName} to sign in. Your message is sent once they do.`,
   }
 }

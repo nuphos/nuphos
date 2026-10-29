@@ -29,7 +29,7 @@ export type AgentHttpProductEvent =
   | { type: 'agent-setup-required'; message: string; reason?: 'reauthentication' }
   | { type: 'conversation-busy'; message: string }
   | { type: 'runtime-not-ready'; message: string }
-  | { type: 'queued'; message: string }
+  | { type: 'queued'; message: string; waitingFor?: string }
 
 // ACP can wrap a revoked credential in JSON-RPC -32603 (Internal Error).
 // Classify the credential failure, not that generic, potentially transient code.
@@ -278,8 +278,16 @@ export function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /** Why a send waits, when the server says so (a teammate's computer waits for its owner). */
-export async function queuedNotice(res: Response): Promise<{ message?: string }> {
-  const body = (await res.json().catch(() => null)) as { message?: unknown } | null
+export async function queuedNotice(
+  res: Response,
+): Promise<{ message?: string; waitingFor?: string }> {
+  const body = (await res.json().catch(() => null)) as {
+    message?: unknown
+    waitingFor?: unknown
+  } | null
 
-  return typeof body?.message === 'string' ? { message: body.message } : {}
+  return {
+    ...(typeof body?.message === 'string' ? { message: body.message } : {}),
+    ...(typeof body?.waitingFor === 'string' ? { waitingFor: body.waitingFor } : {}),
+  }
 }

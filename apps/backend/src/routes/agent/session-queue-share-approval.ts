@@ -26,7 +26,13 @@ export function isQueued<T extends object>(runtime: T | QueuedSend): runtime is 
 }
 
 export function queuedReply(streamId: string, wait: QueuedSend) {
-  return { status: 'queued' as const, streamId, ...(wait ? { message: wait.message } : {}) }
+  return {
+    status: 'queued' as const,
+    streamId,
+    ...(wait ? { message: wait.message } : {}),
+    // The desktop names who the message waits for in its own language.
+    ...(wait?.waiting === 'sign_in' ? { waitingFor: wait.askedName } : {}),
+  }
 }
 
 /** A send as the chat route holds it: the conversation may not be stored yet. */

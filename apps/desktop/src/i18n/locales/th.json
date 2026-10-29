@@ -4865,6 +4865,7 @@
   "Waiting for the updated runtime to come online.": "กำลังรอรันไทม์ที่อัปเดตแล้วกลับมาออนไลน์",
   "Waiting for two samples or the required MongoDB privilege.": "กำลังรอตัวอย่าง 2 รายการหรือสิทธิ์ MongoDB ที่จำเป็น",
   "Waiting for you": "รอคุณอยู่",
+  "Waiting for {name} to sign in": "กำลังรอ {name} ลงชื่อเข้าใช้",
   "Waiting for {name}… complete the authorization in your browser.": "กำลังรอ {name}… ทำการอนุญาตให้เสร็จในเบราว์เซอร์ของคุณ",
   "Warning": "คำเตือน",
   "Warnings": "คำเตือน",

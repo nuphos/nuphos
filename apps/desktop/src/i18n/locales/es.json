@@ -4865,6 +4865,7 @@
   "Waiting for the updated runtime to come online.": "Esperando a que el entorno de ejecución actualizado se conecte.",
   "Waiting for two samples or the required MongoDB privilege.": "Esperando dos muestras o el privilegio de MongoDB necesario.",
   "Waiting for you": "Esperándote",
+  "Waiting for {name} to sign in": "Esperando a que {name} inicie sesión",
   "Waiting for {name}… complete the authorization in your browser.": "Esperando a {name}… completa la autorización en tu navegador.",
   "Warning": "Advertencia",
   "Warnings": "Advertencias",

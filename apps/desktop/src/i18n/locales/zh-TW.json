@@ -4865,6 +4865,7 @@
   "Waiting for the updated runtime to come online.": "正在等候更新後的執行環境上線。",
   "Waiting for two samples or the required MongoDB privilege.": "正在等待兩個樣本或所需的 MongoDB 權限。",
   "Waiting for you": "等你回覆",
+  "Waiting for {name} to sign in": "正在等待 {name} 登入",
   "Waiting for {name}… complete the authorization in your browser.": "正在等待 {name}… 請在瀏覽器中完成授權。",
   "Warning": "警告",
   "Warnings": "警告",
