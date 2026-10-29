@@ -6,8 +6,15 @@ import type { PersonalCredentialDeepLinkPayload, PersonalCredentialProvider } fr
 /** Fired after the main process claims an OAuth grant, so an open section refetches. */
 export const PERSONAL_CREDENTIALS_CHANGED = 'personal-credentials:changed'
 
+const NAMES: Record<PersonalCredentialProvider, string> = {
+  github: 'GitHub',
+  linear: 'Linear',
+  gmail: 'Gmail',
+  'google-drive': 'Google Drive',
+}
+
 export function nameOf(provider: PersonalCredentialProvider): string {
-  return provider === 'github' ? 'GitHub' : 'Linear'
+  return NAMES[provider]
 }
 
 /** Global handler for the claimed nuphos://personal-credential deep link. */

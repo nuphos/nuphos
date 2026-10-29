@@ -15,6 +15,15 @@ import type {
 } from '../../src/types/runtime'
 
 export const teamChannels = {
+  'atlas:getTeamGoogleClient': (_e: unknown, teamId: string) => atlas.getTeamGoogleClient(teamId),
+  'atlas:setTeamGoogleClient': (
+    _e: unknown,
+    teamId: string,
+    clientId: string,
+    clientSecret: string,
+  ) => atlas.setTeamGoogleClient(teamId, clientId, clientSecret),
+  'atlas:deleteTeamGoogleClient': (_e: unknown, teamId: string) =>
+    atlas.deleteTeamGoogleClient(teamId),
   'atlas:startRuntimeLogin': (_e: unknown, teamId: string, runtimeId: string) =>
     atlas.startRuntimeLogin(teamId, runtimeId),
   'atlas:getRuntimeLogin': (_e: unknown, teamId: string, runtimeId: string) =>

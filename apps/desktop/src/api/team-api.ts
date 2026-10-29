@@ -17,6 +17,10 @@ import type {
 } from '../types/team.ts'
 
 export const teamApi = {
+  atlasGetTeamGoogleClient: (teamId: string) => window.api.atlasGetTeamGoogleClient(teamId),
+  atlasSetTeamGoogleClient: (teamId: string, clientId: string, clientSecret: string) =>
+    window.api.atlasSetTeamGoogleClient(teamId, clientId, clientSecret),
+  atlasDeleteTeamGoogleClient: (teamId: string) => window.api.atlasDeleteTeamGoogleClient(teamId),
   atlasReadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     window.api.atlasReadRuntimeFile(teamId, runtimeId, sessionId, path),
   atlasReadLinkedFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>

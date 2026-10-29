@@ -8,10 +8,11 @@ import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 
+import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
 import { PERSONAL_CREDENTIALS_CHANGED, nameOf } from './personalCredentials'
 import { SectionHeader } from './shared'
 
-import type { PersonalCredential, PersonalCredentialProvider } from '../../types'
+import type { AtlasTeam, PersonalCredential, PersonalCredentialProvider } from '../../types'
 
 const PROVIDERS: { provider: PersonalCredentialProvider; name: string; description: string }[] = [
   {
@@ -25,10 +26,25 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
     name: 'Linear',
     description: 'Linear issues and comments are authored by you instead of the team’s Linear app.',
   },
+  {
+    provider: 'gmail',
+    name: 'Gmail',
+    description: 'Let the agent read, label, draft and send mail in your own inbox.',
+  },
+  {
+    provider: 'google-drive',
+    name: 'Google Drive',
+    description: 'Let the agent find, read and save files in your own Google Drive.',
+  },
 ]
 
-export function PersonalCredentialsSection() {
+const isGoogle = (provider: PersonalCredentialProvider) =>
+  provider === 'gmail' || provider === 'google-drive'
+
+export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefined }) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
+  // Gmail / Google Drive go through the current team's own OAuth client.
+  const [teamHasGoogleClient, setTeamHasGoogleClient] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState<PersonalCredentialProvider | null>(null)
   const [disconnecting, setDisconnecting] = useState<PersonalCredentialProvider | null>(null)
@@ -44,7 +60,13 @@ export function PersonalCredentialsSection() {
         setLoadFailed(true)
         toast.apiError('Could not load Personal Credentials', err)
       })
-  }, [])
+    if (team) {
+      void api
+        .atlasGetTeamGoogleClient(team.id)
+        .then((clientId) => setTeamHasGoogleClient(Boolean(clientId)))
+        .catch(() => setTeamHasGoogleClient(false))
+    }
+  }, [team])
 
   // Refetch after a claimed deep link, and on focus as a fallback.
   useEffect(() => {
@@ -61,7 +83,10 @@ export function PersonalCredentialsSection() {
   async function connect(provider: PersonalCredentialProvider) {
     setBusy(provider)
     try {
-      const { authorizeUrl } = await api.atlasStartPersonalCredential(provider)
+      const { authorizeUrl } = await api.atlasStartPersonalCredential(
+        provider,
+        isGoogle(provider) ? team?.id : undefined,
+      )
 
       await api.appOpenExternal(authorizeUrl)
     } catch (err) {
@@ -78,7 +103,7 @@ export function PersonalCredentialsSection() {
   async function disconnect(provider: PersonalCredentialProvider) {
     setBusy(provider)
     try {
-      await api.atlasDeletePersonalCredential(provider)
+      await api.atlasDeletePersonalCredential(provider, isGoogle(provider) ? team?.id : undefined)
       toast.success(`${nameOf(provider)} disconnected`)
     } catch (err) {
       toast.apiError(`Could not disconnect ${nameOf(provider)}`, err)
@@ -114,7 +139,11 @@ export function PersonalCredentialsSection() {
         >
           <div className="space-y-3">
             {PROVIDERS.map(({ provider, name, description }) => {
-              const credential = credentials?.find((c) => c.provider === provider)
+              // Gmail / Google Drive grants are per team; show this team's.
+              const credential = credentials?.find(
+                (c) => c.provider === provider && (!isGoogle(provider) || c.teamId === team?.id),
+              )
+              const needsTeamClient = isGoogle(provider) && !teamHasGoogleClient
 
               return (
                 <div
@@ -125,6 +154,18 @@ export function PersonalCredentialsSection() {
                   <div className="min-w-0 flex-1">
                     <div className="text-[13.5px] font-medium text-main">{name}</div>
                     <p className="mt-0.5 text-[12.5px] text-tertiary">{description}</p>
+                    {!credential && needsTeamClient && (
+                      <p className="mt-1.5 text-[12.5px] text-secondary">
+                        Needs a Google OAuth client in Team settings.{' '}
+                        <button
+                          type="button"
+                          className="text-zViolet-accent hover:underline"
+                          onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
+                        >
+                          Setup guide
+                        </button>
+                      </p>
+                    )}
                     <div className="t-collapse" data-open={Boolean(credential)}>
                       <div className="t-collapse-inner">
                         {credential && (
@@ -151,7 +192,7 @@ export function PersonalCredentialsSection() {
                     <Button
                       type="button"
                       size="sm"
-                      disabled={busy === provider}
+                      disabled={busy === provider || needsTeamClient}
                       onClick={() => void connect(provider)}
                     >
                       Connect
@@ -169,7 +210,11 @@ export function PersonalCredentialsSection() {
       <ConfirmDialog
         open={disconnecting !== null}
         title={`Disconnect ${disconnecting ? nameOf(disconnecting) : ''}`}
-        description="Your messages will use the team’s credentials again. The grant is also revoked at the provider."
+        description={
+          disconnecting === 'github' || disconnecting === 'linear'
+            ? 'Your messages will use the team’s credentials again. The grant is also revoked at the provider.'
+            : 'The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.'
+        }
         confirmLabel="Disconnect"
         destructive
         onConfirm={() => (disconnecting ? disconnect(disconnecting) : undefined)}

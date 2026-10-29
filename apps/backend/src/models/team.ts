@@ -38,6 +38,7 @@ import type {
   VantaIntegrationBinding,
   ZeaburProviderBinding,
 } from '@/models/bindings-integrations'
+import type { EncryptedSecret } from '@/lib/byos/secrets/shared'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type TeamByosBindings = {
@@ -82,6 +83,16 @@ export type TeamByosBindings = {
   // Optional: existing team docs predate this field, so every reader uses
   // `doc.larkApps ?? []`.
   larkApps?: LarkAppBinding[]
+  /**
+   * The team's own Google OAuth client (Web application) for its members'
+   * Gmail and Google Drive Personal Credentials. Unset until an admin adds it.
+   */
+  googleOAuthClient?: {
+    clientId: string
+    encryptedClientSecret: EncryptedSecret
+    updatedAt: Date
+    updatedBy: string
+  }
   vantaIntegrations: VantaIntegrationBinding[]
   secureframeIntegrations: SecureframeIntegrationBinding[]
   // Optional because bindings created before the SonarQube connector are not

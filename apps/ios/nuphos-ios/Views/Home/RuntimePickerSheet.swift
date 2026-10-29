@@ -1,9 +1,25 @@
 import SwiftUI
 
 /// Browsing a Box never changes the selected agent. Only an agent row selects or moves.
+///
+/// The detents sit here, outside the view that reads the environment: on a
+/// Mac, a sheet whose own body declares detents is first built with an empty
+/// environment, and the missing `AgentStore` traps.
 struct RuntimePickerSheet: View {
     var session: ChatSession?
     var onMove: (RuntimeInstance) -> Void = { _ in }
+    @State private var detent = PresentationDetent.height(720)
+
+    var body: some View {
+        RuntimePicker(session: session, onMove: onMove, detent: $detent)
+            .presentationDetents([.height(720), .large], selection: $detent)
+    }
+}
+
+private struct RuntimePicker: View {
+    var session: ChatSession?
+    var onMove: (RuntimeInstance) -> Void
+    @Binding var detent: PresentationDetent
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -12,7 +28,6 @@ struct RuntimePickerSheet: View {
     @State private var showSetup = false
     @State private var managing = false
     @State private var pendingLocal: RuntimeInstance?
-    @State private var detent = PresentationDetent.height(720)
 
     private var selectedId: String? { session == nil ? store.newConversationRuntime?.id : session?.runtimeId }
     /// Whether a runtime can take a turn now: not an offline computer or one waiting for a sign-in.
@@ -78,7 +93,6 @@ struct RuntimePickerSheet: View {
             .onChange(of: store.runtimes) { _, _ in openCurrentBox() }
         }
         .tint(Theme.heading)
-        .presentationDetents([.height(720), .large], selection: $detent)
         .onChange(of: showSetup || managing) { _, open in if open { detent = .large } }
     }
 
@@ -330,7 +344,6 @@ struct ModelSettingsSheet: View {
             .refreshable { await refresh() }
         }
         .tint(Theme.heading)
-        .presentationDetents([.medium, .large])
     }
 }
 

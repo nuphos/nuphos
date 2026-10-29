@@ -27,12 +27,14 @@ export type SignInSession = {
   userAgent: string | null
 }
 
-export type PersonalCredentialProvider = 'github' | 'linear'
+export type PersonalCredentialProvider = 'github' | 'linear' | 'gmail' | 'google-drive'
 
 export type PersonalCredential = {
   provider: PersonalCredentialProvider
   login: string
   workspaceName: string | null
+  /** Gmail / Google Drive: the team whose OAuth client issued the grant. */
+  teamId?: string | null
   connectedAt: string
 }
 

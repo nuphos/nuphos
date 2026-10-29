@@ -22,10 +22,10 @@ export const appApi = {
   authUpdateProfile: (input: { name: string; username: string; avatarURL: string }) =>
     window.api.authUpdateProfile(input),
   atlasListPersonalCredentials: () => window.api.atlasListPersonalCredentials(),
-  atlasStartPersonalCredential: (provider: PersonalCredentialProvider) =>
-    window.api.atlasStartPersonalCredential(provider),
-  atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
-    window.api.atlasDeletePersonalCredential(provider),
+  atlasStartPersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
+    window.api.atlasStartPersonalCredential(provider, teamId),
+  atlasDeletePersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
+    window.api.atlasDeletePersonalCredential(provider, teamId),
   atlasListSignInSessions: () => window.api.atlasListSignInSessions(),
   atlasSignOutSession: (id: string) => window.api.atlasSignOutSession(id),
   atlasSignOutOtherSessions: () => window.api.atlasSignOutOtherSessions(),

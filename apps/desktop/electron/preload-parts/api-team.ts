@@ -6,6 +6,12 @@ import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type { AgentProvider } from '../../src/types/runtime'
 
 export const teamApi = {
+  atlasGetTeamGoogleClient: (teamId: string) =>
+    ipcRenderer.invoke('atlas:getTeamGoogleClient', teamId),
+  atlasSetTeamGoogleClient: (teamId: string, clientId: string, clientSecret: string) =>
+    ipcRenderer.invoke('atlas:setTeamGoogleClient', teamId, clientId, clientSecret),
+  atlasDeleteTeamGoogleClient: (teamId: string) =>
+    ipcRenderer.invoke('atlas:deleteTeamGoogleClient', teamId),
   ...runtimeApi,
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
   onUpdaterStatus: (cb: (state: unknown) => void) => {
