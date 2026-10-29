@@ -59,15 +59,19 @@ export function setApiUrl(raw: string | null): string {
   return apiUrl()
 }
 
+/** Saves `api` as the backend for the next launch and for the CLI; throws if it cannot. */
+export function keepBackend(api: string): void {
+  if (normalizedApi(api) !== normalizedApi(apiUrl())) saveEndpoint(api)
+}
+
 /**
- * Signs in as an account on the backend that issued its token, in one step,
- * and keeps that backend for the next launch and for the CLI.
+ * Signs in, in memory, as an account on the backend that issued its token, in
+ * one step: nothing sees the token paired with another backend.
  */
 export function useAccount(api: string, token: string | null, userId: string | null): void {
   const same = normalizedApi(api) === normalizedApi(apiUrl())
 
-  if (!same) saveEndpoint(api)
-  authSession.use(same ? apiUrl() : fromEnv(), token, userId)
+  authSession.use(same ? apiUrl() : normalizedApi(api), token, userId)
 }
 
 /** Writes the endpoint for the next launch and the CLI, and for helpers this process spawns. */
