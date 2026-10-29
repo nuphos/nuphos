@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { Avatar } from '../../Avatar'
+import { AgentAvatar } from '../AgentAvatar'
 
-import { AgentProviderIcon } from './icons'
 import { heatmapRows } from './teamActivity'
 
 import type { HeatCell } from './teamActivity'
@@ -73,7 +73,7 @@ function CellTooltip({
                         onClick={() => onOpenSession?.(s.id, s.title)}
                         className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:bg-zGray-800/60"
                       >
-                        <AgentProviderIcon provider={s.runtime} className="h-3 w-3 flex-shrink-0" />
+                        <AgentAvatar agentId={s.id} provider={s.runtime} size={14} />
                         <span className="truncate">{s.title || 'Untitled agent'}</span>
                       </BaseButton>
                     ))}

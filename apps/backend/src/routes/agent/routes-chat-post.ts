@@ -118,7 +118,7 @@ agent.post('/chat', async (c) => {
     ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
   }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams))
 
-  if (isQueued(chatRuntime)) return c.json(queuedReply(streamId, chatRuntime), 202)
+  if (isQueued(chatRuntime)) return queuedChatReply(body, queuedReply(streamId, chatRuntime))
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
   let releaseAgentRunClaim: (() => void) | null = null
@@ -147,7 +147,7 @@ agent.post('/chat', async (c) => {
     }
     const queue = await admitQueueableChat({ ...resumeParams, snapshot: runtimeSnapshot })
 
-    if (queue?.mode === 'queued') return queuedChatReply(body, streamId)
+    if (queue?.mode === 'queued') return queuedChatReply(body, { status: 'queued', streamId })
     if (queue) [releaseAgentRunClaim, queuedItem] = [queue.release, queue.item]
     else
       await admitRuntimeChat(runtimeSnapshot, {

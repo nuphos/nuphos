@@ -8,7 +8,7 @@ import { resourceStatus } from '../../sidebar/sessionResourcePresentation'
 import { resourceStyle } from '../../sidebar/sessionResourceStyle'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
 import { toast } from '../../ui/toast'
-import { AgentProviderIcon } from '../panel/icons'
+import { AgentAvatar } from '../AgentAvatar'
 
 import { changeSubtitle, changeTitle } from './chatSummaryModel'
 
@@ -190,7 +190,14 @@ export function ThreadRow({
 
   return (
     <SummaryRow
-      icon={<AgentProviderIcon provider={conversation.agentRuntime} className="size-3.5" />}
+      icon={
+        <AgentAvatar
+          agentId={conversation.sessionId}
+          avatar={conversation.avatar}
+          provider={conversation.agentRuntime}
+          size={16}
+        />
+      }
       label={conversation.title || conversation.firstMessage || 'Untitled agent'}
       note={
         running ? (

@@ -7,6 +7,7 @@ import {
   newConnectIds,
   parseChoiceRequest,
   parseConnectRequest,
+  parseSecretRequest,
   withConnectIds,
 } from './connectCardModel.ts'
 
@@ -91,4 +92,21 @@ test('newConnectIds finds what a bind added, and withConnectIds selects it once'
     withConnectIds(selection({ grafanaInstanceIds: ['g2'] }), 'grafana', added).grafanaInstanceIds,
     ['g2'],
   )
+})
+
+test('parseSecretRequest reads a credential decision that names a secret', () => {
+  const input = {
+    category: 'credential',
+    question: 'Calling the API needs your OpenAI key.',
+    secretName: 'OPENAI_API_KEY',
+  }
+
+  assert.deepEqual(parseSecretRequest(input), {
+    name: 'OPENAI_API_KEY',
+    reason: 'Calling the API needs your OpenAI key.',
+  })
+  // Its question card gives way to the secure input card.
+  assert.equal(parseChoiceRequest(input), null)
+  assert.equal(parseSecretRequest({ ...input, category: 'approval' }), null)
+  assert.equal(parseSecretRequest({ ...input, secretName: '../etc/passwd' }), null)
 })

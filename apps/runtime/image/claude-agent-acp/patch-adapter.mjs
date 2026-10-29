@@ -121,12 +121,12 @@ if (patched.split(deathError).length !== 2)
   throw new Error('Expected one Claude process-death error.')
 patched = patched.replace(
   deathError,
-  'failAllTurns(RequestError.internalError(undefined, nuphosProcessDeathMessage(message)));',
+  'failAllTurns(RequestError.internalError(undefined, nuphosProcessDeathMessage("Claude Code", message.replace(/^Claude Code /, ""))));',
 )
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
 const instructions = readFileSync(new URL('./project-instructions.mjs', import.meta.url), 'utf8')
-const processDeath = readFileSync(new URL('./process-death.mjs', import.meta.url), 'utf8')
+const processDeath = readFileSync(new URL('../process-death.mjs', import.meta.url), 'utf8')
 patched = patchRuntimeDefaults(
   `${sessionHome}\n${helper}\n${instructions}\n${processDeath}\n${patched}`,
 )

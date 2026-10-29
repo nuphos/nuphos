@@ -21,6 +21,7 @@ struct ConversationView: View {
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
     @State private var updating = false
+    @State private var width: CGFloat = 0
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
@@ -56,6 +57,7 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
@@ -77,12 +79,6 @@ struct ConversationView: View {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)
             onScreen = false
             updateReading()
-            #if canImport(UIKit)
-            // UIKit gives the list back the focus it had when this chat opened,
-            // raising a keyboard over a composer it does not lift. Only a chat
-            // that has really gone runs this; a cancelled back swipe does not.
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            #endif
         }
         .onChange(of: scenePhase) { _, _ in updateReading() }
         .alert("Rename agent", isPresented: $showRename) {
@@ -134,21 +130,20 @@ struct ConversationView: View {
                             Button("Switch runtime", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
                                 .disabled(session.isStreaming)
                             Button {
+                                // An archived chat leaves the list, so go
+                                // back to it at once and archive from there,
+                                // as a swipe does; a restored one rejoins it.
+                                if !session.isArchived {
+                                    dismiss()
+                                    Task { await store.archive(sessionId: session.sessionId, teamId: session.teamId) }
+                                    return
+                                }
                                 Task {
                                     updating = true
                                     defer { updating = false }
                                     do {
-                                        let archiving = !session.isArchived
-                                        try await session.setArchived(archiving)
-                                        // An archived chat leaves the list,
-                                        // so go back to it; a restored one
-                                        // rejoins it.
-                                        if archiving {
-                                            store.removeFromList(session.sessionId)
-                                            dismiss()
-                                        } else {
-                                            await store.reload()
-                                        }
+                                        try await session.setArchived(false)
+                                        await store.reload()
                                     } catch { archiveError = error.localizedDescription }
                                 }
                             } label: {
@@ -156,11 +151,10 @@ struct ConversationView: View {
                             }
                         }
                     } label: {
-                        // The menu has closed by the time the request runs;
-                        // this is what shows it was taken. A Label, not a bare
-                        // Image: the bar takes it as a native item, so the
-                        // whole glass answers, not just the glyph.
-                        if updating { ProgressView() } else { Label("Agent options", systemImage: "ellipsis") }
+                        // A Label, not a bare Image: the bar takes it as a
+                        // native item, so the whole glass answers, not just
+                        // the glyph.
+                        Label("Agent options", systemImage: "ellipsis")
                     }
                     .disabled(updating)
                     .accessibilityLabel("Agent options")
@@ -202,7 +196,12 @@ struct ConversationView: View {
             }
             #endif
         }
-        .task { await session.pollWhileIdle() }
+        // SwiftUI cancels this when the chat leaves the screen; the stream
+        // lives on the session, so close it here.
+        .task {
+            await session.pollWhileIdle()
+            session.leave()
+        }
         // New files land while a turn runs; read them once it settles.
         .task(id: "\(session.isStreaming).\(session.messages.count)") {
             await session.refreshResources()
@@ -221,26 +220,26 @@ struct ConversationView: View {
     private var titleBar: some View {
         HStack(spacing: 8) {
             AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
-            VStack(spacing: 1) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(session.title)
                     .font(Theme.Text.label.weight(.semibold))
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
                 if let name = session.runtimeDisplayName {
-                    HStack(spacing: 4) {
-                        RuntimeMark(runtime: session.isNativeRuntime ? session.agentRuntime : nil)
-                        Text(name)
-                            .font(Theme.Text.micro)
-                            .foregroundStyle(Theme.muted)
-                            .lineLimit(1)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Runtime: \(name)")
+                    Text(name)
+                        .font(Theme.Text.micro)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                        .accessibilityLabel("Runtime: \(name)")
                 } else if !session.loaded {
                     Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
             }
         }
+        // The principal item is only as wide as its content and centred, so
+        // it is given all the room between the back and options buttons
+        // (each 44 + 16 margin + 8 gap) to start the title on the left.
+        .frame(width: max(width - 136, 0), alignment: .leading)
     }
 
     /// Plan links open the plan here, approved through this chat; other app

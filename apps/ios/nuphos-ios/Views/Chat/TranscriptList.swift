@@ -149,11 +149,11 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         }
         let sent = submittedRowID != nil && submittedRowID != submittedID
         guard rows != incoming || sent else { return }
-        let anchor = readingAnchor()
-        // Decided before the change: applying it moves the offset itself.
-        let follow = !positioned || following
         let old = byID
         let updated = Dictionary(uniqueKeysWithValues: incoming.map { ($0.id, $0) })
+        let anchor = readingAnchor(keeping: updated)
+        // Decided before the change: applying it moves the offset itself.
+        let follow = !positioned || following
         var snapshot = NSDiffableDataSourceSnapshot<Int, String>()
         snapshot.appendSections([0])
         snapshot.appendItems(incoming.map(\.id))
@@ -243,19 +243,10 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     /// message, the room reserved for it puts that message at the top.
     private func positionAtEnd() {
         guard collection.bounds.height > 0, let last = rows.indices.last else { return }
-        // Rows come into view at their estimated height and are measured by
-        // the next layout pass. Measure them now, then go to the end again, so
-        // the end is never committed for a frame at a size it will not keep.
-        // A shrink can start UIKit's own animated clamp; left running, it
-        // would pull the reader off the end after this returns.
-        collection.setContentOffset(collection.contentOffset, animated: false)
-        for _ in 0..<3 {
+        hold {
             layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
             let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
             if collection.contentOffset.y < end { collection.contentOffset.y = end }
-            let before = layout.collectionViewContentSize.height
-            collection.layoutIfNeeded()
-            if layout.collectionViewContentSize.height == before { break }
         }
         positioned = true
         following = atEnd
@@ -264,19 +255,45 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private func restore(id: String, edge: ChatLayoutPositionSnapshot.Edge, offset: CGFloat) {
         guard let index = rows.firstIndex(where: { $0.id == id }) else { return }
         UIView.performWithoutAnimation {
-            layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: index, section: 0), edge: edge, offset: offset))
-            collection.layoutIfNeeded()
+            hold {
+                layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: index, section: 0), edge: edge, offset: offset))
+            }
         }
     }
 
-    private func readingAnchor() -> (id: String, offset: CGFloat)? {
-        guard positioned,
-              let attributes = collection.indexPathsForVisibleItems.compactMap({ layout.layoutAttributesForItem(at: $0) })
-                .filter({ $0.frame.maxY > layout.visibleBounds.minY })
-                .min(by: { $0.frame.minY < $1.frame.minY }),
-              rows.indices.contains(attributes.indexPath.item) else { return nil }
-        return (rows[attributes.indexPath.item].id,
-                attributes.frame.minY - layout.visibleBounds.minY - layout.settings.additionalInsets.top)
+    /// Rows come into view at their estimated height and are measured by the
+    /// next layout pass. Measure them now, then take the position again, so
+    /// it is never committed, or clamped, at a size the content will not keep.
+    /// A shrink can start UIKit's own animated clamp; left running, it would
+    /// pull the reader off the position after this returns.
+    private func hold(_ position: () -> Void) {
+        collection.setContentOffset(collection.contentOffset, animated: false)
+        for _ in 0..<3 {
+            position()
+            let before = layout.collectionViewContentSize.height
+            collection.layoutIfNeeded()
+            if layout.collectionViewContentSize.height == before { break }
+        }
+    }
+
+    /// The first row on screen that the update keeps. When a turn ends, the
+    /// rows on screen can all be replaced: its work folds into one row and its
+    /// reply takes the server's id. The nearest kept row above them holds the
+    /// position then; with no anchor at all, the old offset lands anywhere.
+    private func readingAnchor(keeping kept: [String: ChatRow]) -> (id: String, offset: CGFloat)? {
+        guard positioned else { return nil }
+        let top = layout.visibleBounds.minY
+        var anchor: UICollectionViewLayoutAttributes?
+        for (index, row) in rows.enumerated() where kept[row.id] != nil {
+            guard let attributes = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0)) else { continue }
+            if attributes.frame.maxY > top {
+                if anchor == nil || attributes.frame.minY < layout.visibleBounds.maxY { anchor = attributes }
+                break
+            }
+            anchor = attributes
+        }
+        guard let anchor else { return nil }
+        return (rows[anchor.indexPath.item].id, anchor.frame.minY - top - layout.settings.additionalInsets.top)
     }
 
     func sizeForItem(_ chatLayout: CollectionViewChatLayout, at indexPath: IndexPath) -> ItemSize {
@@ -508,6 +525,30 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         touch()
         await pause()
         await sendAndStream("up")
+        // A turn that ends replaces the rows of its reply: the work folds into
+        // one row and the answer takes the server's id. A reader inside the
+        // reply must stay where they are.
+        fixture.append(.user(id: "user.ended", messageId: "ended", text: "A question whose turn ends", images: []))
+        apply("user.ended")
+        await pause()
+        fixture.append(.assistantText(id: "text.local.0", messageId: "local",
+            text: String(repeating: "Work narrated while the tools ran.\n\n", count: 40), streaming: true))
+        fixture.append(.assistantText(id: "text.local.1", messageId: "local",
+            text: String(repeating: "The final answer, long enough to hold the reader.\n\n", count: 60), streaming: true))
+        apply("user.ended")
+        await pause()
+        restore(id: "text.local.0", edge: .top, offset: -300)
+        touch()
+        await pause()
+        let endedY = y(of: "user.ended")
+        fixture.removeLast(2)
+        fixture.append(.hint(id: "event.work.server", text: "Worked for 12s", isError: false))
+        fixture.append(.assistantText(id: "text.server.1", messageId: "server",
+            text: String(repeating: "The final answer, long enough to hold the reader.\n\n", count: 60), streaming: false))
+        apply("user.ended")
+        await pause()
+        check("turn_end_keeps_reader", endedY.isFinite && abs(y(of: "user.ended") - endedY) < 1,
+              "before=\(endedY) after=\(y(of: "user.ended"))")
         // Messages that arrive from elsewhere (a teammate, the next turn)
         // follow a reader at the end, however they got there, and never move
         // one who is not, however they left it.

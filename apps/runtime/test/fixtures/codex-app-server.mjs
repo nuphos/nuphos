@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline'
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`)
 // A turn started with this text stays active until it is steered.
 const HOLD = 'Fixture held turn'
+const DIE = 'Fixture dies'
 let held = false
 
 for await (const line of createInterface({ input: process.stdin })) {
@@ -102,6 +103,9 @@ for await (const line of createInterface({ input: process.stdin })) {
     result = { turnId: 'smoke-turn' }
   }
   send({ id: msg.id, result })
+  // App Server dies mid-turn, as when the system kills it.
+  if (msg.method === 'turn/start' && msg.params.input.some((item) => item.text === DIE))
+    process.kill(process.pid, 'SIGKILL')
   if (msg.method === 'turn/start' && msg.params.input.some((item) => item.text === HOLD)) {
     held = true
     continue

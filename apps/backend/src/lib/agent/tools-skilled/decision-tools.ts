@@ -41,6 +41,9 @@ export const CONNECTABLE_PROVIDERS = [
   'onprem-k8s',
 ] as const
 
+/** A secret's name: also the file name it is written to on the runtime. */
+export const SECRET_NAME = /^[A-Za-z]\w{0,63}$/
+
 type UserDecisionDeps = {
   agentOrigin: AgentSessionOrigin
   onExplicitUserDecision?: (decision: ExplicitUserDecision) => void
@@ -58,6 +61,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Do not use it for facts you can inspect, safe read-only work, optional follow-ups, or to avoid finishing the task. ' +
         'For an integration or cloud account the task needs that is not connected to the team, or connected but not selected for this conversation, use category `integration` and list it in `providers`: in the Desktop app the user then gets a Connect card for it. ' +
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
+        'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
         'After this tool returns, do not run more tools or make the choice yourself; follow the returned instruction, include the supplied options when present, and wait for the next user message.',
       inputSchema: z.object({
         label: labelField,
@@ -80,10 +84,18 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           .max(6)
           .optional()
           .describe('With category `integration`: the integrations or cloud accounts to connect.'),
+        secretName: z
+          .string()
+          .regex(SECRET_NAME)
+          .optional()
+          .describe(
+            'With category `credential`: an environment-variable style name for the secret the user types, e.g. OPENAI_API_KEY.',
+          ),
       }),
       execute: async (input) => {
         const { label: _label, category, question, options } = input
         const providers = category === 'integration' ? input.providers : undefined
+        const secretName = category === 'credential' ? input.secretName : undefined
         const decision: ExplicitUserDecision = options
           ? { category, question, options }
           : { category, question }
@@ -95,9 +107,12 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           status: 'awaiting_user_decision',
           ...decision,
           ...(providers ? { providers } : {}),
+          ...(secretName ? { secretName } : {}),
           instruction: providers
             ? 'The user sees a Connect card for these below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait; once connected, the credential is selected for this conversation and they will ask you to continue.'
-            : 'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
+            : secretName
+              ? 'The user sees a secure input card below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait. Their next message gives the path of a file holding the value: read it only inside the command that needs it, e.g. "$(cat <path>)", and never print, echo or copy its contents.'
+              : 'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
         }
       },
     })

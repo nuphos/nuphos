@@ -137,12 +137,11 @@ export async function updateTeam(
     throw new Error('Requires team editor')
   }
 
-  const update: Partial<Pick<NuphosTeamDoc, 'name' | 'avatarUrl' | 'updatedAt'>> = {
+  const update: Partial<Pick<NuphosTeamDoc, 'name' | 'updatedAt'>> = {
     updatedAt: new Date(),
   }
 
   if (input.name !== undefined) update.name = input.name.trim()
-  if (input.avatarUrl !== undefined) update.avatarUrl = input.avatarUrl.trim()
 
   const result = await teams().findOneAndUpdate(
     { _id: teamObjectId, deletedAt: { $exists: false } },

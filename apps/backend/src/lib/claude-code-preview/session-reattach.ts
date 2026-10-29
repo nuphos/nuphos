@@ -1,4 +1,8 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { holderChannel, parseJson } from '@/lib/agent/devices/local-runtime/protocol'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { notifyLiveActivities } from '@/lib/push/live-activities'
@@ -16,6 +20,34 @@ export const REATTACH_DELAYS_MS = [0, 1_000, 2_000, 5_000, 10_000, 30_000, 60_00
 
 type Sleep = (ms: number) => Promise<void>
 const sleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Resolves once the computer holding a local runtime is online: at once while
+ * its tunnel is open, else at that tunnel's next heartbeat. A cloud runtime has
+ * no such signal and resolves at once.
+ */
+export async function untilOnline(url: string): Promise<void> {
+  const computer = parseLocalRuntimeUrl(url)
+
+  if (!computer) return
+  let online = () => {}
+  const back = new Promise<void>((resolve) => {
+    online = resolve
+  })
+  const stop = await tunnelBus().subscribe(
+    holderChannel(computer.userId, computer.deviceId),
+    (raw) => {
+      if (parseJson<{ t?: string }>(raw)?.t === 'ping') online()
+    },
+  )
+
+  try {
+    if (await runtimePresenceStore().get(computer.userId, computer.deviceId)) return
+    await back
+  } finally {
+    stop()
+  }
+}
 
 /**
  * The gateway routes a session's runtime-owned output (background-task
@@ -126,11 +158,13 @@ async function stillOwned(session: TeamSession, transport: TeamPreviewClient): P
   )
 }
 
+/** Retries wait for an offline computer, so an outage of any length spends
+ *  no attempts and the session comes back when the computer does. */
 export async function reattachAfterTransportLoss(
   session: TeamSession,
   transport: TeamPreviewClient,
   delays: number[] = REATTACH_DELAYS_MS,
-  wait: Sleep = sleep,
+  wait: Sleep = (ms) => sleep(ms).then(() => untilOnline(session.endpoint.url)),
 ): Promise<boolean> {
   if (session.reattaching) return false
   // A draining replica hands the session on; winning it back would strand it.
@@ -160,11 +194,13 @@ export async function reattachAfterTransportLoss(
       const ownership = await owned(session, transport, attempt)
 
       if (ownership === 'unknown') continue
-      if (ownership === 'no') break
+      // Superseded, perhaps long after a wait for the computer: whoever holds
+      // the session now owns its story, so this attempt writes nothing.
+      if (ownership === 'no') return false
       try {
         const client = await registry.acquire(session.teamId, session.endpoint)
 
-        if (session.client !== transport) break
+        if (session.client !== transport) return false
         await resumeSessionOn(session, client)
         logEvent('info', 'agent.openab_session.reattached', {
           team_id: session.teamId,
@@ -180,9 +216,7 @@ export async function reattachAfterTransportLoss(
     // Every retry is spent and the session is still off the air. Whether the
     // process that held it survived is unknown, so the conversation is told
     // that much and no more. Recorded here rather than on the first failure
-    // so a blip the next attempt recovers from says nothing, and recorded on
-    // a break as well as on exhaustion: an attempt that finds the session
-    // superseded hands ownership on without ever resuming. A computer that
+    // so a blip the next attempt recovers from says nothing. A computer that
     // went offline is expected, so this is one warning, not an error per try.
     if (failure) {
       logEvent('warn', 'agent.openab_session.reattach_failed', {

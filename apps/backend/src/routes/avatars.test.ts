@@ -6,7 +6,7 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { errorHandler } from '@/lib/errors'
-import { deleteUserAvatars, storeAvatar } from '@/lib/identity/avatar-upload'
+import { deleteUserAvatars, setTeamAvatar, storeAvatar } from '@/lib/identity/avatar-upload'
 import { trustedAvatarURL } from '@/lib/identity/avatar-url'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useDb } from '@/lib/test/doubles/db'
@@ -22,6 +22,7 @@ const userId = new ObjectId()
 let usersById: Map<string, Doc>
 let avatars: Doc[]
 let agentTokens: Doc[] = []
+let teamsById = new Map<string, Doc>()
 // When set, the next users write waits on it: lets a test interleave two requests.
 let gate: Promise<void> | null = null
 // When set, the next user_avatars prune waits on it, after it chose what to keep.
@@ -115,6 +116,21 @@ function collection(name: string) {
     }
   }
 
+  if (name === 'teams') {
+    return {
+      findOne: (filter: Doc) => {
+        const doc = teamsById.get(String(filter._id))
+
+        return Promise.resolve(doc && matches(doc, filter) ? doc : null)
+      },
+      findOneAndUpdate: (filter: Doc, update: { $set: Doc }) => {
+        const doc = teamsById.get(String(filter._id))
+
+        return Promise.resolve(doc && matches(doc, filter) ? Object.assign(doc, update.$set) : null)
+      },
+    }
+  }
+
   if (name === 'account_deletion_requests') {
     return {
       findOne: (filter: Doc) =>
@@ -160,6 +176,7 @@ beforeEach(() => {
   ])
   avatars = []
   agentTokens = []
+  teamsById = new Map()
   gate = null
   pruneGate = null
   pruneWaiting = false
@@ -415,4 +432,33 @@ test("an agent token's photo is served only while it is the token's avatar", asy
   // A personal token has no avatar of its own to serve.
   agentTokens = [{ _id: tokenId, kind: 'personal', avatarUrl: url }]
   expect((await app.request(pathOf(url))).status).toBe(404)
+})
+
+test("a team's icon is served while it is the team's avatar and stops once removed", async () => {
+  const teamId = new ObjectId()
+  const id = teamId.toHexString()
+
+  teamsById.set(id, {
+    _id: teamId,
+    name: 'Acme',
+    avatarUrl: 'https://example.com/old.png',
+    ownerID: userId,
+    createdAt: new Date(),
+  })
+  const first = (await setTeamAvatar(id, png(64, 64))).avatarUrl ?? ''
+
+  expect(trustedAvatarURL(first)).toBe(first)
+  expect((await app.request(pathOf(first))).status).toBe(200)
+  const second = (await setTeamAvatar(id, png(32, 32))).avatarUrl ?? ''
+
+  expect(second).not.toBe(first)
+  expect((await app.request(pathOf(first))).status).toBe(404)
+  expect((await app.request(pathOf(second))).status).toBe(200)
+  expect((await setTeamAvatar(id, null)).avatarUrl).toBe('')
+  expect((await app.request(pathOf(second))).status).toBe(404)
+  // A deleted team's icon is no longer served.
+  const third = (await setTeamAvatar(id, png(16, 16))).avatarUrl ?? ''
+
+  teamsById.get(id)!.deletedAt = new Date()
+  expect((await app.request(pathOf(third))).status).toBe(404)
 })

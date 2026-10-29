@@ -25,4 +25,11 @@ class PushBindingPolicyTest {
         assertFalse(PushBindingPolicy.isReading(true, target.copy(teamId = "other"), target))
         assertFalse(PushBindingPolicy.isReading(true, target.copy(accountId = "other"), target))
     }
+
+    @Test fun savedConsentRestoresOnlyForTheLoginItWasRecordedWith() {
+        assertTrue(PushBindingPolicy.restoresConsent(true, "hash", "hash"))
+        assertFalse(PushBindingPolicy.restoresConsent(false, "hash", "hash"))
+        assertFalse(PushBindingPolicy.restoresConsent(true, "hash", "other"))
+        assertFalse(PushBindingPolicy.restoresConsent(true, null, null))
+    }
 }

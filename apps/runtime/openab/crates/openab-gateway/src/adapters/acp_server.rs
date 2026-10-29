@@ -427,11 +427,13 @@ fn trace_frame(s: &str) -> std::borrow::Cow<'_, str> {
         .and_then(|v| {
             v["method"]
                 .as_str()
-                .map(|m| m.starts_with("_openab/runtime/terminal/"))
+                .map(|m| m.starts_with("_openab/runtime/terminal/") || m == "_openab/runtime/job")
         })
         .unwrap_or(false)
     {
-        return std::borrow::Cow::Borrowed("[runtime terminal frame redacted]");
+        // Terminal input and job stdin can carry secrets (a secure input card's value
+        // rides an attachment job's stdin), so neither is ever traced.
+        return std::borrow::Cow::Borrowed("[runtime terminal or job frame redacted]");
     }
     const CAP: usize = 512;
     let total = s.chars().count();
@@ -440,6 +442,16 @@ fn trace_frame(s: &str) -> std::borrow::Cow<'_, str> {
     }
     let end = s.char_indices().nth(CAP).map_or(s.len(), |(i, _)| i);
     std::borrow::Cow::Owned(format!("{}…(+{} chars)", &s[..end], total - CAP))
+}
+
+/// The receipt is the sender's words, the steer's last text part. Text ahead of
+/// it (the sender's attribution header, file descriptions) is for the agent only.
+fn steering_receipt_text(prompt: &[Value]) -> &str {
+    prompt
+        .iter()
+        .rev()
+        .find_map(|part| part["text"].as_str())
+        .unwrap_or_default()
 }
 
 /// A steer carries text plus references to files the host already placed on the
@@ -2910,11 +2922,7 @@ async fn handle_acp_connection(
                                                 },
                                             );
                                             if let Some((session_id, output)) = route {
-                                                let text = prompt
-                                                    .iter()
-                                                    .filter_map(|part| part["text"].as_str())
-                                                    .collect::<Vec<_>>()
-                                                    .join("\n");
+                                                let text = steering_receipt_text(prompt);
                                                 let _ = output.send(json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session_id,"update":{"sessionUpdate":"steering_message","id":message_id,"text":text}}}).to_string());
                                             }
                                         }
@@ -7957,6 +7965,19 @@ mod acp_ws_integration {
     }
 
     #[test]
+    fn steering_receipt_is_the_last_text_part() {
+        let header =
+            json!({"type":"text","text":"<nuphos_message_metadata>{}</nuphos_message_metadata>"});
+        let link = json!({"type":"resource_link","uri":"file:///tmp/a.png","name":"a.png"});
+        let words = json!({"type":"text","text":"Focus on tests"});
+        assert_eq!(
+            steering_receipt_text(&[header, link, words.clone()]),
+            "Focus on tests"
+        );
+        assert_eq!(steering_receipt_text(&[words]), "Focus on tests");
+    }
+
+    #[test]
     fn steering_accepts_text_and_native_file_references_only() {
         let link = json!({"type":"resource_link","uri":"file:///tmp/shot.png","name":"shot.png"});
         let text = json!({"type":"text","text":"Look at this"});
@@ -8591,6 +8612,14 @@ mod acp_ws_integration {
         send(&mut ordinary, request.clone()).await;
         assert_eq!(recv(&mut ordinary).await["error"]["code"], -32003);
         assert!(!trace_frame(&request.to_string()).contains("secret-password"));
+    }
+
+    #[test]
+    fn runtime_job_frames_are_never_traced() {
+        let stdin = r#"{"files":[{"url":"data:application/octet-stream;base64,c2stc2VjcmV0"}]}"#;
+        let request = json!({"jsonrpc":"2.0","id":3,"method":"_openab/runtime/job","params":{"job":"attachments","stdin":stdin}});
+        let frame = request.to_string();
+        assert!(!trace_frame(&frame).contains("c2stc2VjcmV0"));
     }
 
     #[cfg(unix)]

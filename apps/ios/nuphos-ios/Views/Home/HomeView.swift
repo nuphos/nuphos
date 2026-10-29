@@ -109,25 +109,30 @@ struct HomeView: View {
             }
             #endif
         } detail: {
-            if let openChat {
-                ConversationView(session: openChat.session, initialPrompt: openChat.prompt)
-                    .id(openChat.id)
-                    // Compact pops back to the list's composer; wide has
-                    // no back, so this returns the column to it.
-                    .toolbar {
-                        if sizeClass == .regular {
-                            ToolbarItem(placement: .topBarLeading) {
-                                Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
+            // One stable root. Collapsed, swapping the column's root between
+            // these views made a reopened chat appear and vanish at once: its
+            // tasks were cancelled while it stayed on screen, never loading.
+            ZStack {
+                if let openChat {
+                    ConversationView(session: openChat.session, initialPrompt: openChat.prompt)
+                        .id(openChat.id)
+                        // Compact pops back to the list's composer; wide has
+                        // no back, so this returns the column to it.
+                        .toolbar {
+                            if sizeClass == .regular {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
+                                }
                             }
                         }
-                    }
-            } else if page == .agent, store != nil, sizeClass == .regular {
-                Theme.chatCanvas.ignoresSafeArea()
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        NewChatComposer(openChat: $openChat).readableWidth()
-                    }
-            } else {
-                Theme.canvas.ignoresSafeArea()
+                } else if page == .agent, store != nil, sizeClass == .regular {
+                    Theme.chatCanvas.ignoresSafeArea()
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            NewChatComposer(openChat: $openChat).readableWidth()
+                        }
+                } else {
+                    Theme.canvas.ignoresSafeArea()
+                }
             }
         }
         // On the split view itself, so the detail column and pushed

@@ -44,14 +44,16 @@ export abstract class OpenAbAcpLifecycle {
     return this.call('_openab/runtime/job', request, {}, callTimeoutMs)
   }
 
+  /** `lead` goes ahead of the attachments and text, as in a prompt: the sender's attribution. */
   steerSession(
     sessionId: string,
     text: string,
     messageId: string,
     attachments: PromptAttachment[] = [],
+    lead = '',
   ): Promise<Record<string, unknown>> {
     return this.call('_openab/session/steer', {
-      ...attachmentPrompt(sessionId, text, attachments, {}),
+      ...attachmentPrompt(sessionId, text, attachments, {}, lead),
       messageId,
     })
   }

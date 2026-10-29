@@ -1,4 +1,4 @@
-import { usable } from '../../../lib/agentName.ts'
+import { listedAgents, unavailable } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
@@ -10,11 +10,13 @@ export type SelectorBox = {
   label: string
   device?: AgentDevice
   agents: RuntimeInstance[]
+  /** Why none of its runtimes can be picked: shown greyed out with this. */
+  unavailable: ReturnType<typeof unavailable>
 }
 
 /**
- * Only runtimes that can take a turn now, grouped by device id (never display name). A computer
- * that is offline, or whose runtimes all need a sign-in, is left out.
+ * Listed runtimes, grouped by device id (never display name). A computer offers only the runtimes
+ * that can take a turn; with none, it is unavailable for the first one's reason and goes last.
  */
 export function selectorBoxes(
   agents: RuntimeInstance[],
@@ -22,10 +24,9 @@ export function selectorBoxes(
   quotas?: ReadonlyMap<string, RuntimeQuota>,
 ): SelectorBox[] {
   const groups = new Map<string, SelectorBox>()
-  const ready = (agent: RuntimeInstance) =>
-    usable(agent) && agent.local?.online !== false && !quotaSignedOut(quotas?.get(agent.id))
+  const listed = listedAgents(agents).filter((agent) => !quotaSignedOut(quotas?.get(agent.id)))
 
-  for (const agent of agents.filter(ready)) {
+  for (const agent of listed) {
     const deviceId = agent.local?.deviceId
     const id = deviceId
       ? `device:${deviceId}`
@@ -43,13 +44,23 @@ export function selectorBoxes(
         label:
           device?.label ?? agent.local?.deviceLabel ?? (id === 'cloud' ? 'Cloud' : agent.label),
         agents: [],
+        unavailable: null,
       }
       groups.set(id, group)
     }
     group.agents.push(agent)
   }
 
-  return [...groups.values()]
+  for (const group of groups.values()) {
+    const ready = group.agents.filter((agent) => !unavailable(agent))
+
+    if (ready.length) group.agents = ready
+    else group.unavailable = group.agents[0] ? unavailable(group.agents[0]) : null
+  }
+
+  return [...groups.values()].sort(
+    (a, b) => Number(a.unavailable !== null) - Number(b.unavailable !== null),
+  )
 }
 
 export type SelectorMetrics = NonNullable<ReturnType<typeof selectorMetrics>>

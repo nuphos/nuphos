@@ -101,7 +101,7 @@ export type ChatStreamState = {
   usedFreshStartFallback: boolean
   freshRetryAttempts: number
   initialGatewayRetryAttempts: number
-  toolExecutionMayHaveStarted: boolean
+  turnRan: boolean
   // The server's stored message count from a 409 transcript_out_of_sync
   // rejection. When set, the next attempt claims this as its baseIndex
   // ("rebase onto the server's count") instead of the local arithmetic —
@@ -139,10 +139,10 @@ export function createChatStreamState(resumeFrom: number): ChatStreamState {
     usedFreshStartFallback: false,
     freshRetryAttempts: 0,
     initialGatewayRetryAttempts: 0,
-    // Sticky for this user turn. A later transport/model failure must never
-    // restart the full request after a tool may have begun: that would replay
-    // trigger/provider writes even if the failed response never reached us.
-    toolExecutionMayHaveStarted: false,
+    // Sticky for this user turn. Once the agent has produced output, a later
+    // failure must never restart the full request: that would run the turn
+    // again, repeating its answer and any tool writes.
+    turnRan: false,
     rebaseBaseIndex: undefined,
   }
 }

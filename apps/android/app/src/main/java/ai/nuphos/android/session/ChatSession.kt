@@ -628,6 +628,8 @@ class ChatSession(
         data class Completed(val sawTurnComplete: Boolean, val paused: Paused?) : TurnResult()
         data class Failed(val message: String, val definiteRejection: Boolean = false) : TurnResult()
         data object Aborted : TurnResult()
+        /** The server holds the message in the session queue; the idle poll follows its turn. */
+        data object Queued : TurnResult()
     }
 
     private data class Paused(val reason: String, val detail: JsonValue?) {
@@ -650,6 +652,10 @@ class ChatSession(
                 if (!hasAiAccess) return@launch
                 when (result) {
                     TurnResult.Aborted -> return@launch
+                    TurnResult.Queued -> {
+                        finishTurn(null)
+                        return@launch
+                    }
                     is TurnResult.Failed -> {
                         finishTurn(result.message, result.definiteRejection)
                         return@launch
@@ -1035,13 +1041,14 @@ class ChatSession(
                 resumeReason = if (firstPost) options.resumeReason else null,
                 permissionMode = options.permissionMode,
                 credentialAccess = credentialAccess?.json,
-                clientCapabilities = mapOf("localTools" to false),
+                clientCapabilities = mapOf("localTools" to false, "serverQueue" to true),
                 runtimeId = if (shouldResume == true) null else outgoingCreationBinding?.runtimeId,
                 agentRuntime = if (shouldResume == true) null else outgoingCreationBinding?.agentRuntime,
                 initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,
             )
             var needsFreshRetry = false
             var terminal = false
+            var queuedByServer = false
             var streamError: Throwable? = null
             try {
                 if (!hasAiAccess) return TurnResult.Aborted
@@ -1060,6 +1067,8 @@ class ChatSession(
                         if (type == "error") {
                             val code = frame["errorCode"]?.stringValue
                             if (code == "stream_unresumable" && sawTurnComplete) return@collect
+                            // Another turn took the runtime mid-start; the server put the message back at the head of the queue.
+                            if (code == "message_queued") { queuedByServer = true; throw Terminal() }
                             lastErrorText = frame["errorText"]?.stringValue ?: "The agent hit an error."
                             needsFreshRetry = true
                             return@collect
@@ -1093,6 +1102,7 @@ class ChatSession(
             }
             val err = streamError
             if (err is CancellationException) return TurnResult.Aborted
+            if (queuedByServer || err is SseClient.Failure.Queued) return TurnResult.Queued
             if (err is SseClient.Failure.BadStatus) {
                 if (pendingSubmission != null && !accepted && err.code >= 500) return TurnResult.Failed("Message delivery is unconfirmed. Resume the original connection.")
                 val conflict = AgentChatApi.conflict(err.code, err.body)

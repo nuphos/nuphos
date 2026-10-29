@@ -3,7 +3,7 @@ import 'react-grid-layout/css/styles.css'
 import ReactGridLayout, { useContainerWidth } from 'react-grid-layout'
 
 import { DelayedPanelReveal } from './homeAnimation'
-import { GRID_COLUMNS, gridFor } from './homeWidgetSettings'
+import { GRID_COLUMNS, gridFor, minCardSize } from './homeWidgetSettings'
 
 import type { HomeGridItem } from '../../../types/team.ts'
 import type { ReactElement } from 'react'
@@ -34,7 +34,7 @@ export function HomeGrid({
   const layout = gridFor(
     cards.map((card) => String(card.key)),
     saved,
-  )
+  ).map((item) => ({ ...item, ...minCardSize(item.i) }))
 
   return (
     <div ref={containerRef}>

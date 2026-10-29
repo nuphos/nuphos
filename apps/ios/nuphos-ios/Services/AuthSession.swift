@@ -31,7 +31,7 @@ final class AuthSession {
     private(set) var aiConsentVersion: String?
     private(set) var aiConsentError: String?
 
-    private static let tokenKey = "session-token"
+    static let tokenKey = "session-token"
     private let presentationContext = WebAuthPresentationContext()
     private var webSession: ASWebAuthenticationSession?
 
@@ -203,6 +203,13 @@ final class AuthSession {
     func updateProfile(name: String, username: String, avatarURL: String) async throws {
         guard let token else { throw NuphosAPI.Failure.unauthorized }
         let user: NuphosUser = try await AccountAPI.request("me", method: "PATCH", token: token, body: ["name": name, "username": username, "avatarURL": avatarURL])
+        state = .signedIn(user)
+    }
+
+    /// Uploads a profile photo, or removes it with `nil`.
+    func setAvatar(_ image: Data?) async throws {
+        guard let token else { throw NuphosAPI.Failure.unauthorized }
+        let user: NuphosUser = try await AccountAPI.request("me/avatar", method: image == nil ? "DELETE" : "PUT", token: token, upload: image)
         state = .signedIn(user)
     }
 

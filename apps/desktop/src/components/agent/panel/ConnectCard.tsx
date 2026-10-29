@@ -11,10 +11,12 @@ import {
   newConnectIds,
   parseChoiceRequest,
   parseConnectRequest,
+  parseSecretRequest,
   withConnectIds,
 } from './connectCardModel'
 import { ConnectHeader, ConnectRow, ContinueFooter } from './ConnectCardRows'
 import { allCredentialAccess, normalizeCredentialOptions } from './credentialAccess'
+import { SecretCard } from './SecretCard'
 import { ToolPartView } from './ToolPartView'
 
 import type { ConnectPhase, ConnectProvider, ConnectRowStatus } from './connectCardModel'
@@ -180,7 +182,7 @@ export function ConnectCard({
   )
 }
 
-/** A user decision: a Connect card when it lists `providers`, else its question card; the plain tool row until the input parses. */
+/** A user decision: a Connect card when it lists `providers`, a secure input card when it names a `secretName`, else its question card; the plain tool row until the input parses. */
 export function DecisionToolPart({
   part,
   now,
@@ -194,7 +196,8 @@ export function DecisionToolPart({
 }) {
   const failed = part.state === 'output-error'
   const connect = failed ? null : parseConnectRequest(part.input)
-  const choice = failed || connect ? null : parseChoiceRequest(part.input)
+  const secret = failed || connect ? null : parseSecretRequest(part.input)
+  const choice = failed || connect || secret ? null : parseChoiceRequest(part.input)
 
   if (connect) {
     return (
@@ -206,6 +209,7 @@ export function DecisionToolPart({
       />
     )
   }
+  if (secret) return <SecretCard {...secret} canAct={canAct} />
   if (choice) return <ChoiceCard {...choice} canAct={canAct} />
 
   return <ToolPartView part={part} now={now} />

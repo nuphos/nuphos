@@ -557,6 +557,12 @@
     flex-shrink: 0;
     opacity: 0.95;
   }
+  .atlas-mention-avatar {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    opacity: 1;
+  }
   .atlas-mention-label {
     display: inline-block;
     max-width: 24ch;

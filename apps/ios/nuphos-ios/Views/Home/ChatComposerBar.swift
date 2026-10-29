@@ -240,6 +240,17 @@ struct ChatComposerBar<Controls: View>: View {
             // scroll or select in; empty, a pull down on it closes too.
             .simultaneousGesture(pullDown, isEnabled: !hasText)
             .onSubmit(send)
+            // A vertical field types the return key as a newline and never submits,
+            // under a key labelled Send. One typed newline sends instead; pasted
+            // text keeps its lines.
+            .onChange(of: text) { old, new in
+                guard new.count == old.count + 1 else { return }
+                let index = new.index(new.startIndex, offsetBy: zip(old, new).prefix { $0 == $1 }.count)
+                var stripped = new
+                guard stripped.remove(at: index).isNewline, stripped == old else { return }
+                text = stripped
+                send()
+            }
             #if canImport(UIKit)
             .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { note in
                 guard allowsAttachments, let textView = note.object as? UITextView else { return }

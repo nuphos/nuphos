@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { CornerDownLeft, MessageSquare } from 'lucide-react'
+import { CornerDownLeft } from 'lucide-react'
 
 import { linkClickMode } from '../../lib/linkClickMode'
 import { isMac } from '../../lib/platform'
@@ -31,6 +31,7 @@ export function SearchResultRow({
   query,
   selected,
   avatar,
+  action,
   onSelect,
   onOpen,
 }: {
@@ -40,7 +41,9 @@ export function SearchResultRow({
   preview?: string
   query: string
   selected: boolean
-  avatar?: ReactNode
+  avatar: ReactNode
+  /** What Enter does, shown on the selected row. */
+  action: string
   onSelect: () => void
   onOpen: (beside: boolean) => void
 }) {
@@ -61,7 +64,7 @@ export function SearchResultRow({
         selected ? 'bg-zGray-750' : 'hover:bg-zGray-800',
       )}
     >
-      {avatar ?? <MessageSquare size={16} className="shrink-0 text-secondary" />}
+      {avatar}
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium text-main">
           <Highlight text={title} query={query} />
@@ -75,7 +78,7 @@ export function SearchResultRow({
       </div>
       {selected && (
         <span className="flex shrink-0 items-center gap-2 text-xs text-secondary">
-          <span className="hidden sm:inline">{avatar ? 'View agents' : 'Open'}</span>
+          <span className="hidden sm:inline">{action}</span>
           <CornerDownLeft size={15} />
         </span>
       )}

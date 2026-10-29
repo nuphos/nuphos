@@ -101,6 +101,8 @@ export const agentChannels = {
     agent.retractMessage(sessionId, messageId, teamId),
   'agent:steerConversation': (_e: unknown, ...args: Parameters<typeof agent.steerConversation>) =>
     agent.steerConversation(...args),
+  'agent:saveSecret': (_e: unknown, ...args: Parameters<typeof agent.saveConversationSecret>) =>
+    agent.saveConversationSecret(...args),
   'agent:listQueue': (_e: unknown, ...args: Parameters<typeof agent.listConversationQueue>) =>
     agent.listConversationQueue(...args),
   'agent:unqueueMessage': (_e: unknown, ...args: Parameters<typeof agent.unqueueMessage>) =>

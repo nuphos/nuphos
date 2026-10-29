@@ -2,8 +2,9 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
+import { trustedAvatarURL } from '../../lib/avatarUrl'
 
-import { ProfilePhoto } from './ProfilePhoto'
+import { AvatarPicker } from './AvatarPicker'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
@@ -57,7 +58,12 @@ export function ProfileSection({
         description="Your account, shared across every team you belong to."
       />
       <form onSubmit={(event) => void save(event)} className="space-y-5">
-        <ProfilePhoto user={user} displayName={name || username} onUserUpdated={onUserUpdated} />
+        <AvatarPicker
+          src={trustedAvatarURL(user.avatarURL)}
+          name={name || username}
+          onUpload={async (image) => onUserUpdated(await api.authUploadAvatar(image))}
+          onRemove={async () => onUserUpdated(await api.authRemoveAvatar())}
+        />
         <fieldset disabled={saving} className="space-y-4">
           <Field label="Name">
             <input

@@ -3,6 +3,7 @@ import Foundation
 enum SSEClientTests {
     static func run() {
         closesARejectedResponse()
+        readsAQueuedReply()
         print("SSE client passed")
     }
 
@@ -28,7 +29,43 @@ enum SSEClientTests {
         override func stopLoading() { HeldOpen.stopped = true }
     }
 
+    /// The server's reply to a message it queued behind another turn.
+    final class Queued: URLProtocol {
+        override class func canInit(with request: URLRequest) -> Bool { true }
+        override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+        override func startLoading() {
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 202, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data(#"{"status":"queued","streamId":"s"}"#.utf8))
+            client?.urlProtocolDidFinishLoading(self)
+        }
+
+        override func stopLoading() {}
+    }
+
     private final class Box: @unchecked Sendable { var error: Error? }
+
+    /// A queued message is not a failure: reading the 202 as a broken stream
+    /// is what made the app retry, or give up on, a message the server held.
+    private static func readsAQueuedReply() {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [Queued.self]
+        let request = URLRequest(url: URL(string: "https://example.invalid/sse")!)
+        let done = DispatchSemaphore(value: 0)
+        let box = Box()
+        Task.detached {
+            do { for try await _ in SSEClient.events(for: request, configuration: configuration) {} } catch { box.error = error }
+            done.signal()
+        }
+        precondition(done.wait(timeout: .now() + 5) == .success, "the reader must finish")
+        guard case SSEClient.Failure.queued? = box.error else {
+            preconditionFailure("expected queued, got \(String(describing: box.error))")
+        }
+    }
 
     /// A response rejected before its body is read must close the connection
     /// with it, not leave it filling a buffer nobody reads.

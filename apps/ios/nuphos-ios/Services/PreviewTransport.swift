@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import OSLog
 
 /// Opt-in simulator fixtures; never compiled into a release build.
 nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
@@ -11,6 +12,8 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         let file = env["NUPHOS_PREVIEW_RESPONSES"] ?? UserDefaults.standard.string(forKey: "previewResponses") ?? ""
         let responses = (try? Data(contentsOf: URL(fileURLWithPath: file))).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
         let key = "\(request.httpMethod ?? "GET") \(url.path)"
+        // Simulator regression scripts read this to see which requests ran.
+        Logger(subsystem: "ai.nuphos.ios", category: "preview").notice("preview_request \(key, privacy: .public)")
         let entry = responses[key] as? [String: Any]
         let status = entry?["status"] as? Int ?? 404
         let body = entry?["body"] ?? ["error": ["message": "No preview response for \(key)"]]

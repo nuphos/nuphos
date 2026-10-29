@@ -1,4 +1,10 @@
+#if os(iOS)
 import ActivityKit
+typealias TurnActivityBase = ActivityAttributes
+#else
+// The macOS test build has no ActivityKit; the card's own logic still compiles.
+protocol TurnActivityBase: Codable {}
+#endif
 import Foundation
 
 /// The app's one Live Activity: the conversations whose turns run, on the Lock
@@ -6,13 +12,15 @@ import Foundation
 /// adds later ones to it; the backend's `liveactivity` pushes keep each row on
 /// the runtime's own status and end it once nothing runs
 /// (`apps/backend/src/lib/push/live-activities.ts`).
-nonisolated struct TurnActivityAttributes: ActivityAttributes {
+nonisolated struct TurnActivityAttributes: TurnActivityBase {
     /// Matches the backend's `LiveActivityPhase`.
     enum Phase: String, Codable, Hashable, Sendable {
         case running, approval, done, stopped, unavailable
 
         /// Still needs the card: running, or waiting for approval.
         var isActive: Bool { self == .running || self == .approval }
+        /// Nothing more will happen on this row. An unavailable runtime may come back.
+        var isFinished: Bool { self == .done || self == .stopped }
     }
 
     struct Session: Codable, Hashable, Sendable, Identifiable {
@@ -32,6 +40,10 @@ nonisolated struct TurnActivityAttributes: ActivityAttributes {
         var active: Int
 
         static let rows = 3
+
+        /// Every row finished, so the card can show its check. With rows past
+        /// the shown ones it cannot tell, so it does not claim it.
+        var finished: Bool { more == 0 && sessions.allSatisfy(\.phase.isFinished) }
 
         /// Moves `session` to the top, as the backend orders it.
         mutating func put(_ session: Session) {

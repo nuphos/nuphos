@@ -175,7 +175,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
         await send(
           devices,
           {
-            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId },
+            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId, category: 'REPLY' },
             sessionId: run.sessionId,
             ...(teamId ? { teamId } : {}),
           },

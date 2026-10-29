@@ -5,15 +5,34 @@ import UniformTypeIdentifiers
 /// Normalize picker formats and EXIF orientation without shrinking text or screenshots.
 enum ImageAttachment {
     static func jpeg(from data: Data, quality: Double = 0.95) -> Data? {
+        guard let image = image(from: data) else { return nil }
+        return encode(image, quality: quality)
+    }
+
+    /// A profile photo: the centered square of a picked image, at most 1024px.
+    /// The backend re-encodes it to a 256px WebP.
+    static func avatar(from data: Data) -> Data? {
+        guard let image = image(from: data, maxPixelSize: 1024) else { return nil }
+        let side = min(image.width, image.height)
+        let square = CGRect(x: (image.width - side) / 2, y: (image.height - side) / 2, width: side, height: side)
+        guard let cropped = image.cropping(to: square) else { return nil }
+        return encode(cropped, quality: 0.9)
+    }
+
+    /// The upright image, scaled down to `maxPixelSize` when given.
+    private static func image(from data: Data, maxPixelSize: Int? = nil) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
-              let height = properties[kCGImagePropertyPixelHeight] as? Int,
-              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: max(width, height),
-              ] as CFDictionary) else { return nil }
+              let height = properties[kCGImagePropertyPixelHeight] as? Int else { return nil }
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: min(max(width, height), maxPixelSize ?? .max),
+        ] as CFDictionary)
+    }
+
+    private static func encode(_ image: CGImage, quality: Double) -> Data? {
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
         CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)

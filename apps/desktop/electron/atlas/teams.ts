@@ -123,11 +123,15 @@ export async function putHomeLayout(
   )
 }
 
-export async function updateTeam(
-  teamId: string,
-  input: { name?: string; avatarUrl?: string },
-): Promise<Team> {
+export async function updateTeam(teamId: string, input: { name: string }): Promise<Team> {
   return call<Team>('PATCH', `/teams/${teamId}`, input, { retry: false })
+}
+
+/** Uploads an already-cropped icon (the backend re-encodes it), or removes it with `null`. */
+export async function setTeamAvatar(teamId: string, image: Uint8Array | null): Promise<Team> {
+  return image
+    ? call<Team>('PUT', `/teams/${teamId}/avatar`, image, { retry: false })
+    : call<Team>('DELETE', `/teams/${teamId}/avatar`, undefined, { retry: false })
 }
 
 // Enables/disables workspace discovery for the acting admin's own email

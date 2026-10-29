@@ -1709,6 +1709,30 @@ test('steering forwards attachments as native resource links', async () => {
   client.close()
 })
 
+test('steering carries its attribution ahead of the words, like a prompt', async () => {
+  const h = harness()
+  const client = await OpenAbAcpClient.connect({
+    url: 'ws://runtime.invalid/acp',
+    authKey: 'operator',
+    socketFactory: h.connect,
+  })
+  const header = '<nuphos_message_metadata>{}</nuphos_message_metadata>'
+  const pending = client.steerSession('session', 'Approved', 'receipt', [], header)
+  const frame = await nextSent(h.socket(), 0)
+
+  expect(frame.params).toEqual({
+    sessionId: 'session',
+    prompt: [
+      { type: 'text', text: header },
+      { type: 'text', text: 'Approved' },
+    ],
+    messageId: 'receipt',
+  })
+  h.socket().receive({ jsonrpc: '2.0', id: frame.id, result: { outcome: 'injected' } })
+  expect(await pending).toEqual({ outcome: 'injected' })
+  client.close()
+})
+
 test('sends native local file references alongside text to a fresh runtime session', async () => {
   const h = harness()
   const client = await OpenAbAcpClient.connect({

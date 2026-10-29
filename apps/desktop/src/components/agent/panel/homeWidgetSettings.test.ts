@@ -122,6 +122,21 @@ test('gridFor puts a new card beside a half-width one rather than below it', () 
   assert.deepEqual(grid[2], { i: 'gh:ci', x: 6, y: 8, w: 6, h: 7 })
 })
 
+test('gridFor grows a saved card that was resized below its minimum', () => {
+  const grid = gridFor(
+    ['team', 'gh:prs'],
+    [
+      { i: 'team', x: 0, y: 0, w: 12, h: 1 },
+      { i: 'gh:prs', x: 0, y: 1, w: 1, h: 1 },
+    ],
+  )
+
+  assert.deepEqual(grid, [
+    { i: 'team', x: 0, y: 0, w: 12, h: 4 },
+    { i: 'gh:prs', x: 0, y: 1, w: 3, h: 3 },
+  ])
+})
+
 test('a layout that failed to load is not editable', () => {
   assert.equal(editableLayout(null), null)
   assert.deepEqual(editableLayout({ personal: null, team: null }), {
