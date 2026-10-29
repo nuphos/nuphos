@@ -54,9 +54,6 @@ function harness() {
         },
         handleTool: () => {},
         toolSteps: () => [],
-        reportError: () => {
-          calls.push('error')
-        },
       }
     },
     authorize: (args) => {
@@ -97,7 +94,7 @@ describe('autonomous turn permission routing', () => {
 })
 
 describe('autonomous turn interruption', () => {
-  test('reports the error before the turn is finished', async () => {
+  test('reports the interruption before the turn is finished', async () => {
     const h = harness()
 
     await h.handler.update({ ...context, update: { kind: 'text', text: 'Writing the note…' } })
@@ -106,9 +103,42 @@ describe('autonomous turn interruption', () => {
       update: { kind: 'interrupted', reason: 'connection_closed' },
     })
 
-    // `reportError` appends the error frame; `finish` writes the terminal ones.
-    // Reversed, the client would see a completed turn with an error after it.
-    expect(h.calls).toEqual(['emit', 'error', 'finish'])
+    // The notice goes out before `finish` writes the terminal frames. Reversed,
+    // the client would see a completed turn with an error after it.
+    expect(h.calls).toEqual(['emit', 'emit', 'finish'])
+    expect(h.frames[1]).toMatchObject({
+      type: 'turn-interrupted',
+      reason: 'error',
+      message: 'The agent stopped before it finished. Send a message to continue.',
+    })
+  })
+
+  test('a CLI that died between turns gets its own notice, in the transcript', async () => {
+    const before = persistedIds.length
+    const h = harness()
+    const message = 'Claude Code ran out of memory. Send a message to continue.'
+
+    persist = async () => true
+    await h.handler.update({
+      ...context,
+      update: { kind: 'interrupted', reason: 'connection_closed', message },
+    })
+    await Promise.resolve()
+
+    expect(h.begins).toHaveLength(1)
+    expect(h.frames).toEqual([expect.objectContaining({ type: 'turn-interrupted', message })])
+    expect(h.calls).toEqual(['emit', 'finish'])
+    expect(persistedIds.slice(before)).toEqual(h.messageIds)
+  })
+
+  test('an interruption without a cause and no open turn stays silent', async () => {
+    const h = harness()
+
+    await h.handler.update({
+      ...context,
+      update: { kind: 'interrupted', reason: 'runtime_interrupted' },
+    })
+    expect(h.begins).toHaveLength(0)
   })
 
   test('a normal completion finishes without an error', async () => {
@@ -209,5 +239,5 @@ test('a placeholder cannot hide an autonomous runtime interruption', async () =>
     ...context,
     update: { kind: 'interrupted', reason: 'connection_closed' },
   })
-  expect(h.calls).toEqual(['emit', 'error', 'finish'])
+  expect(h.calls).toEqual(['emit', 'emit', 'finish'])
 })

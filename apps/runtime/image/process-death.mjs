@@ -49,7 +49,20 @@ function nuphosMemoryLimit(cgroup) {
 const nuphosCgroup = nuphosOwnCgroup()
 const nuphosOomKillsAtStart = nuphosOomKills(nuphosCgroup)
 
-export function nuphosProcessDeathMessage(
+/**
+ * Called once, as the adapter gives up on its dead CLI. The message also goes to
+ * stderr under a prefix OpenAB reads, so an interruption with no turn in flight
+ * (only background work running) still names its cause.
+ */
+export function nuphosProcessDeathMessage(agent, reason, cgroup, oomKillsBefore) {
+  const message = nuphosDescribeProcessDeath(agent, reason, cgroup, oomKillsBefore)
+
+  process.stderr.write(`nuphos-process-death: ${message}\n`)
+
+  return message
+}
+
+function nuphosDescribeProcessDeath(
   agent,
   reason,
   cgroup = nuphosCgroup,

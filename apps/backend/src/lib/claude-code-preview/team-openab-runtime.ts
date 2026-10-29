@@ -7,7 +7,7 @@ import {
   supportsRuntimeAuthority,
 } from './openab-acp-session'
 
-import type { AcpHttpMcpServer, OpenAbAcpClient } from './openab-acp-client'
+import type { AcpHttpMcpServer, OpenAbAcpClient, OpenAbSessionUpdate } from './openab-acp-client'
 import type { OpenAbSessionRuntime } from './openab-acp-session'
 import type { OpenAbProvider } from './runtime-provider'
 
@@ -87,6 +87,30 @@ export type TeamSession = {
   /** Outcome of the latest background re-attach; true once the session is back on the air. */
   reattached?: Promise<boolean>
   activeTurn?: { cancelled: boolean; client?: TeamPreviewClient }
+}
+
+/**
+ * Ends the autonomous transcript on a terminal update; false when there is
+ * nothing to end. A CLI that died between turns took its background work with
+ * it, so its cause is still delivered with no transcript open — but not during
+ * a prompt, which reports its own failure, nor right after an interruption
+ * closed the transcript (clearing runtimeThreadStatus), which already said so.
+ */
+export function closeAutonomousTranscript(
+  session: TeamSession,
+  update: OpenAbSessionUpdate,
+): boolean {
+  const diedBetweenTurns =
+    update.kind === 'interrupted' &&
+    update.message !== undefined &&
+    !session.activeTurn &&
+    session.runtimeThreadStatus !== undefined
+
+  if (!session.autonomousTranscriptOpen && !diedBetweenTurns) return false
+  session.autonomousTranscriptOpen = false
+  session.runtimeThreadStatus = update.kind === 'complete' ? 'idle' : undefined
+
+  return true
 }
 
 const SAFE_CONVERSATION_ID = /^[A-Za-z0-9_-]+$/

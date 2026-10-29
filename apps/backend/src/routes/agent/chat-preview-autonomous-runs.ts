@@ -11,9 +11,7 @@ import { createClaudeCodeAutonomousUpdateHandler } from './chat-preview-autonomo
 import { registerBackgroundToolPersistence } from './chat-preview-background-tools'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
 import { consumePreviewToolPresentation, handlePreviewToolUpdate } from './chat-preview-tool-update'
-import { appendAgentRunError } from './run-frames'
 import { createAgentRun, registerAgentRun } from './run-registry'
-import { traceAgentChatError } from './trace'
 
 import type { ClaudeCodeAutonomousContext } from '@/lib/claude-code-preview/agent-chat-runtime'
 
@@ -50,11 +48,6 @@ export const autonomous = createClaudeCodeAutonomousUpdateHandler({
         handlePreviewToolUpdate(state.emit, tools, toolUpdate)
       },
       toolSteps: tools.list,
-      reportError: (error: unknown) => {
-        traceAgentChatError('agent.chat.preview_autonomous_persist.error', error, run.trace, {})
-        // Put persistence/runtime failures on the stream before it closes.
-        appendAgentRunError(run, error)
-      },
     }
   },
 })
