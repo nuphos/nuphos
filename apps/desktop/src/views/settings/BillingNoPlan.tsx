@@ -36,63 +36,67 @@ export function PlanCards({
   const fits = planFits(BOX_PLANS, current, needs)
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {BOX_PLANS.map((plan, index) => {
-        const { state, recommended } = fits[index] ?? { state: 'fits', recommended: false }
+    <div className="@container">
+      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-3">
+        {BOX_PLANS.map((plan, index) => {
+          const { state, recommended } = fits[index] ?? { state: 'fits', recommended: false }
 
-        return (
-          <section
-            key={plan.vcpus}
-            className={clsx(
-              'flex flex-col gap-3 rounded-[10px] border bg-zGray-850 p-4 text-[13px] transition-opacity',
-              recommended ? 'border-zViolet-500' : 'border-white/[0.09]',
-              state === 'short' && 'opacity-50',
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <h3 className="text-[15px] font-semibold text-main">{plan.name}</h3>
-              {recommended && (
-                <span className="rounded-full bg-zViolet-accent/15 px-2 py-0.5 text-[11px] text-zViolet-accent">
-                  {t('Recommended')}
-                </span>
+          return (
+            <section
+              key={plan.vcpus}
+              className={clsx(
+                'flex flex-col gap-3 rounded-[10px] border bg-zGray-850 p-4 text-[13px] transition-opacity',
+                recommended ? 'border-zViolet-500' : 'border-white/[0.09]',
+                state === 'short' && 'opacity-50',
               )}
-              {state === 'current' && (
-                <span className="rounded-full bg-zGray-800 px-2 py-0.5 text-[11px] text-secondary">
-                  {t('Current plan')}
-                </span>
+            >
+              <div className="flex items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-main">{plan.name}</h3>
+                {recommended && (
+                  <span className="rounded-full bg-zViolet-accent/15 px-2 py-0.5 text-[11px] text-zViolet-accent">
+                    {t('Recommended')}
+                  </span>
+                )}
+                {state === 'current' && (
+                  <span className="rounded-full bg-zGray-800 px-2 py-0.5 text-[11px] text-secondary">
+                    {t('Current plan')}
+                  </span>
+                )}
+              </div>
+              <p className="text-main">
+                <span className="text-[22px] font-semibold">${plan.usdPerMonth}</span>
+                <span className="text-tertiary"> {t('/ month')}</span>
+              </p>
+              <div>
+                <p className="font-medium text-main">
+                  {t('Up to {n} vCPU running', { n: plan.vcpus })}
+                </p>
+                <p className="text-[12px] text-tertiary">{plan.example}</p>
+              </div>
+              <ul className="flex flex-1 flex-col gap-1.5 text-secondary">
+                {plan.perks.map((perk) => (
+                  <li key={perk} className="flex gap-2">
+                    <Check size={14} className="mt-0.5 shrink-0 text-success" />
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+              {billing && state === 'fits' && (
+                <BillingButton billing={billing} vcpus={plan.vcpus} className="justify-center">
+                  {current === null
+                    ? t('Start with {plan}', { plan: plan.name })
+                    : t('Change plan')}
+                </BillingButton>
               )}
-            </div>
-            <p className="text-main">
-              <span className="text-[22px] font-semibold">${plan.usdPerMonth}</span>
-              <span className="text-tertiary"> {t('/ month')}</span>
-            </p>
-            <div>
-              <p className="font-medium text-main">
-                {t('Up to {n} vCPU running', { n: plan.vcpus })}
-              </p>
-              <p className="text-[12px] text-tertiary">{plan.example}</p>
-            </div>
-            <ul className="flex flex-1 flex-col gap-1.5 text-secondary">
-              {plan.perks.map((perk) => (
-                <li key={perk} className="flex gap-2">
-                  <Check size={14} className="mt-0.5 shrink-0 text-success" />
-                  {perk}
-                </li>
-              ))}
-            </ul>
-            {billing && state === 'fits' && (
-              <BillingButton billing={billing} vcpus={plan.vcpus} className="justify-center">
-                {current === null ? t('Start with {plan}', { plan: plan.name }) : t('Change plan')}
-              </BillingButton>
-            )}
-            {billing && state === 'short' && needs !== undefined && (
-              <p className="text-center text-[12px] text-tertiary">
-                {t('Too small for the new computer')}
-              </p>
-            )}
-          </section>
-        )
-      })}
+              {billing && state === 'short' && needs !== undefined && (
+                <p className="text-center text-[12px] text-tertiary">
+                  {t('Too small for the new computer')}
+                </p>
+              )}
+            </section>
+          )
+        })}
+      </div>
     </div>
   )
 }

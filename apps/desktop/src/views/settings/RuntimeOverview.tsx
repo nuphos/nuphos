@@ -84,7 +84,7 @@ export function RuntimeOverview({
     )
   } else {
     body = (
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 @md:grid-cols-4">
         <PanelStat label={t('Reachability')}>
           {runtime.online ? t('Online') : t('Unreachable')}
           {runtime.latencyMs !== undefined && (
@@ -138,7 +138,7 @@ export function RuntimeOverview({
           </div>
         }
       >
-        {body}
+        <div className="@container">{body}</div>
       </SkeletonReveal>
     </div>
   )
@@ -162,9 +162,9 @@ function Note({
 
 export function RuntimeUsageSection({ quota }: { quota?: RuntimeQuota }) {
   return (
-    <section>
+    <section className="@container">
       <PanelHeading title={t('Usage')} />
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 @md:grid-cols-4">
         <QuotaStats quota={quota} />
       </dl>
     </section>

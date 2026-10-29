@@ -77,7 +77,7 @@ export function RuntimeMetricsCharts({ teamId, runtimeId }: { teamId: string; ru
   if (!samples || metrics.length === 0) return null
 
   return (
-    <div className="px-4 py-4">
+    <div className="@container px-4 py-4">
       <PanelHeading
         title={t('Resource usage')}
         hint={first && last ? `${timeLabel(first.at)} – ${timeLabel(last.at)}` : undefined}
@@ -93,7 +93,7 @@ export function RuntimeMetricsCharts({ teamId, runtimeId }: { teamId: string; ru
       {failed ? (
         <p className="text-xs text-error">{t('Could not load resource usage. Retrying…')}</p>
       ) : (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 @md:grid-cols-4">
           {metrics.map((metric) => (
             <MetricChart
               key={metric.key}

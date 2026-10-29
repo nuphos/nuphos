@@ -49,7 +49,7 @@ function PlanCard({
 
   return (
     <section className={CARD}>
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5">
         <h2 className="text-[20px] font-semibold text-main">
           {plan?.name ?? t('{n} vCPU', { n: String(usage.limitVcpus) })}
         </h2>
