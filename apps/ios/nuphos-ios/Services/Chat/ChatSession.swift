@@ -170,6 +170,8 @@ final class ChatSession {
 
     private let token: String
     private var streamTask: Task<Void, Never>?
+    /// The stream only follows a run already going, so nothing is lost by closing it.
+    private var following = false
     private var currentStreamId: String?
     private var transcriptSyncTask: Task<Void, Never>?
     private var lastSyncedSignature = 0
@@ -730,8 +732,21 @@ final class ChatSession {
         var autoResumable: Bool { reason == "model-silence" || reason == "tool-execution-timeout" }
     }
 
+    /// The chat left the screen. Each open builds a new session, so a stream
+    /// left following a run here is never read again; the next open replays
+    /// the run. A turn this device started keeps its stream until it ends.
+    func leave() {
+        guard following else { return }
+        streamTask?.cancel()
+        streamTask = nil
+        // Not attached any more: if this view comes back, its idle poll follows the run again.
+        transportStreaming = false
+        currentStreamId = nil
+    }
+
     private func startTurn(_ options: TurnOptions) {
         streamTask?.cancel()
+        following = options.explicitResume
         cancelBacklogFlush()
         transportStreaming = true
         isStopping = false

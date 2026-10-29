@@ -198,7 +198,12 @@ struct ConversationView: View {
             }
             #endif
         }
-        .task { await session.pollWhileIdle() }
+        // SwiftUI cancels this when the chat leaves the screen; the stream
+        // lives on the session, so close it here.
+        .task {
+            await session.pollWhileIdle()
+            session.leave()
+        }
         // New files land while a turn runs; read them once it settles.
         .task(id: "\(session.isStreaming).\(session.messages.count)") {
             await session.refreshResources()
