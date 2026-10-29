@@ -21,6 +21,7 @@ import {
   runtimeHandoffField as field,
   sessionHandoff,
 } from './runtime-handoff-store'
+import { isOnline } from './session-reattach'
 
 import type { RuntimeHandoff } from './runtime-handoff-store'
 import type { TeamPreviewClient } from './team-openab-runtime'
@@ -29,8 +30,6 @@ export type { RuntimeHandoff } from './runtime-handoff-store'
 
 /** The gateway ignores a resume while the old connection still owns the turn's output. */
 export const HANDOFF_SETTLE_MS = 1_000
-/** Past this the turn has long ended; nothing is left to pick up. */
-export const HANDOFF_TTL_MS = 30 * 60_000
 const ADOPT_INTERVAL_MS = 2_000
 const MAX_ADOPT_ATTEMPTS = 5
 /** Shutdown has seconds to spare; a runtime that cannot answer by then is not waited for. */
@@ -133,6 +132,9 @@ export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHan
     const handoff = parse(raw)
 
     if (handoff && now - handoff.at < HANDOFF_SETTLE_MS) continue
+    // An offline computer is waited for, not tried: the handoff stays as it is,
+    // spends no attempt and logs nothing, and is adopted once the computer is back.
+    if (typeof handoff?.runtimeUrl === 'string' && !(await isOnline(handoff.runtimeUrl))) continue
     const removed = await withRedis((redis) =>
       redis.eval(
         `if redis.call('HGET', KEYS[1], ARGV[1]) == ARGV[2] then
@@ -146,7 +148,7 @@ export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHan
       ),
     )
 
-    if (removed === 1 && handoff && now - handoff.at < HANDOFF_TTL_MS) claimed.push(handoff)
+    if (removed === 1 && handoff) claimed.push(handoff)
   }
 
   return claimed
