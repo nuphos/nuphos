@@ -17,7 +17,7 @@ import { HomeGrid } from './homeGrid'
 import { DashboardPanelCard } from './homePanelCard'
 import { DashboardPanelsSubmenu } from './homePanelPicker'
 import { TeamActivityCard } from './homeTeamCard'
-import { panelKey, toggleItem } from './homeWidgetSettings'
+import { cardLabel, panelKey, toggleItem } from './homeWidgetSettings'
 import { useHomeLayout } from './useHomeLayout'
 
 import type { HomeGithubCard, HomePanel } from './homeWidgetSettings'
@@ -91,6 +91,7 @@ export function HomeWidgets({
           cards={cards}
           saved={settings.grid}
           onChange={(grid) => update({ ...settings, grid })}
+          label={(key) => cardLabel(settings, key)}
           revealAt={revealAt}
           replayKey={replayKey}
         />

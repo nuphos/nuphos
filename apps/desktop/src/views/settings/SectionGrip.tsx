@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { GripVertical } from 'lucide-react'
 import { forwardRef, useRef, useState } from 'react'
 
@@ -9,10 +10,15 @@ import { gripClickOpens, gripKeyStep, gripMenuAcceptsOpen } from './sectionOrder
 
 import type { DragEvent, KeyboardEvent } from 'react'
 
+/** Where the grip sits by default: in the gutter left of its section. */
+const GUTTER = 'absolute -left-[18px] top-0 h-6 w-4 lg:-left-7 lg:w-5'
+
 /**
  * The six-dot handle beside a reorderable section, as in Notion: drag it to move the
  * section, click it for a menu that does the same without a pointer, or press
- * Alt+Up / Alt+Down while it has focus.
+ * Alt+Up / Alt+Down while it has focus. Without `onDragStart` the grip is not a
+ * native drag source, so a surrounding drag library can take its presses; without
+ * `onReset` the menu only moves.
  */
 export const SectionGrip = forwardRef<
   HTMLButtonElement,
@@ -20,14 +26,16 @@ export const SectionGrip = forwardRef<
     label: string
     canMoveUp: boolean
     canMoveDown: boolean
-    canReset: boolean
+    canReset?: boolean
     onMove: (step: -1 | 1) => void
-    onReset: () => void
-    onDragStart: (event: DragEvent<HTMLButtonElement>) => void
-    onDragEnd: () => void
+    onReset?: () => void
+    onDragStart?: (event: DragEvent<HTMLButtonElement>) => void
+    onDragEnd?: () => void
+    /** Placement and size, replacing the gutter position. */
+    className?: string
   }
 >(function SectionGrip(
-  { label, canMoveUp, canMoveDown, canReset, onMove, onReset, onDragStart, onDragEnd },
+  { label, canMoveUp, canMoveDown, canReset, onMove, onReset, onDragStart, onDragEnd, className },
   ref,
 ) {
   const [open, setOpen] = useState(false)
@@ -54,7 +62,7 @@ export const SectionGrip = forwardRef<
         aria-label={t('Move {name}', { name: label })}
         aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
         title={t('Drag to move, click for options')}
-        draggable
+        draggable={onDragStart !== undefined}
         onPointerDown={() => {
           openAtPress.current = open
         }}
@@ -64,10 +72,13 @@ export const SectionGrip = forwardRef<
         onKeyDown={onKeyDown}
         onDragStart={(event) => {
           setOpen(false)
-          onDragStart(event)
+          onDragStart?.(event)
         }}
         onDragEnd={onDragEnd}
-        className="absolute -left-[18px] top-0 flex h-6 w-4 lg:-left-7 lg:w-5 cursor-grab items-center justify-center rounded text-tertiary opacity-0 outline-none transition-opacity hover:bg-zGray-800/60 hover:text-main focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-zViolet-500/60 active:cursor-grabbing group-hover/section:opacity-100 data-[popup-open]:opacity-100 motion-reduce:transition-none"
+        className={clsx(
+          className ?? GUTTER,
+          'flex cursor-grab items-center justify-center rounded text-tertiary opacity-0 outline-none transition-opacity hover:bg-zGray-800/60 hover:text-main focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-zViolet-500/60 active:cursor-grabbing group-hover/section:opacity-100 data-[popup-open]:opacity-100 motion-reduce:transition-none',
+        )}
       >
         <GripVertical aria-hidden="true" className="h-4 w-4" />
       </MenuTrigger>
@@ -86,10 +97,14 @@ export const SectionGrip = forwardRef<
         >
           {t('Move down')}
         </MenuItem>
-        <MenuSeparator />
-        <MenuItem disabled={!canReset} onClick={onReset}>
-          {t('Reset order')}
-        </MenuItem>
+        {onReset && (
+          <>
+            <MenuSeparator />
+            <MenuItem disabled={!canReset} onClick={onReset}>
+              {t('Reset order')}
+            </MenuItem>
+          </>
+        )}
       </MenuContent>
     </Menu>
   )
