@@ -49,8 +49,8 @@ mock.module('./cua-stream.ts', {
   namedExports: { localToolStreams: {}, fitFrame: (value: unknown) => value },
 })
 mock.module('./browser-tabs.ts', { namedExports: { runBrowserCall: () => {} } })
-mock.module('./mac-screen.ts', {
-  namedExports: { enableMacScreen: () => null, macScreenDeps: () => ({}) },
+mock.module('./mac-screen-app.ts', {
+  namedExports: { macScreenApp: () => ({ deps: () => ({}), state: () => ({}), set: () => false }) },
 })
 mock.module('./sleep-prevention-electron.ts', {
   namedExports: {

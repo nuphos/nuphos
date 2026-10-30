@@ -2160,5 +2160,8 @@
   "Ultrafast mode is on": "Mode Ultrafast aktif",
   "Turn on Ultrafast mode": "Aktifkan mode Ultrafast",
   "Turn off Ultrafast mode": "Matikan mode Ultrafast",
-  "Model settings: {name}, Ultrafast mode on": "Pengaturan model: {name}, mode Ultrafast aktif"
+  "Model settings: {name}, Ultrafast mode on": "Pengaturan model: {name}, mode Ultrafast aktif",
+  "Let my phone see and control this Mac": "Izinkan ponsel saya melihat dan mengontrol Mac ini",
+  "Nuphos on your phone can show this screen and control it, without your Mac password. macOS asks once to allow Screen Recording and Accessibility. This Mac shows a notice while your phone has control.": "Nuphos di ponsel Anda dapat menampilkan layar ini dan mengontrolnya, tanpa kata sandi Mac Anda. macOS meminta sekali untuk mengizinkan Perekaman Layar dan Aksesibilitas. Mac ini menampilkan pemberitahuan selama ponsel Anda memegang kontrol.",
+  "Could not change phone control": "Tidak dapat mengubah kontrol ponsel"
 }

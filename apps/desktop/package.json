@@ -133,7 +133,8 @@
       },
       "notarize": true,
       "binaries": [
-        "Contents/Resources/local-runtime/cua-permission"
+        "Contents/Resources/local-runtime/cua-permission",
+        "Contents/Resources/local-runtime/mac-screen-host"
       ]
     },
     "win": {

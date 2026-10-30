@@ -71,7 +71,9 @@ const boundaries: Record<string, Record<string, unknown>> = {
   },
   './cua-stream.ts': { localToolStreams: {} },
   './dev-bundle.ts': { devBundleHint: noop, watchDevBundle: noop },
-  './mac-screen.ts': { enableMacScreen: () => null, macScreenDeps: noop },
+  './mac-screen-app.ts': {
+    macScreenApp: () => ({ deps: () => ({}), state: () => ({}), set: () => false }),
+  },
   './model-probe.ts': { probeLocalModels: noop },
   './openab-process.ts': { OpenabProcess: class {} },
   './sleep-prevention-electron.ts': {},

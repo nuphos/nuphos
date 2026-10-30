@@ -20,6 +20,8 @@ export const deviceApi = {
   localRuntimeCancelCodexLogin: () => window.api.localRuntimeCancelCodexLogin(),
   localRuntimeSetSleepPreferences: (value: SleepPreferences) =>
     window.api.localRuntimeSetSleepPreferences(value),
+  localRuntimeSetPhoneControl: (allowed: boolean) =>
+    window.api.localRuntimeSetPhoneControl(allowed),
   localRuntimeGetState: () => window.api.localRuntimeGetState(),
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),

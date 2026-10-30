@@ -2160,5 +2160,8 @@
   "Ultrafast mode is on": "Ultrafast 모드 켜짐",
   "Turn on Ultrafast mode": "Ultrafast 모드 켜기",
   "Turn off Ultrafast mode": "Ultrafast 모드 끄기",
-  "Model settings: {name}, Ultrafast mode on": "모델 설정: {name}, Ultrafast 모드 켜짐"
+  "Model settings: {name}, Ultrafast mode on": "모델 설정: {name}, Ultrafast 모드 켜짐",
+  "Let my phone see and control this Mac": "내 휴대폰에서 이 Mac을 보고 제어하도록 허용",
+  "Nuphos on your phone can show this screen and control it, without your Mac password. macOS asks once to allow Screen Recording and Accessibility. This Mac shows a notice while your phone has control.": "휴대폰의 Nuphos에서 Mac 암호 없이 이 화면을 보고 제어할 수 있습니다. macOS가 화면 기록 및 손쉬운 사용 권한을 한 번 요청합니다. 휴대폰이 제어하는 동안 이 Mac에 알림이 표시됩니다.",
+  "Could not change phone control": "휴대폰 제어 설정을 변경할 수 없습니다"
 }

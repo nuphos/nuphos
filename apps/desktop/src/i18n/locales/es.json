@@ -2160,5 +2160,8 @@
   "Ultrafast mode is on": "Modo Ultrafast activado",
   "Turn on Ultrafast mode": "Activar modo Ultrafast",
   "Turn off Ultrafast mode": "Desactivar modo Ultrafast",
-  "Model settings: {name}, Ultrafast mode on": "Configuración del modelo: {name}, modo Ultrafast activado"
+  "Model settings: {name}, Ultrafast mode on": "Configuración del modelo: {name}, modo Ultrafast activado",
+  "Let my phone see and control this Mac": "Permitir que mi teléfono vea y controle este Mac",
+  "Nuphos on your phone can show this screen and control it, without your Mac password. macOS asks once to allow Screen Recording and Accessibility. This Mac shows a notice while your phone has control.": "Nuphos en tu teléfono puede mostrar esta pantalla y controlarla, sin la contraseña de tu Mac. macOS pide una vez permiso de Grabación de pantalla y Accesibilidad. Este Mac muestra un aviso mientras tu teléfono tiene el control.",
+  "Could not change phone control": "No se pudo cambiar el control desde el teléfono"
 }

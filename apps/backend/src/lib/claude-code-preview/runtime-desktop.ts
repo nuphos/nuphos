@@ -1,7 +1,8 @@
 // A conversation's own desktop on its Box, streamed to the conversation's owner:
 // the client's WebSocket carries RFB bytes as base64 text frames, which the
 // device tunnel relays to the host's VNC server for that display: a Box's Xvnc,
-// or a Mac's Screen Sharing (see the host's vnc-stream.ts). The first frame
+// or a Mac's own screen from the bundle's mac-screen-host (see the host's
+// mac-screen.ts and vnc-stream.ts). The first frame
 // tells the host the session, the display and the viewer; the host connects
 // only if that display's lock is the session's. The viewer only watches until a
 // control frame hands the desktop to them: this route drops their input
@@ -12,8 +13,10 @@
 // isolate desktops on a shared Box: every session there runs as one Unix user
 // against an X server and VNC without authentication, so any agent on the Box
 // can reach another session's display. The team accepts this until each
-// session gets its own Unix user (see the host's desktop-session.mjs). A Mac's
-// Screen Sharing asks the viewer for the Mac's own account.
+// session gets its own Unix user (see the host's desktop-session.mjs). A Mac
+// asks for no account: it shows its screen only once "Let my phone see and
+// control this Mac" is turned on at the Mac, and only to the Nuphos process that
+// started its host.
 
 import { getReadableConversation } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
