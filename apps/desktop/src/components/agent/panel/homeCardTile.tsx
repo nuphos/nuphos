@@ -1,10 +1,11 @@
+import clsx from 'clsx'
 import { Check } from 'lucide-react'
 import { useId } from 'react'
 
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 
-import { cardsOnHome } from './homeCardCatalog'
+import { GRID_COLUMNS, cardsOnHome } from './homeCardCatalog'
 
 import type { HomeCardEntry } from './homeCardCatalog'
 import type { HomeLayout } from '../../../types/team.ts'
@@ -27,11 +28,11 @@ function tileAction(card: HomeCardEntry, removes: boolean): { text: string; labe
 }
 
 /**
- * One kind of card in the gallery: a preview, its title and what it shows,
- * how many are on the home page, and its action. A kind that is on or off
- * offers Remove once added; others can always be added again, and dashboard
- * panels open their picker. A kind that cannot be added now stays focusable
- * so its reason can be read.
+ * One kind of card in the gallery: a preview (its icon without one), its
+ * title and what it shows, how many are on the home page, and its action. A
+ * kind that is on or off offers Remove once added; others can always be added
+ * again, and dashboard panels open their picker. A kind that cannot be added
+ * now stays focusable so its reason can be read.
  */
 export function GalleryTile({
   card,
@@ -57,7 +58,13 @@ export function GalleryTile({
   const status = unavailable ?? tileStatus(card, count)
 
   return (
-    <li className="flex flex-col overflow-hidden rounded-lg border border-main bg-surface/40 transition-colors hover:border-zGray-700 focus-within:border-zGray-700">
+    <li
+      className={clsx(
+        'flex flex-col overflow-hidden rounded-lg border border-main bg-surface/40 transition-colors hover:border-zGray-700 focus-within:border-zGray-700',
+        // A full-width card gets the full row, so its preview stays readable.
+        card.size.w === GRID_COLUMNS && '@lg:col-span-2',
+      )}
+    >
       <div
         aria-hidden
         className="relative h-[132px] overflow-hidden border-b border-main bg-zGray-900/40"

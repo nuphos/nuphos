@@ -8,6 +8,7 @@ import { Button } from '../../ui/button'
 import { InputGroup, InputGroupInput } from '../../ui/input-group'
 
 import { HOME_CARD_CATEGORIES, HOME_CARD_FILTERS, findCards } from './homeCardCatalog'
+import { CardPreview } from './homeCardPreviews'
 import { GalleryTile } from './homeCardTile'
 import { tabStep, useTabsOrientation } from './homeGalleryKeys'
 import { GalleryPanelPicker } from './homeGalleryPanels'
@@ -177,6 +178,7 @@ export function GalleryCards({
                 key={card.kind}
                 card={card}
                 layout={layout}
+                preview={<CardPreview kind={card.kind} />}
                 unavailable={unavailable(card)}
                 onAdd={() => onAdd(card)}
                 onRemove={() => onRemove(card)}
