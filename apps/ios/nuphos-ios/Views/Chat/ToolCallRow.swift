@@ -337,7 +337,7 @@ struct WorkGroup: View {
                 }
                 .font(Theme.Text.label)
                 .foregroundStyle(Theme.muted)
-                .padding(.vertical, 6)
+                .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
