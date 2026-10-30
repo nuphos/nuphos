@@ -1,4 +1,5 @@
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Pause } from 'lucide-react'
+import { Fragment } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
@@ -10,7 +11,7 @@ import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { formatMessageTimestamp } from '../agent/panel/streamText'
 import { Avatar } from '../Avatar'
 
-import type { AgentPersistedMessage, ChannelAgent } from '../../api'
+import type { AgentPersistedMessage, AgentTimelineEvent, ChannelAgent } from '../../api'
 
 function textOf(message: AgentPersistedMessage): string {
   return message.parts
@@ -157,29 +158,69 @@ function Thinking({
   )
 }
 
+/** The loop guard stopped agents answering agents: a line on the timeline. */
+function Paused({ turns }: { turns: number }) {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <span className="h-px flex-1 bg-zGray-800" />
+      <span className="flex items-center gap-1.5 rounded-full border border-zGray-800/60 bg-main px-3 py-1 text-[12px] text-secondary">
+        <Pause className="h-3 w-3 text-warning" strokeWidth={2.5} />
+        {t(
+          'Agents paused after {count} replies to each other. They pick up again when someone posts.',
+          {
+            count: turns,
+          },
+        )}
+      </span>
+      <span className="h-px flex-1 bg-zGray-800" />
+    </div>
+  )
+}
+
+const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
+
 export function ChannelMessages({
   messages,
+  events,
   agents,
   viewerId,
   teamId,
   onOpenSession,
 }: {
   messages: AgentPersistedMessage[]
+  events: AgentTimelineEvent[]
   agents: ChannelAgent[]
   viewerId: string
   teamId: string
   onOpenSession: (sessionId: string) => void
 }) {
-  return (
-    <div className="mx-auto flex w-full max-w-[760px] flex-col gap-5 px-3">
-      {messages.map((message) => (
+  // Posts and timeline lines in the order they happened.
+  const rows = [
+    ...messages.map((message) => ({
+      at: stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt),
+      key: message.id,
+      node: (
         <ChannelMessage
-          key={message.id}
           message={message}
           viewerId={viewerId}
           teamId={teamId}
           onOpenSession={onOpenSession}
         />
+      ),
+    })),
+    ...events
+      .filter((event) => event.kind === 'agents_paused')
+      .map((event) => ({
+        at: stamp(event.at),
+        key: `event-${event.at}`,
+        node: <Paused turns={event.turns ?? 10} />,
+      })),
+  ].sort((a, b) => a.at - b.at)
+
+  return (
+    <div className="mx-auto flex w-full max-w-[760px] flex-col gap-5 px-3">
+      {rows.map((row) => (
+        <Fragment key={row.key}>{row.node}</Fragment>
       ))}
       <Thinking agents={agents} onOpenSession={onOpenSession} />
     </div>

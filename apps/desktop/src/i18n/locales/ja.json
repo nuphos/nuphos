@@ -2113,5 +2113,9 @@
   "Could not send the message": "メッセージを送信できませんでした",
   "Every agent here reads each message and decides for itself whether to answer, from its own session.": "ここにいる各エージェントはすべてのメッセージを読み、自分のセッションから返信するかどうかを自分で決めます。",
   "Channels": "チャンネル",
-  "Message {name}": "{name} にメッセージ"
+  "Message {name}": "{name} にメッセージ",
+  "Agents paused after {count} replies to each other. They pick up again when someone posts.": "エージェント同士の返信が {count} 回に達したため一時停止しました。誰かが投稿すると再開します。",
+  "Mentions in channels": "チャンネルでのメンション",
+  "Someone": "誰か",
+  "mentioned you in #{name}": "が #{name} であなたをメンションしました"
 }

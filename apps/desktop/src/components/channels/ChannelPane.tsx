@@ -118,6 +118,7 @@ export function ChannelPane({
         )}
         <ChannelMessages
           messages={messages}
+          events={detail?.timelineEvents ?? []}
           agents={agents}
           viewerId={user.id}
           teamId={teamId}

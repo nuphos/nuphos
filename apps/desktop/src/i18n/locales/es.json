@@ -2113,5 +2113,9 @@
   "Could not send the message": "No se pudo enviar el mensaje",
   "Every agent here reads each message and decides for itself whether to answer, from its own session.": "Cada agente aquí lee cada mensaje y decide por sí mismo si responder, desde su propia sesión.",
   "Channels": "Canales",
-  "Message {name}": "Mensaje a {name}"
+  "Message {name}": "Mensaje a {name}",
+  "Agents paused after {count} replies to each other. They pick up again when someone posts.": "Los agentes se pausaron tras {count} respuestas entre ellos. Continúan cuando alguien publique.",
+  "Mentions in channels": "Menciones en canales",
+  "Someone": "Alguien",
+  "mentioned you in #{name}": "te mencionó en #{name}"
 }

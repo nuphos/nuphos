@@ -1,6 +1,6 @@
 import { callJsonForRenderer, teamQuery } from './http'
 
-import type { ChannelAgent } from '../../src/api/agent-types'
+import type { ChannelAgent, ChannelMention } from '../../src/api/agent-types'
 
 const at = (sessionId: string) => `/agent/conversations/${encodeURIComponent(sessionId)}`
 
@@ -49,4 +49,9 @@ export async function postChannelMessage(
     text,
     id,
   })
+}
+
+/** The Inbox's channel entries: posts that @mention the viewer. */
+export async function listChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }> {
+  return callJsonForRenderer('GET', `/agent/channels/mentions${teamQuery(teamId)}`)
 }

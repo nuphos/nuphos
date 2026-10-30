@@ -2113,5 +2113,9 @@
   "Could not send the message": "ไม่สามารถส่งข้อความได้",
   "Every agent here reads each message and decides for itself whether to answer, from its own session.": "เอเจนต์ทุกตัวที่นี่อ่านทุกข้อความ และตัดสินใจเองจากเซสชันของตัวเองว่าจะตอบหรือไม่",
   "Channels": "แชนแนล",
-  "Message {name}": "ส่งข้อความถึง {name}"
+  "Message {name}": "ส่งข้อความถึง {name}",
+  "Agents paused after {count} replies to each other. They pick up again when someone posts.": "เอเจนต์หยุดชั่วคราวหลังตอบกันเอง {count} ครั้ง จะทำงานต่อเมื่อมีคนโพสต์",
+  "Mentions in channels": "การกล่าวถึงในช่อง",
+  "Someone": "มีคน",
+  "mentioned you in #{name}": "กล่าวถึงคุณใน #{name}"
 }

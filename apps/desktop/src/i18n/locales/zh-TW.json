@@ -2113,5 +2113,9 @@
   "Could not send the message": "無法傳送訊息",
   "Every agent here reads each message and decides for itself whether to answer, from its own session.": "這裡的每個 Agent 都會讀每則訊息，並在自己的工作階段裡決定要不要回覆。",
   "Channels": "頻道",
-  "Message {name}": "傳訊息到 {name}"
+  "Message {name}": "傳訊息到 {name}",
+  "Agents paused after {count} replies to each other. They pick up again when someone posts.": "Agent 之間已互相回覆 {count} 次，先暫停。有人發言後會繼續。",
+  "Mentions in channels": "頻道中的提及",
+  "Someone": "有人",
+  "mentioned you in #{name}": "在 #{name} 提到了你"
 }

@@ -2113,5 +2113,9 @@
   "Could not send the message": "无法发送消息",
   "Every agent here reads each message and decides for itself whether to answer, from its own session.": "这里的每个 Agent 都会读每条消息，并在自己的会话里决定要不要回复。",
   "Channels": "频道",
-  "Message {name}": "发消息到 {name}"
+  "Message {name}": "发消息到 {name}",
+  "Agents paused after {count} replies to each other. They pick up again when someone posts.": "Agent 之间已互相回复 {count} 次，先暂停。有人发言后会继续。",
+  "Mentions in channels": "频道中的提及",
+  "Someone": "有人",
+  "mentioned you in #{name}": "在 #{name} 提到了你"
 }

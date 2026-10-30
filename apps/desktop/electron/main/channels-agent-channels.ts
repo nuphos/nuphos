@@ -4,6 +4,7 @@ import * as agent from '../agent'
 export const agentChannelChannels = {
   'agent:createChannel': (_e: unknown, teamId: string, title: string) =>
     agent.createChannel(teamId, title),
+  'agent:listChannelMentions': (_e: unknown, teamId: string) => agent.listChannelMentions(teamId),
   'agent:listChannelAgents': (_e: unknown, channelId: string, teamId: string) =>
     agent.listChannelAgents(channelId, teamId),
   'agent:addChannelAgent': (_e: unknown, channelId: string, teamId: string, agentId: string) =>

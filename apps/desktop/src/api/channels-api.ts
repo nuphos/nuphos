@@ -1,6 +1,7 @@
 export const channelsApi = {
   agentCreateChannel: (teamId: string, title: string) =>
     window.api.agentCreateChannel(teamId, title),
+  agentListChannelMentions: (teamId: string) => window.api.agentListChannelMentions(teamId),
   agentListChannelAgents: (channelId: string, teamId: string) =>
     window.api.agentListChannelAgents(channelId, teamId),
   agentAddChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>

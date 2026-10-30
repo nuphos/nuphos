@@ -30,6 +30,16 @@ export type ConversationAccessState = {
   participants: AgentConversationParticipant[]
 }
 
+/** A post that @mentions the viewer in a channel they have not posted in since. */
+export type ChannelMention = {
+  channelId: string
+  title: string
+  messageId: string
+  at: string
+  sender: { type: 'user' | 'agent' | 'system'; id: string; name: string } | null
+  text: string
+}
+
 /** An agent in a channel: its session, which is the agent. */
 export type ChannelAgent = { sessionId: string; title: string; ownerId: string; avatar?: string }
 
@@ -219,6 +229,8 @@ export type AgentTimelineEvent = {
   kind: string
   at: string
   text: string
+  /** agents_paused: the turn budget the channel's agents used up. */
+  turns?: number
   actor?: AgentTimelinePerson
   target?: AgentTimelinePerson
   from?: AgentTimelineRuntime

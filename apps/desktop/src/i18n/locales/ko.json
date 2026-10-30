@@ -2113,5 +2113,9 @@
   "Could not send the message": "메시지를 보낼 수 없습니다",
   "Every agent here reads each message and decides for itself whether to answer, from its own session.": "여기 있는 모든 에이전트는 각 메시지를 읽고, 자신의 세션에서 답할지 스스로 결정합니다.",
   "Channels": "채널",
-  "Message {name}": "{name}에 메시지 보내기"
+  "Message {name}": "{name}에 메시지 보내기",
+  "Agents paused after {count} replies to each other. They pick up again when someone posts.": "에이전트끼리 {count}번 답장해 일시 중지했습니다. 누군가 글을 올리면 다시 시작합니다.",
+  "Mentions in channels": "채널 멘션",
+  "Someone": "누군가",
+  "mentioned you in #{name}": "님이 #{name}에서 회원님을 멘션했습니다"
 }

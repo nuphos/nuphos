@@ -2113,5 +2113,9 @@
   "Could not send the message": "Tidak dapat mengirim pesan",
   "Every agent here reads each message and decides for itself whether to answer, from its own session.": "Setiap agen di sini membaca setiap pesan dan memutuskan sendiri apakah akan menjawab, dari sesinya sendiri.",
   "Channels": "Kanal",
-  "Message {name}": "Kirim pesan ke {name}"
+  "Message {name}": "Kirim pesan ke {name}",
+  "Agents paused after {count} replies to each other. They pick up again when someone posts.": "Agen dijeda setelah {count} balasan satu sama lain. Mereka lanjut lagi saat seseorang mengirim pesan.",
+  "Mentions in channels": "Sebutan di kanal",
+  "Someone": "Seseorang",
+  "mentioned you in #{name}": "menyebut Anda di #{name}"
 }
