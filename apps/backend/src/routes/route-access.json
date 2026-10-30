@@ -183,6 +183,7 @@
   "GET /agent-sessions/:sessionId/teams/:teamId/zeabur-providers/:zeaburId/servers": "user",
   "GET /agent/auto-mode/bypass": "user",
   "GET /agent/auto-mode/policy/rules": "user",
+  "GET /agent/channels/mentions": "user",
   "GET /agent/conversations": "user",
   "GET /agent/conversations/:sessionId": "user",
   "GET /agent/conversations/:sessionId/agents": "user",

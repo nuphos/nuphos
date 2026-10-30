@@ -6,7 +6,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { readChannelMessages, withoutReadNotices } from './db/channels'
+import { listChannelMentions, readChannelMessages, withoutReadNotices } from './db/channels'
 import { CHANNEL_AGENT_TURN_BUDGET, postChannelMessage } from './channel-chat'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
@@ -54,6 +54,11 @@ useIdentity({
   getTeamMembership: async (userId) =>
     departed.has(userId) ? null : ({ role: 'MEMBER' } as never),
   signNuphosToken: () => 'test-token',
+  getTeamMembers: async () =>
+    ['owner', 'agent-a-owner', 'mei'].map((id) => ({
+      id,
+      name: id === 'mei' ? 'Mei Chen' : id,
+    })) as never,
 })
 
 const person: MessageMetadata = {
@@ -318,5 +323,45 @@ describe('reading a channel', () => {
     expect(page.messages).toHaveLength(50)
     expect(page.more).toBe(true)
     expect((await readChannelMessages(await channel(), 'agent-a')).messages).toHaveLength(3)
+  })
+})
+
+describe('the loop guard and mentions', () => {
+  test('the channel says once that agents paused, and a person resets it', async () => {
+    for (let turn = 0; turn < CHANNEL_AGENT_TURN_BUDGET + 3; turn++) {
+      await say('again', agentSpeaker('agent-a'), 'agent-a')
+      await catchUp()
+    }
+    const paused = (await channel()).timelineEvents?.filter((e) => e.kind === 'agents_paused')
+
+    expect(paused).toHaveLength(1)
+    expect(paused?.[0]).toMatchObject({ actorId: 'system', turns: CHANNEL_AGENT_TURN_BUDGET })
+    await say('keep going')
+    expect((await channel()).agentTurns).toBe(0)
+  })
+
+  test('an @mention waits in the Inbox until that person posts here', async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { participantIds: ['mei'] } },
+    )
+    await say('@Mei Chen can you approve the canary?')
+    expect((await channel()).mentions?.mei?.messageId).toBe('m1')
+    expect(await listChannelMentions(TEAM, 'mei')).toMatchObject([
+      {
+        channelId: 'channel',
+        messageId: 'm1',
+        text: '@Mei Chen can you approve the canary?',
+        sender: { id: 'owner' },
+      },
+    ])
+    // Not in the channel: no entry, whatever the text says.
+    expect(await listChannelMentions(TEAM, 'agent-a-owner')).toEqual([])
+    await say('Approved.', {
+      ...person,
+      sender: { type: 'user', id: 'mei', displayName: 'Mei Chen' },
+    })
+    expect((await channel()).mentions?.mei).toBeUndefined()
+    expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
   })
 })
