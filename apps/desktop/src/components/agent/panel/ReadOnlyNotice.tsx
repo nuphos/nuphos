@@ -18,7 +18,7 @@ import { toast } from '../../ui/toast'
 
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
-import { selectedAgentReachability } from './runtimeControlSignOut'
+import { selectedAgentName, selectedAgentReachability } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
@@ -104,7 +104,7 @@ const BANNER = {
 type BannerKind = keyof typeof BANNER
 
 /** What the viewer can do about the agent from here, worked out by the banner. */
-type BannerFix = { signIn?: () => void; resume?: () => void; ownerComputer?: string }
+type BannerFix = { signIn?: () => void; resume?: () => void; askOwner?: boolean }
 
 async function resumeBox(deviceId: string, teamId: string) {
   try {
@@ -122,7 +122,7 @@ function bannerCopy(
   fix: BannerFix = {},
 ): { text: string; action: { label: string; run: () => void } | null } {
   const { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings } = control
-  const name = value?.label ?? t('The runtime')
+  const name = selectedAgentName(control)
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
   const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }
 
@@ -152,14 +152,8 @@ function bannerCopy(
       action: { label: t('Sign in'), run: fix.signIn },
     }
   // A teammate's computer: only its owner can sign it in, administrators included.
-  if (fix.ownerComputer)
-    return {
-      text: t('{name} is signed out. Ask the owner of {computer} to sign it in.', {
-        name,
-        computer: fix.ownerComputer,
-      }),
-      action: null,
-    }
+  if (fix.askOwner)
+    return { text: t('{name} is signed out. Ask its owner to sign it in.', { name }), action: null }
   // Only an administrator can sign a team agent back in.
   if (isTeamAdmin && onSettings)
     return {
@@ -218,9 +212,7 @@ export function AgentStatusBanner({
   const teamId = control.teamId
   const fix: BannerFix = {
     ...(ownSignIn && { signIn: () => setSigningIn(true) }),
-    ...(reachability === 'signIn' &&
-      local &&
-      local.ownerUserId !== viewerId && { ownerComputer: local.deviceLabel }),
+    ...(reachability === 'signIn' && local && local.ownerUserId !== viewerId && { askOwner: true }),
     // Your own paused Box wakes from here instead of Retry.
     ...(reachability === 'offline' &&
       teamId &&

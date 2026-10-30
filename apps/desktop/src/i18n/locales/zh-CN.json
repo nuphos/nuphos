@@ -3214,7 +3214,7 @@
   "{name} is now signed in.": "{name} 已登录。",
   "{name} is signed out.": "{name} 已退出登录。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} 已退出登录。请联系工作区管理员重新连接此运行环境。",
-  "{name} is signed out. Ask the owner of {computer} to sign it in.": "{name} 已退出登录。请 {computer} 的所有者登录。",
+  "{name} is signed out. Ask its owner to sign it in.": "{name} 已退出登录。请其所有者登录。",
   "{name} is signed out. Sign it in to send messages.": "{name} 已退出登录。请重新登录后再发送消息。",
   "{name} remaining": "{name} 剩余额度",
   "{name} sign-in failed": "{name} 登录失败",
