@@ -99,6 +99,7 @@ struct ConversationView: View {
         .navigationTitle(session.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .keepsNavigationBar()
         #endif
         .toolbar {
             ToolbarItem(placement: .principal) { titleBar }
@@ -872,5 +873,19 @@ private struct BarButtonsInSideRailKey: EnvironmentKey, UITraitBridgedEnvironmen
 
 extension EnvironmentValues {
     fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
+}
+
+private extension View {
+    /// The bar stays put while the transcript scrolls. Where the system
+    /// minimizes it (iPhone Duo), each step resized the transcript and moved
+    /// the composer docked under it.
+    @ViewBuilder
+    func keepsNavigationBar() -> some View {
+        if #available(iOS 27.0, *) {
+            toolbarMinimizationBehavior(.never, for: .navigationBar)
+        } else {
+            self
+        }
+    }
 }
 #endif

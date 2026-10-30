@@ -113,6 +113,29 @@ test('layouts stay inside their team', async () => {
   expect(await get()).toEqual({ personal: null, team: null })
 })
 
+test('metric cards are saved with their range and scope', async () => {
+  const withMetrics: HomeLayout = {
+    ...layout(false),
+    metrics: [
+      { id: 'm1', kind: 'agent-time', range: '7d', scope: 'me' },
+      { id: 'm2', kind: 'runtime-mix', range: '1d', scope: 'team' },
+    ],
+  }
+
+  expect((await put('personal', { layout: withMetrics })).status).toBe(204)
+  expect(await get()).toEqual({ personal: withMetrics, team: null })
+  expect(
+    (
+      await put('personal', {
+        layout: {
+          ...withMetrics,
+          metrics: [{ id: 'm3', kind: 'tokens', range: '7d', scope: 'me' }],
+        },
+      })
+    ).status,
+  ).toBe(400)
+})
+
 test('a malformed layout is rejected', async () => {
   const res = await put('personal', {
     layout: {

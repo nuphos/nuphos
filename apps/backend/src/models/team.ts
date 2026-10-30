@@ -192,6 +192,17 @@ export type TeamHomeLayout = {
   updatedAt: Date
 }
 
+export const HOME_METRIC_KINDS = [
+  'agent-time',
+  'sessions',
+  'pull-requests',
+  'streak',
+  'longest-run',
+  'runtime-mix',
+] as const
+
+export type HomeMetricKind = (typeof HOME_METRIC_KINDS)[number]
+
 export type HomeLayout = {
   team: boolean
   github: {
@@ -201,6 +212,8 @@ export type HomeLayout = {
     statuses: string[]
   }[]
   panels: { dashboardId: string; panelId: string }[]
+  /** Metric cards, each with its own range and scope. Absent on layouts saved before them. */
+  metrics?: { id: string; kind: HomeMetricKind; range: '1d' | '7d' | '30d'; scope: 'me' | 'team' }[]
   grid?: { i: string; x: number; y: number; w: number; h: number }[]
 }
 

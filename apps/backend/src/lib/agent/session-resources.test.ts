@@ -70,6 +70,7 @@ useGithubHttp({
       title: 'Verified PR',
       state: merged ? 'closed' : 'open',
       merged,
+      merged_at: merged ? '2026-10-29T03:12:00Z' : null,
       mergeable_state: 'clean',
       head: { sha: 'a'.repeat(40) },
       base: { repo: { id: 34, full_name: 'org/repo' } },
@@ -231,8 +232,17 @@ test('linking again records a merge that no webhook delivered', async () => {
   })
 
   expect(linked.state).toBe('merged')
+  expect(linked.mergedAt).toBe('2026-10-29T03:12:00Z')
   expect(updates).toHaveLength(1)
-  expect(updates[0]).toMatchObject([{}, { $set: { 'linkedResources.$.state': 'merged' } }])
+  expect(updates[0]).toMatchObject([
+    {},
+    {
+      $set: {
+        'linkedResources.$.state': 'merged',
+        'linkedResources.$.mergedAt': '2026-10-29T03:12:00Z',
+      },
+    },
+  ])
 })
 test('unselected installations are rejected before contacting GitHub', async () => {
   await expect(

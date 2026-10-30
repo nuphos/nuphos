@@ -221,6 +221,15 @@ export function useConversationOpen(acc: Acc) {
           // A fork is the caller's own writable session, regardless of who created
           // the source conversation.
           readOnly: false,
+          // It runs where its own source ran; a teammate's runtime may not be
+          // the caller's to use, so that fork takes the default instead.
+          ...(detail.isOwner === false
+            ? {}
+            : {
+                agentRuntime: detail.agentRuntime,
+                runtimeId: detail.runtimeId,
+                runtimeLabel: detail.runtimeLabel,
+              }),
           slackThread: null,
           unsaved: true,
         }

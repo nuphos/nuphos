@@ -257,6 +257,7 @@
   "GET /teams": "user",
   "GET /teams/:teamId": "member",
   "GET /teams/:teamId/agent-activity": "member",
+  "GET /teams/:teamId/agent-stats": "member",
   "GET /teams/:teamId/agent-runtimes": "member",
   "GET /teams/:teamId/agent-runtimes/:runtimeId/files": "member",
   "GET /teams/:teamId/agent-runtimes/:runtimeId/files/content": "member",

@@ -14,18 +14,21 @@ import {
 import { DelayedPanelReveal } from './homeAnimation'
 import { GithubCard } from './homeCards'
 import { HomeGrid } from './homeGrid'
+import { HomeMetricCard } from './homeMetricLive'
+import { MetricsSubmenu } from './homeMetricPicker'
 import { DashboardPanelCard } from './homePanelCard'
 import { DashboardPanelsSubmenu } from './homePanelPicker'
 import { TeamActivityCard } from './homeTeamCard'
-import { cardLabel, panelKey, toggleItem } from './homeWidgetSettings'
+import { cardLabel, metricKey, panelKey, toggleItem } from './homeWidgetSettings'
 import { useHomeLayout } from './useHomeLayout'
 
-import type { HomeGithubCard, HomePanel } from './homeWidgetSettings'
+import type { HomeGithubCard, HomeMetricCard as Metric, HomePanel } from './homeWidgetSettings'
 
 /**
  * The configurable cards under the home composer, picked in "Customize":
  * team activity on or off, any number of pull request and CI cards (each set
- * up from its own ⋯ menu), and every pinned dashboard panel as a card.
+ * up from its own ⋯ menu), metric cards about the agents' work, and every
+ * pinned dashboard panel as a card.
  * Team activity is left out while the user is the team's only member.
  */
 export function HomeWidgets({
@@ -56,6 +59,8 @@ export function HomeWidgets({
   const setGithub = (github: HomeGithubCard[]) => update({ ...settings, github })
   const addGithub = (card: HomeGithubCard) => setGithub([...settings.github, card])
   const newId = () => crypto.randomUUID().slice(0, 8)
+  const metrics = settings.metrics ?? []
+  const setMetrics = (next: Metric[]) => update({ ...settings, metrics: next })
   const togglePanel = (pin: HomePanel) =>
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
 
@@ -71,6 +76,17 @@ export function HomeWidgets({
         card={card}
         onChange={(next) => setGithub(settings.github.map((c) => (c.id === card.id ? next : c)))}
         onRemove={() => setGithub(settings.github.filter((c) => c.id !== card.id))}
+      />
+    )),
+    ...metrics.map((card) => (
+      <HomeMetricCard
+        key={metricKey(card)}
+        teamId={teamId}
+        card={card}
+        hasTeammates={hasTeammates}
+        onChange={(next) => setMetrics(metrics.map((c) => (c.id === card.id ? next : c)))}
+        onRemove={() => setMetrics(metrics.filter((c) => c.id !== card.id))}
+        onOpenConversation={onOpenConversation}
       />
     )),
     ...settings.panels.map((pin) => (
@@ -132,6 +148,11 @@ export function HomeWidgets({
             >
               {t('Add CI card')}
             </MenuItem>
+            <MetricsSubmenu
+              onAdd={(kind) =>
+                setMetrics([...metrics, { id: newId(), kind, range: '7d', scope: 'me' }])
+              }
+            />
             <DashboardPanelsSubmenu
               teamId={teamId}
               selected={settings.panels}

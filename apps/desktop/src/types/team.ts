@@ -174,6 +174,8 @@ export type HomeLayout = {
   /** Pull request and CI cards; there can be any number of each. */
   github: HomeGithubCard[]
   panels: HomePanel[]
+  /** Metric cards, each with its own range and scope. */
+  metrics?: HomeMetricCard[]
   /** Where each card sits, in grid units; a card without an entry goes last. */
   grid?: HomeGridItem[]
 }
@@ -188,6 +190,59 @@ export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null
 export type RuntimeFallback = { runtimeIds: string[] }
 
 export type TeamActivityRange = '1d' | '7d' | '30d'
+
+/** `me` counts the viewer's own sessions, `team` everyone's. */
+export type AgentStatsScope = 'me' | 'team'
+
+/** The viewer's IANA time zone goes along, so days and hours are local to them. */
+export type AgentStatsQuery = { range: TeamActivityRange; scope: AgentStatsScope; timeZone: string }
+
+/** A session a card may name and open; null when it is not the viewer's to see. */
+export type AgentStatsSession = { id: string; title: string } | null
+
+export type AgentStatTotals = {
+  /** Summed turn time; sessions running side by side add up. */
+  agentMs: number
+  turns: number
+  /** Sessions started, sub-agents not included. */
+  sessions: number
+  subAgents: number
+  /** Pull requests linked to a session. */
+  prsOpened: number
+  prsMerged: number
+  /** Merged between midnight and 7 in the viewer's time zone. */
+  prsMergedOvernight: number
+}
+
+/** What the home metric cards show for one range and scope. */
+export type AgentStats = {
+  range: TeamActivityRange
+  scope: AgentStatsScope
+  timeZone: string
+  current: AgentStatTotals
+  /** The same totals for the period of the same length just before. */
+  previous: AgentStatTotals
+  streak: { current: number; best: number; lookbackDays: number }
+  longest: { ms: number; startedAt: string; session: AgentStatsSession } | null
+  /** The session that started the most sub-agents. */
+  fanOut: { count: number; session: AgentStatsSession } | null
+  /** The most turns running at once. */
+  peak: { count: number; at: string } | null
+  runtimes: { runtime: AgentProvider | null; agentMs: number }[]
+  /** Only the most recently active sessions were read, so the numbers may be low. */
+  capped: boolean
+}
+
+export type HomeMetricKind =
+  'agent-time' | 'sessions' | 'pull-requests' | 'streak' | 'longest-run' | 'runtime-mix'
+
+/** A metric card on the home page, with its own range and scope. */
+export type HomeMetricCard = {
+  id: string
+  kind: HomeMetricKind
+  range: TeamActivityRange
+  scope: AgentStatsScope
+}
 
 /** Who ran which sessions in each slot of a range, oldest slot first. */
 export type TeamActivity = {

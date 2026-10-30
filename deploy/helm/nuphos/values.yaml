@@ -16,11 +16,9 @@ backend:
   tolerations: []
   affinity: {}
 
-# Production sign-in sends the email code through Zeabur Email or Resend.
+# Production sign-in sends the email code through Resend.
 email:
-  provider: zsend # zsend or resend
-  # The selected provider's key is required unless secrets.existingSecret holds it.
-  zsendApiKey: '' # ZSEND_API_KEY
+  # Required unless secrets.existingSecret holds it.
   resendApiKey: '' # RESEND_API_KEY
   from: '' # required, a sender on a verified domain, e.g. Nuphos <noreply@example.com>
 
@@ -78,7 +76,7 @@ runtime:
   url: '' # required when enabled, e.g. https://runtime.nuphos.example.com
   image:
     repository: ghcr.io/nuphos/runtime
-    tag: 0.1.41-claude-code
+    tag: 0.1.42-claude-code
     pullPolicy: IfNotPresent
   persistence:
     home:
