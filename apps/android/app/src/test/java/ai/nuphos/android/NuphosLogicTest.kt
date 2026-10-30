@@ -15,7 +15,7 @@ class NuphosLogicTest {
     @Test
     fun loginUrlCarriesOnlyOpaqueHandle() {
         val handle = "h".repeat(43)
-        assertEquals("https://nuphos.ai/api/google/start?handle=$handle", NuphosWeb.loginUrl(handle))
+        assertEquals("${ai.nuphos.android.data.NuphosApi.BASE_URL}/auth/social/login?handle=$handle", NuphosWeb.loginUrl(handle))
     }
 
     @Test

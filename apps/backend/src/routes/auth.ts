@@ -2,14 +2,8 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 
-import type { NuphosUser } from '@/lib/identity'
-import type { NativeDeliveryTarget } from '@/lib/native-auth'
-import type { AuthVariables } from '@/middleware/auth'
-import type { Context } from 'hono'
-
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
-import { clientIp, signInSource } from '@/lib/request-origin'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
@@ -17,8 +11,7 @@ import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
 import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
 import { signInWithPassword, setPasswordWithEmailCode } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
-import { createUserSession } from '@/lib/identity/sessions'
-import { isNewSignIn, sendNewSignInAlert } from '@/lib/identity/sign-in-alert'
+import { startSession } from '@/lib/identity/start-session'
 import {
   abandonNativeSession,
   completeNativeSession,
@@ -27,27 +20,20 @@ import {
   redeemNativeSession,
   registerNativeSession,
 } from '@/lib/native-auth'
+import { clientIp, signInSource } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import * as authMiddleware from '@/middleware/auth' // per request: see auth.late-binding.test.ts
 import { authSessions } from '@/routes/auth-sessions'
 
+import { socialAuth } from './auth-social'
+
+import type { NativeDeliveryTarget } from '@/lib/native-auth'
+import type { AuthVariables } from '@/middleware/auth'
+
 const requireAuth: typeof authMiddleware.requireAuth = (c, n) => authMiddleware.requireAuth(c, n)
 
 export const auth = new Hono<{ Variables: AuthVariables }>()
-
-// Every sign-in starts its session here. `viaWebsite`: nuphos.ai's server made
-// the call, so the address seen is the website's, not the visitor's.
-async function startSession(c: Context, user: NuphosUser, viaWebsite = false) {
-  const seen = signInSource((name) => c.req.header(name))
-  const source = viaWebsite ? { client: seen.client, userAgent: seen.userAgent } : seen
-  // Compared with the account's other sessions before this one joins them.
-  const isNew = await isNewSignIn(user, source)
-  const token = await createUserSession(user.id, source)
-
-  if (isNew) void sendNewSignInAlert(user, source)
-
-  return { token, user }
-}
+auth.route('/social', socialAuth)
 
 auth.route('/sessions', authSessions)
 

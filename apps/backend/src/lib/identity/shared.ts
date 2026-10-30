@@ -22,6 +22,7 @@ export type NuphosUserDoc = {
   passwordHash?: string
   sessionsInvalidBefore?: number
   profileEdited?: boolean
+  appleID?: string
   googleID?: string
   createdAt: Date
   updatedAt: Date
