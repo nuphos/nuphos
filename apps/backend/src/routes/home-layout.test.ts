@@ -136,6 +136,18 @@ test('metric cards are saved with their range and scope', async () => {
   ).toBe(400)
 })
 
+test('the grid is saved with the version of its sizing rules', async () => {
+  const fitted: HomeLayout = {
+    ...layout(true),
+    grid: [{ i: 'team', x: 0, y: 0, w: 12, h: 6 }],
+    gridVersion: 2,
+  }
+
+  expect((await put('personal', { layout: fitted })).status).toBe(204)
+  expect(await get()).toEqual({ personal: fitted, team: null })
+  expect((await put('personal', { layout: { ...fitted, gridVersion: 0 } })).status).toBe(400)
+})
+
 test('a malformed layout is rejected', async () => {
   const res = await put('personal', {
     layout: {

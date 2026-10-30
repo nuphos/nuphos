@@ -215,6 +215,8 @@ export type HomeLayout = {
   /** Metric cards, each with its own range and scope. Absent on layouts saved before them. */
   metrics?: { id: string; kind: HomeMetricKind; range: '1d' | '7d' | '30d'; scope: 'me' | 'team' }[]
   grid?: { i: string; x: number; y: number; w: number; h: number }[]
+  /** Which sizing rules `grid` was saved under; absent before the first change to them. */
+  gridVersion?: number
 }
 
 export const teamByosBindings = (): Collection<TeamByosBindings> =>
