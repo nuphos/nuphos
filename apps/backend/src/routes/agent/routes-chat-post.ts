@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
+import { assertNotChannel } from '@/lib/agent/db/channels'
 import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
@@ -54,6 +55,8 @@ agent.post('/chat', async (c) => {
   const conversationForResume = body.resume
     ? await resolveReadableConversationForResume(id, userId, teamId)
     : await fallBackBeforeTurn(await assertConversationSendable(id, userId, teamId), userId)
+
+  assertNotChannel(conversationForResume)
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
   if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {

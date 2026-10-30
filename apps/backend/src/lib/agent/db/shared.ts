@@ -3,6 +3,7 @@ import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
+import type { ChannelFields } from './channels'
 import type { ConversationInputRequests } from './pending-decision'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
@@ -168,7 +169,7 @@ export type AgentConversation = ConversationInputRequests & {
     toModelId: string
   }
   tokenUsage?: AgentTokenUsageSummary
-}
+} & ChannelFields
 
 // Which external client created the conversation (MCP callers): the OAuth
 // client registration name is the strongest signal ("Claude Code", "Codex"),
