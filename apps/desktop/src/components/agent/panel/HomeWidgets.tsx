@@ -1,4 +1,5 @@
 import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
+import { useState } from 'react'
 
 import { t } from '../../../i18n'
 import {
@@ -10,9 +11,12 @@ import {
   MenuTrigger,
 } from '../../ui/menu'
 
+import { addCard } from './homeAddCard'
 import { DelayedPanelReveal } from './homeAnimation'
 import { isKnownCard, teamCardHeight } from './homeCardCatalog'
+import { HomeCardGallery } from './homeCardGallery'
 import { GithubCard } from './homeCards'
+import { AddCardButton } from './homeGalleryParts'
 import { HomeGrid } from './homeGrid'
 import { HomeMetricCard } from './homeMetricLive'
 import { MetricsSubmenu } from './homeMetricPicker'
@@ -31,12 +35,15 @@ import {
 import { useHomeLayout } from './useHomeLayout'
 import { useTeamSize } from './useTeamSize'
 
+import type { HomeCardKind } from './homeCardCatalog'
 import type {
   HomeGithubCard,
   HomeLayout,
   HomeMetricCard as Metric,
   HomePanel,
 } from './homeWidgetSettings'
+
+const newId = () => crypto.randomUUID().slice(0, 8)
 
 // Saved with the sizes as fitted, so a card resized back to an old default stays so.
 const versioned = (next: HomeLayout): HomeLayout => ({ ...next, gridVersion: HOME_GRID_VERSION })
@@ -68,6 +75,7 @@ export function HomeWidgets({
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const home = useHomeLayout(teamId)
+  const [galleryOpen, setGalleryOpen] = useState(false)
   // Null until the team's size is first known on this machine.
   const members = useTeamSize(teamId)
   const hasTeammates = (members ?? 0) > 1
@@ -80,11 +88,13 @@ export function HomeWidgets({
   const update = (next: HomeLayout) => home.update(members === null ? next : versioned(next))
   const setGithub = (github: HomeGithubCard[]) => update({ ...settings, github })
   const addGithub = (card: HomeGithubCard) => setGithub([...settings.github, card])
-  const newId = () => crypto.randomUUID().slice(0, 8)
   const metrics = settings.metrics ?? []
   const setMetrics = (next: Metric[]) => update({ ...settings, metrics: next })
   const togglePanel = (pin: HomePanel) =>
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
+  const add = (kind: HomeCardKind) => {
+    if (kind !== 'panel') update(addCard(settings, kind, newId()).layout)
+  }
 
   const cards = [
     // Shown while the members load, as its skeleton, so it does not appear late.
@@ -129,7 +139,7 @@ export function HomeWidgets({
   ].filter((card) => card !== false)
 
   return (
-    <div className="mb-6">
+    <div className="group/home mb-6">
       {cards.length > 0 && (
         <HomeGrid
           cards={cards}
@@ -145,8 +155,25 @@ export function HomeWidgets({
         replayKey={replayKey}
         // Below the cards, after the last of them has slid in.
         delayMs={revealAt + 150 * cards.length}
-        className="mt-3 flex justify-center"
+        className="mt-3 flex flex-col items-center gap-2"
       >
+        <AddCardButton subtle={cards.length > 0} onClick={() => setGalleryOpen(true)} />
+        <HomeCardGallery
+          teamId={teamId}
+          open={galleryOpen}
+          onOpenChange={setGalleryOpen}
+          layout={settings}
+          hasTeammates={hasTeammates}
+          customized={home.customized}
+          isTeamAdmin={isTeamAdmin}
+          onAdd={add}
+          onRemove={(kind) => {
+            if (kind === 'team') update({ ...settings, team: false })
+          }}
+          onTogglePanel={togglePanel}
+          onReset={home.resetToTeamDefault}
+          onSetTeamDefault={() => home.setAsTeamDefault(versioned(settings))}
+        />
         <Menu>
           <MenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main">
             <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />

@@ -55,6 +55,14 @@ export const HOME_CARD_CATEGORIES: { value: HomeCardCategory; label: string }[] 
   { value: 'dashboards', label: t('Dashboards') },
 ]
 
+/** A category, or all of them: what the gallery's tabs filter by. */
+export type HomeCardFilter = HomeCardCategory | 'all'
+
+export const HOME_CARD_FILTERS: { value: HomeCardFilter; label: string }[] = [
+  { value: 'all', label: t('All') },
+  ...HOME_CARD_CATEGORIES,
+]
+
 const HALF = GRID_COLUMNS / 2
 
 // A card h rows tall is 40h - 12 pixels: 28 per row and 12 between rows.
@@ -229,7 +237,7 @@ const fold = (s: string) => s.toLocaleLowerCase().normalize('NFKD').replace(/\p{
  * The kinds in `category` (all with `'all'`) that match `query`: every word
  * of it is found in a title, description, category name or keyword.
  */
-export function findCards(query: string, category: HomeCardCategory | 'all'): HomeCardEntry[] {
+export function findCards(query: string, category: HomeCardFilter): HomeCardEntry[] {
   const words = fold(query).split(/\s+/).filter(Boolean)
 
   return HOME_CARD_CATALOG.filter((card) => {
