@@ -22,14 +22,14 @@ export function ChannelAgentsButton({
   channelOwnerId,
   viewerId,
   agents,
-  onAgentsChange,
+  onChange,
 }: {
   teamId: string
   channelId: string
   channelOwnerId: string
   viewerId: string
   agents: ChannelAgent[]
-  onAgentsChange: (agents: ChannelAgent[]) => void
+  onChange: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -48,12 +48,13 @@ export function ChannelAgentsButton({
   }
   const add = (sessionId: string) =>
     run(async () => {
-      onAgentsChange((await api.agentAddChannelAgent(channelId, teamId, sessionId)).agents)
+      await api.agentAddChannelAgent(channelId, teamId, sessionId)
+      onChange()
     }, t('Could not add the agent'))
   const remove = (sessionId: string) =>
     run(async () => {
       await api.agentRemoveChannelAgent(channelId, teamId, sessionId)
-      onAgentsChange(agents.filter((agent) => agent.sessionId !== sessionId))
+      onChange()
     }, t('Could not remove the agent'))
 
   return (

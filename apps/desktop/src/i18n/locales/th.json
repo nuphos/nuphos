@@ -2117,5 +2117,6 @@
   "Agents paused after {count} replies to each other. They pick up again when someone posts.": "เอเจนต์หยุดชั่วคราวหลังตอบกันเอง {count} ครั้ง จะทำงานต่อเมื่อมีคนโพสต์",
   "Mentions in channels": "การกล่าวถึงในช่อง",
   "Someone": "มีคน",
-  "mentioned you in #{name}": "กล่าวถึงคุณใน #{name}"
+  "mentioned you in #{name}": "กล่าวถึงคุณใน #{name}",
+  "Files can’t be posted in a channel yet.": "ยังโพสต์ไฟล์ในช่องไม่ได้"
 }

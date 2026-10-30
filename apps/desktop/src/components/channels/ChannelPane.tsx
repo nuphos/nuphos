@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
@@ -15,6 +15,7 @@ import { ChannelMark } from './channelParts'
 import { useChannel } from './useChannel'
 
 import type { UserInfo } from '../../types'
+import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
 /**
@@ -36,7 +37,11 @@ export function ChannelPane({
   grip?: ReactNode
   onOpenSession: (sessionId: string) => void
 }) {
-  const { detail, agents, setAgents, refresh } = useChannel(teamId, channelId)
+  const { detail, agents, refresh } = useChannel(teamId, channelId)
+  // Text that could not be posted goes back into the composer.
+  const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
+  // A resend of the same text reuses its id, so a post that did land is not doubled.
+  const unsent = useRef<{ text: string; id: string } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const title = detail?.title ?? ''
   const messages = detail?.messages ?? []
@@ -49,14 +54,27 @@ export function ChannelPane({
     if (scroller) scroller.scrollTop = scroller.scrollHeight
   }, [messages.length])
 
-  const send = async (text: string) => {
+  const send = async (text: string, filePaths: string[]) => {
+    if (filePaths.length > 0) {
+      toast.error(t('Files can’t be posted in a channel yet.'))
+      setRestore({ text, filePaths, nonce: Date.now() })
+
+      return
+    }
     if (!text.trim()) return
+    const id = unsent.current?.text === text ? unsent.current.id : crypto.randomUUID()
+
+    unsent.current = { text, id }
     try {
-      await api.agentPostChannelMessage(channelId, teamId, text, crypto.randomUUID())
-      await refresh()
+      await api.agentPostChannelMessage(channelId, teamId, text, id)
     } catch (error) {
       toast.apiError(t('Could not send the message'), error)
+      setRestore({ text, nonce: Date.now() })
+
+      return
     }
+    unsent.current = null
+    refresh()
   }
 
   return (
@@ -92,7 +110,7 @@ export function ChannelPane({
             channelOwnerId={detail.owner?.id ?? (detail.isOwner ? user.id : '')}
             viewerId={user.id}
             agents={agents}
-            onAgentsChange={setAgents}
+            onChange={refresh}
           />
         )}
         {grip}
@@ -127,8 +145,11 @@ export function ChannelPane({
       </div>
       <div className="mx-auto w-full max-w-[760px] px-3 pb-3">
         <Composer
-          onSend={(text) => void send(text)}
+          onSend={(text, filePaths) => void send(text, filePaths)}
           onStop={() => {}}
+          readOnly={detail?.readOnly === true}
+          pendingSeed={restore}
+          onSeedConsumed={() => setRestore(null)}
           draftKey={composerDraftKey(teamId, channelId)}
           mentionScope={{ teamId, sessionId: channelId }}
           placeholder={t('Message {name}', { name: soloAgent ? title : `#${title}` })}

@@ -3,6 +3,7 @@ import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
+import { NewChannelButton } from '../channels/NewChannelButton'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
@@ -20,7 +21,6 @@ import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
 import { sectionsFor, sidebarView } from './view'
-import { NewChannelButton } from '../channels/NewChannelButton'
 
 import type { Item, SidebarProps } from './types'
 

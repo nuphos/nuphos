@@ -1,8 +1,8 @@
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { markChannel, useIsChannel } from '../../components/channels/channelKind'
 import { ChannelPane } from '../../components/channels/ChannelPane'
-import { useIsChannel } from '../../components/channels/channelKind'
 import { t } from '../../i18n'
 
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
@@ -56,6 +56,8 @@ export function PaneAgentPage({
   const teamId = tab.scope.kind === 'team' ? tab.scope.teamId : undefined
   const channel = useIsChannel(teamId, tab.active === 'team.agent' ? tab.agentSessionId : null)
 
+  // Still checking: neither view, so a channel never opens as an agent first.
+  if (channel === undefined) return null
   if (channel && teamId && tab.agentSessionId)
     return (
       <ChannelPane
@@ -85,7 +87,10 @@ export function PaneAgentPage({
           connectedResources={agentConnectedResources}
           onDockToSidebar={onDockAgentToSidebar}
           sessionId={tab.agentSessionId}
-          onSessionChange={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
+          onSessionChange={(sid) => {
+            if (sid) markChannel(sid, false)
+            updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))
+          }}
           onOpenNuphosLink={onOpenNuphosLink}
           onOpenAgentSettings={() => onOpenSettingsSection('workspace.agent')}
           autoFocusComposer={active}

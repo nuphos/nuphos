@@ -2117,5 +2117,6 @@
   "Agents paused after {count} replies to each other. They pick up again when someone posts.": "Agent 之间已互相回复 {count} 次，先暂停。有人发言后会继续。",
   "Mentions in channels": "频道中的提及",
   "Someone": "有人",
-  "mentioned you in #{name}": "在 #{name} 提到了你"
+  "mentioned you in #{name}": "在 #{name} 提到了你",
+  "Files can’t be posted in a channel yet.": "频道暂时还不能发送文件。"
 }

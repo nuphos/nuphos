@@ -1,5 +1,5 @@
-import { ChannelPane } from '../../components/channels/ChannelPane'
 import { useIsChannel } from '../../components/channels/channelKind'
+import { ChannelPane } from '../../components/channels/ChannelPane'
 
 import { PaneGrip } from './PaneGrip'
 import { WorkspaceAgentPane } from './WorkspaceAgentPane'
@@ -21,6 +21,8 @@ export function WorkspaceSessionPane({
   const sessionId = ws.selectedSessionId
   const channel = useIsChannel(teamId, sessionId)
 
+  // Still checking: neither view, so a channel never opens as an agent first.
+  if (channel === undefined) return <div className="min-w-0 flex-1" />
   if (!channel || !teamId || !sessionId)
     return <WorkspaceAgentPane ws={ws} user={user} workspaceExpanded={workspaceExpanded} />
 

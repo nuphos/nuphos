@@ -2117,5 +2117,6 @@
   "Agents paused after {count} replies to each other. They pick up again when someone posts.": "エージェント同士の返信が {count} 回に達したため一時停止しました。誰かが投稿すると再開します。",
   "Mentions in channels": "チャンネルでのメンション",
   "Someone": "誰か",
-  "mentioned you in #{name}": "が #{name} であなたをメンションしました"
+  "mentioned you in #{name}": "が #{name} であなたをメンションしました",
+  "Files can’t be posted in a channel yet.": "チャンネルにはまだファイルを投稿できません。"
 }

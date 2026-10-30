@@ -2117,5 +2117,6 @@
   "Agents paused after {count} replies to each other. They pick up again when someone posts.": "Los agentes se pausaron tras {count} respuestas entre ellos. Continúan cuando alguien publique.",
   "Mentions in channels": "Menciones en canales",
   "Someone": "Alguien",
-  "mentioned you in #{name}": "te mencionó en #{name}"
+  "mentioned you in #{name}": "te mencionó en #{name}",
+  "Files can’t be posted in a channel yet.": "Aún no se pueden publicar archivos en un canal."
 }
