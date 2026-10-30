@@ -24,7 +24,8 @@ export function QueuedStrip({
   canSteer?: boolean
   sidebar?: boolean
   /** On a teammate's computer shared at "Ask me first": these wait for its owner, or were
-   *  declined. Said here, not in the banner above the composer, which would cover them. */
+   *  declined; or they wait for someone this person asked to sign the agent in. Said here,
+   *  not in the banner above the composer, which would cover them. */
   approval?: { status: 'pending' | 'denied'; text: string } | null
 }) {
   if (items.length === 0) return null
@@ -66,7 +67,7 @@ export function QueuedStrip({
               </span>
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-secondary">{label}</span>
               <span className="flex-shrink-0 text-[11px] text-tertiary">
-                {t('Runs after the turn ahead')}
+                {approval?.status === 'pending' ? t('Waiting') : t('Runs after the turn ahead')}
               </span>
               {item.filePaths.length > 0 && (
                 <span className="flex-shrink-0 text-[11px] text-tertiary">
