@@ -1,15 +1,7 @@
-import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
-import {
-  Menu,
-  MenuCheckboxItem,
-  MenuContent,
-  MenuItem,
-  MenuSeparator,
-  MenuTrigger,
-} from '../../ui/menu'
 
 import { addCard } from './homeAddCard'
 import { DelayedPanelReveal } from './homeAnimation'
@@ -19,9 +11,7 @@ import { GithubCard } from './homeCards'
 import { AddCardButton } from './homeGalleryParts'
 import { HomeGrid } from './homeGrid'
 import { HomeMetricCard } from './homeMetricLive'
-import { MetricsSubmenu } from './homeMetricPicker'
 import { DashboardPanelCard } from './homePanelCard'
-import { DashboardPanelsSubmenu } from './homePanelPicker'
 import { TeamActivityCard } from './homeTeamCard'
 import {
   GRID_COLUMNS,
@@ -50,10 +40,12 @@ const HIGHLIGHT_MS = 1800
 const versioned = (next: HomeLayout): HomeLayout => ({ ...next, gridVersion: HOME_GRID_VERSION })
 
 /**
- * The configurable cards under the home composer, picked in "Customize":
- * team activity on or off, any number of pull request and CI cards (each set
- * up from its own ⋯ menu), metric cards about the agents' work, and every
- * pinned dashboard panel as a card.
+ * The configurable cards under the home composer, added from the card
+ * gallery that Customize and Add card open: team activity on or off, any
+ * number of pull request and CI cards (each changed later from its own ⋯
+ * menu), metric cards about the agents' work, and every pinned dashboard
+ * panel as a card. Cards added in the gallery are outlined for a moment
+ * once it closes.
  * Team activity is left out while the user is the team's only member.
  */
 export function HomeWidgets({
@@ -99,7 +91,6 @@ export function HomeWidgets({
   // Saved without the new grid version until the team's size is known, so team activity still fits.
   const update = (next: HomeLayout) => home.update(members === null ? next : versioned(next))
   const setGithub = (github: HomeGithubCard[]) => update({ ...settings, github })
-  const addGithub = (card: HomeGithubCard) => setGithub([...settings.github, card])
   const metrics = settings.metrics ?? []
   const setMetrics = (next: Metric[]) => update({ ...settings, metrics: next })
   const togglePanel = (pin: HomePanel) =>
@@ -209,57 +200,14 @@ export function HomeWidgets({
           onReset={home.resetToTeamDefault}
           onSetTeamDefault={() => home.setAsTeamDefault(versioned(settings))}
         />
-        <Menu>
-          <MenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main">
-            <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
-            {t('Customize')}
-          </MenuTrigger>
-          <MenuContent align="center" className="w-[232px]">
-            {hasTeammates && (
-              <MenuCheckboxItem
-                checked={settings.team}
-                onCheckedChange={(team) => update({ ...settings, team })}
-              >
-                {t('Team activity')}
-              </MenuCheckboxItem>
-            )}
-            <MenuItem
-              icon={<GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />}
-              onClick={() =>
-                addGithub({ id: newId(), kind: 'pulls', repos: [], statuses: ['open'] })
-              }
-            >
-              {t('Add pull requests card')}
-            </MenuItem>
-            <MenuItem
-              icon={<CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />}
-              onClick={() =>
-                addGithub({ id: newId(), kind: 'ci', repos: [], statuses: ['failed'] })
-              }
-            >
-              {t('Add CI card')}
-            </MenuItem>
-            <MetricsSubmenu
-              onAdd={(kind) =>
-                setMetrics([...metrics, { id: newId(), kind, range: '7d', scope: 'me' }])
-              }
-            />
-            <DashboardPanelsSubmenu
-              teamId={teamId}
-              selected={settings.panels}
-              onToggle={togglePanel}
-            />
-            <MenuSeparator />
-            <MenuItem disabled={!home.customized} onClick={home.resetToTeamDefault}>
-              {t('Reset to team default')}
-            </MenuItem>
-            {isTeamAdmin && (
-              <MenuItem onClick={() => home.setAsTeamDefault(versioned(settings))}>
-                {t('Set as team default')}
-              </MenuItem>
-            )}
-          </MenuContent>
-        </Menu>
+        <button
+          type="button"
+          onClick={() => setGalleryOpen(true)}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent"
+        >
+          <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
+          {t('Customize')}
+        </button>
       </DelayedPanelReveal>
     </div>
   )
