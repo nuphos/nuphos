@@ -128,8 +128,6 @@ extension ChatRow {
         }
         let intermediate = body[..<foldEnd].filter(foldable)
         guard intermediate.reduce(0, { $0 + workSteps($1) }) >= 2 else { return body }
-        let hasPending = intermediate.contains { if case .tool(_, _, let t, _) = $0 { return t.state == .approvalRequested }; return false }
-        guard !hasPending else { return body }
 
         // One fold per turn, like the desktop: rows that stay visible (thread
         // badges, plans, questions) are lifted out below it instead of
