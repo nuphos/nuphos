@@ -60,6 +60,17 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     parent[parts[0]!] = value
   }
   for (const key of Object.keys(mutation.$unset ?? {})) delete doc[key]
+  for (const [key, value] of Object.entries<number>(mutation.$max ?? {})) {
+    const [head = key, tail] = key.split('.')
+
+    if (tail === undefined) doc[key] = Math.max(Number(doc[key] ?? value), value)
+    else {
+      doc[head] ??= {}
+      doc[head][tail] = Math.max(Number(doc[head][tail] ?? value), value)
+    }
+  }
+  for (const [key, value] of Object.entries<number>(mutation.$inc ?? {}))
+    doc[key] = Number(doc[key] ?? 0) + value
   for (const [key, value] of Object.entries<Doc>(mutation.$addToSet ?? {})) {
     doc[key] ??= []
     const values = value && typeof value === 'object' && '$each' in value ? value.$each : [value]
@@ -92,9 +103,22 @@ export function portabilityDb() {
   }
   const collection = (name: string) => ({
     find: (query: Doc) => {
-      const toArray = async () => rows(name).filter((doc) => matches(doc, query))
+      let docs = () => rows(name).filter((doc) => matches(doc, query))
+      // Rows come back in insertion order; the fixtures insert them in the order wanted.
+      const cursor = {
+        toArray: async () => docs(),
+        project: () => cursor,
+        sort: () => cursor,
+        limit: (count: number) => {
+          const unlimited = docs
 
-      return { toArray, sort: () => ({ toArray }), project: () => ({ toArray }) }
+          docs = () => unlimited().slice(0, count)
+
+          return cursor
+        },
+      }
+
+      return cursor
     },
     insertOne: async (doc: Doc) => {
       // The unique { teamId, hostedSlot } index on hosted runtimes.
@@ -128,6 +152,13 @@ export function portabilityDb() {
       const doc = await collection(name).findOneAndUpdate(query, mutation, options)
 
       return { matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 }
+    },
+    updateMany: async (query: Doc, mutation: Doc) => {
+      const matched = rows(name).filter((doc) => matches(doc, query))
+
+      for (const doc of matched) update(doc, query, mutation)
+
+      return { matchedCount: matched.length, modifiedCount: matched.length }
     },
     deleteMany: async (query: Doc) => {
       const kept = rows(name).filter((doc) => !matches(doc, query))

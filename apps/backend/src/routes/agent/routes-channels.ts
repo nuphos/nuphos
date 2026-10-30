@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
 
 import {
-  appendConversationMessages,
   getConversationBySessionId,
   getReadableConversation,
   upsertConversationShell,
@@ -15,6 +14,7 @@ import {
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
+import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
 
@@ -151,9 +151,12 @@ channelRoutes.delete('/conversations/:sessionId/agents/:agentSessionId', async (
   return c.body(null, 204)
 })
 
-// Posting only records the message. Nothing runs here: a channel has no agent of
-// its own to answer it.
+// Records the message and wakes the channel's agents; each decides whether to answer.
 channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
+  // A person in the app. An agent speaks with channel_post, which spends the
+  // agents' budget; a token posting here would refill it for them.
+  if (!c.get('sessionId'))
+    throw new AppError(403, 'forbidden', 'Post to a channel from the app; agents use channel_post')
   const userId = c.get('userId')
   const body = await readBody(c)
   const teamId = await requireTeam(c, body)
@@ -167,15 +170,9 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
     userId,
     'nuphos',
     c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
-    c.get('cliToken'),
   )
 
-  await appendConversationMessages({
-    sessionId: channel.sessionId,
-    userId: channel.userId,
-    teamId,
-    messages: [{ id, role: 'user', parts: [{ type: 'text', text }], metadata }],
-  })
+  await postChannelMessage(channel, { id, text, metadata })
   // Speaking in a channel is joining it, as it is anywhere else.
   if (userId !== channel.userId) await addConversationParticipants(channel.sessionId, [userId])
 

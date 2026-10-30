@@ -19,6 +19,8 @@ const TEAMMATE = 'teammate-user'
 const MEMBERS = [OWNER, TEAMMATE]
 
 let viewer = OWNER
+// A sign-in session, as the app sends; a CLI or agent-run token has none.
+let signedIn = true
 let memory = portabilityDb()
 let appended: Parameters<typeof agentDb.appendConversationMessages>[0][] = []
 
@@ -44,6 +46,7 @@ const app = new Hono<{ Variables: AuthVariables }>()
 
 app.use('*', async (c, next) => {
   c.set('userId', viewer)
+  if (signedIn) c.set('sessionId', 'sign-in')
   await next()
 })
 app.route('/', channelRoutes)
@@ -91,6 +94,7 @@ async function agentIds(channelId: string) {
 
 beforeEach(() => {
   viewer = OWNER
+  signedIn = true
   memory = portabilityDb()
   appended = []
 })
@@ -281,6 +285,16 @@ describe('posting to a channel', () => {
     ).toBe(403)
     expect(appended).toHaveLength(0)
   })
+})
+
+test('only a person in the app can post; an agent token would refill the agents’ budget', async () => {
+  const channelId = await createChannel()
+
+  signedIn = false
+  expect(
+    (await send('POST', `/conversations/${channelId}/channel-messages`, { text: 'hi' })).status,
+  ).toBe(403)
+  expect(appended).toHaveLength(0)
 })
 
 describe('a channel never runs a turn', () => {

@@ -34,6 +34,11 @@ export async function setupAgentIndexes(): Promise<void> {
     )
     await c.createIndex({ 'linkedResources.key': 1 }, { background: true })
     await c.createIndex({ sessionId: 1 }, { unique: true, background: true })
+    // The channels an agent is in, for clearing it out when its session is deleted.
+    await c.createIndex(
+      { agentSessionIds: 1 },
+      { background: true, partialFilterExpression: { agentSessionIds: { $exists: true } } },
+    )
     await c.createIndex({ teamId: 1, 'claudeCodePreview.runtimeUrl': 1 }, { background: true })
     await c.createIndex({ teamId: 1, previousRuntimeUrls: 1 }, { background: true })
     await db().collection('agent_runtime_deletions').createIndex({ provider: 1, completedAt: 1 })
