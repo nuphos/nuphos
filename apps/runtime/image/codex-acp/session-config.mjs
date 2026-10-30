@@ -54,6 +54,16 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
       inherit: 'none',
       set: { ...baseline, ...env, ...nuphosSessionHomeEnv(env, processEnv) },
     },
+    // Codex's Browser plugin drives only the Codex App's own browser (`iab`), which
+    // never exists here, so every call fails with "Browser is not available: iab".
+    // The account syncs it in when the owner enabled it in the App; `_default` makes
+    // this per-plugin setting outrank that account state. Nuphos's browser is local_browser.
+    plugins: {
+      ...config.plugins,
+      _default: { enabled: true },
+      'browser@openai-bundled': { enabled: false },
+      'browser@openai-curated-remote': { enabled: false },
+    },
     mcp_servers: Object.fromEntries(
       Object.entries(config.mcp_servers ?? {}).map(([name, server]) => [
         name,
