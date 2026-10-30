@@ -1,16 +1,25 @@
-import { Terminal, X } from 'lucide-react'
+import { GitMerge, Terminal, X } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { ResourcePreview } from '../ui/resource-preview'
 
 import { ResourceListMenu } from './ResourceListMenu'
 import { ResourceMark } from './ResourceMark'
-import { chipNames, resourceLabel, resourceStatus } from './sessionResourcePresentation'
+import {
+  chipNames,
+  finishedBreakdown,
+  finishedFilter,
+  finishedLabel,
+  finishedTooltip,
+  resourceLabel,
+  resourceStatus,
+} from './sessionResourcePresentation'
 import { menuChipClass, resourceStyle, titlebarChip } from './sessionResourceStyle'
 
 import type { ResourceActions } from './ResourceListMenu'
 import type { ResourceChip } from './sessionResourcePresentation'
 import type { SessionResource } from '../../api/session-resource-types'
-import type { MouseEvent, PointerEvent } from 'react'
+import type { PointerEvent } from 'react'
 
 type ChipProps = {
   titlebar: boolean
@@ -36,6 +45,7 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
   const { titlebar, measure, actions } = props
 
   if (chip.kind === 'resource') return <ResourceBadge resource={chip.resource} {...props} />
+  if (chip.kind === 'finished') return <FinishedBadge resources={chip.resources} {...props} />
 
   if (chip.kind === 'terminals') {
     const content = (
@@ -51,7 +61,11 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
       <ResourceListMenu
         chips={[chip]}
         actions={actions}
-        label={`${String(chip.terminals.length)} terminals`}
+        label={
+          chip.terminals.length === 1
+            ? t('1 terminal')
+            : t('{n} terminals', { n: chip.terminals.length })
+        }
         className={`${menuChipClass(titlebar)} titlebar-no-drag`}
       >
         {content}
@@ -80,6 +94,35 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
   )
 }
 
+/**
+ * The merged badge: finished PRs and issues as one chip, quieter than the open
+ * ones, with merged purple only on its icon. It opens the summary panel's
+ * Changes list; in the sidebar the click also reaches the row and opens the chat.
+ */
+function FinishedBadge({
+  resources,
+  titlebar,
+  measure,
+  actions,
+}: ChipProps & { resources: SessionResource[] }) {
+  const Label = titlebar ? 'button' : 'span'
+  const label = finishedLabel(resources)
+  const merged = finishedFilter(resources) === 'merged'
+
+  return (
+    <Label
+      onPointerDown={stopTitlebarPointer(titlebar)}
+      onClick={(event) => actions.openChanges(resources, event)}
+      className={`inline-flex shrink-0 items-center gap-1 text-tertiary ${titlebar ? titlebarChip : ''} ${titlebar && !measure ? 'titlebar-no-drag' : ''}`}
+      title={finishedTooltip(resources)}
+      aria-label={t('{breakdown}, show in Changes', { breakdown: finishedBreakdown(resources) })}
+    >
+      <GitMerge className={`size-3 shrink-0 ${merged ? 'session-resource-merged' : ''}`} />
+      <span>{label}</span>
+    </Label>
+  )
+}
+
 function ResourceBadge({
   resource,
   titlebar,
@@ -94,40 +137,24 @@ function ResourceBadge({
   const { icon, color } = resourceStyle(resource)
   const label = resourceLabel(resource)
 
-  const canUnlink = titlebar && canManage
-  const unlink = (event: MouseEvent) => {
-    event.stopPropagation()
-    onUnlink(resource.id)
-  }
-
-  // GitHub chips unlink from their preview card; other chips have no card, so
-  // they carry the ✕ themselves.
-  const chipUnlink =
-    canUnlink && !github ? (
+  const unlinkButton =
+    titlebar && canManage ? (
       <button
         type="button"
-        aria-label={`Unlink ${label}`}
-        title="Unlink resource"
+        aria-label={t('Unlink {label}', { label })}
+        title={t('Unlink resource')}
         disabled={removing}
         className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
         onPointerDown={(event) => event.stopPropagation()}
-        onClick={unlink}
+        onClick={(event) => {
+          event.stopPropagation()
+          onUnlink(resource.id)
+        }}
       >
         <X className="size-3" />
+        {github && <span>{t('Unlink')}</span>}
       </button>
     ) : null
-
-  const previewUnlink = canUnlink ? (
-    <button
-      type="button"
-      disabled={removing}
-      className="-mr-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-error/10 hover:text-error focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
-      onClick={unlink}
-    >
-      <X className="size-3" />
-      Unlink
-    </button>
-  ) : null
 
   const badge = (
     <span
@@ -148,15 +175,14 @@ function ResourceBadge({
         <span className="truncate">{label}</span>
         <ResourceMark resource={resource} />
       </Label>
-      {chipUnlink}
+      {!github && unlinkButton}
     </span>
   )
 
   return github && !measure ? (
     <ResourcePreview
       actionable={titlebar}
-      actions={previewUnlink}
-      onOpen={titlebar ? (event) => actions.openResource(resource, event) : undefined}
+      actions={unlinkButton}
       repository={resource.repository ?? 'GitHub'}
       identifier={label}
       title={resource.title}
