@@ -1,3 +1,9 @@
-A finished reply now folds all of its work under one quiet "Worked for" line, instead of a gray pill that could repeat several times in one turn.
+Sign in with Google or Apple, alongside email.
 
-When an agent messages or starts another agent, the chat shows it as a single line, in line with the rest of the work log, instead of a separate card.
+Watch and control a conversation's desktop from your iPhone. When an agent works on a computer's screen, open it to see what the agent sees and take over with touch.
+
+Codex chats can use Ultrafast where the model offers it.
+
+Amelia Earhart joins as a new agent character.
+
+Fixes: a message the server never stored no longer blocks every later send, the chat scrolls under the composer and bars instead of being cut off, and on iPhone Duo the navigation bar no longer makes the composer jump while you scroll.
