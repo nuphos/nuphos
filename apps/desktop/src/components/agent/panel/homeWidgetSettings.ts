@@ -1,6 +1,7 @@
 import { t } from '../../../i18n/index.ts'
 
-import { metricSize, metricTitle } from './homeMetricFormat.ts'
+import { GRID_COLUMNS, cardKind, catalogEntry } from './homeCardCatalog.ts'
+import { metricSize } from './homeMetricFormat.ts'
 
 import type { GithubPR, GithubWorkflowRun } from '../../../types'
 import type {
@@ -23,6 +24,8 @@ export type {
   HomePanel,
   HomeRepo,
 } from '../../../types/team.ts'
+
+export { GRID_COLUMNS } from './homeCardCatalog.ts'
 
 /** What a team starts with: just the activity heatmap. */
 export const DEFAULT_HOME_LAYOUT: HomeLayout = { team: true, github: [], panels: [], metrics: [] }
@@ -131,16 +134,12 @@ export function filterRuns(
   )
 }
 
-export const GRID_COLUMNS = 12
-
-/** A new card's size: the heatmap gets the full row, the rest half of it. */
+/**
+ * A new card's size, from its kind: the heatmap gets the full row, the rest
+ * half of it. A key of no known kind sizes as a GitHub card.
+ */
 function defaultSize(key: string): { w: number; h: number } {
-  if (key === 'team') return { w: GRID_COLUMNS, h: 8 }
-  if (key.startsWith('panel:')) return { w: GRID_COLUMNS / 2, h: 6 }
-  if (key.startsWith('metric:')) return metricSize(metricKind(key))
-  // GitHub cards (`gh:<id>`).
-
-  return { w: GRID_COLUMNS / 2, h: 7 }
+  return catalogEntry(cardKind(key) ?? 'pulls').size
 }
 
 /**
@@ -197,14 +196,12 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
 
 /** A card's title from its grid key, as screen readers hear it when it moves. */
 export function cardLabel(layout: HomeLayout, key: string): string {
-  if (key === 'team') return t('Team activity')
   const github = layout.github.find((card) => `gh:${card.id}` === key)
 
   if (github) return githubCardTitle(github)
-  if (key.startsWith('panel:')) return t('Dashboard panel')
-  if (key.startsWith('metric:')) return metricTitle(metricKind(key))
+  const kind = cardKind(key, layout)
 
-  return key
+  return kind ? catalogEntry(kind).title : key
 }
 
 /**

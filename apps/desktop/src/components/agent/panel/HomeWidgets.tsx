@@ -12,6 +12,7 @@ import {
 } from '../../ui/menu'
 
 import { DelayedPanelReveal } from './homeAnimation'
+import { isKnownCard } from './homeCardCatalog'
 import { GithubCard } from './homeCards'
 import { HomeGrid } from './homeGrid'
 import { HomeMetricCard } from './homeMetricLive'
@@ -68,27 +69,32 @@ export function HomeWidgets({
     settings.team && hasTeammates && (
       <TeamActivityCard key="team" teamId={teamId} onOpenConversation={onOpenConversation} />
     ),
-    ...settings.github.map((card) => (
-      <GithubCard
-        key={`gh:${card.id}`}
-        teamId={teamId}
-        onOpenNuphosLink={onOpenNuphosLink}
-        card={card}
-        onChange={(next) => setGithub(settings.github.map((c) => (c.id === card.id ? next : c)))}
-        onRemove={() => setGithub(settings.github.filter((c) => c.id !== card.id))}
-      />
-    )),
-    ...metrics.map((card) => (
-      <HomeMetricCard
-        key={metricKey(card)}
-        teamId={teamId}
-        card={card}
-        hasTeammates={hasTeammates}
-        onChange={(next) => setMetrics(metrics.map((c) => (c.id === card.id ? next : c)))}
-        onRemove={() => setMetrics(metrics.filter((c) => c.id !== card.id))}
-        onOpenConversation={onOpenConversation}
-      />
-    )),
+    // Cards of a kind this desktop does not know, saved by a newer one, are left out.
+    ...settings.github
+      .filter(isKnownCard)
+      .map((card) => (
+        <GithubCard
+          key={`gh:${card.id}`}
+          teamId={teamId}
+          onOpenNuphosLink={onOpenNuphosLink}
+          card={card}
+          onChange={(next) => setGithub(settings.github.map((c) => (c.id === card.id ? next : c)))}
+          onRemove={() => setGithub(settings.github.filter((c) => c.id !== card.id))}
+        />
+      )),
+    ...metrics
+      .filter(isKnownCard)
+      .map((card) => (
+        <HomeMetricCard
+          key={metricKey(card)}
+          teamId={teamId}
+          card={card}
+          hasTeammates={hasTeammates}
+          onChange={(next) => setMetrics(metrics.map((c) => (c.id === card.id ? next : c)))}
+          onRemove={() => setMetrics(metrics.filter((c) => c.id !== card.id))}
+          onOpenConversation={onOpenConversation}
+        />
+      )),
     ...settings.panels.map((pin) => (
       <DashboardPanelCard
         key={`panel:${panelKey(pin)}`}
