@@ -4875,6 +4875,7 @@
   "Waiting for {name} to sign in": "กำลังรอ {name} ลงชื่อเข้าใช้",
   "Waiting for {name} to sign in. Your message is sent once they do.": "กำลังรอ {name} ลงชื่อเข้าใช้ ข้อความของคุณจะถูกส่งเมื่อเขาลงชื่อเข้าใช้",
   "Waiting for {name}… complete the authorization in your browser.": "กำลังรอ {name}… ทำการอนุญาตให้เสร็จในเบราว์เซอร์ของคุณ",
+  "Waking…": "กำลังปลุก…",
   "Warning": "คำเตือน",
   "Warnings": "คำเตือน",
   "Watch": "เฝ้าดู",

@@ -107,6 +107,7 @@ test("your own paused Box resumes; someone else's asks its owner; an offline com
   assert.deepEqual(agentProblem(local('u-shant', paused), undefined, viewer('u-shant'))?.fix, {
     kind: 'resume',
     deviceId: 'd1',
+    runtimeId: 'local_u-shant_d1',
   })
   assert.deepEqual(agentProblem(local('u-bryan', paused), undefined, viewer('u-shant'))?.fix, {
     kind: 'ask',
@@ -135,21 +136,29 @@ test('OpenCode on your own computer signs in with the runtime sign-in, not setti
   })
 })
 
-test('a Resume clears its busy state when the call settles, so it can be tried again', async () => {
+test('Resume wakes through the sign-in wake path, waking only while the request runs', async () => {
   for (const succeeds of [true, false]) {
-    const busy: boolean[] = []
-    const outcome: string[] = []
+    const events: string[] = []
 
     await resumeComputer({
-      deviceId: 'd1',
-      resume: async () => {
-        if (!succeeds) throw new Error('503')
+      fix: { kind: 'resume', deviceId: 'd1', runtimeId: 'local_u-shant_d1' },
+      wake: async (runtimeId) => {
+        events.push(`wake ${runtimeId}`)
+        if (!succeeds) throw new Error('402')
       },
-      setBusy: (on) => busy.push(on),
-      onResumed: () => outcome.push('resumed'),
-      onFailed: () => outcome.push('failed'),
+      begin: (deviceId) => {
+        events.push(`begin ${deviceId}`)
+
+        return () => events.push(`end ${deviceId}`)
+      },
+      onResumed: () => events.push('resumed'),
+      onFailed: () => events.push('failed'),
     })
-    assert.deepEqual(busy, [true, false])
-    assert.deepEqual(outcome, [succeeds ? 'resumed' : 'failed'])
+    assert.deepEqual(events, [
+      'begin d1',
+      'wake local_u-shant_d1',
+      succeeds ? 'resumed' : 'failed',
+      'end d1',
+    ])
   }
 })

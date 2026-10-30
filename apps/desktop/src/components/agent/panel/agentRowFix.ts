@@ -12,8 +12,8 @@ export type AgentFix =
   | { kind: 'signIn'; instance: RuntimeInstance }
   /** This computer's agent: its own CLI sign-in. */
   | { kind: 'cli'; provider: 'claude-code' | 'codex' }
-  /** The viewer's own paused Box. */
-  | { kind: 'resume'; deviceId: string }
+  /** The viewer's own paused Box, woken the way a sign-in wakes it (#1109). */
+  | { kind: 'resume'; deviceId: string; runtimeId: string }
   /** An offline computer: look again. */
   | { kind: 'retry' }
   /** Someone else fixes it; `name` is null until the team's members load. */
@@ -50,7 +50,11 @@ export function agentProblem(
 
     if (!paused) return { reason, fix: { kind: 'retry' }, pickable: false }
     if (local.ownerUserId === viewer.viewerId)
-      return { reason, fix: { kind: 'resume', deviceId: local.deviceId }, pickable: false }
+      return {
+        reason,
+        fix: { kind: 'resume', deviceId: local.deviceId, runtimeId: instance.id },
+        pickable: false,
+      }
 
     return { reason, fix: { kind: 'ask', name: ownerName(instance, viewer) }, pickable: false }
   }
@@ -104,29 +108,32 @@ export function agentAskText(fix: Extract<AgentFix, { kind: 'ask' }>): string {
 }
 
 /**
- * Resumes a Box. Its chip is busy only while the call is in flight: a Box that does not come
- * back, or is paused again, can be resumed again from the same row.
+ * Wakes a paused Box through the same request a sign-in uses (#1109: `/status?wake=1`, which
+ * enforces the team's vCPU limit). The computer reads as waking only while the request is in
+ * flight, so a Box that does not come back, or is paused again, can be woken again.
  */
 export async function resumeComputer({
-  deviceId,
-  resume,
-  setBusy,
+  fix,
+  wake,
+  begin,
   onResumed,
   onFailed,
 }: {
-  deviceId: string
-  resume: (deviceId: string) => Promise<unknown>
-  setBusy: (busy: boolean) => void
+  fix: Extract<AgentFix, { kind: 'resume' }>
+  wake: (runtimeId: string) => Promise<unknown>
+  /** Marks the computer waking; returns the call that ends it. */
+  begin: (deviceId: string) => () => void
   onResumed: () => void
   onFailed: (error: unknown) => void
 }): Promise<void> {
-  setBusy(true)
+  const end = begin(fix.deviceId)
+
   try {
-    await resume(deviceId)
+    await wake(fix.runtimeId)
     onResumed()
   } catch (error) {
     onFailed(error)
   } finally {
-    setBusy(false)
+    end()
   }
 }

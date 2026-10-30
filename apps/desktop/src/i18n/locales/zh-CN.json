@@ -4875,6 +4875,7 @@
   "Waiting for {name} to sign in": "正在等待 {name} 登录",
   "Waiting for {name} to sign in. Your message is sent once they do.": "正在等待 {name} 登录。对方登录后就会发送你的消息。",
   "Waiting for {name}… complete the authorization in your browser.": "正在等待 {name}… 请在浏览器中完成授权。",
+  "Waking…": "正在唤醒…",
   "Warning": "警告",
   "Warnings": "警告",
   "Watch": "监控",

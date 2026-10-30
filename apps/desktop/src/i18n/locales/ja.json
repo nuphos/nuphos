@@ -4875,6 +4875,7 @@
   "Waiting for {name} to sign in": "{name} のサインインを待っています",
   "Waiting for {name} to sign in. Your message is sent once they do.": "{name} のサインインを待っています。サインインするとメッセージが送信されます。",
   "Waiting for {name}… complete the authorization in your browser.": "{name} を待っています… ブラウザで認可を完了してください。",
+  "Waking…": "起動中…",
   "Warning": "警告",
   "Warnings": "警告",
   "Watch": "監視",
