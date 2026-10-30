@@ -19,7 +19,7 @@ import { menuChipClass, resourceStyle, titlebarChip } from './sessionResourceSty
 import type { ResourceActions } from './ResourceListMenu'
 import type { ResourceChip } from './sessionResourcePresentation'
 import type { SessionResource } from '../../api/session-resource-types'
-import type { PointerEvent } from 'react'
+import type { MouseEvent, PointerEvent } from 'react'
 
 type ChipProps = {
   titlebar: boolean
@@ -137,8 +137,16 @@ function ResourceBadge({
   const { icon, color } = resourceStyle(resource)
   const label = resourceLabel(resource)
 
-  const unlinkButton =
-    titlebar && canManage ? (
+  const canUnlink = titlebar && canManage
+  const unlink = (event: MouseEvent) => {
+    event.stopPropagation()
+    onUnlink(resource.id)
+  }
+
+  // GitHub chips unlink from their preview card; other chips have no card, so
+  // they carry the ✕ themselves.
+  const chipUnlink =
+    canUnlink && !github ? (
       <button
         type="button"
         aria-label={t('Unlink {label}', { label })}
@@ -146,15 +154,23 @@ function ResourceBadge({
         disabled={removing}
         className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
         onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.stopPropagation()
-          onUnlink(resource.id)
-        }}
+        onClick={unlink}
       >
         <X className="size-3" />
-        {github && <span>{t('Unlink')}</span>}
       </button>
     ) : null
+
+  const previewUnlink = canUnlink ? (
+    <button
+      type="button"
+      disabled={removing}
+      className="-mr-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-error/10 hover:text-error focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
+      onClick={unlink}
+    >
+      <X className="size-3" />
+      {t('Unlink')}
+    </button>
+  ) : null
 
   const badge = (
     <span
@@ -175,14 +191,15 @@ function ResourceBadge({
         <span className="truncate">{label}</span>
         <ResourceMark resource={resource} />
       </Label>
-      {!github && unlinkButton}
+      {chipUnlink}
     </span>
   )
 
   return github && !measure ? (
     <ResourcePreview
       actionable={titlebar}
-      actions={unlinkButton}
+      actions={previewUnlink}
+      onOpen={titlebar ? (event) => actions.openResource(resource, event) : undefined}
       repository={resource.repository ?? 'GitHub'}
       identifier={label}
       title={resource.title}
