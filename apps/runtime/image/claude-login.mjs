@@ -3,7 +3,7 @@
 // (`_openab/runtime/login/input`). The credential stays in this container's
 // `~/.claude/.credentials.json`, where the agent reads it; no frame carries it.
 import { execFile, spawn } from 'node:child_process'
-import { chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
@@ -16,6 +16,38 @@ const LONG_LIVED_TOKEN = /\bsk-ant-oat\d*-[\w-]{20,}/u
 /** Where a long-lived sign-in lives, beside Claude's own store. session-home.mjs reads it. */
 export const LONG_LIVED_TOKEN_FILE = '.nuphos-oauth-token.json'
 const LONG_LIVED_MS = 365 * 24 * 60 * 60 * 1000
+// Where and as whom the pinned CLI revokes a sign-in it gives up (its /logout).
+const REVOKE_URL = 'https://platform.claude.com/v1/oauth/token/revoke'
+const CLAUDE_CODE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'
+
+/** The one-year token stored before this sign-in, if any. */
+export function storedLongLivedToken(configDir) {
+  try {
+    const { token } = JSON.parse(readFileSync(join(configDir, LONG_LIVED_TOKEN_FILE), 'utf8'))
+    return typeof token === 'string' && token ? token : null
+  } catch {
+    return null
+  }
+}
+
+/** True once the provider confirmed it; never throws, and never logs the token. */
+export async function revokeLongLivedToken(token, request = fetch) {
+  try {
+    const response = await request(REVOKE_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        token_type_hint: 'access_token',
+        client_id: CLAUDE_CODE_CLIENT_ID,
+      }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
 
 /** The token `claude setup-token` printed, or null. The caller never logs or relays it. */
 export function longLivedToken(output) {
@@ -122,6 +154,8 @@ export async function runClaudeLogin({
   // rotates on every use (see the cloud runtime image).
   longLived = false,
   terminal = inTerminal,
+  revoke = revokeLongLivedToken,
+  log = (line) => process.stderr.write(`${line}\n`),
 }) {
   // Not the gateway's environment: no transport keys, and no CLAUDE_CODE_OAUTH_TOKEN,
   // which would shadow the login this writes. USER names the macOS Keychain account the
@@ -206,7 +240,13 @@ export async function runClaudeLogin({
       checkEnv = { ...env, CLAUDE_CODE_OAUTH_TOKEN: token }
       // Checked before it is stored, so a token the CLI rejects never replaces a working one.
       if (!(await signedIn(executable, args, checkEnv))) throw new LoginError('failed')
+      const previous = storedLongLivedToken(configDir)
+
       storeLongLivedToken(configDir, token)
+      // One one-year token per runtime: the one it replaces stops working. A failed revoke
+      // keeps the new sign-in; the old token then lapses on its own date.
+      if (previous && previous !== token && !(await revoke(previous)))
+        log('claude-login: signed in, but the previous one-year token could not be revoked')
     } else if (!(await signedIn(executable, args, checkEnv))) {
       // The same check the agent's host runs, with the same environment, on every platform.
       throw new LoginError('failed')

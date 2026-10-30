@@ -9,6 +9,7 @@ import {
   LONG_LIVED_TOKEN_FILE,
   inTerminal,
   longLivedToken,
+  revokeLongLivedToken,
   runClaudeLogin,
 } from '../image/claude-login.mjs'
 
@@ -30,6 +31,7 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 const record = process.argv[2];
 const accepted = readFileSync(record + '.accepted', 'utf8');
+const printed = readFileSync(record + '.printed', 'utf8');
 if (process.argv.slice(-3).join(' ') === 'auth status --json') {
   const loggedIn = Boolean(accepted) && process.env.CLAUDE_CODE_OAUTH_TOKEN === accepted;
   appendFileSync(record, JSON.stringify({ status: loggedIn }) + '\\n');
@@ -43,7 +45,7 @@ process.stdin.on('data', (chunk) => {
   buffer += chunk.toString();
   if (!buffer.endsWith('\\r')) return;
   if (buffer !== 'good-code#state\\r') process.exit(4);
-  process.stdout.write('Your OAuth token (valid for 1y):\\n\\x1b[33m${TOKEN}\\x1b[39m\\nStore this token securely.\\n');
+  process.stdout.write('Your OAuth token (valid for 1y):\\n\\x1b[33m' + printed + '\\x1b[39m\\nStore this token securely.\\n');
   process.exit(0);
 });
 `
@@ -57,8 +59,11 @@ async function fixture() {
   return { home, script, record: join(home, 'record.ndjson'), configDir: join(home, '.claude') }
 }
 
-async function signIn({ home, script, record, configDir }, accepted) {
+async function signIn({ home, script, record, configDir }, accepted, options = {}) {
+  const { printed = TOKEN, ...rest } = options
+
   await writeFile(`${record}.accepted`, accepted)
+  await writeFile(`${record}.printed`, printed)
   const input = new PassThrough()
   const frames = []
 
@@ -71,6 +76,8 @@ async function signIn({ home, script, record, configDir }, accepted) {
     input,
     longLived: true,
     terminal: (command, args) => ({ command, args }),
+    revoke: async () => true,
+    ...rest,
     emit: (frame) => {
       frames.push(frame)
       if (frame.type === 'authorize') input.write('good-code#state\n')
@@ -135,4 +142,73 @@ test('a token the CLI rejects is never stored', spawnsCli, async () => {
   } finally {
     await rm(fx.home, { recursive: true, force: true })
   }
+})
+
+const NEXT = `sk-ant-oat01-${'z9Y8_x7-'.repeat(12)}`
+
+test('signing in again revokes the token it replaces', spawnsCli, async () => {
+  const fx = await fixture()
+  const revoked = []
+
+  try {
+    await signIn(fx, TOKEN, { revoke: async (token) => revoked.push(token) > 0 })
+    assert.deepEqual(revoked, [])
+    await signIn(fx, NEXT, { printed: NEXT, revoke: async (token) => revoked.push(token) > 0 })
+    assert.deepEqual(revoked, [TOKEN])
+    const stored = JSON.parse(await readFile(join(fx.configDir, LONG_LIVED_TOKEN_FILE), 'utf8'))
+
+    assert.equal(stored.token, NEXT)
+  } finally {
+    await rm(fx.home, { recursive: true, force: true })
+  }
+})
+
+test(
+  'a revoke that fails keeps the new sign-in and says so without the token',
+  spawnsCli,
+  async () => {
+    const fx = await fixture()
+    const logged = []
+
+    try {
+      await signIn(fx, TOKEN)
+      const frames = await signIn(fx, NEXT, {
+        printed: NEXT,
+        revoke: async () => false,
+        log: (line) => logged.push(line),
+      })
+      const stored = JSON.parse(await readFile(join(fx.configDir, LONG_LIVED_TOKEN_FILE), 'utf8'))
+
+      assert.equal(frames.at(-1).type, 'authenticated')
+      assert.equal(stored.token, NEXT)
+      assert.equal(logged.length, 1)
+      assert.ok(!logged[0].includes(TOKEN) && !logged[0].includes(NEXT))
+    } finally {
+      await rm(fx.home, { recursive: true, force: true })
+    }
+  },
+)
+
+test('the revoke asks the provider as the CLI does, and a failure is only false', async () => {
+  const calls = []
+  const ok = await revokeLongLivedToken(TOKEN, async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) })
+
+    return { ok: true }
+  })
+
+  assert.equal(ok, true)
+  assert.equal(calls[0].url, 'https://platform.claude.com/v1/oauth/token/revoke')
+  assert.deepEqual(calls[0].body, {
+    token: TOKEN,
+    token_type_hint: 'access_token',
+    client_id: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+  })
+  assert.equal(await revokeLongLivedToken(TOKEN, async () => ({ ok: false })), false)
+  assert.equal(
+    await revokeLongLivedToken(TOKEN, async () => {
+      throw new Error('offline')
+    }),
+    false,
+  )
 })
