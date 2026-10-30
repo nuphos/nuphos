@@ -62,6 +62,27 @@ export function tabStep(key: string, index: number, count: number): number | nul
   return step === undefined ? null : Math.min(count - 1, Math.max(0, index + step))
 }
 
+// Long enough for the dialog to settle focus itself once the pressed button is gone.
+const SETTLE_MS = 50
+
+/** Focuses the tile of `kind` in `container`, as when coming back from setting it up. */
+export function focusTile(container: HTMLElement | null, kind: string) {
+  setTimeout(
+    () => container?.querySelector<HTMLElement>(`[data-kind="${kind}"]`)?.focus(),
+    SETTLE_MS,
+  )
+}
+
+/**
+ * Text for a polite live region, and a way to set it. A repeat gets a
+ * no-break space added, so screen readers still announce it.
+ */
+export function useAnnouncement(): [string, (text: string) => void] {
+  const [said, setSaid] = useState('')
+
+  return [said, (text) => setSaid((last) => (last === text ? `${text}\u00a0` : text))]
+}
+
 /**
  * Which way a row of tabs runs, read from its flex direction and kept up to
  * date as the gallery is resized: down the side, or across the top when narrow.

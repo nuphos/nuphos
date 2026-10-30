@@ -16,9 +16,24 @@ import { PullRows, RunRows } from './homeGithubRows'
 import { metricCardDef } from './homeMetricCards'
 import { MetricCardView } from './homeMetricShell'
 import { TeamActivityView } from './homeTeamCard'
+import {
+  PULL_STATUSES,
+  RUN_STATUSES,
+  filterPulls,
+  filterRuns,
+  githubCardTitle,
+} from './homeWidgetSettings'
 
 import type { HomeCardKind } from './homeCardCatalog'
-import type { HomeMetricKind } from '../../../types/team.ts'
+import type { WithRepo } from './homeGithubRows'
+import type { GithubPR, GithubWorkflowRun } from '../../../types'
+import type {
+  HomeGithubCard,
+  HomeMetricKind,
+  HomePullStatus,
+  HomeRepo,
+  HomeRunStatus,
+} from '../../../types/team.ts'
 import type { ReactNode } from 'react'
 
 // The width of a full and a half row on a typical home page, in pixels.
@@ -115,18 +130,17 @@ const PREVIEWS: Record<HomeCardKind, () => ReactNode> = {
 }
 
 /**
- * A card of `kind` as it looks on the home page, drawn at its real size from
- * sample data and scaled down to fit its tile. It cannot be focused or
- * clicked, and is hidden from screen readers: the tile describes it.
+ * `children`, a card of `kind`, drawn at the card's real size on the home page
+ * and scaled down to fit the box it is in. It cannot be focused or clicked,
+ * and is hidden from screen readers: whatever shows it describes it.
  */
-export function CardPreview({ kind }: { kind: HomeCardKind }) {
+export function ScaledCard({ kind, children }: { kind: HomeCardKind; children: ReactNode }) {
   const frameRef = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null)
   const size = catalogEntry(kind).size
   const width = size.w === GRID_COLUMNS ? FULL_WIDTH : HALF_WIDTH
   // A card h rows tall is 40h - 12 pixels: 28 per row and 12 between rows.
   const height = 40 * size.h - 12
-  const Preview = PREVIEWS[kind]
 
   useLayoutEffect(() => {
     const el = frameRef.current
@@ -156,12 +170,88 @@ export function CardPreview({ kind }: { kind: HomeCardKind }) {
           className="flex-none rounded-lg bg-[rgb(var(--color-background-base))] shadow-sm"
           style={{ width, height, transform: `scale(${String(scale)})` }}
         >
-          <Preview />
+          {children}
         </div>
       )}
-      <span className="absolute right-2 top-2 rounded bg-zGray-800/70 px-1.5 py-px text-[10.5px] text-tertiary">
-        {t('Sample')}
-      </span>
     </div>
+  )
+}
+
+/** A card of `kind` as it looks on the home page, drawn from sample data and marked so. */
+export function CardPreview({ kind }: { kind: HomeCardKind }) {
+  const Preview = PREVIEWS[kind]
+
+  return (
+    <>
+      <ScaledCard kind={kind}>
+        <Preview />
+      </ScaledCard>
+      <SampleTag />
+    </>
+  )
+}
+
+/** Marks a preview as drawn from sample data. */
+export function SampleTag() {
+  return (
+    <span
+      aria-hidden
+      className="absolute right-2 top-2 rounded bg-zGray-800/70 px-1.5 py-px text-[10.5px] text-tertiary"
+    >
+      {t('Sample')}
+    </span>
+  )
+}
+
+/**
+ * A pull request or CI card as setting one up shows it: sample rows spread
+ * over the repositories picked and narrowed to the statuses picked, so
+ * picking loads nothing.
+ */
+export function GithubSample({
+  kind,
+  repos,
+  statuses,
+}: {
+  kind: 'pulls' | 'ci'
+  repos: HomeRepo[]
+  statuses: string[]
+}) {
+  const names = repos.map((r) => r.fullName)
+  const spread = <T,>(items: T[]) =>
+    items.map((item, i) => ({
+      ...item,
+      repo: names[i % names.length] ?? SAMPLE_REPO,
+      installationId: 0,
+    }))
+  const card = { id: 'sample', kind, repos, statuses } as HomeGithubCard
+  const pulls = (
+    kind === 'pulls' ? filterPulls(spread(SAMPLE_PULLS), statuses as HomePullStatus[]) : []
+  ) as WithRepo<GithubPR>[]
+  const runs = (
+    kind === 'ci' ? filterRuns(spread(SAMPLE_RUNS), statuses as HomeRunStatus[]) : []
+  ) as WithRepo<GithubWorkflowRun>[]
+  const empty =
+    (kind === 'pulls' ? PULL_STATUSES : RUN_STATUSES).find((s) => statuses.includes(s.value))
+      ?.empty ?? ''
+
+  return (
+    <HomeCard
+      icon={
+        kind === 'pulls' ? (
+          <GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />
+        ) : (
+          <CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />
+        )
+      }
+      title={githubCardTitle(card)}
+      menu={null}
+      count={kind === 'pulls' ? pulls.length : runs.length}
+      empty={empty}
+      failed={[]}
+      total={repos.length}
+    >
+      {kind === 'pulls' ? <PullRows pulls={pulls} /> : <RunRows runs={runs} />}
+    </HomeCard>
   )
 }

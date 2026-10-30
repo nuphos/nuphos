@@ -93,6 +93,7 @@ export function GalleryTile({
         </div>
         <Button
           data-tile=""
+          data-kind={card.kind}
           variant={removes ? 'ghost' : 'secondary'}
           size="sm"
           disabled={Boolean(unavailable)}

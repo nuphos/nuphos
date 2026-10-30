@@ -1,5 +1,5 @@
 import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import {
@@ -44,6 +44,7 @@ import type {
 } from './homeWidgetSettings'
 
 const newId = () => crypto.randomUUID().slice(0, 8)
+const HIGHLIGHT_MS = 1800
 
 // Saved with the sizes as fitted, so a card resized back to an old default stays so.
 const versioned = (next: HomeLayout): HomeLayout => ({ ...next, gridVersion: HOME_GRID_VERSION })
@@ -76,6 +77,17 @@ export function HomeWidgets({
 }) {
   const home = useHomeLayout(teamId)
   const [galleryOpen, setGalleryOpen] = useState(false)
+  // The cards added in the gallery, outlined for a moment once it has closed.
+  const [highlight, setHighlight] = useState<string[]>([])
+  // Grid keys of the cards added while the gallery is open, in order.
+  const added = useRef<string[]>([])
+
+  useEffect(() => {
+    if (highlight.length === 0) return
+    const timer = setTimeout(() => setHighlight([]), HIGHLIGHT_MS)
+
+    return () => clearTimeout(timer)
+  }, [highlight])
   // Null until the team's size is first known on this machine.
   const members = useTeamSize(teamId)
   const hasTeammates = (members ?? 0) > 1
@@ -92,8 +104,28 @@ export function HomeWidgets({
   const setMetrics = (next: Metric[]) => update({ ...settings, metrics: next })
   const togglePanel = (pin: HomePanel) =>
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
-  const add = (kind: HomeCardKind) => {
-    if (kind !== 'panel') update(addCard(settings, kind, newId()).layout)
+  const add = (kind: HomeCardKind, github?: Pick<HomeGithubCard, 'repos' | 'statuses'>) => {
+    if (kind === 'panel') return
+    const next = addCard(settings, kind, newId(), github)
+
+    update(next.layout)
+    added.current = [...added.current, next.key]
+  }
+  const forget = (key: string) => {
+    added.current = added.current.filter((k) => k !== key)
+  }
+  const pinFromGallery = (pin: HomePanel) => {
+    const key = `panel:${panelKey(pin)}`
+
+    if (settings.panels.some((p) => panelKey(p) === panelKey(pin))) forget(key)
+    else added.current = [...added.current, key]
+    togglePanel(pin)
+  }
+  // Closing shows every card added in this visit, the first scrolled into view.
+  const setGallery = (open: boolean) => {
+    setGalleryOpen(open)
+    if (!open) setHighlight(added.current)
+    added.current = []
   }
 
   const cards = [
@@ -145,6 +177,7 @@ export function HomeWidgets({
           cards={cards}
           saved={settings.grid}
           sizes={{ team: { w: GRID_COLUMNS, h: teamHeight } }}
+          highlight={highlight}
           onChange={(grid) => update({ ...settings, grid })}
           label={(key) => cardLabel(settings, key)}
           revealAt={revealAt}
@@ -161,16 +194,18 @@ export function HomeWidgets({
         <HomeCardGallery
           teamId={teamId}
           open={galleryOpen}
-          onOpenChange={setGalleryOpen}
+          onOpenChange={setGallery}
           layout={settings}
           hasTeammates={hasTeammates}
           customized={home.customized}
           isTeamAdmin={isTeamAdmin}
           onAdd={add}
           onRemove={(kind) => {
-            if (kind === 'team') update({ ...settings, team: false })
+            if (kind !== 'team') return
+            update({ ...settings, team: false })
+            forget('team')
           }}
-          onTogglePanel={togglePanel}
+          onTogglePanel={pinFromGallery}
           onReset={home.resetToTeamDefault}
           onSetTeamDefault={() => home.setAsTeamDefault(versioned(settings))}
         />

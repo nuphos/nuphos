@@ -238,10 +238,13 @@ export function AddCardButton({ subtle, onClick }: { subtle: boolean; onClick: (
   )
 }
 
-/** The gallery's title, what it is for, and its close button. */
-export function GalleryHeader() {
+/** The gallery's title, what it is for, its close button, and what it announces. */
+export function GalleryHeader({ said }: { said: string }) {
   return (
     <div className="flex shrink-0 items-start justify-between gap-4 border-b border-main px-5 py-3.5">
+      <div role="status" aria-live="polite" className="sr-only">
+        {said}
+      </div>
       <div className="min-w-0">
         <Dialog.Title className="text-[14px] font-medium">{t('Add cards')}</Dialog.Title>
         <Dialog.Description className="mt-0.5 text-[12px] text-secondary">
