@@ -5408,7 +5408,7 @@
   "{name} is now signed in.": "{name} sekarang sudah masuk.",
   "{name} is signed out.": "{name} belum masuk.",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} belum masuk. Minta administrator workspace untuk menghubungkan ulang runtime ini.",
-  "{name} is signed out. Ask the owner of {computer} to sign it in.": "{name} telah keluar. Minta pemilik {computer} untuk masuk.",
+  "{name} is signed out. Ask its owner to sign it in.": "{name} telah keluar. Minta pemiliknya untuk masuk.",
   "{name} is signed out. Sign it in to send messages.": "{name} belum masuk. Masukkan akun agar bisa mengirim pesan.",
   "{name} now connects via {host}": "{name} sekarang terhubung melalui {host}",
   "{name} remaining": "Sisa {name}",

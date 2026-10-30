@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { runtimeControlSendBlock, selectedAgentReachability } from './runtimeControlSignOut.ts'
+import {
+  runtimeControlSendBlock,
+  selectedAgentName,
+  selectedAgentReachability,
+} from './runtimeControlSignOut.ts'
 
 import type { RuntimeControl } from './RuntimeSelector'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
@@ -69,4 +73,14 @@ test('the usage probe sign-in guess never makes an agent yellow or blocks it', (
 test('an agent without a Box has no dot and is not blocked', () => {
   assert.equal(selectedAgentReachability(control(undefined)), null)
   assert.equal(runtimeControlSendBlock(control(undefined)), null)
+})
+
+test('a signed-out agent is named with its computer, not as the computer', () => {
+  assert.equal(selectedAgentName(control({ signedIn: false })), 'Claude Code on Box 1')
+  assert.equal(
+    selectedAgentName(control({ signedIn: false, agentLabel: 'Reviewer' })),
+    'Reviewer on Box 1',
+  )
+  assert.equal(selectedAgentName(control(undefined)), 'Claude Code')
+  assert.equal(selectedAgentName({ value: null }), 'The runtime')
 })

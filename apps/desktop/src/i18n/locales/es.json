@@ -5408,7 +5408,7 @@
   "{name} is now signed in.": "{name} ya inició sesión.",
   "{name} is signed out.": "{name} cerró sesión.",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} cerró sesión. Pide a un administrador del espacio de trabajo que vuelva a conectar este entorno de ejecución.",
-  "{name} is signed out. Ask the owner of {computer} to sign it in.": "{name} cerró sesión. Pide al propietario de {computer} que inicie sesión.",
+  "{name} is signed out. Ask its owner to sign it in.": "{name} cerró sesión. Pide a su propietario que inicie sesión.",
   "{name} is signed out. Sign it in to send messages.": "{name} cerró sesión. Inicia sesión para enviar mensajes.",
   "{name} now connects via {host}": "{name} ahora se conecta mediante {host}",
   "{name} remaining": "{name} restante",
