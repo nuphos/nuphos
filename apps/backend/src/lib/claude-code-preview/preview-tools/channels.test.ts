@@ -4,6 +4,7 @@ import { agentConversations } from '@/lib/agent/db'
 import { installTurnRunner, resetTurnRunner } from '@/lib/agent/turn-runner'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { channelToolModule } from './channels'
@@ -20,6 +21,11 @@ let appended: Parameters<typeof agentDb.appendConversationMessages>[0][] = []
 let woken: string[] = []
 
 useDb({ db: (() => memory) as unknown as typeof dbActual.db })
+let ownerOnTeam = true
+
+useIdentity({
+  getTeamMembership: async () => (ownerOnTeam ? ({ role: 'MEMBER' } as never) : null),
+})
 useAgentDb({
   appendConversationMessages: async (data) => {
     appended.push(data)
@@ -52,6 +58,7 @@ const tools = (sessionId: string) =>
 
 beforeEach(async () => {
   memory = portabilityDb()
+  ownerOnTeam = true
   appended = []
   woken = []
   installTurnRunner({
@@ -121,4 +128,14 @@ test('a member reads the channel', async () => {
   const result = await tools('agent-a').channel_read?.({ label: 'x', channelId: CHANNEL })
 
   expect(result).toMatchObject({ structuredContent: { messages: [], more: false } })
+})
+
+test('an agent whose owner left the team can neither read nor post', async () => {
+  ownerOnTeam = false
+  const read = await tools('agent-a').channel_read?.({ label: 'x', channelId: CHANNEL })
+  const post = await tools('agent-a').channel_post?.({ label: 'x', channelId: CHANNEL, text: 'hi' })
+
+  expect(JSON.stringify(read)).toContain('no longer on the team')
+  expect(post).toMatchObject({ isError: true })
+  expect(appended).toHaveLength(0)
 })

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
@@ -115,6 +116,8 @@ async function notifyAgent(
   const agent = await getConversationBySessionId(sessionId)
 
   if (!agent?.teamId || agent.teamId !== channel.teamId || isChannel(agent)) return
+  // An agent runs as its owner, so it goes quiet once its owner leaves the team.
+  if (!(await getTeamMembership(agent.userId, channel.teamId))) return
   const waiting = await listPendingUserMessages(agent.userId, sessionId)
 
   if (waiting.some((message) => message.metadata?.sender?.id === senderId(channel.sessionId)))
@@ -131,7 +134,9 @@ async function notifyAgent(
       locale: agent.metadata?.locale ?? 'en-US',
     },
     agent,
-    `New messages in the Nuphos channel "${channel.title}" (channelId ${channel.sessionId}).`,
+    // Fixed per channel, so the queue's dedupe keeps one; the title is a
+    // member's words and travels only in the metadata.
+    `New messages in a Nuphos channel (channelId ${channel.sessionId}).`,
     'agent.resource',
     {
       version: 1,

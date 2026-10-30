@@ -155,7 +155,7 @@ export async function readChannelMessages(
  * Drops channel notices the agent has nothing left to read for: it may have
  * caught up with channel_read during the turn the notice waited behind.
  */
-export async function withoutReadNotices<M extends { metadata?: MessageMetadata }>(
+export async function withoutReadNotices<M extends { source?: string; metadata?: MessageMetadata }>(
   agentSessionId: string,
   messages: M[],
 ): Promise<M[]> {
@@ -164,7 +164,7 @@ export async function withoutReadNotices<M extends { metadata?: MessageMetadata 
   for (const message of messages) {
     const id = message.metadata?.sender?.id
 
-    if (!id?.startsWith(CHANNEL_SENDER_PREFIX)) {
+    if (message.source !== 'agent.resource' || !id?.startsWith(CHANNEL_SENDER_PREFIX)) {
       kept.push(message)
       continue
     }

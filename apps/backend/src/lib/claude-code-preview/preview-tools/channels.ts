@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { isChannel, readChannelMessages } from '@/lib/agent/db/channels'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
+import { getTeamMembership } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
@@ -32,13 +33,17 @@ async function memberChannel(ctx: PreviewToolContext, id: string) {
     !channel.agentSessionIds?.includes(ctx.sessionId)
   )
     throw new Error('This conversation is not in that channel.')
+  const self = await getConversationBySessionId(ctx.sessionId)
 
-  return channel
+  // The agent speaks as its owner, who must still be on the team.
+  if (!self || !(await getTeamMembership(self.userId, ctx.teamId)))
+    throw new Error('This agent’s owner is no longer on the team.')
+
+  return { channel, self }
 }
 
 async function postAsThisAgent(ctx: PreviewToolContext, id: string, text: string) {
-  const channel = await memberChannel(ctx, id)
-  const self = await getConversationBySessionId(ctx.sessionId)
+  const { channel, self } = await memberChannel(ctx, id)
   const messageId = randomUUID()
 
   await postChannelMessage(
@@ -51,8 +56,8 @@ async function postAsThisAgent(ctx: PreviewToolContext, id: string, text: string
         sender: {
           type: 'agent',
           id: ctx.sessionId,
-          displayName: self?.title || 'Nuphos agent',
-          ...(self?.agentRuntime ? { agentRuntime: self.agentRuntime } : {}),
+          displayName: self.title || 'Nuphos agent',
+          ...(self.agentRuntime ? { agentRuntime: self.agentRuntime } : {}),
         },
         source: 'agent.thread',
         sourceSessionId: ctx.sessionId,
@@ -101,7 +106,7 @@ export function channelToolModule(): PreviewToolModule {
         if (!parsed.success) return toolError(parsed.error.message)
 
         return answer(
-          memberChannel(ctx, parsed.data.channelId).then((channel) =>
+          memberChannel(ctx, parsed.data.channelId).then(({ channel }) =>
             readChannelMessages(channel, ctx.sessionId),
           ),
         )
