@@ -41,7 +41,7 @@ test('a first-turn model pick is trimmed, and anything else is refused', () => {
 
   validateChatBody(body as never)
   expect(body.initialSessionConfig).toEqual({ model: 'opus', fast: 'on' })
-  for (const initialSessionConfig of [{ fast: 'yes' }, { tools: 'all' }, { effort: '' }, 'opus'])
+  for (const initialSessionConfig of [{ fast: '' }, { tools: 'all' }, { effort: '' }, 'opus'])
     expect(() =>
       validateChatBody({ id: 'new-chat', messages: [], initialSessionConfig } as never),
     ).toThrow('initialSessionConfig')
