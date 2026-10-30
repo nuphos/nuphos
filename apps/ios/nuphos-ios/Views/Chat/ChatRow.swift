@@ -131,20 +131,12 @@ extension ChatRow {
         let hasPending = intermediate.contains { if case .tool(_, _, let t, _) = $0 { return t.state == .approvalRequested }; return false }
         guard !hasPending else { return body }
 
-        var folded: [ChatRow] = []
-        var group: [ChatRow] = []
-        func flush() {
-            guard let first = group.first else { return }
-            folded.append(.work(id: "work.\(message.id).\(first.id)", rows: group, duration: workDuration(message)))
-            group = []
-        }
-        for (i, row) in body.enumerated() {
-            if i < foldEnd, foldable(row) { group.append(row); continue }
-            flush()
-            folded.append(row)
-        }
-        flush()
-        return folded
+        // One fold per turn, like the desktop: rows that stay visible (thread
+        // badges, plans, questions) are lifted out below it instead of
+        // splitting it into several folds that each claim the whole duration.
+        let start = body.firstIndex(where: foldable)!
+        let work = ChatRow.work(id: "work.\(message.id).\(body[start].id)", rows: intermediate, duration: workDuration(message))
+        return Array(body[..<start]) + [work] + body[start..<foldEnd].filter { !foldable($0) } + body[foldEnd...]
     }
 
     /// Where the fold ends. A turn that finished folds up to its answer; a turn
