@@ -39,7 +39,17 @@ function probe(files: Record<string, unknown>, status: number) {
 }
 
 test('a one-year token the usage API refuses says why instead of an HTTP code', () => {
-  expect(probe({ '.nuphos-oauth-token.json': { token: 'sk-ant-oat01-fixture' } }, 403)).toEqual({
+  expect(
+    probe(
+      {
+        '.nuphos-oauth-token.json': {
+          token: 'sk-ant-oat01-fixture',
+          expiresAt: '2999-01-01T00:00:00Z',
+        },
+      },
+      403,
+    ),
+  ).toEqual({
     error: 'Usage is unavailable with this sign-in type (a one-year token)',
     asked: true,
   })
@@ -48,5 +58,20 @@ test('a one-year token the usage API refuses says why instead of an HTTP code', 
 test('an ordinary login keeps its plain HTTP reason', () => {
   expect(
     probe({ '.credentials.json': { claudeAiOauth: { accessToken: 'fixture-access' } } }, 403),
+  ).toEqual({ error: 'HTTP 403', asked: true })
+})
+
+test('a lapsed one-year token is not used: the ordinary login beside it is', () => {
+  expect(
+    probe(
+      {
+        '.nuphos-oauth-token.json': {
+          token: 'sk-ant-oat01-fixture',
+          expiresAt: '2020-01-01T00:00:00Z',
+        },
+        '.credentials.json': { claudeAiOauth: { accessToken: 'fixture-access' } },
+      },
+      403,
+    ),
   ).toEqual({ error: 'HTTP 403', asked: true })
 })

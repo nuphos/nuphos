@@ -4130,6 +4130,7 @@
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "已在執行環境上登入。登入其他模型供應商即可一併使用其模型。",
   "Signed in to {name}.": "已登入 {name}。",
   "Signed in with a one-year token that expires in {days} days. Sign in again to renew it.": "已使用一年期權杖登入，將在 {days} 天後到期。請重新登入以續期。",
+  "Signed in with a one-year token that expires within a day. Sign in again to renew it.": "已使用一年期權杖登入，將在一天內到期。請重新登入以續期。",
   "Signed in with a one-year token that never needs refreshing. It expires on {date}.": "已使用一年期權杖登入，不需重新整理。到期日為 {date}。",
   "Signed out": "已登出",
   "Signed out 1 other device": "已登出另外 1 台裝置",

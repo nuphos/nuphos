@@ -4130,6 +4130,7 @@
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "已在运行环境上登录。登录其他模型提供方，即可同时使用其模型。",
   "Signed in to {name}.": "已登录 {name}。",
   "Signed in with a one-year token that expires in {days} days. Sign in again to renew it.": "已使用一年期令牌登录，将在 {days} 天后到期。请重新登录以续期。",
+  "Signed in with a one-year token that expires within a day. Sign in again to renew it.": "已使用一年期令牌登录，将在一天内到期。请重新登录以续期。",
   "Signed in with a one-year token that never needs refreshing. It expires on {date}.": "已使用一年期令牌登录，无需刷新。到期日为 {date}。",
   "Signed out": "已登出",
   "Signed out 1 other device": "已退出 1 台其他设备的登录",

@@ -201,6 +201,12 @@ test('sessions get the long-lived token until it lapses, and an explicit one win
       .CLAUDE_CODE_OAUTH_TOKEN,
     undefined,
   )
+  // A spawn with no Nuphos session (the model probe) gets the token too.
+  assert.equal(
+    nuphosClaudeSessionEnv({ PATH: 'x' }, {}, host, now).CLAUDE_CODE_OAUTH_TOKEN,
+    'sk-ant-oat01-fixture',
+  )
+  assert.equal(nuphosClaudeSessionEnv({ PATH: 'x' }, {}, host, now).PATH, 'x')
   // An ordinary login alone adds nothing to the environment.
   rmSync(join(configDir, '.nuphos-oauth-token.json'))
   assert.equal(nuphosClaudeSessionEnv({}, context, host, now).CLAUDE_CODE_OAUTH_TOKEN, undefined)

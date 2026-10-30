@@ -4130,6 +4130,7 @@
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "런타임에 로그인되어 있습니다. 다른 모델 제공업체의 모델도 사용하려면 해당 제공업체에 로그인하세요.",
   "Signed in to {name}.": "{name} 로그인 상태입니다.",
   "Signed in with a one-year token that expires in {days} days. Sign in again to renew it.": "1년짜리 토큰으로 로그인되어 있으며 {days}일 후 만료됩니다. 갱신하려면 다시 로그인하세요.",
+  "Signed in with a one-year token that expires within a day. Sign in again to renew it.": "1년짜리 토큰으로 로그인되어 있으며 하루 안에 만료됩니다. 갱신하려면 다시 로그인하세요.",
   "Signed in with a one-year token that never needs refreshing. It expires on {date}.": "갱신이 필요 없는 1년짜리 토큰으로 로그인되어 있습니다. {date}에 만료됩니다.",
   "Signed out": "로그아웃됨",
   "Signed out 1 other device": "다른 기기 1대에서 로그아웃했습니다",

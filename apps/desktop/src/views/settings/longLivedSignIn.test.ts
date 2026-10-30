@@ -23,3 +23,10 @@ test('the last month offers renewing, and a lapsed token says so', () => {
   assert.equal(longLivedSignIn('2026-10-28T12:00:00Z', now).renew, true)
   assert.match(longLivedSignIn('2026-10-28T12:00:00Z', now).note, /has expired/)
 })
+
+test('under a day left reads "within a day", not "1 days"', () => {
+  assert.equal(
+    longLivedSignIn('2026-10-30T11:00:00Z', now).note,
+    'Signed in with a one-year token that expires within a day. Sign in again to renew it.',
+  )
+})

@@ -29,6 +29,7 @@ export function storeLongLivedToken(configDir, token, now = Date.now()) {
   const record = {
     token,
     createdAt: new Date(now).toISOString(),
+    // setup-token prints no expiry of its own; a year from the sign-in is what it grants.
     expiresAt: new Date(now + LONG_LIVED_MS).toISOString(),
   }
 

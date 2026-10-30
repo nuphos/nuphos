@@ -4130,6 +4130,7 @@
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "Sesión iniciada en el entorno de ejecución. Inicia sesión en otro proveedor de modelos para usar también sus modelos.",
   "Signed in to {name}.": "Sesión iniciada en {name}.",
   "Signed in with a one-year token that expires in {days} days. Sign in again to renew it.": "Sesión iniciada con un token de un año que caduca en {days} días. Vuelve a iniciar sesión para renovarlo.",
+  "Signed in with a one-year token that expires within a day. Sign in again to renew it.": "Sesión iniciada con un token de un año que caduca en menos de un día. Vuelve a iniciar sesión para renovarlo.",
   "Signed in with a one-year token that never needs refreshing. It expires on {date}.": "Sesión iniciada con un token de un año que no necesita renovarse. Caduca el {date}.",
   "Signed out": "Sesión cerrada",
   "Signed out 1 other device": "Se cerró la sesión en otro dispositivo",

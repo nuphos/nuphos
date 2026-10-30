@@ -85,7 +85,9 @@ async function lookup() {
     // A one-year token (claude-login.mjs --long-lived) wins over the ordinary login, as it
     // does for the agent. It carries only the inference scope, so usage may be refused.
     const longLived = await read(join(homedir(), '.claude', '.nuphos-oauth-token.json'));
-    const credentials = longLived && typeof longLived.token === 'string' && longLived.token
+    // A lapsed one is not used, as for the agent (session-home.mjs).
+    const credentials = longLived && typeof longLived.token === 'string' && longLived.token &&
+      Date.parse(longLived.expiresAt) > Date.now()
       ? null
       : await read(join(homedir(), '.claude', '.credentials.json'));
     const oauth = credentials && credentials.claudeAiOauth;

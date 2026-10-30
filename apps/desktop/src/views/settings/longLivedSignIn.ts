@@ -27,14 +27,18 @@ export function longLivedSignIn(expiresAt: string, now = Date.now()) {
 
   return {
     note:
-      days > 0
+      days > 1
         ? t(
             'Signed in with a one-year token that expires in {days} days. Sign in again to renew it.',
             {
               days,
             },
           )
-        : t('The one-year token this runtime signed in with has expired. Sign in again.'),
+        : days === 1
+          ? t(
+              'Signed in with a one-year token that expires within a day. Sign in again to renew it.',
+            )
+          : t('The one-year token this runtime signed in with has expired. Sign in again.'),
     renew: true,
   }
 }

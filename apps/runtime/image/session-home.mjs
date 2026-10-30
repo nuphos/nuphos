@@ -97,19 +97,16 @@ export function nuphosClaudeSessionEnv(
   runtimeEnv = process.env,
   now = Date.now(),
 ) {
-  const isolated = nuphosSessionHomeEnv(sessionEnv, runtimeEnv)
-  if (!isolated.HOME) return env
   const configDir =
     runtimeEnv.CLAUDE_CONFIG_DIR ||
     nuphosJoin(runtimeEnv.HOME || runtimeEnv.USERPROFILE || nuphosHostHome(), '.claude')
-  // A token already in the environment was set on purpose and wins.
+  // A token already in the environment was set on purpose and wins. Every spawn gets
+  // it, a session-less one (the model probe) too, or that one would refresh the old login.
   const token = runtimeEnv.CLAUDE_CODE_OAUTH_TOKEN ? null : nuphosLongLivedToken(configDir, now)
-  return {
-    ...env,
-    CLAUDE_CONFIG_DIR: configDir,
-    ...(token ? { CLAUDE_CODE_OAUTH_TOKEN: token } : {}),
-    ...isolated,
-  }
+  const withToken = token ? { ...env, CLAUDE_CODE_OAUTH_TOKEN: token } : env
+  const isolated = nuphosSessionHomeEnv(sessionEnv, runtimeEnv)
+  if (!isolated.HOME) return withToken
+  return { ...withToken, CLAUDE_CONFIG_DIR: configDir, ...isolated }
 }
 
 // The one-year token claude-login.mjs --long-lived stores. It never refreshes, so

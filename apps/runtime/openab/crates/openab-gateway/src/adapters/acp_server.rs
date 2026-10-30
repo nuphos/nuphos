@@ -350,8 +350,23 @@ fn auth_files(paths: &str) -> impl Iterator<Item = &str> {
 }
 
 fn auth_files_present(paths: &str) -> bool {
-    auth_files(paths)
-        .any(|path| std::fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.len() > 0))
+    auth_files_present_at(paths, chrono::Utc::now())
+}
+
+/// A credential that says when it lapses (a one-year token) signs the runtime in only until then.
+fn auth_files_present_at(paths: &str, now: chrono::DateTime<chrono::Utc>) -> bool {
+    auth_files(paths).any(|path| {
+        std::fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.len() > 0)
+            && !auth_file_lapsed(path, now)
+    })
+}
+
+fn auth_file_lapsed(path: &str, now: chrono::DateTime<chrono::Utc>) -> bool {
+    std::fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+        .and_then(|file| file.get("expiresAt")?.as_str()?.parse::<chrono::DateTime<chrono::Utc>>().ok())
+        .is_some_and(|at| at <= now)
 }
 
 fn auth_files_expiry(paths: &str) -> Option<String> {
@@ -12179,7 +12194,7 @@ mod runtime_authority_tests {
 
 #[cfg(test)]
 mod auth_file_tests {
-    use super::{auth_files_expiry, auth_files_present};
+    use super::{auth_files_expiry, auth_files_present, auth_files_present_at};
 
     #[test]
     fn any_listed_auth_file_signs_the_runtime_in_and_only_one_with_expires_at_has_an_expiry() {
@@ -12196,6 +12211,12 @@ mod auth_file_tests {
         std::fs::write(&token, r#"{"token":"t","expiresAt":"2027-10-29T00:00:00.000Z"}"#).unwrap();
         assert_eq!(auth_files_expiry(&list).as_deref(), Some("2027-10-29T00:00:00.000Z"));
         assert!(!auth_files_present(" : "));
+        // Lapsed, the token no longer counts; the ordinary login beside it still does.
+        let after = "2027-10-30T00:00:00Z".parse().unwrap();
+        assert!(auth_files_present_at(&list, after));
+        std::fs::remove_file(&login).unwrap();
+        assert!(!auth_files_present_at(&list, after));
+        assert!(auth_files_present_at(&list, "2027-10-28T00:00:00Z".parse().unwrap()));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
