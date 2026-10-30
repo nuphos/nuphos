@@ -28,6 +28,10 @@ function cached(teamId: string, sessionId: string): boolean | undefined {
 
 // A failed check is tried again on this beat; until it answers, nothing is shown.
 const RETRY_MS = 3_000
+// After this many failures (a deleted session, lost access) the agent view
+// opens, which says what is wrong; the backend refuses agent turns on a channel.
+const MAX_TRIES = 3
+const failures = new Map<string, number>()
 
 /**
  * Whether a session is a channel: from what is cached, else from its detail.
@@ -54,6 +58,10 @@ export function useIsChannel(
           if (live) setAttempt((n) => n + 1)
         },
         () => {
+          const tries = (failures.get(sessionId) ?? 0) + 1
+
+          failures.set(sessionId, tries)
+          if (tries >= MAX_TRIES) known.set(sessionId, false)
           if (live) retry = window.setTimeout(() => setAttempt((n) => n + 1), RETRY_MS)
         },
       )
