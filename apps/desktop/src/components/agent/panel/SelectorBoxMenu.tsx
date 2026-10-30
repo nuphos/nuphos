@@ -167,16 +167,19 @@ export function SelectorBoxMenu({
                   )}
                 </span>
                 <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-tertiary">
-                  {[
-                    name !== provider && provider,
-                    problem?.reason,
-                    problem?.fix.kind === 'ask' && agentAskText(problem.fix),
-                    !problem && update?.state === 'available' && !update.start && askToUpdate,
-                    instance.deletion && t('Being removed'),
-                    instance.starting && t('Starting…'),
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  {/* One line: a long name truncates with the rest instead of wrapping mid-name. */}
+                  <span className="min-w-0 truncate">
+                    {[
+                      name !== provider && provider,
+                      problem?.reason,
+                      problem?.fix.kind === 'ask' && agentAskText(problem.fix),
+                      !problem && update?.state === 'available' && !update.start && askToUpdate,
+                      instance.deletion && t('Being removed'),
+                      instance.starting && t('Starting…'),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
                   <RuntimeUsageBar quota={quotas?.get(instance.id)} />
                 </span>
               </span>
