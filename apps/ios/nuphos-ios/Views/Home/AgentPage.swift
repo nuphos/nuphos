@@ -310,7 +310,9 @@ struct AgentPage: View {
                             ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
                         }
                     }
-                    .listRowBackground(Color.clear)
+                    // A custom row background hides the system selection
+                    // highlight, so the open chat's row draws its own.
+                    .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                     .listSectionSeparator(.hidden, edges: .top)
                     // A separator would cut through the lines of an open tree.
