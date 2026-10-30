@@ -313,3 +313,33 @@ describe('a channel never runs a turn', () => {
     ).rejects.toThrow('A channel has no agent of its own to message.')
   })
 })
+
+test('the Inbox lists channels that @mention the viewer, and no others', async () => {
+  const channelId = await createChannel()
+
+  await agentConversations().updateOne(
+    { sessionId: channelId },
+    {
+      $set: {
+        participantIds: [TEAMMATE],
+        'mentions.teammate-user': { messageId: 'm1', at: new Date() },
+      },
+    },
+  )
+  await memory.rows('agent_messages').push({
+    sessionId: channelId,
+    userId: OWNER,
+    index: 0,
+    messageId: 'm1',
+    role: 'user',
+    parts: [{ type: 'text', text: '@teammate-user name look' }],
+  })
+  viewer = TEAMMATE
+  const mine = (await (await send('GET', '/channels/mentions')).json()) as { mentions: unknown[] }
+
+  expect(mine.mentions).toMatchObject([
+    { channelId, messageId: 'm1', text: '@teammate-user name look' },
+  ])
+  viewer = OWNER
+  expect(await (await send('GET', '/channels/mentions')).json()).toEqual({ mentions: [] })
+})

@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-import { getTeamMembership } from '@/lib/identity'
+import { getTeamMembers, getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
 import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
+import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import { listPendingUserMessages } from './pending-queue'
 
@@ -53,9 +54,37 @@ export async function postChannelMessage(
       },
     ],
   })
+  await noteMentions({ ...channel, teamId }, post)
   await wakeChannelAgents({ ...channel, teamId }, authorSessionId)
 
   return true
+}
+
+/**
+ * Who this post @mentions, among the channel's people, by the `@Name` the
+ * composer and agents write. Each keeps an Inbox entry until they post here.
+ */
+async function noteMentions(channel: AgentConversation & { teamId: string }, post: Post) {
+  const author = post.metadata.sender.type === 'user' ? post.metadata.sender.id : undefined
+  const people = new Set([channel.userId, ...(channel.participantIds ?? [])])
+  const mentioned = post.text.includes('@')
+    ? (await getTeamMembers(channel.teamId)).filter(
+        (member) =>
+          people.has(member.id) && member.id !== author && post.text.includes(`@${member.name}`),
+      )
+    : []
+  const set = Object.fromEntries(
+    mentioned.map((member) => [`mentions.${member.id}`, { messageId: post.id, at: new Date() }]),
+  )
+
+  if (mentioned.length === 0 && !author) return
+  await agentConversations().updateOne(
+    { sessionId: channel.sessionId },
+    {
+      ...(mentioned.length > 0 ? { $set: set } : {}),
+      ...(author ? { $unset: { [`mentions.${author}`]: '' } } : {}),
+    },
+  )
 }
 
 async function wakeChannelAgents(
@@ -102,6 +131,25 @@ async function spendTurn(channelId: string): Promise<boolean> {
 }
 
 /**
+ * The first time agents hit the budget, the channel says so once: the counter
+ * steps past the budget, so a later refusal finds nothing to note.
+ */
+async function notePause(channelId: string) {
+  await agentConversations().updateOne(
+    { sessionId: channelId, agentTurns: CHANNEL_AGENT_TURN_BUDGET },
+    {
+      $inc: { agentTurns: 1 },
+      $push: pushTimelineEvent({
+        kind: 'agents_paused',
+        at: new Date(),
+        actorId: 'system',
+        turns: CHANNEL_AGENT_TURN_BUDGET,
+      }),
+    },
+  )
+}
+
+/**
  * Tells an agent its channel has news, never interrupting it: idle, it starts
  * a turn now; busy, the notice waits in its queue until that turn ends. One
  * notice per agent and channel waits at a time, and the agent then reads all
@@ -122,7 +170,11 @@ async function notifyAgent(
 
   if (waiting.some((message) => message.metadata?.sender?.id === senderId(channel.sessionId)))
     return
-  if (fromAgent && !(await spendTurn(channel.sessionId))) return
+  if (fromAgent && !(await spendTurn(channel.sessionId))) {
+    await notePause(channel.sessionId)
+
+    return
+  }
   // Lazy so importing this does not pull in the route graph.
   const { startConversationTurn } = await import('./conversation-turn')
   const { run } = await startConversationTurn(

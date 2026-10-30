@@ -3,6 +3,7 @@ import { AppError } from '@/lib/errors'
 import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
+import { readableConversationScope } from './access'
 import { agentConversations, agentMessages } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -21,6 +22,8 @@ export type ChannelFields = {
   agentReadIndex?: Record<string, number>
   /** Turns agents have woken each other for since the last person spoke. */
   agentTurns?: number
+  /** People @mentioned here who have not posted since, by user id: their Inbox entry. */
+  mentions?: Record<string, { messageId: string; at: Date }>
 }
 
 /** The sender id a channel notice carries, which also picks its instructions. */
@@ -179,4 +182,57 @@ export async function withoutReadNotices<M extends { source?: string; metadata?:
   }
 
   return kept
+}
+
+/** Where the viewer was @mentioned and has not posted since: the newest first. */
+export async function listChannelMentions(teamId: string, viewerId: string) {
+  const channels = await agentConversations()
+    .find(
+      readableConversationScope(
+        { kind: 'channel', [`mentions.${viewerId}`]: { $exists: true } },
+        viewerId,
+        teamId,
+      ),
+    )
+    .toArray()
+  const found = await Promise.all(
+    channels.map(async (channel) => {
+      const mention = channel.mentions?.[viewerId]
+      const message =
+        mention &&
+        (await agentMessages().findOne({
+          sessionId: channel.sessionId,
+          userId: channel.userId,
+          messageId: mention.messageId,
+        }))
+
+      if (!mention || !message) return []
+      const metadata = parseMessageMetadata(message.metadata)
+
+      return [
+        {
+          channelId: channel.sessionId,
+          title: channel.title,
+          messageId: mention.messageId,
+          at: mention.at.toISOString(),
+          sender: metadata
+            ? {
+                type: metadata.sender.type,
+                id: metadata.sender.id,
+                name: metadata.sender.displayName,
+              }
+            : null,
+          text: (message.parts ?? [])
+            .flatMap((part) => {
+              const { type, text } = part as { type?: unknown; text?: unknown }
+
+              return type === 'text' && typeof text === 'string' ? [text] : []
+            })
+            .join('\n'),
+        },
+      ]
+    }),
+  )
+
+  return found.flat().sort((a, b) => b.at.localeCompare(a.at))
 }

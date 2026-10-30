@@ -11,6 +11,7 @@ import {
   addChannelAgent,
   isChannel,
   listChannelAgents,
+  listChannelMentions,
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
@@ -97,6 +98,13 @@ channelRoutes.post('/channels', async (c) => {
   })
 
   return c.json({ sessionId }, 201)
+})
+
+// The Inbox's channel entries: posts that @mention the viewer, until they reply there.
+channelRoutes.get('/channels/mentions', async (c) => {
+  const teamId = await requireTeam(c)
+
+  return c.json({ mentions: await listChannelMentions(teamId, c.get('userId')) })
 })
 
 channelRoutes.get('/conversations/:sessionId/agents', async (c) => {
