@@ -109,7 +109,7 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null) {
   event.preventDefault()
   const pane = root?.closest(PANE)
 
-  setChatSummaryOpen(false)
+  setChatSummaryOpen(pane.paneId, false)
   pane
     ?.querySelector<HTMLElement>(`[aria-label="${CSS.escape(t('Toggle agent summary'))}"]`)
     ?.focus()
@@ -156,7 +156,7 @@ function SummaryBody({
           teamId={teamId}
           onSelect={setSelected}
           onBack={() => setSelected(null)}
-          onClose={() => setChatSummaryOpen(false)}
+          onClose={() => setChatSummaryOpen(pane.paneId, false)}
           onOpenSession={onOpenRequest}
         />
       ) : (

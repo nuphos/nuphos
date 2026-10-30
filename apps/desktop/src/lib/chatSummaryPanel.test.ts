@@ -6,6 +6,7 @@ import {
   openChatSummaryChanges,
   openChatSummarySubAgents,
   setChangesFilter,
+  PRIMARY_PANE_ID,
   setChatSummaryOpen,
   setSubAgentsFilter,
   takeChangesReveal,
@@ -46,7 +47,7 @@ test('a reveal not taken in time is stale', () => {
 
 test('closing the panel drops the reveal, and choosing a filter asks for none', () => {
   openChatSummaryChanges('closed', 'a')
-  setChatSummaryOpen(false)
+  setChatSummaryOpen(PRIMARY_PANE_ID, false)
   assert.equal(takeChangesReveal('a'), false)
 
   setChangesFilter('open')
@@ -75,7 +76,7 @@ test('a Sub-agents reveal expires and closing drops it; choosing a filter asks f
   assert.equal(takeSubAgentsReveal('a', asked + REVEAL_LIFETIME_MS + 1000), false)
 
   openChatSummarySubAgents('active', 'a')
-  setChatSummaryOpen(false)
+  setChatSummaryOpen(PRIMARY_PANE_ID, false)
   assert.equal(takeSubAgentsReveal('a'), false)
 
   setSubAgentsFilter('all')

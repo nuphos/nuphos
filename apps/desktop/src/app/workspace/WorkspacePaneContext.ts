@@ -6,6 +6,7 @@ import type { WorkspaceStore } from './store/workspaceStore'
 import type { Dispatch, SetStateAction } from 'react'
 
 export type WorkspacePaneValue = {
+  paneId: string
   sessionSearchOpen: boolean
   setSessionSearchOpen: Dispatch<SetStateAction<boolean>>
   focusSession: (sessionId: string, teamId?: string) => boolean

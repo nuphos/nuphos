@@ -68,7 +68,8 @@ export function WorkspaceAgentPane({
     stableOpenSessionResource,
   } = ws
   const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
-  const summaryOpen = useChatSummaryOpen()
+  const summaryOpen = useChatSummaryOpen(pane.paneId)
+  useRegisterPaneSession(pane.paneId, sessionId ?? null)
   const savedSessionId = currentHeading.saved !== false ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)

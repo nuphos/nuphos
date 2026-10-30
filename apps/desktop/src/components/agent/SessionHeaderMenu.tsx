@@ -46,6 +46,8 @@ import { agentSessionUrl } from './sessionUrl'
 import { SummaryIcon } from './summary/ChatSummaryToggle'
 import { useArchiveSession } from './useArchiveSession'
 
+const pane = useWorkspacePane()
+
 type Props = {
   sessionId: string
   teamId: string
@@ -104,7 +106,7 @@ export function SessionHeaderMenu({
   summaryInMenu = false,
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
-  const summaryOpen = useChatSummaryOpen()
+  const summaryOpen = useChatSummaryOpen(pane.paneId)
   const pin = useSessionPin(userId, teamId, sessionId)
   // What the server said when the chat opened; a toggle here wins after that.
   const [toggled, setToggled] = useState<boolean | undefined>(undefined)
@@ -204,7 +206,7 @@ export function SessionHeaderMenu({
             <MenuItem
               icon={<SummaryIcon />}
               hint={<ShortcutHint combo="mod+i" className="pl-4" />}
-              onClick={toggleChatSummary}
+               onClick={() => toggleChatSummary(pane.paneId)}
             >
               {summaryOpen ? t('Hide agent summary') : t('Show agent summary')}
             </MenuItem>
