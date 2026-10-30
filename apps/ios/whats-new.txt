@@ -1,7 +1,3 @@
-Fixed a chat opened after going back to the list loading forever until the app was relaunched.
+A finished reply now folds all of its work under one quiet "Worked for" line, instead of a gray pill that could repeat several times in one turn.
 
-Scrolling up in a chat stays where you left it instead of jumping back to the end as your finger lifts.
-
-An idle chat no longer re-reads and redraws its transcript every few seconds, which saves data and battery on long conversations.
-
-The message box resizes together with the keyboard and as you type, and the chat title on iPhone Duo no longer leaves an empty gap before the agent's name.
+When an agent messages or starts another agent, the chat shows it as a single line, in line with the rest of the work log, instead of a separate card.
