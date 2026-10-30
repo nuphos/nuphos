@@ -1,20 +1,25 @@
-import { faSpinner } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { FileSearch } from 'lucide-react'
+import { CircleAlert, File, Folder, FolderDown, Loader2, TimerOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
-import { useReportVisibleError } from '../../VisibleErrorReporter'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
+import { useReportVisibleError } from '../../VisibleErrorReporter'
 
-import { filesBesidePreviews, mediaKind, previewKind } from './transferDownloads'
+import {
+  filesBesidePreviews,
+  formatTransferBytes,
+  mediaKind,
+  previewKind,
+} from './transferDownloads'
+import { FileRow } from './transferFileRow'
 import { TransferPreviews } from './transferPreviews'
 
 import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
+import type { LucideIcon } from 'lucide-react'
 
 // Files the agent produced for the user. Bytes live in the transfer store.
 // Images show as thumbnails (saved from the preview) and videos play inline, with
@@ -68,50 +73,48 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     if (files.length === 0) return null
     // Images are saved from their preview; several listed files can go in one zip.
     const zippable = !expired && files.filter((f) => f.status === 'ready').length > 1
+    const multiple = files.length > 1
+    const total = files.reduce((sum, f) => sum + (f.size ?? 0), 0)
 
     return (
-      <div className={clsx('flex flex-col gap-1', expired && 'opacity-50')}>
-        {files.map((f) => (
-          <div key={f.id} className="flex items-center gap-2 text-[12.5px]">
-            <span
-              className={clsx(
-                'h-1.5 w-1.5 flex-shrink-0 rounded-full',
-                expired
-                  ? 'bg-tertiary'
-                  : f.status === 'ready'
-                    ? 'bg-success'
-                    : f.status === 'failed'
-                      ? 'bg-error'
-                      : 'bg-tertiary',
-              )}
-            />
-            <span className="min-w-0 flex-1 truncate text-secondary" title={f.relPath}>
-              {f.fileName}
-            </span>
-            <span className="flex-shrink-0 text-tertiary">{formatTransferBytes(f.size)}</span>
-            {!expired && f.status === 'ready' && (
+      <div className="w-full max-w-[520px] overflow-hidden rounded-xl border border-zGray-800 bg-surface">
+        {(multiple || expired) && (
+          <div className="flex h-10 items-center justify-between gap-2 border-b border-zGray-800 pl-3.5 pr-2 text-[12px] text-tertiary">
+            {expired ? (
+              <span className="flex items-center gap-1.5">
+                <TimerOff className="h-3.5 w-3.5" strokeWidth={2} />
+                {t('Expired — files are no longer available')}
+              </span>
+            ) : (
+              <span>
+                {t('{n} files', { n: String(files.length) })} · {formatTransferBytes(total)}
+              </span>
+            )}
+            {zippable && (
               <Button
                 variant="ghost"
-                onClick={() => void downloadOne(f.id, f.fileName)}
+                size="sm"
+                onClick={() => void downloadZip()}
                 disabled={busy !== null}
-                className="h-auto flex-shrink-0 rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
+                title={t('Saves every file in this group, images included')}
+                className="gap-1.5"
               >
-                {busy === f.id ? '…' : t('Download')}
+                <FolderDown className="h-3.5 w-3.5" />
+                {busy === '__zip__' ? t('Zipping…') : t('Download all as zip')}
               </Button>
             )}
           </div>
-        ))}
-        {zippable && (
-          <Button
-            variant="ghost"
-            onClick={() => void downloadZip()}
-            disabled={busy !== null}
-            title={t('Saves every file in this group, images included')}
-            className="h-auto self-start rounded px-1.5 py-[3px] text-[10px] font-medium leading-tight"
-          >
-            {busy === '__zip__' ? t('Zipping…') : t('Download all as zip')}
-          </Button>
         )}
+        {files.map((f) => (
+          <FileRow
+            key={f.id}
+            file={f}
+            expired={expired}
+            compact={multiple}
+            busy={busy}
+            onDownload={() => void downloadOne(f.id, f.fileName)}
+          />
+        ))}
       </div>
     )
   }
@@ -145,12 +148,6 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
 
   return (
     <div className="w-full max-w-[85%] self-start">
-      {expired && (
-        <p className="mb-1.5 flex items-center gap-1.5 text-[11.5px] text-tertiary">
-          <FileSearch className="h-3 w-3" strokeWidth={2} />
-          {t('Expired — files are no longer available')}
-        </p>
-      )}
       {hasPreviews ? (
         <TransferPreviews
           teamId={teamId}
@@ -165,14 +162,6 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
       )}
     </div>
   )
-}
-
-function formatTransferBytes(bytes: number | null): string {
-  if (bytes == null) return ''
-  if (bytes < 1024) return `${String(bytes)} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // User-uploaded files. Bytes already live in the transfer store;
@@ -218,66 +207,54 @@ function UploadedFilesList({
   part: TransferUploadPart
   rows: TransferUploadPart['files']
 }) {
-  const total = part.files.length
-  const ready = part.files.filter((f) => f.status === 'ready').length
   const uploading = part.status === 'uploading'
   const errored = part.status === 'error'
 
   useReportVisibleError(errored ? 'Agent attachment upload failed.' : null, 'agent_upload_failed')
   const entries = part.archiveEntryCount
-  const archiveSuffix =
-    entries == null
-      ? ''
-      : ` · ${entries === 1 ? t('1 file') : t('{n} files', { n: String(entries) })}`
-  const readySuffix =
-    ready < total
-      ? ` · ${t('{ready}/{total} ready', { ready: String(ready), total: String(total) })}`
-      : ''
 
   return (
-    <div className="w-full max-w-[480px] self-end rounded-xl border border-zGray-800 bg-zGray-900/60 px-3 py-2">
-      <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] text-tertiary">
-        {uploading ? (
-          <FontAwesomeIcon icon={faSpinner} spin className="h-3 w-3" />
-        ) : (
-          <FileSearch className="h-3 w-3" strokeWidth={2} />
-        )}
-        <span>
-          {uploading
-            ? total === 1
-              ? t('Uploading 1 file…')
-              : t('Uploading {n} files…', { n: String(total) })
-            : errored
-              ? t('Upload failed')
-              : part.archive
-                ? `${t('Uploaded folder')}${archiveSuffix}`
-                : (total === 1
-                    ? t('Uploaded 1 file')
-                    : t('Uploaded {n} files', { n: String(total) })) + readySuffix}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1">
-        {rows.map((f, i) => (
-          <div key={`${f.fileName}:${String(i)}`} className="flex items-center gap-2 text-[12.5px]">
-            <span
+    <div className="flex max-w-[480px] flex-wrap justify-end gap-1.5 self-end">
+      {rows.map((f, i) => {
+        const failed = errored || f.status === 'failed'
+        const Icon = uploadIcon(uploading, failed, part.archive)
+
+        return (
+          <span
+            key={`${f.fileName}:${String(i)}`}
+            className={clsx(
+              'flex h-8 min-w-0 max-w-full items-center gap-1.5 rounded-full border bg-surface px-3 text-[13px]',
+              failed ? 'border-error/30 text-error' : 'border-zGray-800 text-main',
+            )}
+          >
+            <Icon
               className={clsx(
-                'h-1.5 w-1.5 flex-shrink-0 rounded-full',
-                f.status === 'ready'
-                  ? 'bg-success'
-                  : f.status === 'failed'
-                    ? 'bg-error'
-                    : uploading
-                      ? 'animate-pulse bg-tertiary'
-                      : 'bg-tertiary',
+                'h-3.5 w-3.5 flex-shrink-0',
+                uploading && 'animate-spin',
+                !failed && 'text-tertiary',
               )}
             />
-            <span className="min-w-0 flex-1 truncate text-secondary">{f.fileName}</span>
-            <span className="flex-shrink-0 text-tertiary">
-              {uploading ? '' : formatTransferBytes(f.size)}
-            </span>
-          </div>
-        ))}
-      </div>
+            <span className="truncate">{f.fileName}</span>
+            {failed ? (
+              <span className="flex-shrink-0 text-[12px]">{t('Upload failed')}</span>
+            ) : (
+              part.archive &&
+              entries != null && (
+                <span className="flex-shrink-0 text-[12px] text-tertiary">
+                  · {entries === 1 ? t('1 file') : t('{n} files', { n: String(entries) })}
+                </span>
+              )
+            )}
+          </span>
+        )
+      })}
     </div>
   )
+}
+
+function uploadIcon(uploading: boolean, failed: boolean, archive?: boolean): LucideIcon {
+  if (uploading) return Loader2
+  if (failed) return CircleAlert
+
+  return archive ? Folder : File
 }
