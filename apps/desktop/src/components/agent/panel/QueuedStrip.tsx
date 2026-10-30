@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { CornerDownRight, ListPlus, LoaderCircle, X } from 'lucide-react'
+import { Ban, CornerDownRight, Hourglass, ListPlus, LoaderCircle, X } from 'lucide-react'
 
 import { t } from '../../../i18n'
 
@@ -16,18 +16,39 @@ export function QueuedStrip({
   onSteer,
   sidebar = false,
   canSteer = false,
+  approval,
 }: {
   items: QueuedMessage[]
   onRemove: (queuedId: string) => void
   onSteer: (queuedId: string) => void
   canSteer?: boolean
   sidebar?: boolean
+  /** On a teammate's computer shared at "Ask me first": these wait for its owner, or were
+   *  declined. Said here, not in the banner above the composer, which would cover them. */
+  approval?: { status: 'pending' | 'denied'; text: string } | null
 }) {
   if (items.length === 0) return null
 
   return (
     <div className={clsx('mx-auto w-full', sidebar ? '' : 'max-w-[760px]')}>
       <div className="px-1 text-xs text-tertiary">{t('Queued messages')}</div>
+      {approval && (
+        <div
+          role="status"
+          className="flex min-w-0 items-start gap-1.5 px-1 pb-1.5 text-[12px] text-secondary"
+        >
+          {approval.status === 'pending' ? (
+            <Hourglass
+              aria-hidden
+              className="mt-px h-3.5 w-3.5 shrink-0 text-warning"
+              strokeWidth={2}
+            />
+          ) : (
+            <Ban aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-error" strokeWidth={2} />
+          )}
+          <span className="min-w-0">{approval.text}</span>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5 px-1 pb-1">
         {items.map((item, index) => {
           const label =

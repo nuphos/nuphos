@@ -1,3 +1,5 @@
+import { t } from '../../i18n'
+
 import { BoxAccessFields } from './BoxAccessFields'
 import { openBoxPlans } from './boxPaywallStore'
 import { BoxQuotaMeter } from './BoxQuotaMeter'
@@ -9,9 +11,6 @@ import type { NewBoxState } from './useNewBox'
 
 /** The form's id, for a submit button outside it such as a dialog footer. */
 export const NEW_BOX_FORM = 'new-box-form'
-
-export const NEW_BOX_DESCRIPTION =
-  "A Linux machine in the cloud with Claude Code and Codex on it. Running computers count against your plan's vCPU; paused ones do not."
 
 /** New Box's name, size and access, made with `useNewBox` when submitted. Used by New Box and Add agent. */
 export function NewBoxFields({
@@ -38,10 +37,13 @@ export function NewBoxFields({
         onSubmit()
       }}
     >
-      <Field label="Name" hint={`Leave it empty to call it ${box.placeholder}.`}>
+      <Field
+        label={t('Name')}
+        hint={t('Leave it empty to call it {name}.', { name: box.placeholder })}
+      >
         <input
           autoFocus
-          aria-label="Name"
+          aria-label={t('Name')}
           className={inputClasses}
           value={box.name}
           placeholder={box.placeholder}
@@ -51,11 +53,11 @@ export function NewBoxFields({
         />
       </Field>
       <div className="space-y-2">
-        <span className="block text-[12.5px] font-medium text-secondary">Size</span>
+        <span className="block text-[12.5px] font-medium text-secondary">{t('Size')}</span>
         <BoxQuotaMeter usage={usage} adding={vcpus} />
         {choices.length === 0 && usage && (
           <p className="text-[12.5px] text-tertiary">
-            The sizes could not be loaded, so the new computer will be the smallest size.
+            {t('The sizes could not be loaded, so the new computer will be the smallest size.')}
           </p>
         )}
         {choices.length > 0 && (
@@ -68,13 +70,21 @@ export function NewBoxFields({
             onUpgrade={(choice) =>
               openBoxPlans(
                 teamId,
-                `${choice.name} needs ${String(choice.vcpus)} vCPU and your plan has ${String(quota?.left ?? 0)} left. Choose a bigger plan to unlock it.`,
+                t(
+                  '{size} needs {vcpus} vCPU and your plan has {left} left. Choose a bigger plan to unlock it.',
+                  { size: choice.name, vcpus: choice.vcpus, left: quota?.left ?? 0 },
+                ),
                 () => {
                   box.setPicked(choice.vcpus)
                   onPlanChanged()
                 },
                 {
-                  afterPaid: `Once the plan changes, ${choice.name} is unlocked and selected in New computer.`,
+                  afterPaid: t(
+                    'Once the plan changes, {size} is unlocked and selected in New computer.',
+                    {
+                      size: choice.name,
+                    },
+                  ),
                   needs: (quota?.used ?? 0) + choice.vcpus,
                 },
               )
@@ -83,7 +93,9 @@ export function NewBoxFields({
         )}
       </div>
       <div className="space-y-2">
-        <span className="block text-[12.5px] font-medium text-secondary">Who can use it</span>
+        <span className="block text-[12.5px] font-medium text-secondary">
+          {t('Who can use it')}
+        </span>
         <BoxAccessFields teamId={teamId} choice={box.access} />
       </div>
     </form>

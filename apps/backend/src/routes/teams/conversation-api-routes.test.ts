@@ -40,6 +40,20 @@ describe('conversation Discord access', () => {
   })
 })
 
+describe('conversation design canvas', () => {
+  test('routes the design API to its canonical handlers', () => {
+    expect(conversationTeamApiRoute('GET', '/designs')).toBe('canonical')
+    expect(conversationTeamApiRoute('POST', '/designs')).toBe('canonical')
+    expect(conversationTeamApiRoute('GET', '/designs/design-1/stamp')).toBe('canonical')
+    expect(conversationTeamApiRoute('POST', '/designs/design-1/ops')).toBe('canonical')
+  })
+
+  test('keeps dashboard panels and look-alike paths out', () => {
+    expect(dashboardPanelTeamApiRoute('GET', '/designs')).toBeNull()
+    expect(conversationTeamApiRoute('GET', '/designs-export')).toBeNull()
+  })
+})
+
 describe('dashboardPanelTeamApiRoute', () => {
   test('vends selected credentials through the session handlers', () => {
     expect(dashboardPanelTeamApiRoute('GET', '/aws-accounts/123456789012/credentials')).toBe(

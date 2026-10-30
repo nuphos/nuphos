@@ -2,6 +2,7 @@ import { KeyRound, Server } from 'lucide-react'
 
 import { awsRoleName, selectedAwsRoleArn } from '../../../app/accountScopes'
 import { CloudLogo } from '../../../components/CloudLogo'
+import { t } from '../../../i18n'
 
 import type { BreadcrumbContext } from './breadcrumbContext'
 import type { BreadcrumbSegment } from '../../../components/Toolbar'
@@ -48,7 +49,7 @@ export function pushClusterPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbS
       onExpand: () => loadLkeClustersForAccount(scope.teamId, parentId),
       // Shown when the sibling fetch failed (we park an empty list); the
       // onExpand above has already kicked off a retry by the time it's read.
-      emptyText: 'No clusters loaded — retrying…',
+      emptyText: t('No clusters loaded — retrying…'),
     })
   } else if (scope.kind === 'cluster') {
     const parentKind = scope.parentKind
@@ -82,7 +83,7 @@ export function pushClusterPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbS
     const selectedRoleArn = selectedAwsRoleArn(scope, accounts)
 
     out.push({
-      label: 'Roles',
+      label: t('Roles'),
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       onClick: () =>
         enterScope(
@@ -95,7 +96,7 @@ export function pushClusterPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbS
         ),
     })
     out.push({
-      label: selectedRoleArn ? awsRoleName(selectedRoleArn) : 'Role',
+      label: selectedRoleArn ? awsRoleName(selectedRoleArn) : t('Role'),
       isResource: true,
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       loading: !accounts,
@@ -130,7 +131,7 @@ export function pushClusterPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbS
       projectServiceAccounts[0]
 
     out.push({
-      label: 'Service Accounts',
+      label: t('Service Accounts'),
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       onClick: () =>
         enterScope(
@@ -143,7 +144,7 @@ export function pushClusterPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbS
         ),
     })
     out.push({
-      label: selectedServiceAccount?.serviceAccountEmail ?? 'Service Account',
+      label: selectedServiceAccount?.serviceAccountEmail ?? t('Service Account'),
       isResource: true,
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       loading: !accounts,

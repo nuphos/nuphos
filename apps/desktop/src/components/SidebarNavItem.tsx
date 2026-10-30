@@ -1,5 +1,6 @@
 import { Button as BaseButton } from '@base-ui/react/button'
 import clsx from 'clsx'
+import { useId } from 'react'
 
 import { useHoverMarquee } from '../hooks/useHoverMarquee'
 
@@ -32,6 +33,8 @@ type SidebarNavItemProps = {
   disabled?: boolean
   /** Optional count rendered as a small badge to the right of the label. */
   badge?: number
+  /** Quiet text right after the label, part of the row's name (a done count). */
+  note?: ReactNode
   /** Optional trailing control (e.g. a hover-revealed action). Rendered after
    *  the badge; the caller owns its visibility and click handling (remember to
    *  stopPropagation so the row's onClick doesn't also fire). */
@@ -61,6 +64,7 @@ export function SidebarNavItem({
   onClick,
   disabled = false,
   badge,
+  note,
   trailing,
   edge,
   hoverActions,
@@ -68,6 +72,8 @@ export function SidebarNavItem({
   comfortable = false,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
+  const id = useId()
+  const badgeShown = badge !== undefined && badge > 0
 
   return (
     <BaseButton
@@ -80,6 +86,20 @@ export function SidebarNavItem({
       }}
       onBlur={stop}
       aria-current={active ? 'page' : undefined}
+      // The row is named by its own text and state. Its hover actions sit inside
+      // it but are controls of their own, not part of what the row is called.
+      aria-labelledby={
+        hoverActions == null
+          ? undefined
+          : [
+              `${id}-label`,
+              note != null && `${id}-note`,
+              badgeShown && `${id}-badge`,
+              `${id}-trailing`,
+            ]
+              .filter(Boolean)
+              .join(' ')
+      }
       onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => {
         // Navigate on press, not on release — same reasoning as the tab strip:
         // waiting for `click` adds the held mouse button to perceived latency.
@@ -94,7 +114,7 @@ export function SidebarNavItem({
       className={clsx(
         SIDEBAR_ROW_CLASS,
         comfortable && '!h-[42px]',
-        'group w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
+        'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
           ? sharedBackground
@@ -115,11 +135,19 @@ export function SidebarNavItem({
       >
         {icon}
       </span>
-      <span ref={containerRef} className="t-marquee flex-1 min-w-0 text-left">
+      <span id={`${id}-label`} ref={containerRef} className="t-marquee flex-1 min-w-0 text-left">
         {label}
       </span>
-      {badge !== undefined && badge > 0 && (
-        <span className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-zViolet-500 text-white text-[11px] font-medium leading-none">
+      {note != null && (
+        <span id={`${id}-note`} className="flex-shrink-0 flex items-center">
+          {note}
+        </span>
+      )}
+      {badgeShown && (
+        <span
+          id={`${id}-badge`}
+          className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-zViolet-500 text-white text-[11px] font-medium leading-none"
+        >
           {badge > 99 ? '99+' : badge}
         </span>
       )}
@@ -133,11 +161,28 @@ export function SidebarNavItem({
         {hoverActions == null ? (
           trailing
         ) : (
-          <span className="flex flex-shrink-0 items-center">
-            <span className="flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden">
+          <span className="relative flex flex-shrink-0 items-center">
+            <span
+              id={`${id}-trailing`}
+              className={clsx(
+                'flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden',
+                'group-has-[:focus-visible]/row:hidden group-has-[[aria-expanded=true]]/row:hidden',
+              )}
+            >
               {trailing}
             </span>
-            <span className="hidden items-center gap-1 group-hover:flex group-focus-visible:flex">
+            {/* At rest the actions are transparent and out of flow rather than
+                hidden, so Tab can still reach them; focusing one reveals them. */}
+            <span
+              className={clsx(
+                'pointer-events-none absolute right-0 flex items-center gap-1 opacity-0',
+                'group-hover:pointer-events-auto group-hover:static group-hover:opacity-100',
+                'group-focus-visible:pointer-events-auto group-focus-visible:static group-focus-visible:opacity-100',
+                'group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:static group-has-[:focus-visible]/row:opacity-100',
+                // An action whose menu is open stays put as the menu's anchor.
+                'group-has-[[aria-expanded=true]]/row:pointer-events-auto group-has-[[aria-expanded=true]]/row:static group-has-[[aria-expanded=true]]/row:opacity-100',
+              )}
+            >
               {hoverActions}
             </span>
           </span>

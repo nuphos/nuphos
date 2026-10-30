@@ -1,6 +1,8 @@
-// The agent's two credential handouts call personalGithubToken /
+// The agent's GitHub and Linear handouts call personalGithubToken /
 // personalLinearToken with the turn's sender and fall back to the team token
-// when they return null. Refreshes rotate the stored grant in place.
+// when they return null. Gmail and Google Drive have no team token: their
+// handout returns personalGoogleToken or nothing. Refreshes rotate the stored
+// grant in place.
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { getDefaultClientCredentials } from '@/lib/byos/linear'
 import { refreshTokens } from '@/lib/byos/linear-oauth'
@@ -12,10 +14,12 @@ import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
 import { githubUserInstallationIds, refreshGithubToken } from './github'
+import { isGoogleProvider, refreshGoogleToken, teamGoogleClient } from './google'
 import { open, seal } from './seal'
 
 import type { ProviderTokens } from './github'
-import type { PersonalCredential, PersonalCredentialProvider } from '@/models'
+import type { GoogleProvider } from './google'
+import type { PersonalCredential } from '@/models'
 
 export type PersonalToken = { token: string; expiresAt: Date | null; login: string }
 
@@ -23,6 +27,16 @@ const refreshing = new Map<string, Promise<PersonalToken | null>>()
 
 function stillFresh(expiresAt: Date | null): boolean {
   return expiresAt === null || expiresAt.getTime() - 5 * 60_000 > Date.now()
+}
+
+/**
+ * The provider's token endpoint refused the grant (e.g. Google `invalid_grant`,
+ * a revoked token), as opposed to a network error, a 5xx, or a rate limit.
+ */
+function refused(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null)?.status
+
+  return typeof status === 'number' && status >= 400 && status < 500 && ![408, 429].includes(status)
 }
 
 async function refresh(doc: PersonalCredential): Promise<PersonalToken | null> {
@@ -33,6 +47,12 @@ async function refresh(doc: PersonalCredential): Promise<PersonalToken | null> {
   try {
     if (doc.provider === 'github') {
       tokens = await refreshGithubToken(refreshToken)
+    } else if (isGoogleProvider(doc.provider)) {
+      const client = doc.teamId ? await teamGoogleClient(doc.teamId) : null
+
+      // Without the team's client there is nothing to refresh with yet.
+      if (!client) return null
+      tokens = await refreshGoogleToken(client, refreshToken)
     } else {
       const client = getDefaultClientCredentials()
 
@@ -50,8 +70,10 @@ async function refresh(doc: PersonalCredential): Promise<PersonalToken | null> {
         login: latest.login,
       }
     }
-    // The grant is gone (revoked or expired): drop it so the team token takes over.
     logError('personal_credential.refresh_failed', error, { provider: doc.provider })
+    // A timeout or 5xx keeps the grant for the next try. Only a refused grant
+    // (revoked or expired) is dropped, so the team token takes over.
+    if (!refused(error)) return null
     await personalCredentials().deleteOne({ _id: doc._id, updatedAt: doc.updatedAt })
 
     return null
@@ -128,13 +150,24 @@ export async function personalLinearToken(
   return doc ? currentToken(doc) : null
 }
 
+/** The member's own Gmail or Google Drive token, when they connected it through this team. */
+export async function personalGoogleToken(
+  userId: string,
+  provider: GoogleProvider,
+  teamId: string,
+): Promise<PersonalToken | null> {
+  const doc = await personalCredentials().findOne({ userId, provider, teamId })
+
+  return doc ? currentToken(doc) : null
+}
+
 /**
  * The member whose Personal Credential this handout uses, or null for the team
  * identity: the agent asked for it (`identity=team`), or the conversation's
  * credential selection has the team act for this provider.
  */
 export async function personalCredentialSubjectFor(
-  provider: PersonalCredentialProvider,
+  provider: 'github' | 'linear',
   authorization: string | undefined,
   identity?: string,
 ): Promise<string | null> {

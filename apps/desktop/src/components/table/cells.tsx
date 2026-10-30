@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Fragment, memo, useEffect, useRef } from 'react'
 
+import { t } from '../../i18n'
+
 import { TABLE_CELL_ACTION_CLASS } from './primaryAction'
 
 import type { Column, StickyLayout } from './support'
@@ -115,7 +117,7 @@ function TableRowInner<T>({
           <Checkbox
             checked={isChecked}
             onToggle={(shiftKey) => onCheck(index, shiftKey)}
-            ariaLabel="Select row"
+            ariaLabel={t('Select row')}
             // Hidden unless the row is hovered or this row itself is checked.
             className={clsx(
               'transition-opacity',

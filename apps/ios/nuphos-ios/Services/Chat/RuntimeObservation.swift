@@ -8,26 +8,25 @@ struct RuntimeObservation: Equatable, Sendable {
     var epoch: String? { snapshot["epoch"]?.stringValue }
     var revision: Double? { snapshot["revision"]?.numberValue }
     var phase: String? { snapshot["phase"]?.stringValue }
-    func fresh(at now: TimeInterval) -> Bool { now >= observedAt && now - observedAt < 12 }
     /// Desktop's `runtimeMayAcceptLater`: a message this runtime cannot take
     /// now waits in the session queue. Only a runtime too old to report its
     /// state is not waited on.
     var mayAcceptLater: Bool { snapshot["schemaVersion"]?.numberValue == 2 || snapshot["state"]?.stringValue == "disconnected" }
-    func allows(_ action: String, at now: TimeInterval) -> Bool {
-        fresh(at: now) && snapshot["schemaVersion"]?.numberValue == 2 && snapshot["actions"]?[action]?.boolValue == true
+    func allows(_ action: String) -> Bool {
+        snapshot["schemaVersion"]?.numberValue == 2 && snapshot["actions"]?[action]?.boolValue == true
     }
-    func executing(at now: TimeInterval) -> Bool { fresh(at: now) && snapshot["state"]?.stringValue == "active" }
+    var executing: Bool { snapshot["state"]?.stringValue == "active" }
     /// A user-visible turn, including a queued or running automatic continuation.
-    func turnActive(at now: TimeInterval) -> Bool { executing(at: now) && phase != "resume_disconnected" }
+    var turnActive: Bool { executing && phase != "resume_disconnected" }
     /// The turn ended while runtime-owned background tools or tasks keep running.
-    func backgroundRunning(at now: TimeInterval) -> Bool {
-        !turnActive(at: now) && fresh(at: now) && snapshot["schemaVersion"]?.numberValue == 2 && phase == "background_tools"
+    var backgroundRunning: Bool {
+        !turnActive && snapshot["schemaVersion"]?.numberValue == 2 && phase == "background_tools"
     }
-    func paused(at now: TimeInterval) -> Bool { fresh(at: now) && phase == "resume_disconnected" }
+    var paused: Bool { phase == "resume_disconnected" }
     /// The server answered but had no usable status: the runtime is
-    /// unreachable, or too old to report one. Deliberately independent of
-    /// `fresh` — time spent on another screen does not make a status
-    /// unknown, it only makes the one we hold older.
+    /// unreachable, or too old to report one. Time spent in the background
+    /// or on another screen does not make a status unknown, it only makes
+    /// the one we hold older; the next read replaces it.
     var unavailable: Bool {
         guard snapshot["schemaVersion"]?.numberValue == 2 else { return true }
 
@@ -38,8 +37,8 @@ struct RuntimeObservation: Equatable, Sendable {
         if next.observedAt < observedAt && (epoch != next.epoch || revision == next.revision) { return false }
         return true
     }
-    func status(at now: TimeInterval) -> String? {
-        guard fresh(at: now), snapshot["state"]?.stringValue != "disconnected" else { return "Connection lost — runtime status unavailable" }
+    var status: String? {
+        guard snapshot["state"]?.stringValue != "disconnected" else { return "Connection lost — runtime status unavailable" }
         guard snapshot["schemaVersion"]?.numberValue == 2 else { return "Runtime status unavailable — runtime update required" }
         guard !["idle", "dormant", "cancelled"].contains(phase ?? "") else { return nil }
         return snapshot["label"]?.stringValue ?? "Runtime: \(phase ?? snapshot["state"]?.stringValue ?? "unknown")"
@@ -50,9 +49,9 @@ struct RuntimeObservation: Equatable, Sendable {
 enum ConversationIndicator: Equatable {
     case turn, background, unread, none
 
-    init(_ observation: RuntimeObservation?, at now: TimeInterval, unread: Bool) {
-        if observation?.turnActive(at: now) == true { self = .turn }
-        else if observation?.backgroundRunning(at: now) == true { self = .background }
+    init(_ observation: RuntimeObservation?, unread: Bool) {
+        if observation?.turnActive == true { self = .turn }
+        else if observation?.backgroundRunning == true { self = .background }
         else { self = unread ? .unread : .none }
     }
 
@@ -72,15 +71,15 @@ enum ConversationIndicator: Equatable {
 final class RuntimeObservations {
     static let shared = RuntimeObservations()
     private var values: [String: RuntimeObservation] = [:]
-    private(set) var now = ProcessInfo.processInfo.systemUptime
-    func tick() { now = ProcessInfo.processInfo.systemUptime }
     func value(team: String, session: String) -> RuntimeObservation? { values["\(team)/\(session)"] }
     func receive(_ snapshot: JSONValue?, team: String, session: String, observedAt: TimeInterval) {
         guard let snapshot else { return }
         let key = "\(team)/\(session)"
         let next = RuntimeObservation(snapshot: snapshot, observedAt: observedAt)
-        guard values[key]?.accepts(next) != false else { return }
+        // Polls re-read the same document every few seconds. Rewriting it would
+        // redraw every chat and list row that shows a status.
+        guard let current = values[key] else { values[key] = next; return }
+        guard current.snapshot != next.snapshot, current.accepts(next) else { return }
         values[key] = next
-        tick()
     }
 }

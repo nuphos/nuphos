@@ -20,6 +20,7 @@ import { cloudflareAccountsRoutes } from '@/routes/cloudflare-accounts'
 import { teamClusters } from '@/routes/clusters'
 import { nuphosDashboardsRoutes } from '@/routes/dashboards'
 import { databaseConnectionsRoutes } from '@/routes/database-connections'
+import { designsRoutes } from '@/routes/designs'
 import { discordAgentRoutes } from '@/routes/discord-agent'
 import { discordInstallationsRoutes } from '@/routes/discord-installations'
 import { fileTransfersRoutes } from '@/routes/file-transfers'
@@ -40,9 +41,12 @@ import { monitoringRoutes } from '@/routes/monitoring'
 import { notionIntegrationsRoutes } from '@/routes/notion-integrations'
 import { onpremClustersRoutes } from '@/routes/onprem-clusters'
 import { permissionGrantProposalsRoutes } from '@/routes/permission-grant-proposals'
+import { googleOAuthClientRoutes } from '@/routes/google-oauth-client'
+import { personalCredentialTokenRoutes } from '@/routes/personal-credentials'
 import { plaudAccountsRoutes } from '@/routes/plaud-accounts'
 import { posthogIntegrationsRoutes } from '@/routes/posthog-integrations'
 import { resendIntegrationsRoutes } from '@/routes/resend-integrations'
+import { runtimeFallbackRoutes } from '@/routes/runtime-fallback'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
 import { sentryAccountsRoutes } from '@/routes/sentry-accounts'
 import { sidebarFavoritesRoutes } from '@/routes/sidebar-favorites'
@@ -124,6 +128,7 @@ teamScoped.get(
 )
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
+teamScoped.route('/runtime-fallback', runtimeFallbackRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 teamScoped.route('/voice-transcriptions', voiceTranscriptionsRoutes)
 
@@ -138,6 +143,7 @@ teamScoped.route('/azure-accounts', azureAccountsRoutes)
 teamScoped.route('/huawei-accounts', huaweiAccountsRoutes)
 teamScoped.route('/grafana-instances', grafanaInstancesRoutes)
 teamScoped.route('/architecture-diagrams', architectureDiagramsRoutes)
+teamScoped.route('/designs', designsRoutes)
 teamScoped.route('/dashboards', nuphosDashboardsRoutes)
 // Alias for desktop builds that predate the Dashboards rename.
 teamScoped.route('/cost-dashboards', nuphosDashboardsRoutes)
@@ -169,6 +175,8 @@ teamScoped.route('/upstash-accounts', upstashAccountsRoutes)
 teamScoped.route('/resend-integrations', resendIntegrationsRoutes)
 teamScoped.route('/posthog-integrations', posthogIntegrationsRoutes)
 teamScoped.route('/plaud-accounts', plaudAccountsRoutes)
+teamScoped.route('/personal-credentials', personalCredentialTokenRoutes)
+teamScoped.route('/google-oauth-client', googleOAuthClientRoutes)
 teamScoped.route('/connectors', teamConnectorsRoutes)
 teamScoped.route('/connector-oauth', connectorOAuthRoutes)
 teamScoped.route('/monitoring', monitoringRoutes)

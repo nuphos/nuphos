@@ -37,6 +37,7 @@ test('workspace pages are the ones launched beside a conversation', () => {
       'team.terminal',
       'team.plans',
       'team.architecture',
+      'team.designs',
       'team.dashboards',
       'team.monitoring',
     ],

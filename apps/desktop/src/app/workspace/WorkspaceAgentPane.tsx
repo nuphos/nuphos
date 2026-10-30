@@ -10,6 +10,8 @@ import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
+import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
+import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
@@ -23,6 +25,7 @@ import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
+import type { JournalChatTarget } from '../../lib/journalEvent'
 import type { UserInfo } from '../../types'
 
 export function WorkspaceAgentPane({
@@ -70,6 +73,8 @@ export function WorkspaceAgentPane({
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
+  const inputQueue = useSessionInputRequests(savedSessionId, teamId)
+  const { replyTarget, openQuestions } = useComposerReplyTarget(savedSessionId, teamId, inputQueue)
   const connectedResources = useMemo(
     () =>
       connectedResourceLabels(
@@ -115,6 +120,13 @@ export function WorkspaceAgentPane({
     [setAgentSidebarPendingImport],
   )
   const handleLocateConsumed = useCallback(() => setAuditChatLocate(null), [setAuditChatLocate])
+  const handleOpenRequest = useCallback(
+    (sessionId: string, target?: JournalChatTarget) => {
+      workspaceActions.selectSession(sessionId, { keepMainPage: true })
+      setAuditChatLocate(target ? { sessionId, target } : null)
+    },
+    [setAuditChatLocate, workspaceActions],
+  )
 
   const transcriptRef = useRef<HTMLDivElement>(null)
   const [titlebarRef, { compact, tight }] = useTitlebarFit()
@@ -212,7 +224,13 @@ export function WorkspaceAgentPane({
             />
           )}
           {!savedSessionId && pane?.split && <PaneMenu onClosePane={pane.closePane} />}
-          {savedSessionId && <ChatSummaryToggle active={paneInFront} hidden={tight} />}
+          {savedSessionId && (
+            <ChatSummaryToggle
+              active={paneInFront}
+              hidden={tight}
+              pendingCount={inputQueue.requests.length}
+            />
+          )}
           {/* The rest of the header moves the window, so a pane moves by its grip. Electron cuts
             no-drag holes in page order, so the grip comes after the drag area it sits over. */}
           <PaneGrip label={currentHeading.title} />
@@ -240,6 +258,9 @@ export function WorkspaceAgentPane({
               newChatRequest={ws.newChatRequest}
               sessionId={selectedSessionId}
               sessionReadOnly={selectedSessionReadOnly}
+              decisionReplyTo={replyTarget?.chosen ?? undefined}
+              replyTarget={replyTarget}
+              openQuestions={openQuestions}
               onSessionChange={handleSessionChange}
               onOpenNuphosLink={stableOpenNuphosLinkFromChat}
               onOpenAgentSettings={handleOpenAgentSettings}
@@ -262,6 +283,10 @@ export function WorkspaceAgentPane({
               teamId={teamId}
               onOpenLink={stableOpenSessionResource}
               onOpenSession={handleSessionChange}
+              onOpenRequest={handleOpenRequest}
+              requests={inputQueue.requests}
+              requestsLoaded={inputQueue.loaded}
+              requestsFailed={inputQueue.failed}
             />
           )}
         </div>

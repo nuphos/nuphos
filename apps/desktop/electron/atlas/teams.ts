@@ -105,6 +105,20 @@ export async function getTeamActivity(teamId: string, range: string): Promise<un
   )
 }
 
+/** The caller's ordered fallback agents; an empty list turns fallback off. */
+export async function getRuntimeFallback(teamId: string): Promise<unknown> {
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallback`)
+}
+
+export async function putRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<unknown> {
+  return call(
+    'PUT',
+    `/teams/${encodeURIComponent(teamId)}/runtime-fallback`,
+    { runtimeIds },
+    { retry: false },
+  )
+}
+
 export async function getHomeLayout(teamId: string): Promise<unknown> {
   return call('GET', `/teams/${encodeURIComponent(teamId)}/home-layout`)
 }

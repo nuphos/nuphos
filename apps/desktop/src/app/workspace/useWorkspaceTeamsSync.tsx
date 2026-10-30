@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
 import type { WorkspaceShellStateResult } from './useWorkspaceShellState'
@@ -99,7 +100,7 @@ export function useWorkspaceTeamsSync(a: Args) {
   if (!onboardingAutoEntryChecked && teamsLoaded && invitationsLoaded) {
     setOnboardingAutoEntryChecked(true)
     if (teams.length === 0) {
-      setError('No teams are available for this account.')
+      setError(t('No teams are available for this account.'))
       setOnboardingActive(true)
     }
   }

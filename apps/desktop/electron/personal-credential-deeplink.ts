@@ -17,6 +17,12 @@ type Complete = (
 // with the one-time code, so the code never leaves the main process.
 const PROTOCOL = 'nuphos:'
 const HOST = 'personal-credential'
+const PROVIDERS: readonly PersonalCredentialProvider[] = [
+  'github',
+  'linear',
+  'gmail',
+  'google-drive',
+]
 
 function parse(rawUrl: string): URL | null {
   try {
@@ -35,7 +41,9 @@ export function isPersonalCredentialUrl(rawUrl: string): boolean {
 export function personalCredentialProviderOf(rawUrl: string): PersonalCredentialProvider | null {
   const provider = parse(rawUrl)?.searchParams.get('provider')
 
-  return provider === 'github' || provider === 'linear' ? provider : null
+  return PROVIDERS.includes(provider as PersonalCredentialProvider)
+    ? (provider as PersonalCredentialProvider)
+    : null
 }
 
 export async function completePersonalCredentialUrl(

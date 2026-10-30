@@ -1,6 +1,6 @@
 import { Toggle } from '@base-ui/react/toggle'
 import { ToggleGroup } from '@base-ui/react/toggle-group'
-import { Code2, Copy, Download, Eye, Wrench } from 'lucide-react'
+import { Code2, Copy, Download, Eye, LayoutTemplate, Wrench } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
 import { useToolbarSlot } from '../../../hooks/useToolbarControls'
@@ -35,6 +35,8 @@ export type ArtifactToolbarProps = {
   onView: (view: ArtifactViewMode) => void
   onStep: (version: ArtifactVersion) => void
   onAskAgent: (prompt: string) => void
+  /** Put this page on a design canvas as a screen; absent when there is no team to add it to. */
+  onAddToDesign?: () => void
 }
 
 /** The title takes whatever room is left, so it is the last thing to shorten. */
@@ -97,7 +99,7 @@ export function ArtifactToolbar(props: ArtifactToolbarProps) {
               <ViewToggle view={props.view} onView={props.onView} />
             )}
             {density === 'full' ? (
-              <InlineActions current={current} />
+              <InlineActions current={current} onAddToDesign={props.onAddToDesign} />
             ) : (
               <MoreMenu {...props} {...steps} />
             )}
@@ -154,9 +156,28 @@ function ViewToggle({
   )
 }
 
-function InlineActions({ current }: { current: ArtifactVersion }) {
+function InlineActions({
+  current,
+  onAddToDesign,
+}: {
+  current: ArtifactVersion
+  onAddToDesign?: () => void
+}) {
   return (
     <>
+      {current.kind === 'html' && onAddToDesign && (
+        <Tooltip content={t('Add this page to a design canvas')}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-7 w-7"
+            aria-label={t('Add to design')}
+            onClick={onAddToDesign}
+          >
+            <LayoutTemplate className="h-3.5 w-3.5" />
+          </Button>
+        </Tooltip>
+      )}
       <Tooltip
         content={t('Copy the {kind} source', { kind: artifactKindLabel(current).toLowerCase() })}
       >

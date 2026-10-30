@@ -3,6 +3,7 @@ import { Database, KeyRound, Server } from 'lucide-react'
 import { api } from '../../api'
 import { awsResourceListCacheKey } from '../../app/accountScopes'
 import { clusterRowHref } from '../../app/clusterNamespaceStorage'
+import { t } from '../../i18n'
 import { withResourceListCache } from '../../lib/resourceListCache'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { CloudClustersView, S3BucketsView } from '../../views/CloudViews'
@@ -44,7 +45,7 @@ export function renderAwsIamStoragePages(ctx: ScopeRenderContext): React.ReactNo
         : undefined
 
     return renderActiveNavPage(
-      'Roles',
+      t('Roles'),
       <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <AwsRolesView
         teamId={scope.teamId}
@@ -128,7 +129,7 @@ export function renderAwsIamStoragePages(ctx: ScopeRenderContext): React.ReactNo
   }
 
   return renderActiveNavPage(
-    'EKS Clusters',
+    t('EKS Clusters'),
     <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     <CloudClustersView
       loader={withResourceListCache(

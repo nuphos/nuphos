@@ -5,6 +5,7 @@ import {
   Copy,
   Download,
   Eye,
+  LayoutTemplate,
   MoreHorizontal,
   Wrench,
 } from 'lucide-react'
@@ -31,6 +32,7 @@ export function MoreMenu({
   onView,
   onStep,
   onAskAgent,
+  onAddToDesign,
 }: ArtifactToolbarProps & {
   previous: ArtifactVersion | undefined
   next: ArtifactVersion | undefined
@@ -101,6 +103,11 @@ export function MoreMenu({
             onClick={() => onAskAgent(fixPrompt(current, errors))}
           >
             {t('Ask the agent to fix')}
+          </MenuItem>
+        )}
+        {current.kind === 'html' && onAddToDesign && (
+          <MenuItem icon={<LayoutTemplate className="size-3.5" />} onClick={onAddToDesign}>
+            Add to design
           </MenuItem>
         )}
         <MenuItem icon={<Copy className="size-3.5" />} onClick={() => void copySource(current)}>

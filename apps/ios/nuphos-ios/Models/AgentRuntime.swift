@@ -17,6 +17,13 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         var online: Bool? = nil
         /// The owner's own CLI sign-in; nil when their computer cannot tell.
         let signedIn: Bool?
+        /// Present when it is a teammate's own computer shared with this person.
+        var shared: Shared? = nil
+    }
+
+    /// How a teammate shares their computer: `approve` asks them before each conversation runs.
+    struct Shared: Codable, Equatable, Hashable, Sendable {
+        let level: String
     }
 
     enum Tier: CaseIterable, Hashable {

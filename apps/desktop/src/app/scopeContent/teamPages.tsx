@@ -3,6 +3,7 @@ import { Bell, Database, LayoutDashboard, MessageSquare } from 'lucide-react'
 import { CloudLogo } from '../../components/CloudLogo'
 import { GithubMark } from '../../components/GithubMark'
 import { LinearMark } from '../../components/LinearMark'
+import { t } from '../../i18n'
 import { DATABASE_NAV_LABELS, isDatabaseEngineReleased } from '../../lib/databaseRelease'
 import { LINEAR_PAGE_KEY, linearNavOf, linearPageTitle } from '../../lib/linearNav'
 import { DatabaseConnectionsView } from '../../views/DatabaseConnectionsView'
@@ -57,7 +58,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
   } = ctx
 
   if (scope.kind === 'database-connection') {
-    const label = DATABASE_NAV_LABELS[active] ?? 'Overview'
+    const label = DATABASE_NAV_LABELS[active] ?? t('Overview')
 
     if (databaseConnections === undefined) {
       return renderActiveNavPage(
@@ -94,7 +95,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
   if (scope.kind === 'team' && active === 'team.agent') {
     return renderPage(
       'team.agent',
-      'Agent',
+      t('Agent'),
       <MessageSquare className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       null,
     )
@@ -103,7 +104,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
   if (active === 'team.observability') {
     return renderPage(
       'team.observability',
-      'Observability',
+      t('Observability'),
       <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ObservabilityHomeView
         teamId={scope.teamId}
@@ -147,11 +148,11 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
         ? `#${String(githubNav.prNumber)} ${githubNav.prTitle}`
         : githubNav.view === 'repo'
           ? githubNav.tab === 'prs'
-            ? 'PRs'
-            : 'Workflows'
+            ? t('PRs')
+            : t('Workflows')
           : githubNav.view === 'repos'
             ? githubNav.installation.accountLogin
-            : 'Repository'
+            : t('Repository')
 
     return renderPage(
       'team.repository',
@@ -206,7 +207,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
 
     return renderPage(
       'observability.dashboards',
-      'Dashboards',
+      t('Dashboards'),
       <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <GrafanaDashboardListView
         target={target}
@@ -230,7 +231,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
 
     return renderPage(
       'observability.alerts',
-      'Alerts',
+      t('Alerts'),
       <Bell className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <GrafanaAlertListView target={target} filter={filter} onCount={onCount} />,
     )
@@ -244,7 +245,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
     if (traceDatasourceTarget) {
       return renderPage(
         'observability.trace-explorer',
-        'Trace Explorer',
+        t('Trace Explorer'),
         <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <GrafanaTraceExplorerView
           target={target}
@@ -256,7 +257,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
     if (logDatasourceTarget) {
       return renderPage(
         'observability.log-explorer',
-        'Log Explorer',
+        t('Log Explorer'),
         <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <GrafanaLogExplorerView
           target={target}
@@ -269,7 +270,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
 
     return renderPage(
       'observability.datasources',
-      'Datasources',
+      t('Datasources'),
       <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <GrafanaDatasourceListView
         target={target}

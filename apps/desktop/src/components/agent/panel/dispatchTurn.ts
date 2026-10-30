@@ -25,6 +25,7 @@ const forkImports = new Map<string, Promise<void>>()
 export type DispatchTurnCtx = Pick<
   PanelCtx,
   | 'currentUser'
+  | 'decisionReplyTo'
   | 'credentialAccessRef'
   | 'kubeContextRef'
   | 'sendableCredentialAccess'
@@ -149,11 +150,8 @@ export async function runDispatchTurn(
     credentialAccessRef.current.get(tab.sessionId) ?? tab.credentialAccess,
   )
 
-  // A fork's copied turns exist only in this client until its first send, and
-  // /chat accepts one user message the server hasn't stored. Store them first
-  // as an import, the path a local session import takes, so this send carries
-  // only the new message. A regular sync of the same turn would race the import
-  // and store the new message before /chat could attribute it.
+  // Import a fork's copied history before sending its first new message.
+  // Syncing that message first would prevent /chat from attributing it.
   const forkHistory = tab.unsaved && baseMessages.some((m) => m.role === 'user')
 
   // The tab shows a running turn: send at once without taking its stream. The
@@ -174,6 +172,7 @@ export async function runDispatchTurn(
     void (forkImports.get(tabId) ?? Promise.resolve())
       .then(() =>
         window.api.agentStart({
+          decisionReplyTo: ctx.decisionReplyTo,
           streamId,
           sessionId: tab.sessionId,
           agentRuntime: tab.agentRuntime,
@@ -255,6 +254,7 @@ export async function runDispatchTurn(
       }
 
       return window.api.agentStart({
+        decisionReplyTo: ctx.decisionReplyTo,
         streamId,
         sessionId: tab.sessionId,
         agentRuntime: tab.agentRuntime,

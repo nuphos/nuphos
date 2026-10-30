@@ -1,4 +1,5 @@
 import { canManage, conversationAccess } from '@/lib/agent/db/access'
+import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
 import { resourceConversation, unlinkSessionResource } from '@/lib/agent/session-resources'
 import { sessionResources } from '@/lib/agent/session-thread-resources'
 import { AppError } from '@/lib/errors'
@@ -15,6 +16,10 @@ agent.get('/conversations/:sessionId/resources', async (c) => {
     teamId,
     sessionId: c.req.param('sessionId'),
   })
+
+  // The open conversation polls this, so its chips catch up with changes no webhook
+  // delivered; the stored state is answered now and the next poll sees the update.
+  void recheckLinkedResources(conversation).catch(() => null)
 
   return c.json({
     resources: await sessionResources(conversation),

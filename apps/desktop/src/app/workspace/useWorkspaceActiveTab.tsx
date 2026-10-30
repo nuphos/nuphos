@@ -56,6 +56,7 @@ export function useWorkspaceActiveTab(a: Args) {
   const target = activeTab?.target ?? null
   const s3Detail = activeTab?.s3Detail ?? null
   const architectureDetail = activeTab?.architectureDetail ?? null
+  const designDetail = activeTab?.designDetail ?? null
   const nuphosDashboard = activeTab?.nuphosDashboard ?? null
   const nuphosDashboards = activeTab?.nuphosDashboards
   const linearNav = activeTab?.linearNav ?? null
@@ -156,6 +157,7 @@ export function useWorkspaceActiveTab(a: Args) {
     target,
     s3Detail,
     architectureDetail,
+    designDetail,
     nuphosDashboard,
     nuphosDashboards,
     linearNav,

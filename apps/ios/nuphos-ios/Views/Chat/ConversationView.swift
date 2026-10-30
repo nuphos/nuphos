@@ -22,6 +22,11 @@ struct ConversationView: View {
     @State private var archiveError: String?
     @State private var updating = false
     @State private var width: CGFloat = 0
+    #if os(iOS)
+    @Environment(\.barButtonsInSideRail) private var barButtonsInSideRail
+    #else
+    private let barButtonsInSideRail = false
+    #endif
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
@@ -167,7 +172,7 @@ struct ConversationView: View {
             Text(archiveError ?? "")
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
-        .sheet(isPresented: $showShare) { ShareSessionSheet(session: session) }
+        .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
                 Task {
@@ -185,8 +190,6 @@ struct ConversationView: View {
             if session.isNew, let initialPrompt, !didSendInitial {
                 didSendInitial = true
                 session.send(initialPrompt)
-            } else if !session.loaded {
-                await session.load()
             }
             #if DEBUG
             // `-approve-plan <id>`: exercise the approval round-trip.
@@ -202,16 +205,18 @@ struct ConversationView: View {
             await session.pollWhileIdle()
             session.leave()
         }
+        // A teammate's computer that asks its owner first: say so until they answer.
+        .task(id: "\(ShareApprovalWait.asksOwner(conversationRuntime)).\(session.queuedSends)") {
+            await store.loadRuntimes()
+            guard ShareApprovalWait.asksOwner(conversationRuntime) else { return }
+            while !Task.isCancelled, await session.refreshShareApproval() {
+                try? await Task.sleep(for: .seconds(5))
+            }
+        }
         // New files land while a turn runs; read them once it settles.
         .task(id: "\(session.isStreaming).\(session.messages.count)") {
             await session.refreshResources()
             if !session.isStreaming { await session.refreshDownloads() }
-        }
-        .task {
-            while !Task.isCancelled {
-                session.tickRuntimeClock()
-                try? await Task.sleep(for: .seconds(1))
-            }
         }
     }
 
@@ -238,8 +243,10 @@ struct ConversationView: View {
         }
         // The principal item is only as wide as its content and centred, so
         // it is given all the room between the back and options buttons
-        // (each 44 + 16 margin + 8 gap) to start the title on the left.
-        .frame(width: max(width - 136, 0), alignment: .leading)
+        // (each 44 + 16 margin + 8 gap) to start the title on the left. On
+        // iPhone Duo those buttons sit in the side rail, so the title gets
+        // the whole bar.
+        .frame(width: max(width - (barButtonsInSideRail ? 0 : 136), 0), alignment: .leading)
     }
 
     /// Plan links open the plan here, approved through this chat; other app
@@ -252,9 +259,21 @@ struct ConversationView: View {
         }
     }
 
-    /// The composer, with any queued messages above it.
+    /// The agent this conversation runs on, when the catalog lists it.
+    private var conversationRuntime: RuntimeInstance? {
+        let id = session.runtimeId ?? session.runtime?.id
+        return store.runtimes.first { $0.id == id }
+    }
+
+    /// The composer, with what waits on the owner of a shared computer and any queued messages above it.
     private var composer: some View {
         VStack(spacing: 0) {
+            if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
+                ShareApprovalStrip(
+                    wait: wait,
+                    computer: conversationRuntime?.local?.deviceLabel ?? "this computer"
+                )
+            }
             if !session.queued.isEmpty || !session.serverQueued.isEmpty {
                 QueuedStrip(
                     items: session.queued.enumerated().map { .init(id: "local.\($0.offset)", text: $0.element, steering: false) }
@@ -808,3 +827,47 @@ struct QueuedStrip: View {
         .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
+
+/// A teammate's computer that asks its owner first: the message waits for them, or they declined.
+struct ShareApprovalStrip: View {
+    let wait: ShareApprovalWait
+    let computer: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: wait == .pending ? "hourglass" : "nosign")
+                .font(Theme.Text.label)
+                .foregroundStyle(wait == .pending ? Theme.warning : Color.red)
+            Text(wait.message(computer: computer))
+                .font(Theme.Text.label)
+                .foregroundStyle(Theme.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+#if os(iOS)
+/// Whether the system shows the navigation bar's buttons in a side rail (the
+/// vertical bar on iPhone Duo) instead of in the bar itself.
+private struct BarButtonsInSideRailKey: EnvironmentKey, UITraitBridgedEnvironmentKey {
+    static let defaultValue = false
+
+    static func read(from traits: UITraitCollection) -> Bool {
+        if #available(iOS 27.1, *) { return traits.verticalBarEdge != .unspecified }
+        return false
+    }
+
+    static func write(to traits: inout UIMutableTraits, value: Bool) {}
+}
+
+extension EnvironmentValues {
+    fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
+}
+#endif

@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+
 // Compact resource meter: absolute usage, continuous fill, and a request tick.
 // A limit/capacity defines the full track. Without one, leave headroom beyond
 // the request; with neither a request nor capacity, show only the usage value.
@@ -15,7 +17,7 @@ export function UsageBar({
   requested,
   capacity,
   format,
-  noCapacityLabel = 'no limit',
+  noCapacityLabel = t('no limit'),
   resource = 'cpu',
 }: Props) {
   const hasCapacity = capacity != null && capacity > 0
@@ -33,17 +35,20 @@ export function UsageBar({
   const budgetPercent =
     overRequest && used > 0 ? Math.min(100, (requested / Math.min(used, scale)) * 100) : 100
   const fill = `linear-gradient(to right, var(--resource-meter-fill) ${String(budgetPercent)}%, var(--resource-meter-warning) ${String(budgetPercent)}%)`
-  const lines: string[] = [resource === 'cpu' ? 'CPU' : 'Memory']
+  const lines: string[] = [resource === 'cpu' ? 'CPU' : t('Memory')]
 
   if (used != null) {
     lines.push(
       hasCapacity
-        ? `used: ${format(used)} (${((used / capacity) * 100).toFixed(0)}%)`
-        : `used: ${format(used)}`,
+        ? t('used: {value} ({percent}%)', {
+            value: format(used),
+            percent: ((used / capacity) * 100).toFixed(0),
+          })
+        : t('used: {value}', { value: format(used) }),
     )
   }
-  if (requested != null) lines.push(`requested: ${format(requested)}`)
-  lines.push(hasCapacity ? `capacity: ${format(capacity)}` : noCapacityLabel)
+  if (requested != null) lines.push(t('requested: {value}', { value: format(requested) }))
+  lines.push(hasCapacity ? t('capacity: {value}', { value: format(capacity) }) : noCapacityLabel)
 
   return (
     <div className="resource-meter flex w-full items-center gap-2" title={lines.join('\n')}>

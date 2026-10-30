@@ -79,6 +79,11 @@ export function statusLabel(card: HomeGithubCard): string {
     .join(', ')
 }
 
+/** A pull request or CI card's title, e.g. "CI · Failing". */
+export function githubCardTitle(card: HomeGithubCard): string {
+  return `${card.kind === 'pulls' ? t('Pull requests') : 'CI'} · ${statusLabel(card)}`
+}
+
 /** Pull requests in any of `statuses`; `open` takes them all. */
 export function filterPulls(pulls: GithubPR[], statuses: HomePullStatus[]): GithubPR[] {
   if (statuses.includes('open')) return pulls
@@ -134,7 +139,7 @@ export function minCardSize(key: string): { minW: number; minH: number } {
   return { minW: 3, minH: 3 }
 }
 
-const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
+export const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
 /**
@@ -172,6 +177,17 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
       }
     }
   })
+}
+
+/** A card's title from its grid key, as screen readers hear it when it moves. */
+export function cardLabel(layout: HomeLayout, key: string): string {
+  if (key === 'team') return t('Team activity')
+  const github = layout.github.find((card) => `gh:${card.id}` === key)
+
+  if (github) return githubCardTitle(github)
+  if (key.startsWith('panel:')) return t('Dashboard panel')
+
+  return key
 }
 
 /**

@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { BOX_PLANS } from './boxPresentation'
 import type { AgentDevice, BillingSummary, BoxUsage } from '../../api/device-types'
 
@@ -5,7 +7,7 @@ export const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateStr
 export const money = (cents: number, currency: string) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100)
 export const planDetail = ({ vcpus, usdPerMonth }: (typeof BOX_PLANS)[number]) =>
-  `up to ${String(vcpus)} vCPU running · $${String(usdPerMonth)} / month`
+  t('up to {n} vCPU running · ${price} / month', { n: vcpus, price: usdPerMonth })
 
 export type BoxRow = {
   key: string
@@ -32,7 +34,7 @@ export function boxRows(usage: BoxUsage, devices: AgentDevice[]): BoxRow[] {
   if (teammates > 0)
     rows.push({
       key: 'teammates',
-      name: "Teammates' computers",
+      name: t("Teammates' computers"),
       vcpus: teammates,
       running: true,
       teammates: true,
@@ -48,9 +50,13 @@ export function blockedStart(usage: BoxUsage, rows: BoxRow[]): string | null {
   const paused = rows.find((row) => !row.running && row.vcpus > free)
 
   if (paused)
-    return `Starting ${paused.name} needs ${String(paused.vcpus)} vCPU; ${String(free)} free.`
+    return t('Starting {name} needs {n} vCPU; {free} free.', {
+      name: paused.name,
+      n: paused.vcpus,
+      free,
+    })
   if (usage.boxVcpus !== null && usage.boxVcpus > free)
-    return `A new computer needs ${String(usage.boxVcpus)} vCPU; ${String(free)} free.`
+    return t('A new computer needs {n} vCPU; {free} free.', { n: usage.boxVcpus, free })
 
   return null
 }
@@ -66,10 +72,14 @@ export const statusTone = (status: string) => STATUS_TONES[status] ?? 'warning'
 
 /** The plan's renewal (or end) date and card, as the plan card's second line. */
 export function renewal(plan: BillingSummary['plan'] | undefined, error: string | null): string {
-  if (!plan) return error ? 'Renewal and card details unavailable' : 'Loading renewal…'
+  if (!plan) return error ? t('Renewal and card details unavailable') : t('Loading renewal…')
   const card = plan.card ? ` · ${plan.card.brand} •••• ${plan.card.last4}` : ''
 
-  return `${plan.cancelAt ? 'Ends' : 'Renews'} ${date(plan.cancelAt ?? plan.currentPeriodEnd)}${card}`
+  const when = date(plan.cancelAt ?? plan.currentPeriodEnd)
+
+  return (
+    (plan.cancelAt ? t('Ends {date}', { date: when }) : t('Renews {date}', { date: when })) + card
+  )
 }
 
 /** The usage chart's axis ticks: every 4 hours for 24h, local midnights for 7d (daily) and 30d (every 5 days). */

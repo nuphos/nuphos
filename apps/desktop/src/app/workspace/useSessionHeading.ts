@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
 
+import { t } from '../../i18n/index.ts'
+
 import type { AgentProvider } from '../../types/runtime'
 
 export type SessionHeading = {
@@ -18,7 +20,7 @@ export type SessionHeading = {
 export function useSessionHeading(selectedSessionId: string | null) {
   const [heading, setHeading] = useState<SessionHeading>({
     sessionId: null,
-    title: 'Agent',
+    title: t('Agent'),
     runtime: null,
   })
   const handleTitleChange = useCallback(
@@ -39,7 +41,7 @@ export function useSessionHeading(selectedSessionId: string | null) {
         saved,
         watching,
         runtimeId,
-        title: nextTitle || 'Agent',
+        title: nextTitle || t('Agent'),
         runtime: agentRuntime ?? null,
       })
     },
@@ -48,7 +50,7 @@ export function useSessionHeading(selectedSessionId: string | null) {
   const currentHeading: SessionHeading =
     heading.sessionId === selectedSessionId
       ? heading
-      : { sessionId: selectedSessionId, title: 'Agent', runtime: null }
+      : { sessionId: selectedSessionId, title: t('Agent'), runtime: null }
 
   return { currentHeading, handleTitleChange }
 }

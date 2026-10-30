@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { normalizeAgentUrl, normalizePairingCode } from '../../lib/connectAgentLink'
 
 import { submitPairing } from './connectAgent'
@@ -50,7 +51,7 @@ export function ExternalRuntimeForm({
       if (outcome.kind === 'duplicate') setDuplicateId(outcome.runtimeId)
       else onConnected(outcome.runtime)
     } catch (error) {
-      toast.apiError('Could not connect runtime', error)
+      toast.apiError(t('Could not connect runtime'), error)
     } finally {
       setSaving(false)
     }
@@ -58,11 +59,11 @@ export function ExternalRuntimeForm({
 
   const primary = duplicateId ? (
     <Button size="sm" type="button" disabled={cannotSave} onClick={() => void submit(duplicateId)}>
-      {saving ? 'Updating…' : 'Update existing connection'}
+      {saving ? t('Updating…') : t('Update existing connection')}
     </Button>
   ) : (
     <Button size="sm" type="submit" form={formId} disabled={cannotSave}>
-      {saving ? 'Connecting…' : 'Connect runtime'}
+      {saving ? t('Connecting…') : t('Connect runtime')}
     </Button>
   )
   const cancel = (
@@ -72,7 +73,7 @@ export function ExternalRuntimeForm({
       disabled={saving}
       className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
     >
-      Cancel
+      {t('Cancel')}
     </button>
   )
   const switchLink = (side: string) =>
@@ -83,7 +84,7 @@ export function ExternalRuntimeForm({
         disabled={saving}
         className={`${side} rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60`}
       >
-        Use a password instead
+        {t('Use a password instead')}
       </button>
     )
 
@@ -97,20 +98,20 @@ export function ExternalRuntimeForm({
       className="space-y-4"
     >
       <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
-        Open your runtime’s address in a browser, sign in to its console and choose Connect to
-        Nuphos. If Nuphos does not open by itself, copy the address and pairing code the console
-        shows into this form. Runtimes without a console connect with their password instead.
+        {t(
+          'Open your runtime’s address in a browser, sign in to its console and choose Connect to Nuphos. If Nuphos does not open by itself, copy the address and pairing code the console shows into this form. Runtimes without a console connect with their password instead.',
+        )}
       </p>
       <Field
-        label="Address"
+        label={t('Address')}
         hint={
           url.trim() && !agentUrl
-            ? 'Enter the runtime’s address, for example https://agent.example.com.'
-            : 'The address the runtime console shows.'
+            ? t('Enter the runtime’s address, for example https://agent.example.com.')
+            : t('The address the runtime console shows.')
         }
       >
         <input
-          aria-label="Address"
+          aria-label={t('Address')}
           className={inputClasses}
           value={url}
           maxLength={500}
@@ -126,11 +127,13 @@ export function ExternalRuntimeForm({
         />
       </Field>
       <Field
-        label="Pairing code"
-        hint="Works once and expires after a few minutes. Generate a new one in the console if it has."
+        label={t('Pairing code')}
+        hint={t(
+          'Works once and expires after a few minutes. Generate a new one in the console if it has.',
+        )}
       >
         <input
-          aria-label="Pairing code"
+          aria-label={t('Pairing code')}
           className={`${inputClasses} font-mono uppercase tracking-wider`}
           value={code}
           maxLength={40}
@@ -146,8 +149,9 @@ export function ExternalRuntimeForm({
       </Field>
       {duplicateId && (
         <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
-          This runtime is already connected to this team. Updating the existing connection gives it
-          a new key and keeps its agents.
+          {t(
+            'This runtime is already connected to this team. Updating the existing connection gives it a new key and keeps its agents.',
+          )}
         </p>
       )}
       {/* Inline as it always was; in a dialog's footer the primary action sits on the right. */}

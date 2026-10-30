@@ -1,5 +1,6 @@
 import { FolderTree } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { parseCustomResourceNavigationKey } from '../../lib/customResourceNavigation'
 import {
   CustomResourceDefinitionsView,
@@ -29,7 +30,7 @@ export function renderClusterStoragePages(ctx: ScopeRenderContext): React.ReactN
 
   if (active === 'storage.storage-classes' || active === 'config.storage') {
     return renderActiveNavPage(
-      'Storage Classes',
+      t('Storage Classes'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <StorageClassesView
         filter={filter}
@@ -42,7 +43,7 @@ export function renderClusterStoragePages(ctx: ScopeRenderContext): React.ReactN
   }
   if (active === 'storage.persistent-volumes') {
     return renderActiveNavPage(
-      'Persistent Volumes',
+      t('Persistent Volumes'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <PersistentVolumesView
         filter={filter}
@@ -59,7 +60,7 @@ export function renderClusterStoragePages(ctx: ScopeRenderContext): React.ReactN
   }
   if (active === 'storage.persistent-volume-claims') {
     return renderActiveNavPage(
-      'PVCs',
+      t('PVCs'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <PersistentVolumeClaimsView
         namespace={namespace}
@@ -95,7 +96,7 @@ export function renderClusterStoragePages(ctx: ScopeRenderContext): React.ReactN
 
   if (customResourceType || active === 'custom.resources') {
     return renderActiveNavPage(
-      customResourceType?.kind ?? 'Custom Resources',
+      customResourceType?.kind ?? t('Custom Resources'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CustomResourcesView
         namespace={namespace}
@@ -121,7 +122,7 @@ export function renderClusterStoragePages(ctx: ScopeRenderContext): React.ReactN
 
   // default workloads.pods
   return renderActiveNavPage(
-    'Pods',
+    t('Pods'),
     <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     <PodsView
       namespace={namespace}

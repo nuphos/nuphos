@@ -5,6 +5,12 @@ import { withTranscriptTail } from '../agent/transcript-window.ts'
 import type { AgentProvider } from '../../src/types/runtime'
 
 export const agentApi = {
+  agentResolveDecision: (
+    sessionId: string,
+    toolCallId: string,
+    teamId?: string,
+    resolution?: 'answered' | 'dismissed',
+  ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
   agentMoveConversationRuntime: (
     sessionId: string,
     teamId: string,

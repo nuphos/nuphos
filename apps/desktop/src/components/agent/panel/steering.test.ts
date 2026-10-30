@@ -1,7 +1,21 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { parseSteeringPart, steeringMessage } from './steering.ts'
+import { appendSteering, parseSteeringPart, steeringMessage } from './steering.ts'
+
+import type { Tab } from './model.ts'
+import type { SteeringPart } from './parts.ts'
+
+test('a steering receipt with no assistant message to join is shown once, on its own', () => {
+  const receipt: SteeringPart = { type: 'data-steering', data: { id: 's', text: 'wait' } }
+  const tab = {
+    messages: [{ id: 'u', role: 'user', parts: [{ type: 'text', text: 'go' }] }],
+  } as unknown as Tab
+  const once = appendSteering(tab, receipt)
+
+  assert.deepEqual(once.messages.at(-1), { id: 's', role: 'assistant', parts: [receipt] })
+  assert.equal(appendSteering(once, receipt), once)
+})
 
 const upload = {
   type: 'transfer-upload',

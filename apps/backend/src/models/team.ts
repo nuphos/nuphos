@@ -38,6 +38,7 @@ import type {
   VantaIntegrationBinding,
   ZeaburProviderBinding,
 } from '@/models/bindings-integrations'
+import type { EncryptedSecret } from '@/lib/byos/secrets/shared'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type TeamByosBindings = {
@@ -82,6 +83,16 @@ export type TeamByosBindings = {
   // Optional: existing team docs predate this field, so every reader uses
   // `doc.larkApps ?? []`.
   larkApps?: LarkAppBinding[]
+  /**
+   * The team's own Google OAuth client (Web application) for its members'
+   * Gmail and Google Drive Personal Credentials. Unset until an admin adds it.
+   */
+  googleOAuthClient?: {
+    clientId: string
+    encryptedClientSecret: EncryptedSecret
+    updatedAt: Date
+    updatedBy: string
+  }
   vantaIntegrations: VantaIntegrationBinding[]
   secureframeIntegrations: SecureframeIntegrationBinding[]
   // Optional because bindings created before the SonarQube connector are not
@@ -204,6 +215,21 @@ export const userTeamSidebarFavorites = (): Collection<UserTeamSidebarFavorites>
 
 export const teamHomeLayouts = (): Collection<TeamHomeLayout> =>
   db().collection<TeamHomeLayout>('team_home_layouts')
+
+/**
+ * The agents a member's conversations move to, in order, when the one they run
+ * on is out of usage or broken. One document per member and team.
+ */
+export type UserTeamRuntimeFallback = {
+  _id: ObjectId
+  teamId: ObjectId
+  userId: string
+  runtimeIds: string[]
+  updatedAt: Date
+}
+
+export const userTeamRuntimeFallbacks = (): Collection<UserTeamRuntimeFallback> =>
+  db().collection<UserTeamRuntimeFallback>('user_team_runtime_fallbacks')
 
 /**
  * One-time backfill for the Aliyun AccessKey → RAM-role-OIDC migration. Legacy

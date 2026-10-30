@@ -15,6 +15,9 @@ export const NUPHOS_TOOLS_INSTRUCTIONS =
   'When the user asks for a sub-agent (in any language), use create_thread, not your ' +
   "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. " +
   'List yours with list_recent_conversations children:true. ' +
+  'When progress needs an answer only the user can provide, use request_user_decision ' +
+  'with the actual question and optional choices, then end the turn and wait. ' +
+  'This registers the question in Needs your input; a question written only in chat does not. ' +
   'When the user asks for an artifact, a document, or to see HTML, an SVG or a full file ' +
   'rendered, show it with render_artifact; it opens beside the chat. ' +
   'Domain resources use native skills backed by the ' +

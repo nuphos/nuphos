@@ -27,12 +27,14 @@ export type SignInSession = {
   userAgent: string | null
 }
 
-export type PersonalCredentialProvider = 'github' | 'linear'
+export type PersonalCredentialProvider = 'github' | 'linear' | 'gmail' | 'google-drive'
 
 export type PersonalCredential = {
   provider: PersonalCredentialProvider
   login: string
   workspaceName: string | null
+  /** Gmail / Google Drive: the team whose OAuth client issued the grant. */
+  teamId?: string | null
   connectedAt: string
 }
 
@@ -181,6 +183,9 @@ export type HomeGridItem = { i: string; x: number; y: number; w: number; h: numb
 
 /** The caller's own layout and the team default; either is null when unset. */
 export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }
+
+/** The agents the caller's conversations move to, in order, when theirs runs out or breaks. */
+export type RuntimeFallback = { runtimeIds: string[] }
 
 export type TeamActivityRange = '1d' | '7d' | '30d'
 

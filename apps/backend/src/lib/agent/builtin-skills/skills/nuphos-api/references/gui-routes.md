@@ -26,6 +26,8 @@ team.agent.session | agent chat conversation session | teamId, sessionId | `http
 team.agent.memories | agent memories memory | teamId | `https://nuphos.ai/teams/<teamId>/agent/memories` | Memories
 team.plans | plans plan list | teamId | `https://nuphos.ai/teams/<teamId>/plans` | Plans
 team.plan | plan approval execution | teamId, planId | `https://nuphos.ai/teams/<teamId>/plans/<planId>` | plan title or planId
+team.designs | designs design canvas screens mockup | teamId | `https://nuphos.ai/teams/<teamId>/designs` | Designs
+team.design | design canvas screens mockup flow | teamId, designId | `https://nuphos.ai/teams/<teamId>/designs/<designId>` | design name or designId
 team.integrations | integrations accounts providers | teamId | `https://nuphos.ai/teams/<teamId>/settings/integrations` | Integrations
 team.members | members users team settings | teamId | `https://nuphos.ai/teams/<teamId>/settings/members` | Members
 team.handoff | handoff settings | teamId | `https://nuphos.ai/teams/<teamId>/settings/handoff` | Handoff

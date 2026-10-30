@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  cardLabel,
   editableLayout,
   filterPulls,
   filterRuns,
@@ -135,6 +136,18 @@ test('gridFor grows a saved card that was resized below its minimum', () => {
     { i: 'team', x: 0, y: 0, w: 12, h: 4 },
     { i: 'gh:prs', x: 0, y: 1, w: 3, h: 3 },
   ])
+})
+
+test('cardLabel names each kind of card', () => {
+  const layout = {
+    team: true,
+    github: [{ id: 'x', kind: 'ci' as const, repos: [], statuses: ['failed' as const] }],
+    panels: [{ dashboardId: 'd', panelId: 'p' }],
+  }
+
+  assert.equal(cardLabel(layout, 'team'), 'Team activity')
+  assert.equal(cardLabel(layout, 'gh:x'), 'CI · Failing')
+  assert.equal(cardLabel(layout, 'panel:d/p'), 'Dashboard panel')
 })
 
 test('a layout that failed to load is not editable', () => {

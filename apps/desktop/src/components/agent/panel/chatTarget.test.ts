@@ -89,3 +89,68 @@ test('a lazy Activity anchor and its nested tool disclosure both open before scr
   nextFrame()
   assert.deepEqual(calls, ['open Activity', 'open tool run', 'scroll', 'flash'])
 })
+
+function card(calls: string[], attributes: Record<string, string>) {
+  return {
+    ...target(
+      disclosure(true, () => {}),
+      calls,
+    ),
+    getAttribute: (name: string) => attributes[name] ?? null,
+  }
+}
+
+test("a question whose recorded id is not the transcript's own is found as its answer would map", (t) => {
+  browser(t)
+  const calls: string[] = []
+  const other = card(calls, { 'data-tool-call-id': 'exec-0', 'data-decision-question': 'Cat?' })
+  const older = card(calls, {
+    'data-tool-call-id': 'exec-1',
+    'data-decision-question': 'Red or blue?',
+    'data-decision-options': '["red","blue"]',
+  })
+  const newer = card(calls, {
+    'data-tool-call-id': 'exec-2',
+    'data-decision-question': 'Red or blue?',
+  })
+  let found: unknown
+  const root = {
+    isConnected: true,
+    querySelector: () => null,
+    querySelectorAll: () => [other, older, newer],
+  } as unknown as HTMLElement
+
+  older.scrollIntoView = () => {
+    found = older
+    calls.push('scroll')
+  }
+  assert.equal(
+    locateChatTarget(root, {
+      toolCallId: 'nuphos-1',
+      question: 'Red or blue?',
+      options: ['red', 'blue'],
+    }),
+    true,
+  )
+  assert.equal(found, older)
+  assert.equal(
+    locateChatTarget(root, {
+      toolCallId: 'nuphos-2',
+      question: 'Red or blue?',
+      options: ['green'],
+    }),
+    true,
+    'the card without options still matches',
+  )
+})
+
+test('a tool call that is not rendered is not mistaken for its message', (t) => {
+  browser(t)
+  const root = {
+    isConnected: true,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  } as unknown as HTMLElement
+
+  assert.equal(locateChatTarget(root, { toolCallId: 'missing', question: 'Gone?' }), false)
+})

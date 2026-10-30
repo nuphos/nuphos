@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/button'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
 import { ToolbarPrimaryActionContext } from '../../hooks/useToolbarPrimaryAction'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { AgentMemoriesView } from '../AgentMemoriesView'
 import { TeamSkillsView } from '../TeamSkillsView'
 import { TriggersView } from '../TriggersView'
@@ -74,7 +75,7 @@ function SettingsPageFrame({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="Back"
+              aria-label={t('Back')}
               // Keep the header as tall as it is without the button.
               className="-my-1"
               onClick={onBack}
@@ -116,7 +117,7 @@ function SettingsPageFrame({
 function NoTeam() {
   return (
     <div className="max-w-[640px] mx-auto py-10 px-8 text-[13px] text-tertiary">
-      No workspace selected.
+      {t('No workspace selected.')}
     </div>
   )
 }
@@ -133,7 +134,7 @@ export function SkillsSection({
   if (!teamId) return <NoTeam />
 
   return (
-    <SettingsPageFrame title="Skills" filter={filter} onFilterChange={setFilter} count={count}>
+    <SettingsPageFrame title={t('Skills')} filter={filter} onFilterChange={setFilter} count={count}>
       <TeamSkillsView
         teamId={teamId}
         currentUserId={currentUserId}
@@ -153,7 +154,12 @@ export function MemoriesSection({ teamId, onOpenAgentChat }: Omit<PageProps, 'cu
   if (!teamId) return <NoTeam />
 
   return (
-    <SettingsPageFrame title="Memories" filter={filter} onFilterChange={setFilter} count={count}>
+    <SettingsPageFrame
+      title={t('Memories')}
+      filter={filter}
+      onFilterChange={setFilter}
+      count={count}
+    >
       <AgentMemoriesView
         teamId={teamId}
         filter={filter}
@@ -172,12 +178,12 @@ export function TriggersSection({ teamId, currentUserId, onOpenAgentChat }: Page
   const [form, setForm] = useState<TriggerFormRef | null>(null)
 
   if (!teamId) return <NoTeam />
-  let title = 'Triggers'
+  let title = t('Triggers')
   let back: (() => void) | undefined
 
   // Leaving a form returns to the trigger it was opened from, if any.
   if (form) {
-    title = form.kind === 'create' ? 'New trigger' : form.name
+    title = form.kind === 'create' ? t('New trigger') : form.name
     back = () => setForm(null)
   } else if (detail) {
     title = detail.triggerName

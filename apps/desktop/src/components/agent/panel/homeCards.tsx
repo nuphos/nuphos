@@ -11,8 +11,8 @@ import {
   RUN_STATUSES,
   filterPulls,
   filterRuns,
+  githubCardTitle,
   mergeRepoReads,
-  statusLabel,
 } from './homeWidgetSettings'
 
 import type { WithRepo } from './homeGithubRows'
@@ -225,7 +225,7 @@ export function GithubCard({
           <CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />
         )
       }
-      title={`${pulls ? t('Pull requests') : 'CI'} · ${statusLabel(card)}`}
+      title={githubCardTitle(card)}
       menu={<GithubCardMenu teamId={teamId} card={card} onChange={onChange} onRemove={onRemove} />}
       count={count}
       empty={empty}

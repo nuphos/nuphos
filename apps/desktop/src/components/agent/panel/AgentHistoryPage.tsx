@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { archiveChat } from '../../../lib/archiveChat'
-import { announceChatArchived, announceChatUnarchived } from '../../../lib/chatArchiveEvents'
+import { offerArchiveUndo } from '../../../lib/archiveUndo'
+import { announceChatArchived } from '../../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../../lib/chatTitleEvents'
 import { toast } from '../../ui/toast'
 
@@ -220,21 +221,11 @@ export function AgentHistoryPage({
       return prev.filter((c) => c.sessionId !== conversation.sessionId)
     })
     announceChatArchived({ sessionId: conversation.sessionId, teamId })
-    const detail = t('"{label}" is still available in the Agent history.', { label })
-
-    toast.success(t('Agent archived'), detail, {
-      action: {
-        label: t('Undo'),
-        onClick: () => {
-          void api
-            .agentSetConversationArchived(conversation.sessionId, false, teamId)
-            .then(() => {
-              setItems((prev) => prev.toSpliced(index, 0, conversation))
-              announceChatUnarchived(conversation.sessionId)
-            })
-            .catch((err: unknown) => toast.apiError(t('Could not restore agent'), err))
-        },
-      },
+    offerArchiveUndo({
+      sessionId: conversation.sessionId,
+      teamId,
+      title: label,
+      onRestored: () => setItems((prev) => prev.toSpliced(index, 0, conversation)),
     })
   }
 

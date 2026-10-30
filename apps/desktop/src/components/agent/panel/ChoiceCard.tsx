@@ -18,11 +18,13 @@ const TITLE: Record<string, string> = {
 
 /** A user decision other than a Connect card: the question, with each option sent as the reply. */
 export function ChoiceCard({
+  toolCallId,
   category,
   question,
   options,
   canAct,
 }: {
+  toolCallId: string
   category: string
   question: string
   options: string[]
@@ -36,7 +38,7 @@ export function ChoiceCard({
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
     setSent(true)
-    ctx?.send(option)
+    ctx?.send(option, { toolCallId, question, options })
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
     const option = key.kind === 'option' ? options[key.index] : undefined
@@ -51,6 +53,9 @@ export function ChoiceCard({
     <div
       ref={cardRef}
       data-decision-card={live ? '' : undefined}
+      data-tool-call-id={toolCallId}
+      data-decision-question={question}
+      data-decision-options={JSON.stringify(options)}
       className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
     >
       <div className="px-4 pb-2.5 pt-3.5">

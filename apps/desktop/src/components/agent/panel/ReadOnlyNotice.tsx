@@ -12,6 +12,7 @@ import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
 import { ConversationActivityBadges } from './historyRows'
+import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { selectedAgentReachability } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { useShareApprovalWait } from './useShareApprovalWait'
@@ -99,30 +100,20 @@ type BannerKind = keyof typeof BANNER
 
 function bannerCopy(
   reachability: BannerKind,
-  { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings }: RuntimeControl,
+  control: RuntimeControl,
   onSwitchAgent?: () => void,
 ): { text: string; action: { label: string; run: () => void } | null } {
+  const { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings } = control
   const name = value?.label ?? t('The runtime')
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
   const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }
 
   if (reachability === 'waiting' || reachability === 'declined') {
-    const computer =
-      options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel ??
-      t('this computer')
+    const computer = sharedComputerLabel(control)
 
     return reachability === 'waiting'
-      ? {
-          text: t(
-            'Waiting for the owner of {computer} to approve. Your message is sent once they do.',
-            { computer },
-          ),
-          action: null,
-        }
-      : {
-          text: t('The owner of {computer} declined this conversation.', { computer }),
-          action: switchAgent ?? null,
-        }
+      ? { text: shareApprovalText('pending', computer), action: null }
+      : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
   }
   if (reachability === 'offline') {
     const box = options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel

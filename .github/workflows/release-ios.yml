@@ -239,6 +239,9 @@ jobs:
           APP_ID: '6812533633'
           VERSION: ${{ needs.validate.outputs.version }}
           BUILD_ID: ${{ steps.beta.outputs.build_id }}
+          # App Store Connect can take more than asc's default 10 minutes to
+          # record the checksum of an uploaded screenshot.
+          ASC_UPLOAD_TIMEOUT: 30m
         run: |
           set -euo pipefail
           echo "asc $(asc --version)" >> "$GITHUB_STEP_SUMMARY"

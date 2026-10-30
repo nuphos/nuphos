@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
 
@@ -42,7 +43,7 @@ export function RuntimeUpdateNotice({
           target="_blank"
           rel="noreferrer"
         >
-          View changelog
+          {t('View changelog')}
         </a>
       </div>
       {view.showButton && (
@@ -53,11 +54,11 @@ export function RuntimeUpdateNotice({
           onClick={() => {
             setBusy(true)
             void onUpdate()
-              .catch((error: unknown) => toast.apiError('Could not update runtime', error))
+              .catch((error: unknown) => toast.apiError(t('Could not update runtime'), error))
               .finally(() => setBusy(false))
           }}
         >
-          {busy ? 'Requesting…' : view.button}
+          {busy ? t('Requesting…') : view.button}
         </Button>
       )}
     </div>

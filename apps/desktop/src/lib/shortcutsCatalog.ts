@@ -4,6 +4,8 @@
  * use the 'mod+key' notation from src/lib/platform.ts.
  */
 
+import { t } from '../i18n/index.ts'
+
 import { isMac } from './platform.ts'
 
 export type ShortcutEntry = {
@@ -19,62 +21,62 @@ export type ShortcutGroup = {
 
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    title: 'Tabs & windows',
+    title: t('Tabs & windows'),
     entries: [
-      { label: 'New agent', combos: ['mod+n'] },
-      { label: 'New window', combos: ['mod+shift+n'] },
-      { label: 'New tab', combos: ['mod+t'] },
-      { label: 'Close tab', combos: ['mod+w'] },
-      { label: 'Reopen closed tab', combos: ['mod+shift+t'] },
-      { label: 'Previous / next tab', combos: ['mod+shift+[', 'mod+shift+]'] },
-      { label: 'Go to tab 1–8', combos: ['mod+1'] },
-      { label: 'Go to last tab', combos: ['mod+9'] },
+      { label: t('New agent'), combos: ['mod+n'] },
+      { label: t('New window'), combos: ['mod+shift+n'] },
+      { label: t('New tab'), combos: ['mod+t'] },
+      { label: t('Close tab'), combos: ['mod+w'] },
+      { label: t('Reopen closed tab'), combos: ['mod+shift+t'] },
+      { label: t('Previous / next tab'), combos: ['mod+shift+[', 'mod+shift+]'] },
+      { label: t('Go to tab 1–8'), combos: ['mod+1'] },
+      { label: t('Go to last tab'), combos: ['mod+9'] },
     ],
   },
   {
-    title: 'App',
+    title: t('App'),
     entries: [
-      { label: 'Search agents and people', combos: ['mod+k'] },
-      { label: 'Switch agent', combos: ['alt+up', 'alt+down'] },
-      { label: 'Agent needing you', combos: ['alt+shift+up', 'alt+shift+down'] },
+      { label: t('Search agents and people'), combos: ['mod+k'] },
+      { label: t('Switch agent'), combos: ['alt+up', 'alt+down'] },
+      { label: t('Agent needing you'), combos: ['alt+shift+up', 'alt+shift+down'] },
       {
-        label: 'Back / forward',
+        label: t('Back / forward'),
         combos: isMac ? ['mod+[', 'mod+]'] : ['alt+left', 'alt+right'],
       },
-      { label: 'User settings', combos: ['mod+,'] },
-      { label: 'Team settings', combos: ['mod+shift+,'] },
-      { label: 'Toggle sidebar', combos: ['mod+b'] },
-      { label: 'Toggle workspace panel', combos: ['mod+j'] },
-      { label: 'Next / previous area', combos: ['F6', 'shift+F6'] },
-      { label: 'Expand / restore workspace panel', combos: ['mod+shift+enter'] },
-      { label: 'Keyboard shortcuts', combos: ['mod+/'] },
-      { label: 'Zoom in / out', combos: ['mod+plus', 'mod+minus'] },
-      { label: 'Reset zoom', combos: ['mod+0'] },
+      { label: t('User settings'), combos: ['mod+,'] },
+      { label: t('Team settings'), combos: ['mod+shift+,'] },
+      { label: t('Toggle sidebar'), combos: ['mod+b'] },
+      { label: t('Toggle workspace panel'), combos: ['mod+j'] },
+      { label: t('Next / previous area'), combos: ['F6', 'shift+F6'] },
+      { label: t('Expand / restore workspace panel'), combos: ['mod+shift+enter'] },
+      { label: t('Keyboard shortcuts'), combos: ['mod+/'] },
+      { label: t('Zoom in / out'), combos: ['mod+plus', 'mod+minus'] },
+      { label: t('Reset zoom'), combos: ['mod+0'] },
     ],
   },
   {
-    title: 'Agent',
+    title: t('Agent'),
     entries: [
-      { label: 'Send message', combos: ['enter'] },
-      { label: 'New line', combos: ['shift+enter'] },
-      { label: 'Accept suggested prompt', combos: ['tab'] },
-      { label: 'Select effort', combos: ['ctrl+shift+m'] },
-      { label: 'Recall sent message', combos: ['up', 'down'] },
-      { label: 'Approve tool or plan', combos: ['mod+enter'] },
-      { label: 'Deny tool', combos: ['mod+backspace'] },
-      { label: 'Pick option 1–9', combos: ['mod+alt+1'] },
-      { label: 'Stop response', combos: ['esc'] },
-      { label: 'Copy last reply', combos: ['mod+alt+c'] },
-      { label: 'Find in conversation', combos: ['mod+f'] },
-      { label: 'Scroll conversation', combos: ['pageup', 'pagedown'] },
-      { label: 'Toggle agent summary', combos: ['mod+i'] },
+      { label: t('Send message'), combos: ['enter'] },
+      { label: t('New line'), combos: ['shift+enter'] },
+      { label: t('Accept suggested prompt'), combos: ['tab'] },
+      { label: t('Select effort'), combos: ['ctrl+shift+m'] },
+      { label: t('Recall sent message'), combos: ['up', 'down'] },
+      { label: t('Approve tool or plan'), combos: ['mod+enter'] },
+      { label: t('Deny tool'), combos: ['mod+backspace'] },
+      { label: t('Pick option 1–9'), combos: ['mod+alt+1'] },
+      { label: t('Stop response'), combos: ['esc'] },
+      { label: t('Copy last reply'), combos: ['mod+alt+c'] },
+      { label: t('Find in conversation'), combos: ['mod+f'] },
+      { label: t('Scroll conversation'), combos: ['pageup', 'pagedown'] },
+      { label: t('Toggle agent summary'), combos: ['mod+i'] },
     ],
   },
   {
-    title: 'General',
+    title: t('General'),
     entries: [
-      { label: 'Close dialog or overlay', combos: ['esc'] },
-      { label: 'Sidebar row menu', combos: ['shift+F10'] },
+      { label: t('Close dialog or overlay'), combos: ['esc'] },
+      { label: t('Sidebar row menu'), combos: ['shift+F10'] },
     ],
   },
 ]

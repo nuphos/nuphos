@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 
 import { MetricChart, RangeSwitch } from './MetricChart'
 import { PanelHeading } from './RuntimePanel'
@@ -10,9 +11,9 @@ import type { RuntimeMetricKey } from './runtimePresentation'
 import type { RuntimeMetricSample } from '../../types/runtime'
 
 const WINDOWS = [
-  { hours: 1, label: '1h' },
-  { hours: 6, label: '6h' },
-  { hours: 24, label: '24h' },
+  { hours: 1, label: t('1h') },
+  { hours: 6, label: t('6h') },
+  { hours: 24, label: t('24h') },
 ] as const
 const POLL_MS = 30_000
 
@@ -29,9 +30,9 @@ const METRICS: {
   capacityKey?: 'diskTotalBytes'
 }[] = [
   { key: 'cpuMillicores', title: 'CPU', format: (v) => `${v.toFixed(v < 10 ? 1 : 0)}m` },
-  { key: 'memoryBytes', title: 'Memory', format: (v) => `${(v / 2 ** 20).toFixed(0)} MiB` },
-  { key: 'diskUsedBytes', title: 'Disk', format: gibibytes, capacityKey: 'diskTotalBytes' },
-  { key: 'sessions', title: 'Agents', format: (v) => String(Math.round(v)) },
+  { key: 'memoryBytes', title: t('Memory'), format: (v) => `${(v / 2 ** 20).toFixed(0)} MiB` },
+  { key: 'diskUsedBytes', title: t('Disk'), format: gibibytes, capacityKey: 'diskTotalBytes' },
+  { key: 'sessions', title: t('Agents'), format: (v) => String(Math.round(v)) },
 ]
 
 function timeLabel(at: number | string): string {
@@ -78,19 +79,19 @@ export function RuntimeMetricsCharts({ teamId, runtimeId }: { teamId: string; ru
   return (
     <div className="px-4 py-4">
       <PanelHeading
-        title="Resource usage"
+        title={t('Resource usage')}
         hint={first && last ? `${timeLabel(first.at)} – ${timeLabel(last.at)}` : undefined}
         right={
           <RangeSwitch
             options={WINDOWS.map((w) => ({ value: w.hours, label: w.label }))}
             value={hours}
             onChange={setHours}
-            label="Time window"
+            label={t('Time window')}
           />
         }
       />
       {failed ? (
-        <p className="text-xs text-error">Could not load resource usage. Retrying…</p>
+        <p className="text-xs text-error">{t('Could not load resource usage. Retrying…')}</p>
       ) : (
         <div className="grid grid-cols-4 gap-4">
           {metrics.map((metric) => (

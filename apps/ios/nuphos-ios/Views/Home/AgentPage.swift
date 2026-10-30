@@ -340,12 +340,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .task {
-            while !Task.isCancelled {
-                RuntimeObservations.shared.tick()
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
     }
 }
 

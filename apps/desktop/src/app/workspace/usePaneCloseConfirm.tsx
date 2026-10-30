@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { t } from '../../i18n'
 
 import { paneTerminalCount } from './paneTerminals'
 
@@ -29,13 +30,18 @@ export function usePaneCloseConfirm(
   const dialog = (
     <ConfirmDialog
       open={pending !== null}
-      title="Close this pane?"
+      title={t('Close this pane?')}
       description={
         pending?.terminals === 1
-          ? 'Its terminal will close, and anything still running in it will stop. The agent stays in the sidebar.'
-          : `Its ${String(pending?.terminals ?? 0)} terminals will close, and anything still running in them will stop. The agent stays in the sidebar.`
+          ? t(
+              'Its terminal will close, and anything still running in it will stop. The agent stays in the sidebar.',
+            )
+          : t(
+              'Its {n} terminals will close, and anything still running in them will stop. The agent stays in the sidebar.',
+              { n: pending?.terminals ?? 0 },
+            )
       }
-      confirmLabel="Close pane"
+      confirmLabel={t('Close pane')}
       destructive
       onConfirm={() => {
         if (pending) close(pending.id)

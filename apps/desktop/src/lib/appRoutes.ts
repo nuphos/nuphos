@@ -9,6 +9,7 @@
 import { parseDashboardViewRange } from '../dashboards/view/range.ts'
 
 import { kubernetesNavigation } from './app-routes/clusterParse.ts'
+import { architectureDetailOf, designDetailOf } from './app-routes/detailParse.ts'
 import { linearNavigation } from './app-routes/linearParse.ts'
 import {
   agentSession,
@@ -147,11 +148,9 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
     case 'schedule':
       return emptyNavigation(teamScope, 'team.schedule')
     case 'architecture':
-      return emptyNavigation(
-        teamScope,
-        'team.architecture',
-        rest[1] ? { architectureDetail: { diagramId: rest[1], diagramName: 'Diagram' } } : {},
-      )
+      return emptyNavigation(teamScope, 'team.architecture', architectureDetailOf(rest[1]))
+    case 'designs':
+      return emptyNavigation(teamScope, 'team.designs', designDetailOf(rest[1]))
     // Legacy: the Dashboards page was called Cost Management.
     case 'cost-management':
     case 'dashboards':

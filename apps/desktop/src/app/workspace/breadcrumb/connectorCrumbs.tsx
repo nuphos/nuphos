@@ -1,6 +1,7 @@
 import { isObservabilityActive } from '../../../app/navItems'
 import { CloudLogo } from '../../../components/CloudLogo'
 import { DatabaseEngineGlyph } from '../../../components/DatabaseEngineIcon'
+import { t } from '../../../i18n'
 import {
   CONNECTOR_PARENT_KINDS,
   CONNECTOR_PARENT_META,
@@ -27,8 +28,8 @@ export function pushConnectorCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
 
         return counts
       }, new Map<string, number>())
-    const plural = (count: number, noun: string) =>
-      `${String(count)} ${noun}${count === 1 ? '' : 's'}`
+    const plural = (count: number, [one, many]: [string, string]) =>
+      (count === 1 ? one : many).replace('{n}', String(count))
     const uniqueBy = <T,>(items: T[], key: (item: T) => string) => {
       const seen = new Map<string, T>()
 
@@ -61,34 +62,37 @@ export function pushConnectorCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
       'aws-account': uniqueBy(awsList, (role) => role.accountId).map((a) => ({
         id: a.accountId,
         label: a.alias || a.accountId,
-        sublabel: plural(roleCounts.get(a.accountId) ?? 0, 'role'),
+        sublabel: plural(roleCounts.get(a.accountId) ?? 0, [t('{n} role'), t('{n} roles')]),
       })),
       'gcp-project': uniqueBy(gcpList, (p) => p.projectId).map((p) => ({
         id: p.projectId,
         label: p.alias || p.projectId,
-        sublabel: plural(serviceAccountCounts.get(p.projectId) ?? 0, 'service account'),
+        sublabel: plural(serviceAccountCounts.get(p.projectId) ?? 0, [
+          t('{n} service account'),
+          t('{n} service accounts'),
+        ]),
       })),
       // Anchored on the subscription, not the binding: two App registrations on
       // one subscription are a single navigable place whose apps page lists both.
       'azure-subscription': uniqueBy(azureList, (a) => a.subscriptionId).map((a) => ({
         id: a.subscriptionId,
         label: a.label || a.subscriptionId,
-        sublabel: plural(azureAppCounts.get(a.subscriptionId) ?? 0, 'app'),
+        sublabel: plural(azureAppCounts.get(a.subscriptionId) ?? 0, [t('{n} app'), t('{n} apps')]),
       })),
       'cloudflare-account': (accounts?.cloudflare ?? []).map((a) => ({
         id: a.accountId,
         label: a.accountName || a.accountId,
-        sublabel: a.authType === 'oauth' ? 'OAuth' : 'API token',
+        sublabel: a.authType === 'oauth' ? 'OAuth' : t('API token'),
       })),
       'linode-account': (accounts?.linode ?? []).map((a) => ({
         id: a.id,
         label: a.label,
-        sublabel: 'Personal Access Token',
+        sublabel: t('Personal Access Token'),
       })),
       'hetzner-account': (accounts?.hetzner ?? []).map((a) => ({
         id: a.id,
         label: a.label,
-        sublabel: 'API Token',
+        sublabel: t('API token'),
       })),
       'tencent-account': (accounts?.tencent ?? []).map((a) => ({
         id: a.id,
@@ -134,7 +138,7 @@ export function pushConnectorCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
       'zeabur-provider': (accounts?.zeabur ?? []).map((a) => ({
         id: a.zeaburId,
         label: a.name,
-        sublabel: a.kind === 'team' ? 'Team' : 'User',
+        sublabel: a.kind === 'team' ? t('Team') : t('User'),
       })),
     }
 

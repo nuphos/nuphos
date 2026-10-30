@@ -4,27 +4,25 @@ import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
 import { SessionResources } from './SessionResources'
+import { threadFoldsAway } from './thread-status'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
-import type { ReactNode } from 'react'
 
-/** One chat row in the sidebar, plus whatever `actions` the caller adds. */
+/** One chat row in the sidebar; the caller adds its row actions. */
 export function chatSidebarItem({
   conversation,
   teamId,
   active,
   runtimeState,
   unread,
-  actions,
 }: {
   conversation: AgentConversation
   teamId: string
   active: boolean
   runtimeState: RuntimeExecution | undefined
   unread: boolean
-  actions?: ReactNode
 }): Item {
   const status = <ChatRowStatus runtimeState={runtimeState} unread={unread} />
 
@@ -52,6 +50,6 @@ export function chatSidebarItem({
     ).href,
     trailing: status,
     foldedStatus: status,
-    actions,
+    finished: threadFoldsAway({ conversation, runtimeState, open: active, unread }),
   }
 }

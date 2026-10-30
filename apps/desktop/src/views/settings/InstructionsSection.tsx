@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { useInstructions } from '../../hooks/useInstructions'
+import { t } from '../../i18n'
 
 import { InstructionCard } from './InstructionCard'
 import { InstructionEditorDialog } from './InstructionEditorDialog'
@@ -19,18 +20,20 @@ const GROUPS: Record<
   { title: string; header: string; headerDescription: string; description: string }
 > = {
   team: {
-    title: 'Team',
-    header: 'Instructions',
-    headerDescription:
+    title: t('Team'),
+    header: t('Instructions'),
+    headerDescription: t(
       'Standing guidance every new agent in this team follows, like CLAUDE.md or AGENTS.md. Applies to every agent, including Slack, Discord, and trigger runs.',
-    description: 'Shared with everyone in this workspace. Injected first.',
+    ),
+    description: t('Shared with everyone in this workspace. Injected first.'),
   },
   personal: {
-    title: 'Personal',
-    header: 'Personal instructions',
-    headerDescription:
+    title: t('Personal'),
+    header: t('Personal instructions'),
+    headerDescription: t(
       'Your own standing guidance for your agents in this team. Nobody else in the team sees or receives it.',
-    description: 'Only apply to your own agents. Injected after team instructions.',
+    ),
+    description: t('Only apply to your own agents. Injected after team instructions.'),
   },
 }
 
@@ -56,7 +59,7 @@ export function InstructionsSection({
       await api.atlasUpdateInstruction(team.id, instruction.id, { enabled })
       refresh()
     } catch (err) {
-      toast.apiError('Couldn’t update the instruction', err)
+      toast.apiError(t('Couldn’t update the instruction'), err)
     } finally {
       setBusyId(null)
     }
@@ -69,7 +72,7 @@ export function InstructionsSection({
     } else {
       await api.atlasUpdateInstruction(team.id, editor.instruction.id, draft)
     }
-    toast.success('Instruction saved')
+    toast.success(t('Instruction saved'))
     refresh()
   }
 
@@ -77,10 +80,10 @@ export function InstructionsSection({
     if (!team) return
     try {
       await api.atlasDeleteInstruction(team.id, instruction.id)
-      toast.success('Instruction deleted')
+      toast.success(t('Instruction deleted'))
       refresh()
     } catch (err) {
-      toast.apiError('Couldn’t delete the instruction', err)
+      toast.apiError(t('Couldn’t delete the instruction'), err)
     }
   }
 
@@ -118,9 +121,11 @@ export function InstructionsSection({
       )}
       <ConfirmDialog
         open={deleting !== null}
-        title="Delete instruction"
-        description={`Delete “${deleting?.title ?? ''}”? New agents will stop receiving it.`}
-        confirmLabel="Delete"
+        title={t('Delete instruction')}
+        description={t('Delete “{title}”? New agents will stop receiving it.', {
+          title: deleting?.title ?? '',
+        })}
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={() => (deleting ? remove(deleting) : undefined)}
         onClose={() => setDeleting(null)}
@@ -159,20 +164,22 @@ function InstructionGroup({
           <h2 className="text-[15px] font-semibold text-main">{group.title}</h2>
           <p className="mt-0.5 text-[12.5px] text-tertiary">
             {group.description}
-            {!editable && ' Only workspace administrators can change them.'}
+            {!editable && ` ${t('Only workspace administrators can change them.')}`}
           </p>
         </div>
         {editable && (
           <Button type="button" size="sm" disabled={full} onClick={onAdd}>
-            + Add
+            + {t('Add')}
           </Button>
         )}
       </div>
       {items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zGray-800 p-6 text-sm text-tertiary">
           {editable
-            ? `No ${group.title.toLowerCase()} instructions yet.`
-            : 'No team instructions yet. Ask a workspace administrator to add some.'}
+            ? scope === 'team'
+              ? t('No team instructions yet.')
+              : t('No personal instructions yet.')
+            : t('No team instructions yet. Ask a workspace administrator to add some.')}
         </p>
       ) : (
         <div className="space-y-3">

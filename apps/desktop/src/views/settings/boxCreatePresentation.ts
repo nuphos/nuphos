@@ -1,4 +1,11 @@
+import { t } from '../../i18n/index.ts'
+
 import type { BoxUsage } from '../../api/device-types'
+
+/** What New computer says it makes. */
+export const NEW_BOX_DESCRIPTION = t(
+  "A Linux machine in the cloud with Claude Code and Codex on it. Running computers count against your plan's vCPU; paused ones do not.",
+)
 
 /** The name the backend gives an unnamed Box: "Computer N", after the highest the caller has. */
 export function nextBoxName(labels: string[]): string {

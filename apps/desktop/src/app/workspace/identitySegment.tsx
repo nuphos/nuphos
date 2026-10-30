@@ -1,6 +1,7 @@
 import { KeyRound } from 'lucide-react'
 
 import { CloudLogo } from '../../components/CloudLogo'
+import { t } from '../../i18n'
 import { awsRoleName } from '../accountScopes'
 
 import type { BreadcrumbSegment } from '../../components/Toolbar'
@@ -73,7 +74,7 @@ export function computeIdentitySegment({
       options.find((p) => p.serviceAccountId === scope.serviceAccountId) ?? options[0]
 
     return {
-      label: selected?.serviceAccountEmail ?? 'Service account',
+      label: selected?.serviceAccountEmail ?? t('Service account'),
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       options: options.map((p) => ({
         key: p.serviceAccountId,

@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { RuntimeStatusView } from './runtimePresentation.ts'
 import type { DevBundleHint } from '../../api/device-types.ts'
 
@@ -16,6 +18,6 @@ export function unbundledStatus(name: string, devBundle?: DevBundleHint): Runtim
     case 'missing':
       return { label: `Local runtime not built yet. Run ${PREPARE_COMMAND}`, tone: 'off' }
     case undefined:
-      return { label: `This build of Nuphos does not include ${name}.`, tone: 'off' }
+      return { label: t('This build of Nuphos does not include {name}.', { name }), tone: 'off' }
   }
 }

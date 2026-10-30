@@ -14,6 +14,7 @@ import {
   Monitor,
   Terminal,
   Network,
+  Palette,
   Sparkles,
 } from 'lucide-react'
 
@@ -68,6 +69,7 @@ export const TEAM_WORKSPACE_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.terminal', label: t('Terminal'), icon: Terminal },
   { key: 'team.plans', label: t('Plans'), icon: ClipboardList },
   { key: 'team.architecture', label: t('Architecture'), icon: Network },
+  { key: 'team.designs', label: t('Designs'), icon: Palette },
   { key: 'team.dashboards', label: t('Dashboards'), icon: ChartLine },
   { key: 'team.monitoring', label: t('Monitoring'), icon: HeartPulse },
 ]

@@ -71,8 +71,10 @@ export type AgentConversation = {
   /** Owner-only: assistant turn boundaries so far, and how many were read on any device. */
   activitySeq?: number
   readSeq?: number
-  /** The question this session is waiting on the owner to answer; the next human message clears it. */
+  /** The oldest open question, for builds that predate inputRequests. */
   pendingDecision?: AgentPendingDecision
+  /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
+  inputRequests?: AgentInputRequest[]
 }
 
 export type AgentPendingDecision = {
@@ -81,6 +83,18 @@ export type AgentPendingDecision = {
   options?: string[]
   toolCallId: string
   askedAt: string
+}
+
+export type AgentInputRequest = {
+  /** The request_user_decision tool call id. */
+  id: string
+  category: string
+  question: string
+  /** Markdown the agent wrote so the question can be decided without the chat. */
+  body?: string
+  options?: string[]
+  askedAt: string
+  status: 'open' | 'answered' | 'dismissed'
 }
 
 export type AgentConversationActivitySource = {
@@ -202,6 +216,10 @@ export type AgentTimelineEvent = {
   target?: AgentTimelinePerson
   from?: AgentTimelineRuntime
   to?: AgentTimelineRuntime
+  /** Set when a fallback moved the session: its agent was low on usage, unreachable, or failed a turn. */
+  reason?: 'quota' | 'offline' | 'failure'
+  /** A fallback that found no agent: each one passed over, and why. */
+  skipped?: { label: string; reason: string }[]
 }
 
 export type AgentConversationDetail = AgentConversation & {

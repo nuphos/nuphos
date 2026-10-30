@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Box, Laptop, Server } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { StepActions } from './StepActions'
 
 import type { AddAgentAction } from './addAgentFlow'
@@ -64,23 +66,27 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Box className="h-4 w-4" />}
-          title="New computer"
-          description="A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account."
+          title={t('New computer')}
+          description={t(
+            'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.',
+          )}
           onClick={() => onPick('box')}
         />
       )}
       {boxAvailable && (
         <Choice
           icon={<Laptop className="h-4 w-4" />}
-          title="Connect your own machine"
-          description="Connect a computer or server you run, with a one-time join command."
+          title={t('Connect your own machine')}
+          description={t('Connect a computer or server you run, with a one-time join command.')}
           onClick={onJoin}
         />
       )}
       <Choice
         icon={<Server className="h-4 w-4" />}
-        title="Self-hosted runtime"
-        description="Connect a runtime you run on your own server, with a pairing code from its console."
+        title={t('Self-hosted runtime')}
+        description={t(
+          'Connect a runtime you run on your own server, with a pairing code from its console.',
+        )}
         onClick={() => onPick('self-hosted')}
       />
       <StepActions footer={footer} className="flex items-center justify-end gap-2">
@@ -89,7 +95,7 @@ export function AddAgentChoices({
           onClick={onCancel}
           className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
         >
-          Cancel
+          {t('Cancel')}
         </button>
       </StepActions>
     </div>

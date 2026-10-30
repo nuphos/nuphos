@@ -4,6 +4,7 @@ import { Cloud, Flame, KeyRound, LayoutDashboard, Server, Workflow } from 'lucid
 
 import { api } from '../../api'
 import { clusterRowHref } from '../../app/clusterNamespaceStorage'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import {
@@ -55,7 +56,7 @@ export function renderGcpPages(ctx: ScopeRenderContext): React.ReactNode | undef
 
     if (active === 'gcp.vpcs') {
       return renderActiveNavPage(
-        'VPC Networks',
+        t('VPC Networks'),
         <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <VpcsView
           loader={withResourceListCache(gcpListCacheKey('vpcs'), () =>
@@ -75,7 +76,7 @@ export function renderGcpPages(ctx: ScopeRenderContext): React.ReactNode | undef
     }
     if (active === 'gcp.firewalls') {
       return renderActiveNavPage(
-        'Firewalls',
+        t('Firewalls'),
         <Flame className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <FirewallsView
           loader={withResourceListCache(gcpListCacheKey('firewalls'), () =>
@@ -118,7 +119,7 @@ export function renderGcpPages(ctx: ScopeRenderContext): React.ReactNode | undef
     }
     if (active === 'gcp.metrics') {
       return renderActiveNavPage(
-        'Metrics',
+        t('Metrics'),
         <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
         <GcpMetricsExplorerView
           // A tab can switch directly between GCP projects while remaining on
@@ -145,7 +146,7 @@ export function renderGcpPages(ctx: ScopeRenderContext): React.ReactNode | undef
     }
     if (active === 'gcp.dashboards') {
       return renderActiveNavPage(
-        'Dashboards',
+        t('Dashboards'),
         <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <GcpDashboardBrowserView
           key={`${scope.teamId}/${scope.projectId}/${gcpServiceAccountId ?? ''}`}
@@ -193,7 +194,7 @@ export function renderGcpPages(ctx: ScopeRenderContext): React.ReactNode | undef
           : undefined
 
       return renderActiveNavPage(
-        'Service Accounts',
+        t('Service Accounts'),
         <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <GcpServiceAccountsView
           onOpenAgentChat={onOpenAgentChat}
@@ -214,7 +215,7 @@ export function renderGcpPages(ctx: ScopeRenderContext): React.ReactNode | undef
     }
 
     return renderActiveNavPage(
-      'GKE Clusters',
+      t('GKE Clusters'),
       <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CloudClustersView
         loader={withResourceListCache(gcpListCacheKey('gke-clusters'), () =>

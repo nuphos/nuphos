@@ -1,16 +1,18 @@
+import { t } from '../../i18n/index.ts'
+
 import type { DeviceMetrics, DeviceMetricsStatus } from '../../api/device-types'
 
 /** `creating` while a Box is still being made, `connecting` while its machine waits for its host. */
 export type MetricsStatus = DeviceMetricsStatus | 'creating' | 'connecting'
 
 const STATUS_LABEL: Record<MetricsStatus, string> = {
-  creating: 'Starting',
-  connecting: 'Waiting for the host',
-  offline: 'Host offline',
-  unsupported: 'No metrics on this host',
-  waiting: 'Waiting for metrics',
-  stale: 'Stale reading',
-  live: 'Live',
+  creating: t('Starting'),
+  connecting: t('Waiting for the host'),
+  offline: t('Host offline'),
+  unsupported: t('No metrics on this host'),
+  waiting: t('Waiting for metrics'),
+  stale: t('Stale reading'),
+  live: t('Live'),
 }
 
 const gib = (bytes: number) => (bytes / 1024 ** 3).toFixed(1).replace(/\.0$/u, '')
@@ -70,7 +72,7 @@ const gauge = (label: string, percent: number | null, detail: string | null): De
 })
 
 const used = (value: { used: number; total: number }) =>
-  `${gib(value.used)} of ${gib(value.total)} GB`
+  t('{used} of {total} GB', { used: gib(value.used), total: gib(value.total) })
 
 /** What a computer's screen shows: how fresh its reading is, then CPU, memory and disk. */
 export function deskReadings(metrics: unknown, status?: MetricsStatus): DeskReadings {
@@ -87,8 +89,8 @@ export function deskReadings(metrics: unknown, status?: MetricsStatus): DeskRead
     tone,
     gauges: [
       gauge('CPU', current ? current.cpuPercent : null, null),
-      gauge('Memory', current && share(current.memory), current && used(current.memory)),
-      gauge('Disk', current && share(current.disk), current && used(current.disk)),
+      gauge(t('Memory'), current && share(current.memory), current && used(current.memory)),
+      gauge(t('Disk'), current && share(current.disk), current && used(current.disk)),
     ],
   }
 }
