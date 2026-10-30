@@ -64,8 +64,8 @@ child.stdout.on('data', chunk => {
         modelId: option.currentValue,
         ...(typeof effort?.currentValue === 'string' ? { defaultEffort: effort.currentValue } : {}),
         effort: Array.isArray(effort?.options) ? effort.options.filter(o => typeof o?.value === 'string' && o.value.length > 0 && o.value.length <= 100 && typeof o.name === 'string' && o.name.length <= 200).map(o => ({ value: o.value, name: o.name, ...(typeof o.description === 'string' ? { description: o.description.slice(0, 200) } : {}) })) : [],
-        fast: ['on', 'off'].every(value => fast?.options?.some(o => o.value === value)),
-        ...(fast?.currentValue === 'on' || fast?.currentValue === 'off' ? { defaultFast: fast.currentValue } : {}),
+        fast: Array.isArray(fast?.options) && fast.options.some(o => o?.value === 'off') ? fast.options.filter(o => typeof o?.value === 'string' && o.value.length > 0 && o.value.length <= 100 && typeof o.name === 'string' && o.name.length <= 200).map(o => ({ value: o.value, name: o.name })) : [],
+        ...(typeof fast?.currentValue === 'string' && fast.currentValue.length <= 100 ? { defaultFast: fast.currentValue } : {}),
       } : undefined;
       clearTimeout(timer);
       child.removeAllListeners('exit');

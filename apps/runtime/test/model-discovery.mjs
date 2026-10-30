@@ -69,10 +69,11 @@ const readControls = (configOptions, model) => {
   return {
     modelId: model.currentValue,
     effort: (effort?.options ?? []).map((o) => ({ value: o.value, name: o.name })),
-    fast: ['on', 'off'].every((value) => fast?.options?.some((o) => o.value === value)),
-    ...(fast?.currentValue === 'on' || fast?.currentValue === 'off'
-      ? { defaultFast: fast.currentValue }
-      : {}),
+    // Off and each speed the runtime offers (Fast, Ultrafast).
+    fast: fast?.options?.some((o) => o.value === 'off')
+      ? fast.options.map((o) => ({ value: o.value, name: o.name }))
+      : [],
+    ...(typeof fast?.currentValue === 'string' ? { defaultFast: fast.currentValue } : {}),
   }
 }
 

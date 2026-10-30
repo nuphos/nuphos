@@ -2155,5 +2155,10 @@
   "No agent in your fallback list could take over": "フォールバックリストに引き継げるエージェントがありません",
   "{from} was low on usage, so this agent moved to {to}": "{from} の使用量が少なくなったため、このエージェントを {to} に移動しました",
   "{from} was unreachable, so this agent moved to {to}": "{from} に接続できなかったため、このエージェントを {to} に移動しました",
-  "{from} failed a turn, so this agent moved to {to}": "{from} でターンが失敗したため、このエージェントを {to} に移動しました"
+  "{from} failed a turn, so this agent moved to {to}": "{from} でターンが失敗したため、このエージェントを {to} に移動しました",
+  "Ultrafast mode": "Ultrafast モード",
+  "Ultrafast mode is on": "Ultrafast モード オン",
+  "Turn on Ultrafast mode": "Ultrafast モードをオンにする",
+  "Turn off Ultrafast mode": "Ultrafast モードをオフにする",
+  "Model settings: {name}, Ultrafast mode on": "モデル設定：{name}、Ultrafast モード オン"
 }

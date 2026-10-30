@@ -2155,5 +2155,10 @@
   "No agent in your fallback list could take over": "대체 목록에 이어받을 수 있는 에이전트가 없습니다",
   "{from} was low on usage, so this agent moved to {to}": "{from}의 사용량이 부족하여 이 에이전트를 {to}(으)로 옮겼습니다",
   "{from} was unreachable, so this agent moved to {to}": "{from}에 연결할 수 없어 이 에이전트를 {to}(으)로 옮겼습니다",
-  "{from} failed a turn, so this agent moved to {to}": "{from}에서 턴이 실패하여 이 에이전트를 {to}(으)로 옮겼습니다"
+  "{from} failed a turn, so this agent moved to {to}": "{from}에서 턴이 실패하여 이 에이전트를 {to}(으)로 옮겼습니다",
+  "Ultrafast mode": "Ultrafast 모드",
+  "Ultrafast mode is on": "Ultrafast 모드 켜짐",
+  "Turn on Ultrafast mode": "Ultrafast 모드 켜기",
+  "Turn off Ultrafast mode": "Ultrafast 모드 끄기",
+  "Model settings: {name}, Ultrafast mode on": "모델 설정: {name}, Ultrafast 모드 켜짐"
 }

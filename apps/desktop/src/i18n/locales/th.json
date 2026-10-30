@@ -2155,5 +2155,10 @@
   "No agent in your fallback list could take over": "ไม่มีเอเจนต์ในรายการสำรองที่รับต่อได้",
   "{from} was low on usage, so this agent moved to {to}": "{from} ใกล้หมดโควตา จึงย้ายเอเจนต์นี้ไปยัง {to}",
   "{from} was unreachable, so this agent moved to {to}": "ติดต่อ {from} ไม่ได้ จึงย้ายเอเจนต์นี้ไปยัง {to}",
-  "{from} failed a turn, so this agent moved to {to}": "{from} ทำงานล้มเหลวหนึ่งรอบ จึงย้ายเอเจนต์นี้ไปยัง {to}"
+  "{from} failed a turn, so this agent moved to {to}": "{from} ทำงานล้มเหลวหนึ่งรอบ จึงย้ายเอเจนต์นี้ไปยัง {to}",
+  "Ultrafast mode": "โหมด Ultrafast",
+  "Ultrafast mode is on": "เปิดโหมด Ultrafast อยู่",
+  "Turn on Ultrafast mode": "เปิดโหมด Ultrafast",
+  "Turn off Ultrafast mode": "ปิดโหมด Ultrafast",
+  "Model settings: {name}, Ultrafast mode on": "การตั้งค่าโมเดล: {name} เปิดโหมด Ultrafast"
 }

@@ -61,6 +61,7 @@ export const RUNTIME_SOURCES = [
     'restore-history.mjs',
     'process-death.mjs',
     'ask-user-input.mjs',
+    'ultrafast.mjs',
   ].map((file) => `codex-acp/${file}`),
 ]
 

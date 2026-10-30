@@ -2155,5 +2155,10 @@
   "No agent in your fallback list could take over": "Tidak ada agen dalam daftar cadangan Anda yang dapat mengambil alih",
   "{from} was low on usage, so this agent moved to {to}": "{from} hampir kehabisan kuota, jadi agen ini dipindahkan ke {to}",
   "{from} was unreachable, so this agent moved to {to}": "{from} tidak dapat dijangkau, jadi agen ini dipindahkan ke {to}",
-  "{from} failed a turn, so this agent moved to {to}": "{from} gagal dalam satu giliran, jadi agen ini dipindahkan ke {to}"
+  "{from} failed a turn, so this agent moved to {to}": "{from} gagal dalam satu giliran, jadi agen ini dipindahkan ke {to}",
+  "Ultrafast mode": "Mode Ultrafast",
+  "Ultrafast mode is on": "Mode Ultrafast aktif",
+  "Turn on Ultrafast mode": "Aktifkan mode Ultrafast",
+  "Turn off Ultrafast mode": "Matikan mode Ultrafast",
+  "Model settings: {name}, Ultrafast mode on": "Pengaturan model: {name}, mode Ultrafast aktif"
 }

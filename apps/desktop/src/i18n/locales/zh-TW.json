@@ -2155,5 +2155,10 @@
   "No agent in your fallback list could take over": "備援清單中沒有能接手的 Agent",
   "{from} was low on usage, so this agent moved to {to}": "{from} 用量不足，此 Agent 已移至 {to}",
   "{from} was unreachable, so this agent moved to {to}": "{from} 無法連線，此 Agent 已移至 {to}",
-  "{from} failed a turn, so this agent moved to {to}": "{from} 有一輪執行失敗，此 Agent 已移至 {to}"
+  "{from} failed a turn, so this agent moved to {to}": "{from} 有一輪執行失敗，此 Agent 已移至 {to}",
+  "Ultrafast mode": "Ultrafast 模式",
+  "Ultrafast mode is on": "Ultrafast 模式已開啟",
+  "Turn on Ultrafast mode": "開啟 Ultrafast 模式",
+  "Turn off Ultrafast mode": "關閉 Ultrafast 模式",
+  "Model settings: {name}, Ultrafast mode on": "模型設定：{name}，Ultrafast 模式已開啟"
 }

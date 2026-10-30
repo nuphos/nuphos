@@ -53,6 +53,10 @@ for await (const line of createInterface({ input: process.stdin })) {
           isDefault: false,
           supportedReasoningEfforts: [{ reasoningEffort: 'ultra', description: 'Ultra' }],
           defaultReasoningEffort: 'ultra',
+          serviceTiers: [
+            { id: 'priority', name: 'Fast', description: 'Faster' },
+            { id: 'ultrafast', name: 'Ultrafast', description: 'Fastest' },
+          ],
         },
       ],
       nextCursor: null,

@@ -2155,5 +2155,10 @@
   "No agent in your fallback list could take over": "Ningún agente de tu lista de respaldo pudo tomar el relevo",
   "{from} was low on usage, so this agent moved to {to}": "A {from} le quedaba poco uso, así que este agente se movió a {to}",
   "{from} was unreachable, so this agent moved to {to}": "{from} no estaba accesible, así que este agente se movió a {to}",
-  "{from} failed a turn, so this agent moved to {to}": "{from} falló un turno, así que este agente se movió a {to}"
+  "{from} failed a turn, so this agent moved to {to}": "{from} falló un turno, así que este agente se movió a {to}",
+  "Ultrafast mode": "Modo Ultrafast",
+  "Ultrafast mode is on": "Modo Ultrafast activado",
+  "Turn on Ultrafast mode": "Activar modo Ultrafast",
+  "Turn off Ultrafast mode": "Desactivar modo Ultrafast",
+  "Model settings: {name}, Ultrafast mode on": "Configuración del modelo: {name}, modo Ultrafast activado"
 }
