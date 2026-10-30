@@ -30,14 +30,6 @@ app.kubernetes.io/component: {{ index . 1 }}
 {{- printf "%s-0.%s.%s.svc" $name $name .Release.Namespace -}}
 {{- end -}}
 
-{{/* Env var and Secret key holding the selected email provider's API key. */}}
-{{- define "nuphos.emailKeyName" -}}
-{{- $provider := .Values.email.provider | lower -}}
-{{- if eq $provider "zsend" -}}ZSEND_API_KEY
-{{- else if eq $provider "resend" -}}RESEND_API_KEY
-{{- else -}}{{- fail (printf "email.provider must be zsend or resend (got %q)" .Values.email.provider) -}}
-{{- end -}}
-{{- end -}}
 
 {{- define "nuphos.backendUrl" -}}
 {{- required "backend.url is required" .Values.backend.url | trimSuffix "/" -}}

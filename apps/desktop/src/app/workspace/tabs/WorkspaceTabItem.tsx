@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 import { Star } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { logTabClicked } from '../../../lib/tabSwitchLog'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { isPermanentSidebarPage } from '../../navItems'
@@ -206,9 +207,11 @@ export function WorkspaceTabItem({
             )}
             aria-pressed={favorited}
             aria-label={
-              favorited ? `Remove ${meta.title} from Favorites` : `Add ${meta.title} to Favorites`
+              favorited
+                ? t('Remove {title} from Favorites', { title: meta.title })
+                : t('Add {title} to Favorites', { title: meta.title })
             }
-            title={favorited ? 'Remove from Favorites' : 'Add to Favorites'}
+            title={favorited ? t('Remove from Favorites') : t('Add to Favorites')}
           >
             <Star
               className="w-3.5 h-3.5"
@@ -241,8 +244,8 @@ export function WorkspaceTabItem({
               'titlebar-no-drag t-workspace-tab-action absolute right-1 top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center text-tertiary hover:bg-zGray-800/70 hover:text-main group-hover:opacity-100 focus:opacity-100 outline-none focus-visible:outline-none',
               selected ? 'opacity-100' : 'opacity-0',
             )}
-            aria-label={`Close tab ${meta.title}`}
-            title="Close tab"
+            aria-label={t('Close tab {title}', { title: meta.title })}
+            title={t('Close tab')}
           >
             <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
           </button>

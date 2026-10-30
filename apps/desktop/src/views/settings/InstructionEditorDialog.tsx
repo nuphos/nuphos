@@ -5,6 +5,7 @@ import { MessageResponse } from '../../components/agent/MessageResponse'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { Field } from './shared'
 import { inputClasses } from './styles'
@@ -39,7 +40,7 @@ function EditorTabs({
             tab === value ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary',
           )}
         >
-          {value}
+          {value === 'write' ? t('Write') : t('Preview')}
         </button>
       ))}
       <span className="ml-auto text-[11.5px] text-tertiary">
@@ -55,7 +56,7 @@ function MarkdownPreview({ content }: { content: string }) {
       {content.trim() ? (
         <MessageResponse>{content}</MessageResponse>
       ) : (
-        <p className="text-tertiary">Nothing to preview yet.</p>
+        <p className="text-tertiary">{t('Nothing to preview yet.')}</p>
       )}
     </div>
   )
@@ -64,9 +65,12 @@ function MarkdownPreview({ content }: { content: string }) {
 function dialogTitle(target: InstructionEditorTarget): string {
   if (target.kind === 'view') return target.instruction.title
   const scope = target.kind === 'create' ? target.scope : target.instruction.scope
-  const noun = scope === 'team' ? 'team instruction' : 'personal instruction'
 
-  return target.kind === 'create' ? `New ${noun}` : `Edit ${noun}`
+  if (target.kind === 'create') {
+    return scope === 'team' ? t('New team instruction') : t('New personal instruction')
+  }
+
+  return scope === 'team' ? t('Edit team instruction') : t('Edit personal instruction')
 }
 
 export function InstructionEditorDialog({
@@ -102,7 +106,7 @@ export function InstructionEditorDialog({
     const content = draft.content.trim()
 
     if (!title || !content) {
-      toast.error('Missing details', 'Give the instruction a title and some content.')
+      toast.error(t('Missing details'), t('Give the instruction a title and some content.'))
 
       return
     }
@@ -111,7 +115,7 @@ export function InstructionEditorDialog({
       await onSubmit({ title, content })
       onClose()
     } catch (err) {
-      toast.apiError('Couldn’t save the instruction', err)
+      toast.apiError(t('Couldn’t save the instruction'), err)
     } finally {
       setSaving(false)
     }
@@ -122,13 +126,13 @@ export function InstructionEditorDialog({
       open={target !== null}
       onClose={onClose}
       title={target ? dialogTitle(target) : ''}
-      description="Markdown. Injected at the start of every new agent."
+      description={t('Markdown. Injected at the start of every new agent.')}
       width={640}
       closeOnBackdrop={readOnly}
       footer={
         <div className="flex items-center justify-end gap-2 px-5 py-3">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-            {readOnly ? 'Close' : 'Cancel'}
+            {readOnly ? t('Close') : t('Cancel')}
           </Button>
           {!readOnly && (
             <Button
@@ -138,7 +142,7 @@ export function InstructionEditorDialog({
               disabled={saving}
               onClick={() => void save()}
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('Saving…') : t('Save')}
             </Button>
           )}
         </div>
@@ -146,12 +150,12 @@ export function InstructionEditorDialog({
     >
       <div className="space-y-4 px-5 py-4">
         {!readOnly && (
-          <Field label="Title">
+          <Field label={t('Title')}>
             <input
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               maxLength={limits.titleChars}
-              placeholder="e.g. Deployment conventions"
+              placeholder={t('e.g. Deployment conventions')}
               className={inputClasses}
               autoFocus
             />
@@ -172,7 +176,9 @@ export function InstructionEditorDialog({
               onChange={(e) => setDraft({ ...draft, content: e.target.value })}
               maxLength={limits.contentChars}
               rows={14}
-              placeholder={'- Always open a Plan before changing production.\n- Reply in English.'}
+              placeholder={t(
+                '- Always open a Plan before changing production.\n- Reply in English.',
+              )}
               className={clsx(inputClasses, 'h-auto resize-y py-2 font-mono text-[12.5px]')}
             />
           ) : (

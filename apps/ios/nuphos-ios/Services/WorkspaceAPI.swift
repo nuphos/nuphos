@@ -3,8 +3,8 @@ import UniformTypeIdentifiers
 
 /// Uses the same authenticated transport and consent gate as chat.
 enum WorkspaceAPI {
-    static func request<T: Decodable>(_ path: String, token: String, method: String = "GET", body: JSONValue? = nil) async throws -> T {
-        let data = try await AgentChatAPI.send(method, path, token: token, body: body, timeout: 60)
+    static func request<T: Decodable>(_ path: String, query: [URLQueryItem] = [], token: String, method: String = "GET", body: JSONValue? = nil) async throws -> T {
+        let data = try await AgentChatAPI.send(method, path, query: query, token: token, body: body, timeout: 60)
         return try JSONDecoder().decode(T.self, from: data)
     }
 

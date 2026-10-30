@@ -2,6 +2,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { useSyncExternalStore } from 'react'
 
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
 import { ChatLink } from '../MessageResponse'
 
@@ -30,19 +31,22 @@ export function LocalPreviewCard({
   const snapshot = useSyncExternalStore(localPreviewSnapshots.subscribe, () =>
     localPreviewSnapshots.get(scope, url.href),
   )
-  const title = label ?? (snapshot?.title ? snapshot.title : 'Local preview')
+  const title = label ?? (snapshot?.title ? snapshot.title : t('Local preview'))
 
   return (
     <ChatLink
       link={url.href}
       onLinkClick={onOpen}
       className={CARD}
-      title={`Open ${url.href} in a browser tab (${isMac ? '⌘' : 'Ctrl'}-click opens it beside)`}
+      title={t('Open {url} in a browser tab ({key}-click opens it beside)', {
+        url: url.href,
+        key: isMac ? '⌘' : 'Ctrl',
+      })}
     >
       {snapshot && (
         <img
           src={snapshot.image}
-          alt={`Page preview: ${title}`}
+          alt={t('Page preview: {title}', { title })}
           className="m-0 block aspect-[16/7] w-full border-b border-zGray-800 object-cover object-top"
         />
       )}
@@ -54,7 +58,7 @@ export function LocalPreviewCard({
           <span className="truncate text-[12.5px] leading-5 text-secondary">{url.label}</span>
         </span>
         <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-zGray-800 px-2 text-[12px] leading-none text-secondary transition-colors duration-150 group-hover/local:bg-zGray-800/40 group-hover/local:text-main group-active/local:bg-zGray-800/60 motion-reduce:transition-none">
-          Open
+          {t('Open')}
           <ArrowUpRight aria-hidden className="size-3" strokeWidth={1.75} />
         </span>
       </span>

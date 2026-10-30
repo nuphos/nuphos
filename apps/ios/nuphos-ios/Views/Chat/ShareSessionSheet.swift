@@ -143,7 +143,6 @@ struct ShareSessionSheet: View {
             }
         }
         .tint(Theme.heading)
-        .presentationDetents([.medium, .large])
     }
 
     @ViewBuilder

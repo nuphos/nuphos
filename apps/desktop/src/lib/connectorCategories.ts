@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 // The one place connectors are filed into categories. Two surfaces read it —
 // the Add connector catalog and the sidebar's bound-instance groups — so the
 // two can't drift into calling the same thing "Infra" and "Cloud
@@ -42,7 +44,7 @@ export type ConnectorCategory = {
 export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   {
     id: 'infrastructure',
-    label: 'Infrastructure',
+    label: t('Infrastructure'),
     foldedAtRest: true,
     catalog: [
       'aws',
@@ -61,54 +63,54 @@ export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   },
   {
     id: 'observability',
-    label: 'Observability',
+    label: t('Observability'),
     foldedAtRest: true,
     catalog: ['betterstack', 'uptime-kuma', 'grafana', 'sentry', 'posthog'],
     sidebarOnly: ['gcp-monitoring'],
   },
   {
     id: 'databases',
-    label: 'Databases',
+    label: t('Databases'),
     foldedAtRest: true,
     catalog: ['mongodb', 'upstash'],
     sidebarOnly: ['postgresql'],
   },
   {
     id: 'networking',
-    label: 'Networking',
+    label: t('Networking'),
     foldedAtRest: true,
     catalog: ['tailscale'],
   },
   {
     id: 'compliance',
-    label: 'Compliance',
+    label: t('Compliance'),
     foldedAtRest: true,
     catalog: ['vanta', 'secureframe', 'sonarqube'],
   },
   {
     id: 'source-control',
-    label: 'Source control',
+    label: t('Source control'),
     foldedAtRest: true,
     catalog: ['github', 'gitlab'],
   },
   {
     id: 'project-management',
-    label: 'Project management',
+    label: t('Project management'),
     catalog: ['linear', 'jira', 'asana'],
   },
   {
     id: 'document',
-    label: 'Document',
+    label: t('Document'),
     catalog: ['notion', 'plaud'],
   },
   {
     id: 'email',
-    label: 'Email',
+    label: t('Email'),
     catalog: ['resend'],
   },
   {
     id: 'messaging',
-    label: 'Messaging',
+    label: t('Messaging'),
     catalog: ['slack', 'discord', 'lark'],
   },
 ]

@@ -1,6 +1,7 @@
 import { Ellipsis } from 'lucide-react'
 
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
+import { t } from '../../i18n'
 
 import { localRemovalId } from './agentPresentation'
 
@@ -34,26 +35,28 @@ export function RuntimeActionsMenu({
   return (
     <Menu>
       <MenuTrigger
-        aria-label={`Manage ${instance.label}`}
+        aria-label={t('Manage {name}', { name: instance.label })}
         disabled={busy}
         className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
       >
         <Ellipsis className="h-4 w-4" />
       </MenuTrigger>
       <MenuContent align="end">
-        <MenuItem onClick={onRename}>Rename</MenuItem>
+        <MenuItem onClick={onRename}>{t('Rename')}</MenuItem>
         {canSignIn && (
-          <MenuItem onClick={onSignIn}>{authenticated ? 'Sign in again' : 'Sign in'}</MenuItem>
+          <MenuItem onClick={onSignIn}>
+            {authenticated ? t('Sign in again') : t('Sign in')}
+          </MenuItem>
         )}
         <MenuSeparator />
         <MenuItem onClick={onToggleEnabled}>
-          {enabled ? 'Disable runtime' : 'Enable runtime'}
+          {enabled ? t('Disable runtime') : t('Enable runtime')}
         </MenuItem>
         {/* A person's computer keeps its default agents; a Box can remove any of its agents. */}
         {(instance.kind !== 'local' || localRemovalId(instance)) && (
           // The Box deletes the agent's sign-in itself, so it has to be connected.
           <MenuItem destructive disabled={instance.local?.online === false} onClick={onRemove}>
-            Remove runtime
+            {t('Remove runtime')}
           </MenuItem>
         )}
       </MenuContent>

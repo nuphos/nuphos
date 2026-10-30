@@ -5,6 +5,7 @@ import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { SectionHeader } from './shared'
 
@@ -12,27 +13,40 @@ import type { LocalSetupResult, LocalSetupStatus } from '../../api'
 import type { AtlasTeam } from '../../types'
 
 const SKIP_REASON: Record<LocalSetupResult['skipped'][number]['reason'], string> = {
-  too_large: 'larger than 4 MB',
-  too_many_files: '200 files or more',
-  name_taken: 'a personal skill with this name already exists',
-  over_budget: 'over the runtime’s skill budget',
-  unreadable: 'its SKILL.md links outside ~/.claude/skills',
+  too_large: t('larger than 4 MB'),
+  too_many_files: t('200 files or more'),
+  name_taken: t('a personal skill with this name already exists'),
+  over_budget: t('over the runtime’s skill budget'),
+  unreadable: t('its SKILL.md links outside ~/.claude/skills'),
 }
 
-function plural(count: number, one: string, many = `${one}s`): string {
-  return `${count.toLocaleString()} ${count === 1 ? one : many}`
+function skillCount(count: number): string {
+  return count === 1 ? t('1 skill') : t('{n} skills', { n: count.toLocaleString() })
+}
+
+function fileCount(count: number): string {
+  return count === 1 ? t('1 file') : t('{n} files', { n: count.toLocaleString() })
+}
+
+function instructionCount(count: number): string {
+  return count === 1
+    ? t('1 personal instruction')
+    : t('{n} personal instructions', { n: count.toLocaleString() })
 }
 
 function instructionLine(last: LocalSetupResult, chars: number | null): string {
   switch (last.instruction) {
     case 'synced':
-      return `CLAUDE.md synced as ${plural(last.instructionParts, 'personal instruction')}.`
+      return t('CLAUDE.md synced as {count}.', { count: instructionCount(last.instructionParts) })
     case 'too_long':
-      return `CLAUDE.md (${(chars ?? 0).toLocaleString()} characters) does not fit in your personal instructions’ limit, so it was not synced.`
+      return t(
+        'CLAUDE.md ({n} characters) does not fit in your personal instructions’ limit, so it was not synced.',
+        { n: (chars ?? 0).toLocaleString() },
+      )
     case 'removed':
-      return 'CLAUDE.md is gone from this computer, so its personal instructions were removed.'
+      return t('CLAUDE.md is gone from this computer, so its personal instructions were removed.')
     case 'none':
-      return 'No CLAUDE.md on this computer.'
+      return t('No CLAUDE.md on this computer.')
   }
 }
 
@@ -46,18 +60,31 @@ function LastSync({
   return (
     <div className="space-y-2 text-[13px] text-secondary" role="status">
       <p>
-        Last synced {new Date(last.at).toLocaleString()}: {plural(last.syncedSkills, 'skill')} in
-        Nuphos, {plural(last.uploadedFiles, 'file')} uploaded
-        {last.removedSkills > 0 ? `, ${plural(last.removedSkills, 'skill')} removed` : ''}.
+        {last.removedSkills > 0
+          ? t('Last synced {date}: {skills} in Nuphos, {files} uploaded, {removed} removed.', {
+              date: new Date(last.at).toLocaleString(),
+              skills: skillCount(last.syncedSkills),
+              files: fileCount(last.uploadedFiles),
+              removed: skillCount(last.removedSkills),
+            })
+          : t('Last synced {date}: {skills} in Nuphos, {files} uploaded.', {
+              date: new Date(last.at).toLocaleString(),
+              skills: skillCount(last.syncedSkills),
+              files: fileCount(last.uploadedFiles),
+            })}
       </p>
       <p>{instructionLine(last, claudeMdChars)}</p>
       {last.failed.length > 0 && (
-        <p>Nuphos refused {last.failed.join(', ')}; they stay on this computer.</p>
+        <p>
+          {t('Nuphos refused {skills}; they stay on this computer.', {
+            skills: last.failed.join(', '),
+          })}
+        </p>
       )}
       {last.skipped.length > 0 && (
         <details>
           <summary className="cursor-pointer text-tertiary">
-            {plural(last.skipped.length, 'skill')} left on this computer
+            {t('{skills} left on this computer', { skills: skillCount(last.skipped.length) })}
           </summary>
           <ul className="mt-2 max-h-60 space-y-0.5 overflow-auto text-[12px] text-tertiary">
             {last.skipped.map((skill) => (
@@ -84,7 +111,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
     try {
       setStatus(await api.localSetupStatus(teamId))
     } catch (err) {
-      toast.apiError('Could not read this computer’s setup', err)
+      toast.apiError(t('Could not read this computer’s setup'), err)
     }
   }, [teamId])
 
@@ -98,7 +125,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
         if (!cancelled) setStatus(result)
       })
       .catch((err: unknown) => {
-        toast.apiError('Could not read this computer’s setup', err)
+        toast.apiError(t('Could not read this computer’s setup'), err)
       })
 
     return () => {
@@ -113,11 +140,14 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
       const result = await api.localSetupSync(teamId)
 
       toast.success(
-        'Setup synced',
-        `${plural(result.syncedSkills, 'skill')} in Nuphos, ${plural(result.uploadedFiles, 'file')} uploaded.`,
+        t('Setup synced'),
+        t('{skills} in Nuphos, {files} uploaded.', {
+          skills: skillCount(result.syncedSkills),
+          files: fileCount(result.uploadedFiles),
+        }),
       )
     } catch (err) {
-      toast.apiError('Could not sync your setup', err)
+      toast.apiError(t('Could not sync your setup'), err)
     } finally {
       setSyncing(false)
       void refresh()
@@ -130,7 +160,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
       await api.localSetupSetAutoSync(teamId, enabled)
       setStatus((current) => current && { ...current, autoSync: enabled })
     } catch (err) {
-      toast.apiError('Could not change automatic sync', err)
+      toast.apiError(t('Could not change automatic sync'), err)
     }
   }
 
@@ -140,40 +170,50 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
   return (
     <div>
       <SectionHeader
-        title="Sync my setup"
-        description={`Bring this computer’s Claude Code skills and ~/.claude/CLAUDE.md into ${team?.name ?? 'this team'} as your personal skills and instructions, so every agent you run here starts with the same context as your own CLI. Only your agents get them.`}
+        title={t('Sync my setup')}
+        description={t(
+          'Bring this computer’s Claude Code skills and ~/.claude/CLAUDE.md into {team} as your personal skills and instructions, so every agent you run here starts with the same context as your own CLI. Only your agents get them.',
+          { team: team?.name ?? t('this team') },
+        )}
       />
 
       {status && (
         <div className="space-y-5">
           <div className="rounded-lg border border-zGray-800 px-4 py-3 text-[13px] text-secondary">
             <p className="text-main">
-              Found {plural(status.localSkills, 'skill')} in ~/.claude/skills
               {status.claudeMdChars === null
-                ? ' and no CLAUDE.md.'
-                : ` and a CLAUDE.md of ${status.claudeMdChars.toLocaleString()} characters.`}
+                ? t('Found {skills} in ~/.claude/skills and no CLAUDE.md.', {
+                    skills: skillCount(status.localSkills),
+                  })
+                : t('Found {skills} in ~/.claude/skills and a CLAUDE.md of {n} characters.', {
+                    skills: skillCount(status.localSkills),
+                    n: status.claudeMdChars.toLocaleString(),
+                  })}
             </p>
             <p className="mt-1 text-[12px] text-tertiary">
-              A runtime loads at most {status.budget.files.toLocaleString()} files and{' '}
-              {Math.round(status.budget.bytes / 1024 / 1024)} MB of personal skills, so the smallest
-              skills go first and the rest stay on this computer. Edits to synced skills belong
-              here: the next sync overwrites changes made in Nuphos.
+              {t(
+                'A runtime loads at most {files} files and {mb} MB of personal skills, so the smallest skills go first and the rest stay on this computer. Edits to synced skills belong here: the next sync overwrites changes made in Nuphos.',
+                {
+                  files: status.budget.files.toLocaleString(),
+                  mb: Math.round(status.budget.bytes / 1024 / 1024),
+                },
+              )}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <Button size="sm" disabled={busy || !teamId} onClick={() => void syncNow()}>
               {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {busy ? 'Syncing…' : 'Sync now'}
+              {busy ? t('Syncing…') : t('Sync now')}
             </Button>
             <div className="flex items-center gap-2 text-[13px] text-secondary">
               <Switch
                 checked={status.autoSync}
                 onChange={(next) => void setAutoSync(next)}
                 disabled={!teamId}
-                label="Keep in sync"
+                label={t('Keep in sync')}
               />
-              Keep in sync while Nuphos is open
+              {t('Keep in sync while Nuphos is open')}
             </div>
           </div>
 

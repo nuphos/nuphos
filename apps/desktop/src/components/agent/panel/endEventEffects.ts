@@ -1,4 +1,5 @@
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { buildAgentStopNotification } from '../../../lib/agentStopNotification'
 import { track, trackError } from '../../../lib/analytics'
 
@@ -168,7 +169,7 @@ export function runEndEventEffects(
         )
         fireStopNotification(
           buildAgentStopNotification({
-            outcome: { kind: 'failed', cause: 'The agent could not be resumed.' },
+            outcome: { kind: 'failed', cause: t('The agent could not be resumed.') },
             title: tabsRef.current.find((t) => t.streamId === newStreamId)?.title,
           }),
           payload.sessionId,

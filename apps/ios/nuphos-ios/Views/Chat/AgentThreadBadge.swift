@@ -38,10 +38,10 @@ struct AgentThreadBadge: View {
     private var observation: RuntimeObservation? { RuntimeObservations.shared.value(team: teamId, session: reference.id) }
     private var status: String {
         guard detail != nil else { return agents.unavailable.contains(key) ? "Unavailable" : "" }
-        guard let observation, observation.fresh(at: RuntimeObservations.shared.now), !observation.unavailable else { return "Unavailable" }
-        if observation.paused(at: RuntimeObservations.shared.now) { return "Stopped" }
+        guard let observation, !observation.unavailable else { return "Unavailable" }
+        if observation.paused { return "Stopped" }
         if (observation.snapshot["permissionWaits"]?.numberValue ?? 0) > 0 { return "Needs input" }
-        if observation.turnActive(at: RuntimeObservations.shared.now) || observation.backgroundRunning(at: RuntimeObservations.shared.now) { return "Running" }
+        if observation.turnActive || observation.backgroundRunning { return "Running" }
         return "Done"
     }
 
@@ -49,23 +49,24 @@ struct AgentThreadBadge: View {
         Button {
             if let url = SessionLink.url(teamId: teamId, sessionId: reference.id) { onLink(url) }
         } label: {
-            HStack(spacing: 8) {
-                AgentAvatar(agentId: reference.id, runtime: detail?.agentRuntime)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(detail?.title ?? reference.title ?? "Agent")
-                        .font(Theme.Text.caption.weight(.medium)).foregroundStyle(Theme.heading).lineLimit(1)
-                    HStack(spacing: 8) {
-                        Text(reference.verb)
-                        if status == "Running" { ProgressView().controlSize(.mini) }
-                        Text(status)
-                    }
-                    .font(Theme.Text.micro).foregroundStyle(Theme.muted)
+            HStack(spacing: 6) {
+                AgentAvatar(agentId: reference.id, runtime: detail?.agentRuntime, size: 20)
+                Text(reference.verb).foregroundStyle(Theme.muted)
+                Text(detail?.title ?? reference.title ?? "Agent")
+                    .fontWeight(.medium).foregroundStyle(Theme.heading).lineLimit(1)
+                if !status.isEmpty {
+                    if status == "Running" { ProgressView().controlSize(.mini) }
+                    Text(status)
+                        .foregroundStyle(status == "Needs input" ? Theme.warning : Theme.muted)
+                        .fixedSize()
                 }
-                Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.muted)
+                Image(systemName: "chevron.right")
+                    .font(Theme.Text.micro.weight(.bold)).foregroundStyle(Theme.muted).opacity(0.35)
+                Spacer(minLength: 0)
             }
-            .padding(8)
-            .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.hairline))
+            .font(Theme.Text.label)
+            .frame(minHeight: 32)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(agents.unavailable.contains(key))

@@ -1,4 +1,5 @@
 // What the artifact tab's toolbar does with a version.
+import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
 import { exportArtifact } from './artifactExport'
@@ -15,9 +16,9 @@ export function fixPrompt(version: ArtifactVersion, errors: string[]): string {
 export async function copySource(version: ArtifactVersion) {
   try {
     await navigator.clipboard.writeText(version.content)
-    toast.success('Copied', version.title)
+    toast.success(t('Copied'), version.title)
   } catch {
-    toast.error('Could not copy the artifact')
+    toast.error(t('Could not copy the artifact'))
   }
 }
 
@@ -28,7 +29,7 @@ export async function downloadArtifact(version: ArtifactVersion) {
   try {
     file = await exportArtifact(version)
   } catch {
-    toast.error('Could not prepare the download')
+    toast.error(t('Could not prepare the download'))
 
     return
   }
@@ -45,8 +46,13 @@ export async function downloadArtifact(version: ArtifactVersion) {
     const count = file.missing.length
 
     toast.error(
-      `Saved without ${String(count)} ${count === 1 ? 'thing' : 'things'} it loads from the web`,
-      `Parts of ${file.fileName} may not work offline: ${file.missing.slice(0, 3).join(', ')}${count > 3 ? '…' : ''}`,
+      count === 1
+        ? t('Saved without 1 thing it loads from the web')
+        : t('Saved without {count} things it loads from the web', { count: String(count) }),
+      t('Parts of {fileName} may not work offline: {missing}', {
+        fileName: file.fileName,
+        missing: `${file.missing.slice(0, 3).join(', ')}${count > 3 ? '…' : ''}`,
+      }),
     )
   }
 }
@@ -55,8 +61,8 @@ export async function downloadArtifact(version: ArtifactVersion) {
 export async function copyArtifactLink(url: string) {
   try {
     await navigator.clipboard.writeText(url)
-    toast.success('Link copied', 'Teammates who can open this chat will see the artifact.')
+    toast.success(t('Link copied'), t('Teammates who can open this chat will see the artifact.'))
   } catch {
-    toast.error('Could not copy the link')
+    toast.error(t('Could not copy the link'))
   }
 }

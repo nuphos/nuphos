@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type { RuntimeQuota, RuntimeQuotaWindow } from '../types/runtime'
 
 export type QuotaTone = 'ok' | 'warning' | 'exhausted'
@@ -49,7 +51,7 @@ export function quotaSummary(quota: RuntimeQuota | undefined): string | null {
 
   if (!worst) return null
 
-  return `${String(quotaLeftPercent(worst))}% left`
+  return t('{percent}% left', { percent: quotaLeftPercent(worst) })
 }
 
 function formatClock(date: Date): string {
@@ -67,18 +69,22 @@ export function formatResetsAt(resetsAt: string | null, now: Date): string | nul
   if (Number.isNaN(at.getTime())) return null
   const deltaMinutes = Math.round((at.getTime() - now.getTime()) / 60_000)
 
-  if (deltaMinutes <= 0) return 'resets now'
-  if (deltaMinutes >= 24 * 60) return `resets ${formatWeekday(at)}`
+  if (deltaMinutes <= 0) return t('resets now')
+  if (deltaMinutes >= 24 * 60) return t('resets {when}', { when: formatWeekday(at) })
   const hours = Math.floor(deltaMinutes / 60)
   const minutes = deltaMinutes % 60
-  const relative = hours > 0 ? `${String(hours)}h ${String(minutes)}m` : `${String(minutes)}m`
+  const relative =
+    hours > 0 ? t('{hours}h {minutes}m', { hours, minutes }) : t('{minutes}m', { minutes })
 
-  return `resets in ${relative} (${formatClock(at)})`
+  return t('resets in {time} ({clock})', { time: relative, clock: formatClock(at) })
 }
 
 export function quotaWindowLine(window: RuntimeQuotaWindow, now: Date): string {
   const reset = formatResetsAt(window.resetsAt, now)
-  const left = `${window.label}: ${String(quotaLeftPercent(window))}% left`
+  const left = t('{name}: {percent}% left', {
+    name: window.label,
+    percent: quotaLeftPercent(window),
+  })
 
   return reset ? `${left} · ${reset}` : left
 }

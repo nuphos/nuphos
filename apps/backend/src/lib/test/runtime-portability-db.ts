@@ -1,5 +1,6 @@
 // Small Mongo fixture for the lifecycle state machine, including positional
-// updates and duplicate-key behavior used by the placement lease.
+// updates (by `placements.id` or a top-level $elemMatch) and duplicate-key
+// behavior used by the placement lease.
 type Doc = Record<string, any>
 const valueAt = (doc: Doc, key: string): any =>
   key.split('.').reduce((value, part) => value?.[part], doc)
@@ -12,6 +13,10 @@ function matches(doc: Doc, query: Doc): boolean {
     const actual = valueAt(doc, key)
 
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
+      if ('$elemMatch' in expected)
+        return (
+          Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))
+        )
       if ('$exists' in expected) return (actual !== undefined) === expected.$exists
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
@@ -24,15 +29,30 @@ function matches(doc: Doc, query: Doc): boolean {
   })
 }
 function update(doc: Doc, query: Doc, mutation: Doc) {
+  // Like Mongo, `$` names the element the query matched, before any $set changes it.
+  const positional = new Map<string, Doc>()
+
   for (const [key, value] of Object.entries(mutation.$set ?? {})) {
     const parts = key.split('.')
     let parent = doc
+    let arrayKey = ''
 
     while (parts.length > 1) {
       const part = parts.shift()!
 
-      if (part === '$') parent = parent.find((entry: Doc) => entry.id === query['placements.id'])
-      else {
+      if (part === '$') {
+        const element = query[arrayKey]?.$elemMatch
+
+        if (!positional.has(arrayKey))
+          positional.set(
+            arrayKey,
+            parent.find((entry: Doc) =>
+              element ? matches(entry, element) : entry.id === query['placements.id'],
+            ),
+          )
+        parent = positional.get(arrayKey)!
+      } else {
+        arrayKey = part
         parent[part] ??= {}
         parent = parent[part]
       }

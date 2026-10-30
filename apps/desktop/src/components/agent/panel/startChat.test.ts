@@ -36,6 +36,8 @@ before(async () => {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
+      // i18n subscribes to locale changes in other windows on import.
+      addEventListener: () => {},
       api: {
         agentStart: (args: Parameters<WindowAgentApi['agentStart']>[0]) => {
           requests.push(args)

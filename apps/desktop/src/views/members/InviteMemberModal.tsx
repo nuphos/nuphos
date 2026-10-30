@@ -3,6 +3,7 @@ import { Mail, UserPlus } from 'lucide-react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
+import { t } from '../../i18n'
 
 import type { FormEvent } from 'react'
 
@@ -29,12 +30,12 @@ export function InviteMemberModal({
         // clear) a modal the user has since reopened.
         if (!submitting) onClose()
       }}
-      title="Invite member"
-      description="Send a workspace invitation by email."
+      title={t('Invite member')}
+      description={t('Send a workspace invitation by email.')}
     >
       <form onSubmit={onSubmit} className="p-5 space-y-4">
         <label className="block">
-          <span className="block text-[12px] text-tertiary mb-1.5">Email</span>
+          <span className="block text-[12px] text-tertiary mb-1.5">{t('Email')}</span>
           <InputGroup className="flex items-center gap-2 rounded-md border border-zGray-800 bg-surface px-3 h-10 transition-colors">
             <Mail className="w-4 h-4 text-tertiary" strokeWidth={1.8} />
             <InputGroupInput
@@ -55,11 +56,11 @@ export function InviteMemberModal({
             onClick={onClose}
             className="h-8 px-3 rounded-md border border-zGray-800 text-secondary hover:text-main hover:bg-zGray-800/70 text-[12.5px] transition-colors disabled:cursor-default disabled:opacity-60"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <Button size="sm" type="submit" disabled={!email.trim() || submitting}>
             <UserPlus className="w-3.5 h-3.5" strokeWidth={2} />
-            {submitting ? 'Inviting...' : 'Invite'}
+            {submitting ? t('Inviting…') : t('Invite')}
           </Button>
         </div>
       </form>

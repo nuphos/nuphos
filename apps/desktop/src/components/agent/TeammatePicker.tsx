@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Loader2, X } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 import { InputGroup, InputGroupInput } from '../ui/input-group'
 
@@ -63,7 +64,7 @@ export function TeammatePicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="px-1 text-[11px] font-medium text-tertiary">Add teammates</div>
+      <div className="px-1 text-[11px] font-medium text-tertiary">{t('Add teammates')}</div>
       <InputGroup
         className="flex h-8 items-center gap-1 overflow-x-auto rounded-lg border border-zGray-800/60 px-1 [scrollbar-width:none]"
         onClick={() => inputRef.current?.focus()}
@@ -78,7 +79,7 @@ export function TeammatePicker({
             <button
               type="button"
               className="rounded-full p-0.5 text-tertiary hover:text-main"
-              aria-label={`Unpick ${member.name}`}
+              aria-label={t('Unpick {name}', { name: member.name })}
               onClick={() => onToggle(member)}
             >
               <X className="h-3 w-3" strokeWidth={2} />
@@ -90,19 +91,21 @@ export function TeammatePicker({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={picked.length === 0 ? 'Search teammates' : 'Add more…'}
-          aria-label="Search teammates"
+          placeholder={picked.length === 0 ? t('Search teammates') : t('Add more…')}
+          aria-label={t('Search teammates')}
           className="min-w-[96px] px-1 text-[12px] text-main placeholder:text-tertiary"
         />
       </InputGroup>
       {!members && (
         <div className="flex items-center gap-2 px-1 text-[12px] text-tertiary">
           <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-          Loading members…
+          {t('Loading members…')}
         </div>
       )}
       {members && invitable.length === 0 && (
-        <div className="px-1 text-[12px] text-tertiary">Everyone in the team is already here.</div>
+        <div className="px-1 text-[12px] text-tertiary">
+          {t('Everyone in the team is already here.')}
+        </div>
       )}
       {/* Sized by the whole team, not by the matches, so typing never resizes the card. */}
       {invitable.length > 0 && (
@@ -113,7 +116,9 @@ export function TeammatePicker({
           )}
         >
           {shown.length === 0 && (
-            <div className="col-span-5 px-1 text-[12px] text-tertiary">No teammates match.</div>
+            <div className="col-span-5 px-1 text-[12px] text-tertiary">
+              {t('No teammates match.')}
+            </div>
           )}
           {shown.map((member) => {
             const selected = pickedIds.has(member.id)

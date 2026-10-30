@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 
 import { api } from '../../../api'
 import { parseAtlasError } from '../../../api/errors'
+import { t } from '../../../i18n/index.ts'
 import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
@@ -28,7 +29,7 @@ export function usePanelQueueWatchdogs({
 
     if (!tab || !runtimeAllows(tab.runtimeState, 'cancel')) return
     void api.agentCancelRuntime(tab.sessionId, teamIdRef.current).catch((error: unknown) => {
-      toast.apiError('Could not send the stop request to the agent', error)
+      toast.apiError(t('Could not send the stop request to the agent'), error)
     })
   }, [activeId, tabsRef, teamIdRef])
 
@@ -56,7 +57,7 @@ export function usePanelQueueWatchdogs({
           const late = parseAtlasError(error).code === 'not_found'
 
           toast.apiError(
-            late ? 'Too late to take this message back' : 'Could not take it back',
+            late ? t('Too late to take this message back') : t('Could not take it back'),
             error,
           )
 
@@ -74,7 +75,7 @@ export function usePanelQueueWatchdogs({
         return draft
       },
       (error: unknown) => {
-        toast.apiError('Could not take back the message', error)
+        toast.apiError(t('Could not take back the message'), error)
 
         return null
       },

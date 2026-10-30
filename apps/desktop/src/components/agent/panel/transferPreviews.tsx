@@ -3,6 +3,7 @@ import { Play } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 
 import { ImageAttachmentThumb, ImageLightbox } from './messageInline'
 import { MEDIA_BOX, previewKind } from './transferDownloads'
@@ -81,7 +82,7 @@ export function TransferPreviews({
                 type="button"
                 onClick={() => setPreview(i)}
                 title={f.fileName}
-                aria-label={`Play ${f.fileName}`}
+                aria-label={t('Play {name}', { name: f.fileName })}
                 className={clsx(
                   MEDIA_BOX,
                   'relative flex-shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-zGray-800 bg-black',

@@ -3,6 +3,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 import { useState } from 'react'
 
+import { t } from '../i18n'
+
 import { ConfirmDialog } from './ConfirmDialog'
 
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
@@ -67,7 +69,7 @@ export function BulkActionBar({
       />
       <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-1 rounded-lg border border-zGray-700 bg-zGray-900 px-2.5 py-1.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]">
         <span className="px-1.5 text-[12.5px] text-secondary tabular-nums whitespace-nowrap">
-          {count} selected
+          {t('{count} selected', { count })}
         </span>
         <div className="mx-1 h-4 w-px bg-zGray-700" />
         {actions.map((action) => (
@@ -92,7 +94,7 @@ export function BulkActionBar({
         <button
           type="button"
           onClick={onClear}
-          aria-label="Clear selection"
+          aria-label={t('Clear selection')}
           className="rounded p-1.5 text-tertiary transition-colors hover:bg-zGray-800 hover:text-secondary"
         >
           <FontAwesomeIcon icon={faXmark} className="h-3 w-3" />

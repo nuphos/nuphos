@@ -1,6 +1,7 @@
 import { Button as BaseButton } from '@base-ui/react/button'
 import { ChevronRight, Sparkles } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { SkeletonReveal } from '../../SkeletonReveal'
 
 import type { AgentStarterSuggestion } from '../../../api'
@@ -21,7 +22,7 @@ export function StarterSuggestionsBlock({
     <div className="mb-6">
       <div className="flex items-center gap-1.5 mb-3 px-3 text-[11px] uppercase text-tertiary">
         <Sparkles className="w-3 h-3 text-zViolet-accent" strokeWidth={2} />
-        <span>Suggested for your setup</span>
+        <span>{t('Suggested for your setup')}</span>
       </div>
       <SkeletonReveal
         ready={!loading || suggestions.length > 0}

@@ -1,6 +1,7 @@
 import { Minus, Plus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 
 import { imageFitScale, imageZoomScale, zoomScrollOffset } from './imageZoom'
@@ -136,21 +137,21 @@ export function ZoomableImage({
       <div
         className="absolute inset-x-12 top-2 flex items-center justify-center gap-1 [&_button]:text-white/80 [&_button]:hover:bg-white/10 [&_button]:hover:text-white"
         role="toolbar"
-        aria-label="Image zoom"
+        aria-label={t('Image zoom')}
       >
         <Button
           variant="ghost"
           size="icon-sm"
           disabled={!enlarged}
-          aria-label="Zoom out"
-          title="Zoom out (−)"
+          aria-label={t('Zoom out')}
+          title={t('Zoom out (−)')}
           onClick={() => changeZoom(scale / 1.5)}
         >
           <Minus className="h-4 w-4" />
         </Button>
         <output
           className="w-11 text-center text-[12px] text-white/80 tabular-nums"
-          aria-label="Zoom level"
+          aria-label={t('Zoom level')}
         >
           {Math.round(scale * 100)}%
         </output>
@@ -158,23 +159,33 @@ export function ZoomableImage({
           variant="ghost"
           size="icon-sm"
           disabled={scale >= 8}
-          aria-label="Zoom in"
-          title="Zoom in (+)"
+          aria-label={t('Zoom in')}
+          title={t('Zoom in (+)')}
           onClick={() => changeZoom(scale * 1.5)}
         >
           <Plus className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => changeZoom(1)} title="Actual size (1)">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => changeZoom(1)}
+          title={t('Actual size (1)')}
+        >
           100%
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => changeZoom(null)} title="Fit image (0)">
-          Fit
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => changeZoom(null)}
+          title={t('Fit image (0)')}
+        >
+          {t('Fit')}
         </Button>
       </div>
       <div
         ref={viewport}
         role="region"
-        aria-label="Image viewport"
+        aria-label={t('Image viewport')}
         tabIndex={0}
         className="h-full w-full overflow-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent"
         style={{ touchAction: 'none', cursor: enlarged ? 'grab' : 'zoom-in' }}

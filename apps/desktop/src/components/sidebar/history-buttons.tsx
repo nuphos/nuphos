@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, History } from 'lucide-react'
 import { useRef, useState } from 'react'
 
+import { t } from '../../i18n'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { Menu, MenuContent, MenuItem, MenuSeparator } from '../ui/menu'
 
@@ -20,7 +21,7 @@ export function SidebarHistoryButtons({
   onBack,
   onForward,
   history,
-  chatOf = () => undefined,
+  chatOf = () => {},
 }: {
   canGoBack: boolean
   canGoForward: boolean
@@ -79,7 +80,7 @@ function HistoryButton({
   const ref = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const rows = menuOpen && history ? historyMenuRows(history, direction, chatOf) : []
-  const label = direction === -1 ? 'Back' : 'Forward'
+  const label = direction === -1 ? t('Back') : t('Forward')
   const Icon = direction === -1 ? ChevronLeft : ChevronRight
 
   return (
@@ -108,7 +109,7 @@ function HistoryButton({
             : 'text-tertiary/45 cursor-default',
           menuOpen && 'bg-[var(--sidebar-overlay-hover)] text-main',
         )}
-        title={enabled ? `${label} · right-click for history` : label}
+        title={enabled ? t('{label} · right-click for history', { label }) : label}
         aria-label={label}
         aria-haspopup="menu"
       >
@@ -140,7 +141,7 @@ function HistoryButton({
             ))}
             <MenuSeparator />
             <MenuItem icon={<History className="h-3.5 w-3.5" />} onClick={onShowAll}>
-              Show full history
+              {t('Show full history')}
             </MenuItem>
           </MenuContent>
         </Menu>

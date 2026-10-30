@@ -8,6 +8,8 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
+
 import { Button } from './button'
 import { toastManager } from './toast'
 
@@ -25,15 +27,16 @@ function ToastList() {
 
   return (
     <Toast.Viewport className="fixed bottom-4 right-4 z-[2000] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2 outline-none">
-      {toasts.map((t) => {
-        const type: ToastType = (t.type as ToastType) in TONES ? (t.type as ToastType) : 'info'
+      {toasts.map((item) => {
+        const type: ToastType =
+          (item.type as ToastType) in TONES ? (item.type as ToastType) : 'info'
         const tone = TONES[type]
-        const hasDescription = Boolean(t.description)
+        const hasDescription = Boolean(item.description)
 
         return (
           <Toast.Root
-            key={t.id}
-            toast={t}
+            key={item.id}
+            toast={item}
             className={clsx(
               'flex gap-3 rounded-lg border border-main bg-elevated p-3 shadow-lg shadow-black/20',
               // Top-align with the first line when there's a description, otherwise
@@ -57,21 +60,21 @@ function ToastList() {
                 // title, a pasted message) can't grow the toast unbounded.
                 <Toast.Description className="mt-0.5 line-clamp-4 text-[12.5px] leading-relaxed text-secondary" />
               ) : null}
-              {(t.data as ToastData | undefined)?.action ? (
+              {(item.data as ToastData | undefined)?.action ? (
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    ;(t.data as ToastData).action?.onClick()
-                    toastManager.close(t.id)
+                    ;(item.data as ToastData).action?.onClick()
+                    toastManager.close(item.id)
                   }}
                   className="mt-2 h-auto rounded px-1.5 py-[4px] text-[10px] font-medium leading-tight"
                 >
-                  {(t.data as ToastData).action?.label}
+                  {(item.data as ToastData).action?.label}
                 </Button>
               ) : null}
             </div>
             <Toast.Close
-              aria-label="Dismiss"
+              aria-label={t('Dismiss')}
               className="flex-shrink-0 rounded p-0.5 text-[13px] text-tertiary transition-colors hover:text-main"
             >
               <FontAwesomeIcon icon={faXmark} />

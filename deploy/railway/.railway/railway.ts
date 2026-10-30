@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { defineRailway, image, project, service, volume } from 'railway/iac'
-import { required, domain, emailProvider } from './inputs.ts'
+import { required, domain } from './inputs.ts'
 
 // Same bootstrap as the Helm chart, except Mongo also listens on IPv6 for Railway's private network.
 const bootstrap = (file: string, shell: string) => {
@@ -13,8 +13,6 @@ export default defineRailway(() => {
   const storageDomain = domain('STORAGE_DOMAIN')
   const mongoPassword = required('MONGO_PASSWORD')
   const storageSecret = required('STORAGE_SECRET')
-  const provider = emailProvider()
-  const emailKey = provider === 'resend' ? 'RESEND_API_KEY' : 'ZSEND_API_KEY'
   const mongoData = volume('mongo-data', { region: 'us-west2', sizeMB: 10240 })
   const storageData = volume('storage-data', { region: 'us-west2', sizeMB: 10240 })
   const mongo = service('mongo', {
@@ -54,7 +52,7 @@ export default defineRailway(() => {
     },
   })
   const backend = service('backend', {
-    source: image('ghcr.io/nuphos/backend:v0.105.0'),
+    source: image('ghcr.io/nuphos/backend:v0.107.0'),
     replicas: { 'us-west2': 1 },
     deploy: { restartPolicyType: 'ALWAYS' },
     healthcheck: '/health/ready',
@@ -69,8 +67,7 @@ export default defineRailway(() => {
       NUPHOS_AUTH_BASE_URL: `https://${apiDomain}`,
       NUPHOS_BACKEND_URL: `https://${apiDomain}`,
       NUPHOS_PUBLIC_BACKEND_URL: `https://${apiDomain}`,
-      NUPHOS_EMAIL_PROVIDER: provider,
-      [emailKey]: required(emailKey),
+      RESEND_API_KEY: required('RESEND_API_KEY'),
       NUPHOS_EMAIL_FROM: required('NUPHOS_EMAIL_FROM'),
       ATLAS_REDIS_ENABLED: 'false',
       CLAUDE_CODE_RUNTIME_KUBECTL: 'false',

@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
+import { GithubApiError } from '@/lib/byos/github-http'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useModels } from '@/lib/test/doubles/models'
 import { usePersonalCredentialsGithub } from '@/lib/test/doubles/personal-credentials-github'
 
-import { personalGithubToken, personalLinearToken } from './handout'
+import { personalGithubToken, personalGoogleToken, personalLinearToken } from './handout'
 
 import type { ProviderTokens } from './github'
 import type { EncryptedSecret } from '@/lib/byos/secrets'
@@ -24,7 +25,19 @@ const matches = (row: PersonalCredential, filter: Record<string, unknown>) =>
     return actual === value
   })
 
+const TEAM = new ObjectId().toHexString()
+let teamClient: { clientId: string; encryptedClientSecret: EncryptedSecret } | null = null
+
 useModels({
+  teamByosBindings: () =>
+    ({
+      findOne: (filter: { _id: ObjectId }) =>
+        Promise.resolve(
+          filter._id.toHexString() === TEAM && teamClient
+            ? { googleOAuthClient: teamClient }
+            : null,
+        ),
+    }) as never,
   personalCredentials: () =>
     ({
       findOne: (filter: Record<string, unknown>) =>
@@ -111,12 +124,26 @@ describe('personalGithubToken', () => {
     expect(rows[0]?.encryptedRefreshToken).toEqual(sealed('ghr_new'))
   })
 
-  test('drops a grant whose refresh fails so the team token takes over', async () => {
+  test('drops a grant the provider refuses so the team token takes over', async () => {
     rows = [credential({ userId: 'user-4', accessTokenExpiresAt: new Date(Date.now() - 1000) })]
-    refreshResult = () => Promise.reject(new Error('bad_refresh_token'))
+    refreshResult = () => Promise.reject(new GithubApiError(400, 'bad_refresh_token'))
 
     expect(await personalGithubToken('user-4', 7)).toBeNull()
     expect(rows).toHaveLength(0)
+  })
+
+  test('keeps the grant through a network or server error', async () => {
+    rows = [credential({ userId: 'user-5', accessTokenExpiresAt: new Date(Date.now() - 1000) })]
+
+    for (const error of [
+      new Error('fetch failed'),
+      new GithubApiError(503, 'unavailable'),
+      new GithubApiError(429, 'rate limited'),
+    ]) {
+      refreshResult = () => Promise.reject(error)
+      expect(await personalGithubToken('user-5', 7)).toBeNull()
+    }
+    expect(rows).toHaveLength(1)
   })
 })
 
@@ -133,5 +160,76 @@ describe('personalLinearToken', () => {
 
     expect(await personalLinearToken('user-1', 'org-1')).toMatchObject({ token: 'lin_access' })
     expect(await personalLinearToken('user-1', 'org-2')).toBeNull()
+  })
+})
+
+describe('personalGoogleToken', () => {
+  const fetchSpy = spyOn(globalThis, 'fetch')
+  let answer: () => Promise<Response>
+  let requested: URLSearchParams | null = null
+
+  fetchSpy.mockImplementation(((_url: string, init?: RequestInit) => {
+    requested = new URLSearchParams((init?.body as string | undefined) ?? '')
+
+    return answer()
+  }) as unknown as typeof fetch)
+  afterAll(() => fetchSpy.mockRestore())
+  beforeEach(() => {
+    teamClient = {
+      clientId: 'team.apps.googleusercontent.com',
+      encryptedClientSecret: sealed('team-secret'),
+    }
+    requested = null
+  })
+
+  const expired = (userId: string) =>
+    credential({
+      userId,
+      provider: 'gmail',
+      teamId: TEAM,
+      accessTokenExpiresAt: new Date(Date.now() - 1000),
+    })
+
+  test('only a grant issued through this team applies', async () => {
+    rows = [credential({ provider: 'gmail', teamId: TEAM, encryptedAccessToken: sealed('mail') })]
+
+    expect(await personalGoogleToken('user-1', 'gmail', TEAM)).toMatchObject({ token: 'mail' })
+    expect(await personalGoogleToken('user-1', 'gmail', new ObjectId().toHexString())).toBeNull()
+  })
+
+  test('refreshes with the team’s own client and keeps the stored refresh token', async () => {
+    rows = [expired('g-3')]
+    answer = () => Promise.resolve(Response.json({ access_token: 'ya29_new', expires_in: 3599 }))
+
+    expect(await personalGoogleToken('g-3', 'gmail', TEAM)).toMatchObject({ token: 'ya29_new' })
+    expect(requested?.get('client_id')).toBe('team.apps.googleusercontent.com')
+    expect(requested?.get('client_secret')).toBe('team-secret')
+    expect(rows[0]?.encryptedRefreshToken).toEqual(sealed('ghr_refresh'))
+  })
+
+  test('drops the grant when Google answers invalid_grant', async () => {
+    rows = [expired('g-1')]
+    answer = () => Promise.resolve(Response.json({ error: 'invalid_grant' }, { status: 400 }))
+
+    expect(await personalGoogleToken('g-1', 'gmail', TEAM)).toBeNull()
+    expect(rows).toHaveLength(0)
+  })
+
+  test('keeps the grant through a network error, a 5xx, a rate limit and a missing client', async () => {
+    rows = [expired('g-2')]
+
+    for (const next of [
+      () => Promise.reject(new TypeError('fetch failed')),
+      () => Promise.resolve(Response.json({ error: 'backend_error' }, { status: 503 })),
+      () => Promise.resolve(Response.json({ error: 'rate_limit_exceeded' }, { status: 429 })),
+    ]) {
+      answer = next
+      expect(await personalGoogleToken('g-2', 'gmail', TEAM)).toBeNull()
+    }
+    teamClient = null
+    requested = null
+    expect(await personalGoogleToken('g-2', 'gmail', TEAM)).toBeNull()
+    expect(requested).toBeNull()
+    expect(rows).toHaveLength(1)
   })
 })

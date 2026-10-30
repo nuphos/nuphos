@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { SectionHeader } from './shared'
 import { sessionDevice, sessionPlace, sortSessions } from './signInSessionsPresentation'
@@ -37,7 +38,7 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
         if (code === 'session_required') return setLoad({ state: 'signInAgain' })
         if (code === 'route_not_found') return setLoad({ state: 'unavailable' })
         setLoad({ state: 'failed' })
-        toast.apiError('Could not load your signed-in devices', err)
+        toast.apiError(t('Could not load your signed-in devices'), err)
       })
   }, [])
 
@@ -54,13 +55,17 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
       if (target === 'others') {
         const revoked = await api.atlasSignOutOtherSessions()
 
-        toast.success(`Signed out ${String(revoked)} other device${revoked === 1 ? '' : 's'}`)
+        toast.success(
+          revoked === 1
+            ? t('Signed out 1 other device')
+            : t('Signed out {n} other devices', { n: revoked }),
+        )
       } else {
         await api.atlasSignOutSession(target.id)
-        toast.success(`Signed out ${sessionDevice(target)}`)
+        toast.success(t('Signed out {device}', { device: sessionDevice(target) }))
       }
     } catch (err) {
-      toast.apiError('Could not sign out', err)
+      toast.apiError(t('Could not sign out'), err)
     } finally {
       setBusy(null)
       refresh()
@@ -73,30 +78,32 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
   return (
     <div>
       <SectionHeader
-        title="Signed-in devices"
-        description="Where your account is signed in. Sign out anything you don’t recognize, then change your password."
+        title={t('Signed-in devices')}
+        description={t(
+          'Where your account is signed in. Sign out anything you don’t recognize, then change your password.',
+        )}
       />
       {load.state === 'signInAgain' && (
         <div className="rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
-          <p className="text-[13px] text-main">Sign in again to manage your devices.</p>
+          <p className="text-[13px] text-main">{t('Sign in again to manage your devices.')}</p>
           <p className="mt-1 text-[12.5px] text-tertiary">
-            This device signed in before device management existed.
+            {t('This device signed in before device management existed.')}
           </p>
           <Button type="button" size="sm" className="mt-3" onClick={onSignOut}>
-            Sign out and sign in again
+            {t('Sign out and sign in again')}
           </Button>
         </div>
       )}
       {load.state === 'unavailable' && (
         <p className="text-[12.5px] text-tertiary">
-          Device management isn’t available on this server yet.
+          {t('Device management isn’t available on this server yet.')}
         </p>
       )}
       {load.state === 'failed' && (
         <p className="text-[12.5px] text-tertiary">
-          Couldn’t load your signed-in devices.{' '}
+          {t('Couldn’t load your signed-in devices.')}{' '}
           <Button type="button" size="sm" variant="secondary" onClick={refresh}>
-            Retry
+            {t('Retry')}
           </Button>
         </p>
       )}
@@ -121,15 +128,15 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
                     <span className="truncate">{sessionDevice(session)}</span>
                     {session.current && (
                       <span className="shrink-0 rounded bg-zGray-800/60 px-1.5 py-0.5 text-[11px] font-normal text-secondary">
-                        This device
+                        {t('This device')}
                       </span>
                     )}
                   </div>
                   <p className="mt-0.5 truncate text-[12.5px] text-tertiary">
                     {sessionPlace(session)} ·{' '}
                     {session.current
-                      ? 'Active now'
-                      : `Last active ${relativeTimeFromNow(session.lastUsedAt)}`}
+                      ? t('Active now')
+                      : t('Last active {when}', { when: relativeTimeFromNow(session.lastUsedAt) })}
                   </p>
                 </div>
                 {!session.current && (
@@ -140,7 +147,7 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
                     disabled={busy !== null}
                     onClick={() => setConfirming(session)}
                   >
-                    Sign out
+                    {t('Sign out')}
                   </Button>
                 )}
               </div>
@@ -155,7 +162,7 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
               disabled={busy !== null}
               onClick={() => setConfirming('others')}
             >
-              Sign out all other devices
+              {t('Sign out all other devices')}
             </Button>
           )}
         </SkeletonReveal>
@@ -164,15 +171,15 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
         open={confirming !== null}
         title={
           confirming === 'others'
-            ? 'Sign out all other devices'
-            : `Sign out ${confirming ? sessionDevice(confirming) : ''}`
+            ? t('Sign out all other devices')
+            : t('Sign out {device}', { device: confirming ? sessionDevice(confirming) : '' })
         }
         description={
           confirming === 'others'
-            ? 'Every device except this one will need to sign in again.'
-            : 'That device will need to sign in again.'
+            ? t('Every device except this one will need to sign in again.')
+            : t('That device will need to sign in again.')
         }
-        confirmLabel="Sign out"
+        confirmLabel={t('Sign out')}
         destructive
         onConfirm={() => (confirming ? signOut(confirming) : undefined)}
         onClose={() => setConfirming(null)}

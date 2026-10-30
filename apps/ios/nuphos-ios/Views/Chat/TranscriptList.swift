@@ -29,14 +29,13 @@ struct TranscriptList: UIViewControllerRepresentable {
 
 final class TranscriptController: UIViewController, UICollectionViewDelegate, ChatLayoutDelegate {
     private let layout = CollectionViewChatLayout()
-    private lazy var collection = UICollectionView(frame: .zero, collectionViewLayout: layout)
+    private lazy var collection = TranscriptCollectionView(frame: .zero, collectionViewLayout: layout)
     private var dataSource: ChatLayoutDiffableDataSource<Int, String>!
     private var rows: [ChatRow] = []
     private var byID: [String: ChatRow] = [:]
     private var content: ((ChatRow) -> AnyView)?
     private var sessionID = ""
     private var submittedID: String?
-    private var extendedID: String?
     private var pendingSentAnimationID: String?
     /// Whether the reader was at the end where they or the transcript last
     /// came to rest. Read from the position itself, so no event can leave it
@@ -84,8 +83,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         // animation and interactive drag, and nothing else moves them.
         addChild(composer)
         composer.view.backgroundColor = .clear
-        // Its own changes (focus, attachments) then ask for a new layout pass.
-        composer.sizingOptions = .intrinsicContentSize
+        // Its own changes (focus, attachments, a long draft) report a new size
+        // to this controller, which measures it again.
+        composer.sizingOptions = .preferredContentSize
         // The guide already keeps it clear of the keyboard and home indicator;
         // SwiftUI's own keyboard avoidance would move it a second time.
         composer.safeAreaRegions = []
@@ -161,16 +161,12 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         if sent {
             submittedID = submittedRowID
             pendingSentAnimationID = submittedRowID
-            extendedID = incoming.first { $0.id == submittedRowID }?.id
         }
         layout.keepContentOffsetAtBottomOnBatchUpdates = positioned && follow
         applying = true
         dataSource.apply(snapshot, animatingDifferences: false, commitAlongsideUpdates: {
             self.rows = incoming
             self.byID = updated
-            self.layout.settings.indexPathForExtendedLayout = self.extendedID.flatMap { id in
-                incoming.firstIndex { $0.id == id }.map { IndexPath(item: $0, section: 0) }
-            }
         }, completion: { [weak self] in
             guard let self else { return }
             self.applying = false
@@ -184,7 +180,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         if sent || follow {
             UIView.performWithoutAnimation { positionAtEnd() }
         } else if let anchor {
-            restore(id: anchor.id, edge: .top, offset: anchor.offset)
+            restore(id: anchor.id, offset: anchor.offset)
         }
         animatePendingSend()
     }
@@ -195,8 +191,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         view.setNeedsLayout()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
+    override func preferredContentSizeDidChange(forChildContentContainer container: UIContentContainer) {
+        super.preferredContentSizeDidChange(forChildContentContainer: container)
+        view.setNeedsLayout()
+    }
+
+    /// Before layout, so the transcript is sized and positioned against the
+    /// composer's new height in the same pass, inside the keyboard's animation.
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
         // Measured at the page's width: the hosting controller's own intrinsic
         // size has no width, so a long draft would never wrap and grow it.
         let height = ceil(composer.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude)).height)
@@ -206,12 +209,20 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             // both up at the composer's top edge.
             view.keyboardLayoutGuide.keyboardDismissPadding = height
         }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
         let size = collection.bounds.size
         guard size.width > 0, size.height > 0, size != previousSize else { return }
         previousSize = size
-        if !positioned || following {
-            // Inside the keyboard's animation, so the rows travel with it.
-            positionAtEnd()
+        // Never under a finger or a fling: on iPhone Duo the header resizes the
+        // transcript mid-gesture, and moving it then fights the reader. The
+        // finger is still down (isTracking) for a moment after isDragging clears.
+        if !positioned || (following && !collection.isTracking && !collection.isDragging && !collection.isDecelerating) {
+            // Inside the keyboard's animation, so the rows travel with it. A
+            // rotation moves them straight to their new layout instead.
+            if root.rotating { UIView.performWithoutAnimation(positionAtEnd) } else { positionAtEnd() }
         }
         animatePendingSend()
     }
@@ -239,26 +250,34 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         cell.layer.add(arrival, forKey: "sent-arrival")
     }
 
-    /// The end of the content. While a reply still fits below a just-sent
-    /// message, the room reserved for it puts that message at the top.
+    /// The end of the content.
     private func positionAtEnd() {
         guard collection.bounds.height > 0, let last = rows.indices.last else { return }
-        hold {
-            layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: last, section: 0), edge: .bottom, offset: 0))
-            let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
-            if collection.contentOffset.y < end { collection.contentOffset.y = end }
-        }
+        hold { scroll(to: .greatestFiniteMagnitude) }
         positioned = true
         following = atEnd
     }
 
-    private func restore(id: String, edge: ChatLayoutPositionSnapshot.Edge, offset: CGFloat) {
+    /// Puts a row's top `offset` points below the top of the visible area.
+    private func restore(id: String, offset: CGFloat) {
         guard let index = rows.firstIndex(where: { $0.id == id }) else { return }
+        let path = IndexPath(item: index, section: 0)
         UIView.performWithoutAnimation {
             hold {
-                layout.restoreContentOffset(with: .init(indexPath: IndexPath(item: index, section: 0), edge: edge, offset: offset))
+                guard let frame = layout.layoutAttributesForItem(at: path)?.frame else { return }
+                scroll(to: frame.minY - offset - collection.adjustedContentInset.top - layout.settings.additionalInsets.top)
             }
         }
+    }
+
+    /// Sets the offset directly, kept within the content. ChatLayout's
+    /// restoreContentOffset is not used: it lays out while answering nil for
+    /// every item, and UIKit aborts when it needs a visible cell's attributes
+    /// in that pass ("missing final attributes for cell").
+    private func scroll(to y: CGFloat) {
+        let top = -collection.adjustedContentInset.top
+        let end = layout.collectionViewContentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom
+        collection.contentOffset.y = min(max(y, top), max(top, end))
     }
 
     /// Rows come into view at their estimated height and are measured by the
@@ -312,15 +331,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     /// Close enough that the latest-message button adds nothing.
     private var nearBottom: Bool { distanceToEnd < 48 }
 
-    /// At the very end, and not holding a just-sent message at the top: the
-    /// room reserved for its reply keeps that message still while it grows.
     /// A reader who left the end by any distance is reading, not following.
-    private var atEnd: Bool {
-        guard distanceToEnd < 1 else { return false }
-        guard let last = rows.indices.last,
-              let frame = layout.layoutAttributesForItem(at: IndexPath(item: last, section: 0))?.frame else { return true }
-        return layout.collectionViewContentSize.height - frame.maxY - layout.settings.additionalInsets.bottom < 1
-    }
+    private var atEnd: Bool { distanceToEnd < 1 }
 
     private func updateLatestButton() { latestButton.isHidden = nearBottom }
 
@@ -393,11 +405,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         }
         apply()
         var openingError: CGFloat = 0
-        let probe = TranscriptFrameProbe { [weak self] in
-            guard let self else { return }
-            let gap = self.layout.collectionViewContentSize.height - self.collection.bounds.maxY + self.collection.adjustedContentInset.bottom
-            openingError = max(openingError, abs(gap))
-        }
+        let probe = TranscriptFrameProbe { [unowned self] in openingError = max(openingError, abs(distanceToEnd)) }
         await pause()
         probe.stop()
         check("open_every_frame", openingError < 20, "maxBottomGap=\(openingError)")
@@ -412,26 +420,19 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let sentCell = collection.cellForItem(at: IndexPath(item: fixture.count - 1, section: 0))
         check("sent_transition", sentCell?.layer.animation(forKey: "sent-arrival") != nil,
               "presentation-only duration=0.18")
-        func questionY() -> CGFloat {
-            guard let index = rows.firstIndex(where: { $0.id == "user.sent" }),
-                  let attributes = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0)) else { return .infinity }
-            return attributes.frame.minY - collection.bounds.minY - collection.adjustedContentInset.top
-        }
+        // A send sits at the end, above the composer, like any message.
         var sendingError: CGFloat = 0
-        let sendingProbe = TranscriptFrameProbe {
-            sendingError = max(sendingError, abs(questionY() - 12))
-        }
+        let sendingProbe = TranscriptFrameProbe { [unowned self] in sendingError = max(sendingError, abs(distanceToEnd)) }
         await pause()
         sendingProbe.stop()
-        check("send_every_frame", sendingError < 1, "maxQuestionDrift=\(sendingError)")
-        let sentY = questionY()
+        check("send_every_frame", sendingError < 1, "maxBottomGap=\(sendingError)")
+        let sentOffset = collection.contentOffset.y
         await pause()
-        check("send_stable", abs(questionY() - sentY) < 1 && abs(sentY) < 20,
-              "questionY=\(sentY) after=\(questionY())")
+        check("send_stable", abs(collection.contentOffset.y - sentOffset) < 1 && abs(distanceToEnd) < 1,
+              "before=\(sentOffset) after=\(collection.contentOffset.y) gap=\(distanceToEnd)")
+        // The reply streams in below it and the end stays in view.
         var streamingError: CGFloat = 0
-        let streamingProbe = TranscriptFrameProbe {
-            streamingError = max(streamingError, abs(questionY() - sentY))
-        }
+        let streamingProbe = TranscriptFrameProbe { [unowned self] in streamingError = max(streamingError, abs(distanceToEnd)) }
         fixture.append(.assistantText(id: "answer.sent", messageId: "reply", text: "Starting", streaming: true))
         for step in 1...15 {
             fixture[fixture.count - 1] = .assistantText(id: "answer.sent", messageId: "reply",
@@ -441,9 +442,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         }
         await pause()
         streamingProbe.stop()
-        check("stream_every_frame", streamingError < 1, "maxQuestionDrift=\(streamingError)")
-        check("stream_preserves_question", abs(questionY() - sentY) < 1,
-              "before=\(sentY) after=\(questionY())")
+        check("stream_every_frame", streamingError < 1, "maxBottomGap=\(streamingError)")
         let beforeRefresh = collection.contentOffset.y
         for _ in 0..<5 { apply("user.sent") }
         await pause()
@@ -455,7 +454,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         fixture = [.hint(id: "async-card", text: "", isError: false),
                    .user(id: "footer", messageId: "footer", text: "This must remain below the card", images: [])]
         apply("user.sent")
-        restore(id: "async-card", edge: .top, offset: 0)
+        restore(id: "async-card", offset: 0)
         await pause()
         let cardPath = IndexPath(item: 0, section: 0)
         let footerPath = IndexPath(item: 1, section: 0)
@@ -480,9 +479,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let expandedHeight = layout.layoutAttributesForItem(at: cardPath)?.size.height ?? 0
         check("step_anchor", initialY.isFinite && stepDrift < 1 && expandedHeight > 300,
               "maxTitleDrift=\(stepDrift) expandedHeight=\(expandedHeight)")
-        // A send puts the question at the top; the reply streams into the room
-        // below it, then keeps the end in view. A touch while it streams must
-        // never move the transcript back down, wherever the reader was.
+        // A send returns to the end and its reply keeps the end in view. A
+        // touch while it streams must never move the transcript back down,
+        // wherever the reader was.
         func y(of id: String) -> CGFloat {
             guard let index = rows.firstIndex(where: { $0.id == id }),
                   let attributes = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0)) else { return .infinity }
@@ -497,7 +496,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             fixture.append(.user(id: question, messageId: name, text: "Send while \(name)", images: []))
             apply(question)
             await pause()
-            let pinned = y(of: question)
+            let sentGap = distanceToEnd
             var lastOffset = collection.contentOffset.y, backward: CGFloat = 0
             let probe = TranscriptFrameProbe { [unowned self] in
                 backward = max(backward, lastOffset - collection.contentOffset.y)
@@ -513,15 +512,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             }
             await pause()
             probe.stop()
-            check("pinned_stream_\(name)", abs(pinned - 12) < 1 && backward < 1 && abs(y(of: question) - pinned) < 1,
-                  "pinnedY=\(pinned) maxBackward=\(backward) afterY=\(y(of: question))")
+            check("send_stream_\(name)", abs(sentGap) < 1 && backward < 1 && nearBottom,
+                  "sentGap=\(sentGap) maxBackward=\(backward) nearBottom=\(nearBottom)")
         }
         fixture = fixture0
         apply()
         showLatest()
         await pause()
         await sendAndStream("bottom")
-        restore(id: "user.20", edge: .top, offset: 0)
+        restore(id: "user.20", offset: 0)
         touch()
         await pause()
         await sendAndStream("up")
@@ -537,7 +536,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             text: String(repeating: "The final answer, long enough to hold the reader.\n\n", count: 60), streaming: true))
         apply("user.ended")
         await pause()
-        restore(id: "text.local.0", edge: .top, offset: -300)
+        restore(id: "text.local.0", offset: -300)
         touch()
         await pause()
         let endedY = y(of: "user.ended")
@@ -646,6 +645,49 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             check(name, collection.bounds.width != width && worst == 0,
                   "width=\(width)->\(collection.bounds.width) maxAnimatedRows=\(worst)")
         }
+        // The transcript resizes under a reader who drags or flings up. They
+        // are reading and must not be pulled back to the end.
+        func drag(_ steps: Int, by delta: CGFloat, resize: (Int) -> Void) async {
+            collection.simulatedDragging = true
+            scrollViewWillBeginDragging(collection)
+            for step in 0..<steps {
+                collection.contentOffset.y += delta
+                resize(step)
+                view.layoutIfNeeded()
+                try? await Task.sleep(for: .milliseconds(16))
+            }
+            collection.simulatedDragging = false
+        }
+        func atTheEnd() async {
+            fixture = fixture0
+            apply()
+            showLatest()
+            await pause()
+        }
+        await atTheEnd()
+        var start = collection.contentOffset.y
+        await drag(20, by: -60) { self.additionalSafeAreaInsets.bottom = CGFloat(300 - $0 * 15) }
+        scrollViewDidEndDragging(collection, willDecelerate: false)
+        var released = collection.contentOffset.y
+        await pause()
+        check("resize_while_dragging", released < start - 600 && abs(collection.contentOffset.y - released) < 1,
+              "start=\(start) released=\(released) after=\(collection.contentOffset.y)")
+        additionalSafeAreaInsets.bottom = 0
+        await atTheEnd()
+        start = collection.contentOffset.y
+        await drag(20, by: -60) { _ in }
+        collection.simulatedDecelerating = true
+        scrollViewDidEndDragging(collection, willDecelerate: true)
+        additionalSafeAreaInsets.bottom = 80
+        view.layoutIfNeeded()
+        collection.simulatedDecelerating = false
+        scrollViewDidEndDecelerating(collection)
+        released = collection.contentOffset.y
+        await pause()
+        check("resize_while_decelerating", released < start - 600 && abs(collection.contentOffset.y - released) < 1,
+              "start=\(start) released=\(released) after=\(collection.contentOffset.y)")
+        additionalSafeAreaInsets.bottom = 0
+        view.layoutIfNeeded()
         check("suite_complete", true, "")
     }
     #endif
@@ -655,6 +697,19 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
 /// the collection view cross-fades each row between its old and new layout
 /// and the drawn text stretches, so rows draw over each other for a moment.
 /// While rotating, the whole subtree takes its new size at once instead.
+#if DEBUG
+/// Lets the scroll regression stand in for a finger: only a real touch makes
+/// a scroll view report `isDragging` or `isDecelerating`.
+final class TranscriptCollectionView: UICollectionView {
+    var simulatedDragging = false
+    var simulatedDecelerating = false
+    override var isDragging: Bool { simulatedDragging || super.isDragging }
+    override var isDecelerating: Bool { simulatedDecelerating || super.isDecelerating }
+}
+#else
+typealias TranscriptCollectionView = UICollectionView
+#endif
+
 private final class RotationLayoutView: UIView {
     var rotating = false
     override func layoutSubviews() {

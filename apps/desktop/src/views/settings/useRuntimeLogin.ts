@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useStableCallback } from '../../hooks/useStableCallback'
+import { t } from '../../i18n'
 
 import { authorizeUrl, devicePage } from './runtimeLogin'
 
@@ -53,7 +54,7 @@ export function useRuntimeLogin(
     const poll = () => {
       void api.atlasGetRuntimeLogin(teamId, id).then(receive, () => {
         if (stopped) return
-        setError('Could not check sign-in status. Retrying…')
+        setError(t('Could not check sign-in status. Retrying…'))
         timer = setTimeout(poll, 3_000)
       })
     }
@@ -63,14 +64,14 @@ export function useRuntimeLogin(
       request.current ??= api.atlasStartRuntimeLogin(teamId, id)
       void request.current.then(receive, (cause: unknown) => {
         if (!stopped) {
-          setError('Could not start sign-in. Please try again.')
-          toast.apiError('Could not start sign-in', cause)
+          setError(t('Could not start sign-in. Please try again.'))
+          toast.apiError(t('Could not start sign-in'), cause)
         }
       })
     }
     // A just-created agent is still starting; sign-in needs it to answer first.
     const whenReachable = () => {
-      void api.atlasGetRuntimeInstanceStatus(teamId, id).then(
+      void api.atlasGetRuntimeInstanceStatus(teamId, id, true).then(
         (status) => {
           if (stopped) return
           if (status.online) start()
@@ -104,7 +105,7 @@ export function useRuntimeLogin(
 
       return true
     } catch (cause) {
-      toast.apiError('Could not cancel sign-in', cause)
+      toast.apiError(t('Could not cancel sign-in'), cause)
 
       return false
     } finally {

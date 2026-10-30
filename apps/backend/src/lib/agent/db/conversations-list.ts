@@ -1,4 +1,5 @@
 import { readableByFilter } from './access'
+import { OPEN_INPUT_REQUEST_FILTER } from './pending-decision'
 import { agentConversations, escapeRegExp } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -90,7 +91,8 @@ export async function getConversations(
   // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
   if (options.parentSessionId) query.parentSessionId = options.parentSessionId
-  if (options.pendingDecision) query.pendingDecision = { $exists: true }
+  // Inside $and, so the search $or below cannot replace it.
+  if (options.pendingDecision) (query.$and as unknown[]).push(OPEN_INPUT_REQUEST_FILTER)
   else
     query['metadata.trigger.id'] = options.triggerIds
       ? { $in: options.triggerIds }

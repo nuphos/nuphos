@@ -1,5 +1,6 @@
 import { Cloud, FolderTree } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { ConfigMapsView } from '../../views/ConfigMapsView'
 import { EndpointSlicesView } from '../../views/EndpointSlicesView'
 import { IngressesView } from '../../views/IngressesView'
@@ -33,7 +34,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
 
   if (active === 'networking.services') {
     return renderActiveNavPage(
-      'Services',
+      t('Services'),
       <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ServicesView
         namespace={namespace}
@@ -47,7 +48,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'networking.network-policies') {
     return renderActiveNavPage(
-      'Network Policies',
+      t('Network Policies'),
       <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <NetworkPoliciesView
         namespace={namespace}
@@ -61,7 +62,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'networking.ingresses') {
     return renderActiveNavPage(
-      'Ingresses',
+      t('Ingresses'),
       <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <IngressesView
         namespace={namespace}
@@ -75,7 +76,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'networking.endpoint-slices') {
     return renderActiveNavPage(
-      'Endpoint Slices',
+      t('Endpoint Slices'),
       <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <EndpointSlicesView
         namespace={namespace}
@@ -89,7 +90,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'config.configmaps') {
     return renderActiveNavPage(
-      'ConfigMaps',
+      t('ConfigMaps'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ConfigMapsView
         namespace={namespace}
@@ -103,7 +104,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'config.secrets') {
     return renderActiveNavPage(
-      'Secrets',
+      t('Secrets'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <SecretsView
         namespace={namespace}
@@ -117,7 +118,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'access.service-accounts') {
     return renderActiveNavPage(
-      'Service Accounts',
+      t('Service Accounts'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ServiceAccountsView
         namespace={namespace}
@@ -133,7 +134,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'access.roles') {
     return renderActiveNavPage(
-      'Roles',
+      t('Roles'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <RolesView
         namespace={namespace}
@@ -147,7 +148,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'access.role-bindings') {
     return renderActiveNavPage(
-      'Role Bindings',
+      t('Role Bindings'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <RoleBindingsView
         namespace={namespace}
@@ -161,7 +162,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'access.cluster-roles') {
     return renderActiveNavPage(
-      'Cluster Roles',
+      t('Cluster Roles'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ClusterRolesView
         filter={filter}
@@ -174,7 +175,7 @@ export function renderClusterResourcePages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'access.cluster-role-bindings') {
     return renderActiveNavPage(
-      'Cluster Role Bindings',
+      t('Cluster Role Bindings'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ClusterRoleBindingsView
         filter={filter}

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { useStableCallback } from '../../hooks/useStableCallback'
+import { t } from '../../i18n'
 import { isMac } from '../../lib/platform'
 
 import { ClaudeSignInCode } from './ClaudeSignInCode'
@@ -62,36 +63,42 @@ export function LocalAgentSignIn({
             setOpen(true)
           }}
         >
-          {label ?? `Sign in with ${name}`}
+          {label ?? t('Sign in with {name}', { name })}
         </Button>
       )}
       {open && (
         <Modal
           open
-          title={`Connect ${name} on this computer`}
+          title={t('Connect {name} on this computer', { name })}
           onClose={() => void close()}
           closeOnBackdrop={false}
         >
           <div className="space-y-4 p-5" role="status" aria-live="polite">
             <p className="text-[13px] text-secondary">
               {connected
-                ? `${name} is connected. Your local runtime is ready.`
+                ? t('{name} is connected. Your local runtime is ready.', { name })
                 : login?.state === 'checking'
-                  ? 'Verifying your sign-in…'
+                  ? t('Verifying your sign-in…')
                   : busy
-                    ? 'Finish signing in in your browser. This updates on its own.'
+                    ? t('Finish signing in in your browser. This updates on its own.')
                     : retry
-                      ? 'Sign-in did not finish. Try again.'
+                      ? t('Sign-in did not finish. Try again.')
                       : codex
-                        ? 'Sign in with ChatGPT using the one-time code. Device-code login must be enabled in ChatGPT security settings. This updates your terminal Codex login and restarts your local Codex runtime.'
+                        ? t(
+                            'Sign in with ChatGPT using the one-time code. Device-code login must be enabled in ChatGPT security settings. This updates your terminal Codex login and restarts your local Codex runtime.',
+                          )
                         : isMac
-                          ? 'Nuphos uses the Claude sign-in from your terminal. Signing in updates that shared login, restarts your local Claude runtime and stops its running agents.'
-                          : 'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude runtime and stops its running agents.'}
+                          ? t(
+                              'Nuphos uses the Claude sign-in from your terminal. Signing in updates that shared login, restarts your local Claude runtime and stops its running agents.',
+                            )
+                          : t(
+                              'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude runtime and stops its running agents.',
+                            )}
             </p>
             {busy && login?.userCode && (
               <div className="space-y-2">
                 <p className="text-sm text-secondary">
-                  Enter this one-time code on the sign-in page:
+                  {t('Enter this one-time code on the sign-in page:')}
                 </p>
                 <code className="block select-all text-xl font-semibold">{login.userCode}</code>
               </div>
@@ -103,26 +110,26 @@ export function LocalAgentSignIn({
                 rel="noopener noreferrer"
                 className="block text-[13px] text-zViolet-400 underline"
               >
-                Open the sign-in page
+                {t('Open the sign-in page')}
               </a>
             )}
             {busy && !codex && login?.url && <ClaudeSignInCode key={login.url} />}
             <div className="flex gap-2">
               {connected ? (
                 <Button size="sm" onClick={() => void close()}>
-                  Done
+                  {t('Done')}
                 </Button>
               ) : busy ? (
                 <Button size="sm" variant="ghost" onClick={() => void close()}>
-                  Cancel sign-in
+                  {t('Cancel sign-in')}
                 </Button>
               ) : (
                 <>
                   <Button size="sm" onClick={() => void start()}>
-                    {retry ? 'Try again' : `Sign in with ${name}`}
+                    {retry ? t('Try again') : t('Sign in with {name}', { name })}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => void close()}>
-                    Cancel
+                    {t('Cancel')}
                   </Button>
                 </>
               )}

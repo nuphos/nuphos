@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
+import { t } from '../../../i18n/index.ts'
 import { buildAgentStopNotification } from '../../../lib/agentStopNotification'
 import { toast } from '../../ui/toast'
 
@@ -94,12 +95,12 @@ export function useClientToolFlow(acc: Acc) {
           resumeReason: 'client-tool',
         })
       } catch (err) {
-        toast.apiError('Failed to continue the agent run', err)
+        toast.apiError(t('Failed to continue the agent run'), err)
         fireStopNotification(
           buildAgentStopNotification({
             outcome: {
               kind: 'failed',
-              cause: 'The agent could not be continued after running a local tool.',
+              cause: t('The agent could not be continued after running a local tool.'),
             },
             title: payload.title,
           }),

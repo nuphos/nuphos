@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { ArrowUp, Loader2 } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { Tooltip } from '../../ui/tooltip'
 
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
@@ -17,26 +18,32 @@ export function AgentUpdateBadge({
   update: AgentUpdate
   actionable?: boolean
 }) {
-  const target = update.version ? `v${update.version}` : 'the latest version'
+  const version = update.version ? `v${update.version}` : null
+  const availableText = version
+    ? t('{version} is available', { version })
+    : t('the latest version is available')
+  const updateToText = version
+    ? t('Update to {version}', { version })
+    : t('Update to the latest version')
 
   if (update.state === 'updating')
     return (
       <span className={BADGE} role="status">
         <Loader2 aria-hidden className="h-2.5 w-2.5 animate-spin motion-reduce:animate-none" />
-        Updating…
+        {t('Updating…')}
       </span>
     )
   const { start } = update
 
   if (!actionable || !start)
     return (
-      <Tooltip content={update.reason ?? `${target} is available`}>
-        <span className={BADGE}>Update available</span>
+      <Tooltip content={update.reason ?? availableText}>
+        <span className={BADGE}>{t('Update available')}</span>
       </Tooltip>
     )
 
   return (
-    <Tooltip content={`Update to ${target}`}>
+    <Tooltip content={updateToText}>
       <button
         type="button"
         className={clsx(
@@ -52,7 +59,7 @@ export function AgentUpdateBadge({
         }}
       >
         <ArrowUp aria-hidden className="h-2.5 w-2.5" />
-        Update available
+        {t('Update available')}
       </button>
     </Tooltip>
   )

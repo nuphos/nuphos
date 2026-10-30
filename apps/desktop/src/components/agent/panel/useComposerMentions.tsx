@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { AppAlertDialog } from '../../ui/alert-dialog'
 
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
@@ -213,12 +214,14 @@ export function useComposerMentions(
         open={uninvited.length > 0}
         title={
           uninvited.length === 1
-            ? `Invite ${names[0]} to this agent?`
-            : `Invite ${String(uninvited.length)} people to this agent?`
+            ? t('Invite {name} to this agent?', { name: names[0] })
+            : t('Invite {n} people to this agent?', { n: String(uninvited.length) })
         }
-        description={`You mentioned ${names.join(', ')}, but they are not in this agent yet.`}
-        confirmLabel="Invite"
-        cancelLabel="Don't invite"
+        description={t('You mentioned {names}, but they are not in this agent yet.', {
+          names: names.join(', '),
+        })}
+        confirmLabel={t('Invite')}
+        cancelLabel={t("Don't invite")}
         onConfirm={async () => {
           if (!scope?.sessionId) return
           await api.agentInviteConversationParticipants(

@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url'
 
 import { patchRuntimeDefaults } from '../runtime-defaults.mjs'
 
+import { patchCodexUserInput } from './ask-user-input.mjs'
+
 export function patchAdapter(source, helper) {
   const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
   helper = helper.replace("import { nuphosSessionHomeEnv } from '../session-home.mjs'", '')
@@ -134,18 +136,24 @@ export function patchAdapter(source, helper) {
         .replace('await new Promise(', 'await Promise.race([nuphosCodexDeath, new Promise(')
         .replace(/\}\);$/, '})]);'),
     )
+  // request_user_input asks through Nuphos; see native-question.mjs.
+  const asking = patchCodexUserInput(withDeath)
+  const nativeQuestion = readFileSync(
+    new URL('../native-question.mjs', import.meta.url),
+    'utf8',
+  ).replaceAll(/^export /gmu, '')
 
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.
   return patchRuntimeDefaults(
-    withDeath
+    asking
       .replace(
         'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
         'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',
       )
       .replace(
         '// src/index.ts',
-        `${restoreHistory}\n${sessionHome}\n${processDeath}\n${codexDeath}\n${helper}\n${steering}\n${mcpBridge}\n// src/index.ts`,
+        `${restoreHistory}\n${sessionHome}\n${processDeath}\n${codexDeath}\n${helper}\n${steering}\n${mcpBridge}\n${nativeQuestion}\n// src/index.ts`,
       ),
   )
 }

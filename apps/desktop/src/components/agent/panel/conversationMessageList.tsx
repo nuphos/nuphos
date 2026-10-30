@@ -1,6 +1,7 @@
 import { AlarmClock, Loader2 } from 'lucide-react'
 import { Fragment, useEffect, useMemo } from 'react'
 
+import { t } from '../../../i18n'
 import { runtimeAllows, runtimeIsExecuting } from '../../../lib/runtimeExecution'
 import { publishSessionDesktops } from '../../../lib/sessionDesktops'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
@@ -10,9 +11,9 @@ import {
 } from '../artifacts/useSessionArtifacts'
 
 import { conversationActivity } from './activity'
-import { toolAnchorIds } from './chatTarget'
 import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
+import { toolAnchorIds } from './chatTarget'
 import { AgentHomeAnimation } from './homeAnimation'
 import { CollapsedWorkView, LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
@@ -109,7 +110,7 @@ export function ConversationMessageList({
       {m.turnOrigin === 'autonomous' && !activity.before.has(m.id) && (
         <div className="mb-4 flex items-center gap-2 text-[11.5px] text-tertiary">
           <AlarmClock className="h-3.5 w-3.5" />
-          <span className="whitespace-nowrap">Resumed automatically</span>
+          <span className="whitespace-nowrap">{t('Resumed automatically')}</span>
           <div className="h-px flex-1 bg-border/60" />
         </div>
       )}
@@ -154,7 +155,7 @@ export function ConversationMessageList({
           {tab.loadingEarlier ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              Loading earlier messages…
+              {t('Loading earlier messages…')}
             </>
           ) : (
             <button
@@ -165,7 +166,7 @@ export function ConversationMessageList({
               }}
               className="hover:text-main transition-colors"
             >
-              Load earlier messages
+              {t('Load earlier messages')}
             </button>
           )}
         </div>

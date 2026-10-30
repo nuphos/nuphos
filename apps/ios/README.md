@@ -32,8 +32,7 @@ Relaunch without `-scroll-regression` to return to the signed-in app.
 The iOS transcript uses ChatLayout 2.5.2 and self-sizing UIKit cells hosting
 SwiftUI rows. The controller owns reading position, applies changed rows only,
 and treats `lastSubmittedRowID` as explicit local-send intent. Server updates
-preserve the visible row; sends extend the layout to place the new question near
-the top. Dragging takes over from automatic following. Markdown must be populated
+preserve the visible row; sends return to the end, above the composer. Dragging takes over from automatic following. Markdown must be populated
 before a fresh cell is measured. The existing SwiftUI transcript remains the
 fallback on other platforms.
 

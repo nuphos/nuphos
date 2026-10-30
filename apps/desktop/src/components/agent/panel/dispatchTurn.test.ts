@@ -62,6 +62,8 @@ before(async () => {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
+      // i18n subscribes to locale changes in other windows on import.
+      addEventListener: () => {},
       api: {
         agentSyncConversationTranscript: (args: SyncArgs) => {
           calls.push(['sync', args])
@@ -161,6 +163,20 @@ test('a saved chat sends without an import', async () => {
     calls.map(([kind]) => kind),
     ['start'],
   )
+  assert.equal((calls[0][1] as StartArgs).decisionReplyTo, undefined)
+})
+
+test('an explicit answer carries the question id to the agent turn', async () => {
+  calls.length = 0
+  failImport = false
+  const state = context({ unsaved: false })
+
+  state.ctx.decisionReplyTo = 'question-7'
+  await runDispatchTurn(state.ctx, 'tab', 'use the existing component', [])
+  await settle()
+
+  assert.equal((calls[0][1] as StartArgs).decisionReplyTo, 'question-7')
+  assert.equal((calls[0][1] as StartArgs).sessionId, 'fork')
 })
 
 test('a failed import does not start the turn and surfaces the error', async () => {

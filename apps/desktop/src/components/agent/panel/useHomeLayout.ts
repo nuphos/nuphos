@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
 import { loadStarterLayout } from './homeStarter'
@@ -55,7 +56,7 @@ export function useHomeLayout(teamId: string) {
   const save = (scope: 'personal' | 'team', layout: HomeLayout | null, next: HomeLayouts) => {
     setSaved(next)
     api.atlasPutHomeLayout(teamId, scope, layout).catch((err: unknown) => {
-      toast.apiError('Could not save the home layout', err)
+      toast.apiError(t('Could not save the home layout'), err)
       reload()
     })
   }

@@ -205,6 +205,7 @@ export const WorkspaceTabPane = memo(
                             target={tab.target}
                             s3Detail={tab.s3Detail}
                             architectureDetail={tab.architectureDetail ?? null}
+                            designDetail={tab.designDetail ?? null}
                             nuphosDashboard={tab.nuphosDashboard ?? null}
                             nuphosDashboards={tab.nuphosDashboards}
                             linearNav={tab.linearNav ?? null}

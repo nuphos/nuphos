@@ -3,6 +3,7 @@ import { Brain, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createHighlighter } from 'shiki'
 
+import { t } from '../../i18n'
 import { journalReasoningText, parseToolOutputPreview } from '../../lib/journalEvent'
 
 import { ClampedText } from './JournalEventChips'
@@ -77,7 +78,7 @@ function ClampedCode({
           }}
           className="text-[10px] text-violet-300/90 hover:text-violet-200"
         >
-          {expanded ? 'less' : 'more'}
+          {expanded ? t('less') : t('more')}
         </button>
       )}
     </div>
@@ -145,7 +146,7 @@ export function ToolOutputBody({ payload }: { payload: Record<string, unknown> }
         </div>
       ) : null}
       {!output.stdout && !output.stderr && (
-        <div className="text-[10.5px] text-tertiary">no output</div>
+        <div className="text-[10.5px] text-tertiary">{t('no output')}</div>
       )}
     </div>
   )
@@ -156,7 +157,7 @@ export function ToolOutputBody({ payload }: { payload: Record<string, unknown> }
  * contentHot, so showing it costs nothing in integrity terms — and it answers
  * the forensic question "why did the agent decide to do this".
  */
-export function ReasoningText({ text, label = 'Reasoning' }: { text: string; label?: string }) {
+export function ReasoningText({ text, label = t('Reasoning') }: { text: string; label?: string }) {
   if (!text) return null
 
   return (
@@ -194,7 +195,9 @@ export function CredentialGrantBody({ payload }: { payload: Record<string, unkno
   )
 
   if (rows.length === 0) {
-    return <div className="text-[11.5px] text-tertiary">No credentials granted this turn.</div>
+    return (
+      <div className="text-[11.5px] text-tertiary">{t('No credentials granted this turn.')}</div>
+    )
   }
 
   return (

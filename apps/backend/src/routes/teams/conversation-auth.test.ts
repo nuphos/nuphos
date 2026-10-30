@@ -43,8 +43,14 @@ describe('conversation team API capabilities', () => {
     expect(conversationCanonicalTeamApiPathAllowed('PUT', '/architecture-diagrams/diagram-1')).toBe(
       true,
     )
+    expect(conversationCanonicalTeamApiPathAllowed('GET', '/designs')).toBe(true)
+    expect(conversationCanonicalTeamApiPathAllowed('POST', '/designs/design-1/ops')).toBe(true)
+    expect(conversationCanonicalTeamApiPathAllowed('PUT', '/designs/design-1')).toBe(true)
     expect(conversationCanonicalTeamApiPathAllowed('POST', '/agent-triggers')).toBe(true)
     expect(conversationCanonicalTeamApiPathAllowed('POST', '/knowledge/search')).toBe(true)
+    expect(
+      conversationCanonicalTeamApiPathAllowed('GET', '/personal-credentials/gmail/token'),
+    ).toBe(true)
     expect(conversationCanonicalTeamApiPathAllowed('PATCH', '/instructions/instruction-1')).toBe(
       true,
     )

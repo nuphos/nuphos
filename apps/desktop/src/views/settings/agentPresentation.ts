@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.ts'
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
@@ -28,10 +29,10 @@ export function visibleAgent(instance: RuntimeInstance): boolean {
 }
 
 const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
-  managed: 'Cloud',
-  external: 'Self-hosted',
-  development: 'Development',
-  local: 'Computer',
+  managed: t('Cloud'),
+  external: t('Self-hosted'),
+  development: t('Development'),
+  local: t('Computer'),
 }
 
 /** A computer's agent goes by its own name, else its provider's; Runs on says which computer. */
@@ -58,13 +59,13 @@ export function agentRunsOn(
   let where = RUNS_ON[instance.kind]
 
   if (instance.kind === 'local') {
-    where = local?.deviceLabel.trim() ? local.deviceLabel : 'Computer'
-    if (currentDeviceId && local?.deviceId === currentDeviceId) where = 'This computer'
+    where = local?.deviceLabel.trim() ? local.deviceLabel : t('Computer')
+    if (currentDeviceId && local?.deviceId === currentDeviceId) where = t('This computer')
   }
 
-  if (instance.status !== 'active') return `${where} · Disabled`
+  if (instance.status !== 'active') return t('{where} · Disabled', { where })
 
-  return agentOffline(instance, quota) ? `${where} · Offline` : where
+  return agentOffline(instance, quota) ? t('{where} · Offline', { where }) : where
 }
 
 /**

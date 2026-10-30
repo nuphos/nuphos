@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { track, trackError } from '../../../lib/analytics'
 import { withClientToolDeadline } from '../../../lib/clientToolDeadline'
 import { pendingClientSideLocalTools } from '../../../lib/clientToolPhase'
@@ -45,6 +46,14 @@ export function finalizeIncompleteTools(messages: Message[], errorText: string):
 // five identical failures in 16 seconds). Track the streak on the tab and,
 // from the second consecutive identical error on, say plainly that retrying
 // won't help.
+// Outside latchTabError: its tab parameter shadows `t`.
+function repeatedFailureText(err: string, streak: number) {
+  return t(
+    "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)",
+    { error: err, count: streak },
+  )
+}
+
 export function latchTabError(
   t: Tab,
   err: string,
@@ -52,10 +61,7 @@ export function latchTabError(
   const streak = t.lastErrorKey === err ? (t.errorStreak ?? 1) + 1 : 1
 
   return {
-    error:
-      streak >= 2
-        ? `${err} (This has failed ${String(streak)} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)`
-        : err,
+    error: streak >= 2 ? repeatedFailureText(err, streak) : err,
     lastErrorKey: err,
     errorStreak: streak,
   }

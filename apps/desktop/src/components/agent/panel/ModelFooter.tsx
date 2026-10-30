@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Loader2, RefreshCw } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { MenuGroup, MenuGroupLabel, MenuItem, MenuSeparator } from '../../ui/menu'
 
 type FooterProps = {
@@ -42,7 +43,7 @@ export function ModelFooter({
           className="mx-auto mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-main outline-none hover:bg-zGray-800/80 focus-visible:bg-zGray-800/80 disabled:opacity-50"
         >
           <Icon size={13} className={clsx(retrying && 'animate-spin')} />
-          Retry connection
+          {t('Retry connection')}
         </button>
       )}
     </div>
@@ -72,7 +73,7 @@ export function ModelMenuFooter({ lines, onRetry, retrying }: FooterProps) {
             closeOnClick={false}
             onClick={onRetry}
           >
-            Retry connection
+            {t('Retry connection')}
           </MenuItem>
         )}
       </MenuGroup>

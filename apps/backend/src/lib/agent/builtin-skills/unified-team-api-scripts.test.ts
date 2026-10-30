@@ -12,6 +12,7 @@ const providers = [
   'betterstack',
   'cloudflare',
   'gcloud',
+  'google-workspace',
   'hetzner',
   'huawei',
   'jira',

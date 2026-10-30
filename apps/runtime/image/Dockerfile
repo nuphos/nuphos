@@ -45,7 +45,7 @@ RUN chmod -R a+rX /opt/nuphos-runtime \
 COPY --chmod=755 sync-skills.sh /usr/local/bin/nuphos-sync-skills
 COPY --chmod=755 seed-codex-auth.sh /usr/local/bin/nuphos-seed-codex-auth
 COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs \
-     process-death.mjs acp-shim.mjs /opt/
+     process-death.mjs acp-shim.mjs native-question.mjs /opt/
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
@@ -62,11 +62,11 @@ FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.312
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.314
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
-     claude-agent-acp/project-instructions.mjs \
+     claude-agent-acp/project-instructions.mjs claude-agent-acp/ask-user-question.mjs \
      /opt/nuphos-claude-agent-acp/
 # The lockfile carries no libc field, so npm installs the musl build of the
 # SDK's native CLI beside the glibc one this Debian image runs.
@@ -90,7 +90,8 @@ ENV PATH="/opt/nuphos-claude-agent-acp/node_modules/.bin:${PATH}" \
 FROM common AS codex
 COPY codex-acp/package.json codex-acp/package-lock.json \
      codex-acp/patch-adapter.mjs codex-acp/session-config.mjs codex-acp/steering.mjs \
-     codex-acp/restore-history.mjs codex-acp/process-death.mjs /opt/nuphos-codex-acp/
+     codex-acp/restore-history.mjs codex-acp/process-death.mjs codex-acp/ask-user-input.mjs \
+     /opt/nuphos-codex-acp/
 RUN cd /opt/nuphos-codex-acp \
  && npm ci --omit=dev --ignore-scripts --cache /tmp/npm-cache \
  && rm -rf /tmp/npm-cache \
@@ -128,7 +129,7 @@ COPY --from=openab /usr/local/bin/openab /usr/local/bin/openab
 
 # The `nuphos agent` host from that CLI release. A container given NUPHOS_JOIN_TOKEN runs
 # it instead of openab and joins Nuphos as a device, the way a Box does (runtime-start.sh).
-ARG NUPHOS_AGENT_VERSION=0.8.2
+ARG NUPHOS_AGENT_VERSION=0.8.3
 RUN arch=$(case "$(dpkg --print-architecture)" in amd64) echo x64 ;; *) dpkg --print-architecture ;; esac) \
  && asset="nuphos-agent-linux-${arch}.tar.gz" \
  && base="https://github.com/nuphos/nuphos/releases/download/cli-v${NUPHOS_AGENT_VERSION}" \

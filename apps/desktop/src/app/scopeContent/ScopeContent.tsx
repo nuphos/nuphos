@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 import { toast } from '../../components/ui/toast'
 import { useClusterAccessProbe } from '../../hooks/useClusterAccessProbe'
+import { t } from '../../i18n'
 import { isDatabaseEngineReleased } from '../../lib/databaseRelease'
 import { selectedAwsRoleId, selectedGcpServiceAccountId } from '../accountScopes'
 import { activeNavItemFor } from '../navItems'
@@ -97,10 +98,10 @@ export function ScopeContent(props: ScopeContentProps) {
       return
     }
     toast.error(
-      scopedDatabaseConnection ? 'Database engine unavailable' : 'Database unavailable',
+      scopedDatabaseConnection ? t('Database engine unavailable') : t('Database unavailable'),
       scopedDatabaseConnection
-        ? 'This database engine is not available in the current release.'
-        : 'This database connection no longer exists or is unavailable.',
+        ? t('This database engine is not available in the current release.')
+        : t('This database connection no longer exists or is unavailable.'),
     )
     onExitToConnectors()
   }, [databaseConnections, onExitToConnectors, scope.kind, scopedDatabaseConnection])

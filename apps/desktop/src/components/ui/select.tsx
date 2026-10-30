@@ -2,6 +2,8 @@ import { Select as SelectPrimitive } from '@base-ui/react/select'
 import clsx from 'clsx'
 import { Check, ChevronDown } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { capCenterClass, fieldClass } from './input-group'
 
 import type { ReactNode } from 'react'
@@ -46,7 +48,7 @@ export function AppSelect({
   value,
   onValueChange,
   options,
-  placeholder = 'Select',
+  placeholder = t('Select'),
   disabled,
   autoFocus,
   id,

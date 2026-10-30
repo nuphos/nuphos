@@ -14,17 +14,23 @@ import {
   connectorCount,
   deviceCount,
   filterChanges,
+  filterSubAgents,
   findConversation,
   machineName,
   outputFilesOf,
   shownChangesFilter,
+  shownSubAgentsFilter,
   splitFileName,
+  subAgentsFilterOptions,
+  subAgentsOf,
   subThreadsOf,
 } from './chatSummaryModel.ts'
 
+import type { SubAgent } from './chatSummaryModel.ts'
 import type { AgentConversation } from '../../../api/agent-types.ts'
 import type { SessionResource } from '../../../api/session-resource-types.ts'
-import type { ChangesFilter } from '../../../lib/chatSummaryPanel.ts'
+import type { ChangesFilter, SubAgentsFilter } from '../../../lib/chatSummaryPanel.ts'
+import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 import type { FileTransferGroup } from '../../../types/app-misc.ts'
 
 function chat(sessionId: string, extra: Partial<AgentConversation> = {}): AgentConversation {
@@ -304,4 +310,57 @@ test('All lists open, merged, then closed, keeping link order inside each', () =
     filterChanges(changes, 'merged').map((change) => change.id),
     ['merged-pr', 'done'],
   )
+})
+
+const turn: RuntimeExecution = { state: 'active' }
+const question: Partial<AgentConversation> = {
+  inputRequests: [
+    {
+      id: 'q1',
+      category: 'preference',
+      question: 'Which region?',
+      askedAt: '2026-10-27T12:00:00Z',
+      status: 'open',
+    },
+  ],
+}
+
+const subAgents: SubAgent[] = subAgentsOf(
+  [chat('done-new'), chat('running'), chat('done-old'), chat('waiting', question)],
+  new Map([['running', turn]]),
+)
+
+test('sub-agents are filtered by All, Active and Done, with counts', () => {
+  assert.deepEqual(subAgentsFilterOptions(subAgents), [
+    { filter: 'all', label: 'All', count: 4 },
+    { filter: 'active', label: 'Active', count: 2 },
+    { filter: 'done', label: 'Done', count: 2 },
+  ])
+})
+
+test('the sub-agents filter is hidden when every one is active or every one is done', () => {
+  assert.deepEqual(subAgentsFilterOptions(filterSubAgents(subAgents, 'done')), [])
+  assert.deepEqual(subAgentsFilterOptions(filterSubAgents(subAgents, 'active')), [])
+  assert.deepEqual(subAgentsFilterOptions([]), [])
+})
+
+function shownSubAgents(stored: SubAgentsFilter, list: SubAgent[]) {
+  return shownSubAgentsFilter(stored, subAgentsFilterOptions(list))
+}
+
+test('Active shows when a sub-agent is active, All when none is', () => {
+  assert.equal(shownSubAgents('active', subAgents), 'active')
+  assert.equal(shownSubAgents('active', filterSubAgents(subAgents, 'done')), 'all')
+  assert.equal(shownSubAgents('done', subAgents), 'done')
+  assert.equal(shownSubAgents('done', filterSubAgents(subAgents, 'active')), 'all')
+})
+
+function shownIds(filter: SubAgentsFilter) {
+  return filterSubAgents(subAgents, filter).map(({ conversation }) => conversation.sessionId)
+}
+
+test('All lists active sub-agents, then done ones, keeping activity order inside each', () => {
+  assert.deepEqual(shownIds('all'), ['running', 'waiting', 'done-new', 'done-old'])
+  assert.deepEqual(shownIds('active'), ['running', 'waiting'])
+  assert.deepEqual(shownIds('done'), ['done-new', 'done-old'])
 })

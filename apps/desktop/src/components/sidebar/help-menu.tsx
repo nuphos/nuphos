@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { DevPalette } from '../../devtools/palette'
+import { t } from '../../i18n'
 import { CHANGELOG_INDEX_URL } from '../../lib/whatsNew'
 import { Kbd } from '../ui/kbd'
 import {
@@ -46,7 +47,7 @@ function WhatsNewGroup({
 }) {
   return (
     <MenuGroup>
-      <MenuGroupLabel>What&apos;s new</MenuGroupLabel>
+      <MenuGroupLabel>{t("What's new")}</MenuGroupLabel>
       <div className="relative">
         <span
           aria-hidden
@@ -67,7 +68,7 @@ function WhatsNewGroup({
           hint={<ArrowUpRight className="h-3.5 w-3.5" />}
           onClick={() => void api.appOpenExternal(CHANGELOG_INDEX_URL)}
         >
-          Full changelog
+          {t('Full changelog')}
         </MenuItem>
       </div>
     </MenuGroup>
@@ -93,8 +94,12 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
               ? 'update-notif-enter bg-zViolet-500 text-white shadow-sm shadow-zViolet-900/40 hover:bg-zViolet-400'
               : 'text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]',
           )}
-          aria-label={update ? `Update ready — version ${update.version}` : 'Help'}
-          title={update ? `Update ready — version ${update.version}` : 'Help'}
+          aria-label={
+            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
+          }
+          title={
+            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
+          }
         >
           {update ? (
             <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -109,7 +114,7 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
           {update && (
             <>
               <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
-                Restart to update to {update.version}
+                {t('Restart to update to {version}', { version: update.version })}
               </MenuItem>
               <MenuSeparator />
             </>
@@ -126,7 +131,7 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
               hint={<Kbd combo="mod+/" />}
               onClick={() => onOpenShortcutsHelp()}
             >
-              Keyboard shortcuts
+              {t('Keyboard shortcuts')}
             </MenuItem>
           )}
           {import.meta.env.DEV && (

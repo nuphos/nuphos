@@ -2,6 +2,7 @@ import { ArrowLeftRight, Check, Copy, ExternalLink, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../api'
+import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 import { PORT_FORWARD_LIST_OPEN_EVENT } from '../lib/portForwardList'
 
@@ -122,8 +123,8 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
   const first = forwards[0]
   const label =
     forwards.length === 1
-      ? '1 active port forward'
-      : `${String(forwards.length)} active port forwards`
+      ? t('1 active port forward')
+      : t('{n} active port forwards', { n: forwards.length })
   const detail = first
     ? `localhost:${String(first.localPort)} -> ${first.namespace}/${first.podName}:${String(first.targetPort)}`
     : ''
@@ -134,7 +135,7 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         className="h-8 w-full flex-shrink-0 titlebar-no-drag bg-zViolet-500 text-white shadow-[0_-10px_30px_rgba(0,0,0,0.25)] hover:bg-zViolet-400 transition-colors"
-        title="Show current port forwards"
+        title={t('Show current port forwards')}
       >
         <span className="mx-auto flex h-full max-w-5xl items-center justify-center gap-2 px-4 text-[12.5px]">
           <ArrowLeftRight className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
@@ -147,8 +148,8 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Port forwards"
-        description="Current local tunnels"
+        title={t('Port forwards')}
+        description={t('Current local tunnels')}
         width={620}
       >
         <div className="flex flex-col divide-y divide-zGray-800">
@@ -184,7 +185,7 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
                 type="button"
                 onClick={() => void handleCopy(forward.id, forward.localPort)}
                 className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
-                title="Copy local address"
+                title={t('Copy local address')}
               >
                 {copiedId === forward.id ? (
                   <Check className="h-3.5 w-3.5 text-success" strokeWidth={2} />
@@ -196,7 +197,7 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
                 type="button"
                 onClick={() => void handleOpen(forward.localPort)}
                 className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
-                title="Open in browser"
+                title={t('Open in browser')}
               >
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
@@ -204,7 +205,7 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
                 type="button"
                 onClick={() => void handleStop(forward.id)}
                 className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-error/10 hover:text-error"
-                title="Stop port-forward"
+                title={t('Stop port-forward')}
               >
                 <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
               </button>

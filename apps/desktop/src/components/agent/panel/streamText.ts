@@ -3,6 +3,7 @@ import { textDeltaInsertionIndex } from '../../../lib/agentMessagePartOrder'
 import { STREAM_CHUNK_SIZES, STREAM_DELAY_MS } from './constants'
 import { isHiddenMemoryIngestPart } from './parts'
 import { uid } from './stall'
+import { t } from '../../../i18n/index.ts'
 
 import type { Message, Tab } from './model'
 import type { Part } from './parts'
@@ -159,13 +160,13 @@ export function formatMessageTimestamp(ms: number): string {
 export function formatWorkDuration(totalSeconds: number): string {
   const s = Math.max(1, totalSeconds)
 
-  if (s < 60) return `${String(s)}s`
+  if (s < 60) return t('{s}s', { s })
   const m = Math.floor(s / 60)
 
-  if (m < 60) return s % 60 > 0 ? `${String(m)}m ${String(s % 60)}s` : `${String(m)}m`
+  if (m < 60) return s % 60 > 0 ? t('{m}m {s}s', { m, s: s % 60 }) : t('{m}m', { m })
   const h = Math.floor(m / 60)
 
-  return m % 60 > 0 ? `${String(h)}h ${String(m % 60)}m` : `${String(h)}h`
+  return m % 60 > 0 ? t('{h}h {m}m', { h, m: m % 60 }) : t('{h}h', { h })
 }
 
 export function assistantPartKey(

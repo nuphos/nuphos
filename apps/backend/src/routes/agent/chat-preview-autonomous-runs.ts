@@ -18,15 +18,22 @@ import type { ClaudeCodeAutonomousContext } from '@/lib/claude-code-preview/agen
 export const autonomous = createClaudeCodeAutonomousUpdateHandler({
   begin: (context: ClaudeCodeAutonomousContext, messageId: string) => {
     const streamId = randomUUID()
-    const run = createAgentRun(context.conversationOwnerUserId, context.conversationId, streamId, {
-      requestId: randomUUID(),
-      userId: context.userId,
-      sessionId: context.conversationId,
-      teamId: context.teamId,
+    const run = createAgentRun(
+      context.conversationOwnerUserId,
+      context.conversationId,
       streamId,
-      route: 'claude-code/autonomous',
-      method: 'RUNTIME',
-    })
+      {
+        requestId: randomUUID(),
+        userId: context.userId,
+        sessionId: context.conversationId,
+        teamId: context.teamId,
+        streamId,
+        route: 'claude-code/autonomous',
+        method: 'RUNTIME',
+      },
+      // Shown live, but never a claim: a turn that missed its end must not hold the session.
+      { runtimeOwned: true },
+    )
 
     registerAgentRun(run)
     const state = createPreviewRunState({

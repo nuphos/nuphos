@@ -1,12 +1,13 @@
 import { CircleAlert, Loader2 } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { chatRowIndicator, runtimeStateLabel } from '../../lib/runtimeExecution'
 
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
 const DOTS = {
-  background: { label: 'Background task running', color: 'bg-warning' },
-  unread: { label: 'Unread reply', color: 'bg-zViolet-500' },
+  background: { label: t('Background task running'), color: 'bg-warning' },
+  unread: { label: t('Unread reply'), color: 'bg-zViolet-500' },
 } as const
 
 /** The row's status at its right edge; the left icon only ever names the agent. */

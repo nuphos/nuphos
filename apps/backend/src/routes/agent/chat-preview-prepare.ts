@@ -7,6 +7,7 @@ import {
   clearPendingDecision,
   clearConversationPreviewTurn,
   openConversationPromptSuggestion,
+  resolveInputRequest,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
@@ -129,8 +130,12 @@ export async function persistPreviewTurnContext(
   args: PreviewChatTurnArgs,
   requestId: string,
 ): Promise<void> {
-  // A person speaking in the session answers whatever it was waiting on.
-  if (args.humanTurn) await clearPendingDecision(args.sessionId, args.userId)
+  // A person speaking answers what the session waited on: the question an
+  // updated client names, or for older clients and channel integrations, any.
+  if (args.humanTurn && args.decisionReplyTo)
+    await resolveInputRequest(args.sessionId, args.userId, args.decisionReplyTo, 'answered')
+  else if (args.humanTurn && !args.explicitDecisionReplies)
+    await clearPendingDecision(args.sessionId, args.userId)
   try {
     await setConversationPreviewContext(args.sessionId, args.teamId, {
       activeTurnKey: requestId,

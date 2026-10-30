@@ -2,6 +2,7 @@ import { History, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { useAgentUnreadSessions } from '../../../lib/agentUnreadSessions'
 import { SearchBox } from '../../Toolbar'
 import { Menu, MenuContent, MenuTrigger } from '../../ui/menu'
@@ -78,7 +79,7 @@ export function ConversationSwitcher({
       })
       .catch((err: unknown) => {
         if (requestIdRef.current !== requestId) return
-        toast.apiError('Failed to load agents', err)
+        toast.apiError(t('Failed to load agents'), err)
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setLoading(false)
@@ -95,8 +96,8 @@ export function ConversationSwitcher({
     >
       <MenuTrigger
         className="flex h-7 w-7 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main"
-        title="Switch agent"
-        aria-label="Switch agent"
+        title={t('Switch agent')}
+        aria-label={t('Switch agent')}
       >
         <History className="h-3.5 w-3.5" strokeWidth={1.8} />
       </MenuTrigger>
@@ -104,18 +105,18 @@ export function ConversationSwitcher({
         {/* Menus carry a flat `p-1`; the search box needs the same breathing
             room top and bottom, or it reads as pushed against the lid. */}
         <div className="px-1.5 pb-1.5 pt-1.5">
-          <SearchBox filter={query} onFilterChange={setQuery} fill label="Search agents" />
+          <SearchBox filter={query} onFilterChange={setQuery} fill label={t('Search agents')} />
         </div>
         <div className="max-h-[320px] overflow-y-auto scrollbar-thin px-1 pb-1">
           {loading && items === null && (
             <div className="flex items-center gap-2 px-2 py-2 text-[12.5px] text-tertiary">
               <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-              Loading…
+              {t('Loading…')}
             </div>
           )}
           {items?.length === 0 && (
             <div className="px-2 py-2 text-[12.5px] text-tertiary">
-              {debouncedQuery ? 'No agents match your search.' : 'No agents yet.'}
+              {debouncedQuery ? t('No agents match your search.') : t('No agents yet.')}
             </div>
           )}
           {items?.map((conversation) => (

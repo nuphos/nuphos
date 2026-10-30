@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { formatActivityTime } from './deviceActivity'
 
@@ -23,7 +24,7 @@ function ActivityRow({
   teamName: string
   onOpenConversation?: (sessionId: string) => void
 }) {
-  const title = entry.conversationTitle ?? 'Untitled agent'
+  const title = entry.conversationTitle ?? t('Untitled agent')
 
   return (
     <div className="border-t border-zGray-800/60 bg-surface px-4 py-2.5 first:border-t-0">
@@ -34,9 +35,9 @@ function ActivityRow({
         <span>·</span>
         <span className="truncate">{teamName}</span>
         <span>·</span>
-        <span className="truncate">{entry.actorName ?? 'A teammate'}</span>
+        <span className="truncate">{entry.actorName ?? t('A teammate')}</span>
         <span className="ml-auto shrink-0 whitespace-nowrap">
-          {entry.turns} {entry.turns === 1 ? 'turn' : 'turns'}
+          {entry.turns === 1 ? t('1 turn') : t('{n} turns', { n: entry.turns })}
         </span>
       </div>
       {onOpenConversation ? (
@@ -78,7 +79,7 @@ export function LocalRuntimeActivity({
       try {
         applyPage(await api.localRuntimeListActivity(before), before !== undefined)
       } catch (err) {
-        toast.apiError('Could not load local runtime activity', err)
+        toast.apiError(t('Could not load local runtime activity'), err)
         setEntries((prev) => prev ?? [])
       } finally {
         setLoading(false)
@@ -99,9 +100,9 @@ export function LocalRuntimeActivity({
 
   let body: ReactNode
 
-  if (entries === null) body = <p className={EMPTY_CLASSES}>Loading…</p>
+  if (entries === null) body = <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
   else if (entries.length === 0)
-    body = <p className={EMPTY_CLASSES}>No agent has run on this computer yet.</p>
+    body = <p className={EMPTY_CLASSES}>{t('No agent has run on this computer yet.')}</p>
   else
     body = (
       <>
@@ -110,7 +111,7 @@ export function LocalRuntimeActivity({
             <ActivityRow
               key={entry.id}
               entry={entry}
-              teamName={teamNames.get(entry.teamId) ?? 'A team'}
+              teamName={teamNames.get(entry.teamId) ?? t('A team')}
               {...(entry.teamId === currentTeamId && onOpenConversation
                 ? { onOpenConversation }
                 : {})}
@@ -125,7 +126,7 @@ export function LocalRuntimeActivity({
               disabled={loading}
               onClick={() => void load(nextCursor)}
             >
-              {loading ? 'Loading…' : 'Load more'}
+              {loading ? t('Loading…') : t('Load more')}
             </Button>
           </div>
         )}
@@ -135,11 +136,11 @@ export function LocalRuntimeActivity({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-main">Activity</span>
+        <span className="text-[13px] font-semibold text-main">{t('Activity')}</span>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Refresh local runtime activity"
+          aria-label={t('Refresh local runtime activity')}
           disabled={loading}
           onClick={() => void load()}
         >
@@ -148,7 +149,7 @@ export function LocalRuntimeActivity({
       </div>
       {body}
       <p className="mt-2 text-[11px] text-tertiary">
-        Every agent that ran here, by team. Kept for 90 days.
+        {t('Every agent that ran here, by team. Kept for 90 days.')}
       </p>
     </div>
   )

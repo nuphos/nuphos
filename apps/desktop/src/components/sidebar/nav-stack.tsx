@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronLeft, PanelLeft } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
 import { Kbd } from '../ui/kbd'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu'
 import { Tooltip } from '../ui/tooltip'
@@ -171,7 +172,7 @@ export function SidebarBackControl({
         }
       >
         <ChevronLeft className="h-3.5 w-3.5 flex-shrink-0 -translate-x-0.5 transition-transform group-hover:-translate-x-1" />
-        <span className="flex-1 truncate text-left">Back</span>
+        <span className="flex-1 truncate text-left">{t('Back')}</span>
       </MenuTrigger>
       {nodes.length > 0 && (
         <MenuContent side="bottom" align="start" className="w-[260px]">
@@ -207,7 +208,7 @@ export function SidebarBackControl({
                   </span>
                 )}
                 <span className="truncate">{node.label}</span>
-                {isCurrent && <span className="flex-shrink-0 text-tertiary">(current)</span>}
+                {isCurrent && <span className="flex-shrink-0 text-tertiary">{t('(current)')}</span>}
               </span>
             )
 
@@ -255,7 +256,7 @@ export function SidebarToggleButton({
     <Tooltip
       content={
         <span className="inline-flex items-center gap-1.5">
-          {collapsed ? 'Show sidebar' : 'Hide sidebar'} <Kbd combo="mod+b" />
+          {collapsed ? t('Show sidebar') : t('Hide sidebar')} <Kbd combo="mod+b" />
         </span>
       }
     >
@@ -266,7 +267,7 @@ export function SidebarToggleButton({
           'titlebar-no-drag w-8 h-8 rounded-md flex items-center justify-center text-tertiary transition-colors hover:text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
           className,
         )}
-        aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+        aria-label={collapsed ? t('Show sidebar') : t('Hide sidebar')}
         aria-pressed={!collapsed}
       >
         <PanelLeft className="w-[15px] h-[15px]" strokeWidth={1.5} />

@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Terminal } from 'lucide-react'
 import { useMemo } from 'react'
 
+import { t } from '../../i18n'
 import {
   formatJournalTs,
   formatJournalClock,
@@ -56,9 +57,9 @@ export function JournalTimeline({
             <li key={item.event.eventId} className="flex items-center gap-2 pb-3 pt-1.5">
               <div className="h-px flex-1 bg-zGray-800" />
               <span className="flex-shrink-0 text-[10px] uppercase tracking-wider text-tertiary">
-                turn · {formatJournalTs(item.event.ts)}
+                {t('turn')} · {formatJournalTs(item.event.ts)}
                 {typeof payload.messageCount === 'number'
-                  ? ` · ${String(payload.messageCount)} msgs in context`
+                  ? ` · ${t('{n} msgs in context', { n: String(payload.messageCount) })}`
                   : ''}
               </span>
               <div className="h-px flex-1 bg-zGray-800" />
@@ -89,7 +90,7 @@ export function JournalTimeline({
               target && onLocateInChat && 'hover:bg-zGray-800/40',
             )}
             title={`#${String(anchorEvent.seq)} · ${formatJournalTs(anchorEvent.ts)}${
-              target && onLocateInChat ? ' — click to show in conversation' : ''
+              target && onLocateInChat ? ` — ${t('click to show in conversation')}` : ''
             }`}
           >
             {/* Both clocks (0706 sync #3): absolute for correlating with
@@ -109,7 +110,7 @@ export function JournalTimeline({
             <div className="min-w-0 flex-1 space-y-1">
               {sealed && (
                 <span className="float-right text-[9px] uppercase tracking-wider text-emerald-500/80">
-                  sealed
+                  {t('sealed')}
                 </span>
               )}
               {item.kind === 'tool' ? (

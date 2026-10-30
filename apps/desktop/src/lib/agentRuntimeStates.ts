@@ -45,7 +45,7 @@ export function publishRuntimeStates(states: Iterable<readonly [string, RuntimeE
   for (const listener of listeners) listener()
 }
 
-function subscribe(listener: () => void) {
+export function subscribeRuntimeStates(listener: () => void) {
   listeners.add(listener)
 
   return () => {
@@ -53,7 +53,7 @@ function subscribe(listener: () => void) {
   }
 }
 
-function getSnapshot() {
+export function getRuntimeStates(): ReadonlyMap<string, RuntimeExecution> {
   return snapshot
 }
 
@@ -63,5 +63,5 @@ export function runtimeStateOf(sessionId: string | null | undefined): RuntimeExe
 }
 
 export function useAgentRuntimeStates(): ReadonlyMap<string, RuntimeExecution> {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return useSyncExternalStore(subscribeRuntimeStates, getRuntimeStates, getRuntimeStates)
 }

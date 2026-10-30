@@ -1,6 +1,7 @@
 import { Monitor } from 'lucide-react'
 
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
+import { t } from '../../../i18n'
 import { localAgentReady } from '../../../lib/localAgentReady'
 
 /** A quiet pointer to set up the local agent, shown only while this computer has none ready. */
@@ -14,8 +15,9 @@ export function LocalAgentHint() {
   return (
     <p className="mt-3 flex items-center justify-center gap-1.5 text-[12px] text-tertiary">
       <Monitor strokeWidth={1.5} className="h-3.5 w-3.5 shrink-0" />
-      Install and sign in to Claude Code or Codex to run a runtime on this computer — see User
-      settings › This computer › Local runtime.
+      {t(
+        'Install and sign in to Claude Code or Codex to run a runtime on this computer — see User settings › This computer › Local runtime.',
+      )}
     </p>
   )
 }

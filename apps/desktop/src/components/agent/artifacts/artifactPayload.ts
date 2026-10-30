@@ -1,6 +1,7 @@
 // What a `render_artifact` call carries, and the version lines a chat's calls
 // form. The backend tool echoes only a receipt, so the call's input is the
 // artifact.
+import { t } from '../../../i18n/index.ts'
 
 export const ARTIFACT_TOOL = 'render_artifact'
 
@@ -113,10 +114,10 @@ const CODE_EXTENSIONS: Partial<Record<string, string>> = {
 
 /** What the card and the panel call this kind of artifact. */
 export function artifactKindLabel(payload: Pick<ArtifactPayload, 'kind' | 'language'>): string {
-  if (payload.kind === 'html') return 'Page'
-  if (payload.kind === 'markdown') return 'Document'
-  if (payload.kind === 'svg') return 'Image'
-  if (!payload.language) return 'Code'
+  if (payload.kind === 'html') return t('Page')
+  if (payload.kind === 'markdown') return t('Document')
+  if (payload.kind === 'svg') return t('Image')
+  if (!payload.language) return t('Code')
 
   return payload.language.length <= 3
     ? payload.language.toUpperCase()

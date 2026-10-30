@@ -1,5 +1,6 @@
 import { Cloud, Laptop, Monitor, Plug } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { isLocalAgentRuntime } from '../../../lib/localAgentSharing'
 
 import { connectorCount, deviceCount, machineName } from './chatSummaryModel'
@@ -14,23 +15,23 @@ export function ChatSummaryEnvironment({ conversation }: { conversation: AgentCo
   const connectors = connectorCount(conversation)
 
   return (
-    <SummarySection title="Environment">
+    <SummarySection title={t('Environment')}>
       <SummaryRow
         icon={local ? <Monitor className="size-3.5" /> : <Cloud className="size-3.5" />}
         label={machineName(conversation.runtimeLabel, local)}
-        note={local ? 'Local' : 'Cloud'}
+        note={local ? t('Local') : t('Cloud')}
       />
       {devices > 0 && (
         <SummaryRow
           icon={<Laptop className="size-3.5" />}
-          label="Computers"
+          label={t('Computers')}
           note={String(devices)}
         />
       )}
       {connectors > 0 && (
         <SummaryRow
           icon={<Plug className="size-3.5" />}
-          label="Connectors"
+          label={t('Connectors')}
           note={String(connectors)}
         />
       )}

@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react'
 import { api } from '../../api'
 import { selectedAwsRoleId, selectedGcpServiceAccountId } from '../../app/accountScopes'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { mergeIfChanged } from '../../lib/mergeIfChanged'
 import type {} from '../../types'
 
@@ -64,7 +65,7 @@ export function useWorkspaceAccounts(a: Args) {
         .catch((cause: unknown) => {
           if (cancelled || version !== requestVersion) return
           setDatabaseConnectionsByTeam((prev) => ({ ...prev, [teamId]: [] }))
-          toast.apiError('Failed to load databases', cause)
+          toast.apiError(t('Failed to load databases'), cause)
         })
     }
 
@@ -178,7 +179,7 @@ export function useWorkspaceAccounts(a: Args) {
           setLkeClustersByAccount((prev) =>
             prev[key] === undefined ? { ...prev, [key]: [] } : prev,
           )
-          toast.apiError('Failed to load LKE clusters', err)
+          toast.apiError(t('Failed to load LKE clusters'), err)
         })
     },
     [setLkeClustersByAccount],

@@ -1,4 +1,4 @@
-// Personal Credentials: a member's own GitHub / Linear grant. Connect,
+// Personal Credentials: a member's own GitHub / Linear / Google grant. Connect,
 // list and disconnect live here; the agent-facing handout is in ./handout.
 import { createHash, randomBytes } from 'node:crypto'
 
@@ -9,16 +9,12 @@ import { getDefaultClientCredentials, getViewer } from '@/lib/byos/linear'
 import { buildAuthorizeUrl, exchangeCodeForTokens } from '@/lib/byos/linear-oauth'
 import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
+import { getTeamMembership } from '@/lib/identity'
 import { personalCredentialPendingOAuth, personalCredentials } from '@/models'
 
-import {
-  exchangeGithubCode,
-  getGithubUser,
-  githubAuthorizeUrl,
-  githubOAuthClient,
-  revokeGithubToken,
-} from './github'
+import { GOOGLE_PROVIDERS, googleTeamFor, isGoogleProvider } from './google'
+import { pkceFlow } from './pkce'
+import { revokeQuietly } from './revoke'
 import { open, seal } from './seal'
 
 import type { ProviderTokens } from './github'
@@ -26,9 +22,15 @@ import type { PersonalCredential, PersonalCredentialProvider } from '@/models'
 
 const PENDING_TTL_MS = 10 * 60 * 1000
 const LINEAR_SCOPE = 'read,write'
-const LINEAR_REVOKE_URL = 'https://api.linear.app/oauth/revoke'
 
-export const PERSONAL_CREDENTIAL_PROVIDERS = ['github', 'linear'] as const
+export const PERSONAL_CREDENTIAL_PROVIDERS = ['github', 'linear', ...GOOGLE_PROVIDERS] as const
+
+const NAMES: Record<PersonalCredentialProvider, string> = {
+  github: 'GitHub',
+  linear: 'Linear',
+  gmail: 'Gmail',
+  'google-drive': 'Google Drive',
+}
 
 /** The callback is on the backend's public origin (NUPHOS_PUBLIC_BACKEND_URL). */
 function callbackUrl(provider: PersonalCredentialProvider): string | null {
@@ -43,7 +45,7 @@ function notConfigured(provider: PersonalCredentialProvider): AppError {
   return new AppError(
     503,
     'personal_credential_not_configured',
-    `Personal Credentials for ${provider === 'github' ? 'GitHub' : 'Linear'} are not configured on this server`,
+    `Personal Credentials for ${NAMES[provider]} are not configured on this server`,
   )
 }
 
@@ -51,6 +53,8 @@ export type PersonalCredentialSummary = {
   provider: PersonalCredentialProvider
   login: string
   workspaceName: string | null
+  /** Gmail / Google Drive: the team whose OAuth client issued the grant. */
+  teamId: string | null
   connectedAt: string
 }
 
@@ -58,13 +62,17 @@ export async function listPersonalCredentials(
   userId: string,
 ): Promise<PersonalCredentialSummary[]> {
   const docs = await personalCredentials()
-    .find({ userId }, { projection: { provider: 1, login: 1, workspaceName: 1, createdAt: 1 } })
+    .find(
+      { userId },
+      { projection: { provider: 1, login: 1, workspaceName: 1, teamId: 1, createdAt: 1 } },
+    )
     .toArray()
 
   return docs.map((doc) => ({
     provider: doc.provider,
     login: doc.login,
     workspaceName: doc.workspaceName ?? null,
+    teamId: doc.teamId ?? null,
     connectedAt: doc.createdAt.toISOString(),
   }))
 }
@@ -72,32 +80,37 @@ export async function listPersonalCredentials(
 export async function startPersonalCredentialOAuth(
   userId: string,
   provider: PersonalCredentialProvider,
+  requestedTeamId?: string,
 ): Promise<{ authorizeUrl: string; state: string }> {
   const redirectUri = callbackUrl(provider)
   const state = randomBytes(24).toString('base64url')
   const expiresAt = new Date(Date.now() + PENDING_TTL_MS)
+  const teamId = isGoogleProvider(provider)
+    ? await googleTeamFor(userId, requestedTeamId)
+    : undefined
+  const flow = await pkceFlow(provider, teamId)
 
-  if (provider === 'github') {
-    const client = githubOAuthClient()
-
-    if (!client || !redirectUri || !config.byos.github.encryptionKey) throw notConfigured(provider)
+  if (flow) {
+    if (!flow.client || !redirectUri || !flow.key) throw notConfigured(provider)
     const verifier = randomBytes(32).toString('base64url')
+    const codeChallenge = createHash('sha256').update(verifier).digest('base64url')
 
     await personalCredentialPendingOAuth().insertOne({
       _id: state,
       userId,
       provider,
+      ...(teamId ? { teamId } : {}),
       encryptedCodeVerifier: seal(provider, verifier),
       expiresAt,
     })
 
     return {
       state,
-      authorizeUrl: githubAuthorizeUrl({
-        clientId: client.clientId,
+      authorizeUrl: flow.authorizeUrl({
+        clientId: flow.client.clientId,
         redirectUri,
         state,
-        codeChallenge: createHash('sha256').update(verifier).digest('base64url'),
+        codeChallenge,
       }),
     }
   }
@@ -120,7 +133,7 @@ export async function startPersonalCredentialOAuth(
 
 type Identity = Pick<
   PersonalCredential,
-  'providerUserId' | 'login' | 'workspaceId' | 'workspaceName'
+  'providerUserId' | 'login' | 'workspaceId' | 'workspaceName' | 'teamId'
 >
 
 /**
@@ -152,19 +165,26 @@ export async function stagePersonalCredentialOAuth(
   let tokens: ProviderTokens
   let identity: Identity
 
-  if (provider === 'github') {
-    const client = githubOAuthClient()
+  const flow = await pkceFlow(provider, pending.teamId)
 
-    if (!client || !redirectUri || !pending.encryptedCodeVerifier) throw notConfigured(provider)
-    tokens = await exchangeGithubCode({
-      ...client,
+  if (flow) {
+    if (!flow.client || !redirectUri || !pending.encryptedCodeVerifier) {
+      throw notConfigured(provider)
+    }
+    tokens = await flow.exchange({
+      ...flow.client,
       code,
       redirectUri,
       codeVerifier: open(provider, pending.encryptedCodeVerifier),
     })
-    const user = await getGithubUser(tokens.accessToken)
+    const user = await flow.user(tokens.accessToken)
 
     identity = { providerUserId: user.id, login: user.login }
+    if (pending.teamId) {
+      const membership = await getTeamMembership(pending.userId, pending.teamId)
+
+      identity = { ...identity, teamId: pending.teamId, workspaceName: membership?.team.name }
+    }
   } else {
     const client = getDefaultClientCredentials()
 
@@ -218,7 +238,7 @@ export async function claimPersonalCredential(
   }
   const now = new Date()
   const previous = await personalCredentials().findOneAndUpdate(
-    { userId, provider },
+    { userId, provider, ...(ready.staged.teamId ? { teamId: ready.staged.teamId } : {}) },
     {
       $set: { ...ready.staged, updatedAt: now },
       $setOnInsert: { _id: new ObjectId(), createdAt: now },
@@ -226,12 +246,15 @@ export async function claimPersonalCredential(
     { upsert: true, returnDocument: 'before' },
   )
 
-  if (previous) void revokeQuietly(previous)
+  // Google revokes a member's whole grant to one client, so a replaced Google
+  // grant (always the same team's client) is left alone: revoking it would end the new one.
+  if (previous && !isGoogleProvider(provider)) void revokeQuietly(previous)
 
   return {
     provider,
     login: ready.staged.login,
     workspaceName: ready.staged.workspaceName ?? null,
+    teamId: ready.staged.teamId ?? null,
     connectedAt: (previous?.createdAt ?? now).toISOString(),
   }
 }
@@ -240,35 +263,11 @@ function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
 }
 
-async function revokeAtProvider(doc: PersonalCredential): Promise<void> {
-  const token = open(doc.provider, doc.encryptedAccessToken)
-
-  if (doc.provider === 'github') return revokeGithubToken(token)
-  await fetch(LINEAR_REVOKE_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(10_000),
-  })
-}
-
-function revokeQuietly(doc: PersonalCredential): Promise<void> {
-  return revokeAtProvider(doc).catch((error: unknown) => {
-    logError('personal_credential.revoke_failed', error, { provider: doc.provider })
-  })
-}
-
-export async function deletePersonalCredential(
-  userId: string,
-  provider: PersonalCredentialProvider,
-): Promise<void> {
-  const doc = await personalCredentials().findOneAndDelete({ userId, provider })
-
-  if (doc) await revokeQuietly(doc)
-}
-
-export async function deleteAllPersonalCredentials(userId: string): Promise<void> {
-  await Promise.all(PERSONAL_CREDENTIAL_PROVIDERS.map((p) => deletePersonalCredential(userId, p)))
-}
-
-export { personalCredentialSubjectFor, personalGithubToken, personalLinearToken } from './handout'
+export { deleteAllPersonalCredentials, deletePersonalCredential } from './revoke'
+export {
+  personalCredentialSubjectFor,
+  personalGithubToken,
+  personalGoogleToken,
+  personalLinearToken,
+} from './handout'
 export type { PersonalToken } from './handout'

@@ -1,5 +1,7 @@
 import { createContext } from 'react'
 
+import { t } from '../../../i18n/index.ts'
+
 import type { AgentMemoryIngestEventItem } from '../../../api'
 import type { AgentMessageMetadata } from '../../../api/agent-types'
 
@@ -141,13 +143,14 @@ export type ToolPart = {
   authorization?: ToolAuthorization
 }
 export function describeAutoAuthorization(
-  t: NonNullable<ToolAuthorization['triggeredBy']>,
+  trigger: NonNullable<ToolAuthorization['triggeredBy']>,
 ): string {
-  if (t.kind === 'read_only') return 'Auto-authorized: read-only command'
-  if (t.kind === 'prior_grant') return 'Auto-authorized: you approved this earlier'
-  if (t.kind === 'judge') return `Auto-authorized (judged a safe read): ${t.reason}`
+  if (trigger.kind === 'read_only') return t('Auto-authorized: read-only command')
+  if (trigger.kind === 'prior_grant') return t('Auto-authorized: you approved this earlier')
+  if (trigger.kind === 'judge')
+    return t('Auto-authorized (judged a safe read): {reason}', { reason: trigger.reason })
 
-  return `Auto-authorized by your rule: "${t.description}"`
+  return t('Auto-authorized by your rule: "{description}"', { description: trigger.description })
 }
 export type MemoryIngestPart = {
   type: 'memory-ingest'

@@ -9,6 +9,7 @@ import {
   GitPullRequestDraft,
 } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { ResourcePreview } from '../../ui/resource-preview'
 import { ChatLink } from '../MessageResponse'
 
@@ -21,17 +22,17 @@ import type { LucideIcon } from 'lucide-react'
 import type { MouseEvent, ReactNode } from 'react'
 
 const STATE: Record<GithubRefState, { label: string; tone: string }> = {
-  open: { label: 'Open', tone: 'text-success' },
-  draft: { label: 'Draft', tone: 'text-tertiary' },
-  merged: { label: 'Merged', tone: 'text-zViolet-accent' },
-  closed: { label: 'Closed', tone: 'text-error' },
-  completed: { label: 'Closed', tone: 'text-zViolet-accent' },
-  not_planned: { label: 'Not planned', tone: 'text-tertiary' },
+  open: { label: t('Open|state'), tone: 'text-success' },
+  draft: { label: t('Draft'), tone: 'text-tertiary' },
+  merged: { label: t('Merged'), tone: 'text-zViolet-accent' },
+  closed: { label: t('Closed'), tone: 'text-error' },
+  completed: { label: t('Closed'), tone: 'text-zViolet-accent' },
+  not_planned: { label: t('Not planned'), tone: 'text-tertiary' },
 }
 
 const REVIEW = {
-  approved: { label: 'Approved', tone: 'bg-success/10 text-success' },
-  changes_requested: { label: 'Changes requested', tone: 'bg-error/10 text-error' },
+  approved: { label: t('Approved'), tone: 'bg-success/10 text-success' },
+  changes_requested: { label: t('Changes requested'), tone: 'bg-error/10 text-error' },
 } as const
 
 const PULL_ICON: Record<GithubRefState, LucideIcon> = {
@@ -66,12 +67,16 @@ function StateIcon({ kind, state }: { kind: GithubRef['kind']; state?: GithubRef
 
 function describe(ref: GithubRef, summary: GithubRefSummary | null | undefined): string {
   const name = `${ref.owner}/${ref.repo}#${String(ref.number)}`
-  const noun = ref.kind === 'pull' ? 'Pull request' : 'Issue'
+  const pull = ref.kind === 'pull'
 
-  if (!summary) return `${noun} ${name}`
+  if (!summary) return pull ? t('Pull request {name}', { name }) : t('Issue {name}', { name })
   const review = summary.review ? ` · ${REVIEW[summary.review].label}` : ''
+  const state = STATE[summary.state].label
+  const line = pull
+    ? t('{state} pull request · {name}', { state, name })
+    : t('{state} issue · {name}', { state, name })
 
-  return `${summary.title}\n${STATE[summary.state].label} ${noun.toLowerCase()} · ${name}${review}`
+  return `${summary.title}\n${line}${review}`
 }
 
 /** The preview card's open button: the chat's own link handler, else a new window. */
@@ -174,7 +179,7 @@ export function GithubRefStrip({
 
   return (
     <div className="t-chat-card-in flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] text-tertiary">
-      <span>On GitHub</span>
+      <span>{t('On GitHub')}</span>
       {refs.map((ref) => (
         <GithubRefChip key={ref.url} githubRef={ref} teamId={teamId} onOpen={onOpen} />
       ))}

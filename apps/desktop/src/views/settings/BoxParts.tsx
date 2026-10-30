@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline } from './agentPresentation'
@@ -34,8 +35,8 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
     <Modal
       open
       onClose={onClose}
-      title="Connect your own machine"
-      description="Run this on the machine. The token works once and expires in an hour."
+      title={t('Connect your own machine')}
+      description={t('Run this on the machine. The token works once and expires in an hour.')}
     >
       <div className="space-y-3 p-5">
         <pre className="whitespace-pre-wrap break-all rounded-lg border border-zGray-800 bg-main p-3 font-mono text-[12px] text-main">
@@ -46,13 +47,13 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
             size="sm"
             variant="secondary"
             onClick={() =>
-              void navigator.clipboard.writeText(command).then(() => toast.success('Copied'))
+              void navigator.clipboard.writeText(command).then(() => toast.success(t('Copied')))
             }
           >
-            Copy
+            {t('Copy')}
           </Button>
           <Button size="sm" onClick={onClose}>
-            Done
+            {t('Done')}
           </Button>
         </div>
       </div>
@@ -67,8 +68,8 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
   const signedOut = agent.local?.signedIn === false
   let state = ''
 
-  if (signedOut) state = ' · Sign in'
-  if (offline) state = ' · Offline'
+  if (signedOut) state = ` · ${t('Sign in')}`
+  if (offline) state = ` · ${t('Offline')}`
   const label = `${agentName(agent)}${state}`
 
   return (
@@ -76,7 +77,7 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
       <button
         type="button"
         title={label}
-        aria-label={`Open ${label} details`}
+        aria-label={t('Open {label} details', { label })}
         onClick={onSelect}
         className={`flex h-8 w-8 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60 ${offline || signedOut ? 'opacity-40 grayscale' : ''}`}
       >
@@ -99,7 +100,12 @@ export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean
   const line = away ? `${machineLine(device)} · ${away}` : machineLine(device)
   const details =
     device.access === 'manage'
-      ? [line, `UID ${device.deviceId}`, device.lastSeenAt && `Last online ${away ?? 'now'}`, seen]
+      ? [
+          line,
+          `UID ${device.deviceId}`,
+          device.lastSeenAt && t('Last online {when}', { when: away ?? t('now') }),
+          seen,
+        ]
       : [line]
 
   return (
@@ -132,8 +138,8 @@ export function NewAgentMenu({
   return (
     <Menu>
       <MenuTrigger
-        aria-label={`New runtime on ${device.label}`}
-        title="New runtime"
+        aria-label={t('New runtime on {device}', { device: device.label })}
+        title={t('New runtime')}
         render={<Button size="sm" variant="secondary" className="w-8 px-0" />}
       >
         <Plus className="h-3.5 w-3.5" />
@@ -148,11 +154,11 @@ export function NewAgentMenu({
           >
             {canAddAgents
               ? AGENT_PROVIDER[provider].label
-              : `Sign in to ${AGENT_PROVIDER[provider].label}`}
+              : t('Sign in to {provider}', { provider: AGENT_PROVIDER[provider].label })}
           </MenuItem>
         ))}
         {!canAddAgents && (
-          <MenuItem disabled>Update the computer host to add more runtimes</MenuItem>
+          <MenuItem disabled>{t('Update the computer host to add more runtimes')}</MenuItem>
         )}
       </MenuContent>
     </Menu>

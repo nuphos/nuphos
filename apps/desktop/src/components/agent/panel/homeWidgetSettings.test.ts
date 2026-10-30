@@ -2,14 +2,16 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  cardLabel,
   editableLayout,
   filterPulls,
   filterRuns,
   gridFor,
-  starterLayout,
   mergeRepoReads,
+  metricKey,
   panelKey,
   repoKey,
+  starterLayout,
   toggleItem,
 } from './homeWidgetSettings.ts'
 
@@ -137,13 +139,50 @@ test('gridFor grows a saved card that was resized below its minimum', () => {
   ])
 })
 
+test('cardLabel names each kind of card', () => {
+  const layout = {
+    team: true,
+    github: [{ id: 'x', kind: 'ci' as const, repos: [], statuses: ['failed' as const] }],
+    panels: [{ dashboardId: 'd', panelId: 'p' }],
+  }
+
+  assert.equal(cardLabel(layout, 'team'), 'Team activity')
+  assert.equal(cardLabel(layout, 'gh:x'), 'CI · Failing')
+  assert.equal(cardLabel(layout, 'panel:d/p'), 'Dashboard panel')
+  // A metric card's grip reads by its title, never its key.
+  assert.equal(cardLabel(layout, 'metric:streak:m1'), 'Streak')
+  assert.equal(cardLabel(layout, 'metric:runtime-mix:m2'), 'Runtime mix')
+})
+
 test('a layout that failed to load is not editable', () => {
   assert.equal(editableLayout(null), null)
   assert.deepEqual(editableLayout({ personal: null, team: null }), {
     team: true,
     github: [],
     panels: [],
+    metrics: [],
   })
+})
+
+test('metric cards take half a row, as tall as their content, and old layouts have none', () => {
+  const streak = { id: 'm1', kind: 'streak', range: '7d', scope: 'me' } as const
+  const runs = { id: 'm2', kind: 'runtime-mix', range: '1d', scope: 'team' } as const
+
+  assert.deepEqual(gridFor([metricKey(streak), metricKey(runs)]), [
+    { i: 'metric:streak:m1', x: 0, y: 0, w: 6, h: 3 },
+    { i: 'metric:runtime-mix:m2', x: 6, y: 0, w: 6, h: 4 },
+  ])
+  assert.deepEqual(
+    gridFor(['metric:streak:m1'], [{ i: 'metric:streak:m1', x: 0, y: 0, w: 2, h: 2 }]),
+    [{ i: 'metric:streak:m1', x: 0, y: 0, w: 4, h: 3 }],
+  )
+  const saved = { team: true, github: [], panels: [] }
+
+  assert.deepEqual(editableLayout({ personal: saved, team: null })?.metrics, [])
+  assert.deepEqual(
+    editableLayout({ personal: { ...saved, metrics: [streak] }, team: null })?.metrics,
+    [streak],
+  )
 })
 
 test('a failed repository read keeps its last rows and is reported', () => {
@@ -175,11 +214,13 @@ test('a starter layout adds only what the team already has data for', () => {
     team: true,
     github: [],
     panels: [],
+    metrics: [],
   })
   assert.deepEqual(starterLayout({ repo, hasPulls: false, hasRuns: true, panels: [pin] }), {
     team: true,
     github: [{ id: 'starter-ci', kind: 'ci', repos: [repo], statuses: ['latest'] }],
     panels: [pin],
+    metrics: [],
   })
   assert.equal(starterLayout({ repo, hasPulls: true, hasRuns: true, panels: [] }).github.length, 2)
 })

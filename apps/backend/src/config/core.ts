@@ -41,22 +41,8 @@ export function coreConfig() {
       },
     },
     email: {
-      // Transactional sender: Zeabur Email (ZSend) or Resend.
-      provider: (() => {
-        const raw = (optional('NUPHOS_EMAIL_PROVIDER') ?? 'zsend').trim().toLowerCase()
-        const allowed = ['zsend', 'resend'] as const
-
-        if (!(allowed as readonly string[]).includes(raw)) {
-          throw new Error(
-            `NUPHOS_EMAIL_PROVIDER must be one of ${allowed.join('/')} (got: ${JSON.stringify(raw)})`,
-          )
-        }
-
-        return raw as (typeof allowed)[number]
-      })(),
-      // The selected provider's key and `from` must both be set for email OTP
-      // sign-in; `from` must use a domain verified with that provider.
-      zsendApiKey: optional('ZSEND_API_KEY'),
+      // Resend key and `from` must both be set for email OTP sign-in; `from`
+      // must use a domain verified in Resend.
       resendApiKey: optional('RESEND_API_KEY'),
       from: optional('NUPHOS_EMAIL_FROM'),
       // Local stacks only: print sign-in codes to the log instead of sending them.

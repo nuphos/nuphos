@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Fragment, useRef } from 'react'
 
+import { t } from '../../i18n'
 import { FALLBACK_WIDTH, clampResized } from '../../lib/tableColumnWidths'
 
 import { Checkbox } from './cells'
@@ -89,7 +90,7 @@ export function TableHead<T>({
                 checked={allSelected}
                 indeterminate={someSelected}
                 onToggle={onToggleAll}
-                ariaLabel="Select all rows"
+                ariaLabel={t('Select all rows')}
                 // Hidden until hovered so the column reads as whitespace;
                 // stays visible while it has state to show (all/some).
                 className={clsx(
@@ -238,7 +239,7 @@ export function HeaderCell<T>({
             e.stopPropagation()
             onAutoFit()
           }}
-          title="Drag to resize, double-click to fit"
+          title={t('Drag to resize, double-click to fit')}
           style={{ touchAction: 'none', pointerEvents: 'auto' }}
           className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-30 group flex items-stretch justify-end"
         >

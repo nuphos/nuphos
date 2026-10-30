@@ -22,6 +22,8 @@ import {
   Terminal,
 } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { NavItemMeta } from './types'
 import type { Scope } from '../../types'
 
@@ -29,13 +31,13 @@ export function linodeAccountNavItems(): NavItemMeta[] {
   return [
     {
       key: 'linode.instances',
-      label: 'Linodes',
-      group: 'Compute',
+      label: t('Linodes'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'linode.lke',
-      label: 'LKE Clusters',
+      label: t('LKE Clusters'),
       group: 'Kubernetes',
       icon: <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
@@ -46,8 +48,8 @@ export function hetznerAccountNavItems(): NavItemMeta[] {
   return [
     {
       key: 'hetzner.servers',
-      label: 'Servers',
-      group: 'Compute',
+      label: t('Servers'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]
@@ -57,13 +59,13 @@ export function tencentAccountNavItems(): NavItemMeta[] {
   return [
     {
       key: 'tencent.cvm',
-      label: 'CVM Instances',
-      group: 'Compute',
+      label: t('CVM Instances'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'tencent.clusters',
-      label: 'TKE Clusters',
+      label: t('TKE Clusters'),
       group: 'Kubernetes',
       icon: <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
@@ -74,19 +76,19 @@ export function aliyunAccountNavItems(): NavItemMeta[] {
   return [
     {
       key: 'aliyun.ecs',
-      label: 'ECS Instances',
-      group: 'Compute',
+      label: t('ECS Instances'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aliyun.swas',
       label: 'Simple App Server',
-      group: 'Compute',
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aliyun.clusters',
-      label: 'ACK Clusters',
+      label: t('ACK Clusters'),
       group: 'Kubernetes',
       icon: <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
@@ -97,13 +99,13 @@ export function volcengineAccountNavItems(): NavItemMeta[] {
   return [
     {
       key: 'volcengine.ecs',
-      label: 'ECS Instances',
-      group: 'Compute',
+      label: t('ECS Instances'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'volcengine.clusters',
-      label: 'VKE Clusters',
+      label: t('VKE Clusters'),
       group: 'Kubernetes',
       icon: <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
@@ -114,25 +116,25 @@ export function betterstackIntegrationNavItems(): NavItemMeta[] {
   return [
     {
       key: 'betterstack.monitors',
-      label: 'Monitors',
+      label: t('Monitors'),
       group: 'Better Stack',
       icon: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'betterstack.incidents',
-      label: 'Incidents',
+      label: t('Incidents'),
       group: 'Better Stack',
       icon: <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'betterstack.sources',
-      label: 'Sources',
+      label: t('Sources'),
       group: 'Better Stack',
       icon: <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'betterstack.dashboards',
-      label: 'Dashboards',
+      label: t('Dashboards'),
       group: 'Better Stack',
       icon: <FontAwesomeIcon icon={faTableColumns} className="w-3.5 h-3.5 text-tertiary" />,
     },
@@ -143,7 +145,7 @@ export function uptimeKumaInstanceNavItems(): NavItemMeta[] {
   return [
     {
       key: 'uptime-kuma.monitors',
-      label: 'Monitors',
+      label: t('Monitors'),
       group: 'Uptime Kuma',
       icon: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
     },
@@ -154,50 +156,50 @@ export function databaseConnectionNavItems(): NavItemMeta[] {
   return [
     {
       key: 'database.overview',
-      label: 'Overview',
-      group: 'Data',
+      label: t('Overview'),
+      group: t('Data'),
       icon: <Compass className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'database.collections',
-      label: 'Collections',
-      group: 'Data',
+      label: t('Collections'),
+      group: t('Data'),
       icon: <Layers className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'database.query',
-      label: 'Query',
-      group: 'Data',
+      label: t('Query'),
+      group: t('Data'),
       icon: <Terminal className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'database.changes',
-      label: 'Changes',
-      group: 'Operations',
+      label: t('Changes'),
+      group: t('Operations'),
       icon: <GitPullRequest className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'database.monitoring',
-      label: 'Monitoring',
-      group: 'Operations',
+      label: t('Monitoring'),
+      group: t('Operations'),
       icon: <ChartLine className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'database.access',
-      label: 'Access',
-      group: 'Governance',
+      label: t('Access'),
+      group: t('Governance'),
       icon: <ShieldCheck className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'database.audit',
-      label: 'Audit',
-      group: 'Governance',
+      label: t('Audit'),
+      group: t('Governance'),
       icon: <Scroll className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'database.settings',
-      label: 'Settings',
-      group: 'Governance',
+      label: t('Settings'),
+      group: t('Governance'),
       icon: <Settings2 className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]
@@ -209,7 +211,7 @@ export function complianceIntegrationNavItems(
   return [
     {
       key: 'compliance.tests',
-      label: 'Failed Tests',
+      label: t('Failed Tests'),
       group: scope.provider === 'vanta' ? 'Vanta' : 'Secureframe',
       icon: <ShieldAlert className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
@@ -220,8 +222,8 @@ export function tailscaleClientNavItems(): NavItemMeta[] {
   return [
     {
       key: 'tailscale.devices',
-      label: 'Devices',
-      group: 'Network',
+      label: t('Devices'),
+      group: t('Network'),
       icon: <FontAwesomeIcon icon={faServer} className="w-3.5 h-3.5 text-tertiary" />,
     },
   ]
@@ -231,14 +233,14 @@ export function zeaburProviderNavItems(): NavItemMeta[] {
   return [
     {
       key: 'zeabur.projects',
-      label: 'Projects',
-      group: 'Deployments',
+      label: t('Projects'),
+      group: t('Deployments'),
       icon: <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'zeabur.servers',
-      label: 'Servers',
-      group: 'Compute',
+      label: t('Servers'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]
@@ -248,26 +250,26 @@ export function awsEcsClusterNavItems(): NavItemMeta[] {
   return [
     {
       key: 'ecs.services',
-      label: 'Services',
-      group: 'Cluster',
+      label: t('Services'),
+      group: t('Cluster'),
       icon: <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'ecs.tasks',
-      label: 'Tasks',
-      group: 'Cluster',
+      label: t('Tasks'),
+      group: t('Cluster'),
       icon: <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'ecs.infrastructure',
-      label: 'Infrastructure',
-      group: 'Cluster',
+      label: t('Infrastructure'),
+      group: t('Cluster'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'ecs.metrics',
-      label: 'Metrics',
-      group: 'Cluster',
+      label: t('Metrics'),
+      group: t('Cluster'),
       icon: <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]

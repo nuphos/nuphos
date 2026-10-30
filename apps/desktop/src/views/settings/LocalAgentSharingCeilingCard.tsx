@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import {
   CEILING_DESCRIPTION,
@@ -14,7 +15,7 @@ import type { LocalShareLevel } from '../../api/device-types'
 import type { AtlasTeam } from '../../types'
 
 const CEILING_LABEL: Record<LocalShareLevel, string> = {
-  off: 'Off',
+  off: t('Off'),
   approve: SHARE_LEVEL_LABEL.approve,
   full: SHARE_LEVEL_LABEL.full,
 }
@@ -35,7 +36,7 @@ export function LocalAgentSharingCeilingCard({
     try {
       onTeamUpdated(await api.atlasSetTeamLocalAgentSharing(team.id, level))
     } catch (error) {
-      toast.apiError('Could not change computer sharing', error)
+      toast.apiError(t('Could not change computer sharing'), error)
     } finally {
       setSaving(false)
     }
@@ -44,19 +45,21 @@ export function LocalAgentSharingCeilingCard({
   return (
     <div className="mt-10">
       <div className="mb-4">
-        <h2 className="text-[15px] font-semibold text-main">Sharing members’ own computers</h2>
+        <h2 className="text-[15px] font-semibold text-main">
+          {t('Sharing members’ own computers')}
+        </h2>
         <p className="mt-1 text-[13px] text-tertiary">
-          Members can let chosen teammates run agents on their own computer’s local runtime. Those
-          agents run as the computer’s owner, with every sign-in on it. Turning this off closes
-          teammates’ open connections at once.
+          {t(
+            'Members can let chosen teammates run agents on their own computer’s local runtime. Those agents run as the computer’s owner, with every sign-in on it. Turning this off closes teammates’ open connections at once.',
+          )}
         </p>
       </div>
       <div className="flex items-center gap-4 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
         <div className="min-w-0 flex-1 text-[12px] text-tertiary">{CEILING_DESCRIPTION[value]}</div>
-        <span title={isAdmin ? undefined : 'Only workspace administrators can change this'}>
+        <span title={isAdmin ? undefined : t('Only workspace administrators can change this')}>
           <AppSelect
             size="sm"
-            ariaLabel="The most a member may share"
+            ariaLabel={t('The most a member may share')}
             value={value}
             disabled={!isAdmin || saving}
             onValueChange={(next) => void save(next as LocalShareLevel)}

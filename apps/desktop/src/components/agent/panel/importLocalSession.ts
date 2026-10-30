@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
 import type { LocalAgentSessionInfo } from '../../../api'
@@ -37,15 +38,18 @@ export function useLocalSessionImport(args: {
         })
         .then(async (result) => {
           toast.success(
-            `Imported into ${runtime.label}`,
+            t('Imported into {name}', { name: runtime.label }),
             result.dropped > 0
-              ? `${String(result.messageCount)} messages · ${String(result.dropped)} older turns left out`
-              : `${String(result.messageCount)} messages`,
+              ? t('{count} messages · {dropped} older turns left out', {
+                  count: result.messageCount,
+                  dropped: result.dropped,
+                })
+              : t('{count} messages', { count: result.messageCount }),
           )
           await openConversation(result.sessionId, result.title)
         })
         .catch((err: unknown) => {
-          toast.apiError('Could not import this session', err)
+          toast.apiError(t('Could not import this session'), err)
         })
         .finally(() => setImporting(false))
     },

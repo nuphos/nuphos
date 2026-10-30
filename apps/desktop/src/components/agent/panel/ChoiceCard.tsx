@@ -1,5 +1,6 @@
 import { useContext, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
 import { Button } from '../../ui/button'
 
@@ -8,20 +9,22 @@ import { AgentQuote } from './ConnectCardRows'
 import { useDecisionKeys } from './useDecisionKeys'
 
 const TITLE: Record<string, string> = {
-  approval: 'Approval needed',
-  preference: 'Your choice',
-  credential: 'Credential needed',
-  integration: 'Integration needed',
-  risk_tradeoff: 'Weigh the tradeoff',
+  approval: t('Approval needed'),
+  preference: t('Your choice'),
+  credential: t('Credential needed'),
+  integration: t('Integration needed'),
+  risk_tradeoff: t('Weigh the tradeoff'),
 }
 
 /** A user decision other than a Connect card: the question, with each option sent as the reply. */
 export function ChoiceCard({
+  toolCallId,
   category,
   question,
   options,
   canAct,
 }: {
+  toolCallId: string
   category: string
   question: string
   options: string[]
@@ -35,7 +38,7 @@ export function ChoiceCard({
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
     setSent(true)
-    ctx?.send(option)
+    ctx?.send(option, { toolCallId, question, options })
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
     const option = key.kind === 'option' ? options[key.index] : undefined
@@ -50,11 +53,14 @@ export function ChoiceCard({
     <div
       ref={cardRef}
       data-decision-card={live ? '' : undefined}
+      data-tool-call-id={toolCallId}
+      data-decision-question={question}
+      data-decision-options={JSON.stringify(options)}
       className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
     >
       <div className="px-4 pb-2.5 pt-3.5">
         <div className="text-[13.5px] font-medium text-main">
-          {TITLE[category] ?? 'Decision needed'}
+          {TITLE[category] ?? t('Decision needed')}
         </div>
         <AgentQuote text={question} />
       </div>
@@ -77,7 +83,7 @@ export function ChoiceCard({
       ) : (
         canAct && (
           <div className="border-t border-zGray-800/60 px-4 py-2.5 text-[12px] text-tertiary">
-            Reply below to answer.
+            {t('Reply below to answer.')}
           </div>
         )
       )}

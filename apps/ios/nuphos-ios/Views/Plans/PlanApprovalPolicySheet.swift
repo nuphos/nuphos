@@ -56,7 +56,6 @@ struct PlanApprovalPolicySheet: View {
                 quorum = max(2, minimum)
             }
         }
-        .presentationDetents([.medium])
     }
 
     private func save() async {

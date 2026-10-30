@@ -1,5 +1,6 @@
 import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { useTeamMembers } from '../../../lib/bindingAccess'
 import {
   Menu,
@@ -13,18 +14,21 @@ import {
 import { DelayedPanelReveal } from './homeAnimation'
 import { GithubCard } from './homeCards'
 import { HomeGrid } from './homeGrid'
+import { HomeMetricCard } from './homeMetricLive'
+import { MetricsSubmenu } from './homeMetricPicker'
 import { DashboardPanelCard } from './homePanelCard'
 import { DashboardPanelsSubmenu } from './homePanelPicker'
 import { TeamActivityCard } from './homeTeamCard'
-import { panelKey, toggleItem } from './homeWidgetSettings'
+import { cardLabel, metricKey, panelKey, toggleItem } from './homeWidgetSettings'
 import { useHomeLayout } from './useHomeLayout'
 
-import type { HomeGithubCard, HomePanel } from './homeWidgetSettings'
+import type { HomeGithubCard, HomeMetricCard as Metric, HomePanel } from './homeWidgetSettings'
 
 /**
  * The configurable cards under the home composer, picked in "Customize":
  * team activity on or off, any number of pull request and CI cards (each set
- * up from its own ⋯ menu), and every pinned dashboard panel as a card.
+ * up from its own ⋯ menu), metric cards about the agents' work, and every
+ * pinned dashboard panel as a card.
  * Team activity is left out while the user is the team's only member.
  */
 export function HomeWidgets({
@@ -55,6 +59,8 @@ export function HomeWidgets({
   const setGithub = (github: HomeGithubCard[]) => update({ ...settings, github })
   const addGithub = (card: HomeGithubCard) => setGithub([...settings.github, card])
   const newId = () => crypto.randomUUID().slice(0, 8)
+  const metrics = settings.metrics ?? []
+  const setMetrics = (next: Metric[]) => update({ ...settings, metrics: next })
   const togglePanel = (pin: HomePanel) =>
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
 
@@ -70,6 +76,17 @@ export function HomeWidgets({
         card={card}
         onChange={(next) => setGithub(settings.github.map((c) => (c.id === card.id ? next : c)))}
         onRemove={() => setGithub(settings.github.filter((c) => c.id !== card.id))}
+      />
+    )),
+    ...metrics.map((card) => (
+      <HomeMetricCard
+        key={metricKey(card)}
+        teamId={teamId}
+        card={card}
+        hasTeammates={hasTeammates}
+        onChange={(next) => setMetrics(metrics.map((c) => (c.id === card.id ? next : c)))}
+        onRemove={() => setMetrics(metrics.filter((c) => c.id !== card.id))}
+        onOpenConversation={onOpenConversation}
       />
     )),
     ...settings.panels.map((pin) => (
@@ -90,6 +107,7 @@ export function HomeWidgets({
           cards={cards}
           saved={settings.grid}
           onChange={(grid) => update({ ...settings, grid })}
+          label={(key) => cardLabel(settings, key)}
           revealAt={revealAt}
           replayKey={replayKey}
         />
@@ -103,7 +121,7 @@ export function HomeWidgets({
         <Menu>
           <MenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main">
             <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Customize
+            {t('Customize')}
           </MenuTrigger>
           <MenuContent align="center" className="w-[232px]">
             {hasTeammates && (
@@ -111,7 +129,7 @@ export function HomeWidgets({
                 checked={settings.team}
                 onCheckedChange={(team) => update({ ...settings, team })}
               >
-                Team activity
+                {t('Team activity')}
               </MenuCheckboxItem>
             )}
             <MenuItem
@@ -120,7 +138,7 @@ export function HomeWidgets({
                 addGithub({ id: newId(), kind: 'pulls', repos: [], statuses: ['open'] })
               }
             >
-              Add pull requests card
+              {t('Add pull requests card')}
             </MenuItem>
             <MenuItem
               icon={<CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />}
@@ -128,8 +146,13 @@ export function HomeWidgets({
                 addGithub({ id: newId(), kind: 'ci', repos: [], statuses: ['failed'] })
               }
             >
-              Add CI card
+              {t('Add CI card')}
             </MenuItem>
+            <MetricsSubmenu
+              onAdd={(kind) =>
+                setMetrics([...metrics, { id: newId(), kind, range: '7d', scope: 'me' }])
+              }
+            />
             <DashboardPanelsSubmenu
               teamId={teamId}
               selected={settings.panels}
@@ -137,10 +160,10 @@ export function HomeWidgets({
             />
             <MenuSeparator />
             <MenuItem disabled={!home.customized} onClick={home.resetToTeamDefault}>
-              Reset to team default
+              {t('Reset to team default')}
             </MenuItem>
             {isTeamAdmin && (
-              <MenuItem onClick={home.setAsTeamDefault}>Set as team default</MenuItem>
+              <MenuItem onClick={home.setAsTeamDefault}>{t('Set as team default')}</MenuItem>
             )}
           </MenuContent>
         </Menu>
