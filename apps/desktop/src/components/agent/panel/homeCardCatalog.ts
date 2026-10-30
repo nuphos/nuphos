@@ -57,6 +57,31 @@ export const HOME_CARD_CATEGORIES: { value: HomeCardCategory; label: string }[] 
 
 const HALF = GRID_COLUMNS / 2
 
+// A card h rows tall is 40h - 12 pixels: 28 per row and 12 between rows.
+const rowsFor = (px: number) => Math.ceil((px + 12) / 40)
+
+/**
+ * The team activity card's height, fitted to its heatmap: 123 pixels of
+ * border, padding, header, time axis and legend, and 31 per member. Past five
+ * members it is as tall as it used to be by default, and the rows scroll
+ * inside it.
+ */
+export function teamCardHeight(members: number): number {
+  return rowsFor(123 + 31 * Math.min(Math.max(members, 2), 5))
+}
+
+/**
+ * The team's size from the members just loaded, else from the count
+ * remembered on this machine, else null. A team always has the viewer, so no
+ * members means the load failed and the size is still unknown.
+ */
+export function knownTeamSize(loaded: number | null, remembered: string | null): number | null {
+  if (loaded) return loaded
+  const count = Number(remembered)
+
+  return count > 0 ? count : null
+}
+
 const metric = (
   kind: HomeMetricKind,
   icon: LucideIcon,
@@ -82,7 +107,7 @@ export const HOME_CARD_CATALOG: HomeCardEntry[] = [
     icon: Users,
     description: t('Who on the team ran agents, and when, as a heatmap.'),
     keywords: ['heatmap', 'members', 'people'],
-    size: { w: GRID_COLUMNS, h: 8 },
+    size: { w: GRID_COLUMNS, h: teamCardHeight(2) },
     add: 'once',
   },
   {
@@ -92,7 +117,7 @@ export const HOME_CARD_CATALOG: HomeCardEntry[] = [
     icon: GitPullRequest,
     description: t('Open pull requests in the repositories you pick.'),
     keywords: ['github', 'pr', 'review', 'draft'],
-    size: { w: HALF, h: 7 },
+    size: { w: HALF, h: 4 },
     add: 'configure',
   },
   {
@@ -102,7 +127,7 @@ export const HOME_CARD_CATALOG: HomeCardEntry[] = [
     icon: CircleDot,
     description: t('Failing, running or latest CI runs in the repositories you pick.'),
     keywords: ['github', 'actions', 'workflows', 'builds', 'checks'],
-    size: { w: HALF, h: 7 },
+    size: { w: HALF, h: 4 },
     add: 'configure',
   },
   metric(

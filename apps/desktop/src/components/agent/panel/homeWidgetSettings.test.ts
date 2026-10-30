@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { knownTeamSize, teamCardHeight } from './homeCardCatalog.ts'
 import {
+  HOME_GRID_VERSION,
   cardLabel,
   editableLayout,
   filterPulls,
   filterRuns,
+  fitOldSizes,
   gridFor,
   mergeRepoReads,
   metricKey,
@@ -105,10 +108,10 @@ test('gridFor keeps saved places, puts new cards in the first free spot, and dro
     { i: 'team', x: 0, y: 0, w: 12, h: 8 },
     // The removed CI card's place is free again, so the panel moves in beside
     // the pull requests instead of going below them.
-    { i: 'pulls', x: 0, y: 8, w: 6, h: 7 },
+    { i: 'pulls', x: 0, y: 8, w: 6, h: 4 },
     { i: 'panel:d/p', x: 6, y: 8, w: 6, h: 6 },
-    // Under the shorter panel, which frees up first.
-    { i: 'gh:new', x: 6, y: 14, w: 6, h: 7 },
+    // Under the shorter pull requests card, which frees up first.
+    { i: 'gh:new', x: 0, y: 12, w: 6, h: 4 },
   ])
 })
 
@@ -121,7 +124,54 @@ test('gridFor puts a new card beside a half-width one rather than below it', () 
     ],
   )
 
-  assert.deepEqual(grid[2], { i: 'gh:ci', x: 6, y: 8, w: 6, h: 7 })
+  assert.deepEqual(grid[2], { i: 'gh:ci', x: 6, y: 8, w: 6, h: 4 })
+})
+
+test('gridFor gives a new card the size asked for it, and saved cards keep theirs', () => {
+  const sizes = { team: { w: 12, h: 6 }, 'gh:a': { w: 12, h: 9 } }
+
+  assert.deepEqual(gridFor(['team', 'gh:a'], [{ i: 'gh:a', x: 0, y: 0, w: 6, h: 5 }], sizes), [
+    { i: 'team', x: 0, y: 5, w: 12, h: 6 },
+    { i: 'gh:a', x: 0, y: 0, w: 6, h: 5 },
+  ])
+})
+
+test('the team activity card is as tall as its members need, up to the old default', () => {
+  assert.equal(teamCardHeight(0), teamCardHeight(2))
+  assert.equal(teamCardHeight(2), 5)
+  assert.equal(teamCardHeight(3), 6)
+  assert.equal(teamCardHeight(4), 7)
+  assert.equal(teamCardHeight(5), 8)
+  assert.equal(teamCardHeight(40), 8)
+})
+
+test('fitOldSizes shrinks only cards still at an old default size, once', () => {
+  const old = {
+    team: true,
+    github: [],
+    panels: [],
+    grid: [
+      { i: 'team', x: 0, y: 0, w: 12, h: 8 },
+      { i: 'gh:a', x: 0, y: 8, w: 6, h: 7 },
+      // Resized by the member: kept.
+      { i: 'gh:b', x: 6, y: 8, w: 6, h: 9 },
+      { i: 'panel:d/p', x: 0, y: 15, w: 6, h: 6 },
+    ],
+  }
+
+  assert.deepEqual(fitOldSizes(old, 6).grid, [
+    { i: 'team', x: 0, y: 0, w: 12, h: 6 },
+    { i: 'gh:a', x: 0, y: 8, w: 6, h: 4 },
+    { i: 'gh:b', x: 6, y: 8, w: 6, h: 9 },
+    { i: 'panel:d/p', x: 0, y: 15, w: 6, h: 6 },
+  ])
+  // A team card that would need more rows than before is not grown over the cards below.
+  assert.equal(fitOldSizes(old, 10).grid?.[0]?.h, 8)
+  // Saved since the sizes changed: a card at 6x7 was made so on purpose.
+  const saved = { ...old, gridVersion: HOME_GRID_VERSION }
+
+  assert.equal(fitOldSizes(saved, 6), saved)
+  assert.equal(fitOldSizes({ team: true, github: [], panels: [] }, 6).grid, undefined)
 })
 
 test('gridFor grows a saved card that was resized below its minimum', () => {
@@ -223,4 +273,15 @@ test('a starter layout adds only what the team already has data for', () => {
     metrics: [],
   })
   assert.equal(starterLayout({ repo, hasPulls: true, hasRuns: true, panels: [] }).github.length, 2)
+})
+
+test('a failed member load falls back to the remembered team size, never to zero', () => {
+  assert.equal(knownTeamSize(4, '3'), 4)
+  // A failed load reads as no members: keep the size remembered on this machine.
+  assert.equal(knownTeamSize(0, '3'), 3)
+  assert.equal(knownTeamSize(null, '3'), 3)
+  // Nothing remembered yet: unknown, so the card shows as a skeleton.
+  assert.equal(knownTeamSize(0, null), null)
+  assert.equal(knownTeamSize(null, '0'), null)
+  assert.equal(knownTeamSize(null, 'junk'), null)
 })

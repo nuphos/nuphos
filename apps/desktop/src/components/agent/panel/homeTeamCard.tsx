@@ -218,7 +218,7 @@ export function TeamActivityCard({
           />
         </div>
       ) : (
-        <div className="h-32 rounded-md bg-zGray-800/40 animate-pulse" />
+        <div className="min-h-0 flex-1 rounded-md bg-zGray-800/40 animate-pulse" />
       )}
     </section>
   )

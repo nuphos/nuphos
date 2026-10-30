@@ -162,9 +162,14 @@ export const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
  * size, and one without (newly added) takes the first free spot that fits it,
  * row by row — beside a half-width card when there is room, below otherwise.
  * Saved entries for cards no longer on show are dropped, and a saved size below
- * the card's minimum grows back to it.
+ * the card's minimum grows back to it. `sizes` overrides the default size of
+ * a new card by key.
  */
-export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridItem[] {
+export function gridFor(
+  keys: string[],
+  saved: HomeGridItem[] = [],
+  sizes: Record<string, { w: number; h: number }> = {},
+): HomeGridItem[] {
   const byKey = new Map(
     saved.map((item) => {
       const { minW, minH } = minCardSize(item.i)
@@ -178,7 +183,7 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
     const item = byKey.get(i)
 
     if (item) return item
-    const size = defaultSize(i)
+    const size = sizes[i] ?? defaultSize(i)
 
     for (let y = 0; ; y++) {
       for (let x = 0; x + size.w <= GRID_COLUMNS; x++) {
@@ -192,6 +197,33 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
       }
     }
   })
+}
+
+/** Layouts saved since card sizes were fitted to their content carry this `gridVersion`. */
+export const HOME_GRID_VERSION = 2
+
+/**
+ * A layout saved before card sizes were fitted to their content (without a
+ * `gridVersion`), with each card still at a size that used to be the default
+ * brought down to its new one: the heatmap from 12x8 to `teamHeight`, pull
+ * request and CI cards from 6x7. Any other size was chosen by the member and
+ * stays. Cards only get shorter, so none overlap; the grid closes the gaps.
+ */
+export function fitOldSizes(layout: HomeLayout, teamHeight: number): HomeLayout {
+  if ((layout.gridVersion ?? 1) >= HOME_GRID_VERSION || !layout.grid) return layout
+  const fitted = (item: HomeGridItem): number => {
+    if (item.i === 'team' && item.w === GRID_COLUMNS && item.h === 8) return teamHeight
+    if (item.i.startsWith('gh:') && item.w === GRID_COLUMNS / 2 && item.h === 7) {
+      return catalogEntry('pulls').size.h
+    }
+
+    return item.h
+  }
+
+  return {
+    ...layout,
+    grid: layout.grid.map((item) => ({ ...item, h: Math.min(item.h, fitted(item)) })),
+  }
 }
 
 /** A card's title from its grid key, as screen readers hear it when it moves. */

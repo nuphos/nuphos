@@ -178,6 +178,8 @@ export type HomeLayout = {
   metrics?: HomeMetricCard[]
   /** Where each card sits, in grid units; a card without an entry goes last. */
   grid?: HomeGridItem[]
+  /** Set once card sizes are fitted to their content; see fitOldSizes. */
+  gridVersion?: number
 }
 
 /** A card's place on the home grid: `i` is the card's key, the rest grid units. */

@@ -38,6 +38,7 @@ export function HomeGrid({
   cards,
   saved,
   onChange,
+  sizes,
   label,
   revealAt,
   replayKey,
@@ -45,6 +46,8 @@ export function HomeGrid({
   /** Keyed elements; the key is the card's grid id. */
   cards: ReactElement[]
   saved: HomeGridItem[] | undefined
+  /** Sizes for new cards that depend on more than their kind, by grid id. */
+  sizes?: Record<string, { w: number; h: number }>
   onChange: (grid: HomeGridItem[]) => void
   /** A card's name, from its grid id, for its grip and for announcements. */
   label: (key: string) => string
@@ -74,6 +77,7 @@ export function HomeGrid({
     gridFor(
       cards.map((card) => String(card.key)),
       saved,
+      sizes,
     ),
   )
   const layout = grid.map((item) => ({ ...item, ...minCardSize(item.i) }))

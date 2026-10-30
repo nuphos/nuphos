@@ -21,8 +21,9 @@ export function memberDisplayName(member: TeamMember): string {
   return member.name || member.username || member.email
 }
 
-export function useTeamMembers(teamId: string): TeamMember[] {
-  const [members, setMembers] = useState<TeamMember[]>([])
+/** The team's members, or null while they load. */
+export function useTeamMemberList(teamId: string): TeamMember[] | null {
+  const [members, setMembers] = useState<TeamMember[] | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -42,4 +43,9 @@ export function useTeamMembers(teamId: string): TeamMember[] {
   }, [teamId])
 
   return members
+}
+
+/** The team's members; none while they load. */
+export function useTeamMembers(teamId: string): TeamMember[] {
+  return useTeamMemberList(teamId) ?? []
 }
