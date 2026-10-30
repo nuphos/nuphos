@@ -123,15 +123,19 @@ export function GeneralSection({
             )}
 
             <Field label={t('Name')}>
-              <input
-                type="text"
-                required
-                maxLength={80}
-                readOnly={!canEdit}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClasses}
-              />
+              {/* A viewer cannot rename the workspace: its name is text, not a field. */}
+              {canEdit ? (
+                <input
+                  type="text"
+                  required
+                  maxLength={80}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputClasses}
+                />
+              ) : (
+                <p className="flex h-10 items-center text-[13px] text-main">{team.name}</p>
+              )}
             </Field>
 
             <div>
