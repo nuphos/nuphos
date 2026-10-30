@@ -1,5 +1,6 @@
 import { agentApi } from './api/agent-api.ts'
 import { appApi } from './api/app-api.ts'
+import { channelsApi } from './api/channels-api.ts'
 import { awsApi } from './api/aws-api.ts'
 import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
@@ -22,6 +23,7 @@ import { instrumentApi } from './lib/instrumentApi.ts'
 
 import type { WindowAgentApi } from './api/window-agent.ts'
 import type { WindowAppApi } from './api/window-app.ts'
+import type { WindowChannelsApi } from './api/window-channels.ts'
 import type { WindowAwsApi } from './api/window-aws.ts'
 import type { WindowCloudflarePagesApi } from './api/window-cloudflare-pages.ts'
 import type { WindowCloudflareApi } from './api/window-cloudflare.ts'
@@ -67,6 +69,7 @@ declare global {
       WindowPosthogApi &
       WindowPlaudApi &
       WindowSessionAccessApi &
+      WindowChannelsApi &
       WindowAwsApi &
       WindowGcpClustersApi &
       WindowGitApi &
@@ -93,6 +96,7 @@ const rawApi = {
   ...gcpClustersApi,
   ...gitApi,
   ...agentApi,
+  ...channelsApi,
   ...shellApi,
   ...instructionsApi,
   ...deviceApi,

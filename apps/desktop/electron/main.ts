@@ -25,6 +25,7 @@ import { startChangelogPolling } from './main/changelog'
 import { routeFetchThroughChromium } from './main/chromium-fetch'
 import { accountsChannels } from './main/channels-accounts'
 import { agentChannels } from './main/channels-agent'
+import { agentChannelChannels } from './main/channels-agent-channels'
 import { agentReadChannels } from './main/channels-agent-read'
 import { appChannels } from './main/channels-app'
 import { cloudInfraChannels } from './main/channels-cloud-infra'
@@ -283,6 +284,7 @@ const channels = {
   ...gitChannels,
   ...agentChannels,
   ...agentReadChannels,
+  ...agentChannelChannels,
   ...instructionsChannels,
   ...deviceChannels,
   ...boxChannels,

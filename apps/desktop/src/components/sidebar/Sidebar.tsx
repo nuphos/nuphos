@@ -6,7 +6,7 @@ import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
-import { withChatSections } from './chat-sections'
+import { isChatSection, withChannelAction, withChatSections } from './chat-sections'
 import { SidebarHeaderBar, SidebarTeamSwitcher, SidebarUserEntry } from './header'
 import { SidebarHelpMenu } from './help-menu'
 import { SidebarItemContextMenu } from './item-context-menu'
@@ -20,6 +20,7 @@ import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
 import { sectionsFor, sidebarView } from './view'
+import { NewChannelButton } from '../channels/NewChannelButton'
 
 import type { Item, SidebarProps } from './types'
 
@@ -130,11 +131,12 @@ export const Sidebar = memo(function Sidebar({
     renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
   }
 
-  const sidebarSections = dynamicNavigation
-    ? renderSections
-    : renderSections.filter(
-        (section, index) => index === 0 || section.title === 'Pinned' || section.title === 'Agents',
-      )
+  const sidebarSections = withChannelAction(
+    dynamicNavigation
+      ? renderSections
+      : renderSections.filter((section, index) => index === 0 || isChatSection(section)),
+    <NewChannelButton teamId={teamId} onCreated={(id) => onSelect(`agent-session:${id}`)} />,
+  )
 
   useChatNavKeys(sidebarSections, chrome.isGroupCollapsed, onSelect, chatNavKeysLive)
 

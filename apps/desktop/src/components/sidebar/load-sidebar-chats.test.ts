@@ -11,6 +11,7 @@ test('sidebar loads all pages, preserves order and deduplicates overlapping page
   const cursors: (string | undefined)[] = []
   const rows = await loadSidebarChats(
     async (options) => {
+      if (options.scope === 'shared') return { conversations: [], nextCursor: null, hasMore: false }
       cursors.push(options.cursor)
 
       return options.cursor
@@ -57,6 +58,7 @@ test('refresh moves an older active conversation above a newer idle one', async 
   const newer = { ...chat(2), createdAt: '2026-10-02T00:00:00Z' }
   let active = false
   const readPage: Parameters<typeof loadSidebarChats>[0] = async (options) => {
+    if (options.scope === 'shared') return { conversations: [], nextCursor: null, hasMore: false }
     assert.equal(options.sort, 'activity')
     assert.equal(options.scope, 'mine')
     assert.equal(options.archived, 'exclude')
@@ -80,5 +82,28 @@ test('refresh moves an older active conversation above a newer idle one', async 
   assert.deepEqual(
     refreshed?.map((row) => row.sessionId),
     ['1', '2'],
+  )
+})
+
+test('channels a teammate created come from shared; their other chats do not', async () => {
+  const rows = await loadSidebarChats(
+    async (options) =>
+      options.scope === 'shared'
+        ? {
+            conversations: [
+              { sessionId: 'their-channel', kind: 'channel' },
+              { sessionId: 'their-agent' },
+              { sessionId: '1', kind: 'channel' },
+            ] as AgentConversation[],
+            nextCursor: null,
+            hasMore: false,
+          }
+        : { conversations: [chat(1)], nextCursor: null, hasMore: false },
+    () => true,
+  )
+
+  assert.deepEqual(
+    rows?.map((row) => row.sessionId),
+    ['1', 'their-channel'],
   )
 })

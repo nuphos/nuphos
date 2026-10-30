@@ -20,27 +20,12 @@ import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
 import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
+import { SECTION_LABELS, favoriteToggleAriaLabel } from './section-labels'
 import { useInboxBadge } from './use-inbox-badge'
 
 import type { Item, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
-
-function favoriteToggleAriaLabel(chatRow: boolean, favorited: boolean, label: string): string {
-  if (chatRow) return favorited ? t('Unpin {label}', { label }) : t('Pin {label}', { label })
-
-  return favorited
-    ? t('Remove {label} from Favorites', { label })
-    : t('Add {label} to Favorites', { label })
-}
-
-// These titles double as section ids (chat-sections, Sidebar) and collapse-state
-// keys, so they are translated only where they are shown.
-const SECTION_LABELS: Record<string, string> = {
-  Agents: t('Agents'),
-  Pinned: t('Pinned'),
-  Favorites: t('Favorites'),
-}
 
 type SectionListProps = {
   sections: Section[]
@@ -90,28 +75,31 @@ export function SidebarSectionList({
           )}
         >
           {section.title && (
-            <button
-              type="button"
-              onPointerDown={(event) => {
-                if (event.button === 0) toggleGroup(section)
-              }}
-              onClick={(event) => {
-                if (event.detail === 0) toggleGroup(section)
-              }}
-              className={clsx(
-                SIDEBAR_GROUP_TITLE_CLASS,
-                'w-full hover:text-secondary flex items-center gap-1.5',
-              )}
-            >
-              <span className="text-left">{SECTION_LABELS[section.title] ?? section.title}</span>
-              <span
-                className="t-icon-swap w-3 h-3 flex-shrink-0"
-                data-state={isGroupCollapsed(section) ? 'a' : 'b'}
+            <div className="flex items-center">
+              <button
+                type="button"
+                onPointerDown={(event) => {
+                  if (event.button === 0) toggleGroup(section)
+                }}
+                onClick={(event) => {
+                  if (event.detail === 0) toggleGroup(section)
+                }}
+                className={clsx(
+                  SIDEBAR_GROUP_TITLE_CLASS,
+                  'min-w-0 flex-1 hover:text-secondary flex items-center gap-1.5',
+                )}
               >
-                <ChevronRight className="t-icon w-3 h-3" data-icon="a" />
-                <ChevronDown className="t-icon w-3 h-3" data-icon="b" />
-              </span>
-            </button>
+                <span className="text-left">{SECTION_LABELS[section.title] ?? section.title}</span>
+                <span
+                  className="t-icon-swap w-3 h-3 flex-shrink-0"
+                  data-state={isGroupCollapsed(section) ? 'a' : 'b'}
+                >
+                  <ChevronRight className="t-icon w-3 h-3" data-icon="a" />
+                  <ChevronDown className="t-icon w-3 h-3" data-icon="b" />
+                </span>
+              </button>
+              {section.action}
+            </div>
           )}
           <div className="t-collapse" data-open={isGroupCollapsed(section) ? 'false' : 'true'}>
             <div className="t-collapse-inner">

@@ -30,7 +30,14 @@ export type ConversationAccessState = {
   participants: AgentConversationParticipant[]
 }
 
+/** An agent in a channel: its session, which is the agent. */
+export type ChannelAgent = { sessionId: string; title: string; ownerId: string; avatar?: string }
+
 export type AgentConversation = {
+  /** A channel: a place where people and agents talk. It runs no agent of its own. */
+  kind?: 'channel'
+  /** A channel's agents, as their session ids. */
+  agentSessionIds?: string[]
   runtimeState?: import('../lib/runtimeExecution').RuntimeExecution
   linkedResources?: SessionResource[]
   sessionId: string

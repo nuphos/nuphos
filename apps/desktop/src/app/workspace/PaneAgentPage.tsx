@@ -1,6 +1,8 @@
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { ChannelPane } from '../../components/channels/ChannelPane'
+import { useIsChannel } from '../../components/channels/channelKind'
 import { t } from '../../i18n'
 
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
@@ -51,6 +53,20 @@ export function PaneAgentPage({
   setPageMeta,
 }: PaneAgentPageProps) {
   const tabId = tab.id
+  const teamId = tab.scope.kind === 'team' ? tab.scope.teamId : undefined
+  const channel = useIsChannel(teamId, tab.active === 'team.agent' ? tab.agentSessionId : null)
+
+  if (channel && teamId && tab.agentSessionId)
+    return (
+      <ChannelPane
+        key={tab.agentSessionId}
+        teamId={teamId}
+        channelId={tab.agentSessionId}
+        user={user}
+        dockOpen
+        onOpenSession={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
+      />
+    )
 
   return (
     <>
