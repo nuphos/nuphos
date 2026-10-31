@@ -28,6 +28,7 @@ export type WindowDeviceApi = {
   onWindowFullScreenChanged?: (cb: (fullScreen: boolean) => void) => () => void
   deviceGetIdentity(): Promise<DeviceIdentity>
   deviceSetLabel(label: string): Promise<DeviceIdentity>
+  stopDockTabWatch(tabId: string): void
   deviceListAudit(before?: string): Promise<DeviceExecAuditPage>
   localRuntimeStartCodexLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelCodexLogin(): Promise<void>

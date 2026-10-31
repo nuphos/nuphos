@@ -3,6 +3,7 @@ import { app, session, webContents } from 'electron'
 import { handleDeepLink } from '../deep-links.ts'
 
 import { failed } from './cua-host.ts'
+import { dockTabs, focusDockTab } from './dock-tabs.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
@@ -156,6 +157,9 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
   if (!call.session) return failed('session is required.')
   if (call.action === 'tabs') return text(browserTabs(call.session).map(describe))
+  if (call.action === 'dock')
+    return text([...(await dockTabs(call.session)).values()].map((d) => d.tab))
+  if (call.action === 'focus') return focusDockTab(call)
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
     const opened = openedTab(call.url, call.session)

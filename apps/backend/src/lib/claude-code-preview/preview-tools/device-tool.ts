@@ -69,7 +69,7 @@ export type DeviceTool = {
   unsupported: string
 }
 
-const defaultDeps: DeviceToolDeps = {
+export const defaultDeviceToolDeps: DeviceToolDeps = {
   devices: resolveAvailableLocalExecDevices,
   isMember: isActiveTeamMember,
   owner: (ctx, deviceId) =>
@@ -159,7 +159,7 @@ function dispatch(
 }
 
 /** The device this call may drive, or the error that explains why none. */
-async function resolveDevice(
+export async function resolveDevice(
   ctx: PreviewToolContext,
   tool: DeviceTool,
   requested: string | undefined,
@@ -191,7 +191,7 @@ async function resolveDevice(
 export function createDeviceToolHandler(
   ctx: PreviewToolContext,
   tool: DeviceTool,
-  deps: DeviceToolDeps = defaultDeps,
+  deps: DeviceToolDeps = defaultDeviceToolDeps,
 ) {
   return async (args: Record<string, unknown>): Promise<ToolResult> => {
     const invalid = tool.invalid(args)

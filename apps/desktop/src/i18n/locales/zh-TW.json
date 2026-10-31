@@ -2211,5 +2211,7 @@
   "Model settings: {name}, Ultrafast mode on": "模型設定：{name}，Ultrafast 模式已開啟",
   "Let my phone see and control this Mac": "允許我的手機查看並控制這台 Mac",
   "Nuphos on your phone can show this screen and control it, without your Mac password. macOS asks once to allow Screen Recording and Accessibility. This Mac shows a notice while your phone has control.": "手機上的 Nuphos 可以顯示並控制這台 Mac 的螢幕，不需要 Mac 密碼。macOS 會請求一次螢幕錄製與輔助使用權限。手機控制期間，這台 Mac 會顯示通知。",
+  "Stop viewing from iPhone": "停止在 iPhone 上檢視",
+  "Viewing from iPhone. Click to stop.": "正在 iPhone 上檢視。點一下即可停止。",
   "Could not change phone control": "無法變更手機控制設定"
 }

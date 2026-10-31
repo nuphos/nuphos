@@ -18,6 +18,7 @@ import { useTabConnectorActions } from './useTabConnectorActions'
 import { useTabDetailSetters } from './useTabDetailSetters'
 import { useTabPageMeta } from './useTabPageMeta'
 import { useTabViewSetters } from './useTabViewSetters'
+import { useWatchedDockTab, watchedPaneStyle } from './watchedDockTabs'
 import { WorkspaceNewTabPage } from './WorkspaceNewTabPage'
 
 import type { WorkspaceTabPaneProps } from './paneTypes'
@@ -75,6 +76,9 @@ export const WorkspaceTabPane = memo(
     dockVisible = true,
   }: WorkspaceTabPaneProps) => {
     const tabId = tab.id
+    const watched = useWatchedDockTab(tabId)
+    // A phone watching this tab while it is off screen on the Mac keeps it painting.
+    const offscreenWatch = watched && !(active && dockVisible) ? watched : undefined
     const onBrowserNavigate = useCallback(
       (url: string) => {
         updateTab(
@@ -156,7 +160,14 @@ export const WorkspaceTabPane = memo(
     return (
       <WorkspaceRowLinkProvider value={rowLinkValue}>
         <WorkspaceTabContext.Provider value={{ ...workspaceTabContextValue, conversationId }}>
-          <div className={clsx(active ? 'h-full min-w-0 flex flex-col relative' : 'hidden')}>
+          <div
+            className={clsx(
+              active && !offscreenWatch && 'h-full min-w-0 flex flex-col relative',
+              offscreenWatch && 'flex flex-col',
+              !active && !offscreenWatch && 'hidden',
+            )}
+            style={offscreenWatch ? watchedPaneStyle(offscreenWatch) : undefined}
+          >
             {mounted && (
               <div className="flex-1 min-h-0 flex">
                 <div

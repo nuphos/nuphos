@@ -40,6 +40,7 @@ import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
+import { registerBrowserTabRoutes } from './browser-tabs'
 import { registerRuntimeDesktopRoutes } from './runtime-desktop'
 import { registerRuntimeFileRoutes } from './runtime-files'
 import { registerRuntimeQuotaRoutes } from './runtime-quota'
@@ -74,6 +75,7 @@ export const probeSchema = z
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   registerRuntimeFileRoutes(teamScoped)
   registerRuntimeDesktopRoutes(teamScoped)
+  registerBrowserTabRoutes(teamScoped)
   teamScoped.get('/runtime-terminal/:sessionId', async (c) => {
     const target = await runtimeTerminalTarget(
       c.get('teamId'),

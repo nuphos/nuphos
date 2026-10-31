@@ -239,3 +239,45 @@ test('frames cross the tunnel both ways; input waits until the viewer holds the 
   events.onMessage(new MessageEvent('message', { data: 'x'.repeat(64 * 1024 + 1) }), ws)
   expect(closed).toEqual([1008, 'Invalid desktop frame'])
 })
+
+test('a dock browser tab opens the Desktop’s browserView stream, naming the tab and page size', async () => {
+  const opened: { purpose?: string; frame?: string }[] = []
+  const target = {
+    userId: 'owner',
+    deviceId: 'box',
+    teamId: 'team',
+    sessionId: 'chat',
+    display: 0,
+    viewer: 'owner',
+    tab: { id: 'tab-1', width: 390, height: 700 },
+  }
+
+  // Only a Desktop that says it serves browser tabs is asked.
+  await presence.put('owner', 'box', {
+    conn: 'conn',
+    status: { ...status, localBrowserView: true },
+    seenAt: Date.now(),
+  })
+  const events = runtimeDesktopEvents(target, { bus, presence }) as Required<WSEvents>
+  const ws = { send: () => {}, close: () => {} } as unknown as WSContext
+
+  await bus.subscribe(holderChannel('owner', 'box'), (raw) => {
+    const message = JSON.parse(raw) as HolderMessage & { purpose?: string; d?: string }
+
+    if (message.t === 'open') {
+      opened.push({ purpose: message.purpose })
+      void bus.publish(streamChannel(message.s), JSON.stringify({ t: 'opened', s: message.s }))
+    }
+    if (message.t === 'data') opened.push({ frame: message.d })
+  })
+  events.onOpen(new Event('open'), ws)
+  await Bun.sleep(20)
+  // Another test's host may answer the open too; each frame is still this one.
+  expect(opened[0]).toEqual({ purpose: 'browserView' })
+  expect(new Set(opened.slice(1).map((entry) => entry.frame))).toEqual(
+    new Set([
+      JSON.stringify({ t: 'open', sessionId: 'chat', tab: 'tab-1', width: 390, height: 700 }),
+    ]),
+  )
+  events.onClose(new CloseEvent('close'), ws)
+})

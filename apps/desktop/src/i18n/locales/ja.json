@@ -2211,5 +2211,7 @@
   "Model settings: {name}, Ultrafast mode on": "モデル設定：{name}、Ultrafast モード オン",
   "Let my phone see and control this Mac": "スマートフォンからこの Mac を表示・操作できるようにする",
   "Nuphos on your phone can show this screen and control it, without your Mac password. macOS asks once to allow Screen Recording and Accessibility. This Mac shows a notice while your phone has control.": "スマートフォンの Nuphos でこの画面を表示して操作できます。Mac のパスワードは不要です。macOS が画面収録とアクセシビリティの許可を一度だけ求めます。スマートフォンが操作している間、この Mac に通知が表示されます。",
+  "Stop viewing from iPhone": "iPhoneでの表示を停止",
+  "Viewing from iPhone. Click to stop.": "iPhoneで表示中です。クリックで停止します。",
   "Could not change phone control": "スマートフォンからの操作設定を変更できませんでした"
 }

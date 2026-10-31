@@ -37,6 +37,7 @@ export type WorkspaceAction =
   | { type: 'setTabs'; sessionKey: string; tabs: WorkspaceTabState[] }
   | { type: 'openTab'; sessionKey: string; tab: WorkspaceTabState; options?: OpenTabOptions }
   | { type: 'activateTab'; sessionKey: string; tabId: string }
+  | { type: 'mountTab'; sessionKey: string; tabId: string }
   | { type: 'openTeamTab'; sessionKey: string; teamId: string }
   | { type: 'selectAdjacentTab'; sessionKey: string; direction: -1 | 1 }
   | { type: 'selectTabAt'; sessionKey: string; position: number | 'last' }
