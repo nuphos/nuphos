@@ -30,24 +30,24 @@ final class DockPanelUITests: XCTestCase {
         sleep(1)
         swipeInFromRightEdge(app)
 
-        let tab = app.buttons["dock-tab-12"]
+        let tab = app.buttons["dock-tab-tab-signup"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5), "The swipe did not open the dock")
-        XCTAssertTrue(app.buttons["dock-tab-14"].exists)
+        XCTAssertTrue(app.buttons["dock-tab-tab-docs"].exists)
         XCTAssertTrue(app.buttons["dock-desktop"].exists)
         sleep(2)
 
         // Tapping a tab shows it on the computer and opens the desktop on it.
         tab.tap()
-        XCTAssertTrue(app.buttons["dock-tab-12"].waitForNonExistence(timeout: 5), "The desktop did not open")
+        XCTAssertTrue(app.buttons["dock-tab-tab-signup"].waitForNonExistence(timeout: 5), "The desktop did not open")
         sleep(3)
     }
 
     func testDockButtonOpensAndClosesIt() {
         let app = launch()
         app.buttons["dock-button"].tap()
-        XCTAssertTrue(app.buttons["dock-tab-14"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["dock-tab-tab-docs"].waitForExistence(timeout: 5))
         sleep(1)
         app.buttons["dock-close"].tap()
-        XCTAssertTrue(app.buttons["dock-tab-14"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["dock-tab-tab-docs"].waitForNonExistence(timeout: 5))
     }
 }

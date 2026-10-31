@@ -62,7 +62,7 @@ function device(result: unknown) {
   return { sent, audits, published, deps }
 }
 
-const tabs = [{ tab: 7, url: 'https://example.com/', title: 'Example', loading: false }]
+const tabs = [{ id: 'tab-1', url: 'https://example.com/', title: 'Example' }]
 
 describe('session browser tabs', () => {
   test("lists the conversation's tabs from the owner's device, audited", async () => {
@@ -70,17 +70,22 @@ describe('session browser tabs', () => {
 
     expect(await sessionBrowserTabs('t1', 'owner', 's1', fake.deps)).toEqual(tabs)
     expect(fake.sent).toEqual([
-      { t: 'call', session: 's1', turn: 's1', action: 'tabs', team: 't1' },
+      { t: 'call', session: 's1', turn: 's1', action: 'dock', team: 't1' },
     ])
-    expect(fake.audits).toEqual(['[browser] dock tabs'])
+    expect(fake.audits).toEqual(['[browser] phone dock'])
   })
 
-  test('focus sends only the tab id', async () => {
+  test('focus sends only the dock tab id', async () => {
     const fake = device({ content: [{ type: 'text', text: '{}' }] })
 
-    await focusSessionBrowserTab('t1', 'owner', 's1', 7, fake.deps)
-    expect(fake.sent[0]).toMatchObject({ action: 'focus', tab: 7, team: 't1', session: 's1' })
-    expect(fake.audits).toEqual(['[browser] dock focus tab=7'])
+    await focusSessionBrowserTab('t1', 'owner', 's1', 'tab-1', fake.deps)
+    expect(fake.sent[0]).toMatchObject({
+      action: 'focus',
+      dockTab: 'tab-1',
+      team: 't1',
+      session: 's1',
+    })
+    expect(fake.audits).toEqual(['[browser] phone focus tab=tab-1'])
   })
 
   test("someone else's conversation is not found and reaches no device", async () => {

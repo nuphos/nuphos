@@ -161,27 +161,25 @@
     "body": {
       "tabs": [
         {
-          "tab": 12,
+          "id": "tab-signup",
           "url": "https://example.com/signup",
-          "title": "Create your account",
-          "loading": false
+          "title": "Create your account"
         },
         {
-          "tab": 14,
+          "id": "tab-docs",
           "url": "https://example.org/docs/getting-started",
-          "title": "Getting started",
-          "loading": false
+          "title": "Getting started"
         }
       ]
     }
   },
-  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/12/focus": {
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-signup/focus": {
     "status": 200,
     "body": {
       "ok": true
     }
   },
-  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/14/focus": {
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-docs/focus": {
     "status": 200,
     "body": {
       "ok": true

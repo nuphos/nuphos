@@ -103,13 +103,13 @@ final class ChatSession {
             || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
     }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
-    /// The browser tabs this conversation's agent opened on its owner's computer.
+    /// The browser tabs in this conversation's dock on its owner's computer.
     func browserTabs() async throws -> [BrowserTab] {
         try await AgentChatAPI.browserTabs(token: token, teamId: teamId, sessionId: sessionId)
     }
     /// Brings `tab` forward on that computer: its window, this conversation and the dock tab.
     func focus(_ tab: BrowserTab) async throws {
-        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: tab.tab)
+        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: tab.id)
     }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }

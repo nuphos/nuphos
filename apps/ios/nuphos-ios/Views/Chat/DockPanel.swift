@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The conversation's dock, as the Mac shows it beside the chat: its desktop, and the browser
-/// tabs its agent opened. A tab's page stays on that computer, so tapping one shows it there
+/// The conversation's dock, as the Mac shows it beside the chat: its desktop, and its browser
+/// tabs, whoever opened them. A tab's page stays on that computer, so tapping one shows it there
 /// and opens the desktop on it.
 struct DockPanel: View {
     let session: ChatSession
@@ -10,7 +10,7 @@ struct DockPanel: View {
 
     @State private var tabs: [BrowserTab]?
     @State private var loadError: String?
-    @State private var focusing: Int?
+    @State private var focusing: String?
     @State private var focusError: String?
     /// Where no desktop opens, what a tap did, said once.
     @State private var shownOnMac = false
@@ -62,14 +62,14 @@ struct DockPanel: View {
     private var browser: some View {
         if let tabs {
             if tabs.isEmpty {
-                Text("No browser tabs yet. When the agent opens a page, it shows up here.")
+                Text("No browser tabs in this chat's dock yet. Pages opened there show up here.")
                     .font(Theme.Text.secondary)
                     .foregroundStyle(Theme.muted)
             }
             ForEach(tabs) { tab in
                 Button { Task { await show(tab) } } label: { row(tab) }
                     .disabled(focusing != nil)
-                    .accessibilityIdentifier("dock-tab-\(tab.tab)")
+                    .accessibilityIdentifier("dock-tab-\(tab.id)")
             }
         } else if let loadError {
             Label(loadError, systemImage: "exclamationmark.triangle")
@@ -98,7 +98,7 @@ struct DockPanel: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            if focusing == tab.tab { ProgressView() }
+            if focusing == tab.id { ProgressView() }
         }
         .contentShape(Rectangle())
     }
@@ -113,7 +113,7 @@ struct DockPanel: View {
     }
 
     private func show(_ tab: BrowserTab) async {
-        focusing = tab.tab
+        focusing = tab.id
         defer { focusing = nil }
         do {
             try await session.focus(tab)

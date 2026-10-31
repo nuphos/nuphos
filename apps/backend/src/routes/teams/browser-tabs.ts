@@ -16,9 +16,10 @@ export function registerBrowserTabRoutes(teamScoped: Hono<{ Variables: TeamAuthV
   )
 
   teamScoped.post('/browser-tabs/:sessionId/:tab/focus', async (c) => {
-    const tab = Number(c.req.param('tab'))
+    const tab = c.req.param('tab')
 
-    if (!Number.isInteger(tab)) throw new AppError(400, 'invalid_tab', 'tab must be an integer')
+    // A workspace tab id; the Mac only answers for one in this conversation's dock.
+    if (!/^[\w-]{1,128}$/.test(tab)) throw new AppError(400, 'invalid_tab', 'tab is not a tab id')
     await focusSessionBrowserTab(c.get('teamId'), c.get('userId'), c.req.param('sessionId'), tab)
 
     return c.json({ ok: true })

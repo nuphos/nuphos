@@ -1,14 +1,13 @@
 import Foundation
 
-/// A browser tab the agent opened in this conversation's dock, in the owner's Nuphos Desktop.
-/// The page itself stays on that computer: its cookies and sign-ins never reach the phone.
+/// A browser tab in this conversation's dock, in the owner's Nuphos Desktop: opened by the agent
+/// or the user, open now or restored after a restart. The page itself stays on that computer:
+/// its cookies and sign-ins never reach the phone.
 struct BrowserTab: Decodable, Identifiable, Equatable, Sendable {
-    /// The tab's id on that computer, which `focus` names.
-    let tab: Int
+    /// The dock tab's id on that computer, which `focus` names.
+    let id: String
     let url: String
     let title: String
-
-    var id: Int { tab }
     /// The site, shown under the title.
     var host: String { URL(string: url)?.host() ?? url }
     /// The site's conventional icon; a site without one shows a globe instead.
@@ -30,7 +29,7 @@ extension AgentChatAPI {
     }
 
     /// `POST /teams/:teamId/browser-tabs/:sessionId/:tab/focus`: shows the tab on that computer.
-    static func focusBrowserTab(token: String, teamId: String, sessionId: String, tab: Int) async throws {
+    static func focusBrowserTab(token: String, teamId: String, sessionId: String, tab: String) async throws {
         _ = try await send("POST", "teams/\(teamId)/browser-tabs/\(sessionId)/\(tab)/focus", token: token, body: Optional<Int>.none, timeout: 20)
     }
 }

@@ -156,10 +156,7 @@ export const WorkspaceTabPane = memo(
     return (
       <WorkspaceRowLinkProvider value={rowLinkValue}>
         <WorkspaceTabContext.Provider value={{ ...workspaceTabContextValue, conversationId }}>
-          <div
-            data-workspace-tab={tabId}
-            className={clsx(active ? 'h-full min-w-0 flex flex-col relative' : 'hidden')}
-          >
+          <div className={clsx(active ? 'h-full min-w-0 flex flex-col relative' : 'hidden')}>
             {mounted && (
               <div className="flex-1 min-h-0 flex">
                 <div

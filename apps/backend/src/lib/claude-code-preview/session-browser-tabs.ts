@@ -1,7 +1,7 @@
 // A conversation's dock browser tabs, for its owner on another screen (the
 // iPhone app). The tabs live only in the Nuphos Desktop that opened them, so
 // each request is one `local_browser` call down the owner's device tunnel,
-// resolved and audited exactly as the agent's own calls are. Only `tabs` and
+// resolved and audited exactly as the agent's own calls are. Only `dock` and
 // `focus` are allowed here: a phone lists the tabs and brings one forward on
 // the Mac, it never runs a page's JavaScript.
 import { getReadableConversation } from '@/lib/agent/db'
@@ -15,30 +15,31 @@ import type { ToolResult } from '@/lib/mcp/protocol'
 /** A phone waits for this, so it fails fast instead of the agent's four minutes. */
 const PHONE_TIMEOUT_MS = 15_000
 
-export type SessionBrowserTab = { tab: number; url: string; title: string; loading: boolean }
+/** A tab in the conversation's dock: opened by the agent or the user, live or restored. */
+export type SessionBrowserTab = { id: string; url: string; title: string }
 
-type Call = { action: 'tabs' } | { action: 'focus'; tab: number }
+type Call = { action: 'dock' } | { action: 'focus'; dockTab: string }
 
 const dockTool: DeviceTool = {
   name: 'local_browser',
   label: 'The dock',
   purpose: 'browser',
   invalid: (raw) => {
-    const args = raw as Partial<Call> & { tab?: unknown }
+    const args = raw as Partial<Call> & { dockTab?: unknown }
 
-    if (args.action === 'tabs') return undefined
-    if (args.action === 'focus' && Number.isInteger(args.tab)) return undefined
+    if (args.action === 'dock') return undefined
+    if (args.action === 'focus' && typeof args.dockTab === 'string') return undefined
 
-    return 'Only tabs and focus with a tab id are allowed.'
+    return 'Only dock, and focus with a dock tab id, are allowed.'
   },
   frame: (raw, ctx) => ({ ...(raw as Call), team: ctx.teamId }),
   audit: (raw) => {
     const args = raw as Call
 
     return [
-      '[browser] dock',
+      '[browser] phone',
       args.action,
-      ...('tab' in args ? [`tab=${String(args.tab)}`] : []),
+      ...('dockTab' in args ? [`tab=${args.dockTab}`] : []),
     ].join(' ')
   },
   errorReason: 'browser_error',
@@ -79,14 +80,14 @@ async function call(
   return result
 }
 
-/** The browser tabs this conversation opened in its owner's Nuphos Desktop. */
+/** The browser tabs in this conversation's dock, in its owner's Nuphos Desktop. */
 export async function sessionBrowserTabs(
   teamId: string,
   userId: string,
   sessionId: string,
   deps: DeviceToolDeps = quietDeps,
 ): Promise<SessionBrowserTab[]> {
-  const result = await call(teamId, userId, sessionId, { action: 'tabs' }, deps)
+  const result = await call(teamId, userId, sessionId, { action: 'dock' }, deps)
 
   return JSON.parse(resultText(result)) as SessionBrowserTab[]
 }
@@ -96,8 +97,8 @@ export async function focusSessionBrowserTab(
   teamId: string,
   userId: string,
   sessionId: string,
-  tab: number,
+  dockTab: string,
   deps: DeviceToolDeps = quietDeps,
 ): Promise<void> {
-  await call(teamId, userId, sessionId, { action: 'focus', tab }, deps)
+  await call(teamId, userId, sessionId, { action: 'focus', dockTab }, deps)
 }
