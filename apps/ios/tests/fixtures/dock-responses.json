@@ -1,0 +1,190 @@
+{
+  "GET /teams": {
+    "status": 200,
+    "body": {
+      "teams": [
+        {
+          "id": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "name": "Preview workspace",
+          "isOwner": true,
+          "role": "ADMINISTRATOR"
+        }
+      ]
+    }
+  },
+  "GET /teams/discoverable": {
+    "status": 200,
+    "body": {
+      "teams": []
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/favorites": {
+    "status": 200,
+    "body": {
+      "entries": [],
+      "revision": 0
+    }
+  },
+  "GET /agent/credential-options": {
+    "status": 200,
+    "body": {}
+  },
+  "POST /push/devices": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/agent-runtimes": {
+    "status": 200,
+    "body": {
+      "runtimes": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "provider": "claude-code",
+          "label": "Claude Code on Preview Mac",
+          "status": "active",
+          "kind": "local",
+          "local": {
+            "ownerUserId": "preview",
+            "deviceId": "preview-mac",
+            "deviceLabel": "Preview Mac",
+            "online": true,
+            "signedIn": true,
+            "desktopOpen": true
+          }
+        }
+      ]
+    }
+  },
+  "GET /agent/conversations": {
+    "status": 200,
+    "body": {
+      "conversations": [
+        {
+          "sessionId": "dock-a",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Sign up for the docs site",
+          "firstMessage": "Open the docs site for me",
+          "messageCount": 2,
+          "createdAt": "2026-09-28T12:00:00Z",
+          "lastActiveAt": "2026-09-28T12:00:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Claude Code on Preview Mac",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true,
+              "cancel": false,
+              "reply": false,
+              "steer": false
+            },
+            "canOpenDesktop": true
+          }
+        }
+      ],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /agent/conversations/dock-a": {
+    "status": 200,
+    "body": {
+      "sessionId": "dock-a",
+      "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+      "title": "Sign up for the docs site",
+      "firstMessage": "Open the docs site for me",
+      "messageCount": 2,
+      "createdAt": "2026-09-28T12:00:00Z",
+      "lastActiveAt": "2026-09-28T12:00:00Z",
+      "isOwner": true,
+      "readOnly": false,
+      "agentRuntime": "claude-code",
+      "runtimeId": "11111111-1111-4111-8111-111111111111",
+      "runtimeLabel": "Claude Code on Preview Mac",
+      "runtimeState": {
+        "schemaVersion": 2,
+        "epoch": "test",
+        "revision": 1,
+        "state": "idle",
+        "phase": "idle",
+        "actions": {
+          "send": true,
+          "cancel": false,
+          "reply": false,
+          "steer": false
+        },
+        "canOpenDesktop": true
+      },
+      "messages": [
+        {
+          "id": "user-dock-a",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Open the docs site for me so I can sign up."
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "user",
+              "id": "preview",
+              "displayName": "Test sender"
+            }
+          }
+        },
+        {
+          "id": "assistant-dock-a",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "I opened the sign-up page in the Nuphos browser on your Mac. Type your email and password there."
+            }
+          ]
+        }
+      ],
+      "messagesFirstIndex": 0
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a": {
+    "status": 200,
+    "body": {
+      "tabs": [
+        {
+          "tab": 12,
+          "url": "https://example.com/signup",
+          "title": "Create your account",
+          "loading": false
+        },
+        {
+          "tab": 14,
+          "url": "https://example.org/docs/getting-started",
+          "title": "Getting started",
+          "loading": false
+        }
+      ]
+    }
+  },
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/12/focus": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/14/focus": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  }
+}

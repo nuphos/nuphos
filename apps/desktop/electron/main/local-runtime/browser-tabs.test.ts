@@ -8,6 +8,16 @@ import type { runBrowserCall as RunBrowserCall } from './browser-tabs.ts'
 const app = new EventEmitter()
 const browserSession = {}
 const guests: Guest[] = []
+const window = {
+  sent: [] as unknown[][],
+  isDestroyed: () => false,
+  isMinimized: () => false,
+  restore: () => {},
+  isVisible: () => true,
+  show: () => {},
+  focus: () => {},
+  webContents: { send: (...args: unknown[]) => window.sent.push(args) },
+}
 let onDeepLink: (url: string) => void = () => {}
 let runBrowserCall: typeof RunBrowserCall
 
@@ -15,6 +25,7 @@ before(async () => {
   mock.module('electron', {
     namedExports: {
       app,
+      BrowserWindow: { fromWebContents: (host: unknown) => (host ? window : null) },
       session: { fromPartition: () => browserSession },
       webContents: { getAllWebContents: () => guests },
     },
@@ -33,6 +44,7 @@ class Guest extends EventEmitter {
   readonly session = browserSession
   url = ''
   loading = false
+  hostWebContents: object | null = {}
   getType = () => 'webview'
   isDestroyed = () => false
   getURL = () => this.url
@@ -277,4 +289,32 @@ test('eval fails after the call timeout when the page never answers', async (t) 
 
   t.mock.timers.tick(30_000)
   await assert.rejects(result, /did not finish within 30s/)
+})
+
+test('focus raises the window and names the tab to its renderer, only for its own conversation', async () => {
+  let guest: Guest | undefined
+
+  onDeepLink = () => {
+    guest = new Guest().attach()
+  }
+  const opening = runBrowserCall({
+    action: 'open',
+    team: 't',
+    session: 'mine',
+    url: 'https://a.test/',
+  })
+
+  await tick()
+  guest?.navigate('https://a.test/').finish()
+  const tab = tabOf(await opening)
+
+  window.sent = []
+  const call = (session: string): BrowserCall => ({ action: 'focus', team: 't', session, tab })
+
+  assert.equal((await runBrowserCall(call('other'))).isError, true)
+  assert.deepEqual(window.sent, [])
+  assert.equal((await runBrowserCall(call('mine'))).isError, undefined)
+  assert.deepEqual(window.sent, [
+    ['agent:focus-session', { sessionId: 'mine', teamId: 't', browserTab: tab }],
+  ])
 })

@@ -5,6 +5,7 @@ import { writeLocalStorage } from '../../app/localStorage'
 import { LAST_TEAM_STORAGE_KEY } from '../../app/workspaceTabState'
 import { ATLAS_WEB_BASE_URL } from '../../lib/webBaseUrl'
 
+import { dockTabOfWebContents } from './dockTabOfWebContents'
 import { selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -82,12 +83,17 @@ export function useWorkspaceAgentLinks(a: Args) {
   // Clicking the "agent finished" notification: the main process only raises
   // the window, so the surface still holding that conversation has to be
   // brought forward here.
+  // The iPhone's dock panel asks for one of its browser tabs the same way, naming the tab.
   const focusAgentSession = useCallback(
-    ({ sessionId, teamId }: AgentFocusSessionPayload) => {
-      if (focusSession?.(sessionId, teamId)) return
-      openConversationInNewTab(sessionId, teamId)
+    ({ sessionId, teamId, browserTab }: AgentFocusSessionPayload) => {
+      if (!focusSession?.(sessionId, teamId)) openConversationInNewTab(sessionId, teamId)
+      const tabId = browserTab === undefined ? undefined : dockTabOfWebContents(browserTab)
+
+      if (!tabId) return
+      workspaceActions.activateTab(tabId)
+      workspaceActions.setDockOpen(true)
     },
-    [focusSession, openConversationInNewTab],
+    [focusSession, openConversationInNewTab, workspaceActions],
   )
 
   useEffect(() => {

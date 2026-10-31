@@ -1,5 +1,6 @@
-import { app, session, webContents } from 'electron'
+import { app, BrowserWindow, session, webContents } from 'electron'
 
+import { raiseWindow } from '../../window-raise.ts'
 import { handleDeepLink } from '../deep-links.ts'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
@@ -152,6 +153,21 @@ function openedTab(url: string, conversation: string): Promise<WebContents | nul
   })
 }
 
+/** Another screen (the iPhone) asks to see a tab on this Mac: its window, its chat, its dock tab. */
+function focusTab(contents: WebContents, call: BrowserCall): CuaToolResult {
+  const host = contents.hostWebContents
+  const window = host ? BrowserWindow.fromWebContents(host) : null
+
+  if (!window || !raiseWindow(window)) return failed('No Nuphos window is showing this tab.')
+  window.webContents.send('agent:focus-session', {
+    sessionId: call.session,
+    teamId: call.team,
+    browserTab: contents.id,
+  })
+
+  return text(describe(contents))
+}
+
 /** Runs one `local_browser` action against the workspace's browser tabs. */
 export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> {
   // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
@@ -180,6 +196,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
     return failed(
       `Tab ${String(call.tab)} is not one this conversation opened; list its tabs with action "tabs".`,
     )
+  if (call.action === 'focus') return focusTab(contents, call)
   if (call.action === 'navigate') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
     // A failed load still leaves the tab on its error page, which `describe` reports.
