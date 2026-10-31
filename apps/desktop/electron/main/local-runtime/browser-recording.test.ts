@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+  existsSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { before, mock, test } from 'node:test'
@@ -52,6 +60,11 @@ test('record_stop writes the requests, wire headers and bodies seen since record
 
   await recording.startRecording(contents)
   assert.deepEqual(debug.commands, ['Network.enable'])
+  // Chromium may send a request's wire headers before the request itself.
+  send('Network.requestWillBeSentExtraInfo', {
+    requestId: 'r1',
+    headers: { Cookie: 'sid=1', 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
   send('Network.requestWillBeSent', {
     requestId: 'r1',
     timestamp: 10,
@@ -59,13 +72,9 @@ test('record_stop writes the requests, wire headers and bodies seen since record
     request: {
       url: 'https://api.example.com/me?x=1',
       method: 'POST',
-      headers: {},
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       postData: 'a=1',
     },
-  })
-  send('Network.requestWillBeSentExtraInfo', {
-    requestId: 'r1',
-    headers: { Cookie: 'sid=1', 'Content-Type': 'application/x-www-form-urlencoded' },
   })
   send('Network.responseReceivedExtraInfo', { requestId: 'r1', headers: { 'Set-Cookie': 'a=b' } })
   send('Network.responseReceived', {
@@ -91,8 +100,11 @@ test('record_stop writes the requests, wire headers and bodies seen since record
   const result = await recording.stopRecording(contents)
 
   assert.equal(debug.attached, false)
+  // The HAR holds live cookies, so only this user may read it.
+  assert.equal(statSync(result.file).mode & 0o777, 0o600)
+  assert.equal(statSync(join(temp, 'har')).mode & 0o777, 0o700)
   assert.deepEqual(result.summary, [
-    'POST 200 https://api.example.com/me?x=1',
+    'POST 200 https://api.example.com/me',
     'GET net::ERR_FAILED https://cdn.example.com/a.js',
   ])
   const [entry] = (
@@ -148,4 +160,21 @@ test('record_stop without record_start, or a second record_start, fails', async 
   await assert.rejects(recording.stopRecording(contents), /not recording/)
   await recording.startRecording(contents)
   await assert.rejects(recording.startRecording(contents), /already recording/)
+})
+
+test('record_stop deletes HARs older than a day', async () => {
+  const dir = join(temp, 'har')
+  const old = join(dir, 'old.har')
+  const recent = join(dir, 'recent.har')
+
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(old, '{}')
+  writeFileSync(recent, '{}')
+  utimesSync(old, new Date(Date.now() - 2 * 86_400_000), new Date(Date.now() - 2 * 86_400_000))
+  const { contents } = tab()
+
+  await recording.startRecording(contents)
+  await recording.stopRecording(contents)
+  assert.equal(existsSync(old), false)
+  assert.equal(existsSync(recent), true)
 })

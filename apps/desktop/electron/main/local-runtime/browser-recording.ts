@@ -1,12 +1,15 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { app } from 'electron'
 
 import type { WebContents } from 'electron'
 
-/** Response bodies larger than this are left out of the HAR to bound memory. */
+/** Response bodies larger than this, or past the recording's total, are left out of the HAR. */
 const MAX_BODY_BYTES = 1024 * 1024
+const MAX_TOTAL_BODY_BYTES = 64 * 1024 * 1024
+/** HARs hold live cookies, so older ones are deleted at the next `record_stop`. */
+const KEEP_MS = 24 * 60 * 60 * 1000
 /** How many requests `record_stop` lists inline; the HAR file has them all. */
 const MAX_SUMMARY_LINES = 200
 
@@ -28,9 +31,19 @@ type Entry = {
   ended?: number
   size?: number
   error?: string
+  /** Whether `request.headers` already came from the wire (ExtraInfo). */
+  wire?: boolean
   body?: Promise<{ body: string; base64Encoded: boolean } | undefined>
 }
-type Recording = { entries: Map<string, Entry>; done: Entry[]; onMessage: Listener }
+type Recording = {
+  entries: Map<string, Entry>
+  done: Entry[]
+  /** Wire headers that arrived before their request, which Chromium allows. */
+  early: Map<string, Headers>
+  bodyBytes: number
+  bodiesOmitted: number
+  onMessage: Listener
+}
 type Listener = (event: unknown, method: string, params: Record<string, unknown>) => void
 
 const recordings = new WeakMap<WebContents, Recording>()
@@ -46,6 +59,9 @@ export async function startRecording(contents: WebContents): Promise<void> {
   const recording: Recording = {
     entries: new Map(),
     done: [],
+    early: new Map(),
+    bodyBytes: 0,
+    bodiesOmitted: 0,
     onMessage: (_event, method, params) => {
       onNetworkEvent(contents, recording, method, params)
     },
@@ -69,10 +85,11 @@ export async function stopRecording(contents: WebContents) {
 
   contents.debugger.off('message', recording.onMessage)
   if (contents.debugger.isAttached()) contents.debugger.detach()
-  const dir = join(app.getPath('temp'), 'nuphos-har')
+  const dir = join(app.getPath('userData'), 'har')
   const file = join(dir, `tab-${String(contents.id)}-${String(Date.now())}.har`)
 
-  await mkdir(dir, { recursive: true })
+  await mkdir(dir, { recursive: true, mode: 0o700 })
+  await prune(dir)
   await writeFile(
     file,
     JSON.stringify({
@@ -82,17 +99,28 @@ export async function stopRecording(contents: WebContents) {
         entries: har,
       },
     }),
+    { mode: 0o600 },
   )
 
   return {
     file,
     requests: entries.length,
+    bodiesOmitted: recording.bodiesOmitted,
+    // Query strings can carry tokens; the HAR keeps the full URL.
     summary: entries
       .slice(0, MAX_SUMMARY_LINES)
       .map(
         (e) =>
-          `${e.request.method} ${e.error ?? String(e.response?.status ?? '-')} ${e.request.url}`,
+          `${e.request.method} ${e.error ?? String(e.response?.status ?? '-')} ${e.request.url.split(/[?#]/)[0] ?? ''}`,
       ),
+  }
+}
+
+async function prune(dir: string): Promise<void> {
+  for (const name of await readdir(dir)) {
+    const path = join(dir, name)
+
+    if (Date.now() - (await stat(path)).mtimeMs > KEEP_MS) await rm(path, { force: true })
   }
 }
 
@@ -112,16 +140,24 @@ function onNetworkEvent(
       entry.ended = params.timestamp as number
       recording.done.push(entry)
     }
+    const request = params.request as CdpRequest
+    const wire = recording.early.get(id)
+
+    recording.early.delete(id)
     recording.entries.set(id, {
       started: params.timestamp as number,
       wallTime: params.wallTime as number,
-      request: params.request as CdpRequest,
+      request: { ...request, headers: wire ?? request.headers },
+      wire: wire !== undefined,
     })
-  } else if (!entry) {
-    return
   } else if (method === 'Network.requestWillBeSentExtraInfo') {
     // Carries the headers the browser actually sent, Cookie included.
-    entry.request.headers = params.headers as Headers
+    if (entry && !entry.wire) {
+      entry.request.headers = params.headers as Headers
+      entry.wire = true
+    } else recording.early.set(id, params.headers as Headers)
+  } else if (!entry) {
+    return
   } else if (method === 'Network.responseReceived') {
     const response = params.response as CdpResponse
 
@@ -132,15 +168,26 @@ function onNetworkEvent(
   } else if (method === 'Network.loadingFinished') {
     entry.ended = params.timestamp as number
     entry.size = params.encodedDataLength as number
-    // Bodies are fetched now, before Chromium may evict them.
-    if (entry.size <= MAX_BODY_BYTES)
-      entry.body = contents.debugger
-        .sendCommand('Network.getResponseBody', { requestId: id })
-        .catch(() => {}) as Entry['body']
+    fetchBody(contents, recording, id, entry)
   } else if (method === 'Network.loadingFailed') {
     entry.ended = params.timestamp as number
     entry.error = params.errorText as string
   }
+}
+
+/** Fetches a finished response's body now, before Chromium may evict it, within the size caps. */
+function fetchBody(contents: WebContents, recording: Recording, id: string, entry: Entry): void {
+  const size = entry.size ?? 0
+
+  if (size > MAX_BODY_BYTES || recording.bodyBytes + size > MAX_TOTAL_BODY_BYTES) {
+    recording.bodiesOmitted++
+
+    return
+  }
+  recording.bodyBytes += size
+  entry.body = contents.debugger
+    .sendCommand('Network.getResponseBody', { requestId: id })
+    .catch(() => {}) as Entry['body']
 }
 
 const pairs = (headers: Headers = {}) =>
