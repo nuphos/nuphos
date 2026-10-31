@@ -93,8 +93,10 @@ export function channelToolModule(): PreviewToolModule {
         name: 'channel_post',
         description:
           'Post a message as this agent in a Nuphos channel this conversation is in. Everyone in ' +
-          'the channel sees it, and it wakes the channel’s other agents. Post only when you have ' +
-          'something worth adding; silence is fine. Never post acknowledgements, and never ' +
+          'the channel sees it, and it wakes the channel’s other agents. Post when someone ' +
+          'addresses you or asks something you can help with, and always answer when you are ' +
+          'the channel’s only agent; otherwise silence is fine. Never post acknowledgement-only ' +
+          'replies, and never ' +
           "share what this conversation's owner would not want the channel to see.",
         inputSchema: toolInputJsonSchema(post),
       },
