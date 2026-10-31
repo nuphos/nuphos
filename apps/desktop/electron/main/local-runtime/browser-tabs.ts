@@ -2,6 +2,7 @@ import { app, session, webContents } from 'electron'
 
 import { handleDeepLink } from '../deep-links.ts'
 
+import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
@@ -197,6 +198,12 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
 
     return text(value === undefined ? 'undefined' : value)
   }
+  if (call.action === 'record_start') {
+    await startRecording(contents)
+
+    return text(`Recording tab ${String(contents.id)}. Use the page, then call record_stop.`)
+  }
+  if (call.action === 'record_stop') return text(await stopRecording(contents))
   const image = await onPage(contents, contents.capturePage())
 
   if (image.isEmpty())
