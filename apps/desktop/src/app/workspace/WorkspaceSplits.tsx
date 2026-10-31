@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
+import { tabsEndingWithPane } from './paneClose'
 import { createSidebarSlot } from './sidebarSlot'
 import { SidebarSlotHost } from './SidebarSlotHost'
 import { SplitDropOverlay } from './SplitDropOverlay'
@@ -173,12 +174,8 @@ export function WorkspaceSplits({
     const heir = activeId === id ? paneRects(next)[0].id : activeId
 
     if (store) {
-      // A connecting SSH tab hands its session to this pane's store once it
-      // resolves, so end it here, before unmount, where the teardown observer
-      // can still mark it closed.
-      for (const tab of selectAllResidentTabs(store.getState())) {
-        if (tab.sshTerminal?.status === 'connecting') store.actions.closeTab(tab.id)
-      }
+      // Dispatch before unmount so the teardown observer ends their sessions.
+      for (const tabId of tabsEndingWithPane(store.getState())) store.actions.closeTab(tabId)
       // Closing a pane only changes the layout: its chats' docks, terminals
       // included, carry on in the pane that takes focus. Their shells are keyed
       // by tab id, so they reattach there with their scrollback.
