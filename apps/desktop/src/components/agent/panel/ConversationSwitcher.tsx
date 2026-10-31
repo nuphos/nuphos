@@ -123,7 +123,7 @@ export function ConversationSwitcher({
             <HistoryConversationRow
               key={conversation.sessionId}
               conversation={conversation}
-              unread={unreadSessions.has(conversation.sessionId)}
+              unread={!conversation.parentSessionId && unreadSessions.has(conversation.sessionId)}
               opening={false}
               selected={conversation.sessionId === activeSessionId}
               compact
