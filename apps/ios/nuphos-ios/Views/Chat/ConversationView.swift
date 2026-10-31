@@ -275,6 +275,10 @@ struct ConversationView: View {
     /// The composer, with what waits on the owner of a shared computer and any queued messages above it.
     private var composer: some View {
         VStack(spacing: 0) {
+            if let suggestion = session.promptSuggestion, draft.isEmpty, !session.isStreaming,
+               session.canSubmit, session.failedSubmission == nil {
+                SuggestionChip(text: suggestion) { draft = suggestion }
+            }
             if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
                 ShareApprovalStrip(
                     wait: wait,
@@ -794,6 +798,34 @@ struct ResourceStrip: View {
         case "closed": return .red
         default: return .green
         }
+    }
+}
+
+/// The runtime's guess at the next message. Tapping it fills the composer,
+/// where it can be edited or sent: Desktop's Tab-to-accept, for a phone.
+struct SuggestionChip: View {
+    let text: String
+    var onUse: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: onUse) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles").font(Theme.Text.micro)
+                    Text(text).lineLimit(1).font(Theme.Text.label)
+                }
+                .foregroundStyle(Theme.body)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Theme.chatSurface, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Use suggestion: \(text)")
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
+        .transition(.opacity)
     }
 }
 
