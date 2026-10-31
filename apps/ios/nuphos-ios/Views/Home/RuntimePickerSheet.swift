@@ -243,6 +243,7 @@ struct SelectorAgentRow: View {
             Spacer(minLength: 4)
             if selected { Image(systemName: "checkmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading) }
         }.frame(minHeight: 48).contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
     }
     @ViewBuilder private var details: some View {
         if SelectorBox.agentName(runtime) != runtime.providerName { Text(runtime.providerName).font(.system(size: detailSize)).foregroundStyle(Theme.muted) }

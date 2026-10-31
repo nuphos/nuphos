@@ -3,6 +3,8 @@ import SwiftUI
 /// The desktop `HistoryConversationRow`: owner avatar, title, then a
 /// dot-separated meta line.
 struct ConversationRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AppStorage(BotAvatars.enabledKey) private var botAvatars = true
     let conversation: AgentConversation
     var pinned = false
     /// Threads a folded parent hides; the row shows the most pressing of their states.
@@ -45,10 +47,14 @@ struct ConversationRow: View {
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
 
-                Text(meta)
-                    .font(Theme.Text.label)
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    if botAvatars { RuntimeMark(runtime: conversation.agentRuntime) }
+                    Text(meta)
+                        .font(Theme.Text.label)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Spacer(minLength: 0)
@@ -86,10 +92,31 @@ struct ConversationRow: View {
         if let origin = conversation.activitySource?.origin, origin != "nuphos", origin != "unknown" {
             parts.append(origin.capitalized)
         }
-        if let label = conversation.runtimeLabel, !label.isEmpty {
-            parts.append(label)
-        }
+        parts.append(RuntimeInstance.Provider.detail(conversation.agentRuntime, instance: conversation.runtimeLabel))
         return parts.joined(separator: " · ")
+    }
+}
+
+/// Which agent answers in a conversation, as the desktop sidebar's
+/// `RuntimeChatIcon` shows it: the provider's mark for a runtime, a message
+/// glyph for the built-in agent. Unknown providers get a neutral runtime glyph.
+/// It sits at the head of the meta line, so
+/// the trailing indicators can come and go without moving it.
+struct RuntimeMark: View {
+    let runtime: String?
+    var size: CGFloat = 14
+
+    var body: some View {
+        Group {
+            if runtime == "nuphos" {
+                Image(systemName: "message").font(.system(size: size))
+                    .frame(width: size, height: size)
+            } else {
+                BrandLogo(name: RuntimeInstance.Provider.logo(runtime), size: size)
+            }
+        }
+        .foregroundStyle(Theme.muted)
+        .accessibilityHidden(true)
     }
 }
 

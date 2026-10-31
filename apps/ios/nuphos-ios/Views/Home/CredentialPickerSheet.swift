@@ -177,7 +177,7 @@ struct ComposerControls: View {
                 ComposerChip(logo: RuntimeInstance.Provider.logo(store.newConversationRuntime?.provider.rawValue), title: runtimeTitle, isActive: store.newConversationRuntime != nil)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Choose runtime")
+            .accessibilityLabel("Choose runtime: \(runtimeTitle)")
             .sheet(isPresented: $showRuntimes) { RuntimePickerSheet() }
             .task { await store.loadRuntimes() }
             #if DEBUG
@@ -191,7 +191,7 @@ struct ComposerControls: View {
             if store.selectedRuntimeUnavailable { return "Choose runtime" }
             return store.runtimesLoaded ? "Runtime" : "Runtime…"
         }
-        return runtime.label
+        return RuntimeInstance.Provider.detail(runtime.provider.rawValue, instance: runtime.label)
     }
 
     private func modelTitle(_ session: ChatSession) -> String {
