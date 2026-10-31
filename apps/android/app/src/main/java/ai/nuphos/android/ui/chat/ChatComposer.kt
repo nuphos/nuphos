@@ -469,7 +469,7 @@ fun ChatComposer(
                 // Queue cleanup after any already-enqueued consumption/deletion, so cancellation cannot unlink an in-flight commit.
                 incomingShares.releaseUnowned(staged.filter { file -> before.none { it === file } && shared.attachments.none { it === file } })
                 if (failure !is CancellationException)
-                    incomingShares.failed(shared.id, "Could not save this share. Check the draft limits and free storage, then try again.")
+                    incomingShares.failed(shared.id, "Could not save this share. Check the draft limits and free storage, then try again.", retryable = true)
             }
             if (failure is CancellationException) throw failure
         }
