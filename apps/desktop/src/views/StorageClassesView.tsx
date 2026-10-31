@@ -5,6 +5,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
 import { useWorkspaceRowLink } from '../lib/workspaceRowLink'
@@ -80,21 +81,21 @@ export function StorageClassesView({ filter, refreshKey, onSelect, onCount, onLo
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => (
               <span className="text-zViolet-accent">
                 {r.name}
                 {r.is_default && (
-                  <span className="ml-1.5 text-[10.5px] text-warning">(default)</span>
+                  <span className="ml-1.5 text-[10.5px] text-warning">{t('(default)')}</span>
                 )}
               </span>
             ),
           },
           {
             key: 'provisioner',
-            header: 'Provisioner',
+            header: t('Provisioner'),
             width: 280,
             sortAccessor: (r) => r.provisioner,
             render: (r) => (
@@ -103,21 +104,21 @@ export function StorageClassesView({ filter, refreshKey, onSelect, onCount, onLo
           },
           {
             key: 'reclaim_policy',
-            header: 'Reclaim Policy',
+            header: t('Reclaim Policy'),
             width: 140,
             sortAccessor: (r) => r.reclaim_policy,
             render: (r) => <span className="text-secondary">{r.reclaim_policy}</span>,
           },
           {
             key: 'volume_binding_mode',
-            header: 'Volume Binding',
+            header: t('Volume Binding'),
             width: 180,
             sortAccessor: (r) => r.volume_binding_mode,
             render: (r) => <span className="text-secondary">{r.volume_binding_mode}</span>,
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

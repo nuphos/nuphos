@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n'
 
 import {
   clusterRoleBindingDeleteTarget,
@@ -30,14 +31,14 @@ export function ServiceAccountsView(props: NamespacedProps<ServiceAccountItem>) 
       columns={[
         {
           key: 'secrets',
-          header: 'Secrets',
+          header: t('Secrets'),
           width: 90,
           sortAccessor: (r) => r.secrets,
           render: (r) => r.secrets,
         },
         {
           key: 'image_pull_secrets',
-          header: 'Image Pull',
+          header: t('Image Pull'),
           width: 110,
           sortAccessor: (r) => r.image_pull_secrets,
           render: (r) => r.image_pull_secrets,
@@ -60,14 +61,14 @@ export function RolesView(props: NamespacedProps<RoleItem>) {
       columns={[
         {
           key: 'rules',
-          header: 'Rules',
+          header: t('Rules'),
           width: 80,
           sortAccessor: (r) => r.rules,
           render: (r) => r.rules,
         },
         {
           key: 'rule_summaries',
-          header: 'Rules (target: verbs)',
+          header: t('Rules (target: verbs)'),
           width: 520,
           sortAccessor: (r) => r.rule_summaries.join(','),
           render: (r) => <ChipList values={r.rule_summaries} />,
@@ -93,7 +94,7 @@ export function RoleBindingsView(props: NamespacedProps<RoleBindingItem>) {
       columns={[
         {
           key: 'role_ref',
-          header: 'Role Ref',
+          header: t('Role Ref'),
           width: 240,
           sortAccessor: (r) => r.role_ref,
           render: (r) => (
@@ -102,7 +103,7 @@ export function RoleBindingsView(props: NamespacedProps<RoleBindingItem>) {
         },
         {
           key: 'subjects',
-          header: 'Subjects',
+          header: t('Subjects'),
           width: 360,
           sortAccessor: (r) => r.subjects.join(','),
           render: (r) => <ChipList values={r.subjects} />,
@@ -123,14 +124,14 @@ export function ClusterRolesView(props: BaseProps<ClusterRoleItem>) {
       columns={[
         {
           key: 'rules',
-          header: 'Rules',
+          header: t('Rules'),
           width: 80,
           sortAccessor: (r) => r.rules,
           render: (r) => r.rules,
         },
         {
           key: 'rule_summaries',
-          header: 'Rules (target: verbs)',
+          header: t('Rules (target: verbs)'),
           width: 580,
           sortAccessor: (r) => r.rule_summaries.join(','),
           render: (r) => <ChipList values={r.rule_summaries} />,
@@ -151,7 +152,7 @@ export function ClusterRoleBindingsView(props: BaseProps<ClusterRoleBindingItem>
       columns={[
         {
           key: 'role_ref',
-          header: 'Role Ref',
+          header: t('Role Ref'),
           width: 260,
           sortAccessor: (r) => r.role_ref,
           render: (r) => (
@@ -160,7 +161,7 @@ export function ClusterRoleBindingsView(props: BaseProps<ClusterRoleBindingItem>
         },
         {
           key: 'subjects',
-          header: 'Subjects',
+          header: t('Subjects'),
           width: 420,
           sortAccessor: (r) => r.subjects.join(','),
           render: (r) => <ChipList values={r.subjects} />,

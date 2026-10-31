@@ -4,6 +4,7 @@ import { ChevronDown, Copy, Download, Search } from 'lucide-react'
 import { api } from '../../api'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { logsToCsv, logsToText } from '../../lib/logView'
 
 import type { TimestampMode } from '../../lib/logView'
@@ -14,6 +15,12 @@ import type { WorkloadLogLine } from '../../types'
 // Stateless — the host owns query/timestamp state and supplies the (already
 // search-filtered) lines to export via `exportSource`.
 export type LogExportSource = { lines: WorkloadLogLine[]; includePod: boolean; fileBase: string }
+
+const TS_MODE_LABELS: Record<TimestampMode, string> = {
+  off: t('Off'),
+  utc: 'UTC',
+  local: t('Local'),
+}
 
 export function LogViewControls({
   query,
@@ -38,9 +45,9 @@ export function LogViewControls({
     try {
       const res = await api.saveTextFile(`${fileBase}.${kind === 'csv' ? 'csv' : 'log'}`, content)
 
-      if (res.saved) toast.success('Logs saved', res.path)
+      if (res.saved) toast.success(t('Logs saved'), res.path)
     } catch (e) {
-      toast.apiError('Could not save logs', e)
+      toast.apiError(t('Could not save logs'), e)
     }
   }
   async function copy(kind: 'text' | 'csv') {
@@ -52,9 +59,9 @@ export function LogViewControls({
 
     try {
       await navigator.clipboard.writeText(content)
-      toast.success(kind === 'csv' ? 'Copied as CSV' : 'Copied as text')
+      toast.success(kind === 'csv' ? t('Copied as CSV') : t('Copied as text'))
     } catch {
-      toast.error('Could not copy logs', 'Clipboard was blocked.')
+      toast.error(t('Could not copy logs'), t('Clipboard was blocked.'))
     }
   }
 
@@ -65,12 +72,14 @@ export function LogViewControls({
         <input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Find logs…"
+          placeholder={t('Find logs…')}
           className="w-44 pl-7 pr-2 py-1 rounded text-[12px] bg-surface border border-zGray-800 text-secondary placeholder:text-tertiary focus:outline-none focus:border-zViolet-500/50"
         />
       </div>
       <div className="flex items-center gap-1">
-        <span className="text-[11.5px] text-tertiary uppercase tracking-wider mr-0.5">Time</span>
+        <span className="text-[11.5px] text-tertiary uppercase tracking-wider mr-0.5">
+          {t('Time')}
+        </span>
         {(['off', 'utc', 'local'] as TimestampMode[]).map((m) => (
           <button
             key={m}
@@ -82,17 +91,19 @@ export function LogViewControls({
                 : 'text-secondary hover:bg-zGray-800',
             )}
           >
-            {m}
+            {TS_MODE_LABELS[m]}
           </button>
         ))}
       </div>
       <Menu>
         <MenuTrigger
-          title={query ? 'Exports the current search-filtered view' : 'Exports all loaded logs'}
+          title={
+            query ? t('Exports the current search-filtered view') : t('Exports all loaded logs')
+          }
           className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-secondary hover:bg-zGray-800"
         >
           <Download className="w-3 h-3" />
-          Export
+          {t('Export')}
           <ChevronDown className="w-3 h-3" />
         </MenuTrigger>
         <MenuContent align="end">
@@ -100,20 +111,20 @@ export function LogViewControls({
             icon={<Download className="w-3.5 h-3.5" />}
             onClick={() => void download('text')}
           >
-            Download as Text
+            {t('Download as Text')}
           </MenuItem>
           <MenuItem
             icon={<Download className="w-3.5 h-3.5" />}
             onClick={() => void download('csv')}
           >
-            Download as CSV
+            {t('Download as CSV')}
           </MenuItem>
           <MenuSeparator />
           <MenuItem icon={<Copy className="w-3.5 h-3.5" />} onClick={() => void copy('text')}>
-            Copy as Text
+            {t('Copy as Text')}
           </MenuItem>
           <MenuItem icon={<Copy className="w-3.5 h-3.5" />} onClick={() => void copy('csv')}>
-            Copy as CSV
+            {t('Copy as CSV')}
           </MenuItem>
         </MenuContent>
       </Menu>
@@ -131,7 +142,7 @@ const LOG_TIME_OPTIONS: { label: string; seconds: number | null }[] = [
   { label: '1h', seconds: 60 * 60 },
   { label: '6h', seconds: 6 * 60 * 60 },
   { label: '24h', seconds: 24 * 60 * 60 },
-  { label: 'All (5k)', seconds: null },
+  { label: t('All (5k)'), seconds: null },
 ]
 const LOG_LINE_OPTIONS = [100, 200, 500, 1000]
 
@@ -166,7 +177,7 @@ export function LogRangeSelector({
 }) {
   return (
     <>
-      <span className="text-[11.5px] text-tertiary uppercase tracking-wider">Range</span>
+      <span className="text-[11.5px] text-tertiary uppercase tracking-wider">{t('Range')}</span>
       <div className="inline-flex rounded overflow-hidden border border-zGray-800">
         {(['lines', 'time'] as LogRangeMode[]).map((m) => (
           <button
@@ -181,7 +192,7 @@ export function LogRangeSelector({
                 : 'text-secondary hover:bg-zGray-800',
             )}
           >
-            {m}
+            {m === 'lines' ? t('Lines') : t('Time')}
           </button>
         ))}
       </div>
@@ -197,15 +208,15 @@ export function LogRangeSelector({
               {n}
             </button>
           ))
-        : LOG_TIME_OPTIONS.map((t) => (
+        : LOG_TIME_OPTIONS.map((option) => (
             <button
-              key={t.label}
+              key={option.label}
               type="button"
-              onClick={() => onSinceSecondsChange(t.seconds)}
-              aria-pressed={sinceSeconds === t.seconds}
-              className={rangeBtn(sinceSeconds === t.seconds)}
+              onClick={() => onSinceSecondsChange(option.seconds)}
+              aria-pressed={sinceSeconds === option.seconds}
+              className={rangeBtn(sinceSeconds === option.seconds)}
             >
-              {t.label}
+              {option.label}
             </button>
           ))}
     </>
@@ -232,8 +243,10 @@ export function LogPreviousToggle({
       aria-pressed={value}
       title={
         disabled
-          ? 'Previous-instance logs are only available in Lines mode'
-          : "Show the previous (terminated) instance's logs — for post-crash / CrashLoopBackOff triage"
+          ? t('Previous-instance logs are only available in Lines mode')
+          : t(
+              "Show the previous (terminated) instance's logs — for post-crash / CrashLoopBackOff triage",
+            )
       }
       className={clsx(
         'px-2 py-1 rounded text-[12px]',
@@ -241,7 +254,7 @@ export function LogPreviousToggle({
         disabled && 'opacity-40 cursor-not-allowed',
       )}
     >
-      Previous
+      {t('Previous')}
     </button>
   )
 }
