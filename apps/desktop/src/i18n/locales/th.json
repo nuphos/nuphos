@@ -1895,6 +1895,7 @@
   "Peek": "โผล่",
   "Peers": "Peer",
   "Pending": "รอดำเนินการ",
+  "Pending|tasks": "รอ",
   "People": "บุคคล",
   "People in {team}": "บุคคลใน {team}",
   "People who lose access have their open agents on this computer closed.": "เอเจนต์ที่เปิดอยู่บนคอมพิวเตอร์นี้ของผู้ที่เสียสิทธิ์เข้าถึงจะถูกปิด",

@@ -105,7 +105,7 @@ export function EcsInfrastructureView({
           },
           {
             key: 'pending',
-            header: t('Pending'),
+            header: t('Pending|tasks'),
             width: 90,
             sortAccessor: (r) => r.pendingTasksCount,
             render: (r) => <span className="text-secondary">{r.pendingTasksCount}</span>,

@@ -1895,6 +1895,7 @@
   "Peek": "探頭",
   "Peers": "對等端",
   "Pending": "等待中",
+  "Pending|tasks": "等待中",
   "People": "成員",
   "People in {team}": "{team} 的成員",
   "People who lose access have their open agents on this computer closed.": "失去存取權的成員，其在此電腦上開啟中的 Agent 將會關閉。",

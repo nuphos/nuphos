@@ -1895,6 +1895,7 @@
   "Peek": "살짝 보기",
   "Peers": "피어",
   "Pending": "대기 중",
+  "Pending|tasks": "대기 중",
   "People": "사용자",
   "People in {team}": "{team}의 사용자",
   "People who lose access have their open agents on this computer closed.": "액세스 권한을 잃은 사용자가 이 컴퓨터에서 열어 둔 에이전트는 닫힙니다.",

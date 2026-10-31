@@ -1895,6 +1895,7 @@
   "Peek": "Asomado",
   "Peers": "Pares",
   "Pending": "Pendiente",
+  "Pending|tasks": "Pendiente",
   "People": "Personas",
   "People in {team}": "Personas en {team}",
   "People who lose access have their open agents on this computer closed.": "Se cerrarán los agentes abiertos en esta computadora de las personas que pierdan el acceso.",
