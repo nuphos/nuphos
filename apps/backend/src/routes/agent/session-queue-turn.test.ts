@@ -20,6 +20,7 @@ import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 import { queuedChatBody } from './session-queue-body'
 import { queueForOfflineBox } from './session-queue-offline'
+import { queueForSignIn } from './session-queue-sign-in'
 import {
   admitQueueableChat,
   launchQueuedChatTurn,
@@ -546,4 +547,46 @@ test('a queued answer keeps the question it names and is admitted naming it', ()
       localTools: true,
     }),
   ).not.toHaveProperty('decisionReplyTo')
+})
+
+test('a send while someone is asked to sign the agent in waits for them, named', async () => {
+  const asked = {
+    ...conversation,
+    runtimeId: 'managed-1',
+    signInRequest: {
+      runtimeId: 'managed-1',
+      requesterId: TEAMMATE,
+      requesterName: 'Shant',
+      askedUserIds: [OWNER],
+      askedName: 'Bryan',
+      askedAt: new Date(),
+    },
+  }
+  const args = (conversationArg: AgentConversation) => ({
+    body: { id: SESSION, messages: [message('held')] },
+    conversation: conversationArg,
+    runOwnerUserId: OWNER,
+    userId: TEAMMATE,
+    streamId: 'stream-held',
+    readOnlyResume: false,
+    clientView: [message('held')],
+    slackBound: false,
+    context: { locale: 'en', localTools: true },
+    credentialAccess: undefined,
+  })
+
+  expect(await queueForSignIn(args(conversation))).toBeUndefined()
+  expect(await queueForSignIn(args(asked))).toEqual({
+    waiting: 'sign_in',
+    message: 'Waiting for Bryan to sign in. Your message is sent once they do.',
+    askedName: 'Bryan',
+  })
+  const [held] = await listPendingUserMessages(OWNER, SESSION)
+
+  // It runs later as the teammate's own message.
+  expect(held).toMatchObject({
+    id: 'held',
+    actorUserId: TEAMMATE,
+    chat: { streamId: 'stream-held' },
+  })
 })

@@ -6,6 +6,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useStableCallback } from '../../hooks/useStableCallback'
 import { t } from '../../i18n'
 
+import { boxWakes } from './boxWakes'
 import { authorizeUrl, devicePage } from './runtimeLogin'
 
 import type { RuntimeInstance, RuntimeLoginStatus } from '../../types/runtime'
@@ -36,6 +37,7 @@ export function useRuntimeLogin(
   })
 
   const id = instance?.id
+  const deviceId = instance?.local?.deviceId
 
   useEffect(() => {
     if (!id) return
@@ -69,13 +71,18 @@ export function useRuntimeLogin(
         }
       })
     }
-    // A just-created agent is still starting; sign-in needs it to answer first.
+    // A just-created agent is still starting; sign-in needs it to answer first. A paused Box is
+    // woken by the same request, and the runtime picker shows it waking meanwhile.
+    let endWake: (() => void) | undefined
     const whenReachable = () => {
+      if (deviceId) endWake ??= boxWakes.begin(deviceId)
       void api.atlasGetRuntimeInstanceStatus(teamId, id, true).then(
         (status) => {
           if (stopped) return
-          if (status.online) start()
-          else timer = setTimeout(whenReachable, 2_000)
+          if (status.online) {
+            endWake?.()
+            start()
+          } else timer = setTimeout(whenReachable, 2_000)
         },
         () => {
           if (!stopped) timer = setTimeout(whenReachable, 3_000)
@@ -89,8 +96,9 @@ export function useRuntimeLogin(
     return () => {
       stopped = true
       clearTimeout(timer)
+      endWake?.()
     }
-  }, [teamId, id, retry, complete, immediate])
+  }, [teamId, id, deviceId, retry, complete, immediate])
 
   /** Cancels an attempt still in progress. False when cancelling failed and the caller should stay. */
   async function cancel(): Promise<boolean> {
