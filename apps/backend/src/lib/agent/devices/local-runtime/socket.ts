@@ -49,6 +49,7 @@ const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
   terminal: 'localTerminal',
   cua: 'localCua',
   browser: 'localBrowser',
+  browserView: 'localBrowserView',
   instances: 'agentInstances',
 }
 

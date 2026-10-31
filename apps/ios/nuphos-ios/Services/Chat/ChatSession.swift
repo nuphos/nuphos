@@ -103,6 +103,10 @@ final class ChatSession {
             || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
     }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// One of those tabs watched live, through the desktop viewer.
+    func makeBrowserView(_ tab: BrowserTab, size: CGSize) -> DesktopSession {
+        DesktopSession(teamId: teamId, sessionId: sessionId, token: token, browserTab: (tab.id, size))
+    }
     /// The browser tabs in this conversation's dock on its owner's computer.
     func browserTabs() async throws -> [BrowserTab] {
         try await AgentChatAPI.browserTabs(token: token, teamId: teamId, sessionId: sessionId)

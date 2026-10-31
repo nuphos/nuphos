@@ -7,9 +7,14 @@
 import { getReadableConversation } from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 
-import { createDeviceToolHandler, defaultDeviceToolDeps } from './preview-tools/device-tool'
+import {
+  createDeviceToolHandler,
+  defaultDeviceToolDeps,
+  resolveDevice,
+} from './preview-tools/device-tool'
 
 import type { DeviceTool, DeviceToolDeps } from './preview-tools/device-tool'
+import type { RuntimeDesktopTarget } from './runtime-desktop'
 import type { ToolResult } from '@/lib/mcp/protocol'
 
 /** A phone waits for this, so it fails fast instead of the agent's four minutes. */
@@ -57,6 +62,14 @@ const quietDeps: DeviceToolDeps = {
 const resultText = (result: ToolResult) =>
   result.content.map((part) => (part.type === 'text' ? part.text : '')).join('\n')
 
+/** The dock is the owner's own screen, as local_browser only runs in your own conversations. */
+async function requireOwnConversation(teamId: string, userId: string, sessionId: string) {
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
+
+  if (conversation?.userId !== userId || conversation.teamId !== teamId)
+    throw new AppError(404, 'not_found', 'Conversation not found')
+}
+
 async function call(
   teamId: string,
   userId: string,
@@ -64,11 +77,7 @@ async function call(
   args: Call,
   deps: DeviceToolDeps,
 ): Promise<ToolResult> {
-  const conversation = await getReadableConversation(sessionId, userId, teamId)
-
-  // The dock is the owner's own screen, as local_browser only runs in your own conversations.
-  if (conversation?.userId !== userId || conversation.teamId !== teamId)
-    throw new AppError(404, 'not_found', 'Conversation not found')
+  await requireOwnConversation(teamId, userId, sessionId)
   const result = await createDeviceToolHandler(
     { userId, teamId, sessionId, locale: 'en' },
     dockTool,
@@ -101,4 +110,29 @@ export async function focusSessionBrowserTab(
   deps: DeviceToolDeps = quietDeps,
 ): Promise<void> {
   await call(teamId, userId, sessionId, { action: 'focus', dockTab }, deps)
+}
+
+/**
+ * Where a phone watches one dock tab live: the same device the dock calls reach,
+ * relayed by the desktop viewer's stream (`runtimeDesktopEvents`) to the
+ * Desktop's `browserView` stream, at the phone's page size.
+ */
+export async function sessionBrowserViewTarget(
+  teamId: string,
+  userId: string,
+  sessionId: string,
+  tab: { id: string; width: number; height: number },
+  deps: DeviceToolDeps = quietDeps,
+): Promise<RuntimeDesktopTarget> {
+  await requireOwnConversation(teamId, userId, sessionId)
+  const ctx = { userId, teamId, sessionId, locale: 'en' }
+  const deviceId = await resolveDevice(ctx, dockTool, undefined, deps)
+
+  if (typeof deviceId !== 'string')
+    throw new AppError(409, 'browser_unavailable', resultText(deviceId))
+  const owner = await deps.owner(ctx, deviceId)
+
+  if (!owner) throw new AppError(404, 'not_found', 'This computer is not available to you.')
+
+  return { userId: owner, deviceId, teamId, sessionId, display: 0, viewer: userId, tab }
 }

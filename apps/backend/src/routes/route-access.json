@@ -350,6 +350,7 @@
   "GET /teams/:teamId/box-usage": "member",
   "GET /teams/:teamId/box-usage/history": "member",
   "GET /teams/:teamId/browser-tabs/:sessionId": "member",
+  "GET /teams/:teamId/browser-tabs/:sessionId/:tab/view": "member",
   "GET /teams/:teamId/claude-code-runtimes": "member",
   "GET /teams/:teamId/cloudflare-accounts": "member",
   "GET /teams/:teamId/cloudflare-accounts/:accountId": "member",
