@@ -79,6 +79,7 @@ test('provider chooser offers only configured providers without reflecting arbit
 
   expect(response.status).toBe(200)
   expect(response.headers.get('x-nuphos-social-login')).toBe('1')
+  expect(response.headers.get('x-nuphos-social-providers')).toBe('google')
   const html = await response.text()
 
   expect(html).toContain('Continue with Google')
@@ -95,7 +96,10 @@ test('provider chooser offers only configured providers without reflecting arbit
       type: 'pkcs8',
     }),
   })
-  expect(await (await app.request('/login')).text()).toContain('Continue with Apple')
+  const withApple = await app.request('/login')
+
+  expect(withApple.headers.get('x-nuphos-social-providers')).toBe('google,apple')
+  expect(await withApple.text()).toContain('Continue with Apple')
 })
 test('chooser is unavailable until a provider is configured', async () => {
   config.auth.google.clientId = undefined

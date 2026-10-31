@@ -1,6 +1,3 @@
-import { faGoogle } from '@fortawesome/free-brands-svg-icons'
-import { faArrowRight } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
@@ -22,6 +19,7 @@ import { signInEmailError } from '../lib/emailDomain'
 import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
 import { LoginApiEndpoint } from './LoginApiEndpoint'
+import { LoginSocialButtons } from './LoginSocialButtons'
 
 import type { UserInfo } from '../types'
 
@@ -54,6 +52,8 @@ export function LoginView({ onLogin }: Props) {
     busy === 'send' && step === 'code' ? 'Sending…' : 'Resend code',
   )
   const shownStep = useRef(step)
+  // A different server may offer different providers.
+  const [serverChanges, setServerChanges] = useState(0)
 
   // Both steps stay mounted for the slide, so focus the step's field once the
   // slide has settled instead of relying on autoFocus at mount.
@@ -68,20 +68,6 @@ export function LoginView({ onLogin }: Props) {
 
     return () => window.clearTimeout(t)
   }, [step, codeRef, emailRef])
-
-  // No in-flight guard: each click re-launches the auth flow so the user can
-  // retry freely (e.g. after closing the browser window without finishing).
-  async function handleGoogleLogin() {
-    try {
-      const user = await api.authLogin()
-
-      onLogin(user)
-    } catch (e) {
-      toast.apiError('Sign-in failed', e, {
-        fallback: 'Check your internet connection and try again.',
-      })
-    }
-  }
 
   async function handleSendCode() {
     if (!email.trim() || busy) return
@@ -151,20 +137,7 @@ export function LoginView({ onLogin }: Props) {
 
           <div className="t-page-slide t-wizard-slide w-full" data-page={step === 'start' ? 1 : 2}>
             <section className="t-page" data-page-id="1" inert={step !== 'start'}>
-              <Button
-                onClick={() => void handleGoogleLogin()}
-                size="lg"
-                className="group w-full titlebar-no-drag"
-              >
-                <span className="flex flex-1 items-center gap-2">
-                  <FontAwesomeIcon icon={faGoogle} />
-                  Continue with Google or Apple
-                </span>
-                <FontAwesomeIcon
-                  icon={faArrowRight}
-                  className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
-                />
-              </Button>
+              <LoginSocialButtons key={serverChanges} onLogin={onLogin} />
 
               <div className="w-full flex items-center gap-3 my-5">
                 <div className="h-px flex-1 bg-zGray-800" />
@@ -203,7 +176,10 @@ export function LoginView({ onLogin }: Props) {
                   </span>
                 </Button>
               </form>
-              <LoginApiEndpoint inputClassName={inputClasses} />
+              <LoginApiEndpoint
+                inputClassName={inputClasses}
+                onChange={() => setServerChanges((n) => n + 1)}
+              />
             </section>
             <section className="t-page" data-page-id="2" inert={step !== 'code'}>
               <form

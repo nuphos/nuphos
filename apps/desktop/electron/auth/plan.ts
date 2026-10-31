@@ -15,12 +15,34 @@ export type LoginPlan =
     }
   | { mode: 'legacy'; browserUrl: string; clientState: string }
 
-// Register before opening the API-hosted provider chooser. Older servers fall back to the landing page.
-export async function planLogin(port: number): Promise<LoginPlan> {
+export type SocialProvider = 'google' | 'apple'
+
+/** The providers the backend's social sign-in offers; none on servers without it. */
+export async function socialProviders(): Promise<SocialProvider[]> {
+  try {
+    const response = await nodeFetch(`${apiUrl()}/auth/social/login`, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(8_000),
+    })
+
+    if (!response.ok) return []
+
+    return (response.headers.get('X-Nuphos-Social-Providers') ?? '')
+      .split(',')
+      .filter((p): p is SocialProvider => p === 'google' || p === 'apple')
+  } catch {
+    return []
+  }
+}
+
+// Register, then open the provider's own start page. Servers without social sign-in fall back
+// to the landing page, which only offers Google.
+export async function planLogin(port: number, provider: SocialProvider): Promise<LoginPlan> {
   const clientState = crypto.randomBytes(16).toString('hex')
   const redirectUri = `http://127.0.0.1:${String(port)}/callback`
 
   const legacy = (): LoginPlan => {
+    if (provider !== 'google') throw new Error('This server does not offer Apple sign-in')
     const url = new URL(NUPHOS_LOGIN_URL)
 
     url.searchParams.set(
@@ -34,18 +56,7 @@ export async function planLogin(port: number): Promise<LoginPlan> {
     return { mode: 'legacy', browserUrl: url.toString(), clientState }
   }
 
-  const startUrl = new URL(`${apiUrl()}/auth/social/login`)
-
-  try {
-    const response = await nodeFetch(startUrl.toString(), {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(8_000),
-    })
-
-    if (!response.ok || response.headers.get('X-Nuphos-Social-Login') !== '1') return legacy()
-  } catch {
-    return legacy()
-  }
+  if (!(await socialProviders()).includes(provider)) return legacy()
 
   const codeVerifier = crypto.randomBytes(48).toString('base64url')
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url')
@@ -59,6 +70,8 @@ export async function planLogin(port: number): Promise<LoginPlan> {
 
     return legacy()
   }
+
+  const startUrl = new URL(`${apiUrl()}/auth/social/${provider}/start`)
 
   startUrl.searchParams.set('handle', handle)
 

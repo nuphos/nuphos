@@ -10,6 +10,8 @@ export type UserInfo = {
   createdAt?: string
 }
 
+export type SocialProvider = 'google' | 'apple'
+
 export type AuthStatus = { loggedIn: false } | { loggedIn: true; user: UserInfo; token: string }
 
 /** One of the account's sign-ins, as GET /auth/sessions lists it. */

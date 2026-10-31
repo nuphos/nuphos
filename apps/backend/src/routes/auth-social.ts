@@ -33,16 +33,16 @@ socialAuth.get('/login', async (c) => {
     throw new AppError(400, 'invalid_handle', 'Start sign-in again from the app')
   const suffix = handle ? `?handle=${encodeURIComponent(handle)}` : ''
   // Only configured providers are offered; with none, clients fall back to their legacy sign-in.
-  const links = (['google', 'apple'] as const)
-    .filter((provider) => isConfigured(provider))
-    .map(
-      (p) =>
-        `<a href="${p}/start${suffix}">Continue with ${p === 'google' ? 'Google' : 'Apple'}</a>`,
-    )
+  const providers = (['google', 'apple'] as const).filter((provider) => isConfigured(provider))
+  const links = providers.map(
+    (p) => `<a href="${p}/start${suffix}">Continue with ${p === 'google' ? 'Google' : 'Apple'}</a>`,
+  )
 
   if (!links.length)
     throw new AppError(503, 'provider_unavailable', 'Social sign-in is not configured')
   c.header('X-Nuphos-Social-Login', '1')
+  // Lets apps show one button per provider and skip this page.
+  c.header('X-Nuphos-Social-Providers', providers.join(','))
 
   return c.html(
     `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Sign in to Nuphos</title><style>body{font:18px system-ui;max-width:360px;margin:15vh auto;padding:24px}a{display:block;padding:16px;margin:16px 0;border:1px solid;border-radius:8px;color:inherit;text-decoration:none}</style><h1>Sign in to Nuphos</h1>${links.join('')}<p>Use the same provider as your existing account.</p></html>`,

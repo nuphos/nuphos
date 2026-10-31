@@ -34,6 +34,7 @@ import type {
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
   SignInSession,
+  SocialProvider,
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
@@ -57,7 +58,8 @@ export type WindowAppApi = {
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
-  authLogin(): Promise<UserInfo>
+  authSocialProviders(): Promise<SocialProvider[]>
+  authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
   authEmailRequestCode(email: string): Promise<void>

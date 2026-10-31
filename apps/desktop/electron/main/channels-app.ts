@@ -58,7 +58,8 @@ export const appChannels = {
   // App.tsx), which has the user object at the moment of success. The main
   // process only manages identity stitching (alias/identify/reset), not the
   // events, to avoid double-counting.
-  'auth:login': () => auth.login(),
+  'auth:socialProviders': () => auth.socialProviders(),
+  'auth:login': (_e: unknown, provider: auth.SocialProvider) => auth.login(provider),
   'auth:logout': async () => {
     const result = await auth.logout()
 
