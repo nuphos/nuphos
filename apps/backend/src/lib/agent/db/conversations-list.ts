@@ -1,3 +1,5 @@
+import { PENDING_TTL_SEC } from '../pending-messages'
+
 import { readableByFilter } from './access'
 import { OPEN_INPUT_REQUEST_FILTER } from './pending-decision'
 import { agentConversations, escapeRegExp } from './shared'
@@ -91,8 +93,8 @@ export async function getConversations(
   // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
   if (options.parentSessionId) query.parentSessionId = options.parentSessionId
-  // Inside $and, so the search $or below cannot replace it.
-  if (options.pendingDecision) (query.$and as unknown[]).push(OPEN_INPUT_REQUEST_FILTER)
+  if (options.pendingDecision)
+    inboxFilter(query, viewerUserId, scope === 'team' ? options.ownerId : undefined)
   else
     query['metadata.trigger.id'] = options.triggerIds
       ? { $in: options.triggerIds }
@@ -138,6 +140,29 @@ export async function getConversations(
     : []
 
   return { conversations, parents, nextCursor, hasMore }
+}
+
+/**
+ * The Inbox: the viewer's conversations with an open request, and any readable
+ * one whose requester asked the viewer to sign its agent in.
+ */
+function inboxFilter(query: Record<string, unknown>, viewerUserId: string, ownerId?: string) {
+  const decision: Record<string, unknown> = { ...OPEN_INPUT_REQUEST_FILTER }
+
+  if (query.userId !== undefined) {
+    decision.userId = query.userId
+    delete query.userId
+  }
+  // Only while the message it holds can still run (sign-in-request.ts ASK_OPEN_MS).
+  // Narrowed to one member like the rest of team scope, and only about the agent it runs on now.
+  const asked = {
+    ...(ownerId ? { userId: ownerId } : {}),
+    'signInRequest.askedUserIds': viewerUserId,
+    'signInRequest.askedAt': { $gt: new Date(Date.now() - PENDING_TTL_SEC * 1000) },
+    $expr: { $eq: ['$signInRequest.runtimeId', '$runtimeId'] },
+  }
+
+  ;(query.$and as unknown[]).push({ $or: [decision, asked] })
 }
 
 /**

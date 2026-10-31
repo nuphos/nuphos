@@ -1,11 +1,13 @@
 import { countUnreadConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { findProposedPlanNumberForConversation } from '@/lib/agent/plans'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 
-import { apnsCredentials, isDeadToken, sendApns } from './apns'
+import { createPushAdmitter } from './admit'
+import { apnsCredentials, sendApns } from './apns'
 import { sendAndroidAlert, sendAndroidBadge } from './badge'
 import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
+import { sendIos } from './ios'
 import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
 import { watcherCanRead } from './watchers'
 
@@ -52,13 +54,10 @@ export type TurnNotifierDeps = {
   now: () => number
 }
 
-// One push per conversation per window: a burst of turns (auto-continuations,
-// quick follow-ups) collapses into the first, and the user is plainly around.
-export const SESSION_COALESCE_MS = 20_000
-export const USER_PUSHES_PER_MINUTE = 8
+export { SESSION_COALESCE_MS, USER_PUSHES_PER_MINUTE } from './admit'
 export const BADGE_DEBOUNCE_MS = 5_000
 
-const USER_WINDOW_MS = 60_000
+type Alert = { title: string; body: string; sessionId?: string; teamId?: string; category?: string }
 
 type Delivery = {
   run: NotifiableRun
@@ -74,67 +73,51 @@ function conversationTitle(conversation: PushConversation | null): string {
 }
 
 export function createTurnNotifier(deps: TurnNotifierDeps) {
-  const lastBySession = new Map<string, number>()
-  const recentByUser = new Map<string, number[]>()
+  const { admit, trackedKeys } = createPushAdmitter(deps.now)
   const badgePending = new Set<string>()
-  let lastSweep = deps.now()
 
-  function sweep(now: number): void {
-    if (now - lastSweep < USER_WINDOW_MS) return
-    lastSweep = now
-    for (const [key, at] of lastBySession) {
-      if (now - at >= SESSION_COALESCE_MS) lastBySession.delete(key)
-    }
-    for (const [userId, times] of recentByUser) {
-      if (times.every((at) => now - at >= USER_WINDOW_MS)) recentByUser.delete(userId)
-    }
+  const send = (devices: PushDevice[], payload: Record<string, unknown>, collapseId: string) =>
+    sendIos(deps, devices, payload, collapseId)
+
+  /** This user's devices that what is configured can reach. */
+  async function reachable(userId: string): Promise<PushDevice[]> {
+    const projectId = deps.fcmProject?.()
+
+    return (await deps.devices.listForUser(userId)).filter((device) =>
+      device.platform === 'ios'
+        ? Boolean(deps.credentials())
+        : Boolean(deps.sendFcm) && Boolean(projectId) && device.projectId === projectId,
+    )
   }
 
-  function admit(userId: string, sessionId: string): boolean {
-    const now = deps.now()
-    const sessionKey = `${userId}:${sessionId}`
-    const last = lastBySession.get(sessionKey)
+  /** One alert; without a conversation it opens the app, and Android, which needs one, is skipped. */
+  async function alertUser(userId: string, devices: PushDevice[], push: Alert): Promise<void> {
+    const { sessionId, teamId, category, ...alert } = push
+    const projectId = deps.fcmProject?.()
+    const badge = await deps.unreadCount(userId)
 
-    sweep(now)
-    if (last !== undefined && now - last < SESSION_COALESCE_MS) return false
-    const recent = (recentByUser.get(userId) ?? []).filter((at) => now - at < USER_WINDOW_MS)
-
-    if (recent.length >= USER_PUSHES_PER_MINUTE) return false
-    recent.push(now)
-    recentByUser.set(userId, recent)
-    lastBySession.set(sessionKey, now)
-
-    return true
-  }
-
-  async function send(devices: PushDevice[], payload: Record<string, unknown>, collapseId: string) {
-    const credentials = deps.credentials()
-
-    if (!credentials) return
-    await Promise.all(
-      devices
-        .filter((device) => device.platform === 'ios')
-        .map(async (device) => {
-          try {
-            const response = await deps.send(credentials, {
-              deviceToken: device.token,
-              environment: device.environment,
-              payload,
-              collapseId,
-            })
-
-            if (isDeadToken(response)) {
-              await deps.devices.removeToken(device.token)
-            } else if (response.status !== 200) {
-              logEvent('warn', 'push.apns.rejected', {
-                status: response.status,
-                reason: response.reason ?? null,
-              })
-            }
-          } catch (error) {
-            logError('push.apns.send_failed', error, { collapse_id: collapseId })
-          }
-        }),
+    if (sessionId && teamId && deps.sendFcm && projectId)
+      await sendAndroidAlert(
+        devices,
+        projectId,
+        { userId, teamId, sessionId, ...alert, badge },
+        deps.sendFcm,
+        (token) => deps.devices.removeToken(token),
+      )
+    await send(
+      devices,
+      {
+        aps: {
+          alert,
+          badge,
+          sound: 'default',
+          ...(sessionId ? { 'thread-id': sessionId } : {}),
+          ...(category ? { category } : {}),
+        },
+        ...(sessionId ? { sessionId } : {}),
+        ...(teamId ? { teamId } : {}),
+      },
+      sessionId ?? `nudge:${userId}`,
     )
   }
 
@@ -142,45 +125,26 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     if (!deps.credentials() && !deps.fcmProject?.()) return
     const conversation = await deps.conversation(run.sessionId)
     const teamId = run.trace?.teamId ?? conversation?.teamId
-    const projectId = deps.fcmProject?.()
     let text: Promise<string | null> | undefined
 
     await Promise.all(
       (conversation?.watcherIds ?? []).map(async (userId) => {
         if (!(await deps.canRead(conversation!, userId))) return
-        const devices = (await deps.devices.listForUser(userId)).filter((device) =>
-          device.platform === 'ios'
-            ? Boolean(deps.credentials())
-            : Boolean(deps.sendFcm) && Boolean(projectId) && device.projectId === projectId,
-        )
+        const devices = await reachable(userId)
 
         if (devices.length === 0) return
         text ??= Promise.resolve(body(conversation))
         const content = await text
 
         if (content === null || !admit(userId, run.sessionId)) return
-        const alert = { title: conversationTitle(conversation), body: content }
-
         await run.activityRecorded
-        const badge = await deps.unreadCount(userId)
-
-        if (teamId && deps.sendFcm && projectId)
-          await sendAndroidAlert(
-            devices,
-            projectId,
-            { userId, teamId, sessionId: run.sessionId, ...alert, badge },
-            deps.sendFcm,
-            (token) => deps.devices.removeToken(token),
-          )
-        await send(
-          devices,
-          {
-            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId, category: 'REPLY' },
-            sessionId: run.sessionId,
-            ...(teamId ? { teamId } : {}),
-          },
-          run.sessionId,
-        )
+        await alertUser(userId, devices, {
+          title: conversationTitle(conversation),
+          body: content,
+          sessionId: run.sessionId,
+          teamId,
+          category: 'REPLY',
+        })
       }),
     )
   }
@@ -212,7 +176,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
   }
 
   return {
-    trackedKeys: () => lastBySession.size + recentByUser.size,
+    trackedKeys,
     async runEnded(run: NotifiableRun): Promise<void> {
       const outcome: TurnOutcome | null = classifyTurn({
         frames: run.frames,
@@ -243,6 +207,17 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
         run,
         body: () => outcomeBody({ kind: 'approval', ...(toolName ? { toolName } : {}) }, null),
       })
+    },
+    /** Asks someone to act on a conversation; it opens there only for someone who can read it. */
+    async nudge(userId: string, push: Alert & { sessionId: string }): Promise<void> {
+      if (!deps.credentials() && !deps.fcmProject?.()) return
+      const devices = await reachable(userId)
+
+      if (devices.length === 0 || !admit(userId, `nudge:${push.sessionId}`)) return
+      const conversation = await deps.conversation(push.sessionId)
+      const readable = conversation !== null && (await deps.canRead(conversation, userId))
+
+      await alertUser(userId, devices, readable ? push : { ...push, sessionId: undefined })
     },
     /** Reading on one device clears the badge on the others. Debounced per user. */
     badgeChanged(userId: string): void {
@@ -293,6 +268,15 @@ export function notifyAgentRunEnded(run: NotifiableRun): void {
 
 export function notifyApprovalRequested(run: NotifiableRun): void {
   background('push.approval_failed', () => defaultNotifier().approvalRequested(run))
+}
+
+/** Each user's devices, rate limited like any push; see sign-in-request.ts. */
+export function notifyNudge(
+  userIds: string[],
+  push: { sessionId: string; teamId: string; title: string; body: string },
+): void {
+  for (const userId of userIds)
+    background('push.nudge_failed', () => defaultNotifier().nudge(userId, push))
 }
 
 export function notifyBadgeChanged(userId: string): void {

@@ -6,9 +6,11 @@ import { useSentinelAutoLoad } from '../components/agent/panel/historyPageHooks'
 import { HistoryConversationRow } from '../components/agent/panel/historyRows'
 import { EmptyState } from '../components/EmptyState'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 import { archivedAtLabel } from './archived-chats/archivedChatsList'
 import { useArchivedChats } from './archived-chats/useArchivedChats'
+import { LoadFailed } from './settings/shared'
 
 type Props = {
   teamId: string
@@ -27,20 +29,38 @@ export function ArchivedChatsView({
   onLoading,
   onOpenConversation,
 }: Props) {
-  const { items, loading, loadingMore, hasMore, search, restoringIds, loadMore, unarchive } =
-    useArchivedChats({ teamId, filter, refreshKey, onLoading })
+  const {
+    items,
+    loading,
+    failed,
+    retry,
+    loadingMore,
+    hasMore,
+    search,
+    restoringIds,
+    loadMore,
+    unarchive,
+  } = useArchivedChats({ teamId, filter, refreshKey, onLoading })
   const { scrollRef, sentinelRef } = useSentinelAutoLoad(hasMore, loadMore)
 
   useEffect(() => {
     onCount?.(items.length)
   }, [items.length, onCount])
 
+  if (!loading && failed && items.length === 0)
+    return (
+      <div className="mx-auto w-full max-w-[820px] px-9 pt-6">
+        <LoadFailed message={t('Couldn’t load archived agents.')} onRetry={retry} />
+      </div>
+    )
   if (!loading && items.length === 0 && !search) {
     return (
       <EmptyState
         icon={Archive}
-        title="No archived agents"
-        description="Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents."
+        title={t('No archived agents')}
+        description={t(
+          'Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.',
+        )}
       />
     )
   }
@@ -59,7 +79,7 @@ export function ArchivedChatsView({
         >
           {items.length === 0 && (
             <div className="px-3 py-4 text-[12.5px] text-tertiary">
-              {loading ? 'Loading…' : 'No archived agents match your search.'}
+              {loading ? t('Loading…') : t('No archived agents match your search.')}
             </div>
           )}
           {items.map((conversation) => (
@@ -84,7 +104,7 @@ export function ArchivedChatsView({
                     onClick={() => void unarchive(conversation)}
                   >
                     <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    Unarchive
+                    {t('Unarchive')}
                   </Button>
                 </div>
               }

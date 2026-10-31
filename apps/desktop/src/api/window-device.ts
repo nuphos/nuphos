@@ -22,6 +22,7 @@ import type {
   ShareApprovalStatus,
   LocalShareInput,
   ShareTrustDuration,
+  SignInAsk,
 } from './device-types.ts'
 
 export type WindowDeviceApi = {
@@ -87,6 +88,8 @@ export type WindowDeviceApi = {
   localShareUntrust(deviceId: string, teamId: string, actorId: string): Promise<void>
   /** Tells the owner about a new request in a system notification, once per request. */
   localShareNotify(approvalId: string, teamId: string, title: string, body: string): Promise<void>
+  runtimeSignInAsk(teamId: string, runtimeId: string, sessionId: string): Promise<SignInAsk>
+  runtimeSignInSettle(teamId: string, runtimeId: string): Promise<void>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
   openSessionDesktop(teamId: string, sessionId: string): Promise<{ display: number }>
   boxUsage(teamId: string): Promise<BoxUsage>

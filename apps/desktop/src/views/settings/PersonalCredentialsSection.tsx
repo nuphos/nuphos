@@ -12,6 +12,7 @@ import { t } from '../../i18n'
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
 import { PERSONAL_CREDENTIALS_CHANGED, nameOf } from './personalCredentials'
 import { SectionHeader } from './shared'
+import { useAdminName } from './useAdminName'
 
 import type { AtlasTeam, PersonalCredential, PersonalCredentialProvider } from '../../types'
 
@@ -50,7 +51,9 @@ const isGoogle = (provider: PersonalCredentialProvider) =>
 export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefined }) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
   // Gmail / Google Drive go through the current team's own OAuth client.
-  const [teamHasGoogleClient, setTeamHasGoogleClient] = useState(false)
+  // Null while unknown, or when it could not be read: Connect stays available and says why if it fails.
+  const [teamHasGoogleClient, setTeamHasGoogleClient] = useState<boolean | null>(null)
+  const admin = useAdminName(team?.id, Boolean(team && team.role !== 'ADMINISTRATOR'))
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState<PersonalCredentialProvider | null>(null)
   const [disconnecting, setDisconnecting] = useState<PersonalCredentialProvider | null>(null)
@@ -70,7 +73,7 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
       void api
         .atlasGetTeamGoogleClient(team.id)
         .then((clientId) => setTeamHasGoogleClient(Boolean(clientId)))
-        .catch(() => setTeamHasGoogleClient(false))
+        .catch(() => setTeamHasGoogleClient(null))
     }
   }, [team])
 
@@ -152,7 +155,7 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
               const credential = credentials?.find(
                 (c) => c.provider === provider && (!isGoogle(provider) || c.teamId === team?.id),
               )
-              const needsTeamClient = isGoogle(provider) && !teamHasGoogleClient
+              const needsTeamClient = isGoogle(provider) && teamHasGoogleClient === false
 
               return (
                 <div
@@ -165,7 +168,14 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
                     <p className="mt-0.5 text-[12.5px] text-tertiary">{description}</p>
                     {!credential && needsTeamClient && (
                       <p className="mt-1.5 text-[12.5px] text-secondary">
-                        {t('Needs a Google OAuth client in Team settings.')}{' '}
+                        {admin
+                          ? t(
+                              'Needs a Google OAuth client. Ask {name} to add one in Team settings.',
+                              {
+                                name: admin,
+                              },
+                            )
+                          : t('Needs a Google OAuth client in Team settings.')}{' '}
                         <button
                           type="button"
                           className="text-zViolet-accent hover:underline"

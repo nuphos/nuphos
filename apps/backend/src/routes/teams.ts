@@ -78,6 +78,7 @@ import { volcengineAccountsRoutes } from '@/routes/volcengine-accounts'
 import { zeaburProvidersRoutes } from '@/routes/zeabur-providers'
 
 import { registerRuntimeLoginRoutes } from './teams/runtime-login'
+import { registerSignInRequestRoutes } from './teams/sign-in-requests'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { ConversationTeamAuthVariables } from '@/routes/teams/conversation-auth'
@@ -110,6 +111,7 @@ registerTeamInvitationRoutes(teamScoped)
 registerAgentRuntimeRoutes(teamScoped)
 registerExternalRuntimeRoute(teamScoped)
 registerRuntimeLoginRoutes(teamScoped)
+registerSignInRequestRoutes(teamScoped)
 registerClaudeCodeRuntimeRoutes(teamScoped, 'codex')
 registerClaudeCodeRuntimeRoutes(teamScoped)
 
