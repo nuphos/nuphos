@@ -112,5 +112,11 @@ test('channels come from their own listing, every page of it, after the agents',
     rows?.map((row) => row.sessionId),
     ['1', 'c1', 'c2'],
   )
-  assert.deepEqual(asked, ['mine::', 'team:channel:', 'team:channel:more'])
+  assert.deepEqual(asked, [
+    'mine::',
+    'mine:channel:',
+    'mine:channel:more',
+    'shared:channel:',
+    'shared:channel:more',
+  ])
 })

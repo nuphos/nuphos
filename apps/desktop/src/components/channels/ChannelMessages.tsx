@@ -160,6 +160,16 @@ function ChannelMessage({
 }
 
 /**
+ * Whether `text` names `title` as a whole word, so "Ops" does not match "stops".
+ * Only Latin letters and digits bound a word: CJK runs on without spaces.
+ */
+function names(text: string, title: string): boolean {
+  const escaped = title.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(text)
+}
+
+/**
  * iMessage-style dots for an agent that is in a turn and was spoken to: the
  * latest post names it, or it is the channel's only agent. Every agent wakes
  * to catch up, but one nobody addressed usually stays silent, so no dots.
@@ -177,7 +187,7 @@ function Typing({
   const busy = agents.filter(
     (agent) =>
       author !== agent.sessionId &&
-      (agents.length === 1 || text.includes(agent.title.toLowerCase())) &&
+      (agents.length === 1 || names(text, agent.title)) &&
       runtimeTurnActive(states.get(agent.sessionId)),
   )
 

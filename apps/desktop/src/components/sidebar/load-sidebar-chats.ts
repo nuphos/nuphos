@@ -3,7 +3,7 @@ import type { AgentConversation, AgentConversationsPage } from '../../api/agent-
 type ReadPage = (options: {
   limit: number
   cursor?: string
-  scope: 'mine' | 'team'
+  scope: 'mine' | 'shared'
   kind?: 'channel'
   archived: 'exclude'
   sort: 'activity'
@@ -11,8 +11,9 @@ type ReadPage = (options: {
 
 /**
  * Page size is a transport bound, never a limit on the visible chat list.
- * The viewer's own agents, then every channel they can read, whoever made it:
- * lists never mix the two, so channels are their own listing.
+ * The viewer's own agents, then the channels they own or joined: lists never
+ * mix the two, so channels are their own listing. A channel shared with the
+ * whole team but never joined stays out, as an agent shared that way does.
  */
 export async function loadSidebarChats(
   readPage: ReadPage,
@@ -20,7 +21,11 @@ export async function loadSidebarChats(
 ): Promise<AgentConversation[] | null> {
   const conversations = new Map<string, AgentConversation>()
 
-  for (const listing of [{ scope: 'mine' }, { scope: 'team', kind: 'channel' }] as const) {
+  for (const listing of [
+    { scope: 'mine' },
+    { scope: 'mine', kind: 'channel' },
+    { scope: 'shared', kind: 'channel' },
+  ] as const) {
     const cursors = new Set<string>()
     let cursor: string | undefined
 
