@@ -1,0 +1,42 @@
+# Scratch only: before/after screenshots of the iOS chat title on iPhone, iPad and every iPhone Duo pose.
+name: scratch iOS Duo title
+on:
+  push:
+    branches: [scratch/ios-duo-title]
+permissions:
+  contents: read
+jobs:
+  shoot:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: main
+          path: before
+      - name: Build before and after
+        run: |
+          for b in before after; do
+            dir=apps/ios; [ $b = before ] && dir=before/apps/ios
+            (cd $dir && xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
+              -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd-$b" \
+              CODE_SIGNING_ALLOWED=NO build -quiet)
+          done
+      - name: Build duorig
+        run: |
+          # Sill's duorig (Apache-2.0, simulator only) folds and turns the Duo simulator, as Device Hub does.
+          git clone -q https://github.com/Saffsanity/sill "$RUNNER_TEMP/sill" && git -C "$RUNNER_TEMP/sill" checkout -q 150479b
+          "$RUNNER_TEMP/sill/Tests/duorig/run.sh" build
+      - name: Shoot
+        run: bash scratch-duo-title/shoot.sh "$PWD/out"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: duo-title
+          path: out/

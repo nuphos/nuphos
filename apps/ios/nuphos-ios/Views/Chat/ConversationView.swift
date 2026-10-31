@@ -21,12 +21,6 @@ struct ConversationView: View {
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
     @State private var updating = false
-    @State private var width: CGFloat = 0
-    #if os(iOS)
-    @Environment(\.barButtonsInSideRail) private var barButtonsInSideRail
-    #else
-    private let barButtonsInSideRail = false
-    #endif
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
@@ -65,7 +59,6 @@ struct ConversationView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .desktop($desktop)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
@@ -248,12 +241,11 @@ struct ConversationView: View {
                 }
             }
         }
-        // The principal item is only as wide as its content and centred, so
-        // it is given all the room between the back and options buttons
-        // (each 44 + 16 margin + 8 gap) to start the title on the left. On
-        // iPhone Duo those buttons sit in the side rail, so the title gets
-        // the whole bar.
-        .frame(width: max(width - (barButtonsInSideRail ? 0 : 136), 0), alignment: .leading)
+        // The principal item is only as wide as its content and centred. Asked
+        // for all the room, it gets what the bar leaves between the buttons it
+        // actually shows, so the title starts on the left without overlapping
+        // them.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Plan links open the plan here, approved through this chat; other app
@@ -903,23 +895,6 @@ struct ShareApprovalStrip: View {
 }
 
 #if os(iOS)
-/// Whether the system shows the navigation bar's buttons in a side rail (the
-/// vertical bar on iPhone Duo) instead of in the bar itself.
-private struct BarButtonsInSideRailKey: EnvironmentKey, UITraitBridgedEnvironmentKey {
-    static let defaultValue = false
-
-    static func read(from traits: UITraitCollection) -> Bool {
-        if #available(iOS 27.1, *) { return traits.verticalBarEdge != .unspecified }
-        return false
-    }
-
-    static func write(to traits: inout UIMutableTraits, value: Bool) {}
-}
-
-extension EnvironmentValues {
-    fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
-}
-
 private extension View {
     /// The bar stays put while the transcript scrolls. Where the system
     /// minimizes it (iPhone Duo), each step resized the transcript and moved
