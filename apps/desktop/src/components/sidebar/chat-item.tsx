@@ -53,5 +53,6 @@ export function chatSidebarItem({
     trailing: status,
     foldedStatus: status,
     finished: threadFoldsAway({ conversation, runtimeState, open: active }),
+    dot,
   }
 }
