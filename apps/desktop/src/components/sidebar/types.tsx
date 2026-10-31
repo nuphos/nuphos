@@ -41,6 +41,8 @@ export type Item = {
   foldedStatus?: ReactNode
   /** A finished thread with nothing left to show; its parent counts it instead. */
   finished?: boolean
+  /** A channel: listed under Channels rather than Agents. */
+  channel?: boolean
 }
 
 export type Section = {
@@ -54,6 +56,8 @@ export type Section = {
   loading?: boolean
   /** Default for a group with no persisted user preference. */
   defaultCollapsed?: boolean
+  /** Beside the title, outside its collapse toggle, e.g. Channels' "+". */
+  action?: ReactNode
 }
 
 export function isTeamIntegrationsActive(active: string): boolean {

@@ -39,6 +39,7 @@ export function chatSidebarItem({
     ),
     enabled: true,
     active,
+    ...(conversation.kind === 'channel' ? { channel: true } : {}),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
     ...(conversation.parentSessionId
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }

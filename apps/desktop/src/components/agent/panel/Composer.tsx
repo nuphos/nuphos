@@ -53,6 +53,7 @@ export function Composer({
   draftKey,
   onImportSession,
   mentionScope,
+  placeholder,
   promptSuggestion,
   recall,
 }: {
@@ -93,7 +94,8 @@ export function Composer({
   onImportSession?: (session: LocalAgentSessionInfo) => void
   /** Turns on @teammate mentions; with a session, mentioned outsiders get an
    *  invite prompt after sending. */
-  mentionScope?: { teamId: string; sessionId?: string }
+  mentionScope?: { teamId: string; sessionId?: string; channel?: boolean }
+  placeholder?: string
   promptSuggestion?: string | null
   recall?: ComposerRecall
 }) {
@@ -124,6 +126,7 @@ export function Composer({
     autoFocus,
     focusKey: draftKey,
     promptSuggestion,
+    placeholder,
   })
 
   useComposerDraft(state, readOnly ? undefined : draftKey)
@@ -180,25 +183,20 @@ export function Composer({
         <div
           className={clsx(
             'relative',
-            // Both variants share the same self-contained input-box
-            // look; the in-conversation (compact) composer is just a
-            // tighter version of the hero box instead of a full-width
-            // bottom strip. Opaque, not a translucent tint: the
-            // composer only reads as a surface if it holds its own
-            // value against the canvas.
+            // Both variants share the same self-contained input-box look; the in-conversation
+            // (compact) composer is just a tighter version of the hero box instead of a full-width
+            // bottom strip. Opaque, not a translucent tint: the composer only reads as a surface if
+            // it holds its own value against the canvas.
             'surface-raised composer-surface bg-composer',
             hero
               ? 'rounded-[24px] px-5 pt-4 pb-3'
               : clsx(
                   'px-3 pt-2.5 pb-2',
-                  // Docked, it reads as part of the same surface as the
-                  // content card beside it, so it takes that card's
-                  // corner exactly: `rounded-lg`, and the plain round
-                  // shape too. `surface-raised` would otherwise curve it
-                  // as a squircle, which at the same radius starts
-                  // bending further from the corner and reads as the
-                  // larger of the two. Page mode sits between that and
-                  // the hero.
+                  // Docked, it reads as part of the same surface as the content card beside it, so
+                  // it takes that card's corner exactly: `rounded-lg`, and the plain round shape
+                  // too. `surface-raised` would otherwise curve it as a squircle, which at the same
+                  // radius starts bending further from the corner and reads as the larger of the
+                  // two. Page mode sits between that and the hero.
                   sidebar ? 'rounded-lg [corner-shape:round]' : 'rounded-[14px]',
                 ),
           )}

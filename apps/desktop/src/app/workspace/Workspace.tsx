@@ -19,11 +19,11 @@ import { ActivePaneSidebar } from './SidebarSlotHost'
 import { usePaletteCommand } from './usePaletteCommand'
 import { useWorkspaceController } from './useWorkspaceController'
 import { useWorkspaceTabMigrations } from './useWorkspaceTabMigrations'
-import { WorkspaceAgentPane } from './WorkspaceAgentPane'
 import { WorkspaceBindDialogs } from './WorkspaceBindDialogs'
 import { WorkspaceDockPanels } from './WorkspaceDockPanels'
 import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
+import { WorkspaceSessionPane } from './WorkspaceSessionPane'
 import { WorkspaceSplits } from './WorkspaceSplits'
 
 import type { WorkspaceProps } from './workspaceProps'
@@ -231,7 +231,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           {pane?.active ? <ActivePaneSidebar pane={pane} ws={ws} user={user} /> : null}
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex flex-1 min-h-0 min-w-0">
-              <WorkspaceAgentPane
+              <WorkspaceSessionPane
                 ws={ws}
                 user={user}
                 workspaceExpanded={ws.workspaceDockExpanded || ws.mainPageOpen}

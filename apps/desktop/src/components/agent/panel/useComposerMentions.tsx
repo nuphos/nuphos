@@ -43,7 +43,7 @@ function mentionedUserIds(el: HTMLElement | null): string[] {
 export function useComposerMentions(
   editorRef: RefObject<HTMLDivElement | null>,
   onEdited: () => void,
-  scope?: { teamId: string; sessionId?: string },
+  scope?: { teamId: string; sessionId?: string; channel?: boolean },
   credentials?: Pick<CredentialSelectorControl, 'options' | 'value' | 'onChange'>,
 ) {
   const [members, setMembers] = useState<TeamMember[] | null>(null)
@@ -131,7 +131,7 @@ export function useComposerMentions(
     range.setStart(caret.node, caret.offset - query.length - 1)
     range.setEnd(caret.node, caret.offset)
     range.deleteContents()
-    const chip = optionChip(option, scope.teamId)
+    const chip = optionChip(option, scope.teamId, scope.channel)
 
     if (
       option.kind === 'device' &&
