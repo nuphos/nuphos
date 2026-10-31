@@ -75,6 +75,17 @@ export type AgentConversation = {
   pendingDecision?: AgentPendingDecision
   /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
   inputRequests?: AgentInputRequest[]
+  /** Someone asked who can sign this conversation's agent in; their message waits for it. */
+  signInRequest?: AgentSignInRequest
+}
+
+export type AgentSignInRequest = {
+  runtimeId: string
+  requesterId: string
+  requesterName: string
+  askedUserIds: string[]
+  askedName: string
+  askedAt: string
 }
 
 export type AgentPendingDecision = {

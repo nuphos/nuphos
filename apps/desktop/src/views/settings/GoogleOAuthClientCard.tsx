@@ -5,7 +5,9 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { LoadFailed } from './shared'
 import { inputClasses } from './styles'
+import { useAdminName } from './useAdminName'
 
 import type { AtlasTeam } from '../../types'
 
@@ -19,6 +21,9 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [saving, setSaving] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const admin = useAdminName(team.id, !isAdmin)
 
   useEffect(() => {
     void api
@@ -26,9 +31,11 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
       .then((id) => {
         setSavedClientId(id)
         setClientId(id ?? '')
+        setFailed(false)
       })
-      .catch(() => setSavedClientId(null))
-  }, [team.id])
+      // Not "not configured": an admin would otherwise overwrite a client they cannot see.
+      .catch(() => setFailed(true))
+  }, [team.id, attempt])
 
   async function save() {
     setSaving(true)
@@ -74,7 +81,12 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
         </p>
       </div>
 
-      {isAdmin ? (
+      {failed ? (
+        <LoadFailed
+          message={t('Couldn’t load the Google OAuth client.')}
+          onRetry={() => setAttempt((value) => value + 1)}
+        />
+      ) : isAdmin ? (
         <form
           className="space-y-3 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5"
           onSubmit={(e) => {
@@ -128,7 +140,9 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
             ? '—'
             : savedClientId
               ? t('Configured. Connect Gmail or Google Drive in Personal Credentials.')
-              : t('Not configured. Ask a workspace administrator to add one.')}
+              : admin
+                ? t('Not configured. Ask {name} to add one.', { name: admin })
+                : t('Not configured. Ask a workspace administrator to add one.')}
         </div>
       )}
     </div>

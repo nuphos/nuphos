@@ -3,6 +3,7 @@
 // (`_openab/runtime/login/input`). The credential stays in this container's
 // `~/.claude/.credentials.json`, where the agent reads it; no frame carries it.
 import { execFile, spawn } from 'node:child_process'
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
@@ -10,20 +11,97 @@ import { stripVTControlCharacters } from 'node:util'
 
 const AUTHORIZE_HOSTS = new Set(['claude.com', 'claude.ai'])
 const CODE_LINE = /^[\w.~-]{1,2048}#[\w.~-]{1,512}$/u
+// `claude setup-token` prints its one-year token once; nothing else it prints looks like one.
+const LONG_LIVED_TOKEN = /\bsk-ant-oat\d*-[\w-]{20,}/u
+/** Where a long-lived sign-in lives, beside Claude's own store. session-home.mjs reads it. */
+export const LONG_LIVED_TOKEN_FILE = '.nuphos-oauth-token.json'
+const LONG_LIVED_MS = 365 * 24 * 60 * 60 * 1000
+// Where and as whom the pinned CLI revokes a sign-in it gives up (its /logout).
+const REVOKE_URL = 'https://platform.claude.com/v1/oauth/token/revoke'
+const CLAUDE_CODE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'
 
-export function authorizeUrl(output) {
-  const match = /visit: (https:\/\/\S+)/u.exec(stripVTControlCharacters(output))
-
-  if (!match) return null
+/** The one-year token stored before this sign-in, if any. */
+export function storedLongLivedToken(configDir) {
   try {
-    const url = new URL(match[1])
-
-    return AUTHORIZE_HOSTS.has(url.hostname) && url.pathname.endsWith('/oauth/authorize')
-      ? url.href
-      : null
+    const { token } = JSON.parse(readFileSync(join(configDir, LONG_LIVED_TOKEN_FILE), 'utf8'))
+    return typeof token === 'string' && token ? token : null
   } catch {
     return null
   }
+}
+
+/** True once the provider confirmed it; never throws, and never logs the token. */
+export async function revokeLongLivedToken(token, request = fetch) {
+  try {
+    const response = await request(REVOKE_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        token_type_hint: 'access_token',
+        client_id: CLAUDE_CODE_CLIENT_ID,
+      }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+/** The token `claude setup-token` printed, or null. The caller never logs or relays it. */
+export function longLivedToken(output) {
+  return LONG_LIVED_TOKEN.exec(stripVTControlCharacters(output))?.[0] ?? null
+}
+
+/** Atomically, owner-only: the token plus when it lapses, so the runtime can say so. */
+export function storeLongLivedToken(configDir, token, now = Date.now()) {
+  const file = join(configDir, LONG_LIVED_TOKEN_FILE)
+  const temporary = `${file}.${process.pid}.tmp`
+  const record = {
+    token,
+    createdAt: new Date(now).toISOString(),
+    // setup-token prints no expiry of its own; a year from the sign-in is what it grants.
+    expiresAt: new Date(now + LONG_LIVED_MS).toISOString(),
+  }
+
+  mkdirSync(configDir, { recursive: true, mode: 0o700 })
+  writeFileSync(temporary, `${JSON.stringify(record)}\n`, { mode: 0o600 })
+  chmodSync(temporary, 0o600)
+  renameSync(temporary, file)
+}
+
+/**
+ * `setup-token` is an interactive screen that prints nothing without a terminal, so it
+ * runs under util-linux `script`. A wide terminal keeps the token on one line.
+ */
+export function inTerminal(executable, args) {
+  const quote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`
+
+  return {
+    command: 'script',
+    args: [
+      '-qfec',
+      `stty cols 1000 rows 50; exec ${[executable, ...args].map(quote).join(' ')}`,
+      '/dev/null',
+    ],
+  }
+}
+
+export function authorizeUrl(output) {
+  // `auth login` prints "visit: <url>"; `setup-token` prints the URL on a line of its own.
+  for (const [candidate] of stripVTControlCharacters(output).matchAll(/https:\/\/\S+/gu)) {
+    try {
+      const url = new URL(candidate)
+
+      if (AUTHORIZE_HOSTS.has(url.hostname) && url.pathname.endsWith('/oauth/authorize'))
+        return url.href
+    } catch {
+      /* Not a URL; keep looking. */
+    }
+  }
+
+  return null
 }
 
 export function isAuthorizationCode(line) {
@@ -72,6 +150,12 @@ export async function runClaudeLogin({
   input = process.stdin,
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   signal,
+  // A one-year token that never refreshes, instead of a login whose refresh token
+  // rotates on every use (see the cloud runtime image).
+  longLived = false,
+  terminal = inTerminal,
+  revoke = revokeLongLivedToken,
+  log = (line) => process.stderr.write(`${line}\n`),
 }) {
   // Not the gateway's environment: no transport keys, and no CLAUDE_CODE_OAUTH_TOKEN,
   // which would shadow the login this writes. USER names the macOS Keychain account the
@@ -86,8 +170,11 @@ export async function runClaudeLogin({
       : {}),
     ...(user ? { USER: user, LOGNAME: user } : {}),
   }
-  const child = spawn(executable, [...args, 'auth', 'login', '--claudeai'], {
-    env,
+  const run = longLived
+    ? terminal(executable, [...args, 'setup-token'])
+    : { command: executable, args: [...args, 'auth', 'login', '--claudeai'] }
+  const child = spawn(run.command, run.args, {
+    env: longLived ? { ...env, TERM: 'xterm' } : env,
     stdio: ['pipe', 'pipe', 'ignore'],
     detached: process.platform !== 'win32',
   })
@@ -108,8 +195,10 @@ export async function runClaudeLogin({
 
   child.stdin.on('error', () => stop('failed'))
   child.stdout.on('data', (chunk) => {
+    // After the URL, only a long-lived sign-in still needs the output: the token.
+    if (announced && !longLived) return
+    output = (output + chunk.toString()).slice(-65_536)
     if (announced) return
-    output = (output + chunk.toString()).slice(-16_384)
     const url = authorizeUrl(output)
 
     if (url) {
@@ -120,7 +209,8 @@ export async function runClaudeLogin({
   lines.on('line', (line) => {
     const code = line.trim()
 
-    if (isAuthorizationCode(code)) child.stdin.write(`${code}\n`)
+    // A terminal submits on carriage return.
+    if (isAuthorizationCode(code)) child.stdin.write(`${code}${longLived ? '\r' : '\n'}`)
   })
   // A gateway that cannot relay input hands this process /dev/null, which ends at once;
   // the code the user pastes could then never arrive.
@@ -140,8 +230,27 @@ export async function runClaudeLogin({
 
     if (failure) throw failure
     if (code !== 0) throw new LoginError('failed')
-    // The same check the agent's host runs, with the same environment, on every platform.
-    if (!(await signedIn(executable, args, env))) throw new LoginError('failed')
+    let checkEnv = env
+
+    if (longLived) {
+      const token = longLivedToken(output)
+
+      output = ''
+      if (!token) throw new LoginError('failed')
+      checkEnv = { ...env, CLAUDE_CODE_OAUTH_TOKEN: token }
+      // Checked before it is stored, so a token the CLI rejects never replaces a working one.
+      if (!(await signedIn(executable, args, checkEnv))) throw new LoginError('failed')
+      const previous = storedLongLivedToken(configDir)
+
+      storeLongLivedToken(configDir, token)
+      // One one-year token per runtime: the one it replaces stops working. A failed revoke
+      // keeps the new sign-in; the old token then lapses on its own date.
+      if (previous && previous !== token && !(await revoke(previous)))
+        log('claude-login: signed in, but the previous one-year token could not be revoked')
+    } else if (!(await signedIn(executable, args, checkEnv))) {
+      // The same check the agent's host runs, with the same environment, on every platform.
+      throw new LoginError('failed')
+    }
     emit({ type: 'authenticated' })
   } finally {
     lines.removeAllListeners('close')
@@ -163,6 +272,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       secureStorageConfigDir: process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
       user: process.env.USER || process.env.LOGNAME,
       signal: controller.signal,
+      longLived: process.argv.includes('--long-lived'),
     })
   } catch (error) {
     // Provider output can contain sensitive values; report only a fixed reason.

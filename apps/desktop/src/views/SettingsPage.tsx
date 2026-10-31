@@ -10,7 +10,12 @@ import {
 } from './settings/settingsNav'
 import { SettingsNav } from './settings/SettingsNavPanel'
 import { SettingsSectionBody } from './settings/SettingsSectionBody'
-import { MemoriesSection, SkillsSection, TriggersSection } from './settings/TeamPageSections'
+import {
+  MemoriesSection,
+  NoTeam,
+  SkillsSection,
+  TriggersSection,
+} from './settings/TeamPageSections'
 import { useResetOnKey } from './useResetOnKey'
 
 import type { JournalChatTarget } from '../lib/journalEvent'
@@ -84,7 +89,9 @@ export function SettingsPage({
     'workspace.members': <MembersSection teamId={team?.id} currentUserId={user.id} />,
     'workspace.billing': team ? (
       <BillingSection teamId={team.id} isAdmin={team.role === 'ADMINISTRATOR'} />
-    ) : null,
+    ) : (
+      <NoTeam />
+    ),
     'workspace.skills': (
       <SkillsSection key={initialFilter} {...pageProps} initialFilter={initialFilter} />
     ),

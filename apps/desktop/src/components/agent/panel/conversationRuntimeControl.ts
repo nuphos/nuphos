@@ -133,7 +133,9 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   } | null>(null)
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
-    if (!sessionId || !teamId || tab?.readOnly || (tab?.foreign && !tab.canManage)) return
+    if (!sessionId || !teamId || tab?.readOnly) return
+    // A teammate's conversation you cannot manage: its agent's state and fixes, nothing to pick.
+    const canMove = !tab?.foreign || tab.canManage
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
 
     return {
@@ -147,16 +149,19 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         status: current?.status,
       },
       // Only the owner puts a session on a local or self-hosted agent.
-      options: tab?.foreign
-        ? runtimeInstances.filter((instance) => instance.kind === 'managed')
-        : runtimeInstances,
-      onSelect: (runtimeId: string) => {
-        const target = runtimeInstances.find((instance) => instance.id === runtimeId)
-        const warning = target && localAgentMoveWarning(target)
+      options:
+        tab?.foreign && canMove
+          ? runtimeInstances.filter((instance) => instance.kind === 'managed')
+          : runtimeInstances,
+      ...(canMove && {
+        onSelect: (runtimeId: string) => {
+          const target = runtimeInstances.find((instance) => instance.id === runtimeId)
+          const warning = target && localAgentMoveWarning(target)
 
-        if (target && warning) setPendingLocal({ target, warning })
-        else void move(runtimeId)
-      },
+          if (target && warning) setPendingLocal({ target, warning })
+          else void move(runtimeId)
+        },
+      }),
       selectDisabled: tab?.streaming || moving,
       quotas: runtimeQuotas,
       unavailable:

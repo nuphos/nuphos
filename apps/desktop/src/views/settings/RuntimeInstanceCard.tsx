@@ -244,6 +244,9 @@ export function RuntimeInstanceCard({
                 <RuntimeSignIn
                   instance={instance}
                   authenticated={runtime.authenticated}
+                  {...(runtime.credentialExpiresAt
+                    ? { expiresAt: runtime.credentialExpiresAt }
+                    : {})}
                   {...(canEdit && !busy ? { onSignIn: () => setSigningIn(true) } : {})}
                 />
               )

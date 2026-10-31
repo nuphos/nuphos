@@ -7,6 +7,8 @@ import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { AdminOnlyHint } from './shared'
+
 import type { AtlasTeam } from '../../types'
 
 // Workspace discovery by email domain: when enabled, anyone who signs in with
@@ -73,15 +75,14 @@ export function AllowedEmailDomainCard({
                 : t('Disabled for this workspace.')}
           </div>
         </div>
-        <span title={isAdmin ? undefined : t('Only workspace administrators can change this')}>
-          <Switch
-            checked={enabled}
-            disabled={!isAdmin || saving}
-            label={enabled ? t('Disable domain discovery') : t('Enable domain discovery')}
-            onChange={(next) => void toggle(next)}
-          />
-        </span>
+        <Switch
+          checked={enabled}
+          disabled={!isAdmin || saving}
+          label={enabled ? t('Disable domain discovery') : t('Enable domain discovery')}
+          onChange={(next) => void toggle(next)}
+        />
       </div>
+      {!isAdmin && <AdminOnlyHint teamId={team.id} />}
     </div>
   )
 }
