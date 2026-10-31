@@ -89,7 +89,8 @@ export async function stopRecording(contents: WebContents) {
   const file = join(dir, `tab-${String(contents.id)}-${String(Date.now())}.har`)
 
   await mkdir(dir, { recursive: true, mode: 0o700 })
-  await prune(dir)
+  // Best effort: a concurrent record_stop may delete the same files.
+  await prune(dir).catch(() => {})
   await writeFile(
     file,
     JSON.stringify({
