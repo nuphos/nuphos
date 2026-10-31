@@ -16,6 +16,7 @@ import type {
   ChangelogState,
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
+  UpdaterState,
 } from '../types/team.ts'
 
 export const appApi = {
@@ -77,9 +78,10 @@ export const appApi = {
   getPathForFile: (file: File) => window.api.getPathForFile(file),
   savePastedAttachments: (payload: PastedAttachmentPayload) =>
     window.api.savePastedAttachments(payload),
-  updaterGetReadyVersion: () => window.api.updaterGetReadyVersion(),
+  updaterGetState: () => window.api.updaterGetState(),
+  updaterCheck: () => window.api.updaterCheck(),
   updaterInstall: () => window.api.updaterInstall(),
-  onUpdaterReady: (cb: (version: string) => void) => window.api.onUpdaterReady(cb),
+  onUpdaterStatus: (cb: (state: UpdaterState) => void) => window.api.onUpdaterStatus(cb),
   changelogGetState: () => window.api.changelogGetState(),
   onChangelogStatus: (cb: (state: ChangelogState) => void) => window.api.onChangelogStatus(cb),
   atlasListTeams: () => window.api.atlasListTeams(),

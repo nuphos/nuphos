@@ -2210,5 +2210,14 @@
   "Model settings: {name}, Ultrafast mode on": "模型设置：{name}，Ultrafast 模式已开启",
   "Let my phone see and control this Mac": "允许我的手机查看并控制这台 Mac",
   "Nuphos on your phone can show this screen and control it, without your Mac password. macOS asks once to allow Screen Recording and Accessibility. This Mac shows a notice while your phone has control.": "手机上的 Nuphos 可以显示并控制这台 Mac 的屏幕，无需 Mac 密码。macOS 会请求一次屏幕录制和辅助功能权限。手机控制期间，这台 Mac 会显示通知。",
-  "Could not change phone control": "无法更改手机控制设置"
+  "Could not change phone control": "无法更改手机控制设置",
+  "Updates": "更新",
+  "Checking for updates…": "正在检查更新…",
+  "You're up to date.": "已是最新版本。",
+  "Downloading Nuphos {version}…": "正在下载 Nuphos {version}…",
+  "Nuphos {version} is ready. Restart to finish updating.": "Nuphos {version} 已就绪，重启即可完成更新。",
+  "Couldn't check for updates. Check your connection and try again.": "无法检查更新，请检查网络连接后重试。",
+  "Nuphos downloads updates in the background.": "Nuphos 会在后台下载更新。",
+  "Check for updates": "检查更新",
+  "{percent}% · {done} of {total} · {speed}/s": "{percent}% · {done} / {total} · {speed}/秒"
 }

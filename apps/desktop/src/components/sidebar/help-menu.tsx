@@ -16,7 +16,7 @@ import {
   MenuTrigger,
 } from '../ui/menu'
 import { useChangelog } from '../useChangelog'
-import { useReadyUpdate } from '../useReadyUpdate'
+import { useUpdaterState } from '../useUpdaterState'
 import { WhatsNewReader } from '../WhatsNewReader'
 
 import type { ChangelogEntry } from '../../types/team'
@@ -76,16 +76,16 @@ function WhatsNewGroup({
 
 export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?: () => void }) {
   const changelog = useChangelog()
-  const readyVersion = useReadyUpdate()
+  const updater = useUpdaterState()
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   return (
     <>
-      {readyVersion && (
+      {updater.kind === 'ready' && (
         <button
           type="button"
           className="titlebar-no-drag update-notif-enter flex h-7 flex-shrink-0 items-center gap-1.5 rounded-full bg-zViolet-500 px-2.5 text-xs font-medium text-white shadow-sm shadow-zViolet-900/40 outline-none transition-colors hover:bg-zViolet-400 focus-visible:ring-2 focus-visible:ring-zViolet-300"
-          title={t('Update ready — version {version}', { version: readyVersion })}
+          title={t('Update ready — version {version}', { version: updater.version })}
           onClick={() => void api.updaterInstall()}
         >
           <RotateCw className="h-3 w-3" strokeWidth={2.4} />

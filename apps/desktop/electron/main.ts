@@ -67,6 +67,8 @@ import { resolveShellEnv } from './shell-env'
 import * as slackInstall from './slack-install'
 import * as terminal from './terminal'
 
+export type { UpdaterState } from './main/updater'
+
 initDeepLinkWindowHooks({ focusedAppWindow, showMainWindow })
 
 // Electron implements elastic overscroll through a renderer-process switch.

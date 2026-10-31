@@ -2210,5 +2210,14 @@
   "Model settings: {name}, Ultrafast mode on": "모델 설정: {name}, Ultrafast 모드 켜짐",
   "Let my phone see and control this Mac": "내 휴대폰에서 이 Mac을 보고 제어하도록 허용",
   "Nuphos on your phone can show this screen and control it, without your Mac password. macOS asks once to allow Screen Recording and Accessibility. This Mac shows a notice while your phone has control.": "휴대폰의 Nuphos에서 Mac 암호 없이 이 화면을 보고 제어할 수 있습니다. macOS가 화면 기록 및 손쉬운 사용 권한을 한 번 요청합니다. 휴대폰이 제어하는 동안 이 Mac에 알림이 표시됩니다.",
-  "Could not change phone control": "휴대폰 제어 설정을 변경할 수 없습니다"
+  "Could not change phone control": "휴대폰 제어 설정을 변경할 수 없습니다",
+  "Updates": "업데이트",
+  "Checking for updates…": "업데이트 확인 중…",
+  "You're up to date.": "최신 버전입니다.",
+  "Downloading Nuphos {version}…": "Nuphos {version} 다운로드 중…",
+  "Nuphos {version} is ready. Restart to finish updating.": "Nuphos {version}이(가) 준비되었습니다. 재시작하면 업데이트가 완료됩니다.",
+  "Couldn't check for updates. Check your connection and try again.": "업데이트를 확인할 수 없습니다. 연결을 확인하고 다시 시도하세요.",
+  "Nuphos downloads updates in the background.": "Nuphos는 백그라운드에서 업데이트를 다운로드합니다.",
+  "Check for updates": "업데이트 확인",
+  "{percent}% · {done} of {total} · {speed}/s": "{percent}% · {done} / {total} · {speed}/초"
 }

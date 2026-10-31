@@ -2,66 +2,64 @@ import { app, BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
 
 import { captureMain, captureMainException } from '../analytics'
-import { showAppDialog } from '../app-dialog'
 
 import { isDev } from './env'
 import { configureStableUpdateChannel } from './updater-channel'
-import { checkOutcome, describeCheckOutcome } from './updater-check-result'
 import {
   classifyUpdaterError,
   createUpdaterErrorDedupe,
   updaterTelemetryError,
 } from './updater-error'
 
-import type { InteractiveCheckOutcome } from './updater-check-result'
-
 export const { autoUpdater } = electronUpdater
 
-// The only update fact the UI needs: the version downloaded and waiting for a
-// restart. Restarting installs it, so it is never cleared.
-let readyVersion: string | null = null
+export type UpdaterState =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'up-to-date' }
+  | {
+      kind: 'downloading'
+      version: string
+      transferred: number
+      total: number
+      bytesPerSecond: number
+    }
+  | { kind: 'ready'; version: string }
+  | { kind: 'error' }
+
+let updaterState: UpdaterState = { kind: 'idle' }
 let updaterCheckTimer: ReturnType<typeof setInterval> | null = null
+let lastProgressAt = 0
 
-export function getReadyVersion(): string | null {
-  return readyVersion
-}
-
-export function installReadyUpdate() {
-  if (readyVersion) autoUpdater.quitAndInstall()
-}
-
-// electron-updater joins overlapping checks into one and skips unpacked builds.
-// A failed check also emits 'error', which is where telemetry captures it.
-function pollOnce() {
-  autoUpdater.checkForUpdates().catch(() => null)
-}
-
-async function runInteractiveCheck(): Promise<InteractiveCheckOutcome> {
-  if (readyVersion) return { kind: 'ready', version: readyVersion }
-  try {
-    const result = await autoUpdater.checkForUpdates()
-
-    return checkOutcome(app.getVersion(), result?.updateInfo.version)
-  } catch {
-    return { kind: 'error' }
+function setUpdaterState(next: UpdaterState) {
+  // A downloaded update stays ready until the restart installs it.
+  if (updaterState.kind === 'ready') return
+  updaterState = next
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('updater:status', next)
   }
 }
 
-/** The app-menu "Check for Updates…" path: one check, one Nuphos dialog. */
-export async function checkForUpdatesInteractive(): Promise<void> {
-  const box = describeCheckOutcome(await runInteractiveCheck())
-  const restart = await showAppDialog(BrowserWindow.getFocusedWindow(), {
-    title: 'Check for Updates',
-    ...box,
-  })
+export function getUpdaterState(): UpdaterState {
+  return updaterState
+}
 
-  if (restart) installReadyUpdate()
+/** A check while downloading or ready would only re-stage the same update.
+ * electron-updater joins overlapping checks and skips unpacked builds; a failed
+ * check also emits 'error', which sets the state and reports telemetry. */
+export function checkForUpdates() {
+  if (updaterState.kind === 'downloading' || updaterState.kind === 'ready') return
+  autoUpdater.checkForUpdates().catch(() => null)
+}
+
+export function installUpdate() {
+  if (updaterState.kind === 'ready') autoUpdater.quitAndInstall()
 }
 
 export function startUpdatePolling() {
-  if (isDev || updaterCheckTimer || readyVersion) return
-  pollOnce()
-  updaterCheckTimer = setInterval(pollOnce, 5 * 60 * 1000)
+  if (isDev || updaterCheckTimer) return
+  checkForUpdates()
+  updaterCheckTimer = setInterval(checkForUpdates, 5 * 60 * 1000)
 }
 
 export function stopUpdatePolling() {
@@ -76,15 +74,35 @@ export function initAutoUpdaterEvents() {
   configureStableUpdateChannel(autoUpdater)
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on('checking-for-update', () => setUpdaterState({ kind: 'checking' }))
+  autoUpdater.on('update-not-available', () => setUpdaterState({ kind: 'up-to-date' }))
+  autoUpdater.on('update-available', (info) =>
+    setUpdaterState({
+      kind: 'downloading',
+      version: info.version,
+      transferred: 0,
+      total: 0,
+      bytesPerSecond: 0,
+    }),
+  )
+  autoUpdater.on('download-progress', (p) => {
+    // Progress fires many times a second; about once a second is enough to read.
+    const now = Date.now()
+
+    if (updaterState.kind !== 'downloading' || now - lastProgressAt < 1000) return
+    lastProgressAt = now
+    setUpdaterState({
+      ...updaterState,
+      transferred: p.transferred,
+      total: p.total,
+      bytesPerSecond: p.bytesPerSecond,
+    })
+  })
   autoUpdater.on('update-downloaded', (info) => {
-    // Another poll would only re-stage the same download.
     stopUpdatePolling()
-    if (readyVersion === info.version) return
-    readyVersion = info.version
+    if (updaterState.kind === 'ready') return
     captureMain('update_downloaded', { version: info.version })
-    for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send('updater:ready', info.version)
-    }
+    setUpdaterState({ kind: 'ready', version: info.version })
   })
   autoUpdater.on('error', (err) => {
     const category = classifyUpdaterError(err.message)
@@ -99,5 +117,7 @@ export function initAutoUpdaterEvents() {
         $exception_fingerprint: `desktop_updater:${category}`,
       })
     }
+    // The raw message stays in telemetry; the UI shows one plain sentence.
+    setUpdaterState({ kind: 'error' })
   })
 }

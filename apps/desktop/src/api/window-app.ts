@@ -34,6 +34,7 @@ import type {
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
   SignInSession,
+  UpdaterState,
   UserInfo,
 } from '../types/team.ts'
 
@@ -98,9 +99,10 @@ export type WindowAppApi = {
   listLocalAgentSessions(source: LocalSessionSource): Promise<LocalAgentSessionInfo[]>
   getPathForFile(file: File): string
   savePastedAttachments(payload: PastedAttachmentPayload): Promise<string[]>
-  updaterGetReadyVersion(): Promise<string | null>
+  updaterGetState(): Promise<UpdaterState>
+  updaterCheck(): Promise<void>
   updaterInstall(): Promise<void>
-  onUpdaterReady(cb: (version: string) => void): () => void
+  onUpdaterStatus(cb: (state: UpdaterState) => void): () => void
   changelogGetState(): Promise<ChangelogState>
   onChangelogStatus(cb: (state: ChangelogState) => void): () => void
   atlasListTeams(): Promise<AtlasTeam[]>

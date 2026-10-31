@@ -92,6 +92,12 @@ export function useWorkspaceShortcuts(a: Args) {
 
         return
       }
+      if (action === 'open-updates') {
+        setSettingsInitialSection('device.updates')
+        setSettingsOpen(true)
+
+        return
+      }
       if (action === 'open-settings' || action === 'open-team-settings') {
         if (settingsOpen) {
           setSettingsOpen(false)
