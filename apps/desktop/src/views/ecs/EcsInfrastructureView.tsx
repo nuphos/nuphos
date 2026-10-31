@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 
 import { ErrorBlock } from './ErrorBlock'
 import { applyFilter, useLoader } from './shared'
@@ -42,10 +43,10 @@ export function EcsInfrastructureView({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="px-4 py-3 border-b border-zGray-850 bg-zGray-950">
         <div className="text-[11px] uppercase tracking-wide text-tertiary mb-1.5">
-          Capacity providers
+          {t('Capacity providers')}
         </div>
         {capacityProviders.length === 0 ? (
-          <div className="text-[12.5px] text-tertiary">None configured</div>
+          <div className="text-[12.5px] text-tertiary">{t('None configured')}</div>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {capacityProviders.map((cp) => (
@@ -65,11 +66,11 @@ export function EcsInfrastructureView({
         rowKey={(r) => r.containerInstanceArn}
         storageKey="aws.ecs-container-instances"
         defaultSort={{ key: 'ec2InstanceId', dir: 'asc' }}
-        empty="No container instances (Fargate-only clusters won't have any)"
+        empty={t("No container instances (Fargate-only clusters won't have any)")}
         columns={[
           {
             key: 'ec2InstanceId',
-            header: 'EC2 Instance',
+            header: t('EC2 Instance'),
             width: 200,
             sortAccessor: (r) => r.ec2InstanceId,
             render: (r) => (
@@ -78,40 +79,40 @@ export function EcsInfrastructureView({
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 100,
             sortAccessor: (r) => r.status,
             render: (r) => <StatusBadge status={r.status} />,
           },
           {
             key: 'agent',
-            header: 'Agent',
+            header: t('Agent'),
             width: 90,
             sortAccessor: (r) => (r.agentConnected ? 1 : 0),
             render: (r) =>
               r.agentConnected ? (
-                <span className="text-success">Connected</span>
+                <span className="text-success">{t('Connected')}</span>
               ) : (
-                <span className="text-error">Disconnected</span>
+                <span className="text-error">{t('Disconnected')}</span>
               ),
           },
           {
             key: 'running',
-            header: 'Running',
+            header: t('Running'),
             width: 90,
             sortAccessor: (r) => r.runningTasksCount,
             render: (r) => <span className="text-secondary">{r.runningTasksCount}</span>,
           },
           {
             key: 'pending',
-            header: 'Pending',
+            header: t('Pending'),
             width: 90,
             sortAccessor: (r) => r.pendingTasksCount,
             render: (r) => <span className="text-secondary">{r.pendingTasksCount}</span>,
           },
           {
             key: 'cpu',
-            header: 'CPU (free/total)',
+            header: t('CPU (free/total)'),
             width: 140,
             sortAccessor: (r) => r.cpuRemaining ?? 0,
             render: (r) => (
@@ -122,7 +123,7 @@ export function EcsInfrastructureView({
           },
           {
             key: 'memory',
-            header: 'Mem MiB (free/total)',
+            header: t('Mem MiB (free/total)'),
             width: 170,
             sortAccessor: (r) => r.memoryRemaining ?? 0,
             render: (r) => (
@@ -133,7 +134,7 @@ export function EcsInfrastructureView({
           },
           {
             key: 'capacityProvider',
-            header: 'Capacity Provider',
+            header: t('Capacity Provider'),
             width: 200,
             sortAccessor: (r) => r.capacityProviderName ?? '',
             render: (r) => (
@@ -142,7 +143,7 @@ export function EcsInfrastructureView({
           },
           {
             key: 'agentVersion',
-            header: 'Agent / Docker',
+            header: t('Agent / Docker'),
             width: 180,
             sortAccessor: (r) => r.agentVersion ?? '',
             render: (r) => (
@@ -154,7 +155,7 @@ export function EcsInfrastructureView({
           },
           {
             key: 'registered',
-            header: 'Registered',
+            header: t('Registered'),
             width: 100,
             sortAccessor: (r) => r.registeredAt ?? '',
             render: (r) => (
