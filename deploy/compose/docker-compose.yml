@@ -136,7 +136,7 @@ services:
     restart: unless-stopped
 
   runtime:
-    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.43-claude-code}
+    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.44-claude-code}
     # Published for amd64 only; Apple Silicon runs it under emulation.
     platform: linux/amd64
     environment:
