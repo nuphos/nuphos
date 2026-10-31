@@ -24,6 +24,8 @@ export type Item = {
   badge?: number
   /** Status content preserved when the item is pinned. */
   trailing?: ReactNode
+  /** Shown after the label even while the row's actions take the trailing slot on hover. */
+  note?: ReactNode
   /** Row actions shown on hover or focus, such as a chat's More button. */
   actions?: ReactNode
   /** Overrides the default onSelect(key) click behavior (Favorites rows).

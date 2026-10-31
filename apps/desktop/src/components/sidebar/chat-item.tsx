@@ -28,13 +28,6 @@ export function chatSidebarItem({
 }): Item {
   const dot = rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
-  // A phone viewing this chat's dock tab shows here too, where the tab itself may be out of sight.
-  const trailing = (
-    <>
-      <PhoneViewingBadge sessionId={conversation.sessionId} />
-      {status}
-    </>
-  )
 
   return {
     key: `agent-session:${conversation.sessionId}`,
@@ -58,7 +51,10 @@ export function chatSidebarItem({
         agentSessionId: conversation.sessionId,
       }),
     ).href,
-    trailing,
+    trailing: status,
+    // A phone viewing this chat's dock tab shows here too, where the tab itself may be out of
+    // sight. Not in the trailing slot: hover swaps that for the row's actions, hiding Stop.
+    note: <PhoneViewingBadge sessionId={conversation.sessionId} />,
     foldedStatus: status,
     finished: threadFoldsAway({ conversation, runtimeState, open: active }),
     dot,
