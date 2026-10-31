@@ -7,6 +7,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '../../components/ui/combobox'
+import { t } from '../../i18n'
 
 export function RegionCombobox({
   regions,
@@ -44,8 +45,8 @@ export function RegionCombobox({
       autoHighlight
     >
       <ComboboxInput
-        aria-label="Select region"
-        placeholder="Region"
+        aria-label={t('Select region')}
+        placeholder={t('Region')}
         className="h-7 w-[150px] border-zGray-800"
         inputClassName="px-2 text-[12px]"
       />
