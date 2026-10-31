@@ -15,3 +15,12 @@ test('a queued send says why it waits only when the server does', async () => {
   assert.deepEqual(await queuedNotice(reply(JSON.stringify({ status: 'queued' }))), {})
   assert.deepEqual(await queuedNotice(reply('')), {})
 })
+
+test('a send waiting on a sign-in names who it waits for', async () => {
+  const body = { status: 'queued', message: 'Waiting for Bryan to sign in.', waitingFor: 'Bryan' }
+
+  assert.deepEqual(await queuedNotice(new Response(JSON.stringify(body), { status: 202 })), {
+    message: 'Waiting for Bryan to sign in.',
+    waitingFor: 'Bryan',
+  })
+})

@@ -12,20 +12,27 @@ import { logEvent } from '@/lib/observability'
 import { queueForOfflineBox } from './session-queue-offline'
 import { admitQueueableChat, messageText } from './session-queue-turn'
 
+import type { SignInWait } from './session-queue-sign-in'
 import type { QueueableChat } from './session-queue-turn'
 import type { ShareApproval } from '@/lib/agent/devices/local-share-store'
 
 /** What the sender is told while the message waits. */
 export type ShareApprovalWait = { waiting: 'share_approval'; message: string }
-/** A send the queue holds: for an offline Box (null), or for an owner's approval. */
-export type QueuedSend = ShareApprovalWait | null
+/** A send the queue holds: for an offline Box (null), an owner's approval, or a sign-in. */
+export type QueuedSend = ShareApprovalWait | SignInWait | null
 
 export function isQueued<T extends object>(runtime: T | QueuedSend): runtime is QueuedSend {
   return runtime === null || 'waiting' in runtime
 }
 
 export function queuedReply(streamId: string, wait: QueuedSend) {
-  return { status: 'queued' as const, streamId, ...(wait ? { message: wait.message } : {}) }
+  return {
+    status: 'queued' as const,
+    streamId,
+    ...(wait ? { message: wait.message } : {}),
+    // The desktop names who the message waits for in its own language.
+    ...(wait?.waiting === 'sign_in' ? { waitingFor: wait.askedName } : {}),
+  }
 }
 
 /** A send as the chat route holds it: the conversation may not be stored yet. */

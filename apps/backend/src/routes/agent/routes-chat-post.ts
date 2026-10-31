@@ -27,6 +27,7 @@ import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from 
 import { streamAgentRunResponse } from './run-stream'
 import { admitRuntimeChat } from './runtime-chat-admission'
 import { isQueued, queuedReply, queueForWaitingRuntime } from './session-queue-share-approval'
+import { queueForSignIn } from './session-queue-sign-in'
 import { admitQueueableChat, queuedChatContext, queuedChatReply } from './session-queue-turn'
 import {
   assertConversationSendable,
@@ -112,12 +113,15 @@ agent.post('/chat', async (c) => {
     if (attached) return attached
   }
   if (body.resume) return await resumeFromRedisOrThrow(resumeParams)
-  const chatRuntime = await resolveConversationChatRuntime(teamId, conversationForResume, {
-    userId,
-    sessionId: id,
-    ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
-    ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-  }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams))
+  // Someone was asked to sign this agent in: the send waits for them.
+  const chatRuntime =
+    (await queueForSignIn(resumeParams)) ??
+    (await resolveConversationChatRuntime(teamId, conversationForResume, {
+      userId,
+      sessionId: id,
+      ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
+      ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
+    }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams)))
 
   if (isQueued(chatRuntime)) return queuedChatReply(body, queuedReply(streamId, chatRuntime))
   const runtimeProvider = chatRuntime.runtime
