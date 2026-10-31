@@ -252,6 +252,10 @@ describe('isServerAuthoritativeTranscript', () => {
     expect(isServerAuthoritativeTranscript({})).toBe(false)
     expect(isServerAuthoritativeTranscript(LEGACY_NUPHOS_CONVERSATION)).toBe(false)
   })
+
+  test('a channel’s transcript is its posters’, never a client snapshot', () => {
+    expect(isServerAuthoritativeTranscript({ kind: 'channel' })).toBe(true)
+  })
 })
 
 // Two production conversations still carry the retired `nuphos` stamp. Nothing

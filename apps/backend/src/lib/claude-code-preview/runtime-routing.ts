@@ -61,10 +61,12 @@ export function resolveConversationRuntimeId(
 
 /** Native transcripts belong to the server, from the first message onward. */
 export function isServerAuthoritativeTranscript(
-  conversation: Pick<AgentConversation, 'agentRuntime' | 'claudeCodePreview'> | null,
+  conversation: Pick<AgentConversation, 'agentRuntime' | 'claudeCodePreview' | 'kind'> | null,
   requestedRuntime?: OpenAbProvider,
 ): boolean {
+  // A channel's messages are each posted to the server by their own sender.
   return Boolean(
+    conversation?.kind === 'channel' ||
     isOpenAbProvider(conversation ? conversation.agentRuntime : requestedRuntime) ||
     conversation?.claudeCodePreview,
   )

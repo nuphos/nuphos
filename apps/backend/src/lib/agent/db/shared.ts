@@ -3,6 +3,7 @@ import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
+import type { ChannelFields } from './channels'
 import type { ConversationInputRequests } from './pending-decision'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
@@ -81,9 +82,8 @@ export type AgentConversation = ConversationInputRequests & {
   // Archive marker, set by the owner or a manager. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
-  // When it was last un-archived by hand. The idle sweep counts from
-  // here as well as from lastActiveAt, so a restored conversation is not
-  // filed away again an hour later.
+  // When it was last un-archived by hand. The idle sweep counts from here as well as from
+  // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
   // Teammates who joined this conversation beside its owner. Speaking in a
   // session and being invited from Share are the same fact — "this person is
@@ -168,7 +168,7 @@ export type AgentConversation = ConversationInputRequests & {
     toModelId: string
   }
   tokenUsage?: AgentTokenUsageSummary
-}
+} & ChannelFields
 
 // Which external client created the conversation (MCP callers): the OAuth
 // client registration name is the strongest signal ("Claude Code", "Codex"),
