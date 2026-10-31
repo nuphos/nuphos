@@ -2118,5 +2118,11 @@
   "Mentions in channels": "채널 멘션",
   "Someone": "누군가",
   "mentioned you in #{name}": "님이 #{name}에서 회원님을 멘션했습니다",
-  "Files can’t be posted in a channel yet.": "아직 채널에는 파일을 올릴 수 없습니다."
+  "Files can’t be posted in a channel yet.": "아직 채널에는 파일을 올릴 수 없습니다.",
+  "Copy channel ID": "채널 ID 복사",
+  "Rename channel": "채널 이름 변경",
+  "Archive channel": "채널 보관",
+  "Channel ID copied": "채널 ID를 복사했습니다",
+  "Could not copy channel ID": "채널 ID를 복사할 수 없습니다",
+  "New messages in": "새 메시지:"
 }

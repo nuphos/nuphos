@@ -11,7 +11,7 @@ test('sidebar loads all pages, preserves order and deduplicates overlapping page
   const cursors: (string | undefined)[] = []
   const rows = await loadSidebarChats(
     async (options) => {
-      if (options.scope === 'shared') return { conversations: [], nextCursor: null, hasMore: false }
+      if (options.kind === 'channel') return { conversations: [], nextCursor: null, hasMore: false }
       cursors.push(options.cursor)
 
       return options.cursor
@@ -58,7 +58,7 @@ test('refresh moves an older active conversation above a newer idle one', async 
   const newer = { ...chat(2), createdAt: '2026-10-02T00:00:00Z' }
   let active = false
   const readPage: Parameters<typeof loadSidebarChats>[0] = async (options) => {
-    if (options.scope === 'shared') return { conversations: [], nextCursor: null, hasMore: false }
+    if (options.kind === 'channel') return { conversations: [], nextCursor: null, hasMore: false }
     assert.equal(options.sort, 'activity')
     assert.equal(options.scope, 'mine')
     assert.equal(options.archived, 'exclude')
@@ -85,25 +85,32 @@ test('refresh moves an older active conversation above a newer idle one', async 
   )
 })
 
-test('channels a teammate created come from shared; their other chats do not', async () => {
+test('channels come from their own listing, every page of it, after the agents', async () => {
+  const asked: string[] = []
   const rows = await loadSidebarChats(
-    async (options) =>
-      options.scope === 'shared'
+    async (options) => {
+      asked.push(`${options.scope}:${options.kind ?? ''}:${options.cursor ?? ''}`)
+      if (options.kind !== 'channel')
+        return { conversations: [chat(1)], nextCursor: null, hasMore: false }
+
+      return options.cursor
         ? {
-            conversations: [
-              { sessionId: 'their-channel', kind: 'channel' },
-              { sessionId: 'their-agent' },
-              { sessionId: '1', kind: 'channel' },
-            ] as AgentConversation[],
+            conversations: [{ sessionId: 'c2', kind: 'channel' }] as AgentConversation[],
             nextCursor: null,
             hasMore: false,
           }
-        : { conversations: [chat(1)], nextCursor: null, hasMore: false },
+        : {
+            conversations: [{ sessionId: 'c1', kind: 'channel' }] as AgentConversation[],
+            nextCursor: 'more',
+            hasMore: true,
+          }
+    },
     () => true,
   )
 
   assert.deepEqual(
     rows?.map((row) => row.sessionId),
-    ['1', 'their-channel'],
+    ['1', 'c1', 'c2'],
   )
+  assert.deepEqual(asked, ['mine::', 'team:channel:', 'team:channel:more'])
 })

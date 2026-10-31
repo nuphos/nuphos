@@ -2118,5 +2118,11 @@
   "Mentions in channels": "Sebutan di kanal",
   "Someone": "Seseorang",
   "mentioned you in #{name}": "menyebut Anda di #{name}",
-  "Files can’t be posted in a channel yet.": "File belum bisa dikirim ke kanal."
+  "Files can’t be posted in a channel yet.": "File belum bisa dikirim ke kanal.",
+  "Copy channel ID": "Salin ID kanal",
+  "Rename channel": "Ganti nama kanal",
+  "Archive channel": "Arsipkan kanal",
+  "Channel ID copied": "ID kanal disalin",
+  "Could not copy channel ID": "Tidak dapat menyalin ID kanal",
+  "New messages in": "Pesan baru di"
 }

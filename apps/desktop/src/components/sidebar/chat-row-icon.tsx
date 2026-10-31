@@ -6,19 +6,8 @@ import type { AgentConversation } from '../../api'
 
 /** Agent identity and current Runtime; execution status lives in ChatRowStatus. */
 export function chatRowIcon(conversation: AgentConversation): Pick<Item, 'icon' | 'iconNode'> {
-  // A channel with just one agent wears that agent's face; any other, the hash.
-  if (conversation.kind === 'channel') {
-    const [only, ...more] = conversation.agentSessionIds ?? []
-
-    return {
-      iconNode:
-        only && more.length === 0 ? (
-          <AgentAvatar agentId={only} sidebar />
-        ) : (
-          <ChannelMark size={22} />
-        ),
-    }
-  }
+  // A channel is never an agent, so it never wears one's face.
+  if (conversation.kind === 'channel') return { iconNode: <ChannelMark size={22} /> }
 
   return {
     iconNode: (

@@ -2118,5 +2118,11 @@
   "Mentions in channels": "頻道中的提及",
   "Someone": "有人",
   "mentioned you in #{name}": "在 #{name} 提到了你",
-  "Files can’t be posted in a channel yet.": "頻道目前還不能傳送檔案。"
+  "Files can’t be posted in a channel yet.": "頻道目前還不能傳送檔案。",
+  "Copy channel ID": "複製頻道 ID",
+  "Rename channel": "重新命名頻道",
+  "Archive channel": "封存頻道",
+  "Channel ID copied": "已複製頻道 ID",
+  "Could not copy channel ID": "無法複製頻道 ID",
+  "New messages in": "新訊息："
 }

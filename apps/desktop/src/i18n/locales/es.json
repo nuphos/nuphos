@@ -2118,5 +2118,11 @@
   "Mentions in channels": "Menciones en canales",
   "Someone": "Alguien",
   "mentioned you in #{name}": "te mencionó en #{name}",
-  "Files can’t be posted in a channel yet.": "Aún no se pueden publicar archivos en un canal."
+  "Files can’t be posted in a channel yet.": "Aún no se pueden publicar archivos en un canal.",
+  "Copy channel ID": "Copiar ID del canal",
+  "Rename channel": "Cambiar nombre del canal",
+  "Archive channel": "Archivar canal",
+  "Channel ID copied": "ID del canal copiado",
+  "Could not copy channel ID": "No se pudo copiar el ID del canal",
+  "New messages in": "Mensajes nuevos en"
 }

@@ -2118,5 +2118,11 @@
   "Mentions in channels": "การกล่าวถึงในช่อง",
   "Someone": "มีคน",
   "mentioned you in #{name}": "กล่าวถึงคุณใน #{name}",
-  "Files can’t be posted in a channel yet.": "ยังโพสต์ไฟล์ในช่องไม่ได้"
+  "Files can’t be posted in a channel yet.": "ยังโพสต์ไฟล์ในช่องไม่ได้",
+  "Copy channel ID": "คัดลอก ID ช่อง",
+  "Rename channel": "เปลี่ยนชื่อช่อง",
+  "Archive channel": "เก็บถาวรช่อง",
+  "Channel ID copied": "คัดลอก ID ช่องแล้ว",
+  "Could not copy channel ID": "คัดลอก ID ช่องไม่ได้",
+  "New messages in": "ข้อความใหม่ใน"
 }

@@ -2118,5 +2118,11 @@
   "Mentions in channels": "チャンネルでのメンション",
   "Someone": "誰か",
   "mentioned you in #{name}": "が #{name} であなたをメンションしました",
-  "Files can’t be posted in a channel yet.": "チャンネルにはまだファイルを投稿できません。"
+  "Files can’t be posted in a channel yet.": "チャンネルにはまだファイルを投稿できません。",
+  "Copy channel ID": "チャンネル ID をコピー",
+  "Rename channel": "チャンネル名を変更",
+  "Archive channel": "チャンネルをアーカイブ",
+  "Channel ID copied": "チャンネル ID をコピーしました",
+  "Could not copy channel ID": "チャンネル ID をコピーできませんでした",
+  "New messages in": "新着メッセージ："
 }

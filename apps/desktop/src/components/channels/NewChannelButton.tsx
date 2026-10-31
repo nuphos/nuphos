@@ -48,7 +48,9 @@ export function NewChannelButton({
   }
   const onlyAgent =
     agentIds.length === 1 ? agents.find((agent) => agent.sessionId === agentIds[0]) : undefined
-  const name = title.trim() || onlyAgent?.title || ''
+  // Named after the agent, as a channel is named: never the agent's own name.
+  const fallback = (onlyAgent?.title ?? '').trim().toLowerCase().replace(/\s+/g, '-')
+  const name = title.trim() || fallback
 
   const create = async () => {
     setBusy(true)
@@ -102,7 +104,7 @@ export function NewChannelButton({
             autoFocus
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder={onlyAgent?.title || t('e.g. launch-war-room')}
+            placeholder={fallback || t('e.g. launch-war-room')}
             className="text-[13px] text-main placeholder:text-tertiary"
           />
         </InputGroup>

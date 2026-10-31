@@ -94,7 +94,7 @@ export function Composer({
   onImportSession?: (session: LocalAgentSessionInfo) => void
   /** Turns on @teammate mentions; with a session, mentioned outsiders get an
    *  invite prompt after sending. */
-  mentionScope?: { teamId: string; sessionId?: string }
+  mentionScope?: { teamId: string; sessionId?: string; channel?: boolean }
   placeholder?: string
   promptSuggestion?: string | null
   recall?: ComposerRecall

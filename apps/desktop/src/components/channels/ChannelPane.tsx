@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { AgentAvatar } from '../agent/AgentAvatar'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { SessionParticipants } from '../agent/SessionParticipants'
@@ -45,7 +44,6 @@ export function ChannelPane({
   const scrollRef = useRef<HTMLDivElement>(null)
   const title = detail?.title ?? ''
   const messages = detail?.messages ?? []
-  const soloAgent = agents.length === 1 ? agents[0] : undefined
 
   // Open at the latest post, and follow new ones.
   useEffect(() => {
@@ -86,11 +84,7 @@ export function ChannelPane({
         )}
       >
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
-          {soloAgent ? (
-            <AgentAvatar agentId={soloAgent.sessionId} avatar={soloAgent.avatar} animated />
-          ) : (
-            <ChannelMark size={22} />
-          )}
+          <ChannelMark size={22} />
           <span className="truncate text-main">{title}</span>
         </div>
         <SessionParticipants
@@ -121,11 +115,7 @@ export function ChannelPane({
       >
         {detail && messages.length === 0 && (
           <div className="mx-auto flex w-full max-w-[760px] flex-col items-start gap-3 px-3 pt-10">
-            {soloAgent ? (
-              <AgentAvatar agentId={soloAgent.sessionId} avatar={soloAgent.avatar} size={44} />
-            ) : (
-              <ChannelMark size={44} className="rounded-xl" />
-            )}
+            <ChannelMark size={44} className="rounded-xl" />
             <div className="text-lg font-semibold leading-snug text-main">{title}</div>
             <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
               {t(
@@ -134,14 +124,16 @@ export function ChannelPane({
             </div>
           </div>
         )}
-        <ChannelMessages
-          messages={messages}
-          events={detail?.timelineEvents ?? []}
-          agents={agents}
-          viewerId={user.id}
-          teamId={teamId}
-          onOpenSession={onOpenSession}
-        />
+        {detail && (
+          <ChannelMessages
+            messages={messages}
+            events={detail?.timelineEvents ?? []}
+            agents={agents}
+            viewerId={user.id}
+            teamId={teamId}
+            onOpenSession={onOpenSession}
+          />
+        )}
       </div>
       <div className="mx-auto w-full max-w-[760px] px-3 pb-3">
         <Composer
@@ -151,8 +143,8 @@ export function ChannelPane({
           pendingSeed={restore}
           onSeedConsumed={() => setRestore(null)}
           draftKey={composerDraftKey(teamId, channelId)}
-          mentionScope={{ teamId, sessionId: channelId }}
-          placeholder={t('Message {name}', { name: soloAgent ? title : `#${title}` })}
+          mentionScope={{ teamId, sessionId: channelId, channel: true }}
+          placeholder={t('Message {name}', { name: `#${title}` })}
         />
       </div>
     </div>

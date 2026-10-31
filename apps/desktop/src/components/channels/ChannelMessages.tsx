@@ -1,5 +1,6 @@
-import { ExternalLink, Pause } from 'lucide-react'
-import { Fragment } from 'react'
+import clsx from 'clsx'
+import { Pause } from 'lucide-react'
+import { Fragment, useState } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
@@ -29,27 +30,32 @@ function time(message: AgentPersistedMessage, sentAt?: string) {
   return Number.isFinite(at) ? formatMessageTimestamp(at) : ''
 }
 
-function OpenSession({ onOpen }: { onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="inline-flex items-center gap-1 text-[11px] text-tertiary hover:text-secondary"
-    >
-      {t('Open session')}
-      <ExternalLink className="h-3 w-3" strokeWidth={2} />
-    </button>
-  )
+/** Who posted: the sender's id, so consecutive posts from one sender form a run. */
+function senderOf(message: AgentPersistedMessage): string | undefined {
+  const metadata = parseMessageMetadata(message.metadata)
+
+  return metadata ? (metadata.sourceSessionId ?? metadata.sender.id) : undefined
 }
 
-/** One post: yours on the right, a person's on the left, an agent's written out in full. */
+/**
+ * One post: yours on the right, everyone else's in a bubble on the left. The
+ * first post of a run carries the avatar and name; an agent's open its session.
+ */
 function ChannelMessage({
   message,
+  first,
+  fresh,
+  ownAgent,
   viewerId,
   teamId,
   onOpenSession,
 }: {
   message: AgentPersistedMessage
+  first: boolean
+  /** Arrived while the channel was open: it springs in. */
+  fresh: boolean
+  /** The viewer's own agent: its face and name open its session. */
+  ownAgent: boolean
   viewerId: string
   teamId: string
   onOpenSession: (sessionId: string) => void
@@ -60,102 +66,140 @@ function ChannelMessage({
   if (!metadata || !text) return null
   const { sender } = metadata
   const when = time(message, metadata.sentAt)
-
-  if (sender.type === 'agent') {
-    const agentId = metadata.sourceSessionId ?? sender.id
-
-    return (
-      <div className="group/message flex items-start gap-2.5">
-        <div className="mt-0.5 shrink-0">
-          <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2 text-xs leading-4">
-            <span className="truncate font-medium text-secondary">{sender.displayName}</span>
-            <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">
-              {t('Agent')}
-            </span>
-            <span className="text-[11px] text-tertiary tabular-nums">{when}</span>
-            <span className="ml-auto opacity-0 group-hover/message:opacity-100">
-              <OpenSession onOpen={() => onOpenSession(agentId)} />
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <MessageResponse teamId={teamId}>{text}</MessageResponse>
-          </div>
-        </div>
-      </div>
-    )
-  }
-  const mine = sender.id === viewerId
-  const avatar = (
-    <div className="mt-0.5 shrink-0" aria-hidden="true">
-      <Avatar
-        src={trustedAvatarURL(sender.avatarURL)}
-        name={sender.displayName}
-        size={28}
-        className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
-      />
-    </div>
+  const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
+  const open = agentId && ownAgent ? () => onOpenSession(agentId) : null
+  const body = (
+    <MessageResponse teamId={teamId} className="[&_p]:whitespace-pre-wrap">
+      {text}
+    </MessageResponse>
   )
 
-  if (mine)
+  if (!agentId && sender.id === viewerId)
     return (
       <div className="flex w-full items-start justify-end gap-2.5">
         <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-1">
-          <div className="user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words">
-            <MessageResponse teamId={teamId} className="[&_p]:whitespace-pre-wrap">
-              {text}
-            </MessageResponse>
+          <div
+            className={clsx(
+              'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+              fresh && 't-bubble-in-mine',
+            )}
+          >
+            {body}
           </div>
           <span className="pr-0.5 text-[11px] text-tertiary tabular-nums">{when}</span>
         </div>
-        {avatar}
+        <div className="w-7 shrink-0">
+          {first && (
+            <Avatar
+              src={trustedAvatarURL(sender.avatarURL)}
+              name={sender.displayName}
+              size={28}
+              className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
+            />
+          )}
+        </div>
       </div>
     )
 
   return (
     <div className="flex w-full items-start gap-2.5">
-      {avatar}
+      <div className="w-7 shrink-0">
+        {first &&
+          (agentId ? (
+            // Your own agent's face and name open its session.
+            open ? (
+              <button type="button" tabIndex={-1} onClick={open} className="rounded-full">
+                <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
+              </button>
+            ) : (
+              <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
+            )
+          ) : (
+            <Avatar
+              src={trustedAvatarURL(sender.avatarURL)}
+              name={sender.displayName}
+              size={28}
+              className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
+            />
+          ))}
+      </div>
       <div className="flex min-w-0 max-w-[85%] flex-col items-start gap-1">
-        <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
-          <span className="truncate font-medium text-secondary">{sender.displayName}</span>
-          <span className="text-[11px] text-tertiary tabular-nums">{when}</span>
+        {first && (
+          <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
+            {open ? (
+              <button
+                type="button"
+                title={t('Open session')}
+                onClick={open}
+                className="truncate font-medium text-secondary hover:underline"
+              >
+                {sender.displayName}
+              </button>
+            ) : (
+              <span className="truncate font-medium text-secondary">{sender.displayName}</span>
+            )}
+            {agentId && (
+              <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">
+                {t('Agent')}
+              </span>
+            )}
+          </div>
+        )}
+        <div
+          className={clsx(
+            'max-w-full rounded-2xl rounded-tl-md bg-zGray-800/70 px-3.5 py-2 break-words',
+            fresh && 't-bubble-in',
+          )}
+        >
+          {body}
         </div>
-        <div className="max-w-full rounded-2xl rounded-tl-md bg-zGray-800/70 px-3.5 py-2 break-words">
-          <MessageResponse teamId={teamId} className="[&_p]:whitespace-pre-wrap">
-            {text}
-          </MessageResponse>
-        </div>
+        <span className="px-1 text-[11px] text-tertiary tabular-nums">{when}</span>
       </div>
     </div>
   )
 }
 
-/** Which of the channel's agents are in a turn right now: catching up, or working. */
-function Thinking({
+/**
+ * iMessage-style dots for an agent that is in a turn and was spoken to: the
+ * latest post names it, or it is the channel's only agent. Every agent wakes
+ * to catch up, but one nobody addressed usually stays silent, so no dots.
+ */
+function Typing({
   agents,
-  onOpenSession,
+  last,
 }: {
   agents: ChannelAgent[]
-  onOpenSession: (sessionId: string) => void
+  last: AgentPersistedMessage | undefined
 }) {
   const states = useAgentRuntimeStates()
-  const busy = agents.filter((agent) => runtimeTurnActive(states.get(agent.sessionId)))
-
-  if (busy.length === 0) return null
-
-  return (
-    <div className="flex flex-col gap-1.5 pl-[38px]">
-      {busy.map((agent) => (
-        <div key={agent.sessionId} className="flex items-center gap-2 text-[12.5px] text-tertiary">
-          <AgentAvatar agentId={agent.sessionId} avatar={agent.avatar} size={18} />
-          <span>{t('{name} is thinking', { name: agent.title })}</span>
-          <OpenSession onOpen={() => onOpenSession(agent.sessionId)} />
-        </div>
-      ))}
-    </div>
+  const text = last ? textOf(last).toLowerCase() : ''
+  const author = last ? senderOf(last) : undefined
+  const busy = agents.filter(
+    (agent) =>
+      author !== agent.sessionId &&
+      (agents.length === 1 || text.includes(agent.title.toLowerCase())) &&
+      runtimeTurnActive(states.get(agent.sessionId)),
   )
+
+  return busy.map((agent) => (
+    <div
+      key={agent.sessionId}
+      className="flex items-end gap-2.5"
+      role="status"
+      aria-label={t('{name} is thinking', { name: agent.title })}
+    >
+      <AgentAvatar agentId={agent.sessionId} avatar={agent.avatar} size={28} />
+      <div className="t-bubble-in flex items-center gap-1 rounded-2xl rounded-bl-md bg-zGray-800/70 px-3.5 py-3">
+        {[0, 160, 320].map((delay) => (
+          <span
+            key={delay}
+            className="t-typing-dot h-1.5 w-1.5 rounded-full bg-tertiary"
+            style={{ animationDelay: `${String(delay)}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  ))
 }
 
 /** The loop guard stopped agents answering agents: a line on the timeline. */
@@ -194,14 +238,22 @@ export function ChannelMessages({
   teamId: string
   onOpenSession: (sessionId: string) => void
 }) {
+  // What was here on opening stays put; only posts that arrive later spring in.
+  const owned = new Set(
+    agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
+  )
+  const [initial] = useState(() => new Set(messages.map((message) => message.id)))
   // Posts and timeline lines in the order they happened.
   const rows = [
-    ...messages.map((message) => ({
+    ...messages.map((message, i) => ({
       at: stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt),
       key: message.id,
       node: (
         <ChannelMessage
           message={message}
+          first={i === 0 || senderOf(messages[i - 1]!) !== senderOf(message)}
+          fresh={!initial.has(message.id)}
+          ownAgent={owned.has(senderOf(message) ?? '')}
           viewerId={viewerId}
           teamId={teamId}
           onOpenSession={onOpenSession}
@@ -218,11 +270,11 @@ export function ChannelMessages({
   ].sort((a, b) => a.at - b.at)
 
   return (
-    <div className="mx-auto flex w-full max-w-[760px] flex-col gap-5 px-3">
+    <div className="mx-auto flex w-full max-w-[760px] flex-col gap-3 px-3">
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Thinking agents={agents} onOpenSession={onOpenSession} />
+      <Typing agents={agents} last={messages.at(-1)} />
     </div>
   )
 }
