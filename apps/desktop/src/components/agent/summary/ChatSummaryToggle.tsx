@@ -42,14 +42,15 @@ export function ChatSummaryToggle({
   hidden?: boolean
   pendingCount?: number
 }) {
-  const open = useChatSummaryOpen()
+  const open = useChatSummaryOpen(pane.paneId)
 
   useEffect(() => {
     if (!active) return
     const onKeyDown = (event: KeyboardEvent) => {
+      if (!pane.active) return // only the focused pane reacts
       if (event.defaultPrevented || !isChatSummaryShortcut(event, isMac)) return
       event.preventDefault()
-      toggleChatSummary()
+      toggleChatSummary(pane.paneId)
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -77,7 +78,7 @@ export function ChatSummaryToggle({
         type="button"
         aria-label={t('Toggle agent summary')}
         aria-pressed={open}
-        onClick={toggleChatSummary}
+         onClick={() => toggleChatSummary(pane.paneId)}
         className="titlebar-no-drag relative ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main aria-pressed:bg-zGray-800/60 aria-pressed:text-main motion-reduce:transition-none"
       >
         <SummaryIcon />
