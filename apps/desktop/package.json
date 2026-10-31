@@ -124,6 +124,16 @@
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.png",
       "minimumSystemVersion": "12.0",
+      "protocols": [
+        {
+          "name": "Web site URL",
+          "schemes": [
+            "http",
+            "https"
+          ],
+          "role": "Viewer"
+        }
+      ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",

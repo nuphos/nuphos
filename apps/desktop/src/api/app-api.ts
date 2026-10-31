@@ -66,6 +66,7 @@ export const appApi = {
     window.api.onAppOpenDeepLink(cb),
   onConnectAgentDeepLink: (cb: (payload: ConnectAgentLink) => void) =>
     window.api.onConnectAgentDeepLink(cb),
+  onWebUrlDeepLink: (cb: (url: string) => void) => window.api.onWebUrlDeepLink(cb),
   onPersonalCredentialDeepLink: (cb: (payload: PersonalCredentialDeepLinkPayload) => void) =>
     window.api.onPersonalCredentialDeepLink(cb),
   onAgentFocusSession: (cb: (payload: AgentFocusSessionPayload) => void) =>

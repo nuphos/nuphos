@@ -216,5 +216,14 @@ export function handleDeepLink(url: string) {
 
     captureMain('deep_link_opened', { kind: 'connect_agent', valid: Boolean(payload) })
     if (payload) queueDeepLink('deep-link:connect-agent', payload)
+
+    return
+  }
+  // macOS hands us http(s) links once the user picks Nuphos as the default
+  // browser (the app declares both schemes); the workspace opens them like a
+  // link clicked in chat.
+  if (/^https?:\/\//i.test(url)) {
+    captureMain('deep_link_opened', { kind: 'web_url' })
+    queueDeepLink('deep-link:web-url', url)
   }
 }
