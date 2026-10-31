@@ -6,6 +6,7 @@ import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav'
 
 import type { HistoryTimeline } from './historyRows'
 import type { PinnedMoves } from './pinned-order'
+import type { RowDot } from '../../lib/subAgentState'
 import type { Scope, TeamInvitation, UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 import type { LucideIcon } from 'lucide-react'
@@ -42,6 +43,8 @@ export type Item = {
   foldedStatus?: ReactNode
   /** A finished thread with nothing left to show; its parent counts it instead. */
   finished?: boolean
+  /** Why the row carries its dot, for attention navigation. */
+  dot?: RowDot
 }
 
 /** A right-click or More button asking for a row's menu, where it should open. */
