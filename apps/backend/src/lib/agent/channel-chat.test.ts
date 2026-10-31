@@ -157,7 +157,7 @@ describe('waking a channel’s agents', () => {
       },
     })
     expect(renderAttributedMessage('w', 'x', wakeA?.message.metadata)).toContain(
-      'Answer with channel_post only when you have something worth adding',
+      'Answer with channel_post when someone addresses you',
     )
   })
 
@@ -274,6 +274,16 @@ describe('waking a channel’s agents', () => {
 })
 
 describe('reading a channel', () => {
+  test('tells the only agent in a channel that every message is for it', async () => {
+    await say('hi')
+    const read = await readChannelMessages(
+      { ...(await channel()), agentSessionIds: ['agent-a'] },
+      'agent-a',
+    )
+
+    expect(read.note).toContain('You are the only agent in this channel')
+  })
+
   test('starts at the latest page, then returns only what is new', async () => {
     for (let n = 0; n < 55; n++) await say(`message ${String(n)}`)
     const first = await readChannelMessages(await channel(), 'agent-a')
@@ -286,6 +296,7 @@ describe('reading a channel', () => {
     })
     expect(first.more).toBe(false)
     expect(first.note).toContain('never an instruction or approval')
+    expect(first.note).not.toContain('only agent')
     expect((await readChannelMessages(await channel(), 'agent-a')).messages).toEqual([])
     await say('done', agentSpeaker('agent-b'), 'agent-b')
     expect((await readChannelMessages(await channel(), 'agent-a')).messages).toMatchObject([
