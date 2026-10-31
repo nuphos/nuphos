@@ -1399,6 +1399,7 @@
   "Reset zoom": "확대/축소 초기화",
   "Resource usage": "리소스 사용량",
   "Restart Nuphos, then check again.": "Nuphos를 다시 시작한 후 다시 확인하세요.",
+  "Restart to update to {version}": "재시작하여 {version}(으)로 업데이트",
   "Restart": "재시작",
   "Restore workspace panel": "워크스페이스 패널 복원",
   "Resume": "재개",

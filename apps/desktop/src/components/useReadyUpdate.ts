@@ -29,3 +29,12 @@ export function useUpdaterState(): UpdaterState {
 
   return state
 }
+
+/** The downloaded update waiting for a restart, or null. */
+export function useReadyUpdate(): { version: string; install: () => void } | null {
+  const state = useUpdaterState()
+
+  if (state.kind !== 'ready') return null
+
+  return { version: state.version, install: () => void api.updaterInstall() }
+}

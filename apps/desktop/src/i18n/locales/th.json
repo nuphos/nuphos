@@ -1399,6 +1399,7 @@
   "Reset zoom": "รีเซ็ตการซูม",
   "Resource usage": "การใช้ทรัพยากร",
   "Restart Nuphos, then check again.": "รีสตาร์ท Nuphos แล้วตรวจสอบอีกครั้ง",
+  "Restart to update to {version}": "รีสตาร์ทเพื่ออัปเดตเป็น {version}",
   "Restart": "รีสตาร์ท",
   "Restore workspace panel": "คืนขนาดแผงเวิร์กสเปซ",
   "Resume": "เริ่มต่อ",

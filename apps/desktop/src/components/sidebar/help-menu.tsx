@@ -1,4 +1,5 @@
-import { ArrowUpRight, CircleHelp, Keyboard, Palette, RotateCw } from 'lucide-react'
+import clsx from 'clsx'
+import { ArrowDown, ArrowUpRight, CircleHelp, Keyboard, Palette } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -16,7 +17,7 @@ import {
   MenuTrigger,
 } from '../ui/menu'
 import { useChangelog } from '../useChangelog'
-import { useUpdaterState } from '../useUpdaterState'
+import { useReadyUpdate } from '../useReadyUpdate'
 import { WhatsNewReader } from '../WhatsNewReader'
 
 import type { ChangelogEntry } from '../../types/team'
@@ -76,38 +77,48 @@ function WhatsNewGroup({
 
 export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?: () => void }) {
   const changelog = useChangelog()
-  const updater = useUpdaterState()
+  const update = useReadyUpdate()
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   return (
     <>
-      {updater.kind === 'ready' && (
-        <button
-          type="button"
-          className="titlebar-no-drag update-notif-enter flex h-7 flex-shrink-0 items-center gap-1.5 rounded-full bg-zViolet-500 px-2.5 text-xs font-medium text-white shadow-sm shadow-zViolet-900/40 outline-none transition-colors hover:bg-zViolet-400 focus-visible:ring-2 focus-visible:ring-zViolet-300"
-          title={t('Update ready — version {version}', { version: updater.version })}
-          onClick={() => void api.updaterInstall()}
-        >
-          <RotateCw className="h-3 w-3" strokeWidth={2.4} />
-          {t('Restart')}
-        </button>
-      )}
       <Menu
         onOpenChange={(open) => {
           if (open) changelog.markSeen()
         }}
       >
         <MenuTrigger
-          className="titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-tertiary outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]"
-          aria-label={t('Help')}
-          title={t('Help')}
+          className={clsx(
+            'titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full outline-none transition-colors',
+            update
+              ? 'update-notif-enter bg-zViolet-500 text-white shadow-sm shadow-zViolet-900/40 hover:bg-zViolet-400'
+              : 'text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]',
+          )}
+          aria-label={
+            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
+          }
+          title={
+            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
+          }
         >
-          <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
-          {changelog.unread && (
+          {update ? (
+            <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.4} />
+          ) : (
+            <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
+          )}
+          {!update && changelog.unread && (
             <span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-main bg-red-500" />
           )}
         </MenuTrigger>
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">
+          {update && (
+            <>
+              <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
+                {t('Restart to update to {version}', { version: update.version })}
+              </MenuItem>
+              <MenuSeparator />
+            </>
+          )}
           {changelog.entries.length > 0 && (
             <>
               <WhatsNewGroup entries={changelog.entries} onOpenEntry={changelog.openEntry} />

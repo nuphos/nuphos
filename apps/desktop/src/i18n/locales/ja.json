@@ -1399,6 +1399,7 @@
   "Reset zoom": "ズームをリセット",
   "Resource usage": "リソース使用量",
   "Restart Nuphos, then check again.": "Nuphos を再起動してから、もう一度確認してください。",
+  "Restart to update to {version}": "再起動して {version} にアップデート",
   "Restart": "再起動",
   "Restore workspace panel": "ワークスペースパネルを元に戻す",
   "Resume": "再開",

@@ -1399,6 +1399,7 @@
   "Reset zoom": "重設縮放",
   "Resource usage": "資源用量",
   "Restart Nuphos, then check again.": "請重新啟動 Nuphos，然後再檢查一次。",
+  "Restart to update to {version}": "重新啟動以更新至 {version}",
   "Restart": "重新啟動",
   "Restore workspace panel": "還原工作區面板",
   "Resume": "繼續",

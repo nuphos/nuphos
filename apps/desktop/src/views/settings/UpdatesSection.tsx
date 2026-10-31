@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
-import { useUpdaterState } from '../../components/useUpdaterState'
+import { useUpdaterState } from '../../components/useReadyUpdate'
 import { t } from '../../i18n'
 
 import { SectionHeader } from './shared'
@@ -39,6 +39,9 @@ export function UpdatesSection() {
       .appGetVersion()
       .then(setVersion)
       .catch(() => null)
+    // Opening the page is a request for fresh status; main skips the check
+    // while an update is downloading or ready.
+    void api.updaterCheck()
   }, [])
 
   return (
