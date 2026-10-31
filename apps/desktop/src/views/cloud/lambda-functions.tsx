@@ -207,7 +207,7 @@ export function LambdaFunctionsView({
           {
             key: 'timeout',
             header: t('Timeout'),
-            width: 90,
+            width: 110,
             sortAccessor: (r) => r.timeoutSec ?? 0,
             render: (r) => (
               <span className="text-secondary tabular-nums">
