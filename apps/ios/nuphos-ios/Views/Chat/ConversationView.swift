@@ -241,11 +241,11 @@ struct ConversationView: View {
                 }
             }
         }
-        // The principal item is only as wide as its content and centred. Asked
-        // for all the room, it gets what the bar leaves between the buttons it
-        // actually shows, so the title starts on the left without overlapping
-        // them.
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // The bar centres the principal item at its ideal width, capped to the
+        // room left between the buttons it shows. Wanting more than any bar
+        // has, the title fills that room and starts on the left, whichever
+        // buttons the layout puts there.
+        .frame(idealWidth: 10_000, maxWidth: .infinity, alignment: .leading)
     }
 
     /// Plan links open the plan here, approved through this chat; other app

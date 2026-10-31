@@ -12,7 +12,7 @@ open(sys.argv[2], "w").write(s)
 PY
 R="$RUNNER_TEMP/sill/Tests/duorig/run.sh"
 types=$(xcrun simctl list devicetypes -j)
-type_of() { python3 -c "import json,sys; t=[d['identifier'] for d in json.loads(sys.argv[1])['devicetypes'] if d['name'].startswith(sys.argv[2])]; print(t[-1])" "$types" "$1"; }
+type_of() { python3 -c "import json,sys; t=[d['identifier'] for d in json.loads(sys.argv[1])['devicetypes'] if d['name']==sys.argv[2]]; print(t[-1])" "$types" "$1"; }
 
 launch() { # udid build title
   local app; app=$(find "$RUNNER_TEMP/dd-$2/Build/Products" -name 'nuphos-ios.app' -path '*iphonesimulator*' | head -1)
@@ -29,11 +29,11 @@ boot() { # name type
   xcrun simctl ui "$u" appearance light; echo "$u"
 }
 
-for dev in "iPhone 17 Pro" "iPad mini"; do
+for dev in "iPhone 17 Pro" "iPad mini (A17 Pro)" "iPad Pro 13-inch (M5)"; do
   u=$(boot "$dev" "$(type_of "$dev")")
   for b in before after; do for t in short long; do
     launch "$u" $b $t
-    xcrun simctl io "$u" screenshot "$out/${dev// /-}-$t-$b.png" >/dev/null
+    xcrun simctl io "$u" screenshot "$out/$(echo "$dev" | tr -c "A-Za-z0-9\n" -)-$t-$b.png" >/dev/null
   done; done
   xcrun simctl shutdown "$u"
 done
