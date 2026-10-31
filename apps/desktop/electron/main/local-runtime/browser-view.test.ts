@@ -113,7 +113,10 @@ test('watches the named dock tab at the phone size, and serves it once it paints
   const page = fakePage()
   const view = await handshake(page)
 
-  assert.deepEqual(view.watched, [['s', 'tab-1', 390, 700]])
+  assert.deepEqual(
+    view.watched.map((args) => args.slice(0, 4)),
+    [['s', 'tab-1', 390, 700]],
+  )
   const init = view.take()
 
   assert.equal(init.readUInt16BE(0), 780)
@@ -208,4 +211,54 @@ test('ClientCutText is skipped by its length, the extended form too', async () =
   view.phone([6, 0, 0, 0, 0xff, 0xff, 0xff, 0xfe, ...text, 5, 1, 0, 200, 1, 144])
   assert.equal(view.closed, false)
   assert.ok(page.events.some((event) => event.type === 'mouseDown'))
+})
+
+test('a refused watch tells the phone why in the handshake, then closes', async () => {
+  const view = open(null)
+  const refused: WatchTab = async () => ({ refused: 'Viewing was stopped on the Mac.' })
+  const stream = new BrowserViewStream(refused)
+  let received = Buffer.alloc(0)
+  let closed = false
+
+  stream.addEventListener('message', ({ data }) => {
+    received = Buffer.concat([received, Buffer.from(String(data), 'base64')])
+  })
+  stream.addEventListener('close', () => {
+    closed = true
+  })
+  await tick()
+  stream.send(JSON.stringify({ t: 'open', sessionId: 's', tab: 'tab-1', width: 390, height: 700 }))
+  await tick()
+  assert.equal(received.toString(), 'RFB 003.008\n')
+  received = Buffer.alloc(0)
+  stream.send(Buffer.from('RFB 003.008\n').toString('base64'))
+  // No security types, then the reason, as RFBClient reads a refusal.
+  assert.equal(received[0], 0)
+  assert.equal(received.readUInt32BE(1), received.length - 5)
+  assert.equal(received.subarray(5).toString(), 'Viewing was stopped on the Mac.')
+  assert.equal(closed, true)
+  view.stream.close()
+})
+
+test('the Mac can end the stream through the watch', async () => {
+  const page = fakePage()
+  let end: (() => void) | undefined
+  let stopped = 0
+  const stream = new BrowserViewStream(async (_s, _t, _w, _h, ending) => {
+    end = ending
+
+    return { page: page as unknown as ViewedPage, stop: () => stopped++ }
+  })
+  let closed = false
+
+  stream.addEventListener('close', () => {
+    closed = true
+  })
+  await tick()
+  stream.send(JSON.stringify({ t: 'open', sessionId: 's', tab: 'tab-1', width: 390, height: 700 }))
+  await tick()
+  end?.()
+  assert.equal(closed, true)
+  assert.equal(stopped, 1)
+  assert.equal(page.subscribed, false)
 })

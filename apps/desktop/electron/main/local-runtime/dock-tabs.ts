@@ -1,6 +1,6 @@
 // A conversation's dock tabs as the iPhone sees them: listed from each window's
 // workspace store, brought forward on this Mac, or watched live (browser-view.ts).
-import { BrowserWindow, webContents } from 'electron'
+import { BrowserWindow, ipcMain, webContents } from 'electron'
 
 import { raiseWindow } from '../../window-raise.ts'
 
@@ -12,6 +12,23 @@ import type { CuaToolResult } from './cua-host.ts'
 
 const text = (value: unknown): CuaToolResult => ({
   content: [{ type: 'text', text: JSON.stringify(value ?? null, null, 2) }],
+})
+
+/** After Stop on the Mac, that tab turns phones away this long, so the viewer's retries end. */
+const STOPPED_MS = 30_000
+
+/** Tabs a phone watches now, each with what ends its stream; and when the Mac last stopped one. */
+const viewing = new Map<string, () => void>()
+const stoppedAt = new Map<string, number>()
+
+/** The Mac's Stop on a watched dock tab: ends the phone's stream and turns it away for a while. */
+export function stopDockTabWatch(tab: string): void {
+  stoppedAt.set(tab, Date.now())
+  viewing.get(tab)?.()
+}
+
+ipcMain.on('dock:stopWatch', (_event, tab: unknown) => {
+  if (typeof tab === 'string') stopDockTabWatch(tab)
 })
 
 /** How long a window's renderer may take to list its docks. */
@@ -61,7 +78,10 @@ const WATCH_TIMEOUT_MS = 20_000
  * mounts its page and keeps it painting at the phone's size, invisibly, without
  * changing what the Mac shows. Null when no window has that tab.
  */
-export const watchDockTab: WatchTab = async (session, tab, width, height) => {
+export const watchDockTab: WatchTab = async (session, tab, width, height, end) => {
+  if (Date.now() - (stoppedAt.get(tab) ?? 0) < STOPPED_MS)
+    return { refused: 'Viewing was stopped on the Mac. Try again in a moment.' }
+  if (viewing.has(tab)) return { refused: 'This tab is already open on another phone.' }
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.isDestroyed()) continue
     const call = `window.nuphosWatchDockTab?.(${[session, tab, width, height].map((v) => JSON.stringify(v)).join(', ')}) ?? null`
@@ -89,7 +109,17 @@ export const watchDockTab: WatchTab = async (session, tab, width, height) => {
     }
     const page = typeof answer.id === 'number' ? webContents.fromId(answer.id) : undefined
 
-    if (page) return { page, stop: unwatch }
+    if (page) {
+      viewing.set(tab, end)
+
+      return {
+        page,
+        stop: () => {
+          viewing.delete(tab)
+          unwatch()
+        },
+      }
+    }
     if (typeof answer.id === 'number') unwatch()
   }
 

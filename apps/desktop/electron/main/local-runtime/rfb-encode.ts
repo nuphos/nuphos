@@ -84,6 +84,26 @@ export class PageScreen {
   }
 }
 
+/** ServerInit: the page's size, 32-bit little-endian true colour, and its name. */
+export function serverInitMessage(screen: { width: number; height: number }, name: string) {
+  const bytes = Buffer.from(name)
+
+  return Buffer.from([
+    ...be16(screen.width),
+    ...be16(screen.height),
+    ...[32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0],
+    ...be32(bytes.length),
+    ...bytes,
+  ])
+}
+
+/** A refused handshake: no security types, then the reason, which the viewer shows without retrying. */
+export function refusalMessage(reason: string) {
+  const bytes = Buffer.from(reason)
+
+  return Buffer.concat([Buffer.from([0, ...be32(bytes.length)]), bytes])
+}
+
 /** A FramebufferUpdate: the new size first when it changed, then the ZRLE rectangle. */
 export function updateMessage(
   screen: PageScreen,

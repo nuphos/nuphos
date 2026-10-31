@@ -11,6 +11,8 @@ import type {
 export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
   deviceSetLabel: (label: string) => window.api.deviceSetLabel(label),
+  /** Ends a phone watching this dock tab (`dock-tabs.ts`). */
+  stopDockTabWatch: (tabId: string) => window.api.stopDockTabWatch(tabId),
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),

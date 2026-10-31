@@ -16,6 +16,7 @@ export const deviceApi = {
   },
   deviceGetIdentity: () => ipcRenderer.invoke('device:getIdentity'),
   deviceSetLabel: (label: string) => ipcRenderer.invoke('device:setLabel', label),
+  stopDockTabWatch: (tabId: string) => ipcRenderer.send('dock:stopWatch', tabId),
   deviceListAudit: (before?: string) => ipcRenderer.invoke('device:listAudit', before),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     ipcRenderer.invoke('localRuntime:submitClaudeLoginCode', code),

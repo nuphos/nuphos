@@ -1,5 +1,12 @@
-import { PageScreen, ZrleEncoder, be16, be32, updateMessage } from './rfb-encode.ts'
-import { PageInput } from './rfb-input.ts'
+import {
+  PageScreen,
+  ZrleEncoder,
+  be32,
+  refusalMessage,
+  serverInitMessage,
+  updateMessage,
+} from './rfb-encode.ts'
+import { PageInput, clientMessageLength } from './rfb-input.ts'
 
 import type { SocketEvent, SocketLike } from './tunnel-client.ts'
 import type { WebContents } from 'electron'
@@ -18,25 +25,22 @@ export type ViewedPage = Pick<
   | 'executeJavaScript'
 >
 
-/** Finds the conversation's dock tab and starts it painting at the phone's size; null if it can't. */
+/**
+ * Finds the conversation's dock tab and starts it painting at the phone's size.
+ * `end` lets the Mac end the stream (its Stop button). A refusal carries the
+ * reason the phone shows; null closes the stream.
+ */
 export type WatchTab = (
   session: string,
   tab: string,
   width: number,
   height: number,
-) => Promise<{ page: ViewedPage; stop: () => void } | null>
+  end: () => void,
+) => Promise<{ page: ViewedPage; stop: () => void } | { refused: string } | null>
 
 /** The smallest and largest page a phone may ask for, in CSS pixels. */
 const MIN_SIDE = 200
 const MAX_SIDE = 2000
-
-/** Client messages of a fixed length: SetPixelFormat, update request, key, pointer. */
-const FIXED_LENGTHS = new Map([
-  [0, 20],
-  [3, 10],
-  [4, 8],
-  [5, 6],
-])
 
 /** At most about 30 updates a second, so an animating page can't keep the main process busy. */
 const MIN_UPDATE_MS = 33
@@ -60,6 +64,8 @@ export class BrowserViewStream implements SocketLike {
   private readonly watch: WatchTab
   private page: ViewedPage | undefined
   private stopWatching: (() => void) | undefined
+  /** Why the Mac turned this phone away, told in the handshake so it does not retry. */
+  private refusal: string | undefined
   /** Bytes from the phone not yet read as a message. */
   private received = Buffer.alloc(0)
   /** `ready`: ClientInit arrived but no frame yet, and ServerInit needs the page's size. */
@@ -96,7 +102,7 @@ export class BrowserViewStream implements SocketLike {
 
       return
     }
-    if (!this.page) return
+    if (!this.page && !this.refusal) return
     this.received = Buffer.concat([this.received, Buffer.from(data, 'base64')])
     try {
       this.read()
@@ -126,8 +132,16 @@ export class BrowserViewStream implements SocketLike {
   }
 
   private async open(session: string, tab: string, width: number, height: number) {
-    const watched = await this.watch(session, tab, width, height).catch(() => null)
+    const watched = await this.watch(session, tab, width, height, () => this.close()).catch(
+      () => null,
+    )
 
+    if (watched && 'refused' in watched) {
+      this.refusal = watched.refused
+      this.out(Buffer.from('RFB 003.008\n'))
+
+      return
+    }
     if (!watched || this.readyState !== 1) {
       watched?.stop()
       this.close()
@@ -164,6 +178,12 @@ export class BrowserViewStream implements SocketLike {
       if (this.phase === 'version') {
         if (this.received.length < 12) return
         this.take(12)
+        if (this.refusal) {
+          this.out(refusalMessage(this.refusal))
+          this.close()
+
+          return
+        }
         this.out(Buffer.from([1, 1]))
         this.phase = 'security'
       } else if (this.phase === 'security') {
@@ -182,20 +202,9 @@ export class BrowserViewStream implements SocketLike {
     }
   }
 
-  /** ServerInit: the page's size, 32-bit little-endian true colour, and its name. */
   private serverInit(): void {
-    const name = Buffer.from('Nuphos tab')
-
     this.phase = 'messages'
-    this.out(
-      Buffer.from([
-        ...be16(this.screen.width),
-        ...be16(this.screen.height),
-        ...[32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0],
-        ...be32(name.length),
-        ...name,
-      ]),
-    )
+    this.out(serverInitMessage(this.screen, 'Nuphos tab'))
     this.read()
   }
 
@@ -203,17 +212,10 @@ export class BrowserViewStream implements SocketLike {
   private message(): boolean {
     const bytes = this.received
 
-    if (bytes.length === 0) return false
-    const type = bytes.readUInt8(0)
-    // SetEncodings and ClientCutText carry a count; the rest have a fixed length.
-    let length = FIXED_LENGTHS.get(type)
+    const length = clientMessageLength(bytes)
 
-    if (type === 2 && bytes.length >= 4) length = 4 + bytes.readUInt16BE(2) * 4
-    // As the backend's input filter reads it: a negative length is the extended form.
-    else if (type === 6 && bytes.length >= 8) length = 8 + Math.abs(bytes.readInt32BE(4))
-    else if (type === 2 || type === 6) return false
-    if (length === undefined) throw new Error(`message ${String(type)}`)
-    if (bytes.length < length) return false
+    if (length === null || bytes.length < length) return false
+    const type = bytes.readUInt8(0)
     const message = this.take(length)
 
     if (type === 3) {

@@ -48,6 +48,33 @@ function typed(keysym: number): string | undefined {
   return undefined
 }
 
+/** Client messages of a fixed length: SetPixelFormat, update request, key, pointer. */
+const FIXED_LENGTHS = new Map([
+  [0, 20],
+  [3, 10],
+  [4, 8],
+  [5, 6],
+])
+
+/**
+ * How long the client message at the start of `bytes` is, or null until enough
+ * of it arrived to tell. SetEncodings and ClientCutText carry a count; the rest
+ * have a fixed length. An unknown message throws.
+ */
+export function clientMessageLength(bytes: Buffer): number | null {
+  if (bytes.length === 0) return null
+  const type = bytes.readUInt8(0)
+
+  if (type === 2) return bytes.length >= 4 ? 4 + bytes.readUInt16BE(2) * 4 : null
+  // As the backend's input filter reads it: a negative length is the extended form.
+  if (type === 6) return bytes.length >= 8 ? 8 + Math.abs(bytes.readInt32BE(4)) : null
+  const length = FIXED_LENGTHS.get(type)
+
+  if (length === undefined) throw new Error(`message ${String(type)}`)
+
+  return length
+}
+
 /**
  * A phone's RFB pointer and key events, sent to one page as Electron input
  * events: in the page's CSS pixels, never through the Mac's own pointer or
