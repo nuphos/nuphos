@@ -45,28 +45,35 @@ struct ComposerAttachment: Identifiable, Equatable, Sendable {
 
     /// Loads a full-resolution, high-quality JPEG. Compression is decided
     /// later from the whole message budget, not an arbitrary per-photo cap.
-    static func load(_ item: PhotosPickerItem) async -> ComposerAttachment? {
+    static func load(_ item: PhotosPickerItem, temporaryDirectory: URL = FileManager.default.temporaryDirectory) async -> ComposerAttachment? {
         // Videos go up as files through the transfer store, like Files picks.
         if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
             guard let movie = try? await item.loadTransferable(type: PickedMovie.self) else { return nil }
-            return ComposerAttachment(name: "Video." + movie.url.pathExtension.lowercased(), kind: .file(movie.url))
+            let name = "Video." + movie.url.pathExtension.lowercased()
+            if temporaryDirectory != FileManager.default.temporaryDirectory {
+                defer { try? FileManager.default.removeItem(at: movie.url) }
+                let dest = temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(movie.url.pathExtension)
+                guard (try? FileManager.default.copyItem(at: movie.url, to: dest)) != nil else { return nil }
+                return ComposerAttachment(name: name, kind: .file(dest))
+            }
+            return ComposerAttachment(name: name, kind: .file(movie.url))
         }
         guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
         guard let jpeg = ImageAttachment.jpeg(from: data) else { return nil }
         return ComposerAttachment(name: "Photo", kind: .image(jpeg))
     }
 
-    static func load(pasted provider: NSItemProvider) async -> ComposerAttachment? {
-        guard let file = await PastedFile.load(provider) else { return nil }
+    static func load(pasted provider: NSItemProvider, temporaryDirectory: URL = FileManager.default.temporaryDirectory) async -> ComposerAttachment? {
+        guard let file = await PastedFile.load(provider, temporaryDirectory: temporaryDirectory) else { return nil }
         return attachment(name: file.name, file: file.url, type: file.type)
     }
 
     /// Copies a Files-picked URL into our temp dir (the picker's URL is only
     /// readable while security-scoped).
-    static func load(fileURL: URL) -> ComposerAttachment? {
+    static func load(fileURL: URL, temporaryDirectory: URL = FileManager.default.temporaryDirectory) -> ComposerAttachment? {
         let scoped = fileURL.startAccessingSecurityScopedResource()
         defer { if scoped { fileURL.stopAccessingSecurityScopedResource() } }
-        let dest = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(fileURL.pathExtension)
+        let dest = temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(fileURL.pathExtension)
         do {
             try FileManager.default.copyItem(at: fileURL, to: dest)
         } catch {

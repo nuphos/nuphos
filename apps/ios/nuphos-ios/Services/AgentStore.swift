@@ -41,6 +41,7 @@ final class AgentStore {
     func isPinned(_ sessionId: String) -> Bool { pinnedSessionIds.contains(sessionId) }
 
     func loadFavorites() async {
+        guard loadsHistory else { return }
         guard let team = selectedTeam else { return }
         favorites = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team.id)
     }
@@ -173,6 +174,7 @@ final class AgentStore {
         guard let team = selectedTeam else { return }
         selectedRuntimeId = runtime.id
         UserDefaults.standard.set(runtime.id, forKey: runtimeKey(for: team))
+        publishSharingContext()
     }
 
     func loadRuntimes(force: Bool = false) async {
@@ -183,6 +185,7 @@ final class AgentStore {
             runtimes = next
             runtimesError = nil
             runtimesLoaded = true
+            publishSharingContext()
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             runtimesError = error.localizedDescription
@@ -295,7 +298,10 @@ final class AgentStore {
         didSet { if search != oldValue { scheduleSearch() } }
     }
 
+    private let loadsHistory: Bool
     let token: String
+    private var sharingOwner: SharedShareSession.Owner
+    private var isShareEntry = false
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
@@ -304,6 +310,7 @@ final class AgentStore {
     /// The viewer's own sessions whose title or first message contains
     /// `query`, newest first, other than `excluded` — what an `@` offers.
     func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {
+        guard loadsHistory else { return [] }
         guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, limit: 6, search: query) else { return [] }
         return Array(page.conversations.filter { $0.sessionId != excluded }.prefix(5))
     }
@@ -319,7 +326,7 @@ final class AgentStore {
     /// What a new conversation starts with.
     var credentialSelection: CredentialSelection {
         get { credentials.selection }
-        set { credentials.selection = newValue }
+        set { credentials.selection = newValue; publishSharingContext() }
     }
     /// Nothing stored yet means Full Access; anything unreadable fails safe
     /// to Auto Mode.
@@ -327,7 +334,7 @@ final class AgentStore {
         guard let stored = UserDefaults.standard.string(forKey: AgentStore.permissionModeKey) else { return .bypass }
         return stored == PermissionMode.bypass.rawValue ? .bypass : .auto
     }() {
-        didSet { UserDefaults.standard.set(permissionMode.rawValue, forKey: Self.permissionModeKey) }
+        didSet { UserDefaults.standard.set(permissionMode.rawValue, forKey: Self.permissionModeKey); publishSharingContext() }
     }
 
     /// Loads the IAM catalog for the selected team (cached per team).
@@ -336,6 +343,7 @@ final class AgentStore {
         let load = credentials.begin()
         do {
             credentials.finish(load, with: .success(try await NuphosAPI.credentialOptions(token: token, teamId: team.id)))
+            publishSharingContext()
         } catch {
             credentials.finish(load, with: .failure(error))
         }
@@ -346,8 +354,10 @@ final class AgentStore {
     /// The signed-in person's id: whose computers open their desktop from the Runtimes page.
     var userId: String?
 
-    init(token: String) {
+    init(token: String, loadsHistory: Bool = true) {
+        self.loadsHistory = loadsHistory
         self.token = token
+        sharingOwner = SharedShareSession.Owner(token: token)
         ConversationUnread.shared.markRead = { team, session, seq in
             try? await AgentChatAPI.markRead(token: token, teamId: team, sessionId: session, seq: seq)
         }
@@ -397,7 +407,39 @@ final class AgentStore {
         Analytics.shared.track("team_switched", teamID: team.id)
         UserDefaults.standard.set(team.id, forKey: Self.lastTeamKey)
         resetTeamScopedState()
+        publishSharingContext()
         Task { await reload() }
+    }
+
+    func bindSharingLogin(_ loginID: UUID, token: String) {
+        guard self.token == token, !isShareEntry, sharingOwner.bindVerified(loginID) else { return }
+        publishSharingContext()
+    }
+
+    private func publishSharingContext() {
+        guard !isShareEntry, let team = selectedTeam else { return }
+        sharingOwner.update(.init(teamID: team.id, runtimeID: newConversationRuntime?.id,
+                           credentials: credentialSelection.json, permissionMode: permissionMode.rawValue))
+    }
+
+    /// Strictly the containing app's workspace: no fallback to the first team,
+    /// and no conversation/favorites/history request on the share entry path.
+    func prepareForSharing(_ lease: SharedShareSession.Record) async throws {
+        isShareEntry = true
+        guard let context = lease.context else { throw SharedShareSession.Failure.workspace }
+        try SharedShareSession.validate(lease)
+        let teams = try await NuphosAPI.teams(token: token)
+        try SharedShareSession.validate(lease)
+        guard let team = teams.first(where: { $0.id == context.teamID }) else { throw SharedShareSession.Failure.workspace }
+        self.teams = teams; teamsPhase = .loaded; selectedTeam = team
+        resetTeamScopedState(); selectedRuntimeId = context.runtimeID
+        permissionMode = PermissionMode(rawValue: context.permissionMode) ?? .auto
+        await loadRuntimes()
+        await loadCredentialOptions()
+        try SharedShareSession.validate(lease)
+        guard credentialsReady, credentialCatalog != nil else { throw SharedShareSession.Failure.workspace }
+        if let selected = context.credentials { credentialSelection = CredentialSelection(json: selected).pruned(to: credentialCatalog!) }
+        phase = .loaded
     }
 
     // MARK: - Conversations
@@ -408,6 +450,11 @@ final class AgentStore {
         guard let team = selectedTeam else {
             conversations = []
             phase = teamsPhase == .loaded ? .loaded : phase
+            return
+        }
+        if !loadsHistory {
+            phase = .loaded
+            await loadRuntimes()
             return
         }
         loadGeneration += 1
@@ -445,6 +492,7 @@ final class AgentStore {
     /// Next page, appended. Rows can repeat across pages because the cursor
     /// is a timestamp, so dedupe by session id.
     func loadMore() async {
+        guard loadsHistory else { return }
         guard hasMore, !isLoadingMore, let team = selectedTeam, let cursor = nextCursor else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }
@@ -513,6 +561,7 @@ final class AgentStore {
     /// shows a stale row. A view's `.task` would stop whenever a chat is
     /// pushed. iOS suspends it with the app.
     func startPolling() {
+        guard loadsHistory else { return }
         guard poller == nil else { return }
         poller = Task { [weak self] in
             while !Task.isCancelled {

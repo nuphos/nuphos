@@ -431,12 +431,7 @@ enum AgentChatAPI {
         }
     }
 
-    static let encoder: JSONEncoder = {
-        let e = JSONEncoder()
-        e.dateEncodingStrategy = .iso8601
-        e.outputFormatting = [.withoutEscapingSlashes]
-        return e
-    }()
+    static let encoder = ChatMessage.wireEncoder
 
     static var clientVersion: String {
         "nuphos-ios/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0")"
