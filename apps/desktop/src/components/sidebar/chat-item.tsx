@@ -4,6 +4,7 @@ import { rowDot } from '../../lib/subAgentState'
 
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
+import { PhoneViewingBadge } from './PhoneViewingBadge'
 import { SessionResources } from './SessionResources'
 import { threadFoldsAway } from './thread-status'
 
@@ -27,6 +28,13 @@ export function chatSidebarItem({
 }): Item {
   const dot = rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
+  // A phone viewing this chat's dock tab shows here too, where the tab itself may be out of sight.
+  const trailing = (
+    <>
+      <PhoneViewingBadge sessionId={conversation.sessionId} />
+      {status}
+    </>
+  )
 
   return {
     key: `agent-session:${conversation.sessionId}`,
@@ -50,7 +58,7 @@ export function chatSidebarItem({
         agentSessionId: conversation.sessionId,
       }),
     ).href,
-    trailing: status,
+    trailing,
     foldedStatus: status,
     finished: threadFoldsAway({ conversation, runtimeState, open: active }),
     dot,

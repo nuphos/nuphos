@@ -6,7 +6,13 @@ import { createWorkspaceTab } from '../workspaceTabFactory.ts'
 import { createWorkspaceState } from './store/workspaceState.ts'
 import { createWorkspaceStore } from './store/workspaceStore.ts'
 import { exposeDockBrowserTabs } from './store/dockBrowserTabs.ts'
-import { browserViewId, isWatchedDockTab, registerBrowserView } from './watchedDockTabs.ts'
+import {
+  browserViewId,
+  isWatchedDockTab,
+  registerBrowserView,
+  setWatchedDockTab,
+  watchedTabsOf,
+} from './watchedDockTabs.ts'
 
 import type { WebviewTag } from 'electron'
 
@@ -75,4 +81,14 @@ test('one phone per tab: a second is refused, and the first keeps its watch', as
   assert.equal(isWatchedDockTab('b1'), false)
   unregister()
   unexpose()
+})
+
+test("a conversation's sidebar row knows which of its tabs a phone views", () => {
+  setWatchedDockTab('t1', { width: 390, height: 700, sessionId: 'chat-a' })
+  setWatchedDockTab('t2', { width: 390, height: 700, sessionId: 'chat-b' })
+  assert.deepEqual(watchedTabsOf('chat-a'), ['t1'])
+  assert.deepEqual(watchedTabsOf('chat-c'), [])
+  setWatchedDockTab('t1', null)
+  setWatchedDockTab('t2', null)
+  assert.deepEqual(watchedTabsOf('chat-a'), [])
 })

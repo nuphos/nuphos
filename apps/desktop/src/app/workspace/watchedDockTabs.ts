@@ -3,8 +3,8 @@ import { useSyncExternalStore } from 'react'
 import type { CSSProperties } from 'react'
 import type { WebviewTag } from 'electron'
 
-/** The page size a phone watching a dock tab asked for, in CSS pixels. */
-export type WatchSize = { width: number; height: number }
+/** The page size a phone watching a dock tab asked for, in CSS pixels, and the tab's conversation. */
+export type WatchSize = { width: number; height: number; sessionId: string }
 
 const watched = new Map<string, WatchSize>()
 const listeners = new Set<() => void>()
@@ -25,6 +25,21 @@ export function setWatchedDockTab(tabId: string, size: WatchSize | null): void {
 
 export function isWatchedDockTab(tabId: string): boolean {
   return watched.has(tabId)
+}
+
+/**
+ * The dock tabs a phone watches in one conversation, for its sidebar row: the
+ * tab's own glyph is out of sight while that dock is closed or another chat is open.
+ */
+export function useWatchedTabsOfSession(sessionId: string): string[] {
+  const ids = useSyncExternalStore(subscribe, () => watchedTabsOf(sessionId).join('\n'))
+
+  return ids ? ids.split('\n') : []
+}
+
+/** The dock tabs a phone watches in one conversation. */
+export function watchedTabsOf(sessionId: string): string[] {
+  return [...watched].flatMap(([tabId, watch]) => (watch.sessionId === sessionId ? [tabId] : []))
 }
 
 export function useWatchedDockTab(tabId: string): WatchSize | undefined {

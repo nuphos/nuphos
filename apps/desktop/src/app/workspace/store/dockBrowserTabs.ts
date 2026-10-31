@@ -67,7 +67,7 @@ async function watchDockTab(sessionId: string, tabId: string, width: number, hei
   // One phone per tab: a second would resize the first's page and end its watch on leaving.
   if (!store || isWatchedDockTab(tabId)) return null
   store.actions.mountTab(sessionId, tabId)
-  setWatchedDockTab(tabId, { width, height })
+  setWatchedDockTab(tabId, { width, height, sessionId })
   const id = await browserViewId(tabId, ATTACH_TIMEOUT_MS)
 
   // A page that never attached leaves no watch behind to keep the pane laid out.

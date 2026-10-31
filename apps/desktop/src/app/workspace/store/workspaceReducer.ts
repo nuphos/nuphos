@@ -14,6 +14,7 @@ import {
 } from './workspaceSurfaceHistory.ts'
 import {
   activateTabIn,
+  mountTabIn,
   adoptBucketsIn,
   closeOtherTabsIn,
   closeTabIn,
@@ -201,12 +202,7 @@ function applyTabAction(
     case 'activateTab':
       return writeBucket(state, action.sessionKey, (bucket) => activateTabIn(bucket, action.tabId))
     case 'mountTab':
-      return writeBucket(state, action.sessionKey, (bucket) =>
-        bucket.mountedTabIds.has(action.tabId) ||
-        !bucket.tabs.some((tab) => tab.id === action.tabId)
-          ? bucket
-          : { ...bucket, mountedTabIds: new Set([...bucket.mountedTabIds, action.tabId]) },
-      )
+      return writeBucket(state, action.sessionKey, (bucket) => mountTabIn(bucket, action.tabId))
     case 'openTeamTab':
       return writeBucket(state, action.sessionKey, (bucket) => {
         const existing = bucket.tabs.find((tab) => tab.scope.teamId === action.teamId)
