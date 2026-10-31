@@ -59,13 +59,17 @@ export function grantNotices(
   if (integration.missingScopes.length > 0) {
     notices.push({
       kind: 'missing',
-      text: `PostHog granted less than requested: ${integration.missingScopes.join(', ')}`,
+      text: t('PostHog granted less than requested: {scopes}', {
+        scopes: integration.missingScopes.join(', '),
+      }),
     })
   }
   if (integration.extraScopes.length > 0) {
     notices.push({
       kind: 'extra',
-      text: `PostHog granted more than requested: ${integration.extraScopes.join(', ')}`,
+      text: t('PostHog granted more than requested: {scopes}', {
+        scopes: integration.extraScopes.join(', '),
+      }),
     })
   }
 

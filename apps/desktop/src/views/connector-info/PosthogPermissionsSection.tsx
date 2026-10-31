@@ -1,6 +1,7 @@
 import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
 import { grantNotices, POSTHOG_ACCESS_LABELS } from '../../lib/posthogPermissions'
 import { BindPosthogDialog } from '../BindPosthogDialog'
 import { usePosthogScopeCatalog } from '../usePosthogScopeCatalog'
@@ -32,14 +33,14 @@ export function PosthogPermissionsSection({
   return (
     <section className="mt-6">
       <div className="mb-2 flex items-center gap-2">
-        <h3 className="text-[12.5px] font-medium text-main">Permissions</h3>
+        <h3 className="text-[12.5px] font-medium text-main">{t('Permissions')}</h3>
         <button
           type="button"
           onClick={() => setEditing(true)}
           className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] text-secondary hover:bg-zGray-850 hover:text-main"
         >
           <ShieldCheck className="h-3 w-3" strokeWidth={1.9} />
-          Edit permissions
+          {t('Edit permissions')}
         </button>
       </div>
       {notices.map((notice) => (
