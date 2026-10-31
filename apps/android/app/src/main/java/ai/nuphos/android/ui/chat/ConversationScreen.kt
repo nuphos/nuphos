@@ -437,8 +437,52 @@ fun ConversationScreen(
                         settings.refresh()
                     }
                 }
+                val queueGeneration = draftAuth.generation
+                val queueWorkspace = store.workspaceRevision
+                val queueConsent = ai.nuphos.android.session.AiAccess.revision
+                androidx.compose.runtime.DisposableEffect(session, queueGeneration, queueWorkspace, queueConsent, draft) {
+                    session.activateQueue {
+                        draft != null && draftAuth.generation == queueGeneration && draftAuth.aiAllowed &&
+                            ai.nuphos.android.session.AiAccess.revision == queueConsent &&
+                            store.workspaceRevision == queueWorkspace && store.selectedTeam?.id == session.teamId
+                    }
+                    onDispose { session.deactivateQueue() }
+                }
+                LaunchedEffect(session, resumed, queueGeneration, queueWorkspace, queueConsent, session.loaded, session.isStreaming, session.queuedSends, session.sendQueues, session.runtimeObservation?.phase) {
+                    if (resumed) while (true) {
+                        session.serverQueue.refresh()
+                        if (session.serverQueue.items.isEmpty() && !session.isStreaming && !session.sendQueues) break
+                        kotlinx.coroutines.delay(3_000)
+                    }
+                }
+                var recalledFiles by remember(session, queueGeneration, queueWorkspace, queueConsent) {
+                    mutableStateOf(emptyList<ai.nuphos.android.model.ComposerAttachment>())
+                }
+                ServerQueuedMessages(session.serverQueue, writable = !session.readOnly && !session.isArchived,
+                    canSteer = session.canSteer, onRecall = { recalled ->
+                        if (draft == null) false else runCatching {
+                            val files = recalled.files.map { file ->
+                                require(file.mediaType == "image/jpeg" && file.url.startsWith("data:image/jpeg;base64,")) {
+                                    "This queued attachment cannot be edited on this device."
+                                }
+                                require(file.url.length <= 30_000_000)
+                                ai.nuphos.android.model.ComposerAttachment(
+                                    id = "recalled-${file.url.hashCode()}-${file.filename}", name = file.filename ?: "Queued photo.jpg",
+                                    kind = ai.nuphos.android.model.ComposerAttachment.Kind.Image(java.util.Base64.getDecoder().decode(file.url.substringAfter(','))))
+                            }
+                            val existing = draftApp.incomingShares.text(draft.key) ?: draft.text
+                            val merged = if (existing == recalled.text || existing.endsWith("\n\n${recalled.text}")) existing
+                                else listOf(existing, recalled.text).filter { it.isNotBlank() }.joinToString("\n\n")
+                            draftApp.incomingShares.writeText(draft.key, merged)
+                            val saved = draft.write(merged)
+                            if (saved) recalledFiles = (recalledFiles + files).distinctBy { it.id }
+                            saved
+                        }.getOrDefault(false)
+                    })
                 ChatComposer(
                     modelSettings = session.modelSettings,
+                    recalledFiles = recalledFiles,
+                    onRecalledFilesRestored = { recalledFiles = emptyList() },
                     mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
                         SessionMentionSource(draftTeam, sessionId) { query ->
                             store.mentionableSessions(draftTeam, query)
@@ -463,6 +507,7 @@ fun ConversationScreen(
                     isStreaming = session.isStreaming && !session.isNative,
                     onSend = session::send,
                     canSubmit = session.canSubmit && session.uploadDraft == null,
+                    sendQueues = session.sendQueues,
                     rejectedSubmission = session.rejectedSubmission,
                     onRejectedRestored = session::clearRejectedSubmission,
                     onStop = if (session.canCancel) session::stop else null,

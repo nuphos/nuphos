@@ -49,6 +49,7 @@ class ChatSession(
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
     private val readBypass: suspend (String, String) -> Boolean = AgentChatApi::bypass,
     private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
+    private val readEvents: (okhttp3.Request) -> kotlinx.coroutines.flow.Flow<ai.nuphos.android.data.SseEvent> = { SseClient.events(it) },
 ) {
     private var initialModelPick: Map<String, String>? = null
     fun presetModelSettings(pick: Map<String, String>) { initialModelPick = pick.takeIf { it.isNotEmpty() } }
@@ -266,7 +267,20 @@ class ChatSession(
     val canReply get() = permissions.reply && (!isNative || runtimeObservation?.allows("reply", RuntimeObservation.now()) == true) && !submissionPending
     val canEnqueueSteering get() = !steeringUnconfirmed && permissions.reply && isNative && runtimeObservation?.allows("reply", RuntimeObservation.now()) != true && runtimeObservation?.allows("steer", RuntimeObservation.now()) == true
     val canSteer get() = canEnqueueSteering && !steeringPending
-    val canSubmit get() = !movingAgent && !runtimeRecoveryRequired && (!isNative || !steeringUnconfirmed) && permissions.writable && !uploadBusy && (!submissionPending || canEnqueueSteering) && (!isNative || canReply || canEnqueueSteering || runtimeObservation?.allows("send", RuntimeObservation.now()) == true)
+    // Missing runtime observations may still queue; the server owns admission, as on iOS/Desktop.
+    val sendQueues get() = isNative && !canReply && !canEnqueueSteering && runtimeObservation?.allows("send", RuntimeObservation.now()) != true && (runtimeObservation?.mayAcceptLater ?: true)
+    private var queueCurrent: () -> Boolean = { false }
+    internal val serverQueue = ServerQueueStore(
+        current = { queueCurrent() && hasAiAccess && !browsingOnly && loaded && loadError == null && isNative },
+        writable = { permissions.writable && !movingAgent && !isArchived },
+        canSteer = { canSteer },
+        read = { AgentChatApi.queue(token, teamId, sessionId) },
+        remove = { AgentChatApi.unqueue(token, teamId, sessionId, it) },
+        steer = { RuntimeApi.steerQueued(token, teamId, sessionId, it.text, it.id); reloadFromServer() },
+    )
+    internal fun activateQueue(current: () -> Boolean) { serverQueue.invalidate(); queueCurrent = current }
+    internal fun deactivateQueue() { queueCurrent = { false }; serverQueue.invalidate() }
+    val canSubmit get() = serverQueue.busy.isEmpty() && !movingAgent && !runtimeRecoveryRequired && (!isNative || !steeringUnconfirmed) && permissions.writable && !uploadBusy && (!submissionPending || canEnqueueSteering) && (!isNative || canReply || canEnqueueSteering || runtimeObservation?.allows("send", RuntimeObservation.now()) == true || (runtimeObservation?.mayAcceptLater ?: true))
     val canCancel get() = permissions.cancel && !cancelRequested && (if (isNative) runtimeObservation?.allows("cancel", RuntimeObservation.now()) == true else isStreaming)
     val runtimeLabel get() = if (isNative) {
         val observation = runtimeObservation
@@ -496,7 +510,7 @@ class ChatSession(
         if (!permissions.writable) { rejectedSubmission = pendingSubmission; pendingSubmission = null; submissionPending = false; return }
         val wasEmpty = messages.isEmpty()
         val lastAssistant = messages.indexOfLast { it.role == ChatMessage.Role.Assistant }
-        if (lastAssistant >= 0) {
+        if (lastAssistant >= 0 && !sendQueues) {
             val updated = messages.toMutableList()
             updated[lastAssistant] = updated[lastAssistant].supersedePendingApprovals().finalizeIncompleteTools()
             messages = updated
@@ -661,6 +675,12 @@ class ChatSession(
                     TurnResult.Aborted -> return@launch
                     TurnResult.Queued -> {
                         queuedSends += 1
+                        submissionAccepted = true // HTTP 202 transfers ownership even without an SSE frame.
+                        pendingUserMessage?.let { pending -> messages = messages.filterNot { it.id == pending.id } }
+                        releaseAcceptedAttachmentCopies()
+                        pendingSubmission = null
+                        pendingUserMessage = null
+                        serverQueue.refresh()
                         finishTurn(null)
                         return@launch
                     }
@@ -1077,7 +1097,7 @@ class ChatSession(
             try {
                 if (!hasAiAccess) return TurnResult.Aborted
                 val request = AgentChatApi.chatRequest(token, body)
-                SseClient.events(request)
+                readEvents(request)
                     .catch { e -> streamError = e }
                     .collect { event ->
                         if (generation != transportGeneration || movingAgent || !hasAiAccess) return@collect
@@ -1406,6 +1426,7 @@ class ChatSession(
 
     /** Revoke local work and unsent copies without cancelling the server run. */
     fun disposeForConsent() {
+        deactivateQueue()
         downloads = emptyList()
         downloadsError = null
         timelineEvents = emptyList()

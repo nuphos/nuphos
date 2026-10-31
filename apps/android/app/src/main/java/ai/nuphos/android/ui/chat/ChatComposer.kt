@@ -153,6 +153,9 @@ fun ChatComposer(
     isStreaming: Boolean,
     onSend: (ComposerSubmission) -> Boolean,
     canSubmit: Boolean = true,
+    sendQueues: Boolean = false,
+    recalledFiles: List<ComposerAttachment> = emptyList(),
+    onRecalledFilesRestored: () -> Unit = {},
     draft: ai.nuphos.android.session.ComposerDrafts.Lease? = null,
     mentions: SessionMentionSource? = null,
     devices: DeviceMentionSource? = null,
@@ -363,6 +366,19 @@ fun ChatComposer(
             updateText(rejectedSubmission.text)
             attachments.addAll(rejectedSubmission.attachments)
             onRejectedRestored()
+        }
+    }
+
+    LaunchedEffect(recalledFiles, effectiveDraftingEnabled, savingSend, attachments.size) {
+        if (effectiveDraftingEnabled && !savingSend && recalledFiles.isNotEmpty()) {
+            try {
+                val missing = recalledFiles.filter { file -> attachments.none { it.id == file.id } }
+                AttachmentTransfers().retain(attachments.toList() + missing)
+                attachments.addAll(missing)
+                onRecalledFilesRestored()
+            } catch (error: Exception) {
+                pickerError = "Queued attachments are retained but could not fit in this draft. Remove an attachment and try again."
+            }
         }
     }
 
@@ -694,7 +710,7 @@ fun ChatComposer(
                             if (state.isFocused) collapsedByUser = false
                         }
                         .semantics {
-                            contentDescription = if (isStreaming) "Queue a message" else "Ask Nuphos anything"
+                            contentDescription = if (isStreaming || sendQueues) "Queue a message" else "Ask Nuphos anything"
                         },
                     textStyle = fieldStyle,
                     cursorBrush = SolidColor(colors.primary),
@@ -709,7 +725,7 @@ fun ChatComposer(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (text.isEmpty()) {
                                 Text(
-                                    if (isStreaming) "Queue a message…" else "Ask Nuphos anything…",
+                                    if (isStreaming || sendQueues) "Queue a message…" else "Ask Nuphos anything…",
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = if (expanded) 8 else 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -723,7 +739,7 @@ fun ChatComposer(
                 if (!expanded) {
                     VoiceMic(enabled = canSubmit && effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     TrailingButton(isStreaming = isStreaming, hasPayload = hasPayload && canSubmit && !picking && !voice.active,
-                        onStop = onStop, onSend = ::send)
+                        onStop = onStop, onSend = ::send, sendQueues = sendQueues)
                 }
             }
 
@@ -795,6 +811,7 @@ fun ChatComposer(
                         hasPayload = hasPayload && canSubmit && !picking && !voice.active,
                         onStop = onStop,
                         onSend = ::send,
+                        sendQueues = sendQueues,
                     )
             }
         }
@@ -913,6 +930,7 @@ private fun TrailingButton(
     hasPayload: Boolean,
     onStop: (() -> Unit)?,
     onSend: () -> Unit,
+    sendQueues: Boolean = false,
 ) {
     if (isStreaming && onStop != null) {
         FilledIconButton(
@@ -934,7 +952,7 @@ private fun TrailingButton(
                 disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
             ),
         ) {
-            Icon(Icons.Rounded.ArrowUpward, contentDescription = if (isStreaming) "Queue message" else "Send", modifier = Modifier.size(18.dp))
+            Icon(if (sendQueues) Icons.Outlined.PlaylistAdd else Icons.Rounded.ArrowUpward, contentDescription = if (isStreaming || sendQueues) "Queue message" else "Send", modifier = Modifier.size(18.dp))
         }
     }
 }
