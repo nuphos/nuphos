@@ -14,18 +14,29 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** One take at a time; cancellation invalidates permission and late network results. */
-class VoiceInput(private val services: VoiceServices, private val scope: CoroutineScope, private val access: VoiceAccess, private val onText: (String) -> Unit) {
+class VoiceInput(private val services: VoiceServices, private val scope: CoroutineScope, private val access: VoiceAccess, private val onText: (String) -> Boolean) {
     enum class Phase { Idle, Permission, Recording, Transcribing }
     var phase by mutableStateOf(Phase.Idle); private set
     var levels by mutableStateOf<List<Float>>(emptyList()); private set
     var seconds by mutableStateOf(0); private set
     var error by mutableStateOf<String?>(null)
+    var pendingText by mutableStateOf<String?>(null); private set
     private var take: VoiceTake? = null
     private var job: Job? = null
     private var generation = 0
     val available get() = access.current()
     val active get() = phase != Phase.Idle
-    fun awaitingPermission() { if (!active && access.current()) { error = null; phase = Phase.Permission } }
+    fun awaitingPermission() {
+        if (pendingText != null) { error = "Add or copy your retained transcript before recording again."; return }
+        if (!active && access.current()) { error = null; phase = Phase.Permission }
+    }
+    fun retryText() {
+        val words = pendingText ?: return
+        if (!active && access.current() && runCatching { onText(words) }.getOrDefault(false)) {
+            pendingText = null; error = null
+        }
+    }
+    fun discardText() { pendingText = null; error = null }
     fun permissionResult(granted: Boolean) {
         if (phase != Phase.Permission) return
         if (!access.current()) { cancel(); return }
@@ -50,7 +61,7 @@ class VoiceInput(private val services: VoiceServices, private val scope: Corouti
             }
         } catch (_: Exception) { cancel(); error = "Could not start recording. Check microphone access and try again." }
     }
-    fun finish() {
+    fun finish(thenSend: (() -> Unit)? = null) {
         if (phase != Phase.Recording) return
         if (!access.current()) { cancel(); return }
         val recording = take ?: return
@@ -67,7 +78,23 @@ class VoiceInput(private val services: VoiceServices, private val scope: Corouti
                     services.traditional(reply.text)
                 } else reply.text
                 ensureActive()
-                if (current == generation && access.current()) onText(words)
+                if (words.isBlank()) {
+                    if (current == generation && access.current()) error = "No speech was detected. Your draft has not been sent."
+                    return@launch
+                }
+                if (current == generation && access.current()) {
+                    pendingText = words
+                    if (!onText(words)) {
+                        error = "Could not add the transcript to this draft. Nothing has been sent."
+                        return@launch
+                    }
+                    pendingText = null
+                    if (current == generation && access.current()) {
+                        take = null
+                        phase = Phase.Idle
+                        thenSend?.invoke()
+                    }
+                }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 if (current == generation && access.current()) {
@@ -78,7 +105,7 @@ class VoiceInput(private val services: VoiceServices, private val scope: Corouti
             } finally {
                 file?.delete()
                 recording.cancel()
-                if (current == generation) { take = null; phase = Phase.Idle }
+                if (current == generation && take === recording) { take = null; phase = Phase.Idle }
             }
         }
     }
