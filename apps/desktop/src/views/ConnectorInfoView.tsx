@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 import { CONNECTOR_INFO_LABELS } from '../lib/appRoutes'
 
 import { installedConnectorAddAction } from './cloud/connector-actions'
@@ -35,7 +36,7 @@ function ConnectorInfoSkeleton() {
   return (
     <div
       className="mx-auto w-full max-w-[760px] animate-pulse px-7 py-10"
-      aria-label="Loading connector"
+      aria-label={t('Loading connector')}
       aria-busy="true"
     >
       <div className="h-14 w-14 rounded-[14px] bg-zGray-850" />
@@ -71,7 +72,9 @@ function withManageAccess(
   cluster: OnpremCluster | undefined,
   open: (cluster: OnpremCluster) => void,
 ): ConnectorInfoAction[] {
-  return cluster ? [...actions, { label: 'Manage access', onOpen: () => open(cluster) }] : actions
+  return cluster
+    ? [...actions, { label: t('Manage access'), onOpen: () => open(cluster) }]
+    : actions
 }
 
 /**
@@ -154,7 +157,7 @@ export function ConnectorInfoView({
       .catch((e: unknown) => {
         if (cancelled) return
         setState('missing')
-        toast.apiError('Could not load connector', e)
+        toast.apiError(t('Could not load connector'), e)
       })
 
     return () => {
@@ -187,7 +190,7 @@ export function ConnectorInfoView({
           {state === 'missing' && (
             <div className="mx-auto w-full max-w-[760px] px-7 py-10">
               <div className="text-[12.5px] text-tertiary">
-                No connections were found for this connector.
+                {t('No connections were found for this connector.')}
               </div>
             </div>
           )}
@@ -225,7 +228,7 @@ export function ConnectorInfoView({
           addAction={
             addAction
               ? {
-                  label: addAction.mode === 'install' ? 'Add connection' : addAction.label,
+                  label: addAction.mode === 'install' ? t('Add connection') : addAction.label,
                   onClick: () => bindFlowRef.current?.openIntegration(provider, addAction.mode),
                 }
               : undefined

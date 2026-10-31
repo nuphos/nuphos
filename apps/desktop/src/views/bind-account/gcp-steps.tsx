@@ -1,7 +1,8 @@
+import { t } from '../../i18n'
 import { gcpContentStep, gcpSpec } from '../../lib/cloudBindSteps'
 
 import { GcpTokenCreatorNote, GcpTokenCreatorPrincipal } from './gcp-token-creator'
-import { ConsoleLink, CopyableValue, Field, StepList, StepNote } from './shared'
+import { ConsoleLink, CopyableValue, Field, Fill, StepList, StepNote } from './shared'
 
 import type { GcpWifInfo } from '../../types'
 
@@ -49,9 +50,12 @@ export function GcpWizardStepContent({
   const enterDetails = (
     <div className="space-y-1">
       <div className="text-[12.5px] text-secondary leading-relaxed mb-2">
-        Enter the service account you created and its project ID.
+        {t('Enter the service account you created and its project ID.')}
       </div>
-      <Field label="Service Account Email" hint="Nuphos will impersonate this service account.">
+      <Field
+        label={t('Service Account Email')}
+        hint={t('Nuphos will impersonate this service account.')}
+      >
         <input
           type="text"
           value={saEmail}
@@ -60,7 +64,7 @@ export function GcpWizardStepContent({
           className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
-      <Field label="Project ID">
+      <Field label={t('Project ID')}>
         <input
           type="text"
           value={projectId}
@@ -77,15 +81,22 @@ export function GcpWizardStepContent({
     return (
       <StepList>
         <li>
-          Open{' '}
-          <ConsoleLink href={GCP_CONSOLE.enableResourceManager}>
-            Cloud Resource Manager API
-          </ConsoleLink>{' '}
-          and click <span className="text-main">Enable</span>
+          <Fill
+            text={t('Open {link} and click {button}')}
+            link={
+              <ConsoleLink href={GCP_CONSOLE.enableResourceManager}>
+                Cloud Resource Manager API
+              </ConsoleLink>
+            }
+            button={<span className="text-main">Enable</span>}
+          />
         </li>
         <li>
-          Open <ConsoleLink href={GCP_CONSOLE.enableIam}>IAM API</ConsoleLink> and click{' '}
-          <span className="text-main">Enable</span>
+          <Fill
+            text={t('Open {link} and click {button}')}
+            link={<ConsoleLink href={GCP_CONSOLE.enableIam}>IAM API</ConsoleLink>}
+            button={<span className="text-main">Enable</span>}
+          />
         </li>
       </StepList>
     )
@@ -95,22 +106,35 @@ export function GcpWizardStepContent({
       <div className="space-y-3">
         <StepList>
           <li>
-            Open{' '}
-            <ConsoleLink href={GCP_CONSOLE.createServiceAccount}>
-              IAM &amp; Admin → Create service account
-            </ConsoleLink>
+            <Fill
+              text={t('Open {link}')}
+              link={
+                <ConsoleLink href={GCP_CONSOLE.createServiceAccount}>
+                  IAM &amp; Admin → Create service account
+                </ConsoleLink>
+              }
+            />
           </li>
           <li>
-            Service account name: <CopyableValue value={spec.sa} />
+            <Fill
+              text={t('Service account name: {name}')}
+              name={<CopyableValue value={spec.sa} />}
+            />
           </li>
           <li>
-            Click <span className="text-main">Create and continue</span>
+            <Fill
+              text={t('Click {button}')}
+              button={<span className="text-main">Create and continue</span>}
+            />
           </li>
         </StepList>
         <StepNote>
-          That opens the console&apos;s own 3-step wizard — the next two steps here match its
-          sub-steps. The account&apos;s email will look like{' '}
-          <span className="font-mono">{spec.saEmail}</span> — you&apos;ll paste it in the last step.
+          <Fill
+            text={t(
+              "That opens the console's own 3-step wizard — the next two steps here match its sub-steps. The account's email will look like {email} — you'll paste it in the last step.",
+            )}
+            email={<span className="font-mono">{spec.saEmail}</span>}
+          />
         </StepNote>
       </div>
     )
@@ -120,17 +144,27 @@ export function GcpWizardStepContent({
       <div className="space-y-3">
         <StepList>
           <li>
-            On the <span className="text-main">Grant this service account access to project</span>{' '}
-            sub-step, add the role <CopyableValue value={spec.role} /> ({spec.roleLabel})
+            <Fill
+              text={t('On the {substep} sub-step, add the role {role} ({roleLabel})', {
+                roleLabel: spec.roleLabel,
+              })}
+              substep={
+                <span className="text-main">Grant this service account access to project</span>
+              }
+              role={<CopyableValue value={spec.role} />}
+            />
           </li>
           <li>
-            Click <span className="text-main">Continue</span>
+            <Fill text={t('Click {button}')} button={<span className="text-main">Continue</span>} />
           </li>
         </StepList>
         <StepNote>
-          Prefer least-privilege? <span className="text-main">{spec.roleLabel}</span> is broad — you
-          can instead add only the roles the agent needs (e.g. Kubernetes Engine Admin, Compute
-          Viewer). Add each one here.
+          <Fill
+            text={t(
+              'Prefer least-privilege? {role} is broad — you can instead add only the roles the agent needs (e.g. Kubernetes Engine Admin, Compute Viewer). Add each one here.',
+            )}
+            role={<span className="text-main">{spec.roleLabel}</span>}
+          />
         </StepNote>
       </div>
     )
@@ -140,16 +174,19 @@ export function GcpWizardStepContent({
       <div className="space-y-3">
         <StepList>
           <li>
-            On the <span className="text-main">Principals with access</span> sub-step, leave both
-            fields empty
+            <Fill
+              text={t('On the {substep} sub-step, leave both fields empty')}
+              substep={<span className="text-main">Principals with access</span>}
+            />
           </li>
           <li>
-            Click <span className="text-main">Done</span>
+            <Fill text={t('Click {button}')} button={<span className="text-main">Done</span>} />
           </li>
         </StepList>
         <StepNote>
-          The token-creator grant this account needs isn&apos;t offered here — it goes on the
-          account itself, in the next step.
+          {t(
+            "The token-creator grant this account needs isn't offered here — it goes on the account itself, in the next step.",
+          )}
         </StepNote>
       </div>
     )
@@ -159,24 +196,37 @@ export function GcpWizardStepContent({
       <div className="space-y-3">
         <StepList>
           <li>
-            Open{' '}
-            <ConsoleLink href={GCP_CONSOLE.serviceAccounts}>
-              IAM &amp; Admin → Service Accounts
-            </ConsoleLink>{' '}
-            and click <span className="text-main">{spec.sa}</span>
+            <Fill
+              text={t('Open {link} and click {button}')}
+              link={
+                <ConsoleLink href={GCP_CONSOLE.serviceAccounts}>
+                  IAM &amp; Admin → Service Accounts
+                </ConsoleLink>
+              }
+              button={<span className="text-main">{spec.sa}</span>}
+            />
           </li>
           <li>
-            Open its <span className="text-main">Principals with access</span> tab, then click{' '}
-            <span className="text-main">Grant access</span>
+            <Fill
+              text={t('Open its {tab} tab, then click {button}')}
+              tab={<span className="text-main">Principals with access</span>}
+              button={<span className="text-main">Grant access</span>}
+            />
           </li>
           <li>
-            New principals: <GcpTokenCreatorPrincipal wif={wif} />
+            <Fill
+              text={t('New principals: {principal}')}
+              principal={<GcpTokenCreatorPrincipal wif={wif} />}
+            />
           </li>
           <li>
-            Role: <CopyableValue value="Service Account Token Creator" />
+            <Fill
+              text={t('Role: {role}')}
+              role={<CopyableValue value="Service Account Token Creator" />}
+            />
           </li>
           <li>
-            Click <span className="text-main">Save</span>
+            <Fill text={t('Click {button}')} button={<span className="text-main">Save</span>} />
           </li>
         </StepList>
         <GcpTokenCreatorNote wif={wif} saName={spec.sa} />

@@ -17,6 +17,7 @@ import { toast } from '../components/ui/toast'
 import { Tooltip } from '../components/ui/tooltip'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
@@ -57,7 +58,7 @@ export function BrowserView({
   const userId = useCurrentUser()?.id
   const previewRef = useRef<ReturnType<typeof localPreviewRecorder> | null>(null)
   const [address, setAddress] = useState(initialUrl)
-  const [title, setTitle] = useState('Browser')
+  const [title, setTitle] = useState(t('Browser'))
   const [nav, setNav] = useState({ back: false, forward: false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -121,7 +122,7 @@ export function BrowserView({
       }
     }
     const onTitle = (event: Electron.PageTitleUpdatedEvent) => {
-      setTitle(event.title || 'Browser')
+      setTitle(event.title || t('Browser'))
     }
 
     view.addEventListener('dom-ready', onReady)
@@ -187,7 +188,7 @@ export function BrowserView({
             className={buttonClass}
             disabled={!nav.back}
             onClick={() => viewRef.current?.goBack()}
-            aria-label="Back"
+            aria-label={t('Back')}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>
@@ -196,7 +197,7 @@ export function BrowserView({
             className={buttonClass}
             disabled={!nav.forward}
             onClick={() => viewRef.current?.goForward()}
-            aria-label="Forward"
+            aria-label={t('Forward')}
           >
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
@@ -205,18 +206,18 @@ export function BrowserView({
             className={buttonClass}
             disabled={!ready}
             onClick={() => (loading ? viewRef.current?.stop() : viewRef.current?.reload())}
-            aria-label={loading ? 'Stop loading' : 'Reload page'}
+            aria-label={loading ? t('Stop loading') : t('Reload page')}
           >
             {loading ? <X className="h-3.5 w-3.5" /> : <RotateCw className="h-3.5 w-3.5" />}
           </button>
           <input
-            aria-label="Search or enter URL"
+            aria-label={t('Search or enter URL')}
             value={address}
             onChange={(event) => setAddress(event.target.value)}
             onFocus={(event) => event.target.select()}
             spellCheck={false}
             className="ml-1 h-7 min-w-0 flex-1 rounded-md bg-zGray-900 px-2.5 text-xs text-main outline-none focus:ring-1 focus:ring-zGray-600"
-            placeholder="Search or enter URL"
+            placeholder={t('Search or enter URL')}
           />
           {onComment && (
             <button
@@ -230,12 +231,12 @@ export function BrowserView({
               disabled={!ready}
               onClick={comments.toggle}
               aria-pressed={comments.active}
-              aria-label="Comment on the page"
+              aria-label={t('Comment on the page')}
             >
               <SquareDashedMousePointer className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
-          <Tooltip content="Open in external browser" side="bottom">
+          <Tooltip content={t('Open in external browser')} side="bottom">
             <button
               type="button"
               className={buttonClass}
@@ -245,11 +246,11 @@ export function BrowserView({
 
                 if (currentUrl && /^https?:\/\//i.test(currentUrl)) {
                   void api.appOpenExternal(currentUrl).catch(() => {
-                    toast.error('Could not open the external browser')
+                    toast.error(t('Could not open the external browser'))
                   })
                 }
               }}
-              aria-label="Open in external browser"
+              aria-label={t('Open in external browser')}
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
@@ -261,7 +262,9 @@ export function BrowserView({
             role="alert"
             className="border-b border-error/30 bg-error/10 px-3 py-2 text-xs text-error"
           >
-            Could not load this page: {error}. Check the address or reload to retry.
+            {t('Could not load this page: {error}. Check the address or reload to retry.', {
+              error,
+            })}
           </div>
         )}
         <div className="relative min-h-0 flex-1">

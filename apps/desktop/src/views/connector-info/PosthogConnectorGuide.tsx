@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { api, parseAtlasError } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { POSTHOG_RECONNECT_REQUIRED } from '../../types/posthog'
 import { PosthogProjectChecklist } from '../PosthogProjectChecklist'
 import { useResetOnKey } from '../useResetOnKey'
@@ -55,7 +56,7 @@ export function PosthogConnectorGuide({
         setNeedsReconnect(row?.status === 'reconnect_required')
       })
       .catch((cause: unknown) => {
-        if (!cancelled) toast.apiError('Could not load PostHog projects', cause)
+        if (!cancelled) toast.apiError(t('Could not load PostHog projects'), cause)
       })
 
     return () => {
@@ -71,7 +72,7 @@ export function PosthogConnectorGuide({
       setEditing({ available, selectedIds: (projects ?? []).map((project) => project.id) })
     } catch (cause) {
       if (parseAtlasError(cause).code === POSTHOG_RECONNECT_REQUIRED) setNeedsReconnect(true)
-      else toast.apiError('Could not list PostHog projects', cause)
+      else toast.apiError(t('Could not list PostHog projects'), cause)
     } finally {
       setBusy(false)
     }
@@ -79,7 +80,7 @@ export function PosthogConnectorGuide({
 
   async function saveProjects() {
     if (!editing) return
-    if (editing.selectedIds.length === 0) return toast.error('Select at least one project.')
+    if (editing.selectedIds.length === 0) return toast.error(t('Select at least one project.'))
     setBusy(true)
     try {
       const updated = await api.atlasUpdatePosthogProjects(teamId, connectorId, editing.selectedIds)
@@ -92,7 +93,7 @@ export function PosthogConnectorGuide({
         setEditing(null)
         setNeedsReconnect(true)
       } else {
-        toast.apiError('Could not update PostHog projects', cause)
+        toast.apiError(t('Could not update PostHog projects'), cause)
       }
     } finally {
       setBusy(false)
@@ -111,7 +112,9 @@ export function PosthogConnectorGuide({
     <>
       <section className="mt-6">
         <div className="mb-2 flex items-center gap-2">
-          <h3 className="text-[12.5px] font-medium text-main">Projects the agent may query</h3>
+          <h3 className="text-[12.5px] font-medium text-main">
+            {t('Projects the agent may query')}
+          </h3>
           {!editing && (
             <button
               type="button"
@@ -120,7 +123,7 @@ export function PosthogConnectorGuide({
               className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] text-secondary hover:bg-zGray-850 hover:text-main disabled:opacity-50"
             >
               <Pencil className="h-3 w-3" strokeWidth={1.9} />
-              Edit projects
+              {t('Edit projects')}
             </button>
           )}
         </div>
@@ -139,7 +142,7 @@ export function PosthogConnectorGuide({
                 disabled={busy}
                 className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12px] disabled:opacity-50"
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <Button
                 size="sm"
@@ -147,7 +150,7 @@ export function PosthogConnectorGuide({
                 onClick={() => void saveProjects()}
                 disabled={busy || editing.selectedIds.length === 0}
               >
-                {busy ? 'Saving…' : 'Save'}
+                {busy ? t('Saving…') : t('Save')}
               </Button>
             </div>
           </div>
@@ -166,7 +169,7 @@ function ProjectList({ projects }: { projects: PosthogProject[] | null }) {
   return (
     <div className="overflow-hidden rounded-lg border border-zGray-800">
       {projects === null && (
-        <div className="px-4 py-4 text-[12px] text-tertiary">Loading projects…</div>
+        <div className="px-4 py-4 text-[12px] text-tertiary">{t('Loading projects…')}</div>
       )}
       {projects?.map((project, index) => (
         <div
