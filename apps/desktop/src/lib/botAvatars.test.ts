@@ -42,7 +42,7 @@ test('Desktop and iOS share the exact ID mapping and SVG bytes', () => {
   assert.equal(new Set(fixtures.map(({ file }) => file)).size, 28)
   for (const file of BOT_AVATARS) {
     const ios = new URL(
-      `../../../ios/nuphos-ios/Assets.xcassets/BotAvatars/bot-avatar-${file.slice(0, -4)}.imageset/${file}`,
+      `../../../ios/BotAvatars/BotAvatars.xcassets/bot-avatar-${file.slice(0, -4)}.imageset/${file}`,
       import.meta.url,
     )
 
