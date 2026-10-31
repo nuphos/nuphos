@@ -232,6 +232,9 @@ class ChatSession(
         if (hasAiAccess && revision == watchRevision) watching = detail.watching
     }
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
+    val canOpenDesktop get() = canManage && isOwner && !browsingOnly && runtimeObservation?.snapshot?.let { snapshot ->
+        snapshot["canOpenDesktop"]?.boolValue == true || snapshot["tools"]?.arrayValue?.any { it["kind"]?.stringValue == "desktop" } == true
+    } == true
     fun sharingState() = SharingState(ai.nuphos.android.data.SessionSharingApi(token, teamId, sessionId, runtimeId)) {
         canManage && isOwner && !browsingOnly
     }
