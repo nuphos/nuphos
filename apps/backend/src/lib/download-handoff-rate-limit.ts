@@ -10,7 +10,7 @@ const RECIPIENT_WINDOW_SECONDS = 24 * 60 * 60
 // Both quotas are checked and consumed in one Redis operation. A rejected
 // request increments neither counter, so retries cannot exhaust the other
 // dimension accidentally. Redis is shared by every backend replica.
-const CONSUME_QUOTA_SCRIPT = `
+const CONSUME_PAIR_QUOTA_SCRIPT = `
 local ip_count = tonumber(redis.call('GET', KEYS[1]) or '0')
 local recipient_count = tonumber(redis.call('GET', KEYS[2]) or '0')
 
@@ -27,7 +27,42 @@ if recipient_count == 1 then redis.call('EXPIRE', KEYS[2], ARGV[4]) end
 return 1
 `
 
+// Single-window variant of the pair script. A rejected request increments
+// nothing, so retries cannot exhaust the quota. Shared by every backend
+// replica through Redis, so it bounds an attacker across pods too.
+const CONSUME_QUOTA_SCRIPT = `
+local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+
+if count >= tonumber(ARGV[1]) then
+  return 0
+end
+
+count = redis.call('INCR', KEYS[1])
+if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
+
+return 1
+`
+
 export type QuotaWindow = { key: string; limit: number; windowSeconds: number }
+
+/**
+ * Consumes one unit from a single window. A rejected request increments
+ * nothing, so retries cannot exhaust the quota. Shared by every backend
+ * replica through Redis, so it bounds an attacker across pods too.
+ *
+ * This is the primitive the email-otp path already uses; exposing it lets the
+ * password route apply the same IP-keyed cap instead of nothing.
+ */
+export async function consumeQuota(window: QuotaWindow): Promise<DownloadHandoffRateLimitResult> {
+  const result = await withRedis((client) =>
+    client.eval(CONSUME_QUOTA_SCRIPT, 1, window.key, window.limit, window.windowSeconds),
+  )
+
+  if (result === 1) return 'allowed'
+  if (result === 0) return 'limited'
+
+  return 'unavailable'
+}
 
 /** Consumes one unit from both windows atomically, or from neither. */
 export async function consumePairQuota(
@@ -36,7 +71,7 @@ export async function consumePairQuota(
 ): Promise<DownloadHandoffRateLimitResult> {
   const result = await withRedis((client) =>
     client.eval(
-      CONSUME_QUOTA_SCRIPT,
+      CONSUME_PAIR_QUOTA_SCRIPT,
       2,
       first.key,
       second.key,

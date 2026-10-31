@@ -31,6 +31,11 @@ import type { NativeDeliveryTarget } from '@/lib/native-auth'
 import type { AuthVariables } from '@/middleware/auth'
 
 const requireAuth: typeof authMiddleware.requireAuth = (c, n) => authMiddleware.requireAuth(c, n)
+// The visitor's own address, not the proxy's, for routes that gate by IP.
+const reqIp = (c: Context) =>
+  clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For'))
+// The raw request body, or null when it is missing or not JSON.
+const json = (c: Context) => c.req.json().catch(() => null)
 
 export const auth = new Hono<{ Variables: AuthVariables }>()
 auth.route('/social', socialAuth)
@@ -83,13 +88,11 @@ auth.put('/me/avatar', requireAuth, avatarBodyLimit, async (c) =>
 auth.delete('/me/avatar', requireAuth, async (c) => c.json(await removeAvatar(c.get('userId'))))
 
 auth.post('/password/sign-in', async (c) =>
-  c.json(await startSession(c, await signInWithPassword(await c.req.json().catch(() => null)))),
+  c.json(await startSession(c, await signInWithPassword(await json(c), reqIp(c)))),
 )
 
 auth.post('/password/set', async (c) =>
-  c.json(
-    await startSession(c, await setPasswordWithEmailCode(await c.req.json().catch(() => null))),
-  ),
+  c.json(await startSession(c, await setPasswordWithEmailCode(await json(c)))),
 )
 
 // Email OTP sign-in/sign-up for teams not on Google Workspace. Errors follow
@@ -98,12 +101,9 @@ auth.post('/password/set', async (c) =>
 auth.post('/email/request-code', async (c) => {
   const body = (await c.req.json().catch(() => null)) as { email?: unknown } | null
   const email = typeof body?.email === 'string' ? body.email : ''
+  const source = signInSource((name) => c.req.header(name))
 
-  await requestEmailOtp(
-    email,
-    clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For')),
-    signInSource((name) => c.req.header(name)),
-  )
+  await requestEmailOtp(email, reqIp(c), source)
 
   return c.json({ ok: true })
 })
