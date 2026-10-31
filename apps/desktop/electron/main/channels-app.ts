@@ -18,14 +18,13 @@ import { raiseWindow } from '../window-raise'
 
 import { getChangelogState } from './changelog'
 import { pickPaths, savePastedAttachments } from './dialogs'
-import { isDev } from './env'
 import { importLocalSession } from '../agent/local-session-import'
 
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
 import { openExternal } from './open-external'
 import { readAppIcon, setAppIcon } from './app-icon'
 import { writePersistedThemeSource } from './theme'
-import { autoUpdater, checkForUpdatesOnce, getUpdaterState, setUpdaterState } from './updater'
+import { getReadyVersion, installReadyUpdate } from './updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
@@ -247,19 +246,8 @@ export const appChannels = {
     return { saved: true, path: result.filePath, ...out }
   },
   'changelog:getState': () => getChangelogState(),
-  'updater:getState': () => getUpdaterState(),
-  'updater:check': () => {
-    if (isDev) {
-      setUpdaterState({ kind: 'error', message: 'Updates disabled in dev mode' })
-
-      return getUpdaterState()
-    }
-
-    return checkForUpdatesOnce()
-  },
-  'updater:install': () => {
-    if (getUpdaterState().kind === 'downloaded') autoUpdater.quitAndInstall()
-  },
+  'updater:getReadyVersion': () => getReadyVersion(),
+  'updater:install': () => installReadyUpdate(),
 } as const
 
 // Avatar trust runs during render, so the renderer reads the endpoint synchronously.

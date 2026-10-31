@@ -2,11 +2,10 @@
 // apart from updater.ts so it is testable without electron.
 
 export type InteractiveCheckOutcome =
-  | { kind: 'dev' }
-  | { kind: 'busy' }
   | { kind: 'up-to-date'; version: string }
   | { kind: 'update'; version: string }
-  | { kind: 'error'; message: string }
+  | { kind: 'ready'; version: string }
+  | { kind: 'error' }
 
 export function checkOutcome(
   currentVersion: string,
@@ -20,28 +19,32 @@ export function checkOutcome(
 }
 
 export function describeCheckOutcome(outcome: InteractiveCheckOutcome): {
-  type: 'info' | 'error'
   message: string
-  detail?: string
+  detail: string
+  confirmLabel?: string
 } {
   switch (outcome.kind) {
-    case 'dev':
-      return { type: 'info', message: 'Updates are disabled in development builds.' }
-    case 'busy':
-      return { type: 'info', message: 'An update check is already running.' }
     case 'up-to-date':
       return {
-        type: 'info',
         message: "You're up to date",
         detail: `Nuphos ${outcome.version} is the latest version.`,
       }
     case 'update':
       return {
-        type: 'info',
-        message: `Nuphos ${outcome.version} is available`,
-        detail: 'It is downloading in the background and will install when you quit the app.',
+        message: `Downloading Nuphos ${outcome.version}`,
+        detail: 'When it is ready, a Restart button appears in the sidebar.',
+      }
+    case 'ready':
+      return {
+        message: `Nuphos ${outcome.version} is ready`,
+        detail: 'Restart now to finish updating, or it installs the next time you quit.',
+        confirmLabel: 'Restart',
       }
     case 'error':
-      return { type: 'error', message: 'Update check failed', detail: outcome.message }
+      // The raw updater error goes to telemetry; people get one plain sentence.
+      return {
+        message: "Couldn't check for updates",
+        detail: 'Check your connection and try again later.',
+      }
   }
 }

@@ -10,18 +10,21 @@ test('a newer version reports an update, same version reports up to date', () =>
   assert.deepEqual(checkOutcome('0.39.0', undefined), { kind: 'up-to-date', version: '0.39.0' })
 })
 
-test('dialog wording covers every outcome and errors render as errors', () => {
-  assert.equal(describeCheckOutcome({ kind: 'up-to-date', version: '1.0.0' }).type, 'info')
-  assert.match(
-    describeCheckOutcome({ kind: 'update', version: '1.1.0' }).message,
-    /1\.1\.0 is available/,
-  )
-  assert.match(
-    describeCheckOutcome({ kind: 'update', version: '1.1.0' }).detail ?? '',
-    /install when you quit/,
-  )
-  assert.equal(describeCheckOutcome({ kind: 'error', message: 'ENETDOWN' }).type, 'error')
-  assert.equal(describeCheckOutcome({ kind: 'error', message: 'ENETDOWN' }).detail, 'ENETDOWN')
-  assert.match(describeCheckOutcome({ kind: 'dev' }).message, /development/)
-  assert.match(describeCheckOutcome({ kind: 'busy' }).message, /already running/)
+test('only a downloaded update offers Restart', () => {
+  assert.equal(describeCheckOutcome({ kind: 'ready', version: '1.1.0' }).confirmLabel, 'Restart')
+  assert.match(describeCheckOutcome({ kind: 'ready', version: '1.1.0' }).message, /1\.1\.0/)
+  for (const outcome of [
+    { kind: 'up-to-date', version: '1.0.0' },
+    { kind: 'update', version: '1.1.0' },
+    { kind: 'error' },
+  ] as const) {
+    assert.equal(describeCheckOutcome(outcome).confirmLabel, undefined)
+  }
+})
+
+test('a downloading update points to the sidebar button, not to quitting', () => {
+  const box = describeCheckOutcome({ kind: 'update', version: '1.1.0' })
+
+  assert.match(box.message, /1\.1\.0/)
+  assert.match(box.detail, /Restart button/)
 })

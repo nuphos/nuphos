@@ -14,12 +14,12 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:deleteTeamGoogleClient', teamId),
   ...runtimeApi,
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
-  onUpdaterStatus: (cb: (state: unknown) => void) => {
-    const handler = (_e: unknown, state: unknown) => cb(state)
+  onUpdaterReady: (cb: (version: string) => void) => {
+    const handler = (_e: unknown, version: string) => cb(version)
 
-    ipcRenderer.on('updater:status', handler)
+    ipcRenderer.on('updater:ready', handler)
 
-    return () => ipcRenderer.off('updater:status', handler)
+    return () => ipcRenderer.off('updater:ready', handler)
   },
   changelogGetState: () => ipcRenderer.invoke('changelog:getState'),
   onChangelogStatus: (cb: (state: unknown) => void) => {

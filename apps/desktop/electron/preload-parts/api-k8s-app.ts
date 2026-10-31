@@ -294,6 +294,5 @@ export const k8sAppApi = {
     paths: string[]
     files: { name: string; type: string; bytes: ArrayBuffer }[]
   }) => ipcRenderer.invoke('clipboard:savePastedAttachments', payload),
-  updaterGetState: () => ipcRenderer.invoke('updater:getState'),
-  updaterCheck: () => ipcRenderer.invoke('updater:check'),
+  updaterGetReadyVersion: () => ipcRenderer.invoke('updater:getReadyVersion'),
 }

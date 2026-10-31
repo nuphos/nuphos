@@ -45,15 +45,6 @@ export type PersonalCredentialDeepLinkPayload = {
   error?: string
 }
 
-export type UpdaterState =
-  | { kind: 'idle' }
-  | { kind: 'checking' }
-  | { kind: 'not-available' }
-  | { kind: 'available'; version: string }
-  | { kind: 'downloading'; percent: number }
-  | { kind: 'downloaded'; version: string }
-  | { kind: 'error'; message: string }
-
 export type ChangelogEntry = {
   slug: string
   title: string
