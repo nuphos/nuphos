@@ -21,7 +21,6 @@ import {
   selectScope,
   teamScopeOf,
 } from './store/workspaceState'
-import { usePaneCloseConfirm } from './usePaneCloseConfirm'
 import { GLIDE, usePaneDropPreview } from './usePaneDropPreview'
 import { usePaneFocusTracking } from './usePaneFocusTracking'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
@@ -171,19 +170,26 @@ export function WorkspaceSplits({
       return
     }
 
+    const heir = activeId === id ? paneRects(next)[0].id : activeId
+
     if (store) {
-      // Dispatch before unmount so the existing teardown observer also handles
-      // terminals whose asynchronous creation has not finished yet.
-      for (const tab of selectAllResidentTabs(store.getState())) store.actions.closeTab(tab.id)
+      // A connecting SSH tab hands its session to this pane's store once it
+      // resolves, so end it here, before unmount, where the teardown observer
+      // can still mark it closed.
+      for (const tab of selectAllResidentTabs(store.getState())) {
+        if (tab.sshTerminal?.status === 'connecting') store.actions.closeTab(tab.id)
+      }
+      // Closing a pane only changes the layout: its chats' docks, terminals
+      // included, carry on in the pane that takes focus. Their shells are keyed
+      // by tab id, so they reattach there with their scrollback.
+      stores.get(heir)?.actions.adoptBuckets(store.getState().buckets)
     }
     setLayout(next)
-    if (activeId === id) setActiveId(paneRects(next)[0].id)
+    if (activeId === id) setActiveId(heir)
     focusSurfaces.delete(id)
     seeds.delete(id)
     registrations.delete(id)
   }
-
-  const closing = usePaneCloseConfirm(stores, multiple, close)
 
   const handleLogout = useCallback(async () => {
     // Other panes stay mounted until logout completes; release their terminals too.
@@ -230,7 +236,7 @@ export function WorkspaceSplits({
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 isTabFocused: () => focusSurfaces.get(rect.id) === 'tab',
-                closePane: () => closing.request(rect.id),
+                closePane: () => close(rect.id),
                 split: multiple,
                 active: activeId === rect.id,
                 // The first surviving leaf owns persistence, even after the original closes.
@@ -276,7 +282,6 @@ export function WorkspaceSplits({
             </WorkspacePaneContext.Provider>
           )
         })}
-        {closing.dialog}
         <SplitDropOverlay
           rects={rects}
           placed={placed}
