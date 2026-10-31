@@ -102,6 +102,16 @@ function queueDeepLink(channel: string, payload: unknown) {
 // Single path for deep links so both delivery routes (open-url on macOS,
 // second-instance on Windows/Linux) emit the same event.
 export function handleDeepLink(url: string) {
+  // macOS hands us http(s) links once the user picks Nuphos as the default
+  // browser (the app declares both schemes); the workspace opens them like a
+  // link clicked in chat. Checked first: several callback matchers below look
+  // only at the host, and a web link must never reach them.
+  if (/^https?:\/\//i.test(url)) {
+    captureMain('deep_link_opened', { kind: 'web_url' })
+    queueDeepLink('deep-link:web-url', url)
+
+    return
+  }
   if (githubInstall.isCallbackUrl(url)) {
     captureMain('deep_link_opened', { kind: 'github_callback' })
     void githubInstall.handleCallback(url)
@@ -216,14 +226,5 @@ export function handleDeepLink(url: string) {
 
     captureMain('deep_link_opened', { kind: 'connect_agent', valid: Boolean(payload) })
     if (payload) queueDeepLink('deep-link:connect-agent', payload)
-
-    return
-  }
-  // macOS hands us http(s) links once the user picks Nuphos as the default
-  // browser (the app declares both schemes); the workspace opens them like a
-  // link clicked in chat.
-  if (/^https?:\/\//i.test(url)) {
-    captureMain('deep_link_opened', { kind: 'web_url' })
-    queueDeepLink('deep-link:web-url', url)
   }
 }
