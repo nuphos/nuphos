@@ -2,7 +2,7 @@ import { apiUrl } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
 import { decideAuthStatus, isTokenRejected, isValidUserInfo } from '../auth-status.ts'
 
-import { readConfig, writeConfig } from './config.ts'
+import { commitConfigIf, readConfig } from './config.ts'
 
 import type { AuthSession } from '../auth-session.ts'
 import type { AuthStatus, MeProbe, UserInfo } from '../auth-status.ts'
@@ -72,40 +72,57 @@ async function probeMe(token: string): Promise<MeProbe> {
 
 export type StatusDeps = {
   readConfig: () => Promise<Config>
-  writeConfig: (cfg: Config) => Promise<void>
+  /** Runs `task` in the config file's turn if `isCurrent` holds there (config.ts). */
+  commitIf: <T>(
+    isCurrent: () => boolean,
+    task: (save: (cfg: Config) => Promise<void>) => Promise<T>,
+  ) => Promise<T | null>
   probe: (token: string) => Promise<MeProbe>
   session: AuthSession
 }
 
 const defaultStatusDeps: StatusDeps = {
   readConfig,
-  writeConfig,
+  commitIf: commitConfigIf,
   probe: probeMe,
   session: authSession,
 }
 
+/**
+ * Checks the stored sign-in with the backend. The check is bound to the
+ * account it began as: if another one took over while `/auth/me` was out (a
+ * switch, a sign-in, a sign-out), nothing it learned is written, to the file
+ * or to the session, and the account now current is checked instead.
+ */
 export async function status(deps: StatusDeps = defaultStatusDeps): Promise<AuthStatus> {
-  const result = await probeStatus(deps)
+  const { epoch } = deps.session.context()
+  const isCurrent = () => deps.session.context().epoch === epoch
+  const cfg = await deps.readConfig()
+  const probe = cfg.token ? await deps.probe(cfg.token) : null
+  const result = await deps.commitIf(isCurrent, async (save) => {
+    const outcome = await settle(cfg, probe, save)
 
-  if (result.loggedIn) deps.session.set(result.token, result.user.id)
-  else deps.session.set(null, null)
+    if (outcome.loggedIn) deps.session.set(outcome.token, outcome.user.id)
+    else deps.session.set(null, null)
 
-  return result
+    return outcome
+  })
+
+  return result ?? status(deps)
 }
 
-async function probeStatus(deps: StatusDeps): Promise<AuthStatus> {
-  const cfg = await deps.readConfig()
-
-  if (!cfg.token) return { loggedIn: false }
-
-  const probe = await deps.probe(cfg.token)
-
+async function settle(
+  cfg: Config,
+  probe: MeProbe | null,
+  save: (cfg: Config) => Promise<void>,
+): Promise<AuthStatus> {
+  if (!cfg.token || !probe) return { loggedIn: false }
   if (probe.ok) {
     // Keep the cached identity fresh so a later transient failure has an
     // up-to-date user to fall back on. Best-effort: a failed write (disk full,
     // permissions, race) must NOT downgrade a valid login to anonymous.
     try {
-      await deps.writeConfig({
+      await save({
         ...cfg,
         user: probe.user.name,
         username: probe.user.username,
@@ -116,7 +133,7 @@ async function probeStatus(deps: StatusDeps): Promise<AuthStatus> {
     }
   } else if (!probe.transient) {
     try {
-      await deps.writeConfig({})
+      await save({})
     } catch (e) {
       console.warn('auth: failed to clear rejected token', e)
     }

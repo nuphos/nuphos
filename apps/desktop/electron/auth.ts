@@ -7,7 +7,6 @@ import { shell } from 'electron'
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
 import {
-  apiErrorMessage,
   forgetAccountConfig,
   listAccountConfigs,
   parkAccountConfig,
@@ -15,6 +14,7 @@ import {
   switchAccountConfig,
   writeConfig,
 } from './auth/config.ts'
+import { apiErrorMessage } from './auth/web.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'

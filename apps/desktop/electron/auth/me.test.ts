@@ -22,6 +22,17 @@ function harness() {
 
       return Promise.resolve()
     },
+    commitIf: <T>(
+      isCurrent: () => boolean,
+      task: (save: (cfg: Config) => Promise<void>) => Promise<T>,
+    ): Promise<T | null> =>
+      isCurrent()
+        ? task((cfg) => {
+            config = cfg
+
+            return Promise.resolve()
+          })
+        : Promise.resolve(null),
     probe: () => Promise.resolve(probe),
   }
 
