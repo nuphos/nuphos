@@ -32,6 +32,7 @@ export function useWorkspaceShortcuts(a: Args) {
     setSettingsOpen,
     setSessionSearchOpen,
     setSettingsInitialSection,
+    openSettingsSection,
     shortcutsHelpOpen,
     setShortcutsHelpOpen,
     toggleSidebarCollapsed,
@@ -93,8 +94,7 @@ export function useWorkspaceShortcuts(a: Args) {
         return
       }
       if (action === 'open-updates') {
-        setSettingsInitialSection('device.updates')
-        setSettingsOpen(true)
+        openSettingsSection('device.updates')
 
         return
       }
@@ -127,6 +127,7 @@ export function useWorkspaceShortcuts(a: Args) {
     setSettingsOpen,
     setSessionSearchOpen,
     setSettingsInitialSection,
+    openSettingsSection,
     setShortcutsHelpOpen,
   ])
 
