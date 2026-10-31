@@ -2,6 +2,7 @@ import { ChevronRight, Code2, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api, parseAtlasError } from '../../api'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type { SonarqubeProject } from '../../types'
@@ -69,17 +70,17 @@ export function SonarqubeConnectorGuide({
 
   const prompts = [
     {
-      title: 'Review security findings',
+      title: t('Review security findings'),
       prompt:
         'List the visible projects, then prioritize their vulnerabilities and unreviewed Security Hotspots. Lead with the highest-risk findings and concrete remediation steps.',
     },
     {
-      title: 'Check Quality Gates',
+      title: t('Check Quality Gates'),
       prompt:
         'Check the Quality Gate status of every visible project. Explain each failed condition, distinguish new-code failures from overall debt, and recommend the next action.',
     },
     {
-      title: 'Summarize code health',
+      title: t('Summarize code health'),
       prompt:
         'Summarize the code-quality posture of every visible project, grouping repetitive issues by rule and component. Prioritize the most impactful fixes.',
     },
@@ -89,17 +90,18 @@ export function SonarqubeConnectorGuide({
     <div className="mt-6 space-y-5">
       <div className="rounded-lg border border-zGray-800 bg-zGray-900/30 px-4 py-3">
         <div className="text-[12.5px] font-medium text-main">
-          SonarQube provides the analysis data
+          {t('SonarQube provides the analysis data')}
         </div>
         <p className="mt-1 text-[11.5px] leading-relaxed text-tertiary">
-          Nuphos reads results already stored in this SonarQube instance. Connecting does not
-          automatically scan code or grant access to a source repository.
+          {t(
+            'Nuphos reads results already stored in this SonarQube instance. Connecting does not automatically scan code or grant access to a source repository.',
+          )}
         </p>
       </div>
 
       <section>
         <div className="mb-2 flex items-center gap-2">
-          <h3 className="text-[12.5px] font-medium text-main">Available projects</h3>
+          <h3 className="text-[12.5px] font-medium text-main">{t('Available projects')}</h3>
           {projectsState.status === 'ready' && (
             <span className="rounded-full bg-zGray-850 px-2 py-0.5 text-[10.5px] text-tertiary">
               {projectsState.total}
@@ -108,20 +110,27 @@ export function SonarqubeConnectorGuide({
         </div>
         <div className="overflow-hidden rounded-lg border border-zGray-800">
           {projectsState.status === 'loading' && (
-            <div className="px-4 py-4 text-[12px] text-tertiary">Checking project access…</div>
+            <div className="px-4 py-4 text-[12px] text-tertiary">
+              {t('Checking project access…')}
+            </div>
           )}
           {projectsState.status === 'error' && (
             <div className="px-4 py-4">
-              <div className="text-[12px] font-medium text-error">Could not read projects</div>
+              <div className="text-[12px] font-medium text-error">
+                {t('Could not read projects')}
+              </div>
               <div className="mt-1 text-[11.5px] text-tertiary">{projectsState.message}</div>
             </div>
           )}
           {projectsState.status === 'ready' && projectsState.projects.length === 0 && (
             <div className="px-4 py-4">
-              <div className="text-[12.5px] font-medium text-main">No visible projects yet</div>
+              <div className="text-[12.5px] font-medium text-main">
+                {t('No visible projects yet')}
+              </div>
               <p className="mt-1 text-[11.5px] leading-relaxed text-tertiary">
-                This instance may not have any completed analyses, or the token user may not have
-                Browse permission on its projects.
+                {t(
+                  'This instance may not have any completed analyses, or the token user may not have Browse permission on its projects.',
+                )}
               </p>
             </div>
           )}
@@ -146,7 +155,10 @@ export function SonarqubeConnectorGuide({
         {projectsState.status === 'ready' &&
           projectsState.total > projectsState.projects.length && (
             <div className="mt-1.5 text-[10.5px] text-tertiary">
-              Showing the first {projectsState.projects.length} of {projectsState.total} projects.
+              {t('Showing the first {n} of {total} projects.', {
+                n: projectsState.projects.length,
+                total: projectsState.total,
+              })}
             </div>
           )}
       </section>
@@ -154,7 +166,7 @@ export function SonarqubeConnectorGuide({
       <section>
         <div className="mb-3 flex items-center gap-1.5 px-3 text-[11px] uppercase text-tertiary">
           <Sparkles className="h-3 w-3 text-zViolet-accent" strokeWidth={2} />
-          <span>Suggested for this connector</span>
+          <span>{t('Suggested for this connector')}</span>
         </div>
         <div className="space-y-0.5">
           {prompts.map(({ title, prompt }) => (

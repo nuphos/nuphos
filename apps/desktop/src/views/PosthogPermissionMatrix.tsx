@@ -1,8 +1,10 @@
 import { Toggle } from '@base-ui/react/toggle'
 import { ToggleGroup } from '@base-ui/react/toggle-group'
 import { AlertTriangle } from 'lucide-react'
+import { Fragment } from 'react'
 
 import { Tooltip } from '../components/ui/tooltip'
+import { t } from '../i18n'
 import {
   detectPreset,
   normalizePermissions,
@@ -33,7 +35,7 @@ export function PosthogPermissionMatrix({
   const preset = detectPreset(catalog, value)
   const presetOptions = [
     ...catalog.presets.map((item) => ({ id: item.id, label: item.label })),
-    { id: 'custom', label: 'Custom' },
+    { id: 'custom', label: t('Custom') },
   ]
 
   function applyPreset(id: string) {
@@ -51,7 +53,7 @@ export function PosthogPermissionMatrix({
         }}
         disabled={disabled}
         className={GROUP_CLASS}
-        aria-label="Permission preset"
+        aria-label={t('Permission preset')}
       >
         {presetOptions.map((option) => (
           <Toggle
@@ -66,7 +68,14 @@ export function PosthogPermissionMatrix({
       </ToggleGroup>
       <div className="rounded-md border border-zGray-800">
         <div className="px-3 py-2 text-[11px] text-tertiary border-b border-zGray-800">
-          Always requested: <span className="font-mono">{catalog.fixedScopes.join(', ')}</span>
+          {t('Always requested: {scopes}')
+            .split('{scopes}')
+            .map((part, i) => (
+              <Fragment key={i}>
+                {i > 0 && <span className="font-mono">{catalog.fixedScopes.join(', ')}</span>}
+                {part}
+              </Fragment>
+            ))}
         </div>
         {catalog.resources.map((resource, index) => (
           <PermissionRow
@@ -112,7 +121,7 @@ function PermissionRow({
           }}
           disabled={disabled}
           className={GROUP_CLASS}
-          aria-label={`${resource.label} access`}
+          aria-label={t('{name} access', { name: resource.label })}
         >
           {LEVELS.map((option) => (
             <Toggle
@@ -124,7 +133,7 @@ function PermissionRow({
               {POSTHOG_ACCESS_LABELS[option]}
               {option === 'write' && resource.writeWarning && (
                 <Tooltip content={resource.writeWarning}>
-                  <AlertTriangle className="h-3 w-3 text-warning" aria-label="Warning" />
+                  <AlertTriangle className="h-3 w-3 text-warning" aria-label={t('Warning')} />
                 </Tooltip>
               )}
             </Toggle>

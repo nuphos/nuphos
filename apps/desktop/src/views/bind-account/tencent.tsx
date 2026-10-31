@@ -1,8 +1,9 @@
 import clsx from 'clsx'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
-import { StepList, ConsoleLink, CopyableValue, Field } from './shared'
+import { StepList, ConsoleLink, CopyableValue, Field, Fill } from './shared'
 import { TENCENT_STEPS } from './steps'
 
 import type { TencentOidcInfo, TencentSite } from '../../types'
@@ -40,7 +41,7 @@ export function TencentBindWizard({
   // Render the backend-provided value, or a muted placeholder until oidc-info
   // loads. Never fall back to hard-coded issuer/audience/subject.
   const oidcValue = (v: string | undefined) =>
-    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">loading…</span>
+    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">{t('loading…')}</span>
 
   return (
     <div>
@@ -57,7 +58,7 @@ export function TencentBindWizard({
           ))}
         </div>
         <div className="text-[11px] text-tertiary uppercase tracking-wider">
-          Step {step + 1} of {TENCENT_STEPS.length}
+          {t('Step {n} of {total}', { n: step + 1, total: TENCENT_STEPS.length })}
         </div>
         <div className="text-[13.5px] text-main font-medium">{TENCENT_STEPS[step]}</div>
       </div>
@@ -82,43 +83,65 @@ export function TencentBindWizard({
             {i === 0 && (
               <div className="space-y-3">
                 <Field
-                  label="Site"
-                  hint="Tencent Cloud has two isolated partitions — pick the one the CAM account belongs to."
+                  label={t('Site')}
+                  hint={t(
+                    'Tencent Cloud has two isolated partitions — pick the one the CAM account belongs to.',
+                  )}
                 >
                   <AppSelect
-                    ariaLabel="Tencent Cloud site"
+                    ariaLabel={t('Tencent Cloud site')}
                     value={site}
                     onValueChange={(value) => onSiteChange(value as TencentSite)}
                     options={[
-                      { value: 'china', label: 'Tencent Cloud · China (cloud.tencent.com)' },
+                      { value: 'china', label: t('Tencent Cloud · China (cloud.tencent.com)') },
                       {
                         value: 'international',
-                        label: 'Tencent Cloud · International (tencentcloud.com)',
+                        label: t('Tencent Cloud · International (tencentcloud.com)'),
                       },
                     ]}
                   />
                 </Field>
                 <StepList>
                   <li>
-                    In the CAM console, open{' '}
-                    <ConsoleLink href={`${TENCENT_CAM_HOST[site]}/idp`}>
-                      Identity Providers → Role SSO
-                    </ConsoleLink>
+                    <Fill
+                      text={t('In the CAM console, open {link}')}
+                      link={
+                        <ConsoleLink href={`${TENCENT_CAM_HOST[site]}/idp`}>
+                          Identity Providers → Role SSO
+                        </ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Create an <span className="text-main">OIDC</span> identity provider
+                    <Fill
+                      text={t('Create an {type} identity provider')}
+                      type={<span className="text-main">OIDC</span>}
+                    />
                   </li>
-                  <li>Issuer URL: {oidcValue(oidc?.issuer)}</li>
-                  <li>Client ID: {oidcValue(oidc?.audience)}</li>
-                  <li>Public key (Tencent doesn&apos;t auto-fetch it): {oidcValue(oidc?.jwks)}</li>
                   <li>
-                    Note the provider <span className="text-main">name</span> — you enter it below
+                    <Fill text={t('Issuer URL: {value}')} value={oidcValue(oidc?.issuer)} />
+                  </li>
+                  <li>
+                    <Fill text={t('Client ID: {value}')} value={oidcValue(oidc?.audience)} />
+                  </li>
+                  <li>
+                    <Fill
+                      text={t("Public key (Tencent doesn't auto-fetch it): {value}")}
+                      value={oidcValue(oidc?.jwks)}
+                    />
+                  </li>
+                  <li>
+                    <Fill
+                      text={t('Note the provider {name} — you enter it below')}
+                      name={<span className="text-main">{t('name')}</span>}
+                    />
                   </li>
                 </StepList>
                 {oidc && !oidc.configured && (
                   <div className="text-[11.5px] text-zOrangered-400">
-                    Nuphos&apos;s OIDC connector isn&apos;t configured on this backend yet — binding
-                    will fail until it is.
+                    {t(
+                      "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
+                    )}
                   </div>
                 )}
               </div>
@@ -127,71 +150,101 @@ export function TencentBindWizard({
               <div className="space-y-3">
                 <StepList>
                   <li>
-                    In the CAM console, open{' '}
-                    <ConsoleLink href={`${TENCENT_CAM_HOST[site]}/role`}>Roles</ConsoleLink>
+                    <Fill
+                      text={t('In the CAM console, open {link}')}
+                      link={
+                        <ConsoleLink href={`${TENCENT_CAM_HOST[site]}/role`}>Roles</ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Create Role → <span className="text-main">identity provider</span> →{' '}
-                    <span className="text-main">OIDC</span> → pick the provider you just added
+                    <Fill
+                      text={t('Create Role → {idp} → {type} → pick the provider you just added')}
+                      idp={<span className="text-main">identity provider</span>}
+                      type={<span className="text-main">OIDC</span>}
+                    />
                   </li>
                   <li>
-                    Condition <span className="font-mono text-[11px]">oidc:aud</span> ={' '}
-                    {oidcValue(oidc?.audience)} (
-                    <span className="font-mono text-[11px]">oidc:iss</span> is auto-filled)
+                    <Fill
+                      text={t('Condition {aud} = {value} ({iss} is auto-filled)')}
+                      aud={<span className="font-mono text-[11px]">oidc:aud</span>}
+                      value={oidcValue(oidc?.audience)}
+                      iss={<span className="font-mono text-[11px]">oidc:iss</span>}
+                    />
                   </li>
                   <li>
-                    Optional: add <span className="font-mono text-[11px]">oidc:sub</span> ={' '}
-                    {oidcValue(oidc?.subject)} to lock it to this team
+                    <Fill
+                      text={t('Optional: add {sub} = {value} to lock it to this team')}
+                      sub={<span className="font-mono text-[11px]">oidc:sub</span>}
+                      value={oidcValue(oidc?.subject)}
+                    />
                   </li>
                   <li>
-                    Attach a policy covering TKE + CVM —{' '}
-                    <span className="font-mono text-[11px]">QcloudTKEFullAccess</span> +{' '}
-                    <span className="font-mono text-[11px]">QcloudCVMReadOnlyAccess</span>, or{' '}
-                    <span className="font-mono text-[11px]">AdministratorAccess</span>
+                    <Fill
+                      text={t('Attach a policy covering TKE + CVM — {tke} + {cvm}, or {admin}')}
+                      tke={<span className="font-mono text-[11px]">QcloudTKEFullAccess</span>}
+                      cvm={<span className="font-mono text-[11px]">QcloudCVMReadOnlyAccess</span>}
+                      admin={<span className="font-mono text-[11px]">AdministratorAccess</span>}
+                    />
                   </li>
                   <li>
-                    Create it, then open the role and copy its{' '}
-                    <span className="text-main">ARN</span>
+                    <Fill
+                      text={t('Create it, then open the role and copy its {arn}')}
+                      arn={<span className="text-main">ARN</span>}
+                    />
                   </li>
                 </StepList>
                 <div className="text-[11.5px] text-tertiary">
-                  IAM only covers the control plane — the next step grants this role access inside
-                  your TKE clusters.
+                  {t(
+                    'IAM only covers the control plane — the next step grants this role access inside your TKE clusters.',
+                  )}
                 </div>
               </div>
             )}
             {i === 2 && (
               <div className="space-y-3">
                 <div className="text-[11.5px] text-tertiary">
-                  Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and
-                  skip this step. The authorization page lives inside each cluster, so there is no
-                  direct link.
+                  {t(
+                    'Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and skip this step. The authorization page lives inside each cluster, so there is no direct link.',
+                  )}
                 </div>
                 <StepList>
                   <li>
-                    In the TKE console open each cluster →{' '}
-                    <span className="text-main">Authorization Management</span> →{' '}
-                    <span className="text-main">ClusterRoleBinding</span>
+                    <Fill
+                      text={t('In the TKE console open each cluster → {page} → {tab}')}
+                      page={<span className="text-main">Authorization Management</span>}
+                      tab={<span className="text-main">ClusterRoleBinding</span>}
+                    />
                   </li>
                   <li>
-                    <span className="text-main">RBAC policy generator</span> → account type{' '}
-                    <span className="text-main">Service role</span> → select the role you created in
-                    step 2
+                    <Fill
+                      text={t(
+                        '{generator} → account type {type} → select the role you created in step 2',
+                      )}
+                      generator={<span className="text-main">RBAC policy generator</span>}
+                      type={<span className="text-main">Service role</span>}
+                    />
                   </li>
                   <li>
-                    Next — pick the RBAC permissions (read-only is enough for browsing) and apply
+                    {t(
+                      'Next — pick the RBAC permissions (read-only is enough for browsing) and apply',
+                    )}
                   </li>
-                  <li>Repeat per cluster</li>
+                  <li>{t('Repeat per cluster')}</li>
                 </StepList>
                 <div className="text-[11.5px] text-tertiary">
-                  Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos
-                  will show this same guidance when you open one.
+                  {t(
+                    'Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos will show this same guidance when you open one.',
+                  )}
                 </div>
               </div>
             )}
             {i === 3 && (
               <div className="space-y-3">
-                <Field label="Label" hint="A friendly name to identify this Tencent account.">
+                <Field
+                  label={t('Label')}
+                  hint={t('A friendly name to identify this Tencent account.')}
+                >
                   <input
                     type="text"
                     value={label}
@@ -200,7 +253,10 @@ export function TencentBindWizard({
                     className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
-                <Field label="Role ARN" hint="The ARN of the CAM role you created in step 2.">
+                <Field
+                  label={t('Role ARN')}
+                  hint={t('The ARN of the CAM role you created in step 2.')}
+                >
                   <input
                     type="text"
                     value={roleArn}
@@ -210,8 +266,8 @@ export function TencentBindWizard({
                   />
                 </Field>
                 <Field
-                  label="OIDC Provider Name"
-                  hint="The name of the CAM OIDC provider from step 1."
+                  label={t('OIDC Provider Name')}
+                  hint={t('The name of the CAM OIDC provider from step 1.')}
                 >
                   <input
                     type="text"

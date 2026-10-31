@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type {
   PosthogAccess,
   PosthogIntegration,
@@ -8,9 +10,9 @@ import type {
 export type PosthogPresetChoice = 'read_only' | 'read_write' | 'custom'
 
 export const POSTHOG_ACCESS_LABELS: Record<PosthogAccess, string> = {
-  none: 'No access',
-  read: 'Read',
-  write: 'Write',
+  none: t('No access'),
+  read: t('Read'),
+  write: t('Write'),
 }
 
 /** Every catalog resource with an explicit level; unknown ids are dropped. */

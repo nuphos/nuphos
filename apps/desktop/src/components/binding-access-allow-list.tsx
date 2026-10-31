@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Search, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../i18n'
 import {
   ALL_ALLOW_LIST,
   allowListIsAll,
@@ -14,10 +15,10 @@ import { Avatar } from './Avatar'
 import type { TeamMember } from '../types'
 
 function accessSummary(list: string[]): string {
-  if (allowListIsAll(list)) return 'All team members'
-  if (list.length === 0) return 'No one'
+  if (allowListIsAll(list)) return t('All team members')
+  if (list.length === 0) return t('No one')
 
-  return `${String(list.length)} selected`
+  return t('{count} selected', { count: list.length })
 }
 
 export function AllowListSelect({
@@ -89,7 +90,7 @@ export function AllowListSelect({
                   all ? 'bg-zViolet-500 text-white' : 'text-tertiary hover:text-main',
                 )}
               >
-                All members
+                {t('All members')}
               </button>
               <button
                 type="button"
@@ -103,7 +104,7 @@ export function AllowListSelect({
                   all ? 'text-tertiary hover:text-main' : 'bg-zGray-800 text-main',
                 )}
               >
-                Specific
+                {t('Specific')}
               </button>
             </div>
             <div className="text-[12px] text-secondary">{accessSummary(allowList)}</div>
@@ -119,7 +120,7 @@ export function AllowListSelect({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               disabled={all}
-              placeholder={all ? 'All members are allowed' : 'Search members to add'}
+              placeholder={all ? t('All members are allowed') : t('Search members to add')}
               className="w-full h-8 rounded-md bg-surface border border-zGray-800 pl-8 pr-2 text-[12.5px] text-main placeholder:text-tertiary outline-none focus:border-zViolet-500/60 disabled:opacity-50"
             />
             {searchResults.length > 0 && (
@@ -152,7 +153,7 @@ export function AllowListSelect({
       </div>
       <div className="mt-3 border-t border-zGray-850 divide-y divide-zGray-850">
         {selectedMembers.length === 0 ? (
-          <div className="py-4 text-[12.5px] text-tertiary">No selected members.</div>
+          <div className="py-4 text-[12.5px] text-tertiary">{t('No selected members.')}</div>
         ) : (
           selectedMembers.map(({ id, member }) => (
             <div key={id} className="py-2.5 flex items-center gap-3">
@@ -170,17 +171,17 @@ export function AllowListSelect({
               )}
               <div className="min-w-0 flex-1">
                 <div className="text-[12.5px] text-main truncate">
-                  {member ? memberDisplayName(member) : 'Unknown member'}
+                  {member ? memberDisplayName(member) : t('Unknown member')}
                 </div>
                 <div className="text-[11.5px] text-tertiary truncate">
-                  {member ? member.email : 'Not in current team list'}
+                  {member ? member.email : t('Not in current team list')}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => removeMember(id)}
                 className="w-7 h-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
-                title="Remove"
+                title={t('Remove')}
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.8} />
               </button>
