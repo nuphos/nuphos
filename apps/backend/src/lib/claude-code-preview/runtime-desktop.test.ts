@@ -25,7 +25,7 @@ let conversation: Record<string, unknown> | null
 useAgentDb({ getReadableConversation: () => conversation })
 useRuntimeCatalog({
   // `boxmate` reaches the owner's Box through its team; `mate` only through a share.
-  requireRuntimeInstance: async (
+  requireRuntimeInstance: (async (
     _team: string,
     _runtime: string,
     user?: string,
@@ -35,7 +35,7 @@ useRuntimeCatalog({
       throw new Error('runtime not found')
 
     return { id: runtimeId, label: 'Box', status: 'active', kind: 'local', provider: 'claude-code' }
-  },
+  }) as never,
 })
 
 const presence = createMemoryPresenceStore()
@@ -116,7 +116,7 @@ test('opening by hand asks the Box once, and only for a session holding no deskt
   )
   await presence.put('owner', 'box', {
     conn: 'conn',
-    status: { agents: {} },
+    status: { agents: {} } as unknown as LocalRuntimeStatus,
     seenAt: Date.now(),
   })
   await expect(openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).rejects.toThrow(

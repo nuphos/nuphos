@@ -2,8 +2,9 @@
 // iPhone app). The tabs live only in the Nuphos Desktop that opened them, so
 // each request is one `local_browser` call down the owner's device tunnel,
 // resolved and audited exactly as the agent's own calls are. Only `dock` and
-// `focus` are allowed here: a phone lists the tabs and brings one forward on
-// the Mac, it never runs a page's JavaScript.
+// `focus` go down as calls: a phone lists the tabs and brings one forward on
+// the Mac, it never runs a page's JavaScript. Watching a tab live and taking
+// it over is a stream instead (`sessionBrowserViewTarget`), audited when it opens.
 import { getReadableConversation } from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 
@@ -133,6 +134,23 @@ export async function sessionBrowserViewTarget(
   const owner = await deps.owner(ctx, deviceId)
 
   if (!owner) throw new AppError(404, 'not_found', 'This computer is not available to you.')
+  const now = new Date()
+
+  // Seeing and driving a tab is at least as much as a dock call, so it leaves the same record.
+  await deps.audit({
+    ownerUserId: owner,
+    deviceId,
+    actorUserId: userId,
+    conversationOwnerUserId: userId,
+    origin: 'user',
+    teamId,
+    sessionId,
+    command: `[browser] phone view tab=${tab.id}`,
+    requestedAt: now,
+    dispatchedAt: now,
+    finishedAt: now,
+    outcome: 'ok',
+  })
 
   return { userId: owner, deviceId, teamId, sessionId, display: 0, viewer: userId, tab }
 }

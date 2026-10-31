@@ -65,25 +65,32 @@ export const watchDockTab: WatchTab = async (session, tab, width, height) => {
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.isDestroyed()) continue
     const call = `window.nuphosWatchDockTab?.(${[session, tab, width, height].map((v) => JSON.stringify(v)).join(', ')}) ?? null`
+    const unwatch = () => {
+      if (!window.isDestroyed())
+        window.webContents
+          .executeJavaScript(`window.nuphosUnwatchDockTab?.(${JSON.stringify(tab)})`)
+          .catch(() => {})
+    }
     let timer: ReturnType<typeof setTimeout> | undefined
-    const id = await Promise.race([
-      (window.webContents.executeJavaScript(call) as Promise<number | null>).catch(() => null),
-      new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), WATCH_TIMEOUT_MS)
+    const answer = await Promise.race([
+      (window.webContents.executeJavaScript(call) as Promise<unknown>).then(
+        (id) => ({ id }),
+        () => ({ id: null }),
+      ),
+      new Promise<'late'>((resolve) => {
+        timer = setTimeout(() => resolve('late'), WATCH_TIMEOUT_MS)
       }),
     ]).finally(() => clearTimeout(timer))
-    const page = typeof id === 'number' ? webContents.fromId(id) : undefined
 
-    if (page)
-      return {
-        page,
-        stop: () => {
-          if (!window.isDestroyed())
-            window.webContents
-              .executeJavaScript(`window.nuphosUnwatchDockTab?.(${JSON.stringify(tab)})`)
-              .catch(() => {})
-        },
-      }
+    // A window that answers too late, or names a page that is gone, must not keep its watch.
+    if (answer === 'late') {
+      unwatch()
+      continue
+    }
+    const page = typeof answer.id === 'number' ? webContents.fromId(answer.id) : undefined
+
+    if (page) return { page, stop: unwatch }
+    if (typeof answer.id === 'number') unwatch()
   }
 
   return null

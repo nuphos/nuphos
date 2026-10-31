@@ -9,7 +9,7 @@ import type { ViewedPage, WatchTab } from './browser-view.ts'
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 /** A page painting at 2× its CSS size, recording what the stream sends it. */
-function fakePage() {
+function fakePage(cssWidth = 390) {
   const events: Record<string, unknown>[] = []
   let paint: ((image: unknown, dirty: unknown) => void) | undefined
   let subscribed = false
@@ -27,6 +27,8 @@ function fakePage() {
       subscribed = false
     },
     invalidate: () => {},
+    /** `window.innerWidth`: the page's width in CSS pixels where it is laid out. */
+    executeJavaScript: async () => cssWidth,
     sendInputEvent: (event: Record<string, unknown>) => events.push(event),
     once: () => page,
     /** Paints the whole page one colour, as BGRA. */
@@ -174,4 +176,36 @@ test('a tab not in the dock closes the stream', async () => {
   )
   await tick()
   assert.equal(view.closed, true)
+})
+
+test("taps land where they show while the tab keeps the dock's own width on the Mac", async () => {
+  // The phone asked for 390 CSS px, but the tab is on the Mac's screen in a 500 px dock at 2×.
+  const page = fakePage(500)
+  const view = open(page)
+
+  await tick()
+  view.stream.send(
+    JSON.stringify({ t: 'open', sessionId: 's', tab: 'tab-1', width: 390, height: 700 }),
+  )
+  await tick()
+  view.phone(Buffer.from('RFB 003.008\n'))
+  view.phone([1])
+  view.phone([1])
+  page.paint(1000, 1400, [0, 0, 0])
+  await tick()
+  view.phone([5, 1, 1, 244, 1, 144])
+  assert.deepEqual(
+    page.events.find((event) => event.type === 'mouseDown'),
+    { type: 'mouseDown', x: 250, y: 200, button: 'left', clickCount: 1, modifiers: [] },
+  )
+})
+
+test('ClientCutText is skipped by its length, the extended form too', async () => {
+  const page = fakePage()
+  const view = await handshake(page)
+  const text = Buffer.from('hi')
+
+  view.phone([6, 0, 0, 0, 0xff, 0xff, 0xff, 0xfe, ...text, 5, 1, 0, 200, 1, 144])
+  assert.equal(view.closed, false)
+  assert.ok(page.events.some((event) => event.type === 'mouseDown'))
 })

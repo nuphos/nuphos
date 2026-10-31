@@ -58,10 +58,24 @@ export class PageInput {
   scale = 1
   private buttons = 0
   private readonly modifiers = new Set<Modifier>()
-  private readonly page: Pick<WebContents, 'isDestroyed' | 'sendInputEvent'>
+  private readonly page: Pick<WebContents, 'isDestroyed' | 'sendInputEvent' | 'executeJavaScript'>
 
-  constructor(page: Pick<WebContents, 'isDestroyed' | 'sendInputEvent'>) {
+  constructor(page: Pick<WebContents, 'isDestroyed' | 'sendInputEvent' | 'executeJavaScript'>) {
     this.page = page
+  }
+
+  /**
+   * The phone's pointer is in frame pixels; the page wants CSS pixels. The page
+   * keeps the dock's own width while it is on the Mac's screen, not the phone's,
+   * so the ratio comes from the page itself each time its frame changes size.
+   */
+  fit(frameWidth: number): void {
+    if (this.page.isDestroyed()) return
+    void (this.page.executeJavaScript('window.innerWidth') as Promise<unknown>)
+      .then((css) => {
+        if (typeof css === 'number' && css > 0) this.scale = frameWidth / css
+      })
+      .catch(() => {})
   }
 
   pointer(mask: number, rawX: number, rawY: number): void {

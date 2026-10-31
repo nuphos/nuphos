@@ -15,6 +15,7 @@ export type ViewedPage = Pick<
   | 'invalidate'
   | 'sendInputEvent'
   | 'once'
+  | 'executeJavaScript'
 >
 
 /** Finds the conversation's dock tab and starts it painting at the phone's size; null if it can't. */
@@ -36,6 +37,9 @@ const FIXED_LENGTHS = new Map([
   [4, 8],
   [5, 6],
 ])
+
+/** At most about 30 updates a second, so an animating page can't keep the main process busy. */
+const MIN_UPDATE_MS = 33
 
 const clampSide = (value: unknown) =>
   Math.min(MAX_SIDE, Math.max(MIN_SIDE, Math.round(Number(value) || 0)))
@@ -66,6 +70,8 @@ export class BrowserViewStream implements SocketLike {
   private resized = false
   private wantsUpdate = false
   private sending = false
+  private lastUpdate = 0
+  private later: ReturnType<typeof setTimeout> | undefined
 
   constructor(watch: WatchTab) {
     this.watch = watch
@@ -133,7 +139,7 @@ export class BrowserViewStream implements SocketLike {
     this.stopWatching = watched.stop
     this.page.once('destroyed', () => this.close())
     this.page.beginFrameSubscription(true, (image, dirty) => {
-      this.paint(image, dirty, width)
+      this.paint(image, dirty)
     })
     // A still page paints nothing on its own; the first frame starts the handshake below.
     this.page.invalidate()
@@ -144,10 +150,9 @@ export class BrowserViewStream implements SocketLike {
   private paint(
     image: Parameters<PageScreen['paint']>[0],
     dirty: Parameters<PageScreen['paint']>[1],
-    cssWidth: number,
   ): void {
     if (this.screen.paint(image, dirty)) {
-      if (this.input) this.input.scale = this.screen.width / cssWidth
+      this.input?.fit(this.screen.width)
       this.resized = this.phase === 'messages'
     }
     if (this.phase === 'ready') this.serverInit()
@@ -204,7 +209,8 @@ export class BrowserViewStream implements SocketLike {
     let length = FIXED_LENGTHS.get(type)
 
     if (type === 2 && bytes.length >= 4) length = 4 + bytes.readUInt16BE(2) * 4
-    else if (type === 6 && bytes.length >= 8) length = 8 + bytes.readUInt32BE(4)
+    // As the backend's input filter reads it: a negative length is the extended form.
+    else if (type === 6 && bytes.length >= 8) length = 8 + Math.abs(bytes.readInt32BE(4))
     else if (type === 2 || type === 6) return false
     if (length === undefined) throw new Error(`message ${String(type)}`)
     if (bytes.length < length) return false
@@ -235,6 +241,17 @@ export class BrowserViewStream implements SocketLike {
     if (!this.wantsUpdate || this.phase !== 'messages' || this.sending || this.readyState !== 1)
       return
     if (!this.screen.changed && !this.resized) return
+    const wait = this.lastUpdate + MIN_UPDATE_MS - Date.now()
+
+    if (wait > 0) {
+      this.later ??= setTimeout(() => {
+        this.later = undefined
+        this.flush()
+      }, wait)
+
+      return
+    }
+    this.lastUpdate = Date.now()
     const rect = this.screen.take()
     const resized = this.resized
 
@@ -257,6 +274,7 @@ export class BrowserViewStream implements SocketLike {
   close(): void {
     if (this.readyState === 3) return
     this.readyState = 3
+    clearTimeout(this.later)
     if (this.page && !this.page.isDestroyed()) this.page.endFrameSubscription()
     this.stopWatching?.()
     this.zrle.close()

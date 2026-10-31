@@ -126,6 +126,7 @@ describe('session browser view', () => {
       viewer: 'owner',
       tab,
     })
+    expect(fake.audits).toEqual(['[browser] phone view tab=tab-1'])
     conversation = { userId: 'other', teamId: 't1' }
     await expect(
       sessionBrowserViewTarget('t1', 'owner', 's1', tab, fake.deps),

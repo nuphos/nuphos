@@ -23,6 +23,10 @@ export function setWatchedDockTab(tabId: string, size: WatchSize | null): void {
   for (const listener of listeners) listener()
 }
 
+export function isWatchedDockTab(tabId: string): boolean {
+  return watched.has(tabId)
+}
+
 export function useWatchedDockTab(tabId: string): WatchSize | undefined {
   return useSyncExternalStore(subscribe, () => watched.get(tabId))
 }

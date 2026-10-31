@@ -1,4 +1,4 @@
-import { browserViewId, setWatchedDockTab } from '../watchedDockTabs.ts'
+import { browserViewId, isWatchedDockTab, setWatchedDockTab } from '../watchedDockTabs.ts'
 
 import { sessionKeyOf } from './workspaceState.ts'
 
@@ -64,11 +64,16 @@ async function watchDockTab(sessionId: string, tabId: string, width: number, hei
     dockBrowserTabs(candidate.getState(), sessionId).some((tab) => tab.id === tabId),
   )
 
-  if (!store) return null
+  // One phone per tab: a second would resize the first's page and end its watch on leaving.
+  if (!store || isWatchedDockTab(tabId)) return null
   store.actions.mountTab(sessionId, tabId)
   setWatchedDockTab(tabId, { width, height })
+  const id = await browserViewId(tabId, ATTACH_TIMEOUT_MS)
 
-  return browserViewId(tabId, ATTACH_TIMEOUT_MS)
+  // A page that never attached leaves no watch behind to keep the pane laid out.
+  if (id === null) setWatchedDockTab(tabId, null)
+
+  return id
 }
 
 /** Lists a pane's dock tabs to the main process, and lets it watch them, while the pane is mounted. */

@@ -5,7 +5,8 @@ import { createWorkspaceTab } from '../workspaceTabFactory.ts'
 
 import { createWorkspaceState } from './store/workspaceState.ts'
 import { createWorkspaceStore } from './store/workspaceStore.ts'
-import { browserViewId, registerBrowserView } from './watchedDockTabs.ts'
+import { exposeDockBrowserTabs } from './store/dockBrowserTabs.ts'
+import { browserViewId, isWatchedDockTab, registerBrowserView } from './watchedDockTabs.ts'
 
 import type { WebviewTag } from 'electron'
 
@@ -44,4 +45,34 @@ test("a watched tab's page id arrives once its view attaches, or null in time", 
   assert.equal(await browserViewId('tab-1', 10), 42)
   unregister()
   assert.equal(await browserViewId('tab-1', 10), null)
+})
+
+test('one phone per tab: a second is refused, and the first keeps its watch', async () => {
+  const tab = {
+    ...createWorkspaceTab(TEAM),
+    id: 'b1',
+    active: 'team.browser',
+    browserUrl: 'https://user.test/',
+  }
+  const store = createWorkspaceStore(
+    createWorkspaceState({
+      chat: { tabs: [tab], activeTabId: 'b1', mountedTabIds: new Set(), dockOpen: false },
+    }),
+  )
+  const globals = globalThis as unknown as { window?: Window }
+
+  globals.window ??= {} as Window
+  const unexpose = exposeDockBrowserTabs({ getState: store.getState, actions: store.actions })
+  const first = window.nuphosWatchDockTab?.('chat', 'b1', 390, 700)
+  const unregister = registerBrowserView('b1', {
+    getWebContentsId: () => 7,
+  } as unknown as WebviewTag)
+
+  assert.equal(await first, 7)
+  assert.equal(await window.nuphosWatchDockTab?.('chat', 'b1', 390, 700), null)
+  assert.equal(isWatchedDockTab('b1'), true)
+  window.nuphosUnwatchDockTab?.('b1')
+  assert.equal(isWatchedDockTab('b1'), false)
+  unregister()
+  unexpose()
 })
