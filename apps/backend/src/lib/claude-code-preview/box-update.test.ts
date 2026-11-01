@@ -1,12 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import {
-  existsSync,
-  lstatSync,
-  mkdtempSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, lstatSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -155,8 +148,7 @@ describe('Box update', () => {
   })
 
   test('/tmp is bound to /data/tmp once, however often the install runs', () => {
-    const line =
-      BOX_INSTALL_COMMAND.split('\n').find((entry) => entry.includes('/etc/fstab')) ?? ''
+    const line = BOX_INSTALL_COMMAND.split('\n').find((entry) => entry.includes('/etc/fstab')) ?? ''
     const fstab = path.join(mkdtempSync(path.join(os.tmpdir(), 'box-fstab-')), 'fstab')
 
     writeFileSync(fstab, '/dev/vdb  /data  ext4  defaults,nofail 0 2\n')
@@ -167,7 +159,9 @@ describe('Box update', () => {
       .split('\n')
       .filter((entry) => entry.includes(' /tmp '))
 
-    expect(binds).toEqual(['/data/tmp /tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0'])
+    expect(binds).toEqual([
+      '/data/tmp /tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0',
+    ])
     expect(BOX_INSTALL_COMMAND).not.toContain('systemctl mask')
   })
 
