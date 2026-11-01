@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../api.ts'
 import { toast } from '../components/ui/toast.ts'
+import { t } from '../i18n/index.ts'
 import { agentTier } from '../lib/agentName.ts'
 import { localUpdateVersion } from '../lib/agentUpdate.ts'
 
@@ -94,17 +95,19 @@ async function updateLocal(provider: CliLoginProvider, before?: string) {
 
     if (version && version === before)
       toast.info(
-        `${name} did not change`,
-        'It may be installed by a package manager that updates it separately.',
+        t('{name} did not change', { name }),
+        t('It may be installed by a package manager that updates it separately.'),
       )
     else
       toast.success(
-        version ? `${name} updated to v${version}` : `${name} updated`,
-        'New agents use it; running ones finish on the version they started with.',
+        version
+          ? t('{name} updated to v{version}', { name, version })
+          : t('{name} updated', { name }),
+        t('New agents use it; running ones finish on the version they started with.'),
       )
   } catch (err) {
-    toast.apiError(`Could not update ${name}`, err, {
-      fallback: `Run \`${command} update\` in a terminal to see why.`,
+    toast.apiError(t('Could not update {name}', { name }), err, {
+      fallback: t('Run `{command} update` in a terminal to see why.', { command }),
     })
   } finally {
     setStarting(key, false)
@@ -122,9 +125,9 @@ async function updateTeamAgent(teamId: string, runtimeId: string) {
       ttl: PENDING_TTL_MS,
       status: Promise.resolve({ state: 'waiting', targetVersion: version }),
     })
-    toast.success('Update queued', 'It starts once agents on this runtime finish replying.')
+    toast.success(t('Update queued'), t('It starts once agents on this runtime finish replying.'))
   } catch (err) {
-    toast.apiError('Could not update this runtime', err)
+    toast.apiError(t('Could not update this runtime'), err)
   } finally {
     setStarting(runtimeId, false)
   }
@@ -196,13 +199,13 @@ function teamAgentUpdate(
     return {
       state: 'available',
       version,
-      reason: 'Update this runtime on the computer that runs it.',
+      reason: t('Update this runtime on the computer that runs it.'),
     }
   if (!teamId)
     return {
       state: 'available',
       version,
-      reason: 'Ask a workspace administrator to update this runtime.',
+      reason: t('Ask a workspace administrator to update this runtime.'),
     }
 
   return { state: 'available', version, start: () => void updateTeamAgent(teamId, id) }

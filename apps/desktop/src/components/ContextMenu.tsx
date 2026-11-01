@@ -1,6 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useMemo, useState } from 'react'
 
+import { t } from '../i18n'
+
 import { AppAlertDialog } from './ui/alert-dialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator } from './ui/menu'
 
@@ -90,7 +92,7 @@ export function ContextMenu({ x, y, items, onClose: dismiss }: Props) {
         open
         title={confirmAction.label}
         description={confirmAction.confirm ?? ''}
-        confirmLabel={confirmAction.destructive ? 'Delete' : 'Confirm'}
+        confirmLabel={confirmAction.destructive ? t('Delete') : t('Confirm')}
         destructive={confirmAction.destructive}
         onConfirm={confirmAction.onSelect}
         onClose={onClose}

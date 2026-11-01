@@ -136,10 +136,10 @@ export async function resolveStreamOutcome(
     if (
       !mayRestartFreshAfterStreamError({
         explicitResume,
-        toolExecutionMayHaveStarted: state.toolExecutionMayHaveStarted,
+        turnRan: state.turnRan,
       })
     ) {
-      // Replaying from message zero could repeat a side effect, but that only
+      // Replaying from message zero would run the turn again, but that only
       // rules out a fresh start — not continuing. An error frame ends one
       // transport attempt; the AgentRun behind it keeps producing frames until
       // finishAgentRun(), which is why reporting a failed turn here shows a red

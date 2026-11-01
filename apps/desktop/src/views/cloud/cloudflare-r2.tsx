@@ -12,6 +12,7 @@ import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { useResourceList } from '../useResourceList'
 
@@ -56,7 +57,7 @@ export function CloudflareR2View({
     },
   )
 
-  useToolbarPrimaryAction(isActive && !detail && !error ? 'Create bucket' : null, () =>
+  useToolbarPrimaryAction(isActive && !detail && !error ? t('Create bucket') : null, () =>
     setCreating(true),
   )
 
@@ -101,11 +102,11 @@ export function CloudflareR2View({
         rowKey={(r) => r.name}
         onPrimaryAction={(r) => setDetail({ name: r.name })}
         storageKey="cloudflare.r2"
-        empty="No R2 buckets"
+        empty={t('No R2 buckets')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 320,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -114,21 +115,21 @@ export function CloudflareR2View({
           },
           {
             key: 'location',
-            header: 'Location',
+            header: t('Location'),
             width: 120,
             sortAccessor: (r) => r.location ?? '',
             render: (r) => <span className="text-secondary">{r.location || '-'}</span>,
           },
           {
             key: 'class',
-            header: 'Storage class',
+            header: t('Storage class'),
             width: 140,
             sortAccessor: (r) => r.storageClass ?? '',
             render: (r) => <span className="text-secondary">{r.storageClass || 'Standard'}</span>,
           },
           {
             key: 'created',
-            header: 'Created',
+            header: t('Created'),
             width: 110,
             sortAccessor: (r) => r.creationDate ?? '',
             render: (r) => (
@@ -148,7 +149,7 @@ export function CloudflareR2View({
                   setPendingDelete(r)
                 }}
                 className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                title="Delete bucket"
+                title={t('Delete bucket')}
               >
                 <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
               </button>
@@ -163,7 +164,7 @@ export function CloudflareR2View({
           onCreate={async (input) => {
             await api.atlasCreateCloudflareR2Bucket(teamId, accountId, input)
             setCreating(false)
-            toast.success('Bucket created')
+            toast.success(t('Bucket created'))
             await reload()
           }}
         />
@@ -171,18 +172,20 @@ export function CloudflareR2View({
 
       <ConfirmDialog
         open={!!pendingDelete}
-        title="Delete bucket?"
+        title={t('Delete bucket?')}
         description={
           pendingDelete
-            ? `Bucket "${pendingDelete.name}" must be empty to delete. This cannot be undone.`
+            ? t('Bucket "{name}" must be empty to delete. This cannot be undone.', {
+                name: pendingDelete.name,
+              })
             : ''
         }
-        confirmLabel="Delete"
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={async () => {
           if (pendingDelete) {
             await api.atlasDeleteCloudflareR2Bucket(teamId, accountId, pendingDelete.name)
-            toast.success('Bucket deleted')
+            toast.success(t('Bucket deleted'))
             await reload()
           }
         }}
@@ -205,7 +208,7 @@ function CreateR2BucketDialog({
 
   async function create() {
     if (!name.trim()) {
-      toast.error('Bucket name is required.')
+      toast.error(t('Bucket name is required.'))
 
       return
     }
@@ -213,18 +216,18 @@ function CreateR2BucketDialog({
     try {
       await onCreate({ name: name.trim(), storageClass })
     } catch (e) {
-      toast.apiError('Failed to create bucket', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Failed to create bucket'), e, {
+        fallback: t('Check your connection and try again.'),
       })
       setSaving(false)
     }
   }
 
   return (
-    <Modal open onClose={onClose} title="Create R2 bucket" width={460}>
+    <Modal open onClose={onClose} title={t('Create R2 bucket')} width={460}>
       <div className="px-5 py-4 space-y-3 text-[13px]">
         <label className="block">
-          <div className="text-[12px] text-secondary mb-1">Bucket name</div>
+          <div className="text-[12px] text-secondary mb-1">{t('Bucket name')}</div>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -233,7 +236,7 @@ function CreateR2BucketDialog({
           />
         </label>
         <label className="block">
-          <div className="text-[12px] text-secondary mb-1">Storage class</div>
+          <div className="text-[12px] text-secondary mb-1">{t('Storage class')}</div>
           <AppSelect
             value={storageClass}
             onValueChange={setStorageClass}
@@ -250,10 +253,10 @@ function CreateR2BucketDialog({
           disabled={saving}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" onClick={() => void create()} disabled={saving}>
-          {saving ? 'Creating…' : 'Create'}
+          {saving ? t('Creating…') : t('Create')}
         </Button>
       </div>
     </Modal>

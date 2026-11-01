@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { AgentConversation } from '../../../api'
 
 export function formatHistoryTime(value: string): string {
@@ -11,32 +13,33 @@ export function formatHistoryTime(value: string): string {
   const month = 30 * day
   const year = 365 * day
 
+  // 'now' stays English: archivedChatsList compares it. Callers translate it.
   if (elapsedMs < minute) return 'now'
   if (elapsedMs < hour) {
     const minutes = Math.max(1, Math.floor(elapsedMs / minute))
 
-    return `${String(minutes)} min`
+    return t('{n} min', { n: minutes })
   }
   if (elapsedMs < day) {
     const hours = Math.max(1, Math.floor(elapsedMs / hour))
 
-    return `${String(hours)} ${hours === 1 ? 'hr' : 'hrs'}`
+    return hours === 1 ? t('1 hr') : t('{n} hrs', { n: hours })
   }
   if (elapsedMs < month) {
     const days = Math.max(1, Math.floor(elapsedMs / day))
 
-    return `${String(days)} ${days === 1 ? 'day' : 'days'}`
+    return days === 1 ? t('1 day') : t('{n} days', { n: days })
   }
   if (elapsedMs < year) {
     const months = Math.max(1, Math.floor(elapsedMs / month))
 
-    return `${String(months)} ${months === 1 ? 'mo' : 'mos'}`
+    return months === 1 ? t('1 mo') : t('{n} mos', { n: months })
   }
   const years = Math.max(1, Math.floor(elapsedMs / year))
 
-  return `${String(years)} ${years === 1 ? 'yr' : 'yrs'}`
+  return years === 1 ? t('1 yr') : t('{n} yrs', { n: years })
 }
 
 export function conversationOwnerName(conversation: AgentConversation): string {
-  return conversation.owner?.name || conversation.owner?.email || 'User'
+  return conversation.owner?.name || conversation.owner?.email || t('User')
 }

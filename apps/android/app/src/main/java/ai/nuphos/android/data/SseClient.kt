@@ -24,6 +24,11 @@ object SseClient {
         data class NotEventStream(val type: String?) : Failure() {
             override val message = "Expected an event stream, got ${type ?: "nothing"}."
         }
+        /** 202: the server queued the message instead of starting a turn. */
+        data object Queued : Failure() {
+            private fun readResolve(): Any = Queued
+            override val message = "Your message waits for the turn ahead."
+        }
         data object FirstByteTimeout : Failure() {
             private fun readResolve(): Any = FirstByteTimeout
             override val message = "Nuphos did not start responding in time."
@@ -75,6 +80,11 @@ object SseClient {
 
             override fun onResponse(call: Call, response: Response) {
                 response.use { res ->
+                    if (res.code == 202) {
+                        closed.set(true)
+                        close(Failure.Queued)
+                        return
+                    }
                     if (!res.isSuccessful) {
                         val body = res.body.string().take(4_000)
                         closed.set(true)

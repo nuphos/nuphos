@@ -90,7 +90,6 @@ struct CredentialPickerSheet: View {
             .refreshable { await store.loadCredentialOptions(force: true) }
         }
         .tint(Theme.heading)
-        .presentationDetents([.medium, .large])
     }
 }
 
@@ -117,7 +116,7 @@ struct ComposerControls: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Choose Credentials")
-        .sheet(isPresented: $showPicker) { CredentialPickerSheet(selection: $selection) }
+        .sheet(isPresented: $showPicker) { CredentialPickerSheet(selection: $selection).presentationDetents([.medium, .large]) }
         #if DEBUG
         .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-iam") { showPicker = true } }
         #endif
@@ -127,7 +126,7 @@ struct ComposerControls: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Choose computers")
-        .sheet(isPresented: $showDevices) { CredentialPickerSheet(selection: $selection, scope: .devices) }
+        .sheet(isPresented: $showDevices) { CredentialPickerSheet(selection: $selection, scope: .devices).presentationDetents([.medium, .large]) }
 
         Button { showModes = true } label: {
             ComposerChip(title: mode.title, isActive: mode == .bypass)
@@ -147,7 +146,7 @@ struct ComposerControls: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Model settings")
-            .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session) }
+            .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session).presentationDetents([.medium, .large]) }
             .task(id: session.sessionId) {
                 while !Task.isCancelled {
                     await session.refreshSessionConfig()
@@ -163,7 +162,7 @@ struct ComposerControls: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Model settings")
-            .sheet(isPresented: $showModel) { ModelSettingsSheet() }
+            .sheet(isPresented: $showModel) { ModelSettingsSheet().presentationDetents([.medium, .large]) }
             .task(id: "\(store.selectedTeam?.id ?? "")/\(store.newConversationRuntime?.id ?? "")") {
                 await store.loadNewModelConfig()
             }

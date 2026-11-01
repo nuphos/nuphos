@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline'
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`)
 // A turn started with this text stays active until it is steered.
 const HOLD = 'Fixture held turn'
+const DIE = 'Fixture dies'
 let held = false
 
 for await (const line of createInterface({ input: process.stdin })) {
@@ -52,6 +53,10 @@ for await (const line of createInterface({ input: process.stdin })) {
           isDefault: false,
           supportedReasoningEfforts: [{ reasoningEffort: 'ultra', description: 'Ultra' }],
           defaultReasoningEffort: 'ultra',
+          serviceTiers: [
+            { id: 'priority', name: 'Fast', description: 'Faster' },
+            { id: 'ultrafast', name: 'Ultrafast', description: 'Fastest' },
+          ],
         },
       ],
       nextCursor: null,
@@ -102,10 +107,23 @@ for await (const line of createInterface({ input: process.stdin })) {
     result = { turnId: 'smoke-turn' }
   }
   send({ id: msg.id, result })
+  // App Server dies mid-turn, as when the system kills it.
+  if (msg.method === 'turn/start' && msg.params.input.some((item) => item.text === DIE))
+    process.kill(process.pid, 'SIGKILL')
   if (msg.method === 'turn/start' && msg.params.input.some((item) => item.text === HOLD)) {
     held = true
     continue
   }
+  // App Server broadcasts thread-less warnings, such as a failed log write.
+  if (
+    msg.method === 'turn/start' &&
+    msg.params.input.some((item) => item.text === 'Fixture prompt')
+  )
+    for (const message of [
+      "Codex couldn't save diagnostic logs to its local database. Run `codex doctor` for diagnostics.",
+      'Fixture warning',
+    ])
+      send({ method: 'warning', params: { threadId: null, message } })
   if (msg.method === 'turn/start' || msg.method === 'turn/steer')
     setTimeout(() => {
       held = false

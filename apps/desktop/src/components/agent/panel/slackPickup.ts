@@ -1,4 +1,5 @@
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
 import { slackThreadFallbackUrl } from './slackThreadUrl'
@@ -21,10 +22,10 @@ export async function pickUpConversationInSlack(sessionId: string, teamId?: stri
       return
     }
     toast.success(
-      'Picked up in Slack',
-      'Reply in your Slack DM with Nuphos to continue with this agent.',
+      t('Picked up in Slack'),
+      t('Reply in your Slack DM with Nuphos to continue with this agent.'),
     )
   } catch (err) {
-    toast.apiError('Couldn’t pick this agent up in Slack', err)
+    toast.apiError(t('Couldn’t pick this agent up in Slack'), err)
   }
 }

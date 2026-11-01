@@ -523,11 +523,16 @@ pub trait ChatAdapter: Send + Sync + 'static {
 /// Deliberately not shaped like an agent update: this is openab reporting on its
 /// own plumbing, not a synthesized agent message. Consumers key off
 /// `sessionUpdate` and should read it as "this turn ended without a result".
-pub fn agent_relay_interrupted_update() -> serde_json::Value {
-    serde_json::json!({
+/// `message` is the adapter's reason its CLI died, when it gave one.
+pub fn agent_relay_interrupted_update(message: Option<String>) -> serde_json::Value {
+    let mut update = serde_json::json!({
         "sessionUpdate": "openab_session_interrupted",
         "reason": "connection_closed",
-    })
+    });
+    if let Some(message) = message {
+        update["message"] = message.into();
+    }
+    update
 }
 
 async fn handle_permission_request(
@@ -737,6 +742,8 @@ impl AdapterRouter {
     /// `<sender_context>` openers to find arrival boundaries. Within an arrival,
     /// transcript text precedes the typed prompt to match pre-batching adapter
     /// behavior (voice content first), and images trail the prompt as before.
+    /// An empty `sender_json` (ACP, whose client sends its own sender
+    /// metadata) omits the delimiter block.
     /// This is the single packing code path for both per-message and batched
     /// dispatch (ADR §3.5). For a batch of N messages, call this N times and
     /// concatenate.
@@ -745,12 +752,15 @@ impl AdapterRouter {
         prompt: &str,
         extra_blocks: Vec<ContentBlock>,
     ) -> Vec<ContentBlock> {
-        let header = format!("<sender_context>\n{}\n</sender_context>", sender_json);
         let (texts, others): (Vec<_>, Vec<_>) = extra_blocks
             .into_iter()
             .partition(|b| matches!(b, ContentBlock::Text { .. }));
         let mut blocks = Vec::with_capacity(2 + texts.len() + others.len());
-        blocks.push(ContentBlock::Text { text: header });
+        if !sender_json.is_empty() {
+            blocks.push(ContentBlock::Text {
+                text: format!("<sender_context>\n{}\n</sender_context>", sender_json),
+            });
+        }
         blocks.extend(texts);
         if !prompt.is_empty() {
             blocks.push(ContentBlock::Text {
@@ -1514,11 +1524,16 @@ impl AdapterRouter {
                             // client turn. Closing that old receiver is a normal
                             // handoff, not evidence the provider connection died.
                             // Report interruption only from actual runtime liveness.
-                            if relay_saw_traffic && idle_activity.connection_ended() {
+                            // A CLI that died is reported even between turns: its
+                            // background work died with it and nothing else says so.
+                            let process_death = idle_activity.process_death();
+                            if (relay_saw_traffic || process_death.is_some())
+                                && idle_activity.connection_ended()
+                            {
                                 if let Err(error) = idle_adapter
                                     .forward_agent_update(
                                         &idle_channel,
-                                        agent_relay_interrupted_update(),
+                                        agent_relay_interrupted_update(process_death),
                                     )
                                     .await
                                 {
@@ -2398,10 +2413,14 @@ mod tests {
 
     #[test]
     fn agent_relay_interrupted_update_is_tagged_and_carries_a_reason() {
-        let update = agent_relay_interrupted_update();
+        let update = agent_relay_interrupted_update(None);
 
         assert_eq!(update["sessionUpdate"], "openab_session_interrupted");
         assert_eq!(update["reason"], "connection_closed");
+        assert!(update.get("message").is_none());
+
+        let update = agent_relay_interrupted_update(Some("Claude Code ran out of memory.".into()));
+        assert_eq!(update["message"], "Claude Code ran out of memory.");
     }
 
     #[test]

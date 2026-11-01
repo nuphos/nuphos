@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { api } from '../../api'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Avatar } from '../../components/Avatar'
+import { t } from '../../i18n'
 import { memberDisplayName } from '../../lib/bindingAccess'
 import { readSwrCache, useSwrCache, writeSwrCache } from '../../lib/swrCache'
 
@@ -43,7 +44,7 @@ export function AgentAddedBy({
   if (!members) return null
   const member = members.find((candidate) => candidate.id === addedBy.userId)
   const current = member && !member.removedAt ? member : undefined
-  const name = current ? memberDisplayName(current) : 'a former member'
+  const name = current ? memberDisplayName(current) : t('a former member')
 
   return (
     <p
@@ -54,7 +55,7 @@ export function AgentAddedBy({
         <Avatar src={current.avatarURL} name={name} size={16} className="shrink-0 rounded-full" />
       )}
       <span className="truncate">
-        Added by {name} · {relativeTimeFromNow(addedBy.at)}
+        {t('Added by {name} · {time}', { name, time: relativeTimeFromNow(addedBy.at) })}
       </span>
     </p>
   )

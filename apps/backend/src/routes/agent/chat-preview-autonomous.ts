@@ -8,8 +8,14 @@ import { config } from '@/config'
 import { appendAutonomousConversationTurn } from '@/lib/agent/db'
 import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/empty-turn'
 import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
-import { createPreviewAssistantPartAccumulator } from '@/lib/claude-code-preview/preview-transcript'
+import {
+  createPreviewAssistantPartAccumulator,
+  interruptToolSteps,
+  turnInterruptedPart,
+} from '@/lib/claude-code-preview/preview-transcript'
 import { logError } from '@/lib/observability'
+
+import { CONNECTION_LOST_TOOL_ERROR } from './chat-preview-handoff'
 
 import type {
   ClaudeCodeAutonomousContext,
@@ -19,6 +25,7 @@ import type {
 import type { OpenAbPermissionOutcome } from '@/lib/claude-code-preview/openab-acp-session'
 import type { PreviewAgentUpdate } from '@/lib/claude-code-preview/preview-agent-update'
 import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
+import type { UIMessage } from 'ai'
 
 type AutonomousTurn = {
   messageId: string
@@ -27,7 +34,6 @@ type AutonomousTurn = {
   finish: () => void
   handleTool: (update: Extract<PreviewAgentUpdate, { kind: 'tool' }>) => void
   toolSteps: () => PreviewToolStep[]
-  reportError: (error: unknown) => void
   text: string
   reasoning: string
   orderedParts: ReturnType<typeof createPreviewAssistantPartAccumulator>
@@ -64,11 +70,20 @@ function beginTurn(context: ClaudeCodeAutonomousContext, deps: AutonomousTurnDep
   }
 }
 
-async function finishTurn(turn: AutonomousTurn): Promise<void> {
+async function finishTurn(
+  turn: AutonomousTurn,
+  interrupted?: ReturnType<typeof turnInterruptedPart>,
+  toolError?: string,
+): Promise<void> {
   // The transcript belongs to the conversation owner, not to whoever happened
   // to run the last interactive turn.
   const { conversationId, teamId, conversationOwnerUserId: userId, locale } = turn.context
-  const parts = withoutEmptyTurnSentinel(turn.orderedParts.materialize(turn.toolSteps()))
+  const steps =
+    interrupted || toolError ? interruptToolSteps(turn.toolSteps(), toolError) : turn.toolSteps()
+  const parts = [
+    ...withoutEmptyTurnSentinel(turn.orderedParts.materialize(steps)),
+    ...(interrupted ? [interrupted as unknown as UIMessage['parts'][number]] : []),
+  ]
 
   // Runtime termination ends the stream and its lease immediately. Database
   // persistence must not keep an idle runtime displayed as Thinking.
@@ -128,26 +143,41 @@ export function createClaudeCodeAutonomousUpdateHandler(deps: AutonomousTurnDeps
       }
       if (update.update.kind === 'complete' || update.update.kind === 'interrupted') {
         const key = keyOf(update)
-        const turn = turns.get(key)
+        // A CLI that died between turns has no turn open; its notice is one.
+        const turn =
+          update.update.kind === 'interrupted' && update.update.message
+            ? openTurn(update)
+            : turns.get(key)
 
         if (!turn) return
         if (update.update.runtimeSnapshot)
           turn.emit({ type: 'runtime-state', snapshot: update.update.runtimeSnapshot })
         turns.delete(key)
-        if (update.update.kind === 'interrupted') {
-          // The turn produced whatever it produced and then its runtime
-          // vanished. Report it before finishing so the run ends on an error
-          // frame and the partial text still lands in the transcript, instead
-          // of the stream simply stopping and leaving the conversation looking
-          // live forever.
-          turn.reportError(
-            new Error(
-              `Agent session ended before this turn finished (${update.update.reason ?? 'connection_closed'})`,
-            ),
-          )
-        }
+        if (update.update.kind === 'complete') {
+          void finishTurn(turn)
 
-        void finishTurn(turn)
+          return
+        }
+        // Only the transport dropped. The runtime keeps the agent running and
+        // the session reattaches, so its continuation arrives as the next turn,
+        // as it does for an interactive one (lostToReattach).
+        if (update.update.reason === 'runtime_connection_lost') {
+          void finishTurn(turn, undefined, CONNECTION_LOST_TOOL_ERROR)
+
+          return
+        }
+        // The turn produced whatever it produced and then its runtime vanished.
+        // Say why, live and in the transcript, instead of the stream simply
+        // stopping and leaving the conversation looking like it still waits.
+        const part = turnInterruptedPart(`${turn.messageId}:interrupted`, {
+          reason: 'error',
+          message:
+            update.update.message ??
+            'The agent stopped before it finished. Send a message to continue.',
+        })
+
+        turn.emit(part)
+        void finishTurn(turn, part)
 
         return
       }

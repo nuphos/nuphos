@@ -1,5 +1,7 @@
 import { useId } from 'react'
 
+import { t } from '../../i18n'
+
 import { AGENT_USAGE_COLUMNS, AgentUsageRow } from './AgentUsageRow'
 import { AgentUsageSkeleton } from './AgentUsageSkeleton'
 import { PanelHeading } from './RuntimePanel'
@@ -44,14 +46,14 @@ function AgentUsageTable({
 
   return (
     <section aria-labelledby={headingId} className="@container">
-      <PanelHeading id={headingId} title="Runtimes" />
+      <PanelHeading id={headingId} title={t('Runtimes')} />
       <div className="overflow-hidden rounded-xl border border-zGray-800/60 bg-surface/40">
         <div
           className={`grid ${AGENT_USAGE_COLUMNS} border-b border-zGray-800/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary`}
         >
-          <span>Runtime</span>
-          <span className="hidden @3xl:block">Runs on</span>
-          <span>Usage</span>
+          <span>{t('Runtime')}</span>
+          <span className="hidden @3xl:block">{t('Runs on')}</span>
+          <span>{t('Usage')}</span>
           <span />
         </div>
         {instances.map((instance) => (
@@ -79,10 +81,10 @@ function AgentListPlaceholder({
   isAdmin: boolean
 }) {
   if (loading) return <AgentUsageSkeleton />
-  let hint = 'Ask a workspace administrator to add a runtime.'
+  let hint = t('Ask a workspace administrator to add a runtime.')
 
-  if (filtered) hint = 'No matching runtimes.'
-  else if (isAdmin) hint = 'Add your first runtime to start an agent.'
+  if (filtered) hint = t('No matching runtimes.')
+  else if (isAdmin) hint = t('Add your first runtime to start an agent.')
 
   return (
     <p className="rounded-xl border border-dashed border-zGray-800 p-8 text-center text-sm text-tertiary">

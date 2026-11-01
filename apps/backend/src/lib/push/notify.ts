@@ -2,7 +2,7 @@ import { countUnreadConversations, getConversationBySessionId } from '@/lib/agen
 import { findProposedPlanNumberForConversation } from '@/lib/agent/plans'
 import { logError, logEvent } from '@/lib/observability'
 
-import { apnsCredentials, isDeadToken, sendApns } from './apns'
+import { SESSION_ALERT_APS, apnsCredentials, isDeadToken, sendApns } from './apns'
 import { sendAndroidAlert, sendAndroidBadge } from './badge'
 import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
@@ -65,7 +65,7 @@ type Delivery = {
   body: (conversation: PushConversation | null) => Promise<string | null> | string | null
 }
 
-function conversationTitle(conversation: PushConversation | null): string {
+export function conversationTitle(conversation: PushConversation | null): string {
   const title = conversation?.title?.trim()
 
   if (title) return title
@@ -175,7 +175,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
         await send(
           devices,
           {
-            aps: { alert, badge, sound: 'default', 'thread-id': run.sessionId },
+            aps: { alert, badge, 'thread-id': run.sessionId, ...SESSION_ALERT_APS },
             sessionId: run.sessionId,
             ...(teamId ? { teamId } : {}),
           },

@@ -34,11 +34,22 @@ class LocalNotificationTargetTest {
         assertNull(pending.take(null, null, false))
         assertEquals(target, pending.value.value)
         assertNull(pending.take("account", "team", false))
-        assertNull(pending.value.value)
+        assertEquals(target, pending.value.value)
+        assertEquals(target, pending.take("account", "team", true))
+        assertNull(pending.take("account", "team", true))
     }
     @Test fun explicitClearRemovesPendingTarget() {
         val pending = PendingLocalNotification()
         pending.offer(target); pending.clear()
         assertNull(pending.value.value)
     }
+    @Test fun mismatchedOwnerIsDiscardedEvenWhileConsentIsUnavailable() {
+        for ((account, team) in listOf("other" to "team", "account" to "other")) {
+            val pending = PendingLocalNotification()
+            pending.offer(target)
+            assertNull(pending.take(account, team, false))
+            assertNull(pending.value.value)
+        }
+    }
+
 }

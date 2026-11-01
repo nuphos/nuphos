@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { Switch } from '../components/ui/Switch'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
 
@@ -48,7 +49,7 @@ export function TailscalePrivateNetworkPanel({
     // Revoking must never depend on the tag field being valid — an unsaved typo
     // would otherwise trap access in the on position.
     if (nextEnabled && !TAG_PATTERN.test(tag)) {
-      toast.error('Enter a tag like tag:nuphos before enabling private network access')
+      toast.error(t('Enter a tag like tag:nuphos before enabling private network access'))
 
       return
     }
@@ -57,7 +58,7 @@ export function TailscalePrivateNetworkPanel({
       await api.atlasSetTailscaleSandboxAccess(teamId, connectorId, nextEnabled, tag)
       setEnabled(nextEnabled)
     } catch (e) {
-      toast.apiError('Could not update private network access', e)
+      toast.apiError(t('Could not update private network access'), e)
     } finally {
       setSaving(false)
     }
@@ -65,12 +66,12 @@ export function TailscalePrivateNetworkPanel({
 
   const generate = async () => {
     if (!TAG_PATTERN.test(targetTag)) {
-      toast.error('Enter a target tag like tag:staging')
+      toast.error(t('Enter a target tag like tag:staging'))
 
       return
     }
     if (recorderTag && !TAG_PATTERN.test(recorderTag)) {
-      toast.error('Enter a recorder tag like tag:tsrecorder, or leave it empty')
+      toast.error(t('Enter a recorder tag like tag:tsrecorder, or leave it empty'))
 
       return
     }
@@ -86,7 +87,7 @@ export function TailscalePrivateNetworkPanel({
         ),
       )
     } catch (e) {
-      toast.apiError('Could not generate the ACL snippet', e)
+      toast.apiError(t('Could not generate the ACL snippet'), e)
     } finally {
       setGenerating(false)
     }
@@ -96,18 +97,18 @@ export function TailscalePrivateNetworkPanel({
     <div className="mt-5 rounded-lg border border-zGray-800">
       <div className="flex items-start gap-4 px-4 py-3.5 border-b border-zGray-800/60">
         <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-medium text-main">Private network access</div>
+          <div className="text-[12.5px] font-medium text-main">{t('Private network access')}</div>
           <div className="mt-1 text-[11.5px] text-tertiary leading-relaxed">
-            Lets an agent sandbox join your tailnet as a short-lived node so it can reach machines
-            with no public SSH. The node advertises the tag below and disappears when the session
-            ends — what it may reach is decided entirely by your tailnet ACL.
+            {t(
+              'Lets an agent sandbox join your tailnet as a short-lived node so it can reach machines with no public SSH. The node advertises the tag below and disappears when the session ends — what it may reach is decided entirely by your tailnet ACL.',
+            )}
           </div>
         </div>
         <Switch
           checked={enabled}
           disabled={saving || (!enabled && !tagValid)}
           onChange={(next) => void save(next)}
-          label="Private network access"
+          label={t('Private network access')}
         />
       </div>
 
@@ -117,15 +118,15 @@ export function TailscalePrivateNetworkPanel({
           strokeWidth={2}
         />
         <div className="text-[11.5px] text-secondary leading-relaxed">
-          This is a larger grant than listing devices. If this OAuth client also carries
-          device-write scopes, consider binding a separate client that only has{' '}
-          <span className="font-mono text-[11px]">auth_keys</span>, so the credential Nuphos holds
-          for the data plane can do nothing else.
+          {t(
+            'This is a larger grant than listing devices. If this OAuth client also carries device-write scopes, consider binding a separate client that only has {scope}, so the credential Nuphos holds for the data plane can do nothing else.',
+            { scope: 'auth_keys' },
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-4 px-4 py-3 border-b border-zGray-800/60">
-        <div className="w-32 flex-shrink-0 text-[12px] text-tertiary">Sandbox tag</div>
+        <div className="w-32 flex-shrink-0 text-[12px] text-tertiary">{t('Sandbox tag')}</div>
         <input
           value={tag}
           onChange={(e) => setTag(e.target.value.trim())}
@@ -140,16 +141,17 @@ export function TailscalePrivateNetworkPanel({
             onClick={() => void save(true)}
             className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 disabled:opacity-50 text-secondary hover:text-main text-[12px] font-medium"
           >
-            Save
+            {t('Save')}
           </button>
         )}
       </div>
 
       <div className="px-4 py-3.5">
-        <div className="text-[12px] font-medium text-main">Tailnet ACL</div>
+        <div className="text-[12px] font-medium text-main">{t('Tailnet ACL')}</div>
         <div className="mt-1 text-[11.5px] text-tertiary leading-relaxed">
-          Nuphos never writes your policy file. Generate the blocks below, review them, and apply
-          them yourself — deleting them revokes access immediately.
+          {t(
+            'Nuphos never writes your policy file. Generate the blocks below, review them, and apply them yourself — deleting them revokes access immediately.',
+          )}
         </div>
         <div className="mt-3 flex items-center gap-2">
           <input
@@ -170,8 +172,10 @@ export function TailscalePrivateNetworkPanel({
             value={recorderTag}
             onChange={(e) => setRecorderTag(e.target.value.trim())}
             spellCheck={false}
-            placeholder="tag:tsrecorder (optional)"
-            title="Tag of your session recorder. Set it to record every session and refuse connections when the recorder is down."
+            placeholder={t('tag:tsrecorder (optional)')}
+            title={t(
+              'Tag of your session recorder. Set it to record every session and refuse connections when the recorder is down.',
+            )}
             className="w-52 h-7 px-2 rounded-md bg-zGray-850 border border-zGray-800 font-mono text-[12px] text-main outline-none focus:border-zGray-700"
           />
           <button
@@ -180,7 +184,7 @@ export function TailscalePrivateNetworkPanel({
             onClick={() => void generate()}
             className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 disabled:opacity-50 text-secondary hover:text-main text-[12px] font-medium"
           >
-            {generating ? 'Generating…' : 'Generate'}
+            {generating ? t('Generating…') : t('Generate')}
           </button>
         </div>
         {snippet && (
@@ -192,12 +196,12 @@ export function TailscalePrivateNetworkPanel({
               type="button"
               onClick={() => {
                 void navigator.clipboard.writeText(snippet)
-                toast.success('ACL snippet copied')
+                toast.success(t('ACL snippet copied'))
               }}
               className="absolute top-2 right-2 h-6 px-2 rounded-md bg-zGray-850 hover:bg-zGray-800 text-tertiary hover:text-main text-[11px] font-medium flex items-center gap-1"
             >
               <Copy className="w-3 h-3" strokeWidth={2} />
-              Copy
+              {t('Copy')}
             </button>
           </div>
         )}

@@ -4,6 +4,7 @@ import clsx from 'clsx'
 
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/Switch'
+import { t } from '../../i18n'
 
 import type { Instruction } from '../../types/instructions'
 
@@ -40,18 +41,22 @@ export function InstructionCard({
           checked={instruction.enabled}
           disabled={!canEdit || busy}
           onChange={onToggle}
-          label={`${instruction.enabled ? 'Disable' : 'Enable'} ${instruction.title}`}
+          label={
+            instruction.enabled
+              ? t('Disable {title}', { title: instruction.title })
+              : t('Enable {title}', { title: instruction.title })
+          }
         />
       </div>
       <div className="mt-3 flex items-center justify-end gap-1">
         <Button type="button" variant="ghost" size="sm" onClick={onOpen}>
           <FontAwesomeIcon icon={canEdit ? faPen : faEye} className="mr-1.5 h-3 w-3" />
-          {canEdit ? 'Edit' : 'View'}
+          {canEdit ? t('Edit') : t('View')}
         </Button>
         {canEdit && (
           <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onDelete}>
             <FontAwesomeIcon icon={faTrash} className="mr-1.5 h-3 w-3" />
-            Delete
+            {t('Delete')}
           </Button>
         )}
       </div>

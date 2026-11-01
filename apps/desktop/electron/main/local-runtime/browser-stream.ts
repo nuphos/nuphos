@@ -7,9 +7,22 @@ import type { SocketEvent, SocketLike } from './tunnel-client.ts'
 type Listener = (event: SocketEvent) => void
 
 export type BrowserCall = {
-  action: 'tabs' | 'open' | 'navigate' | 'eval' | 'screenshot'
+  action:
+    | 'tabs'
+    | 'open'
+    | 'dock'
+    | 'focus'
+    | 'navigate'
+    | 'eval'
+    | 'screenshot'
+    | 'record_start'
+    | 'record_stop'
   team: string
+  /** The conversation calling; it sees and drives only the tabs it opened. */
+  session: string
   tab?: number
+  /** A dock tab's workspace id, for `focus` from the iPhone's Dock panel. */
+  dockTab?: string
   url?: string
   script?: string
 }

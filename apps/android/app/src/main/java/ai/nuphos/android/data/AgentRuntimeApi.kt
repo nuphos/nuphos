@@ -20,10 +20,24 @@ data class RuntimeBinding(val runtimeId: String, val agentRuntime: String, val d
 /** Authorization fields are memory-only and are removed outside the awaiting state. */
 data class RuntimeLogin(val attemptId: String, val state: String, val expiresAt: Long,
     val verificationUri: String? = null, val userCode: String? = null,
-    val authorizationUrl: String? = null, val codeSubmitted: Boolean = false) {
+    val authorizationUrl: String? = null, val codeSubmitted: Boolean = false, val step: RuntimeLoginStep? = null) {
     val pending get() = state in setOf("starting", "awaiting_authorization")
     fun valid(now: Long) = now < expiresAt
-    val browserUrl get() = (authorizationUrl ?: verificationUri)?.takeIf(::runtimeHttpsUrl)
+    val browserUrl get() = (step?.url ?: authorizationUrl ?: verificationUri)?.takeIf(::runtimeHttpsUrl)
+}
+data class RuntimeLoginOption(val value: String, val label: String, val hint: String? = null)
+data class RuntimeLoginStep(val kind: String, val message: String? = null, val options: List<RuntimeLoginOption> = emptyList(),
+    val placeholder: String? = null, val secret: Boolean = false, val url: String? = null, val instructions: String? = null, val paste: String? = null)
+fun validRuntimeAnswer(attempt: RuntimeLogin, value: String): Boolean {
+    val trimmed = value.trim()
+    if (trimmed.isEmpty() || trimmed.length > 4096 || trimmed.any { it == '\r' || it == '\n' || it == '\u0000' }) return false
+    return when (attempt.step?.kind) {
+        "choose" -> attempt.step.options.any { it.value == trimmed }
+        "input" -> true
+        "browser" -> attempt.step.paste in setOf("code", "address")
+        null -> attempt.authorizationUrl != null && validRuntimeCode(trimmed)
+        else -> false
+    }
 }
 fun runtimeHttpsUrl(value: String): Boolean = runCatching {
     val uri = java.net.URI(value)
@@ -58,7 +72,7 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
     suspend fun quotas(): Map<String, RuntimeQuota> = decodeRuntimeQuotas(execute("$path/quota", "GET", expected = 200))
     suspend fun devices(): List<RuntimeDevice> = decodeRuntimeDevices(execute("agent/devices?teamId=${path.split("/")[1]}&metrics=true", "GET", expected = 200))
     override suspend fun create(provider: String, label: String?): AgentRuntime {
-        require(provider in setOf("claude-code", "codex"))
+        require(provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode"))
         val trimmed = label?.trim(); require(trimmed == null || trimmed.length in 1..120)
         return decodeRuntime(execute(path, "POST", buildJsonObject {
             put("provider", provider); trimmed?.let { put("label", it) }
@@ -83,7 +97,7 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
     override suspend fun start(runtimeId: String) = decodeLogin(execute(loginPath(runtimeId), "POST", "", 202))
     override suspend fun login(runtimeId: String) = decodeLogin(execute(loginPath(runtimeId), "GET", expected = 200))
     override suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin {
-        require(validRuntimeCode(code.trim())); attempt(attemptId)
+        require(code.trim().isNotEmpty() && code.trim().length <= 4096 && code.none { it == '\r' || it == '\n' || it == '\u0000' }); attempt(attemptId)
         return decodeLogin(execute("${loginPath(runtimeId)}/code", "POST", buildJsonObject {
             put("attemptId", attemptId); put("code", code.trim())
         }.toString(), 200))
@@ -115,8 +129,25 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
             if (state == "awaiting_authorization") field("verificationUri") else null,
             if (state == "awaiting_authorization") field("userCode") else null,
             if (state == "awaiting_authorization") field("authorizationUrl") else null,
-            state == "awaiting_authorization" && obj["codeSubmitted"]?.jsonPrimitive?.booleanOrNull == true)
+            state == "awaiting_authorization" && obj["codeSubmitted"]?.jsonPrimitive?.booleanOrNull == true,
+            if (state == "awaiting_authorization") decodeStep(obj["step"]) else null)
     } catch (_: Exception) { throw NuphosApi.Failure.InvalidResponse }
+    private fun decodeStep(value: JsonElement?): RuntimeLoginStep? {
+        if (value == null || value is JsonNull) return null
+        val obj = value.jsonObject
+        fun text(name: String) = obj[name]?.jsonPrimitive?.contentOrNull
+        val kind = text("kind") ?: throw NuphosApi.Failure.InvalidResponse
+        if (kind !in setOf("choose", "input", "browser")) throw NuphosApi.Failure.InvalidResponse
+        val options = (obj["options"] as? JsonArray)?.map { item ->
+            val row = item.jsonObject
+            RuntimeLoginOption(row["value"]?.jsonPrimitive?.contentOrNull ?: throw NuphosApi.Failure.InvalidResponse,
+                row["label"]?.jsonPrimitive?.contentOrNull ?: throw NuphosApi.Failure.InvalidResponse,
+                row["hint"]?.jsonPrimitive?.contentOrNull)
+        }.orEmpty()
+        if (options.size > 1000 || options.map { it.value }.distinct().size != options.size || options.any { it.value.length !in 1..4096 || it.label.length !in 1..4096 }) throw NuphosApi.Failure.InvalidResponse
+        return RuntimeLoginStep(kind, text("message"), if (kind == "choose") options else emptyList(), text("placeholder"), kind == "input" && obj["secret"]?.jsonPrimitive?.booleanOrNull == true,
+            if (kind == "browser") text("url") else null, text("instructions"), if (kind == "browser") text("paste") else null)
+    }
     private suspend fun execute(path: String, method: String, body: String? = null, expected: Int): JsonObject =
         executeResponse(path, method, body, expected).second
     private suspend fun executeResponse(path: String, method: String, body: String? = null, expected: Int, alternate: Int? = null): Pair<Int, JsonObject> = withContext(Dispatchers.IO) {

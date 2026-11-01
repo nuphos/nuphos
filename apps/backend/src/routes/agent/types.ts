@@ -36,8 +36,12 @@ export type AgentChatBody = {
   runtimeId?: string
   /** Model settings picked before the conversation had a session; applied when one starts. */
   initialSessionConfig?: RuntimeDefaults
+  /** The open question this message answers; it is resolved when the turn is admitted. */
+  decisionReplyTo?: string
   clientCapabilities?: {
     localTools?: boolean
+    /** Questions are resolved explicitly by id, separately from ordinary messages. */
+    decisionReplies?: boolean
     /** The client keeps a message refused with runtime_not_accepting_message and sends it again. */
     resendsRefusal?: boolean
     /** The client reads a 202 for a queued message. Without it, a queued send gets an SSE that ends at once. */
@@ -96,6 +100,8 @@ export type AgentRun = {
   sessionId: string
   userId: string
   trace?: AgentRunTrace
+  // A turn the runtime started on its own: shown live, never a session claim.
+  runtimeOwned?: boolean
   frames: string[]
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined

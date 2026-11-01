@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { AddIntegrationKey } from '../addIntegrationCatalog'
 
 export type BindMode = 'install' | 'reinstall'
@@ -13,10 +15,10 @@ export type ConnectorAddAction = { label: string; mode: BindMode }
 export function installedConnectorAddAction(
   provider: AddIntegrationKey,
 ): ConnectorAddAction | null {
-  if (provider === 'slack') return { label: 'Reinstall', mode: 'reinstall' }
-  if (provider === 'lark') return { label: 'Reconfigure', mode: 'reinstall' }
+  if (provider === 'slack') return { label: t('Reinstall'), mode: 'reinstall' }
+  if (provider === 'lark') return { label: t('Reconfigure'), mode: 'reinstall' }
 
-  return { label: 'Add', mode: 'install' }
+  return { label: t('Add'), mode: 'install' }
 }
 
 /**

@@ -1,8 +1,9 @@
 import { Slider } from '@base-ui/react/slider'
 import clsx from 'clsx'
-import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
+import { ChevronRight, Rocket, RotateCcw, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { effortLabel } from '../../../lib/configLabels'
 import { effortStops, resolvedEffort, stopFraction } from '../../../lib/effortStops'
 import { Tooltip } from '../../ui/tooltip'
@@ -104,33 +105,55 @@ export function ModelEffortPanel({
   const fraction = stopFraction(stops.length, index)
   const fastOn = fast?.currentValue === 'on'
   const fastReason = fastUnavailableReason(fast)
+  const ultrafastOn = fast?.currentValue === 'ultrafast'
+  // Codex offers Ultrafast as a separate tier beside Fast; Claude has only Fast.
+  const offersFast = fast?.options.some((option) => option.value === 'on')
+  const offersUltrafast = fast?.options.some((option) => option.value === 'ultrafast')
   const resetLevel =
     resetValue && stops.find((stop) => stop.value === resolvedEffort(effort.options, resetValue))
   const resetHint =
     resetValue === effort.currentValue
-      ? 'Already at the default effort'
+      ? t('Already at the default effort')
       : resetLevel
-        ? `Reset to default (${effortLabel(resetLevel)})`
-        : 'Reset to default'
+        ? t('Reset to default ({level})', { level: effortLabel(resetLevel) })
+        : t('Reset to default')
 
   return (
     <div className="relative px-3 pb-3 pt-2.5">
       {fast && (
-        <Tooltip
-          content={fastReason?.tooltip ?? (fastOn ? 'Fast mode is on' : 'Fast mode')}
-          triggerClassName="absolute left-1.5 top-1.5"
-        >
-          <IconButton
-            label={fastReason?.tooltip ?? (fastOn ? 'Turn off fast mode' : 'Turn on fast mode')}
-            pressed={fastOn}
-            disabled={blocked || saving}
-            inert={Boolean(fastReason)}
-            onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
-            className={fastOn ? 'text-zOrangered-400' : 'text-tertiary'}
-          >
-            <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
-          </IconButton>
-        </Tooltip>
+        <div className="absolute left-1.5 top-1.5 flex">
+          {offersFast && (
+            <Tooltip
+              content={fastReason?.tooltip ?? (fastOn ? t('Fast mode is on') : t('Fast mode'))}
+            >
+              <IconButton
+                label={
+                  fastReason?.tooltip ?? (fastOn ? t('Turn off fast mode') : t('Turn on fast mode'))
+                }
+                pressed={fastOn}
+                disabled={blocked || saving}
+                inert={Boolean(fastReason)}
+                onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
+                className={fastOn ? 'text-zOrangered-400' : 'text-tertiary'}
+              >
+                <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {offersUltrafast && (
+            <Tooltip content={ultrafastOn ? t('Ultrafast mode is on') : t('Ultrafast mode')}>
+              <IconButton
+                label={ultrafastOn ? t('Turn off Ultrafast mode') : t('Turn on Ultrafast mode')}
+                pressed={ultrafastOn}
+                disabled={blocked || saving}
+                onClick={() => onSelect(fast.id, ultrafastOn ? 'off' : 'ultrafast')}
+                className={ultrafastOn ? 'text-zOrangered-400' : 'text-tertiary'}
+              >
+                <Rocket size={16} strokeWidth={1.6} fill={ultrafastOn ? 'currentColor' : 'none'} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </div>
       )}
       {/* Reset only exists where the runtime names a default level to return to. */}
       {resetValue && (
@@ -147,11 +170,11 @@ export function ModelEffortPanel({
       )}
       <div className="flex flex-col items-center">
         <span className="text-sm font-medium text-zOrangered-400">
-          {current ? effortLabel(current) : 'Default'}
+          {current ? effortLabel(current) : t('Default')}
         </span>
         <button
           type="button"
-          aria-label="Select model"
+          aria-label={t('Select model')}
           disabled={!onOpenModels}
           onClick={onOpenModels}
           className={clsx(
@@ -164,7 +187,7 @@ export function ModelEffortPanel({
         </button>
       </div>
       <Slider.Root
-        aria-label="Effort"
+        aria-label={t('Effort')}
         value={Math.max(index, 0)}
         min={0}
         max={Math.max(stops.length - 1, 1)}
@@ -205,7 +228,7 @@ export function ModelEffortPanel({
             ))}
             <Slider.Thumb
               inputRef={sliderRef}
-              getAriaValueText={() => (current ? effortLabel(current) : 'Default')}
+              getAriaValueText={() => (current ? effortLabel(current) : t('Default'))}
               className={clsx(
                 'h-7 w-7 rounded-full border border-black/10 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-zOrangered-400/60',
                 index < 0 && 'opacity-0',

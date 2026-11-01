@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { ArrowDownToLine, PanelRightOpen } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import { FeedbackCommentDialog } from './conversationBanners'
 import { ConversationMessageList } from './conversationMessageList'
 import {
@@ -62,7 +64,7 @@ export function Conversation({
     !tab.foreign &&
     !tab.error &&
     !tab.agentSetupRequired
-  const displayStatusLabel = statusLabel ?? (sendingFeedback ? 'Sending…' : null)
+  const displayStatusLabel = statusLabel ?? (sendingFeedback ? t('Sending…') : null)
   const {
     hasEarlier,
     scrollToBottom,
@@ -119,8 +121,8 @@ export function Conversation({
               type="button"
               onClick={onDockToSidebar}
               className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800/70 flex items-center justify-center transition-colors"
-              title="Move to sidebar"
-              aria-label="Move agent to sidebar"
+              title={t('Move to sidebar')}
+              aria-label={t('Move agent to sidebar')}
             >
               <PanelRightOpen className="h-3.5 w-3.5" strokeWidth={1.8} />
             </button>
@@ -169,8 +171,8 @@ export function Conversation({
           type="button"
           onClick={scrollToBottom}
           className="absolute bottom-3 left-1/2 z-20 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-zGray-700/80 bg-elevated/90 text-secondary shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-[transform,color,border-color,background-color] hover:-translate-x-1/2 hover:-translate-y-0.5 hover:border-zViolet-accent/60 hover:bg-zGray-800 hover:text-main"
-          title="Jump to latest"
-          aria-label="Jump to latest"
+          title={t('Jump to latest')}
+          aria-label={t('Jump to latest')}
         >
           <ArrowDownToLine className="h-4 w-4" strokeWidth={1.8} />
         </button>

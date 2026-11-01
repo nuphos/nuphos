@@ -172,6 +172,11 @@ fun AgentPage(
     SideEffect {
         if (store.phase == AgentStore.Phase.Loaded && !resolvingPins) settledRows = store.conversations
     }
+    val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle ||
+        (store.phase == AgentStore.Phase.Loaded && resolvingPins && settledRows.isNullOrEmpty()) ||
+        (store.phase == AgentStore.Phase.Loaded && store.conversations.isEmpty() && pins.isEmpty() &&
+            store.selectedTeam != null && store.search.isEmpty() && !store.archivedOnly &&
+            store.favorites == null && store.favoritesError == null)
     val displayedRows = if (resolvingPins) settledRows.orEmpty() else store.conversations
     val tree = remember(displayedRows, pins, foldedIds, account) {
         PinnedHistory.nest(displayedRows, pins, foldedIds.toSet(), account)
@@ -216,16 +221,12 @@ fun AgentPage(
             }
         }
         PullToRefreshBox(
-            isRefreshing = store.isRefreshing,
+            isRefreshing = store.isRefreshing && !showInitialLoading,
             onRefresh = store::refresh,
             modifier = Modifier.weight(1f).fillMaxWidth().testTag("chat-history-refresh"),
         ) {
             when {
-                store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle ||
-                    (store.phase == AgentStore.Phase.Loaded && resolvingPins && settledRows.isNullOrEmpty()) ||
-                    (store.phase == AgentStore.Phase.Loaded && store.conversations.isEmpty() && pins.isEmpty() &&
-                        store.selectedTeam != null && store.search.isEmpty() && !store.archivedOnly &&
-                        store.favorites == null && store.favoritesError == null) -> {
+                showInitialLoading -> {
                     RefreshableHistoryState {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -269,7 +270,7 @@ fun AgentPage(
                                         nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}") { popUpTo("home"); launchSingleTop = true }
                                     }) {
                                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            PinnedAvatar(true) { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null) }
+                                            PinnedAvatar(true) { AgentAvatar(pin.sessionId, null, size = 36.dp) }
                                             Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
@@ -358,7 +359,7 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, 
 }
 
 @Composable
-private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false) {
+internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false) {
     val actions = buildList {
         if (onWatch != null) add(ConversationRowAction("watch", if (conversation.watching == true) "Unwatch" else "Watch",
             if (conversation.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, !watchBusy && !actionBusy, onWatch))
@@ -383,8 +384,8 @@ private fun ConversationRow(conversation: AgentConversation, pinned: Boolean, st
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(conversation.displayTitle, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        RuntimeMark(conversation.agentRuntime)
-                        Text(meta(conversation, status?.takeUnless { it == "Unread" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (ai.nuphos.android.ui.components.botAvatarsEnabled()) RuntimeMark(conversation.agentRuntime)
+                        Text(meta(conversation, status?.takeUnless { it == "Unread" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 if (threads > 0) {
@@ -432,7 +433,7 @@ private fun meta(conversation: AgentConversation, status: String?): String {
     conversation.activitySource?.origin?.takeIf { it != "nuphos" && it != "unknown" }?.let {
         parts += it.replaceFirstChar { c -> c.uppercase() }
     }
-    conversation.runtimeLabel?.takeIf { it.isNotBlank() }?.let { parts += it }
+    parts += ai.nuphos.android.model.RuntimeIdentity.detail(conversation.agentRuntime, conversation.runtimeLabel)
     return parts.joinToString(" · ")
 }
 

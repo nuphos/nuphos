@@ -10,6 +10,7 @@ import { xtermThemeFor } from '../components/terminalTheme'
 import { toast } from '../components/ui/toast'
 import { useTheme } from '../hooks/useTheme'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import type { TerminalTarget } from '../api/local-terminal-types'
 
@@ -25,7 +26,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
   const { tabId, isActive } = useWorkspaceTab()
   const [generation, setGeneration] = useState(0)
   const [status, setStatus] = useState(
-    sessionId ? 'Connecting to runtime…' : 'Starting local shell…',
+    sessionId ? t('Connecting to runtime…') : t('Starting local shell…'),
   )
   const [closed, setClosed] = useState(false)
   // End the dead shell before asking for a new one — `start` is keyed by tab id
@@ -74,7 +75,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
 
       ended = true
       setClosed(true)
-      setStatus('Terminal unavailable')
+      setStatus(t('Terminal unavailable'))
       terminal.writeln(`\r\n${message}`)
     }
     const resize = () => {
@@ -86,12 +87,12 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
     const input = terminal.onData((data) => {
       if (!ready || ended) return
       if (target && new TextEncoder().encode(data).length > 16384) {
-        toast.error('Terminal input is too large', 'Paste at most 16 KiB at a time.')
+        toast.error(t('Terminal input is too large'), t('Paste at most 16 KiB at a time.'))
 
         return
       }
       void api.localTerminalInput(tabId, data).catch((error: unknown) => {
-        if (!disposed) toast.apiError('Could not send terminal input', error)
+        if (!disposed) toast.apiError(t('Could not send terminal input'), error)
       })
     })
     const observer = new ResizeObserver(resize)
@@ -100,7 +101,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
     observer.observe(host)
     resize()
     setClosed(false)
-    setStatus(target ? 'Connecting to runtime…' : 'Starting local shell…')
+    setStatus(target ? t('Connecting to runtime…') : t('Starting local shell…'))
     api
       .localTerminalStart(tabId, terminal.cols, terminal.rows, target)
       .then(async ({ shell }) => {
@@ -152,7 +153,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
   return (
     <PageMeta
       pageKey="team.terminal"
-      title={sessionId ? 'Runtime terminal' : 'Local terminal'}
+      title={sessionId ? t('Runtime terminal') : t('Local terminal')}
       icon={<Terminal className="h-3.5 w-3.5" />}
     >
       <div
@@ -160,7 +161,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
       >
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3 text-xs text-tertiary">
           <Terminal className="h-3.5 w-3.5" />
-          <span>{sessionId ? 'Runtime terminal' : 'Local terminal'}</span>
+          <span>{sessionId ? t('Runtime terminal') : t('Local terminal')}</span>
           <span className="ml-auto" role="status">
             {status}
           </span>
@@ -169,16 +170,16 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
               type="button"
               onClick={newShell}
               className="flex items-center gap-1 rounded px-2 py-1 text-secondary hover:bg-zGray-800/60"
-              aria-label="New shell"
+              aria-label={t('New shell')}
             >
-              <RotateCw className="h-3 w-3" /> New shell
+              <RotateCw className="h-3 w-3" /> {t('New shell')}
             </button>
           )}
         </div>
         <div
           ref={hostRef}
           className="min-h-0 flex-1 overflow-hidden p-3"
-          aria-label={sessionId ? 'Runtime terminal' : 'Local terminal'}
+          aria-label={sessionId ? t('Runtime terminal') : t('Local terminal')}
         />
       </div>
     </PageMeta>

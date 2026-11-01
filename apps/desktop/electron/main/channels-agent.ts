@@ -6,6 +6,8 @@ import { writeComplianceExportZip } from '../complianceExport'
 import type { IpcMainInvokeEvent } from 'electron'
 
 export const agentChannels = {
+  'agent:resolveDecision': (_e: unknown, ...args: Parameters<typeof agent.resolveDecision>) =>
+    agent.resolveDecision(...args),
   'agent:getSessionConfig': (_e: unknown, sessionId: string, teamId: string) =>
     agent.getSessionConfig(sessionId, teamId),
   'agent:setSessionConfig': (
@@ -21,6 +23,7 @@ export const agentChannels = {
       sessionId: string
       teamId?: string
       messages: unknown[]
+      decisionReplyTo?: string
       baseIndex?: number
       locale?: string
       url?: string
@@ -101,6 +104,8 @@ export const agentChannels = {
     agent.retractMessage(sessionId, messageId, teamId),
   'agent:steerConversation': (_e: unknown, ...args: Parameters<typeof agent.steerConversation>) =>
     agent.steerConversation(...args),
+  'agent:saveSecret': (_e: unknown, ...args: Parameters<typeof agent.saveConversationSecret>) =>
+    agent.saveConversationSecret(...args),
   'agent:listQueue': (_e: unknown, ...args: Parameters<typeof agent.listConversationQueue>) =>
     agent.listConversationQueue(...args),
   'agent:unqueueMessage': (_e: unknown, ...args: Parameters<typeof agent.unqueueMessage>) =>

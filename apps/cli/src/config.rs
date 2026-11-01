@@ -139,19 +139,14 @@ pub fn api_url() -> String {
         .unwrap_or_else(|| DEFAULT_API_URL.to_string())
 }
 
-/// `NUPHOS_LOGIN_URL`, `NUPHOS_WEB_URL` + `/login`, then nuphos.ai.
-pub fn login_url() -> String {
+/// Override the provider chooser URL, otherwise use the selected backend.
+pub fn login_url(api_url: &str) -> String {
     if let Ok(v) = std::env::var("NUPHOS_LOGIN_URL") {
-        if !v.is_empty() {
+        if !v.trim().is_empty() {
             return v;
         }
     }
-    if let Ok(v) = std::env::var("NUPHOS_WEB_URL") {
-        if !v.is_empty() {
-            return format!("{}/login", v.trim_end_matches('/'));
-        }
-    }
-    "https://nuphos.ai/login".to_string()
+    format!("{}/auth/social/login", api_url.trim_end_matches('/'))
 }
 
 fn read_session_file() -> Session {

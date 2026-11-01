@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import { getToolInputDescription } from './model'
 
 import type { ToolPart } from './parts'
@@ -8,10 +10,10 @@ export function getToolLabel(part: ToolPart): string {
   if (description) return description
   if (part.state === 'input-streaming') {
     if (part.toolName === 'bash' || part.toolName === 'local_exec') {
-      return 'Preparing command…'
+      return t('Preparing command…')
     }
 
-    return 'Preparing tool…'
+    return t('Preparing tool…')
   }
 
   return part.toolName

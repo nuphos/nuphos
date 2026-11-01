@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { Check, ChevronsUpDown, Loader2, Mail, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
 import { Menu, MenuContent, MenuTrigger } from '../ui/menu'
 import { toast } from '../ui/toast'
 import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
@@ -21,10 +22,10 @@ export function SidebarIdentitySelector({
   if (scope.kind !== 'aws-account' && scope.kind !== 'gcp-project') return null
 
   const isAws = scope.kind === 'aws-account'
-  const title = isAws ? 'AWS role' : 'GCP service account'
+  const title = isAws ? t('AWS role') : t('GCP service account')
   const hint = isAws
-    ? 'You have multiple available roles to view and operate this AWS account.'
-    : 'You have multiple available service accounts to view and operate this GCP project.'
+    ? t('You have multiple available roles to view and operate this AWS account.')
+    : t('You have multiple available service accounts to view and operate this GCP project.')
 
   return (
     <div className="mb-2.5">
@@ -57,7 +58,7 @@ export function SidebarIdentitySelector({
             renderWorkspaceMenuOptions(segment.options)
           ) : (
             <div className="px-2.5 py-2 text-tertiary text-[12.5px]">
-              {segment.emptyText || 'No identities'}
+              {segment.emptyText || t('No identities')}
             </div>
           )}
         </MenuContent>
@@ -91,7 +92,7 @@ export function SidebarInvitations({
     try {
       await handler(invitationId)
     } catch (err) {
-      toast.apiError('Invitation action failed', err)
+      toast.apiError(t('Invitation action failed'), err)
     } finally {
       setActingId(null)
     }
@@ -101,8 +102,8 @@ export function SidebarInvitations({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         className="titlebar-no-drag relative flex h-7 w-7 items-center justify-center rounded-full border border-zGray-800/60 bg-main/50 text-tertiary outline-none backdrop-blur-md transition-colors hover:bg-main/70 hover:text-secondary data-[popup-open]:bg-main/70 data-[popup-open]:text-secondary"
-        aria-label={count === 1 ? '1 team invitation' : `${String(count)} team invitations`}
-        title={count === 1 ? '1 team invitation' : `${String(count)} team invitations`}
+        aria-label={count === 1 ? t('1 team invitation') : t('{count} team invitations', { count })}
+        title={count === 1 ? t('1 team invitation') : t('{count} team invitations', { count })}
       >
         <Mail className="h-3.5 w-3.5" strokeWidth={2} />
         <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-semibold leading-none text-white">
@@ -124,14 +125,14 @@ export function SidebarInvitations({
             <div className="flex items-center gap-2 px-2 pt-2 pb-1">
               <Mail className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={2} />
               <span className="text-[12.5px] font-semibold text-main">
-                {count === 1 ? 'Team invitation' : `${String(count)} team invitations`}
+                {count === 1 ? t('Team invitation') : t('{count} team invitations', { count })}
               </span>
             </div>
             <div className="max-h-[320px] space-y-1 overflow-y-auto scrollbar-thin p-0.5">
               {invitations.map((invitation) => (
                 <div key={invitation.id} className="rounded-md bg-zGray-850 px-2.5 py-2">
                   <div className="truncate text-[12.5px] text-main">
-                    {invitation.team?.name ?? 'Team invitation'}
+                    {invitation.team?.name ?? t('Team invitation')}
                   </div>
                   <div className="truncate text-[11.5px] text-tertiary">
                     {invitation.inviteeEmail}
@@ -143,7 +144,7 @@ export function SidebarInvitations({
                       className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-zViolet-500 px-2 text-[12px] font-medium text-white outline-none transition-colors hover:bg-zViolet-400 data-[disabled]:cursor-default data-[disabled]:opacity-60"
                     >
                       <Check className="h-3 w-3" />
-                      Accept
+                      {t('Accept')}
                     </BaseButton>
                     <BaseButton
                       disabled={actingId !== null}
@@ -151,7 +152,7 @@ export function SidebarInvitations({
                       className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-zGray-700 px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-zGray-800/70 hover:text-main data-[disabled]:cursor-default data-[disabled]:opacity-60"
                     >
                       <X className="h-3 w-3" />
-                      Reject
+                      {t('Reject')}
                     </BaseButton>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { isPlanProposalToolName } from '../planReference.ts'
 
-import { parseChoiceRequest, parseConnectRequest } from './connectCardModel.ts'
+import { parseChoiceRequest, parseConnectRequest, parseSecretRequest } from './connectCardModel.ts'
 import { isHiddenMemoryIngestPart } from './parts.ts'
 import { isThreadBadgePart } from './threadBadges.ts'
 import { INTERRUPTED_TOOL_MESSAGE, incompleteToolErrorText } from './toolInterruption.ts'
@@ -30,7 +30,9 @@ export function isDecisionCardPart(part: Part): boolean {
   return (
     part.type === 'tool' &&
     part.toolName === 'request_user_decision' &&
-    (parseConnectRequest(part.input) ?? parseChoiceRequest(part.input)) !== null
+    (parseConnectRequest(part.input) ??
+      parseSecretRequest(part.input) ??
+      parseChoiceRequest(part.input)) !== null
   )
 }
 

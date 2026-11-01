@@ -2,6 +2,7 @@ import { Container, FolderTree, Plus, Server } from 'lucide-react'
 
 import { CloudLogo } from '../components/CloudLogo'
 import { DatabaseEngineGlyph } from '../components/DatabaseEngineIcon'
+import { t } from '../i18n'
 
 import { activeNavItemFor, k8sResourceIcon, titleFromLocation } from './navItems'
 import { scopeChip } from './scopeChip'
@@ -62,7 +63,7 @@ function workspaceTabDisplayMetaBase(
 
   if (tab.scope.kind === 'team' && tab.active === 'team.new-tab') {
     return {
-      title: 'New Tab',
+      title: t('New tab'),
       icon: <Plus className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />,
       location,
     }

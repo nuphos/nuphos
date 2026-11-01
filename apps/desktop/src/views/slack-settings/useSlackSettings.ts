@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type {
@@ -94,7 +95,7 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
         setOauthAvailable(installInfo.oauthAvailable)
         setStatus(connectionStatus)
         if (connectionStatus.error) {
-          toast.error('Slack connection check failed', connectionStatus.error)
+          toast.error(t('Slack connection check failed'), connectionStatus.error)
         }
         setChannelMappings(channels)
         setMyMapping(mySlackMapping)
@@ -118,7 +119,7 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
         }
       })
       .catch((err: unknown) => {
-        toast.apiError('Could not load Slack settings', err)
+        toast.apiError(t('Could not load Slack settings'), err)
       })
       .finally(() => {
         setLoading(false)
@@ -162,7 +163,10 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
     const channel = normalizeSlackId(newChannelId)
 
     if (!isSlackId(workspace) || !isSlackId(channel)) {
-      toast.error('Invalid Slack ID', 'Workspace and channel IDs must look like T01ABC / C01ABC.')
+      toast.error(
+        t('Invalid Slack ID'),
+        t('Workspace and channel IDs must look like T01ABC / C01ABC.'),
+      )
 
       return
     }
@@ -175,9 +179,9 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
       setNewChannelId('')
       setLinkChannelOpen(false)
       await load()
-      toast.success('Channel linked')
+      toast.success(t('Channel linked'))
     } catch (err) {
-      toast.apiError('Could not link channel', err)
+      toast.apiError(t('Could not link channel'), err)
     } finally {
       setLinkChannelSubmitting(false)
     }
@@ -196,7 +200,7 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
       )
       await load()
     } catch (err) {
-      toast.apiError('Could not remove channel mapping', err)
+      toast.apiError(t('Could not remove channel mapping'), err)
     } finally {
       setBusyKey(null)
     }

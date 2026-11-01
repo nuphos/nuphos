@@ -3,17 +3,21 @@ import { describe, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
 import { createClaudeCodeAutonomousUpdateHandler } from './chat-preview-autonomous'
+import { CONNECTION_LOST_TOOL_ERROR } from './chat-preview-handoff'
 
 import type { ClaudeCodeAutonomousContext } from '@/lib/claude-code-preview/agent-chat-runtime'
+import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
 
 // Persistence itself is covered by the DB helper; these tests isolate turn
 // routing and lifecycle ordering.
 const persistedIds: string[] = []
+const persistedParts: unknown[] = []
 let persist: () => Promise<boolean> = async () => false
 
 useAgentDb({
   appendAutonomousConversationTurn: (args) => {
     persistedIds.push(args.message.id)
+    persistedParts.push(args.message.parts)
 
     return persist()
   },
@@ -33,7 +37,7 @@ const request = {
   options: [{ optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' }],
 }
 
-function harness() {
+function harness(steps: PreviewToolStep[] = []) {
   const authorizeCalls: Record<string, unknown>[] = []
   const begins: ClaudeCodeAutonomousContext[] = []
   const messageIds: string[] = []
@@ -53,10 +57,7 @@ function harness() {
           calls.push('finish')
         },
         handleTool: () => {},
-        toolSteps: () => [],
-        reportError: () => {
-          calls.push('error')
-        },
+        toolSteps: () => steps,
       }
     },
     authorize: (args) => {
@@ -97,7 +98,7 @@ describe('autonomous turn permission routing', () => {
 })
 
 describe('autonomous turn interruption', () => {
-  test('reports the error before the turn is finished', async () => {
+  test('reports the interruption before the turn is finished', async () => {
     const h = harness()
 
     await h.handler.update({ ...context, update: { kind: 'text', text: 'Writing the note…' } })
@@ -106,9 +107,65 @@ describe('autonomous turn interruption', () => {
       update: { kind: 'interrupted', reason: 'connection_closed' },
     })
 
-    // `reportError` appends the error frame; `finish` writes the terminal ones.
-    // Reversed, the client would see a completed turn with an error after it.
-    expect(h.calls).toEqual(['emit', 'error', 'finish'])
+    // The notice goes out before `finish` writes the terminal frames. Reversed,
+    // the client would see a completed turn with an error after it.
+    expect(h.calls).toEqual(['emit', 'emit', 'finish'])
+    expect(h.frames[1]).toMatchObject({
+      type: 'turn-interrupted',
+      reason: 'error',
+      message: 'The agent stopped before it finished. Send a message to continue.',
+    })
+  })
+
+  test('a CLI that died between turns gets its own notice, in the transcript', async () => {
+    const before = persistedIds.length
+    const h = harness()
+    const message = 'Claude Code ran out of memory. Send a message to continue.'
+
+    persist = async () => true
+    await h.handler.update({
+      ...context,
+      update: { kind: 'interrupted', reason: 'connection_closed', message },
+    })
+    await Promise.resolve()
+
+    expect(h.begins).toHaveLength(1)
+    expect(h.frames).toEqual([expect.objectContaining({ type: 'turn-interrupted', message })])
+    expect(h.calls).toEqual(['emit', 'finish'])
+    expect(persistedIds.slice(before)).toEqual(h.messageIds)
+  })
+
+  test('an interruption without a cause and no open turn stays silent', async () => {
+    const h = harness()
+
+    await h.handler.update({
+      ...context,
+      update: { kind: 'interrupted', reason: 'runtime_interrupted' },
+    })
+    expect(h.begins).toHaveLength(0)
+  })
+
+  test('a dropped runtime connection ends the turn without saying the agent stopped', async () => {
+    const h = harness([{ toolCallId: 'tool-1', toolName: 'Bash', input: {} }])
+
+    await h.handler.update({ ...context, update: { kind: 'text', text: 'Waiting for the build…' } })
+    await h.handler.update({
+      ...context,
+      update: {
+        kind: 'agent',
+        update: { kind: 'tool', toolCallId: 'tool-1', title: 'Bash', status: 'in_progress' },
+      },
+    } as never)
+    await h.handler.update({
+      ...context,
+      update: { kind: 'interrupted', reason: 'runtime_connection_lost' },
+    })
+
+    // The runtime keeps the agent running and the session reattaches; its
+    // continuation arrives as the next turn, exactly as for an interactive one.
+    expect(h.frames.some((frame) => frame.type === 'turn-interrupted')).toBe(false)
+    expect(h.calls.at(-1)).toBe('finish')
+    expect(JSON.stringify(persistedParts.at(-1))).toContain(CONNECTION_LOST_TOOL_ERROR)
   })
 
   test('a normal completion finishes without an error', async () => {
@@ -209,5 +266,5 @@ test('a placeholder cannot hide an autonomous runtime interruption', async () =>
     ...context,
     update: { kind: 'interrupted', reason: 'connection_closed' },
   })
-  expect(h.calls).toEqual(['emit', 'error', 'finish'])
+  expect(h.calls).toEqual(['emit', 'emit', 'finish'])
 })

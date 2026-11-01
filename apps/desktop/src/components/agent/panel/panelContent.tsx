@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Maximize2, SquarePen } from 'lucide-react'
 
+import { t } from '../../../i18n'
+
 import { ConversationSwitcher } from './ConversationSwitcher'
 
 import type { PanelViewCtx } from './ctx'
@@ -45,8 +47,8 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
             <button
               onClick={startNewChat}
               className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center transition-colors"
-              title="New agent"
-              aria-label="New agent"
+              title={t('New agent')}
+              aria-label={t('New agent')}
             >
               <SquarePen className="w-3.5 h-3.5" strokeWidth={1.8} />
             </button>
@@ -55,8 +57,8 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
             <button
               onClick={(event) => expandCurrentSession({ newTab: event.metaKey || event.ctrlKey })}
               className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center transition-colors"
-              title="Open in tab"
-              aria-label="Open agent chat in a tab"
+              title={t('Open in tab')}
+              aria-label={t('Open agent chat in a tab')}
             >
               <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.8} />
             </button>
@@ -91,7 +93,7 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
           // firing on the container underneath.
           <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] bg-zViolet-500/[0.06] ring-1 ring-inset ring-zViolet-accent/30">
             <span className="rounded-full border border-zViolet-accent/30 bg-elevated/90 px-3 py-1 text-[12px] font-medium text-zViolet-accent shadow-sm backdrop-blur-sm">
-              Drop to attach
+              {t('Drop to attach')}
             </span>
           </div>
         )}

@@ -2,14 +2,14 @@ import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, History } from 'lucide-react'
 import { useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+import { AgentAvatar } from '../agent/AgentAvatar'
 import { Menu, MenuContent, MenuItem, MenuSeparator } from '../ui/menu'
 
 import { FullHistoryDialog } from './full-history-dialog'
 import { historyAge, historyMenuRows } from './historyRows'
 
-import type { HistoryTimeline } from './historyRows'
-
-type ChatTitle = (sessionId: string) => string | undefined
+import type { ChatLookup, HistoryTimeline } from './historyRows'
 
 /**
  * Back and Forward, browser style: a press steps once, a right-click lists the
@@ -21,14 +21,14 @@ export function SidebarHistoryButtons({
   onBack,
   onForward,
   history,
-  chatTitle = () => {},
+  chatOf = () => {},
 }: {
   canGoBack: boolean
   canGoForward: boolean
   onBack?: () => void
   onForward?: () => void
   history?: HistoryTimeline
-  chatTitle?: ChatTitle
+  chatOf?: ChatLookup
 }) {
   const [fullOpen, setFullOpen] = useState(false)
 
@@ -39,7 +39,7 @@ export function SidebarHistoryButtons({
         enabled={canGoBack}
         onStep={onBack}
         history={history}
-        chatTitle={chatTitle}
+        chatOf={chatOf}
         onShowAll={() => setFullOpen(true)}
       />
       <HistoryButton
@@ -47,7 +47,7 @@ export function SidebarHistoryButtons({
         enabled={canGoForward}
         onStep={onForward}
         history={history}
-        chatTitle={chatTitle}
+        chatOf={chatOf}
         onShowAll={() => setFullOpen(true)}
       />
       {history && (
@@ -55,7 +55,7 @@ export function SidebarHistoryButtons({
           open={fullOpen}
           onOpenChange={setFullOpen}
           history={history}
-          chatTitle={chatTitle}
+          chatOf={chatOf}
         />
       )}
     </div>
@@ -67,20 +67,20 @@ function HistoryButton({
   enabled,
   onStep,
   history,
-  chatTitle,
+  chatOf,
   onShowAll,
 }: {
   direction: -1 | 1
   enabled: boolean
   onStep?: () => void
   history?: HistoryTimeline
-  chatTitle: ChatTitle
+  chatOf: ChatLookup
   onShowAll: () => void
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const rows = menuOpen && history ? historyMenuRows(history, direction, chatTitle) : []
-  const label = direction === -1 ? 'Back' : 'Forward'
+  const rows = menuOpen && history ? historyMenuRows(history, direction, chatOf) : []
+  const label = direction === -1 ? t('Back') : t('Forward')
   const Icon = direction === -1 ? ChevronLeft : ChevronRight
 
   return (
@@ -109,7 +109,7 @@ function HistoryButton({
             : 'text-tertiary/45 cursor-default',
           menuOpen && 'bg-[var(--sidebar-overlay-hover)] text-main',
         )}
-        title={enabled ? `${label} · right-click for history` : label}
+        title={enabled ? t('{label} · right-click for history', { label }) : label}
         aria-label={label}
         aria-haspopup="menu"
       >
@@ -121,7 +121,18 @@ function HistoryButton({
             {rows.map((row) => (
               <MenuItem
                 key={row.index}
-                icon={<row.icon className="h-3.5 w-3.5" />}
+                icon={
+                  'icon' in row ? (
+                    <row.icon className="h-3.5 w-3.5" />
+                  ) : (
+                    <AgentAvatar
+                      agentId={row.chat.sessionId}
+                      avatar={row.chat.avatar}
+                      provider={row.chat.agentRuntime}
+                      size={16}
+                    />
+                  )
+                }
                 hint={historyAge(row.at)}
                 onClick={() => history.onJump(row.index)}
               >
@@ -130,7 +141,7 @@ function HistoryButton({
             ))}
             <MenuSeparator />
             <MenuItem icon={<History className="h-3.5 w-3.5" />} onClick={onShowAll}>
-              Show full history
+              {t('Show full history')}
             </MenuItem>
           </MenuContent>
         </Menu>

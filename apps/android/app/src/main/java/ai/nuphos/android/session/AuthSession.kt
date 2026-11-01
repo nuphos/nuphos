@@ -185,6 +185,25 @@ class AuthSession(
         }
     }
 
+    /** Uploads a profile photo, or removes it with `null`. */
+    suspend fun setAvatar(image: ByteArray?): Boolean {
+        val current = token ?: return false
+        val expected = generation
+        val id = user?.id ?: return false
+        profileError = null
+        return try {
+            val updated = AccountApi(current).setAvatar(image)
+            if (!matches(expected, current) || updated.id != id) false
+            else { state = State.SignedIn(updated); true }
+        } catch (_: NuphosApi.Failure.Unauthorized) {
+            if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
+            false
+        } catch (e: Exception) {
+            if (matches(expected, current)) profileError = e.message ?: "We could not update your photo."
+            false
+        }
+    }
+
     suspend fun updateProfile(name: String, username: String, avatarURL: String): Boolean {
         val current = token ?: return false
         val expected = generation

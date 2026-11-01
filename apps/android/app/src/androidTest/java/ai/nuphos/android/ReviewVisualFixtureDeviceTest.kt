@@ -42,7 +42,7 @@ class ReviewVisualFixtureDeviceTest {
         compose.setContent {
             val context = LocalContext.current
             val store = remember { AgentStore("synthetic", context) }
-            NuphosTheme { Surface(Modifier.fillMaxSize()) { CompositionLocalProvider(LocalAgentStore provides store) {
+            NuphosTheme { Surface(Modifier.fillMaxSize()) { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                     ChatComposer(isStreaming = false, onSend = { false }, showControls = true, agent = selection, onChooseAgent = {})
                 }

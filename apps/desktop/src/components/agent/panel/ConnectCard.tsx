@@ -11,10 +11,12 @@ import {
   newConnectIds,
   parseChoiceRequest,
   parseConnectRequest,
+  parseSecretRequest,
   withConnectIds,
 } from './connectCardModel'
 import { ConnectHeader, ConnectRow, ContinueFooter } from './ConnectCardRows'
 import { allCredentialAccess, normalizeCredentialOptions } from './credentialAccess'
+import { SecretCard } from './SecretCard'
 import { ToolPartView } from './ToolPartView'
 
 import type { ConnectPhase, ConnectProvider, ConnectRowStatus } from './connectCardModel'
@@ -69,11 +71,13 @@ function currentAvailable(
 }
 
 export function ConnectCard({
+  toolCallId,
   teamId,
   providers,
   reason,
   canAct,
 }: {
+  toolCallId: string
   teamId?: string
   providers: ConnectProvider[]
   reason: string
@@ -145,7 +149,11 @@ export function ConnectCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875">
+    <div
+      data-tool-call-id={toolCallId}
+      data-decision-question={reason || undefined}
+      className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
+    >
       <ConnectHeader providers={providers} reason={reason} />
       <ul>
         {providers.map((provider) => (
@@ -163,7 +171,7 @@ export function ConnectCard({
         <ContinueFooter
           onContinue={() => {
             setContinued(true)
-            ctx?.send('continue')
+            ctx?.send('continue', { toolCallId, question: reason })
           }}
         />
       )}
@@ -180,7 +188,7 @@ export function ConnectCard({
   )
 }
 
-/** A user decision: a Connect card when it lists `providers`, else its question card; the plain tool row until the input parses. */
+/** A user decision: a Connect card when it lists `providers`, a secure input card when it names a `secretName`, else its question card; the plain tool row until the input parses. */
 export function DecisionToolPart({
   part,
   now,
@@ -194,11 +202,13 @@ export function DecisionToolPart({
 }) {
   const failed = part.state === 'output-error'
   const connect = failed ? null : parseConnectRequest(part.input)
-  const choice = failed || connect ? null : parseChoiceRequest(part.input)
+  const secret = failed || connect ? null : parseSecretRequest(part.input)
+  const choice = failed || connect || secret ? null : parseChoiceRequest(part.input)
 
   if (connect) {
     return (
       <ConnectCard
+        toolCallId={part.toolCallId}
         teamId={teamId}
         providers={connect.providers}
         reason={connect.reason}
@@ -206,7 +216,8 @@ export function DecisionToolPart({
       />
     )
   }
-  if (choice) return <ChoiceCard {...choice} canAct={canAct} />
+  if (secret) return <SecretCard {...secret} toolCallId={part.toolCallId} canAct={canAct} />
+  if (choice) return <ChoiceCard {...choice} toolCallId={part.toolCallId} canAct={canAct} />
 
   return <ToolPartView part={part} now={now} />
 }

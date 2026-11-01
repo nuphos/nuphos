@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
 
-import type { LocalShareApproval } from '../../api/device-types'
+import { afterAnswer } from './shareTrust'
+
+import type { LocalShareApproval, ShareTrustDuration } from '../../api/device-types'
 
 export const SHARE_APPROVAL_POLL_MS = 10_000
 
@@ -36,10 +38,13 @@ export function useShareApprovals(teamId: string) {
     }
   }, [teamId])
 
-  const decide = useCallback(async (approvalId: string, approve: boolean) => {
-    await api.localShareDecide(approvalId, approve)
-    setApprovals((previous) => previous.filter((entry) => entry.id !== approvalId))
-  }, [])
+  const decide = useCallback(
+    async (approval: LocalShareApproval, approve: boolean, trust?: ShareTrustDuration) => {
+      await api.localShareDecide(approval.id, approve, trust)
+      setApprovals((previous) => afterAnswer(previous, approval, trust))
+    },
+    [],
+  )
 
   return { approvals, decide }
 }

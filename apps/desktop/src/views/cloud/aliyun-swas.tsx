@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useResourceList } from '../useResourceList'
 
 import { ErrorBlock } from './ErrorBlock'
@@ -61,7 +62,7 @@ export function AliyunSwasInstancesView({
     const parts = [
       i.cpu != null ? `${String(i.cpu)} vCPU` : '',
       i.memoryGb != null ? `${String(i.memoryGb)} GB` : '',
-      i.diskGb != null ? `${String(i.diskGb)} GB disk` : '',
+      i.diskGb != null ? t('{n} GB disk', { n: String(i.diskGb) }) : '',
     ].filter(Boolean)
 
     return parts.length ? parts.join(' · ') : '—'
@@ -73,21 +74,21 @@ export function AliyunSwasInstancesView({
     () => [
       {
         key: 'instanceId',
-        header: 'Instance ID',
+        header: t('Instance ID'),
         width: 190,
         sortAccessor: (r) => r.instanceId,
         render: (r) => <span className="font-mono text-[12px]">{r.instanceId}</span>,
       },
       {
         key: 'name',
-        header: 'Name',
+        header: t('Name'),
         width: 180,
         sortAccessor: (r) => r.name,
         render: (r) => <span className="text-secondary">{r.name}</span>,
       },
       {
         key: 'plan',
-        header: 'Plan',
+        header: t('Plan'),
         width: 140,
         sortAccessor: (r) => r.plan,
         render: (r) => (
@@ -96,7 +97,7 @@ export function AliyunSwasInstancesView({
       },
       {
         key: 'status',
-        header: 'Status',
+        header: t('Status'),
         width: 110,
         sortAccessor: (r) => r.status,
         render: (r) => {
@@ -112,14 +113,14 @@ export function AliyunSwasInstancesView({
       },
       {
         key: 'region',
-        header: 'Region',
+        header: t('Region'),
         width: 140,
         sortAccessor: (r) => r.region,
         render: (r) => <span className="text-secondary">{r.region}</span>,
       },
       {
         key: 'publicIp',
-        header: 'Public IP',
+        header: t('Public IP'),
         width: 140,
         sortAccessor: (r) => r.publicIp ?? '',
         render: (r) => (
@@ -128,14 +129,14 @@ export function AliyunSwasInstancesView({
       },
       {
         key: 'spec',
-        header: 'Spec',
+        header: t('Spec'),
         width: 180,
         sortAccessor: (r) => r.cpu ?? 0,
         render: (r) => <span className="text-secondary">{specLabel(r)}</span>,
       },
       {
         key: 'age',
-        header: 'Age',
+        header: t('Age'),
         width: 100,
         sortAccessor: (r) => r.createdAt ?? '',
         render: (r) => (
@@ -159,18 +160,18 @@ export function AliyunSwasInstancesView({
           title={detail.name || detail.instanceId}
           subtitle="Simple Application Server"
           fields={[
-            { label: 'Instance ID', value: detail.instanceId, mono: true },
-            { label: 'Plan', value: detail.plan || '—', mono: true },
-            { label: 'Status', value: detail.status },
-            { label: 'Subscription', value: detail.businessStatus ?? '—' },
-            { label: 'Region', value: detail.region },
-            { label: 'Public IP', value: detail.publicIp ?? '—', mono: true },
-            { label: 'Private IP', value: detail.privateIp ?? '—', mono: true },
-            { label: 'Spec', value: specLabel(detail) },
-            { label: 'OS', value: detail.osName ?? '—' },
-            { label: 'Image', value: detail.imageId ?? '—', mono: true },
-            { label: 'Created', value: detail.createdAt ?? '—' },
-            { label: 'Expires', value: detail.expiredAt ?? '—' },
+            { label: t('Instance ID'), value: detail.instanceId, mono: true },
+            { label: t('Plan'), value: detail.plan || '—', mono: true },
+            { label: t('Status'), value: detail.status },
+            { label: t('Subscription'), value: detail.businessStatus ?? '—' },
+            { label: t('Region'), value: detail.region },
+            { label: t('Public IP'), value: detail.publicIp ?? '—', mono: true },
+            { label: t('Private IP'), value: detail.privateIp ?? '—', mono: true },
+            { label: t('Spec'), value: specLabel(detail) },
+            { label: t('OS'), value: detail.osName ?? '—' },
+            { label: t('Image'), value: detail.imageId ?? '—', mono: true },
+            { label: t('Created'), value: detail.createdAt ?? '—' },
+            { label: t('Expires'), value: detail.expiredAt ?? '—' },
           ]}
           raw={detail}
         />

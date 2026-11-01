@@ -6,11 +6,14 @@
 // inline mention pills with a type-specific icon and the resource's real name,
 // instead of a raw URL or a path segment.
 
+import { agentAppearance } from './agentAppearance'
+import { agentAvatarPick } from './agentAvatarChoices'
 import { AGENT_SUBPAGE_SEGMENTS } from './appRoutes'
 import { iconNameForType, svg } from './atlas-link-mention/icons.ts'
 import { initialLabel } from './atlas-link-mention/label.ts'
 import { parseClusterOrResource, parseInfraLink } from './atlas-link-mention/parseInfra.ts'
 import { resolveMentionLabel } from './atlas-link-mention/resolveLabel.ts'
+import { botAvatarUrl } from './botAvatars'
 import { isKubernetesClusterProvider } from './kubernetesClusterRoutes'
 import { ATLAS_WEB_BASE_URL } from './webBaseUrl'
 
@@ -218,14 +221,17 @@ export function renderMentionChip(url: string): HTMLElement {
     return span
   }
 
-  const iconName = iconNameForType(target)
   const initial = initialLabel(target)
 
-  span.innerHTML = `${svg(iconName)}<span class="atlas-mention-label">${escapeHtml(initial)}</span>`
+  span.innerHTML = `${chipIcon(target)}<span class="atlas-mention-label">${escapeHtml(initial)}</span>`
 
   // Fire-and-forget: if the resource has a richer name on the backend, swap
   // it in. Tied to the URL so re-renders of the same chip don't refetch.
   void resolveMentionLabel(target, url).then((name) => {
+    // Fetching the agent also learned its picked avatar.
+    const avatar = span.querySelector('img')
+
+    if (avatar && target.type === 'agent-session') avatar.src = agentAvatarSrc(target.sessionId)
     if (!name) return
     const lbl = span.querySelector<HTMLElement>('.atlas-mention-label')
 
@@ -233,6 +239,19 @@ export function renderMentionChip(url: string): HTMLElement {
   })
 
   return span
+}
+
+/** An agent shows its bot avatar, as everywhere else; other targets their type's icon. */
+function chipIcon(target: MentionTarget): string {
+  if (target.type === 'agent-session' && agentAppearance().botAvatars) {
+    return `<img src="${agentAvatarSrc(target.sessionId)}" alt="" draggable="false" class="atlas-mention-icon atlas-mention-avatar">`
+  }
+
+  return svg(iconNameForType(target))
+}
+
+function agentAvatarSrc(sessionId: string): string {
+  return botAvatarUrl(sessionId, agentAvatarPick(sessionId))
 }
 
 function escapeHtml(s: string): string {

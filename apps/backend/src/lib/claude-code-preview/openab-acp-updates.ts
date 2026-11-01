@@ -23,7 +23,13 @@ export type OpenAbSessionUpdate =
   // lost its connection: the session was suspended for pool capacity, force
   // evicted, or the agent process died. The agent's own terminal update died
   // with it, so this is the only end-of-turn signal that will ever arrive.
-  | { kind: 'interrupted'; reason?: string; runtimeSnapshot?: SessionExecutionState }
+  // `message` is the adapter's own account of why its CLI died, ready to show.
+  | {
+      kind: 'interrupted'
+      reason?: string
+      message?: string
+      runtimeSnapshot?: SessionExecutionState
+    }
 
 export type PromptUpdateTarget = {
   onTextDelta?: (text: string, metadata?: PreviewTextMetadata) => void
@@ -123,9 +129,9 @@ function normalizeUpdate(payload: Record<string, unknown>): OpenAbSessionUpdate 
   }
 
   if (kind === 'openab_session_interrupted') {
-    const reason = payload.reason
+    const text = (value: unknown) => (typeof value === 'string' ? value : undefined)
 
-    return { kind: 'interrupted', ...(typeof reason === 'string' ? { reason } : {}) }
+    return { kind: 'interrupted', reason: text(payload.reason), message: text(payload.message) }
   }
 
   if (kind === 'agent_message_chunk' || kind === 'agent_thought_chunk') {

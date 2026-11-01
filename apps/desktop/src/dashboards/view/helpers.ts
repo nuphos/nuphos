@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 
 import type {
   NuphosDashboard,
@@ -29,11 +30,11 @@ export function createNuphosDashboard(
 }
 
 export const RANGE_PRESETS: { key: DashboardRangePreset; label: string }[] = [
-  { key: 'last7', label: 'Last 7 days' },
-  { key: 'last14', label: 'Last 14 days' },
-  { key: 'last30', label: 'Last 30 days' },
-  { key: 'thisMonth', label: 'This month' },
-  { key: 'prevMonth', label: 'Previous month' },
+  { key: 'last7', label: t('Last 7 days') },
+  { key: 'last14', label: t('Last 14 days') },
+  { key: 'last30', label: t('Last 30 days') },
+  { key: 'thisMonth', label: t('This month') },
+  { key: 'prevMonth', label: t('Previous month') },
 ]
 
 /** A short human label for the active range, e.g. "Jun 17 – Jul 17". */
@@ -59,21 +60,24 @@ export function latestCompletedRefreshAt(detail: NuphosDashboardDetail | null): 
   return latest
 }
 
+/** "Last updated …" label for the toolbar. */
 export function refreshAge(timestamp: string): string {
   const elapsedSeconds = Math.max(
     0,
     Math.floor((Date.now() - new Date(timestamp).getTime()) / 1_000),
   )
 
-  if (elapsedSeconds < 60) return 'just now'
+  if (elapsedSeconds < 60) return t('Last updated just now')
   const elapsedMinutes = Math.floor(elapsedSeconds / 60)
 
-  if (elapsedMinutes < 60) return `${String(elapsedMinutes)}m ago`
+  if (elapsedMinutes < 60) return t('Last updated {minutes}m ago', { minutes: elapsedMinutes })
   const elapsedHours = Math.floor(elapsedMinutes / 60)
 
-  if (elapsedHours < 24) return `${String(elapsedHours)}h ago`
+  if (elapsedHours < 24) return t('Last updated {hours}h ago', { hours: elapsedHours })
 
-  return new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const date = new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+  return t('Last updated {date}', { date })
 }
 
 /** Order panels by the dashboard's layout array (fallback: creation order). */

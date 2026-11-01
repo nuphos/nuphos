@@ -152,7 +152,14 @@ pub struct SessionActivity {
     /// approve. Readers bound this themselves (see the pool's hung threshold);
     /// an open wait is not licence to pin a session forever.
     agent_permission_wait_ms: AtomicU64,
+    /// Why the agent's CLI died, as the adapter announced it on stderr
+    /// (see [`PROCESS_DEATH_PREFIX`]). Lets an interruption name its cause.
+    process_death: std::sync::Mutex<Option<String>>,
 }
+
+/// Stderr line prefix the Nuphos adapter patches (apps/runtime/image/process-death.mjs)
+/// write once, right before exiting, with the reason their CLI died.
+const PROCESS_DEATH_PREFIX: &str = "nuphos-process-death: ";
 
 impl Default for SessionActivity {
     fn default() -> Self {
@@ -170,12 +177,28 @@ impl SessionActivity {
             prompt_permission_wait_ms: AtomicU64::new(0),
             agent_relay_ms: AtomicU64::new(0),
             agent_permission_wait_ms: AtomicU64::new(0),
+            process_death: Default::default(),
         }
     }
 
     /// Subscriber replacement is not process termination. Shared with idle relays.
     pub fn connection_ended(&self) -> bool {
         self.connection_ended.load(Ordering::Acquire)
+    }
+
+    /// The adapter's own words for why its CLI died, if it said so.
+    pub fn process_death(&self) -> Option<String> {
+        self.process_death
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    fn note_stderr(&self, line: &str) {
+        if let Some(message) = line.strip_prefix(PROCESS_DEATH_PREFIX) {
+            *self.process_death.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some(message.to_string());
+        }
     }
 
     fn mark_connection_ended(&self) {
@@ -800,10 +823,13 @@ impl AcpConnection {
         let stdin = proc.stdin.take().ok_or_else(|| anyhow!("no stdin"))?;
         let stdin = Arc::new(Mutex::new(stdin));
 
+        let activity = Arc::new(SessionActivity::new());
+
         // Capture agent stderr and log it (ACP spec: agents MAY write to stderr
         // for logging; clients MAY capture or ignore it).
         let stderr_handle = if let Some(stderr) = proc.stderr.take() {
             let cmd_name = command.to_string();
+            let activity = activity.clone();
             Some(tokio::spawn(async move {
                 let mut reader = BufReader::new(stderr);
                 let mut line = String::new();
@@ -820,6 +846,7 @@ impl AcpConnection {
                                     .collect();
                                 if !sanitized.is_empty() {
                                     tracing::warn!(agent = %cmd_name, "{sanitized}");
+                                    activity.note_stderr(&sanitized);
                                 }
                             }
                         }
@@ -838,7 +865,6 @@ impl AcpConnection {
         let idle_notify_tx: Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>> =
             Arc::new(Mutex::new(None));
 
-        let activity = Arc::new(SessionActivity::new());
         let terminal = Arc::new(super::terminal::TerminalManager::new());
         let reader_handle = tokio::spawn(run_reader_loop_with_state_and_terminal(
             stdout,
@@ -1948,6 +1974,18 @@ mod reader_loop_tests {
         // A future timestamp must not underflow: age saturates at zero.
         activity.set_last_active_ms(u64::MAX);
         assert_eq!(activity.age(), std::time::Duration::ZERO);
+    }
+
+    #[test]
+    fn session_activity_keeps_only_the_announced_process_death() {
+        let activity = SessionActivity::new();
+        activity.note_stderr("Session x: Claude Agent process died: terminated by signal SIGKILL");
+        assert_eq!(activity.process_death(), None);
+        activity.note_stderr("nuphos-process-death: Claude Code ran out of memory.");
+        assert_eq!(
+            activity.process_death().as_deref(),
+            Some("Claude Code ran out of memory.")
+        );
     }
 
     #[test]

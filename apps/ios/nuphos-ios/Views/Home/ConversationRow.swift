@@ -19,7 +19,7 @@ struct ConversationRow: View {
     private func indicator(for row: AgentConversation) -> ConversationIndicator {
         let unread = ConversationUnread.shared.contains(team: team, session: row.sessionId)
         guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observations.value(team: team, session: row.sessionId), at: observations.now, unread: unread)
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread)
     }
 
     var body: some View {
@@ -45,13 +45,10 @@ struct ConversationRow: View {
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
 
-                HStack(spacing: 5) {
-                    RuntimeMark(runtime: conversation.isNativeRuntime ? conversation.agentRuntime : nil)
-                    Text(meta)
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
-                }
+                Text(meta)
+                    .font(Theme.Text.label)
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 0)
@@ -73,10 +70,10 @@ struct ConversationRow: View {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
                     .accessibilityLabel("Runtime status unavailable")
-            } else if observation?.paused(at: observations.now) == true {
+            } else if observation?.paused == true {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
-                    .accessibilityLabel(observation?.status(at: observations.now) ?? "Automatic continuation paused")
+                    .accessibilityLabel(observation?.status ?? "Automatic continuation paused")
             }
         }
         .padding(.vertical, 6)
@@ -84,8 +81,8 @@ struct ConversationRow: View {
     }
 
     private var meta: String {
-        let status = [.turn, .background].contains(indicator) || observation?.paused(at: observations.now) == true
-        var parts = [status ? (observation?.status(at: observations.now) ?? "Working…") : HistoryTime.format(conversation.lastActiveAt)]
+        let status = [.turn, .background].contains(indicator) || observation?.paused == true
+        var parts = [status ? (observation?.status ?? "Working…") : HistoryTime.format(conversation.lastActiveAt)]
         if let origin = conversation.activitySource?.origin, origin != "nuphos", origin != "unknown" {
             parts.append(origin.capitalized)
         }
@@ -93,29 +90,6 @@ struct ConversationRow: View {
             parts.append(label)
         }
         return parts.joined(separator: " · ")
-    }
-}
-
-/// Which agent answers in a conversation, as the desktop sidebar's
-/// `RuntimeChatIcon` shows it: the provider's mark for a runtime, a message
-/// glyph for the built-in agent. It sits at the head of the meta line, so
-/// the trailing indicators can come and go without moving it.
-struct RuntimeMark: View {
-    /// `agentRuntime` for a runtime-backed chat, absent for the built-in one.
-    let runtime: String?
-
-    var body: some View {
-        Group {
-            if let runtime {
-                BrandLogo(name: RuntimeInstance.Provider.logo(runtime), size: 12)
-            } else {
-                Image(systemName: "message")
-                    .font(Theme.Text.caption)
-                    .frame(width: 12, height: 12)
-            }
-        }
-        .foregroundStyle(Theme.muted)
-        .accessibilityLabel(RuntimeInstance.Provider.name(runtime ?? "nuphos"))
     }
 }
 

@@ -13,6 +13,7 @@ import type { PreviewAgentUpdate } from './preview-agent-update'
 import type { TeamSession } from './team-openab-runtime'
 
 import { redactStreamedUpdates } from './streamed-token-redaction'
+import { closeAutonomousTranscript } from './team-openab-runtime'
 export type ClaudeCodeAutonomousContext = {
   teamId: string
   conversationId: string
@@ -268,10 +269,8 @@ export function observeAutonomousUpdates(session: TeamSession): void {
     if (!terminal) {
       // A broadcast snapshot is not evidence of output ownership.
       if (update.kind !== 'status') session.autonomousTranscriptOpen = true
-    } else {
-      if (!session.autonomousTranscriptOpen) return
-      session.autonomousTranscriptOpen = false
-      session.runtimeThreadStatus = observedUpdate.kind === 'complete' ? 'idle' : undefined
+    } else if (!closeAutonomousTranscript(session, observedUpdate)) {
+      return
     }
 
     // attachmentIsCurrent is asynchronous. Preserve wire order across those

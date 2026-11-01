@@ -1,4 +1,5 @@
 import { AppSelect } from '../components/ui/select'
+import { t } from '../i18n'
 import { desktopFilter, desktopScreens, parseDesktopFilter } from '../lib/desktopScreens'
 
 import { BoxDesktopView, SessionDesktopView } from './DesktopPanes'
@@ -25,7 +26,7 @@ function BoxScreens({
   const screen = target.kind === 'box' ? target.screen : undefined
   const switcher = (
     <AppSelect
-      ariaLabel="Screen"
+      ariaLabel={t('Screen')}
       value={desktopFilter(deviceId, screen)}
       onValueChange={onFilterChange}
       options={options}

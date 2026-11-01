@@ -6,23 +6,24 @@ import { Age } from '../../components/Age'
 import { CloudLogo } from '../../components/CloudLogo'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { PROVIDERS_WITH_LOGOS, providerLabel } from './providerLabels'
 
 import type { ManagedProviderResourcePlan } from '../../api'
 
 const OWNERSHIP_LABELS = {
-  created: 'Created by Nuphos',
-  modified: 'Modified by Nuphos',
-  referenced: 'Referenced · preserved',
+  created: t('Created by Nuphos'),
+  modified: t('Modified by Nuphos'),
+  referenced: t('Referenced · preserved'),
 } as const
 
 const CLEANUP_LABELS = {
-  delete: 'Delete on removal',
-  detach: 'Detach on removal',
-  restore: 'Restore on removal',
-  preserve: 'Preserved',
-  manual: 'Manual cleanup',
+  delete: t('Delete on removal'),
+  detach: t('Detach on removal'),
+  restore: t('Restore on removal'),
+  preserve: t('Preserved'),
+  manual: t('Manual cleanup'),
 } as const
 
 const MONITORED_RESOURCE_KINDS = new Set([
@@ -42,8 +43,8 @@ function providerResourceGroups(plan: ManagedProviderResourcePlan) {
   const delivery = plan.resources.filter((resource) => !monitored.includes(resource))
 
   return [
-    { label: 'Monitored items', resources: monitored },
-    { label: 'Delivery setup', resources: delivery },
+    { label: t('Monitored items'), resources: monitored },
+    { label: t('Delivery setup'), resources: delivery },
   ].filter((group) => group.resources.length > 0)
 }
 
@@ -60,6 +61,8 @@ export function ManagedProviderResourcesSection({
   onCopy: (kind: string, value: string) => Promise<void>
   embedded?: boolean
 }) {
+  const [verifiedBefore, verifiedAfter] = t('Verified {age}').split('{age}')
+
   return (
     <section
       className={clsx(
@@ -81,7 +84,7 @@ export function ManagedProviderResourcesSection({
               )}
             </span>
             <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-main">Provider resources</div>
+              <div className="text-[12.5px] font-medium text-main">{t('Provider resources')}</div>
               <div className="truncate text-[11px] text-tertiary">
                 {providerLabel(plan)}
                 {plan.integrationLabel ? ` · ${plan.integrationLabel}` : ''}
@@ -90,7 +93,9 @@ export function ManagedProviderResourcesSection({
           </div>
           {plan.recordedAt && (
             <span className="flex-shrink-0 text-[10.5px] text-tertiary" title={plan.recordedAt}>
-              Verified <Age value={plan.recordedAt} />
+              {verifiedBefore}
+              <Age value={plan.recordedAt} />
+              {verifiedAfter}
             </span>
           )}
         </div>
@@ -143,8 +148,8 @@ export function ManagedProviderResourcesSection({
                           size="icon-sm"
                           onClick={() => void onCopy(copyKey, resource.id)}
                           className="text-tertiary"
-                          title={copied === copyKey ? 'Copied' : 'Copy resource ID'}
-                          aria-label={`Copy ${resource.name} ID`}
+                          title={copied === copyKey ? t('Copied') : t('Copy resource ID')}
+                          aria-label={t('Copy {name} ID', { name: resource.name })}
                         >
                           {copied === copyKey ? (
                             <Check className="h-3.5 w-3.5 text-zGreen-400" />
@@ -159,12 +164,15 @@ export function ManagedProviderResourcesSection({
                             size="icon-sm"
                             onClick={() => {
                               void api.appOpenExternal(resource.url!).catch(() => {
-                                toast.error('Could not open provider resource')
+                                toast.error(t('Could not open provider resource'))
                               })
                             }}
                             className="text-tertiary"
-                            title={`Open in ${providerLabel(plan)}`}
-                            aria-label={`Open ${resource.name} in ${providerLabel(plan)}`}
+                            title={t('Open in {provider}', { provider: providerLabel(plan) })}
+                            aria-label={t('Open {name} in {provider}', {
+                              name: resource.name,
+                              provider: providerLabel(plan),
+                            })}
                           >
                             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
                           </Button>
@@ -183,8 +191,12 @@ export function ManagedProviderResourcesSection({
         <AlertTriangle className="mt-px h-3.5 w-3.5 flex-shrink-0 text-warning" />
         <span>
           {plan.cleanupMode === 'manual'
-            ? 'These resources were wired dynamically. Removing this Watch preserves them; follow the recorded manual cleanup step in the removal preview.'
-            : 'These resources are part of this Watch. Removing them manually can interrupt delivery. Use Remove Watch to clean them up safely.'}
+            ? t(
+                'These resources were wired dynamically. Removing this Watch preserves them; follow the recorded manual cleanup step in the removal preview.',
+              )
+            : t(
+                'These resources are part of this Watch. Removing them manually can interrupt delivery. Use Remove Watch to clean them up safely.',
+              )}
         </span>
       </div>
     </section>
@@ -208,13 +220,18 @@ export function ProviderCleanupPreview({
     <span className="block">
       <span className="block">
         {plan.cleanupMode === 'manual'
-          ? `“${triggerName}” will be removed. Dynamically wired provider resources will be preserved and require the manual cleanup shown below.`
-          : `“${triggerName}” will be removed together with the provider wiring Nuphos owns.`}
+          ? t(
+              '“{name}” will be removed. Dynamically wired provider resources will be preserved and require the manual cleanup shown below.',
+              { name: triggerName },
+            )
+          : t('“{name}” will be removed together with the provider wiring Nuphos owns.', {
+              name: triggerName,
+            })}
       </span>
       {changes.length > 0 && (
         <>
           <span className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-main">
-            Will remove or change
+            {t('Will remove or change')}
           </span>
           <span className="mt-1.5 block space-y-1.5">
             {changes.map((step, index) => (
@@ -234,7 +251,7 @@ export function ProviderCleanupPreview({
       {manual.length > 0 && (
         <>
           <span className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-main">
-            Manual provider cleanup
+            {t('Manual provider cleanup')}
           </span>
           <span className="mt-1.5 block space-y-1.5">
             {manual.map((step, index) => (
@@ -249,7 +266,7 @@ export function ProviderCleanupPreview({
       {preserved.length > 0 && (
         <>
           <span className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-main">
-            Will preserve
+            {t('Will preserve')}
           </span>
           <span className="mt-1.5 block space-y-1.5">
             {preserved.map((step, index) => (

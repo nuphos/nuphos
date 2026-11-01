@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppSelect } from '../../components/ui/select'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import {
@@ -209,7 +210,7 @@ export function CloudWatchMetricsExplorerView({
             setNamespace(v)
             setMetricName('')
           }}
-          placeholder={metricsLoading ? 'Loading namespaces…' : 'Namespace'}
+          placeholder={metricsLoading ? t('Loading namespaces…') : t('Namespace')}
           disabled={!metrics || namespaces.length === 0}
           triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[180px]"
           options={namespaces.map((n) => ({ value: n, label: n }))}
@@ -217,7 +218,7 @@ export function CloudWatchMetricsExplorerView({
         <AppSelect
           value={metricName}
           onValueChange={setMetricName}
-          placeholder="Metric"
+          placeholder={t('Metric')}
           disabled={!namespace}
           triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[180px]"
           options={metricNames.map((n) => ({ value: n, label: n }))}
@@ -232,9 +233,11 @@ export function CloudWatchMetricsExplorerView({
         {metricsTruncated && (
           <span
             className="text-[11px] text-amber-400"
-            title="This region has more metrics than the discovery sweep returns. The namespace list may be incomplete; metrics inside a selected namespace are re-queried in full."
+            title={t(
+              'This region has more metrics than the discovery sweep returns. The namespace list may be incomplete; metrics inside a selected namespace are re-queried in full.',
+            )}
           >
-            Namespace list truncated
+            {t('Namespace list truncated')}
           </span>
         )}
       </div>
@@ -246,14 +249,14 @@ export function CloudWatchMetricsExplorerView({
       ) : !namespace || !metricName ? (
         <div className="flex-1 flex items-center justify-center text-[13px] text-tertiary px-8 text-center">
           {metricsLoading
-            ? 'Listing metrics in this region…'
+            ? t('Listing metrics in this region…')
             : metrics && namespaces.length === 0
-              ? 'No CloudWatch metrics found in this region.'
-              : 'Pick a namespace and metric to chart it across all dimension combinations.'}
+              ? t('No CloudWatch metrics found in this region.')
+              : t('Pick a namespace and metric to chart it across all dimension combinations.')}
         </div>
       ) : seriesLoading && !seriesData ? (
         <div className="flex-1 flex items-center justify-center text-[13px] text-tertiary">
-          Loading datapoints…
+          {t('Loading datapoints…')}
         </div>
       ) : (
         <MetricSeriesCard
@@ -263,12 +266,14 @@ export function CloudWatchMetricsExplorerView({
             </>
           }
           subtitle={
-            <>
-              {stat} · {seriesData?.length ?? 0} series
-              {truncatedSeries > 0
-                ? ` (showing first ${String(EXPLORER_MAX_SERIES)}, ${String(truncatedSeries)} more hidden)`
-                : ''}
-            </>
+            truncatedSeries > 0
+              ? t('{stat} · {n} series (showing first {max}, {hidden} more hidden)', {
+                  stat,
+                  n: seriesData?.length ?? 0,
+                  max: EXPLORER_MAX_SERIES,
+                  hidden: truncatedSeries,
+                })
+              : t('{stat} · {n} series', { stat, n: seriesData?.length ?? 0 })
           }
           frames={frames}
           hasData={hasData}

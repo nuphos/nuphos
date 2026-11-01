@@ -1,5 +1,7 @@
 // Inlines what a page or SVG loads from the web, so a downloaded artifact is
 // one file that needs no network. Used by artifactExport.ts.
+import { t } from '../../../i18n/index.ts'
+
 import {
   REMOTE,
   absolute,
@@ -88,7 +90,7 @@ export class Inliner {
 
     if (!url) {
       if (module && REMOTE_IMPORT.test(body))
-        this.missing.add('a module script that imports from the web')
+        this.missing.add(t('a module script that imports from the web'))
 
       return whole
     }
@@ -96,7 +98,7 @@ export class Inliner {
 
     if (code === null) return whole
     if (module && REMOTE_IMPORT.test(code))
-      this.missing.add(`${url} (imports more modules from the web)`)
+      this.missing.add(t('{url} (imports more modules from the web)', { url }))
 
     return `<script${renderAttributes(attributes, ['src', 'integrity', 'crossorigin', 'async', 'defer'])}>${code.replace(/<\/script/gi, '<\\/script')}</script>`
   }

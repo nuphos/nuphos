@@ -17,6 +17,7 @@ export const PATCH_SOURCES = [
 export const STAMP_SOURCES = [
   'prepare.mjs',
   'computer-use-permission.swift',
+  'mac-screen-host.swift',
   'desktop-session.mjs',
   ...PATCH_SOURCES,
 ]
@@ -38,7 +39,9 @@ export const RUNTIME_SOURCES = [
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
+  'native-question.mjs',
   'session-home.mjs',
+  'process-death.mjs',
   ATTACHMENT_JOB,
   ...[
     'package.json',
@@ -48,7 +51,7 @@ export const RUNTIME_SOURCES = [
     'session-state.mjs',
     'default-effort.mjs',
     'project-instructions.mjs',
-    'process-death.mjs',
+    'ask-user-question.mjs',
   ].map((file) => `claude-agent-acp/${file}`),
   ...[
     'package.json',
@@ -57,6 +60,9 @@ export const RUNTIME_SOURCES = [
     'session-config.mjs',
     'steering.mjs',
     'restore-history.mjs',
+    'process-death.mjs',
+    'ask-user-input.mjs',
+    'ultrafast.mjs',
   ].map((file) => `codex-acp/${file}`),
 ]
 

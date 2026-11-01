@@ -2,6 +2,7 @@ import { AppWindow, FileCode2, FileText, Image, Shapes } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
+import { AddToDesignDialog } from '../components/agent/artifacts/AddToDesignDialog'
 import { ArtifactFrame } from '../components/agent/artifacts/ArtifactFrame'
 import { artifactSourceLanguage, fencedSource } from '../components/agent/artifacts/artifactPayload'
 import { svgDataUrl } from '../components/agent/artifacts/artifactSandbox'
@@ -16,6 +17,7 @@ import { MessageResponse } from '../components/agent/MessageResponse'
 import { agentArtifactUrl } from '../components/agent/sessionUrl'
 import { EmptyState } from '../components/EmptyState'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { ARTIFACT_PAGE, pickArtifactVersion } from '../lib/sessionArtifacts'
 
 import type { ArtifactKind, ArtifactVersion } from '../components/agent/artifacts/artifactPayload'
@@ -39,10 +41,13 @@ export function ArtifactView({
   teamId,
   artifactId,
   onAskAgent,
+  onOpenDesign,
 }: {
   teamId: string
   artifactId: string
   onAskAgent: (prompt: string) => void
+  /** Open a design this page was just added to. */
+  onOpenDesign?: (designId: string) => void
 }) {
   const { conversationId, isActive } = useWorkspaceTab()
   const line = useArtifactLine(conversationId, artifactId)
@@ -54,6 +59,7 @@ export function ArtifactView({
       ? agentArtifactUrl(teamId, conversationId, artifactId, current.version)
       : null
   const [errors, setErrors] = useState<FrameErrors | null>(null)
+  const [addingToDesign, setAddingToDesign] = useState(false)
   const Icon = current ? KIND_ICONS[current.kind] : Shapes
   const [pane, width] = usePaneWidth()
 
@@ -70,7 +76,7 @@ export function ArtifactView({
   return (
     <PageMeta
       pageKey={ARTIFACT_PAGE}
-      title={current?.title ?? 'Artifact'}
+      title={current?.title ?? t('Artifact')}
       icon={<Icon className="h-3.5 w-3.5" />}
       iconKey={current?.kind ?? 'none'}
     >
@@ -94,7 +100,17 @@ export function ArtifactView({
               )
             }}
             onAskAgent={onAskAgent}
+            onAddToDesign={onOpenDesign ? () => setAddingToDesign(true) : undefined}
           />
+          {onOpenDesign && addingToDesign && (
+            <AddToDesignDialog
+              teamId={teamId}
+              version={current}
+              sessionId={conversationId ?? null}
+              onClose={() => setAddingToDesign(false)}
+              onAdded={(design) => onOpenDesign(design.id)}
+            />
+          )}
           <ArtifactBody
             version={current}
             view={current.kind === 'code' ? 'source' : view}
@@ -104,8 +120,10 @@ export function ArtifactView({
       ) : (
         <EmptyState
           icon={Shapes}
-          title="Artifact not loaded"
-          description="Open it from its card in the chat. Cards further up load once you scroll back to them."
+          title={t('Artifact not loaded')}
+          description={t(
+            'Open it from its card in the chat. Cards further up load once you scroll back to them.',
+          )}
         />
       )}
     </PageMeta>

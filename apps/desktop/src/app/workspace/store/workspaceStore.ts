@@ -1,7 +1,12 @@
 import { createWorkspaceTab } from '../../workspaceTabFactory.ts'
 
 import { workspaceReducer } from './workspaceReducer.ts'
-import { createWorkspaceState, currentSessionKey, selectCurrentBucket } from './workspaceState.ts'
+import {
+  createWorkspaceState,
+  currentSessionKey,
+  selectCurrentBucket,
+  sessionKeyOf,
+} from './workspaceState.ts'
 
 import type {
   OpenTabOptions,
@@ -10,7 +15,7 @@ import type {
   WorkspaceAction,
   WorkspaceStoreDeps,
 } from './workspaceActions'
-import type { WorkspaceState } from './workspaceState'
+import type { TabBucket, WorkspaceState } from './workspaceState'
 import type { WorkspaceTabState } from '../../workspaceTabState'
 import type { TabDropPlacement } from '../tabs/tabsTypes'
 
@@ -41,6 +46,8 @@ export type WorkspaceActions = {
   setDockOpen: (open: boolean) => void
   toggleDock: () => void
   openTab: (tab: WorkspaceTabState, options?: OpenTabOptions) => void
+  /** Opens a tab in a conversation's own dock without bringing it on screen. */
+  openTabInSession: (sessionId: string, tab: WorkspaceTabState) => void
   activateTab: (tabId: string) => void
   openTeamTab: (teamId: string) => void
   selectAdjacentTab: (direction: -1 | 1) => void
@@ -53,6 +60,8 @@ export type WorkspaceActions = {
   updateActiveTab: (updater: TabUpdater, options?: { history?: TabHistoryMode }) => void
   retainTeams: (teamIds: readonly string[], preferredTeamId: string | null) => void
   removeTeam: (teamId: string) => void
+  /** Takes over the docks of a split pane that is closing; see `adoptBuckets`. */
+  adoptBuckets: (buckets: Readonly<Record<string, TabBucket>>) => void
 }
 
 export type WorkspaceStore = {
@@ -125,6 +134,13 @@ export function createWorkspaceStore(
         options: fromMainPage ? { ...options, openDock: true } : options,
       })
     },
+    openTabInSession: (sessionId, tab) =>
+      dispatch({
+        type: 'openTab',
+        sessionKey: sessionKeyOf(sessionId),
+        tab,
+        options: { openDock: true },
+      }),
     activateTab: (tabId) => inCurrentSession({ type: 'activateTab', tabId }),
     openTeamTab: (teamId) => inCurrentSession({ type: 'openTeamTab', teamId }),
     selectAdjacentTab: (direction) => inCurrentSession({ type: 'selectAdjacentTab', direction }),
@@ -144,6 +160,7 @@ export function createWorkspaceStore(
     retainTeams: (teamIds, preferredTeamId) =>
       dispatch({ type: 'retainTeams', teamIds, preferredTeamId }),
     removeTeam: (teamId) => dispatch({ type: 'removeTeam', teamId }),
+    adoptBuckets: (buckets) => dispatch({ type: 'adoptBuckets', buckets }),
   }
 
   return { getState, subscribe, dispatch, actions }

@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { CloudLogo } from '../../components/CloudLogo'
 import { LinearMark } from '../../components/LinearMark'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
 
 import type { ConnectorInfo } from './types'
@@ -39,7 +40,7 @@ function ConnectionDetails({
   return (
     <div className="border-t border-zGray-800/55 bg-zGray-950/15 px-4 pb-5 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[12px] font-medium text-secondary">Connection details</h3>
+        <h3 className="text-[12px] font-medium text-secondary">{t('Connection details')}</h3>
         {hasActions && (
           <div className="flex flex-wrap items-center gap-2">
             {actions.map((action) => (
@@ -62,7 +63,7 @@ function ConnectionDetails({
                 onClick={() => {
                   void api
                     .appOpenExternal(externalUrl)
-                    .catch(() => toast.error(`Could not open ${providerLabel}`))
+                    .catch(() => toast.error(t('Could not open {name}', { name: providerLabel })))
                 }}
                 className="flex h-8 items-center gap-1.5 rounded-lg border border-zGray-800/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-zGray-850 hover:text-main"
               >
@@ -77,7 +78,7 @@ function ConnectionDetails({
                 className="flex h-8 items-center gap-1.5 rounded-lg border border-red-500/25 bg-red-500/5 px-3 text-[12.5px] font-medium text-red-400 transition-colors hover:border-red-500/40 hover:bg-red-500/10"
               >
                 <Unplug className="h-3.5 w-3.5" strokeWidth={1.9} />
-                Disconnect
+                {t('Disconnect')}
               </button>
             )}
           </div>
@@ -131,7 +132,8 @@ export function ConnectorInfoPage({
   const catalogItem = CATALOG.flatMap((category) => category.items).find(
     (item) => item.key === provider,
   )
-  const description = catalogItem?.description ?? `${providerLabel} connector for Nuphos.`
+  const description =
+    catalogItem?.description ?? t('{name} connector for Nuphos.', { name: providerLabel })
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-7 py-10">
@@ -152,10 +154,12 @@ export function ConnectorInfoPage({
 
       <section className="mt-10">
         <div className="flex items-center justify-between border-b border-zGray-800/55 pb-2.5">
-          <h2 className="text-[13.5px] font-medium text-main">Connections</h2>
+          <h2 className="text-[13.5px] font-medium text-main">{t('Connections')}</h2>
           <div className="flex items-center gap-3">
             <span className="text-[11.5px] text-tertiary">
-              {connections.length} {connections.length === 1 ? 'connection' : 'connections'}
+              {connections.length === 1
+                ? t('{n} connection', { n: connections.length })
+                : t('{n} connections', { n: connections.length })}
             </span>
             {addAction && (
               <button
@@ -196,7 +200,7 @@ export function ConnectorInfoPage({
                       {connection.info.name}
                     </div>
                     <div className="mt-0.5 text-[11.5px] text-tertiary">
-                      {providerLabel} connection
+                      {t('{name} connection', { name: providerLabel })}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-full border border-zGray-800/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
@@ -205,7 +209,7 @@ export function ConnectorInfoPage({
                         connection.attention ? 'bg-warning' : 'bg-green-500'
                       }`}
                     />
-                    {connection.attention ?? 'Connected'}
+                    {connection.attention ?? t('Connected')}
                   </div>
                   <ChevronRight
                     className={`h-4 w-4 flex-none text-tertiary transition-transform duration-200 ${

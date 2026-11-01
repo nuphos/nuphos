@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { useLayoutEffect, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { SectionGrip } from './SectionGrip'
 import {
   beforeIdAt,
@@ -161,7 +163,7 @@ export function ReorderableSections<T extends string>({
               onReset={() => {
                 rememberTops()
                 refocus.current = id
-                setAnnouncement('Section order reset')
+                setAnnouncement(t('Section order reset'))
                 onReset()
               }}
               onDragStart={(event) => {

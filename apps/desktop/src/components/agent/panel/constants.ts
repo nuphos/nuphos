@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
 export const MIN_WIDTH_VW = 20
@@ -17,8 +19,8 @@ export const AGENT_PLACEHOLDER_PROMPTS = [
 // Static placeholder for the in-conversation composer. The rotating example
 // prompts above are a hero-only (new chat) affordance — cycling them in an
 // ongoing conversation reads as the input flickering.
-export const AGENT_COMPACT_PLACEHOLDER = 'Ask a follow-up...'
-export const AGENT_QUEUE_PLACEHOLDER = 'Queue a follow-up — sends when this turn ends…'
+export const AGENT_COMPACT_PLACEHOLDER = t('Ask a follow-up...')
+export const AGENT_QUEUE_PLACEHOLDER = t('Queue a follow-up — sends when this turn ends…')
 export const SANDBOX_EXPIRED_MESSAGE =
   'The agent sandbox expired while running this command. A fresh sandbox will be used for the next step.'
 export const STREAM_CHUNK_SIZES = {

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { AppAlertDialog } from '../../components/ui/alert-dialog'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { AtlasTeam } from '../../types'
 
@@ -18,7 +19,7 @@ export function DangerZone({
 
   const canDelete = Boolean(team.isOwner)
 
-  const teamName = team.name || 'this workspace'
+  const teamName = team.name || t('this workspace')
 
   // Failures surface through the global toast (never inline under the button),
   // so we catch here rather than letting the dialog render the error itself.
@@ -26,15 +27,18 @@ export function DangerZone({
     try {
       if (canDelete) {
         await api.atlasDeleteTeam(team.id)
-        toast.success('Workspace deleted')
+        toast.success(t('Workspace deleted'))
       } else {
         await api.atlasLeaveTeam(team.id)
-        toast.success('Left workspace')
+        toast.success(t('Left workspace'))
       }
       onTeamRemoved(team.id)
     } catch (err) {
       setConfirmOpen(false)
-      toast.apiError(canDelete ? 'Could not delete workspace' : 'Could not leave workspace', err)
+      toast.apiError(
+        canDelete ? t('Could not delete workspace') : t('Could not leave workspace'),
+        err,
+      )
     }
   }
 
@@ -43,15 +47,17 @@ export function DangerZone({
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="text-[13px] font-medium text-main">
-            {canDelete ? 'Delete workspace' : 'Leave workspace'}
+            {canDelete ? t('Delete workspace') : t('Leave workspace')}
           </div>
           {/* The 30-day retention/recovery copy states the announced policy;
               the purge job + support recovery/export that back it are not built
               yet. Keep this wording in sync when that ships. */}
           <div className="mt-0.5 text-[12.5px] leading-relaxed text-tertiary">
             {canDelete
-              ? 'Deletes this workspace for every member. Data is kept for 30 days, then permanently destroyed.'
-              : "You'll lose access until someone invites you back."}
+              ? t(
+                  'Deletes this workspace for every member. Data is kept for 30 days, then permanently destroyed.',
+                )
+              : t("You'll lose access until someone invites you back.")}
           </div>
         </div>
         <button
@@ -59,20 +65,26 @@ export function DangerZone({
           onClick={() => setConfirmOpen(true)}
           className="h-9 flex-shrink-0 rounded-md border border-error/40 px-3 text-[13px] font-medium text-error transition-colors hover:bg-error/10"
         >
-          {canDelete ? 'Delete' : 'Leave'}
+          {canDelete ? t('Delete') : t('Leave')}
         </button>
       </div>
 
       <AppAlertDialog
         open={confirmOpen}
         destructive
-        title={canDelete ? 'Delete workspace' : 'Leave workspace'}
+        title={canDelete ? t('Delete workspace') : t('Leave workspace')}
         description={
           canDelete
-            ? `Delete ${teamName}? The workspace is removed for every member. Its data is kept for 30 days, then permanently destroyed — within that window you can contact support to recover or export it.`
-            : `Leave ${teamName}? You'll lose access to this workspace until someone invites you back.`
+            ? t(
+                'Delete {name}? The workspace is removed for every member. Its data is kept for 30 days, then permanently destroyed — within that window you can contact support to recover or export it.',
+                { name: teamName },
+              )
+            : t(
+                "Leave {name}? You'll lose access to this workspace until someone invites you back.",
+                { name: teamName },
+              )
         }
-        confirmLabel={canDelete ? 'Delete workspace' : 'Leave workspace'}
+        confirmLabel={canDelete ? t('Delete workspace') : t('Leave workspace')}
         onConfirm={confirmAction}
         onClose={() => setConfirmOpen(false)}
       />

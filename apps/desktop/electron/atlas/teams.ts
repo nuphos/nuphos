@@ -105,6 +105,29 @@ export async function getTeamActivity(teamId: string, range: string): Promise<un
   )
 }
 
+export type AgentStatsQuery = { range: string; scope: string; timeZone: string }
+
+export async function getAgentStats(teamId: string, query: AgentStatsQuery): Promise<unknown> {
+  return call(
+    'GET',
+    `/teams/${encodeURIComponent(teamId)}/agent-stats?${new URLSearchParams(query).toString()}`,
+  )
+}
+
+/** The caller's ordered fallback agents; an empty list turns fallback off. */
+export async function getRuntimeFallback(teamId: string): Promise<unknown> {
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallback`)
+}
+
+export async function putRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<unknown> {
+  return call(
+    'PUT',
+    `/teams/${encodeURIComponent(teamId)}/runtime-fallback`,
+    { runtimeIds },
+    { retry: false },
+  )
+}
+
 export async function getHomeLayout(teamId: string): Promise<unknown> {
   return call('GET', `/teams/${encodeURIComponent(teamId)}/home-layout`)
 }
@@ -123,11 +146,15 @@ export async function putHomeLayout(
   )
 }
 
-export async function updateTeam(
-  teamId: string,
-  input: { name?: string; avatarUrl?: string },
-): Promise<Team> {
+export async function updateTeam(teamId: string, input: { name: string }): Promise<Team> {
   return call<Team>('PATCH', `/teams/${teamId}`, input, { retry: false })
+}
+
+/** Uploads an already-cropped icon (the backend re-encodes it), or removes it with `null`. */
+export async function setTeamAvatar(teamId: string, image: Uint8Array | null): Promise<Team> {
+  return image
+    ? call<Team>('PUT', `/teams/${teamId}/avatar`, image, { retry: false })
+    : call<Team>('DELETE', `/teams/${teamId}/avatar`, undefined, { retry: false })
 }
 
 // Enables/disables workspace discovery for the acting admin's own email

@@ -6,5 +6,5 @@ storage:
 runtime:
   url: https://runtime.example.com
 email:
-  zsendApiKey: ci-placeholder
+  resendApiKey: ci-placeholder
   from: Nuphos <noreply@example.com>

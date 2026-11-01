@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 
 import { selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -139,7 +140,7 @@ export function useWorkspaceTakeover(a: Args) {
       // sessions: an established connection must not outlive team membership.
       workspaceActions.removeTeam(removedTeamId)
       if (remaining.length === 0) {
-        setError('No teams are available for this account.')
+        setError(t('No teams are available for this account.'))
         setOnboardingActive(true)
 
         return

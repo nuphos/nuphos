@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { t } from '../../i18n'
 
 import { LIMIT_FILL } from './AgentUsageRow'
 import { ACCENT_RGB, GAP_FILL } from './MetricChart'
@@ -105,7 +106,7 @@ export function UsageHeatmap({
     >
       <div className="mb-3 flex items-center gap-1.5 text-[11px] text-tertiary">
         <span className="mr-auto text-[13px] font-medium text-main">
-          Highest plan window, every runtime
+          {t('Highest plan window, every runtime')}
         </span>
         <span>0%</span>
         {LEGEND_STEPS.map((step) => (
@@ -122,7 +123,7 @@ export function UsageHeatmap({
           className="ml-2 h-2.5 w-2.5 rounded-sm"
           style={{ backgroundColor: LIMIT_FILL }}
         />
-        <span>At limit</span>
+        <span>{t('At limit')}</span>
       </div>
       <div className="space-y-[3px]" onMouseLeave={() => setHover(null)}>
         {rows.map((row) => (
@@ -162,7 +163,7 @@ export function UsageHeatmap({
               {timeLabel(at)}
             </span>
           ))}
-          <span>Now</span>
+          <span>{t('Now')}</span>
         </span>
       </div>
       {hover && (
@@ -177,9 +178,9 @@ export function UsageHeatmap({
             </div>
             <div className="font-mono text-main">
               {hover.point.value === null
-                ? 'No reading'
+                ? t('No reading')
                 : hover.point.value >= 100
-                  ? 'At limit'
+                  ? t('At limit')
                   : percent(hover.point.value)}
             </div>
           </div>

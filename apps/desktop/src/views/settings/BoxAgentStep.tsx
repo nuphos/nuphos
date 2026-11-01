@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { Choice } from './AddAgentChoice'
+import { NEW_BOX_DESCRIPTION } from './boxCreatePresentation'
 import { boxSetupProblem } from './boxPresentation'
-import { NEW_BOX_DESCRIPTION, NEW_BOX_FORM, NewBoxFields } from './NewBoxFields'
+import { NEW_BOX_FORM, NewBoxFields } from './NewBoxFields'
 import { StepActions } from './StepActions'
 import { useBoxSetup } from './useBoxSetup'
 import { useBoxUsage } from './useBoxUsage'
@@ -56,14 +58,16 @@ export function BoxAgentForm({
       {box.phase === 'ready' && (
         <div className="space-y-2">
           <p className="text-[12.5px] text-secondary">
-            Your computer is running. Choose a runtime to sign in.
+            {t('Your computer is running. Choose a runtime to sign in.')}
           </p>
           {box.agents.map((agent) => (
             <Choice
               key={agent.id}
               icon={<AgentProviderIcon provider={agent.provider} className="h-4 w-4" />}
               title={AGENT_PROVIDER[agent.provider].label}
-              description={`Sign in with ${AGENT_PROVIDER[agent.provider].account}.`}
+              description={t('Sign in with {account}.', {
+                account: AGENT_PROVIDER[agent.provider].account,
+              })}
               onClick={() => onChosen(agent)}
             />
           ))}
@@ -73,17 +77,17 @@ export function BoxAgentForm({
         <p className="flex items-center gap-2 text-[12.5px] leading-5 text-secondary" role="status">
           {box.phase === 'starting' && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
           {box.phase === 'starting' &&
-            'Starting the computer and its runtimes, usually 10 to 30 seconds…'}
+            t('Starting the computer and its runtimes, usually 10 to 30 seconds…')}
           {boxSetupProblem(box.phase)}
         </p>
       )}
       <StepActions footer={footer} className="flex items-center justify-end gap-2">
         <button type="button" onClick={onBack} disabled={creating} className={button}>
-          Back
+          {t('Back')}
         </button>
         {box.phase === 'idle' && (
           <Button size="sm" type="submit" form={NEW_BOX_FORM} disabled={creating}>
-            {creating ? 'Creating…' : 'Create computer'}
+            {creating ? t('Creating…') : t('Create computer')}
           </Button>
         )}
       </StepActions>

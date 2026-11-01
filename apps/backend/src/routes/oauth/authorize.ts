@@ -1,5 +1,8 @@
+import { getCookie } from 'hono/cookie'
+
 import { authenticateUserFromCookies } from '@/lib/cookie-auth'
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
+import { FIRST_TOUCH_COOKIE, recordSignupSource } from '@/lib/identity/signup-source'
 import { clientIp, signInSource } from '@/lib/request-origin'
 import { getClient, issueAuthCode } from '@/lib/oauth/store'
 import { signConsentToken, verifyConsentToken } from '@/lib/oauth/tokens'
@@ -151,7 +154,11 @@ export function registerOauthAuthorizeRoutes(oauthRoutes: Hono) {
       const code = get('code')
 
       try {
-        userId = (await verifyEmailOtp(email, code)).id
+        const user = await verifyEmailOtp(email, code)
+
+        userId = user.id
+        // A first-time email gets its account here.
+        await recordSignupSource(user, 'oauth', getCookie(c, FIRST_TOUCH_COOKIE))
       } catch {
         const client = await getClient(validation.params.clientId)
 

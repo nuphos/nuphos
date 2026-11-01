@@ -1,5 +1,7 @@
 import { Globe, Lightbulb, Server, Terminal } from 'lucide-react'
 
+import { t } from '../../../i18n'
+
 import type { BreadcrumbContext } from './breadcrumbContext'
 import type { BreadcrumbSegment } from '../../../components/Toolbar'
 
@@ -23,7 +25,7 @@ export function pushZoneAndSshCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegm
   if (scope.kind === 'cloudflare-zone') {
     out.push(
       {
-        label: 'Zones',
+        label: t('Zones'),
         icon: <Globe className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         onClick: () =>
           enterScope(
@@ -51,7 +53,7 @@ export function pushZoneAndSshCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegm
           ? 'Lightsail'
           : active === 'gcp.gce'
             ? 'Compute Engine'
-            : 'Instances'
+            : t('Instances')
     const serviceIcon =
       active === 'aws.lightsail' ? (
         <Lightbulb className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />
@@ -146,7 +148,7 @@ export function pushZoneAndSshCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegm
         loading: instancesLoading,
         options: instanceOptions,
         onExpand: onExpandInstances,
-        emptyText: 'No SSH-able instances',
+        emptyText: t('No SSH-able instances'),
       },
       {
         label: 'SSH',

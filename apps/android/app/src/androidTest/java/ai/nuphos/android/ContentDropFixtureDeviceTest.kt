@@ -45,7 +45,7 @@ class ContentDropFixtureDeviceTest {
         compose.setContent {
             val context = LocalContext.current
             val store = remember { AgentStore("synthetic-no-credentials", context) }
-            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store) {
+            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                 Column(Modifier.systemBarsPadding()) {
                     AndroidView(modifier = Modifier.fillMaxWidth().height(80.dp), factory = { app ->
                         TextView(app).apply {

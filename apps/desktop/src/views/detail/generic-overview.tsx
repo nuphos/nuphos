@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { parseYamlSummary } from './config-secret-model'
@@ -79,7 +80,7 @@ export function GenericOverview({
   ])
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (!yaml) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (!yaml) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   if (target.kind === 'ConfigMap') {
     return <ConfigMapOverview target={target} yamlText={yaml} onReload={reload} />
@@ -118,7 +119,7 @@ export function GenericOverview({
           <div className="text-[12.5px] text-main">{s.value}</div>
         </div>
       ))}
-      <div className="text-tertiary text-[12px]">See the YAML tab for full spec.</div>
+      <div className="text-tertiary text-[12px]">{t('See the YAML tab for full spec.')}</div>
     </div>
   )
 }

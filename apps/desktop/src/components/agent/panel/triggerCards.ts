@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { Part, ToolPart } from './parts.ts'
 
 const OBJECT_ID = /^[\da-f]{24}$/i
@@ -94,11 +96,11 @@ function startOfDay(date: Date): number {
 export function untilRun(at: Date, now: Date): string {
   const minutes = Math.max(1, Math.round((at.getTime() - now.getTime()) / 60_000))
 
-  if (minutes < 60) return `in ${String(minutes)} min`
-  if (minutes < 12 * 60) return `in ${String(Math.round(minutes / 60))} h`
+  if (minutes < 60) return t('in {n} min', { n: String(minutes) })
+  if (minutes < 12 * 60) return t('in {n} h', { n: String(Math.round(minutes / 60)) })
   const days = Math.round((startOfDay(at) - startOfDay(now)) / 86_400_000)
 
-  if (days <= 0) return 'later today'
+  if (days <= 0) return t('later today')
 
-  return days === 1 ? 'tomorrow' : `in ${String(days)} days`
+  return days === 1 ? t('tomorrow') : t('in {n} days', { n: String(days) })
 }

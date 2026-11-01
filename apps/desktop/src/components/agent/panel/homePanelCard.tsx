@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../../api'
 import { PanelOutputView } from '../../../dashboards/PanelOutputView'
+import { t } from '../../../i18n'
 
 import type { HomePanel } from './homeWidgetSettings'
 import type { DashboardPanel } from '../../../dashboards/schema'
@@ -71,12 +72,14 @@ export function DashboardPanelCard({
 
   if (loaded && !panel) {
     body = (
-      <div className="px-1 py-1.5 text-[12px] text-tertiary">This panel is no longer available</div>
+      <div className="px-1 py-1.5 text-[12px] text-tertiary">
+        {t('This panel is no longer available')}
+      </div>
     )
   } else if (panel && output) {
     body = <PanelOutputView output={output} fill />
   } else if (panel) {
-    body = <div className="px-1 py-1.5 text-[12px] text-tertiary">No data yet</div>
+    body = <div className="px-1 py-1.5 text-[12px] text-tertiary">{t('No data yet')}</div>
   }
 
   return (
@@ -89,18 +92,18 @@ export function DashboardPanelCard({
               `/teams/${encodeURIComponent(teamId)}/dashboards/${encodeURIComponent(pin.dashboardId)}`,
             )
           }
-          title="Open dashboard in dock"
+          title={t('Open dashboard in dock')}
           className="min-w-0 truncate text-left hover:text-main focus-visible:outline focus-visible:outline-2"
         >
-          {panel?.title ?? 'Dashboard panel'}
+          {panel?.title ?? t('Dashboard panel')}
         </BaseButton>
         {loaded?.dashboardName && (
           <span className="truncate text-tertiary">· {loaded.dashboardName}</span>
         )}
         <BaseButton
           onClick={onUnpin}
-          aria-label="Unpin from home"
-          title="Unpin from home"
+          aria-label={t('Unpin from home')}
+          title={t('Unpin from home')}
           className="ml-auto flex-shrink-0 rounded p-0.5 text-tertiary opacity-0 outline-none transition-opacity hover:text-main focus-visible:opacity-100 group-hover:opacity-100"
         >
           <PinOff className="h-3.5 w-3.5" strokeWidth={1.8} />

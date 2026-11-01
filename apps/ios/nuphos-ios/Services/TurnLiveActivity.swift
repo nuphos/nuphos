@@ -2,73 +2,73 @@
 import ActivityKit
 import Foundation
 
-/// The app's one Live Activity. A running turn puts its conversation on the
-/// card, starting the card when there is none. Everything after that comes
-/// from the backend over APNs, which follows the runtime's own status.
+/// The app's one Live Activity. The backend starts it over APNs when a
+/// conversation the person watches runs, adds later ones to it and keeps every
+/// row on the runtime's own status. The app only hands over the tokens for that.
 enum TurnLiveActivity {
-    private typealias Card = TurnActivityAttributes.ContentState
-
     /// Token and conversation pairs already sent to the backend.
     private static var registered: Set<String> = []
+    /// Cards whose token updates are being followed.
+    private static var followed: Set<String> = []
 
     private static var card: Activity<TurnActivityAttributes>? {
         Activity<TurnActivityAttributes>.activities.first { $0.activityState == .active }
     }
 
-    /// At launch: one card at most, the one the app keeps updating.
-    static func dropExtras() {
+    /// At launch: keeps one card, and sends the backend the token that starts
+    /// a card and the token of every card, including ones started later.
+    static func observe() {
         for activity in Activity<TurnActivityAttributes>.activities where activity.id != card?.id {
             Task { await activity.end(nil, dismissalPolicy: .immediate) }
         }
+        Activity<TurnActivityAttributes>.activities.forEach(follow)
+        // A newly started card replaces any other: its conversations are the current ones.
+        Task {
+            for await activity in Activity<TurnActivityAttributes>.activityUpdates {
+                for other in Activity<TurnActivityAttributes>.activities where other.id != activity.id {
+                    Task { await other.end(nil, dismissalPolicy: .immediate) }
+                }
+                follow(activity)
+            }
+        }
+        Task {
+            for await data in Activity<TurnActivityAttributes>.pushToStartTokenUpdates {
+                PushNotifications.shared.didRegister(liveActivityStartToken: hex(data))
+            }
+        }
     }
 
-    static func show(sessionId: String, teamId: String, title: String, authToken: String) {
-        let session = TurnActivityAttributes.Session(id: sessionId, teamId: teamId, title: title, phase: .running)
-        if let activity = card {
-            var state = activity.content.state
-            if !state.sessions.contains(session) {
-                state.put(session)
-                Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
-            }
-            register(session, on: activity, authToken: authToken)
-            return
-        }
-        // Only an ended card can be left; this turn's card takes its place.
-        dropExtras()
-        guard ActivityAuthorizationInfo().areActivitiesEnabled,
-              let activity = try? Activity.request(
-                  attributes: TurnActivityAttributes(),
-                  content: ActivityContent(state: Card(sessions: [session], more: 0, active: 1), staleDate: nil),
-                  pushType: .token
-              ) else { return }
+    private static func follow(_ activity: Activity<TurnActivityAttributes>) {
+        guard followed.insert(activity.id).inserted else { return }
         Task {
-            for await _ in activity.pushTokenUpdates {
+            for await data in activity.pushTokenUpdates {
                 for session in activity.content.state.sessions where session.phase.isActive {
-                    register(session, on: activity, authToken: authToken)
+                    register(session, token: hex(data))
                 }
             }
         }
     }
 
-    /// Tells the backend this card lists the conversation; without a token
-    /// yet, the token's arrival does it.
-    private static func register(_ session: TurnActivityAttributes.Session, on activity: Activity<TurnActivityAttributes>,
-                                 authToken: String) {
-        guard let data = activity.pushToken else { return }
-        let token = data.map { String(format: "%02x", $0) }.joined()
+    /// Tells the backend this card lists the conversation. Read from the
+    /// Keychain: a card started over APNs wakes the app in the background.
+    private static func register(_ session: TurnActivityAttributes.Session, token: String) {
         let key = token + session.id
-        guard registered.insert(key).inserted else { return }
+        guard let authToken = Keychain.read(AuthSession.tokenKey), registered.insert(key).inserted else { return }
         Task {
             do {
                 try await AgentChatAPI.registerLiveActivity(
                     token: authToken,
                     activity: .init(token: token, teamId: session.teamId, sessionId: session.id,
-                                    environment: PushNotifications.environment)
+                                    environment: PushNotifications.environment, deviceId: PushNotifications.deviceId)
                 )
             } catch {
                 registered.remove(key)
             }
         }
+    }
+
+    private static func hex(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
     }
 }
 #endif

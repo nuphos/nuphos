@@ -24,6 +24,7 @@ import type {
 import type { DetailTarget } from '../../../views/DetailView'
 import type { GithubNavState } from '../../../views/GithubView'
 import type { AccountSet, SshTerminalTabState, WorkspaceTabState } from '../../workspaceTabState'
+import type { ReactNode } from 'react'
 
 export type BreadcrumbContext = {
   scope: Scope
@@ -32,11 +33,14 @@ export type BreadcrumbContext = {
   target: DetailTarget | null
   s3Detail: AwsS3Detail | null
   architectureDetail: { diagramId: string; diagramName: string } | null
+  designDetail: { designId: string; designName: string } | null
   nuphosDashboard: NuphosDashboardRef | null
   nuphosDashboards: { id: string; name: string }[] | undefined
   connectorDetail: ConnectorDetailRef | null
   agentSessionTitle: string | null
   agentSessionId: string | null
+  /** The agent tab's own icon, its bot avatar, once the conversation reported it. */
+  agentSessionIcon: ReactNode
   awsDetail: AwsResourceDetailRef | null
   cloudflareDetail: CloudflareResourceDetailRef | null
   updateActiveTab: (updater: (tab: WorkspaceTabState) => WorkspaceTabState) => void

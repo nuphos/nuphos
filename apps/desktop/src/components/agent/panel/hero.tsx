@@ -2,6 +2,7 @@ import { Button as BaseButton } from '@base-ui/react/button'
 import { Star, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { GithubMark } from '../../GithubMark'
 
@@ -47,7 +48,7 @@ export function ConnectorStrip({
         </BaseButton>
         <BaseButton
           onClick={onDismiss}
-          aria-label="Dismiss"
+          aria-label={t('Dismiss')}
           className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main"
         >
           <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -75,11 +76,13 @@ export function StarStrip({ onDone }: { onDone: () => void }) {
 
   return (
     <ConnectorStrip
-      message="Nuphos is open source, built by a small team. If it helps you, a star means a lot."
+      message={t(
+        'Nuphos is open source, built by a small team. If it helps you, a star means a lot.',
+      )}
       action={
         <>
           <GithubMark size={14} />
-          Star on GitHub
+          {t('Star on GitHub')}
           {stars !== null && (
             <span className="flex items-center gap-0.5 tabular-nums">
               <Star className="h-3 w-3 fill-current" strokeWidth={1.8} />

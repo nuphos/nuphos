@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
 
 import type { Item } from './types'
-import type { HTMLAttributes, MouseEvent } from 'react'
+import type { DragEvent, HTMLAttributes, MouseEvent } from 'react'
 
 type Props = Pick<HTMLAttributes<HTMLDivElement>, 'children' | 'onContextMenu'> & {
   item: Item
@@ -13,6 +13,8 @@ type Props = Pick<HTMLAttributes<HTMLDivElement>, 'children' | 'onContextMenu'> 
   /** A chat row drags onto the conversation area to open it in a split. */
   sessionId?: string | null
   teamId?: string
+  /** A Pinned row also drags within Pinned to change its place. */
+  reorderDrag?: { onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void }
 }
 
 export function SessionRowSurface({
@@ -22,6 +24,7 @@ export function SessionRowSurface({
   onOpenKey,
   sessionId,
   teamId,
+  reorderDrag,
   ...props
 }: Props) {
   const activate = (event: MouseEvent) => {
@@ -42,7 +45,9 @@ export function SessionRowSurface({
         if (!sessionId) return
         event.dataTransfer.effectAllowed = 'move'
         event.dataTransfer.setData(SESSION_DRAG_TYPE, JSON.stringify({ sessionId, teamId }))
+        reorderDrag?.onDragStart(event)
       }}
+      onDragEnd={reorderDrag?.onDragEnd}
       className={clsx(
         item.description &&
           'group rounded-lg transition-colors focus-within:bg-[var(--sidebar-overlay-focus)]',

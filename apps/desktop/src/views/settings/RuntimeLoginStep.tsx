@@ -10,6 +10,7 @@ import {
   ComboboxList,
 } from '../../components/ui/combobox'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { inputClasses } from './styles'
 
@@ -46,7 +47,7 @@ function Choose({
       itemToStringLabel={(option: Option) => option.label}
       autoHighlight
     >
-      <ComboboxInput aria-label={step.message} placeholder="Search…" className="h-10" />
+      <ComboboxInput aria-label={step.message} placeholder={t('Search…')} className="h-10" />
       <ComboboxContent className="max-h-[340px] w-[var(--anchor-width)] p-0 [padding-block:0]">
         <ComboboxList className="max-h-[300px] overflow-auto p-0 [padding-block:0]">
           {(option: Option) => (
@@ -68,14 +69,15 @@ function Choose({
 type Paste = 'code' | 'address' | 'none'
 
 const BROWSER_PROMPT: Record<Paste, string> = {
-  address:
+  address: t(
     'Approve access on the page. Your browser then ends on a page that does not load; copy the full address from its address bar and paste it here.',
-  code: 'Approve access on the page, then paste the code it shows you here.',
-  none: 'Approve access on the page. The runtime connects as soon as you do.',
+  ),
+  code: t('Approve access on the page, then paste the code it shows you here.'),
+  none: t('Approve access on the page. The runtime connects as soon as you do.'),
 }
 const PASTE_PLACEHOLDER: Record<Paste, string> = {
-  address: 'Paste the full address (starts with http://localhost)',
-  code: 'Paste code',
+  address: t('Paste the full address (starts with http://localhost)'),
+  code: t('Paste code'),
   none: '',
 }
 
@@ -96,7 +98,7 @@ function Pick({
     try {
       await onSubmit(value)
     } catch (cause) {
-      toast.apiError('Could not continue sign-in', cause)
+      toast.apiError(t('Could not continue sign-in'), cause)
       setSending(null)
     }
   }
@@ -145,11 +147,11 @@ function Instructions({ instructions }: { instructions: string }) {
       {code && (
         <button
           type="button"
-          aria-label="Copy sign-in code"
+          aria-label={t('Copy sign-in code')}
           onClick={() => {
             void navigator.clipboard.writeText(code).then(
               () => setCopied(true),
-              () => toast.error('Could not copy code'),
+              () => toast.error(t('Could not copy code')),
             )
           }}
           className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
@@ -157,7 +159,7 @@ function Instructions({ instructions }: { instructions: string }) {
           <code className="text-2xl font-semibold tracking-widest">{code}</code>
           <span className="flex items-center gap-1.5 text-xs text-secondary">
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? 'Copied' : 'Copy'}
+            {copied ? t('Copied') : t('Copy')}
           </span>
         </button>
       )}
@@ -183,7 +185,7 @@ function Answer({ step, onSubmit }: { step: Step; onSubmit: (answer: string) => 
     try {
       await onSubmit(answer.trim())
     } catch (cause) {
-      toast.apiError('Could not continue sign-in', cause)
+      toast.apiError(t('Could not continue sign-in'), cause)
     } finally {
       setSending(false)
     }
@@ -195,7 +197,7 @@ function Answer({ step, onSubmit }: { step: Step; onSubmit: (answer: string) => 
         <Choose step={step} value={answer} onChange={setAnswer} />
       ) : (
         <input
-          aria-label={step.kind === 'input' ? step.message : 'Code or address'}
+          aria-label={step.kind === 'input' ? step.message : t('Code or address')}
           className={inputClasses}
           type={secret ? 'password' : 'text'}
           value={answer}
@@ -209,7 +211,7 @@ function Answer({ step, onSubmit }: { step: Step; onSubmit: (answer: string) => 
         />
       )}
       <Button size="sm" className="shrink-0" type="submit" disabled={sending || !answer.trim()}>
-        {sending ? 'Sending…' : 'Continue'}
+        {sending ? t('Sending…') : t('Continue')}
       </Button>
     </form>
   )
@@ -229,7 +231,7 @@ export function RuntimeLoginStep({
     return (
       <div className="flex items-center gap-3 text-[13px] text-secondary">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Continuing sign-in…
+        {t('Continuing sign-in…')}
       </div>
     )
   if (step.kind !== 'browser')
@@ -243,8 +245,9 @@ export function RuntimeLoginStep({
         )}
         {step.kind === 'input' && step.secret && (
           <p className="text-xs leading-5 text-tertiary">
-            Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a
-            copy.
+            {t(
+              'Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy.',
+            )}
           </p>
         )}
       </>
@@ -264,7 +267,8 @@ export function RuntimeLoginStep({
           nativeButton={false}
           render={<a href={step.url} target="_blank" rel="noopener noreferrer" />}
         >
-          Open {pageHost(step.url)} <ExternalLink className="h-3.5 w-3.5" />
+          {t('Open {host}', { host: pageHost(step.url) ?? '' })}{' '}
+          <ExternalLink className="h-3.5 w-3.5" />
         </Button>
       )}
       {step.paste ? (
@@ -272,7 +276,7 @@ export function RuntimeLoginStep({
       ) : (
         <p className="flex items-center gap-2 text-[13px] text-secondary">
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-          Waiting for approval…
+          {t('Waiting for approval…')}
         </p>
       )}
     </>

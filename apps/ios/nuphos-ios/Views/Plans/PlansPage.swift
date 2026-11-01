@@ -44,6 +44,7 @@ struct PlansPage: View {
             }
             .sheet(isPresented: $showPolicy) {
                 PlanApprovalPolicySheet()
+                    .presentationDetents([.medium])
             }
             .confirmationDialog(
                 unplanTarget.map { "Mark plan \($0.displayNumber) as unplanned?" } ?? "",

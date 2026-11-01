@@ -1,6 +1,7 @@
 import { AlertTriangle, Clipboard, RefreshCw } from 'lucide-react'
 import { Component } from 'react'
 
+import { t } from '../i18n'
 import { captureRendererException } from '../lib/analytics'
 
 import { NuphosLogo } from './NuphosLogo'
@@ -84,7 +85,7 @@ function CrashPage({
           <NuphosLogo className="h-7 w-7 flex-shrink-0" variant="white-bg" />
           <div className="min-w-0">
             <div className="text-[13px] font-medium text-main">Nuphos</div>
-            <div className="text-[12px] text-tertiary">Renderer crash recovery</div>
+            <div className="text-[12px] text-tertiary">{t('Renderer crash recovery')}</div>
           </div>
         </header>
 
@@ -95,11 +96,12 @@ function CrashPage({
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-[20px] font-semibold leading-tight text-main">
-                Nuphos hit a renderer error
+                {t('Nuphos hit a renderer error')}
               </h1>
               <p className="mt-2 max-w-2xl text-[13.5px] leading-6 text-secondary">
-                The app caught the crash before the window went blank. Reload to return to a clean
-                state, or copy the diagnostics for debugging.
+                {t(
+                  'The app caught the crash before the window went blank. Reload to return to a clean state, or copy the diagnostics for debugging.',
+                )}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-tertiary">
                 <span className="rounded-md border border-zGray-800 bg-zGray-950/60 px-2 py-1 font-mono">
@@ -116,7 +118,7 @@ function CrashPage({
 
           <div className="space-y-4 px-5 py-5">
             <div>
-              <div className="text-[12px] font-medium uppercase text-tertiary">Error</div>
+              <div className="text-[12px] font-medium uppercase text-tertiary">{t('Error')}</div>
               <div className="mt-2 rounded-md border border-zGray-800 bg-zGray-950/70 px-3 py-2 font-mono text-[12.5px] leading-5 text-main">
                 {error.name}: {error.message}
               </div>
@@ -124,7 +126,7 @@ function CrashPage({
 
             <details className="rounded-md border border-zGray-800 bg-zGray-950/50" open>
               <summary className="cursor-default px-3 py-2 text-[12.5px] font-medium text-secondary hover:text-main">
-                Diagnostics
+                {t('Diagnostics')}
               </summary>
               <pre
                 className="max-h-72 overflow-auto whitespace-pre-wrap border-t border-zGray-800 px-3 py-3 font-mono text-[11.5px] leading-5 text-secondary scrollbar-thin"
@@ -142,11 +144,11 @@ function CrashPage({
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zGray-700 bg-zGray-900 px-3 text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
             >
               <Clipboard className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {copied ? 'Copied' : 'Copy details'}
+              {copied ? t('Copied') : t('Copy details')}
             </button>
             <Button size="sm" type="button" onClick={onReload}>
               <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.8} />
-              Reload
+              {t('Reload')}
             </Button>
           </footer>
         </div>

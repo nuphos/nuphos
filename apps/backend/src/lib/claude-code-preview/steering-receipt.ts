@@ -74,6 +74,9 @@ const GROUP_ID = /^[a-f\d]{24}$/
 // A UUIDv8: the runtime accepts only UUIDs as steering ids, and version 8 never
 // collides with the v4 ids text-only steers get from `randomUUID()`.
 const UPLOAD_ID = /^([a-f\d]{12})8([a-f\d]{3})[89ab]([a-f\d]{9})[a-f\d]{6}$/
+// Runtimes before v0.1.39 echo every text part of a steer, so the receipt starts
+// with the attribution header sent ahead of the words. It is for the agent only.
+const ECHOED_HEADER = /^<nuphos_message_metadata>\n[^\n]*\n<\/nuphos_message_metadata>\n/u
 
 /** The receipt names attached files, one per line, so the transcript records what was sent. */
 export function steeringText(typed: string, fileNames: string[]): string {
@@ -112,7 +115,7 @@ export function steeringReceipt(
   text: string,
   metadata?: MessageMetadata,
 ): SteeringReceipt {
-  const receipt = { id, text, ...(metadata ? { metadata } : {}) }
+  const receipt = { id, text: text.replace(ECHOED_HEADER, ''), ...(metadata ? { metadata } : {}) }
   const groupId = uploadGroupId(id)
   const names = (text.split('\n\n').at(-1) ?? '')
     .split('\n')

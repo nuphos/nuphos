@@ -45,6 +45,19 @@ object AgentChatApi {
             .build()
     }
 
+    /**
+     * Sends one message from outside the chat screen: a notification reply. The
+     * server reads the history itself, queues behind a running turn, and keeps
+     * the turn going after this returns, so only the headers are awaited.
+     */
+    fun reply(token: String, teamId: String, sessionId: String, text: String): Boolean {
+        val body = ChatRequest(
+            id = sessionId, teamId = teamId, messages = listOf(ChatMessage.user(text)),
+            streamId = java.util.UUID.randomUUID().toString(),
+        )
+        return Http.client.newCall(chatRequest(token, body)).execute().use { it.isSuccessful }
+    }
+
     @Serializable
     private data class ChatRequestBody(
         val id: String,
@@ -252,6 +265,39 @@ object AgentChatApi {
             "conversation_busy" -> Conflict.ConversationBusy
             else -> Conflict.Other(code, message, status)
         }
+    }
+
+    data class QueuedMessage(val id: String, val mine: Boolean, val text: String)
+
+    suspend fun queue(token: String, teamId: String, sessionId: String): List<QueuedMessage> {
+        return decodeQueue(send("GET", "agent/conversations/$sessionId/queue", token, listOf("teamId" to teamId)))
+    }
+
+    internal fun decodeQueue(data: String): List<QueuedMessage> {
+        val json = JsonValue.parse(data) ?: throw NuphosApi.Failure.InvalidResponse
+        return json["messages"]?.arrayValue?.map { entry ->
+            QueuedMessage(entry["id"]?.stringValue ?: throw NuphosApi.Failure.InvalidResponse,
+                entry["mine"]?.boolValue == true, entry["text"]?.stringValue.orEmpty())
+        } ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
+    data class QueueRecall(val text: String, val files: List<ai.nuphos.android.model.ChatPart.File> = emptyList())
+
+    suspend fun unqueue(token: String, teamId: String, sessionId: String, messageId: String): QueueRecall {
+        return decodeQueueRecall(send("DELETE", "agent/conversations/$sessionId/queue/$messageId", token, listOf("teamId" to teamId)))
+    }
+
+    internal fun decodeQueueRecall(data: String): QueueRecall {
+        val json = JsonValue.parse(data) ?: throw NuphosApi.Failure.InvalidResponse
+        if (json["ok"]?.boolValue != true) throw NuphosApi.Failure.InvalidResponse
+        val fallback = json["text"]?.stringValue ?: throw NuphosApi.Failure.InvalidResponse
+        val parts = json["message"]?.get("parts")?.arrayValue
+        val text = parts?.filter { it["type"]?.stringValue == "text" }?.joinToString("\n") { it["text"]?.stringValue.orEmpty() } ?: fallback
+        val files = parts.orEmpty().filter { it["type"]?.stringValue == "file" }.map {
+            ai.nuphos.android.model.ChatPart.File(it["mediaType"]?.stringValue.orEmpty(), it["filename"]?.stringValue,
+                it["url"]?.stringValue ?: throw NuphosApi.Failure.InvalidResponse)
+        }
+        return QueueRecall(text, files)
     }
 
     internal suspend fun send(

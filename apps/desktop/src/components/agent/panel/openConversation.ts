@@ -1,5 +1,6 @@
 import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
+import { t } from '../../../i18n/index.ts'
 import { publishRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { trackError } from '../../../lib/analytics'
 import { rememberOpenedConversation } from '../../../lib/openedConversation'
@@ -149,7 +150,7 @@ export async function runOpenConversation(
       streamStartedAt: activeRun ? streamStartedAt : null,
       error:
         !activeRun && replayBaseMessages.length === 0
-          ? 'This agent has no saved messages yet.'
+          ? t('This agent has no saved messages yet.')
           : null,
       autoResumeAttempts: 0,
       historyBaseIndex,
@@ -240,7 +241,7 @@ export async function runOpenConversation(
 
       return
     }
-    toast.apiError('Failed to open agent', err)
+    toast.apiError(t('Failed to open agent'), err)
     clearPendingOpen(sessionId)
     setOpeningConversation(null)
   }

@@ -3,6 +3,7 @@ import { Loader2, X, ZoomIn, ZoomOut } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 import { adjustCrop, centeredCrop, cropSourceRect, MAX_ZOOM, MIN_ZOOM } from '../../lib/avatarCrop'
 
 import type { CropState } from '../../lib/avatarCrop'
@@ -13,16 +14,19 @@ const OUTPUT = 512
 
 type Loaded = { url: string; width: number; height: number; image: HTMLImageElement }
 
-/** Square crop for a picked photo; `onSave` receives the cropped 512px WebP. */
+/** Square crop for a picked photo or icon; `onSave` receives the cropped 512px WebP. */
 export function AvatarCropDialog({
+  kind,
   file,
   onSave,
   onClose,
 }: {
+  kind: 'photo' | 'icon'
   file: File
   onSave: (image: Uint8Array) => Promise<void>
   onClose: () => void
 }) {
+  const icon = kind === 'icon'
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [crop, setCrop] = useState<CropState | null>(null)
   const [saving, setSaving] = useState(false)
@@ -37,7 +41,7 @@ export function AvatarCropDialog({
       setLoaded({ url, width: image.naturalWidth, height: image.naturalHeight, image })
       setCrop(centeredCrop(image.naturalWidth, image.naturalHeight, VIEWPORT))
     }
-    image.onerror = () => setError('This image could not be read. Try a PNG, JPEG or WebP.')
+    image.onerror = () => setError(t('This image could not be read. Try a PNG, JPEG or WebP.'))
     image.src = url
 
     return () => {
@@ -78,11 +82,14 @@ export function AvatarCropDialog({
         canvas.toBlob(resolve, 'image/webp', 0.92),
       )
 
-      if (!blob) throw new Error('Could not prepare the photo')
+      if (!blob)
+        throw new Error(icon ? t('Could not prepare the icon') : t('Could not prepare the photo'))
       await onSave(new Uint8Array(await blob.arrayBuffer()))
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save the photo')
+      const fallback = icon ? t('Could not save the icon') : t('Could not save the photo')
+
+      setError(err instanceof Error ? err.message : fallback)
       setSaving(false)
     }
   }
@@ -95,9 +102,11 @@ export function AvatarCropDialog({
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[340px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
           <div className="flex items-center justify-between border-b border-zGray-800 px-5 py-4">
-            <Dialog.Title className="text-[14px] font-semibold text-main">Crop photo</Dialog.Title>
+            <Dialog.Title className="text-[14px] font-semibold text-main">
+              {icon ? t('Crop icon') : t('Crop photo')}
+            </Dialog.Title>
             <Dialog.Close
-              aria-label="Close"
+              aria-label={t('Close')}
               disabled={saving}
               className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
             >
@@ -133,13 +142,17 @@ export function AvatarCropDialog({
               {!loaded && !error && (
                 <Loader2 className="absolute inset-0 m-auto h-5 w-5 animate-spin text-tertiary" />
               )}
-              <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgba(0,0,0,0.55)]" />
+              {/* Same shape as the saved avatar: an icon is AvatarPicker's 64px rounded-lg, scaled. */}
+              <div
+                className="pointer-events-none absolute inset-0 shadow-[0_0_0_999px_rgba(0,0,0,0.55)]"
+                style={{ borderRadius: kind === 'icon' ? VIEWPORT / 8 : '50%' }}
+              />
             </div>
             <label className="flex items-center gap-2 text-tertiary">
               <ZoomOut className="h-3.5 w-3.5 shrink-0" />
               <input
                 type="range"
-                aria-label="Zoom"
+                aria-label={t('Zoom')}
                 min={MIN_ZOOM}
                 max={MAX_ZOOM}
                 step={0.01}
@@ -163,7 +176,7 @@ export function AvatarCropDialog({
                 onClick={onClose}
                 disabled={saving}
               >
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button
                 type="button"
@@ -171,7 +184,7 @@ export function AvatarCropDialog({
                 onClick={() => void save()}
                 disabled={!crop || saving}
               >
-                {saving ? 'Saving…' : 'Save photo'}
+                {saving ? t('Saving…') : icon ? t('Save icon') : t('Save photo')}
               </Button>
             </div>
           </div>

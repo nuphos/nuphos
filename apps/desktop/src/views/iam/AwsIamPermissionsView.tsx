@@ -7,6 +7,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import {
@@ -107,14 +108,14 @@ export function AwsIamPermissionsView({
           title={visibleData.roleName}
           subtitle={visibleData.roleArn}
           rows={[
-            { label: 'Account ID', value: visibleData.accountId, mono: true },
+            { label: t('Account ID'), value: visibleData.accountId, mono: true },
             {
-              label: 'Caller identity',
+              label: t('Caller identity'),
               value: visibleData.callerArn ?? '—',
               mono: true,
             },
             {
-              label: 'Policies attached',
+              label: t('Policies attached'),
               value: String(visibleData.policies.length),
             },
           ]}
@@ -137,11 +138,19 @@ export function AwsIamPermissionsView({
             <section className="px-6 py-4 border-t border-zGray-800/60">
               <SectionHeader
                 icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
-                title="Granted policies"
-                hint={`${String(visibleData.policies.length)} policies on this role`}
+                title={t('Granted policies')}
+                hint={
+                  visibleData.policies.length === 1
+                    ? t('{n} policy on this role', { n: visibleData.policies.length })
+                    : t('{n} policies on this role', { n: visibleData.policies.length })
+                }
               />
               {visibleData.policies.length === 0 ? (
-                <EmptyHint message="No IAM policies attached to this role — Nuphos can assume the role but every operation will be denied. Attach a permissions policy (e.g. ReadOnlyAccess) to the role in the AWS IAM console." />
+                <EmptyHint
+                  message={t(
+                    'No IAM policies attached to this role — Nuphos can assume the role but every operation will be denied. Attach a permissions policy (e.g. ReadOnlyAccess) to the role in the AWS IAM console.',
+                  )}
+                />
               ) : (
                 <div className="border-y border-zGray-800/60">
                   {visibleData.policies.map((p) => (
@@ -154,8 +163,8 @@ export function AwsIamPermissionsView({
               <section className="px-6 py-4 border-t border-zGray-800/60">
                 <SectionHeader
                   icon={<KeyRound className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
-                  title="Trust policy"
-                  hint="Who is allowed to assume this role"
+                  title={t('Trust policy')}
+                  hint={t('Who is allowed to assume this role')}
                 />
                 <pre className="mt-2 border-y border-zGray-850 bg-zGray-950 py-3 text-[11.5px] font-mono text-secondary overflow-x-auto whitespace-pre-wrap break-words">
                   {visibleData.trustPolicySummary}
@@ -174,7 +183,7 @@ export function AwsIamPermissionsView({
               />
             ) : (
               <section className="px-6 py-4 border-t border-zGray-800/60">
-                <EmptyHint message="Open a specific role to manage who can use it." />
+                <EmptyHint message={t('Open a specific role to manage who can use it.')} />
               </section>
             )}
           </LoadedDetailContentReveal>

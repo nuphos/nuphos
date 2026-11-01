@@ -1,8 +1,9 @@
 import clsx from 'clsx'
-import { memo, useCallback, useMemo } from 'react'
+import { Fragment, memo, useCallback, useMemo } from 'react'
 
 import { KubeContextProvider } from '../../hooks/KubeContextProvider'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { connectKubernetesCluster } from '../../lib/kubernetesCluster'
 import { WorkspaceRowLinkProvider } from '../../lib/WorkspaceRowLinkProvider'
@@ -205,6 +206,7 @@ export const WorkspaceTabPane = memo(
                             target={tab.target}
                             s3Detail={tab.s3Detail}
                             architectureDetail={tab.architectureDetail ?? null}
+                            designDetail={tab.designDetail ?? null}
                             nuphosDashboard={tab.nuphosDashboard ?? null}
                             nuphosDashboards={tab.nuphosDashboards}
                             linearNav={tab.linearNav ?? null}
@@ -272,7 +274,16 @@ export const WorkspaceTabPane = memo(
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-main text-tertiary text-[12.5px]">
                 <div className="w-6 h-6 rounded-full border-2 border-zGray-700 border-t-zViolet-accent animate-spin" />
                 <div>
-                  Connecting to <span className="text-secondary">{tab.clusterLabel}</span>…
+                  {t('Connecting to {cluster}…')
+                    .split('{cluster}')
+                    .map((part, i, parts) => (
+                      <Fragment key={i}>
+                        {part}
+                        {i < parts.length - 1 && (
+                          <span className="text-secondary">{tab.clusterLabel}</span>
+                        )}
+                      </Fragment>
+                    ))}
                 </div>
               </div>
             )}

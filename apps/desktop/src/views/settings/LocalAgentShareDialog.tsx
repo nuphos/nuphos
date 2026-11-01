@@ -10,6 +10,7 @@ import { Checkbox } from '../../components/ui/checkbox'
 import { AppSelect } from '../../components/ui/select'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
 
 import {
@@ -62,7 +63,7 @@ export function LocalAgentShareDialog({
       onSaved(await api.localShareSet(deviceId, teamId, { level, everyone, userIds: [...chosen] }))
       onClose()
     } catch (error) {
-      toast.apiError('Could not change who can use this computer', error)
+      toast.apiError(t('Could not change who can use this computer'), error)
     } finally {
       setSaving(false)
     }
@@ -72,16 +73,18 @@ export function LocalAgentShareDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Share ${deviceLabel}`}
-      description="Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec."
+      title={t('Share {device}', { device: deviceLabel })}
+      description={t(
+        'Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.',
+      )}
       width={560}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
           <Button size="sm" variant="secondary" disabled={saving} onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button size="sm" disabled={saving} onClick={() => void save()}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('Saving…') : t('Save')}
           </Button>
         </div>
       }
@@ -89,7 +92,7 @@ export function LocalAgentShareDialog({
       <div className="space-y-4 p-5">
         <div className="space-y-1.5">
           <AppSelect
-            ariaLabel="How far to share this computer"
+            ariaLabel={t('How far to share this computer')}
             value={level}
             disabled={saving}
             onValueChange={(next) => setLevel(next as LocalShareLevel)}
@@ -102,8 +105,10 @@ export function LocalAgentShareDialog({
           {state.ceiling !== 'full' && (
             <p className="text-[12px] text-tertiary">
               {state.ceiling === 'off'
-                ? 'Your team’s administrators have turned off sharing your own computer.'
-                : 'Your team’s administrators allow sharing only with your approval of each agent.'}
+                ? t('Your team’s administrators have turned off sharing your own computer.')
+                : t(
+                    'Your team’s administrators allow sharing only with your approval of each agent.',
+                  )}
             </p>
           )}
         </div>
@@ -116,10 +121,10 @@ export function LocalAgentShareDialog({
             </div>
             <div className="rounded-xl border border-zGray-800">
               <label className="flex items-center justify-between gap-3 px-3 py-2.5 text-[12.5px] text-main">
-                Everyone in this team, including people who join later
+                {t('Everyone in this team, including people who join later')}
                 <Switch
                   checked={everyone}
-                  label="Share with everyone in this team"
+                  label={t('Share with everyone in this team')}
                   onChange={setEveryone}
                 />
               </label>
@@ -149,7 +154,7 @@ export function LocalAgentShareDialog({
                           <Checkbox
                             checked={checked}
                             onCheckedChange={() => toggle(member.id)}
-                            aria-label={`Share with ${name}`}
+                            aria-label={t('Share with {name}', { name })}
                           />
                         </label>
                       </li>
@@ -157,7 +162,7 @@ export function LocalAgentShareDialog({
                   })}
                   {members.length === 0 && (
                     <li className="px-2 py-1.5 text-[12px] text-tertiary">
-                      No one else is in this team yet.
+                      {t('No one else is in this team yet.')}
                     </li>
                   )}
                 </ul>

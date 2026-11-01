@@ -11,7 +11,6 @@ import {
 import { SettingsNav } from './settings/SettingsNavPanel'
 import { SettingsSectionBody } from './settings/SettingsSectionBody'
 import { MemoriesSection, SkillsSection, TriggersSection } from './settings/TeamPageSections'
-import { useResetOnKey } from './useResetOnKey'
 
 import type { JournalChatTarget } from '../lib/journalEvent'
 import type { AtlasTeam, UserInfo } from '../types'
@@ -57,12 +56,6 @@ export function SettingsPage({
   initialFilter,
 }: Props) {
   const [section, setSection] = useState<string>(initialSection ?? TEAM_SETTINGS_DEFAULT_SECTION)
-
-  // The page mounts fresh on every open, but a deep entry point can also fire
-  // while Settings is already open — resync to the newly requested section.
-  useResetOnKey(initialSection ?? '', () => {
-    if (initialSection) setSection(initialSection)
-  })
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

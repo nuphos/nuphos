@@ -28,7 +28,7 @@ class MicrophoneTake(private val context: Context) : VoiceTake {
             media.setAudioEncodingBitRate(64_000)
             media.setOutputFile(audio.absolutePath)
             media.setMaxDuration(10 * 60 * 1000)
-            media.setMaxFileSize(OpenAIWhisperTransport.MAX_AUDIO_BYTES)
+            media.setMaxFileSize(NuphosWhisperTransport.MAX_AUDIO_BYTES)
             media.setOnErrorListener { _, _, _ -> interrupted = true }
             media.setOnInfoListener { _, what, _ ->
                 if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED ||

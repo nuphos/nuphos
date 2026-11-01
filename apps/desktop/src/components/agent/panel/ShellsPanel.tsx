@@ -4,6 +4,8 @@ import clsx from 'clsx'
 import { ChevronRight, Layers, Terminal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import { disclosureControlClass, LoadingText } from './partChrome'
 import { shellsFromRuntimeState } from './shells'
 import { trimDisplayBlock } from './toolPartUtils'
@@ -20,7 +22,7 @@ function ShellRow({ shell }: { shell: ShellEntry }) {
       <div className="flex w-full min-w-0 items-center gap-1.5 py-0.5 pl-5 text-tertiary">
         <Layers className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
         <span className="min-w-0 flex-1 truncate text-[12px] text-main">{command}</span>
-        <LoadingText className="flex-shrink-0 text-[11px]">running</LoadingText>
+        <LoadingText className="flex-shrink-0 text-[11px]">{t('running')}</LoadingText>
       </div>
     )
 
@@ -40,11 +42,11 @@ function ShellRow({ shell }: { shell: ShellEntry }) {
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-main">
           {command || shell.terminalId}
         </span>
-        <LoadingText className="flex-shrink-0 text-[11px]">running</LoadingText>
+        <LoadingText className="flex-shrink-0 text-[11px]">{t('running')}</LoadingText>
       </Collapsible.Trigger>
       <Collapsible.Panel className="t-acc-collapsible">
         <div className="ml-1.5 mt-1.5 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-3 font-mono text-[12px] leading-[1.55] text-secondary">
-          {output || 'No output yet.'}
+          {output || t('No output yet.')}
         </div>
       </Collapsible.Panel>
     </Collapsible.Root>
@@ -81,7 +83,7 @@ export function ShellsPanel({ snapshot }: { snapshot: RuntimeExecution | undefin
   }, [shown])
 
   const label = String(count)
-  const title = `${label} running in the background`
+  const title = t('{count} running in the background', { count: label })
 
   return (
     <div className="flex h-7 flex-shrink-0 justify-end empty:hidden">

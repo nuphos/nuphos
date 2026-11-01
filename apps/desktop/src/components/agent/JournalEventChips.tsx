@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { ShieldAlert, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
+
 const LEVEL_TONE: Record<string, string> = {
   violated: 'text-error bg-error/10 border-error/30',
   live: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
@@ -10,10 +12,10 @@ const LEVEL_TONE: Record<string, string> = {
 }
 
 const LEVEL_LABEL: Record<string, string> = {
-  violated: 'Integrity violated',
-  live: 'Live · chain intact',
-  sealed: 'Sealed · WORM',
-  anchored: 'Anchored',
+  violated: t('Integrity violated'),
+  live: t('Live · chain intact'),
+  sealed: t('Sealed · WORM'),
+  anchored: t('Anchored'),
 }
 
 export function JournalIntegrityBadge({
@@ -43,9 +45,9 @@ export function VerifiedMark({ verified }: { verified: boolean | null | undefine
     return (
       <span
         className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wider text-emerald-500/90"
-        title="Content matches its chained hash"
+        title={t('Content matches its chained hash')}
       >
-        <ShieldCheck className="h-2.5 w-2.5" strokeWidth={2} /> verified
+        <ShieldCheck className="h-2.5 w-2.5" strokeWidth={2} /> {t('verified')}
       </span>
     )
   }
@@ -53,9 +55,9 @@ export function VerifiedMark({ verified }: { verified: boolean | null | undefine
     return (
       <span
         className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wider text-error"
-        title="Content does NOT match its chained hash — it was modified after journaling"
+        title={t('Content does NOT match its chained hash — it was modified after journaling')}
       >
-        <TriangleAlert className="h-2.5 w-2.5" strokeWidth={2} /> divergent
+        <TriangleAlert className="h-2.5 w-2.5" strokeWidth={2} /> {t('divergent')}
       </span>
     )
   }
@@ -92,7 +94,7 @@ export function ClampedText({
           }}
           className="ml-1 text-[10px] text-violet-300/90 hover:text-violet-200"
         >
-          {expanded ? 'less' : 'more'}
+          {expanded ? t('less') : t('more')}
         </button>
       )}
     </div>
@@ -106,9 +108,11 @@ export function RedactionChip({ count }: { count: unknown }) {
   return (
     <span
       className="inline-flex flex-shrink-0 items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-amber-400/90"
-      title="Secrets were redacted from the journaled copy; an HMAC fingerprint allows equality checks without storing them"
+      title={t(
+        'Secrets were redacted from the journaled copy; an HMAC fingerprint allows equality checks without storing them',
+      )}
     >
-      {count} redacted
+      {t('{count} redacted', { count })}
     </span>
   )
 }
@@ -126,9 +130,13 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
     return (
       <span
         className="inline-flex flex-shrink-0 items-center rounded border border-violet-500/30 bg-violet-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-violet-300/90"
-        title="An approved plan was active for this agent when the call was journaled — per-command plan binding is not claimed"
+        title={t(
+          'An approved plan was active for this agent when the call was journaled — per-command plan binding is not claimed',
+        )}
       >
-        plan{typeof auth.planNumber === 'number' ? ` #${String(auth.planNumber)}` : ''}
+        {typeof auth.planNumber === 'number'
+          ? t('plan #{n}', { n: String(auth.planNumber) })
+          : t('plan')}
       </span>
     )
   }
@@ -136,9 +144,11 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
     return (
       <span
         className="inline-flex flex-shrink-0 items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-emerald-400/90"
-        title="The user approved this execution (per-command approval or a standing allow rule)"
+        title={t(
+          'The user approved this execution (per-command approval or a standing allow rule)',
+        )}
       >
-        user-approved
+        {t('user-approved')}
       </span>
     )
   }
@@ -146,9 +156,11 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
     return (
       <span
         className="inline-flex flex-shrink-0 items-center rounded border border-zGray-700 bg-zGray-800/60 px-1 py-px text-[9px] uppercase tracking-wider text-tertiary"
-        title="The agent decided to run this on its own — no plan or per-command approval was in effect"
+        title={t(
+          'The agent decided to run this on its own — no plan or per-command approval was in effect',
+        )}
       >
-        agent-initiated
+        {t('agent-initiated')}
       </span>
     )
   }
@@ -161,9 +173,9 @@ export function ClientTrustChip() {
   return (
     <span
       className="inline-flex flex-shrink-0 items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-amber-400/90"
-      title="Executed on the desktop and self-reported — not attested by the server"
+      title={t('Executed on the desktop and self-reported — not attested by the server')}
     >
-      client-reported
+      {t('client-reported')}
     </span>
   )
 }

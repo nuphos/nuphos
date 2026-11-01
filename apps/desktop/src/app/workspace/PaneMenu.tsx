@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { ShortcutHint } from '../../components/ui/shortcut-hint'
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 
 /**
  * The ⋯ menu for a split pane that has no saved session (home, New agent, an
@@ -22,9 +23,9 @@ export function PaneMenu({ onClosePane }: { onClosePane: () => void }) {
         onClosePane()
       }}
     >
-      <Tooltip content="More actions" side="bottom">
+      <Tooltip content={t('More actions')} side="bottom">
         <MenuTrigger
-          aria-label="More pane actions"
+          aria-label={t('More pane actions')}
           className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main motion-reduce:transition-none"
         >
           <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
@@ -38,7 +39,7 @@ export function PaneMenu({ onClosePane }: { onClosePane: () => void }) {
             closeOnClose.current = true
           }}
         >
-          Close pane
+          {t('Close pane')}
         </MenuItem>
       </MenuContent>
     </Menu>

@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Container, FolderTree, Server, ShieldAlert } from 'lucide-react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import {
   BetterStackIntegrationView,
   ComplianceIntegrationView,
@@ -40,10 +41,10 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
             ? 'dashboards'
             : 'monitors'
     const betterStackMeta = {
-      monitors: { title: 'Monitors', icon: faGaugeHigh },
-      incidents: { title: 'Incidents', icon: faTriangleExclamation },
-      sources: { title: 'Sources', icon: faDatabase },
-      dashboards: { title: 'Dashboards', icon: faTableColumns },
+      monitors: { title: t('Monitors'), icon: faGaugeHigh },
+      incidents: { title: t('Incidents'), icon: faTriangleExclamation },
+      sources: { title: t('Sources'), icon: faDatabase },
+      dashboards: { title: t('Dashboards'), icon: faTableColumns },
     }[betterStackPage]
 
     return renderActiveNavPage(
@@ -65,7 +66,7 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
     const instance = accounts?.uptimeKuma.find((item) => item.id === scope.instanceId)
 
     return renderActiveNavPage(
-      'Monitors',
+      t('Monitors'),
       <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
       <UptimeKumaInstanceView
         teamId={scope.teamId}
@@ -87,7 +88,7 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
       accounts === undefined || Boolean(list?.some((item) => item.id === scope.integrationId))
 
     return renderActiveNavPage(
-      'Failed Tests',
+      t('Failed Tests'),
       <ShieldAlert className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ComplianceIntegrationView
         teamId={scope.teamId}
@@ -104,7 +105,7 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
 
   if (scope.kind === 'tailscale-client') {
     return renderActiveNavPage(
-      'Devices',
+      t('Devices'),
       <FontAwesomeIcon icon={faServer} className="w-3.5 h-3.5 text-tertiary" />,
       <TailscaleDevicesView
         teamId={scope.teamId}
@@ -120,7 +121,7 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
   if (scope.kind === 'zeabur-provider') {
     if (active === 'zeabur.servers') {
       return renderActiveNavPage(
-        'Servers',
+        t('Servers'),
         <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <ZeaburServersView
           teamId={scope.teamId}
@@ -134,7 +135,7 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
     }
 
     return renderActiveNavPage(
-      'Projects',
+      t('Projects'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ZeaburProjectsView
         teamId={scope.teamId}

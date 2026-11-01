@@ -5,6 +5,7 @@ import { HREF_FAVORITE_PREFIX } from '../../lib/sidebarFavorites'
 import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav'
 
 import type { HistoryTimeline } from './historyRows'
+import type { PinnedMoves } from './pinned-order'
 import type { Scope, TeamInvitation, UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 import type { LucideIcon } from 'lucide-react'
@@ -22,7 +23,7 @@ export type Item = {
   badge?: number
   /** Status content preserved when the item is pinned. */
   trailing?: ReactNode
-  /** Row actions omitted from pinned favorites. */
+  /** Row actions shown on hover or focus, such as a chat's More button. */
   actions?: ReactNode
   /** Overrides the default onSelect(key) click behavior (Favorites rows).
    *  `newTab` is true for a cmd/ctrl-click. */
@@ -39,7 +40,12 @@ export type Item = {
   watching?: boolean
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
+  /** A finished thread with nothing left to show; its parent counts it instead. */
+  finished?: boolean
 }
+
+/** A right-click or More button asking for a row's menu, where it should open. */
+export type ItemMenuRequest = { x: number; y: number; item: Item; moves?: PinnedMoves }
 
 export type Section = {
   /**

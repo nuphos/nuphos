@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 import { patchPersonalSkillsRefresh, patchRuntimeDefaults } from '../runtime-defaults.mjs'
+import { patchClaudeAskUserQuestion } from './ask-user-question.mjs'
 import { patchClaudeDefaultEffort } from './default-effort.mjs'
 import { patchClaudeSessionState } from './session-state.mjs'
 import { patchClaudeTurnCompletion } from './turn-completion.mjs'
@@ -30,8 +31,8 @@ if (
   throw new Error('Claude ACP bundle changed; review the Nuphos adapter patches.')
 const mcpAnchor = '            for (const server of params.mcpServers) {'
 if (source.split(mcpAnchor).length !== 2) throw new Error('Expected one Claude MCP server handoff.')
-let patched = patchClaudeDefaultEffort(
-  patchClaudeSessionState(patchClaudeTurnCompletion(source)),
+let patched = patchClaudeAskUserQuestion(
+  patchClaudeDefaultEffort(patchClaudeSessionState(patchClaudeTurnCompletion(source))),
 ).replace(
   mcpAnchor,
   '            for (const server of nuphosBridgeMcpServers(params.mcpServers)) {',
@@ -121,14 +122,15 @@ if (patched.split(deathError).length !== 2)
   throw new Error('Expected one Claude process-death error.')
 patched = patched.replace(
   deathError,
-  'failAllTurns(RequestError.internalError(undefined, nuphosProcessDeathMessage(message)));',
+  'failAllTurns(RequestError.internalError(undefined, nuphosProcessDeathMessage("Claude Code", message.replace(/^Claude Code /, ""))));',
 )
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
 const instructions = readFileSync(new URL('./project-instructions.mjs', import.meta.url), 'utf8')
-const processDeath = readFileSync(new URL('./process-death.mjs', import.meta.url), 'utf8')
+const processDeath = readFileSync(new URL('../process-death.mjs', import.meta.url), 'utf8')
+const nativeQuestion = readFileSync(new URL('../native-question.mjs', import.meta.url), 'utf8')
 patched = patchRuntimeDefaults(
-  `${sessionHome}\n${helper}\n${instructions}\n${processDeath}\n${patched}`,
+  `${sessionHome}\n${helper}\n${instructions}\n${processDeath}\n${nativeQuestion}\n${patched}`,
 )
 // A live session keeps its query, and with it the HOME it started in, until its
 // fingerprint changes. Make the session home part of it, so a load for another

@@ -1,6 +1,7 @@
 import { ShieldCheck } from 'lucide-react'
 import { useContext, useRef } from 'react'
 
+import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
 import { Button } from '../../ui/button'
 
@@ -38,24 +39,28 @@ export function AuthorizationApprovalActions({
     >
       <div className="flex items-start gap-1.5 text-[12px] text-main">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-warning" strokeWidth={2} />
-        <span>Authorization required{reason ? ` — ${reason}` : ''}</span>
+        <span>
+          {reason
+            ? t('Authorization required — {reason}', { reason })
+            : t('Authorization required')}
+        </span>
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
         <Button
           size="sm"
           type="button"
-          title={`Approve once (${comboText('mod+enter')})`}
+          title={t('Approve once ({shortcut})', { shortcut: comboText('mod+enter') })}
           onClick={() => act(() => decide('once'))}
         >
-          Approve once
+          {t('Approve once')}
         </Button>
         <button
           type="button"
-          title={`Deny (${comboText('mod+backspace')})`}
+          title={t('Deny ({shortcut})', { shortcut: comboText('mod+backspace') })}
           onClick={() => act(() => decide('deny'))}
           className="inline-flex h-8 items-center rounded-md px-3 text-[12px] font-medium text-tertiary transition-colors hover:text-red-400"
         >
-          Deny
+          {t('Deny')}
         </button>
       </div>
     </div>

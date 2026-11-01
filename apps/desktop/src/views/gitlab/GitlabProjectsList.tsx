@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type { Column } from '../../components/Table'
@@ -41,7 +42,7 @@ export function ProjectsList({
       })
       .catch((e: unknown) => {
         if (req !== reqRef.current) return
-        setError(e instanceof Error && e.message ? e.message : 'Failed to load projects.')
+        setError(e instanceof Error && e.message ? e.message : t('Failed to load projects.'))
       })
   }, [teamId, binding.id, namespace?.fullPath])
 
@@ -78,7 +79,7 @@ export function ProjectsList({
   const columns: Column<GitlabProject>[] = [
     {
       key: 'name',
-      header: 'Project',
+      header: t('Project'),
       width: 280,
       sortAccessor: (p) => p.pathWithNamespace,
       render: (p) => (
@@ -92,7 +93,7 @@ export function ProjectsList({
     },
     {
       key: 'description',
-      header: 'Description',
+      header: t('Description'),
       width: 300,
       render: (p) => (
         <span className="text-secondary text-[12px] truncate">
@@ -102,13 +103,13 @@ export function ProjectsList({
     },
     {
       key: 'defaultBranch',
-      header: 'Default branch',
+      header: t('Default branch'),
       width: 140,
       render: (p) => <span className="text-tertiary text-[12px]">{p.defaultBranch ?? '—'}</span>,
     },
     {
       key: 'lastActivityAt',
-      header: 'Last activity',
+      header: t('Last activity'),
       width: 110,
       sortAccessor: (p) => p.lastActivityAt ?? '',
       render: (p) => (
@@ -119,7 +120,7 @@ export function ProjectsList({
     },
     {
       key: 'visibility',
-      header: 'Visibility',
+      header: t('Visibility'),
       width: 100,
       render: (p) => <span className="text-tertiary text-[12px] capitalize">{p.visibility}</span>,
     },
@@ -137,7 +138,7 @@ export function ProjectsList({
   if (projects === null) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading…
+        {t('Loading…')}
       </div>
     )
   }
@@ -150,7 +151,7 @@ export function ProjectsList({
         rowKey={(p) => String(p.id)}
         storageKey={`gitlab.projects.${binding.id}`}
         defaultSort={{ key: 'lastActivityAt', dir: 'desc' }}
-        empty={filter ? `No projects match "${filter}"` : 'No projects found'}
+        empty={filter ? t('No projects match "{filter}"', { filter }) : t('No projects found')}
         onPrimaryAction={onSelect}
       />
     </div>

@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { QuotaTone } from '../../lib/runtimeQuota'
 import type { RuntimeInstance, RuntimeMetricSample } from '../../types/runtime'
 import type { OpenAbRuntimeStatus } from '../../types/team'
@@ -19,23 +21,23 @@ export function runtimeStatusView(
 ): RuntimeStatusView {
   if (instance.deletion) {
     return instance.deletion.error
-      ? { label: 'Deletion paused', tone: 'error' }
-      : { label: 'Deleting…', tone: 'pending' }
+      ? { label: t('Deletion paused'), tone: 'error' }
+      : { label: t('Deleting…'), tone: 'pending' }
   }
-  if (instance.status !== 'active') return { label: 'Disabled', tone: 'off' }
-  if (runtime?.authenticated === false) return { label: 'Sign in required', tone: 'pending' }
-  if (runtime?.credentialRevoked) return { label: 'Connection revoked', tone: 'error' }
-  if (statusError) return { label: 'Status unavailable', tone: 'error' }
-  if (runtime?.online) return { label: 'Online', tone: 'online' }
+  if (instance.status !== 'active') return { label: t('Disabled'), tone: 'off' }
+  if (runtime?.authenticated === false) return { label: t('Sign in required'), tone: 'pending' }
+  if (runtime?.credentialRevoked) return { label: t('Connection revoked'), tone: 'error' }
+  if (statusError) return { label: t('Status unavailable'), tone: 'error' }
+  if (runtime?.online) return { label: t('Online'), tone: 'online' }
   // Nuphos runs a managed agent, so not answering yet means its pod is still starting.
   if (runtime?.configured)
     return instance.kind === 'managed'
-      ? { label: 'Starting…', tone: 'pending' }
-      : { label: 'Unreachable', tone: 'error' }
+      ? { label: t('Starting…'), tone: 'pending' }
+      : { label: t('Unreachable'), tone: 'error' }
 
   return runtime
-    ? { label: 'Starting…', tone: 'pending' }
-    : { label: 'Connecting…', tone: 'pending' }
+    ? { label: t('Starting…'), tone: 'pending' }
+    : { label: t('Connecting…'), tone: 'pending' }
 }
 
 /** `…/nuphos-openab-runtime:0d6d5c8-1@sha256:8324d1…` → `0d6d5c8-1 (8324d13)`. */
@@ -52,10 +54,10 @@ export function formatUptime(totalSeconds: number): string {
   const hours = Math.floor((totalSeconds % 86_400) / 3_600)
   const minutes = Math.floor((totalSeconds % 3_600) / 60)
 
-  if (days > 0) return `${String(days)}d ${String(hours)}h`
-  if (hours > 0) return `${String(hours)}h ${String(minutes)}m`
+  if (days > 0) return t('{days}d {hours}h', { days, hours })
+  if (hours > 0) return t('{hours}h {minutes}m', { hours, minutes })
 
-  return `${String(minutes)}m`
+  return t('{minutes}m', { minutes })
 }
 
 export type RuntimeMetricKey = 'cpuMillicores' | 'memoryBytes' | 'sessions' | 'diskUsedBytes'
@@ -80,4 +82,33 @@ export const QUOTA_LABEL_CLASS: Record<QuotaTone, string> = {
   ok: '',
   warning: 'text-warning',
   exhausted: 'text-error',
+}
+
+/** What removing a runtime takes with it, for the confirmation. */
+export function runtimeRemovalDescription(instance: RuntimeInstance): string {
+  if (instance.kind === 'managed')
+    return t(
+      'This permanently deletes the runtime, its disks, workspaces, and sign-in, and stops agents running on it. Your agent history stays in Nuphos. Move any workspace you want to keep to another runtime before removing this one.',
+    )
+  const local = instance.local
+
+  if (!local)
+    return t(
+      'This disconnects the external runtime. Its files remain on the external machine. Your agents stay in Nuphos and can be moved to another runtime with their history.',
+    )
+  if (local.instanceId)
+    return t(
+      'This removes the agent and its sign-in from {device}. Your conversation history stays in Nuphos.',
+      { device: local.deviceLabel },
+    )
+
+  return instance.provider === 'codex'
+    ? t(
+        'This signs {name} out on {device} and deletes its settings there. Agents on it stop working; their history stays in Nuphos.',
+        { name: instance.label, device: local.deviceLabel },
+      )
+    : t(
+        'This signs {name} out on {device} and deletes its CLI history and settings there. Agents on it stop working; their history stays in Nuphos.',
+        { name: instance.label, device: local.deviceLabel },
+      )
 }

@@ -1,7 +1,6 @@
 import { ChevronRight, Ellipsis } from 'lucide-react'
-import { useCallback, useState } from 'react'
 
-import { api } from '../../../api'
+import { t } from '../../../i18n'
 import {
   Menu,
   MenuCheckboxItem,
@@ -13,50 +12,12 @@ import {
   MenuTrigger,
 } from '../../ui/menu'
 
+import { byNamespace, useGithubRepos } from './homeGithubRepos'
 import { PULL_STATUSES, RUN_STATUSES, repoKey, statusLabel, toggleItem } from './homeWidgetSettings'
 
 import type { HomeGithubCard, HomeRepo } from './homeWidgetSettings'
 
-async function listInstallationRepos(teamId: string, installationId: number): Promise<HomeRepo[]> {
-  const repos = await api.atlasListGithubRepositories(teamId, installationId)
-
-  return repos.map((r) => ({ installationId, fullName: r.fullName }))
-}
-
-async function listGithubRepos(teamId: string): Promise<HomeRepo[]> {
-  const installations = await api.atlasListGithubInstallations(teamId)
-  const lists = await Promise.allSettled(
-    installations.map((inst) => listInstallationRepos(teamId, inst.installationId)),
-  )
-
-  return lists.flatMap((l) => (l.status === 'fulfilled' ? l.value : []))
-}
-
-/** Every repository the team's GitHub App installations can reach, loaded when the menu first opens. */
-function useGithubRepos(teamId: string) {
-  const [repos, setRepos] = useState<HomeRepo[] | null>(null)
-  const load = useCallback(() => {
-    if (repos) return
-    listGithubRepos(teamId).then(setRepos, () => setRepos([]))
-  }, [teamId, repos])
-
-  return { repos, load }
-}
-
 const chevron = <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-
-/** Repositories grouped by owner (an org or account), owners and names in order. */
-function byNamespace(repos: HomeRepo[]): [string, HomeRepo[]][] {
-  const groups = new Map<string, HomeRepo[]>()
-
-  for (const repo of repos.toSorted((a, b) => a.fullName.localeCompare(b.fullName))) {
-    const namespace = repo.fullName.split('/')[0] ?? ''
-
-    groups.set(namespace, [...(groups.get(namespace) ?? []), repo])
-  }
-
-  return [...groups]
-}
 
 /** A GitHub card's ⋯ menu: which repositories it follows, what it shows of them, removal. */
 export function GithubCardMenu({
@@ -77,7 +38,7 @@ export function GithubCardMenu({
   return (
     <Menu onOpenChange={(open) => open && load()}>
       <MenuTrigger
-        aria-label="Card settings"
+        aria-label={t('Card settings')}
         className="ml-auto rounded p-0.5 text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main"
       >
         <Ellipsis className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -86,13 +47,15 @@ export function GithubCardMenu({
         <MenuSubmenu>
           <MenuSubmenuTrigger chevron={chevron}>
             <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="flex-1">Repositories</span>
+              <span className="flex-1">{t('Repositories')}</span>
               <span className="text-[10.5px] text-tertiary tabular-nums">{card.repos.length}</span>
             </span>
           </MenuSubmenuTrigger>
           <MenuContent side="inline-end" align="start" className="w-[220px]">
-            {repos === null && <MenuItem disabled>Loading repositories…</MenuItem>}
-            {repos?.length === 0 && <MenuItem disabled>No GitHub repositories connected</MenuItem>}
+            {repos === null && <MenuItem disabled>{t('Loading repositories…')}</MenuItem>}
+            {repos?.length === 0 && (
+              <MenuItem disabled>{t('No GitHub repositories connected')}</MenuItem>
+            )}
             {byNamespace(repos ?? []).map(([namespace, list]) => (
               <MenuSubmenu key={namespace}>
                 <MenuSubmenuTrigger chevron={chevron}>
@@ -123,7 +86,7 @@ export function GithubCardMenu({
         <MenuSubmenu>
           <MenuSubmenuTrigger chevron={chevron}>
             <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="flex-1">Status</span>
+              <span className="flex-1">{t('Status')}</span>
               <span className="truncate text-[10.5px] text-tertiary">{statusLabel(card)}</span>
             </span>
           </MenuSubmenuTrigger>
@@ -146,7 +109,7 @@ export function GithubCardMenu({
         </MenuSubmenu>
         <MenuSeparator />
         <MenuItem destructive onClick={onRemove}>
-          Remove card
+          {t('Remove card')}
         </MenuItem>
       </MenuContent>
     </Menu>

@@ -1,13 +1,15 @@
 import { CircleAlert } from 'lucide-react'
 
+import { t } from '../../../i18n'
+
 import { normalizeAgentError } from './stall'
 
 import type { TurnInterruptedPart } from './parts'
 
 const HEADLINE: Record<TurnInterruptedPart['reason'], string> = {
-  cancelled: 'Turn stopped.',
-  timeout: 'Turn timed out.',
-  error: 'Turn failed.',
+  cancelled: t('Turn stopped.'),
+  timeout: t('Turn timed out.'),
+  error: t('Turn failed.'),
 }
 
 export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart }) {

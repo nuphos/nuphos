@@ -17,7 +17,9 @@ export function useShareApprovalWait(
   sessionId: string | undefined,
 ): 'pending' | 'denied' | null {
   const selected = control?.options?.find((instance) => instance.id === control.value?.id)
-  const asks = selected?.local?.shared?.level === 'approve'
+  // Already watched by the conversation: nothing more to ask.
+  const given = control?.shareApproval
+  const asks = given === undefined && selected?.local?.shared?.level === 'approve'
   const [answer, setAnswer] = useState<{ sessionId: string; status: ShareApprovalStatus } | null>(
     null,
   )
@@ -47,6 +49,7 @@ export function useShareApprovalWait(
     }
   }, [asks, sessionId])
 
+  if (given !== undefined) return given
   if (!asks || !sessionId || answer?.sessionId !== sessionId) return null
   const { status } = answer
 

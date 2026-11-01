@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
 
+import { attributionHeader } from '@/lib/agent/message-metadata'
+
 import {
   attributeReceipt,
   createSteeringAttribution,
@@ -117,6 +119,25 @@ test('a steer sent with an upload group shows its files again', () => {
   expect(steeringReceipt(id, 'Look')).toEqual({ id, text: 'Look' })
   for (let i = 0; i < 200; i++)
     expect(steeringReceipt(steeringMessageId(), text).upload).toBeUndefined()
+})
+
+test('a receipt from an older runtime drops the echoed attribution header', () => {
+  const header = attributionHeader('m1', {
+    version: 1,
+    sender: { type: 'user', id: 'u1', displayName: 'Ada', email: 'ada@example.com' },
+    source: 'nuphos',
+    sentAt: '2026-10-28T16:16:47.873Z',
+  })
+  const groupId = '0123456789abcdef01234567'
+  const id = steeringMessageId(groupId)
+  const words = steeringText('Can we speed it up?', ['a.png'])
+
+  // Older runtimes joined every text part with a newline.
+  expect(header).not.toBe('')
+  expect(steeringReceipt('m1', `${header}\nCan we speed it up?`).text).toBe('Can we speed it up?')
+  expect(steeringReceipt(id, `${header}\n${words}`).upload?.files).toHaveLength(1)
+  // Current runtimes echo only the words.
+  expect(steeringReceipt('m1', 'Can we speed it up?').text).toBe('Can we speed it up?')
 })
 
 test('steers reusing one upload group keep separate receipts', () => {

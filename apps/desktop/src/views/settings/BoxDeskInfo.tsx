@@ -1,5 +1,7 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
+
 import { visibleAgent } from './agentPresentation'
 import { deskReadings } from './boxMetricsPresentation'
 import { AgentTile, NewAgentMenu } from './BoxParts'
@@ -38,10 +40,12 @@ export function DeskReadings({
     <div className={clsx('desk-readings', readings.tone === 'stale' && 'is-stale')}>
       {readings.tone === 'stale' && (
         <p className="desk-stale">
-          {received ? `${readings.status} from ${received}` : readings.status}
+          {received
+            ? t('{status} from {time}', { status: readings.status, time: received })
+            : readings.status}
         </p>
       )}
-      <div className="desk-gauges" aria-label="Resource usage">
+      <div className="desk-gauges" aria-label={t('Resource usage')}>
         {readings.gauges.map((gauge) => (
           <div
             key={gauge.label}
@@ -94,18 +98,20 @@ export function DeskAgents({
   if (slots === 'noLocalAgent')
     return (
       <p className="desk-note">
-        No agent yet ·{' '}
         {onSetUp ? (
-          <button type="button" className="desk-link" onClick={onSetUp}>
-            Set up
-          </button>
+          <>
+            {t('No agent yet')} ·{' '}
+            <button type="button" className="desk-link" onClick={onSetUp}>
+              {t('Set up')}
+            </button>
+          </>
         ) : (
-          'set one up in Settings › Local runtime'
+          t('No agent yet · set one up in Settings › Local runtime')
         )}
       </p>
     )
   if (away) return null
-  if (slots === 'starting') return <p className="desk-note">Starting agents…</p>
+  if (slots === 'starting') return <p className="desk-note">{t('Starting agents…')}</p>
   const visible = agents.filter(visibleAgent)
 
   if (visible.length === 0 && (dim || !canAdd)) return null

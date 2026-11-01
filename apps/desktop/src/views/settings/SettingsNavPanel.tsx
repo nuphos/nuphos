@@ -13,6 +13,7 @@ import {
   SidebarNavItem,
 } from '../../components/SidebarNavItem'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
+import { t } from '../../i18n'
 
 import { filterSettingsNavGroups } from './settingsNav'
 
@@ -41,7 +42,7 @@ export function SettingsNav({
       <SidebarNavItem
         active={false}
         onClick={onBack}
-        label="Back to app"
+        label={t('Back to app')}
         icon={<SidebarNavIcon icon={ArrowLeft} />}
       />
       <InputGroup
@@ -63,8 +64,8 @@ export function SettingsNav({
               setQuery('')
             }
           }}
-          placeholder="Search"
-          aria-label="Search settings"
+          placeholder={t('Search')}
+          aria-label={t('Search settings')}
           className="text-main placeholder:text-tertiary [&::-webkit-search-cancel-button]:hidden"
         />
       </InputGroup>
@@ -86,7 +87,7 @@ export function SettingsNav({
           </div>
         ))}
         {visible.length === 0 && (
-          <div className={SIDEBAR_GROUP_TITLE_CLASS}>No matching settings</div>
+          <div className={SIDEBAR_GROUP_TITLE_CLASS}>{t('No matching settings')}</div>
         )}
       </nav>
     </aside>

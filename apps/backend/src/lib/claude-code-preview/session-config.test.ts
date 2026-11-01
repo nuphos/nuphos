@@ -7,6 +7,7 @@ import {
   controlSessionConfig,
   restoreSessionConfigForWrite,
   sessionConfigView,
+  shouldPrewarm,
 } from './session-config'
 import { catalogSessionConfig, offeredSessionConfig } from './session-config-catalog'
 import { parseSessionConfigOptions, pickOf, storedPick } from './session-config-options'
@@ -267,7 +268,11 @@ test('a runtime catalog becomes session options; picks it no longer offers fall 
     controls: {
       modelId: 'default',
       effort: [{ value: 'high', name: 'High' }],
-      fast: true,
+      fast: [
+        { value: 'off', name: 'Off' },
+        { value: 'on', name: 'Fast' },
+        { value: 'ultrafast', name: 'Ultrafast' },
+      ],
       defaultEffort: 'high',
     },
   }
@@ -285,6 +290,10 @@ test('a runtime catalog becomes session options; picks it no longer offers fall 
     { id: 'effort', kind: 'effort' },
     { id: 'fast', kind: 'fast', currentValue: 'on' },
   ])
+  expect(catalogSessionConfig(catalog, { fast: 'ultrafast' })[2]).toMatchObject({
+    currentValue: 'ultrafast',
+    options: [{ value: 'off' }, { value: 'on' }, { value: 'ultrafast' }],
+  })
   expect(catalogSessionConfig({ models: [] }, {})).toEqual([])
 })
 
@@ -313,7 +322,7 @@ test('picks the runtime no longer offers are dropped, and a stale model is read 
 
     return {
       models: [{ id: 'opus', name: 'Opus' }],
-      controls: { modelId: 'opus', effort: [{ value: 'high', name: 'High' }], fast: false },
+      controls: { modelId: 'opus', effort: [{ value: 'high', name: 'High' }], fast: [] },
     }
   }
 
@@ -345,7 +354,7 @@ test('the model list renders while a reply runs: catalog plus stored picks, neve
         { value: 'low', name: 'Low' },
         { value: 'high', name: 'High' },
       ],
-      fast: false,
+      fast: [],
       defaultEffort: 'low',
     },
   })
@@ -392,4 +401,16 @@ test('a confirmed pick that differs from the start settings wins on the chip and
   ).toEqual({ model: 'b', effort: 'high', fast: 'on' })
   expect(storedPick({ runtimeDefaults: { model: 'a' } })).toEqual({ model: 'a' })
   expect(storedPick()).toEqual({})
+})
+
+test('prewarms only the owner’s recently active conversations', () => {
+  const now = Date.parse('2026-10-29T12:00:00Z')
+  const recent = { userId: 'owner', lastActiveAt: new Date(now - 30 * 60 * 1000) }
+  const old = { userId: 'owner', lastActiveAt: new Date(now - 2 * 24 * 60 * 60 * 1000) }
+
+  expect(shouldPrewarm(recent, 'owner', now)).toBe(true)
+  expect(shouldPrewarm(old, 'owner', now)).toBe(false)
+  expect(shouldPrewarm(recent, 'viewer', now)).toBe(false)
+  // A legacy doc without lastActiveAt fails closed instead of throwing.
+  expect(shouldPrewarm({ userId: 'owner' } as typeof recent, 'owner', now)).toBe(false)
 })

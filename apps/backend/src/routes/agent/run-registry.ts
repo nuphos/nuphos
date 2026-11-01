@@ -51,6 +51,7 @@ export function createAgentRun(
   sessionId: string,
   streamId: string,
   trace?: AgentRunTrace,
+  options: { runtimeOwned?: boolean } = {},
 ): AgentRun {
   const now = Date.now()
   const abortController = new AbortController()
@@ -61,6 +62,7 @@ export function createAgentRun(
     sessionId,
     userId,
     trace,
+    ...(options.runtimeOwned ? { runtimeOwned: true } : {}),
     frames: [],
     done: false,
     abortController,
@@ -71,6 +73,7 @@ export function createAgentRun(
     releaseOwnership: startAgentRunOwnership(userId, sessionId, streamId, {
       actorUserId: trace?.userId ?? userId,
       teamId: trace?.teamId,
+      runtimeOwned: options.runtimeOwned,
       onCancellationRequested: () => {
         abortController.abort()
       },

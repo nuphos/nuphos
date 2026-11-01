@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type {
@@ -98,7 +99,7 @@ export function useLarkSettings(
       })
       .catch((err: unknown) => {
         if (gen !== loadGeneration.current) return
-        toast.apiError('Could not load Lark settings', err)
+        toast.apiError(t('Could not load Lark settings'), err)
       })
       .finally(() => {
         if (gen === loadGeneration.current) setLoading(false)
@@ -132,8 +133,8 @@ export function useLarkSettings(
         name: chat.name,
       })
     } catch (err) {
-      toast.apiError('Could not update group', err, {
-        fallback: 'The change was not saved. Check your connection and try again.',
+      toast.apiError(t('Could not update group'), err, {
+        fallback: t('The change was not saved. Check your connection and try again.'),
       })
       await load()
     } finally {
@@ -150,8 +151,8 @@ export function useLarkSettings(
       await api.atlasDeleteLarkUserMapping(teamId, mapping.larkOpenId)
       await load()
     } catch (err) {
-      toast.apiError('Could not remove user mapping', err, {
-        fallback: 'The mapping was not removed. Check your connection and try again.',
+      toast.apiError(t('Could not remove user mapping'), err, {
+        fallback: t('The mapping was not removed. Check your connection and try again.'),
       })
     } finally {
       setBusyKey(null)
@@ -165,7 +166,7 @@ export function useLarkSettings(
       setWebhookCopied(true)
       setTimeout(() => setWebhookCopied(false), 1500)
     } catch {
-      toast.error('Could not copy', 'Copy the URL manually.')
+      toast.error(t('Could not copy'), t('Copy the URL manually.'))
     }
   }
 
@@ -176,7 +177,7 @@ export function useLarkSettings(
     try {
       setPairCode(await api.atlasCreateLarkPairCode(teamId))
     } catch (err) {
-      toast.apiError('Could not generate pairing code', err)
+      toast.apiError(t('Could not generate pairing code'), err)
     } finally {
       setPairGenerating(false)
     }
@@ -189,7 +190,7 @@ export function useLarkSettings(
       setPairCopied(true)
       setTimeout(() => setPairCopied(false), 1500)
     } catch {
-      toast.error('Could not copy', 'Copy the code manually.')
+      toast.error(t('Could not copy'), t('Copy the code manually.'))
     }
   }
 

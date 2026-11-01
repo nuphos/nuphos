@@ -1,5 +1,7 @@
 import { getActiveDiagramId } from '../../../architecture/activeDiagram.ts'
+import { t } from '../../../i18n/index.ts'
 import { track, trackError } from '../../../lib/analytics.ts'
+import { answeringInbox } from '../../../views/inbox/useInbox.ts'
 import { toast } from '../../ui/toast.ts'
 
 import { makeAttachmentTurn } from './attachments.ts'
@@ -24,6 +26,7 @@ const forkImports = new Map<string, Promise<void>>()
 export type DispatchTurnCtx = Pick<
   PanelCtx,
   | 'currentUser'
+  | 'decisionReplyTo'
   | 'credentialAccessRef'
   | 'kubeContextRef'
   | 'sendableCredentialAccess'
@@ -60,10 +63,9 @@ export async function runDispatchTurn(
   const trimmed = text.trim()
 
   if (!trimmed && filePaths.length === 0) return
-  // Every attachment, images included, goes through the transfer store; the
-  // runtime receives them as local files.
+  // Every attachment, images included, goes via the transfer store; the runtime gets local files.
   if (filePaths.length > 0 && !teamId) {
-    toast.error('No team selected', 'Select a team before attaching files.')
+    toast.error(t('No team selected'), t('Select a team before attaching files.'))
 
     return
   }
@@ -121,7 +123,7 @@ export async function runDispatchTurn(
 
       setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, messages: patchedMessages } : t)))
       if (current) syncTranscriptNow({ ...current, messages: patchedMessages })
-      toast.apiError('Upload failed', err)
+      toast.apiError(t('Upload failed'), err)
 
       return
     }
@@ -149,11 +151,29 @@ export async function runDispatchTurn(
     credentialAccessRef.current.get(tab.sessionId) ?? tab.credentialAccess,
   )
 
-  // A fork's copied turns exist only in this client until its first send, and
-  // /chat accepts one user message the server hasn't stored. Store them first
-  // as an import, the path a local session import takes, so this send carries
-  // only the new message. A regular sync of the same turn would race the import
-  // and store the new message before /chat could attribute it.
+  // The Inbox badge drops the question this answers at once; a failed send shows it again.
+  const startTurn = (messages: Message[]) =>
+    answeringInbox(
+      ctx.decisionReplyTo,
+      window.api.agentStart({
+        decisionReplyTo: ctx.decisionReplyTo,
+        streamId,
+        sessionId: tab.sessionId,
+        agentRuntime: tab.agentRuntime,
+        runtimeId: tab.runtimeId,
+        teamId,
+        messages: toUiMessages(messages),
+        baseIndex: tab.historyBaseIndex,
+        locale: getAgentLocale(),
+        url: urlRef.current,
+        kubeContext: kubeContextRef.current ?? undefined,
+        diagramId: getActiveDiagramId() ?? undefined,
+        credentialAccess,
+      }),
+    )
+
+  // Import a fork's copied history before sending its first new message.
+  // Syncing that message first would prevent /chat from attributing it.
   const forkHistory = tab.unsaved && baseMessages.some((m) => m.role === 'user')
 
   // The tab shows a running turn: send at once without taking its stream. The
@@ -172,25 +192,10 @@ export async function runDispatchTurn(
       ),
     )
     void (forkImports.get(tabId) ?? Promise.resolve())
-      .then(() =>
-        window.api.agentStart({
-          streamId,
-          sessionId: tab.sessionId,
-          agentRuntime: tab.agentRuntime,
-          runtimeId: tab.runtimeId,
-          teamId,
-          messages: toUiMessages([...current.messages.filter((m) => m.id !== messageId), userMsg]),
-          baseIndex: tab.historyBaseIndex,
-          locale: getAgentLocale(),
-          url: urlRef.current,
-          kubeContext: kubeContextRef.current ?? undefined,
-          diagramId: getActiveDiagramId() ?? undefined,
-          credentialAccess,
-        }),
-      )
+      .then(() => startTurn([...current.messages.filter((m) => m.id !== messageId), userMsg]))
       .catch((err: unknown) => {
         setTabs((prev) => prev.map((t) => (t.id === tabId ? withoutQueued(t, messageId) : t)))
-        toast.apiError('Could not send your message', err)
+        toast.apiError(t('Could not send your message'), err)
       })
 
     return
@@ -254,20 +259,7 @@ export async function runDispatchTurn(
         setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, unsaved: false } : t)))
       }
 
-      return window.api.agentStart({
-        streamId,
-        sessionId: tab.sessionId,
-        agentRuntime: tab.agentRuntime,
-        runtimeId: tab.runtimeId,
-        teamId,
-        messages: toUiMessages(nextMessages),
-        baseIndex: tab.historyBaseIndex,
-        locale: getAgentLocale(),
-        url: urlRef.current,
-        kubeContext: kubeContextRef.current ?? undefined,
-        diagramId: getActiveDiagramId() ?? undefined,
-        credentialAccess,
-      })
+      return startTurn(nextMessages)
     })
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err)

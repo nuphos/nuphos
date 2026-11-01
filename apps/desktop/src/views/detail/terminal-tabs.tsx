@@ -8,10 +8,17 @@ import { PodTerminalView, ExecTerminalView } from '../../components/PodTerminalV
 import { toast } from '../../components/ui/toast'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { execScope, execSessionKey } from '../../lib/terminalTabTeardown'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { allPodContainers, containerDisplayName } from './pod-containers'
+
+// One sentence for translators: <b>…</b> marks emphasis, {name} and {ns} render
+// as code. Split so each marked part can be styled.
+const NODE_SHELL_WARNING = t(
+  "This starts a <b>privileged pod</b> on {name} and enters the host's namespaces — effectively a <b>root shell on the node</b>. The pod is created in {ns} and deleted automatically when you close this tab or leave this node. It survives switching agents, so a command you left running keeps running.",
+).split(/(<b>.*?<\/b>|\{name\}|\{ns\})/)
 
 // Terminal tab for a Pod: resolves the container list, lets the user pick one
 // (when there's more than one), and mounts an exec terminal. Keying the
@@ -49,7 +56,7 @@ export function PodTerminalTab({ namespace, name }: { namespace: string; name: s
         // Error detail goes to the toast (per CLAUDE.md); the body just leaves
         // the loading state so it doesn't spin forever.
         setPhase('error')
-        toast.apiError('Could not load pod containers', e)
+        toast.apiError(t('Could not load pod containers'), e)
       })
 
     return () => {
@@ -61,7 +68,9 @@ export function PodTerminalTab({ namespace, name }: { namespace: string; name: s
     <div className="flex flex-col h-full">
       {containers.length > 1 && (
         <div className="px-6 py-2 border-b border-zGray-800 flex items-center gap-2 bg-zGray-900">
-          <span className="text-[11.5px] text-tertiary uppercase tracking-wider">Container:</span>
+          <span className="text-[11.5px] text-tertiary uppercase tracking-wider">
+            {t('Container:')}
+          </span>
           {containers.map((c) => (
             <button
               key={c.name}
@@ -84,10 +93,10 @@ export function PodTerminalTab({ namespace, name }: { namespace: string; name: s
         ) : (
           <div className="p-6 text-tertiary text-[13px]">
             {phase === 'loading'
-              ? 'Loading…'
+              ? t('Loading…')
               : phase === 'error'
-                ? "Couldn't load this pod's containers."
-                : 'This pod has no containers.'}
+                ? t("Couldn't load this pod's containers.")
+                : t('This pod has no containers.')}
           </div>
         )}
       </div>
@@ -135,22 +144,33 @@ export function NodeTerminalTab({ name }: { name: string }) {
         <div className="max-w-md bg-zGray-900 border border-zGray-800 rounded-md p-5 space-y-3">
           <div className="flex items-center gap-2 text-warning text-[13px] font-semibold">
             <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4" />
-            Open a node shell?
+            {t('Open a node shell?')}
           </div>
           <p className="text-[12.5px] text-secondary leading-relaxed">
-            This starts a <span className="text-main font-medium">privileged pod</span> on{' '}
-            <span className="text-main font-mono">{name}</span> and enters the host's namespaces —
-            effectively a <span className="text-main font-medium">root shell on the node</span>. The
-            pod is created in <span className="font-mono">kube-system</span> and deleted
-            automatically when you close this tab or leave this node. It survives switching agents,
-            so a command you left running keeps running.
+            {NODE_SHELL_WARNING.map((part, i) =>
+              part.startsWith('<b>') && part.endsWith('</b>') ? (
+                <span key={i} className="text-main font-medium">
+                  {part.slice(3, -4)}
+                </span>
+              ) : part === '{name}' ? (
+                <span key={i} className="text-main font-mono">
+                  {name}
+                </span>
+              ) : part === '{ns}' ? (
+                <span key={i} className="font-mono">
+                  kube-system
+                </span>
+              ) : (
+                part
+              ),
+            )}
           </p>
           <button
             type="button"
             onClick={() => setConfirmed(true)}
             className="px-3 py-1.5 rounded text-[12.5px] bg-warning/15 text-warning hover:bg-warning/25"
           >
-            Open node shell
+            {t('Open node shell')}
           </button>
         </div>
       </div>

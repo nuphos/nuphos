@@ -5,6 +5,8 @@
 // it), so its download fetches each one and inlines it, then pins a policy
 // that forbids any further network fetch. What could not be fetched is listed,
 // so the user hears about it instead of finding a broken page later.
+import { t } from '../../../i18n/index.ts'
+
 import { artifactFileName, artifactMimeType } from './artifactPayload.ts'
 import { Inliner } from './artifactInliner.ts'
 import { withArtifactHead } from './artifactSandbox.ts'
@@ -79,7 +81,8 @@ export async function exportArtifact(
         )
 
   // Data a script asks for at run time cannot be saved ahead; say so.
-  if (LIVE_FETCH.test(version.content)) inliner.missing.add('live data the page loads from the web')
+  if (LIVE_FETCH.test(version.content))
+    inliner.missing.add(t('live data the page loads from the web'))
 
   return { ...file, content, missing: [...inliner.missing] }
 }

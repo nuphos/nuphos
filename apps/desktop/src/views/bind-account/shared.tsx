@@ -1,9 +1,10 @@
 import { faArrowUpRightFromSquare, faCheck, faCopy } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 export function Field({
   label,
@@ -25,6 +26,22 @@ export function Field({
   )
 }
 
+/** Puts styled nodes into a translated sentence where its `{placeholders}` are,
+ *  so each language keeps its own word order. */
+export function Fill({ text, ...nodes }: { text: string } & Record<string, React.ReactNode>) {
+  return (
+    <>
+      {text.split(/(\{\w+\})/).map((part, i) => {
+        const name = part.slice(1, -1)
+
+        return (
+          <Fragment key={i}>{part.startsWith('{') && name in nodes ? nodes[name] : part}</Fragment>
+        )
+      })}
+    </>
+  )
+}
+
 // `label`, when given, is shown on the button instead of the value itself —
 // used for large/multi-line values (e.g. a policy JSON) that are rendered
 // elsewhere and just need a copy affordance.
@@ -37,7 +54,7 @@ export function CopyableValue({ value, label }: { value: string; label?: string 
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error('Could not copy', 'Clipboard was blocked.')
+      toast.error(t('Could not copy'), t('Clipboard was blocked.'))
     }
   }
 
@@ -45,10 +62,10 @@ export function CopyableValue({ value, label }: { value: string; label?: string 
     <button
       type="button"
       onClick={() => void copy()}
-      title="Copy"
+      title={t('Copy')}
       className="inline-flex items-center gap-1.5 max-w-full px-1.5 py-0.5 rounded bg-zGray-850 border border-zGray-800 hover:border-zGray-700 font-mono text-[11.5px] text-main transition-colors align-middle"
     >
-      <span className="truncate">{copied && label ? 'Copied' : (label ?? value)}</span>
+      <span className="truncate">{copied && label ? t('Copied') : (label ?? value)}</span>
       <FontAwesomeIcon
         icon={copied ? faCheck : faCopy}
         className={clsx('w-3 h-3 flex-shrink-0', copied ? 'text-zViolet-accent' : 'text-tertiary')}
@@ -97,7 +114,7 @@ export function CopyIconButton({ value, className }: { value: string; className?
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error('Could not copy', 'Clipboard was blocked.')
+      toast.error(t('Could not copy'), t('Clipboard was blocked.'))
     }
   }
 
@@ -105,7 +122,7 @@ export function CopyIconButton({ value, className }: { value: string; className?
     <button
       type="button"
       onClick={() => void copy()}
-      title="Copy"
+      title={t('Copy')}
       className={clsx(
         'flex h-6 w-6 items-center justify-center rounded bg-zGray-850 border border-zGray-800 hover:border-zGray-700 transition-colors',
         className,

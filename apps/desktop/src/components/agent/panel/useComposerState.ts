@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { composerTextState } from '../../../lib/composerTextState'
 import { cssDurationMs } from '../../../lib/motion'
 
@@ -234,9 +235,9 @@ export function useComposerState({
 
   useEffect(() => {
     const next = readOnly
-      ? (readOnlyPlaceholder ?? 'This agent is read-only')
+      ? (readOnlyPlaceholder ?? t('This agent is read-only'))
       : streaming
-        ? 'Agent is replying...'
+        ? t('Agent is replying...')
         : idlePlaceholder
 
     swapPlaceholder(next)

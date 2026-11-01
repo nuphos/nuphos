@@ -6,19 +6,29 @@ import { shell } from 'electron'
 // is how auth-login.test.ts drives login().
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
-import { apiErrorMessage, requestContext, writeConfig } from './auth/config.ts'
+import {
+  apiErrorMessage,
+  forgetAccountConfig,
+  listAccountConfigs,
+  parkAccountConfig,
+  requestContext,
+  switchAccountConfig,
+  writeConfig,
+} from './auth/config.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from './client-version.ts'
 
+import type { SocialProvider } from './auth/plan.ts'
 import type { AuthStatus, UserInfo } from './auth-status.ts'
 import type { Server } from 'node:http'
 
-export type { AuthStatus, UserInfo }
+export type { AuthStatus, SocialProvider, UserInfo }
 
 export { status } from './auth/me.ts'
+export { socialProviders } from './auth/plan.ts'
 
 let pendingServer: Server | null = null
 
@@ -26,7 +36,7 @@ let pendingServer: Server | null = null
  * Signs in through the system browser.
  *
  * Native path (RFC 8252): register this listener's loopback port with the
- * backend and send the browser straight to Google carrying only the resulting
+ * backend and send the browser straight to the provider carrying only the resulting
  * handle. The redirect back to the listener carries a one-time `code`, which we
  * exchange — together with a PKCE verifier that never leaves this process — for
  * the session over TLS. No session token ever rides a redirect URL.
@@ -34,7 +44,7 @@ let pendingServer: Server | null = null
  * Legacy path: the landing page delivers a token to the listener instead. Kept
  * for deployments without the native endpoints — see `planLogin`.
  */
-export async function login(): Promise<UserInfo> {
+export async function login(provider: SocialProvider): Promise<UserInfo> {
   cancelPendingLogin()
 
   const server = createServer()
@@ -43,7 +53,7 @@ export async function login(): Promise<UserInfo> {
   pendingServer = server
 
   try {
-    const plan = await planLogin(port)
+    const plan = await planLogin(port, provider)
 
     await shell.openExternal(plan.browserUrl)
 
@@ -116,19 +126,33 @@ export async function logout() {
 
 /**
  * Points the app at another backend (`null` restores the launch-time one). A
- * sign-in belongs to the backend that issued it, so it ends there, on disk as
- * well as in memory: no launch sends it to the new backend.
+ * sign-in belongs to the backend that issued it, so it stops being the active
+ * one, on disk as well as in memory: no launch sends it to the new backend.
+ * It stays signed in there, waiting in the account list.
  */
 export async function changeBackend(url: string | null): Promise<string> {
-  const { api, token } = await requestContext()
+  const { api } = await requestContext()
   const next = setApiUrl(url)
 
-  if (next !== api && token) {
-    await writeConfig({})
-    void endServerSession(api, token)
-  }
+  if (next !== api) await parkAccountConfig(api)
 
   return next
+}
+
+/** The accounts signed in on this computer, the active one first; never their tokens. */
+export const listAccounts = listAccountConfigs
+
+/** Makes another signed-in account the active one, on the backend that issued its token. */
+export const switchAccount = switchAccountConfig
+
+/** Signs one account out of this app and ends its session on its backend. */
+export async function signOutAccount(key: string): Promise<void> {
+  const active = (await listAccounts()).find((a) => a.active)
+
+  if (active?.key === key) return logout()
+  const ended = await forgetAccountConfig(key)
+
+  if (ended) void endServerSession(ended.api, ended.token)
 }
 
 async function endServerSession(api: string, token: string): Promise<void> {

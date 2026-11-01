@@ -10,7 +10,7 @@ import { text } from 'node:stream/consumers'
 // As a panel runner, argv[2] is the run directory holding params.json. As a Desktop
 // local runtime's own `attachments` job, the file list arrives on stdin.
 const localRoot = process.argv[2] === '--local-root' ? process.argv[3] : undefined
-const { files } = JSON.parse(
+const { files, secret } = JSON.parse(
   process.argv[2] && !localRoot
     ? await readFile(join(process.argv[2], 'params.json'), 'utf8')
     : await text(process.stdin),
@@ -27,18 +27,20 @@ if (localRoot) {
   const info = await lstat(root)
   if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Invalid attachment directory')
 } else await mkdir(root, { recursive: true, mode: 0o700 })
-// Reclaim expired local batches on each request; never sweep a shared cloud /tmp.
-if (localRoot) {
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-  for (const entry of await readdir(root, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !entry.name.startsWith('nuphos-attachments-')) continue
-    const path = join(root, entry.name)
-    const info = await lstat(path).catch(() => undefined)
-    if (info?.isDirectory() && info.mtimeMs < cutoff)
-      await rm(path, { recursive: true, force: true }).catch(() => {})
-  }
+// Reclaim expired batches on each request. A shared cloud /tmp holds other
+// conversations' attachments, so there only expired secrets are swept.
+const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+for (const entry of await readdir(root, { withFileTypes: true })) {
+  const expirable =
+    entry.name.startsWith('nuphos-secret-') ||
+    (localRoot && entry.name.startsWith('nuphos-attachments-'))
+  if (!entry.isDirectory() || !expirable) continue
+  const path = join(root, entry.name)
+  const info = await lstat(path).catch(() => undefined)
+  if (info?.isDirectory() && info.mtimeMs < cutoff)
+    await rm(path, { recursive: true, force: true }).catch(() => {})
 }
-const dir = await mkdtemp(join(root, 'nuphos-attachments-'))
+const dir = await mkdtemp(join(root, secret === true ? 'nuphos-secret-' : 'nuphos-attachments-'))
 const paths = []
 try {
   for (const [index, file] of files.entries()) {
