@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import {
   isTriggerAlreadyDeletedError,
   pendingTriggerFromDeleteResult,
@@ -95,8 +96,8 @@ export async function submitTriggerForm({
       onSaved(updated)
     }
   } catch (err) {
-    toast.apiError('Could not save trigger', err, {
-      fallback: 'Check your connection and try again.',
+    toast.apiError(t('Could not save trigger'), err, {
+      fallback: t('Check your connection and try again.'),
     })
   } finally {
     setSaving(false)
@@ -120,7 +121,7 @@ export async function confirmRemoveTrigger({
 }) {
   try {
     if (!canDelete) {
-      toast.error('Could not remove trigger', 'Administrator access is required.')
+      toast.error(t('Could not remove trigger'), t('Administrator access is required.'))
 
       return
     }
@@ -140,8 +141,8 @@ export async function confirmRemoveTrigger({
 
       return
     }
-    toast.apiError('Could not remove Watch', err, {
-      fallback: 'Check your connection and try again.',
+    toast.apiError(t('Could not remove Watch'), err, {
+      fallback: t('Check your connection and try again.'),
     })
     try {
       const refreshed = await api.agentGetTrigger(triggerId, teamId)
@@ -169,7 +170,7 @@ export async function testFireTrigger({
   setFiring(true)
   try {
     if (!canManage) {
-      toast.error('Could not test trigger', 'Editor or administrator access is required.')
+      toast.error(t('Could not test trigger'), t('Editor or administrator access is required.'))
 
       return
     }
@@ -180,14 +181,16 @@ export async function testFireTrigger({
 
     toast.success(
       result.delivery === 'slack'
-        ? `Test fire sent to ${result.destinationLabel ?? 'Slack'}.`
-        : 'Run started.',
+        ? t('Test fire sent to {destination}.', {
+            destination: result.destinationLabel ?? 'Slack',
+          })
+        : t('Run started.'),
       result.delivery === 'slack'
-        ? 'The destination is working. No incident was opened and no investigation ran.'
-        : 'It will appear in this trigger’s runs once the agent has started.',
+        ? t('The destination is working. No incident was opened and no investigation ran.')
+        : t('It will appear in this trigger’s runs once the agent has started.'),
     )
   } catch (err) {
-    toast.apiError('Could not test trigger', err)
+    toast.apiError(t('Could not test trigger'), err)
   } finally {
     setFiring(false)
   }
