@@ -4106,7 +4106,7 @@
   "Signed in on the runtime.": "Sudah masuk di runtime.",
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "Sudah masuk di runtime. Masuk ke penyedia model lain untuk memakai modelnya juga.",
   "Signed in to {name}.": "Sudah masuk ke {name}.",
-  "Signed out": "Keluar",
+  "Signed out": "Telah keluar",
   "Signed out 1 other device": "1 perangkat lain dikeluarkan",
   "Signed out {device}": "{device} dikeluarkan",
   "Signed out {n} other devices": "{n} perangkat lain dikeluarkan",
