@@ -65,7 +65,7 @@ function memberName(members: TeamMember[] | null, id: string): string | null {
 }
 
 /** The longest-standing administrator: usually whoever set the team up. */
-function adminName(members: TeamMember[] | null): string | null {
+export function adminName(members: TeamMember[] | null): string | null {
   const admins = (members ?? [])
     .filter((member) => member.role === 'ADMINISTRATOR' && !member.removedAt)
     .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt))

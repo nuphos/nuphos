@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 
 import { api } from '../api.ts'
 import { toast } from '../components/ui/toast.ts'
@@ -6,22 +6,23 @@ import { t } from '../i18n/index.ts'
 import { agentTier } from '../lib/agentName.ts'
 import { localUpdateVersion } from '../lib/agentUpdate.ts'
 
+import {
+  setResult,
+  isStarting,
+  setStarting,
+  useResults,
+  useStarting,
+  withResult,
+} from './agentUpdateStore.ts'
 import { useLocalRuntimeState } from './useLocalRuntimeState.ts'
 import { useThisComputer } from './useThisComputer.ts'
 
 import type { AgentCliStatus, CliLoginProvider, LocalAgentProvider } from '../api'
+import type { AgentUpdate } from './agentUpdateStore.ts'
 import type { RuntimeInstance } from '../types/runtime'
 import type { RuntimeUpdateStatus } from '../types/team'
 
-export type AgentUpdate = {
-  /** `updating`: this computer's CLI is mid-update, or a team agent's update is queued or rolling out. */
-  state: 'available' | 'updating'
-  version?: string
-  /** Starts the update; absent when it cannot be started from here. */
-  start?: () => void
-  /** Why it cannot be started from here. */
-  reason?: string
-}
+export type { AgentUpdate } from './agentUpdateStore.ts'
 
 type LatestVersions = Partial<Record<LocalAgentProvider, string>>
 type RemoteStatus = Pick<RuntimeUpdateStatus, 'state' | 'latestVersion' | 'targetVersion'>
@@ -36,29 +37,6 @@ const CLI = {
 
 /** Shared by every selector, so open tabs ask each runtime once per hold. */
 const remote = new Map<string, { at: number; ttl: number; status: Promise<RemoteStatus | null> }>()
-/** Updates in flight from this window: `local:<provider>` or a team agent's id. */
-let starting: ReadonlySet<string> = new Set()
-const listeners = new Set<() => void>()
-
-function setStarting(key: string, on: boolean) {
-  const next = new Set(starting)
-
-  if (on) next.add(key)
-  else next.delete(key)
-  starting = next
-  for (const listener of listeners) listener()
-}
-
-function useStarting(): ReadonlySet<string> {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => starting,
-  )
-}
 
 function remoteStatus(teamId: string, runtimeId: string): Promise<RemoteStatus | null> {
   const key = `${teamId}:${runtimeId}`
@@ -86,28 +64,34 @@ async function updateLocal(provider: CliLoginProvider, before?: string) {
   const key = `local:${provider}`
   const { name, command } = CLI[provider]
 
-  if (starting.has(key)) return
+  if (isStarting(key)) return
+  setResult(key, null)
   setStarting(key, true)
   try {
     const state = await api.localRuntimeUpdateAgent(provider)
     const cli = state.agents[provider].cli
     const version = cli?.installed ? cli.version : undefined
 
-    if (version && version === before)
-      toast.info(
-        t('{name} did not change', { name }),
-        t('It may be installed by a package manager that updates it separately.'),
-      )
-    else
+    if (version && version === before) {
+      const reason = t('It may be installed by a package manager that updates it separately.')
+
+      setResult(key, { state: 'failed', reason })
+      toast.info(t('{name} did not change', { name }), reason)
+    } else {
+      setResult(key, { state: 'done', version })
       toast.success(
         version
           ? t('{name} updated to v{version}', { name, version })
           : t('{name} updated', { name }),
         t('New agents use it; running ones finish on the version they started with.'),
       )
+    }
   } catch (err) {
+    const reason = t('Run `{command} update` in a terminal to see why.', { command })
+
+    setResult(key, { state: 'failed', reason })
     toast.apiError(t('Could not update {name}', { name }), err, {
-      fallback: t('Run `{command} update` in a terminal to see why.', { command }),
+      fallback: reason,
     })
   } finally {
     setStarting(key, false)
@@ -115,7 +99,8 @@ async function updateLocal(provider: CliLoginProvider, before?: string) {
 }
 
 async function updateTeamAgent(teamId: string, runtimeId: string) {
-  if (starting.has(runtimeId)) return
+  if (isStarting(runtimeId)) return
+  setResult(runtimeId, null)
   setStarting(runtimeId, true)
   try {
     const { version } = await api.atlasRequestRuntimeUpdate(teamId, runtimeId)
@@ -127,6 +112,7 @@ async function updateTeamAgent(teamId: string, runtimeId: string) {
     })
     toast.success(t('Update queued'), t('It starts once agents on this runtime finish replying.'))
   } catch (err) {
+    setResult(runtimeId, { state: 'failed', reason: t('The runtime did not accept the update.') })
     toast.apiError(t('Could not update this runtime'), err)
   } finally {
     setStarting(runtimeId, false)
@@ -170,11 +156,9 @@ function localAgentUpdate(
   provider: CliLoginProvider,
   cli: AgentCliStatus | null | undefined,
   latest: string | undefined,
-  busy: ReadonlySet<string>,
 ): AgentUpdate | undefined {
   const version = localUpdateVersion(cli, latest)
 
-  if (busy.has(`local:${provider}`)) return { state: 'updating', version }
   if (!version) return
   const before = cli?.installed ? cli.version : undefined
 
@@ -221,6 +205,7 @@ export function useAgentUpdates(
   const local = useLocalRuntimeState()
   const latest = useLocalAgentLatest()
   const busy = useStarting()
+  const ended = useResults()
   const [statuses, setStatuses] = useState<ReadonlyMap<string, RemoteStatus>>(new Map())
   // Another computer's agent cannot be asked from here; team agents report their own.
   const remoteKey = instances
@@ -255,14 +240,25 @@ export function useAgentUpdates(
     const tier = agentTier(instance, owner)
     const update =
       tier === 'local' && (provider === 'claude-code' || provider === 'codex')
-        ? localAgentUpdate(provider, local?.agents[provider].cli, latest[provider], busy)
-        : tier === 'cloud' &&
-          teamAgentUpdate(
-            instance,
-            statuses.get(id),
+        ? withResult(
+            `local:${provider}`,
             busy,
-            canUpdateTeamAgents ? teamId : undefined,
+            ended,
+            localAgentUpdate(provider, local?.agents[provider].cli, latest[provider]),
           )
+        : tier === 'cloud'
+          ? withResult(
+              id,
+              busy,
+              ended,
+              teamAgentUpdate(
+                instance,
+                statuses.get(id),
+                busy,
+                canUpdateTeamAgents ? teamId : undefined,
+              ),
+            )
+          : undefined
 
     if (update) updates.set(id, update)
   }
