@@ -9,6 +9,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import ai.nuphos.android.ui.profile.ConsentScreen
+import ai.nuphos.android.ui.profile.ConsentRecoveryScreen
+import ai.nuphos.android.data.AccountApi
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -40,26 +42,31 @@ fun NuphosRoot(auth: AuthSession) {
     }
     CompositionLocalProvider(LocalAuthSession provides auth) {
         Surface(Modifier.fillMaxSize()) {
+            val destination = when (auth.state) {
+                AuthSession.State.Restoring -> "restoring"
+                is AuthSession.State.SignedOut, AuthSession.State.SigningIn -> "login"
+                is AuthSession.State.SignedIn -> when {
+                    auth.aiAllowed -> "home"
+                    auth.consentBusy && auth.consentVersion == null -> "restoring"
+                    auth.consentVersion == AccountApi.AI_CONSENT_VERSION -> "consent"
+                    else -> "consent-recovery"
+                }
+            }
             AnimatedContent(
-                targetState = when (auth.state) {
-                    AuthSession.State.Restoring -> "restoring"
-                    is AuthSession.State.SignedOut, AuthSession.State.SigningIn -> "login"
-                    is AuthSession.State.SignedIn -> when {
-                        auth.aiAllowed -> "home"
-                        auth.consentBusy && auth.consentVersion == null -> "restoring"
-                        else -> "consent"
-                    }
-                },
+                targetState = destination,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
                 label = "auth",
             ) { key ->
-                when (key) {
+                if (key != destination) SplashScreen() else when (key) {
                     "restoring" -> SplashScreen()
                     "login" -> LoginScreen()
                     else -> {
                         val user = (auth.state as? AuthSession.State.SignedIn)?.user
                         if (user != null && key == "home" && auth.aiAllowed) SignedInHost(user, auth.token.orEmpty())
-                        else if (user != null) ConsentScreen(user)
+                        // Outgoing Home must never turn into a consent form during the fade.
+                        else if (user != null && key == "consent" && auth.consentVersion == AccountApi.AI_CONSENT_VERSION) ConsentScreen(user)
+                        else if (user != null && key == "consent-recovery") ConsentRecoveryScreen(user)
+                        else if (user != null) SplashScreen()
                         else LoginScreen()
                     }
                 }

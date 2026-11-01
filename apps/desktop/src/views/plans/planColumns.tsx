@@ -3,6 +3,7 @@ import { ShieldCheck } from 'lucide-react'
 import { Age } from '../../components/Age'
 import { PlanStatusBadge } from '../../components/agent/PlanTool'
 import { MemberCell } from '../../components/MemberCell'
+import { t } from '../../i18n'
 
 import { ProgressCell } from './PlanCells'
 import { memberDisplayName, progressFraction } from './planProgress'
@@ -16,7 +17,7 @@ export function buildPlanColumns(membersById: Map<string, TeamMember>): Column<R
   return [
     {
       key: 'title',
-      header: 'Title',
+      header: t('Title'),
       // Ahead of "#" and pinned: the number identifies a plan to the system,
       // the title identifies it to the reader, and a row scrolled past Created
       // by is one you can act on without knowing what it says. Narrower than
@@ -48,13 +49,13 @@ export function buildPlanColumns(membersById: Map<string, TeamMember>): Column<R
           <ShieldCheck
             className="h-3.5 w-3.5 text-zViolet-accent"
             strokeWidth={1.8}
-            aria-label="Permission request"
+            aria-label={t('Permission request')}
           />
         ),
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('Status'),
       width: 130,
       sortAccessor: (r) =>
         r.kind === 'plan' ? r.plan.status : proposalPlanStatus(r.proposal.status),
@@ -66,7 +67,7 @@ export function buildPlanColumns(membersById: Map<string, TeamMember>): Column<R
     },
     {
       key: 'progress',
-      header: 'Progress',
+      header: t('Progress'),
       width: 140,
       sortAccessor: (r) => (r.kind === 'plan' ? progressFraction(r.plan) : -1),
       render: (r) =>
@@ -78,7 +79,7 @@ export function buildPlanColumns(membersById: Map<string, TeamMember>): Column<R
     },
     {
       key: 'createdBy',
-      header: 'Created by',
+      header: t('Created by'),
       width: 260,
       sortAccessor: (r) => {
         const member = membersById.get(r.createdBy)
@@ -89,7 +90,7 @@ export function buildPlanColumns(membersById: Map<string, TeamMember>): Column<R
     },
     {
       key: 'created',
-      header: 'Created',
+      header: t('Created'),
       width: 110,
       sortAccessor: (r) => r.createdAt,
       render: (r) => (

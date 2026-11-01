@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { AgentMemoryItem, AgentMemoryScope } from '../../api'
 
 export type LoadState =
@@ -20,6 +22,6 @@ export type MenuState = {
 export const PAGE_SIZE = 50
 
 export const tabs: { scope: AgentMemoryScope; label: string }[] = [
-  { scope: 'personal', label: 'Personal' },
-  { scope: 'team', label: 'Team shared' },
+  { scope: 'personal', label: t('Personal') },
+  { scope: 'team', label: t('Team shared') },
 ]

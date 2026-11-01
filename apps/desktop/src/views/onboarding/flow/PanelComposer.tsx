@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUp, Loader2 } from 'lucide-react'
 import { InvitationList } from '../../../components/InvitationList'
 import { Button } from '../../../components/ui/button'
 import { InputGroup, InputGroupInput } from '../../../components/ui/input-group'
+import { t } from '../../../i18n'
 
 import type { DiscoverableTeam, TeamInvitation } from '../../../types'
 import type { RefObject } from 'react'
@@ -83,7 +84,7 @@ export function PanelComposer({
                     onCreate()
                   }
                 }}
-                placeholder="Name your workspace…"
+                placeholder={t('Name your workspace…')}
                 className="titlebar-no-drag w-full text-[18px] leading-relaxed text-main placeholder:text-tertiary"
               />
             </div>
@@ -93,7 +94,7 @@ export function PanelComposer({
                 type="button"
                 onClick={onCreate}
                 disabled={!canCreate}
-                title="Create workspace"
+                title={t('Create workspace')}
                 className={clsx(
                   'titlebar-no-drag flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
                   canCreate ? 'bg-zViolet-500 text-white hover:bg-zViolet-400' : 'text-tertiary',
@@ -132,7 +133,7 @@ export function PanelComposer({
               disabled={committing || (selectedCount === 0 && joinedTeams.length === 0)}
               className="group titlebar-no-drag"
             >
-              <span>Continue</span>
+              <span>{t('Continue')}</span>
               {committing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -142,7 +143,7 @@ export function PanelComposer({
           </div>
           <div className="mt-4 flex items-center gap-3" aria-hidden>
             <div className="h-px flex-1 bg-zGray-800/80" />
-            <span className="text-[11.5px] text-tertiary">or</span>
+            <span className="text-[11.5px] text-tertiary">{t('or')}</span>
             <div className="h-px flex-1 bg-zGray-800/80" />
           </div>
           <div className="mt-3 flex justify-center">
@@ -152,7 +153,7 @@ export function PanelComposer({
               onClick={onShowCreateWorkspace}
               className="titlebar-no-drag"
             >
-              Create a new workspace instead
+              {t('Create a new workspace instead')}
             </Button>
           </div>
         </div>

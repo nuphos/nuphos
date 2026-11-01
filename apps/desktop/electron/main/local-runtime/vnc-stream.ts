@@ -42,15 +42,19 @@ export class VncStream implements SocketLike {
 
   /** Told when the viewer takes the desktop over or hands it back. */
   private readonly handedOver?: (human: boolean) => void
+  /** Where set, the only viewer admitted: a Mac's screen opens for its own account alone. */
+  private readonly owner?: () => string | null
 
   constructor(
     pool: string,
     port: (display: number) => number | string = (display) => VNC_BASE_PORT + display,
     handedOver?: (human: boolean) => void,
+    owner?: () => string | null,
   ) {
     this.pool = pool
     this.port = port
     this.handedOver = handedOver
+    this.owner = owner
     queueMicrotask(() => {
       if (this.readyState !== 0) return
       this.readyState = 1
@@ -107,6 +111,7 @@ export class VncStream implements SocketLike {
 
   private open(sessionId: string, display: number, viewer: string): void {
     if (this.holder(display) !== sessionId) throw new Error('Not this agent’s display')
+    if (this.owner && viewer !== this.owner()) throw new Error('Not this computer’s owner')
     this.viewer = viewer.replace(/[^\w-]/gu, '')
     this.control = path.join(this.pool, `${String(display)}.xdg`, 'instabox-control')
     this.held = () => this.holder(display) === sessionId

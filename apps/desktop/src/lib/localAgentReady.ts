@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.ts'
 import { AGENT_PROVIDER } from '../types/runtime.ts'
 
 import type { LocalAgentProvider, LocalRuntimeState } from '../api/device-types.ts'
@@ -54,7 +55,7 @@ export function pendingLocalAgents(
       {
         id,
         provider,
-        label: `This computer · ${AGENT_PROVIDER[provider].label}`,
+        label: t('This computer · {provider}', { provider: AGENT_PROVIDER[provider].label }),
         status: 'active' as const,
         kind: 'local' as const,
         createdAt: '',
@@ -62,7 +63,7 @@ export function pendingLocalAgents(
         local: {
           ownerUserId: userId,
           deviceId,
-          deviceLabel: 'This computer',
+          deviceLabel: t('This computer'),
           signedIn: cli.loggedIn,
         },
       },

@@ -11,14 +11,19 @@ const idle: RuntimeExecution = { state: 'idle', schemaVersion: 2 }
 const turn: RuntimeExecution = { state: 'active', schemaVersion: 2, phase: 'running' }
 const background: RuntimeExecution = { state: 'idle', schemaVersion: 2, phase: 'background_tools' }
 const question = { id: 'q1', status: 'open', askedAt: '2026-10-29T10:00:00Z' } as AgentInputRequest
-const base = { conversation: {}, runtimeState: idle, open: false, unread: false }
+const base = { conversation: {}, runtimeState: idle, open: false }
 
-test('a done thread folds away unless it is open or unread', () => {
+test('a done thread folds away unless it is open', () => {
   assert.equal(threadFoldsAway(base), true)
   assert.equal(threadFoldsAway({ ...base, runtimeState: undefined }), true)
   assert.equal(threadFoldsAway({ ...base, runtimeState: { state: 'disconnected' } }), true)
   assert.equal(threadFoldsAway({ ...base, open: true }), false)
-  assert.equal(threadFoldsAway({ ...base, unread: true }), false)
+})
+
+test('an unread reply does not keep a done thread listed', () => {
+  const unread = { ...base, unread: true }
+
+  assert.equal(threadFoldsAway(unread), true)
 })
 
 test('a running or asking thread stays listed', () => {

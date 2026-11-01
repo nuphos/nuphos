@@ -3,6 +3,7 @@ import { CircleDot, ExternalLink, GitMerge, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 import { ChangedFile } from './github-repo/ChangedFile'
 import { ChangedFilesTree } from './github-repo/ChangedFilesTree'
@@ -27,16 +28,16 @@ type Props = {
 
 function StateBadge({ pull }: { pull: GithubPRDetail }) {
   let Icon = X
-  let label: string = pull.state
+  let label: string = pull.state === 'closed' ? t('Closed') : pull.state
   let tone: StatusTone = 'error'
 
   if (pull.merged) {
     Icon = GitMerge
-    label = 'Merged'
+    label = t('Merged')
     tone = 'merged'
   } else if (pull.state === 'open') {
     Icon = CircleDot
-    label = pull.draft ? 'Draft' : pull.state
+    label = pull.draft ? t('Draft') : t('Open|state')
     tone = pull.draft ? 'neutral' : 'success'
   }
 
@@ -64,11 +65,24 @@ function BranchChip({ name }: { name: string }) {
   )
 }
 
-function mergeVerb(pull: GithubPRDetail): string {
-  if (pull.merged) return 'merged'
-  if (pull.state === 'closed') return 'wanted to merge'
+function mergeSummary(pull: GithubPRDetail): string {
+  const commits = pull.commits
+  const one = commits === 1
 
-  return 'wants to merge'
+  if (pull.merged) {
+    return one
+      ? t('merged {count} commit into', { count: commits })
+      : t('merged {count} commits into', { count: commits })
+  }
+  if (pull.state === 'closed') {
+    return one
+      ? t('wanted to merge {count} commit into', { count: commits })
+      : t('wanted to merge {count} commits into', { count: commits })
+  }
+
+  return one
+    ? t('wants to merge {count} commit into', { count: commits })
+    : t('wants to merge {count} commits into', { count: commits })
 }
 
 export function GithubPullRequestView({
@@ -105,7 +119,7 @@ export function GithubPullRequestView({
           onClick={() => openOnGithub(`${repo.htmlUrl}/pull/${String(pullNumber)}`)}
         >
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
-          Open in GitHub
+          {t('Open in GitHub')}
         </Button>
       </div>
     )
@@ -113,7 +127,7 @@ export function GithubPullRequestView({
   if (!pull || !status) {
     return (
       <div className="flex flex-1 items-center justify-center text-[12.5px] text-tertiary">
-        Loading…
+        {t('Loading…')}
       </div>
     )
   }
@@ -132,11 +146,9 @@ export function GithubPullRequestView({
               </h1>
               <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-tertiary">
                 <span className="font-medium text-secondary">{pull.author}</span>
-                <span className="whitespace-nowrap">
-                  {mergeVerb(pull)} {pull.commits} {pull.commits === 1 ? 'commit' : 'commits'} into
-                </span>
+                <span className="whitespace-nowrap">{mergeSummary(pull)}</span>
                 <BranchChip name={pull.baseRef} />
-                <span>from</span>
+                <span>{t('from')}</span>
                 <BranchChip name={pull.headRef} />
                 <span className="ml-1.5 inline-flex items-center gap-2 whitespace-nowrap">
                   <span className="font-medium text-success">+{pull.additions}</span>
@@ -157,8 +169,8 @@ export function GithubPullRequestView({
                 )}
               >
                 {value === 'conversation'
-                  ? `Conversation (${String(activityCount)})`
-                  : `Files changed (${String(pull.changedFiles)})`}
+                  ? t('Conversation ({count})', { count: activityCount })
+                  : t('Files changed ({count})', { count: pull.changedFiles })}
               </button>
             ))}
           </div>

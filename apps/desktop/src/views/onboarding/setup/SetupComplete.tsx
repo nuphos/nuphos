@@ -4,6 +4,7 @@ import { ClaudeIcon, CodexIcon } from '../../../components/agent/panel/icons'
 import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { useStableCallback } from '../../../hooks/useStableCallback'
+import { t } from '../../../i18n'
 
 import { LOCAL_AGENT_INFO, readyLocalAgents } from './agentSetup'
 import { autoFinish } from './autoFinish'
@@ -51,13 +52,13 @@ export function SetupComplete({ onFinish }: { onFinish: () => void }) {
 
   return (
     <SetupScreen
-      title="You’re all set"
+      title={t('You’re all set')}
       subtitle={
         empty
-          ? 'You can add runtimes any time from Settings › Runtimes.'
-          : 'These runtimes are ready for your agents.'
+          ? t('You can add runtimes any time from Settings › Runtimes.')
+          : t('These runtimes are ready for your agents.')
       }
-      actions={<Button onClick={() => auto.current?.finish()}>Start using Nuphos</Button>}
+      actions={<Button onClick={() => auto.current?.finish()}>{t('Start using Nuphos')}</Button>}
     >
       {!empty && (
         <ul className="space-y-3">
@@ -69,7 +70,7 @@ export function SetupComplete({ onFinish }: { onFinish: () => void }) {
                 key={provider}
                 icon={<Icon className="h-5 w-5" />}
                 name={LOCAL_AGENT_INFO[provider].name}
-                where="On this computer"
+                where={t('On this computer')}
                 status="ready"
               />
             )

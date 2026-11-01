@@ -101,15 +101,16 @@ struct ComposerControls: View {
     @Binding var mode: PermissionMode
     /// The open conversation; nil on the home composer (a new chat).
     var session: ChatSession?
+    /// Opens the open conversation's runtime switcher; nil leaves its runtime chip out.
+    var switchRuntime: (() -> Void)? = nil
     @State private var showDevices = false
     @State private var showPicker = false
     @State private var showModes = false
     @State private var showRuntimes = false
     @State private var showModel = false
 
+    // Desktop's order: Credentials, then how it runs (mode, runtime, model).
     var body: some View {
-        runtimeChip
-
         Button { showPicker = true } label: {
             ComposerChip(systemImage: "key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
         }
@@ -136,6 +137,8 @@ struct ComposerControls: View {
         #if DEBUG
         .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-modes") { showModes = true } }
         #endif
+
+        runtimeChip
 
         if let session, !session.isNew, session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
             Button { showModel = true } label: {
@@ -166,18 +169,26 @@ struct ComposerControls: View {
         }
     }
 
-    /// Only a new chat picks its runtime; an existing one reads it under the
-    /// title, where it does not take a slot in the composer's control row.
+    /// A new chat picks its runtime here; an open one switches it here too,
+    /// where the composer's other controls are, rather than from a menu.
     @ViewBuilder
     private var runtimeChip: some View {
-        if session?.isNew == false {
-            EmptyView()
+        if let session, !session.isNew {
+            if let switchRuntime, let name = runtimeName(session) {
+                Button(action: switchRuntime) {
+                    ComposerChip(logo: RuntimeInstance.Provider.logo(session.agentRuntime), title: name, isActive: true)
+                }
+                .buttonStyle(.plain)
+                .disabled(session.isStreaming)
+                .accessibilityLabel("Switch runtime, \(name)")
+                .task { await store.loadRuntimes() }
+            }
         } else {
             Button { showRuntimes = true } label: {
                 ComposerChip(logo: RuntimeInstance.Provider.logo(store.newConversationRuntime?.provider.rawValue), title: runtimeTitle, isActive: store.newConversationRuntime != nil)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Choose runtime")
+            .accessibilityLabel("Choose runtime: \(runtimeTitle)")
             .sheet(isPresented: $showRuntimes) { RuntimePickerSheet() }
             .task { await store.loadRuntimes() }
             #if DEBUG
@@ -191,7 +202,16 @@ struct ComposerControls: View {
             if store.selectedRuntimeUnavailable { return "Choose runtime" }
             return store.runtimesLoaded ? "Runtime" : "Runtime…"
         }
-        return runtime.label
+        return SelectorBox.agentName(runtime)
+    }
+
+    /// The runtime's short name, as Desktop's selector shows it: a computer's
+    /// runtime goes by its own name or its provider's, never "<name> in <computer>".
+    private func runtimeName(_ session: ChatSession) -> String? {
+        if let runtime = session.runtime ?? store.runtimes.first(where: { $0.id == session.runtimeId }) {
+            return SelectorBox.agentName(runtime)
+        }
+        return session.runtimeDisplayName
     }
 
     private func modelTitle(_ session: ChatSession) -> String {

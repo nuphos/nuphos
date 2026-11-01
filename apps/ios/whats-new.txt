@@ -1,5 +1,11 @@
-Notifications now show the agent's avatar.
+Live Activity: a card on your Lock Screen follows the conversations you're watching and starts by itself.
 
-Rename an agent right from the agent list.
+Notifications now show the agent's avatar. Rename an agent right from the agent list.
 
-Fixes: in the split view, the open chat's row is highlighted, and runtime meters stack instead of overflowing when the sidebar is narrow.
+Swipe in from the right to open a chat's dock, with its desktop and browser tabs.
+
+Switch an open conversation's runtime right from the composer, and tap the runtime's suggested prompt as a chip.
+
+Steering messages show who sent them, a stop button stays beside send while a turn runs, and images in agent replies render, including a lone image shown whole.
+
+Fixes: no crash when a transcript repeats a row, "Sending…" stays until the runtime's first status, the open chat's row is highlighted in the split view, runtime meters stack instead of overflowing in a narrow sidebar, and the agent list stays beside the chat on a wide portrait window.

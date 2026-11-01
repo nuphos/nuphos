@@ -1,5 +1,6 @@
 import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { rowDot } from '../../lib/subAgentState'
 
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
@@ -24,7 +25,8 @@ export function chatSidebarItem({
   runtimeState: RuntimeExecution | undefined
   unread: boolean
 }): Item {
-  const status = <ChatRowStatus runtimeState={runtimeState} unread={unread} />
+  const dot = rowDot(conversation, runtimeState, unread)
+  const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
 
   return {
     key: `agent-session:${conversation.sessionId}`,
@@ -50,6 +52,7 @@ export function chatSidebarItem({
     ).href,
     trailing: status,
     foldedStatus: status,
-    finished: threadFoldsAway({ conversation, runtimeState, open: active, unread }),
+    finished: threadFoldsAway({ conversation, runtimeState, open: active }),
+    dot,
   }
 }

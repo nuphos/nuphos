@@ -500,9 +500,9 @@ struct ChatComposerBar<Controls: View>: View {
         .accessibilityLabel(label)
     }
 
-    /// One button, never two: a running turn with nothing typed stops it,
-    /// and what is typed goes into that turn where the runtime takes it,
-    /// otherwise into the queue.
+    /// A running turn with nothing typed: the button stops it. What is typed
+    /// goes into that turn where the runtime takes it, otherwise into the
+    /// queue, and a stop button stays beside it as on Desktop.
     private var action: ComposerAction {
         .current(
             isStreaming: isStreaming,
@@ -514,6 +514,23 @@ struct ChatComposerBar<Controls: View>: View {
     }
 
     private var trailingButton: some View {
+        HStack(spacing: 6) {
+            if action != .stop, isStreaming, canStop, let onStop {
+                Button(action: onStop) {
+                    Image(systemName: ComposerAction.stop.systemImage)
+                        .font(Theme.Text.secondary.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .foregroundStyle(Theme.heading)
+                        .background(Theme.muted.opacity(0.18), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(ComposerAction.stop.accessibilityLabel)
+            }
+            primaryButton
+        }
+    }
+
+    private var primaryButton: some View {
         let action = action
         return Button {
             if action == .stop { onStop?() } else { send() }
@@ -626,7 +643,7 @@ struct ComposerChip: View {
     var body: some View {
         HStack(spacing: 5) {
             if let logo {
-                BrandLogo(name: logo, size: 13)
+                BrandLogo(name: logo, size: 16)
             } else if let systemImage {
                 Image(systemName: systemImage).font(.system(size: 11, weight: .semibold))
             }
@@ -653,6 +670,7 @@ struct BrandLogo: View {
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }
 

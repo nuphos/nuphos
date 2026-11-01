@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Stable Agent identity, with the current Runtime over its lower-right corner.
+/// Stable conversation identity. Provider metadata lives beside the runtime name.
 struct AgentAvatar: View {
     let agentId: String
     let runtime: String?
@@ -8,29 +8,14 @@ struct AgentAvatar: View {
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var enabled = true
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        Group {
             if enabled {
-                Image(BotAvatars.asset(for: agentId))
-                    .resizable().scaledToFit()
-                    .frame(width: size, height: size, alignment: .topLeading)
-                mark(size: size <= 24 ? 9 : 12)
-                    .padding(1)
-                    .background(Theme.canvas, in: Circle())
+                Image(BotAvatars.asset(for: agentId)).resizable().scaledToFit()
             } else {
-                mark(size: 16).frame(width: size, height: size)
+                RuntimeMark(runtime: runtime, size: 20)
             }
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
-    }
-
-    @ViewBuilder private func mark(size: CGFloat) -> some View {
-        if let runtime, runtime != "nuphos" {
-            BrandLogo(name: RuntimeInstance.Provider.logo(runtime), size: size)
-                .foregroundStyle(Theme.heading)
-        } else {
-            Image(systemName: "message").font(.system(size: size))
-                .frame(width: size, height: size).foregroundStyle(Theme.muted)
-        }
     }
 }

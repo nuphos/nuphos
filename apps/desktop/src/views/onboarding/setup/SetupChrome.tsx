@@ -1,5 +1,7 @@
 import clsx from 'clsx'
 
+import { t } from '../../../i18n'
+
 import type { LocalAgentStatus } from './agentSetup'
 import type { ReactNode } from 'react'
 
@@ -33,10 +35,10 @@ export function SetupScreen({
 }
 
 const PILL: Record<LocalAgentStatus, { label: string; className: string }> = {
-  ready: { label: 'Ready', className: 'bg-success/15 text-success' },
-  'signed-out': { label: 'Not signed in', className: 'bg-warning/15 text-warning' },
-  missing: { label: 'Not installed', className: 'bg-zGray-800 text-tertiary' },
-  checking: { label: 'Checking…', className: 'bg-zGray-800 text-tertiary' },
+  ready: { label: t('Ready'), className: 'bg-success/15 text-success' },
+  'signed-out': { label: t('Not signed in'), className: 'bg-warning/15 text-warning' },
+  missing: { label: t('Not installed'), className: 'bg-zGray-800 text-tertiary' },
+  checking: { label: t('Checking…'), className: 'bg-zGray-800 text-tertiary' },
 }
 
 export function StatusPill({ status }: { status: LocalAgentStatus }) {

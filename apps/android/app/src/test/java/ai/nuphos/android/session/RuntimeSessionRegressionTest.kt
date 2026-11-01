@@ -40,7 +40,9 @@ class RuntimeSessionRegressionTest {
             runtimeState = JsonValue.parse("""{"schemaVersion":2,"actions":{"reply":true,"send":true,"steer":true,"cancel":true}}""")), old)
         state(session, "observationClock", old)
         assertFalse(session.canReply)
-        assertFalse(session.canSubmit)
+        assertTrue(session.canSubmit) // A stale modern runtime may queue, but cannot take a direct action.
+        assertTrue(session.sendQueues)
+        assertFalse(session.canSteer)
         assertFalse(session.canCancel)
     }
     @Test fun failedSteeringCannotDrainOnNextSubmit() {
