@@ -125,6 +125,15 @@ test('browser correlation cookie is required; cancellation consumes state once',
   expect((await app.request(callback, { headers })).status).toBe(401)
   expect((await app.request(callback, { headers })).status).toBe(400)
 })
+test('start keeps the first-touch cookie, which a cross-site POST callback would not carry', async () => {
+  const firstTouch = JSON.stringify({ channel: 'x' })
+
+  await app.request('/google/start', {
+    headers: { cookie: `nuphos_first_touch=${encodeURIComponent(firstTouch)}` },
+  })
+
+  expect(docs.get('social_auth_attempts')?.[0]?.firstTouch).toBe(firstTouch)
+})
 test('state cannot be moved to another provider or used after expiry', async () => {
   const start = await app.request('/google/start')
   const state = new URL(start.headers.get('location')!).searchParams.get('state')!
