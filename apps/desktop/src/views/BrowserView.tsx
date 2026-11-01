@@ -21,6 +21,7 @@ import { t } from '../i18n'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
+import { registerBrowserView } from '../app/workspace/watchedDockTabs'
 import { localPreviewRecorder } from './browser/localPreviewRecorder'
 import { focusOpenedPage } from './browser/pageFocus'
 import { useBrowserComments } from './browser/useBrowserComments'
@@ -49,7 +50,7 @@ export function BrowserView({
   }, [onNavigate])
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<WebviewTag | null>(null)
-  const { isActive } = useWorkspaceTab()
+  const { isActive, tabId } = useWorkspaceTab()
   const activeRef = useRef(isActive)
 
   useEffect(() => {
@@ -101,7 +102,10 @@ export function BrowserView({
       sync()
       void preview.navigatedInPage(activeRef.current)
     }
+    let unregister: (() => void) | undefined
     const onReady = () => {
+      unregister?.()
+      unregister = registerBrowserView(tabId, view)
       setReady(true)
       view.setZoomFactor(1)
       sync()
@@ -137,6 +141,7 @@ export function BrowserView({
     if (activeRef.current) focusOpenedPage(view, document)
 
     return () => {
+      unregister?.()
       preview.dispose()
       previewRef.current = null
       view.removeEventListener('dom-ready', onReady)
@@ -149,7 +154,7 @@ export function BrowserView({
       view.remove()
       viewRef.current = null
     }
-  }, [initialUrl, resetComments, teamId, userId])
+  }, [initialUrl, resetComments, tabId, teamId, userId])
 
   useEffect(() => {
     if (isActive && ready && !loading && !error) void previewRef.current?.capture()

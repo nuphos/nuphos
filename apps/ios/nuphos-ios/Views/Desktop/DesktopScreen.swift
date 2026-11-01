@@ -24,7 +24,9 @@ struct DesktopScreen: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            if size.height > size.width {
+            if desktop.browserTab != nil {
+                tabLayout
+            } else if size.height > size.width {
                 // The keyboard covers the trackpad rather than squeezing the picture.
                 uprightLayout(width: size.width).ignoresSafeArea(.keyboard)
             } else {
@@ -90,6 +92,19 @@ struct DesktopScreen: View {
             .frame(maxHeight: .infinity)
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
+        }
+    }
+
+    /// A dock browser tab is laid out at the phone's size on the Mac, so its page takes the
+    /// screen and a tap lands where it shows; no trackpad.
+    private var tabLayout: some View {
+        VStack(spacing: 8) {
+            canvas
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, 8)
+            controls
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
         }
     }
 

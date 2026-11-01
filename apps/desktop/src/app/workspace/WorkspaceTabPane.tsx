@@ -19,6 +19,7 @@ import { useTabConnectorActions } from './useTabConnectorActions'
 import { useTabDetailSetters } from './useTabDetailSetters'
 import { useTabPageMeta } from './useTabPageMeta'
 import { useTabViewSetters } from './useTabViewSetters'
+import { paneLayout, useWatchedDockTab } from './watchedDockTabs'
 import { WorkspaceNewTabPage } from './WorkspaceNewTabPage'
 
 import type { WorkspaceTabPaneProps } from './paneTypes'
@@ -76,6 +77,7 @@ export const WorkspaceTabPane = memo(
     dockVisible = true,
   }: WorkspaceTabPaneProps) => {
     const tabId = tab.id
+    const layout = paneLayout(active, dockVisible, useWatchedDockTab(tabId))
     const onBrowserNavigate = useCallback(
       (url: string) => {
         updateTab(
@@ -157,7 +159,7 @@ export const WorkspaceTabPane = memo(
     return (
       <WorkspaceRowLinkProvider value={rowLinkValue}>
         <WorkspaceTabContext.Provider value={{ ...workspaceTabContextValue, conversationId }}>
-          <div className={clsx(active ? 'h-full min-w-0 flex flex-col relative' : 'hidden')}>
+          <div className={layout.className} style={layout.style}>
             {mounted && (
               <div className="flex-1 min-h-0 flex">
                 <div

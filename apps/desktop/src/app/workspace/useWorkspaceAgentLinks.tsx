@@ -94,7 +94,11 @@ export function useWorkspaceAgentLinks(a: Args) {
     [focusSession, openConversationInNewTab, workspaceActions],
   )
 
-  useEffect(() => exposeDockBrowserTabs(workspaceStore.getState), [workspaceStore])
+  useEffect(
+    () =>
+      exposeDockBrowserTabs({ getState: workspaceStore.getState, actions: workspaceStore.actions }),
+    [workspaceStore],
+  )
 
   useEffect(() => {
     if (paneActive) return api.onAgentFocusSession(focusAgentSession)

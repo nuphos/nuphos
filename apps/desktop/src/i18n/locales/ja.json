@@ -5609,5 +5609,7 @@
   "“{text}” — send it again.": "「{text}」— もう一度送信してください。",
   "≥ at least": "≥ 以上",
   "≥ {pct}% of Limit": "制限の {pct}% 以上",
+  "Stop viewing from iPhone": "iPhoneでの表示を停止",
+  "Viewing from iPhone. Click to stop.": "iPhoneで表示中です。クリックで停止します。",
   "✓ used": "✓ 使用済み"
 }

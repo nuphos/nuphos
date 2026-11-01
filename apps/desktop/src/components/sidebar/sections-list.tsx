@@ -17,7 +17,8 @@ import { Kbd } from '../ui/kbd'
 
 import { DropLine } from './drop-line'
 import { FavoriteToggle } from './favorite-toggle'
-import { FinishedThreadsBadge, NestedRowBody } from './nest-guides'
+import { NestedRowBody } from './nest-guides'
+import { rowNote } from './row-note'
 import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
 import { SessionRowSurface } from './SessionRowSurface'
@@ -216,7 +217,7 @@ export function SidebarSectionList({
                             }}
                             label={item.label}
                             animateLabel={chatRow}
-                            note={done.length ? <FinishedThreadsBadge threads={done} /> : undefined}
+                            note={rowNote(item, done)}
                             badge={item.badge}
                             trailing={
                               <>

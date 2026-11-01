@@ -1,13 +1,16 @@
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { Star } from 'lucide-react'
+import { Smartphone, Star } from 'lucide-react'
 
+import { api } from '../../../api'
+import { Tooltip } from '../../../components/ui/tooltip'
 import { t } from '../../../i18n'
 import { logTabClicked } from '../../../lib/tabSwitchLog'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { isPermanentSidebarPage } from '../../navItems'
 import { workspaceTabDisplayMeta } from '../../tabDisplayMeta'
+import { useWatchedDockTab } from '../watchedDockTabs'
 
 import type { TabContextMenuState } from './tabsTypes'
 import type { TabPointerDrag } from './useTabDragPreview'
@@ -71,6 +74,9 @@ export function WorkspaceTabItem({
   // (chats, drill-downs, filtered pages) get the star.
   const canFavorite = !isPermanentSidebarPage(meta.location.href)
   const favorited = canFavorite && isFavorited(tab.scope.teamId, meta.location.href)
+  // A phone watching this tab is never silent: its glyph takes the favorite's slot, and stops it.
+  const viewedFromPhone = useWatchedDockTab(tab.id) !== undefined
+  const trailingSlot = canFavorite || viewedFromPhone
   const tabStyle: CSSProperties & {
     '--tab-drag-x'?: string
     '--tab-preview-x'?: string
@@ -158,9 +164,9 @@ export function WorkspaceTabItem({
             'titlebar-no-drag h-[30px] w-full min-w-0 select-none cursor-grab active:cursor-grabbing flex items-center gap-1.5 text-[12.5px] transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
             // Reserve the trailing slots up front so revealing them on
             // hover never reflows the title.
-            showClose && canFavorite
+            showClose && trailingSlot
               ? 'pl-2.5 pr-10'
-              : showClose || canFavorite
+              : showClose || trailingSlot
                 ? 'pl-2.5 pr-7'
                 : 'px-2.5',
             'rounded-[9px]',
@@ -187,7 +193,32 @@ export function WorkspaceTabItem({
             {meta.title}
           </span>
         </button>
-        {canFavorite && (
+        {viewedFromPhone && (
+          <Tooltip content={t('Viewing from iPhone. Click to stop.')}>
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+              }}
+              onClick={(e) => {
+                e.stopPropagation()
+                api.stopDockTabWatch(tab.id)
+              }}
+              className={clsx(
+                'titlebar-no-drag t-workspace-tab-action absolute top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center text-zViolet-400 hover:bg-zGray-800/70 hover:text-zViolet-300 outline-none focus-visible:outline-none',
+                showClose ? 'right-6' : 'right-1',
+              )}
+              aria-label={t('Stop viewing from iPhone')}
+              data-testid="tab-viewed-from-phone"
+            >
+              <Smartphone className="w-3.5 h-3.5" strokeWidth={1.8} />
+            </button>
+          </Tooltip>
+        )}
+        {canFavorite && !viewedFromPhone && (
           <button
             type="button"
             onPointerDown={(e) => {

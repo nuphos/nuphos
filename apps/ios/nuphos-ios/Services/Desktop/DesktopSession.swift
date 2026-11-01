@@ -72,10 +72,15 @@ final class DesktopSession {
         DesktopSession(teamId: teamId, sessionId: "runtime/\(runtimeId)", token: token)
     }
 
-    init(teamId: String, sessionId: String, token: String) {
+    /// A browser tab in the conversation's dock, watched instead of a desktop: its id, and the
+    /// page size in points it is laid out at on the Mac.
+    let browserTab: (id: String, size: CGSize)?
+
+    init(teamId: String, sessionId: String, token: String, browserTab: (id: String, size: CGSize)? = nil) {
         self.teamId = teamId
         self.sessionId = sessionId
         self.token = token
+        self.browserTab = browserTab
         frames.show = { [weak self] image in self?.show(image) }
     }
 
@@ -133,9 +138,19 @@ final class DesktopSession {
     }
 
     private func connect() async throws {
-        let display = try await Self.open(token: token, teamId: teamId, sessionId: sessionId)
-        self.display = display
-        var components = URLComponents(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/runtime-desktop/\(sessionId)/\(display)"), resolvingAgainstBaseURL: false)!
+        var components: URLComponents
+        if let browserTab {
+            // A dock tab needs no display: the Mac serves the tab's page itself.
+            components = URLComponents(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/browser-tabs/\(sessionId)/\(browserTab.id)/view"), resolvingAgainstBaseURL: false)!
+            components.queryItems = [
+                URLQueryItem(name: "w", value: String(Int(browserTab.size.width))),
+                URLQueryItem(name: "h", value: String(Int(browserTab.size.height))),
+            ]
+        } else {
+            let display = try await Self.open(token: token, teamId: teamId, sessionId: sessionId)
+            self.display = display
+            components = URLComponents(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/runtime-desktop/\(sessionId)/\(display)"), resolvingAgainstBaseURL: false)!
+        }
         components.scheme = components.scheme == "http" ? "ws" : "wss"
         var request = URLRequest(url: components.url!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

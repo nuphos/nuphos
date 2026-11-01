@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
-import { focusSessionBrowserTab, sessionBrowserTabs } from './session-browser-tabs'
+import {
+  focusSessionBrowserTab,
+  sessionBrowserTabs,
+  sessionBrowserViewTarget,
+} from './session-browser-tabs'
 
 import type { DeviceToolDeps } from './preview-tools/device-tool'
 
@@ -104,6 +108,30 @@ describe('session browser tabs', () => {
     await expect(sessionBrowserTabs('t1', 'owner', 's1', fake.deps)).rejects.toMatchObject({
       status: 409,
       message: 'Update Nuphos',
+    })
+  })
+})
+
+describe('session browser view', () => {
+  test("targets the dock's device as its owner, for the conversation's owner only", async () => {
+    const fake = device(null)
+    const tab = { id: 'tab-1', width: 390, height: 700 }
+
+    expect(await sessionBrowserViewTarget('t1', 'owner', 's1', tab, fake.deps)).toEqual({
+      userId: 'owner',
+      deviceId: 'mac',
+      teamId: 't1',
+      sessionId: 's1',
+      display: 0,
+      viewer: 'owner',
+      tab,
+    })
+    expect(fake.audits).toEqual(['[browser] phone view tab=tab-1'])
+    conversation = { userId: 'other', teamId: 't1' }
+    await expect(
+      sessionBrowserViewTarget('t1', 'owner', 's1', tab, fake.deps),
+    ).rejects.toMatchObject({
+      status: 404,
     })
   })
 })
