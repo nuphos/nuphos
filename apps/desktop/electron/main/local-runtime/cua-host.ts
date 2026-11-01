@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { CUA_CLIENT, CUA_PLUGIN_CACHE } from './agent-home.ts'
+import { BrowserAccessHost } from './cua-browser-access.ts'
 
 /** What one `local_cua` call asks of this computer. */
 export type CuaCall = {
@@ -64,6 +65,7 @@ export function cuaServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCon
  */
 export class CuaHost {
   private readonly process: ReturnType<typeof spawn>
+  private readonly access: BrowserAccessHost
   private readonly pending = new Map<number, (message: Record<string, unknown>) => void>()
   private nextId = 1
   private buffer = ''
@@ -89,8 +91,9 @@ export class CuaHost {
     this.session = session
     this.onExit = onExit
     this.env = env
+    this.access = new BrowserAccessHost(session, () => this.turn)
     this.process = spawn(config.command, config.args, {
-      env: { ...env, ...config.env },
+      env: { ...env, ...config.env, ...this.access.env },
       stdio: ['pipe', 'pipe', 'ignore'],
     })
     this.process.stdout?.setEncoding('utf8').on('data', (chunk: string) => this.read(chunk))
@@ -194,11 +197,14 @@ export class CuaHost {
 
   private initialize(): Promise<unknown> {
     return (
-      this.request('initialize', {
-        protocolVersion: '2025-06-18',
-        capabilities: { elicitation: {} },
-        clientInfo: { name: 'nuphos-desktop', version: '1' },
-      })
+      this.access.listening
+        .then(() =>
+          this.request('initialize', {
+            protocolVersion: '2025-06-18',
+            capabilities: { elicitation: {} },
+            clientInfo: { name: 'nuphos-desktop', version: '1' },
+          }),
+        )
         .then(() => this.write({ jsonrpc: '2.0', method: 'notifications/initialized' }))
         // A server that failed to start fails the call itself instead.
         .catch(() => {})
@@ -279,6 +285,7 @@ export class CuaHost {
 
   private exited(): void {
     clearTimeout(this.idle)
+    this.access.close()
     for (const resolve of this.pending.values())
       resolve({ error: { message: 'Computer Use exited' } })
     this.pending.clear()
