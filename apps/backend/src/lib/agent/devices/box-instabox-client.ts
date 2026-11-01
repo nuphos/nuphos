@@ -27,8 +27,11 @@ export const BOX_INSTALL_COMMAND = [
   '  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs',
   'fi',
   'command -v claude >/dev/null && command -v codex >/dev/null && command -v opencode >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @anthropic-ai/claude-code @openai/codex opencode-ai; }',
-  // /tmp is a tmpfs, so files agents leave there take the Box's memory; from the next start it is on disk.
-  'sudo systemctl mask --quiet tmp.mount || true',
+  // From the next start /tmp is /data/tmp: neither memory (the default tmpfs) nor the small root
+  // disk, which agents' scratch files fill within days.
+  'sudo install -d -m 1777 /data/tmp',
+  'grep -q " /tmp " /etc/fstab || echo "/data/tmp /tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0" | sudo tee -a /etc/fstab >/dev/null',
+  'sudo systemctl unmask --quiet tmp.mount || true',
   'command -v grok >/dev/null || curl -fsSL https://x.ai/cli/install.sh | GROK_BIN_DIR="$HOME/.local/bin" bash',
   // Always the newest CLI, so the same step installs a Box and updates one.
   'curl -fsSL https://nuphos.ai/install | sh',
