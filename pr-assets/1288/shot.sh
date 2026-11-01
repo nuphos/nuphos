@@ -11,6 +11,6 @@ xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug
 app=$(find "$root/dd-$which/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name '*.app' | head -1)
 xcrun simctl install "$udid" "$app"
 SIMCTL_CHILD_NUPHOS_PREVIEW_RESPONSES="$root/fixture.json" xcrun simctl launch --terminate-running-process "$udid" ai.nuphos.ios -preview-home -preview-no-push -open-links "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/push-a"
-sleep 12
+sleep 15
 xcrun simctl io "$udid" screenshot "$root/$which.png"
 echo "DONE $which"
