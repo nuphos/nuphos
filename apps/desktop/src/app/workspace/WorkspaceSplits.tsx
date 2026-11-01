@@ -225,6 +225,7 @@ export function WorkspaceSplits({
             <WorkspacePaneContext.Provider
               key={rect.id}
               value={{
+                paneId: rect.id,
                 sessionSearchOpen,
                 setSessionSearchOpen,
                 focusSession,

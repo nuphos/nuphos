@@ -1,11 +1,14 @@
 import { createContext, useContext } from 'react'
 
+import { PRIMARY_PANE_ID } from '../../lib/chatSummaryPanel'
+
 import type { SidebarSlot } from './sidebarSlot'
 import type { WorkspaceState } from './store/workspaceState'
 import type { WorkspaceStore } from './store/workspaceStore'
 import type { Dispatch, SetStateAction } from 'react'
 
 export type WorkspacePaneValue = {
+  paneId: string
   sessionSearchOpen: boolean
   setSessionSearchOpen: Dispatch<SetStateAction<boolean>>
   focusSession: (sessionId: string, teamId?: string) => boolean
@@ -28,4 +31,9 @@ export const WorkspacePaneContext = createContext<WorkspacePaneValue | null>(nul
 
 export function useWorkspacePane() {
   return useContext(WorkspacePaneContext)
+}
+
+/** The id of the pane this component sits in; outside any pane, the primary one. */
+export function usePaneId(): string {
+  return useContext(WorkspacePaneContext)?.paneId ?? PRIMARY_PANE_ID
 }

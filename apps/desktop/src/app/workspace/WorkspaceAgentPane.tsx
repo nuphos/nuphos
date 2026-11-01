@@ -13,7 +13,6 @@ import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryTog
 import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { teamCanUseAgent } from '../../lib/agentAccess'
-import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
@@ -22,6 +21,7 @@ import { PaneGrip } from './PaneGrip'
 import { PaneMenu } from './PaneMenu'
 import { SessionFindBar } from './SessionFindBar'
 import { useTitlebarFit } from './titlebarFit'
+import { useOwnPaneSummary } from './usePaneSummary'
 import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -69,7 +69,7 @@ export function WorkspaceAgentPane({
     stableOpenSessionResource,
   } = ws
   const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
-  const summaryOpen = useChatSummaryOpen()
+  const { open: summaryOpen } = useOwnPaneSummary(selectedSessionId)
   const savedSessionId = currentHeading.saved !== false ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
