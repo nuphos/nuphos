@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type { AgentConversationActivitySource } from '../api'
 
 export type ConversationActivityBadge = {
@@ -18,14 +20,15 @@ export function conversationActivityBadges(
     badges.push({
       kind: 'trigger',
       label: 'Trigger',
-      description: 'Started automatically by a trigger',
+      description: t('Started automatically by a trigger'),
     })
   }
   if (source.origin === 'slack' || source.linkedSlackThread) {
     badges.push({
       kind: 'slack',
       label: 'Slack',
-      description: source.origin === 'slack' ? 'Started from Slack' : 'Linked to a Slack thread',
+      description:
+        source.origin === 'slack' ? t('Started from Slack') : t('Linked to a Slack thread'),
     })
   }
 
@@ -40,20 +43,20 @@ export function conversationReadOnlyLabel(
   hasSlackThread: boolean,
 ): string {
   if (source?.origin === 'trigger' && hasSlackThread) {
-    return 'Triggered investigation · reply in the Slack thread'
+    return t('Triggered investigation · reply in the Slack thread')
   }
   if (source?.origin === 'slack' && hasSlackThread) {
-    return 'Slack conversation · reply in the Slack thread'
+    return t('Slack conversation · reply in the Slack thread')
   }
   if (hasSlackThread) {
-    return 'Linked Slack conversation · reply in the Slack thread'
+    return t('Linked Slack conversation · reply in the Slack thread')
   }
   if (source?.origin === 'trigger') {
-    return 'Triggered investigation · view-only'
+    return t('Triggered investigation · view-only')
   }
   if (source?.origin === 'slack') {
-    return 'Slack conversation · view-only'
+    return t('Slack conversation · view-only')
   }
 
-  return 'Shared agent · view-only'
+  return t('Shared agent · view-only')
 }
