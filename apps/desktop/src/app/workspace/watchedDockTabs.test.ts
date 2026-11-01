@@ -9,6 +9,7 @@ import { exposeDockBrowserTabs } from './store/dockBrowserTabs.ts'
 import {
   browserViewId,
   isWatchedDockTab,
+  paneLayout,
   registerBrowserView,
   setWatchedDockTab,
   watchedTabsOf,
@@ -91,4 +92,29 @@ test("a conversation's sidebar row knows which of its tabs a phone views", () =>
   setWatchedDockTab('t1', null)
   setWatchedDockTab('t2', null)
   assert.deepEqual(watchedTabsOf('chat-a'), [])
+})
+
+test('a watched tab off screen stays laid out invisibly; any other pane is as before', () => {
+  const watch = { width: 390, height: 700, sessionId: 'chat' }
+
+  assert.deepEqual(paneLayout(true, true, undefined), {
+    className: 'h-full min-w-0 flex flex-col relative',
+  })
+  assert.deepEqual(paneLayout(false, true, undefined), { className: 'hidden' })
+  // On the Mac's screen, a watched tab is left alone.
+  assert.equal(paneLayout(true, true, watch).style, undefined)
+  // Inactive, or in a closed dock: fixed at the phone's size, transparent.
+  for (const [active, dockVisible] of [
+    [false, true],
+    [true, false],
+  ] as const)
+    assert.deepEqual(paneLayout(active, dockVisible, watch).style, {
+      position: 'fixed',
+      left: 0,
+      top: 0,
+      width: 390,
+      height: 700,
+      opacity: 0,
+      pointerEvents: 'none',
+    })
 })

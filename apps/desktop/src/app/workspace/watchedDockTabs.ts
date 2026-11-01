@@ -64,6 +64,21 @@ export function watchedPaneStyle(size: WatchSize): CSSProperties {
   }
 }
 
+/**
+ * A tab pane's class and style: shown, hidden, or, while a phone watches it off
+ * screen on the Mac (inactive, or its dock closed), laid out invisibly so it keeps painting.
+ */
+export function paneLayout(
+  active: boolean,
+  dockVisible: boolean,
+  watched: WatchSize | undefined,
+): { className: string; style?: CSSProperties } {
+  if (watched && !(active && dockVisible))
+    return { className: 'flex flex-col', style: watchedPaneStyle(watched) }
+
+  return { className: active ? 'h-full min-w-0 flex flex-col relative' : 'hidden' }
+}
+
 /** Each dock tab's webview once its guest is attached, so the main process can find it. */
 const views = new Map<string, WebviewTag>()
 const waiting = new Map<string, Set<(id: number) => void>>()
