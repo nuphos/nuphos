@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { useDebouncedValue } from '../../components/agent/panel/historyPageHooks'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { announceChatUnarchived } from '../../lib/chatArchiveEvents'
 
 import { appendArchivedPage } from './archivedChatsList'
@@ -12,7 +13,7 @@ import type { AgentConversation } from '../../api'
 const PAGE_SIZE = 30
 
 function chatLabel(conversation: AgentConversation): string {
-  return conversation.title || conversation.firstMessage || 'Untitled agent'
+  return conversation.title || conversation.firstMessage || t('Untitled agent')
 }
 
 export function useArchivedChats({
@@ -66,7 +67,7 @@ export function useArchivedChats({
       })
       .catch((err: unknown) => {
         if (requestIdRef.current === requestId)
-          toast.apiError('Could not load archived agents', err)
+          toast.apiError(t('Could not load archived agents'), err)
       })
       .finally(() => {
         if (requestIdRef.current !== requestId) return
@@ -89,7 +90,8 @@ export function useArchivedChats({
       setItems((prev) => appendArchivedPage(prev, page.conversations))
       setCursor(page.hasMore ? page.nextCursor : null)
     } catch (err) {
-      if (requestIdRef.current === requestId) toast.apiError('Could not load archived agents', err)
+      if (requestIdRef.current === requestId)
+        toast.apiError(t('Could not load archived agents'), err)
     } finally {
       setLoadingMore(false)
     }
@@ -105,9 +107,12 @@ export function useArchivedChats({
         await api.agentSetConversationArchived(sessionId, false, teamId)
         setItems((prev) => prev.filter((c) => c.sessionId !== sessionId))
         announceChatUnarchived(sessionId)
-        toast.success('Agent unarchived', `"${chatLabel(conversation)}" is back in Agents.`)
+        toast.success(
+          t('Agent unarchived'),
+          t('"{name}" is back in Agents.', { name: chatLabel(conversation) }),
+        )
       } catch (err) {
-        toast.apiError('Could not unarchive agent', err)
+        toast.apiError(t('Could not unarchive agent'), err)
       } finally {
         setRestoringIds((prev) => {
           const next = new Set(prev)

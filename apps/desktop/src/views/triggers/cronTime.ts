@@ -2,6 +2,8 @@
 // instant next to the viewer's wall clock; every function takes the zone
 // explicitly so callers (and tests) decide whose clock "your time" means.
 
+import { locale } from '../../i18n/index.ts'
+
 export function viewerTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone
 }
@@ -68,7 +70,7 @@ export function formatUtcAndLocal(instant: Date, timeZone: string): string {
   return `${utc.weekday} ${utc.hm} UTC (${local.weekday} ${local.hm} your time)`
 }
 
-const UTC_RUN_DATE = new Intl.DateTimeFormat('en-US', {
+const UTC_RUN_DATE = new Intl.DateTimeFormat(locale, {
   timeZone: 'UTC',
   weekday: 'short',
   month: 'short',

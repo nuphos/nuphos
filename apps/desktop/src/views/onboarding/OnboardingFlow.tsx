@@ -2,6 +2,8 @@ import { useReducedMotion } from 'framer-motion'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { AgentPanelStage } from './flow/AgentPanelStage'
 import { deriveDefaultWorkspaceName } from './flow/shared'
 import { useJoinOptionsSync, useWorkspaceActions } from './flow/use-join-options'
@@ -160,7 +162,7 @@ export function OnboardingFlow({
             className="titlebar-no-drag absolute top-12 left-3 z-10 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-secondary"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Back
+            {t('Back')}
           </button>
         )}
         {onLogout && (
@@ -170,7 +172,7 @@ export function OnboardingFlow({
             className="titlebar-no-drag absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-secondary"
           >
             <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Log out
+            {t('Log out')}
           </button>
         )}
       </div>

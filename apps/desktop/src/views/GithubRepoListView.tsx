@@ -5,6 +5,7 @@ import { api } from '../api'
 import { Age } from '../components/Age'
 import { Table } from '../components/Table'
 import { useSlowPollTick } from '../hooks/useSlowPoll'
+import { t } from '../i18n'
 import { withResourceListCache, resourceListCacheKey } from '../lib/resourceListCache'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
@@ -80,7 +81,7 @@ export function GithubRepoListView({
   const columns: Column<GithubRepository>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 220,
       sortAccessor: (r) => r.name,
       render: (r) => (
@@ -92,7 +93,7 @@ export function GithubRepoListView({
     },
     {
       key: 'description',
-      header: 'Description',
+      header: t('Description'),
       width: 300,
       render: (r) => (
         <span className="text-secondary text-[12px] truncate">
@@ -102,13 +103,13 @@ export function GithubRepoListView({
     },
     {
       key: 'defaultBranch',
-      header: 'Default branch',
+      header: t('Default branch'),
       width: 140,
       render: (r) => <span className="text-tertiary text-[12px]">{r.defaultBranch ?? '—'}</span>,
     },
     {
       key: 'pushedAt',
-      header: 'Last push',
+      header: t('Last push'),
       width: 110,
       sortAccessor: (r) => r.pushedAt,
       render: (r) => (
@@ -119,11 +120,11 @@ export function GithubRepoListView({
     },
     {
       key: 'visibility',
-      header: 'Visibility',
+      header: t('Visibility'),
       width: 100,
       render: (r) => (
         <span className="text-tertiary text-[12px]">
-          {r.private ? 'Private' : (r.visibility ?? 'Public')}
+          {r.private ? t('Private') : (r.visibility ?? t('Public'))}
         </span>
       ),
     },
@@ -142,7 +143,7 @@ export function GithubRepoListView({
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading…
+        {t('Loading…')}
       </div>
     )
   }
@@ -156,7 +157,9 @@ export function GithubRepoListView({
         rowKey={(r) => String(r.id)}
         storageKey={`github.repos.${String(installation.installationId)}`}
         defaultSort={{ key: 'pushedAt', dir: 'desc' }}
-        empty={filter ? `No repositories match "${filter}"` : 'No repositories found'}
+        empty={
+          filter ? t('No repositories match "{filter}"', { filter }) : t('No repositories found')
+        }
         onPrimaryAction={onSelectRepo}
         onRowContextMenu={onRowContextMenu}
       />

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useSilentTick } from '../../hooks/useSilentRefresh'
+import { t } from '../../i18n/index.ts'
 
 import { isRuntimeImageAuditEvent, isSkillAuditEvent, rangeFrom, userLabel } from './shared'
 
@@ -108,7 +109,7 @@ export function useAuditLogData({
 
         if (tab === 'conversations') setConversations({ kind: 'error', message })
         else setEvents({ kind: 'error', message })
-        toast.apiError('Failed to load audit log', err)
+        toast.apiError(t('Failed to load audit log'), err)
       })
       .finally(() => {
         if (!cancelled) onLoading?.(false)
@@ -169,7 +170,7 @@ export function useAuditLogData({
         onCount?.(events.events.length + page.events.length)
       }
     } catch (err) {
-      toast.apiError('Failed to load more', err)
+      toast.apiError(t('Failed to load more'), err)
     } finally {
       setLoadingMore(false)
     }
@@ -230,11 +231,14 @@ export function useAuditLogData({
 
         if (!result.saved) return
         toast.success(
-          'Compliance export saved',
-          `${String(result.sessionCount)} sessions · ${String(result.eventCount)} events`,
+          t('Compliance export saved'),
+          t('{sessions} sessions · {events} events', {
+            sessions: result.sessionCount,
+            events: result.eventCount,
+          }),
         )
       } catch (err) {
-        toast.apiError('Compliance export failed', err)
+        toast.apiError(t('Compliance export failed'), err)
       } finally {
         setExporting(false)
       }

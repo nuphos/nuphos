@@ -240,7 +240,7 @@ function StateBadge({ state }: { state: AlertState }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11.5px] ${cfg.className}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap px-1.5 py-0.5 rounded text-[11.5px] ${cfg.className}`}
     >
       <Icon className="w-3 h-3" strokeWidth={2} />
       {cfg.label}
