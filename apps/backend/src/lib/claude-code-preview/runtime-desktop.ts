@@ -14,9 +14,9 @@
 // against an X server and VNC without authentication, so any agent on the Box
 // can reach another session's display. The team accepts this until each
 // session gets its own Unix user (see the host's desktop-session.mjs). A Mac
-// asks for no account: it shows its screen only once "Let my phone see and
-// control this Mac" is turned on at the Mac, and only to the Nuphos process that
-// started its host.
+// asks for no account: it shows its screen only to the Nuphos process that
+// started its host, and that process streams it only to the account signed in
+// on the Mac.
 
 import { getReadableConversation } from '@/lib/agent/db'
 import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'

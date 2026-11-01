@@ -8,6 +8,7 @@ import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { openInputRequests } from '../lib/agentInputRequests'
 import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
@@ -199,8 +200,10 @@ export function InboxView({
         {caughtUp && (
           <EmptyState
             icon={Inbox}
-            title="You're all caught up"
-            description="When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox."
+            title={t("You're all caught up")}
+            description={t(
+              'When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
+            )}
           />
         )}
         {/* Mounted while empty too: its refetch is what brings the next question in. */}

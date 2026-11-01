@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 export type HelmRelease = {
   name?: string
   namespace?: string
@@ -27,11 +29,12 @@ const MAX_HELM_ENCODED_BYTES = Math.ceil((MAX_HELM_COMPRESSED_BYTES * 4) / 3) + 
 
 function decodeBase64(value: string, maxBytes: number, label: string): Uint8Array {
   if (value.length > Math.ceil((maxBytes * 4) / 3) + 4) {
-    throw new Error(`${label} exceeds the supported size limit`)
+    throw new Error(t('{label} exceeds the supported size limit', { label }))
   }
   const binary = atob(value)
 
-  if (binary.length > maxBytes) throw new Error(`${label} exceeds the supported size limit`)
+  if (binary.length > maxBytes)
+    throw new Error(t('{label} exceeds the supported size limit', { label }))
   const bytes = new Uint8Array(binary.length)
 
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
@@ -54,7 +57,7 @@ async function readBounded(
     total += value.byteLength
     if (total > maxBytes) {
       await reader.cancel()
-      throw new Error('Decompressed Helm release exceeds the supported size limit')
+      throw new Error(t('Decompressed Helm release exceeds the supported size limit'))
     }
     chunks.push(value)
   }
@@ -82,15 +85,15 @@ export async function decodeHelmRelease(kind: string, stored: string): Promise<H
   const encoded =
     kind === 'Secret'
       ? new TextDecoder()
-          .decode(decodeBase64(stored, MAX_HELM_ENCODED_BYTES, 'Helm storage payload'))
+          .decode(decodeBase64(stored, MAX_HELM_ENCODED_BYTES, t('Helm storage payload')))
           .trim()
       : stored.trim()
-  const compressed = decodeBase64(encoded, MAX_HELM_COMPRESSED_BYTES, 'Helm release payload')
+  const compressed = decodeBase64(encoded, MAX_HELM_COMPRESSED_BYTES, t('Helm release payload'))
   const json = new TextDecoder().decode(await gunzip(compressed))
   const value: unknown = JSON.parse(json)
 
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Helm release payload is not an object')
+    throw new Error(t('Helm release payload is not an object'))
   }
 
   return value

@@ -1,6 +1,7 @@
 import { Monitor } from 'lucide-react'
 
 import { PageMeta } from '../app/pageMeta'
+import { t } from '../i18n'
 
 import type { DesktopPhase } from '../lib/desktopConnection'
 
@@ -25,9 +26,9 @@ export function DesktopFrame({
 }) {
   const overlay =
     phase.kind === 'connecting'
-      ? 'Connecting to the desktop…'
+      ? t('Connecting to the desktop…')
       : phase.kind === 'reconnecting'
-        ? 'Reconnecting…'
+        ? t('Reconnecting…')
         : undefined
 
   return (
@@ -55,7 +56,7 @@ export function DesktopFrame({
                   onClick={onRetry}
                   className="rounded border border-zGray-700 px-2 py-0.5 text-xs text-main hover:bg-zGray-800"
                 >
-                  {phase.reason === 'offline' ? 'Resume' : 'Try again'}
+                  {phase.reason === 'offline' ? t('Resume') : t('Try again')}
                 </button>
               )}
             </div>

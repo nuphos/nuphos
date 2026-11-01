@@ -31,7 +31,14 @@ const common = {
     .max(3000)
     .describe('Bounded task or result; never include credentials.'),
 }
-const create = z.object({ ...common, title: z.string().trim().min(1).max(160) }).strict()
+// The thread's model picker: values from its agent's catalog, refused with the choices.
+const modelPick = {
+  model: z.string().trim().min(1).max(500).optional().describe('Model id, e.g. claude-fable-5-1.'),
+  effort: z.string().trim().min(1).max(100).optional().describe('Reasoning effort, e.g. high.'),
+}
+const create = z
+  .object({ ...common, title: z.string().trim().min(1).max(160), ...modelPick })
+  .strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
 const setParent = z
   .object({
@@ -55,6 +62,7 @@ const update = z
       .max(50)
       .optional()
       .describe('(provider, id) pairs from your own list_credentials to add to the thread.'),
+    ...modelPick,
   })
   .strict()
 const archive = z
@@ -86,6 +94,7 @@ export function threadToolModule(
         description:
           'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it only when asked for a sub-agent or to delegate/background work. ' +
           'Inherits your current runtime, selected credentials and permission mode, not your transcript. ' +
+          "model and effort set its model picker before its first turn; its agent's defaults otherwise. " +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
           'Only available for conversations owned by the current actor.',
@@ -119,7 +128,7 @@ export function threadToolModule(
       {
         name: 'list_agent_runtimes',
         description:
-          "List the team's agents (runtimes) your threads can run on, with each one's readiness and " +
+          "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness and " +
           'usage quota. Use it to pick a runtimeId for update_thread, for example when a thread ' +
           "has hit its agent's usage limit.",
         inputSchema: toolInputJsonSchema(list),
@@ -131,11 +140,13 @@ export function threadToolModule(
           'adopted with set_thread_parent. fullAccess switches it ' +
           'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
           'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
-          "its conversation history, to another of the team's agents from list_agent_runtimes " +
+          'its conversation history, to another agent from list_agent_runtimes ' +
           "(never to someone's computer); its next turn " +
           'runs there. grant adds credentials or devices (provider "device") that this ' +
           "conversation has selected, as its list_credentials shows them, to the thread's " +
-          "selection; it never removes any. A new thread already starts in this conversation's " +
+          "selection; it never removes any. model and effort set the thread's model picker for its " +
+          'next turn, after any runtimeId move; a value its agent does not offer is refused with ' +
+          "the choices. A new thread already starts in this conversation's " +
           'mode, agent and selection.',
         inputSchema: toolInputJsonSchema(update),
       },
@@ -156,7 +167,7 @@ export function threadToolModule(
         if (!parsed.success) return toolError(parsed.error.message)
 
         return presentedByRuntime(publish, ctx, 'create_thread', parsed.data, () =>
-          createAgentThread(ctx, parsed.data.prompt, parsed.data.title),
+          createAgentThread(ctx, parsed.data.prompt, parsed.data.title, parsed.data),
         )
       },
       send_message_to_thread: async (args) => {
@@ -188,8 +199,14 @@ export function threadToolModule(
         if (!parsed.success) return toolError(parsed.error.message)
         const { threadId, ...change } = parsed.data
 
-        if (change.fullAccess === undefined && !change.runtimeId && !change.grant?.length)
-          return toolError('Set fullAccess, runtimeId or grant.')
+        if (
+          change.fullAccess === undefined &&
+          !change.runtimeId &&
+          !change.grant?.length &&
+          !change.model &&
+          !change.effort
+        )
+          return toolError('Set fullAccess, runtimeId, grant, model or effort.')
 
         return answer(updateThread(ctx, threadId, change))
       },

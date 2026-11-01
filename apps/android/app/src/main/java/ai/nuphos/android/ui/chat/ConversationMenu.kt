@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> Unit, onChooseRuntime: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var open by remember(session, store.workspaceRevision) { mutableStateOf(false) }
+    var desktop by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var share by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var rename by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var archive by remember(session, store.workspaceRevision) { mutableStateOf(false) }
@@ -48,6 +49,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             open = false
             share = true
         })
+        if (session.canOpenDesktop) DropdownMenuItem(text = { Text("Desktop") }, leadingIcon = { Icon(Icons.Outlined.DesktopWindows, null) }, onClick = { open = false; desktop = true })
         val pinned = store.favorites?.contains(session.sessionId) == true
         DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin") }, leadingIcon = { Icon(Icons.Outlined.PushPin, null) }, enabled = !busy && store.favorites != null && session.loaded && session.loadError == null, onClick = {
             open = false; perform { store.pin(session, !pinned) }
@@ -67,6 +69,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         }
     }
     }
+    if (desktop) ai.nuphos.android.desktop.DesktopScreen(session, store) { desktop = false }
     if (share) {
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }

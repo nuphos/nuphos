@@ -35,7 +35,6 @@ export type WindowDeviceApi = {
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>
   localRuntimeSetSleepPreferences(value: SleepPreferences): Promise<SleepState>
-  localRuntimeSetPhoneControl(allowed: boolean): Promise<boolean>
   localRuntimeGetState(): Promise<LocalRuntimeState>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>

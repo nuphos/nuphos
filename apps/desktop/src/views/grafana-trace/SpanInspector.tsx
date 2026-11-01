@@ -79,7 +79,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-zGray-800/70 bg-zGray-900/50 px-3 py-2 min-w-0">
       <div className="text-[10.5px] uppercase tracking-wider text-tertiary">{label}</div>
-      <div className="mt-0.5 text-[12.5px] text-main truncate">{value}</div>
+      <div className="mt-0.5 text-[12.5px] text-main break-words">{value}</div>
     </div>
   )
 }

@@ -1,9 +1,9 @@
 // A Mac's own screen as a conversation's desktop. The bundle's mac-screen-host
 // serves it as display 0 on a unix socket in the pool: ScreenCaptureKit and
 // VideoToolbox H.264 over RFB with security None, so no Mac account is asked
-// for; only the conversation's owner reaches it, through the authenticated
-// relay, and only once "Let my phone see and control this Mac" is turned on at
-// the Mac. The host takes connections only from this process, exits a minute
+// for; only the Mac's owner reaches it, through the authenticated relay, and
+// the stream also refuses any viewer who is not the account signed in here. The
+// host takes connections only from this process, exits a minute
 // after its last viewer leaves or as soon as this process does, and opening the
 // screen starts it again. It needs Screen Recording and Accessibility for
 // Nuphos. There is one screen, so one conversation holds it at a time. Its lock names that session
@@ -14,7 +14,7 @@
 // nothing pauses the agent's input tools here while the owner has the screen.
 
 import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { connect } from 'node:net'
 import path from 'node:path'
 
@@ -30,8 +30,6 @@ const START_MS = 5_000
 const IDLE_MS = 3 * 60_000
 
 const lockFile = (pool: string) => path.join(pool, `${String(SCREEN)}.lock`)
-/** The Mac's own choice to show its screen, off until turned on in its settings. */
-const allowFile = (pool: string) => path.join(pool, 'phone-control.json')
 
 export const screenSocket = (pool: string) => path.join(pool, `${String(SCREEN)}.sock`)
 
@@ -69,36 +67,11 @@ function holder(pool: string, now = Date.now()): string | undefined {
   }
 }
 
-export function macScreenAllowed(pool: string): boolean {
-  try {
-    return (
-      (JSON.parse(readFileSync(allowFile(pool), 'utf8')) as { allowed?: boolean }).allowed === true
-    )
-  } catch {
-    return false
-  }
-}
-
-/** Turning it off also ends the screen's stream and frees it. */
-export function setMacScreenAllowed(pool: string, allowed: boolean): boolean {
-  mkdirSync(pool, { recursive: true })
-  writeFileSync(allowFile(pool), JSON.stringify({ allowed }), { mode: 0o600 })
-  if (!allowed) {
-    stopHost()
-    rmSync(lockFile(pool), { force: true })
-  }
-
-  return allowed
-}
-
-/** What the tunnel status says: the session holding the screen, and whether it opens on request. */
+/** What the tunnel status says: the session holding the screen, and that it opens on request. */
 export function macScreenStatus(pool: string, now = Date.now()) {
   const sessionId = holder(pool, now)
 
-  return {
-    desktops: sessionId ? [{ display: SCREEN, sessionId }] : [],
-    desktopOpen: macScreenAllowed(pool),
-  }
+  return { desktops: sessionId ? [{ display: SCREEN, sessionId }] : [], desktopOpen: true }
 }
 
 function listening(socket: string): Promise<boolean> {
@@ -176,8 +149,6 @@ export async function openMacScreen(
   sessionId: string,
   start: () => Promise<void>,
 ): Promise<number> {
-  if (!macScreenAllowed(pool))
-    throw new Error('Turn on “Let my phone see and control this Mac” in Nuphos on this Mac.')
   await start()
   // Checked after starting, with nothing awaited before the write: two opens cannot both win.
   const held = holder(pool)
@@ -197,6 +168,8 @@ export function macScreenDeps(
     binary: () => string
     /** A viewer took the screen over (true) or handed it back (false): the Mac says so on screen. */
     handOver: (human: boolean) => void
+    /** The account signed in on this Mac: the only viewer its screen admits. */
+    owner: () => string | null
   },
   instances?: (request: unknown) => Promise<unknown>,
 ) {
@@ -205,7 +178,7 @@ export function macScreenDeps(
       (sessionId) => openMacScreen(pool, sessionId, () => startHost(pool, host.binary())),
       instances,
     ),
-    connectVnc: () => new VncStream(pool, () => screenSocket(pool), host.handOver),
+    connectVnc: () => new VncStream(pool, () => screenSocket(pool), host.handOver, host.owner),
     status: () => ({ ...status(), ...macScreenStatus(pool) }),
   }
 }

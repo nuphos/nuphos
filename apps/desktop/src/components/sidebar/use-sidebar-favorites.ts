@@ -160,6 +160,7 @@ export function useSidebarFavorites({
         href,
         parentKey: live?.parentKey,
         foldedStatus: live?.foldedStatus,
+        dot: live?.dot,
         label,
         icon:
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),

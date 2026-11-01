@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type { LocalRuntimeSummary } from '../types/runtime.ts'
 
 export type ThisComputer = { userId: string; deviceId: string } | null
@@ -51,9 +53,9 @@ export function groupAgentsByTier<T extends NamedAgent>(
 type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
 
 /** Why an agent cannot take a turn now: listed greyed out with this, never chosen. */
-export function unavailable(agent: NamedAgent): 'Offline' | 'Signed out' | null {
-  if (agent.local?.online === false) return 'Offline'
-  if (agent.local?.signedIn === false) return 'Signed out'
+export function unavailable(agent: NamedAgent): string | null {
+  if (agent.local?.online === false) return t('Offline')
+  if (agent.local?.signedIn === false) return t('Signed out')
 
   return null
 }

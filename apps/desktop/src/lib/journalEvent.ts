@@ -4,6 +4,8 @@
 
 import { CircleDot, KeyRound, MessageSquare, Terminal } from 'lucide-react'
 
+import { t } from '../i18n/index.ts'
+
 import { journalContentText } from './journalEventText.ts'
 
 import type { AgentJournalEvent } from '../api'
@@ -145,35 +147,43 @@ export function journalEventSummary(event: AgentJournalEvent): string {
 
   switch (event.type) {
     case 'turn_start':
-      return 'Turn started'
+      return t('Turn started')
     case 'turn_end':
-      return 'Turn finished'
+      return t('Turn finished')
     case 'user_message':
-      return journalContentText(event.contentHot) || 'User message (content hash)'
+      return journalContentText(event.contentHot) || t('User message (content hash)')
     case 'assistant_message':
-      return journalContentText(event.contentHot) || 'Assistant message (content hash)'
+      return journalContentText(event.contentHot) || t('Assistant message (content hash)')
     case 'tool_call_intent': {
       const intent = parseIntentInput(payload)
 
-      return intent.label ?? intent.command ?? `${payloadText(payload.toolName, 'tool')} call`
+      return (
+        intent.label ??
+        intent.command ??
+        t('{tool} call', { tool: payloadText(payload.toolName, 'tool') })
+      )
     }
     case 'tool_call_result': {
       const ok = payload.success === true
 
-      return `${payloadText(payload.toolName, 'tool')} ${ok ? 'succeeded' : 'FAILED'}`
+      const tool = payloadText(payload.toolName, 'tool')
+
+      return ok ? t('{tool} succeeded', { tool }) : t('{tool} FAILED', { tool })
     }
     case 'client_tool_result':
-      return `${payloadText(payload.toolName, 'local tool')} result (desktop)`
+      return t('{tool} result (desktop)', { tool: payloadText(payload.toolName, 'local tool') })
     case 'credential_grant':
-      return 'Credentials granted'
+      return t('Credentials granted')
     case 'user_approval': {
       const planNumber = payload.planNumber
 
       if (typeof planNumber === 'number') {
-        return `Plan #${String(planNumber)} ${payload.decision === 'rejected' ? 'rejected' : 'approved'}`
+        return payload.decision === 'rejected'
+          ? t('Plan #{number} rejected', { number: String(planNumber) })
+          : t('Plan #{number} approved', { number: String(planNumber) })
       }
 
-      return 'User approval'
+      return t('User approval')
     }
     default:
       return event.type

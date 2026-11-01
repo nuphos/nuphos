@@ -95,14 +95,22 @@ final class ChatSession {
     private let observations = RuntimeObservations.shared
     var runtimeObservation: RuntimeObservation? { observations.value(team: teamId, session: sessionId) }
     var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing == true : transportStreaming }
-    /// The owner can open this conversation's desktop: its runtime is a Box, or a
-    /// Mac that allows phone control, and says it can show one or already does.
+    /// The owner can open this conversation's desktop: its runtime is a Box or a
+    /// Mac, and says it can show one or already does.
     var canOpenDesktop: Bool {
         guard ownsChat, let snapshot = runtimeObservation?.snapshot else { return false }
         return snapshot["canOpenDesktop"]?.boolValue == true
             || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
     }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// The browser tabs in this conversation's dock on its owner's computer.
+    func browserTabs() async throws -> [BrowserTab] {
+        try await AgentChatAPI.browserTabs(token: token, teamId: teamId, sessionId: sessionId)
+    }
+    /// Brings `tab` forward on that computer: its window, this conversation and the dock tab.
+    func focus(_ tab: BrowserTab) async throws {
+        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: tab.id)
+    }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }
         guard isNativeRuntime, !isNew else { return nil }
@@ -120,8 +128,9 @@ final class ChatSession {
     var submitting: Bool { sending != nil }
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
-    /// This device's send has had no response yet. Only that response clears it:
-    /// another turn executing says nothing about this message.
+    /// This device's send has no runtime status yet. Only this turn's own
+    /// runtime state clears it, so "Sending…" holds until the runtime's first
+    /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
     var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
@@ -370,6 +379,7 @@ final class ChatSession {
         let attachments = submission.attachments
         guard !trimmed.isEmpty || !attachments.isEmpty, !readOnly else { return }
         guard canSubmit else { return }
+        promptSuggestion = nil
         if canSteer {
             guard attachments.isEmpty else { error = "Send attachments after this turn; steering currently accepts text."; return }
             steeringPending = true
@@ -751,12 +761,21 @@ final class ChatSession {
     /// those never come, the turn is closed locally after the last probe.
     func stop() {
         if isNativeRuntime {
-            guard canCancel else { return }
+            // The button showed for a status that may be seconds old; the
+            // server decides from the live one, and its refusal (a turn that
+            // already ended) shows as an error rather than a silent tap.
+            guard !readOnly, !isStopping else { return }
             isStopping = true
             Task {
                 defer { isStopping = false }
-                do { try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId) }
-                catch { self.error = error.localizedDescription }
+                do {
+                    try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId)
+                    // Show the stopped turn now, not at the next idle poll.
+                    let observedAt = ProcessInfo.processInfo.systemUptime
+                    if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {
+                        receiveRuntime(detail.runtimeState, observedAt: observedAt)
+                    }
+                } catch { self.error = error.localizedDescription }
             }
             return
         }
@@ -987,7 +1006,11 @@ final class ChatSession {
         lastSyncedSignature = signature()
     }
 
+    /// Desktop's Tab-to-accept guess; a phone offers it as a chip to tap.
+    private(set) var promptSuggestion: String?
+
     private func adoptRuntime(from detail: AgentConversationDetail) {
+        promptSuggestion = detail.promptSuggestion.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
         if let t = detail.title, !t.isEmpty, t != title { title = t }
         isOwner = detail.isOwner ?? false
         manages = detail.canManage ?? isOwner
@@ -1106,7 +1129,6 @@ final class ChatSession {
                     guard event.data != "[DONE]", let frame = JSONValue.parse(event.data),
                           let type = frame["type"]?.stringValue else { continue }
                     accepted = true
-                    awaitingAdmission = false
                     debugLog("frame \(type)")
                     if type.hasPrefix("tool-") || type == "authorization-decision" || type == "error" || type == "atlas-turn-paused" {
                         debugLog("  \(frame.compact.prefix(600))")
@@ -1253,6 +1275,7 @@ final class ChatSession {
     private func handle(frame: JSONValue, type: String) {
         switch type {
         case "runtime-state":
+            awaitingAdmission = false
             let age = max(0, Date.now.timeIntervalSince1970 - (frame["emittedAt"]?.numberValue ?? 0) / 1000)
             receiveRuntime(frame["snapshot"], observedAt: ProcessInfo.processInfo.systemUptime - age)
             return

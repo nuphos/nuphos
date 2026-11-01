@@ -35,6 +35,8 @@ class IncomingShares(
         val loading: Boolean = true,
         val error: String? = null,
         val destination: ComposerDrafts.Key? = null,
+        /** The share is intact (text and owned files retained), so the person may retry the same share. */
+        val retryable: Boolean = false,
     )
     private data class Edit(val key: ComposerDrafts.Key, val text: String, val identity: Long, val keyVersion: Long)
     private interface Work { suspend fun run(box: IncomingShareMailbox); fun fail(error: Throwable) {} }
@@ -217,7 +219,9 @@ class IncomingShares(
             else { files.forEach { file -> file.releaseOwnedCopy() }; false }
         }.await()
     }
-    fun failed(id: Long, error: String) { enqueue { it.failed(id, error) } }
+    fun failed(id: Long, error: String, retryable: Boolean = false) { enqueue { it.failed(id, error, retryable) } }
+    /** Clears a recoverable failure for the same share; its retained text and files are reused, never re-read. */
+    fun retry(id: Long) { enqueue { it.retry(id) } }
     suspend fun bindAccount(accountId: String) {
         val epoch = identity.get()
         try {
@@ -239,6 +243,10 @@ class IncomingShares(
     suspend fun choose(id: Long, key: ComposerDrafts.Key): Boolean {
         val epoch = identity.get()
         return enqueue { epoch == identity.get() && actorIdentity == epoch && it.choose(id, key) }.await()
+    }
+    /** Ordered after any in-flight choice; never touches a newer share or a different destination. */
+    internal fun releaseDestination(id: Long, key: ComposerDrafts.Key) {
+        enqueue { it.release(id, key) }
     }
     suspend fun consumed(id: Long, key: ComposerDrafts.Key, mergedText: String = "", combined: List<ComposerAttachment>? = null, onCommitted: () -> Unit = {}): Boolean {
         val epoch = identity.get()

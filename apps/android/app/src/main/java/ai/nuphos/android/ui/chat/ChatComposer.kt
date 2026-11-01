@@ -153,6 +153,9 @@ fun ChatComposer(
     isStreaming: Boolean,
     onSend: (ComposerSubmission) -> Boolean,
     canSubmit: Boolean = true,
+    sendQueues: Boolean = false,
+    recalledFiles: List<ComposerAttachment> = emptyList(),
+    onRecalledFilesRestored: () -> Unit = {},
     draft: ai.nuphos.android.session.ComposerDrafts.Lease? = null,
     mentions: SessionMentionSource? = null,
     devices: DeviceMentionSource? = null,
@@ -291,10 +294,11 @@ fun ChatComposer(
     val injectedVoice = LocalVoiceServices.current
     val voiceServices = remember(context, injectedVoice) { injectedVoice ?: deviceVoiceServices(context) }
     val latestText by rememberUpdatedState(text)
-    val latestWrite by rememberUpdatedState<(String) -> Unit> { words ->
-        if (effectiveDraftingEnabled) {
+    val latestWrite by rememberUpdatedState<(String) -> Boolean> { words ->
+        if (!effectiveDraftingEnabled || savingSend) false else {
             val appended = appendDictation(latestText, words)
             updateText(appended)
+            fieldState.text.toString() == appended
         }
     }
     val voiceAuth = ai.nuphos.android.ui.LocalAuthSession.current
@@ -302,7 +306,7 @@ fun ChatComposer(
     val voiceAccount = voiceAuth.user?.id
     val voiceTeam = draft?.key?.teamId ?: store.selectedTeam?.id
     val voiceConsentRevision = ai.nuphos.android.session.AiAccess.revision
-    val latestVoiceAllowed by rememberUpdatedState(effectiveDraftingEnabled && canSubmit)
+    val latestVoiceAllowed by rememberUpdatedState(effectiveDraftingEnabled)
     val voice = remember(draft, voiceServices, voiceToken, voiceAccount, voiceTeam,
         voiceAuth.generation, store.workspaceRevision, voiceConsentRevision) {
         val authGeneration = voiceAuth.generation
@@ -316,13 +320,14 @@ fun ChatComposer(
             unauthorized = { if (current()) voiceAuth.signOut(ai.nuphos.android.data.NuphosApi.Failure.Unauthorized.message) })
         VoiceInput(voiceServices, scope, access) { latestWrite(it) }
     }
+    var voiceSendRequested by remember(draft, voice) { mutableStateOf(false) }
     var permissionTarget by remember { mutableStateOf<VoiceInput?>(null) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         permissionTarget?.permissionResult(granted)
         permissionTarget = null
     }
     fun startVoice() {
-        if (voice.active || !effectiveDraftingEnabled || !canSubmit || picking) return
+        if (voice.active || !effectiveDraftingEnabled || picking) return
         try {
             if (!voice.available) { voice.error = "Choose a workspace and confirm your AI sharing choice to use voice input."; return }
             focusManager.clearFocus()
@@ -348,11 +353,19 @@ fun ChatComposer(
         onDispose { lifecycle.removeObserver(observer); voice.cancel() }
     }
     LaunchedEffect(effectiveDraftingEnabled) { if (!effectiveDraftingEnabled) attachmentJob?.cancel() }
-    LaunchedEffect(effectiveDraftingEnabled, canSubmit) { if (!effectiveDraftingEnabled || !canSubmit) voice.cancel() }
+    LaunchedEffect(effectiveDraftingEnabled) { if (!effectiveDraftingEnabled) voice.cancel() }
     BackHandler(enabled = voice.active) { voice.cancel() }
     voice.error?.let { message ->
         AlertDialog(onDismissRequest = { voice.error = null }, title = { Text("Voice input failed") },
-            text = { Text(message) }, confirmButton = { TextButton(onClick = { voice.error = null }) { Text("OK") } })
+            text = { Column {
+                Text(message)
+                voice.pendingText?.let { words -> androidx.compose.foundation.text.selection.SelectionContainer { Text(words) } }
+            } },
+            confirmButton = {
+                if (voice.pendingText != null) TextButton(onClick = voice::retryText) { Text("Add to draft") }
+                else TextButton(onClick = { voice.error = null }) { Text("OK") }
+            },
+            dismissButton = { if (voice.pendingText != null) TextButton(onClick = voice::discardText) { Text("Discard transcript") } })
     }
     val hasText = text.isNotBlank()
     val hasPayload = hasText || attachments.isNotEmpty()
@@ -363,6 +376,19 @@ fun ChatComposer(
             updateText(rejectedSubmission.text)
             attachments.addAll(rejectedSubmission.attachments)
             onRejectedRestored()
+        }
+    }
+
+    LaunchedEffect(recalledFiles, effectiveDraftingEnabled, savingSend, attachments.size) {
+        if (effectiveDraftingEnabled && !savingSend && recalledFiles.isNotEmpty()) {
+            try {
+                val missing = recalledFiles.filter { file -> attachments.none { it.id == file.id } }
+                AttachmentTransfers().retain(attachments.toList() + missing)
+                attachments.addAll(missing)
+                onRecalledFilesRestored()
+            } catch (error: Exception) {
+                pickerError = "Queued attachments are retained but could not fit in this draft. Remove an attachment and try again."
+            }
         }
     }
 
@@ -469,7 +495,7 @@ fun ChatComposer(
                 // Queue cleanup after any already-enqueued consumption/deletion, so cancellation cannot unlink an in-flight commit.
                 incomingShares.releaseUnowned(staged.filter { file -> before.none { it === file } && shared.attachments.none { it === file } })
                 if (failure !is CancellationException)
-                    incomingShares.failed(shared.id, "Could not save this share. Check the draft limits and free storage, then try again.")
+                    incomingShares.failed(shared.id, "Could not save this share. Check the draft limits and free storage, then try again.", retryable = true)
             }
             if (failure is CancellationException) throw failure
         }
@@ -507,6 +533,13 @@ fun ChatComposer(
                 }
                 savingSend = false
             }
+        }
+    }
+
+    LaunchedEffect(voice, voiceSendRequested) {
+        if (voiceSendRequested) {
+            voiceSendRequested = false
+            send() // Read the recomposed transcript and recheck the normal send guards.
         }
     }
 
@@ -667,7 +700,7 @@ fun ChatComposer(
                 ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (voice.active) VoiceRecordingBar(voice) else BasicTextField(
+                if (voice.active) VoiceRecordingBar(voice, canSend = canSubmit && effectiveDraftingEnabled && !savingSend && !picking, onSendReady = { voiceSendRequested = true }) else BasicTextField(
                     state = fieldState,
                     inputTransformation = InputTransformation {
                         if (!effectiveDraftingEnabled || savingSend) revertAllChanges()
@@ -694,7 +727,7 @@ fun ChatComposer(
                             if (state.isFocused) collapsedByUser = false
                         }
                         .semantics {
-                            contentDescription = if (isStreaming) "Queue a message" else "Ask Nuphos anything"
+                            contentDescription = if (isStreaming || sendQueues) "Queue a message" else "Ask Nuphos anything"
                         },
                     textStyle = fieldStyle,
                     cursorBrush = SolidColor(colors.primary),
@@ -709,7 +742,7 @@ fun ChatComposer(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (text.isEmpty()) {
                                 Text(
-                                    if (isStreaming) "Queue a message…" else "Ask Nuphos anything…",
+                                    if (isStreaming || sendQueues) "Queue a message…" else "Ask Nuphos anything…",
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = if (expanded) 8 else 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -721,9 +754,9 @@ fun ChatComposer(
                     },
                 )
                 if (!expanded) {
-                    VoiceMic(enabled = canSubmit && effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
+                    VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     TrailingButton(isStreaming = isStreaming, hasPayload = hasPayload && canSubmit && !picking && !voice.active,
-                        onStop = onStop, onSend = ::send)
+                        onStop = onStop, onSend = ::send, sendQueues = sendQueues)
                 }
             }
 
@@ -784,7 +817,7 @@ fun ChatComposer(
                         Icon(Icons.Outlined.ContentPaste, "Paste")
                     }
                     Spacer(Modifier.weight(1f))
-                    VoiceMic(enabled = canSubmit && effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
+                    VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     if (isStreaming && onStop != null && hasPayload) {
                         IconButton(onClick = ::send, enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Outlined.PlaylistAdd, "Queue message")
@@ -795,6 +828,7 @@ fun ChatComposer(
                         hasPayload = hasPayload && canSubmit && !picking && !voice.active,
                         onStop = onStop,
                         onSend = ::send,
+                        sendQueues = sendQueues,
                     )
             }
         }
@@ -913,6 +947,7 @@ private fun TrailingButton(
     hasPayload: Boolean,
     onStop: (() -> Unit)?,
     onSend: () -> Unit,
+    sendQueues: Boolean = false,
 ) {
     if (isStreaming && onStop != null) {
         FilledIconButton(
@@ -934,7 +969,7 @@ private fun TrailingButton(
                 disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
             ),
         ) {
-            Icon(Icons.Rounded.ArrowUpward, contentDescription = if (isStreaming) "Queue message" else "Send", modifier = Modifier.size(18.dp))
+            Icon(if (sendQueues) Icons.Outlined.PlaylistAdd else Icons.Rounded.ArrowUpward, contentDescription = if (isStreaming || sendQueues) "Queue message" else "Send", modifier = Modifier.size(18.dp))
         }
     }
 }

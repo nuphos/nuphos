@@ -224,7 +224,7 @@ function MessageList({
               {activity.before.has(m.id) && (
                 <CollapsedWorkView
                   seconds={null}
-                  label="Activity"
+                  label={t('Activity')}
                   messageIds={activity.before.get(m.id)?.map((entry) => entry.id)}
                   toolCallIds={toolAnchorIds(
                     activity.before.get(m.id)?.flatMap((entry) => entry.parts) ?? [],
