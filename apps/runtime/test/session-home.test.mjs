@@ -175,3 +175,39 @@ test('real gcloud active configuration and gh token reads remain session scoped'
     assert.equal(token, `synthetic-${account}`)
   }
 })
+
+test('sessions get the long-lived token until it lapses, and an explicit one wins', (t) => {
+  const host = runtime(t)
+  const configDir = join(host.HOME, '.claude')
+  const context = { NUPHOS_SESSION_ID: 'long-lived' }
+  const now = Date.parse('2026-10-29T00:00:00Z')
+  put(
+    join(configDir, '.nuphos-oauth-token.json'),
+    JSON.stringify({ token: 'sk-ant-oat01-fixture', expiresAt: '2027-10-29T00:00:00Z' }),
+  )
+
+  assert.equal(
+    nuphosClaudeSessionEnv({}, context, host, now).CLAUDE_CODE_OAUTH_TOKEN,
+    'sk-ant-oat01-fixture',
+  )
+  // Lapsed: the session falls back to whatever ordinary login the runtime still has.
+  assert.equal(
+    nuphosClaudeSessionEnv({}, context, host, Date.parse('2027-10-30T00:00:00Z'))
+      .CLAUDE_CODE_OAUTH_TOKEN,
+    undefined,
+  )
+  assert.equal(
+    nuphosClaudeSessionEnv({}, context, { ...host, CLAUDE_CODE_OAUTH_TOKEN: 'set-on-purpose' }, now)
+      .CLAUDE_CODE_OAUTH_TOKEN,
+    undefined,
+  )
+  // A spawn with no Nuphos session (the model probe) gets the token too.
+  assert.equal(
+    nuphosClaudeSessionEnv({ PATH: 'x' }, {}, host, now).CLAUDE_CODE_OAUTH_TOKEN,
+    'sk-ant-oat01-fixture',
+  )
+  assert.equal(nuphosClaudeSessionEnv({ PATH: 'x' }, {}, host, now).PATH, 'x')
+  // An ordinary login alone adds nothing to the environment.
+  rmSync(join(configDir, '.nuphos-oauth-token.json'))
+  assert.equal(nuphosClaudeSessionEnv({}, context, host, now).CLAUDE_CODE_OAUTH_TOKEN, undefined)
+})

@@ -451,8 +451,8 @@ and the credential path. A hand-built image has to pass them itself:
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/codex-login.mjs --install' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.codex/auth.json
 # Claude Code
---build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/claude-login.mjs' \
---build-arg RUNTIME_AUTH_FILE=/home/node/.claude/.credentials.json
+--build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/claude-login.mjs --long-lived' \
+--build-arg RUNTIME_AUTH_FILE=/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json
 # Grok Build
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/grok-login.mjs' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.grok/auth.json

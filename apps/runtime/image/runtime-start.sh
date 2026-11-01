@@ -59,13 +59,27 @@ check_password() {
     || fail "the runtime password from $1 is ${#OPENAB_ACP_AUTH_KEY} characters; it must be at least $min_password_length. \`openssl rand -hex 32\` makes one that fits."
 }
 
+# OPENAB_RUNTIME_AUTH_FILE may list several files, ':'-separated.
+auth_file_exists() {
+  old_ifs=$IFS
+  IFS=:
+  for auth_file in ${OPENAB_RUNTIME_AUTH_FILE:-}; do
+    if [ -n "$auth_file" ] && [ -e "$auth_file" ]; then
+      IFS=$old_ifs
+      return 0
+    fi
+  done
+  IFS=$old_ifs
+  return 1
+}
+
 generate_password() {
   key_dir=$(dirname "$key_file")
   # Besides the password itself, the traces an earlier boot leaves on this home. A
   # custom key file may sit in a directory the runtime does not own.
   had_identity=
   if { [ "$key_file" = "$default_key_file" ] && [ -d "$key_dir" ]; } \
-    || { [ -n "${OPENAB_RUNTIME_AUTH_FILE:-}" ] && [ -e "$OPENAB_RUNTIME_AUTH_FILE" ]; }; then
+    || auth_file_exists; then
     had_identity=1
   fi
 

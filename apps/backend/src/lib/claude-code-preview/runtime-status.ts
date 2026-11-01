@@ -107,6 +107,8 @@ export type PreviewRuntimeStatus = {
    * may carry an account Nuphos cannot see.
    */
   authenticated?: boolean
+  /** When a sign-in that lapses on its own (a one-year token) does; absent for one that refreshes. */
+  credentialExpiresAt?: string
   /** The runtime's owner revoked this team's pairing; only a new pairing code restores it. */
   credentialRevoked?: boolean
 }
@@ -155,6 +157,7 @@ export async function claudeCodePreviewRuntimeStatus(
           inventory.sessions as RuntimeSessionSnapshot[],
         ),
         authenticated: inventory.authenticated,
+        credentialExpiresAt: inventory.credentialExpiresAt,
       }
     }),
   )
@@ -171,6 +174,10 @@ export async function claudeCodePreviewRuntimeStatus(
     runtimeId && snapshots.length === 1 && snapshots[0]?.status === 'fulfilled'
       ? snapshots[0].value.authenticated
       : undefined
+  const expiresAt =
+    runtimeId && snapshots.length === 1 && snapshots[0]?.status === 'fulfilled'
+      ? snapshots[0].value.credentialExpiresAt
+      : undefined
   const base: PreviewRuntimeStatus = {
     configured,
     selected,
@@ -184,6 +191,9 @@ export async function claudeCodePreviewRuntimeStatus(
       ? sessions.filter((snapshot) => snapshot.state === 'active').length
       : null,
     ...(typeof authenticated === 'boolean' ? { authenticated } : {}),
+    ...(typeof expiresAt === 'string' && !Number.isNaN(Date.parse(expiresAt))
+      ? { credentialExpiresAt: expiresAt }
+      : {}),
     ...(runtimeId && !reached && (await pairedBindingRevoked(teamId, runtimeId))
       ? { credentialRevoked: true }
       : {}),
