@@ -236,8 +236,9 @@ struct ConversationView: View {
                 try? await Task.sleep(for: .seconds(5))
             }
         }
-        // New files land while a turn runs; read them once it settles.
-        .task(id: "\(session.isStreaming).\(session.messages.count)") {
+        // New files land while a turn runs; read them once it settles. Keyed on
+        // the newest message, not the count: a long chat holds a fixed tail.
+        .task(id: "\(session.isStreaming).\(session.messages.last?.id ?? "")") {
             await session.refreshResources()
             if !session.isStreaming { await session.refreshDownloads() }
         }
