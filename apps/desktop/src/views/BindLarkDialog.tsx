@@ -7,6 +7,7 @@ import { WizardExampleImage, WizardStep, WizardStepBar } from '../components/Con
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import {
   CreateAppStep,
@@ -32,13 +33,13 @@ type Props = {
 
 const APP_ID_RE = /^cli_[a-z0-9]+$/i
 const STEPS = [
-  'Site',
-  'Create app',
-  'Credentials',
-  'Permissions',
-  'Encryption',
-  'Webhook & events',
-  'Publish & go live',
+  t('Site'),
+  t('Create app'),
+  t('Credentials'),
+  t('Permissions'),
+  t('Encryption'),
+  t('Webhook & events'),
+  t('Publish & go live'),
 ]
 
 export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install' }: Props) {
@@ -85,9 +86,13 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
       setWebhookUrl(url)
       onBound()
     } catch (e) {
-      toast.apiError(reinstall ? 'Could not reconnect Lark' : 'Could not connect Lark', e, {
-        fallback: 'Check the credentials and your connection, then try again.',
-      })
+      toast.apiError(
+        reinstall
+          ? t('Could not reconnect {name}', { name: 'Lark' })
+          : t('Could not connect {name}', { name: 'Lark' }),
+        e,
+        { fallback: t('Check the credentials and your connection, then try again.') },
+      )
     } finally {
       setSaving(false)
     }
@@ -97,11 +102,19 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
     <Modal
       open={open}
       onClose={onClose}
-      title={reinstall ? 'Reconnect Lark' : 'Connect Lark (Feishu)'}
+      title={
+        reinstall
+          ? t('Reconnect {name}', { name: 'Lark' })
+          : t('Connect {name}', { name: 'Lark (Feishu)' })
+      }
       description={
         webhookUrl
-          ? 'Credentials saved. Last step — paste the URL below back into your app’s Event Subscription request URL, then publish a version.'
-          : 'Register your own custom app in the Feishu / Lark developer console, then paste its credentials here. Nuphos never asks you to publish an app to the marketplace.'
+          ? t(
+              'Credentials saved. Last step — paste the URL below back into your app’s Event Subscription request URL, then publish a version.',
+            )
+          : t(
+              'Register your own custom app in the Feishu / Lark developer console, then paste its credentials here. Nuphos never asks you to publish an app to the marketplace.',
+            )
       }
       width={640}
       // A stray click outside must not silently end the wizard — pre-bind it
@@ -125,7 +138,9 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
                 example={
                   <WizardExampleImage
                     src="/lark-create-app-example.png"
-                    alt="Create custom app form filled with the Nuphos name, description, and icon"
+                    alt={t(
+                      'Create custom app form filled with the Nuphos name, description, and icon',
+                    )}
                   />
                 }
               >
@@ -137,7 +152,9 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
                 example={
                   <WizardExampleImage
                     src="/lark-credentials-example.png"
-                    alt="Credentials & Basic Info page showing where to copy the App ID and App Secret"
+                    alt={t(
+                      'Credentials & Basic Info page showing where to copy the App ID and App Secret',
+                    )}
                   />
                 }
               >
@@ -156,7 +173,7 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
                 example={
                   <WizardExampleImage
                     src="/lark-permissions-example.png"
-                    alt="Batch import/export scopes dialog with the scopes JSON pasted"
+                    alt={t('Batch import/export scopes dialog with the scopes JSON pasted')}
                   />
                 }
               >
@@ -168,7 +185,7 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
                 example={
                   <WizardExampleImage
                     src="/lark-event-encryption-example.png"
-                    alt="Events & Callbacks → Encryption Strategy, showing the Encrypt Key"
+                    alt={t('Events & Callbacks → Encryption Strategy, showing the Encrypt Key')}
                   />
                 }
               >
@@ -192,7 +209,7 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
               onClick={onClose}
               className="h-9 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
             >
-              Cancel
+              {t('Cancel')}
             </button>
           )}
         </div>
@@ -203,7 +220,7 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
               onClick={() => setStep((s) => s - 1)}
               className="h-9 rounded-md px-3 text-[12.5px] font-medium text-secondary transition-colors hover:text-main"
             >
-              Back
+              {t('Back')}
             </button>
           )}
           {!webhookUrl && step < 4 && (
@@ -213,13 +230,13 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
               disabled={step === 2 && !canContinueCreds}
               onClick={() => setStep((s) => s + 1)}
             >
-              Continue
+              {t('Continue')}
             </Button>
           )}
           {!webhookUrl && step === 4 && (
             <Button size="sm" type="button" disabled={!canSubmit} onClick={() => void submit()}>
               {saving && <FontAwesomeIcon icon={faSpinner} className="h-3 w-3 animate-spin" />}
-              {reinstall ? 'Reconnect' : 'Connect'}
+              {reinstall ? t('Reconnect') : t('Connect')}
             </Button>
           )}
           {webhookUrl && doneStep === 1 && (
@@ -228,12 +245,12 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
               onClick={() => setDoneStep(0)}
               className="h-9 rounded-md px-3 text-[12.5px] font-medium text-secondary transition-colors hover:text-main"
             >
-              Back
+              {t('Back')}
             </button>
           )}
           {webhookUrl && doneStep === 0 && (
             <Button size="sm" type="button" onClick={() => setDoneStep(1)}>
-              Continue
+              {t('Continue')}
             </Button>
           )}
           {webhookUrl && doneStep === 1 && (
@@ -242,7 +259,7 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
               onClick={onClose}
               className="h-9 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
             >
-              Done
+              {t('Done')}
             </button>
           )}
         </div>

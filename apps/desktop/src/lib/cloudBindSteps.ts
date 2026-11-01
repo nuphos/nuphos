@@ -4,12 +4,14 @@
 // These live outside BindAccountDialog because react-refresh asks for it: a file
 // cannot export both components and constants without breaking hot reload.
 
+import { t } from '../i18n/index.ts'
+
 export const AWS_STEPS = [
-  'Create the identity provider',
-  'Create the role & trust',
-  'Add permissions',
-  'Name & create the role',
-  'Bind the role',
+  t('Create the identity provider'),
+  t('Create the role & trust'),
+  t('Add permissions'),
+  t('Name & create the role'),
+  t('Bind the role'),
 ] as const
 
 export function awsSteps(_purpose: 'operational'): readonly string[] {
@@ -58,10 +60,10 @@ export const AZURE_GUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
 export const GCP_STEPS_CONSOLE = [
-  'Enable APIs',
-  'Create the service account',
-  'Grant it project access',
-  'Principals with access',
-  'Let Nuphos impersonate it',
-  'Enter details',
+  t('Enable APIs'),
+  t('Create the service account'),
+  t('Grant it project access'),
+  t('Principals with access'),
+  t('Let Nuphos impersonate it'),
+  t('Enter details'),
 ] as const
