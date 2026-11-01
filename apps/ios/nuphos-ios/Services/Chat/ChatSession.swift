@@ -139,13 +139,6 @@ final class ChatSession {
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
-        showLiveActivity()
-    }
-    private func showLiveActivity() {
-        #if os(iOS)
-        guard isStreaming else { return }
-        TurnLiveActivity.show(sessionId: sessionId, teamId: teamId, title: title, authToken: token)
-        #endif
     }
 
     /// Changes the mode; for a conversation the server knows, that is a
@@ -859,7 +852,6 @@ final class ChatSession {
         error = nil
         currentStreamId = options.streamId
         awaitingAdmission = isNativeRuntime && !options.explicitResume
-        showLiveActivity()
         streamTask = Task { [weak self] in
             guard let self else { return }
             var options = options
