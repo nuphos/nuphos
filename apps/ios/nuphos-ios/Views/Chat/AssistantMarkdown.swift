@@ -88,9 +88,9 @@ struct PlainMessageText: View {
     }
 }
 
-/// A Markdown image on its own line, sized like a lone image in a transfer
-/// card: a fixed height, so the row does not grow when it loads. Tapping it
-/// opens the pager. If it can't load, its URL is shown as a link, as before.
+/// A Markdown image on its own line: as wide as the reply allows, at most
+/// 260 pt tall. Tapping it opens the pager. If it can't load, its URL is
+/// shown as a link, as before.
 private struct MarkdownImage: View {
     let url: URL
     let alt: String
@@ -112,15 +112,14 @@ private struct MarkdownImage: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(alt.isEmpty ? "Image" : alt)
-                .frame(maxWidth: Self.side, maxHeight: Self.side, alignment: .leading)
-                .frame(height: Self.side)
+                .frame(maxHeight: Self.side, alignment: .leading)
             case .failure:
                 Button(url.absoluteString) { onLink?(url) }
                     .buttonStyle(.plain)
                     .foregroundStyle(.tint)
                     .multilineTextAlignment(.leading)
             default:
-                shape.fill(Theme.bubble).frame(width: Self.side * 0.75, height: Self.side)
+                shape.fill(Theme.bubble).frame(width: Self.side * 0.75, height: Self.side / 2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
