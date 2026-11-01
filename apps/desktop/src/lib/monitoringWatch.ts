@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type {
   GcpMonitoringDashboard,
   GcpMonitoringDashboardWidget,
@@ -50,16 +52,17 @@ export function slackDmRecipientCopy(mapping: SlackUserMapping): {
     (mapping.createdBy === 'auto:nuphos-email' ? 'email' : 'manual')
   const source =
     matchMethod === 'email'
-      ? 'matched by account email'
+      ? t('matched by account email')
       : matchMethod === 'oauth_installer'
-        ? 'linked during Slack installation'
-        : 'manually linked'
+        ? t('linked during Slack installation')
+        : t('manually linked')
 
   return {
-    title: `Slack DM · ${name}`,
-    description: `Recipient ${name}${
-      name === mapping.slackUserId ? '' : ` (${mapping.slackUserId})`
-    } · ${source}.`,
+    title: t('Slack DM · {name}', { name }),
+    description:
+      name === mapping.slackUserId
+        ? t('Recipient {name} · {source}.', { name, source })
+        : t('Recipient {name} ({id}) · {source}.', { name, id: mapping.slackUserId, source }),
   }
 }
 

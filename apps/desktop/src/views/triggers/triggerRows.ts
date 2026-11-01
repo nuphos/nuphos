@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import { scheduleSummary } from './cron.ts'
 
 import type { AgentTrigger, AgentTriggerGroup } from '../../api'
@@ -60,16 +62,18 @@ export function rowTypeLabel(row: TriggerListRow): string {
 
 /** The row's kind, where it is worth saying. Empty for a plain trigger. */
 export function rowKindLabel(row: TriggerListRow): string {
-  return row.kind === 'group' ? 'Group' : ''
+  return row.kind === 'group' ? t('Group') : ''
 }
 
 /** What makes this row fire — or, for a group, how far its build-out has got. */
 export function rowScheduleText(row: TriggerListRow): string {
   if (row.kind === 'trigger') return scheduleSummary(row.trigger)
   const { expectedMemberCount, readyPartitionCount, partitionCount } = row.group
-  const items = `${String(expectedMemberCount)} item${expectedMemberCount === 1 ? '' : 's'}`
+  const counts = { n: expectedMemberCount, ready: readyPartitionCount, total: partitionCount }
 
-  return `${items} · ${String(readyPartitionCount)}/${String(partitionCount)} ingresses ready`
+  return expectedMemberCount === 1
+    ? t('{n} item · {ready}/{total} ingresses ready', counts)
+    : t('{n} items · {ready}/{total} ingresses ready', counts)
 }
 
 /** Groups have no run of their own — their partition triggers do the firing. */
@@ -147,13 +151,13 @@ export function filterTriggerRows(
  * are — and reachable from search, which matches rowKindLabel.
  */
 export const TYPE_TABS: { value: TriggerTypeFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
+  { value: 'all', label: t('All') },
   { value: 'cron', label: 'Cron' },
   { value: 'webhook', label: 'Webhook' },
 ]
 
 export const STATUS_TABS: { value: TriggerStatusFilter; label: string }[] = [
-  { value: 'all', label: 'Any' },
-  { value: 'active', label: 'Active' },
-  { value: 'paused', label: 'Paused' },
+  { value: 'all', label: t('Any') },
+  { value: 'active', label: t('Active|trigger') },
+  { value: 'paused', label: t('Paused') },
 ]
