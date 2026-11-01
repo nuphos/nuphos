@@ -54,6 +54,7 @@ async function harness({ secure = true, failSet = false, gated = false } = {}) {
     secure: () => secure,
     apiUrl: () => 'https://api.nuphos.ai/',
     onAccount: (_api: string, token: string | null) => tokens.push(token),
+    keepBackend: () => {},
     legacyPath: legacy,
   })
   const onDisk = async (at = file) =>

@@ -8,7 +8,8 @@ import {
   onCallback,
   SESSION_POLL_INTERVAL_MS,
 } from './callback-server.ts'
-import { apiErrorMessage, writeConfig } from './config.ts'
+import { writeConfig } from './config.ts'
+import { apiErrorMessage } from './web.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
 
 import type { UserInfo } from '../auth-status.ts'

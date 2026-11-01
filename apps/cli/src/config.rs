@@ -94,7 +94,7 @@ fn sibling(path: &std::path::Path, name: &str) -> PathBuf {
 /// the keychain is what makes macOS ask once.
 pub fn read_desktop_session() -> Option<Session> {
     let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let mut session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
+    let mut session = desktop_session_for(&text, &api_url())?;
     if session.token.is_none() {
         session.token = secret::desktop_token(session.keychain_account.as_deref()?).ok().flatten();
     }
@@ -105,12 +105,32 @@ pub fn read_desktop_session() -> Option<Session> {
 /// Whether the desktop app is signed in, without reading its token.
 pub fn desktop_signed_in() -> Option<String> {
     let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let session = serde_yaml::from_str::<Option<Session>>(&text).ok().flatten()?;
+    let session = desktop_session_for(&text, &api_url())?;
     if session.token.is_none() && session.keychain_account.is_none() {
         return None;
     }
     let user = session.user_info.as_ref().and_then(|u| u["email"].as_str()).map(String::from);
     Some(user.or(session.user).unwrap_or_else(|| "you".into()))
+}
+
+/// The backend that issued the desktop's active sign-in, which it records
+/// beside it (`apps/desktop/electron/auth/accounts.ts`).
+#[derive(Deserialize)]
+struct Issuer {
+    api: Option<String>,
+}
+
+/// The desktop's active sign-in in `text`, unless another backend than
+/// `backend` issued it: a token is never sent to a backend that did not issue
+/// it. A file from before the desktop recorded its backend is taken as is.
+fn desktop_session_for(text: &str, backend: &str) -> Option<Session> {
+    let session = serde_yaml::from_str::<Option<Session>>(text).ok().flatten()?;
+    let issuer = serde_yaml::from_str::<Option<Issuer>>(text).ok().flatten().and_then(|i| i.api);
+    let same = |api: &str| api.trim().trim_end_matches('/') == backend.trim().trim_end_matches('/');
+    match issuer {
+        Some(api) if !same(&api) => None,
+        _ => Some(session),
+    }
 }
 
 /// Paired with the sign-in file (`cli.yaml` → `cli.api-url`).
@@ -287,7 +307,20 @@ fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
 mod tests {
     use std::path::Path;
 
-    use super::{forget_rejected, read_session_file, sibling, write_private, Prefs, Session};
+    use super::{desktop_session_for, forget_rejected, read_session_file, sibling, write_private, Prefs, Session};
+
+    #[test]
+    fn a_desktop_sign_in_is_taken_only_on_the_backend_that_issued_it() {
+        let file = "api: https://nuphos.example.com\ntoken: tok-self\naccounts:\n  - api: https://api.nuphos.ai\n    token: tok-cloud\n";
+        let on = |backend: &str| desktop_session_for(file, backend).and_then(|s| s.token);
+        assert_eq!(on("https://nuphos.example.com/"), Some("tok-self".into()));
+        assert_eq!(on("https://api.nuphos.ai"), None);
+        // From before the desktop recorded its backend.
+        assert_eq!(
+            desktop_session_for("token: tok-old\n", "https://api.nuphos.ai").and_then(|s| s.token),
+            Some("tok-old".into())
+        );
+    }
 
     #[test]
     fn the_desktop_sign_in_sits_beside_the_cli_one() {
