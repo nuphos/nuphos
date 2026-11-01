@@ -348,7 +348,8 @@ struct ConversationView: View {
                         set: { session.credentialAccess = $0 }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
-                    session: session
+                    session: session,
+                    switchRuntime: { showRuntimes = true }
                 ) }
             }
         }
