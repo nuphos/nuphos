@@ -760,12 +760,21 @@ final class ChatSession {
     /// those never come, the turn is closed locally after the last probe.
     func stop() {
         if isNativeRuntime {
-            guard canCancel else { return }
+            // The button showed for a status that may be seconds old; the
+            // server decides from the live one, and its refusal (a turn that
+            // already ended) shows as an error rather than a silent tap.
+            guard !readOnly, !isStopping else { return }
             isStopping = true
             Task {
                 defer { isStopping = false }
-                do { try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId) }
-                catch { self.error = error.localizedDescription }
+                do {
+                    try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId)
+                    // Show the stopped turn now, not at the next idle poll.
+                    let observedAt = ProcessInfo.processInfo.systemUptime
+                    if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {
+                        receiveRuntime(detail.runtimeState, observedAt: observedAt)
+                    }
+                } catch { self.error = error.localizedDescription }
             }
             return
         }
