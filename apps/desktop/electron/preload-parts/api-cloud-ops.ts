@@ -223,6 +223,7 @@ export const cloudOpsApi = {
   atlasUnbindSentry: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindSentry', teamId, bindingId),
   agentStart: (args: {
+    decisionReplyTo?: string
     agentRuntime?: AgentProvider
     runtimeId?: string
     streamId: string
@@ -232,9 +233,8 @@ export const cloudOpsApi = {
     baseIndex?: number
     locale?: string
     url?: string
-    // Current workspace tab's kubeconfig context, when one is bound. Forwarded
-    // to the backend as `X-Atlas-Kube-Context` so the agent can pass it to
-    // typed K8s tools (port_forward_start, etc.) without guessing.
+    // The workspace tab's bound kubeconfig context, sent as `X-Atlas-Kube-Context`
+    // so the agent passes it to typed K8s tools (port_forward_start, etc.) without guessing.
     kubeContext?: string
     diagramId?: string
     resume?: boolean

@@ -1,5 +1,5 @@
-The Live Activity now shows the same status as the app. A conversation no longer shows as Failed while its agent is still working, and a runtime that can't be reached shows as Unavailable.
+Notifications now show the agent's avatar.
 
-Conversations opened from a link or a notification now load instead of showing "cancelled".
+Rename an agent right from the agent list.
 
-Chat text no longer overlaps for a moment when you rotate your iPhone.
+Fixes: in the split view, the open chat's row is highlighted, and runtime meters stack instead of overflowing when the sidebar is narrow.

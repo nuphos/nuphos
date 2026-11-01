@@ -3,6 +3,8 @@ import { ALLOWED_WEB_HOSTS, WEB_BASE_URL } from './web-base-url'
 export type AppOpenDeepLinkPayload = {
   url: string
   path: string
+  /** The conversation whose dock the page opens in, instead of the one on screen. */
+  session?: string
 }
 
 const PROTOCOL = 'nuphos:'
@@ -65,8 +67,11 @@ export function parseAppOpenUrl(rawUrl: string): AppOpenDeepLinkPayload | null {
     canonicalUrl.hash = hash ? `#${hash}` : ''
   }
 
+  const session = url.searchParams.get('session')
+
   return {
     url: canonicalUrl.toString(),
     path: `${canonicalUrl.pathname}${canonicalUrl.search}${canonicalUrl.hash}`,
+    ...(session ? { session } : {}),
   }
 }

@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { MetricPoint } from './MetricChart'
 import type {
   RuntimeInstance,
@@ -10,9 +12,9 @@ export const QUOTA_HISTORY_RANGES: Record<
   RuntimeQuotaHistoryRange,
   { label: string; hours: number; bucketMinutes: number; bucketLabel: string }
 > = {
-  '1d': { label: '24h', hours: 24, bucketMinutes: 10, bucketLabel: '10 minutes' },
-  '7d': { label: '7d', hours: 24 * 7, bucketMinutes: 60, bucketLabel: 'hour' },
-  '30d': { label: '30d', hours: 24 * 30, bucketMinutes: 360, bucketLabel: '6 hours' },
+  '1d': { label: t('24h'), hours: 24, bucketMinutes: 10, bucketLabel: t('10 minutes') },
+  '7d': { label: t('7d'), hours: 24 * 7, bucketMinutes: 60, bucketLabel: t('hour') },
+  '30d': { label: t('30d'), hours: 24 * 30, bucketMinutes: 360, bucketLabel: t('6 hours') },
 }
 
 export type QuotaHistoryRow = {

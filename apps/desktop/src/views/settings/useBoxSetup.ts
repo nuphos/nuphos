@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED, useRuntimeInstances } from '../../hooks/useRuntimeInstances'
+import { t } from '../../i18n'
 
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_CREATING_POLL_MS, boxAgents, boxSetupPhase } from './boxPresentation'
@@ -45,7 +46,7 @@ export function useBoxSetup(
     } catch (error) {
       // No plan, or past it: the paywall offers one, then makes the Box.
       if (!openBoxPaywall(teamId, error, () => void create(label)))
-        toast.apiError('Could not create computer', error)
+        toast.apiError(t('Could not create computer'), error)
     } finally {
       setCreating(false)
     }

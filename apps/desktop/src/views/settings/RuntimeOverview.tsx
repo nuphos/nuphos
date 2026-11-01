@@ -1,4 +1,5 @@
 import { SkeletonReveal } from '../../components/SkeletonReveal'
+import { t } from '../../i18n'
 import {
   formatResetsAt,
   quotaLeftPercent,
@@ -22,7 +23,7 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
 
   return (
     <>
-      {note && <PanelStat label="Usage">{note}</PanelStat>}
+      {note && <PanelStat label={t('Usage')}>{note}</PanelStat>}
       {quota?.available &&
         quota.windows.map((window) => {
           const reset = formatResetsAt(window.resetsAt, new Date())
@@ -31,11 +32,13 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
 
           return (
             <PanelStat key={window.id} label={window.label} className="col-span-2">
-              <span className={QUOTA_LABEL_CLASS[tone]}>{String(left)}% left</span>
+              <span className={QUOTA_LABEL_CLASS[tone]}>
+                {t('{percent}% left', { percent: left })}
+              </span>
               {reset && <span className="text-tertiary"> · {reset}</span>}
               <div
                 role="progressbar"
-                aria-label={`${window.label} remaining`}
+                aria-label={t('{name} remaining', { name: window.label })}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={left}
@@ -65,40 +68,45 @@ export function RuntimeOverview({
   let body: React.ReactNode
 
   if (instance.status !== 'active') {
-    body = <Note>Enable this runtime to reconnect.</Note>
+    body = <Note>{t('Enable this runtime to reconnect.')}</Note>
   } else if (statusError) {
-    body = <Note tone="error">Could not load runtime status. Retrying…</Note>
+    body = <Note tone="error">{t('Could not load runtime status. Retrying…')}</Note>
   } else if (!runtime) {
     body = <div aria-busy="true" className="h-10 animate-pulse rounded-md bg-zGray-800/40" />
   } else if (!runtime.configured) {
     body = (
       <Note>
-        Nuphos is starting this workspace’s {instance.label} agent; this usually takes about a
-        minute. Sign in once the status changes to Online.
+        {t(
+          'Nuphos is starting this workspace’s {name} agent; this usually takes about a minute. Sign in once the status changes to Online.',
+          { name: instance.label },
+        )}
       </Note>
     )
   } else {
     body = (
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-        <PanelStat label="Reachability">
-          {runtime.online ? 'Online' : 'Unreachable'}
+        <PanelStat label={t('Reachability')}>
+          {runtime.online ? t('Online') : t('Unreachable')}
           {runtime.latencyMs !== undefined && (
             <span className="text-tertiary"> · {String(runtime.latencyMs)}ms</span>
           )}
         </PanelStat>
-        <PanelStat label="Uptime">
+        <PanelStat label={t('Uptime')}>
           {runtime.uptimeSeconds === undefined ? '—' : formatUptime(runtime.uptimeSeconds)}
         </PanelStat>
-        <PanelStat label="Agents">
+        <PanelStat label={t('Agents')}>
           {runtime.attachedConversations === null
-            ? 'Unavailable'
+            ? t('Unavailable')
             : String(runtime.attachedConversations)}
           {(runtime.busyConversations ?? 0) > 0 && (
-            <span className="text-tertiary"> · {String(runtime.busyConversations)} active</span>
+            <span className="text-tertiary">
+              {' '}
+              · {t('{count} active', { count: runtime.busyConversations ?? 0 })}
+            </span>
           )}
         </PanelStat>
-        <PanelStat label="Backend link">
-          {runtime.connected ? 'Connected' : 'Idle'}
+        <PanelStat label={t('Backend link')}>
+          {runtime.connected ? t('Connected') : t('Idle')}
           {runtime.connectedAtMs !== undefined && (
             <span className="text-tertiary">
               {' '}
@@ -107,7 +115,7 @@ export function RuntimeOverview({
           )}
         </PanelStat>
         {instance.image !== undefined && (
-          <PanelStat label="Configured image" className="col-span-2 sm:col-span-4">
+          <PanelStat label={t('Configured image')} className="col-span-2 sm:col-span-4">
             <span className="font-mono text-[12px]" title={instance.image}>
               {instance.image.slice(instance.image.lastIndexOf('/') + 1)}
             </span>
@@ -119,7 +127,7 @@ export function RuntimeOverview({
 
   return (
     <div>
-      <PanelHeading title="Runtime details" />
+      <PanelHeading title={t('Runtime details')} />
       <SkeletonReveal
         ready={Boolean(runtime) || statusError || instance.status !== 'active'}
         skeleton={
@@ -155,7 +163,7 @@ function Note({
 export function RuntimeUsageSection({ quota }: { quota?: RuntimeQuota }) {
   return (
     <section>
-      <PanelHeading title="Usage" />
+      <PanelHeading title={t('Usage')} />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
         <QuotaStats quota={quota} />
       </dl>

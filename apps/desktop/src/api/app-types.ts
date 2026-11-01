@@ -17,6 +17,8 @@ export type AgentChatDeepLinkPayload = {
 export type AppOpenDeepLinkPayload = {
   url: string
   path: string
+  /** The conversation whose dock the page opens in, instead of the one on screen. */
+  session?: string
 }
 
 // Emitted when the user clicks the "agent finished" native notification. The

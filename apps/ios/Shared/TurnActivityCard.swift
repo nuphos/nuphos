@@ -55,14 +55,14 @@ struct TurnCardMark: View {
     }
 }
 
-/// "2 running", or a check once nothing runs.
+/// "2 running", or a check once every row finished.
 struct TurnCardStatus: View {
     let card: TurnActivityAttributes.ContentState
 
     var body: some View {
         if card.active > 0 {
             Text("\(card.active) running").foregroundStyle(.secondary)
-        } else {
+        } else if card.finished {
             TurnPhaseIcon(phase: .done)
         }
     }
@@ -75,7 +75,7 @@ struct TurnCardCount: View {
     var body: some View {
         if card.active > 0 {
             Text("\(card.active)").font(.caption.monospacedDigit().weight(.semibold))
-        } else {
+        } else if card.finished {
             TurnPhaseIcon(phase: .done)
         }
     }

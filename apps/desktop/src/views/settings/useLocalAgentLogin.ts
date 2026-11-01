@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
+import { t } from '../../i18n'
 
 import type { CliLoginProvider, LocalAgentLoginState } from '../../api'
 
@@ -14,7 +15,10 @@ function useFailureToast(name: string, login: LocalAgentLoginState | undefined, 
 
     previous.current = login?.state
     if (notify && justFailed)
-      toast.error(`${name} sign-in failed`, login.error ?? 'Please try signing in again.')
+      toast.error(
+        t('{name} sign-in failed', { name }),
+        login.error ?? t('Please try signing in again.'),
+      )
   }, [notify, login?.state, login?.error, name])
 }
 
@@ -44,7 +48,7 @@ export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) 
       await (codex ? api.localRuntimeStartCodexLogin() : api.localRuntimeStartClaudeLogin())
     } catch (err) {
       setFailed(true)
-      toast.apiError(`Could not start ${name} sign-in`, err)
+      toast.apiError(t('Could not start {name} sign-in', { name }), err)
     } finally {
       setStarting(false)
     }
@@ -58,7 +62,7 @@ export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) 
 
       return true
     } catch (err) {
-      toast.apiError(`Could not cancel ${name} sign-in`, err)
+      toast.apiError(t('Could not cancel {name} sign-in', { name }), err)
 
       return false
     }

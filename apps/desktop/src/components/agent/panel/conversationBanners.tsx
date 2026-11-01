@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { t } from '../../../i18n'
 import { Modal } from '../../Modal'
 import { Button } from '../../ui/button'
 
@@ -21,17 +22,17 @@ export function FeedbackCommentDialog({
   }
 
   return (
-    <Modal open onClose={onClose} title="Help us improve" width={440}>
+    <Modal open onClose={onClose} title={t('Help us improve')} width={440}>
       <div className="px-5 py-4 space-y-2 text-[13px]">
         <div className="text-secondary">
-          Thanks for the feedback — mind sharing what went wrong with this response?
+          {t('Thanks for the feedback — mind sharing what went wrong with this response?')}
         </div>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           autoFocus
           rows={4}
-          placeholder="What was inaccurate, unhelpful, or unexpected? (optional)"
+          placeholder={t('What was inaccurate, unhelpful, or unexpected? (optional)')}
           className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent resize-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -46,10 +47,10 @@ export function FeedbackCommentDialog({
           onClick={onClose}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px]"
         >
-          Skip
+          {t('Skip')}
         </button>
         <Button size="sm" onClick={submit}>
-          Send feedback
+          {t('Send feedback')}
         </Button>
       </div>
     </Modal>

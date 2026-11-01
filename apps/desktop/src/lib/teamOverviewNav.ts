@@ -14,8 +14,11 @@ import {
   Monitor,
   Terminal,
   Network,
+  Palette,
   Sparkles,
 } from 'lucide-react'
+
+import { t } from '../i18n/index.ts'
 
 import type { LucideIcon } from 'lucide-react'
 
@@ -32,28 +35,28 @@ export const SIDEBAR_ITEM_SHORTCUTS: Partial<Record<string, string>> = {
 
 const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
   key: 'team.agent',
-  label: 'New agent',
+  label: t('New agent'),
   icon: SquarePen,
 }
 
 /** Team-wide pages that replace the chat surface when opened from the sidebar. */
 export const TEAM_MANAGEMENT_NAV_ITEMS: TeamOverviewNavItem[] = [
-  { key: 'team.inbox', label: 'Inbox', icon: Inbox },
-  { key: 'team.agents', label: 'Runtimes', icon: Bot },
-  { key: 'team.integrations', label: 'Connectors', icon: Cloud },
+  { key: 'team.inbox', label: t('Inbox'), icon: Inbox },
+  { key: 'team.agents', label: t('Runtimes'), icon: Bot },
+  { key: 'team.integrations', label: t('Connectors'), icon: Cloud },
 ]
 
 /** Team pages hosted in Team Settings. Their keys still name them in links and ⌘K. */
 export const TEAM_SETTINGS_PAGE_NAV_ITEMS: TeamOverviewNavItem[] = [
-  { key: 'team.agent-skills', label: 'Skills', icon: Sparkles },
-  { key: 'team.agent-memories', label: 'Memories', icon: Brain },
-  { key: 'team.triggers', label: 'Triggers', icon: Clock },
+  { key: 'team.agent-skills', label: t('Skills'), icon: Sparkles },
+  { key: 'team.agent-memories', label: t('Memories'), icon: Brain },
+  { key: 'team.triggers', label: t('Triggers'), icon: Clock },
 ]
 
 /** Opened from the foot of the sidebar's Chats list, not from the nav rows. */
 export const ARCHIVED_CHATS_NAV_ITEM: TeamOverviewNavItem = {
   key: 'team.archived-chats',
-  label: 'Archived agents',
+  label: t('Archived agents'),
   icon: Archive,
 }
 
@@ -61,13 +64,14 @@ const MAIN_PANE_NAV_ITEMS = [...TEAM_MANAGEMENT_NAV_ITEMS, ARCHIVED_CHATS_NAV_IT
 
 /** Pages read beside a conversation, launched from the dock's New Tab page. */
 export const TEAM_WORKSPACE_NAV_ITEMS: TeamOverviewNavItem[] = [
-  { key: 'team.browser', label: 'Browser', icon: Globe },
-  { key: 'team.files', label: 'Files', icon: FolderOpen },
-  { key: 'team.terminal', label: 'Terminal', icon: Terminal },
-  { key: 'team.plans', label: 'Plans', icon: ClipboardList },
-  { key: 'team.architecture', label: 'Architecture', icon: Network },
-  { key: 'team.dashboards', label: 'Dashboards', icon: ChartLine },
-  { key: 'team.monitoring', label: 'Monitoring', icon: HeartPulse },
+  { key: 'team.browser', label: t('Browser'), icon: Globe },
+  { key: 'team.files', label: t('Files'), icon: FolderOpen },
+  { key: 'team.terminal', label: t('Terminal'), icon: Terminal },
+  { key: 'team.plans', label: t('Plans'), icon: ClipboardList },
+  { key: 'team.architecture', label: t('Architecture'), icon: Network },
+  { key: 'team.designs', label: t('Designs'), icon: Palette },
+  { key: 'team.dashboards', label: t('Dashboards'), icon: ChartLine },
+  { key: 'team.monitoring', label: t('Monitoring'), icon: HeartPulse },
 ]
 
 /** The sidebar's untitled top section: the chat entry plus the management pages. */
@@ -117,7 +121,7 @@ function navItemIn(
 }
 
 export function teamOverviewNavItemFor(active: string): TeamOverviewNavItem | undefined {
-  if (active === 'team.desktop') return { key: active, label: 'Desktop', icon: Monitor }
+  if (active === 'team.desktop') return { key: active, label: t('Desktop'), icon: Monitor }
 
   return (
     navItemIn(TEAM_SIDEBAR_NAV_ITEMS, active) ??

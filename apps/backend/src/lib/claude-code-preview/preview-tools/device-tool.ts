@@ -31,7 +31,9 @@ type DeviceMessage =
   | { t: 'result'; result: ToolResult }
 
 export type DeviceToolDeps = {
-  devices: (ctx: PreviewToolContext) => Promise<{ deviceId: string; label: string }[]>
+  devices: (
+    ctx: PreviewToolContext,
+  ) => Promise<{ deviceId: string; label: string; box?: boolean }[]>
   isMember: (userId: string, teamId: string) => Promise<boolean>
   /** The device's transport owner when the actor may use it now, else null. */
   owner: (ctx: PreviewToolContext, deviceId: string) => Promise<string | null>
@@ -168,7 +170,10 @@ async function resolveDevice(
   const devices = await deps.devices(ctx)
 
   if (devices.length === 0) return toolError(tool.noDevice)
-  const deviceId = pickDevice(devices, requested)
+  // A page is opened for the user to see, so it defaults to their one screen, never a Box's.
+  const screens =
+    tool.purpose === 'browser' && !requested ? devices.filter((device) => !device.box) : []
+  const deviceId = pickDevice(screens.length > 0 ? screens : devices, requested)
 
   if (!deviceId) {
     const problem = requested

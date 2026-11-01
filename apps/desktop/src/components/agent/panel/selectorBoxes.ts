@@ -1,4 +1,5 @@
 import { listedAgents, unavailable } from '../../../lib/agentName.ts'
+import { t } from '../../../i18n/index.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
@@ -42,7 +43,7 @@ export function selectorBoxes(
         id,
         device,
         label:
-          device?.label ?? agent.local?.deviceLabel ?? (id === 'cloud' ? 'Cloud' : agent.label),
+          device?.label ?? agent.local?.deviceLabel ?? (id === 'cloud' ? t('Cloud') : agent.label),
         agents: [],
         unavailable: null,
       }
@@ -91,7 +92,10 @@ export function selectorMetrics(device?: AgentDevice) {
     cpu: sample.cpuPercent,
     memory: (sample.memory.used / sample.memory.total) * 100,
     disk: (sample.disk.used / sample.disk.total) * 100,
-    capacity: `Memory ${formatCapacity(sample.memory)} · Disk ${formatCapacity(sample.disk)}`,
+    capacity: t('Memory {memory} · Disk {disk}', {
+      memory: formatCapacity(sample.memory),
+      disk: formatCapacity(sample.disk),
+    }),
   }
 }
 

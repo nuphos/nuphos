@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { RuntimeLoginBody } from './RuntimeLoginBody'
@@ -22,11 +23,11 @@ export function RuntimeLoginActions({
   return (
     <div className="flex justify-end gap-2 px-5 py-3">
       <Button size="sm" variant="secondary" disabled={state.closing} onClick={onClose}>
-        {state.failed || !state.login ? 'Close' : 'Cancel sign-in'}
+        {state.failed || !state.login ? t('Close') : t('Cancel sign-in')}
       </Button>
       {state.failed && (
         <Button size="sm" type="button" onClick={state.restart}>
-          Try again
+          {t('Try again')}
         </Button>
       )}
     </div>
@@ -51,7 +52,10 @@ export function RuntimeLoginDialog({
     teamId,
     instance,
     () => {
-      toast.success(`${account} connected`, `${instance.label} is now signed in.`)
+      toast.success(
+        t('{account} connected', { account }),
+        t('{name} is now signed in.', { name: instance.label }),
+      )
       onClose(true)
     },
     immediate,
@@ -69,7 +73,7 @@ export function RuntimeLoginDialog({
     <Modal
       open
       onClose={() => void close()}
-      title={`Sign in with ${account}`}
+      title={t('Sign in with {account}', { account })}
       description={instance.label}
       closeOnBackdrop={false}
       footer={<RuntimeLoginActions state={state} onClose={() => void close()} />}

@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { useRef, useState } from 'react'
 
+import { t } from '../../i18n'
 import { BOT_AVATARS, botAvatarLabel } from '../../lib/botAvatars'
 
 import { BotAvatarImage } from './BotAvatarImage'
@@ -49,7 +50,7 @@ export function AgentAvatarGrid({
   return (
     <div
       role="radiogroup"
-      aria-label="Avatar"
+      aria-label={t('Avatar')}
       onKeyDown={move}
       onPointerLeave={() => onPreview(null)}
       className="grid justify-center gap-1"

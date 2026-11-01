@@ -1,13 +1,26 @@
-import { Archive, Bell, BellOff, Hash, Link2, Pencil, Star, StarOff, Unlink } from 'lucide-react'
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  Bell,
+  BellOff,
+  Hash,
+  Link2,
+  Pencil,
+  Star,
+  StarOff,
+  Unlink,
+} from 'lucide-react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import { agentSessionUrl } from '../agent/sessionUrl'
 import { ContextMenu } from '../ContextMenu'
 import { toast } from '../ui/toast'
 
-import type { Item } from './types'
+import type { Item, ItemMenuRequest } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 
 export function SidebarItemContextMenu({
@@ -21,7 +34,7 @@ export function SidebarItemContextMenu({
   unlinkChat,
   renameChat,
 }: {
-  menu: { x: number; y: number; item: Item }
+  menu: ItemMenuRequest
   teamId: string
   onClose: () => void
   canFavorite: (item: Item) => boolean
@@ -54,11 +67,24 @@ export function SidebarItemContextMenu({
                   },
             ]
           : []),
+        ...(menu.moves?.up
+          ? [{ key: 'move-up', label: t('Move up'), icon: ArrowUp, onSelect: menu.moves.up }]
+          : []),
+        ...(menu.moves?.down
+          ? [
+              {
+                key: 'move-down',
+                label: t('Move down'),
+                icon: ArrowDown,
+                onSelect: menu.moves.down,
+              },
+            ]
+          : []),
         ...(menu.item.key.startsWith('agent-session:')
           ? [
               {
                 key: 'copy-link',
-                label: 'Copy link',
+                label: t('Copy link'),
                 icon: Link2,
                 onSelect: () =>
                   copy(
@@ -68,13 +94,13 @@ export function SidebarItemContextMenu({
               },
               {
                 key: 'copy-session-id',
-                label: 'Copy agent ID',
+                label: t('Copy agent ID'),
                 icon: Hash,
                 onSelect: () => copy(menu.item.key.slice('agent-session:'.length), 'Agent ID'),
               },
               {
                 key: 'rename',
-                label: 'Rename agent',
+                label: t('Rename agent'),
                 icon: Pencil,
                 onSelect: () =>
                   renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
@@ -83,7 +109,7 @@ export function SidebarItemContextMenu({
                 ? [
                     {
                       key: 'unlink',
-                      label: 'Unlink from parent',
+                      label: t('Unlink from parent'),
                       icon: Unlink,
                       onSelect: () => unlinkChat(menu.item.key.slice('agent-session:'.length)),
                     },
@@ -95,7 +121,7 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'watch',
-                label: menu.item.watching ? 'Unwatch agent' : 'Watch agent',
+                label: menu.item.watching ? t('Unwatch agent') : t('Watch agent'),
                 icon: menu.item.watching ? BellOff : Bell,
                 onSelect: () => watchChat(menu.item, teamId),
               },
@@ -105,7 +131,7 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'archive',
-                label: 'Archive agent',
+                label: t('Archive agent'),
                 icon: Archive,
                 onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
               },
@@ -123,13 +149,21 @@ function watchChat(item: Item, teamId: string) {
   api
     .agentSetConversationWatched(item.key.slice('agent-session:'.length), watching, teamId)
     .catch((err: unknown) => {
-      toast.apiError(watching ? 'Could not watch agent' : 'Could not unwatch agent', err)
+      toast.apiError(watching ? t('Could not watch agent') : t('Could not unwatch agent'), err)
     })
 }
 
 function copy(value: string, what: 'Link' | 'Agent ID') {
   void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
-    onSuccess: () => toast.success(`${what} copied`, undefined, { timeoutMs: 1200, dedupe: false }),
-    onError: () => toast.error(`Could not copy ${what.toLowerCase()}`, 'Clipboard was blocked.'),
+    onSuccess: () =>
+      toast.success(what === 'Link' ? t('Link copied') : t('Agent ID copied'), undefined, {
+        timeoutMs: 1200,
+        dedupe: false,
+      }),
+    onError: () =>
+      toast.error(
+        what === 'Link' ? t('Could not copy link') : t('Could not copy agent ID'),
+        t('Clipboard was blocked.'),
+      ),
   })
 }

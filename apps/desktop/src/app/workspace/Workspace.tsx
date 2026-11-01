@@ -8,6 +8,7 @@ import { SessionSearchDialog } from '../../components/session-search/SessionSear
 import { ShortcutsHelpModal } from '../../components/ShortcutsHelpModal'
 import { Sidebar } from '../../components/Sidebar'
 import { TeamInvitationsTakeover } from '../../components/TeamInvitationsPanel'
+import { t } from '../../i18n'
 import { recordSessionVisit } from '../../lib/sessionHistory'
 import { CreateOrJoinTeamView } from '../../views/CreateOrJoinTeamView'
 import { OnboardingFlow } from '../../views/onboarding/OnboardingFlow'
@@ -148,7 +149,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
             {backendUnreachable ? (
               <>
                 <div className="w-6 h-6 rounded-full border-2 border-zGray-700 border-t-zViolet-accent animate-spin" />
-                <div className="max-w-md text-center">Connecting…</div>
+                <div className="max-w-md text-center">{t('Connecting…')}</div>
               </>
             ) : error ? (
               <>
@@ -158,15 +159,15 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
                   disabled={teamsLoading}
                   className="px-3 py-1.5 rounded-md bg-zGray-800 hover:bg-zGray-700 text-main text-[12.5px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {teamsLoading ? 'Retrying…' : 'Retry'}
+                  {teamsLoading ? t('Retrying…') : t('Retry')}
                 </button>
               </>
             ) : pendingInvitations.length > 0 ? (
               <div className="max-w-md text-center">
-                Accept a workspace invitation from the sidebar to get started.
+                {t('Accept a workspace invitation from the sidebar to get started.')}
               </div>
             ) : (
-              'Loading teams…'
+              t('Loading teams…')
             )}
           </div>
         </main>
@@ -248,6 +249,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
       </div>
       {settingsOpen && (
         <SettingsPage
+          key={ws.settingsRequest}
           team={ws.currentTeam}
           user={user}
           initialSection={settingsInitialSection ?? undefined}
@@ -276,7 +278,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           <SessionSearchDialog
             key={scope.teamId}
             teamId={scope.teamId}
-            teamName={ws.currentTeam?.name ?? 'Workspace'}
+            teamName={ws.currentTeam?.name ?? t('Workspace')}
             otherTeams={ws.teams.filter((team) => team.id !== scope.teamId)}
             userId={user.id}
             onClose={() => ws.setSessionSearchOpen(false)}

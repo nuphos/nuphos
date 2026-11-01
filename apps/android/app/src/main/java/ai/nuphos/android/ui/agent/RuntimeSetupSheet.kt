@@ -34,7 +34,7 @@ import ai.nuphos.android.session.RuntimeSetupStore
 fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     launchBrowser: ((String) -> Unit)? = null,
     quotas: Map<String, ai.nuphos.android.data.RuntimeQuota> = emptyMap(),
-    initialManaging: Boolean = false, initialRuntimeId: String? = null, devices: List<ai.nuphos.android.data.RuntimeDevice> = emptyList()) {
+    initialManaging: Boolean = false, initialRuntimeId: String? = null, initialSignInRuntimeId: String? = null, newRuntimeOnly: Boolean = false, inventoryMode: Boolean = false, devices: List<ai.nuphos.android.data.RuntimeDevice> = emptyList()) {
     var label by remember { mutableStateOf("") }
     var provider by remember { mutableStateOf("codex") }
     var code by remember { mutableStateOf("") }
@@ -43,6 +43,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     var detailId by remember(store) { mutableStateOf<String?>(null) }
     val initialCatalogRevision = remember(store) { store.state.catalogRevision }
     var pendingInitial by remember(store) { mutableStateOf(initialRuntimeId) }
+    var pendingSignIn by remember(store) { mutableStateOf(initialSignInRuntimeId) }
     val detail = remember(store, detailId) { detailId?.let(store::detail) }
     DisposableEffect(detail) { onDispose { detail?.close() } }
     val scroll = key(managing, detailId) { rememberScrollState() }
@@ -50,7 +51,11 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val state = store.state
     val selection = store.selection
-    LaunchedEffect(state.catalogLoaded, state.catalogRevision) {
+    LaunchedEffect(state.catalogLoaded, state.catalogRevision, state.busy) {
+        if (!state.busy && state.catalogLoaded && state.catalogRevision > initialCatalogRevision && pendingSignIn != null) {
+            if (!store.focusSignIn(requireNotNull(pendingSignIn))) browserError = true
+            pendingSignIn = null
+        }
         if (state.catalogLoaded && state.catalogRevision > initialCatalogRevision && pendingInitial != null) { detailId = pendingInitial; pendingInitial = null }
     }
     DisposableEffect(store, lifecycle) {
@@ -65,21 +70,21 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
             code = ""; store.close(); lifecycle.removeObserver(observer)
         }
     }
-    LaunchedEffect(store.signInRuntime?.id, state.attempt?.attemptId, state.attempt?.state, state.attemptMismatch, selection.selectedId, selection.selected?.provider, selection.selected?.status, selection.selected?.kind) { code = ""; browserError = false }
+    LaunchedEffect(store.signInRuntime?.id, state.attempt?.attemptId, state.attempt?.state, state.attempt?.step, state.attempt?.codeSubmitted, state.attemptMismatch, selection.selectedId, selection.selected?.provider, selection.selected?.status, selection.selected?.kind) { code = ""; browserError = false }
     ModalBottomSheet(containerColor = MaterialTheme.colorScheme.background, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { code = ""; onDismiss() }, properties = ModalBottomSheetProperties(securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).fillMaxHeight()) {
-            RuntimePickerHeader(title = if (detail != null) "Runtime details" else if (managing) "Manage runtimes" else "Choose runtime", onClose = { code = ""; onDismiss() })
+            RuntimePickerHeader(title = if (detail != null) "Runtime details" else if (initialSignInRuntimeId != null) "Sign in" else if (newRuntimeOnly) (store.signInRuntime?.label ?: "New Runtime") else if (inventoryMode && store.signInRuntime != null) "Sign in" else if (managing) "Manage runtimes" else "Choose runtime", onClose = { code = ""; onDismiss() })
             HorizontalDivider()
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (detail != null) {
-                RuntimeDetailPage(detail, quotas[detail.runtimeId], onBack = { detailId = null }, onSignIn = {
+                RuntimeDetailPage(detail, quotas[detail.runtimeId], onBack = { if (inventoryMode) onDismiss() else detailId = null }, onSignIn = {
                     if (store.focusSignIn(detail.runtimeId)) { detailId = null; managing = true }
                 })
             } else {
                 if (!managing) Text("For new agents. Existing agents keep their current runtime.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (managing) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Back to runtimes") }
+                    if (managing && !inventoryMode && initialSignInRuntimeId == null) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Back to runtimes") }
 
                 }
                 state.error?.let {
@@ -106,15 +111,28 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(selected.label, style = MaterialTheme.typography.titleMedium)
                     }
-                    OutlinedButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Change runtime") }
-                    if (store.canAdminister) {
+                    if (!inventoryMode && initialSignInRuntimeId == null) OutlinedButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Change runtime") }
+                    if (store.canAdminister && initialSignInRuntimeId == null && (!inventoryMode || newRuntimeOnly && store.signInRuntime == null)) {
                         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                        Text("Managed runtime", style = MaterialTheme.typography.titleMedium)
-                        Text("Creation can allocate resources. Provider sign-in is a separate step.")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(provider == "codex", onClick = { provider = "codex" }, label = { Text("Codex") })
-                            FilterChip(provider == "claude-code", onClick = { provider = "claude-code" }, label = { Text("Claude Code") })
+                        Text("Provider", style = MaterialTheme.typography.titleMedium)
+                        listOf("claude-code", "codex", "grok", "antigravity", "opencode").forEach { choice ->
+                            Surface(onClick = { provider = choice }, enabled = !state.busy && !selection.createReview,
+                                color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().semantics {
+                                    role = Role.RadioButton; selected = provider == choice
+                                }) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    ai.nuphos.android.ui.components.RuntimeMark(choice, 24.dp)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(inventoryProviderName(choice))
+                                        Text(when(choice) { "claude-code" -> "Anthropic"; "codex" -> "OpenAI"; "grok" -> "xAI"; "antigravity" -> "Google"; else -> "OpenCode" },
+                                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (provider == choice) Text("✓")
+                                }
+                            }
                         }
+                        Text("You'll sign in with your own provider account. Your plan's usage limits apply.", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(label, { label = it }, label = { Text("Runtime label (optional)") }, enabled = !state.busy && !selection.createReview, singleLine = true)
                         Button(onClick = { store.create(provider, label.trim().takeIf { it.isNotEmpty() }) },
                             enabled = !state.busy && !selection.createReview && label.trim().length <= 120) { Text("Create runtime") }
@@ -122,7 +140,9 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                             Text("Creation is unconfirmed. Closing does not undo a saved runtime.")
                             OutlinedButton(onClick = store::confirmCreateReviewed, enabled = !state.busy && state.catalogLoaded) { Text("I reviewed saved runtimes") }
                         }
-                        if (store.signInRuntime?.kind in setOf("managed", "external")) {
+                    }
+                    if (store.canSignIn) {
+                        if (store.signInRuntime != null) {
                             Button(onClick = store::startLogin, enabled = !state.busy && !selection.loginReview) { Text("Start provider sign-in") }
                             if (selection.loginReview) {
                                 if (selection.loginRuntimeId != store.signInRuntime?.id) Text("Another runtime has an unconfirmed sign-in. Select that runtime and refresh its sign-in before starting another.")
@@ -130,6 +150,18 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                                 Text("Sign-in: ${attempt?.state ?: "unconfirmed"}")
                                 OutlinedButton(onClick = store::refreshLogin, enabled = !state.busy) { Text("Refresh sign-in") }
                                 if (attempt?.state == "awaiting_authorization" && attempt.valid(System.currentTimeMillis()) && !state.attemptMismatch && state.loginReconciled) {
+                                    val step = attempt.step
+                                    if (attempt.codeSubmitted) Text("Continuing sign-in…")
+                                    else if (step?.kind == "choose") {
+                                        step.message?.let { Text(it, style = MaterialTheme.typography.titleSmall) }
+                                        step.options.forEach { option ->
+                                            OutlinedButton(onClick = { code = ""; store.submitCode(option.value) }, enabled = !state.busy,
+                                                modifier = Modifier.fillMaxWidth()) {
+                                                Column { Text(option.label); option.hint?.let { Text(it, style = MaterialTheme.typography.bodySmall) } }
+                                            }
+                                        }
+                                    }
+                                    step?.instructions?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                                     attempt.userCode?.let { Text("Provider code: $it") }
                                     attempt.browserUrl?.let { url ->
                                         OutlinedButton(onClick = {
@@ -141,17 +173,22 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                                         }) { Text("Open provider sign-in") }
                                     }
                                     if (browserError) Text("Could not open the provider browser.")
-                                    if (attempt.authorizationUrl != null && !attempt.codeSubmitted) {
-                                        OutlinedTextField(code, { code = it }, label = { Text("Full code#state") }, singleLine = true,
-                                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), enabled = !state.busy)
-                                        Button(onClick = { val submitted = code; code = ""; store.submitCode(submitted) }, enabled = !state.busy && code.isNotEmpty()) { Text("Submit sign-in code") }
+                                    if (!attempt.codeSubmitted && (step?.kind == "input" || step?.kind == "browser" && step.paste != null || step == null && attempt.authorizationUrl != null)) {
+                                        OutlinedTextField(code, { code = it }, label = { Text(step?.message ?: if (step?.paste == "address") "Redirect address" else "Authorization code") },
+                                            placeholder = { step?.placeholder?.let { Text(it) } }, singleLine = true,
+                                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrectEnabled = false,
+                                                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                                                keyboardType = if (step?.secret == true) androidx.compose.ui.text.input.KeyboardType.Password else androidx.compose.ui.text.input.KeyboardType.Text),
+                                            visualTransformation = if (step?.secret == false) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(), enabled = !state.busy)
+                                        Button(onClick = { val submitted = code; code = ""; store.submitCode(submitted) }, enabled = !state.busy && ai.nuphos.android.data.validRuntimeAnswer(attempt, code)) { Text(if (step == null) "Submit sign-in code" else "Continue") }
                                     }
                                 }
                                 OutlinedButton(onClick = { code = ""; store.cancelLogin() }, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch && attempt?.pending == true && attempt.valid(System.currentTimeMillis())) { Text("Cancel sign-in") }
                                 if (attempt != null && !attempt.pending) OutlinedButton(onClick = store::confirmLoginRestart, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch) { Text("Review and allow a new sign-in") }
                             }
                         } else if (store.signInRuntime != null) Text("Provider setup for self-hosted runtimes is not available here.")
-                    } else Text("Only a current workspace administrator can create runtimes or manage provider sign-in.")
+                    } else if (!state.busy && initialSignInRuntimeId != null) Text("Sign-in is unavailable. Refresh the runtime list and check your computer access.")
+                    else if (!store.canAdminister) Text("Only a current workspace administrator can create runtimes.")
                     Text("Closing this sheet stops local polling. It does not cancel server sign-in.")
                     TextButton(onClick = { code = ""; onDismiss() }) { Text("Close") }
                 }

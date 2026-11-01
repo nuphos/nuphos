@@ -6,11 +6,13 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
 import { AvatarPicker } from './AvatarPicker'
-import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
 import { DangerZone } from './DangerZone'
+import { GoogleOAuthClientCard } from './GoogleOAuthClientCard'
+import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
@@ -29,7 +31,7 @@ function CopyableTeamId({ id }: { id: string }) {
       setTimeout(() => setCopied(false), 2000)
     } catch {
       // Local clipboard failure — never an atlas error, so hand-author it.
-      toast.error('Could not copy team ID', 'Clipboard was blocked.')
+      toast.error(t('Could not copy team ID'), t('Clipboard was blocked.'))
     }
   }
 
@@ -37,7 +39,7 @@ function CopyableTeamId({ id }: { id: string }) {
     <button
       type="button"
       onClick={() => void copy()}
-      title="Copy team ID"
+      title={t('Copy team ID')}
       className="group flex items-center gap-1.5 min-w-0 max-w-full text-[12.5px] text-tertiary hover:text-secondary transition-colors"
     >
       <span className="truncate font-mono">{id}</span>
@@ -78,9 +80,9 @@ export function GeneralSection({
       const updated = await api.atlasUpdateTeam(team.id, { name: trimmedName })
 
       onTeamUpdated(updated)
-      toast.success('Workspace updated')
+      toast.success(t('Workspace updated'))
     } catch (err) {
-      toast.apiError('Could not update workspace', err)
+      toast.apiError(t('Could not update workspace'), err)
     } finally {
       setSubmitting(false)
     }
@@ -88,14 +90,17 @@ export function GeneralSection({
 
   return (
     <div>
-      <SectionHeader title="General" description="Manage your workspace's name and icon." />
+      <SectionHeader
+        title={t('General')}
+        description={t("Manage your workspace's name and icon.")}
+      />
       {team ? (
         <>
           <form onSubmit={(e) => void submit(e)} className="space-y-5">
             <AvatarPicker
               key={team.id}
               src={team.avatarUrl}
-              name={name || team.name || 'Workspace'}
+              name={name || team.name || t('Workspace')}
               kind="icon"
               onUpload={async (image) =>
                 onTeamUpdated(await api.atlasSetTeamAvatar(team.id, image))
@@ -103,7 +108,7 @@ export function GeneralSection({
               onRemove={async () => onTeamUpdated(await api.atlasSetTeamAvatar(team.id, null))}
             />
 
-            <Field label="Name">
+            <Field label={t('Name')}>
               <input
                 type="text"
                 required
@@ -115,24 +120,27 @@ export function GeneralSection({
             </Field>
 
             <div>
-              <span className="block text-[12.5px] font-medium text-secondary mb-1.5">Team ID</span>
+              <span className="block text-[12.5px] font-medium text-secondary mb-1.5">
+                {t('Team ID')}
+              </span>
               <CopyableTeamId id={team.id} />
             </div>
 
             <div className="flex justify-end pt-1">
               <Button size="sm" type="submit" disabled={!name.trim() || !dirty || submitting}>
-                {submitting ? 'Saving…' : 'Save changes'}
+                {submitting ? t('Saving…') : t('Save changes')}
               </Button>
             </div>
           </form>
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
           <LocalAgentSharingCeilingCard team={team} onTeamUpdated={onTeamUpdated} />
+          <GoogleOAuthClientCard team={team} />
 
           <DangerZone team={team} onTeamRemoved={onTeamRemoved} />
         </>
       ) : (
-        <div className="text-[13px] text-tertiary">No workspace selected.</div>
+        <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
       )}
     </div>
   )

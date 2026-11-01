@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { SessionConfigSelection, SessionConfigState } from '../../../api/session-config-types'
 
 type Transport = {
@@ -96,7 +98,7 @@ export class SessionConfigSync {
       this.publish({
         loading: false,
         slow: false,
-        error: 'Could not connect to the runtime. Reconnecting automatically.',
+        error: t('Could not connect to the runtime. Reconnecting automatically.'),
       })
     } finally {
       if (this.active && version === this.version) {
@@ -166,7 +168,7 @@ export class SessionConfigSync {
       if (this.active && version === this.version)
         this.publish({
           queued: undefined,
-          error: 'The change was not confirmed. Checking the current settings.',
+          error: t('The change was not confirmed. Checking the current settings.'),
         })
     } finally {
       if (this.active && version === this.version) {

@@ -7,6 +7,7 @@ import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 
 import { DeskShelf } from './BoxDeskShelf'
 import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxPresentation'
@@ -82,7 +83,10 @@ export function BoxSection({
     )
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     for (const device of vanishedBoxes(previous.current, list.devices))
-      toast.error('Computer setup failed', `${device.label} could not start and was removed.`)
+      toast.error(
+        t('Computer setup failed'),
+        t('{name} could not start and was removed.', { name: device.label }),
+      )
     for (const { device, kind, outcome } of boxRestarts.settle(list.devices, teamId)) {
       const notice = device && boxRestartEnded(kind, outcome, device.label)
 
@@ -102,9 +106,9 @@ export function BoxSection({
     onOpenSettingsSection && (() => onOpenSettingsSection('device.localRuntime'))
 
   return (
-    <section aria-label="Computers" className="min-w-0">
+    <section aria-label={t('Computers')} className="min-w-0">
       <PanelHeading
-        title="Computers"
+        title={t('Computers')}
         right={
           list?.boxAvailable &&
           canCreate && (
@@ -117,7 +121,7 @@ export function BoxSection({
               }}
             >
               <Box className="h-3.5 w-3.5" />
-              New computer
+              {t('New computer')}
             </Button>
           )
         }
@@ -131,9 +135,9 @@ export function BoxSection({
             role="status"
             className="flex h-[240px] items-center gap-3 text-[12px] text-tertiary"
           >
-            Could not load computers.
+            {t('Could not load computers.')}
             <Button size="sm" variant="secondary" onClick={reload}>
-              Retry
+              {t('Retry')}
             </Button>
           </div>
         ) : (

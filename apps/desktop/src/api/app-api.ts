@@ -9,12 +9,14 @@ import type {
 } from './app-types.ts'
 import type { SkillScope } from './plan-types.ts'
 import type { Diagram } from '../architecture/schema.ts'
+import type { DesignOp, DesignPage } from '../design/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
 import type {
   ChangelogState,
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
+  SocialProvider,
   UpdaterState,
 } from '../types/team.ts'
 
@@ -22,17 +24,18 @@ export const appApi = {
   authUpdateProfile: (input: { name: string; username: string; avatarURL: string }) =>
     window.api.authUpdateProfile(input),
   atlasListPersonalCredentials: () => window.api.atlasListPersonalCredentials(),
-  atlasStartPersonalCredential: (provider: PersonalCredentialProvider) =>
-    window.api.atlasStartPersonalCredential(provider),
-  atlasDeletePersonalCredential: (provider: PersonalCredentialProvider) =>
-    window.api.atlasDeletePersonalCredential(provider),
+  atlasStartPersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
+    window.api.atlasStartPersonalCredential(provider, teamId),
+  atlasDeletePersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
+    window.api.atlasDeletePersonalCredential(provider, teamId),
   atlasListSignInSessions: () => window.api.atlasListSignInSessions(),
   atlasSignOutSession: (id: string) => window.api.atlasSignOutSession(id),
   atlasSignOutOtherSessions: () => window.api.atlasSignOutOtherSessions(),
   authUploadAvatar: (image: Uint8Array) => window.api.authUploadAvatar(image),
   authRemoveAvatar: () => window.api.authRemoveAvatar(),
   authStatus: () => window.api.authStatus(),
-  authLogin: () => window.api.authLogin(),
+  authSocialProviders: () => window.api.authSocialProviders(),
+  authLogin: (provider: SocialProvider) => window.api.authLogin(provider),
   authLogout: () => window.api.authLogout(),
   authCancel: () => window.api.authCancel(),
   authEmailRequestCode: (email: string) => window.api.authEmailRequestCode(email),
@@ -65,6 +68,7 @@ export const appApi = {
     window.api.onAppOpenDeepLink(cb),
   onConnectAgentDeepLink: (cb: (payload: ConnectAgentLink) => void) =>
     window.api.onConnectAgentDeepLink(cb),
+  onWebUrlDeepLink: (cb: (url: string) => void) => window.api.onWebUrlDeepLink(cb),
   onPersonalCredentialDeepLink: (cb: (payload: PersonalCredentialDeepLinkPayload) => void) =>
     window.api.onPersonalCredentialDeepLink(cb),
   onAgentFocusSession: (cb: (payload: AgentFocusSessionPayload) => void) =>
@@ -95,6 +99,20 @@ export const appApi = {
   ) => window.api.archSaveDiagram(teamId, diagramId, patch),
   archDeleteDiagram: (teamId: string, diagramId: string) =>
     window.api.archDeleteDiagram(teamId, diagramId),
+  designsList: (teamId: string) => window.api.designsList(teamId),
+  designsStamp: (teamId: string, designId: string) => window.api.designsStamp(teamId, designId),
+  designsGet: (teamId: string, designId: string) => window.api.designsGet(teamId, designId),
+  designsCreate: (teamId: string, input: { name?: string; pages?: DesignPage[] }) =>
+    window.api.designsCreate(teamId, input),
+  designsReplace: (
+    teamId: string,
+    designId: string,
+    /** Replacing `pages` needs the `updatedAt` last read; a mismatch is a 409. */
+    patch: { name?: string; pages?: DesignPage[]; updatedAt?: string },
+  ) => window.api.designsReplace(teamId, designId, patch),
+  designsApplyOps: (teamId: string, designId: string, ops: DesignOp[]) =>
+    window.api.designsApplyOps(teamId, designId, ops),
+  designsDelete: (teamId: string, designId: string) => window.api.designsDelete(teamId, designId),
   dashboardsList: (teamId: string) => window.api.dashboardsList(teamId),
   dashboardsCreate: (teamId: string, input: import('../dashboards/schema').CreateDashboardInput) =>
     window.api.dashboardsCreate(teamId, input),

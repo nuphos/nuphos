@@ -14,7 +14,8 @@ struct ChatComposerBar<Controls: View>: View {
     /// The turn accepts steering, so what is typed mid-reply goes into it.
     var canSteer = false
     var allowsAttachments = true
-    var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
+    /// An unsent message to take back into the draft, for editing.
+    var editRequest: Binding<ComposerSubmission?> = .constant(nil)
     /// What an `@` offers: the viewer's devices and other sessions; nil offers none.
     var mentions: MentionSource? = nil
     /// The team voice input transcribes for; nil hides the microphone.
@@ -60,16 +61,6 @@ struct ChatComposerBar<Controls: View>: View {
         // Collapsed, the controls row is zero high; spacing around it would
         // stay, so a collapsed composer has none.
         VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
-            if let submission = failedSubmission.wrappedValue {
-                Button("Edit unsent message") {
-                    text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                    attachments.insert(contentsOf: submission.attachments, at: 0)
-                    failedSubmission.wrappedValue = nil
-                    focused = true
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            }
             // The controls own the sheets they present (agent setup, pickers).
             // A text field in one of those sheets takes focus from the
             // composer, so the row stays mounted while collapsed; removing it
@@ -253,13 +244,25 @@ struct ChatComposerBar<Controls: View>: View {
             }
             #if canImport(UIKit)
             .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { note in
-                guard allowsAttachments, let textView = note.object as? UITextView else { return }
+                guard let textView = note.object as? UITextView else { return }
                 // Focus lands a moment later; it tells this field from others.
+                // Checked once, a slow focus update left the field without the
+                // handler, so an image paste did nothing.
                 Task { @MainActor in
-                    if focused, textView.isFirstResponder { pasteHandler.attach(to: textView) { paste($0) } }
+                    for _ in 0..<10 {
+                        if focused, textView.isFirstResponder { pasteHandler.attach(to: textView) { paste($0) }; return }
+                        try? await Task.sleep(for: .milliseconds(50))
+                    }
                 }
             }
             #endif
+            .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
+                guard requested, let submission = editRequest.wrappedValue else { return }
+                text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
+                attachments.insert(contentsOf: submission.attachments, at: 0)
+                editRequest.wrappedValue = nil
+                focused = true
+            }
             .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
                 Button("OK", role: .cancel) { dictationError = nil }
             } message: {
@@ -331,7 +334,8 @@ struct ChatComposerBar<Controls: View>: View {
         #endif
     }
 
-    /// ✕ discards the take; ✓ transcribes it into the input.
+    /// ✕ discards the take; ■ transcribes it into the input; ↑ transcribes
+    /// it and sends.
     private func dictationBar(_ dictation: VoiceDictation) -> some View {
         HStack(spacing: 10) {
             Button(action: cancelDictation) {
@@ -358,16 +362,27 @@ struct ChatComposerBar<Controls: View>: View {
                     .fixedSize()
             }
 
-            Button(action: finishDictation) {
-                Image(systemName: "checkmark")
+            Button { finishDictation(thenSend: false) } label: {
+                Image(systemName: "stop.fill")
+                    .font(Theme.Text.secondary.weight(.bold))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(Theme.heading)
+                    .background(Theme.muted.opacity(0.25), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(dictation.phase != .recording)
+            .accessibilityLabel("Finish voice input")
+
+            Button { finishDictation(thenSend: true) } label: {
+                Image(systemName: "arrow.up")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.chatCanvas)
                     .background(Theme.heading, in: Circle())
             }
             .buttonStyle(.plain)
-            .disabled(dictation.phase != .recording)
-            .accessibilityLabel("Finish voice input")
+            .disabled(dictation.phase != .recording || !canSend)
+            .accessibilityLabel("Send voice input")
         }
         .padding(.vertical, expanded ? 0 : 4)
     }
@@ -390,13 +405,14 @@ struct ChatComposerBar<Controls: View>: View {
         }
     }
 
-    private func finishDictation() {
+    private func finishDictation(thenSend: Bool) {
         guard let take = dictation, let token = session.token, let teamId = voiceTeamId else { return }
         transcription = Task {
             do {
                 let words = try await take.finish(token: token, teamId: teamId)
                 if !Task.isCancelled, !words.isEmpty {
                     text = text.isEmpty || text.last?.isWhitespace == true ? text + words : text + " " + words
+                    if thenSend { send() }
                 }
             } catch {
                 if !Task.isCancelled { dictationError = error.localizedDescription }
@@ -449,6 +465,8 @@ struct ChatComposerBar<Controls: View>: View {
                        _ = provider.loadTransferable(type: String.self) { continuation.resume(returning: try? $0.get()) }
                    }) {
                     text += string
+                } else if !allowsAttachments {
+                    attachmentError = "Send attachments after this turn; it takes text now."
                 } else if let attachment = await ComposerAttachment.load(pasted: provider) {
                     attachments.append(attachment)
                 } else {

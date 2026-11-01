@@ -1,6 +1,7 @@
 import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
+import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { boxUpdateStatus } from '@/lib/claude-code-preview/box-update'
 import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
@@ -28,11 +29,6 @@ import {
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import {
-  openRuntimeDesktop,
-  runtimeDesktopEvents,
-  runtimeDesktopTarget,
-} from '@/lib/claude-code-preview/runtime-desktop'
-import {
   runtimeTerminalTarget,
   runtimeTerminalEvents,
 } from '@/lib/claude-code-preview/runtime-terminal'
@@ -44,6 +40,7 @@ import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
+import { registerRuntimeDesktopRoutes } from './runtime-desktop'
 import { registerRuntimeFileRoutes } from './runtime-files'
 import { registerRuntimeQuotaRoutes } from './runtime-quota'
 
@@ -76,6 +73,7 @@ export const probeSchema = z
 
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   registerRuntimeFileRoutes(teamScoped)
+  registerRuntimeDesktopRoutes(teamScoped)
   teamScoped.get('/runtime-terminal/:sessionId', async (c) => {
     const target = await runtimeTerminalTarget(
       c.get('teamId'),
@@ -90,24 +88,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       c as unknown as Context,
       runtimeTerminalEvents(target, { cols: c.req.query('cols'), rows: c.req.query('rows') }),
     )
-  })
-
-  teamScoped.post('/runtime-desktop/:sessionId', async (c) =>
-    c.json(await openRuntimeDesktop(c.get('teamId'), c.get('userId'), c.req.param('sessionId'))),
-  )
-
-  teamScoped.get('/runtime-desktop/:sessionId/:display', async (c) => {
-    const target = await runtimeDesktopTarget(
-      c.get('teamId'),
-      c.get('userId'),
-      c.req.param('sessionId'),
-      c.req.param('display'),
-    )
-
-    if (c.req.header('upgrade')?.toLowerCase() !== 'websocket')
-      throw new AppError(426, 'upgrade_required', 'Connect with a WebSocket')
-
-    return upgradeWebSocket(c as unknown as Context, runtimeDesktopEvents(target))
   })
 
   teamScoped.get('/agent-runtimes', async (c) => {
@@ -181,11 +161,12 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
 
     if (instance.kind === 'local') {
       const runtimeUpdate = await boxUpdateStatus(instance.id)
+      const status = await localRuntimeStatus(instance.id)
 
-      return c.json({
-        ...(await localRuntimeStatus(instance.id)),
-        ...(runtimeUpdate ? { runtimeUpdate } : {}),
-      })
+      // Sign-in waits here for the agent to answer, and a paused Box never would.
+      if (!status.online && c.req.query('wake') === '1') await wakeOfflineBox(instance.id)
+
+      return c.json({ ...status, ...(runtimeUpdate ? { runtimeUpdate } : {}) })
     }
 
     return c.json(await runtimeStatusWithUpdate(c.get('teamId'), c.get('userId'), instance))

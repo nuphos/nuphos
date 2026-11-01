@@ -23,6 +23,7 @@ import type {
   TeamSkillObjectDetail,
 } from './plan-types.ts'
 import type { Diagram, DiagramSummary } from '../architecture/schema.ts'
+import type { Design, DesignOp, DesignPage, DesignSummary } from '../design/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
 import type {
@@ -33,6 +34,7 @@ import type {
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
   SignInSession,
+  SocialProvider,
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
@@ -43,8 +45,12 @@ export type WindowAppApi = {
   atlasListPersonalCredentials(): Promise<PersonalCredential[]>
   atlasStartPersonalCredential(
     provider: PersonalCredentialProvider,
+    teamId?: string,
   ): Promise<{ authorizeUrl: string; state: string }>
-  atlasDeletePersonalCredential(provider: PersonalCredentialProvider): Promise<void>
+  atlasDeletePersonalCredential(
+    provider: PersonalCredentialProvider,
+    teamId?: string,
+  ): Promise<void>
   atlasListSignInSessions(): Promise<SignInSession[]>
   atlasSignOutSession(id: string): Promise<void>
   atlasSignOutOtherSessions(): Promise<number>
@@ -52,7 +58,8 @@ export type WindowAppApi = {
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
-  authLogin(): Promise<UserInfo>
+  authSocialProviders(): Promise<SocialProvider[]>
+  authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
   authEmailRequestCode(email: string): Promise<void>
@@ -86,6 +93,7 @@ export type WindowAppApi = {
   onAgentChatDeepLink(cb: (payload: AgentChatDeepLinkPayload) => void): () => void
   onAppOpenDeepLink(cb: (payload: AppOpenDeepLinkPayload) => void): () => void
   onConnectAgentDeepLink(cb: (payload: ConnectAgentLink) => void): () => void
+  onWebUrlDeepLink(cb: (url: string) => void): () => void
   onPersonalCredentialDeepLink(cb: (payload: PersonalCredentialDeepLinkPayload) => void): () => void
   onAgentFocusSession(cb: (payload: AgentFocusSessionPayload) => void): () => void
   selectLocalFile(): Promise<string[]>
@@ -95,7 +103,7 @@ export type WindowAppApi = {
   getPathForFile(file: File): string
   savePastedAttachments(payload: PastedAttachmentPayload): Promise<string[]>
   updaterGetState(): Promise<UpdaterState>
-  updaterCheck(): Promise<UpdaterState>
+  updaterCheck(): Promise<void>
   updaterInstall(): Promise<void>
   onUpdaterStatus(cb: (state: UpdaterState) => void): () => void
   changelogGetState(): Promise<ChangelogState>
@@ -110,6 +118,18 @@ export type WindowAppApi = {
     patch: { name?: string; nodes?: Diagram['nodes']; views?: Diagram['views'] },
   ): Promise<Diagram>
   archDeleteDiagram(teamId: string, diagramId: string): Promise<void>
+  designsList(teamId: string): Promise<DesignSummary[]>
+  designsStamp(teamId: string, designId: string): Promise<{ updatedAt: string }>
+  designsGet(teamId: string, designId: string): Promise<Design>
+  designsCreate(teamId: string, input: { name?: string; pages?: DesignPage[] }): Promise<Design>
+  designsReplace(
+    teamId: string,
+    designId: string,
+    /** Replacing `pages` needs the `updatedAt` last read; a mismatch is a 409. */
+    patch: { name?: string; pages?: DesignPage[]; updatedAt?: string },
+  ): Promise<Design>
+  designsApplyOps(teamId: string, designId: string, ops: DesignOp[]): Promise<Design>
+  designsDelete(teamId: string, designId: string): Promise<void>
   dashboardsList(teamId: string): Promise<import('../dashboards/schema').NuphosDashboard[]>
   dashboardsCreate(
     teamId: string,

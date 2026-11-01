@@ -5,7 +5,9 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
 
-import type { LocalShareApproval } from '../../api/device-types'
+import { ShareApproveButton } from './ShareApproveButton'
+
+import type { LocalShareApproval, ShareTrustDuration } from '../../api/device-types'
 
 /**
  * Teammates asking to run a conversation on the viewer's own computer. Approving
@@ -18,7 +20,11 @@ export function ShareApprovalRequests({
 }: {
   teamId: string
   approvals: LocalShareApproval[]
-  decide: (approvalId: string, approve: boolean) => Promise<void>
+  decide: (
+    approval: LocalShareApproval,
+    approve: boolean,
+    trust?: ShareTrustDuration,
+  ) => Promise<void>
 }) {
   const members = useTeamMembers(teamId)
   const [deciding, setDeciding] = useState<string | null>(null)
@@ -29,10 +35,14 @@ export function ShareApprovalRequests({
 
     return member ? memberDisplayName(member) : 'A teammate'
   }
-  const answer = async (approval: LocalShareApproval, approve: boolean) => {
+  const answer = async (
+    approval: LocalShareApproval,
+    approve: boolean,
+    trust?: ShareTrustDuration,
+  ) => {
     setDeciding(approval.id)
     try {
-      await decide(approval.id, approve)
+      await decide(approval, approve, trust)
     } catch (error) {
       toast.apiError('Could not answer this request', error)
     } finally {
@@ -72,13 +82,10 @@ export function ShareApprovalRequests({
               >
                 Decline
               </Button>
-              <Button
-                size="sm"
+              <ShareApproveButton
                 disabled={deciding !== null}
-                onClick={() => void answer(approval, true)}
-              >
-                Approve
-              </Button>
+                onApprove={(trust) => void answer(approval, true, trust)}
+              />
             </span>
           </li>
         ))}

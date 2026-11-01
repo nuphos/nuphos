@@ -9,6 +9,8 @@ import {
   YAxis,
 } from 'recharts'
 
+import { t } from '../../i18n'
+
 /** Shared with the Agents heatmap and usage bars so every usage chart is one violet. */
 export const ACCENT_RGB = '164, 105, 255'
 export const ACCENT = `rgb(${ACCENT_RGB})`
@@ -93,7 +95,7 @@ export function MetricChart({
                   <div className="rounded-md border border-zGray-800 bg-zGray-950/95 px-2 py-1 text-[11px] shadow-lg">
                     <div className="text-tertiary">{timeLabel(point.at)}</div>
                     <div className="font-mono text-main">
-                      {point.value === null ? 'No reading' : format(point.value)}
+                      {point.value === null ? t('No reading') : format(point.value)}
                       {point.capacity == null ? null : (
                         <span className="text-tertiary"> / {format(point.capacity)}</span>
                       )}

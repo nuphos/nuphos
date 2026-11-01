@@ -5,12 +5,13 @@ import { useEffect, useRef, useState } from 'react'
 import { SidebarToggleButton } from '../../../components/Sidebar'
 import { Kbd } from '../../../components/ui/kbd'
 import { Tooltip } from '../../../components/ui/tooltip'
+import { t } from '../../../i18n'
 import { logNewTabRequested, logTabActivated } from '../../../lib/tabSwitchLog'
 import { isPermanentSidebarPage } from '../../navItems'
 
+import { useClosingTab } from './useClosingTab'
 import { useTabDragEvents } from './useTabDragEvents'
 import { useTabDragPreview } from './useTabDragPreview'
-import { useClosingTab } from './useClosingTab'
 import { useTabStripFavorites } from './useTabStripFavorites'
 import { WorkspaceTabItem } from './WorkspaceTabItem'
 import { WorkspaceTabsContextMenu } from './WorkspaceTabsContextMenu'
@@ -203,7 +204,7 @@ export function WorkspaceTabs({
         <Tooltip
           content={
             <span className="inline-flex items-center gap-1.5">
-              New tab <Kbd combo="mod+t" />
+              {t('New tab')} <Kbd combo="mod+t" />
             </span>
           }
         >
@@ -221,7 +222,7 @@ export function WorkspaceTabs({
               onNew()
             }}
             className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-tertiary outline-none ring-0 transition-colors hover:bg-zGray-800/60 hover:text-main focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-            aria-label="New tab"
+            aria-label={t('New tab')}
           >
             <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
           </button>

@@ -3,6 +3,7 @@ import { FolderTree } from 'lucide-react'
 import { k8sResourceIcon } from '../../app/navItems'
 import { ClusterRbacNotice, ClusterUnreachableNotice } from '../../components/ClusterRbacGate'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { DetailView } from '../../views/DetailView'
 
 import type { ScopeRenderContext } from './context'
@@ -32,22 +33,24 @@ export function renderClusterGatePages(ctx: ScopeRenderContext): React.ReactNode
   if (!kubeconfigContext) {
     if (kubeconfigContextError) {
       return renderActiveNavPage(
-        'Cluster unavailable',
+        t('Cluster unavailable'),
         <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <div className="p-8 text-center">
-          <div className="text-error text-[13px] mb-2">Failed to connect to cluster</div>
+          <div className="text-error text-[13px] mb-2">{t('Failed to connect to cluster')}</div>
           <div className="text-tertiary text-[12px] selectable">{kubeconfigContextError}</div>
           <div className="text-tertiary text-[12px] mt-3">
-            Re-pick the cluster from the breadcrumb to retry.
+            {t('Re-pick the cluster from the breadcrumb to retry.')}
           </div>
         </div>,
       )
     }
 
     return renderActiveNavPage(
-      'Connecting…',
+      t('Connecting…'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      <div className="p-8 text-center text-tertiary text-[13px]">Connecting to cluster…</div>,
+      <div className="p-8 text-center text-tertiary text-[13px]">
+        {t('Connecting to cluster…')}
+      </div>,
     )
   }
   // Gate ALL cluster pages behind the access probe: authenticated-but-
@@ -55,7 +58,7 @@ export function renderClusterGatePages(ctx: ScopeRenderContext): React.ReactNode
   // of a different raw 403 on every page.
   if (clusterAccess.state === 'denied') {
     return renderActiveNavPage(
-      'Cluster access required',
+      t('Cluster access required'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ClusterRbacNotice
         provider={scope.parentKind}
@@ -73,8 +76,8 @@ export function renderClusterGatePages(ctx: ScopeRenderContext): React.ReactNode
           try {
             await refreshClusterKubeconfig()
           } catch (e) {
-            toast.apiError('Failed to refresh the cluster credential', e, {
-              fallback: 'Check your connection and retry.',
+            toast.apiError(t('Failed to refresh the cluster credential'), e, {
+              fallback: t('Check your connection and retry.'),
             })
           }
           clusterAccess.retry()
@@ -84,7 +87,7 @@ export function renderClusterGatePages(ctx: ScopeRenderContext): React.ReactNode
   }
   if (clusterAccess.state === 'unreachable') {
     return renderActiveNavPage(
-      'Cluster unreachable',
+      t('Cluster unreachable'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ClusterUnreachableNotice
         provider={scope.parentKind}
@@ -94,8 +97,8 @@ export function renderClusterGatePages(ctx: ScopeRenderContext): React.ReactNode
           try {
             await refreshClusterKubeconfig()
           } catch (e) {
-            toast.apiError('Failed to refresh the cluster credential', e, {
-              fallback: 'Check your connection and retry.',
+            toast.apiError(t('Failed to refresh the cluster credential'), e, {
+              fallback: t('Check your connection and retry.'),
             })
           }
           clusterAccess.retry()
@@ -105,9 +108,11 @@ export function renderClusterGatePages(ctx: ScopeRenderContext): React.ReactNode
   }
   if (clusterAccess.state === 'checking') {
     return renderActiveNavPage(
-      'Connecting…',
+      t('Connecting…'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      <div className="p-8 text-center text-tertiary text-[13px]">Checking cluster access…</div>,
+      <div className="p-8 text-center text-tertiary text-[13px]">
+        {t('Checking cluster access…')}
+      </div>,
     )
   }
   if (target) {

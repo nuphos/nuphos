@@ -2,6 +2,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../api'
+import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 
 import { Modal } from './Modal'
@@ -11,11 +12,11 @@ import type { ChangelogEntry } from '../types/team'
 const LOAD_TIMEOUT_MS = 12_000
 
 function formatDate(iso: string): string {
-  const t = Date.parse(iso)
+  const ms = Date.parse(iso)
 
-  return Number.isNaN(t)
+  return Number.isNaN(ms)
     ? iso
-    : new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 /**
@@ -115,10 +116,10 @@ export function WhatsNewReader({ entry, onClose }: { entry: ChangelogEntry; onCl
         <button
           type="button"
           onClick={openInBrowser}
-          title="Open this changelog entry in your browser"
+          title={t('Open this changelog entry in your browser')}
           className="flex h-7 flex-shrink-0 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-zGray-800 hover:text-main"
         >
-          changelog
+          {t('changelog')}
           <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
       }

@@ -279,6 +279,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/image_export_paths" />
         </provider>
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <receiver android:name=".notifications.NotificationReplyReceiver" android:exported="false" />
         <service android:name=".notifications.NuphosMessagingService" android:exported="false">
             <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
         </service>

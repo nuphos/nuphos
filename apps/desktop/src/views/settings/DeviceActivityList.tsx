@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import {
   commandPreview,
@@ -41,7 +42,7 @@ function ActivityRow({
 }) {
   const outcome = outcomeSummary(entry)
   const preview = commandPreview(entry.command)
-  const title = entry.conversationTitle ?? 'Untitled agent'
+  const title = entry.conversationTitle ?? t('Untitled agent')
 
   return (
     <div className="border-t border-zGray-800/60 bg-surface px-4 py-2.5 first:border-t-0">
@@ -77,7 +78,7 @@ function ActivityRow({
             />
             <span className="truncate group-data-[panel-open]:hidden">{preview.text}</span>
             <span className="hidden text-tertiary group-data-[panel-open]:inline">
-              Full command
+              {t('Full command')}
             </span>
           </Collapsible.Trigger>
           <Collapsible.Panel className="t-acc-collapsible">
@@ -118,7 +119,7 @@ export function DeviceActivityList({
         if (!cancelled) applyPage(page, false)
       })
       .catch((err: unknown) => {
-        toast.apiError('Could not load recent activity', err)
+        toast.apiError(t('Could not load recent activity'), err)
         if (!cancelled) setEntries([])
       })
 
@@ -132,7 +133,7 @@ export function DeviceActivityList({
     try {
       applyPage(await api.deviceListAudit(before), before !== undefined)
     } catch (err) {
-      toast.apiError('Could not load recent activity', err)
+      toast.apiError(t('Could not load recent activity'), err)
     } finally {
       setLoading(false)
     }
@@ -141,9 +142,9 @@ export function DeviceActivityList({
   let body: ReactNode
 
   if (entries === null) {
-    body = <p className={EMPTY_CLASSES}>Loading…</p>
+    body = <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
   } else if (entries.length === 0) {
-    body = <p className={EMPTY_CLASSES}>Nothing has run on this computer yet.</p>
+    body = <p className={EMPTY_CLASSES}>{t('Nothing has run on this computer yet.')}</p>
   } else {
     body = (
       <>
@@ -165,7 +166,7 @@ export function DeviceActivityList({
               disabled={loading}
               onClick={() => void load(nextCursor)}
             >
-              {loading ? 'Loading…' : 'Load more'}
+              {loading ? t('Loading…') : t('Load more')}
             </Button>
           </div>
         )}
@@ -176,11 +177,11 @@ export function DeviceActivityList({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-main">Recent activity</span>
+        <span className="text-[13px] font-semibold text-main">{t('Recent activity')}</span>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Refresh recent activity"
+          aria-label={t('Refresh recent activity')}
           disabled={loading}
           onClick={() => void load()}
         >
@@ -192,8 +193,9 @@ export function DeviceActivityList({
       </div>
       {body}
       <p className="mt-2 text-[11px] text-tertiary">
-        Kept for 90 days. Command output isn't recorded here; obvious tokens are masked on a
-        best-effort basis.
+        {t(
+          "Kept for 90 days. Command output isn't recorded here; obvious tokens are masked on a best-effort basis.",
+        )}
       </p>
     </div>
   )

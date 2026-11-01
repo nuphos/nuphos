@@ -2,6 +2,7 @@ import { AlertCircle, Box, CalendarDays, Info, Lock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { useOpenBilling } from './billing'
 import { NoPlan } from './BillingNoPlan'
 import {
@@ -43,19 +44,21 @@ function PlanCard({
     <section className={CARD}>
       <div className="flex items-center gap-2.5">
         <h2 className="text-[20px] font-semibold text-main">
-          {plan?.name ?? `${String(usage.limitVcpus)} vCPU`}
+          {plan?.name ?? t('{n} vCPU', { n: String(usage.limitVcpus) })}
         </h2>
         {plan && <span className="text-[14px] text-secondary">{planDetail(plan)}</span>}
         {billed && <Pill tone={statusTone(billed.status)}>{billed.status.replace('_', ' ')}</Pill>}
         {isAdmin && usage.billingUrl && (
           <BillingButton billing={billing} className="ml-auto">
-            Manage billing
+            {t('Manage billing')}
           </BillingButton>
         )}
       </div>
       <p className="flex items-center gap-2 text-secondary">
         <Box size={14} className="text-zViolet-accent" />
-        Your running computers can use {usage.limitVcpus} vCPU in total. Paused computers use none.
+        {t('Your running computers can use {n} vCPU in total. Paused computers use none.', {
+          n: usage.limitVcpus ?? '',
+        })}
       </p>
       {isAdmin ? (
         <>
@@ -72,15 +75,16 @@ function PlanCard({
           )}
           {usage.billingUrl && (
             <p className="text-[12px] text-tertiary">
-              Manage billing opens the Stripe portal in your browser: change plan, update card,
-              cancel.
+              {t(
+                'Manage billing opens the Stripe portal in your browser: change plan, update card, cancel.',
+              )}
             </p>
           )}
         </>
       ) : (
         <p className="flex items-center gap-2 text-[12px] text-tertiary">
           <Lock size={13} />
-          Only team administrators can change the plan.
+          {t('Only team administrators can change the plan.')}
         </p>
       )}
     </section>
@@ -119,18 +123,21 @@ function Subscribed({
       {!blocked && (
         <p className="flex gap-2.5 text-[13px] text-tertiary">
           <Info size={14} className="mt-0.5 shrink-0" />
-          When running computers reach the plan&apos;s vCPU, they keep running; starting or resuming
-          a computer that doesn&apos;t fit is refused until you pause a computer or upgrade.
+          {t(
+            "When running computers reach the plan's vCPU, they keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer or upgrade.",
+          )}
         </p>
       )}
       <section className="flex flex-col gap-3">
-        <h2 className="text-[13px] font-semibold text-main">Plans</h2>
+        <h2 className="text-[13px] font-semibold text-main">{t('Plans')}</h2>
         <PlansTable current={usage.limitVcpus} />
         <p className="text-[12px] text-tertiary">
-          The limit counts the vCPU of running computers; each computer counts at its own size.{' '}
+          {t(
+            'The limit counts the vCPU of running computers; each computer counts at its own size.',
+          )}{' '}
           {isAdmin
-            ? 'Change plan, card or cancel in Manage billing.'
-            : 'Only team administrators can change the plan.'}
+            ? t('Change plan, card or cancel in Manage billing.')
+            : t('Only team administrators can change the plan.')}
         </p>
       </section>
       {summary && <Invoices invoices={summary.invoices} />}
@@ -158,7 +165,7 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
         if (!cancelled) setSummary(next)
       },
       () => {
-        if (!cancelled) setError('Could not load billing details.')
+        if (!cancelled) setError(t('Could not load billing details.'))
       },
     )
 
@@ -170,11 +177,14 @@ export function BillingSection({ teamId, isAdmin }: { teamId: string; isAdmin: b
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin">
       <div className="mx-auto flex max-w-[640px] flex-col gap-7 px-8 py-10">
-        <SectionHeader title="Billing" description="Your team's computer plan, billed monthly." />
-        {!usage && <p className="text-[13px] text-tertiary">Loading…</p>}
+        <SectionHeader
+          title={t('Billing')}
+          description={t("Your team's computer plan, billed monthly.")}
+        />
+        {!usage && <p className="text-[13px] text-tertiary">{t('Loading…')}</p>}
         {usage?.limitVcpus === null && (
           <p className="text-[13px] text-tertiary">
-            Computers have no vCPU limit on this deployment.
+            {t('Computers have no vCPU limit on this deployment.')}
           </p>
         )}
         {usage && usage.limitVcpus !== null && usage.subscribed && (

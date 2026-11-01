@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Check, Copy, Pencil, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
 import { comboText, isMac } from '../../../lib/platform'
 import { toast } from '../../ui/toast'
 
@@ -26,7 +27,9 @@ export function CopyMessageButton({
 }) {
   const [copied, setCopied] = useState(false)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const idleTitle = shortcut ? `Copy (${comboText('mod+alt+c')})` : 'Copy'
+  const idleTitle = shortcut
+    ? t('Copy ({shortcut})', { shortcut: comboText('mod+alt+c') })
+    : t('Copy')
   const handleCopy = useCallback(() => {
     void navigator.clipboard
       .writeText(text)
@@ -35,7 +38,7 @@ export function CopyMessageButton({
         window.setTimeout(() => setCopied(false), 1200)
       })
       .catch(() => {
-        toast.error('Could not copy message', 'Clipboard was blocked.')
+        toast.error(t('Could not copy message'), t('Clipboard was blocked.'))
       })
   }, [text])
 
@@ -62,8 +65,8 @@ export function CopyMessageButton({
       data-copy-latest={shortcut ? '' : undefined}
       onClick={handleCopy}
       className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent"
-      title={copied ? 'Copied' : idleTitle}
-      aria-label={copied ? 'Copied' : label}
+      title={copied ? t('Copied') : idleTitle}
+      aria-label={copied ? t('Copied') : label}
     >
       <span className="t-icon-swap" data-state={copied ? 'b' : 'a'}>
         <span className="t-icon" data-icon="a">
@@ -83,8 +86,8 @@ export function EditMessageButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent"
-      title="Edit"
-      aria-label="Edit message"
+      title={t('Edit')}
+      aria-label={t('Edit message')}
     >
       <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
     </button>
@@ -121,8 +124,8 @@ export function AssistantMessageActions({
             ? 'bg-zGray-800/80 text-main'
             : 'text-tertiary hover:bg-zGray-800/60 hover:text-main',
         )}
-        title={rating === 'up' ? 'Good response' : 'Bad response'}
-        aria-label={rating === 'up' ? 'Good response' : 'Bad response'}
+        title={rating === 'up' ? t('Good response') : t('Bad response')}
+        aria-label={rating === 'up' ? t('Good response') : t('Bad response')}
         aria-pressed={selected}
       >
         <Icon className="h-3.5 w-3.5" strokeWidth={1.8} fill={selected ? 'currentColor' : 'none'} />
@@ -138,7 +141,7 @@ export function AssistantMessageActions({
           'opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100',
       )}
     >
-      <CopyMessageButton text={text} label="Copy response" shortcut={alwaysVisible} />
+      <CopyMessageButton text={text} label={t('Copy response')} shortcut={alwaysVisible} />
       {onSelectRating && ratingButton('up')}
       {onSelectRating && ratingButton('down')}
       {typeof createdAt === 'number' && (

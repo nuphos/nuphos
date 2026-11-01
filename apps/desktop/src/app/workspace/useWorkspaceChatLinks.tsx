@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { githubRef } from '../../components/agent/panel/githubRefs'
 import { toast } from '../../components/ui/toast'
 import { useStableCallback } from '../../hooks/useStableCallback'
+import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import {
   appPathForExternalLink,
@@ -89,9 +90,7 @@ export function useWorkspaceChatLinks(a: Args) {
   )
 
   const openExternalLink = useCallback((url: string) => {
-    void api.appOpenExternal(url).catch(() => {
-      toast.error('Failed to open link')
-    })
+    void api.appOpenExternal(url).catch(() => toast.error(t('Failed to open link')))
   }, [])
 
   const openBrowserLink = useCallback(

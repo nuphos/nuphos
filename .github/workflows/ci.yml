@@ -272,9 +272,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # ESLint's plugin set needs `Set.prototype.union` (Node 22+). Without an
-      # explicit toolchain the lint step falls back to the runner image's Node
-      # and dies loading the config.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -297,14 +294,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: bun run typecheck
-      - name: Lint
-        working-directory: apps/backend
-        # BLOCKING. Errors are at zero here; warnings do not fail the run.
-        # Type-aware linting builds the same program `tsc --noEmit` does, so it
-        # needs the same heap bump (see the Typecheck step above).
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: bun run lint
+      # Lint runs in its own job (backend-lint) so it overlaps these steps.
       - name: Unit tests
         working-directory: apps/backend
         # `mock.module` registrations are process-wide, so two suites mocking the
@@ -373,14 +363,7 @@ jobs:
         # dropped telemetry.
         working-directory: apps/desktop
         run: pnpm typecheck
-      - name: Lint
-        working-directory: apps/desktop
-        # BLOCKING. Errors are at zero here; warnings do not fail the run. Runs
-        # type-aware rules, so it needs the same heap headroom as the typecheck
-        # above.
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
-        run: pnpm lint
+      # Lint runs in its own Linux job (desktop-lint) so it overlaps these steps.
       - name: Run tests
         timeout-minutes: 3
         working-directory: apps/desktop
@@ -406,6 +389,68 @@ jobs:
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # Type-aware ESLint is the slowest step in both apps, so it runs beside their
+  # main jobs instead of after typecheck. A PR then waits for the slower of the
+  # two, not their sum.
+  backend-lint:
+    name: Backend lint
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # ESLint's plugin set needs `Set.prototype.union` (Node 22+).
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - name: Install dependencies
+        working-directory: apps/backend
+        run: bun install --frozen-lockfile
+      - name: Lint
+        working-directory: apps/backend
+        # BLOCKING. Errors are at zero here; warnings do not fail the run.
+        # Type-aware linting builds the same program `tsc --noEmit` does, so it
+        # needs the same heap bump as the backend Typecheck step.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: bun run lint
+
+  # Lint does not depend on macOS, so it runs on Linux instead of the macOS
+  # runner the desktop package needs.
+  desktop-lint:
+    name: Desktop lint
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: apps/desktop
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: apps/desktop
+        # BLOCKING. Errors are at zero here; warnings do not fail the run. Runs
+        # type-aware rules, so it needs the same heap headroom as the desktop
+        # typecheck.
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: pnpm lint
 
   dev-scripts:
     name: Dev scripts

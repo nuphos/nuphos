@@ -3,19 +3,16 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
-import { useMacSignIn } from '../hooks/useMacSignIn'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
 import { IpcVncChannel } from '../lib/ipcVncChannel'
 import {
   desktopTabSession,
-  sessionDesktopDevice,
   sessionDesktopTitle,
   subscribeSessionDesktops,
 } from '../lib/sessionDesktops'
 
 import { DesktopFrame } from './DesktopFrame'
-import { MacSignIn } from './MacSignIn'
 import { openBoxPaywall } from './settings/boxPaywallStore'
 
 import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
@@ -31,8 +28,8 @@ const holdingStatus = (display: number) =>
 
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
- * `display` is the X display number, or 0 for a Mac's own screen, which asks
- * for a Mac account first. View-only until the owner takes it over:
+ * `display` is the X display number, or 0 for a Mac's own screen, which
+ * Nuphos serves itself with no Mac account. View-only until the owner takes it over:
  * the backend drops the viewer's input until then, and taking over also makes
  * the agent's input tools on that desktop wait. A dropped stream reconnects,
  * as the viewer again: the host hands the desktop back when a stream closes.
@@ -61,10 +58,6 @@ export function SessionDesktopView({
   const title = useSyncExternalStore(subscribeSessionDesktops, () =>
     conversationId ? sessionDesktopTitle(conversationId, display) : undefined,
   )
-  const device = useSyncExternalStore(subscribeSessionDesktops, () =>
-    conversationId ? sessionDesktopDevice(conversationId, display) : undefined,
-  )
-  const signIn = useMacSignIn()
 
   useEffect(() => {
     const target = host.current
@@ -80,8 +73,6 @@ export function SessionDesktopView({
       rfb.background = 'transparent'
       rfb.addEventListener('connect', opened)
       rfb.addEventListener('disconnect', closed)
-      // The Mac it was opened for: a kept account goes to that Mac only.
-      signIn.watch(rfb, device ? `${device}:${String(display)}` : undefined)
       rfbRef.current = rfb
       channelRef.current = channel
       setHolding(false)
@@ -103,11 +94,8 @@ export function SessionDesktopView({
 
     return () => {
       connection.stop()
-      signIn.reset()
     }
-    // `signIn` is fresh each render; its methods are not. A new device reconnects.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, tabId, teamId, display, device])
+  }, [conversationId, tabId, teamId, display])
 
   const toggle = () => {
     const next = !holding
@@ -142,15 +130,6 @@ export function SessionDesktopView({
       switcher={switcher}
       onRetry={() => retryRef.current()}
       host={host}
-      prompt={
-        signIn.asking && (
-          <MacSignIn
-            failed={signIn.asking.failed}
-            username={signIn.asking.username}
-            onSubmit={signIn.submit}
-          />
-        )
-      }
     />
   )
 }

@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { useThisComputer } from '../../hooks/useThisComputer'
+import { t } from '../../i18n'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 
 import { agentName, agentOffline, agentRunsOn } from './agentPresentation'
@@ -54,11 +55,11 @@ export function AgentUsageRow({
         <span className="truncate text-[13px] font-medium text-main">{agentName(instance)}</span>
         {/* Runs on, which carries the status, is hidden when the page is narrow. */}
         {instance.status !== 'active' && (
-          <span className="shrink-0 text-[11px] text-tertiary @3xl:hidden">Disabled</span>
+          <span className="shrink-0 text-[11px] text-tertiary @3xl:hidden">{t('Disabled')}</span>
         )}
         {atLimit && (
           <span className="shrink-0 rounded-full bg-zOrangered-500/10 px-2 py-0.5 text-[11px] text-zOrangered-400">
-            At limit
+            {t('At limit')}
           </span>
         )}
       </span>

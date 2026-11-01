@@ -1,6 +1,7 @@
 import { Check, Copy } from 'lucide-react'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import {
   CUSTOM_PORT_VALUE,
@@ -35,7 +36,7 @@ export function PortForwardForm({
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={TARGET_PORT_SELECT_ID} className="text-[12px] text-secondary font-medium">
-            Target port
+            {t('Target port')}
           </label>
           <div className="flex flex-col gap-2">
             <AppSelect
@@ -50,20 +51,20 @@ export function PortForwardForm({
 
                   return { value: p.port.toString(), label: `${named}${protocol}` }
                 }),
-                { value: CUSTOM_PORT_VALUE, label: 'Custom' },
+                { value: CUSTOM_PORT_VALUE, label: t('Custom') },
               ]}
             />
             {targetPortMode === CUSTOM_PORT_VALUE && (
               <div className="flex flex-col gap-1.5">
                 <label htmlFor={TARGET_PORT_INPUT_ID} className="sr-only">
-                  Custom target port
+                  {t('Custom target port')}
                 </label>
                 <input
                   id={TARGET_PORT_INPUT_ID}
                   type="text"
                   value={targetPort}
                   onChange={(e) => onTargetPortChange(e.target.value)}
-                  placeholder="e.g. 8080"
+                  placeholder={t('e.g. 8080')}
                   className="h-8 px-2 rounded-md bg-surface border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
                 />
               </div>
@@ -72,14 +73,14 @@ export function PortForwardForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor={LOCAL_PORT_INPUT_ID} className="text-[12px] text-secondary font-medium">
-            Local port
+            {t('Local port')}
           </label>
           <input
             id={LOCAL_PORT_INPUT_ID}
             type="text"
             value={localPort}
             onChange={(e) => onLocalPortChange(e.target.value)}
-            placeholder="auto"
+            placeholder={t('auto')}
             className="h-8 px-2 rounded-md bg-surface border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
           />
         </div>
@@ -104,7 +105,7 @@ export function ActiveForwardPanel({
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-success flex-shrink-0" />
-        <span className="text-[13px] text-success font-medium">Forwarding</span>
+        <span className="text-[13px] text-success font-medium">{t('Forwarding')}</span>
       </div>
       <div className="flex items-center gap-2 bg-zGray-800 rounded-lg px-3 py-2">
         <span className="font-mono text-[13px] text-main flex-1">
@@ -113,9 +114,9 @@ export function ActiveForwardPanel({
         <button
           type="button"
           onClick={onCopy}
-          aria-label="Copy to clipboard"
+          aria-label={t('Copy to clipboard')}
           className="w-6 h-6 flex items-center justify-center text-tertiary hover:text-main transition-colors"
-          title="Copy to clipboard"
+          title={t('Copy to clipboard')}
         >
           {copied ? (
             <Check className="w-3.5 h-3.5 text-success" strokeWidth={2} />

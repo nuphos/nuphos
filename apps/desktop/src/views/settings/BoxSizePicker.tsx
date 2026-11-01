@@ -3,6 +3,8 @@ import { RadioGroup } from '@base-ui/react/radio-group'
 import clsx from 'clsx'
 import { ArrowUpRight, Check, Lock } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { sizeGridColumns } from './boxCreatePresentation'
 
 import type { boxSizeChoices } from './boxPresentation'
@@ -96,7 +98,7 @@ export function BoxSizePicker({
         value={String(value)}
         onValueChange={(next: string) => onChange(Number(next))}
         disabled={disabled}
-        aria-label="Size"
+        aria-label={t('Size')}
         className="contents"
       >
         {choices
@@ -137,7 +139,10 @@ export function BoxSizePicker({
           key={choice.vcpus}
           type="button"
           disabled={disabled}
-          aria-label={`${choice.name}, ${choice.spec}. Needs a bigger plan; choose a plan`}
+          aria-label={t('{name}, {spec}. Needs a bigger plan; choose a plan', {
+            name: choice.name,
+            spec: choice.spec,
+          })}
           onClick={() => onUpgrade(choice)}
           className={clsx(
             CARD,
@@ -153,7 +158,7 @@ export function BoxSizePicker({
             aria-hidden="true"
           />
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-500 ring-1 ring-amber-500/40 transition-colors group-hover:bg-amber-500/25">
-            Upgrade to unlock
+            {t('Upgrade to unlock')}
             <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} aria-hidden="true" />
           </span>
         </button>

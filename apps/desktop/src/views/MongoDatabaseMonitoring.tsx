@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { t } from '../i18n'
 
 import { CapabilityPanel, EmptyMonitoring, MetricChart } from './mongo/MonitoringCharts'
 import { toChartRow } from './mongo/monitoringFormat'
@@ -79,7 +80,7 @@ export function MongoDatabaseMonitoring({ teamId, connection }: Props) {
       {loading && !history ? (
         <div className="flex min-h-64 items-center justify-center rounded-xl border border-zGray-800 text-[12px] text-tertiary">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-          Collecting the first sample…
+          {t('Collecting the first sample…')}
         </div>
       ) : samples.length === 0 ? (
         <EmptyMonitoring />
@@ -87,68 +88,68 @@ export function MongoDatabaseMonitoring({ teamId, connection }: Props) {
         <>
           <div className="grid gap-4 xl:grid-cols-2">
             <MetricChart
-              title="Operations per second"
+              title={t('Operations per second')}
               data={chartRows}
               unit="/s"
               lines={[
-                ['query', 'Queries'],
-                ['command', 'Commands'],
-                ['writes', 'Writes'],
+                ['query', t('Queries')],
+                ['command', t('Commands')],
+                ['writes', t('Writes')],
               ]}
             />
             <MetricChart
-              title="Average operation latency"
+              title={t('Average operation latency')}
               data={chartRows}
               unit="ms"
               lines={[
-                ['readLatency', 'Reads'],
-                ['writeLatency', 'Writes'],
-                ['commandLatency', 'Commands'],
+                ['readLatency', t('Reads')],
+                ['writeLatency', t('Writes')],
+                ['commandLatency', t('Commands')],
               ]}
             />
             <MetricChart
-              title="Network throughput"
+              title={t('Network throughput')}
               data={chartRows}
               unit="KB/s"
               lines={[
-                ['bytesIn', 'Inbound'],
-                ['bytesOut', 'Outbound'],
+                ['bytesIn', t('Inbound')],
+                ['bytesOut', t('Outbound')],
               ]}
             />
             <MetricChart
-              title="Connections and queues"
+              title={t('Connections and queues')}
               data={chartRows}
               unit=""
               lines={[
-                ['connections', 'Connections'],
-                ['queue', 'Queued readers/writers'],
+                ['connections', t('Connections')],
+                ['queue', t('Queued readers/writers')],
               ]}
             />
             <MetricChart
-              title="Resource utilization"
+              title={t('Resource utilization')}
               data={chartRows}
               unit="%"
               lines={[
-                ['connectionUsage', 'Connection capacity'],
-                ['cacheUsage', 'Cache'],
-                ['dirtyCache', 'Dirty cache'],
+                ['connectionUsage', t('Connection capacity')],
+                ['cacheUsage', t('Cache')],
+                ['dirtyCache', t('Dirty cache')],
               ]}
             />
             <MetricChart
-              title="MongoDB process memory"
+              title={t('MongoDB process memory')}
               data={chartRows}
               unit=" GiB"
               lines={[
-                ['residentMemory', 'Resident'],
-                ['virtualMemory', 'Virtual address space'],
+                ['residentMemory', t('Resident')],
+                ['virtualMemory', t('Virtual address space')],
               ]}
             />
             {isReplicaSet && (
               <MetricChart
-                title="Replication lag"
+                title={t('Replication lag')}
                 data={chartRows}
                 unit="s"
-                lines={[['replicationLag', 'Max secondary lag']]}
+                lines={[['replicationLag', t('Max secondary lag')]]}
               />
             )}
           </div>

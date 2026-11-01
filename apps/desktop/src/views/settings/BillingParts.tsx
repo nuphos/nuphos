@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowUpRight, Box, Loader2, Users } from 'lucide-react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import { date, money, planDetail, statusTone } from './billingPresentation'
 import { BOX_PLANS } from './boxPresentation'
@@ -57,7 +58,7 @@ export function BillingButton({
       {billing.opening === (vcpus ?? 0) ? (
         <>
           <Loader2 size={13} className="animate-spin" />
-          Opening…
+          {t('Opening…')}
         </>
       ) : (
         <>
@@ -88,21 +89,31 @@ export function LimitCallout({
         {message}
       </p>
       <p className="text-secondary">
-        Your running computers use {usage.usedVcpus} of {usage.limitVcpus} vCPU. They keep running;
-        starting or resuming a computer that doesn&apos;t fit is refused until you pause a computer
-        {next ? ' or upgrade' : ''}.
+        {next
+          ? t(
+              "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer or upgrade.",
+              { used: usage.usedVcpus ?? '', limit: usage.limitVcpus ?? '' },
+            )
+          : t(
+              "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.",
+              { used: usage.usedVcpus ?? '', limit: usage.limitVcpus ?? '' },
+            )}
       </p>
       {next &&
         (isAdmin && usage.billingUrl ? (
           <div className="flex items-center gap-3">
-            <BillingButton billing={billing}>Upgrade to {next.name}</BillingButton>
+            <BillingButton billing={billing}>
+              {t('Upgrade to {plan}', { plan: next.name })}
+            </BillingButton>
             <span className="text-[12px] text-tertiary">
               {next.name} · {planDetail(next)}
             </span>
           </div>
         ) : (
           <p className="text-[12px] text-tertiary">
-            Pause one of your computers, or ask a team administrator to upgrade to {next.name}.
+            {t('Pause one of your computers, or ask a team administrator to upgrade to {plan}.', {
+              plan: next.name,
+            })}
           </p>
         ))}
     </section>
@@ -124,12 +135,12 @@ export function InUse({
   return (
     <>
       <div className="flex items-center justify-between text-[13px]">
-        <h2 className="font-semibold text-main">In use now</h2>
+        <h2 className="font-semibold text-main">{t('In use now')}</h2>
         <span className="text-tertiary">
           <span className={clsx('font-semibold', blocked ? 'text-warning' : 'text-main')}>
             {usage.usedVcpus ?? '—'}
           </span>{' '}
-          of {limit} vCPU running
+          {t('of {limit} vCPU running', { limit })}
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-zGray-800">
@@ -157,19 +168,19 @@ export function InUse({
                     row.running ? 'bg-success' : 'bg-zGray-500',
                   )}
                 />
-                {row.running ? 'Running' : `Paused · ${String(row.vcpus)} vCPU when running`}
+                {row.running ? t('Running') : t('Paused · {n} vCPU when running', { n: row.vcpus })}
               </span>
               <span
                 className={clsx('ml-auto', row.running ? 'font-medium text-main' : 'text-tertiary')}
               >
-                {row.running ? row.vcpus : 0} vCPU
+                {t('{n} vCPU', { n: row.running ? row.vcpus : 0 })}
               </span>
             </li>
           ))}
         </ul>
       )}
       <p className="text-[12px] text-tertiary">
-        Paused computers use no vCPU. {Math.max(0, limit - used)} vCPU free.
+        {t('Paused computers use no vCPU. {free} vCPU free.', { free: Math.max(0, limit - used) })}
       </p>
     </>
   )
@@ -180,9 +191,9 @@ export function PlansTable({ current }: { current: number | null }) {
   return (
     <div className="overflow-hidden rounded-lg border border-white/[0.09] text-[13px]">
       <div className="flex px-3.5 py-2 text-[11px] font-medium text-tertiary">
-        <span className="w-40">Plan</span>
-        <span className="flex-1">Running vCPU</span>
-        <span>Price</span>
+        <span className="w-40">{t('Plan')}</span>
+        <span className="flex-1">{t('Running vCPU')}</span>
+        <span>{t('Price')}</span>
       </div>
       {BOX_PLANS.map(({ name, vcpus, usdPerMonth }) => (
         <div
@@ -196,13 +207,14 @@ export function PlansTable({ current }: { current: number | null }) {
             <span className="font-medium text-main">{name}</span>
             {vcpus === current && (
               <span className="rounded-full bg-zViolet-accent/15 px-2 py-0.5 text-[11px] text-zViolet-accent">
-                Current
+                {t('Current')}
               </span>
             )}
           </span>
-          <span className="flex-1 text-secondary">Up to {vcpus} vCPU</span>
+          <span className="flex-1 text-secondary">{t('Up to {n} vCPU', { n: vcpus })}</span>
           <span className="font-medium text-main">
-            ${usdPerMonth} <span className="text-[12px] font-normal text-tertiary">/ month</span>
+            ${usdPerMonth}{' '}
+            <span className="text-[12px] font-normal text-tertiary">{t('/ month')}</span>
           </span>
         </div>
       ))}
@@ -215,7 +227,7 @@ export function Invoices({ invoices }: { invoices: BillingSummary['invoices'] })
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[13px] font-semibold text-main">Recent invoices</h2>
+      <h2 className="text-[13px] font-semibold text-main">{t('Recent invoices')}</h2>
       <ul className={LIST}>
         {invoices.map(({ number, created, total, currency, status, url }) => (
           <li key={number ?? created} className="flex h-9 items-center gap-3 px-3.5">
@@ -228,7 +240,7 @@ export function Invoices({ invoices }: { invoices: BillingSummary['invoices'] })
                 className="ml-auto flex items-center gap-1 text-secondary hover:text-main"
                 onClick={() => void api.appOpenExternal(url)}
               >
-                View
+                {t('View')}
                 <ArrowUpRight size={13} />
               </button>
             )}

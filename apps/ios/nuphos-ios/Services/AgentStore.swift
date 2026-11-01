@@ -65,11 +65,11 @@ final class AgentStore {
 
     // MARK: - Archive
 
-    func archive(_ conversation: AgentConversation) async {
-        guard conversation.canManage, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+    func archive(sessionId: String, teamId: String?) async {
+        guard let teamId = teamId ?? selectedTeam?.id else { return }
         do {
-            try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: conversation.sessionId, archived: true)
-            removeFromList(conversation.sessionId)
+            try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: true)
+            removeFromList(sessionId)
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -122,6 +122,16 @@ final class AgentStore {
         if folded.remove(sessionId) == nil { folded.insert(sessionId) }
         foldedThreads[team] = folded
         UserDefaults.standard.set(foldedThreads.mapValues(Array.init), forKey: Self.foldedThreadsKey)
+    }
+
+    func rename(_ conversation: AgentConversation, title: String) async {
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        do {
+            try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: conversation.sessionId, title: title)
+            await reload()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
     }
 
     func unlinkParent(_ conversation: AgentConversation) async {
@@ -285,7 +295,7 @@ final class AgentStore {
         didSet { if search != oldValue { scheduleSearch() } }
     }
 
-    private let token: String
+    let token: String
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
@@ -333,6 +343,8 @@ final class AgentStore {
 
     /// The signed-in user, for sessions to label what they send.
     var me: ChatMessage.Sender?
+    /// The signed-in person's id: whose computers open their desktop from the Runtimes page.
+    var userId: String?
 
     init(token: String) {
         self.token = token
@@ -341,6 +353,14 @@ final class AgentStore {
         }
         ConversationUnread.shared.probe = { team, session in
             _ = try? await NuphosAPI.conversationDetail(token: token, teamId: team, sessionId: session, tail: 1)
+        }
+        // The list the last launch showed, until `loadTeams` refreshes it.
+        if let cached = LaunchCache.read(LaunchCache.Agents.self) {
+            selectedTeam = cached.team
+            conversations = cached.conversations
+            favorites = cached.favorites
+            selectedRuntimeId = UserDefaults.standard.string(forKey: runtimeKey(for: cached.team))
+            phase = .loaded
         }
     }
 
@@ -351,22 +371,23 @@ final class AgentStore {
     func loadTeams() async {
         teamsPhase = .loading
         do {
+            let firstLoad = self.teams.isEmpty
             let teams = try await NuphosAPI.teams(token: token)
             self.teams = teams
             teamsPhase = .loaded
             let remembered = UserDefaults.standard.string(forKey: Self.lastTeamKey)
             let pick = teams.first { $0.id == remembered } ?? teams.first
-            if pick != selectedTeam {
+            if pick != selectedTeam || phase == .idle {
                 selectedTeam = pick
                 resetTeamScopedState()
                 await reload()
-            } else if phase == .idle {
-                resetTeamScopedState()
+            } else if firstLoad {
+                // Showing the launch cache: refresh it in place.
                 await reload()
             }
         } catch {
             teamsPhase = .failed(error.localizedDescription)
-            if teams.isEmpty { phase = .failed(error.localizedDescription) }
+            if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
     }
 
@@ -407,6 +428,9 @@ final class AgentStore {
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = .loaded
+            if search.isEmpty {
+                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows, favorites: favorites))
+            }
             // A pinned chat stays on top however old it is, so page until each one is listed.
             for _ in 0..<10 where hasMore && search.isEmpty
                 && !Set(pinnedOrder).isSubset(of: conversations.map(\.sessionId)) {
@@ -441,7 +465,9 @@ final class AgentStore {
         }
     }
 
-    /// A live session for an existing conversation (loads on first use).
+    /// A live session for an existing conversation, already loading. The
+    /// load belongs to the session, not to the view showing it, so a view
+    /// SwiftUI cancels or keeps cannot leave it unloaded.
     func session(for conversation: AgentConversation) -> ChatSession {
         let session = ChatSession(
             token: token,
@@ -452,6 +478,7 @@ final class AgentStore {
             runtimeLabel: conversation.runtimeLabel
         )
         session.me = me
+        Task { await session.load() }
         return session
     }
 
@@ -460,6 +487,7 @@ final class AgentStore {
     func session(sessionId: String, title: String, teamId: String? = nil) -> ChatSession {
         let session = ChatSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", sessionId: sessionId, title: title)
         session.me = me
+        Task { await session.load() }
         return session
     }
 
@@ -496,7 +524,6 @@ final class AgentStore {
     }
 
     private func pollOnce() async {
-        RuntimeObservations.shared.tick()
         guard phase == .loaded, !isLoadingMore else { return }
         await refreshFirstPage()
     }

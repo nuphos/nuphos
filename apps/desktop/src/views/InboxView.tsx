@@ -4,15 +4,22 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { AgentHistoryPage, AgentPanel } from '../components/agent/AgentPanel'
+import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { openInputRequests } from '../lib/agentInputRequests'
+import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
-import { nextSelection } from './inbox/inboxItems'
+import { DecisionCards } from './inbox/DecisionCards'
+import { nextSelection, replyTarget } from './inbox/inboxItems'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
+import { publishInboxListing } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { AgentConversation } from '../api'
+import type { AgentPromptSeed } from '../components/agent/panel/model'
+import type { JournalChatTarget } from '../lib/journalEvent'
 
 // The rail refetches on this beat, so an answered conversation leaves and the next one opens.
 const INBOX_REFRESH_MS = 5_000
@@ -31,10 +38,10 @@ type Props = {
 
 /**
  * Teammates asking to use the viewer's own computer, above every conversation
- * waiting on the viewer, beside the one being answered —
- * the Chats reader's own list and panel, listing only `pendingDecision`. The
- * answer is typed into that conversation's composer; the human turn clears
- * the decision (#565) and the next listing moves on.
+ * waiting on the viewer. The reader shows that conversation's open questions as
+ * cards: a choice answers its own question, and the composer below answers the
+ * selected one. The transcript stays hidden until asked for; only delivery or
+ * dismissal clears a question.
  */
 export function InboxView({
   teamId,
@@ -50,6 +57,15 @@ export function InboxView({
   const [items, setItems] = useState<AgentConversation[] | null>(null)
   const [selected, setSelected] = useState<{ sessionId: string; index: number } | null>(null)
   const [tick, setTick] = useState(0)
+  // Which of the open conversation's questions the next reply answers.
+  const [chosenRequest, setChosenRequest] = useState<string | null>(null)
+  // The reader shows the questions; the transcript only when asked for, at the question.
+  const [showConversation, setShowConversation] = useState(false)
+  const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
+    null,
+  )
+  // A choice from a card, sent through the conversation's own composer.
+  const [answer, setAnswer] = useState<AgentPromptSeed | null>(null)
   // Another team's list and open conversation are no answer for this one.
   const [shownTeamId, setShownTeamId] = useState(teamId)
 
@@ -63,20 +79,31 @@ export function InboxView({
   const readerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const interval = setInterval(() => setTick((n) => n + 1), INBOX_REFRESH_MS)
+    const reload = () => setTick((n) => n + 1)
+    const interval = setInterval(reload, INBOX_REFRESH_MS)
+    const stopRefresh = onInputRequestsRefresh(reload)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      stopRefresh()
+    }
   }, [])
   useEffect(() => onLoading?.(items === null), [items, onLoading])
   useEffect(() => onCount?.(items?.length ?? 0), [items, onCount])
 
   const select = useCallback((sessionId: string | null, list: AgentConversation[]) => {
+    setChosenRequest(null)
+    setShowConversation(false)
+    setLocate(null)
+    setAnswer(null)
     setSelected(
       sessionId
         ? { sessionId, index: list.findIndex((item) => item.sessionId === sessionId) }
         : null,
     )
   }, [])
+  const consumeLocate = useCallback(() => setLocate(null), [])
+  const consumeAnswer = useCallback(() => setAnswer(null), [])
   const selectedRef = useRef(selected)
 
   useEffect(() => {
@@ -85,6 +112,8 @@ export function InboxView({
   const onListLoaded = useCallback(
     (list: AgentConversation[]) => {
       setItems(list)
+      // Unfiltered, this is the listing the sidebar badge counts.
+      if (!query) publishInboxListing(teamId, list)
       const open = selectedRef.current
       const settle = (stillWaits: boolean) => {
         // The reader moved meanwhile: that choice stands.
@@ -103,7 +132,7 @@ export function InboxView({
         () => settle(true),
       )
     },
-    [teamId],
+    [teamId, query],
   )
 
   // Enter or → moves from the list into the open conversation's composer; Esc comes back.
@@ -144,6 +173,23 @@ export function InboxView({
   }, [isActive, twoPane])
 
   const empty = items !== null && items.length === 0 && !query
+  const selectedItem = selected && items?.find((item) => item.sessionId === selected.sessionId)
+  const selectedRequests = selectedItem ? openInputRequests(selectedItem) : []
+  const replyTo = replyTarget(selectedRequests, chosenRequest)
+  const replyRequest = selectedRequests.find((request) => request.id === replyTo)
+
+  const openTranscript = () => {
+    setShowConversation(true)
+    if (selectedItem && replyRequest)
+      setLocate({
+        sessionId: selectedItem.sessionId,
+        target: {
+          toolCallId: replyRequest.id,
+          question: replyRequest.question,
+          options: replyRequest.options,
+        },
+      })
+  }
   const caughtUp = empty && shareApprovals.approvals.length === 0
 
   return (
@@ -186,15 +232,48 @@ export function InboxView({
         {twoPane && !empty && (
           <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
             {selected && (
-              <AgentPanel
-                key="inbox"
-                variant="page"
-                open
-                focusComposerOnOpen={false}
+              <DecisionCards
                 teamId={teamId}
                 sessionId={selected.sessionId}
-                onSessionChange={(sessionId) => select(sessionId, items ?? [])}
+                title={selectedItem?.title}
+                requests={selectedRequests}
+                replyTo={replyTo}
+                showingConversation={showConversation}
+                onChoose={setChosenRequest}
+                onAnswer={(requestId, text) => {
+                  setChosenRequest(requestId)
+                  setAnswer({ text, nonce: Date.now(), autoSend: true, replace: true })
+                }}
+                onShowConversation={openTranscript}
+                onHideConversation={() => setShowConversation(false)}
+                onOpenConversation={() => onOpenConversation(selected.sessionId)}
               />
+            )}
+            {selected && (
+              // Without the transcript the panel is just its composer, under the cards.
+              <div
+                className={clsx(
+                  'flex min-h-0 flex-col',
+                  showConversation ? 'flex-1' : 'h-56 shrink-0',
+                )}
+              >
+                <AgentPanel
+                  key="inbox"
+                  variant="page"
+                  open
+                  focusComposerOnOpen={false}
+                  teamId={teamId}
+                  sessionId={selected.sessionId}
+                  decisionReplyTo={replyTo}
+                  hideTranscript={!showConversation}
+                  pendingPrompt={answer}
+                  onPromptConsumed={consumeAnswer}
+                  openQuestions={selectedItem ? conversationQuestions(selectedItem) : undefined}
+                  pendingLocate={locate}
+                  onLocateConsumed={consumeLocate}
+                  onSessionChange={(sessionId) => select(sessionId, items ?? [])}
+                />
+              </div>
             )}
           </div>
         )}

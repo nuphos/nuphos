@@ -127,6 +127,18 @@ export function identify(distinctId: string, properties?: ObservabilityPropertie
   }
 }
 
+/** Sets person properties that PostHog keeps from the first time they are set. */
+export function setPersonOnce(distinctId: string, properties: ObservabilityProperties): void {
+  try {
+    getClient()?.identify({
+      distinctId,
+      properties: { $set_once: sanitizeProperties(properties) },
+    })
+  } catch (posthogError) {
+    logError('posthog.identify_failed', posthogError, { distinct_id: distinctId })
+  }
+}
+
 export async function shutdownPostHog(timeoutMs = 2_000): Promise<void> {
   try {
     await client?.shutdown(timeoutMs)

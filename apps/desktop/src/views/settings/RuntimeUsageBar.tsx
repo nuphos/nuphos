@@ -1,4 +1,5 @@
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 import {
   mostConstrainedWindow,
   quotaDetailLines,
@@ -32,7 +33,7 @@ export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
     >
       <span
         role="progressbar"
-        aria-label="Usage remaining"
+        aria-label={t('Usage remaining')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={left}

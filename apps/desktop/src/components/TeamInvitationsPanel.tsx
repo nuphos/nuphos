@@ -1,6 +1,8 @@
 import { ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../i18n'
+
 import { InvitationList } from './InvitationList'
 import { Modal } from './Modal'
 import { Button } from './ui/button'
@@ -50,10 +52,10 @@ export function TeamInvitationsTakeover({
       setJoinedTeams((prev) =>
         prev.some((team) => team.id === teamId)
           ? prev
-          : [...prev, { id: teamId, name: invitation?.team?.name ?? 'Your workspace' }],
+          : [...prev, { id: teamId, name: invitation?.team?.name ?? t('Your workspace') }],
       )
     } catch (e) {
-      toast.apiError('Could not accept invitation', e)
+      toast.apiError(t('Could not accept invitation'), e)
     } finally {
       setActingId(null)
     }
@@ -66,7 +68,7 @@ export function TeamInvitationsTakeover({
       await onRejectInvitation(invitationId)
       setInvitations((prev) => prev.filter((item) => item.id !== invitationId))
     } catch (e) {
-      toast.apiError('Could not reject invitation', e)
+      toast.apiError(t('Could not reject invitation'), e)
     } finally {
       setActingId(null)
     }
@@ -81,8 +83,8 @@ export function TeamInvitationsTakeover({
     <Modal
       open
       onClose={onClose}
-      title="Team invitations"
-      description="You've been invited to join a workspace."
+      title={t('Team invitations')}
+      description={t("You've been invited to join a workspace.")}
       footer={
         <div className="flex items-center justify-end gap-2 px-5 py-4">
           <button
@@ -90,7 +92,7 @@ export function TeamInvitationsTakeover({
             onClick={onClose}
             className="h-8 px-3 rounded-md border border-zGray-800 text-secondary hover:text-main hover:bg-zGray-800/70 text-[12.5px] transition-colors"
           >
-            Later
+            {t('Later')}
           </button>
           {joinedTeams.length > 0 && (
             <Button
@@ -100,7 +102,7 @@ export function TeamInvitationsTakeover({
               disabled={actingId !== null}
               onClick={() => onContinue(joinedTeams[0]!.id)}
             >
-              Open {joinedTeams[0]!.name}
+              {t('Open {name}', { name: joinedTeams[0]!.name })}
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
             </Button>
           )}
@@ -110,7 +112,7 @@ export function TeamInvitationsTakeover({
       <div className="max-h-[50vh] space-y-2 overflow-y-auto scrollbar-thin p-5">
         {invitations.length === 0 ? (
           <div className="py-2 text-center text-[12.5px] text-tertiary">
-            No pending invitations.
+            {t('No pending invitations.')}
           </div>
         ) : (
           <InvitationList
@@ -124,7 +126,7 @@ export function TeamInvitationsTakeover({
         )}
         {allHandled && invitations.length > 0 && (
           <div className="pt-1 text-center text-[12px] text-tertiary">
-            All set — open a workspace below.
+            {t('All set — open a workspace below.')}
           </div>
         )}
       </div>

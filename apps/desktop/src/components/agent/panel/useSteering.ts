@@ -1,15 +1,16 @@
 import { useCallback } from 'react'
 
-import { api } from '../../../api'
-import { parseAtlasError } from '../../../api/errors'
-import { toast } from '../../ui/toast'
+import { parseAtlasError } from '../../../api/errors.ts'
+import { api } from '../../../api.ts'
+import { t } from '../../../i18n/index.ts'
+import { toast } from '../../ui/toast.ts'
 
-import { optimisticSenderMetadata } from './optimisticSender'
-import { normalizeTransferUploadPart } from './parts'
-import { withoutQueued } from './queuedAutoSend'
-import { appendSteering } from './steering'
+import { optimisticSenderMetadata } from './optimisticSender.ts'
+import { normalizeTransferUploadPart } from './parts.ts'
+import { withoutQueued } from './queuedAutoSend.ts'
+import { appendSteering } from './steering.ts'
 
-import type { PanelCtx } from './ctx'
+import type { PanelCtx } from './ctx.ts'
 
 export function useSteering({
   tabsRef,
@@ -83,20 +84,14 @@ export function useSteering({
         setTabs((tabs) =>
           tabs.map((t) =>
             t.id === tabId
-              ? {
-                  ...(t.streamId === tab.streamId &&
-                  t.messages.at(-1)?.id === tab.messages.at(-1)?.id
-                    ? appendSteering(t, receipt)
-                    : t),
-                  queued: t.queued?.filter((q) => q.id !== id),
-                }
+              ? { ...appendSteering(t, receipt), queued: t.queued?.filter((q) => q.id !== id) }
               : t,
           ),
         )
       } catch (error) {
         if (queuedId) {
           markSteering(false)
-          toast.apiError('Could not send into the running turn; it is still in the queue', error)
+          toast.apiError(t('Could not send into the running turn; it is still in the queue'), error)
 
           return
         }
@@ -104,7 +99,9 @@ export function useSteering({
         setTabs((tabs) => tabs.map((t) => (t.id === tabId ? withoutQueued(t, id) : t)))
         if (!isSteeringUnavailable(error))
           toast.apiError(
-            'Could not steer the current turn; it was sent as a message at the back of the queue',
+            t(
+              'Could not steer the current turn; it was sent as a message at the back of the queue',
+            ),
             error,
           )
         await fallback(tabId, text, filePaths)

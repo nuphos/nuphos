@@ -21,6 +21,13 @@ export const REATTACH_DELAYS_MS = [0, 1_000, 2_000, 5_000, 10_000, 30_000, 60_00
 type Sleep = (ms: number) => Promise<void>
 const sleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/** Whether the computer holding a local runtime is online now; a cloud runtime always is. */
+export async function isOnline(url: string): Promise<boolean> {
+  const computer = parseLocalRuntimeUrl(url)
+
+  return !computer || Boolean(await runtimePresenceStore().get(computer.userId, computer.deviceId))
+}
+
 /**
  * Resolves once the computer holding a local runtime is online: at once while
  * its tunnel is open, else at that tunnel's next heartbeat. A cloud runtime has
@@ -42,7 +49,7 @@ export async function untilOnline(url: string): Promise<void> {
   )
 
   try {
-    if (await runtimePresenceStore().get(computer.userId, computer.deviceId)) return
+    if (await isOnline(url)) return
     await back
   } finally {
     stop()

@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Laptop, Loader2, Shield, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../../i18n'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
 
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
@@ -51,7 +52,7 @@ function SelectionButton({
     (devices
       ? listedDevices.some((device) => unseen.deviceIds.includes(device.deviceId))
       : countSelectedCredentials(unseen) > 0)
-  const title = devices ? 'Computers' : 'Agent credentials'
+  const title = devices ? t('Computers') : t('Agent credentials')
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
   const changeAll = (select: boolean) => {
@@ -82,7 +83,19 @@ function SelectionButton({
           'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main',
           hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
         )}
-        title={`${title} (${String(selectedCount)}/${String(totalCount)} selected)${hasNew ? ' · new options available' : ''}`}
+        title={
+          hasNew
+            ? t('{title} ({selected}/{total} selected) · new options available', {
+                title,
+                selected: selectedCount,
+                total: totalCount,
+              })
+            : t('{title} ({selected}/{total} selected)', {
+                title,
+                selected: selectedCount,
+                total: totalCount,
+              })
+        }
         aria-label={title}
       >
         <Icon className={iconSize} strokeWidth={devices ? 1.75 : 2} />
@@ -110,20 +123,20 @@ function SelectionButton({
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-main">{title}</div>
             <div className="text-[11.5px] text-tertiary">
-              {selectedCount}/{totalCount} selected
+              {t('{selected}/{total} selected', { selected: selectedCount, total: totalCount })}
             </div>
           </div>
           {saving && (
             <Loader2
               className="h-3.5 w-3.5 animate-spin text-tertiary"
-              aria-label="Updating selection"
+              aria-label={t('Updating selection')}
             />
           )}
           <button
             type="button"
             onClick={() => setMenuOpen(false)}
             className="h-6 w-6 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
-            title="Close"
+            title={t('Close')}
           >
             <X className="h-3.5 w-3.5" strokeWidth={1.8} />
           </button>
@@ -131,8 +144,8 @@ function SelectionButton({
         {totalCount === 0 && (
           <div className="px-2 py-3 text-[12px] text-tertiary">
             {devices
-              ? 'No computers available to this team yet.'
-              : 'No credentials bound to this team yet.'}
+              ? t('No computers available to this team yet.')
+              : t('No credentials bound to this team yet.')}
           </div>
         )}
         {totalCount > 0 && (
@@ -143,7 +156,7 @@ function SelectionButton({
               disabled={selectedCount === totalCount}
               className="text-[11.5px] text-zViolet-accent hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
             >
-              Select all
+              {t('Select all')}
             </button>
             <span className="text-tertiary text-[11px]">·</span>
             <button
@@ -152,7 +165,7 @@ function SelectionButton({
               disabled={selectedCount === 0}
               className="text-[11.5px] text-secondary hover:text-main hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
             >
-              Clear all
+              {t('Clear all')}
             </button>
           </div>
         )}
@@ -200,7 +213,7 @@ function DeviceOptions({
               <span className="block text-[11.5px] text-tertiary">{device.sublabel}</span>
             </span>
             {unseen?.deviceIds.includes(device.id) && (
-              <span className="text-[10px] text-zViolet-accent">New</span>
+              <span className="text-[10px] text-zViolet-accent">{t('New')}</span>
             )}
           </MenuCheckboxItem>
         ))}

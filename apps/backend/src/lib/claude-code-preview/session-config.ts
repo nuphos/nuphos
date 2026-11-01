@@ -1,5 +1,6 @@
 import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
@@ -17,6 +18,7 @@ import type {
   SessionConfigSelection,
   SessionConfigState,
 } from './session-config-options'
+import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
 
 export async function controlSessionConfig(
@@ -116,7 +118,11 @@ export async function conversationSessionConfig(
   if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId)
   const catalogFor = runtimeCatalog(conversation, viewerUserId)
 
-  if (!selection) return await sessionConfigView(storedPick(attachment), catalogFor)
+  if (!selection) {
+    if (shouldPrewarm(conversation, viewerUserId)) prewarmSession(conversation, attachment)
+
+    return await sessionConfigView(storedPick(attachment), catalogFor)
+  }
   const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
 
   return await sessionConfigView(picked, catalogFor)
@@ -198,6 +204,41 @@ async function initialSessionConfig(
   return { status, options }
 }
 
+// Restore a reaped agent when its owner opens a recent chat; older ones are mostly just read.
+const PREWARM_WINDOW_MS = 3 * 60 * 60 * 1000
+const prewarming = new Set<string>()
+
+export function shouldPrewarm(
+  conversation: Pick<AgentConversation, 'userId' | 'lastActiveAt'>,
+  viewerUserId: string | undefined,
+  now = Date.now(),
+): boolean {
+  const age = now - new Date(conversation.lastActiveAt).getTime()
+
+  return viewerUserId === conversation.userId && age < PREWARM_WINDOW_MS
+}
+
+function prewarmSession(
+  conversation: AgentConversation,
+  attachment: NonNullable<ReturnType<typeof liveAttachment>>,
+) {
+  const id = attachment.openabSessionId
+
+  if (prewarming.has(id)) return
+  prewarming.add(id)
+  void withSessionClient(conversation, attachment, (client, endpoint) =>
+    restoreSessionConfigForWrite(client, id, conversation.userId, conversation.userId, () =>
+      sessionConfigRestoreContext(conversation, endpoint),
+    ),
+  )
+    .catch((error: unknown) => {
+      // An unavailable runtime is not a failure here: the next prompt reports it.
+      if (error instanceof AppError) return
+      logError('agent.session.prewarm_failed', error, { session_id: conversation.sessionId })
+    })
+    .finally(() => prewarming.delete(id))
+}
+
 /**
  * A change goes to the live session, and what it confirms becomes the session's
  * settings: shown from then on, and applied again if the session is recreated.
@@ -208,9 +249,39 @@ async function applySessionConfig(
   selection: SessionConfigSelection,
   viewerUserId?: string,
 ): Promise<RuntimeDefaults> {
+  const options = await withSessionClient(conversation, attachment, async (client, endpoint) => {
+    await restoreSessionConfigForWrite(
+      client,
+      attachment.openabSessionId,
+      conversation.userId,
+      viewerUserId,
+      () => sessionConfigRestoreContext(conversation, endpoint),
+    )
+
+    return (await controlSessionConfig(client, attachment.openabSessionId, selection)).options
+  })
+
+  // Scoped to the session id so a newer session's settings are never overwritten.
+  await agentConversations().updateOne(
+    {
+      sessionId: conversation.sessionId,
+      teamId: conversation.teamId,
+      'claudeCodePreview.openabSessionId': attachment.openabSessionId,
+    },
+    { $set: { 'claudeCodePreview.sessionConfig': options } },
+  )
+
+  return storedPick({ ...attachment, sessionConfig: options })
+}
+
+async function withSessionClient<T>(
+  conversation: AgentConversation,
+  attachment: NonNullable<ReturnType<typeof liveAttachment>>,
+  use: (client: OpenAbAcpClient, endpoint: TeamRuntimeEndpoint) => Promise<T>,
+): Promise<T> {
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation)
 
-  if (!endpoint || endpoint.url !== attachment.runtimeUrl)
+  if (endpoint.url !== attachment.runtimeUrl)
     throw new AppError(409, 'runtime_unavailable', 'The conversation’s agent is unavailable.')
   // Do not session/resume here: it would claim the live output sink from
   // another backend replica. This connection only writes configuration.
@@ -221,26 +292,8 @@ async function applySessionConfig(
 
   try {
     await client.initialize()
-    await restoreSessionConfigForWrite(
-      client,
-      attachment.openabSessionId,
-      conversation.userId,
-      viewerUserId,
-      () => sessionConfigRestoreContext(conversation, endpoint),
-    )
-    const { options } = await controlSessionConfig(client, attachment.openabSessionId, selection)
 
-    // Scoped to the session id so a newer session's settings are never overwritten.
-    await agentConversations().updateOne(
-      {
-        sessionId: conversation.sessionId,
-        teamId: conversation.teamId,
-        'claudeCodePreview.openabSessionId': attachment.openabSessionId,
-      },
-      { $set: { 'claudeCodePreview.sessionConfig': options } },
-    )
-
-    return storedPick({ ...attachment, sessionConfig: options })
+    return await use(client, endpoint)
   } finally {
     client.close()
   }

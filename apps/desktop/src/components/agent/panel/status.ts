@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution.ts'
 
 import { AGENT_PHASE_LABELS } from './agentPhase.ts'
@@ -97,7 +98,7 @@ function failedTurnExplainedInline(
 export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStatus | null {
   if (!tab.sessionId || (!tab.claudeCodeRuntimeAttached && tab.messages.length === 0)) return null
 
-  if (!tab.claudeCodeRuntimeAttached && !tab.runtimeState) return { label: 'Connecting…' }
+  if (!tab.claudeCodeRuntimeAttached && !tab.runtimeState) return { label: t('Connecting…') }
   const snapshot = tab.runtimeState
 
   // Only the runtime's own words are shown. Whether the agent can be reached is

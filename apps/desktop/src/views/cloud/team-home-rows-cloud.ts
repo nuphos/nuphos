@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 import { databaseEngineLabel } from '../../lib/databaseEngine'
 import { isDatabaseEngineReleased } from '../../lib/databaseRelease'
 
@@ -87,8 +88,8 @@ export function buildCloudConnectorRows({
       principal:
         account.roles.length === 1
           ? awsRoleName(account.roles[0].roleArn)
-          : `${String(account.roles.length)} roles`,
-      status: 'AWS account',
+          : t('{n} roles', { n: account.roles.length }),
+      status: t('AWS account'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'aws',
@@ -108,8 +109,8 @@ export function buildCloudConnectorRows({
       principal:
         project.serviceAccounts.length === 1
           ? project.serviceAccounts[0].serviceAccountEmail
-          : `${String(project.serviceAccounts.length)} service accounts`,
-      status: 'GCP project',
+          : t('{n} service accounts', { n: project.serviceAccounts.length }),
+      status: t('GCP project'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'gcp',
@@ -131,7 +132,7 @@ export function buildCloudConnectorRows({
       provider: 'cloudflare' as const,
       account: account.accountName ?? account.accountId,
       principal: account.accountId,
-      status: 'Cloudflare account',
+      status: t('Cloudflare account'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'cloudflare',
@@ -144,8 +145,8 @@ export function buildCloudConnectorRows({
       key: `linode:${account.id}`,
       provider: 'linode' as const,
       account: account.label,
-      principal: 'Personal access token',
-      status: 'Linode account',
+      principal: t('Personal access token'),
+      status: t('Linode account'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'linode', connectorId: account.id, name: account.label }),
       onDelete: () => api.atlasUnbindLinodeAccount(teamId, account.id),
@@ -154,8 +155,8 @@ export function buildCloudConnectorRows({
       key: `hetzner:${account.id}`,
       provider: 'hetzner' as const,
       account: account.label,
-      principal: 'API token',
-      status: 'Hetzner account',
+      principal: t('API token'),
+      status: t('Hetzner account'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'hetzner', connectorId: account.id, name: account.label }),
       onDelete: () => api.atlasUnbindHetznerAccount(teamId, account.id),
@@ -165,8 +166,8 @@ export function buildCloudConnectorRows({
       provider: 'onprem-k8s' as const,
       account: cluster.label,
       principal: cluster.contextName,
-      status: cluster.hasCredential ? 'Kubernetes' : 'Access credential required',
-      attention: cluster.hasCredential ? undefined : 'Access credential required',
+      status: cluster.hasCredential ? 'Kubernetes' : t('Access credential required'),
+      attention: cluster.hasCredential ? undefined : t('Access credential required'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'onprem-k8s',
@@ -185,7 +186,7 @@ export function buildCloudConnectorRows({
       ]
         .filter(Boolean)
         .join(' + '),
-      status: 'Better Stack integration',
+      status: t('Better Stack integration'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'betterstack',
@@ -201,7 +202,7 @@ export function buildCloudConnectorRows({
         provider: 'mongodb' as const,
         account: connection.name,
         principal: connection.endpoint,
-        status: `${databaseEngineLabel(connection.engine)} connection`,
+        status: t('{engine} connection', { engine: databaseEngineLabel(connection.engine) }),
         onAction: () =>
           onOpenConnectorInfo({
             provider: 'mongodb',
@@ -215,7 +216,9 @@ export function buildCloudConnectorRows({
       provider: 'uptime-kuma' as const,
       account: instance.label,
       principal:
-        instance.authType === 'token' ? 'Auth token' : instance.username || 'Username/password',
+        instance.authType === 'token'
+          ? t('Auth token')
+          : instance.username || t('Username/password'),
       status: instance.baseUrl.replace(/^https?:\/\//, ''),
       onAction: () =>
         onOpenConnectorInfo({
@@ -230,7 +233,7 @@ export function buildCloudConnectorRows({
       provider: 'tailscale' as const,
       account: client.label,
       principal: client.clientId,
-      status: 'Tailscale OAuth client',
+      status: t('Tailscale OAuth client'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'tailscale', connectorId: client.id, name: client.label }),
       onDelete: () => api.atlasUnbindTailscaleClient(teamId, client.id),
@@ -240,7 +243,7 @@ export function buildCloudConnectorRows({
       provider: 'zeabur' as const,
       account: provider.name,
       principal: provider.zeaburId,
-      status: provider.kind === 'team' ? 'Zeabur team' : 'Zeabur user',
+      status: provider.kind === 'team' ? t('Zeabur team') : t('Zeabur user'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'zeabur',

@@ -10,8 +10,11 @@ object BotAvatars {
         "17-the-scream.svg", "18-american-gothic.svg", "19-the-fifer.svg", "20-son-of-man.svg",
         "21-the-milkmaid.svg", "22-lady-with-an-ermine.svg", "23-girl-with-peaches.svg",
         "24-the-blue-boy.svg", "25-infanta.svg", "26-the-swing.svg", "27-the-astronomer.svg",
-        "28-the-sleeping-gypsy.svg",
+        "28-the-sleeping-gypsy.svg", "29-amelia-earhart.svg",
     )
+
+    /** Only the first 28 are derived from an ID, so appending a character never changes an Agent's face. */
+    const val DEFAULT_COUNT = 28
 
     fun file(id: String): String {
         var hash = 2166136261u
@@ -21,6 +24,6 @@ object BotAvatars {
             hash = (hash xor unit.code.toUInt()) * 16777619u
             i += if (unit.isHighSurrogate() && i + 1 < id.length && id[i + 1].isLowSurrogate()) 2 else 1
         }
-        return files[(hash % files.size.toUInt()).toInt()]
+        return files[(hash % DEFAULT_COUNT.toUInt()).toInt()]
     }
 }

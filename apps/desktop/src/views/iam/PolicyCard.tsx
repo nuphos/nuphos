@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
 import { formatAge } from '../../utils'
 
 import type { AwsIamPolicy, AwsIamStatement } from '../../types'
@@ -10,7 +11,10 @@ function truncatedInlineList(items: string[], limit: number): string {
   if (items.length === 0) return '—'
   if (items.length <= limit) return items.join(', ')
 
-  return `${items.slice(0, limit).join(', ')}, ... +${String(items.length - limit)} more`
+  return t('{items}, ... +{n} more', {
+    items: items.slice(0, limit).join(', '),
+    n: items.length - limit,
+  })
 }
 
 export function PolicyCard({ policy }: { policy: AwsIamPolicy }) {
@@ -39,10 +43,10 @@ export function PolicyCard({ policy }: { policy: AwsIamPolicy }) {
           )}
         >
           {policy.kind === 'inline'
-            ? 'Inline'
+            ? t('Inline')
             : policy.awsManaged
-              ? 'AWS managed'
-              : 'Customer managed'}
+              ? t('AWS managed')
+              : t('Customer managed')}
         </span>
       </button>
       {open && (
@@ -54,13 +58,16 @@ export function PolicyCard({ policy }: { policy: AwsIamPolicy }) {
           )}
           {policy.versionId && (
             <div className="text-[11px] text-tertiary">
-              Version {policy.versionId}
-              {policy.updatedAt && <> · updated {formatAge(policy.updatedAt)} ago</>}
+              {t('Version {version}', { version: policy.versionId })}
+              {policy.updatedAt &&
+                ` · ${t('updated {age} ago', { age: formatAge(policy.updatedAt) })}`}
             </div>
           )}
           {policy.statements.length === 0 ? (
             <div className="text-[11.5px] text-tertiary italic">
-              Policy document was not readable (likely missing iam:GetPolicyVersion).
+              {t('Policy document was not readable (likely missing {permission}).', {
+                permission: 'iam:GetPolicyVersion',
+              })}
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -100,7 +107,7 @@ function StatementRow({ statement }: { statement: AwsIamStatement }) {
         >
           {statement.effect}
         </span>
-        <span className="text-tertiary">on</span>
+        <span className="text-tertiary">{t('on|policy resource')}</span>
         <span className="font-mono text-secondary truncate" title={resourceList.join(', ')}>
           {resourceText}
         </span>
@@ -118,7 +125,7 @@ function StatementRow({ statement }: { statement: AwsIamStatement }) {
       </div>
       {statement.conditionSummary && (
         <div className="mt-1 text-tertiary font-mono break-all">
-          when {statement.conditionSummary}
+          {t('when {condition}', { condition: statement.conditionSummary })}
         </div>
       )}
     </div>

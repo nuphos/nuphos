@@ -10,6 +10,7 @@ import type {
   UpdateRuntimeInput,
 } from '../types/runtime'
 import type {
+  AgentStatsQuery,
   HomeLayout,
   SidebarFavoriteCloudEntry,
   TeamActivityRange,
@@ -17,6 +18,10 @@ import type {
 } from '../types/team.ts'
 
 export const teamApi = {
+  atlasGetTeamGoogleClient: (teamId: string) => window.api.atlasGetTeamGoogleClient(teamId),
+  atlasSetTeamGoogleClient: (teamId: string, clientId: string, clientSecret: string) =>
+    window.api.atlasSetTeamGoogleClient(teamId, clientId, clientSecret),
+  atlasDeleteTeamGoogleClient: (teamId: string) => window.api.atlasDeleteTeamGoogleClient(teamId),
   atlasReadRuntimeFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
     window.api.atlasReadRuntimeFile(teamId, runtimeId, sessionId, path),
   atlasReadLinkedFile: (teamId: string, runtimeId: string, sessionId: string, path: string) =>
@@ -70,8 +75,8 @@ export const teamApi = {
     window.api.atlasGetRuntimeModelConfig(teamId, runtimeId, pick),
   atlasRequestRuntimeUpdate: (teamId: string, runtimeId: string) =>
     window.api.atlasRequestRuntimeUpdate(teamId, runtimeId),
-  atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string) =>
-    window.api.atlasGetRuntimeInstanceStatus(teamId, runtimeId),
+  atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string, wake?: boolean) =>
+    window.api.atlasGetRuntimeInstanceStatus(teamId, runtimeId, wake),
   atlasGetRuntimeInstanceMetrics: (teamId: string, runtimeId: string, hours: number) =>
     window.api.atlasGetRuntimeInstanceMetrics(teamId, runtimeId, hours),
 
@@ -82,8 +87,13 @@ export const teamApi = {
     expectedRevision: number,
   ) => window.api.atlasPutSidebarFavorites(teamId, entries, expectedRevision),
   atlasGetHomeLayout: (teamId: string) => window.api.atlasGetHomeLayout(teamId),
+  atlasGetRuntimeFallback: (teamId: string) => window.api.atlasGetRuntimeFallback(teamId),
+  atlasPutRuntimeFallback: (teamId: string, runtimeIds: string[]) =>
+    window.api.atlasPutRuntimeFallback(teamId, runtimeIds),
   atlasGetTeamActivity: (teamId: string, range: TeamActivityRange) =>
     window.api.atlasGetTeamActivity(teamId, range),
+  atlasGetAgentStats: (teamId: string, query: AgentStatsQuery) =>
+    window.api.atlasGetAgentStats(teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: HomeLayout | null) =>
     window.api.atlasPutHomeLayout(teamId, scope, layout),
   atlasCreateTeam: (name: string) => window.api.atlasCreateTeam(name),

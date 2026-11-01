@@ -24,7 +24,7 @@ export function sessionResourceToolModule(): PreviewToolModule {
       {
         name: 'bind_session_resource',
         description:
-          'Link a GitHub PR or Linear issue to this conversation after creating or adopting it. The backend verifies the resource through a selected integration. GitHub PR events automatically wake this same conversation with its existing permissions, and restore it if archived. Linear issues are linked for navigation only. Idempotent for the same resource. Only the conversation owner or a manager can bind.',
+          'Link a GitHub PR or Linear issue to this conversation after creating or adopting it. The backend verifies the resource through a selected integration. GitHub PR events automatically wake this same conversation with its existing permissions, and restore it if archived. Linear issues are linked for navigation only. Linking the same resource again keeps one link and refreshes its title and state. Only the conversation owner or a manager can bind.',
         inputSchema: toolInputJsonSchema(bind),
       },
       {

@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ContextMenu } from '../../components/ContextMenu'
 import { toast } from '../../components/ui/toast'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
+import { t } from '../../i18n'
 
 import { FilterTabs, PrincipalFilter } from './triggerFilters'
 import { testFireTrigger } from './triggerFormActions'
@@ -90,8 +91,8 @@ export function TriggersListPage({
           prev.kind === 'ready'
             ? {
                 ...prev,
-                triggers: prev.triggers.map((t) =>
-                  t.id === row.trigger.id ? { ...t, ...updated } : t,
+                triggers: prev.triggers.map((trigger) =>
+                  trigger.id === row.trigger.id ? { ...trigger, ...updated } : trigger,
                 ),
               }
             : prev,
@@ -112,16 +113,18 @@ export function TriggersListPage({
         prev.kind === 'ready'
           ? {
               kind: 'ready',
-              triggers: prev.triggers.map((t) => (partitionIds.has(t.id) ? { ...t, enabled } : t)),
+              triggers: prev.triggers.map((trigger) =>
+                partitionIds.has(trigger.id) ? { ...trigger, enabled } : trigger,
+              ),
               groups: prev.groups.map((g) => (g.id === updatedGroup.id ? updatedGroup : g)),
             }
           : prev,
       )
     } catch (err) {
       toast.apiError(
-        row.kind === 'group' ? 'Could not update Watch group' : 'Could not update trigger',
+        row.kind === 'group' ? t('Could not update Watch group') : t('Could not update trigger'),
         err,
-        { fallback: 'Check your connection and try again.' },
+        { fallback: t('Check your connection and try again.') },
       )
       onRetry()
     } finally {
@@ -180,9 +183,19 @@ export function TriggersListPage({
       {confirmDelete?.kind === 'group' && (
         <ConfirmDialog
           open
-          title="Remove Watch group?"
-          description={`"${confirmDelete.group.name}" and its ${String(confirmDelete.group.partitionCount)} shared provider ingress${confirmDelete.group.partitionCount === 1 ? '' : 'es'} will be removed. Nuphos will clean up every recorded provider resource and preserve unrelated notification destinations.`}
-          confirmLabel="Remove group"
+          title={t('Remove Watch group?')}
+          description={
+            confirmDelete.group.partitionCount === 1
+              ? t(
+                  '"{name}" and its {n} shared provider ingress will be removed. Nuphos will clean up every recorded provider resource and preserve unrelated notification destinations.',
+                  { name: confirmDelete.group.name, n: confirmDelete.group.partitionCount },
+                )
+              : t(
+                  '"{name}" and its {n} shared provider ingresses will be removed. Nuphos will clean up every recorded provider resource and preserve unrelated notification destinations.',
+                  { name: confirmDelete.group.name, n: confirmDelete.group.partitionCount },
+                )
+          }
+          confirmLabel={t('Remove group')}
           destructive
           onClose={() => setConfirmDelete(null)}
           onConfirm={() => void runDelete()}

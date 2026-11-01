@@ -2,8 +2,9 @@ import { spawn } from 'node:child_process'
 
 export type ModelControls = {
   effort: { value: string; name: string; description?: string }[]
-  fast: boolean
-  defaultFast?: 'on' | 'off'
+  /** Off and each speed the adapter offers; empty when it has none. */
+  fast: { value: string; name: string; description?: string }[]
+  defaultFast?: string
   defaultEffort?: string
 }
 
@@ -74,15 +75,13 @@ export function modelChoices(model: ConfigOption | undefined) {
 export function controlsOf(options: ConfigOption[]): ModelControls {
   const effort = findOption(options, 'effort')
   const fast = findOption(options, 'fast')
-  const fastValues = new Set(choices(fast).map((choice) => choice.value))
+  const speeds = choices(fast)
 
   return {
     ...(typeof effort?.currentValue === 'string' ? { defaultEffort: effort.currentValue } : {}),
     effort: choices(effort),
-    fast: fastValues.has('on') && fastValues.has('off'),
-    ...(fast?.currentValue === 'on' || fast?.currentValue === 'off'
-      ? { defaultFast: fast.currentValue }
-      : {}),
+    fast: speeds.some((choice) => choice.value === 'off') ? speeds : [],
+    ...(typeof fast?.currentValue === 'string' ? { defaultFast: fast.currentValue } : {}),
   }
 }
 

@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
 import { fieldClass } from '../../components/ui/input-group'
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { COLOR_SWATCHES, KIND_OPTIONS, PRIMARY, kindFromUrl } from './helpers'
 import { btn, lbl } from './styles'
@@ -40,9 +41,9 @@ export function Inspector({
         fontSize: 13,
       }}
     >
-      <div style={{ fontWeight: 500, marginBottom: 10 }}>Node</div>
+      <div style={{ fontWeight: 500, marginBottom: 10 }}>{t('Node')}</div>
 
-      <label style={lbl}>Label</label>
+      <label style={lbl}>{t('Label')}</label>
       <input
         value={node.label}
         onFocus={() => {
@@ -52,8 +53,8 @@ export function Inspector({
         className={`${fieldClass} mb-2.5 h-9`}
       />
 
-      <label style={lbl}>Kind</label>
-      <div title={kindFromUrl(node.url) ? 'Determined by the link (concrete node)' : undefined}>
+      <label style={lbl}>{t('Kind')}</label>
+      <div title={kindFromUrl(node.url) ? t('Determined by the link (concrete node)') : undefined}>
         <AppSelect
           value={kindFromUrl(node.url) ?? node.kind ?? 'abstract'}
           disabled={!!kindFromUrl(node.url)}
@@ -62,12 +63,12 @@ export function Inspector({
           }}
           onValueChange={(kind) => updateNode(node.id, (n) => ({ ...n, kind }))}
           options={KIND_OPTIONS.map((k) => ({ value: k, label: k }))}
-          ariaLabel="Kind"
+          ariaLabel={t('Kind')}
           className="mb-2.5"
         />
       </div>
 
-      <label style={lbl}>Color (this view)</label>
+      <label style={lbl}>{t('Color (this view)')}</label>
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
         {COLOR_SWATCHES.map((c) => {
           const active = (view?.nodeStyles?.[node.id]?.color ?? '') === c
@@ -76,7 +77,7 @@ export function Inspector({
             <button
               key={c || 'none'}
               onClick={() => setNodeColor(node.id, c)}
-              title={c || 'default'}
+              title={c || t('Default')}
               style={{
                 width: 20,
                 height: 20,
@@ -92,7 +93,7 @@ export function Inspector({
         })}
       </div>
 
-      <label style={lbl}>Link (open on double-click)</label>
+      <label style={lbl}>{t('Link (open on double-click)')}</label>
       <input
         placeholder="https://nuphos.ai/teams/…"
         value={node.url ?? ''}
@@ -114,7 +115,7 @@ export function Inspector({
           justifyContent: 'center',
         }}
       >
-        <FontAwesomeIcon icon={faTrashCan} className="w-4 h-4" /> Delete node
+        <FontAwesomeIcon icon={faTrashCan} className="w-4 h-4" /> {t('Delete node')}
       </button>
     </div>
   )

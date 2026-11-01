@@ -5,6 +5,7 @@ import type {
   LocalRuntimeState,
   LocalShareInput,
   SleepPreferences,
+  ShareTrustDuration,
 } from './device-types.ts'
 
 export const deviceApi = {
@@ -19,6 +20,8 @@ export const deviceApi = {
   localRuntimeCancelCodexLogin: () => window.api.localRuntimeCancelCodexLogin(),
   localRuntimeSetSleepPreferences: (value: SleepPreferences) =>
     window.api.localRuntimeSetSleepPreferences(value),
+  localRuntimeSetPhoneControl: (allowed: boolean) =>
+    window.api.localRuntimeSetPhoneControl(allowed),
   localRuntimeGetState: () => window.api.localRuntimeGetState(),
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
@@ -60,8 +63,14 @@ export const deviceApi = {
     window.api.localShareSet(deviceId, teamId, input),
   localShareApprovals: (teamId: string) => window.api.localShareApprovals(teamId),
   localShareStatus: (sessionId: string) => window.api.localShareStatus(sessionId),
-  localShareDecide: (approvalId: string, approve: boolean) =>
-    window.api.localShareDecide(approvalId, approve),
+  localShareDecide: (approvalId: string, approve: boolean, trust?: ShareTrustDuration) =>
+    window.api.localShareDecide(approvalId, approve, trust),
+  localShareTrusts: (deviceId: string, teamId: string) =>
+    window.api.localShareTrusts(deviceId, teamId),
+  localShareUntrust: (deviceId: string, teamId: string, actorId: string) =>
+    window.api.localShareUntrust(deviceId, teamId, actorId),
+  localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
+    window.api.localShareNotify(approvalId, teamId, title, body),
   boxUsage: (teamId: string) => window.api.boxUsage(teamId),
   boxUsageHistory: (teamId: string, range: '1d' | '7d' | '30d') =>
     window.api.boxUsageHistory(teamId, range),

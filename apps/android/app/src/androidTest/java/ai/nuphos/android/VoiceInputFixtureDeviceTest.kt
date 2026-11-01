@@ -24,6 +24,15 @@ import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
+import ai.nuphos.android.session.AuthSession
+import ai.nuphos.android.session.AiAccess
+import ai.nuphos.android.model.Team
+import ai.nuphos.android.model.NuphosUser
+import ai.nuphos.android.ui.LocalAuthSession
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import org.junit.runner.RunWith
 
 /** No login, real keys, microphone audio or network. Screens explicitly identify fixtures. */
@@ -31,19 +40,14 @@ import org.junit.runner.RunWith
 class VoiceInputFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
     private class Settings : VoiceSettings {
-        var value: String? = "synthetic-fixture-key"
-        override fun key() = value
-        override fun saveKey(value: String) { this.value = value }
-        override fun removeKey() { value = null }
         override var prompt = DEFAULT_WHISPER_PROMPT
     }
     private class Transport : WhisperTransport {
         val reply = CompletableDeferred<Transcript>()
         var uploads = 0
-        var verifies = 0
-        override suspend fun verify(key: String) { verifies++ }
-        override suspend fun transcribe(file: File, key: String, prompt: String): Transcript {
-            assertEquals("synthetic-fixture-key", key)
+        override suspend fun transcribe(file: File, token: String, teamId: String, prompt: String): Transcript {
+            assertEquals("synthetic-no-credentials", token)
+            assertEquals("fixture-team", teamId)
             uploads++
             return reply.await()
         }
@@ -52,6 +56,22 @@ class VoiceInputFixtureDeviceTest {
     private val transport = Transport()
     private var takeFile: File? = null
     private var sends = 0
+    private lateinit var savedAccess: Any
+    private var fixtureStore: AgentStore? = null
+    private var fixtureAuth: AuthSession? = null
+    @Suppress("UNCHECKED_CAST") private fun accessState() = AiAccess::class.java.getDeclaredField("state").also { it.isAccessible = true }.get(AiAccess) as MutableState<Any>
+    @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, value: Any) {
+        (target.javaClass.getDeclaredField(name + "$" + "delegate").also { it.isAccessible = true }.get(target) as MutableState<Any>).value = value
+    }
+    @Before fun isolate() {
+        check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
+        savedAccess = accessState().value
+    }
+    @After fun restore() {
+        fixtureStore?.disposeForConsent()
+        fixtureAuth?.let { (AuthSession::class.java.getDeclaredField("scope").also { it.isAccessible = true }.get(it) as CoroutineScope).cancel() }
+        accessState().value = savedAccess
+    }
     private val dark get() = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true"
     private fun render() {
         compose.setContent {
@@ -65,8 +85,21 @@ class VoiceInputFixtureDeviceTest {
                     override fun cancel() { takeFile?.delete() }
                 }
             }, microphonePermissionGranted = { true }) }
-            val store = remember { AgentStore("synthetic-no-credentials", context) }
-            NuphosTheme(darkTheme = dark) { CompositionLocalProvider(LocalAgentStore provides store, LocalVoiceServices provides services) {
+            val store = remember { AgentStore("synthetic-no-credentials", context).also {
+                fixtureStore = it
+                state(it, "selectedTeam", Team("fixture-team", "Synthetic workspace"))
+                it.acceptMemberships(listOf(Team("fixture-team", "Synthetic workspace")))
+            } }
+            val auth = remember {
+                val app = context.applicationContext as NuphosApplication
+                AuthSession(app, app.tokenStore).also {
+                    fixtureAuth = it
+                    AuthSession::class.java.getDeclaredField("token").also { f -> f.isAccessible = true }.set(it, "synthetic-no-credentials")
+                    state(it, "state", AuthSession.State.SignedIn(NuphosUser.preview))
+                    AiAccess.activate("synthetic-no-credentials"); AiAccess.grant("synthetic-no-credentials")
+                }
+            }
+            NuphosTheme(darkTheme = dark) { CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(androidx.compose.ui.platform.LocalDensity.current.density, if (InstrumentationRegistry.getArguments().getString("fixtureLarge") == "true") 2f else androidx.compose.ui.platform.LocalDensity.current.fontScale), LocalAgentStore provides store, LocalAuthSession provides auth, LocalVoiceServices provides services) {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.systemBarsPadding().padding(12.dp)) {
                         Text("FIXTURE · synthetic audio / synthetic OpenAI · no upload", style = MaterialTheme.typography.labelSmall)
@@ -84,6 +117,7 @@ class VoiceInputFixtureDeviceTest {
         compose.onNodeWithContentDescription("Finish voice input").assertIsEnabled()
         capture("01-recording-fixture")
         compose.onNodeWithContentDescription("Cancel voice input").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Ask Nuphos anything").fetchSemanticsNodes().size == 1 }
         compose.onNodeWithContentDescription("Ask Nuphos anything").assertTextContains("Existing draft")
         assertFalse(takeFile!!.exists()); assertEquals(0, transport.uploads)
         compose.onNodeWithContentDescription("Voice input").performClick()
@@ -103,36 +137,36 @@ class VoiceInputFixtureDeviceTest {
         compose.onNodeWithContentDescription("Finish voice input").performClick()
         compose.onNodeWithText("Transcribing…").assertIsDisplayed()
         compose.onNodeWithContentDescription("Cancel voice input").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Ask Nuphos anything").fetchSemanticsNodes().size == 1 }
         compose.runOnIdle { transport.reply.complete(Transcript("must not appear", "english")) }
         compose.onNodeWithContentDescription("Ask Nuphos anything").assertTextContains("")
         compose.onNodeWithText("must not appear").assertDoesNotExist()
         assertEquals(0, sends); assertFalse(takeFile!!.exists())
     }
-    @Test fun missingKeyShowsBillingDisclosureAndCancelDoesNotRecord() {
-        settings.value = null
+    @Test fun workspaceChangeCancelsUploadAndDoesNotAppendLateWords() {
         render()
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Keep")
         compose.onNodeWithContentDescription("Voice input").performClick()
-        compose.onNodeWithText("OpenAI API key").assertIsDisplayed()
-        compose.onNodeWithText("recordings are sent to OpenAI and billed to your account.", substring = true).assertIsDisplayed()
-        capture("04-key-disclosure-fixture")
-        compose.onNodeWithText("Cancel").performClick()
-        assertNull(takeFile); assertEquals(0, transport.uploads); assertEquals(0, transport.verifies)
+        compose.onNodeWithContentDescription("Finish voice input").performClick()
+        compose.onNodeWithText("Transcribing…").assertIsDisplayed()
+        compose.runOnIdle { state(requireNotNull(fixtureStore), "selectedTeam", Team("other-fixture-team", "Other workspace")) }
+        compose.runOnIdle { transport.reply.complete(Transcript("private late result", "english")) }
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertTextContains("Keep")
+        compose.onNodeWithText("private late result").assertDoesNotExist()
+        assertEquals(0, sends); assertFalse(takeFile!!.exists())
     }
-    @Test fun verifiedSyntheticKeyStartsOneTakeAndAccountControlsPersistPrompt() {
-        settings.value = null
+    @Test fun subscriptionRequiredPreservesDraftWithoutSending() {
         render()
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Keep this draft")
         compose.onNodeWithContentDescription("Voice input").performClick()
-        compose.onNodeWithText("sk-…").performTextInput("synthetic-fixture-key")
-        compose.onNodeWithText("Save").performClick()
-        compose.onNodeWithContentDescription("Finish voice input").assertIsDisplayed()
-        // The key dialog and IME are separate Android windows; let them close before tapping behind them.
-        Thread.sleep(500)
-        compose.waitForIdle()
-        assertEquals(1, transport.verifies)
-        compose.onNodeWithContentDescription("Cancel voice input").performClick()
-        compose.runOnIdle { assertFalse(takeFile!!.exists()) }
+        compose.onNodeWithContentDescription("Finish voice input").performClick()
+        compose.runOnIdle { transport.reply.completeExceptionally(VoiceFailure(402)) }
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertTextContains("Keep this draft")
+        compose.onNodeWithText("subscription", substring = true).assertIsDisplayed()
+        assertEquals(0, sends)
+        capture("04-subscription-required")
     }
-    @Test fun accountCanRemoveKeyAndEditOrResetPrompt() {
+    @Test fun accountExplainsSubscriptionAndEditsOrResetsPrompt() {
         val services = VoiceServices(settings, transport, { error("No recording from Account") })
         compose.setContent {
             FixtureAutofillIsolation()
@@ -143,10 +177,9 @@ class VoiceInputFixtureDeviceTest {
                 }
             } }
         }
-        compose.onNodeWithText("OpenAI API key saved on this device").assertIsDisplayed()
+        compose.onNodeWithText("Voice input is included with a Nuphos subscription.").assertIsDisplayed()
+        compose.onNodeWithText("OpenAI API key").assertDoesNotExist()
         capture("05-account-settings-fixture")
-        compose.onNodeWithText("Remove OpenAI API key").performClick()
-        assertNull(settings.value)
         compose.onNodeWithText("Transcription prompt").performTextReplacement("Fixture vocabulary")
         compose.runOnIdle { assertEquals("Fixture vocabulary", settings.prompt) }
         compose.onNodeWithText("Reset prompt").performClick()
@@ -158,7 +191,7 @@ class VoiceInputFixtureDeviceTest {
         // Compose idle does not include the platform IME/window transition.
         Thread.sleep(500)
         instrumentation.waitForIdleSync()
-        val dir = File(instrumentation.targetContext.getExternalFilesDir(null), "whisper-1235").apply { mkdirs() }
+        val dir = File(instrumentation.targetContext.getExternalFilesDir(null), "voice-1410").apply { mkdirs() }
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
         File(dir, "${if (dark) "dark" else "light"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()

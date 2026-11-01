@@ -1,30 +1,51 @@
-import { CircleDot, GitPullRequest, LayoutGrid } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
-import { useTeamMembers } from '../../../lib/bindingAccess'
-import {
-  Menu,
-  MenuCheckboxItem,
-  MenuContent,
-  MenuItem,
-  MenuSeparator,
-  MenuTrigger,
-} from '../../ui/menu'
+import { t } from '../../../i18n'
 
+import { addCard } from './homeAddCard'
 import { DelayedPanelReveal } from './homeAnimation'
+import { isKnownCard, teamCardHeight } from './homeCardCatalog'
+import { HomeCardGallery } from './homeCardGallery'
 import { GithubCard } from './homeCards'
+import { AddCardButton } from './homeGalleryParts'
 import { HomeGrid } from './homeGrid'
+import { HomeMetricCard } from './homeMetricLive'
 import { DashboardPanelCard } from './homePanelCard'
-import { DashboardPanelsSubmenu } from './homePanelPicker'
 import { TeamActivityCard } from './homeTeamCard'
-import { panelKey, toggleItem } from './homeWidgetSettings'
+import {
+  GRID_COLUMNS,
+  HOME_GRID_VERSION,
+  cardLabel,
+  fitOldSizes,
+  metricKey,
+  panelKey,
+  toggleItem,
+} from './homeWidgetSettings'
 import { useHomeLayout } from './useHomeLayout'
+import { useTeamSize } from './useTeamSize'
 
-import type { HomeGithubCard, HomePanel } from './homeWidgetSettings'
+import type { HomeCardKind } from './homeCardCatalog'
+import type {
+  HomeGithubCard,
+  HomeLayout,
+  HomeMetricCard as Metric,
+  HomePanel,
+} from './homeWidgetSettings'
+
+const newId = () => crypto.randomUUID().slice(0, 8)
+const HIGHLIGHT_MS = 1800
+
+// Saved with the sizes as fitted, so a card resized back to an old default stays so.
+const versioned = (next: HomeLayout): HomeLayout => ({ ...next, gridVersion: HOME_GRID_VERSION })
 
 /**
- * The configurable cards under the home composer, picked in "Customize":
- * team activity on or off, any number of pull request and CI cards (each set
- * up from its own ⋯ menu), and every pinned dashboard panel as a card.
+ * The configurable cards under the home composer, added from the card
+ * gallery that Customize and Add card open: team activity on or off, any
+ * number of pull request and CI cards (each changed later from its own ⋯
+ * menu), metric cards about the agents' work, and every pinned dashboard
+ * panel as a card. Cards added in the gallery are outlined for a moment
+ * once it closes.
  * Team activity is left out while the user is the team's only member.
  */
 export function HomeWidgets({
@@ -47,31 +68,88 @@ export function HomeWidgets({
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const home = useHomeLayout(teamId)
-  const hasTeammates = useTeamMembers(teamId).length > 1
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  // The cards added in the gallery, outlined for a moment once it has closed.
+  const [highlight, setHighlight] = useState<string[]>([])
+  // Grid keys of the cards added while the gallery is open, in order.
+  const added = useRef<string[]>([])
+
+  useEffect(() => {
+    if (highlight.length === 0) return
+    const timer = setTimeout(() => setHighlight([]), HIGHLIGHT_MS)
+
+    return () => clearTimeout(timer)
+  }, [highlight])
+  // Null until the team's size is first known on this machine.
+  const members = useTeamSize(teamId)
+  const hasTeammates = (members ?? 0) > 1
+  const teamHeight = teamCardHeight(members ?? 2)
 
   if (!home.layout) return null
-  const settings = home.layout
-  const update = home.update
+  // Until the team's size is known, team activity keeps the size it was saved at.
+  const settings = fitOldSizes(home.layout, members === null ? 8 : teamHeight)
+  // Saved without the new grid version until the team's size is known, so team activity still fits.
+  const update = (next: HomeLayout) => home.update(members === null ? next : versioned(next))
   const setGithub = (github: HomeGithubCard[]) => update({ ...settings, github })
-  const addGithub = (card: HomeGithubCard) => setGithub([...settings.github, card])
-  const newId = () => crypto.randomUUID().slice(0, 8)
+  const metrics = settings.metrics ?? []
+  const setMetrics = (next: Metric[]) => update({ ...settings, metrics: next })
   const togglePanel = (pin: HomePanel) =>
     update({ ...settings, panels: toggleItem(settings.panels, pin, panelKey) })
+  const add = (kind: HomeCardKind, github?: Pick<HomeGithubCard, 'repos' | 'statuses'>) => {
+    if (kind === 'panel') return
+    const next = addCard(settings, kind, newId(), github)
+
+    update(next.layout)
+    added.current = [...added.current, next.key]
+  }
+  const forget = (key: string) => {
+    added.current = added.current.filter((k) => k !== key)
+  }
+  const pinFromGallery = (pin: HomePanel) => {
+    const key = `panel:${panelKey(pin)}`
+
+    if (settings.panels.some((p) => panelKey(p) === panelKey(pin))) forget(key)
+    else added.current = [...added.current, key]
+    togglePanel(pin)
+  }
+  // Closing shows every card added in this visit, the first scrolled into view.
+  const setGallery = (open: boolean) => {
+    setGalleryOpen(open)
+    if (!open) setHighlight(added.current)
+    added.current = []
+  }
 
   const cards = [
-    settings.team && hasTeammates && (
+    // Shown while the members load, as its skeleton, so it does not appear late.
+    settings.team && (hasTeammates || members === null) && (
       <TeamActivityCard key="team" teamId={teamId} onOpenConversation={onOpenConversation} />
     ),
-    ...settings.github.map((card) => (
-      <GithubCard
-        key={`gh:${card.id}`}
-        teamId={teamId}
-        onOpenNuphosLink={onOpenNuphosLink}
-        card={card}
-        onChange={(next) => setGithub(settings.github.map((c) => (c.id === card.id ? next : c)))}
-        onRemove={() => setGithub(settings.github.filter((c) => c.id !== card.id))}
-      />
-    )),
+    // Cards of a kind this desktop does not know, saved by a newer one, are left out.
+    ...settings.github
+      .filter(isKnownCard)
+      .map((card) => (
+        <GithubCard
+          key={`gh:${card.id}`}
+          teamId={teamId}
+          onOpenNuphosLink={onOpenNuphosLink}
+          card={card}
+          onChange={(next) => setGithub(settings.github.map((c) => (c.id === card.id ? next : c)))}
+          onRemove={() => setGithub(settings.github.filter((c) => c.id !== card.id))}
+        />
+      )),
+    ...metrics
+      .filter(isKnownCard)
+      .map((card) => (
+        <HomeMetricCard
+          key={metricKey(card)}
+          teamId={teamId}
+          card={card}
+          hasTeammates={hasTeammates}
+          onChange={(next) => setMetrics(metrics.map((c) => (c.id === card.id ? next : c)))}
+          onRemove={() => setMetrics(metrics.filter((c) => c.id !== card.id))}
+          onOpenConversation={onOpenConversation}
+        />
+      )),
     ...settings.panels.map((pin) => (
       <DashboardPanelCard
         key={`panel:${panelKey(pin)}`}
@@ -84,12 +162,15 @@ export function HomeWidgets({
   ].filter((card) => card !== false)
 
   return (
-    <div className="mb-6">
+    <div className="group/home mb-6">
       {cards.length > 0 && (
         <HomeGrid
           cards={cards}
           saved={settings.grid}
+          sizes={{ team: { w: GRID_COLUMNS, h: teamHeight } }}
+          highlight={highlight}
           onChange={(grid) => update({ ...settings, grid })}
+          label={(key) => cardLabel(settings, key)}
           revealAt={revealAt}
           replayKey={replayKey}
         />
@@ -98,52 +179,35 @@ export function HomeWidgets({
         replayKey={replayKey}
         // Below the cards, after the last of them has slid in.
         delayMs={revealAt + 150 * cards.length}
-        className="mt-3 flex justify-center"
+        className="mt-3 flex flex-col items-center gap-2"
       >
-        <Menu>
-          <MenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main">
-            <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Customize
-          </MenuTrigger>
-          <MenuContent align="center" className="w-[232px]">
-            {hasTeammates && (
-              <MenuCheckboxItem
-                checked={settings.team}
-                onCheckedChange={(team) => update({ ...settings, team })}
-              >
-                Team activity
-              </MenuCheckboxItem>
-            )}
-            <MenuItem
-              icon={<GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.8} />}
-              onClick={() =>
-                addGithub({ id: newId(), kind: 'pulls', repos: [], statuses: ['open'] })
-              }
-            >
-              Add pull requests card
-            </MenuItem>
-            <MenuItem
-              icon={<CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />}
-              onClick={() =>
-                addGithub({ id: newId(), kind: 'ci', repos: [], statuses: ['failed'] })
-              }
-            >
-              Add CI card
-            </MenuItem>
-            <DashboardPanelsSubmenu
-              teamId={teamId}
-              selected={settings.panels}
-              onToggle={togglePanel}
-            />
-            <MenuSeparator />
-            <MenuItem disabled={!home.customized} onClick={home.resetToTeamDefault}>
-              Reset to team default
-            </MenuItem>
-            {isTeamAdmin && (
-              <MenuItem onClick={home.setAsTeamDefault}>Set as team default</MenuItem>
-            )}
-          </MenuContent>
-        </Menu>
+        <AddCardButton subtle={cards.length > 0} onClick={() => setGalleryOpen(true)} />
+        <HomeCardGallery
+          teamId={teamId}
+          open={galleryOpen}
+          onOpenChange={setGallery}
+          layout={settings}
+          hasTeammates={hasTeammates}
+          customized={home.customized}
+          isTeamAdmin={isTeamAdmin}
+          onAdd={add}
+          onRemove={(kind) => {
+            if (kind !== 'team') return
+            update({ ...settings, team: false })
+            forget('team')
+          }}
+          onTogglePanel={pinFromGallery}
+          onReset={home.resetToTeamDefault}
+          onSetTeamDefault={() => home.setAsTeamDefault(versioned(settings))}
+        />
+        <button
+          type="button"
+          onClick={() => setGalleryOpen(true)}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent"
+        >
+          <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
+          {t('Customize')}
+        </button>
       </DelayedPanelReveal>
     </div>
   )

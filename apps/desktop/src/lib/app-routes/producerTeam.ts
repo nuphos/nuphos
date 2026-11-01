@@ -131,6 +131,13 @@ export function teamPageLocation(
         : base,
     )
   }
+  if (active === 'team.designs') {
+    const base = `/teams/${pathSegment(scope.teamId)}/designs`
+
+    return pageLocation(
+      navigation.designDetail ? `${base}/${pathSegment(navigation.designDetail.designId)}` : base,
+    )
+  }
   if (active === 'team.dashboards') {
     const base = `/teams/${pathSegment(scope.teamId)}/dashboards`
 

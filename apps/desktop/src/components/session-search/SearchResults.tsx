@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 
+import { t } from '../../i18n'
 import { isMac } from '../../lib/platform'
 import { searchKeyAction } from '../../lib/searchKeyboard'
 import { searchMatch } from '../../lib/searchMatch'
@@ -12,8 +13,20 @@ import { matchPaletteCommands } from './paletteCommands'
 import { SearchResultRow } from './SearchResultRow'
 import { useSearchResults } from './useSearchResults'
 
+import type { SessionResult } from './useSearchResults'
 import type { TeamMember } from '../../types'
 import type { RefObject } from 'react'
+
+function subtitleFor({ conversation, openedAt }: SessionResult) {
+  const vars = {
+    owner: conversation.owner?.name || conversation.owner?.email || t('Unknown member'),
+    time: relativeTimeFromNow(
+      openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt,
+    ),
+  }
+
+  return openedAt ? t('{owner} · Opened {time}', vars) : t('{owner} · Updated {time}', vars)
+}
 
 export function SearchResults({
   teamId,
@@ -106,12 +119,14 @@ export function SearchResults({
 
   const heading =
     mode === 'people'
-      ? `People in ${teamName}`
+      ? t('People in {team}', { team: teamName })
       : owner
-        ? `Agents by ${owner.name || owner.email}`
+        ? t('Agents by {name}', { name: owner.name || owner.email })
         : results.recent
-          ? 'Recently opened'
-          : 'Agents'
+          ? t('Recently opened')
+          : t('Agents')
+
+  const shownCount = `${resultCount}${results.hasMore ? '+' : ''}`
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
@@ -129,15 +144,13 @@ export function SearchResults({
         <span className="truncate font-medium">{heading}</span>
         {!busy && (
           <span className="shrink-0 text-secondary">
-            {resultCount}
-            {results.hasMore ? '+' : ''}{' '}
             {mode === 'people'
               ? resultCount === 1
-                ? 'person'
-                : 'people'
+                ? t('{n} person', { n: shownCount })
+                : t('{n} people', { n: shownCount })
               : resultCount === 1
-                ? 'result'
-                : 'results'}
+                ? t('{n} result', { n: shownCount })
+                : t('{n} results', { n: shownCount })}
           </span>
         )}
       </div>
@@ -166,7 +179,7 @@ export function SearchResults({
                   className="shrink-0 rounded-full"
                 />
               }
-              action="View agents"
+              action={t('View agents')}
               onSelect={() => setSelected(index)}
               onOpen={() => onChoosePerson(person)}
             />
@@ -184,8 +197,8 @@ export function SearchResults({
                   ? conversation.firstMessage
                   : undefined
               }
-              title={conversation.title || conversation.firstMessage || 'Untitled agent'}
-              subtitle={`${conversation.owner?.name || conversation.owner?.email || 'Unknown member'} · ${openedAt ? 'Opened' : 'Updated'} ${relativeTimeFromNow(openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt)}`}
+              title={conversation.title || conversation.firstMessage || t('Untitled agent')}
+              subtitle={subtitleFor({ conversation, openedAt })}
               query={query}
               selected={commands.length + index === selectedIndex}
               avatar={
@@ -196,28 +209,28 @@ export function SearchResults({
                   size={28}
                 />
               }
-              action="Open"
+              action={t('Open')}
               onSelect={() => setSelected(commands.length + index)}
               onOpen={(beside) => onOpen(conversation.sessionId, beside)}
             />
           ))}
       </div>
       <div role="status" className="px-4 text-sm text-secondary">
-        {busy && <p className="py-5">Searching…</p>}
+        {busy && <p className="py-5">{t('Searching…')}</p>}
         {!busy && !results.error && resultCount === 0 && (
           <p className="py-5">
             {results.recent
-              ? 'Agents you open will appear here. Type to search your team.'
+              ? t('Agents you open will appear here. Type to search your team.')
               : mode === 'people'
-                ? 'No people found. Try another name or email.'
-                : 'No agents found. Try another search or clear the person filter.'}
+                ? t('No people found. Try another name or email.')
+                : t('No agents found. Try another search or clear the person filter.')}
           </p>
         )}
         {!busy && results.error && (
           <p className="py-4">
-            Some results could not be loaded.{' '}
+            {t('Some results could not be loaded.')}{' '}
             <button className="text-main underline" onClick={results.retry}>
-              Retry
+              {t('Retry')}
             </button>
           </p>
         )}
@@ -228,12 +241,12 @@ export function SearchResults({
           disabled={results.loadingMore}
           onClick={() => void results.loadMore()}
         >
-          {results.loadingMore ? 'Loading…' : 'Load more agents'}
+          {results.loadingMore ? t('Loading…') : t('Load more agents')}
         </button>
       )}
       {!busy && mode === 'people' && count > 0 && (
         <p className="px-4 pb-3 text-xs text-secondary">
-          Choose a teammate, then search within their agents.
+          {t('Choose a teammate, then search within their agents.')}
         </p>
       )}
     </div>

@@ -6,6 +6,7 @@ import { isValidElement, memo, useContext, useMemo, useState } from 'react'
 import { Streamdown, defaultRemarkPlugins } from 'streamdown'
 import 'streamdown/styles.css'
 
+import { t } from '../../i18n'
 import { remarkCodexDirectives } from '../../lib/codexDirectives'
 import { linkClickMode } from '../../lib/linkClickMode'
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
@@ -91,20 +92,20 @@ export function ChatLink({
       ? [
           {
             key: 'open-in-app',
-            label: 'Open in Nuphos',
+            label: t('Open in Nuphos'),
             icon: PanelRight,
             onSelect: () => menuActions.openInApp(link),
           },
           {
             key: 'open-external',
-            label: 'Open in external browser',
+            label: t('Open in external browser'),
             icon: ExternalLink,
             onSelect: () => menuActions.openExternal(link),
           },
           { key: 'sep', separator: true },
           {
             key: 'copy-link',
-            label: 'Copy link',
+            label: t('Copy link'),
             icon: Link2,
             onSelect: () => menuActions.copyLink(link),
           },

@@ -1,5 +1,7 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
+
 import { boxQuota, quotaCells } from './boxCreatePresentation'
 
 import type { QuotaCell } from './boxCreatePresentation'
@@ -33,15 +35,21 @@ export function BoxQuotaMeter({
   /** The vCPU of the size picked; undefined while sizes are unknown. */
   adding: number | undefined
 }) {
-  if (!usage) return <p className="text-[12.5px] text-tertiary">Loading your plan…</p>
+  if (!usage) return <p className="text-[12.5px] text-tertiary">{t('Loading your plan…')}</p>
   const quota = boxQuota(usage)
 
   if (!quota)
-    return <p className="text-[12.5px] text-tertiary">Your team has no vCPU limit for computers.</p>
+    return (
+      <p className="text-[12.5px] text-tertiary">
+        {t('Your team has no vCPU limit for computers.')}
+      </p>
+    )
   if (quota.used === null || quota.left === null)
     return (
       <p className="text-[12.5px] text-tertiary">
-        Your plan runs up to {quota.limit} vCPU of computers. Their current use could not be read.
+        {t('Your plan runs up to {limit} vCPU of computers. Their current use could not be read.', {
+          limit: quota.limit,
+        })}
       </p>
     )
   const scale = quota.limit > MAX_CELLS ? MAX_CELLS / quota.limit : 1
@@ -57,25 +65,27 @@ export function BoxQuotaMeter({
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="block text-[11px] font-medium uppercase tracking-wide text-tertiary">
-            Plan capacity
+            {t('Plan capacity')}
           </span>
           <span className="mt-1 flex items-baseline gap-1.5">
             <span className="text-[26px] font-semibold leading-none tabular-nums text-main">
               {quota.left}
             </span>
-            <span className="text-[13px] text-secondary">vCPU left</span>
+            <span className="text-[13px] text-secondary">{t('vCPU left')}</span>
           </span>
         </div>
         <div className="text-right text-[12px] leading-5 tabular-nums text-tertiary">
           <span className="block">
-            {quota.used} of {quota.limit} vCPU in use
+            {t('{used} of {limit} vCPU in use', { used: quota.used, limit: quota.limit })}
           </span>
           {adding !== undefined &&
             (fits ? (
-              <span className="block">{quota.left - adding} left after the new computer</span>
+              <span className="block">
+                {t('{n} left after the new computer', { n: quota.left - adding })}
+              </span>
             ) : (
               <span className="block font-medium text-amber-500">
-                {adding - quota.left} vCPU over your plan
+                {t('{n} vCPU over your plan', { n: adding - quota.left })}
               </span>
             ))}
         </div>
@@ -83,7 +93,7 @@ export function BoxQuotaMeter({
       <div
         className="mt-3 flex gap-[3px]"
         role="meter"
-        aria-label="vCPU in use"
+        aria-label={t('vCPU in use')}
         aria-valuemin={0}
         aria-valuemax={quota.limit}
         aria-valuenow={Math.min(quota.used, quota.limit)}
@@ -97,9 +107,11 @@ export function BoxQuotaMeter({
         ))}
       </div>
       <div className="mt-2 flex gap-4 text-[11px] text-tertiary">
-        <Legend cell="used" label="Running computers" />
-        {adding !== undefined && <Legend cell={fits ? 'adding' : 'over'} label="New computer" />}
-        <Legend cell="free" label="Free" />
+        <Legend cell="used" label={t('Running computers')} />
+        {adding !== undefined && (
+          <Legend cell={fits ? 'adding' : 'over'} label={t('New computer')} />
+        )}
+        <Legend cell="free" label={t('Free')} />
       </div>
     </div>
   )

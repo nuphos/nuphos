@@ -370,8 +370,9 @@ struct AgentSetupView: View {
             defer { busy = false; agentStarting = false }
             do {
                 // Like Desktop: wait (up to ~3 minutes) until the agent answers, then sign in.
+                // `wake` resumes a paused Box, which would otherwise never answer.
                 for _ in 0..<90 {
-                    let status: Status? = try? await WorkspaceAPI.request(path(runtime) + "/status", token: token)
+                    let status: Status? = try? await WorkspaceAPI.request(path(runtime) + "/status", query: [URLQueryItem(name: "wake", value: "1")], token: token)
                     if status?.online == true { break }
                     agentStarting = true
                     try await Task.sleep(for: .seconds(2))

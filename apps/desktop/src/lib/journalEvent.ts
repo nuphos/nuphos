@@ -10,7 +10,13 @@ import type { AgentJournalEvent } from '../api'
 import type { LucideIcon } from 'lucide-react'
 
 /** Anchor shared with the chat transcript (data-message-id / data-tool-call-id). */
-export type JournalChatTarget = { messageId?: string; toolCallId?: string }
+export type JournalChatTarget = {
+  messageId?: string
+  toolCallId?: string
+  /** A question card's question and options, for a transcript that keeps the runtime's own call id. */
+  question?: string
+  options?: string[]
+}
 
 /** Which chat element this event corresponds to (if any). */
 export function journalEventChatTarget(event: AgentJournalEvent): JournalChatTarget | null {

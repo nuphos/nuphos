@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Laptop } from 'lucide-react'
 import { useId } from 'react'
 
+import { t } from '../../../i18n'
 import { Avatar } from '../../Avatar'
 import { AgentAvatar } from '../AgentAvatar'
 
@@ -24,9 +25,9 @@ function Row({ icon, label, detail }: { icon: ReactNode; label: string; detail?:
 }
 
 const SECTION_TITLES: Record<MentionOption['kind'], string> = {
-  member: 'People',
-  device: 'Computers',
-  session: 'Agents',
+  member: t('People'),
+  device: t('Computers'),
+  session: t('Agents'),
 }
 
 function MentionOptionRow({
@@ -71,7 +72,7 @@ function MentionOptionRow({
               size={18}
             />
           }
-          label={option.session.title || option.session.firstMessage || 'Untitled agent'}
+          label={option.session.title || option.session.firstMessage || t('Untitled agent')}
         />
       )
   }

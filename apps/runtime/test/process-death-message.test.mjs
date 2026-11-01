@@ -67,3 +67,12 @@ test('another death keeps its own reason, also outside a cgroup', () => {
     'Codex stopped unexpectedly (process terminated by signal SIGABRT). Send a message to continue.',
   )
 })
+
+test('announces the message on stderr for OpenAB', (t) => {
+  const written = []
+
+  t.mock.method(process.stderr, 'write', (chunk) => written.push(String(chunk)))
+  const text = nuphosProcessDeathMessage('Codex', 'process exited with code 1', null, 0)
+
+  assert.deepEqual(written, [`nuphos-process-death: ${text}\n`])
+})

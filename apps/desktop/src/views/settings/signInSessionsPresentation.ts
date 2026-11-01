@@ -1,9 +1,11 @@
+import { t } from '../../i18n/index.ts'
+
 import type { SignInSession } from '../../types'
 
 const APPS: Record<string, string> = {
   'nuphos-desktop': 'Nuphos Desktop',
-  'nuphos-ios': 'Nuphos for iOS',
-  'nuphos-android': 'Nuphos for Android',
+  'nuphos-ios': t('Nuphos for iOS'),
+  'nuphos-android': t('Nuphos for Android'),
   'nuphos-cli': 'Nuphos CLI',
 }
 const BROWSERS: [RegExp, string][] = [
@@ -33,19 +35,19 @@ export function sessionDevice(session: Pick<SignInSession, 'client' | 'userAgent
   const ua = session.userAgent ?? ''
 
   // The nuphos.ai web sign-in reaches the backend from the website's server.
-  if (!session.client && /^(node|undici)\b/i.test(ua)) return 'Web sign-in (nuphos.ai)'
+  if (!session.client && /^(node|undici)\b/i.test(ua)) return t('Web sign-in (nuphos.ai)')
   const browser = BROWSERS.find(([re]) => re.test(ua))?.[1]
   const system = SYSTEMS.find(([re]) => re.test(ua))?.[1]
 
-  if (browser && system) return `${browser} on ${system}`
+  if (browser && system) return t('{browser} on {system}', { browser, system })
 
-  return browser ?? (system ? `A browser on ${system}` : 'Unknown device')
+  return browser ?? (system ? t('A browser on {system}', { system }) : t('Unknown device'))
 }
 
 export function sessionPlace(session: Pick<SignInSession, 'city' | 'country' | 'ip'>): string {
   const place = [session.city, session.country].filter(Boolean).join(', ')
 
-  return [place || 'Unknown location', session.ip].filter(Boolean).join(' · ')
+  return [place || t('Unknown location'), session.ip].filter(Boolean).join(' · ')
 }
 
 /** This device first, then the most recently active. */

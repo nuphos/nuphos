@@ -47,6 +47,53 @@ export const MenuCheckboxItem = React.forwardRef<HTMLDivElement, MenuCheckboxIte
   },
 )
 
+/** A single choice among the rows of a MenuRadioGroup: shows a check when chosen. */
+export const MenuRadioItem = React.forwardRef<
+  HTMLDivElement,
+  { children: React.ReactNode; value: string; disabled?: boolean; className?: string }
+>(function MenuRadioItem({ children, value, disabled, className }, ref) {
+  return (
+    <MenuPrimitive.RadioItem
+      ref={ref}
+      value={value}
+      disabled={disabled}
+      closeOnClick={false}
+      className={(state) =>
+        clsx(
+          'flex min-h-8 cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-main outline-none transition-colors',
+          state.highlighted && 'bg-zGray-800/80',
+          state.disabled && 'pointer-events-none opacity-50',
+          className,
+        )
+      }
+    >
+      <span className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center text-main">
+        <MenuPrimitive.RadioItemIndicator>
+          <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
+        </MenuPrimitive.RadioItemIndicator>
+      </span>
+      <span className="min-w-0 flex-1 text-left">{children}</span>
+    </MenuPrimitive.RadioItem>
+  )
+})
+
+/** Rows of which exactly one is chosen, like a range or a scope. */
+export function MenuRadioGroup<T extends string>({
+  value,
+  onValueChange,
+  children,
+}: {
+  value: T
+  onValueChange: (value: T) => void
+  children: React.ReactNode
+}) {
+  return (
+    <MenuPrimitive.RadioGroup value={value} onValueChange={(next: T) => onValueChange(next)}>
+      {children}
+    </MenuPrimitive.RadioGroup>
+  )
+}
+
 type MenuSubmenuTriggerProps = {
   children: React.ReactNode
   icon?: React.ReactNode

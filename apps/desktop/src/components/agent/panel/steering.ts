@@ -46,7 +46,7 @@ const isReceipt =
   (part: Part): part is SteeringPart =>
     part.type === 'data-steering' && part.data.id === id
 
-/** Preserve the live assistant/tool target; the runtime receipt is an inline boundary. */
+/** The runtime receipt is an inline boundary in the latest reply; it is never dropped. */
 export function appendSteering(tab: Tab, part: SteeringPart): Tab {
   const existing = tab.messages.flatMap((message) => message.parts).find(isReceipt(part.data.id))
 
@@ -56,8 +56,11 @@ export function appendSteering(tab: Tab, part: SteeringPart): Tab {
   const messages = [...tab.messages]
   const assistant = messages.at(-1)
 
-  if (assistant?.role !== 'assistant') return tab
-  messages[messages.length - 1] = { ...assistant, parts: [...assistant.parts, part] }
+  if (assistant?.role === 'assistant') {
+    messages[messages.length - 1] = { ...assistant, parts: [...assistant.parts, part] }
+  } else {
+    messages.push({ id: part.data.id, role: 'assistant', parts: [part] })
+  }
 
   return { ...tab, messages }
 }

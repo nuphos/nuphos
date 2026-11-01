@@ -11,6 +11,7 @@ import { Table } from '../components/Table'
 import { toast } from '../components/ui/toast'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
 
@@ -64,7 +65,7 @@ export function ArchitectureView({
 
       onOpenDiagram?.(dg.id, dg.name)
     } catch (e) {
-      toast.apiError('Failed to create diagram', e)
+      toast.apiError(t('Failed to create diagram'), e)
     } finally {
       setCreating(false)
     }
@@ -74,7 +75,7 @@ export function ArchitectureView({
   // into a diagram, or while this is a keep-alive'd background tab). Creating and
   // opening both live here now, not in App.
   useToolbarPrimaryAction(
-    isActive && !openDiagramId ? 'New diagram' : null,
+    isActive && !openDiagramId ? t('New diagram') : null,
     () => void createDiagram(),
     creating,
   )
@@ -88,7 +89,7 @@ export function ArchitectureView({
         onCount?.(list.length)
       })
       .catch((e: unknown) => {
-        toast.apiError('Failed to load diagrams', e)
+        toast.apiError(t('Failed to load diagrams'), e)
       })
       .finally(() => {
         onLoading?.(false)
@@ -126,7 +127,7 @@ export function ArchitectureView({
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        toast.apiError('Failed to open diagram', e)
+        toast.apiError(t('Failed to open diagram'), e)
         onCloseDiagram?.()
       })
 
@@ -147,7 +148,7 @@ export function ArchitectureView({
       try {
         await api.archDeleteDiagram(teamId, id)
       } catch (e) {
-        toast.apiError('Failed to delete diagram', e)
+        toast.apiError(t('Failed to delete diagram'), e)
         load()
       }
     },
@@ -156,7 +157,7 @@ export function ArchitectureView({
 
   if (openDiagramId) {
     if (loaded?.id !== openDiagramId) {
-      return <div className="px-6 py-6 text-[13px] text-tertiary">Loading…</div>
+      return <div className="px-6 py-6 text-[13px] text-tertiary">{t('Loading…')}</div>
     }
 
     return (
@@ -176,7 +177,7 @@ export function ArchitectureView({
   const columns: Column<DiagramSummary>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       sortAccessor: (d) => d.name.toLowerCase(),
       render: (d) => (
         <span className="inline-flex items-center gap-2 text-main">
@@ -187,21 +188,21 @@ export function ArchitectureView({
     },
     {
       key: 'nodes',
-      header: 'Nodes',
+      header: t('Nodes'),
       width: 110,
       sortAccessor: (d) => d.nodeCount,
       render: (d) => <span className="text-tertiary font-mono text-[12px]">{d.nodeCount}</span>,
     },
     {
       key: 'views',
-      header: 'Views',
+      header: t('Views'),
       width: 110,
       sortAccessor: (d) => d.viewCount,
       render: (d) => <span className="text-tertiary font-mono text-[12px]">{d.viewCount}</span>,
     },
     {
       key: 'updated',
-      header: 'Updated',
+      header: t('Updated'),
       width: 160,
       sortAccessor: (d) => d.updatedAt,
       render: (d) => (
@@ -222,10 +223,10 @@ export function ArchitectureView({
           items={[
             {
               key: 'delete',
-              label: 'Delete diagram',
+              label: t('Delete diagram'),
               icon: Trash2,
               destructive: true,
-              confirm: `Delete "${menu.row.name}"? This is irreversible.`,
+              confirm: t('Delete "{name}"? This is irreversible.', { name: menu.row.name }),
               onSelect: () => void remove(menu.row.id),
             },
           ]}
@@ -234,16 +235,18 @@ export function ArchitectureView({
       {!listLoading && diagrams.length === 0 ? (
         <EmptyState
           icon={Network}
-          title="Architecture"
-          description="Architecture diagrams map how your systems connect. Create one from scratch, or let the agent chart your systems."
+          title={t('Architecture')}
+          description={t(
+            'Architecture diagrams map how your systems connect. Create one from scratch, or let the agent chart your systems.',
+          )}
           primaryAction={{
-            label: 'New diagram',
+            label: t('New diagram'),
             icon: Plus,
             onClick: () => void createDiagram(),
             disabled: creating,
           }}
           agentAction={{
-            label: 'Map my system for me',
+            label: t('Map my system for me'),
             prompt:
               'Map my system architecture — look at my connected accounts and create an architecture diagram of how everything connects.',
           }}
@@ -259,7 +262,7 @@ export function ArchitectureView({
           storageKey="architecture-diagrams"
           defaultSort={{ key: 'updated', dir: 'desc' }}
           loading={listLoading}
-          empty="No diagrams match the current search."
+          empty={t('No diagrams match the current search.')}
         />
       )}
     </>

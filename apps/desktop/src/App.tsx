@@ -3,8 +3,11 @@ import { useEffect, useState } from 'react'
 import { api } from './api'
 import { Workspace } from './app/workspace/Workspace'
 import { claimComposerDrafts, clearComposerDrafts } from './components/agent/panel/composerDrafts'
+import {
+  claimClearedReplies,
+  clearClearedReplies,
+} from './components/agent/panel/composerReplyCleared'
 import { CurrentUserContext } from './hooks/useCurrentUser'
-import { forgetMacAccounts } from './hooks/useMacSignIn'
 import { identifyUser, resetAnalytics, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
@@ -27,6 +30,7 @@ export default function App() {
         if (s.loggedIn) {
           identifyUser(s.user)
           claimComposerDrafts(s.user.id)
+          claimClearedReplies(s.user.id)
           setAuth({ status: 'authenticated', user: s.user })
         } else {
           setAuth({ status: 'anonymous' })
@@ -54,6 +58,7 @@ export default function App() {
         onLogin={(user) => {
           identifyUser(user)
           claimComposerDrafts(user.id)
+          claimClearedReplies(user.id)
           track('login', { method: 'oauth' })
           setAuth({ status: 'authenticated', user })
         }}
@@ -72,7 +77,7 @@ export default function App() {
         onLogout={async () => {
           await api.authLogout()
           clearComposerDrafts()
-          forgetMacAccounts()
+          clearClearedReplies()
           track('logout')
           resetAnalytics()
           setAuth({ status: 'anonymous' })

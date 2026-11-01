@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { MongoMonitoringSample } from '../../types'
 
 export type ChartRow = {
@@ -21,9 +23,9 @@ export type ChartRow = {
 }
 
 export const RANGE_OPTIONS = [
-  { value: 60, label: 'Last hour' },
-  { value: 360, label: 'Last 6 hours' },
-  { value: 1_440, label: 'Last 24 hours' },
+  { value: 60, label: t('Last hour') },
+  { value: 360, label: t('Last 6 hours') },
+  { value: 1_440, label: t('Last 24 hours') },
 ] as const
 
 export const INTERVAL_OPTIONS = [15, 30, 60] as const
@@ -135,10 +137,10 @@ export function formatTick(value: string): string {
 
 export function deploymentLabel(value: MongoMonitoringSample['deploymentType']): string {
   return value === 'replica-set'
-    ? 'Replica set'
+    ? t('Replica set')
     : value === 'sharded'
-      ? 'Sharded cluster'
+      ? t('Sharded cluster')
       : value === 'standalone'
-        ? 'Standalone'
-        : 'Unknown'
+        ? t('Standalone')
+        : t('Unknown')
 }

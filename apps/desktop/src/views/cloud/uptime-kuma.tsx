@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, parseAtlasError } from '../../api'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { ErrorBlock } from './ErrorBlock'
@@ -73,7 +74,7 @@ export function UptimeKumaInstanceView({
   }, [filtered.length, onCount])
 
   if (!instance) {
-    return <ErrorBlock message="Uptime Kuma instance not found." />
+    return <ErrorBlock message={t('Uptime Kuma instance not found.')} />
   }
 
   return (
@@ -89,22 +90,22 @@ export function UptimeKumaInstanceView({
         rowKey={(row) => row.key}
         empty={
           loading
-            ? 'Loading Uptime Kuma monitors...'
+            ? t('Loading Uptime Kuma monitors...')
             : filter
-              ? 'No Uptime Kuma monitors match the current filter.'
-              : 'No Uptime Kuma monitors found.'
+              ? t('No Uptime Kuma monitors match the current filter.')
+              : t('No Uptime Kuma monitors found.')
         }
         storageKey="uptime-kuma.monitors.hierarchy"
         columns={[
           {
             key: 'id',
-            header: 'ID',
+            header: t('ID'),
             width: 96,
             render: (row) => <span className="font-mono text-[12px] text-secondary">{row.id}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 320,
             render: (row) => (
               <div
@@ -128,13 +129,13 @@ export function UptimeKumaInstanceView({
           },
           {
             key: 'type',
-            header: 'Type',
+            header: t('Type'),
             width: 140,
             render: (row) => <span className="text-secondary">{row.type}</span>,
           },
           {
             key: 'target',
-            header: 'Target',
+            header: t('Target'),
             width: 420,
             render: (row) => (
               <span className="font-mono text-[12px] text-secondary truncate">
@@ -144,13 +145,13 @@ export function UptimeKumaInstanceView({
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 140,
             render: (row) => <StatusBadge status={row.status} />,
           },
           {
             key: 'interval',
-            header: 'Interval',
+            header: t('Interval'),
             width: 150,
             render: (row) => (
               <span className="text-secondary">

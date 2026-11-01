@@ -20,6 +20,12 @@ import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
 export const agentApi = {
+  agentResolveDecision: (
+    sessionId: string,
+    toolCallId: string,
+    teamId?: string,
+    resolution?: 'answered' | 'dismissed',
+  ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution),
   agentGetSessionResources: (sessionId: string, teamId: string) =>
     window.api.agentGetSessionResources(sessionId, teamId),
   agentUnlinkSessionResource: (sessionId: string, teamId: string, resourceId: string) =>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 
 import { HeatmapSkeleton } from './AgentUsageSkeleton'
 import { GAP_FILL, RangeSwitch } from './MetricChart'
@@ -65,8 +66,10 @@ export function RuntimeQuotaHistory({
   return (
     <section className="@container">
       <PanelHeading
-        title="Subscription usage"
-        hint={`Highest share of each plan window used per ${QUOTA_HISTORY_RANGES[shownRange].bucketLabel}`}
+        title={t('Subscription usage')}
+        hint={t('Highest share of each plan window used per {bucket}', {
+          bucket: QUOTA_HISTORY_RANGES[shownRange].bucketLabel,
+        })}
         right={
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 text-[11px] text-tertiary">
@@ -75,13 +78,13 @@ export function RuntimeQuotaHistory({
                 className="h-2.5 w-2.5 rounded-sm"
                 style={{ backgroundColor: GAP_FILL }}
               />
-              No reading
+              {t('No reading')}
             </span>
             <RangeSwitch
               options={RANGE_OPTIONS}
               value={range}
               onChange={setRange}
-              label="Time range"
+              label={t('Time range')}
             />
           </div>
         }
@@ -90,8 +93,9 @@ export function RuntimeQuotaHistory({
       {loaded &&
         (rows.length === 0 ? (
           <p className="mb-4 rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
-            No usage recorded in this range yet. A reading is kept each time a runtime reports its
-            usage while someone on the team has Nuphos open.
+            {t(
+              'No usage recorded in this range yet. A reading is kept each time a runtime reports its usage while someone on the team has Nuphos open.',
+            )}
           </p>
         ) : (
           <UsageHeatmap rows={rows} range={loaded.range} nowMs={loaded.nowMs} onSelect={onSelect} />

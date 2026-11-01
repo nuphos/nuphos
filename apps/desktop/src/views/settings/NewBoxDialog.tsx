@@ -1,7 +1,9 @@
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
-import { NEW_BOX_DESCRIPTION, NEW_BOX_FORM, NewBoxFields } from './NewBoxFields'
+import { NEW_BOX_DESCRIPTION } from './boxCreatePresentation'
+import { NEW_BOX_FORM, NewBoxFields } from './NewBoxFields'
 import { useNewBox } from './useNewBox'
 
 import type { BoxUsage } from '../../api/device-types'
@@ -33,17 +35,17 @@ export function NewBoxDialog({
       onClose={() => {
         if (box.canClose()) onClose()
       }}
-      title="New computer"
+      title={t('New computer')}
       description={NEW_BOX_DESCRIPTION}
       width={560}
       closeOnBackdrop={!creating}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
           <Button size="sm" variant="secondary" disabled={creating} onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button size="sm" type="submit" form={NEW_BOX_FORM} disabled={creating}>
-            {creating ? 'Creating…' : 'Create computer'}
+            {creating ? t('Creating…') : t('Create computer')}
           </Button>
         </div>
       }

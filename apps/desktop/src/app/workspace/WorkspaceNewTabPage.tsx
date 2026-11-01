@@ -7,6 +7,7 @@ import { useSidebarFavorites } from '../../components/sidebar/use-sidebar-favori
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 import { useDockHistory } from '../../hooks/useDockHistory'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { groupByConnectorCategory } from '../../lib/connectorCategories'
 import { frecency, searchDockHistory } from '../../lib/dockHistory'
 import { newTabOptionDomId, rankNewTabOptions, withAddressOption } from '../../lib/launcherMatch'
@@ -93,17 +94,17 @@ export function WorkspaceNewTabPage({
   const workspaceItems = TEAM_WORKSPACE_NAV_ITEMS.flatMap((item): Item[] =>
     item.key === 'team.terminal'
       ? [
-          { ...item, label: 'Local terminal', enabled: true },
+          { ...item, label: t('Local terminal'), enabled: true },
           {
             ...item,
             key: 'team.terminal.runtime',
-            label: 'Runtime terminal',
+            label: t('Runtime terminal'),
             icon: Server,
             enabled: Boolean(conversationId && onOpenPath),
             onActivate: (newTab) =>
               onOpenPath?.(
                 `/teams/${encodeURIComponent(teamId)}/terminal/${RUNTIME_TERMINAL_FILTER}`,
-                'Runtime terminal',
+                t('Runtime terminal'),
                 newTab,
               ),
           },
@@ -124,7 +125,7 @@ export function WorkspaceNewTabPage({
   const historyOption = (entry: DockHistoryEntry): NewTabOption => ({
     id: `history:${entry.href}`,
     label: entry.title,
-    detail: new URLSearchParams(entry.href.split('?')[1]).get('url') ?? 'Recent',
+    detail: new URLSearchParams(entry.href.split('?')[1]).get('url') ?? t('Recent'),
     icon: <HistoryIcon />,
     fallbackMatch: true,
     frecency: frecency(entry, now),
@@ -132,9 +133,9 @@ export function WorkspaceNewTabPage({
   })
   const recent = searchDockHistory(history, '', now).map(historyOption)
   const groups: OptionGroup[] = [
-    { title: 'Recent', options: recent.slice(0, RECENT_LIMIT) },
-    { title: 'Favorites', favorites: true, options: itemOptions(favoriteItems) },
-    { title: 'Workspace', options: itemOptions([...workspaceItems, ...desktopItems]) },
+    { title: t('Recent'), options: recent.slice(0, RECENT_LIMIT) },
+    { title: t('Favorites'), favorites: true, options: itemOptions(favoriteItems) },
+    { title: t('Workspace'), options: itemOptions([...workspaceItems, ...desktopItems]) },
     ...liveSections.map((section) => ({
       title: section.title ?? '',
       options: itemOptions(section.items),
@@ -189,7 +190,7 @@ export function WorkspaceNewTabPage({
   return (
     <PageMeta
       pageKey="team.new-tab"
-      title="New Tab"
+      title={t('New tab')}
       icon={<Plus className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />}
     >
       <div className="h-full overflow-y-auto scrollbar-thin">
@@ -206,7 +207,7 @@ export function WorkspaceNewTabPage({
                 aria-expanded={options.length > 0}
                 aria-controls="new-tab-options"
                 aria-activedescendant={options[active] ? newTabOptionDomId(active) : undefined}
-                aria-label="Search destinations and browsing history"
+                aria-label={t('Search destinations and browsing history')}
                 onFocus={() => void api.appSelectAsciiInputSource().catch(() => {})}
                 onKeyDown={(event) => {
                   if (event.nativeEvent.isComposing) return
@@ -229,13 +230,13 @@ export function WorkspaceNewTabPage({
                   setQuery(event.target.value)
                   setActiveIndex(0)
                 }}
-                placeholder="Search destinations or history"
+                placeholder={t('Search destinations or history')}
                 className="text-[12.5px] text-main placeholder:text-tertiary"
               />
             </InputGroup>
           </div>
 
-          <div id="new-tab-options" role="listbox" aria-label="Destinations">
+          <div id="new-tab-options" role="listbox" aria-label={t('Destinations')}>
             {searching ? (
               <div className="space-y-0.5">
                 {options.map((option, index) => renderRow(option, index))}
@@ -272,7 +273,7 @@ export function WorkspaceNewTabPage({
           {!loading && (noConnectors || options.length === 0) && (
             <div className="flex flex-col items-center rounded-lg px-6 py-6 text-center">
               <p className="text-[12.5px] text-tertiary">
-                {searching ? 'No matching destinations' : 'No connected resources yet'}
+                {searching ? t('No matching destinations') : t('No connected resources yet')}
               </p>
               {!searching && (
                 <button
@@ -280,7 +281,7 @@ export function WorkspaceNewTabPage({
                   onClick={() => onOpenKey('team.integrations', null, false)}
                   className="mt-3 rounded-md bg-zGray-800 px-2.5 py-1 text-[12px] font-medium text-main transition-colors hover:bg-zGray-700"
                 >
-                  Add a connector
+                  {t('Add a connector')}
                 </button>
               )}
             </div>

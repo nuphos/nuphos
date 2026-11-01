@@ -23,6 +23,8 @@ type Props = {
     | 'github'
     | 'gitlab'
     | 'linear'
+    | 'gmail'
+    | 'google-drive'
     | 'zeabur'
     | 'vanta'
     | 'secureframe'
@@ -68,6 +70,8 @@ const SRC = {
   github: '/github-dark.svg',
   gitlab: '/gitlab.svg',
   linear: '/linear.svg',
+  gmail: '/gmail.svg',
+  'google-drive': '/google-drive.svg',
   zeabur: '/zeabur-dark-bg.svg',
   vanta: '/vanta.png',
   secureframe: '/secureframe.png',

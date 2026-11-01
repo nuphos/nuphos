@@ -1,9 +1,11 @@
+import clsx from 'clsx'
 import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useStableCallback } from '../../../hooks/useStableCallback'
+import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
@@ -20,7 +22,10 @@ import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
 import { waitingMessages } from './queuedAutoSend'
+import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
+import { cardReplyId } from './replyTarget'
+import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
 
 import type { PanelViewCtx } from './ctx'
@@ -62,7 +67,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     variant,
     visibleConversationCredentialSelector,
   } = c
-  const { runtimeControl } = useConversationRuntimeControl(c)
+  const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
+  const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   // The fork needs the chat stored on the server; each message is then gated on its author.
   const editableSessionId =
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
@@ -102,8 +108,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       })
       .catch((err: unknown) => {
         console.warn('[plan] failed to mark approved', err)
-        toast.apiError('Could not approve plan', err, {
-          fallback: 'The plan was not approved. Please try again.',
+        toast.apiError(t('Could not approve plan'), err, {
+          fallback: t('The plan was not approved. Please try again.'),
         })
       })
   })
@@ -146,15 +152,31 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     <ConversationReveal sessionId={activeTab.sessionId}>
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
-          <div className="relative grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr_auto]">
+          <div
+            className={clsx(
+              'relative grid min-h-0 flex-1 grid-cols-1',
+              c.hideTranscript ? 'grid-rows-[0_auto]' : 'grid-rows-[1fr_auto]',
+            )}
+          >
             {/* Keep the transcript above the composer as its height changes. */}
-            <div className="col-start-1 row-start-1 flex min-h-0 flex-col overflow-hidden">
+            <div
+              className={clsx(
+                'col-start-1 row-start-1 flex min-h-0 flex-col overflow-hidden',
+                c.hideTranscript && 'hidden',
+              )}
+            >
               <ConnectCardContext.Provider
                 value={{
                   credentials: activeTab.readOnly
                     ? undefined
                     : visibleConversationCredentialSelector,
-                  send: (text) => void sendInActive(text),
+                  send: (text, card) =>
+                    void sendInActive(
+                      text,
+                      [],
+                      undefined,
+                      cardReplyId(card, c.openQuestions ?? c.replyTarget?.questions),
+                    ),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -191,6 +213,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {waitingMessages(activeTab).length > 0 && (
                 <QueuedStrip
                   items={waitingMessages(activeTab)}
+                  approval={queuedApproval}
                   canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
                   onRemove={(queuedId) => void removeQueued(activeTab.id, queuedId)}
                   onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
@@ -200,7 +223,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.messages.length === 0 ? (
                 <DelayedPanelReveal>
                   <Composer
-                    onSend={(text, filePaths) => void sendInActive(text, filePaths)}
+                    onSend={(text, filePaths) =>
+                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo)
+                    }
                     onStop={stopActive}
                     autoFocus={focusComposerOnOpen}
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
@@ -216,38 +241,45 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     onSeedConsumed={onPromptConsumed}
                     sidebar={isSidebarMode}
                     dropRegisterRef={conversationDropRef}
-                    draftKey={composerDraftKey(teamId, activeTab.sessionId)}
+                    draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
                     recall={{ retract: retractLatest, history: [] }}
                     mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                   />
                 </DelayedPanelReveal>
               ) : (
-                <Composer
-                  onSend={(text, filePaths) => void sendInActive(text, filePaths)}
-                  onStop={stopActive}
-                  promptSuggestion={
-                    activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
-                      ? null
-                      : activeTab.promptSuggestion
-                  }
-                  autoFocus={focusComposerOnOpen}
-                  runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
-                  executing={runtimeIsExecuting(activeTab.runtimeState)}
-                  readOnly={activeTab.readOnly}
-                  activitySource={activeTab.activitySource}
-                  slackThread={activeTab.slackThread}
-                  credentialSelector={visibleConversationCredentialSelector}
-                  runtimeControl={runtimeControl}
-                  modelSession={modelSession}
-                  bypassControl={bypassControl}
-                  pendingSeed={pendingPromptReady}
-                  onSeedConsumed={onPromptConsumed}
-                  sidebar={isSidebarMode}
-                  dropRegisterRef={conversationDropRef}
-                  draftKey={composerDraftKey(teamId, activeTab.sessionId)}
-                  recall={{ retract: retractLatest, history }}
-                  mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
-                />
+                <>
+                  {c.replyTarget?.sessionId === activeTab.sessionId && !activeTab.readOnly && (
+                    <ReplyTargetChip target={c.replyTarget} sidebar={isSidebarMode} />
+                  )}
+                  <Composer
+                    onSend={(text, filePaths) =>
+                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo)
+                    }
+                    onStop={stopActive}
+                    promptSuggestion={
+                      activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                        ? null
+                        : activeTab.promptSuggestion
+                    }
+                    autoFocus={focusComposerOnOpen}
+                    runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                    executing={runtimeIsExecuting(activeTab.runtimeState)}
+                    readOnly={activeTab.readOnly}
+                    activitySource={activeTab.activitySource}
+                    slackThread={activeTab.slackThread}
+                    credentialSelector={visibleConversationCredentialSelector}
+                    runtimeControl={runtimeControl}
+                    modelSession={modelSession}
+                    bypassControl={bypassControl}
+                    pendingSeed={pendingPromptReady}
+                    onSeedConsumed={onPromptConsumed}
+                    sidebar={isSidebarMode}
+                    dropRegisterRef={conversationDropRef}
+                    draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
+                    recall={{ retract: retractLatest, history }}
+                    mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+                  />
+                </>
               )}
             </div>
           </div>
@@ -261,7 +293,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
         strokeWidth={1.7}
         aria-hidden="true"
       />
-      <span className="sr-only">Opening agent</span>
+      <span className="sr-only">{t('Opening agent')}</span>
     </div>
   )
 }

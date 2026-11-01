@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+import { noteInputRequestFrame } from '../../../lib/inputRequestRefresh.ts'
 import { rememberTerminalRuntimeStream } from '../../../lib/runtimeWakeup'
 import { toast } from '../../ui/toast'
 
@@ -45,8 +47,8 @@ function followSideSend(
       tabs.map((t) => (t.id === tabId && draft ? withoutQueued(t, draft.id) : t)),
     )
     toast.error(
-      'Your message was not sent',
-      draft ? `“${draft.text.slice(0, 120)}” — send it again.` : undefined,
+      t('Your message was not sent'),
+      draft ? t('“{text}” — send it again.', { text: draft.text.slice(0, 120) }) : undefined,
     )
 
     return
@@ -78,6 +80,7 @@ export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: un
     })
   }
   observeTurnUnread(owner?.sessionId ?? streamOwnersRef.current.get(streamId)?.sessionId, ev)
+  if (evType === 'sse') noteInputRequestFrame(ev.data)
   if (
     evType === 'sse' &&
     handleSseControlFrame(ctx, streamId, ev.data as Record<string, unknown>)

@@ -1,5 +1,6 @@
 import { MessageSquare, SquarePen } from 'lucide-react'
 
+import { t } from '../../i18n/index.ts'
 import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav.ts'
 
 import type { AgentConversation } from '../../api/agent-types'
@@ -41,14 +42,14 @@ function historyRow(
   if (entry.mainPageOpen) {
     const item = entry.page ? teamOverviewNavItemFor(entry.page.active) : undefined
 
-    return { ...base, label: item?.label ?? 'Page', icon: item?.icon ?? MessageSquare }
+    return { ...base, label: item?.label ?? t('Page'), icon: item?.icon ?? MessageSquare }
   }
-  if (entry.sessionId === null) return { ...base, label: 'New chat', icon: SquarePen }
+  if (entry.sessionId === null) return { ...base, label: t('New chat'), icon: SquarePen }
   const chat = chatOf(entry.sessionId)
 
   return {
     ...base,
-    label: chat?.title || chat?.firstMessage || 'Untitled chat',
+    label: chat?.title || chat?.firstMessage || t('Untitled chat'),
     chat: chat ?? { sessionId: entry.sessionId },
   }
 }
@@ -85,9 +86,9 @@ export function fullHistoryRows(
 export function historyAge(at: number, now = Date.now()): string {
   const minutes = Math.floor((now - at) / 60_000)
 
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${String(minutes)}m ago`
+  if (minutes < 1) return t('Just now')
+  if (minutes < 60) return t('{n}m ago', { n: minutes })
   const hours = Math.floor(minutes / 60)
 
-  return hours < 24 ? `${String(hours)}h ago` : `${String(Math.floor(hours / 24))}d ago`
+  return hours < 24 ? t('{n}h ago', { n: hours }) : t('{n}d ago', { n: Math.floor(hours / 24) })
 }

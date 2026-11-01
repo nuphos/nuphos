@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { t } from '../i18n'
 import { cssDurationMs } from '../lib/motion'
 
 import { useModalFocus } from './modalFocus'
@@ -97,9 +98,9 @@ export function Modal({
       }
     }
     // The panel's `.t-modal` close transition runs on --modal-close-dur.
-    const t = setTimeout(() => setMounted(false), cssDurationMs('--modal-close-dur', 150))
+    const timer = setTimeout(() => setMounted(false), cssDurationMs('--modal-close-dur', 150))
 
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [open])
 
   useEffect(() => {
@@ -207,7 +208,7 @@ export function Modal({
           {headerActions}
           <button
             type="button"
-            aria-label="Close modal"
+            aria-label={t('Close modal')}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={onClose}
             className={clsx(

@@ -3,6 +3,7 @@ import { Copy, Link, Plus, Star, StarOff, X } from 'lucide-react'
 import { ContextMenu } from '../../../components/ContextMenu'
 import { Kbd } from '../../../components/ui/kbd'
 import { toast } from '../../../components/ui/toast'
+import { t } from '../../../i18n'
 
 import type { TabContextMenuState } from './tabsTypes'
 
@@ -40,20 +41,20 @@ export function WorkspaceTabsContextMenu({
       items={[
         {
           key: 'new-tab',
-          label: 'New tab',
+          label: t('New tab'),
           icon: Plus,
           hint: <Kbd combo="mod+t" />,
           onSelect: onNew,
         },
         {
           key: 'duplicate-tab',
-          label: 'Duplicate tab',
+          label: t('Duplicate tab'),
           icon: Copy,
           onSelect: () => onDuplicate(menu.tabId),
         },
         {
           key: 'copy-url',
-          label: 'Copy URL',
+          label: t('Copy URL'),
           icon: Link,
           onSelect: () => onCopyPageUrl(menu.href),
         },
@@ -63,13 +64,13 @@ export function WorkspaceTabsContextMenu({
                 key: 'favorite',
                 // The menu closes on select, so unlike the in-tab star
                 // (whose fill is the feedback) it confirms with a toast.
-                label: favorited ? 'Remove from Favorites' : 'Add to Favorites',
+                label: favorited ? t('Remove from Favorites') : t('Add to Favorites'),
                 icon: favorited ? StarOff : Star,
                 onSelect: () => {
                   const added = toggleFavorite(menu.teamId, menu.appHref, menu.title)
 
-                  if (added) toast.success('Added to Favorites', menu.title)
-                  else toast.success('Removed from Favorites', menu.title)
+                  if (added) toast.success(t('Added to Favorites'), menu.title)
+                  else toast.success(t('Removed from Favorites'), menu.title)
                 },
               },
             ]
@@ -77,14 +78,14 @@ export function WorkspaceTabsContextMenu({
         { key: 'sep-1', separator: true },
         {
           key: 'close-tab',
-          label: 'Close tab',
+          label: t('Close tab'),
           icon: X,
           hint: <Kbd combo="mod+w" />,
           onSelect: () => handleClose(menu.tabId),
         },
         {
           key: 'close-others',
-          label: 'Close others',
+          label: t('Close others'),
           icon: X,
           disabled: tabCount <= 1,
           onSelect: () => onCloseOthers(menu.tabId),

@@ -1,5 +1,6 @@
 import { Check, Loader2 } from 'lucide-react'
 
+import { t } from '../../../i18n'
 import { CloudLogo } from '../../CloudLogo'
 import { LinearMark } from '../../LinearMark'
 import { Button } from '../../ui/button'
@@ -9,8 +10,8 @@ import { CONNECT_ITEMS } from './connectCardItems'
 import type { ConnectProvider, ConnectRowStatus } from './connectCardModel'
 
 const ACTION_LABEL: Partial<Record<ConnectRowStatus, string>> = {
-  error: 'Try again',
-  available: 'Use in agent',
+  error: t('Try again'),
+  available: t('Use in agent'),
 }
 
 function ProviderLogo({ provider }: { provider: ConnectProvider }) {
@@ -40,21 +41,23 @@ function RowAction({
     return (
       <span className="t-share-in inline-flex items-center gap-1 text-[12.5px] font-medium text-success">
         <Check className="t-share-pop h-3.5 w-3.5" strokeWidth={2.4} aria-hidden="true" />
-        Connected
+        {t('Connected')}
       </span>
     )
   }
-  if (!interactive) return <span className="text-[12px] text-tertiary">Not connected</span>
+  if (!interactive) return <span className="text-[12px] text-tertiary">{t('Not connected')}</span>
   if (status === 'choose') {
-    return <span className="text-[12px] text-tertiary">Pick one in the credential picker</span>
+    return (
+      <span className="text-[12px] text-tertiary">{t('Pick one in the credential picker')}</span>
+    )
   }
   const busy = status === 'connecting'
-  const label = ACTION_LABEL[status] ?? 'Connect'
+  const label = ACTION_LABEL[status] ?? t('Connect')
 
   return (
     <div className="flex items-center gap-2">
       {status === 'cancelled' && (
-        <span className="t-share-in text-[12px] text-tertiary">Cancelled</span>
+        <span className="t-share-in text-[12px] text-tertiary">{t('Cancelled')}</span>
       )}
       <Button
         variant="secondary"
@@ -63,7 +66,11 @@ function RowAction({
         disabled={busy}
         onClick={status === 'available' ? onUse : onConnect}
       >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label="Connecting" /> : label}
+        {busy ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label={t('Connecting')} />
+        ) : (
+          label
+        )}
       </Button>
     </div>
   )
@@ -106,7 +113,7 @@ export function ContinueFooter({ onContinue }: { onContinue: () => void }) {
   return (
     <div className="t-share-in flex justify-end border-t border-zGray-800/60 px-4 py-2.5">
       <Button size="sm" className="h-7 px-3 text-[12.5px]" onClick={onContinue}>
-        Continue
+        {t('Continue')}
       </Button>
     </div>
   )
@@ -124,7 +131,7 @@ export function ConnectHeader({
   return (
     <div className="px-4 pb-2.5 pt-3.5">
       <div className="text-[13.5px] font-medium text-main">
-        {single ? `Connect ${single}` : 'Connect apps to continue'}
+        {single ? t('Connect {name}', { name: single }) : t('Connect apps to continue')}
       </div>
       {reason && <AgentQuote text={reason} />}
     </div>
@@ -135,7 +142,7 @@ export function ConnectHeader({
 export function AgentQuote({ text }: { text: string }) {
   return (
     <blockquote className="mt-1.5 whitespace-pre-wrap border-l-2 border-zGray-700 pl-2 text-[12.5px] leading-snug text-secondary">
-      <span className="text-tertiary">Agent: </span>
+      <span className="text-tertiary">{t('Agent:')} </span>
       {text}
     </blockquote>
   )

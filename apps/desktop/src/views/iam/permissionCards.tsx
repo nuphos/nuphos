@@ -1,7 +1,9 @@
 import clsx from 'clsx'
 import { AlertTriangle, ShieldCheck } from 'lucide-react'
+import { Fragment } from 'react'
 
 import { CloudLogo } from '../../components/CloudLogo'
+import { t } from '../../i18n'
 
 // Explains what a permission-admin role/SA is, shown at the top of its detail
 // view (it replaces the self-management card, which isn't meaningful here).
@@ -14,8 +16,13 @@ export function RetiredBindingNotice({ principal }: { principal: 'role' | 'servi
           strokeWidth={1.8}
         />
         <div className="text-[12px] text-secondary leading-relaxed">
-          This legacy {principal} connection is retired and cannot be used by the agent. Remove it
-          and connect a regular {principal} if you need access to this cloud account.
+          {principal === 'role'
+            ? t(
+                'This legacy role connection is retired and cannot be used by the agent. Remove it and connect a regular role if you need access to this cloud account.',
+              )
+            : t(
+                'This legacy service account connection is retired and cannot be used by the agent. Remove it and connect a regular service account if you need access to this cloud account.',
+              )}
         </div>
       </div>
     </section>
@@ -40,7 +47,10 @@ export function EffectivePermissions({
   if (permissions.length === 0) {
     return (
       <EmptyHint
-        message={`Couldn't list IAM bindings (typically because ${serviceAccountEmail} lacks resourcemanager.projects.getIamPolicy), and the SA has none of the permissions Nuphos probes for. Effectively read-denied — grant the connector roles and refresh.`}
+        message={t(
+          "Couldn't list IAM bindings (typically because {email} lacks resourcemanager.projects.getIamPolicy), and the SA has none of the permissions Nuphos probes for. Effectively read-denied — grant the connector roles and refresh.",
+          { email: serviceAccountEmail },
+        )}
       />
     )
   }
@@ -48,10 +58,23 @@ export function EffectivePermissions({
   return (
     <div className="rounded-md border border-zGray-800 bg-zGray-950 px-3 py-3 space-y-2">
       <div className="text-[11.5px] text-tertiary leading-relaxed">
-        Couldn't read this project's IAM policy (the SA lacks{' '}
-        <span className="font-mono">resourcemanager.projects.getIamPolicy</span>). Probed{' '}
-        {permissions.length} permission{permissions.length === 1 ? '' : 's'} that the SA does have —
-        granted to {serviceAccountEmail}.
+        {(permissions.length === 1
+          ? t(
+              "Couldn't read this project's IAM policy (the SA lacks {permission}). Probed {n} permission that the SA does have — granted to {email}.",
+              { n: permissions.length, email: serviceAccountEmail },
+            )
+          : t(
+              "Couldn't read this project's IAM policy (the SA lacks {permission}). Probed {n} permissions that the SA does have — granted to {email}.",
+              { n: permissions.length, email: serviceAccountEmail },
+            )
+        )
+          .split('{permission}')
+          .map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && <span className="font-mono">resourcemanager.projects.getIamPolicy</span>}
+              {part}
+            </Fragment>
+          ))}
       </div>
       <div className="flex flex-wrap gap-1">
         {permissions.map((p) => (
@@ -97,7 +120,7 @@ export function Warnings({ warnings }: { warnings: string[] }) {
       <div className="flex items-start gap-2">
         <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" strokeWidth={1.8} />
         <div className="flex-1 min-w-0">
-          <div className="text-[12px] text-warning font-semibold mb-1">Partial result</div>
+          <div className="text-[12px] text-warning font-semibold mb-1">{t('Partial result')}</div>
           <ul className="text-[11.5px] text-secondary leading-relaxed space-y-0.5">
             {warnings.map((w, idx) => (
               <li key={idx} className="font-mono break-words">

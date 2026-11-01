@@ -1,4 +1,5 @@
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { t } from '../../i18n'
 
 import { boxUpdateConfirm } from './boxRestartPresentation'
 
@@ -23,12 +24,12 @@ export function BoxHostUpdate({
     <>
       <button
         type="button"
-        title={version ? `v${version} is available` : undefined}
+        title={version ? t('v{version} is available', { version }) : undefined}
         className="ml-auto shrink-0 rounded border border-zViolet-500/30 px-1.5 text-[10px] text-zViolet-400 hover:bg-zViolet-500/10"
         disabled={busy}
         onClick={() => onConfirmingChange(true)}
       >
-        Update available
+        {t('Update available')}
       </button>
       <ConfirmDialog
         open={confirming}

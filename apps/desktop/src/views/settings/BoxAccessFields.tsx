@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { Avatar } from '../../components/Avatar'
 import { Checkbox } from '../../components/ui/checkbox'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
+import { t } from '../../i18n'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
 
 import type { AccessMode } from './boxAccessPresentation'
@@ -19,9 +20,9 @@ const SEARCH_FROM = 6
 const STACK = 4
 
 const MODES: { mode: AccessMode; icon: typeof Users; title: string }[] = [
-  { mode: 'admins', icon: ShieldCheck, title: 'Admins only' },
-  { mode: 'everyone', icon: Users, title: 'Everyone' },
-  { mode: 'members', icon: UserCheck, title: 'Specific people' },
+  { mode: 'admins', icon: ShieldCheck, title: t('Admins only') },
+  { mode: 'everyone', icon: Users, title: t('Everyone') },
+  { mode: 'members', icon: UserCheck, title: t('Specific people') },
 ]
 
 function AvatarStack({ members }: { members: TeamMember[] }) {
@@ -73,7 +74,11 @@ function MemberRow({
             <span className="block truncate text-[11.5px] text-tertiary">{member.email}</span>
           )}
         </span>
-        <Checkbox checked={checked} onCheckedChange={onToggle} aria-label={`Allow ${name}`} />
+        <Checkbox
+          checked={checked}
+          onCheckedChange={onToggle}
+          aria-label={t('Allow {name}', { name })}
+        />
       </label>
     </li>
   )
@@ -109,9 +114,9 @@ export function BoxAccessFields({
   }, [loaded])
 
   const descriptions: Record<AccessMode, string> = {
-    admins: 'Only team admins',
-    everyone: loaded ? `All ${String(members.length)} in the team` : 'The whole team',
-    members: 'Pick who can use it',
+    admins: t('Only team admins'),
+    everyone: loaded ? t('All {n} in the team', { n: members.length }) : t('The whole team'),
+    members: t('Pick who can use it'),
   }
 
   return (
@@ -119,7 +124,7 @@ export function BoxAccessFields({
       <RadioGroup
         value={choice.mode}
         onValueChange={(next: string) => choice.setMode(next as AccessMode)}
-        aria-label="Who can use it"
+        aria-label={t('Who can use it')}
         className="grid grid-cols-3 gap-2"
       >
         {MODES.map(({ mode, icon: Icon, title }) => {
@@ -159,8 +164,8 @@ export function BoxAccessFields({
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <span className="text-[12px] text-secondary">
             {choice.mode === 'everyone'
-              ? 'Everyone can use it, including people who join later. Only admins manage it.'
-              : 'Admins always use and manage it.'}
+              ? t('Everyone can use it, including people who join later. Only admins manage it.')
+              : t('Admins always use and manage it.')}
           </span>
           <AvatarStack members={choice.mode === 'everyone' ? members : admins} />
         </div>
@@ -168,10 +173,10 @@ export function BoxAccessFields({
           <div className="border-t border-zGray-800 px-1.5 pb-1.5 pt-2">
             <div className="flex items-center justify-between gap-2 px-1.5 pb-1.5">
               <span className="text-[11px] font-medium uppercase tracking-wide text-tertiary">
-                Members
+                {t('Members')}
               </span>
               <span className="text-[11.5px] tabular-nums text-tertiary">
-                {picked} of {others.length} selected
+                {t('{picked} of {total} selected', { picked, total: others.length })}
               </span>
             </div>
             {others.length > SEARCH_FROM && (
@@ -181,8 +186,8 @@ export function BoxAccessFields({
               >
                 <Search className="h-3.5 w-3.5" aria-hidden="true" />
                 <InputGroupInput
-                  aria-label="Search members"
-                  placeholder="Search by name or email"
+                  aria-label={t('Search members')}
+                  placeholder={t('Search by name or email')}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   className="min-w-0 flex-1 text-[12.5px] text-main placeholder:text-tertiary"
@@ -200,16 +205,16 @@ export function BoxAccessFields({
               ))}
               {loaded && others.length === 0 && (
                 <li className="px-2 py-1.5 text-[12px] text-tertiary">
-                  Everyone else in the team is an admin.
+                  {t('Everyone else in the team is an admin.')}
                 </li>
               )}
               {others.length > 0 && shown.length === 0 && (
-                <li className="px-2 py-1.5 text-[12px] text-tertiary">No one matches.</li>
+                <li className="px-2 py-1.5 text-[12px] text-tertiary">{t('No one matches.')}</li>
               )}
             </ul>
             {others.length > 0 && picked === 0 && (
               <p className="px-2 pb-1 pt-1.5 text-[11.5px] text-tertiary">
-                No one picked yet, so only admins can use it.
+                {t('No one picked yet, so only admins can use it.')}
               </p>
             )}
           </div>

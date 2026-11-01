@@ -9,12 +9,16 @@ import type * as dbActual from '@/lib/db'
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 
 const conversationUpdates: Record<string, unknown>[][] = []
+// How many documents the next updates match: an open request, or none.
+let matchedCount = 1
 
 useDb({
   db: (() => ({
     collection: () => ({
       updateOne: async (...args: Record<string, unknown>[]) => {
         conversationUpdates.push(args)
+
+        return { matchedCount }
       },
     }),
   })) as unknown as typeof dbActual.db,
@@ -45,7 +49,10 @@ async function pendingWait() {
   throw new Error('no wait registered')
 }
 
-beforeEach(() => resetLocalPreviewWaits())
+beforeEach(() => {
+  resetLocalPreviewWaits()
+  matchedCount = 1
+})
 
 describe('decision tool module', () => {
   test('advertises the classic decision and client-side tools under their own names', () => {
@@ -97,19 +104,105 @@ describe('decision tool module', () => {
     expect(conversationUpdates.at(-1)).toEqual([
       { sessionId: 'conv-1', userId: 'u1' },
       {
-        $set: {
-          pendingDecision: {
-            category: 'preference',
-            question: '要部署到哪個 region？',
-            options: ['us-east', 'ap-south'],
-            toolCallId: frames[0]!.toolCallId,
-            askedAt: expect.any(Date),
+        $push: {
+          inputRequests: {
+            $each: [
+              {
+                id: frames[0]!.toolCallId,
+                category: 'preference',
+                question: '要部署到哪個 region？',
+                options: ['us-east', 'ap-south'],
+                askedAt: expect.any(Date),
+                status: 'open',
+              },
+            ],
+            $slice: -100,
           },
         },
       },
     ])
     // The answer is the user's next message — nothing is parked on the waiter.
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
+  })
+
+  test('request_user_decision keeps its body for the Inbox and returns the requestId', async () => {
+    const result = await decisionToolModule({ publish: async () => {} }).handlers(ctx)
+      .request_user_decision!({
+      label: 'Ask about the database',
+      category: 'approval',
+      question: 'Delete the staging database?',
+      body: 'It has had no connections for **30 days**.',
+      options: ['Delete', 'Keep'],
+    })
+    const { requestId } = result.structuredContent as { requestId: string }
+    const [, update] = conversationUpdates.at(-1)!
+
+    expect(requestId).toStartWith('nuphos-')
+    expect(update).toMatchObject({
+      $push: {
+        inputRequests: {
+          $each: [{ id: requestId, body: 'It has had no connections for **30 days**.' }],
+        },
+      },
+    })
+  })
+
+  test('update_user_decision changes only the fields passed, on an open request', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.update_user_decision!({
+      label: 'Add the backup option',
+      requestId: 'nuphos-1',
+      options: ['Delete', 'Keep', 'Back up, then delete'],
+    })
+
+    expect(result.isError).toBeFalsy()
+    expect(conversationUpdates.at(-1)).toEqual([
+      {
+        sessionId: 'conv-1',
+        userId: 'u1',
+        inputRequests: { $elemMatch: { id: 'nuphos-1', status: 'open' } },
+      },
+      { $set: { 'inputRequests.$.options': ['Delete', 'Keep', 'Back up, then delete'] } },
+    ])
+  })
+
+  test('update_user_decision rejects bad input and an answered request', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const before = conversationUpdates.length
+
+    expect((await tools.update_user_decision!({ label: 'x', requestId: 'nuphos-1' })).isError).toBe(
+      true,
+    )
+    expect(
+      (await tools.update_user_decision!({ label: 'x', requestId: 'nuphos-1', options: ['one'] }))
+        .isError,
+    ).toBe(true)
+    expect(conversationUpdates).toHaveLength(before)
+    matchedCount = 0
+    expect(
+      (await tools.update_user_decision!({ label: 'x', requestId: 'nuphos-1', question: 'Now?' }))
+        .isError,
+    ).toBe(true)
+  })
+
+  test('withdraw_user_decision dismisses the open request', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.withdraw_user_decision!({ label: 'Withdraw', requestId: 'nuphos-1' })
+
+    expect(result.structuredContent).toMatchObject({ status: 'withdrawn' })
+    expect(conversationUpdates.at(-2)).toEqual([
+      {
+        sessionId: 'conv-1',
+        userId: 'u1',
+        inputRequests: { $elemMatch: { id: 'nuphos-1', status: 'open' } },
+      },
+      {
+        $set: {
+          'inputRequests.$.status': 'dismissed',
+          'inputRequests.$.resolvedAt': expect.any(Date),
+        },
+      },
+    ])
   })
 
   test('an integration decision carries its providers to the Desktop Connect card', async () => {

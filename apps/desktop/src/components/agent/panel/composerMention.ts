@@ -1,3 +1,4 @@
+import { t } from '../../../i18n/index.ts'
 import { ATLAS_WEB_BASE_URL } from '../../../lib/webBaseUrl.ts'
 
 import type { AgentCredentialOptions } from '../../../api/agent-credential-types.ts'
@@ -56,5 +57,5 @@ export function deviceDetail(
 ): string {
   if (devices.filter((other) => other.label === device.label).length < 2) return ''
 
-  return `${device.available === false ? 'Offline' : 'Online'} · ${device.deviceId.slice(-4)}`
+  return `${device.available === false ? t('Offline') : t('Online')} · ${device.deviceId.slice(-4)}`
 }

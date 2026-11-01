@@ -69,7 +69,12 @@ export class AuthSession {
   // Token and user always change together: tokens are opaque, so a caller
   // that left the user out would silently forget who is signed in.
   set(token: string | null, userId: string | null): void {
-    this.replace(this.ctx.api, token, token ? userId : null)
+    this.use(this.ctx.api, token, userId)
+  }
+
+  /** Signs in as an account on `api` in one step, so nothing sees the token on another backend. */
+  use(api: string, token: string | null, userId: string | null): void {
+    this.replace(api, token, token ? userId : null)
   }
 
   /**

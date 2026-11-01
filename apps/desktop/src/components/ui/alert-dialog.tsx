@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
 import { reportFrontendError } from '../../lib/frontendErrorReporter'
 
 import { Button } from './button'
@@ -24,8 +25,8 @@ export function AppAlertDialog({
   open,
   title,
   description,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel = t('Confirm'),
+  cancelLabel = t('Cancel'),
   destructive,
   onConfirm,
   onClose,
@@ -110,7 +111,7 @@ export function AppAlertDialog({
               size="sm"
             >
               {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.4} />}
-              {pending ? 'Working...' : confirmLabel}
+              {pending ? t('Working...') : confirmLabel}
             </Button>
           </div>
         </AlertDialogPrimitive.Popup>

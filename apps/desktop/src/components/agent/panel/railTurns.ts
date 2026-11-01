@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { Message } from './model'
 
 /** Fewer turns than this fit on screen; the rail would only add noise. */
@@ -76,8 +78,8 @@ export function pickRailTurns(messages: Message[]): RailTurn[] {
     if (message.role === 'user') {
       const title =
         message.turnKind === 'plan-approval'
-          ? 'Plan approval'
-          : firstLine(messageText(message)) || 'Attachment'
+          ? t('Plan approval')
+          : firstLine(messageText(message)) || t('Attachment')
 
       turns.push({ id: message.id, messageIds: [message.id], title })
       continue

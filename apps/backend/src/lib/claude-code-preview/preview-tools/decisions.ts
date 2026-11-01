@@ -7,7 +7,7 @@
 // bounded wait: the turn never parks on an answer that is not coming.
 import { randomUUID } from 'node:crypto'
 
-import { setPendingDecision } from '@/lib/agent/db/pending-decision'
+import { addInputRequest } from '@/lib/agent/db/pending-decision'
 import { createUserDecisionTools } from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -18,6 +18,7 @@ import { previewRunStreamId, publishPreviewFrame } from '../run-frame-bridge'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 import { CLIENT_TOOL_INSTRUCTION, CLIENT_TOOL_UNREACHABLE_INSTRUCTION } from './decision-specs'
+import { followUpHandler, isRequestFollowUp, requestOwner } from './decision-requests'
 import { awaitDecisionOnce } from './decision-wait'
 
 import type { PreviewClientToolCall, PreviewWaitKind } from '../decision-waiter'
@@ -163,22 +164,23 @@ function passthroughHandler(
     const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
     const outcome = await runClassicTool(name, tool, input, ctx, options)
 
-    if (name === 'request_user_decision' && !('error' in outcome)) {
-      const { category, question, options: choices } = outcome.output as ExplicitUserDecision
+    if ('error' in outcome) return toolError(outcome.error)
+    if (name !== 'request_user_decision') return toolResult(outcome.output)
+    const { category, question, body, options: choices } = outcome.output as ExplicitUserDecision
 
-      await setPendingDecision(ctx.sessionId, ctx.conversationOwnerUserId ?? ctx.userId, {
-        category,
-        question,
-        ...(choices ? { options: choices } : {}),
-        toolCallId: outcome.toolCallId,
-        askedAt: new Date(),
-      }).catch((err: unknown) => {
-        // The card is already in the transcript; only the Inbox misses it.
-        logError('agent.pending_decision.persist_failed', err, { session_id: ctx.sessionId })
-      })
-    }
+    await addInputRequest(ctx.sessionId, requestOwner(ctx), {
+      id: outcome.toolCallId,
+      category,
+      question,
+      ...(body ? { body } : {}),
+      ...(choices ? { options: choices } : {}),
+      askedAt: new Date(),
+    }).catch((err: unknown) => {
+      // The card is already in the transcript; only the Inbox misses it.
+      logError('agent.pending_decision.persist_failed', err, { session_id: ctx.sessionId })
+    })
 
-    return 'error' in outcome ? toolError(outcome.error) : toolResult(outcome.output)
+    return toolResult({ ...outcome.output, requestId: outcome.toolCallId })
   }
 }
 
@@ -237,6 +239,9 @@ export function decisionToolModule(options: Partial<BlockOptions> = {}): Preview
         if (!isToolLike(tool) || typeof tool.execute !== 'function') continue
         handlers[name] = passthroughHandler(name, tool, ctx, block)
       }
+      for (const [name, tool] of Object.entries(classic))
+        if (isRequestFollowUp(name) && isToolLike(tool))
+          handlers[name] = followUpHandler(name, tool, ctx)
       for (const name of Object.keys(localTools))
         handlers[name] = clientToolHandler(name, ctx, block)
 

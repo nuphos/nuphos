@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
 import { formatLogTimestamp } from '../../lib/logView'
 
 import { AnsiLogText } from './ansi-log-text'
@@ -36,16 +37,16 @@ export function WorkloadLogBody({
       className="flex-1 min-h-0 overflow-auto scrollbar-thin font-mono text-[11.5px] p-4 bg-zGray-950 selectable"
     >
       {previousLoading ? (
-        <span className="text-tertiary">Loading previous logs…</span>
+        <span className="text-tertiary">{t('Loading previous logs…')}</span>
       ) : visible.length === 0 ? (
         <span className="text-tertiary">
           {totalLines > 0
-            ? 'No matching lines'
+            ? t('No matching lines')
             : previous
-              ? 'No previous logs — no terminated instances found.'
+              ? t('No previous logs — no terminated instances found.')
               : streaming
-                ? 'Waiting for logs…'
-                : 'No logs'}
+                ? t('Waiting for logs…')
+                : t('No logs')}
         </span>
       ) : (
         visible.map((l) => (

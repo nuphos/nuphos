@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { BoxAccessFields } from './BoxAccessFields'
 import { useBoxAccessChoice } from './useBoxAccessChoice'
@@ -31,7 +32,7 @@ export function BoxAccessDialog({
       onSaved()
       onClose()
     } catch (error) {
-      toast.apiError('Could not change who can use this computer', error)
+      toast.apiError(t('Could not change who can use this computer'), error)
     } finally {
       setSaving(false)
     }
@@ -41,16 +42,16 @@ export function BoxAccessDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Who can use ${device.label}`}
-      description="People who lose access have their open agents on this computer closed."
+      title={t('Who can use {name}', { name: device.label })}
+      description={t('People who lose access have their open agents on this computer closed.')}
       width={560}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
           <Button size="sm" variant="secondary" disabled={saving} onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button size="sm" disabled={saving} onClick={() => void save()}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('Saving…') : t('Save')}
           </Button>
         </div>
       }

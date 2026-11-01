@@ -43,6 +43,8 @@ enum ChatRow: Identifiable, Equatable {
     case activity(text: String, live: Bool)
     /// The message being uploaded, before the server has it.
     case sending
+    /// A message the server never took, kept in place to retry or edit.
+    case failed
     case hint(id: String, text: String, isError: Bool)
     case event(id: String, event: ChatMessage.Event)
 
@@ -55,6 +57,7 @@ enum ChatRow: Identifiable, Equatable {
             return id
         case .activity: return "activity"
         case .sending: return "sending"
+        case .failed: return "failed"
         }
     }
 }
@@ -99,7 +102,7 @@ extension ChatRow {
                 }
             case .data(let receipt) where receipt.name == "steering":
                 if let id = receipt.data["id"]?.stringValue, let text = receipt.data["text"]?.stringValue {
-                    body.append(.user(id: "steering.\(id)", messageId: message.id, text: text, images: []))
+                    body.append(.user(id: "steering.\(id)", messageId: message.id, text: text, images: [], sender: ChatMessage.Sender(metadata: receipt.data["metadata"])))
                 }
             case .turnInterrupted(let p):
                 body.append(.hint(id: "interrupted.\(message.id).\(p.id)", text: p.reason == .cancelled ? "Stopped." : p.message, isError: p.reason != .cancelled))
@@ -128,23 +131,13 @@ extension ChatRow {
         }
         let intermediate = body[..<foldEnd].filter(foldable)
         guard intermediate.reduce(0, { $0 + workSteps($1) }) >= 2 else { return body }
-        let hasPending = intermediate.contains { if case .tool(_, _, let t, _) = $0 { return t.state == .approvalRequested }; return false }
-        guard !hasPending else { return body }
 
-        var folded: [ChatRow] = []
-        var group: [ChatRow] = []
-        func flush() {
-            guard let first = group.first else { return }
-            folded.append(.work(id: "work.\(message.id).\(first.id)", rows: group, duration: workDuration(message)))
-            group = []
-        }
-        for (i, row) in body.enumerated() {
-            if i < foldEnd, foldable(row) { group.append(row); continue }
-            flush()
-            folded.append(row)
-        }
-        flush()
-        return folded
+        // One fold per turn, like the desktop: rows that stay visible (thread
+        // badges, plans, questions) are lifted out below it instead of
+        // splitting it into several folds that each claim the whole duration.
+        let start = body.firstIndex(where: foldable)!
+        let work = ChatRow.work(id: "work.\(message.id).\(body[start].id)", rows: intermediate, duration: workDuration(message))
+        return Array(body[..<start]) + [work] + body[start..<foldEnd].filter { !foldable($0) } + body[foldEnd...]
     }
 
     /// Where the fold ends. A turn that finished folds up to its answer; a turn

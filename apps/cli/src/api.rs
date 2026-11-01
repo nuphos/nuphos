@@ -197,8 +197,9 @@ impl Api {
     }
 
     /// `{ online, … }` — whether the agent answers yet.
+    /// Only sign-in waits on this, so it also resumes a paused Box.
     pub async fn runtime_status(&self, team: &str, runtime: &str) -> Result<Value, ApiError> {
-        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/status"), &[], None).await
+        self.call(Method::GET, &format!("/teams/{team}/agent-runtimes/{runtime}/status"), &[("wake", "1")], None).await
     }
 
     /// Starts (POST) or reads (GET) a Cloud agent's sign-in to its provider account.

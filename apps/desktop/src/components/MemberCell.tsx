@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 
 import { memberDisplayName } from '../lib/bindingAccess'
+import { t } from '../i18n'
 
 import { Avatar } from './Avatar'
 
@@ -28,14 +29,14 @@ export function MemberCell({
     return compact ? (
       <div className="flex items-center gap-2 min-w-0 text-tertiary text-[12px]">
         <div className="h-5 w-5 flex-shrink-0 rounded-[5px] bg-zGray-850" />
-        <span className="truncate">Unknown member</span>
+        <span className="truncate">{t('Unknown member')}</span>
       </div>
     ) : (
       <div className="flex items-center gap-2 min-w-0 text-tertiary text-[12px]">
         <div className="w-6 h-6 rounded-[5px] bg-zGray-850 flex-shrink-0" />
         <div className="min-w-0">
-          <div className="truncate">Unknown member</div>
-          <div className="truncate text-[11px]">Not in current team</div>
+          <div className="truncate">{t('Unknown member')}</div>
+          <div className="truncate text-[11px]">{t('Not in current team')}</div>
         </div>
       </div>
     )
@@ -45,7 +46,9 @@ export function MemberCell({
   // running as them — show their identity, dimmed, with a "Former member" tag
   // instead of the second line's email.
   const isFormer = Boolean(member.removedAt)
-  const title = `${name} <${member.email}>${isFormer ? ' · Former member' : ''}`
+  const title = isFormer
+    ? t('{name} <{email}> · Former member', { name, email: member.email })
+    : `${name} <${member.email}>`
 
   if (compact) {
     // The email and the Former-member note live in the tooltip here; keeping
@@ -80,7 +83,7 @@ export function MemberCell({
       <div className="min-w-0">
         <div className="text-secondary text-[12.5px] truncate">{name}</div>
         <div className="text-tertiary text-[11.5px] truncate">
-          {isFormer ? 'Former member' : member.email}
+          {isFormer ? t('Former member') : member.email}
         </div>
       </div>
     </div>

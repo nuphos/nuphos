@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { canOpenSessionDesktop, subscribeSessionDesktops } from '../../lib/sessionDesktops'
 
 import { openSessionDesktop } from './openSessionDesktop'
@@ -20,12 +21,12 @@ export function useSessionDesktopItems(teamId: string, sessionId?: string | null
   return [
     {
       key: 'team.desktop.session',
-      label: 'Desktop',
+      label: t('Desktop'),
       icon: Monitor,
       enabled: true,
       onActivate: () => {
         openSessionDesktop(teamId, sessionId, api.openSessionDesktop).catch((error: unknown) => {
-          toast.apiError('Could not open the desktop', error)
+          toast.apiError(t('Could not open the desktop'), error)
         })
       },
     },

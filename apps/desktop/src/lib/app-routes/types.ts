@@ -120,6 +120,8 @@ export type NavigationSnapshot = {
   awsDetail?: AwsResourceDetailRef | null
   // Open architecture diagram drill-down — encoded into the URL so it round-trips.
   architectureDetail?: { diagramId: string; diagramName: string } | null
+  // Open design drill-down — encoded into the URL so it round-trips.
+  designDetail?: { designId: string; designName: string } | null
   // Selected dashboard — encoded into the URL so it round-trips.
   nuphosDashboard?: NuphosDashboardRef | null
   // Linear page drill-down — encoded into the URL so it round-trips.

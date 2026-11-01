@@ -6,10 +6,12 @@ import { api } from '../../api'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { LOCAL_AGENT_CARD, LocalAgentCard } from './LocalAgentCard'
 import { LocalRuntimeActivity } from './LocalRuntimeActivity'
 import { SectionHeader } from './shared'
+import { PhoneControlSettings } from './PhoneControlSettings'
 import { SleepPreventionSettings } from './SleepPreventionSettings'
 
 import type { CliLoginProvider, LocalRuntimeState } from '../../api'
@@ -67,7 +69,7 @@ export function LocalRuntimeSection({
     try {
       setState(await api.localRuntimeRefresh())
     } catch (err) {
-      toast.apiError('Could not check the local runtimes', err)
+      toast.apiError(t('Could not check the local runtimes'), err)
     }
   }, [])
 
@@ -93,8 +95,10 @@ export function LocalRuntimeSection({
   return (
     <div>
       <SectionHeader
-        title="Local runtime"
-        description="Claude Code and Codex on this computer, with your own sign-in, for your own agents only. Always on while Nuphos is open."
+        title={t('Local runtime')}
+        description={t(
+          'Claude Code and Codex on this computer, with your own sign-in, for your own agents only. Always on while Nuphos is open.',
+        )}
       />
 
       <SkeletonReveal ready={state !== null} skeleton={<LocalAgentSkeleton />}>
@@ -105,6 +109,14 @@ export function LocalRuntimeSection({
                 state={state.sleepPrevention}
                 onSaved={(sleepPrevention) =>
                   setState((previous) => (previous ? { ...previous, sleepPrevention } : previous))
+                }
+              />
+            )}
+            {state.phoneControl !== undefined && (
+              <PhoneControlSettings
+                allowed={state.phoneControl}
+                onSaved={(phoneControl) =>
+                  setState((previous) => (previous ? { ...previous, phoneControl } : previous))
                 }
               />
             )}
@@ -126,7 +138,7 @@ export function LocalRuntimeSection({
                 )}
               >
                 <div className="min-w-0">
-                  <div className="text-[13px] font-medium text-main">Workspace folder</div>
+                  <div className="text-[13px] font-medium text-main">{t('Workspace folder')}</div>
                   <div className="truncate text-[12px] text-tertiary" title={state.workspace}>
                     {state.workspace}
                   </div>
@@ -137,7 +149,7 @@ export function LocalRuntimeSection({
                   onClick={() => void api.localRuntimeOpenWorkspace()}
                 >
                   <FolderOpen strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
-                  Open
+                  {t('Open')}
                 </Button>
               </div>
             )}
