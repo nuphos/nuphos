@@ -129,7 +129,7 @@ private struct AgentSignInInstructions: View {
             VStack(spacing: 12) {
                 BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 56)
                 Text(runtime.local.map { "Sign in on \($0.deviceLabel)" } ?? "Ask an administrator to sign in").font(.title3.weight(.semibold))
-                Text(runtime.label).font(.subheadline).foregroundStyle(Theme.muted)
+                Text(RuntimeInstance.Provider.detail(runtime.provider.rawValue, instance: runtime.label)).font(.subheadline).foregroundStyle(Theme.muted)
                 Text(runtime.local.map { "Open Nuphos on \($0.deviceLabel), go to Settings → Runtimes, then choose Sign in for this runtime." } ?? "A workspace administrator can sign in to this runtime in Settings → Runtimes.")
                     .font(.subheadline).foregroundStyle(Theme.body).multilineTextAlignment(.center)
             }.frame(maxWidth: .infinity).padding(.vertical, 16).listRowBackground(Color.clear)

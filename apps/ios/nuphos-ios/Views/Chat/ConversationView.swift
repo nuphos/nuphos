@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The chat screen: transcript rows, activity, approvals, and the composer.
 struct ConversationView: View {
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
     var initialPrompt: ComposerSubmission?
@@ -252,12 +253,17 @@ struct ConversationView: View {
                     .font(Theme.Text.label.weight(.semibold))
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
-                if let name = session.runtimeDisplayName {
-                    Text(name)
-                        .font(Theme.Text.micro)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
-                        .accessibilityLabel("Runtime: \(name)")
+                if session.loaded || session.runtimeDisplayName != nil {
+                    let name = session.runtimeDisplayName
+                    HStack(spacing: 4) {
+                        if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
+                        Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
+                            .font(Theme.Text.micro)
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
                 } else if !session.loaded {
                     Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }

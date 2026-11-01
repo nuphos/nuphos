@@ -188,7 +188,7 @@ struct ComposerControls: View {
                 ComposerChip(logo: RuntimeInstance.Provider.logo(store.newConversationRuntime?.provider.rawValue), title: runtimeTitle, isActive: store.newConversationRuntime != nil)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Choose runtime")
+            .accessibilityLabel("Choose runtime: \(runtimeTitle)")
             .sheet(isPresented: $showRuntimes) { RuntimePickerSheet() }
             .task { await store.loadRuntimes() }
             #if DEBUG
