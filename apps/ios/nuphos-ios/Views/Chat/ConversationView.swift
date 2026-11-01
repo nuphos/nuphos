@@ -2,7 +2,6 @@ import SwiftUI
 
 /// The chat screen: transcript rows, activity, approvals, and the composer.
 struct ConversationView: View {
-    @Environment(AuthSession.self) private var auth
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
@@ -11,6 +10,7 @@ struct ConversationView: View {
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
 
+    @Environment(AuthSession.self) private var auth
     @Environment(\.scenePhase) private var scenePhase
     @State private var readerID = UUID()
     @State private var onScreen = false
