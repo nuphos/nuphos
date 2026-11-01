@@ -88,11 +88,14 @@ auth.post('/password/sign-in', async (c) =>
   c.json(await startSession(c, await signInWithPassword(await c.req.json().catch(() => null)))),
 )
 
-auth.post('/password/set', async (c) =>
-  c.json(
-    await startSession(c, await setPasswordWithEmailCode(await c.req.json().catch(() => null))),
-  ),
-)
+auth.post('/password/set', async (c) => {
+  // Creates the account when the email is new.
+  const user = await setPasswordWithEmailCode(await c.req.json().catch(() => null))
+
+  await recordSignupSource(user, 'password', getCookie(c, FIRST_TOUCH_COOKIE))
+
+  return c.json(await startSession(c, user))
+})
 
 // Email OTP sign-in/sign-up for teams not on Google Workspace. Errors follow
 // the AppError envelope (unlike /google/sign-in, whose GraphQL-ish shape is

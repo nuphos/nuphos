@@ -8,7 +8,9 @@ import type { NuphosUser } from '@/lib/identity/types'
 
 /**
  * nuphos.ai writes this cookie on `.nuphos.ai` at a browser's first visit, so
- * api.nuphos.ai sees it on any sign-in the same browser reaches.
+ * api.nuphos.ai sees it on any sign-in the same browser reaches. The website
+ * repository writes it (src/lib/analytics/firstTouchCookie.ts); keep the name
+ * and fields in step.
  */
 export const FIRST_TOUCH_COOKIE = 'nuphos_first_touch'
 
