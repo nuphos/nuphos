@@ -57,3 +57,34 @@ export function notifyAgentStopped(args: {
   })
   n.show()
 }
+
+// Every window's sidebar watches the same requests, so each is announced once here.
+const announcedApprovals = new Set<string>()
+
+/**
+ * A teammate asks to run a conversation on this person's computer. Clicking opens
+ * the Inbox, where it is answered: the owner cannot open the teammate's conversation.
+ */
+export function notifyShareApproval(args: {
+  approvalId: string
+  title: string
+  body: string
+  openInbox: () => void
+}): void {
+  const { approvalId, title, body, openInbox } = args
+
+  if (announcedApprovals.has(approvalId)) return
+  announcedApprovals.add(approvalId)
+  if (!Notification.isSupported()) return
+  // On screen, the sidebar's Inbox badge already says it.
+  if (BrowserWindow.getAllWindows().some((w) => w.isFocused())) return
+  const n = new Notification({ title, body })
+  const release = retainNotification(n)
+
+  n.on('close', release)
+  n.on('click', () => {
+    release()
+    openInbox()
+  })
+  n.show()
+}

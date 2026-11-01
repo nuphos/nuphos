@@ -10,6 +10,7 @@ import type {
   UpdateRuntimeInput,
 } from '../types/runtime'
 import type {
+  AgentStatsQuery,
   HomeLayout,
   SidebarFavoriteCloudEntry,
   TeamActivityRange,
@@ -86,8 +87,13 @@ export const teamApi = {
     expectedRevision: number,
   ) => window.api.atlasPutSidebarFavorites(teamId, entries, expectedRevision),
   atlasGetHomeLayout: (teamId: string) => window.api.atlasGetHomeLayout(teamId),
+  atlasGetRuntimeFallback: (teamId: string) => window.api.atlasGetRuntimeFallback(teamId),
+  atlasPutRuntimeFallback: (teamId: string, runtimeIds: string[]) =>
+    window.api.atlasPutRuntimeFallback(teamId, runtimeIds),
   atlasGetTeamActivity: (teamId: string, range: TeamActivityRange) =>
     window.api.atlasGetTeamActivity(teamId, range),
+  atlasGetAgentStats: (teamId: string, query: AgentStatsQuery) =>
+    window.api.atlasGetAgentStats(teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: HomeLayout | null) =>
     window.api.atlasPutHomeLayout(teamId, scope, layout),
   atlasCreateTeam: (name: string) => window.api.atlasCreateTeam(name),

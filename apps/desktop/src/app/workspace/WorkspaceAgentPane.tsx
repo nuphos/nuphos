@@ -17,6 +17,7 @@ import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
+import { PaneCloseButton } from './PaneCloseButton'
 import { PaneGrip } from './PaneGrip'
 import { PaneMenu } from './PaneMenu'
 import { SessionFindBar } from './SessionFindBar'
@@ -231,6 +232,7 @@ export function WorkspaceAgentPane({
               pendingCount={inputQueue.requests.length}
             />
           )}
+          {pane?.split && <PaneCloseButton onClosePane={pane.closePane} />}
           {/* The rest of the header moves the window, so a pane moves by its grip. Electron cuts
             no-drag holes in page order, so the grip comes after the drag area it sits over. */}
           <PaneGrip label={currentHeading.title} />
@@ -284,6 +286,7 @@ export function WorkspaceAgentPane({
               onOpenLink={stableOpenSessionResource}
               onOpenSession={handleSessionChange}
               onOpenRequest={handleOpenRequest}
+              onChooseReply={replyTarget?.onChoose}
               requests={inputQueue.requests}
               requestsLoaded={inputQueue.loaded}
               requestsFailed={inputQueue.failed}

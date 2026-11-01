@@ -30,6 +30,13 @@ export type ModelControl = Pick<
   'data' | 'loading' | 'slow' | 'saving' | 'error' | 'queued' | 'open' | 'select'
 > & { setOpen: (open: boolean) => void; refresh: () => void }
 
+function chipLabel(name: string, fast: string | undefined) {
+  if (fast === 'on') return t('Model settings: {name}, fast mode on', { name })
+  if (fast === 'ultrafast') return t('Model settings: {name}, Ultrafast mode on', { name })
+
+  return t('Model settings: {name}', { name })
+}
+
 export function ModelSelector({
   control,
   disabled,
@@ -168,13 +175,7 @@ export function ModelSelector({
           <Popover.Trigger
             ref={chipRef}
             data-model-chip=""
-            aria-label={
-              fast?.currentValue === 'on'
-                ? t('Model settings: {name}, fast mode on', {
-                    name: [name, level].filter(Boolean).join(' '),
-                  })
-                : t('Model settings: {name}', { name: [name, level].filter(Boolean).join(' ') })
-            }
+            aria-label={chipLabel([name, level].filter(Boolean).join(' '), fast?.currentValue)}
             // A filled pill at rest, so opening it changes nothing but the text.
             className={clsx(
               hero ? 'h-8' : 'h-7',
@@ -188,7 +189,7 @@ export function ModelSelector({
               level={level}
               levels={effortLevels}
               choosingEffort={effortOpen && Boolean(effort)}
-              fast={fast?.currentValue === 'on'}
+              fast={fast?.currentValue}
             />
             <ChevronDown
               size={14}

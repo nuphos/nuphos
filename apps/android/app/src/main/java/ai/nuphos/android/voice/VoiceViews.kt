@@ -54,51 +54,11 @@ fun VoiceRecordingBar(input: VoiceInput) {
 }
 
 @Composable
-fun OpenAIKeyDialog(services: VoiceServices, onDismiss: () -> Unit, onSaved: () -> Unit) {
-    var key by remember { mutableStateOf("") }
-    var checking by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-    var request by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    fun dismiss() { request?.cancel(); key = ""; onDismiss() }
-    AlertDialog(onDismissRequest = ::dismiss, title = { Text("OpenAI API key") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(value = key, onValueChange = { key = it }, enabled = !checking,
-                label = { Text("sk-…") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-            Text("Voice input transcribes with OpenAI Whisper using your own API key. The key stays on this device; recordings are sent to OpenAI and billed to your account.")
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-    }, confirmButton = {
-        TextButton(enabled = key.isNotBlank() && !checking, onClick = {
-            if (!checking) {
-                checking = true
-                val candidate = key.trim()
-                request = scope.launch {
-                    try {
-                        services.transport.verify(candidate)
-                        kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                        services.settings.saveKey(candidate)
-                        key = ""
-                        onSaved()
-                    } catch (e: CancellationException) { throw e }
-                    catch (_: Exception) { error = "Could not verify or securely save this key. Check the key and your connection." }
-                    finally { checking = false }
-                }
-            }
-        }) { Text(if (checking) "Checking…" else "Save") }
-    }, dismissButton = { TextButton(onClick = ::dismiss) { Text("Cancel") } })
-}
-
-@Composable
 fun VoiceSettingsSection(services: VoiceServices) {
-    var hasKey by remember { mutableStateOf(runCatching { services.settings.key() != null }.getOrDefault(false)) }
     var prompt by remember { mutableStateOf(runCatching { services.settings.prompt }.getOrDefault(DEFAULT_WHISPER_PROMPT)) }
     var error by remember { mutableStateOf<String?>(null) }
     Text("Voice input", style = MaterialTheme.typography.titleSmall)
-    Text(if (hasKey) "OpenAI API key saved on this device" else "Tap the microphone in the composer to add your OpenAI API key.")
-    if (hasKey) TextButton(onClick = {
-        runCatching { services.settings.removeKey() }.onSuccess { hasKey = false }.onFailure { error = "Could not remove the API key." }
-    }) { Text("Remove OpenAI API key") }
+    Text("Voice input is included with a Nuphos subscription.")
     OutlinedTextField(value = prompt, onValueChange = {
         prompt = it
         runCatching { services.settings.prompt = it }.onFailure { error = "Could not save the prompt." }
@@ -107,6 +67,6 @@ fun VoiceSettingsSection(services: VoiceServices) {
         runCatching { services.settings.prompt = DEFAULT_WHISPER_PROMPT }.onSuccess { prompt = DEFAULT_WHISPER_PROMPT }
             .onFailure { error = "Could not save the prompt." }
     }) { Text("Reset prompt") }
-    Text("The prompt sets the writing style and spells names Whisper doesn't know. Recordings are sent to OpenAI and billed to your OpenAI account.")
+    Text("The prompt guides spelling and writing style. Recordings are transcribed by OpenAI through Nuphos.")
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }

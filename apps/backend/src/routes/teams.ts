@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
 import { ACTIVITY_RANGES, getTeamActivity } from '@/lib/agent/team-activity'
@@ -46,6 +47,7 @@ import { personalCredentialTokenRoutes } from '@/routes/personal-credentials'
 import { plaudAccountsRoutes } from '@/routes/plaud-accounts'
 import { posthogIntegrationsRoutes } from '@/routes/posthog-integrations'
 import { resendIntegrationsRoutes } from '@/routes/resend-integrations'
+import { runtimeFallbackRoutes } from '@/routes/runtime-fallback'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
 import { sentryAccountsRoutes } from '@/routes/sentry-accounts'
 import { sidebarFavoritesRoutes } from '@/routes/sidebar-favorites'
@@ -89,6 +91,12 @@ const activityQuerySchema = z.object({
   range: z.enum(Object.keys(ACTIVITY_RANGES) as [keyof typeof ACTIVITY_RANGES]).default('7d'),
 })
 
+const statsQuerySchema = activityQuerySchema.extend({
+  scope: z.enum(['me', 'team']).default('me'),
+  // Days and hours are the viewer's own, so a streak ends at their midnight.
+  timeZone: z.string().max(64).refine(isTimeZone, 'Unknown time zone').default('UTC'),
+})
+
 const teamScoped = new Hono<{
   Variables: TeamAuthVariables & ConversationTeamAuthVariables
 }>()
@@ -109,6 +117,11 @@ teamScoped.get('/usage', async (c) => c.json(await getTeamUsageSeries(c.get('tea
 teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) =>
   c.json(await getTeamActivity(c.get('teamId'), c.req.valid('query').range)),
 )
+teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) =>
+  c.json(
+    await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...c.req.valid('query') }),
+  ),
+)
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
 // The team's Box vCPU limit and use, for the Boxes section.
@@ -127,6 +140,7 @@ teamScoped.get(
 )
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
+teamScoped.route('/runtime-fallback', runtimeFallbackRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 teamScoped.route('/voice-transcriptions', voiceTranscriptionsRoutes)
 

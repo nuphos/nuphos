@@ -50,3 +50,16 @@ export function runtimeUpdatePresentation(
     showButton: canUpdate && (pending || update.state === 'available' || update.state === 'failed'),
   }
 }
+
+/**
+ * The newer version a host can update to, from its latest status: '' when that version is
+ * unknown, undefined when there is nothing to update. Every answer counts, so a host that comes
+ * back current after an update clears what an earlier answer offered.
+ */
+export function hostUpdateVersion(
+  update: Pick<RuntimeUpdateStatus, 'state' | 'latestVersion'> | undefined,
+) {
+  return update?.state === 'available' || update?.state === 'failed'
+    ? (update.latestVersion ?? '')
+    : undefined
+}

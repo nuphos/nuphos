@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** One take at a time; cancellation invalidates permission and late network results. */
-class VoiceInput(private val services: VoiceServices, private val scope: CoroutineScope, private val onText: (String) -> Unit) {
+class VoiceInput(private val services: VoiceServices, private val scope: CoroutineScope, private val access: VoiceAccess, private val onText: (String) -> Unit) {
     enum class Phase { Idle, Permission, Recording, Transcribing }
     var phase by mutableStateOf(Phase.Idle); private set
     var levels by mutableStateOf<List<Float>>(emptyList()); private set
@@ -23,10 +23,12 @@ class VoiceInput(private val services: VoiceServices, private val scope: Corouti
     private var take: VoiceTake? = null
     private var job: Job? = null
     private var generation = 0
+    val available get() = access.current()
     val active get() = phase != Phase.Idle
-    fun awaitingPermission() { if (!active) phase = Phase.Permission }
+    fun awaitingPermission() { if (!active && access.current()) { error = null; phase = Phase.Permission } }
     fun permissionResult(granted: Boolean) {
         if (phase != Phase.Permission) return
+        if (!access.current()) { cancel(); return }
         if (!granted) { cancel(); error = "Allow microphone access for Nuphos in Android Settings to use voice input."; return }
         try {
             val recording = services.newTake()
@@ -50,31 +52,29 @@ class VoiceInput(private val services: VoiceServices, private val scope: Corouti
     }
     fun finish() {
         if (phase != Phase.Recording) return
+        if (!access.current()) { cancel(); return }
         val recording = take ?: return
         phase = Phase.Transcribing // Set synchronously so a double tap cannot upload twice.
         job?.cancel()
         val current = generation
         job = scope.launch {
             var file: File? = null
-            var key: String? = null
             try {
                 file = recording.stop()
-                key = services.settings.key() ?: kotlin.error("Add your OpenAI API key again.")
                 val prompt = services.settings.prompt
-                val reply = services.transport.transcribe(file, key, prompt)
+                val reply = services.transport.transcribe(file, access.token, access.teamId, prompt)
                 val words = if (reply.language == "chinese") withContext(Dispatchers.Default) {
                     services.traditional(reply.text)
                 } else reply.text
                 ensureActive()
-                if (current == generation) onText(words)
+                if (current == generation && access.current()) onText(words)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                if (current == generation) {
-                    if (e is RejectedVoiceKey) runCatching {
-                        if (services.settings.key() == key) services.settings.removeKey()
-                    }
-                    error = if (e is RejectedVoiceKey) e.message else "Voice input failed. Check your connection and try again."
+                if (current == generation && access.current()) {
+                    error = if (e is VoiceFailure) e.message else "Voice input failed. Check your connection and try again."
+                    if (e is VoiceFailure && e.status == 401) access.unauthorized()
                 }
+
             } finally {
                 file?.delete()
                 recording.cancel()

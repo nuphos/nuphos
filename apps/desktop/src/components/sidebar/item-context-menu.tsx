@@ -1,4 +1,16 @@
-import { Archive, Bell, BellOff, Hash, Link2, Pencil, Star, StarOff, Unlink } from 'lucide-react'
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  Bell,
+  BellOff,
+  Hash,
+  Link2,
+  Pencil,
+  Star,
+  StarOff,
+  Unlink,
+} from 'lucide-react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
@@ -8,7 +20,7 @@ import { agentSessionUrl } from '../agent/sessionUrl'
 import { ContextMenu } from '../ContextMenu'
 import { toast } from '../ui/toast'
 
-import type { Item } from './types'
+import type { Item, ItemMenuRequest } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 
 export function SidebarItemContextMenu({
@@ -22,7 +34,7 @@ export function SidebarItemContextMenu({
   unlinkChat,
   renameChat,
 }: {
-  menu: { x: number; y: number; item: Item }
+  menu: ItemMenuRequest
   teamId: string
   onClose: () => void
   canFavorite: (item: Item) => boolean
@@ -53,6 +65,19 @@ export function SidebarItemContextMenu({
                     icon: Star,
                     onSelect: () => toggleFavorite(menu.item),
                   },
+            ]
+          : []),
+        ...(menu.moves?.up
+          ? [{ key: 'move-up', label: t('Move up'), icon: ArrowUp, onSelect: menu.moves.up }]
+          : []),
+        ...(menu.moves?.down
+          ? [
+              {
+                key: 'move-down',
+                label: t('Move down'),
+                icon: ArrowDown,
+                onSelect: menu.moves.down,
+              },
             ]
           : []),
         ...(menu.item.key.startsWith('agent-session:')

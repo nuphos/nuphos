@@ -1,5 +1,7 @@
 import { Clock3, Loader2, RefreshCw, X } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { DatabaseQueryAudit } from '../../types'
 
 export function DocumentsHistoryPanel({
@@ -23,7 +25,7 @@ export function DocumentsHistoryPanel({
     <div className="absolute inset-y-0 right-0 z-30 flex w-[430px] flex-col border-l border-zGray-700 bg-zGray-950 shadow-2xl">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-zGray-800 px-3">
         <div>
-          <div className="text-[12px] font-medium text-main">Query history</div>
+          <div className="text-[12px] font-medium text-main">{t('Query history')}</div>
           <div className="text-[9.5px] text-tertiary">
             {database}.{collection}
           </div>
@@ -57,7 +59,7 @@ export function DocumentsHistoryPanel({
           </div>
         ) : history.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-[10.5px] text-tertiary">
-            No query history for this collection.
+            {t('No query history for this collection.')}
           </div>
         ) : (
           <div className="space-y-2">
@@ -78,8 +80,11 @@ export function DocumentsHistoryPanel({
                       </span>
                     </div>
                     <div className="mt-1 text-[9.5px] text-tertiary">
-                      {new Date(event.createdAt).toLocaleString()} · {event.rowCount ?? '—'} rows ·{' '}
-                      {event.durationMs ?? '—'} ms
+                      {t('{time} · {rows} rows · {ms} ms', {
+                        time: new Date(event.createdAt).toLocaleString(),
+                        rows: event.rowCount ?? '—',
+                        ms: event.durationMs ?? '—',
+                      })}
                     </div>
                   </div>
                   <button
@@ -88,12 +93,14 @@ export function DocumentsHistoryPanel({
                     onClick={() => onLoadEntry(event)}
                     className="rounded border border-zGray-700 px-2 py-1 text-[9.5px] text-secondary hover:border-zGray-600 hover:text-main disabled:opacity-35"
                   >
-                    Load
+                    {t('Load')}
                   </button>
                 </div>
                 <pre className="mt-2 max-h-28 overflow-hidden whitespace-pre-wrap break-words rounded bg-zGray-950/80 px-2 py-1.5 font-mono text-[9.5px] leading-4 text-tertiary">
                   {event.queryStatement ??
-                    `Legacy record · fields: ${event.queryShape.join(', ') || 'none'}`}
+                    t('Legacy record · fields: {fields}', {
+                      fields: event.queryShape.join(', ') || t('none'),
+                    })}
                 </pre>
               </div>
             ))}

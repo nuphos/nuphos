@@ -3,9 +3,11 @@ import { MongoServerError } from 'mongodb'
 import { setupAutoModeIndexes } from '@/lib/agent/auto-mode/store'
 import { backfillConversationWatchers, setupAgentIndexes } from '@/lib/agent/db'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
-import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
+import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
 import { setupDeviceJoinTokenIndexes } from '@/lib/agent/devices/join-tokens'
+import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
 import { setupShareApprovalIndexes } from '@/lib/agent/devices/local-share-store'
+import { setupShareTrustIndexes } from '@/lib/agent/devices/local-share-trust'
 import { setupAgentDeviceIndexes } from '@/lib/agent/devices/store'
 import { setupDirectoryIndexes } from '@/lib/agent/directory'
 import { runMemoryProviderSetup } from '@/lib/agent/memory-slots'
@@ -18,30 +20,35 @@ import { setupTokenUsageIndexes } from '@/lib/agent/token-usage'
 import { setupTriggerIndexes } from '@/lib/agent/trigger-db'
 import { setupTriggerGroupIndexes } from '@/lib/agent/trigger-group-db'
 import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime-image-audit'
+import { setupHostedRuntimeSlotIndexes } from '@/lib/claude-code-preview/runtime-instances'
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
-import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
 import { setupDiscordIndexes } from '@/lib/discord/store'
-import { setupHostedRuntimeSlotIndexes } from '@/lib/claude-code-preview/runtime-instances'
 import { setupDownloadLinkEmailIndexes } from '@/lib/download-link-email'
 import { setupEmailOtpIndexes } from '@/lib/email-otp'
 import { setupIdentityIndexes } from '@/lib/identity'
 import { setupCliTokenIndexes } from '@/lib/identity/cli-tokens'
-import { setupUserSessionIndexes } from '@/lib/identity/sessions'
 import { setupDeviceLoginIndexes } from '@/lib/identity/device-login'
 import { setupPasswordIndexes } from '@/lib/identity/password'
+import { setupUserSessionIndexes } from '@/lib/identity/sessions'
+import { setupSocialAuthIndexes } from '@/lib/identity/social-store'
 import { setupLarkAgentIndexes } from '@/lib/lark/agent-bot'
 import { setupNativeAuthIndexes } from '@/lib/native-auth'
 import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
-import { setupLiveActivityIndexes } from '@/lib/push/live-activities'
+import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
 import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-notifications'
 import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
-import { teamHomeLayouts, teamInvitations, userTeamSidebarFavorites } from '@/models/team'
+import {
+  teamHomeLayouts,
+  teamInvitations,
+  userTeamRuntimeFallbacks,
+  userTeamSidebarFavorites,
+} from '@/models/team'
 
 // Mongo 85/86 = an index with this name already exists under a different spec
 // — typically another branch's backend upgraded it on the shared replica set.
@@ -73,6 +80,7 @@ export async function setupIndexes(): Promise<void> {
     ['password-login', setupPasswordIndexes],
     ['download-link-email', setupDownloadLinkEmailIndexes],
     ['native-auth', setupNativeAuthIndexes],
+    ['social-auth', setupSocialAuthIndexes],
     ['cli-tokens', setupCliTokenIndexes],
     ['user-sessions', setupUserSessionIndexes],
     ['device-login', setupDeviceLoginIndexes],
@@ -106,10 +114,12 @@ export async function setupIndexes(): Promise<void> {
     ['preview-memory-activity', setupPreviewMemoryActivityIndexes],
     ['sidebar-favorites', setupSidebarFavoritesIndexes],
     ['home-layouts', setupHomeLayoutIndexes],
+    ['runtime-fallbacks', setupRuntimeFallbackIndexes],
     ['push-devices', setupPushDeviceIndexes],
     ['push-live-activities', setupLiveActivityIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
     ['agent-device-shares', setupShareApprovalIndexes],
+    ['agent-device-share-trusts', setupShareTrustIndexes],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
@@ -144,6 +154,13 @@ async function setupHomeLayoutIndexes(): Promise<void> {
   await teamHomeLayouts().createIndex(
     { teamId: 1, userId: 1 },
     { unique: true, name: 'team_home_layouts_scope_unique' },
+  )
+}
+
+async function setupRuntimeFallbackIndexes(): Promise<void> {
+  await userTeamRuntimeFallbacks().createIndex(
+    { teamId: 1, userId: 1 },
+    { unique: true, name: 'user_team_runtime_fallbacks_scope_unique' },
   )
 }
 

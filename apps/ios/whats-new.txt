@@ -1,13 +1,5 @@
-Send voice input in one tap. While recording, tap the arrow to stop and send right away, or the stop button to edit the text first.
+Notifications now show the agent's avatar.
 
-You can now send a message while the agent is busy. It waits in a queue above the composer, where you can take it back, edit it, or send it into the running turn.
+Rename an agent right from the agent list.
 
-The app opens straight to your conversations from last time and refreshes them in the background, so launching is faster, even on a slow network.
-
-When you message an agent on a teammate's computer that asks its owner first, the app now tells you your message is waiting for their approval.
-
-A sent message now stays at the bottom of the chat with the reply right below it, instead of jumping to the top of the screen.
-
-Signing in an agent on a paused Box now wakes the Box instead of waiting forever.
-
-Smaller fixes: "Connection lost" no longer flashes when you come back to the app, pasting an image from the menu works every time, the most commonly reported crash in the chat view is addressed, and sheets no longer crash when the app runs on a Mac.
+Fixes: in the split view, the open chat's row is highlighted, and runtime meters stack instead of overflowing when the sidebar is narrow.

@@ -126,6 +126,7 @@ export type AgentConversation = ConversationInputRequests & {
     movedAt: Date
     movedBy: string
   }
+  runtimeFallback?: { failed: string[]; at: Date } // Agents a turn failed on, skipped for an hour
   // Claude Code preview attachment: which OpenAB session carries this
   // conversation, on which runtime endpoint. Durable so any backend replica
   // reattaches to the same inner session instead of forking a new one.

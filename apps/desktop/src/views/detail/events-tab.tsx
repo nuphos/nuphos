@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type { DetailTarget } from './target'
@@ -70,12 +71,12 @@ export function EventsTab({ target, refreshKey }: { target: DetailTarget; refres
   ])
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (loading) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (loading) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   return (
     <div className="p-6">
       {events.length === 0 ? (
-        <div className="text-tertiary text-[13px]">No events</div>
+        <div className="text-tertiary text-[13px]">{t('No events')}</div>
       ) : (
         <div className="space-y-2">
           {events.map((e, i) => (

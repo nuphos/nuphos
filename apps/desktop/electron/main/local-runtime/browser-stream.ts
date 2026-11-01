@@ -7,7 +7,7 @@ import type { SocketEvent, SocketLike } from './tunnel-client.ts'
 type Listener = (event: SocketEvent) => void
 
 export type BrowserCall = {
-  action: 'tabs' | 'open' | 'navigate' | 'eval' | 'screenshot'
+  action: 'tabs' | 'open' | 'navigate' | 'eval' | 'screenshot' | 'record_start' | 'record_stop'
   team: string
   /** The conversation calling; it sees and drives only the tabs it opened. */
   session: string

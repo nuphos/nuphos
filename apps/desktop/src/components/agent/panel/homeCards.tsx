@@ -11,8 +11,8 @@ import {
   RUN_STATUSES,
   filterPulls,
   filterRuns,
+  githubCardTitle,
   mergeRepoReads,
-  statusLabel,
 } from './homeWidgetSettings'
 
 import type { WithRepo } from './homeGithubRows'
@@ -80,7 +80,11 @@ function useRepoItems<T>(
   return { items: state ? [...state.byRepo.values()].flat() : null, failed: state?.failed ?? [] }
 }
 
-function HomeCard({
+/**
+ * A pull request or CI card's frame: header with its count and menu, then the
+ * rows, or what to say when there are none, are loading or failed to load.
+ */
+export function HomeCard({
   icon,
   title,
   menu,
@@ -225,7 +229,7 @@ export function GithubCard({
           <CircleDot className="h-3.5 w-3.5" strokeWidth={1.8} />
         )
       }
-      title={`${pulls ? t('Pull requests') : 'CI'} · ${statusLabel(card)}`}
+      title={githubCardTitle(card)}
       menu={<GithubCardMenu teamId={teamId} card={card} onChange={onChange} onRemove={onRemove} />}
       count={count}
       empty={empty}

@@ -13,14 +13,11 @@ export function DesktopFrame({
   switcher,
   onRetry,
   host,
-  prompt,
 }: {
   title: string
   phase: DesktopPhase
   status?: string
   action?: React.ReactNode
-  /** What the desktop asks of the viewer before it shows, in place of the overlay. */
-  prompt?: React.ReactNode
   /** Which of the Box's displays to show, for a Box's desktop. */
   switcher?: React.ReactNode
   onRetry: () => void
@@ -46,28 +43,22 @@ export function DesktopFrame({
         </div>
         <div className="relative min-h-0 flex-1">
           <div ref={host} className="absolute inset-0 flex" />
-          {prompt && phase.kind !== 'stopped' ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-zGray-950/80">
-              {prompt}
+          {(overlay || phase.kind === 'stopped') && (
+            <div
+              role="status"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zGray-950/80 text-sm text-secondary"
+            >
+              {phase.kind === 'stopped' ? phase.message : overlay}
+              {phase.kind === 'stopped' && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="rounded border border-zGray-700 px-2 py-0.5 text-xs text-main hover:bg-zGray-800"
+                >
+                  {phase.reason === 'offline' ? 'Resume' : 'Try again'}
+                </button>
+              )}
             </div>
-          ) : (
-            (overlay || phase.kind === 'stopped') && (
-              <div
-                role="status"
-                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zGray-950/80 text-sm text-secondary"
-              >
-                {phase.kind === 'stopped' ? phase.message : overlay}
-                {phase.kind === 'stopped' && (
-                  <button
-                    type="button"
-                    onClick={onRetry}
-                    className="rounded border border-zGray-700 px-2 py-0.5 text-xs text-main hover:bg-zGray-800"
-                  >
-                    {phase.reason === 'offline' ? 'Resume' : 'Try again'}
-                  </button>
-                )}
-              </div>
-            )
           )}
         </div>
       </div>

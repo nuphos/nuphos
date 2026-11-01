@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { createLocalBrowserHandler } from './local-browser'
+import { createLocalBrowserHandler, localBrowserToolModule } from './local-browser'
 
 import type { DeviceToolDeps } from './device-tool'
 import type { PreviewToolContext } from '../preview-tool-context'
@@ -98,6 +98,8 @@ describe('local_browser', () => {
     expect((await handler({ action: 'eval', script: '1' })).isError).toBe(true)
     expect((await handler({ action: 'open' })).isError).toBe(true)
     expect((await handler({ action: 'click' })).isError).toBe(true)
+    expect((await handler({ action: 'record_start' })).isError).toBe(true)
+    expect((await handler({ action: 'record_stop' })).isError).toBe(true)
     expect(fake.opened).toHaveLength(0)
   })
 
@@ -110,5 +112,38 @@ describe('local_browser', () => {
 
     expect(result.isError).toBe(true)
     expect(fake.opened).toHaveLength(0)
+  })
+
+  test("opens on the user's own screen when a Nuphos computer is also selected", async () => {
+    const targets: string[] = []
+    const fake = device(null)
+    const connect: DeviceToolDeps['connect'] = (c, deviceId, owner, purpose) => {
+      targets.push(deviceId)
+
+      return fake.connect(c, deviceId, owner, purpose)
+    }
+    const devices = async () => [
+      { deviceId: 'box', label: 'Computer 1', box: true },
+      { deviceId: 'mac', label: 'MacBook' },
+    ]
+    const handler = createLocalBrowserHandler(ctx, deps({ devices, connect }))
+
+    await handler({ action: 'open', url: 'https://dash.cloudflare.com/login' })
+    // Naming the Box still reaches it.
+    await handler({ action: 'tabs', device: 'box' })
+    expect(targets).toEqual(['mac', 'box'])
+  })
+
+  test('tells the agent to open a named site and sign-in pages itself', () => {
+    const description = String(
+      (localBrowserToolModule.definitions[0] as { description?: string }).description,
+    )
+
+    expect(description).toContain(
+      'A site or app named by the user ("open up TikTok") means its official URL (https://www.tiktok.com)',
+    )
+    expect(description).toContain(
+      'open that login or sign-up page here yourself, sub-agents included',
+    )
   })
 })

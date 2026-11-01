@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, parseAtlasError } from '../../api'
 import { ContextMenu } from '../../components/ContextMenu'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useTeamMembers } from '../../lib/bindingAccess'
 import { formatAge } from '../../utils'
 
@@ -84,10 +85,13 @@ export function GcpServiceAccountsView({
   const menuItems = (serviceAccount: GcpProject): ContextMenuItem[] => [
     {
       key: 'unbind',
-      label: 'Unbind',
+      label: t('Unbind'),
       icon: Trash2,
       destructive: true,
-      confirm: `Unbind ${serviceAccount.serviceAccountEmail} from ${serviceAccount.projectId}?`,
+      confirm: t('Unbind {account} from {project}?', {
+        account: serviceAccount.serviceAccountEmail,
+        project: serviceAccount.projectId,
+      }),
       onSelect: async () => {
         setActionError(null)
         try {
@@ -123,7 +127,7 @@ export function GcpServiceAccountsView({
         )}
         {serviceAccounts.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-[13px] text-tertiary">
-            No service accounts available for this project.
+            {t('No service accounts available for this project.')}
           </div>
         ) : (
           <Table<GcpProject>
@@ -134,12 +138,12 @@ export function GcpServiceAccountsView({
               setActionError(null)
               setMenu({ serviceAccount, x: e.clientX, y: e.clientY })
             }}
-            empty="No matching service accounts."
+            empty={t('No matching service accounts.')}
             storageKey="gcp-service-accounts"
             columns={[
               {
                 key: 'service-account',
-                header: 'Service Account',
+                header: t('Service Account'),
                 width: 420,
                 sortAccessor: (serviceAccount) => serviceAccount.serviceAccountEmail,
                 render: (serviceAccount) => (
@@ -169,7 +173,7 @@ export function GcpServiceAccountsView({
               },
               {
                 key: 'access',
-                header: 'Access',
+                header: t('Access'),
                 width: 110,
                 sortAccessor: (serviceAccount) => serviceAccount.canUse !== false,
                 render: (serviceAccount) => (
@@ -181,18 +185,20 @@ export function GcpServiceAccountsView({
                         : 'bg-success/15 text-success',
                     )}
                   >
-                    {serviceAccount.canUse === false ? 'Denied' : 'Allowed'}
+                    {serviceAccount.canUse === false ? t('Denied') : t('Allowed')}
                   </span>
                 ),
               },
               {
                 key: 'age',
-                header: 'Age',
+                header: t('Age'),
                 width: 110,
                 sortAccessor: (serviceAccount) => serviceAccount.createdAt ?? '',
                 render: (serviceAccount) => (
                   <span className="text-tertiary">
-                    {serviceAccount.createdAt ? `${formatAge(serviceAccount.createdAt)} ago` : '—'}
+                    {serviceAccount.createdAt
+                      ? t('{age} ago', { age: formatAge(serviceAccount.createdAt) })
+                      : '—'}
                   </span>
                 ),
               },

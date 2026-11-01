@@ -1,6 +1,5 @@
 import { app, BrowserWindow, Menu } from 'electron'
 
-import { checkForUpdatesInteractive } from './updater'
 import { createWindow, dispatchAppShortcut } from './windows'
 import { zoom } from './zoom'
 
@@ -40,7 +39,7 @@ export function installApplicationMenu() {
               { role: 'about' as const },
               {
                 label: 'Check for Updates…',
-                click: () => void checkForUpdatesInteractive(),
+                click: () => dispatchAppShortcut('open-updates'),
               },
               { type: 'separator' as const },
               {

@@ -177,10 +177,11 @@ struct SelectorBoxHeader: View {
                 Text("\(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")")
                     .font(.system(size: 12)).foregroundStyle(Theme.muted)
                 if let metrics {
-                    HStack(spacing: 12) {
-                        SelectorMeter(title: "CPU", value: metrics.cpuPercent)
-                        SelectorMeter(title: "MEM", value: metrics.memory.percent)
-                        SelectorMeter(title: "DISK", value: metrics.disk.percent)
+                    // A split view's sidebar, such as iPhone Duo's inner display,
+                    // is too narrow for three side by side: stack them instead.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) { meters(metrics) }
+                        VStack(spacing: 8) { meters(metrics) }
                     }
                     if expanded {
                         Text("Memory \(metrics.memory.formatted) · Disk \(metrics.disk.formatted)")
@@ -197,6 +198,11 @@ struct SelectorBoxHeader: View {
         .frame(minHeight: 48).contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(box.label + (current ? ", current computer" : ""))
+    }
+    @ViewBuilder private func meters(_ metrics: AgentDevice.Metrics) -> some View {
+        SelectorMeter(title: "CPU", value: metrics.cpuPercent)
+        SelectorMeter(title: "MEM", value: metrics.memory.percent)
+        SelectorMeter(title: "DISK", value: metrics.disk.percent)
     }
 }
 

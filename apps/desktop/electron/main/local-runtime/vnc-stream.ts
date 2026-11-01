@@ -37,11 +37,20 @@ export class VncStream implements SocketLike {
   private lost = false
   private held = () => false
   private readonly pool: string
-  private readonly port: (display: number) => number
+  /** Where a display listens: Xvnc's TCP port, or a Mac's screen host socket. */
+  private readonly port: (display: number) => number | string
 
-  constructor(pool: string, port = (display: number) => VNC_BASE_PORT + display) {
+  /** Told when the viewer takes the desktop over or hands it back. */
+  private readonly handedOver?: (human: boolean) => void
+
+  constructor(
+    pool: string,
+    port: (display: number) => number | string = (display) => VNC_BASE_PORT + display,
+    handedOver?: (human: boolean) => void,
+  ) {
     this.pool = pool
     this.port = port
+    this.handedOver = handedOver
     queueMicrotask(() => {
       if (this.readyState !== 0) return
       this.readyState = 1
@@ -114,7 +123,8 @@ export class VncStream implements SocketLike {
 
     touch()
     this.watching = setInterval(touch, WATCHING_MS)
-    const socket = connect(this.port(display), '127.0.0.1')
+    const target = this.port(display)
+    const socket = typeof target === 'string' ? connect(target) : connect(target, '127.0.0.1')
 
     this.socket = socket
     socket.on('data', (chunk: Buffer) => {
@@ -126,6 +136,7 @@ export class VncStream implements SocketLike {
 
   /** The lock the proxy reads: a human owner must be renewed; the agent needs no entry. */
   private handOver(toHuman: boolean): void {
+    this.handedOver?.(toHuman)
     clearInterval(this.renew)
     this.renew = undefined
     const write = () => {

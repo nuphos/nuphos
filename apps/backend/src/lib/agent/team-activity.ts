@@ -1,5 +1,8 @@
-import { agentConversations, agentMessages } from '@/lib/agent/db'
 import { getTeamMembers } from '@/lib/identity'
+
+import { readTeamTurns } from './team-turns'
+
+export { OPEN_TURN_LIMIT_MS, turnIntervals } from './team-turns'
 
 /**
  * Ranges the home heatmap offers. Each member's row spans the whole range, so
@@ -27,43 +30,6 @@ export type TeamActivity = {
 /** `slots[i]` lists, as indexes into `sessions`, the member's sessions running in slot i. */
 export type MemberActivity = { id: string; name: string; avatarURL: string; slots: number[][] }
 
-type TurnMessage = { sessionId: string; role: string; createdAt: Date }
-
-// A turn with no reply yet is still running, unless it is so old that its
-// reply was lost; then it is not counted at all.
-const OPEN_TURN_LIMIT_MS = 2 * 60 * 60_000
-
-/**
- * Turns, as [start, end] times, from a session's messages in transcript order.
- * No collection records a turn's start and end, so a turn runs from when the
- * user message was saved until the last assistant message that answers it.
- */
-export function turnIntervals(messages: TurnMessage[], now: Date): [number, number][] {
-  const turns: [number, number][] = []
-  let openedAt: number | null = null
-
-  for (const m of messages) {
-    const at = m.createdAt.getTime()
-
-    if (m.role === 'user') {
-      openedAt ??= at
-    } else if (openedAt !== null) {
-      turns.push([openedAt, at])
-      openedAt = null
-    } else {
-      // A reply split across messages (a hand-off) extends the same turn.
-      const last = turns.at(-1)
-
-      if (last) last[1] = Math.max(last[1], at)
-    }
-  }
-  if (openedAt !== null && now.getTime() - openedAt < OPEN_TURN_LIMIT_MS) {
-    turns.push([openedAt, now.getTime()])
-  }
-
-  return turns
-}
-
 /** The slots, in order, that a session's turns overlap. */
 export function sessionSlots(
   turns: [number, number][],
@@ -86,9 +52,6 @@ export function sessionSlots(
 // The answer only moves a slot at a time, so one scan per team, range and
 // slot serves every viewer until the next slot starts.
 const cache = new Map<string, { end: number; result: Promise<TeamActivity> }>()
-
-// Bounds a single scan for a very busy team: the most recently active sessions.
-const MAX_SESSIONS = 2000
 
 export function getTeamActivity(
   teamId: string,
@@ -124,52 +87,19 @@ async function scanTeamActivity(
   const slotCount = (days * 24 * 60) / slotMinutes
   const start = end - slotCount * slotMs
 
-  const sessions = await agentConversations()
-    .find(
-      { teamId, lastActiveAt: { $gte: new Date(start) } },
-      {
-        projection: { sessionId: 1, userId: 1, title: 1, agentRuntime: 1, generalAccess: 1 },
-        sort: { lastActiveAt: -1 },
-        limit: MAX_SESSIONS,
-      },
-    )
-    .map((c) => ({
-      sessionId: c.sessionId,
-      userId: c.userId,
-      // The activity is team-wide and cached per team, so a private session
-      // shows that someone worked, never what on.
-      title: c.generalAccess === 'none' ? 'Private session' : c.title,
-      runtime: c.agentRuntime ?? null,
-    }))
-    .toArray()
-  const sessionIds = sessions.map((c) => c.sessionId)
-  const messages = await agentMessages()
-    .find(
-      // A turn that ends in range may have started a little before it.
-      { sessionId: { $in: sessionIds }, createdAt: { $gte: new Date(start - OPEN_TURN_LIMIT_MS) } },
-      { projection: { sessionId: 1, role: 1, createdAt: 1 }, sort: { sessionId: 1, index: 1 } },
-    )
-    .toArray()
-
-  const bySession = new Map<string, TurnMessage[]>()
-
-  for (const m of messages) {
-    const list = bySession.get(m.sessionId) ?? []
-
-    list.push(m)
-    bySession.set(m.sessionId, list)
-  }
-
+  const read = await readTeamTurns(teamId, start, now)
   // Only sessions that ran in range are listed; slots refer to them by index.
   const listed: TeamActivity['sessions'] = []
   const slotsByMember = new Map<string, number[][]>()
 
-  for (const c of sessions) {
-    const list = bySession.get(c.sessionId)
-    const hit = list ? sessionSlots(turnIntervals(list, now), start, slotMs, slotCount) : []
+  for (const { session: c, turns } of read) {
+    const hit = sessionSlots(turns, start, slotMs, slotCount)
 
     if (hit.length === 0) continue
-    const index = listed.push({ id: c.sessionId, title: c.title, runtime: c.runtime }) - 1
+    // The activity is team-wide and cached per team, so a private session
+    // shows that someone worked, never what on.
+    const title = c.generalAccess === 'none' ? 'Private session' : c.title
+    const index = listed.push({ id: c.sessionId, title, runtime: c.agentRuntime ?? null }) - 1
     const slots =
       slotsByMember.get(c.userId) ?? Array.from({ length: slotCount }, (): number[] => [])
 

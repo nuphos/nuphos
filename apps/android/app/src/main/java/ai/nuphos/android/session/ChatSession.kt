@@ -48,6 +48,7 @@ class ChatSession(
     private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime, String?) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
     private val readBypass: suspend (String, String) -> Boolean = AgentChatApi::bypass,
+    private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
 ) {
     private var initialModelPick: Map<String, String>? = null
     fun presetModelSettings(pick: Map<String, String>) { initialModelPick = pick.takeIf { it.isNotEmpty() } }
@@ -195,6 +196,12 @@ class ChatSession(
     private var retrySubmission: ComposerSubmission? = null
     private var submissionAccepted = false
     var runtimeRecoveryRequired by mutableStateOf(false)
+        private set
+    /** On a teammate's computer that asks its owner first: this conversation waits, or was declined. */
+    var shareApproval by mutableStateOf<ShareApprovalWait?>(null)
+        private set
+    /** Counts sends the server queued, so a waiting conversation is asked about at once. */
+    var queuedSends by mutableStateOf(0)
         private set
     var steeringRetryRequired by mutableStateOf(false)
         private set
@@ -653,6 +660,7 @@ class ChatSession(
                 when (result) {
                     TurnResult.Aborted -> return@launch
                     TurnResult.Queued -> {
+                        queuedSends += 1
                         finishTurn(null)
                         return@launch
                     }
@@ -955,6 +963,22 @@ class ChatSession(
         if (isNative || serverTotal >= baseIndex + messages.size) adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
         recordReadTranscript(detail)
         lastSyncedSignature = signature()
+    }
+
+    /**
+     * Only a local agent can be a teammate's shared computer: asks once, then keeps
+     * asking while the owner has not answered. A decline stays shown.
+     */
+    suspend fun watchShareApproval() {
+        if (browsingOnly || runtimeId?.startsWith("local_") != true) return
+        while (coroutineContext.isActive && hasAiAccess) {
+            val status = runCatching { readShareApproval(token, sessionId) }
+            if (status.isSuccess) {
+                shareApproval = ShareApprovalWait.of(status.getOrNull())
+                if (status.getOrNull() != "pending") return
+            }
+            delay(5_000)
+        }
     }
 
     suspend fun pollWhileIdle() {

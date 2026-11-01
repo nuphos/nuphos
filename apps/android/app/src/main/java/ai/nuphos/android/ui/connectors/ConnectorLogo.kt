@@ -1,6 +1,7 @@
 package ai.nuphos.android.ui.connectors
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -55,6 +56,6 @@ fun rememberConnectorImageLoader(): ImageLoader {
 fun ConnectorLogo(provider: String, loader: ImageLoader) {
     val files = logos[provider]
     if (files == null) Text(provider.take(2).uppercase())
-    else AsyncImage(model = "file:///android_asset/connector-logos/${if (isSystemInDarkTheme()) files.second else files.first}",
-        imageLoader = loader, contentDescription = ai.nuphos.android.model.ConnectorCatalog.named(provider)?.title ?: provider, modifier = Modifier.size(28.dp))
+    else AsyncImage(model = "file:///android_asset/connector-logos/${if (MaterialTheme.colorScheme.background.luminance() < 0.5f) files.second else files.first}",
+        imageLoader = loader, contentDescription = ai.nuphos.android.model.ConnectorCatalog.named(provider)?.title ?: provider, modifier = Modifier.size(20.dp))
 }

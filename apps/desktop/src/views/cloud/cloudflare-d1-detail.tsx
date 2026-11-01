@@ -6,6 +6,7 @@ import { api } from '../../api'
 import { Table } from '../../components/Table'
 import { Button } from '../../components/ui/button'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 
 import type { CloudflareD1QueryResult } from '../../types'
 
@@ -62,25 +63,25 @@ export function CloudflareD1DatabaseDetailView({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="shrink-0 border-b border-zGray-850 px-3 py-2">
-        <div className="text-[12px] text-tertiary">Cloudflare D1 · provider managed</div>
+        <div className="text-[12px] text-tertiary">{t('Cloudflare D1 · provider managed')}</div>
       </div>
       <div className="flex-1 flex min-h-0">
         <div className="w-48 shrink-0 border-r border-zGray-850 overflow-auto p-3">
           <div className="text-[11px] font-medium text-tertiary mb-2 uppercase tracking-wide">
-            Tables
+            {t('Tables')}
           </div>
           {tables.length === 0 ? (
-            <div className="text-[12px] text-tertiary">No tables</div>
+            <div className="text-[12px] text-tertiary">{t('No tables')}</div>
           ) : (
             <div className="space-y-0.5">
-              {tables.map((t) => (
+              {tables.map((table) => (
                 <button
-                  key={t}
-                  onClick={() => setSql(`SELECT * FROM ${quoteD1Identifier(t)} LIMIT 100;`)}
+                  key={table}
+                  onClick={() => setSql(`SELECT * FROM ${quoteD1Identifier(table)} LIMIT 100;`)}
                   className="block w-full text-left px-2 py-1 rounded text-[12px] font-mono text-secondary hover:bg-zGray-850 hover:text-main truncate"
-                  title={t}
+                  title={table}
                 >
-                  {t}
+                  {table}
                 </button>
               ))}
             </div>
@@ -104,13 +105,15 @@ export function CloudflareD1DatabaseDetailView({
             <div className="flex items-center gap-2 mt-2">
               <Button size="sm" onClick={() => void runQuery()} disabled={running}>
                 <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" />{' '}
-                {running ? 'Running…' : 'Run'}
+                {running ? t('Running…') : t('Run')}
               </Button>
               <span className="text-[11px] text-tertiary">⌘/Ctrl + Enter</span>
               {result?.meta && (
                 <span className="ml-auto text-[11px] text-tertiary">
-                  {result.meta.rowsRead != null && `${String(result.meta.rowsRead)} read`}
-                  {result.meta.rowsWritten ? ` · ${String(result.meta.rowsWritten)} written` : ''}
+                  {result.meta.rowsRead != null && t('{n} read', { n: result.meta.rowsRead })}
+                  {result.meta.rowsWritten
+                    ? ` · ${t('{n} written', { n: result.meta.rowsWritten })}`
+                    : ''}
                   {result.meta.durationMs != null
                     ? ` · ${result.meta.durationMs.toFixed(1)}ms`
                     : ''}
@@ -124,21 +127,21 @@ export function CloudflareD1DatabaseDetailView({
                 {error}
               </div>
             ) : !result ? (
-              <div className="p-4 text-tertiary text-[12.5px]">Run a query to see results.</div>
+              <div className="p-4 text-tertiary text-[12.5px]">
+                {t('Run a query to see results.')}
+              </div>
             ) : result.columns.length === 0 ? (
               <div className="p-4 text-secondary text-[12.5px]">
-                Query OK
                 {result.meta?.changes != null
-                  ? ` · ${String(result.meta.changes)} row(s) affected`
-                  : ''}
-                .
+                  ? t('Query OK · {n} row(s) affected.', { n: result.meta.changes })
+                  : t('Query OK.')}
               </div>
             ) : (
               <Table<D1ResultRow>
                 rows={result.results.map((r, i) => ({ _i: i, row: r }))}
                 rowKey={(r) => String(r._i)}
                 storageKey="cloudflare.d1.results"
-                empty="No rows"
+                empty={t('No rows')}
                 columns={result.columns.map((col) => ({
                   key: col,
                   header: col,

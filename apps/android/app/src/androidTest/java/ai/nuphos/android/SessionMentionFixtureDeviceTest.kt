@@ -66,7 +66,7 @@ class SessionMentionFixtureDeviceTest {
         }
         compose.setContent {
             NuphosTheme(darkTheme = dark) {
-                CompositionLocalProvider(LocalAgentStore provides store) {
+                CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                     Surface(Modifier.fillMaxSize()) {
                         Column(Modifier.fillMaxSize().padding(top = 48.dp)) {
                             Text("Synthetic fixture · no real service data", Modifier.padding(16.dp))
@@ -124,7 +124,7 @@ class SessionMentionFixtureDeviceTest {
                 }
             }
             NuphosTheme {
-                CompositionLocalProvider(LocalAgentStore provides store) {
+                CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                     ChatComposer(isStreaming = false, showControls = true, mentions = source, onSend = { sends++; true })
                 }
             }

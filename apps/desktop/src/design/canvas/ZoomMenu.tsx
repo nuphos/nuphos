@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { Kbd } from '../../components/ui/kbd'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 
 import { FLOAT } from './tools'
 
@@ -27,7 +28,7 @@ export function ZoomMenu(p: ZoomMenuProps) {
   return (
     <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
       <div className={FLOAT}>
-        <Tooltip content={p.canPlay ? 'Play the flow' : 'Add a screen to play'}>
+        <Tooltip content={p.canPlay ? t('Play the flow') : t('Add a screen to play')}>
           <Button
             variant="ghost"
             size="sm"
@@ -36,41 +37,45 @@ export function ZoomMenu(p: ZoomMenuProps) {
             onClick={p.onPlay}
           >
             <Play className="h-3.5 w-3.5" />
-            Play
+            {t('Play')}
           </Button>
         </Tooltip>
         <span className="mx-0.5 h-5 w-px bg-zGray-800" />
         <Menu>
           <MenuTrigger
             className="inline-flex h-7 min-w-[4.5rem] items-center justify-between gap-1 rounded px-2 font-mono text-[12px] text-main hover:bg-zGray-800"
-            title="Zoom"
+            title={t('Zoom')}
           >
             {Math.round(zoom * 100)}%
             <ChevronDown className="h-3.5 w-3.5 text-tertiary" />
           </MenuTrigger>
           <MenuContent align="end" className="min-w-52">
             <MenuItem hint={<Kbd combo="mod+=" />} onClick={p.onZoomIn}>
-              Zoom in
+              {t('Zoom in')}
             </MenuItem>
             <MenuItem hint={<Kbd combo="mod+-" />} onClick={p.onZoomOut}>
-              Zoom out
+              {t('Zoom out')}
             </MenuItem>
             <MenuSeparator />
             <MenuItem hint={<Kbd combo="shift+1" />} onClick={p.onFit}>
-              Zoom to fit
+              {t('Zoom to fit')}
             </MenuItem>
             <MenuItem
               hint={<Kbd combo="shift+2" />}
               disabled={!p.hasSelection}
               onClick={p.onFitSelection}
             >
-              Zoom to selection
+              {t('Zoom to selection')}
             </MenuItem>
             <MenuItem hint={<Kbd combo="mod+0" />} onClick={() => p.onZoomTo(1)}>
-              Zoom to 100%
+              {t('Zoom to {percent}%', { percent: 100 })}
             </MenuItem>
-            <MenuItem onClick={() => p.onZoomTo(0.5)}>Zoom to 50%</MenuItem>
-            <MenuItem onClick={() => p.onZoomTo(2)}>Zoom to 200%</MenuItem>
+            <MenuItem onClick={() => p.onZoomTo(0.5)}>
+              {t('Zoom to {percent}%', { percent: 50 })}
+            </MenuItem>
+            <MenuItem onClick={() => p.onZoomTo(2)}>
+              {t('Zoom to {percent}%', { percent: 200 })}
+            </MenuItem>
           </MenuContent>
         </Menu>
       </div>

@@ -11,6 +11,8 @@ enum Keychain {
 }
 
 enum NuphosAPI {
+    static let baseURL = URL(string: "https://api.nuphos.ai")!
+
     enum Failure: LocalizedError {
         case unauthorized
         case http(Int, message: String?)
@@ -69,8 +71,10 @@ enum ComposerDrafts {
 }
 
 enum NuphosWeb {
-    enum CallbackResult { case token(String), failure(String) }
+    enum CallbackResult { case code(String), failure(String) }
     static let callbackScheme = "nuphos"
-    static func loginURL() -> URL { URL(string: "https://nuphos.ai/login")! }
-    static func parseCallback(_ url: URL) -> CallbackResult? { nil }
+    static func randomSecret() throws -> String { "secret" }
+    static func challenge(_ verifier: String) -> String { verifier }
+    static func loginURL(baseURL: URL, handle: String) -> URL { baseURL.appending(path: "auth/social/login") }
+    static func parseCallback(_ url: URL, expectedState: String) -> CallbackResult? { nil }
 }

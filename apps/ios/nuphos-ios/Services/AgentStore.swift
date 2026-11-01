@@ -124,6 +124,16 @@ final class AgentStore {
         UserDefaults.standard.set(foldedThreads.mapValues(Array.init), forKey: Self.foldedThreadsKey)
     }
 
+    func rename(_ conversation: AgentConversation, title: String) async {
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        do {
+            try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: conversation.sessionId, title: title)
+            await reload()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
     func unlinkParent(_ conversation: AgentConversation) async {
         guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {
@@ -285,7 +295,7 @@ final class AgentStore {
         didSet { if search != oldValue { scheduleSearch() } }
     }
 
-    private let token: String
+    let token: String
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
@@ -333,6 +343,8 @@ final class AgentStore {
 
     /// The signed-in user, for sessions to label what they send.
     var me: ChatMessage.Sender?
+    /// The signed-in person's id: whose computers open their desktop from the Runtimes page.
+    var userId: String?
 
     init(token: String) {
         self.token = token
@@ -453,7 +465,9 @@ final class AgentStore {
         }
     }
 
-    /// A live session for an existing conversation (loads on first use).
+    /// A live session for an existing conversation, already loading. The
+    /// load belongs to the session, not to the view showing it, so a view
+    /// SwiftUI cancels or keeps cannot leave it unloaded.
     func session(for conversation: AgentConversation) -> ChatSession {
         let session = ChatSession(
             token: token,
@@ -464,6 +478,7 @@ final class AgentStore {
             runtimeLabel: conversation.runtimeLabel
         )
         session.me = me
+        Task { await session.load() }
         return session
     }
 
@@ -472,6 +487,7 @@ final class AgentStore {
     func session(sessionId: String, title: String, teamId: String? = nil) -> ChatSession {
         let session = ChatSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", sessionId: sessionId, title: title)
         session.me = me
+        Task { await session.load() }
         return session
     }
 

@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.96.0",
+  "version": "0.100.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -124,6 +124,16 @@
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.png",
       "minimumSystemVersion": "12.0",
+      "protocols": [
+        {
+          "name": "Web site URL",
+          "schemes": [
+            "http",
+            "https"
+          ],
+          "role": "Viewer"
+        }
+      ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
@@ -133,7 +143,8 @@
       },
       "notarize": true,
       "binaries": [
-        "Contents/Resources/local-runtime/cua-permission"
+        "Contents/Resources/local-runtime/cua-permission",
+        "Contents/Resources/local-runtime/mac-screen-host"
       ]
     },
     "win": {

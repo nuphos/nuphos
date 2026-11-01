@@ -1,11 +1,16 @@
+import clsx from 'clsx'
+import { Check } from 'lucide-react'
 import { useContext, useRef, useState } from 'react'
 
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
 import { Button } from '../../ui/button'
 
 import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
+import { DecisionAnswersContext } from './decisionAnswers'
+import { formatMessageTimestamp } from './streamText'
 import { useDecisionKeys } from './useDecisionKeys'
 
 const TITLE: Record<string, string> = {
@@ -16,7 +21,10 @@ const TITLE: Record<string, string> = {
   risk_tradeoff: t('Weigh the tradeoff'),
 }
 
-/** A user decision other than a Connect card: the question, with each option sent as the reply. */
+/**
+ * A user decision other than a Connect card: the question, with each option sent
+ * as the reply. Once answered, the chosen option stays marked, with who chose it.
+ */
 export function ChoiceCard({
   toolCallId,
   category,
@@ -32,12 +40,15 @@ export function ChoiceCard({
   canAct: boolean
 }) {
   const ctx = useContext(ConnectCardContext)
-  const [sent, setSent] = useState(false)
-  const interactive = Boolean(ctx) && canAct && !sent
+  const answer = useContext(DecisionAnswersContext).get(toolCallId)
+  const viewer = useCurrentUser()
+  const [sent, setSent] = useState<string | null>(null)
+  const chosen = answer?.option ?? sent
+  const interactive = Boolean(ctx) && canAct && !chosen
   const live = interactive && options.length > 0
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
-    setSent(true)
+    setSent(option)
     ctx?.send(option, { toolCallId, question, options })
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
@@ -71,14 +82,32 @@ export function ChoiceCard({
               key={option}
               variant="secondary"
               size="sm"
-              className="h-auto min-h-7 whitespace-normal px-2.5 py-1 text-left text-[12.5px]"
+              className={clsx(
+                'h-auto min-h-7 gap-1.5 whitespace-normal px-2.5 py-1 text-left text-[12.5px]',
+                // Important: the disabled fade's order among variants is not fixed.
+                option === chosen && '!opacity-100 border-zViolet-accent/60 bg-zViolet-accent/10',
+              )}
               disabled={!interactive}
+              aria-pressed={chosen ? option === chosen : undefined}
               title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
               onClick={() => act(() => choose(option))}
             >
+              {option === chosen && (
+                <Check className="h-3.5 w-3.5 shrink-0 text-zViolet-accent" strokeWidth={2.25} />
+              )}
               {option}
             </Button>
           ))}
+          {answer?.at !== undefined && (
+            <div className="basis-full text-[11.5px] text-tertiary">
+              {answer.sender && answer.sender.id !== viewer?.id
+                ? t('Answered by {name} · {time}', {
+                    name: answer.sender.displayName,
+                    time: formatMessageTimestamp(answer.at),
+                  })
+                : t('You answered · {time}', { time: formatMessageTimestamp(answer.at) })}
+            </div>
+          )}
         </div>
       ) : (
         canAct && (

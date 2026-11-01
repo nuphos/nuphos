@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { useCloudProviderState } from './use-cloud-state'
@@ -52,7 +53,7 @@ export function useBindDialogEffects(st: BindState, open: boolean, teamId: strin
         // Surface the failure instead of silently rendering hard-coded defaults:
         // a wrong issuer/audience/subject would guide the user to author a trust
         // policy that doesn't match the backend.
-        toast.apiError('Could not load Volcengine setup details', e)
+        toast.apiError(t('Could not load {name} setup details', { name: 'Volcengine' }), e)
       })
 
     return () => {
@@ -74,7 +75,7 @@ export function useBindDialogEffects(st: BindState, open: boolean, teamId: strin
       .catch((e: unknown) => {
         if (cancelled) return
         setHuaweiOidc(null)
-        toast.apiError('Could not load Huawei Cloud setup details', e)
+        toast.apiError(t('Could not load {name} setup details', { name: 'Huawei Cloud' }), e)
       })
 
     return () => {
@@ -103,7 +104,7 @@ export function useBindDialogEffects(st: BindState, open: boolean, teamId: strin
       .catch((e: unknown) => {
         if (cancelled) return
         setAzureOidc(null)
-        toast.apiError('Could not load Azure setup details', e)
+        toast.apiError(t('Could not load {name} setup details', { name: 'Azure' }), e)
       })
 
     return () => {
@@ -130,7 +131,7 @@ export function useBindDialogEffects(st: BindState, open: boolean, teamId: strin
       .catch((e: unknown) => {
         if (cancelled) return
         setGcpWif(null)
-        toast.apiError('Could not load GCP setup details', e)
+        toast.apiError(t('Could not load {name} setup details', { name: 'GCP' }), e)
       })
 
     return () => {
@@ -151,7 +152,7 @@ export function useBindDialogEffects(st: BindState, open: boolean, teamId: strin
       .catch((e: unknown) => {
         if (cancelled) return
         setAliyunOidc(null)
-        toast.apiError('Could not load Alibaba Cloud setup details', e)
+        toast.apiError(t('Could not load {name} setup details', { name: 'Alibaba Cloud' }), e)
       })
 
     return () => {
@@ -177,7 +178,7 @@ export function useBindDialogEffects(st: BindState, open: boolean, teamId: strin
       .catch((e: unknown) => {
         if (cancelled) return
         setTencentOidc(null)
-        toast.apiError('Could not load Tencent Cloud setup details', e)
+        toast.apiError(t('Could not load {name} setup details', { name: 'Tencent Cloud' }), e)
       })
 
     return () => {

@@ -14,6 +14,7 @@ import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 import { DecisionCards } from './inbox/DecisionCards'
 import { nextSelection, replyTarget } from './inbox/inboxItems'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
+import { publishInboxListing } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { AgentConversation } from '../api'
@@ -111,6 +112,8 @@ export function InboxView({
   const onListLoaded = useCallback(
     (list: AgentConversation[]) => {
       setItems(list)
+      // Unfiltered, this is the listing the sidebar badge counts.
+      if (!query) publishInboxListing(teamId, list)
       const open = selectedRef.current
       const settle = (stillWaits: boolean) => {
         // The reader moved meanwhile: that choice stands.
@@ -129,7 +132,7 @@ export function InboxView({
         () => settle(true),
       )
     },
-    [teamId],
+    [teamId, query],
   )
 
   // Enter or → moves from the list into the open conversation's composer; Esc comes back.

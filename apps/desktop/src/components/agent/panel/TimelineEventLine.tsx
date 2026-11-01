@@ -69,8 +69,26 @@ function EventLine({ event }: { event: AgentTimelineEvent }) {
 
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
+  if (event.kind === 'runtime_fallback_stopped')
+    return (
+      <Rule title={event.text}>
+        {t('No agent in your fallback list could take over')}
+        {event.skipped?.length ? (
+          <span className="truncate">
+            ({event.skipped.map((entry) => `${entry.label}: ${entry.reason}`).join(', ')})
+          </span>
+        ) : null}
+      </Rule>
+    )
   if (event.kind === 'runtime_moved' && to) {
     const people = { actor: <Person person={actor} />, to: <Runtime runtime={to} /> }
+
+    if (event.reason && from)
+      return (
+        <Rule title={title}>
+          {fill(FALLBACK_LINE[event.reason], { ...people, from: <Runtime runtime={from} /> })}
+        </Rule>
+      )
 
     return (
       <Rule title={title}>
@@ -92,6 +110,12 @@ function EventLine({ event }: { event: AgentTimelineEvent }) {
     return <Rule title={title}>{fill(t('{actor} left this agent'), people)}</Rule>
 
   return <Rule title={title}>{fill(t('{actor} removed {target} from this agent'), people)}</Rule>
+}
+
+const FALLBACK_LINE = {
+  quota: t('{from} was low on usage, so this agent moved to {to}'),
+  offline: t('{from} was unreachable, so this agent moved to {to}'),
+  failure: t('{from} failed a turn, so this agent moved to {to}'),
 }
 
 /** Puts the people and runtimes into a translated sentence where its

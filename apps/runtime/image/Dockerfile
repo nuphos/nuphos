@@ -62,7 +62,7 @@ FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.312
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.316
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
@@ -91,6 +91,7 @@ FROM common AS codex
 COPY codex-acp/package.json codex-acp/package-lock.json \
      codex-acp/patch-adapter.mjs codex-acp/session-config.mjs codex-acp/steering.mjs \
      codex-acp/restore-history.mjs codex-acp/process-death.mjs codex-acp/ask-user-input.mjs \
+     codex-acp/ultrafast.mjs \
      /opt/nuphos-codex-acp/
 RUN cd /opt/nuphos-codex-acp \
  && npm ci --omit=dev --ignore-scripts --cache /tmp/npm-cache \

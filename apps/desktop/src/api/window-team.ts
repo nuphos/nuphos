@@ -39,8 +39,11 @@ import type {
   TeamRole,
   HomeLayout,
   HomeLayouts,
+  RuntimeFallback,
   TeamActivity,
   TeamActivityRange,
+  AgentStats,
+  AgentStatsQuery,
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
@@ -153,7 +156,10 @@ export type WindowTeamApi = {
     expectedRevision: number,
   ): Promise<SidebarFavoritesCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
+  atlasGetRuntimeFallback(teamId: string): Promise<RuntimeFallback>
+  atlasPutRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<RuntimeFallback>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
+  atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
   atlasPutHomeLayout(
     teamId: string,
     scope: 'personal' | 'team',

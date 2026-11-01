@@ -33,6 +33,8 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         let signedIn: Bool?
         /// Present when it is a teammate's own computer shared with this person.
         var shared: Shared? = nil
+        /// Its computer opens its own desktop on request; only `ownerUserId` may open it.
+        var desktopOpen: Bool? = nil
     }
 
     /// How a teammate shares their computer: `approve` asks them before each conversation runs.
@@ -203,7 +205,7 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     }
 
     var model: Option? { options.first { $0.kind == .model } }
-    var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue == "on" } }
+    var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue != "off" } }
 
     /// Writes restore a dormant session, so its remembered settings stay editable.
     var isEditable: Bool { [.ready, .busy, .dormant].contains(status) && !options.isEmpty }

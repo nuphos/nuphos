@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
-import { teamHomeLayouts } from '@/models'
+import { HOME_METRIC_KINDS, teamHomeLayouts } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 
@@ -57,6 +57,19 @@ const layoutSchema = z
           .strict(),
       )
       .max(50),
+    metrics: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(40),
+            kind: z.enum(HOME_METRIC_KINDS),
+            range: z.enum(['1d', '7d', '30d']),
+            scope: z.enum(['me', 'team']),
+          })
+          .strict(),
+      )
+      .max(30)
+      .optional(),
     grid: z
       .array(
         z
@@ -71,6 +84,7 @@ const layoutSchema = z
       )
       .max(200)
       .optional(),
+    gridVersion: z.number().int().min(1).max(1000).optional(),
   })
   .strict()
 

@@ -21,12 +21,15 @@ import {
 } from './runtime-workspace'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
+import type { RuntimeFallbackReason } from '@/lib/agent/db/timeline-events'
 
 export async function moveConversationRuntime(
   conversation: AgentConversation,
   targetId: string,
   mode: 'history' | 'workspace',
   userId: string,
+  /** A fallback names its reason; `claimed` when the caller already holds the session's run claim. */
+  options: { reason?: RuntimeFallbackReason; claimed?: boolean } = {},
 ) {
   const teamId = conversation.teamId
   const ownerId = conversation.userId
@@ -124,7 +127,9 @@ export async function moveConversationRuntime(
   let release: (() => void) | null = null
 
   try {
-    release = await claimAgentRunForSession(ownerId, conversation.sessionId, true)
+    release = options.claimed
+      ? () => {}
+      : await claimAgentRunForSession(ownerId, conversation.sessionId, true)
     if (!release)
       throw new AppError(
         409,
@@ -184,6 +189,7 @@ export async function moveConversationRuntime(
           fromProvider: provider,
           toLabel: target.label,
           toProvider: target.provider,
+          ...(options.reason ? { reason: options.reason } : {}),
         }),
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
         // A move leaves the conversation exactly where a brand-new one starts:

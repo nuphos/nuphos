@@ -89,6 +89,8 @@ export type SleepState = SleepPreferences & {
 
 export type LocalRuntimeState = {
   sleepPrevention?: SleepState
+  /** Whether a phone may open this Mac's own screen; absent off a Mac. */
+  phoneControl?: boolean
   claudeLogin?: LocalAgentLoginState
   codexLogin?: LocalAgentLoginState
   agents: Record<LocalAgentProvider, LocalAgentState>
@@ -131,6 +133,12 @@ export type LocalAgentShareState = { share: LocalShareInput; ceiling: LocalShare
 /** A teammate's conversation waiting for the owner's answer before it runs on their computer. */
 /** Where a person's own conversation stands with the owner of a shared computer; null when never asked. */
 export type ShareApprovalStatus = 'pending' | 'approved' | 'denied' | null
+
+/** How long approving also trusts the teammate on this computer: their next conversations run unasked. */
+export type ShareTrustDuration = '8h' | 'always'
+
+/** A teammate the owner trusts on their computer; `expiresAt` null until taken back. */
+export type LocalShareTrust = { actorId: string; expiresAt: string | null }
 
 export type LocalShareApproval = {
   id: string

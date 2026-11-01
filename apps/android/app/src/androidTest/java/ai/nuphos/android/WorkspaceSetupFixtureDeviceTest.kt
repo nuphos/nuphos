@@ -244,8 +244,7 @@ class WorkspaceSetupFixtureDeviceTest {
             compose.activity.setContent { NuphosTheme {
                 CompositionLocalProvider(LocalAgentStore provides agent, LocalAuthSession provides auth,
                     LocalPlansStore provides plans, LocalConnectorsStore provides connectors) {
-                    HomeScreen(NuphosUser.preview, rememberNavController(), MonitoringStore(browsing), TriggersStore(browsing),
-                        TriggerRunsStore { team, trigger, cursor -> NuphosApi.conversations(token, team, cursor = cursor, scope = ConversationScope.Team, triggerId = trigger) })
+                    HomeScreen(NuphosUser.preview, rememberNavController())
                 }
             } }
         }

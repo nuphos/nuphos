@@ -1,9 +1,10 @@
-export type DashboardCadence = 'daily' | 'weekly' | 'monthly'
+import { locale, t } from '../../i18n/index.ts'
+import type { DashboardCadence } from '../schema.ts'
 
 export const CADENCE_LABELS: Record<DashboardCadence, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
+  daily: t('Daily'),
+  weekly: t('Weekly'),
+  monthly: t('Monthly'),
 }
 
 const RUN_HOUR_UTC = 9
@@ -29,8 +30,6 @@ function zonedParts(date: Date, timeZone: string | undefined) {
   const map = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {
       timeZone,
-      weekday: 'short',
-      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
@@ -40,9 +39,13 @@ function zonedParts(date: Date, timeZone: string | undefined) {
       .map((p) => [p.type, p.value]),
   )
 
+  // Words in the app locale; the day number and clock time stay numeric.
+  const shown = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, { timeZone, ...options }).format(date)
+
   return {
-    weekday: map.weekday,
-    date: `${map.month} ${map.day}`,
+    weekday: shown({ weekday: 'short' }),
+    date: shown({ month: 'short', day: 'numeric' }),
     isFirst: map.day === '1',
     time: `${map.hour}:${map.minute}`,
   }
@@ -53,13 +56,15 @@ export function describeCadence(
   now: Date = new Date(),
   timeZone?: string,
 ): string {
-  const local = zonedParts(nextCadenceRun(cadence, now), timeZone)
+  const { weekday, time, isFirst } = zonedParts(nextCadenceRun(cadence, now), timeZone)
 
-  if (cadence === 'daily') return `Daily at 09:00 UTC (${local.time} your time)`
+  if (cadence === 'daily') return t('Daily at 09:00 UTC ({time} your time)', { time })
   if (cadence === 'weekly')
-    return `Weekly on Monday at 09:00 UTC (${local.weekday} ${local.time} your time)`
+    return t('Weekly on Monday at 09:00 UTC ({weekday} {time} your time)', { weekday, time })
 
-  return `Monthly on the 1st at 09:00 UTC (${local.isFirst ? 'the 1st' : 'the day before'} at ${local.time} your time)`
+  return isFirst
+    ? t('Monthly on the 1st at 09:00 UTC (the 1st at {time} your time)', { time })
+    : t('Monthly on the 1st at 09:00 UTC (the day before at {time} your time)', { time })
 }
 
 export function describeNextRefresh(iso: string, timeZone?: string): string {
@@ -67,5 +72,11 @@ export function describeNextRefresh(iso: string, timeZone?: string): string {
   const local = zonedParts(at, timeZone)
   const utc = zonedParts(at, 'UTC')
 
-  return `Next refresh: ${local.weekday}, ${local.date}, ${local.time} (${utc.date}, ${utc.time} UTC)`
+  return t('Next refresh: {weekday}, {date}, {time} ({utcDate}, {utcTime} UTC)', {
+    weekday: local.weekday,
+    date: local.date,
+    time: local.time,
+    utcDate: utc.date,
+    utcTime: utc.time,
+  })
 }

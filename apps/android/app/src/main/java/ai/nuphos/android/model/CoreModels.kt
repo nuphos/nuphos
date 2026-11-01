@@ -86,15 +86,13 @@ data class TeamMembersEnvelope(val members: List<TeamMember> = emptyList())
 
 enum class HomePage(val title: String, val route: String) {
     Agent("Agents", "agent"),
-    Runtimes("Runtimes", "runtimes"),
-    Monitoring("Monitoring", "monitoring"),
-    Triggers("Triggers", "triggers"),
     Plans("Plans", "plans"),
+    Runtimes("Runtimes", "runtimes"),
     Connectors("Connectors", "connectors");
 
     companion object {
-        fun fromRoute(raw: String?): HomePage =
-            entries.firstOrNull { it.route == raw } ?: Agent
+        fun fromRoute(raw: String?): HomePage = entries.firstOrNull { it.route == raw } ?: Agent
+        fun unavailableRoute(raw: String?): Boolean = raw != null && entries.none { it.route == raw }
     }
 }
 

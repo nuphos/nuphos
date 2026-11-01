@@ -15,13 +15,14 @@ struct HomeView: View {
     @State private var plans: PlansStore?
     @State private var connectors: ConnectorsStore?
     @State private var openChat: AgentPage.OpenChat?
+    @State private var columns = NavigationSplitViewVisibility.automatic
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
@@ -140,6 +141,8 @@ struct HomeView: View {
         .environment(store)
         .environment(plans)
         .environment(connectors)
+        // Wide, a conversation shows its desktop beside it, with the list put away meanwhile.
+        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .automatic } : nil)
         .tint(Theme.heading)
         .animation(.easeOut(duration: 0.2), value: titleCollapsed)
         .onAppear {
@@ -150,6 +153,7 @@ struct HomeView: View {
             if store == nil, let token {
                 store = AgentStore(token: token)
                 store?.me = ChatMessage.Sender(name: user.name, avatarURL: user.avatarURL)
+                store?.userId = user.id
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
             }

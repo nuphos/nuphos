@@ -52,12 +52,13 @@ export function PullRows({
   onOpen,
 }: {
   pulls: WithRepo<GithubPR>[]
-  onOpen: (item: WithRepo<GithubPR>) => void
+  /** Opens a pull request; absent in a preview. */
+  onOpen?: (item: WithRepo<GithubPR>) => void
 }) {
   return pulls.map((pr) => (
     <HomeRow
       key={`${pr.repo}#${String(pr.number)}`}
-      onOpen={() => onOpen(pr)}
+      onOpen={() => onOpen?.(pr)}
       icon={
         pr.draft ? (
           <GitPullRequestDraft className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
@@ -88,12 +89,13 @@ export function RunRows({
   onOpen,
 }: {
   runs: WithRepo<GithubWorkflowRun>[]
-  onOpen: (item: WithRepo<GithubWorkflowRun>) => void
+  /** Opens a run; absent in a preview. */
+  onOpen?: (item: WithRepo<GithubWorkflowRun>) => void
 }) {
   return runs.map((run) => (
     <HomeRow
       key={run.id}
-      onOpen={() => onOpen(run)}
+      onOpen={() => onOpen?.(run)}
       icon={<RunStatusIcon run={run} />}
       title={`${run.name} · ${run.headBranch}`}
       meta={`${repoName(run.repo)} · ${formatAge(run.createdAt)}`}

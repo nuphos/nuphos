@@ -8,7 +8,6 @@ import {
   clearClearedReplies,
 } from './components/agent/panel/composerReplyCleared'
 import { CurrentUserContext } from './hooks/useCurrentUser'
-import { forgetMacAccounts } from './hooks/useMacSignIn'
 import { identifyUser, resetAnalytics, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
@@ -79,7 +78,6 @@ export default function App() {
           await api.authLogout()
           clearComposerDrafts()
           clearClearedReplies()
-          forgetMacAccounts()
           track('logout')
           resetAnalytics()
           setAuth({ status: 'anonymous' })

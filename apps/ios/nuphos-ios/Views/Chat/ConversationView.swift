@@ -23,10 +23,17 @@ struct ConversationView: View {
     @State private var archiveError: String?
     @State private var updating = false
     @State private var width: CGFloat = 0
+    #if os(iOS)
+    @Environment(\.barButtonsInSideRail) private var barButtonsInSideRail
+    #else
+    private let barButtonsInSideRail = false
+    #endif
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
     @State private var showShare = false
+    /// The desktop open from this conversation: beside it where the window is wide, else full screen.
+    @State private var desktop: DesktopSession?
     @State private var referencedAgents = ReferencedAgents()
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
@@ -58,6 +65,7 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .desktop($desktop)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -95,6 +103,7 @@ struct ConversationView: View {
         .navigationTitle(session.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .keepsNavigationBar()
         #endif
         .toolbar {
             ToolbarItem(placement: .principal) { titleBar }
@@ -123,6 +132,9 @@ struct ConversationView: View {
                             } label: {
                                 Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
                             }
+                        }
+                        if session.canOpenDesktop {
+                            Button("Desktop", systemImage: "display") { desktop = session.makeDesktop() }
                         }
                         if session.ownsChat {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
@@ -186,8 +198,6 @@ struct ConversationView: View {
             if session.isNew, let initialPrompt, !didSendInitial {
                 didSendInitial = true
                 session.send(initialPrompt)
-            } else if !session.loaded {
-                await session.load()
             }
             #if DEBUG
             // `-approve-plan <id>`: exercise the approval round-trip.
@@ -246,8 +256,10 @@ struct ConversationView: View {
         }
         // The principal item is only as wide as its content and centred, so
         // it is given all the room between the back and options buttons
-        // (each 44 + 16 margin + 8 gap) to start the title on the left.
-        .frame(width: max(width - 136, 0), alignment: .leading)
+        // (each 44 + 16 margin + 8 gap) to start the title on the left. On
+        // iPhone Duo those buttons sit in the side rail, so the title gets
+        // the whole bar.
+        .frame(width: max(width - (barButtonsInSideRail ? 0 : 136), 0), alignment: .leading)
     }
 
     /// Plan links open the plan here, approved through this chat; other app
@@ -299,7 +311,7 @@ struct ConversationView: View {
                 sendsDuringTurn: session.isNativeRuntime && !session.sendQueues,
                 canSteer: session.canSteer,
                 allowsAttachments: !session.canSteer,
-                failedSubmission: $session.failedSubmission,
+                editRequest: $session.editingSubmission,
                 mentions: MentionSource(
                     teamId: session.teamId,
                     // Only someone who may change the session's devices can bring one in.
@@ -351,7 +363,10 @@ struct ConversationView: View {
                 .padding(.bottom, rowSpacing(row))
                 .readableWidth())
         }
+        // Under the bars too: the collection insets itself by the safe area,
+        // and rows scroll beneath the bar's edge effect rather than being cut.
         .ignoresSafeArea(.all, edges: .bottom)
+        .ignoresSafeArea(.container, edges: .top)
         #else
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -378,7 +393,7 @@ struct ConversationView: View {
     private func rowSpacing(_ row: ChatRow) -> CGFloat {
         switch row {
         case .assistantText: 28
-        case .user, .sending: 22
+        case .user, .sending, .failed: 22
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint, .event: 18
@@ -425,6 +440,10 @@ struct ConversationView: View {
         case .sending:
             if let sending = session.sending {
                 SendingBubble(submission: sending.submission, progress: sending.progress, onCancel: session.cancelSending)
+            }
+        case .failed:
+            if let submission = session.failedSubmission {
+                FailedBubble(submission: submission, onRetry: session.retryFailed, onEdit: session.editFailed)
             }
         case .hint(_, let text, let isError):
             HintRow(text: text, isError: isError)
@@ -535,6 +554,41 @@ struct SendingBubble: View {
         // Nothing to upload, or every byte is out and the server is answering.
         guard progress.totalUnitCount > 0, progress.completedUnitCount < progress.totalUnitCount else { return "Sending…" }
         return "Uploading \(progress.completedUnitCount.formatted(.byteCount(style: .file))) of \(progress.totalUnitCount.formatted(.byteCount(style: .file)))"
+    }
+}
+
+/// A message the server never took, kept where it was sent as messaging apps
+/// do: marked as not sent, to send again as it is or take back to edit.
+struct FailedBubble: View {
+    let submission: ComposerSubmission
+    let onRetry: () -> Void
+    let onEdit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            HStack(spacing: 6) {
+                ForEach(submission.attachments.prefix(4)) { attachment in
+                    AttachmentPreview(attachment: attachment)
+                        .frame(width: 96, height: 96)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+            if !submission.text.isEmpty {
+                PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            HStack(spacing: 14) {
+                Label("Not sent", systemImage: "exclamationmark.circle.fill")
+                    .foregroundStyle(.red)
+                Button("Retry", action: onRetry)
+                Button("Edit", action: onEdit)
+            }
+            .font(Theme.Text.label)
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.leading, 56)
     }
 }
 
@@ -853,3 +907,36 @@ struct ShareApprovalStrip: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+#if os(iOS)
+/// Whether the system shows the navigation bar's buttons in a side rail (the
+/// vertical bar on iPhone Duo) instead of in the bar itself.
+private struct BarButtonsInSideRailKey: EnvironmentKey, UITraitBridgedEnvironmentKey {
+    static let defaultValue = false
+
+    static func read(from traits: UITraitCollection) -> Bool {
+        if #available(iOS 27.1, *) { return traits.verticalBarEdge != .unspecified }
+        return false
+    }
+
+    static func write(to traits: inout UIMutableTraits, value: Bool) {}
+}
+
+extension EnvironmentValues {
+    fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
+}
+
+private extension View {
+    /// The bar stays put while the transcript scrolls. Where the system
+    /// minimizes it (iPhone Duo), each step resized the transcript and moved
+    /// the composer docked under it.
+    @ViewBuilder
+    func keepsNavigationBar() -> some View {
+        if #available(iOS 27.0, *) {
+            toolbarMinimizationBehavior(.never, for: .navigationBar)
+        } else {
+            self
+        }
+    }
+}
+#endif

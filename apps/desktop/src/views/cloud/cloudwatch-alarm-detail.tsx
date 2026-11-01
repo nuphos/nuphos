@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { useReportLoading } from '../../components/useReportLoading'
 import { TimeSeriesPanel } from '../../grafana/components/TimeSeriesPanel'
+import { t } from '../../i18n'
 
 import { alarmConditionLabel, alarmStateClass, cloudWatchAlarmUrl } from './cloudwatch-alarm-format'
 import { formatLogTimestamp } from './metrics-explorer-shared'
@@ -137,10 +138,10 @@ export function CloudWatchAlarmDetailView({
             type="button"
             onClick={() => void navigator.clipboard.writeText(alarm.arn)}
             className="inline-flex items-center gap-1 text-tertiary hover:text-main"
-            title="Copy alarm ARN"
+            title={t('Copy alarm ARN')}
           >
             <Copy className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Copy ARN
+            {t('Copy ARN')}
           </button>
           <button
             type="button"
@@ -148,7 +149,7 @@ export function CloudWatchAlarmDetailView({
             className="inline-flex items-center gap-1 text-tertiary hover:text-main"
           >
             <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
-            AWS console
+            {t('AWS console')}
           </button>
         </div>
       </div>
@@ -169,7 +170,7 @@ export function CloudWatchAlarmDetailView({
               {metricError ? (
                 <div className="text-error text-[12px] py-6">{metricError}</div>
               ) : metricLoading && !metricFrame ? (
-                <div className="text-tertiary text-[12px] py-6">Loading metric…</div>
+                <div className="text-tertiary text-[12px] py-6">{t('Loading metric…')}</div>
               ) : metricFrame ? (
                 <div className="h-52 relative">
                   <TimeSeriesPanel
@@ -185,10 +186,13 @@ export function CloudWatchAlarmDetailView({
               ) : null}
               {alarm.threshold != null && (
                 <div className="mt-1.5 text-[11.5px] text-tertiary">
-                  Threshold: {alarm.threshold}
                   {alarm.evaluationPeriods != null && alarm.periodSec != null
-                    ? ` · evaluated over ${String(alarm.evaluationPeriods)}×${String(alarm.periodSec)}s`
-                    : ''}
+                    ? t('Threshold: {threshold} · evaluated over {periods}×{seconds}s', {
+                        threshold: alarm.threshold,
+                        periods: alarm.evaluationPeriods,
+                        seconds: alarm.periodSec,
+                      })
+                    : t('Threshold: {threshold}', { threshold: alarm.threshold })}
                 </div>
               )}
             </div>
@@ -196,21 +200,21 @@ export function CloudWatchAlarmDetailView({
 
           <dl className="grid grid-cols-[140px,1fr] gap-x-4 gap-y-1.5 text-[12px]">
             <dt className="text-tertiary uppercase tracking-wider self-baseline text-[11px]">
-              State reason
+              {t('State reason')}
             </dt>
             <dd className="text-secondary">{alarm.stateReason ?? '—'}</dd>
             <dt className="text-tertiary uppercase tracking-wider self-baseline text-[11px]">
-              State changed
+              {t('State changed')}
             </dt>
             <dd className="text-secondary">{alarm.stateUpdatedAt ?? '—'}</dd>
             <dt className="text-tertiary uppercase tracking-wider self-baseline text-[11px]">
-              Condition
+              {t('Condition')}
             </dt>
             <dd className="font-mono text-secondary">{alarmConditionLabel(alarm)}</dd>
             {dimensionEntries.length > 0 && (
               <>
                 <dt className="text-tertiary uppercase tracking-wider self-baseline text-[11px]">
-                  Dimensions
+                  {t('Dimensions')}
                 </dt>
                 <dd className="font-mono text-secondary">
                   {dimensionEntries.map(([k, v]) => (
@@ -222,13 +226,15 @@ export function CloudWatchAlarmDetailView({
               </>
             )}
             <dt className="text-tertiary uppercase tracking-wider self-baseline text-[11px]">
-              Actions
+              {t('Actions')}
             </dt>
-            <dd className="text-secondary">{alarm.actionsEnabled ? 'Enabled' : 'Disabled'}</dd>
+            <dd className="text-secondary">
+              {alarm.actionsEnabled ? t('Enabled') : t('Disabled')}
+            </dd>
             {alarm.description && (
               <>
                 <dt className="text-tertiary uppercase tracking-wider self-baseline text-[11px]">
-                  Description
+                  {t('Description')}
                 </dt>
                 <dd className="text-secondary">{alarm.description}</dd>
               </>
@@ -242,14 +248,14 @@ export function CloudWatchAlarmDetailView({
           {historyLoader && (
             <div>
               <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
-                History (latest 50)
+                {t('History (latest 50)')}
               </div>
               {historyError ? (
                 <div className="text-error text-[12px]">{historyError}</div>
               ) : history === null ? (
-                <div className="text-tertiary text-[12px]">Loading history…</div>
+                <div className="text-tertiary text-[12px]">{t('Loading history…')}</div>
               ) : history.length === 0 ? (
-                <div className="text-tertiary text-[12px] italic">No recorded history.</div>
+                <div className="text-tertiary text-[12px] italic">{t('No recorded history.')}</div>
               ) : (
                 <div className="border border-zGray-800 rounded bg-zGray-900 divide-y divide-zGray-850">
                   {history.map((h, i) => (

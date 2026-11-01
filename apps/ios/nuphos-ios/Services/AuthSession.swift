@@ -116,24 +116,28 @@ final class AuthSession {
         guard state != .signingIn else { return }
         state = .signingIn
 
-        let callbackURL: URL
         do {
-            callbackURL = try await authenticate(url: NuphosWeb.loginURL())
+            let verifier = try NuphosWeb.randomSecret()
+            let clientState = try NuphosWeb.randomSecret()
+            struct Registration: Decodable { let handle: String }
+            let registration: Registration = try await AccountAPI.request("native/session", method: "POST", body: [
+                "redirectUri": "nuphos://google-callback", "codeChallenge": NuphosWeb.challenge(verifier),
+                "codeChallengeMethod": "S256", "clientState": clientState
+            ])
+            let callback = try await authenticate(url: NuphosWeb.loginURL(baseURL: NuphosAPI.baseURL, handle: registration.handle))
+            switch NuphosWeb.parseCallback(callback, expectedState: clientState) {
+            case .code(let code):
+                let result: AccountAPI.SignIn = try await AccountAPI.request("native/session/redeem", method: "POST", body: [
+                    "handle": registration.handle, "codeVerifier": verifier, "code": code
+                ])
+                await complete(token: result.token)
+            case .failure(let message): state = .signedOut(error: message)
+            case nil: state = .signedOut(error: "Unexpected sign-in response. Please try again.")
+            }
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
             state = .signedOut(error: nil)
-            return
         } catch {
             state = .signedOut(error: error.localizedDescription)
-            return
-        }
-
-        switch NuphosWeb.parseCallback(callbackURL) {
-        case .token(let token):
-            await complete(token: token)
-        case .failure(let message):
-            state = .signedOut(error: message)
-        case nil:
-            state = .signedOut(error: "Sign-in returned something we did not expect. Please try again.")
         }
     }
 

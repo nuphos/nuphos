@@ -11,6 +11,7 @@ import { t } from '../../i18n'
 import { LOCAL_AGENT_CARD, LocalAgentCard } from './LocalAgentCard'
 import { LocalRuntimeActivity } from './LocalRuntimeActivity'
 import { SectionHeader } from './shared'
+import { PhoneControlSettings } from './PhoneControlSettings'
 import { SleepPreventionSettings } from './SleepPreventionSettings'
 
 import type { CliLoginProvider, LocalRuntimeState } from '../../api'
@@ -108,6 +109,14 @@ export function LocalRuntimeSection({
                 state={state.sleepPrevention}
                 onSaved={(sleepPrevention) =>
                   setState((previous) => (previous ? { ...previous, sleepPrevention } : previous))
+                }
+              />
+            )}
+            {state.phoneControl !== undefined && (
+              <PhoneControlSettings
+                allowed={state.phoneControl}
+                onSaved={(phoneControl) =>
+                  setState((previous) => (previous ? { ...previous, phoneControl } : previous))
                 }
               />
             )}

@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useState } from 'react'
 
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useTeamMembers } from '../../lib/bindingAccess'
 import { formatAge } from '../../utils'
 
@@ -79,19 +80,19 @@ export function AwsRolesView({
       <div className="flex-1 flex flex-col min-w-0">
         {roles.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-[13px] text-tertiary">
-            No roles available for this account.
+            {t('No roles available for this account.')}
           </div>
         ) : (
           <Table<AwsAccount>
             rows={rows}
             rowKey={(role) => role.roleId}
             onPrimaryAction={onPick}
-            empty="No matching roles."
+            empty={t('No matching roles.')}
             storageKey="aws-roles"
             columns={[
               {
                 key: 'role',
-                header: 'Role',
+                header: t('Role'),
                 width: 320,
                 sortAccessor: (role) => awsRoleName(role.roleArn),
                 render: (role) => (
@@ -117,7 +118,7 @@ export function AwsRolesView({
               },
               {
                 key: 'access',
-                header: 'Access',
+                header: t('Access'),
                 width: 110,
                 sortAccessor: (role) => role.canUse !== false,
                 render: (role) => (
@@ -129,18 +130,18 @@ export function AwsRolesView({
                         : 'bg-success/15 text-success',
                     )}
                   >
-                    {role.canUse === false ? 'Denied' : 'Allowed'}
+                    {role.canUse === false ? t('Denied') : t('Allowed')}
                   </span>
                 ),
               },
               {
                 key: 'age',
-                header: 'Age',
+                header: t('Age'),
                 width: 110,
                 sortAccessor: (role) => role.createdAt ?? '',
                 render: (role) => (
                   <span className="text-tertiary">
-                    {role.createdAt ? `${formatAge(role.createdAt)} ago` : '—'}
+                    {role.createdAt ? t('{age} ago', { age: formatAge(role.createdAt) }) : '—'}
                   </span>
                 ),
               },
