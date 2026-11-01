@@ -292,7 +292,7 @@
   "Agent:": "Agente:",
   "Agents": "Agentes",
   "Agents by {name}": "Agentes de {name}",
-  "Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.": "Aquí se guardan los agentes que archivas y los que llevan una semana inactivos. Desarchiva uno para devolverlo a Agentes.",
+  "Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.": "Los agentes que archives y los que queden inactivos durante una semana se guardan aquí. Desarchiva uno para devolverlo a Agentes.",
   "Agents you open will appear here. Type to search your team.": "Los agentes que abras aparecerán aquí. Escribe para buscar en tu equipo.",
   "Aggregations": "Agregaciones",
   "Akamai cloud compute instances.": "Instancias de cómputo en la nube de Akamai.",

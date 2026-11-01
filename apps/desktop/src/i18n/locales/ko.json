@@ -292,7 +292,7 @@
   "Agent:": "에이전트:",
   "Agents": "에이전트",
   "Agents by {name}": "{name}님의 에이전트",
-  "Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.": "보관한 에이전트와 일주일 동안 사용하지 않은 에이전트가 여기에 보관됩니다. 보관을 해제하면 에이전트로 돌아갑니다.",
+  "Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.": "보관한 에이전트와 일주일간 유휴 상태인 에이전트가 여기에 보관됩니다. 보관 해제하면 에이전트 목록으로 돌아갑니다.",
   "Agents you open will appear here. Type to search your team.": "연 에이전트가 여기에 표시됩니다. 입력하여 팀에서 검색하세요.",
   "Aggregations": "집계",
   "Akamai cloud compute instances.": "Akamai 클라우드 컴퓨팅 인스턴스.",
