@@ -11,13 +11,15 @@ export type PushDevice = {
   environment: ApnsEnvironment
   bundleId?: string
   projectId?: string
+  /** Lets the backend start the app's Live Activity (iOS). */
+  liveActivityStartToken?: string
   createdAt: Date
   updatedAt: Date
 }
 
 export type PushDeviceRegistration = Pick<
   PushDevice,
-  'token' | 'deviceId' | 'platform' | 'environment' | 'bundleId' | 'projectId'
+  'token' | 'deviceId' | 'platform' | 'environment' | 'bundleId' | 'projectId' | 'liveActivityStartToken'
 >
 
 export type PushDeviceStore = {

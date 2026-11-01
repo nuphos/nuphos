@@ -9,7 +9,7 @@ import {
 } from './live-activities'
 
 import type { ApnsRequest, ApnsResponse } from './apns'
-import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
+import type { PushDevice } from './devices'
 import type {
   LiveActivityDeps,
   LiveActivityPhase,
@@ -17,12 +17,16 @@ import type {
   LiveActivityStore,
   LiveActivityToken,
 } from './live-activities'
+import type { PushConversation } from './notify'
+import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
 let sessions: Map<string, LiveActivitySession>
 let sent: ApnsRequest[]
 let responses: Record<string, ApnsResponse | Error>
 let scheduled: { work: () => void; delayMs: number }[]
 let clock: number
+let conversations: Record<string, PushConversation>
+let devices: Record<string, PushDevice[]>
 
 const token = (name: string): LiveActivityToken => ({
   token: name,
@@ -50,13 +54,13 @@ const contentOf = (deviceToken: string) =>
   (sent.findLast((r) => r.deviceToken === deviceToken)?.payload as { aps: Record<string, unknown> })
     .aps
 
-// Mirrors the Mongo store: only a session with an activity changes, only when
-// its phase does, and newer writes sort first.
+// Mirrors the Mongo store: a session changes only when its phase does, and
+// newer writes sort first.
 const store: LiveActivityStore = {
   async setPhase(sessionId, phase) {
-    const current = sessions.get(sessionId)
+    const current = sessions.get(sessionId) ?? { sessionId, tokens: [], updatedAt: new Date(0) }
 
-    if (!current || current.phase === phase) return null
+    if (current.phase === phase) return null
     const next = { ...current, phase, updatedAt: new Date(++clock) }
 
     sessions.set(sessionId, next)
@@ -68,7 +72,10 @@ const store: LiveActivityStore = {
     const next = {
       ...current,
       ...cardRow,
-      tokens: [...current.tokens.filter((t) => t.token !== added.token), added],
+      tokens: [
+        ...current.tokens.filter((t) => t.token !== added.token),
+        { ...added, registeredAt: added.registeredAt ?? new Date(100_000) },
+      ],
       updatedAt: new Date(++clock),
     }
 
@@ -90,6 +97,11 @@ const store: LiveActivityStore = {
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
       .map(copy)
   },
+  async tokensForUser(userId) {
+    const tokens = [...sessions.values()].flatMap((s) => s.tokens).filter((t) => t.userId === userId)
+
+    return [...new Map(tokens.map((t) => [t.token, t])).values()]
+  },
 }
 
 const deps: LiveActivityDeps = {
@@ -109,6 +121,9 @@ const deps: LiveActivityDeps = {
 
     return response ?? { status: 200 }
   },
+  conversation: async (sessionId) => conversations[sessionId] ?? null,
+  canRead: async (_conversation, userId) => userId !== 'outsider',
+  devices: async (userId) => devices[userId] ?? [],
   now: () => 100_000,
   schedule: (work, delayMs) => {
     scheduled.push({ work, delayMs })
@@ -129,6 +144,8 @@ beforeEach(async () => {
   responses = {}
   scheduled = []
   clock = 0
+  conversations = {}
+  devices = {}
   await store.addToken('session-1', token('la-1'), row('One'))
   await store.addToken('session-1', token('la-2'), row('One'))
   await store.addToken('session-2', token('la-other'), row('Two'))
@@ -340,11 +357,103 @@ describe('Live Activity pushes', () => {
     expect(sent).toEqual([])
   })
 
-  test('a conversation without activities stores nothing', async () => {
+  test('a conversation without activities only keeps its phase', async () => {
     await record('session-9', IDLE)
 
-    expect(sessions.has('session-9')).toBe(false)
+    expect(sessions.get('session-9')?.phase).toBe('done')
     expect(sent).toEqual([])
+  })
+})
+
+describe('Live Activities for watched conversations', () => {
+  const phone = (userId: string, deviceId: string, start: string): PushDevice => ({
+    userId,
+    token: `device-${deviceId}`,
+    deviceId,
+    platform: 'ios',
+    environment: 'production',
+    liveActivityStartToken: start,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  })
+
+  beforeEach(() => {
+    conversations['session-5'] = {
+      userId: 'viewer',
+      teamId: 'team-1',
+      title: 'Five',
+      watcherIds: ['viewer', 'teammate', 'outsider'],
+    }
+  })
+
+  test("a watched conversation that starts running joins the watcher's card", async () => {
+    await record('session-5', RUNNING)
+
+    expect(tokensOf('session-5')).toEqual(['la-1', 'la-2', 'la-other'])
+    expect(contentOf('la-1')).toMatchObject({
+      event: 'update',
+      'content-state': card(
+        [
+          ['session-5', 'Five', 'running'],
+          ['session-1', 'One', 'running'],
+        ],
+        2,
+      ),
+    })
+  })
+
+  test('a phone without a card gets one started over APNs', async () => {
+    devices.teammate = [phone('teammate', 'phone-t', 'start-t')]
+    devices.outsider = [phone('outsider', 'phone-o', 'start-o')]
+    await record('session-5', RUNNING)
+
+    expect(sent.map((r) => r.deviceToken)).not.toContain('start-o')
+    expect(sent.find((r) => r.deviceToken === 'start-t')).toEqual({
+      deviceToken: 'start-t',
+      environment: 'production',
+      pushType: 'liveactivity',
+      payload: {
+        aps: {
+          timestamp: 100,
+          event: 'start',
+          'attributes-type': 'TurnActivityAttributes',
+          attributes: {},
+          'content-state': card([['session-5', 'Five', 'running']], 1),
+          alert: { title: 'Five', body: 'Running' },
+        },
+      },
+    })
+  })
+
+  test('a phone whose card is listed, or still running, is not started again', async () => {
+    devices.viewer = [phone('viewer', 'phone-v', 'start-v')]
+    await store.addToken('session-1', { ...token('la-v'), deviceId: 'phone-v' }, row('One'))
+    await record('session-5', RUNNING)
+    await record('session-5', runtime('active', { phase: 'thinking' }))
+
+    expect(sent.map((r) => r.deviceToken)).not.toContain('start-v')
+    expect(tokensOf('session-5')).toContain('la-v')
+  })
+
+  test('a card older than its iOS lifetime gets a new one instead', async () => {
+    devices.viewer = [phone('viewer', 'phone-v', 'start-v')]
+    await store.addToken(
+      'session-1',
+      { ...token('la-old'), deviceId: 'phone-v', registeredAt: new Date(100_000 - 9 * 3600_000) },
+      row('One'),
+    )
+    await record('session-5', RUNNING)
+
+    expect(tokensOf('session-5')).not.toContain('la-old')
+    expect(sent.map((r) => r.deviceToken)).toContain('start-v')
+  })
+
+  test('a conversation that stops running joins no card', async () => {
+    devices.teammate = [phone('teammate', 'phone-t', 'start-t')]
+    await record('session-5', IDLE)
+
+    expect(sent).toEqual([])
+    expect(tokensOf('session-5')).toEqual([])
   })
 })
 
