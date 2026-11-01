@@ -26,7 +26,23 @@ struct AssistantMarkdown: View {
     }
 
     var body: some View {
-        MarkdownTextRepresentable(text: rendered, theme: Self.theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
+        let segments = MarkdownImages.segments(of: rendered)
+        if segments.count == 1, case .markdown(let text) = segments[0] {
+            markdown(text)
+        } else {
+            VStack(alignment: .leading, spacing: Self.theme.spacings.paragraph) {
+                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                    switch segment {
+                    case .markdown(let text): markdown(text)
+                    case .image(let url, let alt): MarkdownImage(url: url, alt: alt, onLink: onLink)
+                    }
+                }
+            }
+        }
+    }
+
+    private func markdown(_ text: String) -> some View {
+        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
             .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
@@ -69,6 +85,48 @@ struct PlainMessageText: View {
         var theme = AssistantMarkdown.theme
         theme.spacings.paragraph = 0
         return theme
+    }
+}
+
+/// A Markdown image on its own line, sized like a lone image in a transfer
+/// card: a fixed height, so the row does not grow when it loads. Tapping it
+/// opens the pager. If it can't load, its URL is shown as a link, as before.
+private struct MarkdownImage: View {
+    let url: URL
+    let alt: String
+    let onLink: ((URL) -> Void)?
+
+    @State private var previewing = false
+
+    private static let side: CGFloat = 260
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image):
+                Button { previewing = true } label: {
+                    image.resizable().scaledToFit()
+                        .clipShape(shape)
+                        .overlay(shape.strokeBorder(Theme.bubble))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(alt.isEmpty ? "Image" : alt)
+                .frame(maxWidth: Self.side, maxHeight: Self.side, alignment: .leading)
+                .frame(height: Self.side)
+            case .failure:
+                Button(url.absoluteString) { onLink?(url) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
+                    .multilineTextAlignment(.leading)
+            default:
+                shape.fill(Theme.bubble).frame(width: Self.side * 0.75, height: Self.side)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        #if os(iOS)
+        .fullScreenCover(isPresented: $previewing) { ImagePager(urls: [url], current: url) }
+        #endif
     }
 }
 
