@@ -1052,8 +1052,8 @@ final class ChatSession {
 
     private var attachedStreamId: String? { transportStreaming ? currentStreamId : nil }
 
-    private func appendSteering(id: String, text: String) {
-        RuntimeTranscript.steering(id: id, text: text, messages: &messages)
+    private func appendSteering(id: String, text: String, metadata: JSONValue? = nil) {
+        RuntimeTranscript.steering(id: id, text: text, metadata: metadata, messages: &messages)
     }
 
     /// One connection attempt loop for a turn — reconnects, fresh retries
@@ -1266,7 +1266,7 @@ final class ChatSession {
             return
         case "data-steering":
             if let id = frame["data"]?["id"]?.stringValue, let text = frame["data"]?["text"]?.stringValue {
-                appendSteering(id: id, text: text)
+                appendSteering(id: id, text: text, metadata: frame["data"]?["metadata"])
                 if let i = streamAssistantIndex, messages.indices.contains(i) { streamReducer?.message.parts = messages[i].parts }
             }
             return
