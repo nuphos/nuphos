@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import { api } from '../../api'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { LocalSkillInfo, SkillScope } from '../../api'
 
@@ -36,7 +37,7 @@ export function LocalSkillImportMenu({
       .then(setSkills)
       .catch((err: unknown) => {
         setSkills([])
-        toast.apiError('Could not read this computer’s skills', err)
+        toast.apiError(t('Could not read this computer’s skills'), err)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -47,18 +48,24 @@ export function LocalSkillImportMenu({
       api
         .teamSkillsImportLocal(teamId, skill.id, scope)
         .then((result) => {
-          const files = `${String(result.keys.length)} file${result.keys.length === 1 ? '' : 's'}`
+          const files =
+            result.keys.length === 1
+              ? t('{count} file', { count: '1' })
+              : t('{count} files', { count: String(result.keys.length) })
 
           toast.success(
-            `Imported ${result.name}`,
+            t('Imported {name}', { name: result.name }),
             result.skipped.length > 0
-              ? `${files} · skipped ${result.skipped.join(', ')} (too large)`
+              ? t('{files} · skipped {names} (too large)', {
+                  files,
+                  names: result.skipped.join(', '),
+                })
               : files,
           )
           onImported(result.name)
         })
         .catch((err: unknown) => {
-          toast.apiError(`Could not import ${skill.name}`, err)
+          toast.apiError(t('Could not import {name}', { name: skill.name }), err)
         })
         .finally(() => setImporting(null))
     },
@@ -74,21 +81,21 @@ export function LocalSkillImportMenu({
       <MenuTrigger
         disabled={disabled}
         className="h-7 px-2 flex items-center gap-1.5 rounded-md text-[12px] text-secondary hover:text-main hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60 disabled:text-tertiary"
-        title="Import a skill from this computer"
+        title={t('Import a skill from this computer')}
       >
         <Laptop className="w-3.5 h-3.5" strokeWidth={2} />
-        <span>Import from this computer</span>
+        <span>{t('Import from this computer')}</span>
       </MenuTrigger>
       <MenuContent align="end" className="w-[320px]">
         <div className="h-8 px-2 flex items-center gap-2 text-[12px] text-tertiary">
-          <span className="truncate">Skills on this computer</span>
+          <span className="truncate">{t('Skills on this computer')}</span>
           {loading && <Loader2 className="ml-auto w-3.5 h-3.5 animate-spin" strokeWidth={2} />}
         </div>
         {loading && !skills ? (
-          <div className="px-2 py-2 text-[12px] text-tertiary">Loading...</div>
+          <div className="px-2 py-2 text-[12px] text-tertiary">{t('Loading...')}</div>
         ) : !skills || skills.length === 0 ? (
           <div className="px-2 py-2 text-[12px] text-tertiary">
-            No skills found in ~/.claude/skills or ~/.agents/skills
+            {t('No skills found in ~/.claude/skills or ~/.agents/skills')}
           </div>
         ) : (
           <div className="max-h-72 overflow-auto scrollbar-thin">
@@ -102,11 +109,13 @@ export function LocalSkillImportMenu({
                 <span className="flex w-full min-w-0 flex-col">
                   <span className="w-full truncate text-[12.5px]">
                     {skill.name}
-                    {importing === skill.id && ' · importing...'}
+                    {importing === skill.id && ` · ${t('importing...')}`}
                   </span>
                   <span className="w-full truncate text-[11px] text-tertiary">
-                    {SOURCE_LABELS[skill.source]} · {skill.fileCount} file
-                    {skill.fileCount === 1 ? '' : 's'}
+                    {SOURCE_LABELS[skill.source]} ·{' '}
+                    {skill.fileCount === 1
+                      ? t('{count} file', { count: '1' })
+                      : t('{count} files', { count: String(skill.fileCount) })}
                     {skill.description ? ` · ${skill.description}` : ''}
                   </span>
                 </span>

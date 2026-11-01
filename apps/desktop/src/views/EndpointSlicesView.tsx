@@ -5,6 +5,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
 import { useWorkspaceRowLink } from '../lib/workspaceRowLink'
@@ -92,28 +93,28 @@ export function EndpointSlicesView({
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 160,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'address_type',
-            header: 'Address Type',
+            header: t('Address Type'),
             width: 130,
             sortAccessor: (r) => r.address_type,
             render: (r) => <span className="text-secondary">{r.address_type}</span>,
           },
           {
             key: 'ports',
-            header: 'Ports',
+            header: t('Ports'),
             width: 180,
             sortAccessor: (r) => r.ports.join(','),
             render: (r) => (
@@ -124,21 +125,21 @@ export function EndpointSlicesView({
           },
           {
             key: 'endpoints',
-            header: 'Endpoints',
+            header: t('Endpoints'),
             width: 100,
             sortAccessor: (r) => r.endpoints,
             render: (r) => r.endpoints,
           },
           {
             key: 'ready',
-            header: 'Ready',
+            header: t('Ready'),
             width: 90,
             sortAccessor: (r) => r.ready,
             render: (r) => <span className="text-success">{r.ready}</span>,
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

@@ -1,5 +1,6 @@
 import { AgentHistoryPage } from '../../components/agent/AgentPanel'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 
 import type { AgentConversation } from '../../api'
 import type { ReactNode } from 'react'
@@ -70,7 +71,7 @@ export function TriggerRunsList({
         // Runs belong to whoever the trigger executes as, which is rarely the
         // viewer — scoping to 'mine' would leave most run lists empty.
         historyScope="team"
-        onOpenConversation={(sessionId, titleHint) => onOpenRun(sessionId, titleHint ?? 'Run')}
+        onOpenConversation={(sessionId, titleHint) => onOpenRun(sessionId, titleHint ?? t('Run'))}
         onListLoaded={onListLoaded}
         keyboardNavigation={isActive}
       />

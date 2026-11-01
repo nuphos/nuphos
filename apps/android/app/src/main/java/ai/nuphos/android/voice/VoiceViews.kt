@@ -3,7 +3,8 @@ package ai.nuphos.android.voice
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.*
@@ -26,7 +27,7 @@ fun VoiceMic(enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun VoiceRecordingBar(input: VoiceInput) {
+fun VoiceRecordingBar(input: VoiceInput, canSend: Boolean = false, onSendReady: () -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = input::cancel) { Icon(Icons.Outlined.Close, "Cancel voice input") }
         if (input.phase == VoiceInput.Phase.Transcribing) {
@@ -47,8 +48,13 @@ fun VoiceRecordingBar(input: VoiceInput) {
             }
             Text("%d:%02d".format(input.seconds / 60, input.seconds % 60), Modifier.padding(horizontal = 8.dp))
         }
-        IconButton(onClick = input::finish, enabled = input.phase == VoiceInput.Phase.Recording) {
-            Icon(Icons.Outlined.Check, "Finish voice input")
+        IconButton(onClick = { input.finish() }, enabled = input.phase == VoiceInput.Phase.Recording) {
+            Icon(Icons.Outlined.Stop, "Transcribe and edit")
+        }
+        FilledIconButton(onClick = { input.finish(onSendReady) }, enabled = input.phase == VoiceInput.Phase.Recording && canSend,
+            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary)) {
+            Icon(Icons.Rounded.ArrowUpward, "Transcribe and send")
         }
     }
 }

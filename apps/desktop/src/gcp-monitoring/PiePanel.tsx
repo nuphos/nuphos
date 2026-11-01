@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 
 import { colorFor, formatValue } from '../grafana/format'
+import { t } from '../i18n'
 
 import type { DataFrame } from '../grafana/types'
 
@@ -20,7 +21,7 @@ export function GcpPiePanel({ frames, unit, donut, showLabels }: Props) {
   if (slices.length === 0) {
     return (
       <div className="absolute inset-0 flex items-center justify-center text-tertiary text-[12px]">
-        No data
+        {t('No data')}
       </div>
     )
   }
@@ -87,7 +88,7 @@ function buildSlices(frames: DataFrame[]): Slice[] {
       }
     }
     if (value == null || value < 0) continue
-    slices.push({ name: frame.name || numberField.name || 'Series', value })
+    slices.push({ name: frame.name || numberField.name || t('Series'), value })
   }
 
   return slices.sort((a, b) => b.value - a.value)

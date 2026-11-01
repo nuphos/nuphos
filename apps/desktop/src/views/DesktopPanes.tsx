@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
 import { IpcVncChannel } from '../lib/ipcVncChannel'
 import {
@@ -23,8 +24,8 @@ const BOX_PAGE_ENDED = /link has expired|disconnected|failed to connect/iu
 /** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
 const holdingStatus = (display: number) =>
   display === 0
-    ? 'You have the Mac’s screen; the agent can still use it too.'
-    : 'You have the desktop; the agent’s input tools wait until you hand it back.'
+    ? t('You have the Mac’s screen; the agent can still use it too.')
+    : t('You have the desktop; the agent’s input tools wait until you hand it back.')
 
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
@@ -107,16 +108,16 @@ export function SessionDesktopView({
 
   return (
     <DesktopFrame
-      title={title ?? `Desktop :${String(display)}`}
+      title={title ?? t('Desktop :{display}', { display: String(display) })}
       phase={conversationId ? phase : { kind: 'connecting' }}
       status={
         !conversationId
-          ? 'Select an agent to see its desktop.'
+          ? t('Select an agent to see its desktop.')
           : phase.kind !== 'connected'
             ? undefined
             : holding
               ? holdingStatus(display)
-              : 'Watching the agent’s desktop.'
+              : t('Watching the agent’s desktop.')
       }
       action={
         <button
@@ -124,7 +125,7 @@ export function SessionDesktopView({
           onClick={toggle}
           className="rounded border border-zGray-700 px-2 py-0.5 text-main hover:bg-zGray-800"
         >
-          {holding ? 'Hand back' : 'Take over'}
+          {holding ? t('Hand back') : t('Take over')}
         </button>
       }
       switcher={switcher}
@@ -139,9 +140,9 @@ function boxRefusal(error: unknown): unknown {
   const { code } = parseAtlasError(error)
 
   if (code === 'forbidden' || code === 'not_found')
-    return new DesktopRefusal('denied', 'You no longer have access to this computer’s desktop.')
+    return new DesktopRefusal('denied', t('You no longer have access to this computer’s desktop.'))
   if (code === 'box_state' || code === 'box_unavailable')
-    return new DesktopRefusal('offline', 'Computer is offline.')
+    return new DesktopRefusal('offline', t('Computer is offline.'))
 
   return error
 }
@@ -237,7 +238,7 @@ export function BoxDesktopView({
 
   return (
     <DesktopFrame
-      title={label ?? 'Desktop'}
+      title={label ?? t('Desktop')}
       phase={phase}
       switcher={switcher}
       onRetry={retry}

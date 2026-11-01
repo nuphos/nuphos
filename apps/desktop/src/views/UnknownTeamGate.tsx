@@ -2,6 +2,7 @@ import { TriangleAlert } from 'lucide-react'
 
 import { Avatar } from '../components/Avatar'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 import type { AtlasTeam } from '../types'
 
@@ -38,9 +39,13 @@ export function UnknownTeamGate({
         <div className="my-auto flex w-full max-w-[420px] flex-col items-center gap-5 py-10">
           <TriangleAlert className="h-6 w-6 text-error" strokeWidth={1.8} />
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-[15px] font-medium text-main">This workspace is unavailable</h1>
+            <h1 className="text-[15px] font-medium text-main">
+              {t('This workspace is unavailable')}
+            </h1>
             <p className="text-[13px] text-tertiary">
-              A tab is open on a workspace this account can’t access. Pick one below to continue.
+              {t(
+                'A tab is open on a workspace this account can’t access. Pick one below to continue.',
+              )}
             </p>
           </div>
 
@@ -67,10 +72,10 @@ export function UnknownTeamGate({
 
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={onReload} disabled={reloading}>
-              {reloading ? 'Reloading…' : 'Reload workspaces'}
+              {reloading ? t('Reloading…') : t('Reload workspaces')}
             </Button>
             <Button variant="ghost" size="sm" onClick={onSignOut}>
-              Log out
+              {t('Log out')}
             </Button>
           </div>
         </div>

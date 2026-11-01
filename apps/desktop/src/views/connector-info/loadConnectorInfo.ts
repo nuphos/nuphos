@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 import {
   githubInstallationSettingsUrl,
   githubRepoAccessLabel,
@@ -22,9 +23,9 @@ const opsLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
+        { label: t('Label'), value: item.label },
         {
-          label: 'API tokens',
+          label: t('API tokens'),
           value:
             [
               item.hasUptimeApiToken ? 'Uptime' : null,
@@ -33,11 +34,11 @@ const opsLoaders: ConnectorInfoLoaders = {
               .filter(Boolean)
               .join(' + ') || '—',
         },
-        { label: 'Connected', value: new Date(item.createdAt).toLocaleString() },
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connected'), value: new Date(item.createdAt).toLocaleString() },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://uptime.betterstack.com',
-      externalLabel: 'Open Better Stack',
+      externalLabel: t('Open {name}', { name: 'Better Stack' }),
     }
   },
   'uptime-kuma': async (teamId, connectorId) => {
@@ -50,17 +51,18 @@ const opsLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
+        { label: t('Label'), value: item.label },
         { label: 'URL', value: item.baseUrl.replace(/^https?:\/\//, ''), mono: true },
         {
-          label: 'Auth',
-          value: item.authType === 'token' ? 'Auth token' : item.username || 'Username/password',
+          label: t('Auth'),
+          value:
+            item.authType === 'token' ? t('Auth token') : item.username || t('Username/password'),
         },
-        { label: 'Connected', value: new Date(item.createdAt).toLocaleString() },
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connected'), value: new Date(item.createdAt).toLocaleString() },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: item.baseUrl,
-      externalLabel: 'Open Uptime Kuma',
+      externalLabel: t('Open {name}', { name: 'Uptime Kuma' }),
     }
   },
   zeabur: async (teamId, connectorId) => {
@@ -73,15 +75,15 @@ const opsLoaders: ConnectorInfoLoaders = {
     return {
       name: item.name,
       fields: [
-        { label: 'Name', value: item.name },
-        { label: 'Kind', value: item.kind === 'team' ? 'Zeabur team' : 'Zeabur user' },
-        { label: 'Zeabur ID', value: item.zeaburId, mono: true },
+        { label: t('Name'), value: item.name },
+        { label: t('Kind'), value: item.kind === 'team' ? t('Zeabur team') : t('Zeabur user') },
+        { label: t('Zeabur ID'), value: item.zeaburId, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
       ],
       externalUrl: 'https://zeabur.com',
-      externalLabel: 'Open Zeabur',
+      externalLabel: t('Open {name}', { name: 'Zeabur' }),
     }
   },
   github: async (teamId, connectorId) => {
@@ -94,17 +96,19 @@ const opsLoaders: ConnectorInfoLoaders = {
     return {
       name: item.accountLogin,
       fields: [
-        { label: 'Account', value: item.accountLogin },
-        { label: 'Type', value: item.accountType },
-        { label: 'Repositories', value: githubRepoAccessLabel(item) },
-        { label: 'Installation ID', value: String(item.installationId), mono: true },
+        { label: t('Account'), value: item.accountLogin },
+        { label: t('Type'), value: item.accountType },
+        { label: t('Repositories'), value: githubRepoAccessLabel(item) },
+        { label: t('Installation ID'), value: String(item.installationId), mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
       ],
       // An organization's installation page is where its repository access changes.
       externalUrl: githubInstallationSettingsUrl(item) ?? `https://github.com/${item.accountLogin}`,
-      externalLabel: githubInstallationSettingsUrl(item) ? 'Repository access' : 'Open GitHub',
+      externalLabel: githubInstallationSettingsUrl(item)
+        ? t('Repository access')
+        : t('Open {name}', { name: 'GitHub' }),
     }
   },
   gitlab: async (teamId, connectorId) => {
@@ -115,17 +119,17 @@ const opsLoaders: ConnectorInfoLoaders = {
     return {
       name: item.displayName || item.username,
       fields: [
-        { label: 'Account', value: item.displayName || item.username },
+        { label: t('Account'), value: item.displayName || item.username },
         {
-          label: 'Host',
+          label: t('Host'),
           value: `${item.hostUrl.replace(/^https?:\/\//, '')}/${item.username}`,
           mono: true,
         },
-        { label: 'OAuth scope', value: item.scope, mono: true },
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('OAuth scope'), value: item.scope, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: `${item.hostUrl.replace(/\/$/, '')}/${item.username}`,
-      externalLabel: 'Open GitLab',
+      externalLabel: t('Open {name}', { name: 'GitLab' }),
     }
   },
   grafana: async (teamId, connectorId) => {
@@ -136,15 +140,15 @@ const opsLoaders: ConnectorInfoLoaders = {
     return {
       name: item.name,
       fields: [
-        { label: 'Name', value: item.name },
+        { label: t('Name'), value: item.name },
         { label: 'URL', value: item.grafanaUrl.replace(/^https?:\/\//, ''), mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: item.grafanaUrl,
-      externalLabel: 'Open Grafana',
+      externalLabel: t('Open {name}', { name: 'Grafana' }),
     }
   },
 }

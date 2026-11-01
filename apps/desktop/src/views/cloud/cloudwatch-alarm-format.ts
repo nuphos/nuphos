@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { AwsCloudWatchAlarm } from '../../types'
 
 const ALARM_COMPARISON_LABELS: Record<string, string> = {
@@ -5,24 +7,27 @@ const ALARM_COMPARISON_LABELS: Record<string, string> = {
   GreaterThanThreshold: '>',
   LessThanThreshold: '<',
   LessThanOrEqualToThreshold: '≤',
-  GreaterThanUpperThreshold: '> upper band',
-  LessThanLowerThreshold: '< lower band',
-  LessThanLowerOrGreaterThanUpperThreshold: 'outside band',
+  GreaterThanUpperThreshold: t('> upper band'),
+  LessThanLowerThreshold: t('< lower band'),
+  LessThanLowerOrGreaterThanUpperThreshold: t('outside band'),
 }
 
 export function alarmConditionLabel(a: AwsCloudWatchAlarm): string {
-  if (a.kind === 'composite') return 'Composite rule'
+  if (a.kind === 'composite') return t('Composite rule')
   if (!a.metricName) return '—'
   const op = a.comparisonOperator
     ? (ALARM_COMPARISON_LABELS[a.comparisonOperator] ?? a.comparisonOperator)
     : ''
   const threshold = a.threshold != null ? ` ${String(a.threshold)}` : ''
-  const periods =
-    a.evaluationPeriods != null && a.periodSec != null
-      ? ` for ${String(a.evaluationPeriods)}×${String(a.periodSec)}s`
-      : ''
+  const condition = `${a.statistic ?? ''} ${a.metricName} ${op}${threshold}`.trim()
 
-  return `${a.statistic ?? ''} ${a.metricName} ${op}${threshold}${periods}`.trim()
+  return a.evaluationPeriods != null && a.periodSec != null
+    ? t('{condition} for {periods}×{seconds}s', {
+        condition,
+        periods: a.evaluationPeriods,
+        seconds: a.periodSec,
+      })
+    : condition
 }
 
 export function cloudWatchAlarmUrl(alarm: AwsCloudWatchAlarm): string {

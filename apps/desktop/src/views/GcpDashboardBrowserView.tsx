@@ -2,6 +2,7 @@ import { LayoutDashboard } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { t } from '../i18n'
 
 import { CenteredError, CenteredMessage } from './gcp-dashboard/Centered'
 import { GcpDashboardDetailView } from './gcp-dashboard/GcpDashboardDetailView'
@@ -60,7 +61,7 @@ export function GcpDashboardBrowserView(props: Props) {
   }
 
   if (error) return <CenteredError message={error} />
-  if (!dashboards) return <CenteredMessage>Loading dashboards…</CenteredMessage>
+  if (!dashboards) return <CenteredMessage>{t('Loading dashboards…')}</CenteredMessage>
 
   const query = (props.filter ?? '').trim().toLowerCase()
   const filtered = query
@@ -80,15 +81,15 @@ export function GcpDashboardBrowserView(props: Props) {
         {filtered.length === 0 ? (
           <div className="pt-12 text-center text-[12.5px] text-tertiary">
             {dashboards.length === 0
-              ? 'No custom Cloud Monitoring dashboards found in this project.'
-              : `No dashboards match “${props.filter ?? ''}”.`}
+              ? t('No custom Cloud Monitoring dashboards found in this project.')
+              : t('No dashboards match “{filter}”.', { filter: props.filter ?? '' })}
           </div>
         ) : (
           <>
             {/* The count now lives in the toolbar's "N items"; this keeps only the
                 provenance note the toolbar has no room for. */}
             <div className="px-6 pt-3 pb-1 text-[11px] text-tertiary">
-              Provider-owned dashboards · read-only
+              {t('Provider-owned dashboards · read-only')}
             </div>
             {filtered.map((dashboard) => (
               <button

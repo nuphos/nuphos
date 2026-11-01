@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { ErrorBlock } from './ErrorBlock'
@@ -43,7 +44,7 @@ export function LambdaTestPanel({
       try {
         JSON.parse(payload)
       } catch {
-        toast.error('Invalid payload', 'The test payload must be valid JSON.')
+        toast.error(t('Invalid payload'), t('The test payload must be valid JSON.'))
 
         return
       }
@@ -80,7 +81,7 @@ export function LambdaTestPanel({
       <div className="max-w-3xl flex flex-col gap-3">
         <div>
           <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
-            Event payload (JSON)
+            {t('Event payload (JSON)')}
           </div>
           <textarea
             value={payload}
@@ -92,10 +93,10 @@ export function LambdaTestPanel({
         </div>
         <div className="flex items-center gap-3">
           <Button size="sm" type="button" onClick={() => void run()} disabled={running}>
-            {running ? 'Invoking…' : 'Invoke'}
+            {running ? t('Invoking…') : t('Invoke')}
           </Button>
           <span className="text-[11.5px] text-tertiary">
-            Synchronous (RequestResponse) invocation against the live function.
+            {t('Synchronous (RequestResponse) invocation against the live function.')}
           </span>
         </div>
 
@@ -109,25 +110,29 @@ export function LambdaTestPanel({
                   result.functionError ? 'bg-error/15 text-error' : 'bg-[#73bf69]/15 text-[#73bf69]'
                 }`}
               >
-                {result.functionError ? `Failed: ${result.functionError}` : 'Succeeded'}
+                {result.functionError
+                  ? t('Failed: {error}', { error: result.functionError })
+                  : t('Succeeded')}
               </span>
               <span className="text-tertiary">
                 HTTP {result.statusCode ?? '—'}
-                {result.executedVersion ? ` · version ${result.executedVersion}` : ''}
+                {result.executedVersion
+                  ? ` · ${t('version {version}', { version: result.executedVersion })}`
+                  : ''}
               </span>
             </div>
             <div>
               <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
-                Response
+                {t('Response')}
               </div>
               <pre className="px-2.5 py-2 rounded bg-zGray-900 border border-zGray-800 text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all max-h-64 overflow-auto scrollbar-thin">
-                {prettyPayload || '(empty response)'}
+                {prettyPayload || t('(empty response)')}
               </pre>
             </div>
             {result.logTail && (
               <div>
                 <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
-                  Log output (tail)
+                  {t('Log output (tail)')}
                 </div>
                 <pre className="px-2.5 py-2 rounded bg-zGray-900 border border-zGray-800 text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all max-h-72 overflow-auto scrollbar-thin">
                   {result.logTail}
@@ -173,9 +178,9 @@ export function LambdaTriggersPanel({
 
     loaderRef
       .current(fn)
-      .then((t) => {
+      .then((res) => {
         if (cancelled) return
-        setTriggers(t)
+        setTriggers(res)
         setLoading(false)
       })
       .catch((e: unknown) => {
@@ -199,7 +204,7 @@ export function LambdaTriggersPanel({
   if (loading && !triggers) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-tertiary">
-        Loading triggers...
+        {t('Loading triggers...')}
       </div>
     )
   }
@@ -209,11 +214,11 @@ export function LambdaTriggersPanel({
       <div className="max-w-3xl flex flex-col gap-4">
         <div>
           <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
-            Event source mappings ({triggers?.eventSourceMappings.length ?? 0})
+            {t('Event source mappings ({n})', { n: triggers?.eventSourceMappings.length ?? 0 })}
           </div>
           {!triggers || triggers.eventSourceMappings.length === 0 ? (
             <div className="text-[12px] text-tertiary italic">
-              No poll-based event sources (SQS / Kinesis / DynamoDB).
+              {t('No poll-based event sources (SQS / Kinesis / DynamoDB).')}
             </div>
           ) : (
             <div className="border border-zGray-800 rounded bg-zGray-900 divide-y divide-zGray-850">
@@ -223,9 +228,11 @@ export function LambdaTriggersPanel({
                     {m.eventSourceArn ?? m.uuid}
                   </div>
                   <div className="text-tertiary mt-0.5">
-                    {m.state ?? 'unknown'}
-                    {m.batchSize != null ? ` · batch ${String(m.batchSize)}` : ''}
-                    {m.lastModified ? ` · modified ${m.lastModified.slice(0, 10)}` : ''}
+                    {m.state ?? t('unknown')}
+                    {m.batchSize != null ? ` · ${t('batch {n}', { n: m.batchSize })}` : ''}
+                    {m.lastModified
+                      ? ` · ${t('modified {date}', { date: m.lastModified.slice(0, 10) })}`
+                      : ''}
                   </div>
                 </div>
               ))}
@@ -234,11 +241,13 @@ export function LambdaTriggersPanel({
         </div>
         <div>
           <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
-            Resource policy triggers ({triggers?.policyTriggers.length ?? 0})
+            {t('Resource policy triggers ({n})', { n: triggers?.policyTriggers.length ?? 0 })}
           </div>
           {!triggers || triggers.policyTriggers.length === 0 ? (
             <div className="text-[12px] text-tertiary italic">
-              No push-based invokers (API Gateway / S3 / EventBridge…) in the resource policy.
+              {t(
+                'No push-based invokers (API Gateway / S3 / EventBridge…) in the resource policy.',
+              )}
             </div>
           ) : (
             <div className="border border-zGray-800 rounded bg-zGray-900 divide-y divide-zGray-850">

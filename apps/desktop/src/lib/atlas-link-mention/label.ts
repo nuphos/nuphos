@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { MentionTarget } from './types.ts'
 
 // ---------------------------------------------------------------------------
@@ -47,13 +49,13 @@ export function initialLabel(target: MentionTarget): string {
     case 'k8s-resource':
       return `${titleCaseKind(target.kind)} ${target.name}`
     case 'github-installation':
-      return `Installation ${target.installationId}`
+      return t('Installation {id}', { id: target.installationId })
     case 'github-repo':
       return `${target.owner}/${target.repo}`
     case 'github-pr':
       return `${target.owner}/${target.repo} #${target.number}`
     case 'github-workflow-run':
-      return `${target.owner}/${target.repo} run ${target.runId}`
+      return t('{repo} run {id}', { repo: `${target.owner}/${target.repo}`, id: target.runId })
     case 'grafana-instance':
       return `Grafana ${target.instanceId}`
     case 'grafana-dashboard':
@@ -63,8 +65,8 @@ export function initialLabel(target: MentionTarget): string {
     case 'monitoring-item':
       return target.resourceId
     case 'plan':
-      return 'Plan'
+      return t('Plan')
     case 'agent-session':
-      return 'Agent'
+      return t('Agent')
   }
 }

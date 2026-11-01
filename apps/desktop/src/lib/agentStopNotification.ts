@@ -7,6 +7,8 @@
 // notifies about must answer, on its own, why the agent stopped. A clean finish
 // carries the answer; an approval gate and a failure carry their reason.
 
+import { t } from '../i18n/index.ts'
+
 import { toGraphemes } from './graphemes.ts'
 
 const NOTIFICATION_MAX_CHARS = 200
@@ -180,7 +182,7 @@ function stopNotificationBody(
     // the question the same way an open conversation's would.
     return (
       describeStoppedTurn(messages) ??
-      'The agent stopped while it was closed — open it to see what happened.'
+      t('The agent stopped while it was closed — open it to see what happened.')
     )
   }
   if (outcome.kind === 'failed') {
@@ -188,8 +190,8 @@ function stopNotificationBody(
     // box and telemetry; a notification gets the human sentence only.
     const cause = outcome.cause.split('\n')[0]?.trim()
 
-    return cause || 'The agent stopped with an error.'
+    return cause || t('The agent stopped with an error.')
   }
 
-  return describeStoppedTurn(messages) ?? 'The agent finished without a text response.'
+  return describeStoppedTurn(messages) ?? t('The agent finished without a text response.')
 }

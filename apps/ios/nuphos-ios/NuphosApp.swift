@@ -51,7 +51,7 @@ private struct NewChatCommand: Commands {
 /// conversation where the window is wide, else full screen, with "Open desktop" once it is closed.
 private struct PreviewDesktop: View {
     @State private var desktop: DesktopSession? = Self.make()
-    @State private var columns = NavigationSplitViewVisibility.automatic
+    @State private var columns = NavigationSplitViewVisibility.all
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     private static func make() -> DesktopSession { DesktopSession(teamId: "preview", sessionId: "preview", token: "preview") }
@@ -69,7 +69,8 @@ private struct PreviewDesktop: View {
             .navigationTitle("Preview agent")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .automatic } : nil)
+        .navigationSplitViewStyle(.balanced)
+        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .all } : nil)
         .onAppear {
             // `-preview-landscape`: held sideways, for the simulator's screenshots.
             guard CommandLine.arguments.contains("-preview-landscape"),

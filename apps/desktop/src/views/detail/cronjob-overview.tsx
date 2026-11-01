@@ -6,6 +6,7 @@ import { Age } from '../../components/Age'
 import { K8sStatus as StatusBadge } from '../../components/K8sHealth'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { Field, Section } from './shared'
@@ -54,14 +55,14 @@ export function CronJobOverview({
   }, [context, namespace, name, refreshKey])
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (!data) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (!data) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   return (
     <div className="p-6 space-y-5">
       <Section>
-        <Field label="Age" value={<Age value={data.age} />} />
+        <Field label={t('Age')} value={<Age value={data.age} />} />
         <Field
-          label="Labels"
+          label={t('Labels')}
           value={
             <div className="flex flex-wrap gap-1.5">
               {data.labels.map(([k, v]) => (
@@ -77,11 +78,11 @@ export function CronJobOverview({
           }
         />
         <Field
-          label="Namespace"
+          label={t('Namespace')}
           value={<span className="text-zViolet-accent">{data.namespace}</span>}
         />
         <Field
-          label="Annotations"
+          label={t('Annotations')}
           value={
             data.annotations.length === 0 ? (
               <span className="text-tertiary">-</span>
@@ -98,7 +99,7 @@ export function CronJobOverview({
                 ))}
                 {data.annotations.length > 4 && (
                   <span className="text-tertiary text-[11px]">
-                    +{data.annotations.length - 4} more
+                    {t('+{count} more', { count: data.annotations.length - 4 })}
                   </span>
                 )}
               </div>
@@ -109,35 +110,35 @@ export function CronJobOverview({
 
       <Section>
         <Field
-          label="Schedule"
+          label={t('Schedule')}
           value={<span className="font-mono text-[12px]">{data.schedule || '-'}</span>}
         />
         <Field
-          label="Time zone"
+          label={t('Time zone')}
           value={
             data.time_zone ? (
               <span className="font-mono text-[12px]">{data.time_zone}</span>
             ) : (
-              <span className="text-tertiary">Controller local time</span>
+              <span className="text-tertiary">{t('Controller local time')}</span>
             )
           }
         />
         <Field
-          label="Last Schedule"
+          label={t('Last Schedule')}
           value={data.last_schedule ? <Age value={data.last_schedule} /> : '-'}
         />
         <Field
-          label="Last Successful"
+          label={t('Last Successful')}
           value={data.last_successful ? <Age value={data.last_successful} /> : '-'}
         />
         <Field
-          label="Suspended"
-          value={data.suspend ? <span className="text-warning">Yes</span> : 'No'}
+          label={t('Suspended')}
+          value={data.suspend ? <span className="text-warning">{t('Yes')}</span> : t('No')}
         />
-        <Field label="Concurrency Policy" value={data.concurrency_policy} />
-        <Field label="Active" value={String(data.active)} />
+        <Field label={t('Concurrency Policy')} value={data.concurrency_policy} />
+        <Field label={t('Active')} value={String(data.active)} />
         <Field
-          label="Successful Jobs History Limit"
+          label={t('Successful Jobs History Limit')}
           value={
             data.successful_jobs_history_limit != null
               ? String(data.successful_jobs_history_limit)
@@ -145,13 +146,16 @@ export function CronJobOverview({
           }
         />
         <Field
-          label="Failed Jobs History Limit"
+          label={t('Failed Jobs History Limit')}
           value={
             data.failed_jobs_history_limit != null ? String(data.failed_jobs_history_limit) : '-'
           }
         />
         {data.starting_deadline_seconds != null && (
-          <Field label="Starting Deadline" value={`${String(data.starting_deadline_seconds)}s`} />
+          <Field
+            label={t('Starting Deadline')}
+            value={`${String(data.starting_deadline_seconds)}s`}
+          />
         )}
       </Section>
 
@@ -181,24 +185,24 @@ function CronJobJobsSection({
 
   return (
     <div>
-      <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">Jobs</div>
+      <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">{t('Jobs')}</div>
       {error ? (
         <div className="border border-error/30 bg-error/10 px-4 py-3 text-[12.5px] text-error">
-          Could not load Jobs: {error}
+          {t('Could not load Jobs: {error}', { error })}
         </div>
       ) : jobs.length === 0 ? (
         <div className="border border-zGray-800 bg-zGray-900 px-4 py-5 text-[12.5px] text-tertiary">
-          No Jobs have been spawned by this CronJob yet.
+          {t('No Jobs have been spawned by this CronJob yet.')}
         </div>
       ) : (
         <div className="overflow-hidden border border-zGray-800 rounded-md">
           <div className="grid grid-cols-[minmax(220px,2fr)_110px_110px_90px_110px_90px] border-b border-zGray-800 bg-zGray-900 px-3 py-2 text-[11.5px] uppercase tracking-wider text-tertiary">
-            <div>Name</div>
-            <div>Status</div>
-            <div>Completions</div>
-            <div>Failures</div>
-            <div>Duration</div>
-            <div>Age</div>
+            <div>{t('Name')}</div>
+            <div>{t('Status')}</div>
+            <div>{t('Completions')}</div>
+            <div>{t('Failures')}</div>
+            <div>{t('Duration')}</div>
+            <div>{t('Age')}</div>
           </div>
           {jobs.map((j) => (
             <div

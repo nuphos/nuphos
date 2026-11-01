@@ -249,6 +249,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
       </div>
       {settingsOpen && (
         <SettingsPage
+          key={ws.settingsRequest}
           team={ws.currentTeam}
           user={user}
           initialSection={settingsInitialSection ?? undefined}

@@ -103,6 +103,14 @@ final class ChatSession {
             || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
     }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// The browser tabs in this conversation's dock on its owner's computer.
+    func browserTabs() async throws -> [BrowserTab] {
+        try await AgentChatAPI.browserTabs(token: token, teamId: teamId, sessionId: sessionId)
+    }
+    /// Brings `tab` forward on that computer: its window, this conversation and the dock tab.
+    func focus(_ tab: BrowserTab) async throws {
+        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: tab.id)
+    }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }
         guard isNativeRuntime, !isNew else { return nil }
@@ -120,8 +128,9 @@ final class ChatSession {
     var submitting: Bool { sending != nil }
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
-    /// This device's send has had no response yet. Only that response clears it:
-    /// another turn executing says nothing about this message.
+    /// This device's send has no runtime status yet. Only this turn's own
+    /// runtime state clears it, so "Sending…" holds until the runtime's first
+    /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
     var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
@@ -139,13 +148,6 @@ final class ChatSession {
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
-        showLiveActivity()
-    }
-    private func showLiveActivity() {
-        #if os(iOS)
-        guard isStreaming else { return }
-        TurnLiveActivity.show(sessionId: sessionId, teamId: teamId, title: title, authToken: token)
-        #endif
     }
 
     /// Changes the mode; for a conversation the server knows, that is a
@@ -639,8 +641,7 @@ final class ChatSession {
 
     func rename(_ name: String) async throws {
         guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can rename it.") }
-        struct Body: Encodable { let title: String }
-        _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
+        try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: sessionId, title: name)
         title = name
     }
 
@@ -860,7 +861,6 @@ final class ChatSession {
         error = nil
         currentStreamId = options.streamId
         awaitingAdmission = isNativeRuntime && !options.explicitResume
-        showLiveActivity()
         streamTask = Task { [weak self] in
             guard let self else { return }
             var options = options
@@ -1053,8 +1053,8 @@ final class ChatSession {
 
     private var attachedStreamId: String? { transportStreaming ? currentStreamId : nil }
 
-    private func appendSteering(id: String, text: String) {
-        RuntimeTranscript.steering(id: id, text: text, messages: &messages)
+    private func appendSteering(id: String, text: String, metadata: JSONValue? = nil) {
+        RuntimeTranscript.steering(id: id, text: text, metadata: metadata, messages: &messages)
     }
 
     /// One connection attempt loop for a turn — reconnects, fresh retries
@@ -1115,7 +1115,6 @@ final class ChatSession {
                     guard event.data != "[DONE]", let frame = JSONValue.parse(event.data),
                           let type = frame["type"]?.stringValue else { continue }
                     accepted = true
-                    awaitingAdmission = false
                     debugLog("frame \(type)")
                     if type.hasPrefix("tool-") || type == "authorization-decision" || type == "error" || type == "atlas-turn-paused" {
                         debugLog("  \(frame.compact.prefix(600))")
@@ -1262,12 +1261,13 @@ final class ChatSession {
     private func handle(frame: JSONValue, type: String) {
         switch type {
         case "runtime-state":
+            awaitingAdmission = false
             let age = max(0, Date.now.timeIntervalSince1970 - (frame["emittedAt"]?.numberValue ?? 0) / 1000)
             receiveRuntime(frame["snapshot"], observedAt: ProcessInfo.processInfo.systemUptime - age)
             return
         case "data-steering":
             if let id = frame["data"]?["id"]?.stringValue, let text = frame["data"]?["text"]?.stringValue {
-                appendSteering(id: id, text: text)
+                appendSteering(id: id, text: text, metadata: frame["data"]?["metadata"])
                 if let i = streamAssistantIndex, messages.indices.contains(i) { streamReducer?.message.parts = messages[i].parts }
             }
             return

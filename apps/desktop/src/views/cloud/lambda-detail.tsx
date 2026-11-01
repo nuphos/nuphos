@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { ErrorBlock } from './ErrorBlock'
@@ -29,6 +30,14 @@ import type {
 const LAMBDA_TABS = ['Overview', 'Logs', 'Metrics', 'Test', 'Triggers'] as const
 
 type LambdaTab = (typeof LAMBDA_TABS)[number]
+
+const TAB_LABELS: Record<LambdaTab, string> = {
+  Overview: t('Overview'),
+  Logs: t('Logs'),
+  Metrics: t('Metrics'),
+  Test: t('Test'),
+  Triggers: t('Triggers'),
+}
 
 export function LambdaFunctionDetailView({
   fn,
@@ -126,31 +135,31 @@ export function LambdaFunctionDetailView({
           <span className={`shrink-0 ${lambdaStateClass(detail.state)}`}>{detail.state}</span>
         )}
         <div className="ml-1 flex items-center gap-1 shrink-0">
-          {LAMBDA_TABS.map((t) => {
-            if (t === 'Logs' && !eventsLoader) return null
-            if (t === 'Metrics' && !metricsLoader) return null
-            if (t === 'Test' && !invoke) return null
-            if (t === 'Triggers' && !triggersLoader) return null
+          {LAMBDA_TABS.map((name) => {
+            if (name === 'Logs' && !eventsLoader) return null
+            if (name === 'Metrics' && !metricsLoader) return null
+            if (name === 'Test' && !invoke) return null
+            if (name === 'Triggers' && !triggersLoader) return null
 
             return (
               <button
-                key={t}
+                key={name}
                 type="button"
                 onPointerDown={(event) => {
                   if (event.button !== 0) return
-                  setTab(t)
+                  setTab(name)
                 }}
                 onClick={(event) => {
                   if (event.detail !== 0) return
-                  setTab(t)
+                  setTab(name)
                 }}
                 className={`h-6 px-2 rounded text-[11.5px] font-medium ${
-                  tab === t
+                  tab === name
                     ? 'bg-zViolet-accent/15 text-zViolet-accent'
                     : 'text-tertiary hover:text-main hover:bg-zGray-850'
                 }`}
               >
-                {t}
+                {TAB_LABELS[name]}
               </button>
             )
           })}
@@ -161,20 +170,20 @@ export function LambdaFunctionDetailView({
               type="button"
               onClick={() => setEditOpen(true)}
               className="inline-flex items-center gap-1 text-tertiary hover:text-main"
-              title="Edit memory, timeout and environment variables"
+              title={t('Edit memory, timeout and environment variables')}
             >
               <Pencil className="w-3.5 h-3.5" strokeWidth={1.8} />
-              Edit
+              {t('Edit')}
             </button>
           )}
           <button
             type="button"
             onClick={() => void navigator.clipboard.writeText(detail?.arn || fn.arn)}
             className="inline-flex items-center gap-1 text-tertiary hover:text-main"
-            title="Copy function ARN"
+            title={t('Copy function ARN')}
           >
             <Copy className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Copy ARN
+            {t('Copy ARN')}
           </button>
           <button
             type="button"
@@ -182,7 +191,7 @@ export function LambdaFunctionDetailView({
             className="inline-flex items-center gap-1 text-tertiary hover:text-main"
           >
             <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
-            AWS console
+            {t('AWS console')}
           </button>
         </div>
       </div>
@@ -192,7 +201,7 @@ export function LambdaFunctionDetailView({
           <ErrorBlock message={detailError} />
         ) : detailLoading && !detail ? (
           <div className="flex-1 flex items-center justify-center text-sm text-tertiary">
-            Loading configuration...
+            {t('Loading configuration...')}
           </div>
         ) : detail ? (
           <LambdaOverviewPanel detail={detail} />
@@ -242,7 +251,7 @@ export function LambdaFunctionDetailView({
           onClose={() => setEditOpen(false)}
           onSaved={() => {
             setEditOpen(false)
-            setReloadTick((t) => t + 1)
+            setReloadTick((n) => n + 1)
           }}
         />
       )}

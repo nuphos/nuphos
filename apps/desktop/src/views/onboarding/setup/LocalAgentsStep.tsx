@@ -4,6 +4,7 @@ import { ExternalLink, Loader2 } from 'lucide-react'
 import { ClaudeIcon, CodexIcon } from '../../../components/agent/panel/icons'
 import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
+import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
 import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
@@ -18,11 +19,12 @@ const ICON = { 'claude-code': ClaudeIcon, codex: CodexIcon } as const
 /** Sign-in inside the card: start it, then follow the browser step until the CLI reports back. */
 function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
   const { login, busy, retry, start, cancel } = useLocalAgentLogin(provider, true)
+  const [codePre, codePost = ''] = t('Enter this one-time code: {code}').split('{code}')
 
   if (!busy)
     return (
       <Button size="sm" onClick={() => void start()}>
-        {retry ? 'Try again' : 'Sign in'}
+        {retry ? t('Try again') : t('Sign in')}
       </Button>
     )
 
@@ -31,13 +33,14 @@ function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
       <p className="flex items-center gap-2">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         {login?.state === 'checking'
-          ? 'Verifying your sign-in…'
-          : 'Finish signing in in your browser…'}
+          ? t('Verifying your sign-in…')
+          : t('Finish signing in in your browser…')}
       </p>
       {login?.userCode && (
         <p>
-          Enter this one-time code:{' '}
+          {codePre}
           <code className="select-all font-semibold text-main">{login.userCode}</code>
+          {codePost}
         </p>
       )}
       {provider === 'claude-code' && login?.state === 'waiting' && login.url && (
@@ -51,11 +54,11 @@ function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
             rel="noopener noreferrer"
             className="text-zViolet-400 underline"
           >
-            Open the sign-in page
+            {t('Open the sign-in page')}
           </a>
         )}
         <Button size="sm" variant="ghost" onClick={() => void cancel()}>
-          Cancel
+          {t('Cancel')}
         </Button>
       </div>
     </div>
@@ -93,7 +96,7 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-[12.5px] text-zViolet-400 hover:underline"
         >
-          How to install <ExternalLink className="h-3 w-3" />
+          {t('How to install')} <ExternalLink className="h-3 w-3" />
         </a>
       )}
     </div>
@@ -101,14 +104,20 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
 }
 
 export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
-  const computer = isMac ? 'this Mac' : 'this computer'
-
   return (
     <SetupScreen
-      title={`Connect runtimes on ${computer}`}
-      subtitle={`Nuphos runs these runtimes with the subscriptions you already have. Here’s what we found on ${computer}.`}
-      hint="You can change this later in Settings › Runtimes."
-      actions={<Button onClick={onContinue}>Continue</Button>}
+      title={isMac ? t('Connect runtimes on this Mac') : t('Connect runtimes on this computer')}
+      subtitle={
+        isMac
+          ? t(
+              'Nuphos runs these runtimes with the subscriptions you already have. Here’s what we found on this Mac.',
+            )
+          : t(
+              'Nuphos runs these runtimes with the subscriptions you already have. Here’s what we found on this computer.',
+            )
+      }
+      hint={t('You can change this later in Settings › Runtimes.')}
+      actions={<Button onClick={onContinue}>{t('Continue')}</Button>}
     >
       <div className="space-y-3">
         {LOCAL_SETUP_PROVIDERS.map((provider) => (

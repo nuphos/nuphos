@@ -1,6 +1,8 @@
+import { t } from '../../i18n/index.ts'
+
 import type { NuphosDashboardRef } from '../../lib/appRoutes'
 
-export const DASHBOARDS_TITLE = 'Dashboards'
+export const DASHBOARDS_TITLE = t('Dashboards')
 
 export function dashboardsPageTitle({
   nuphosDashboard,

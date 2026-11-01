@@ -15,7 +15,7 @@ struct HomeView: View {
     @State private var plans: PlansStore?
     @State private var connectors: ConnectorsStore?
     @State private var openChat: AgentPage.OpenChat?
-    @State private var columns = NavigationSplitViewVisibility.automatic
+    @State private var columns = NavigationSplitViewVisibility.all
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -136,13 +136,17 @@ struct HomeView: View {
                 }
             }
         }
+        // Wide, the list stays beside the detail. The automatic style overlays
+        // it on a portrait-shaped window (the unfolded iPhone Duo), where picking
+        // a chat or leaving the app put it away.
+        .navigationSplitViewStyle(.balanced)
         // On the split view itself, so the detail column and pushed
         // destinations see the store too — not only pageContent.
         .environment(store)
         .environment(plans)
         .environment(connectors)
         // Wide, a conversation shows its desktop beside it, with the list put away meanwhile.
-        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .automatic } : nil)
+        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .all } : nil)
         .tint(Theme.heading)
         .animation(.easeOut(duration: 0.2), value: titleCollapsed)
         .onAppear {

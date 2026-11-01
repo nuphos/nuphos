@@ -16,6 +16,7 @@ import type {
   ChangelogState,
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
+  SocialProvider,
   UpdaterState,
 } from '../types/team.ts'
 
@@ -33,7 +34,8 @@ export const appApi = {
   authUploadAvatar: (image: Uint8Array) => window.api.authUploadAvatar(image),
   authRemoveAvatar: () => window.api.authRemoveAvatar(),
   authStatus: () => window.api.authStatus(),
-  authLogin: () => window.api.authLogin(),
+  authSocialProviders: () => window.api.authSocialProviders(),
+  authLogin: (provider: SocialProvider) => window.api.authLogin(provider),
   authLogout: () => window.api.authLogout(),
   authCancel: () => window.api.authCancel(),
   authEmailRequestCode: (email: string) => window.api.authEmailRequestCode(email),
@@ -66,6 +68,7 @@ export const appApi = {
     window.api.onAppOpenDeepLink(cb),
   onConnectAgentDeepLink: (cb: (payload: ConnectAgentLink) => void) =>
     window.api.onConnectAgentDeepLink(cb),
+  onWebUrlDeepLink: (cb: (url: string) => void) => window.api.onWebUrlDeepLink(cb),
   onPersonalCredentialDeepLink: (cb: (payload: PersonalCredentialDeepLinkPayload) => void) =>
     window.api.onPersonalCredentialDeepLink(cb),
   onAgentFocusSession: (cb: (payload: AgentFocusSessionPayload) => void) =>
