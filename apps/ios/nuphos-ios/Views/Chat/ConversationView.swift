@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The chat screen: transcript rows, activity, approvals, and the composer.
 struct ConversationView: View {
-    @AppStorage(BotAvatars.enabledKey) private var botAvatars = true
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
     var initialPrompt: ComposerSubmission?

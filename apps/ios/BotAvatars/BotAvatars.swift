@@ -6,13 +6,16 @@ enum BotAvatars {
 
     /// Shared with the notification extension, which shows the avatar on pushes.
     static let defaults: UserDefaults = {
-        let shared = UserDefaults(suiteName: "group.ai.nuphos.ios") ?? .standard
-        // The setting used to live in the app's own defaults.
-        if shared.object(forKey: enabledKey) == nil, let old = UserDefaults.standard.object(forKey: enabledKey) {
+        migratedDefaults(legacy: .standard, shared: UserDefaults(suiteName: "group.ai.nuphos.ios") ?? .standard)
+    }()
+
+    /// Migrate once; later shared-suite changes take precedence over the old value.
+    static func migratedDefaults(legacy: UserDefaults, shared: UserDefaults) -> UserDefaults {
+        if shared.object(forKey: enabledKey) == nil, let old = legacy.object(forKey: enabledKey) {
             shared.set(old, forKey: enabledKey)
         }
         return shared
-    }()
+    }
 
     static var enabled: Bool { defaults.object(forKey: enabledKey) as? Bool ?? true }
     static let files = [

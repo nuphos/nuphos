@@ -4,7 +4,7 @@ import SwiftUI
 /// dot-separated meta line.
 struct ConversationRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @AppStorage(BotAvatars.enabledKey) private var botAvatars = true
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     let conversation: AgentConversation
     var pinned = false
     /// Threads a folded parent hides; the row shows the most pressing of their states.
