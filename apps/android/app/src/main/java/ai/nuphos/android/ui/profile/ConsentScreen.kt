@@ -35,3 +35,21 @@ fun ConsentScreen(user: NuphosUser) {
     }
     if (account) ProfileSheet(user) { account = false }
 }
+
+/** An unavailable or incompatible lookup is not a request for a new consent decision. */
+@Composable
+fun ConsentRecoveryScreen(user: NuphosUser) {
+    val auth = LocalAuthSession.current
+    var account by remember(auth.generation) { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Text("Couldn’t verify your AI sharing choice", style = MaterialTheme.typography.headlineMedium)
+        Text("AI features are paused until we can confirm your choice. Retry to continue. No new sharing choice is recorded here.")
+        auth.consentError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (auth.consentBusy) CircularProgressIndicator()
+        Button(onClick = { auth.loadAIConsent() }, enabled = !auth.consentBusy,
+            modifier = Modifier.fillMaxWidth()) { Text("Retry loading consent") }
+        TextButton(onClick = { account = true }, modifier = Modifier.fillMaxWidth()) { Text("Manage my account") }
+    }
+    if (account) ProfileSheet(user) { account = false }
+}
