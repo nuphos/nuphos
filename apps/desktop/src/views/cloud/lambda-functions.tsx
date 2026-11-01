@@ -6,6 +6,7 @@ import { Age } from '../../components/Age'
 import { ContextMenu } from '../../components/ContextMenu'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -109,13 +110,13 @@ export function LambdaFunctionsView({
       ...(linkItems.length > 0 ? [{ key: 'sep0', separator: true } as const] : []),
       {
         key: 'copy-arn',
-        label: 'Copy ARN',
+        label: t('Copy ARN'),
         icon: Copy,
         onSelect: () => void navigator.clipboard.writeText(fn.arn),
       },
       {
         key: 'open-console',
-        label: 'Open in AWS console',
+        label: t('Open in AWS console'),
         icon: Globe,
         onSelect: () => void api.appOpenExternal(lambdaConsoleUrl(fn)),
       },
@@ -168,11 +169,11 @@ export function LambdaFunctionsView({
         onRowContextMenu={(fn, e) => setMenu({ fn, x: e.clientX, y: e.clientY })}
         storageKey="aws.lambda-functions"
         defaultSort={{ key: 'name', dir: 'asc' }}
-        empty="No Lambda functions"
+        empty={t('No Lambda functions')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -183,18 +184,18 @@ export function LambdaFunctionsView({
           },
           {
             key: 'runtime',
-            header: 'Runtime',
+            header: t('Runtime'),
             width: 130,
             sortAccessor: (r) => r.runtime ?? r.packageType ?? '',
             render: (r) => (
               <span className="font-mono text-[12px] text-secondary">
-                {r.runtime ?? (r.packageType === 'Image' ? 'container' : '—')}
+                {r.runtime ?? (r.packageType === 'Image' ? t('container') : '—')}
               </span>
             ),
           },
           {
             key: 'memory',
-            header: 'Memory',
+            header: t('Memory'),
             width: 90,
             sortAccessor: (r) => r.memoryMb ?? 0,
             render: (r) => (
@@ -205,8 +206,8 @@ export function LambdaFunctionsView({
           },
           {
             key: 'timeout',
-            header: 'Timeout',
-            width: 90,
+            header: t('Timeout'),
+            width: 110,
             sortAccessor: (r) => r.timeoutSec ?? 0,
             render: (r) => (
               <span className="text-secondary tabular-nums">
@@ -216,7 +217,7 @@ export function LambdaFunctionsView({
           },
           {
             key: 'codeSize',
-            header: 'Code size',
+            header: t('Code size'),
             width: 100,
             sortAccessor: (r) => r.codeSizeBytes,
             render: (r) => (
@@ -225,14 +226,14 @@ export function LambdaFunctionsView({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 140,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'modified',
-            header: 'Modified',
+            header: t('Modified'),
             width: 100,
             sortAccessor: (r) => r.lastModified ?? '',
             render: (r) => (

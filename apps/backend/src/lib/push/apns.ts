@@ -42,6 +42,9 @@ const HOSTS: Record<ApnsEnvironment, string> = {
 const JWT_TTL_MS = 45 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 10_000
 
+// mutable-content hands the alert to the iOS extension that shows the Agent's avatar.
+export const SESSION_ALERT_APS = { sound: 'default', category: 'REPLY', 'mutable-content': 1 }
+
 export function apnsCredentials(): ApnsCredentials | null {
   const { keyId, teamId, bundleId, privateKey, environment } = config.apns
 

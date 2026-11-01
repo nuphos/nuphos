@@ -14,6 +14,7 @@ import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { PodStatus } from '../../components/K8sHealth'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { podTone } from '../../lib/k8sHealth'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { useResetOnKey } from '../useResetOnKey'
@@ -38,11 +39,11 @@ import type { PodConditionDetail, PodDetail } from '../../types'
 type PodOverviewSnapshot = { data: PodDetail; yamlText: string }
 
 function podHealthTitle(tone: HealthTone, status: string) {
-  if (tone === 'success') return 'Healthy and ready'
-  if (tone === 'error') return 'Needs attention'
-  if (tone === 'warning') return 'Still converging'
+  if (tone === 'success') return t('Healthy and ready')
+  if (tone === 'error') return t('Needs attention')
+  if (tone === 'warning') return t('Still converging')
 
-  return status || 'Inactive'
+  return status || t('Inactive')
 }
 
 function conditionTone(condition: PodConditionDetail, podHealth: HealthTone): HealthTone {
@@ -87,7 +88,7 @@ function RelatedResourceButton({
       type="button"
       onClick={() => onNavigate({ kind, namespace, name })}
       className="group inline-flex max-w-full items-center gap-1 hover:text-zViolet-accent"
-      title={`Open ${kind} ${name}`}
+      title={t('Open {kind} {name}', { kind, name })}
     >
       <span className="truncate">{name}</span>
       <ArrowUpRight className="h-3 w-3 shrink-0 opacity-60" />
@@ -147,7 +148,7 @@ export function PodOverview({
   }, [cacheKey, context, namespace, name, refreshKey])
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (!snapshot) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (!snapshot) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   const { data, yamlText } = snapshot
   const topology = parseResourceTopology(yamlText, { kind: 'Pod', namespace, name })
@@ -171,31 +172,33 @@ export function PodOverview({
   return (
     <OperationsCanvas>
       <OperationsHero
-        eyebrow="Runtime health"
+        eyebrow={t('Runtime health')}
         title={podHealthTitle(tone, data.status)}
         tone={tone}
         badge={<PodStatus status={data.status} ready={ready} />}
         description={
           <>
-            {ready} application containers ready
+            {t('{ready} application containers ready', { ready })}
             <span className="px-1.5 text-tertiary">·</span>
-            {restarts === 0 ? 'No restarts recorded' : `${String(restarts)} restarts need review`}
+            {restarts === 0
+              ? t('No restarts recorded')
+              : t('{count} restarts need review', { count: restarts })}
           </>
         }
         facts={[
           {
-            label: 'Ready',
+            label: t('Ready'),
             value: ready,
-            detail: `${String(data.containers.length)} app containers`,
+            detail: t('{count} app containers', { count: data.containers.length }),
           },
           {
-            label: 'Restarts',
+            label: t('Restarts'),
             value: <span className={restarts > 0 ? 'text-warning' : undefined}>{restarts}</span>,
-            detail: 'across all containers',
+            detail: t('across all containers'),
           },
-          { label: 'Age', value: data.age ? <Age value={data.age} /> : '-' },
+          { label: t('Age'), value: data.age ? <Age value={data.age} /> : '-' },
           {
-            label: 'Node',
+            label: t('Node'),
             value: data.node ? (
               <RelatedResourceButton
                 kind="Node"
@@ -206,18 +209,22 @@ export function PodOverview({
             ) : (
               '-'
             ),
-            detail: 'scheduled host',
+            detail: t('scheduled host'),
           },
-          { label: 'Pod IP', value: data.pod_ip ?? '-', detail: data.host_ip ?? undefined },
-          { label: 'QoS', value: data.qos ?? '-', detail: data.phase },
+          { label: t('Pod IP'), value: data.pod_ip ?? '-', detail: data.host_ip ?? undefined },
+          { label: t('QoS'), value: data.qos ?? '-', detail: data.phase },
         ]}
       />
 
       <OperationsGrid>
         <OperationsPanel
-          title="Live containers"
-          description="Current state, restarts and resource contract"
-          meta={`${String(data.containers.length)} app · ${String(data.init_containers.length)} init · ${String(data.ephemeral_containers.length)} ephemeral`}
+          title={t('Live containers')}
+          description={t('Current state, restarts and resource contract')}
+          meta={t('{app} app · {init} init · {ephemeral} ephemeral', {
+            app: data.containers.length,
+            init: data.init_containers.length,
+            ephemeral: data.ephemeral_containers.length,
+          })}
           icon={<Box className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-8"
           bodyClassName="grid grid-cols-1 gap-3 p-3 @2xl:grid-cols-2 @2xl:p-4"
@@ -233,14 +240,14 @@ export function PodOverview({
         </OperationsPanel>
 
         <OperationsPanel
-          title="Placement"
-          description="Where this runtime landed"
+          title={t('Placement')}
+          description={t('Where this runtime landed')}
           icon={<Server className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-4"
           bodyClassName="px-4 py-1.5 @2xl:px-5"
         >
           <FactRow
-            label="Node"
+            label={t('Node')}
             value={
               data.node ? (
                 <RelatedResourceButton
@@ -254,10 +261,10 @@ export function PodOverview({
               )
             }
           />
-          <FactRow label="Pod IP" value={data.pod_ip ?? '-'} mono />
-          <FactRow label="Host IP" value={data.host_ip ?? '-'} mono />
+          <FactRow label={t('Pod IP')} value={data.pod_ip ?? '-'} mono />
+          <FactRow label={t('Host IP')} value={data.host_ip ?? '-'} mono />
           <FactRow
-            label="Service account"
+            label={t('Service account')}
             value={
               data.service_account ? (
                 <RelatedResourceButton
@@ -272,7 +279,7 @@ export function PodOverview({
             }
           />
           <FactRow
-            label="Owner"
+            label={t('Owner')}
             value={
               ownerKind && data.owner_name ? (
                 <RelatedResourceButton
@@ -287,7 +294,7 @@ export function PodOverview({
             }
           />
           <FactRow
-            label="Started"
+            label={t('Started')}
             value={data.start_time ? <Age value={data.start_time} /> : '-'}
           />
         </OperationsPanel>
@@ -295,14 +302,14 @@ export function PodOverview({
         {selectedContainer && (
           <OperationsPanel
             title={containerDisplayName(selectedContainer)}
-            description="Environment and volume mounts for this container"
+            description={t('Environment and volume mounts for this container')}
             icon={<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />}
             className="@5xl:col-span-7"
             bodyClassName="space-y-5 p-3 @2xl:p-4"
           >
             <div>
               <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-                Environment
+                {t('Environment')}
               </div>
               <PodEnvSection
                 namespace={data.namespace || namespace}
@@ -313,7 +320,7 @@ export function PodOverview({
             </div>
             <div>
               <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-                Volume mounts
+                {t('Volume mounts')}
               </div>
               {selectedContainerTopology?.mounts.length ? (
                 <div className="space-y-1.5">
@@ -325,21 +332,21 @@ export function PodOverview({
                       <span className="truncate text-main">{mount.path}</span>
                       <span className="text-tertiary">←</span>
                       <span className="truncate text-secondary">{mount.volumeName}</span>
-                      {mount.readOnly && <span className="text-tertiary">read-only</span>}
+                      {mount.readOnly && <span className="text-tertiary">{t('read-only')}</span>}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-tertiary">No volumes mounted.</div>
+                <div className="text-[12px] text-tertiary">{t('No volumes mounted.')}</div>
               )}
             </div>
           </OperationsPanel>
         )}
 
         <OperationsPanel
-          title="Dependencies"
-          description="Configuration, storage and runtime references"
-          meta={`${String(topology.relations.length)} references`}
+          title={t('Dependencies')}
+          description={t('Configuration, storage and runtime references')}
+          meta={t('{count} references', { count: topology.relations.length })}
           icon={<Cable className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className={selectedContainer ? '@5xl:col-span-5' : '@5xl:col-span-12'}
         >
@@ -347,9 +354,9 @@ export function PodOverview({
         </OperationsPanel>
 
         <OperationsPanel
-          title="Storage routes"
-          description="Source → volume → container mount path"
-          meta={`${String(topology.volumes.length)} volumes`}
+          title={t('Storage routes')}
+          description={t('Source → volume → container mount path')}
+          meta={t('{count} volumes', { count: topology.volumes.length })}
           icon={<HardDrive className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-8"
         >
@@ -357,15 +364,15 @@ export function PodOverview({
         </OperationsPanel>
 
         <OperationsPanel
-          title="Scheduling signals"
-          description="Conditions and placement constraints"
+          title={t('Scheduling signals')}
+          description={t('Conditions and placement constraints')}
           icon={<Network className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-4"
           bodyClassName="space-y-5 p-4 @2xl:p-5"
         >
           <div>
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              Conditions
+              {t('Conditions')}
             </div>
             <OverviewChipList
               chips={data.conditions.map((condition) => ({
@@ -375,23 +382,23 @@ export function PodOverview({
                   `${condition.type}: ${condition.status}`,
                 tone: conditionTone(condition, tone),
               }))}
-              empty="No active conditions"
+              empty={t('No active conditions')}
             />
           </div>
           <div>
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              Tolerations
+              {t('Tolerations')}
             </div>
             <OverviewChipList
               chips={data.tolerations.map((toleration) => ({
                 label: `${toleration.key}: ${toleration.effect}`,
               }))}
-              empty="No tolerations"
+              empty={t('No tolerations')}
             />
           </div>
           <div>
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              Labels
+              {t('Labels')}
             </div>
             <OverviewChipList
               chips={data.labels.map(([key, value]) => ({

@@ -3,6 +3,7 @@ import { Box } from 'lucide-react'
 
 import { Age } from '../../components/Age'
 import { PodStatus } from '../../components/K8sHealth'
+import { t } from '../../i18n'
 import { healthClass } from '../../lib/k8sHealth'
 
 import type { PodDetail } from '../../types'
@@ -57,7 +58,9 @@ export function ContainerCard({
           <div className="flex min-w-0 items-baseline gap-2">
             <span className="truncate text-[12.5px] font-semibold text-main">{c.name}</span>
             {(c.is_init || c.is_ephemeral) && (
-              <span className="text-[10px] text-tertiary">{c.is_init ? 'init' : 'ephemeral'}</span>
+              <span className="text-[10px] text-tertiary">
+                {c.is_init ? t('init') : t('ephemeral')}
+              </span>
             )}
           </div>
           <div className="truncate font-mono text-[10.5px] text-tertiary" title={c.image}>
@@ -67,21 +70,24 @@ export function ContainerCard({
       </div>
       <div className="mt-3 flex items-center gap-3 border-t border-zGray-800 pt-3 text-[11.5px]">
         <PodStatus status={c.status} ready={c.ready ? '1/1' : '0/1'} />
-        {c.started && <span className="text-secondary">Started</span>}
+        {c.started && <span className="text-secondary">{t('Started')}</span>}
         {c.status === 'Running' && (
           <span className={c.ready ? 'text-success' : 'text-error'}>
-            {c.ready ? 'Ready' : 'Not ready'}
+            {c.ready ? t('Ready') : t('Not ready')}
           </span>
         )}
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-        <Stat label="Restarts" value={String(c.restarts)} />
-        <Stat label="Reason" value={c.restart_reason ?? '-'} />
-        <Stat label="Last Restart" value={c.last_restart ? <Age value={c.last_restart} /> : '-'} />
+        <Stat label={t('Restarts')} value={String(c.restarts)} />
+        <Stat label={t('Reason')} value={c.restart_reason ?? '-'} />
+        <Stat
+          label={t('Last Restart')}
+          value={c.last_restart ? <Age value={c.last_restart} /> : '-'}
+        />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zGray-800 pt-3 text-[11.5px]">
-        <ResourceStat label="CPU" request={c.cpu_request} limit={c.cpu_limit} />
-        <ResourceStat label="Memory" request={c.memory_request} limit={c.memory_limit} />
+        <ResourceStat label={t('CPU')} request={c.cpu_request} limit={c.cpu_limit} />
+        <ResourceStat label={t('Memory')} request={c.memory_request} limit={c.memory_limit} />
       </div>
     </button>
   )
@@ -99,8 +105,12 @@ export function ResourceStat({
   return (
     <div>
       <div className="text-[10.5px] uppercase tracking-wider text-tertiary">{label}</div>
-      <div className="mt-0.5 text-[11.5px] text-secondary">Requests: {request ?? '-'}</div>
-      <div className="text-[11.5px] text-secondary">Limits: {limit ?? '-'}</div>
+      <div className="mt-0.5 text-[11.5px] text-secondary">
+        {t('Requests: {value}', { value: request ?? '-' })}
+      </div>
+      <div className="text-[11.5px] text-secondary">
+        {t('Limits: {value}', { value: limit ?? '-' })}
+      </div>
     </div>
   )
 }

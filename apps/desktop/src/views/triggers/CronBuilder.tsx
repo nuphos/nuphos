@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { nextOccurrencesAfter } from './calendar/occurrences'
 import {
@@ -73,17 +74,17 @@ export function CronBuilder({
   )
 
   return (
-    <div className="space-y-2.5" role="group" aria-label="Schedule">
-      <div className="flex gap-1.5" role="group" aria-label="Schedule mode">
+    <div className="space-y-2.5" role="group" aria-label={t('Schedule')}>
+      <div className="flex gap-1.5" role="group" aria-label={t('Schedule mode')}>
         <ModeTab
-          label="Every N hours"
+          label={t('Every N hours')}
           active={mode.kind === 'every-n-hours'}
           onClick={() =>
             apply(mode.kind === 'every-n-hours' ? mode : { kind: 'every-n-hours', n: 1, minute: 0 })
           }
         />
         <ModeTab
-          label="At specific time"
+          label={t('At specific time')}
           active={mode.kind === 'at-time'}
           onClick={() =>
             apply(
@@ -94,7 +95,7 @@ export function CronBuilder({
           }
         />
         <ModeTab
-          label="Custom"
+          label={t('Custom')}
           active={mode.kind === 'custom'}
           onClick={() => apply({ kind: 'custom', expr: preview || value })}
         />
@@ -102,36 +103,48 @@ export function CronBuilder({
 
       {mode.kind === 'every-n-hours' && (
         <div className="flex items-center gap-2 text-[12.5px] text-secondary">
-          <span>Every</span>
-          <AppSelect
-            value={String(mode.n)}
-            onValueChange={(nextValue) => apply({ ...mode, n: Number(nextValue) })}
-            triggerClassName="h-7 w-[64px] border-zGray-800 px-2 text-[12.5px]"
-            options={EVERY_N_HOURS_OPTIONS.map((n) => ({
-              value: String(n),
-              label: n,
-            }))}
-          />
-          <span>hour{mode.n === 1 ? '' : 's'} at minute</span>
-          <input
-            type="number"
-            min={0}
-            max={59}
-            value={mode.minute}
-            onChange={(e) => {
-              const v = Math.max(0, Math.min(59, Number(e.target.value) || 0))
+          {(mode.n === 1
+            ? t('Every {n} hour at minute {minute}')
+            : t('Every {n} hours at minute {minute}')
+          )
+            .split(/(\{n\}|\{minute\})/)
+            .map((part, i) =>
+              part === '{n}' ? (
+                <AppSelect
+                  key="n"
+                  value={String(mode.n)}
+                  onValueChange={(nextValue) => apply({ ...mode, n: Number(nextValue) })}
+                  triggerClassName="h-7 w-[64px] border-zGray-800 px-2 text-[12.5px]"
+                  options={EVERY_N_HOURS_OPTIONS.map((n) => ({
+                    value: String(n),
+                    label: n,
+                  }))}
+                />
+              ) : part === '{minute}' ? (
+                <input
+                  key="minute"
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={mode.minute}
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(59, Number(e.target.value) || 0))
 
-              apply({ ...mode, minute: v })
-            }}
-            className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] focus:outline-none focus:border-zViolet-500"
-          />
+                    apply({ ...mode, minute: v })
+                  }}
+                  className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] focus:outline-none focus:border-zViolet-500"
+                />
+              ) : (
+                part.trim() && <span key={i}>{part.trim()}</span>
+              ),
+            )}
         </div>
       )}
 
       {mode.kind === 'at-time' && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-[12.5px] text-secondary">
-            <span>At</span>
+            <span>{t('At|time')}</span>
             <input
               type="number"
               min={0}
@@ -157,7 +170,7 @@ export function CronBuilder({
               }}
               className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] text-center focus:outline-none focus:border-zViolet-500"
             />
-            <span className="text-tertiary text-[11.5px]">(24-hour, UTC)</span>
+            <span className="text-tertiary text-[11.5px]">{t('(24-hour, UTC)')}</span>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             {WEEKDAYS.map((d) => {
@@ -196,11 +209,11 @@ export function CronBuilder({
               }
               className="ml-1 text-[11px] text-tertiary hover:text-main underline-offset-2 hover:underline"
             >
-              {mode.days.length === 7 ? 'Weekdays only' : 'Every day'}
+              {mode.days.length === 7 ? t('Weekdays only') : t('Every day')}
             </button>
           </div>
           {mode.days.length === 0 && (
-            <p className="text-[11.5px] text-error">Pick at least one day.</p>
+            <p className="text-[11.5px] text-error">{t('Pick at least one day.')}</p>
           )}
         </div>
       )}
@@ -217,7 +230,7 @@ export function CronBuilder({
       )}
 
       <div className="text-[11px] text-tertiary">
-        Cron (UTC):{' '}
+        {t('Cron (UTC):')}{' '}
         <code className="font-mono text-[11px] text-secondary bg-zGray-900 border border-zGray-800 rounded px-1.5 py-0.5">
           {preview || '—'}
         </code>
@@ -227,7 +240,7 @@ export function CronBuilder({
           <div className="text-secondary">
             {scheduleSummary({ triggerType: 'cron', cronExpression: preview }, timeZone)}
           </div>
-          <div>Next runs:</div>
+          <div>{t('Next runs:')}</div>
           <ul className="space-y-0.5 pl-2">
             {nextRuns.map((runAt) => (
               <li key={runAt.getTime()}>{formatUtcRun(runAt, timeZone)}</li>

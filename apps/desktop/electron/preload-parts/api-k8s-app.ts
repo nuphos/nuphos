@@ -231,12 +231,7 @@ export const k8sAppApi = {
   authUploadAvatar: (image: Uint8Array) => ipcRenderer.invoke('auth:uploadAvatar', image),
   authRemoveAvatar: () => ipcRenderer.invoke('auth:removeAvatar'),
   authStatus: () => ipcRenderer.invoke('auth:status'),
-  authLogin: () => ipcRenderer.invoke('auth:login'),
   authLogout: () => ipcRenderer.invoke('auth:logout'),
-  authCancel: () => ipcRenderer.invoke('auth:cancel'),
-  authEmailRequestCode: (email: string) => ipcRenderer.invoke('auth:emailRequestCode', email),
-  authEmailVerifyCode: (email: string, code: string) =>
-    ipcRenderer.invoke('auth:emailVerifyCode', email, code),
   analyticsIdentify: (userId: string, props?: Record<string, unknown>) =>
     ipcRenderer.invoke('analytics:identify', userId, props),
   analyticsSetTeam: (teamId: string | null) => ipcRenderer.invoke('analytics:setTeam', teamId),
@@ -274,6 +269,7 @@ export const k8sAppApi = {
     subscribeDeepLink('deep-link:app-open', cb),
   onConnectAgentDeepLink: (cb: (payload: unknown) => void) =>
     subscribeDeepLink('deep-link:connect-agent', cb),
+  onWebUrlDeepLink: (cb: (payload: unknown) => void) => subscribeDeepLink('deep-link:web-url', cb),
   onPersonalCredentialDeepLink: (cb: (payload: unknown) => void) =>
     subscribeDeepLink('deep-link:personal-credential', cb),
   onAgentFocusSession: (cb: (payload: unknown) => void) => {

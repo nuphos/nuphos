@@ -124,6 +124,16 @@ final class AgentStore {
         UserDefaults.standard.set(foldedThreads.mapValues(Array.init), forKey: Self.foldedThreadsKey)
     }
 
+    func rename(_ conversation: AgentConversation, title: String) async {
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        do {
+            try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: conversation.sessionId, title: title)
+            await reload()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
     func unlinkParent(_ conversation: AgentConversation) async {
         guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         do {

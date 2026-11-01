@@ -1,12 +1,13 @@
 import { useState } from 'react'
 
+import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 export type TriggersPageView = 'list' | 'calendar'
 
 export const PAGE_VIEWS: { value: TriggersPageView; label: string }[] = [
-  { value: 'list', label: 'List' },
-  { value: 'calendar', label: 'Calendar' },
+  { value: 'list', label: t('List') },
+  { value: 'calendar', label: t('Calendar') },
 ]
 const PAGE_VIEW_STORAGE_KEY = 'nuphos.triggersPageView'
 

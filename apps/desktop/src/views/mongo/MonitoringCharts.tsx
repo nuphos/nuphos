@@ -9,6 +9,8 @@ import {
   YAxis,
 } from 'recharts'
 
+import { t } from '../../i18n'
+
 import {
   CHART_COLORS,
   compact,
@@ -38,12 +40,12 @@ export function MetricChart({
     <section className="rounded-xl border border-zGray-800 bg-zGray-950/35 p-3.5">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-[12.5px] font-medium text-main">{title}</h3>
-        <span className="text-[9.5px] text-tertiary">{data.length} samples</span>
+        <span className="text-[9.5px] text-tertiary">{t('{n} samples', { n: data.length })}</span>
       </div>
       <div className="mt-3 h-48">
         {!hasValues ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-zGray-800 text-center text-[10.5px] text-tertiary">
-            Waiting for two samples or the required MongoDB privilege.
+            {t('Waiting for two samples or the required MongoDB privilege.')}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -108,10 +110,13 @@ export function CapabilityPanel({
     <section className="rounded-xl border border-zGray-800 bg-zGray-900/20 p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-[13px] font-medium text-main">Source and metric coverage</h3>
+          <h3 className="text-[13px] font-medium text-main">{t('Source and metric coverage')}</h3>
           <p className="mt-1 text-[10.5px] text-tertiary">
-            Last updated {new Date(sample.sampledAt).toLocaleString()} · collection took{' '}
-            {sample.durationMs} ms · retained for {retentionDays} days
+            {t('Last updated {time} · collection took {ms} ms · retained for {days} days', {
+              time: new Date(sample.sampledAt).toLocaleString(),
+              ms: sample.durationMs,
+              days: retentionDays,
+            })}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -122,27 +127,27 @@ export function CapabilityPanel({
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <Info
-          label="Deployment"
+          label={t('Deployment')}
           value={deploymentLabel(sample.deploymentType)}
           icon={<Database />}
         />
         <Info
-          label="Node"
-          value={sample.node ?? sample.process ?? 'Not reported'}
+          label={t('Node')}
+          value={sample.node ?? sample.process ?? t('Not reported')}
           icon={<Server />}
         />
         <Info
-          label="Collection boundary"
-          value="Backend direct · numeric only"
+          label={t('Collection boundary')}
+          value={t('Backend direct · numeric only')}
           icon={<ShieldCheck />}
         />
       </div>
       {sample.replicaMembers.length > 0 && (
         <div className="mt-4 overflow-hidden rounded-lg border border-zGray-800">
           <div className="grid grid-cols-[minmax(0,1fr)_120px_90px] border-b border-zGray-800 px-3 py-2 text-[9.5px] uppercase tracking-wide text-tertiary">
-            <span>Replica member</span>
-            <span>State</span>
-            <span>Lag</span>
+            <span>{t('Replica member')}</span>
+            <span>{t('State')}</span>
+            <span>{t('Lag')}</span>
           </div>
           {sample.replicaMembers.map((member) => (
             <div
@@ -151,8 +156,7 @@ export function CapabilityPanel({
             >
               <span className="truncate font-mono text-secondary">{member.name}</span>
               <span className="text-tertiary">
-                {member.state}
-                {member.self ? ' · self' : ''}
+                {member.self ? t('{state} · self', { state: member.state }) : member.state}
               </span>
               <span className="text-tertiary">{formatDuration(member.lagSeconds)}</span>
             </div>
@@ -198,10 +202,11 @@ export function EmptyMonitoring() {
   return (
     <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-zGray-700 px-6 text-center">
       <Network className="h-7 w-7 text-zGray-600" />
-      <div className="mt-3 text-[12.5px] text-secondary">No metric samples yet</div>
+      <div className="mt-3 text-[12.5px] text-secondary">{t('No metric samples yet')}</div>
       <p className="mt-1 max-w-lg text-[10.5px] leading-4 text-tertiary">
-        Keep this page open or use refresh to collect a bounded serverStatus snapshot. Restricted
-        MongoDB accounts will show unavailable capabilities explicitly.
+        {t(
+          'Keep this page open or use refresh to collect a bounded serverStatus snapshot. Restricted MongoDB accounts will show unavailable capabilities explicitly.',
+        )}
       </p>
     </div>
   )

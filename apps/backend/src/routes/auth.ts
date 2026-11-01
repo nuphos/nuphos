@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { getCookie } from 'hono/cookie'
 import { z } from 'zod'
 
 import { redeemDeviceJoinToken } from '@/lib/agent/devices/join-tokens'
@@ -11,6 +12,7 @@ import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
 import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
 import { signInWithPassword, setPasswordWithEmailCode } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
+import { FIRST_TOUCH_COOKIE, recordSignupSource } from '@/lib/identity/signup-source'
 import { startSession } from '@/lib/identity/start-session'
 import {
   abandonNativeSession,
@@ -86,11 +88,14 @@ auth.post('/password/sign-in', async (c) =>
   c.json(await startSession(c, await signInWithPassword(await c.req.json().catch(() => null)))),
 )
 
-auth.post('/password/set', async (c) =>
-  c.json(
-    await startSession(c, await setPasswordWithEmailCode(await c.req.json().catch(() => null))),
-  ),
-)
+auth.post('/password/set', async (c) => {
+  // Creates the account when the email is new.
+  const user = await setPasswordWithEmailCode(await c.req.json().catch(() => null))
+
+  await recordSignupSource(user, 'password', getCookie(c, FIRST_TOUCH_COOKIE))
+
+  return c.json(await startSession(c, user))
+})
 
 // Email OTP sign-in/sign-up for teams not on Google Workspace. Errors follow
 // the AppError envelope (unlike /google/sign-in, whose GraphQL-ish shape is
@@ -116,7 +121,11 @@ auth.post('/email/verify-code', async (c) => {
   const email = typeof body?.email === 'string' ? body.email : ''
   const code = typeof body?.code === 'string' ? body.code.trim() : ''
 
-  return c.json(await startSession(c, await verifyEmailOtp(email, code)))
+  const user = await verifyEmailOtp(email, code)
+
+  await recordSignupSource(user, 'email', getCookie(c, FIRST_TOUCH_COOKIE))
+
+  return c.json(await startSession(c, user))
 })
 
 // ── Native-app sign-in (RFC 8252). These endpoints are unauthenticated by
@@ -179,6 +188,7 @@ auth.post('/google/sign-in', async (c) => {
     code?: unknown
     redirectUri?: unknown
     handle?: unknown
+    firstTouch?: unknown
   } | null
   const code = typeof body?.code === 'string' ? body.code : null
   const redirectUri = typeof body?.redirectUri === 'string' ? body.redirectUri : undefined
@@ -226,6 +236,9 @@ auth.post('/google/sign-in', async (c) => {
 
   try {
     const user = await signInWithGoogleCode(code, redirectUri)
+
+    // nuphos.ai's server makes this call, so it forwards the browser's cookie.
+    await recordSignupSource(user, 'google', body?.firstTouch)
 
     if (handle && delivery) {
       // No session here: the app starts its own by redeeming, so neither the

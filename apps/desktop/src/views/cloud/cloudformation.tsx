@@ -5,6 +5,7 @@ import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useLinkOnlyRowMenu } from '../../lib/workspaceRowLink'
 import { useResetOnKey } from '../useResetOnKey'
 import { useResourceList } from '../useResourceList'
@@ -74,11 +75,15 @@ export function CloudFormationView({
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-zGray-850 bg-zGray-950 text-[12px]">
-        <CloudFormationStat label="Complete" value={statusCounts.complete} tone="success" />
-        <CloudFormationStat label="In progress" value={statusCounts.inProgress} tone="warning" />
-        <CloudFormationStat label="Failed" value={statusCounts.failed} tone="error" />
+        <CloudFormationStat label={t('Complete')} value={statusCounts.complete} tone="success" />
+        <CloudFormationStat
+          label={t('In progress')}
+          value={statusCounts.inProgress}
+          tone="warning"
+        />
+        <CloudFormationStat label={t('Failed')} value={statusCounts.failed} tone="error" />
         {statusCounts.other > 0 && (
-          <CloudFormationStat label="Other" value={statusCounts.other} tone="muted" />
+          <CloudFormationStat label={t('Other')} value={statusCounts.other} tone="muted" />
         )}
         {openError && <span className="ml-auto text-error">{openError}</span>}
       </div>
@@ -91,11 +96,11 @@ export function CloudFormationView({
         onRowContextMenu={onRowContextMenu}
         storageKey="aws.cfn-stacks"
         defaultSort={{ key: 'updated', dir: 'desc' }}
-        empty="No CloudFormation stacks"
+        empty={t('No CloudFormation stacks')}
         columns={[
           {
             key: 'stackName',
-            header: 'Stack Name',
+            header: t('Stack Name'),
             width: 260,
             sortAccessor: (r) => r.stackName,
             render: (r) => (
@@ -106,7 +111,7 @@ export function CloudFormationView({
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 200,
             sortAccessor: (r) => r.status,
             render: (r) => {
@@ -126,14 +131,14 @@ export function CloudFormationView({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 130,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'statusReason',
-            header: 'Status Reason',
+            header: t('Status Reason'),
             width: 260,
             sortAccessor: (r) => r.statusReason ?? '',
             render: (r) => (
@@ -147,7 +152,7 @@ export function CloudFormationView({
           },
           {
             key: 'description',
-            header: 'Template',
+            header: t('Template'),
             width: 240,
             sortAccessor: (r) => r.description ?? '',
             render: (r) => (
@@ -161,14 +166,14 @@ export function CloudFormationView({
           },
           {
             key: 'driftStatus',
-            header: 'Drift',
+            header: t('Drift'),
             width: 110,
             sortAccessor: (r) => r.driftStatus ?? '',
             render: (r) => <span className="text-secondary">{r.driftStatus ?? '—'}</span>,
           },
           {
             key: 'updated',
-            header: 'Updated',
+            header: t('Updated'),
             width: 100,
             sortAccessor: (r) => r.updatedAt ?? r.createdAt,
             render: (r) => (
@@ -179,7 +184,7 @@ export function CloudFormationView({
           },
           {
             key: 'created',
-            header: 'Created',
+            header: t('Created'),
             width: 100,
             sortAccessor: (r) => r.createdAt,
             render: (r) => (
@@ -199,7 +204,7 @@ export function CloudFormationView({
                   openStack(r)
                 }}
                 className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
-                title="Open stack in AWS Console"
+                title={t('Open stack in AWS Console')}
               >
                 <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
               </button>

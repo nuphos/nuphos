@@ -45,7 +45,9 @@ let registrations: Registration[] = []
 let nativeSupported = true
 /** How the backend answers the provider chooser probe. */
 let chooserProbe: () => Response = () =>
-  new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })
+  new Response('provider chooser', {
+    headers: { 'X-Nuphos-Social-Login': '1', 'X-Nuphos-Social-Providers': 'google,apple' },
+  })
 let redeemQueue: (() => Response)[] = []
 let redeemCalls = 0
 /** Bodies POSTed to /auth/native/session/redeem, so tests can assert on them. */
@@ -149,7 +151,9 @@ beforeEach(() => {
   registrations = []
   nativeSupported = true
   chooserProbe = () =>
-    new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })
+    new Response('provider chooser', {
+      headers: { 'X-Nuphos-Social-Login': '1', 'X-Nuphos-Social-Providers': 'google,apple' },
+    })
   redeemQueue = [readySession]
   redeemCalls = 0
   redeemBodies = []
@@ -194,14 +198,14 @@ const lastConfig = () =>
 
 // ── Native flow ──────────────────────────────────────────────────────────────
 
-test('native: one browser hop to the provider chooser, with the target registered up front', async () => {
-  const loginPromise = auth.login()
+test('native: one browser hop to the chosen provider, with the target registered up front', async () => {
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
 
   const opened = await waitForBrowser()
 
-  assert.equal(opened.pathname, '/auth/social/login')
+  assert.equal(opened.pathname, '/auth/social/google/start')
   assert.equal(opened.searchParams.get('handle'), HANDLE)
   assert.equal(opened.searchParams.get('state'), null, 'no caller-supplied state in the URL')
 
@@ -218,8 +222,45 @@ test('native: one browser hop to the provider chooser, with the target registere
   assert.equal(lastConfig().token, TOKEN)
 })
 
+test('native: Apple opens its own start page with the same handle', async () => {
+  const loginPromise = auth.login('apple')
+
+  loginPromise.catch(() => {})
+
+  const opened = await waitForBrowser()
+
+  assert.equal(opened.pathname, '/auth/social/apple/start')
+  assert.equal(opened.searchParams.get('handle'), HANDLE)
+
+  await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
+
+  assert.deepEqual(await loginPromise, USER)
+})
+
+test('socialProviders reports what the backend offers, and nothing from older servers', async () => {
+  assert.deepEqual(await auth.socialProviders(), ['google', 'apple'])
+
+  chooserProbe = () =>
+    new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })
+  assert.deepEqual(await auth.socialProviders(), [])
+
+  chooserProbe = () => new Response('Not found', { status: 404 })
+  assert.deepEqual(await auth.socialProviders(), [])
+})
+
+test('Apple fails without opening a browser when the backend does not offer it', async () => {
+  chooserProbe = () =>
+    new Response('provider chooser', {
+      headers: { 'X-Nuphos-Social-Login': '1', 'X-Nuphos-Social-Providers': 'google' },
+    })
+
+  await assert.rejects(auth.login('apple'), /does not offer Apple/)
+  assert.equal(openedUrls.length, 0)
+  assert.equal(registrations.length, 0)
+})
+
 test('native: redemption presents the verifier and the delivery code together', async () => {
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -240,7 +281,7 @@ test('native: redemption presents the verifier and the delivery code together', 
 })
 
 test('native: only a challenge is published, never the verifier', async () => {
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -267,7 +308,7 @@ test('native: the success page is only rendered once the session is in hand', as
   // Pending first, so the exchange has to be retried after the browser arrives.
   redeemQueue = [pendingSession, readySession]
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -289,7 +330,7 @@ test('native: nothing is redeemed until the browser reaches this machine', async
   // a lured sign-in that is the attacker. Only the loopback redirect proves the
   // browser that authenticated was running here, so the exchange must not even
   // be attempted before it arrives.
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -304,7 +345,7 @@ test('native: nothing is redeemed until the browser reaches this machine', async
 })
 
 test('native: a callback carrying no delivery code fails rather than hanging', async () => {
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -328,7 +369,7 @@ test('native: a rejected redemption fails the sign-in and stores nothing', async
       ),
   ]
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -341,7 +382,7 @@ test('native: a rejected redemption fails the sign-in and stores nothing', async
 test('native: an error reported by the browser fails fast', async () => {
   redeemQueue = [pendingSession]
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -363,7 +404,7 @@ test('native: a backend failure delivered as an error code stops the wait', asyn
   // delivery the app would sit on the listener until the five-minute timeout.
   redeemQueue = [pendingSession]
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -385,7 +426,7 @@ test('native: a backend failure delivered as an error code stops the wait', asyn
 })
 
 test('native: a bare error code still produces readable copy', async () => {
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -402,7 +443,7 @@ test('native: a bare error code still produces readable copy', async () => {
 test('native: a failure page never echoes markup back into the browser', async () => {
   // The listener answers anything on this machine, so the delivered text is
   // untrusted input to a page we render.
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -421,7 +462,7 @@ test('native: a failure page never echoes markup back into the browser', async (
 })
 
 test('native: a callback with the wrong state is ignored', async () => {
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   await waitForBrowser()
@@ -441,7 +482,7 @@ test('native: a callback with the wrong state is ignored', async () => {
 test('falls back to the legacy flow when the backend has no native endpoint', async () => {
   nativeSupported = false
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   const opened = await waitForBrowser()
@@ -464,7 +505,7 @@ test('falls back to the legacy flow when the backend has no native endpoint', as
 test('falls back to the legacy flow when the backend has no chooser endpoint', async () => {
   chooserProbe = () => new Response('Not found', { status: 404 })
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => undefined)
   const opened = await waitForBrowser()
@@ -491,7 +532,7 @@ test('falls back to the legacy flow when the backend redirects the chooser probe
       headers: { location: 'https://api.nuphos.ai/auth/social/login' },
     })
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => undefined)
   const opened = await waitForBrowser()
@@ -511,7 +552,7 @@ test('falls back to the legacy flow when the backend redirects the chooser probe
 test('the probe never spends the real handle', async () => {
   // It runs before registration, so it has none to spend — and the handle that
   // does get registered is the one the browser is sent with.
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => undefined)
   const opened = await waitForBrowser()
@@ -533,7 +574,7 @@ test('legacy: the user comes from /auth/me, not the callback', async () => {
     return json(USER)
   }
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   const state = legacyState(await waitForBrowser())
@@ -553,7 +594,7 @@ test('legacy: a failed /auth/me never renders the success page', async () => {
   nativeSupported = false
   meHandler = async () => new Response('nope', { status: 500 })
 
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   loginPromise.catch(() => {})
   const state = legacyState(await waitForBrowser())
@@ -571,7 +612,7 @@ test('legacy: a failed /auth/me never renders the success page', async () => {
 })
 
 test('signing out ends the session on the server', async () => {
-  const loginPromise = auth.login()
+  const loginPromise = auth.login('google')
 
   await waitForBrowser()
   await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })

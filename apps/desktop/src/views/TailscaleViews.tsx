@@ -9,6 +9,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useReportVisibleError } from '../components/VisibleErrorReporter'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -102,7 +103,7 @@ export function TailscaleDevicesView({
   const menuItems = (device: TailscaleDevice): ContextMenuItem[] => [
     {
       key: 'copy-name',
-      label: 'Copy name',
+      label: t('Copy name'),
       onSelect: () =>
         navigator.clipboard.writeText(device.name).catch((cause: unknown) => {
           reportFrontendError(
@@ -115,7 +116,7 @@ export function TailscaleDevicesView({
       ? [
           {
             key: 'copy-ip',
-            label: 'Copy IP address',
+            label: t('Copy IP address'),
             onSelect: () =>
               navigator.clipboard.writeText(device.addresses[0]!).catch((cause: unknown) => {
                 reportFrontendError(
@@ -139,25 +140,25 @@ export function TailscaleDevicesView({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             render: (i) => <span className="font-mono text-[12px]">{i.name}</span>,
             sortAccessor: (i) => i.name,
           },
           {
             key: 'os',
-            header: 'OS',
+            header: t('OS'),
             render: (i) => <span className="text-secondary">{i.os ?? '-'}</span>,
             sortAccessor: (i) => i.os ?? '',
           },
           {
             key: 'user',
-            header: 'User',
+            header: t('User'),
             render: (i) => <span className="text-secondary text-[11.5px]">{i.user ?? '-'}</span>,
             sortAccessor: (i) => i.user ?? '',
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             render: (i) => (
               <StatusBadge
                 status={
@@ -179,14 +180,14 @@ export function TailscaleDevicesView({
           },
           {
             key: 'lastSeen',
-            header: 'Last Seen',
+            header: t('Last Seen'),
             render: (i) =>
               i.lastSeen ? <Age value={i.lastSeen} /> : <span className="text-tertiary">-</span>,
             sortAccessor: (i) => i.lastSeen ?? '',
           },
           {
             key: 'tags',
-            header: 'Tags',
+            header: t('Tags'),
             render: (i) =>
               i.tags.length === 0 ? (
                 <span className="text-tertiary">-</span>
@@ -195,12 +196,12 @@ export function TailscaleDevicesView({
                   className="flex items-center gap-1 overflow-hidden whitespace-nowrap"
                   title={i.tags.join(' ')}
                 >
-                  {i.tags.map((t) => (
+                  {i.tags.map((tag) => (
                     <span
-                      key={t}
+                      key={tag}
                       className="bg-zGray-800 px-1.5 py-0.5 rounded text-[11px] text-tertiary font-mono"
                     >
-                      {t}
+                      {tag}
                     </span>
                   ))}
                 </span>
@@ -230,22 +231,23 @@ export function TailscaleDevicesView({
           title={selected.name}
           fields={[
             { label: 'ID', value: selected.id, mono: true },
-            { label: 'Hostname', value: selected.hostname ?? '-' },
-            { label: 'OS', value: selected.os ?? '-' },
-            { label: 'User', value: selected.user ?? '-' },
+            { label: t('Hostname'), value: selected.hostname ?? '-' },
+            { label: t('OS'), value: selected.os ?? '-' },
+            { label: t('User'), value: selected.user ?? '-' },
             {
-              label: 'Status',
-              value: selected.online == null ? '-' : selected.online ? 'Connected' : 'Offline',
+              label: t('Status'),
+              value:
+                selected.online == null ? '-' : selected.online ? t('Connected') : t('Offline'),
             },
             {
-              label: 'Authorized',
-              value: selected.authorized == null ? '-' : selected.authorized ? 'Yes' : 'No',
+              label: t('Authorized'),
+              value: selected.authorized == null ? '-' : selected.authorized ? t('Yes') : t('No'),
             },
-            { label: 'Addresses', value: selected.addresses.join(', ') || '-', mono: true },
-            { label: 'Tags', value: selected.tags.join(', ') || '-' },
-            { label: 'Created', value: selected.createdAt ?? '-' },
-            { label: 'Last Seen', value: selected.lastSeen ?? '-' },
-            { label: 'Expires', value: selected.expiresAt ?? '-' },
+            { label: t('Addresses'), value: selected.addresses.join(', ') || '-', mono: true },
+            { label: t('Tags'), value: selected.tags.join(', ') || '-' },
+            { label: t('Created'), value: selected.createdAt ?? '-' },
+            { label: t('Last Seen'), value: selected.lastSeen ?? '-' },
+            { label: t('Expires'), value: selected.expiresAt ?? '-' },
           ]}
         />
       )}

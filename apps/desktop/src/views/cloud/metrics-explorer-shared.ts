@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 export const METRIC_STATS = ['Average', 'Sum', 'Maximum', 'Minimum'] as const
 
 export type MetricStat = (typeof METRIC_STATS)[number]
@@ -7,7 +9,7 @@ export const EXPLORER_MAX_SERIES = 8
 export function dimensionsLabel(dims: Record<string, string>): string {
   const entries = Object.entries(dims)
 
-  if (entries.length === 0) return '(no dimensions)'
+  if (entries.length === 0) return t('(no dimensions)')
 
   return entries.map(([k, v]) => `${k}=${v}`).join(', ')
 }

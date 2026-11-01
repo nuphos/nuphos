@@ -11,13 +11,27 @@ export type PushDevice = {
   environment: ApnsEnvironment
   bundleId?: string
   projectId?: string
+  /** Lets the backend start the app's Live Activity (iOS). */
+  liveActivityStartToken?: string
+  /** When the backend last started a card whose token has not come back. */
+  liveActivityStartedAt?: Date
+  /** Conversations waiting for that card. */
+  liveActivityPending?: PendingLiveActivityRow[]
   createdAt: Date
   updatedAt: Date
 }
 
+export type PendingLiveActivityRow = { sessionId: string; teamId: string; title: string }
+
 export type PushDeviceRegistration = Pick<
   PushDevice,
-  'token' | 'deviceId' | 'platform' | 'environment' | 'bundleId' | 'projectId'
+  | 'token'
+  | 'deviceId'
+  | 'platform'
+  | 'environment'
+  | 'bundleId'
+  | 'projectId'
+  | 'liveActivityStartToken'
 >
 
 export type PushDeviceStore = {
@@ -62,4 +76,51 @@ export const pushDeviceStore: PushDeviceStore = {
   async removeToken(token) {
     await pushDevices().deleteOne({ token })
   },
+}
+
+// How long a started card may take to send its token before another is started.
+const LIVE_ACTIVITY_START_WAIT_MS = 60_000
+
+/** A phone gets one card started at a time: until that card's token comes
+ *  back, a conversation that starts running waits for it instead of starting
+ *  a second card, unless that token never came back. */
+export async function beginLiveActivityStart(
+  userId: string,
+  deviceId: string,
+  pending: PendingLiveActivityRow,
+): Promise<boolean> {
+  const since = new Date(Date.now() - LIVE_ACTIVITY_START_WAIT_MS)
+  const started = await pushDevices().updateOne(
+    {
+      userId,
+      deviceId,
+      $or: [
+        { liveActivityStartedAt: { $exists: false } },
+        { liveActivityStartedAt: { $lt: since } },
+      ],
+    },
+    { $set: { liveActivityStartedAt: new Date(), liveActivityPending: [pending] } },
+  )
+
+  if (started.modifiedCount > 0) return true
+  await pushDevices().updateOne(
+    { userId, deviceId, 'liveActivityPending.sessionId': { $ne: pending.sessionId } },
+    { $push: { liveActivityPending: pending } },
+  )
+
+  return false
+}
+
+/** The started card's token came back: hands over the conversations waiting for it. */
+export async function takeLiveActivityPending(
+  userId: string,
+  deviceId: string,
+): Promise<PendingLiveActivityRow[]> {
+  const before = await pushDevices().findOneAndUpdate(
+    { userId, deviceId, liveActivityStartedAt: { $exists: true } },
+    { $unset: { liveActivityStartedAt: '', liveActivityPending: '' } },
+    { returnDocument: 'before' },
+  )
+
+  return before?.liveActivityPending ?? []
 }

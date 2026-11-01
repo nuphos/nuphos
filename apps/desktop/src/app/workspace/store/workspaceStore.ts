@@ -15,7 +15,7 @@ import type {
   WorkspaceAction,
   WorkspaceStoreDeps,
 } from './workspaceActions'
-import type { WorkspaceState } from './workspaceState'
+import type { TabBucket, WorkspaceState } from './workspaceState'
 import type { WorkspaceTabState } from '../../workspaceTabState'
 import type { TabDropPlacement } from '../tabs/tabsTypes'
 
@@ -60,6 +60,8 @@ export type WorkspaceActions = {
   updateActiveTab: (updater: TabUpdater, options?: { history?: TabHistoryMode }) => void
   retainTeams: (teamIds: readonly string[], preferredTeamId: string | null) => void
   removeTeam: (teamId: string) => void
+  /** Takes over the docks of a split pane that is closing; see `adoptBuckets`. */
+  adoptBuckets: (buckets: Readonly<Record<string, TabBucket>>) => void
 }
 
 export type WorkspaceStore = {
@@ -158,6 +160,7 @@ export function createWorkspaceStore(
     retainTeams: (teamIds, preferredTeamId) =>
       dispatch({ type: 'retainTeams', teamIds, preferredTeamId }),
     removeTeam: (teamId) => dispatch({ type: 'removeTeam', teamId }),
+    adoptBuckets: (buckets) => dispatch({ type: 'adoptBuckets', buckets }),
   }
 
   return { getState, subscribe, dispatch, actions }

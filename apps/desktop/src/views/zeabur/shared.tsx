@@ -2,6 +2,7 @@ import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 
 export type CommonProps = {
   teamId: string
@@ -43,19 +44,19 @@ export function ResourceTable<
       columns={[
         {
           key: 'name',
-          header: 'Name',
+          header: t('Name'),
           render: (item) => <span className="font-mono text-[12px]">{item.name}</span>,
           sortAccessor: (item) => item.name,
         },
         {
           key: 'region',
-          header: 'Region',
+          header: t('Region'),
           render: (item) => <span className="text-secondary">{item.region ?? '-'}</span>,
           sortAccessor: (item) => item.region ?? '',
         },
         {
           key: 'status',
-          header: 'Status',
+          header: t('Status'),
           render: (item) =>
             item.status ? (
               <StatusBadge status={item.status} />
@@ -66,7 +67,7 @@ export function ResourceTable<
         },
         {
           key: 'age',
-          header: 'Age',
+          header: t('Age'),
           render: (item) =>
             item.createdAt ? (
               <Age value={item.createdAt} />
@@ -77,7 +78,7 @@ export function ResourceTable<
         },
         {
           key: 'id',
-          header: 'ID',
+          header: t('ID'),
           render: (item) => (
             <span className="font-mono text-[11.5px] text-secondary truncate">{item.id}</span>
           ),

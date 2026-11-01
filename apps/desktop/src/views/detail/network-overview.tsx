@@ -1,6 +1,8 @@
 import yaml from 'js-yaml'
 import { ArrowUpRight } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { ServiceOverview } from './network-service-overview'
 import { Field, Section } from './shared'
 
@@ -92,7 +94,7 @@ export function NetworkOverview({
     const defaultBackend = record(record(spec.defaultBackend).service)
     const backends = [
       ...(typeof defaultBackend.name === 'string'
-        ? [{ host: '*', path: '(default)', backend: defaultBackend }]
+        ? [{ host: '*', path: t('(default)'), backend: defaultBackend }]
         : []),
       ...ruleBackends,
     ]
@@ -103,10 +105,10 @@ export function NetworkOverview({
     return (
       <div className="space-y-5 p-6">
         <Section>
-          <Field label="Ingress class" value={text(spec.ingressClassName)} />
-          <Field label="Rules" value={String(backends.length)} />
+          <Field label={t('Ingress class')} value={text(spec.ingressClassName)} />
+          <Field label={t('Rules')} value={String(backends.length)} />
           <Field
-            label="TLS secrets"
+            label={t('TLS secrets')}
             value={
               tlsSecrets.length
                 ? tlsSecrets.map((name) => (
@@ -132,9 +134,9 @@ export function NetworkOverview({
                 key={`${host}:${path}:${String(index)}`}
                 className="grid grid-cols-3 gap-3 px-4 py-3"
               >
-                <Field label="Route" value={`${host}${path}`} />
+                <Field label={t('Route')} value={`${host}${path}`} />
                 <Field
-                  label="Service"
+                  label={t('Service')}
                   value={
                     serviceName ? (
                       <ResourceButton
@@ -148,7 +150,7 @@ export function NetworkOverview({
                     )
                   }
                 />
-                <Field label="Service port" value={text(port.name ?? port.number)} />
+                <Field label={t('Service port')} value={text(port.name ?? port.number)} />
               </div>
             )
           })}
@@ -163,9 +165,9 @@ export function NetworkOverview({
     return (
       <div className="space-y-5 p-6">
         <Section>
-          <Field label="Address type" value={text(root.addressType)} />
+          <Field label={t('Address type')} value={text(root.addressType)} />
           <Field
-            label="Service"
+            label={t('Service')}
             value={
               serviceName ? (
                 <ResourceButton
@@ -179,7 +181,7 @@ export function NetworkOverview({
               )
             }
           />
-          <Field label="Ports" value={records(root.ports).map(compact).join(', ') || '-'} />
+          <Field label={t('Ports')} value={records(root.ports).map(compact).join(', ') || '-'} />
         </Section>
         <Rows>
           {records(root.endpoints).map((endpoint, index) => {
@@ -189,12 +191,12 @@ export function NetworkOverview({
             return (
               <div key={String(index)} className="grid grid-cols-3 gap-3 px-4 py-3">
                 <Field
-                  label="Addresses"
+                  label={t('Addresses')}
                   value={Array.isArray(endpoint.addresses) ? endpoint.addresses.join(', ') : '-'}
                 />
-                <Field label="Conditions" value={compact(endpoint.conditions)} />
+                <Field label={t('Conditions')} value={compact(endpoint.conditions)} />
                 <Field
-                  label="Target"
+                  label={t('Target')}
                   value={
                     podName ? (
                       <ResourceButton
@@ -222,15 +224,15 @@ export function NetworkOverview({
   return (
     <div className="space-y-5 p-6">
       <Section>
-        <Field label="Pod selector" value={compact(spec.podSelector)} />
+        <Field label={t('Pod selector')} value={compact(spec.podSelector)} />
         <Field
-          label="Policy types"
+          label={t('Policy types')}
           value={Array.isArray(spec.policyTypes) ? spec.policyTypes.join(', ') : '-'}
         />
       </Section>
       {[
-        ['Ingress', ingress],
-        ['Egress', egress],
+        [t('Ingress'), ingress],
+        [t('Egress'), egress],
       ].map(([label, rules]) => (
         <div key={label as string}>
           <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
@@ -240,13 +242,16 @@ export function NetworkOverview({
             {(rules as UnknownRecord[]).length > 0 ? (
               (rules as UnknownRecord[]).map((rule, index) => (
                 <div key={String(index)} className="grid grid-cols-2 gap-3 px-4 py-3">
-                  <Field label="Peers" value={arraySummary(rule.from ?? rule.to, 'All peers')} />
-                  <Field label="Ports" value={arraySummary(rule.ports, 'All ports')} />
+                  <Field
+                    label={t('Peers')}
+                    value={arraySummary(rule.from ?? rule.to, t('All peers'))}
+                  />
+                  <Field label={t('Ports')} value={arraySummary(rule.ports, t('All ports'))} />
                 </div>
               ))
             ) : (
               <div className="px-4 py-3 text-[12.5px] text-secondary">
-                No allow rules — traffic in this direction is denied.
+                {t('No allow rules — traffic in this direction is denied.')}
               </div>
             )}
           </Rows>
