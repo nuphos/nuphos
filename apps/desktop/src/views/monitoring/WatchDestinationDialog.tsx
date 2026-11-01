@@ -10,6 +10,7 @@ import { parseAtlasError } from '../../api/errors'
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { slackDmRecipientCopy } from '../../lib/monitoringWatch'
 
 import { WatchDestinationCard } from './WatchDestinationCard'
@@ -98,12 +99,12 @@ export function WatchDestinationDialog({
           setChannels(channelResult.value.channels)
           setChannelId(channelResult.value.channels[0]?.id ?? '')
         } else {
-          toast.apiError('Could not load Slack channels', channelResult.reason)
+          toast.apiError(t('Could not load Slack channels'), channelResult.reason)
         }
         if (selfMapping.status === 'fulfilled') {
           setDmRecipient(selfMapping.value)
         } else {
-          toast.apiError('Could not load your Slack identity', selfMapping.reason)
+          toast.apiError(t('Could not load your Slack identity'), selfMapping.reason)
         }
       } catch (err) {
         if (!active) return
@@ -112,7 +113,7 @@ export function WatchDestinationDialog({
 
           return
         }
-        toast.apiError('Could not load Slack connection', err)
+        toast.apiError(t('Could not load Slack connection'), err)
       } finally {
         if (active) setLoadingSlack(false)
       }
@@ -157,17 +158,17 @@ export function WatchDestinationDialog({
           <div className="flex items-start justify-between border-b border-zGray-800 px-5 py-4">
             <div className="min-w-0 pr-4">
               <Dialog.Title className="text-[14px] font-semibold text-main">
-                Where should Nuphos report?
+                {t('Where should Nuphos report?')}
               </Dialog.Title>
               <Dialog.Description className="mt-1 truncate text-[12px] text-secondary">
                 {group
-                  ? `Nuphos will manage ${String(group.memberCount)} Watches together.`
-                  : `Nuphos will investigate ${subjectName} when it fires.`}
+                  ? t('Nuphos will manage {n} Watches together.', { n: group.memberCount })
+                  : t('Nuphos will investigate {name} when it fires.', { name: subjectName })}
               </Dialog.Description>
             </div>
             <Dialog.Close
               className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
-              aria-label="Close"
+              aria-label={t('Close')}
             >
               <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
             </Dialog.Close>
@@ -176,7 +177,7 @@ export function WatchDestinationDialog({
           {group && (
             <div className="border-b border-zGray-800 px-5 py-3.5">
               <label className="block text-[11.5px] font-medium text-secondary">
-                Group name
+                {t('Group name')}
                 <input
                   type="text"
                   value={groupName}
@@ -187,8 +188,9 @@ export function WatchDestinationDialog({
                 />
               </label>
               <p className="mt-2 text-[11px] text-tertiary">
-                Nuphos shares one ingress per provider connection and keeps each member incident
-                separate.
+                {t(
+                  'Nuphos shares one ingress per provider connection and keeps each member incident separate.',
+                )}
               </p>
             </div>
           )}
@@ -197,30 +199,30 @@ export function WatchDestinationDialog({
             value={destination}
             onValueChange={setDestination}
             className="space-y-2 px-5 py-4"
-            aria-label="Watch destination"
+            aria-label={t('Watch destination')}
           >
             <WatchDestinationCard
               value="nuphos"
               selected={destination === 'nuphos'}
               icon={<FontAwesomeIcon icon={faInbox} className="h-4 w-4" />}
               title="Nuphos"
-              description="Investigate and keep the findings in Nuphos."
+              description={t('Investigate and keep the findings in Nuphos.')}
             />
             <WatchDestinationCard
               value="slack_dm"
               selected={destination === 'slack_dm'}
               disabled={!dmAvailable}
               icon={<FontAwesomeIcon icon={faUser} className="h-4 w-4" />}
-              title={dmCopy?.title ?? 'Slack DM'}
+              title={dmCopy?.title ?? t('Slack DM')}
               description={
                 loadingSlack
-                  ? 'Checking your Slack connection…'
+                  ? t('Checking your Slack connection…')
                   : !slackConnected
-                    ? 'Connect Slack in Settings to enable private notifications.'
+                    ? t('Connect Slack in Settings to enable private notifications.')
                     : channelGrantOnly
-                      ? "Slack DMs need this team's own Slack connection."
+                      ? t("Slack DMs need this team's own Slack connection.")
                       : !dmAvailable
-                        ? 'Link your Slack identity in Settings → Slack first.'
+                        ? t('Link your Slack identity in Settings → Slack first.')
                         : dmCopy!.description
               }
             />
@@ -229,15 +231,15 @@ export function WatchDestinationDialog({
               selected={destination === 'slack_channel'}
               disabled={channels.length === 0}
               icon={<FontAwesomeIcon icon={faSlack} className="h-4 w-4" />}
-              title="Slack channel"
+              title={t('Slack channel')}
               description={
                 loadingSlack
-                  ? 'Loading channels Nuphos can post to…'
+                  ? t('Loading channels Nuphos can post to…')
                   : !slackConnected
-                    ? 'Connect Slack in Settings to enable channel notifications.'
+                    ? t('Connect Slack in Settings to enable channel notifications.')
                     : channels.length === 0
-                      ? 'Invite the Nuphos bot to a channel first.'
-                      : 'Investigate and post a replyable incident message.'
+                      ? t('Invite the Nuphos bot to a channel first.')
+                      : t('Investigate and post a replyable incident message.')
               }
             />
 
@@ -249,9 +251,9 @@ export function WatchDestinationDialog({
                   options={channels.map((channel) => ({
                     value: channel.id,
                     label: `#${channel.name}`,
-                    description: channel.isPrivate ? 'Private channel' : undefined,
+                    description: channel.isPrivate ? t('Private channel') : undefined,
                   }))}
-                  ariaLabel="Slack channel"
+                  ariaLabel={t('Slack channel')}
                   triggerClassName="h-8 text-[12px]"
                   positionerClassName="!z-[1100]"
                 />
@@ -261,10 +263,10 @@ export function WatchDestinationDialog({
 
           <div className="flex items-center justify-end gap-2 border-t border-zGray-800 px-5 py-3.5">
             <Dialog.Close className="h-8 rounded-md px-3 text-[12px] text-secondary hover:bg-zGray-800 hover:text-main">
-              Cancel
+              {t('Cancel')}
             </Dialog.Close>
             <Button size="sm" type="button" disabled={!canContinue} onClick={submit}>
-              Continue in Agent
+              {t('Continue in Agent')}
             </Button>
           </div>
         </Dialog.Popup>

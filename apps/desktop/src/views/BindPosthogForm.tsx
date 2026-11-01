@@ -1,6 +1,7 @@
 import { Info } from 'lucide-react'
 
 import { AppSelect } from '../components/ui/select'
+import { t } from '../i18n'
 import { duplicateNotice } from '../lib/posthogConnections'
 import { POSTHOG_REGION_LABELS } from '../types/posthog'
 
@@ -21,10 +22,12 @@ const REGION_OPTIONS = (Object.keys(POSTHOG_REGION_LABELS) as PosthogRegion[]).m
 }))
 
 const INTRO: Record<Exclude<PosthogDialogKind, 'reconnect'>, string> = {
-  connect:
+  connect: t(
     "Nuphos requests only the access you choose below. You pick which projects to share on PostHog's consent screen.",
-  permissions:
+  ),
+  permissions: t(
     'PostHog asks you to approve the new permissions. The current grant stays active until PostHog approves the new one.',
+  ),
 }
 
 export function FormStep({
@@ -53,8 +56,9 @@ export function FormStep({
   if (kind === 'reconnect') {
     return (
       <p className="text-secondary text-[12.5px] leading-relaxed">
-        PostHog asks you to approve access again. Nuphos requests the permissions this connection
-        already has.
+        {t(
+          'PostHog asks you to approve access again. Nuphos requests the permissions this connection already has.',
+        )}
       </p>
     )
   }
@@ -80,7 +84,7 @@ export function FormStep({
               onClick={() => onEditDuplicate(duplicate)}
               className="text-zViolet-accent hover:underline"
             >
-              Edit its permissions instead
+              {t('Edit its permissions instead')}
             </button>
           </div>
         </div>
@@ -92,7 +96,7 @@ export function FormStep({
           onChange={onPermissionsChange}
         />
       ) : (
-        <div className="text-[12px] text-tertiary">Loading permissions…</div>
+        <div className="text-[12px] text-tertiary">{t('Loading permissions…')}</div>
       )}
     </>
   )
@@ -112,7 +116,7 @@ function LabelAndRegion({
   return (
     <div className="grid grid-cols-2 gap-3">
       <label className="block">
-        <div className="text-[12px] text-secondary mb-1">Label</div>
+        <div className="text-[12px] text-secondary mb-1">{t('Label')}</div>
         <input
           value={label}
           onChange={(event) => onLabelChange(event.target.value)}
@@ -122,12 +126,12 @@ function LabelAndRegion({
         />
       </label>
       <div>
-        <div className="text-[12px] text-secondary mb-1">Region</div>
+        <div className="text-[12px] text-secondary mb-1">{t('Region')}</div>
         <AppSelect
           value={region}
           onValueChange={(value) => onRegionChange(value as PosthogRegion)}
           options={REGION_OPTIONS}
-          ariaLabel="PostHog region"
+          ariaLabel={t('PostHog region')}
         />
       </div>
     </div>

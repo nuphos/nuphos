@@ -7,6 +7,7 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
 
@@ -57,7 +58,10 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
     } catch (e) {
       if (attempt !== attemptRef.current) return
       setPhase('idle')
-      toast.apiError(reinstall ? 'Could not reinstall Slack app' : 'Could not install Slack app', e)
+      toast.apiError(
+        reinstall ? t('Could not reinstall Slack app') : t('Could not install Slack app'),
+        e,
+      )
     }
   }
 
@@ -65,11 +69,15 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
     <Modal
       open={open}
       onClose={close}
-      title={reinstall ? 'Reinstall Slack App' : 'Install Slack App'}
+      title={reinstall ? t('Reinstall Slack App') : t('Install Slack App')}
       description={
         reinstall
-          ? 'Re-approve Nuphos for your Slack workspace to refresh its permissions (e.g. newly added scopes). Existing channel and account links are kept.'
-          : 'Add Nuphos to your Slack workspace. After you approve, the bot will DM you to pick channels — no IDs to copy.'
+          ? t(
+              'Re-approve Nuphos for your Slack workspace to refresh its permissions (e.g. newly added scopes). Existing channel and account links are kept.',
+            )
+          : t(
+              'Add Nuphos to your Slack workspace. After you approve, the bot will DM you to pick channels — no IDs to copy.',
+            )
       }
       width={460}
     >
@@ -81,8 +89,12 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
             </div>
             <div className="max-w-[400px] text-center text-[12.5px] leading-relaxed text-secondary">
               {reinstall
-                ? 'Click below to open Slack in your browser and re-approve the app. The connection stays active during the process; once approved, the refreshed permissions take effect immediately.'
-                : 'Click below to open Slack in your browser. Approve the install and you will be redirected back automatically. The Nuphos bot will then message you in Slack to choose which channels to use.'}
+                ? t(
+                    'Click below to open Slack in your browser and re-approve the app. The connection stays active during the process; once approved, the refreshed permissions take effect immediately.',
+                  )
+                : t(
+                    'Click below to open Slack in your browser. Approve the install and you will be redirected back automatically. The Nuphos bot will then message you in Slack to choose which channels to use.',
+                  )}
             </div>
           </div>
         )}
@@ -90,7 +102,7 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
           <div className="flex flex-col items-center gap-3 py-2">
             <FontAwesomeIcon icon={faSpinner} className="h-5 w-5 animate-spin text-zViolet-400" />
             <div className="text-center text-[12.5px] text-secondary">
-              Waiting for Slack approval…
+              {t('Waiting for Slack approval…')}
             </div>
           </div>
         )}
@@ -101,12 +113,12 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
           onClick={close}
           className="h-9 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         {phase === 'idle' && (
           <Button size="sm" type="button" onClick={() => void startInstall()}>
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
-            {reinstall ? 'Reinstall Slack App' : 'Install Slack App'}
+            {reinstall ? t('Reinstall Slack App') : t('Install Slack App')}
           </Button>
         )}
       </div>

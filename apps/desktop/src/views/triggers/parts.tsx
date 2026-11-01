@@ -3,6 +3,7 @@ import { Check, Copy } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import type { TeamMember } from '../../types'
 import type { Clock } from 'lucide-react'
@@ -31,6 +32,9 @@ export function ExecutionPrincipalBanner({
 }) {
   const [transferring, setTransferring] = useState(false)
   const eligible = useMemo(() => members.filter((member) => !member.removedAt), [members])
+  const [runsAsBefore, runsAsAfter] = t(
+    "Runs as {name}. Editing never changes this — execution always uses that member's own permissions.",
+  ).split('{name}')
 
   return (
     <div
@@ -43,13 +47,14 @@ export function ExecutionPrincipalBanner({
     >
       <div className="flex items-center justify-between gap-3">
         <span>
-          Runs as <span className="font-medium text-main">{principalLabel}</span>. Editing never
-          changes this — execution always uses that member's own permissions.
+          {runsAsBefore}
+          <span className="font-medium text-main">{principalLabel}</span>
+          {runsAsAfter}
         </span>
         {canTransfer && eligible.length > 0 && (
           <AppSelect
             value=""
-            placeholder={transferring ? 'Transferring…' : 'Transfer'}
+            placeholder={transferring ? t('Transferring…') : t('Transfer')}
             disabled={transferring}
             triggerClassName="h-7 w-[150px] flex-shrink-0 border-zGray-800 px-2 text-[11.5px]"
             options={eligible.map((member) => ({
@@ -66,7 +71,7 @@ export function ExecutionPrincipalBanner({
       </div>
       {status === 'invalid' && (
         <span className="mt-1 block">
-          {error ?? 'The execution principal is no longer authorized, so this is paused.'}
+          {error ?? t('The execution principal is no longer authorized, so this is paused.')}
         </span>
       )}
     </div>
@@ -158,9 +163,9 @@ export function CopyableRow({
         <button
           type="button"
           onClick={onCopy}
-          aria-label={copied ? `Copied ${label}` : `Copy ${label}`}
+          aria-label={copied ? t('Copied {label}', { label }) : t('Copy {label}', { label })}
           className="w-6 h-6 rounded flex items-center justify-center text-tertiary hover:text-main"
-          title={copied ? 'Copied' : 'Copy'}
+          title={copied ? t('Copied') : t('Copy')}
         >
           {copied ? (
             <Check className="w-3.5 h-3.5 text-zGreen-400" strokeWidth={1.8} />

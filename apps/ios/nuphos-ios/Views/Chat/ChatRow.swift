@@ -102,7 +102,7 @@ extension ChatRow {
                 }
             case .data(let receipt) where receipt.name == "steering":
                 if let id = receipt.data["id"]?.stringValue, let text = receipt.data["text"]?.stringValue {
-                    body.append(.user(id: "steering.\(id)", messageId: message.id, text: text, images: []))
+                    body.append(.user(id: "steering.\(id)", messageId: message.id, text: text, images: [], sender: ChatMessage.Sender(metadata: receipt.data["metadata"])))
                 }
             case .turnInterrupted(let p):
                 body.append(.hint(id: "interrupted.\(message.id).\(p.id)", text: p.reason == .cancelled ? "Stopped." : p.message, isError: p.reason != .cancelled))

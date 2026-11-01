@@ -9,6 +9,7 @@ import {
 import { Fragment, useCallback, useEffect, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
 
@@ -46,10 +47,11 @@ export function DatabaseQueryAuditPanel({
     <div className="overflow-hidden rounded-xl border border-zGray-800">
       <div className="flex items-center justify-between border-b border-zGray-800 px-4 py-3">
         <div>
-          <div className="text-[13px] font-medium text-main">Query audit</div>
+          <div className="text-[13px] font-medium text-main">{t('Query audit')}</div>
           <div className="mt-0.5 text-[10.5px] text-tertiary">
-            Sanitized statements are retained for audit. Sensitive query values, results, and
-            credentials are never stored.
+            {t(
+              'Sanitized statements are retained for audit. Sensitive query values, results, and credentials are never stored.',
+            )}
           </div>
         </div>
         <button
@@ -73,21 +75,21 @@ export function DatabaseQueryAuditPanel({
         </div>
       ) : events.length === 0 ? (
         <div className="flex h-48 items-center justify-center text-[11.5px] text-tertiary">
-          No database queries have been executed yet.
+          {t('No database queries have been executed yet.')}
         </div>
       ) : (
         <div className="overflow-auto">
           <table className="w-full text-left text-[11px]">
             <thead className="bg-zGray-900 text-tertiary">
               <tr>
-                <th className="px-3 py-2 font-medium">Time</th>
-                <th className="px-3 py-2 font-medium">Operation</th>
-                <th className="px-3 py-2 font-medium">Scope</th>
-                <th className="px-3 py-2 font-medium">Statement</th>
-                <th className="px-3 py-2 font-medium">Actor</th>
-                <th className="px-3 py-2 font-medium">Outcome</th>
-                <th className="px-3 py-2 font-medium">Rows</th>
-                <th className="px-3 py-2 font-medium">Duration</th>
+                <th className="px-3 py-2 font-medium">{t('Time')}</th>
+                <th className="px-3 py-2 font-medium">{t('Operation')}</th>
+                <th className="px-3 py-2 font-medium">{t('Scope')}</th>
+                <th className="px-3 py-2 font-medium">{t('Statement')}</th>
+                <th className="px-3 py-2 font-medium">{t('Actor')}</th>
+                <th className="px-3 py-2 font-medium">{t('Outcome')}</th>
+                <th className="px-3 py-2 font-medium">{t('Rows')}</th>
+                <th className="px-3 py-2 font-medium">{t('Duration')}</th>
               </tr>
             </thead>
             <tbody>
@@ -128,10 +130,12 @@ export function DatabaseQueryAuditPanel({
                           disabled={!event.queryStatement}
                           onClick={() => setExpandedId(expanded ? null : event.id)}
                           className="block max-w-72 truncate font-mono text-left text-tertiary hover:text-main disabled:cursor-default disabled:hover:text-tertiary"
-                          title={event.queryStatement ?? 'Legacy audit event'}
+                          title={event.queryStatement ?? t('Legacy audit event')}
                         >
                           {event.queryStatement?.split('\n')[0] ??
-                            `Legacy record · fields: ${event.queryShape.join(', ') || 'none'}`}
+                            t('Legacy record · fields: {fields}', {
+                              fields: event.queryShape.join(', ') || t('none'),
+                            })}
                         </button>
                       </td>
                       <td className="max-w-36 truncate px-3 py-2" title={event.userId}>
@@ -161,15 +165,17 @@ export function DatabaseQueryAuditPanel({
                       <tr className="border-t border-zGray-800/50 bg-zGray-950/40">
                         <td colSpan={8} className="px-3 py-3">
                           <div className="mb-2 flex items-center gap-2 text-[10px] text-tertiary">
-                            Sanitized statement
+                            {t('Sanitized statement')}
                             {event.queryRedactedFields.length > 0 && (
                               <span className="rounded bg-warning/10 px-1.5 py-0.5 text-warning">
-                                {event.queryRedactedFields.length} protected value(s)
+                                {t('{n} protected value(s)', {
+                                  n: event.queryRedactedFields.length,
+                                })}
                               </span>
                             )}
                             {event.queryStatementTruncated && (
                               <span className="rounded bg-warning/10 px-1.5 py-0.5 text-warning">
-                                truncated
+                                {t('truncated')}
                               </span>
                             )}
                           </div>

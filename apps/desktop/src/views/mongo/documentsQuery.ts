@@ -1,12 +1,14 @@
+import { t } from '../../i18n/index.ts'
+
 import type { MongoReadQueryInput } from '../../types'
 
 export type QueryOperation = MongoReadQueryInput['operation']
 
 export const OPERATIONS: { value: QueryOperation; label: string; description: string }[] = [
-  { value: 'find', label: 'Find', description: 'Filter and inspect documents' },
-  { value: 'aggregate', label: 'Aggregations', description: 'Run a read-only pipeline' },
-  { value: 'count', label: 'Count', description: 'Count matching documents' },
-  { value: 'explain', label: 'Explain', description: 'Inspect query execution stats' },
+  { value: 'find', label: t('Find'), description: t('Filter and inspect documents') },
+  { value: 'aggregate', label: t('Aggregations'), description: t('Run a read-only pipeline') },
+  { value: 'count', label: t('Count|operation'), description: t('Count matching documents') },
+  { value: 'explain', label: t('Explain'), description: t('Inspect query execution stats') },
 ]
 
 export const EMPTY_PIPELINE = '[\n  { "$match": {} }\n]'
@@ -18,7 +20,7 @@ export function parseObjectEditor(label: string, source: string): Record<string,
   const value = JSON.parse(trimmed) as unknown
 
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new Error(`${label} must be a JSON object.`)
+    throw new Error(t('{label} must be a JSON object.', { label }))
 
   return value as Record<string, unknown>
 }
@@ -33,18 +35,18 @@ export function parseArrayEditor(label: string, source: string): Record<string, 
     !Array.isArray(value) ||
     value.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry))
   ) {
-    throw new Error(`${label} must be a JSON array of stage objects.`)
+    throw new Error(t('{label} must be a JSON array of stage objects.', { label }))
   }
 
   return value as Record<string, unknown>[]
 }
 
 export function parseSort(source: string): Record<string, 1 | -1> {
-  const value = parseObjectEditor('Sort', source)
+  const value = parseObjectEditor(t('Sort'), source)
 
   for (const [key, direction] of Object.entries(value)) {
     if (direction !== 1 && direction !== -1)
-      throw new Error(`Sort direction for “${key}” must be 1 or -1.`)
+      throw new Error(t('Sort direction for “{field}” must be 1 or -1.', { field: key }))
   }
 
   return value as Record<string, 1 | -1>
@@ -71,9 +73,9 @@ export function csvCell(value: unknown): string {
 }
 
 export function operationAction(operation: QueryOperation): string {
-  if (operation === 'aggregate') return 'Run pipeline'
-  if (operation === 'count') return 'Count'
-  if (operation === 'explain') return 'Explain'
+  if (operation === 'aggregate') return t('Run pipeline')
+  if (operation === 'count') return t('Count|operation')
+  if (operation === 'explain') return t('Explain')
 
-  return 'Find'
+  return t('Find')
 }
