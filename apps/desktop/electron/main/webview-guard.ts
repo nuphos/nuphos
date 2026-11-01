@@ -1,10 +1,27 @@
-import { app, session } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 
 import { CHANGELOG_PAGE_PREFIX } from './changelog-feed.ts'
 import { openExternal } from './open-external.ts'
 
 function isHttp(url: string) {
   return /^https?:\/\//i.test(url)
+}
+
+/** Sign-in pages that report back to their opener even when opened without window features. */
+const SIGN_IN_HOSTS = ['accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com']
+
+/**
+ * A popup the page needs as a real window: one asked for with window features
+ * (Google, Apple and Microsoft sign-in all do), or a known sign-in page. It
+ * keeps `window.opener`, which a page loaded in place has lost.
+ */
+function isPopup(url: string, disposition: string) {
+  if (disposition === 'new-window') return true
+  const { hostname, pathname } = new URL(url)
+
+  return (
+    SIGN_IN_HOSTS.includes(hostname) || (hostname === 'github.com' && pathname.startsWith('/login'))
+  )
 }
 
 function openExternally(url: string) {
@@ -52,16 +69,28 @@ export function initWebviewGuard() {
       webPreferences.webSecurity = true
     })
 
-    if (contents.getType() !== 'webview') return
     // Session identity remains stable during redirects and failed navigation.
     const browser = contents.session === browserSession
+
+    // Browser popups are windows in the browser session and get the same guard.
+    if (contents.getType() !== 'webview' && !browser) return
     const guardNavigation = (event: Electron.Event, url: string) => {
       if (browser ? isHttp(url) : url.startsWith(CHANGELOG_PAGE_PREFIX)) return
       event.preventDefault()
       if (!browser) openExternally(url)
     }
 
-    contents.setWindowOpenHandler(({ url }) => {
+    contents.setWindowOpenHandler(({ url, disposition }) => {
+      if (browser && isHttp(url) && isPopup(url, disposition))
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            parent:
+              BrowserWindow.fromWebContents(contents.hostWebContents ?? contents) ?? undefined,
+            autoHideMenuBar: true,
+            webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+          },
+        }
       if (browser && isHttp(url))
         void contents.loadURL(url).catch(() => {
           // The guest's did-fail-load event displays navigation failures.
@@ -69,6 +98,12 @@ export function initWebviewGuard() {
       else if (!browser) openExternally(url)
 
       return { action: 'deny' }
+    })
+    // A popup outliving its tab has no page left to sign in.
+    contents.on('did-create-window', (popup) => {
+      contents.once('destroyed', () => {
+        if (!popup.isDestroyed()) popup.close()
+      })
     })
     contents.on('will-navigate', guardNavigation)
     contents.on('will-redirect', guardNavigation)
