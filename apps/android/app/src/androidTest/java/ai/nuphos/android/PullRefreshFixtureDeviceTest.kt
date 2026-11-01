@@ -223,6 +223,26 @@ class PullRefreshFixtureDeviceTest {
     }
     private fun settled() { compose.waitUntil(10_000) { !store.isRefreshing && store.phase != AgentStore.Phase.Loading } }
 
+    @Test fun initialRefreshShowsOnlyTheCenteredLoadingIndicator() {
+        render()
+        holdHistory = true
+        compose.runOnIdle {
+            state(store, "phase").value = AgentStore.Phase.Loading
+            state(store, "conversations").value = emptyList<AgentConversation>()
+            store.refresh()
+        }
+        assertTrue(historyHeld.await(5, TimeUnit.SECONDS))
+        waitText("Loading agents…")
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(
+            androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo), useUnmergedTree = true)
+            .assertCountEquals(1)
+        shot("initial-single-indicator")
+        historyRelease.countDown()
+        settled()
+        waitText("Normal history")
+        compose.onNodeWithText("Loading agents…").assertDoesNotExist()
+    }
+
     @Test fun resumeReadsNewRemoteHistoryAndPinsWithoutRelaunch() {
         render()
         val reads = historyReads()

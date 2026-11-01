@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useResourceList } from '../useResourceList'
 
 import { ErrorBlock } from './ErrorBlock'
@@ -66,19 +67,19 @@ export function AliyunEcsInstancesView({
           open
           onClose={() => setDetail(null)}
           title={detail.name || detail.instanceId}
-          subtitle="ECS instance"
+          subtitle={t('ECS instance')}
           fields={[
-            { label: 'Instance ID', value: detail.instanceId, mono: true },
-            { label: 'Type', value: detail.instanceType, mono: true },
-            { label: 'State', value: detail.state },
-            { label: 'Region', value: detail.region },
-            { label: 'Zone', value: detail.zone || '—' },
-            { label: 'Public IP', value: detail.publicIp ?? '—', mono: true },
-            { label: 'Private IP', value: detail.privateIp ?? '—', mono: true },
-            { label: 'Spec', value: specLabel(detail) },
-            { label: 'OS', value: detail.osName ?? '—' },
-            { label: 'Image', value: detail.imageId ?? '—', mono: true },
-            { label: 'Created', value: detail.createdAt ?? '—' },
+            { label: t('Instance ID'), value: detail.instanceId, mono: true },
+            { label: t('Type'), value: detail.instanceType, mono: true },
+            { label: t('State'), value: detail.state },
+            { label: t('Region'), value: detail.region },
+            { label: t('Zone'), value: detail.zone || '—' },
+            { label: t('Public IP'), value: detail.publicIp ?? '—', mono: true },
+            { label: t('Private IP'), value: detail.privateIp ?? '—', mono: true },
+            { label: t('Spec'), value: specLabel(detail) },
+            { label: t('OS'), value: detail.osName ?? '—' },
+            { label: t('Image'), value: detail.imageId ?? '—', mono: true },
+            { label: t('Created'), value: detail.createdAt ?? '—' },
           ]}
           raw={detail}
         />
@@ -92,21 +93,21 @@ export function AliyunEcsInstancesView({
         columns={[
           {
             key: 'instanceId',
-            header: 'Instance ID',
+            header: t('Instance ID'),
             width: 190,
             sortAccessor: (r) => r.instanceId,
             render: (r) => <span className="font-mono text-[12px]">{r.instanceId}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 180,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-secondary">{r.name}</span>,
           },
           {
             key: 'instanceType',
-            header: 'Type',
+            header: t('Type'),
             width: 150,
             sortAccessor: (r) => r.instanceType,
             render: (r) => (
@@ -115,7 +116,7 @@ export function AliyunEcsInstancesView({
           },
           {
             key: 'state',
-            header: 'State',
+            header: t('State'),
             width: 110,
             sortAccessor: (r) => r.state,
             render: (r) => {
@@ -131,14 +132,14 @@ export function AliyunEcsInstancesView({
           },
           {
             key: 'zone',
-            header: 'Zone',
+            header: t('Zone'),
             width: 150,
             sortAccessor: (r) => r.zone,
             render: (r) => <span className="text-secondary">{r.zone || '—'}</span>,
           },
           {
             key: 'publicIp',
-            header: 'Public IP',
+            header: t('Public IP'),
             width: 140,
             sortAccessor: (r) => r.publicIp ?? '',
             render: (r) => (
@@ -147,7 +148,7 @@ export function AliyunEcsInstancesView({
           },
           {
             key: 'privateIp',
-            header: 'Private IP',
+            header: t('Private IP'),
             width: 140,
             sortAccessor: (r) => r.privateIp ?? '',
             render: (r) => (
@@ -156,14 +157,14 @@ export function AliyunEcsInstancesView({
           },
           {
             key: 'spec',
-            header: 'Spec',
+            header: t('Spec'),
             width: 140,
             sortAccessor: (r) => r.cpu ?? 0,
             render: (r) => <span className="text-secondary">{specLabel(r)}</span>,
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.createdAt ?? '',
             render: (r) => (

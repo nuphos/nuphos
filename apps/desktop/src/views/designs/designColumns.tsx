@@ -1,6 +1,7 @@
 import { Palette } from 'lucide-react'
 
 import { MemberCell } from '../../components/MemberCell'
+import { t } from '../../i18n'
 import { memberDisplayName } from '../../lib/bindingAccess'
 
 import type { Column } from '../../components/Table'
@@ -13,7 +14,7 @@ export function buildDesignColumns(membersById: Map<string, TeamMember>): Column
   return [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       sortAccessor: (d) => d.name.toLowerCase(),
       render: (d) => (
         <span className="inline-flex items-center gap-2 text-main">
@@ -24,21 +25,21 @@ export function buildDesignColumns(membersById: Map<string, TeamMember>): Column
     },
     {
       key: 'pages',
-      header: 'Pages',
+      header: t('Pages'),
       width: 90,
       sortAccessor: (d) => d.pageCount,
       render: (d) => count(d.pageCount),
     },
     {
       key: 'frames',
-      header: 'Screens',
+      header: t('Screens'),
       width: 100,
       sortAccessor: (d) => d.frameCount,
       render: (d) => count(d.frameCount),
     },
     {
       key: 'createdBy',
-      header: 'Created by',
+      header: t('Created by'),
       width: 220,
       sortAccessor: (d) => {
         const member = membersById.get(d.createdBy)
@@ -49,7 +50,7 @@ export function buildDesignColumns(membersById: Map<string, TeamMember>): Column
     },
     {
       key: 'updated',
-      header: 'Updated',
+      header: t('Updated'),
       width: 140,
       sortAccessor: (d) => d.updatedAt,
       render: (d) => (

@@ -5,6 +5,7 @@ import { api } from '../../api'
 import { CloudLogo } from '../../components/CloudLogo'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { CLOUD_CLIS, cloudCliSetupPrompt } from '../../lib/cloudCli'
 
 import type { useCloudCliCheck } from './use-cloud-cli-check'
@@ -35,8 +36,8 @@ export function CloudCliSetupChoice({
       onOpenAgentChat(cloudCliSetupPrompt(provider, teamId, check.result, device))
       onStarted()
     } catch (error) {
-      toast.apiError('Could not start setup', error, {
-        fallback: 'Try again or continue with manual setup.',
+      toast.apiError(t('Could not start setup'), error, {
+        fallback: t('Try again or continue with manual setup.'),
       })
     } finally {
       setStarting(false)
@@ -44,24 +45,33 @@ export function CloudCliSetupChoice({
   }
 
   const steps = [
-    { title: 'Check your account', detail: 'Confirm your sign-in and the account to connect.' },
     {
-      title: 'Set up the connection',
-      detail: 'Configure the access needed for your tasks.',
+      title: t('Check your account'),
+      detail: t('Confirm your sign-in and the account to connect.'),
     },
-    { title: 'Verify and connect', detail: 'Test the connection and save it to your workspace.' },
+    {
+      title: t('Set up the connection'),
+      detail: t('Configure the access needed for your tasks.'),
+    },
+    {
+      title: t('Verify and connect'),
+      detail: t('Test the connection and save it to your workspace.'),
+    },
   ]
 
   return (
     <div className="pb-1 pt-2" aria-busy={check.checking || starting}>
       <div className="pb-5">
         <h3 className="text-[22px] font-semibold leading-[1.25] tracking-[-0.025em] text-main">
-          {check.checking ? 'A quicker way to connect.' : 'Let Nuphos take it from here.'}
+          {check.checking ? t('A quicker way to connect.') : t('Let Nuphos take it from here.')}
         </h3>
         <p className="mt-2 text-[13px] leading-relaxed text-secondary">
           {check.checking
-            ? `Looking for the ${label} command-line tool on this computer.`
-            : `We found the ${label} CLI on this computer. The agent can walk through setup with you, right in a new agent.`}
+            ? t('Looking for the {name} command-line tool on this computer.', { name: label })
+            : t(
+                'We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.',
+                { name: label },
+              )}
         </p>
       </div>
 
@@ -78,7 +88,7 @@ export function CloudCliSetupChoice({
                 {check.result?.command ?? CLOUD_CLIS[provider].commands[0]}
               </span>
               <span aria-hidden="true">·</span>
-              <span>This computer</span>
+              <span>{t('This computer')}</span>
             </div>
           </div>
           <div
@@ -93,33 +103,42 @@ export function CloudCliSetupChoice({
             ) : (
               <Check className="h-3 w-3 text-success" strokeWidth={2.5} aria-hidden="true" />
             )}
-            {check.checking ? 'Checking' : 'Detected'}
+            {check.checking ? t('Checking') : t('Detected')}
           </div>
         </div>
         {!check.checking && check.result?.installed && (
           <dl className="space-y-2 border-t border-zGray-800/60 px-3.5 py-3 text-[11px]">
             <div className="flex items-baseline gap-3">
-              <dt className="w-12 shrink-0 text-tertiary">Path</dt>
+              <dt className="w-12 shrink-0 text-tertiary">{t('Path')}</dt>
               <dd className="min-w-0 select-text break-all font-mono leading-relaxed text-secondary">
-                {check.result.path ?? 'Unavailable'}
+                {check.result.path ?? t('Unavailable')}
               </dd>
             </div>
             <div className="flex items-baseline gap-3">
-              <dt className="w-12 shrink-0 text-tertiary">Version</dt>
+              <dt className="w-12 shrink-0 text-tertiary">{t('Version')}</dt>
               <dd className="select-text font-mono text-secondary">
                 {check.versionLoading
-                  ? 'Reading…'
+                  ? t('Reading…')
                   : check.versionRequested
-                    ? (check.result.version ?? 'Could not read version')
+                    ? (check.result.version ?? t('Could not read version'))
                     : null}
                 {!check.versionLoading && !check.result.version && (
                   <button
                     type="button"
                     onClick={check.retryVersion}
-                    title={`Run ${check.result.command ?? 'CLI'} version command at ${check.result.path ?? 'the detected path'}`}
+                    title={
+                      check.result.path
+                        ? t('Run {command} version command at {path}', {
+                            command: check.result.command ?? 'CLI',
+                            path: check.result.path,
+                          })
+                        : t('Run {command} version command at the detected path', {
+                            command: check.result.command ?? 'CLI',
+                          })
+                    }
                     className={`${check.versionRequested ? 'ml-2 ' : ''}font-sans text-zViolet-accent hover:underline`}
                   >
-                    {check.versionRequested ? 'Retry' : 'Read version'}
+                    {check.versionRequested ? t('Retry') : t('Read version')}
                   </button>
                 )}
               </dd>
@@ -170,11 +189,11 @@ export function CloudCliSetupChoice({
             ) : (
               <MessageSquare className="h-4 w-4" aria-hidden="true" />
             )}
-            {starting ? 'Opening your agent…' : 'Set up with agent'}
+            {starting ? t('Opening your agent…') : t('Set up with agent')}
             {!starting && <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />}
           </Button>
           <p className="mt-2 text-center text-[10.5px] text-tertiary">
-            Opens a new agent on this computer
+            {t('Opens a new agent on this computer')}
           </p>
         </div>
       )}
@@ -186,7 +205,9 @@ export function CloudCliSetupChoice({
           disabled={starting}
           className="flex min-h-8 w-full items-center justify-between gap-3 rounded-md px-1 text-left text-[12px] text-secondary hover:text-main focus-visible:outline focus-visible:outline-2 focus-visible:outline-zViolet-accent disabled:opacity-50"
         >
-          <span>{check.checking ? 'Continue with manual setup' : 'Set up manually instead'}</span>
+          <span>
+            {check.checking ? t('Continue with manual setup') : t('Set up manually instead')}
+          </span>
           <ArrowRight className="h-3.5 w-3.5 shrink-0 text-tertiary" aria-hidden="true" />
         </button>
       </div>

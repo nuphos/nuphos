@@ -1,5 +1,7 @@
 import { NodeResizer } from '@xyflow/react'
 
+import { t } from '../../i18n'
+
 import { useDesignCanvas } from './context'
 import { PRIMARY } from './helpers'
 import { EditableTitle } from './nodeParts'
@@ -52,7 +54,7 @@ export function SectionNode({ data, selected }: NodeProps) {
       >
         <EditableTitle
           value={section.title}
-          placeholder="Section"
+          placeholder={t('Section')}
           onChange={(title) =>
             canvas.updateObject(section.id, (o) => ({ ...o, title }), { record: true })
           }

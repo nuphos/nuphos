@@ -6,7 +6,9 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
+import { Fill } from './bind-account/shared'
 import { useResetOnKey } from './useResetOnKey'
 
 type Props = {
@@ -59,7 +61,7 @@ export function BindSentryDialog({ open, teamId, onClose, onBound }: Props) {
     } catch (e) {
       if (attempt !== attemptRef.current) return
       setPhase('idle')
-      toast.apiError('Could not connect Sentry', e)
+      toast.apiError(t('Could not connect {name}', { name: 'Sentry' }), e)
     }
   }
 
@@ -67,8 +69,10 @@ export function BindSentryDialog({ open, teamId, onClose, onBound }: Props) {
     <Modal
       open={open}
       onClose={close}
-      title="Connect Sentry"
-      description="Authorize Nuphos to read issues, events, and releases from your Sentry account so the agent can investigate errors. Read-only — it cannot resolve or change issues."
+      title={t('Connect {name}', { name: 'Sentry' })}
+      description={t(
+        'Authorize Nuphos to read issues, events, and releases from your Sentry account so the agent can investigate errors. Read-only — it cannot resolve or change issues.',
+      )}
       width={460}
     >
       <div className="px-5 py-5 selectable">
@@ -78,8 +82,10 @@ export function BindSentryDialog({ open, teamId, onClose, onBound }: Props) {
               <FontAwesomeIcon icon={faBugSlash} className="w-[22px] h-[22px] text-main" />
             </div>
             <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[400px]">
-              Click below to open Sentry in your browser. Approve the OAuth request and you'll be
-              redirected back automatically.
+              {t(
+                "Click below to open {name} in your browser. Approve the OAuth request and you'll be redirected back automatically.",
+                { name: 'Sentry' },
+              )}
             </div>
           </div>
         )}
@@ -91,11 +97,17 @@ export function BindSentryDialog({ open, teamId, onClose, onBound }: Props) {
               className="w-6 h-6 text-zViolet-accent animate-spin"
             />
             <div className="text-[12.5px] text-secondary text-center">
-              Waiting for Sentry… complete the authorization in your browser.
+              {t('Waiting for {name}… complete the authorization in your browser.', {
+                name: 'Sentry',
+              })}
             </div>
             <div className="text-[11px] text-tertiary text-center max-w-[380px]">
-              If nothing happens, make sure your browser allowed the popup and that your OS routes{' '}
-              <span className="font-mono">nuphos://</span> URLs to this app.
+              <Fill
+                text={t(
+                  'If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.',
+                )}
+                scheme={<span className="font-mono">nuphos://</span>}
+              />
             </div>
           </div>
         )}
@@ -106,12 +118,12 @@ export function BindSentryDialog({ open, teamId, onClose, onBound }: Props) {
           onClick={close}
           className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800"
         >
-          {phase === 'waiting' ? 'Cancel' : 'Close'}
+          {phase === 'waiting' ? t('Cancel') : t('Close')}
         </button>
         {phase !== 'waiting' && (
           <Button size="sm" onClick={() => void startInstall()}>
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="w-3.5 h-3.5" />
-            Authorize Sentry
+            {t('Authorize {name}', { name: 'Sentry' })}
           </Button>
         )}
       </div>

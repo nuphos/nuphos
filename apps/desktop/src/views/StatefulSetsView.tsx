@@ -11,6 +11,7 @@ import { UsageBar } from '../components/UsageBar'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { runBulk } from '../lib/bulkActions'
 import { makeFilterMatcher } from '../lib/filterQuery'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
@@ -89,14 +90,20 @@ export function StatefulSetsView({
     (r: StatefulSetItem, ctx: string): ContextMenuItem[] => [
       {
         key: 'restart',
-        label: 'Restart rollout',
+        label: t('Restart rollout'),
         icon: faRotateLeft,
         disabled: r.update_strategy === 'OnDelete',
         hint:
           r.update_strategy === 'OnDelete'
-            ? 'OnDelete requires replacing pods manually'
+            ? t('OnDelete requires replacing pods manually')
             : undefined,
-        confirm: `Restart StatefulSet "${r.namespace}/${r.name}"? Its RollingUpdate controller will replace the pods.`,
+        confirm: t(
+          'Restart StatefulSet "{namespace}/{name}"? Its RollingUpdate controller will replace the pods.',
+          {
+            namespace: r.namespace,
+            name: r.name,
+          },
+        ),
         onSelect: async () => {
           await api.restartWorkload(ctx, 'StatefulSet', r.namespace, r.name)
         },
@@ -132,9 +139,20 @@ export function StatefulSetsView({
       {menu}
       <ConfirmDialog
         open={confirmRestart}
-        title="Restart rollout"
-        description={`Restart ${String(selectedItems.length)} StatefulSet${selectedItems.length === 1 ? '' : 's'}? Their RollingUpdate controllers will replace the pods.`}
-        confirmLabel="Restart"
+        title={t('Restart rollout')}
+        description={
+          selectedItems.length === 1
+            ? t('Restart {n} StatefulSet? Its RollingUpdate controller will replace the pods.', {
+                n: selectedItems.length,
+              })
+            : t(
+                'Restart {n} StatefulSets? Their RollingUpdate controllers will replace the pods.',
+                {
+                  n: selectedItems.length,
+                },
+              )
+        }
+        confirmLabel={t('Restart')}
         onConfirm={async () => {
           const targets = selectedItems
 
@@ -142,7 +160,7 @@ export function StatefulSetsView({
           await runBulk(
             targets,
             (r) => api.restartWorkload(context, 'StatefulSet', r.namespace, r.name),
-            { verbing: 'restart', verbed: 'Restarted', noun: 'StatefulSet' },
+            t('Restart StatefulSets'),
           )
           clearSelection()
         }}
@@ -154,7 +172,7 @@ export function StatefulSetsView({
         actions={[
           {
             key: 'restart',
-            label: 'Restart rollout',
+            label: t('Restart rollout'),
             icon: faRotateLeft,
             disabled: restartBlocked,
             onClick: () => setConfirmRestart(true),
@@ -176,28 +194,28 @@ export function StatefulSetsView({
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 160,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'ready',
-            header: 'Ready',
+            header: t('Ready'),
             width: 100,
             sortAccessor: (r) => parseInt(r.ready.split('/')[0] ?? '0', 10),
             render: (r) => <ReadyCount value={r.ready} />,
           },
           {
             key: 'service',
-            header: 'Service',
+            header: t('Service'),
             width: 220,
             sortAccessor: (r) => r.service,
             render: (r) => <span className="text-secondary">{r.service || '-'}</span>,
@@ -205,11 +223,11 @@ export function StatefulSetsView({
               ? (r) => onSelectService(r.namespace, r.service)
               : undefined,
             canActivate: (r) => Boolean(r.service),
-            activationLabel: (r) => `Open service ${r.service}`,
+            activationLabel: (r) => t('Open service {name}', { name: r.service }),
           },
           {
             key: 'cpu',
-            header: 'CPU',
+            header: t('CPU'),
             width: 170,
             sortAccessor: (r) => r.cpu,
             render: (r) => (
@@ -223,7 +241,7 @@ export function StatefulSetsView({
           },
           {
             key: 'memory',
-            header: 'Memory',
+            header: t('Memory'),
             width: 180,
             sortAccessor: (r) => r.memory,
             render: (r) => (
@@ -238,7 +256,7 @@ export function StatefulSetsView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

@@ -172,6 +172,11 @@ fun AgentPage(
     SideEffect {
         if (store.phase == AgentStore.Phase.Loaded && !resolvingPins) settledRows = store.conversations
     }
+    val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle ||
+        (store.phase == AgentStore.Phase.Loaded && resolvingPins && settledRows.isNullOrEmpty()) ||
+        (store.phase == AgentStore.Phase.Loaded && store.conversations.isEmpty() && pins.isEmpty() &&
+            store.selectedTeam != null && store.search.isEmpty() && !store.archivedOnly &&
+            store.favorites == null && store.favoritesError == null)
     val displayedRows = if (resolvingPins) settledRows.orEmpty() else store.conversations
     val tree = remember(displayedRows, pins, foldedIds, account) {
         PinnedHistory.nest(displayedRows, pins, foldedIds.toSet(), account)
@@ -216,16 +221,12 @@ fun AgentPage(
             }
         }
         PullToRefreshBox(
-            isRefreshing = store.isRefreshing,
+            isRefreshing = store.isRefreshing && !showInitialLoading,
             onRefresh = store::refresh,
             modifier = Modifier.weight(1f).fillMaxWidth().testTag("chat-history-refresh"),
         ) {
             when {
-                store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle ||
-                    (store.phase == AgentStore.Phase.Loaded && resolvingPins && settledRows.isNullOrEmpty()) ||
-                    (store.phase == AgentStore.Phase.Loaded && store.conversations.isEmpty() && pins.isEmpty() &&
-                        store.selectedTeam != null && store.search.isEmpty() && !store.archivedOnly &&
-                        store.favorites == null && store.favoritesError == null) -> {
+                showInitialLoading -> {
                     RefreshableHistoryState {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)

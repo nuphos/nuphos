@@ -1,6 +1,7 @@
 import { Copy, Download, Globe } from 'lucide-react'
 
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 
 import { s3ConsoleBucketUrl, s3ConsoleObjectUrl, s3Uri } from './s3-helpers'
 
@@ -26,13 +27,13 @@ export function buildRowMenu(
       ...sep,
       {
         key: 'copy-uri',
-        label: 'Copy S3 URI',
+        label: t('Copy S3 URI'),
         icon: Copy,
         onSelect: () => void navigator.clipboard.writeText(s3Uri(bucket.name, row.prefix)),
       },
       {
         key: 'open-console',
-        label: 'Open in AWS console',
+        label: t('Open in AWS console'),
         icon: Globe,
         onSelect: () => void api.appOpenExternal(s3ConsoleBucketUrl(bucket, row.prefix)),
       },
@@ -46,7 +47,7 @@ export function buildRowMenu(
       ? [
           {
             key: 'download',
-            label: 'Download',
+            label: t('Download'),
             icon: Download,
             onSelect: () => void downloadObject(row.object.key),
           },
@@ -54,19 +55,19 @@ export function buildRowMenu(
       : []),
     {
       key: 'copy-uri',
-      label: 'Copy S3 URI',
+      label: t('Copy S3 URI'),
       icon: Copy,
       onSelect: () => void navigator.clipboard.writeText(s3Uri(bucket.name, row.object.key)),
     },
     {
       key: 'copy-key',
-      label: 'Copy object key',
+      label: t('Copy object key'),
       icon: Copy,
       onSelect: () => void navigator.clipboard.writeText(row.object.key),
     },
     {
       key: 'open-console',
-      label: 'Open in AWS console',
+      label: t('Open in AWS console'),
       icon: Globe,
       onSelect: () => void api.appOpenExternal(s3ConsoleObjectUrl(bucket, row.object.key)),
     },

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 
 import type { DashboardViewRange, NuphosDashboard, NuphosDashboardDetail } from '../schema'
 
@@ -73,7 +74,7 @@ export function useDashboardData({
         listLoadedRef.current = true
         setDashboards(list)
       })
-      .catch((err: unknown) => !cancelled && toast.apiError('Could not load dashboards', err))
+      .catch((err: unknown) => !cancelled && toast.apiError(t('Could not load dashboards'), err))
       .finally(() => {
         if (!cancelled && listOwnsLoading && selectedIdRef.current === null) setLoad(false)
       })
@@ -141,7 +142,7 @@ export function useDashboardData({
           viewKeyRef.current === viewKey &&
           !opts?.silent
         ) {
-          toast.apiError('Could not load dashboard', err)
+          toast.apiError(t('Could not load dashboard'), err)
           setDetailError(true)
         }
       } finally {
@@ -191,11 +192,11 @@ export function useDashboardData({
     const anyRunning = detail.panels.some((p) => p.currentSnapshot?.status === 'running')
 
     if (!anyRunning) return
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       void loadDetail(selectedId, { silent: true })
     }, 2_500)
 
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [detail, selectedId, loadDetail])
 
   return {

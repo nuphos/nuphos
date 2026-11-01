@@ -7,7 +7,15 @@ import { createDeviceToolHandler } from './device-tool'
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
 import type { DeviceTool, DeviceToolDeps } from './device-tool'
 
-const ACTIONS = ['tabs', 'open', 'navigate', 'eval', 'screenshot'] as const
+const ACTIONS = [
+  'tabs',
+  'open',
+  'navigate',
+  'eval',
+  'screenshot',
+  'record_start',
+  'record_stop',
+] as const
 
 type Args = {
   action: (typeof ACTIONS)[number]
@@ -28,7 +36,7 @@ const browserTool: DeviceTool = {
     if ((args.action === 'open' || args.action === 'navigate') && !args.url)
       return 'url is required.'
     if (args.action === 'eval' && !args.script?.trim()) return 'script is required.'
-    const needsTab = ['navigate', 'eval', 'screenshot'].includes(args.action)
+    const needsTab = args.action !== 'tabs' && args.action !== 'open'
 
     return needsTab && args.tab === undefined
       ? 'tab is required; list the open tabs with action "tabs".'
@@ -68,7 +76,9 @@ const definition = {
     "Operate this conversation's browser tabs inside the user's Nuphos Desktop workspace (the in-app browser, not Chrome or Safari): open a page in a new tab in this conversation's dock, list the tabs this conversation opened, navigate, run JavaScript in a page, or take a screenshot. " +
     'Pages keep the logins the user made in the in-app browser. Start with action "open" (or "tabs"), then pass the returned tab id. ' +
     'eval runs `script` in the page as a user gesture and returns its JSON-serializable value (an awaited Promise for async code): read the DOM, click, fill inputs (dispatch input events for frameworks). ' +
-    'screenshot only works while the tab is on screen. Use this for the in-app browser; use local_cua for other apps.',
+    'screenshot only works while the tab is on screen. ' +
+    "record_start captures the tab's network traffic (requests, responses, headers including cookies, bodies) until record_stop, which writes it as a HAR file on the device and returns its path with one line per request; read details from that file on the device. " +
+    'Use this for the in-app browser; use local_cua for other apps.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -76,7 +86,7 @@ const definition = {
       tab: {
         type: 'integer',
         description:
-          'Tab id from "open" or "tabs" in this conversation; required by navigate, eval, screenshot.',
+          'Tab id from "open" or "tabs" in this conversation; required by every action except tabs and open.',
       },
       url: { type: 'string', description: 'http(s) URL for open and navigate.' },
       script: { type: 'string', description: 'JavaScript expression or IIFE for eval.' },

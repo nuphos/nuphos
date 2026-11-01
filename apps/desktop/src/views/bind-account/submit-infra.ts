@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 
 import { errorMessage } from './constants'
 
@@ -12,12 +13,12 @@ export async function submitLinode(st: BindState, env: SubmitEnv) {
   const token = st.linodeToken.trim()
 
   if (!label) {
-    setError('Label is required.')
+    setError(t('Label is required.'))
 
     return
   }
   if (!token) {
-    setError('Linode API token is required.')
+    setError(t('Linode API token is required.'))
 
     return
   }
@@ -39,12 +40,12 @@ export async function submitHetzner(st: BindState, env: SubmitEnv) {
   const token = st.hetznerToken.trim()
 
   if (!label) {
-    toast.error('Label is required')
+    toast.error(t('Label is required'))
 
     return
   }
   if (!token) {
-    toast.error('Hetzner Cloud API token is required')
+    toast.error(t('Hetzner Cloud API token is required'))
 
     return
   }
@@ -55,8 +56,8 @@ export async function submitHetzner(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Hetzner Cloud', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Could not connect {name}', { name: 'Hetzner Cloud' }), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }
@@ -69,12 +70,12 @@ export async function submitBetterStack(st: BindState, env: SubmitEnv) {
   const telemetryApiToken = st.betterStackTelemetryApiToken.trim()
 
   if (!label) {
-    setError('Label is required.')
+    setError(t('Label is required.'))
 
     return
   }
   if (!uptimeApiToken && !telemetryApiToken) {
-    setError('Provide at least one Better Stack API token.')
+    setError(t('Provide at least one Better Stack API token.'))
 
     return
   }
@@ -104,17 +105,17 @@ export async function submitUptimeKuma(st: BindState, env: SubmitEnv) {
   const authToken = st.uptimeKumaAuthToken.trim()
 
   if (!label) {
-    toast.error('Label is required.')
+    toast.error(t('Label is required.'))
 
     return
   }
   if (!/^https?:\/\//i.test(baseUrl)) {
-    toast.error('Base URL must start with http:// or https://.')
+    toast.error(t('Base URL must start with http:// or https://.'))
 
     return
   }
   if (!authToken && (!username || !password)) {
-    toast.error('Provide either an auth token or username/password.')
+    toast.error(t('Provide either an auth token or username/password.'))
 
     return
   }
@@ -129,8 +130,8 @@ export async function submitUptimeKuma(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Uptime Kuma', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Could not connect {name}', { name: 'Uptime Kuma' }), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }
@@ -143,17 +144,17 @@ export async function submitTailscale(st: BindState, env: SubmitEnv) {
   const clientSecret = st.tailscaleClientSecret.trim()
 
   if (!label) {
-    toast.error('Label is required.')
+    toast.error(t('Label is required.'))
 
     return
   }
   if (!clientId) {
-    toast.error('Tailscale client ID is required.')
+    toast.error(t('Tailscale client ID is required.'))
 
     return
   }
   if (!tailscaleFederated && !clientSecret) {
-    toast.error('Tailscale OAuth client secret is required.')
+    toast.error(t('Tailscale OAuth client secret is required.'))
 
     return
   }
@@ -170,8 +171,8 @@ export async function submitTailscale(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Failed to bind Tailscale client', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Failed to bind Tailscale client'), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }

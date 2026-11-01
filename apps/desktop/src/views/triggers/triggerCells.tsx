@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Clock, Layers3, Loader2, Webhook } from 'lucide-react'
 
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 
 import { triggerSourceTitle } from './shared'
 import { rowName } from './triggerRows'
@@ -25,7 +26,7 @@ export function NameCell({ row }: { row: TriggerListRow }) {
 // "Agent" is on most rows, so the word alone tells the reader almost nothing —
 // the tooltip is where it earns its place. One sentence: a tooltip that needs
 // a paragraph is a sign the label itself is wrong.
-const AGENT_TIP = 'Set up by an agent, rather than by hand.'
+const AGENT_TIP = t('Set up by an agent, rather than by hand.')
 
 function RowTags({ row }: { row: TriggerListRow }) {
   if (row.kind === 'group') {
@@ -33,22 +34,32 @@ function RowTags({ row }: { row: TriggerListRow }) {
       <>
         <Tag
           tone="muted"
-          tip={`A Watch group: ${String(row.group.expectedMemberCount)} monitored items sharing ${String(row.group.partitionCount)} webhook ingress${row.group.partitionCount === 1 ? '' : 'es'}. Its settings apply to every member.`}
+          tip={
+            row.group.partitionCount === 1
+              ? t(
+                  'A Watch group: {items} monitored items sharing {n} webhook ingress. Its settings apply to every member.',
+                  { items: row.group.expectedMemberCount, n: row.group.partitionCount },
+                )
+              : t(
+                  'A Watch group: {items} monitored items sharing {n} webhook ingresses. Its settings apply to every member.',
+                  { items: row.group.expectedMemberCount, n: row.group.partitionCount },
+                )
+          }
         >
-          Group
+          {t('Group')}
         </Tag>
         {row.group.state === 'partial' && (
-          <Tag tone="error" tip="At least one shared webhook ingress failed to provision.">
-            Needs attention
+          <Tag tone="error" tip={t('At least one shared webhook ingress failed to provision.')}>
+            {t('Needs attention')}
           </Tag>
         )}
         {row.group.state === 'provisioning' && (
-          <Tag tone="accent" tip="Nuphos is still creating this group's webhook ingresses.">
-            Provisioning
+          <Tag tone="accent" tip={t("Nuphos is still creating this group's webhook ingresses.")}>
+            {t('Provisioning')}
           </Tag>
         )}
         <Tag tone="accent" tip={AGENT_TIP}>
-          Agent
+          {t('Agent')}
         </Tag>
       </>
     )
@@ -58,19 +69,19 @@ function RowTags({ row }: { row: TriggerListRow }) {
   return (
     <>
       {!trigger.enabled && !trigger.cleanupStatus && (
-        <Tag tone="muted" tip="Disabled — it will not fire until you turn it back on.">
-          Paused
+        <Tag tone="muted" tip={t('Disabled — it will not fire until you turn it back on.')}>
+          {t('Paused')}
         </Tag>
       )}
       {trigger.cleanupStatus === 'deleting' && (
-        <Tag tone="accent" tip="Removing the resources this trigger created at its provider.">
+        <Tag tone="accent" tip={t('Removing the resources this trigger created at its provider.')}>
           <Loader2 className="h-2.5 w-2.5 animate-spin" />
-          Removing
+          {t('Removing')}
         </Tag>
       )}
       {trigger.cleanupStatus === 'cleanup_failed' && (
-        <Tag tone="error" tip="Provider cleanup did not finish. Retry it from the settings.">
-          Cleanup needed
+        <Tag tone="error" tip={t('Provider cleanup did not finish. Retry it from the settings.')}>
+          {t('Cleanup needed')}
         </Tag>
       )}
       {trigger.source && trigger.source !== 'user' && (
@@ -78,7 +89,7 @@ function RowTags({ row }: { row: TriggerListRow }) {
           tone="accent"
           tip={trigger.source === 'agent' ? AGENT_TIP : triggerSourceTitle(trigger)}
         >
-          {trigger.source === 'agent' ? 'Agent' : 'Automation'}
+          {trigger.source === 'agent' ? t('Agent') : t('Automation')}
         </Tag>
       )}
     </>

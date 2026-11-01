@@ -7,6 +7,8 @@ type Attempt = {
   provider: SocialProvider
   nonce: string
   handle?: string
+  /** The first-touch cookie seen at the start of sign-in. */
+  firstTouch?: string
   expiresAt: Date
 }
 export const socialAuthAttempts = () => db().collection<Attempt>('social_auth_attempts')

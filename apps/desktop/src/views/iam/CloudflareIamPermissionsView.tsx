@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { BindAccountDialog } from '../BindAccountDialog'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -93,7 +94,7 @@ export function CloudflareIamPermissionsView({
             </div>
           )}
           {loading && !oauth && (
-            <div className="px-6 py-5 text-[12.5px] text-tertiary">Checking connection…</div>
+            <div className="px-6 py-5 text-[12.5px] text-tertiary">{t('Checking connection…')}</div>
           )}
           {oauth && (
             <>
@@ -102,36 +103,45 @@ export function CloudflareIamPermissionsView({
                 title={oauth.accountName ?? oauth.accountId}
                 subtitle={oauth.accountId}
                 rows={[
-                  { label: 'Account ID', value: oauth.accountId, mono: true },
-                  { label: 'Auth', value: 'Cloudflare OAuth' },
+                  { label: t('Account ID'), value: oauth.accountId, mono: true },
+                  { label: t('Auth'), value: 'Cloudflare OAuth' },
                   {
-                    label: 'Connection',
-                    value: oauth.connectionStatus === 'ok' ? 'Connected' : 'Broken — reconnect',
+                    label: t('Connection'),
+                    value:
+                      oauth.connectionStatus === 'ok' ? t('Connected') : t('Broken — reconnect'),
                     status: oauth.connectionStatus === 'ok' ? 'success' : 'error',
                   },
                   {
-                    label: 'Access token',
-                    value: oauth.hasRefreshToken
-                      ? `Auto-refreshed${
-                          oauth.accessTokenExpiresAt
-                            ? ` · current expires ${new Date(oauth.accessTokenExpiresAt).toLocaleString()}`
-                            : ''
-                        }`
-                      : 'No refresh token — expires without renewal',
+                    label: t('Access token'),
+                    value: !oauth.hasRefreshToken
+                      ? t('No refresh token — expires without renewal')
+                      : oauth.accessTokenExpiresAt
+                        ? t('Auto-refreshed · current expires {time}', {
+                            time: new Date(oauth.accessTokenExpiresAt).toLocaleString(),
+                          })
+                        : t('Auto-refreshed'),
                     status: oauth.hasRefreshToken ? undefined : 'error',
                   },
-                  { label: 'OAuth client', value: oauth.clientId, mono: true },
+                  { label: t('OAuth client'), value: oauth.clientId, mono: true },
                 ]}
               />
               <Warnings warnings={oauth.warnings} />
               <section className="px-6 py-4">
                 <SectionHeader
                   icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
-                  title="Granted scopes"
-                  hint={`${String(oauth.scopes.length)} scopes on this OAuth grant`}
+                  title={t('Granted scopes')}
+                  hint={
+                    oauth.scopes.length === 1
+                      ? t('{n} scope on this OAuth grant', { n: oauth.scopes.length })
+                      : t('{n} scopes on this OAuth grant', { n: oauth.scopes.length })
+                  }
                 />
                 {oauth.scopes.length === 0 ? (
-                  <EmptyHint message="The OAuth grant reports no scopes — reconnect the account to re-authorize." />
+                  <EmptyHint
+                    message={t(
+                      'The OAuth grant reports no scopes — reconnect the account to re-authorize.',
+                    )}
+                  />
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {oauth.scopes.map((scope) => (
@@ -146,11 +156,12 @@ export function CloudflareIamPermissionsView({
                 )}
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex-1 text-[11.5px] text-tertiary">
-                    Scopes are fixed by the Cloudflare OAuth grant. Re-authorize this account to
-                    change them.
+                    {t(
+                      'Scopes are fixed by the Cloudflare OAuth grant. Re-authorize this account to change them.',
+                    )}
                   </div>
                   <Button variant="secondary" size="sm" onClick={() => setReauthorizing(true)}>
-                    Update scopes
+                    {t('Update scopes')}
                   </Button>
                 </div>
               </section>
@@ -181,20 +192,17 @@ export function CloudflareIamPermissionsView({
         )}
         <ProviderSummaryCard
           provider="cloudflare"
-          title={data.tokenName ?? data.tokenId ?? 'API token'}
+          title={data.tokenName ?? data.tokenId ?? t('API token')}
           subtitle={data.accountId}
           rows={[
-            { label: 'Account ID', value: data.accountId, mono: true },
+            { label: t('Account ID'), value: data.accountId, mono: true },
             {
-              label: 'Token status',
+              label: t('Token status'),
               value: data.tokenStatus ?? '—',
               status:
                 data.tokenStatus === 'active' ? 'success' : data.tokenStatus ? 'error' : undefined,
             },
-            {
-              label: 'Expires',
-              value: formatExpiry(data.expiresOn),
-            },
+            { label: t('Expires'), value: formatExpiry(data.expiresOn) },
           ]}
         />
         <SelfManagementCard capabilities={data.selfCapabilities} />
@@ -202,23 +210,31 @@ export function CloudflareIamPermissionsView({
         <section className="px-6 py-4">
           <SectionHeader
             icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
-            title="Token policies"
+            title={t('Token policies')}
             hint={
               data.policies === null
-                ? "Couldn't read token policies (token lacks User Details: Read)"
-                : `${String(data.policies.length)} policies on this token`
+                ? t("Couldn't read token policies (token lacks User Details: Read)")
+                : data.policies.length === 1
+                  ? t('{n} policy on this token', { n: data.policies.length })
+                  : t('{n} policies on this token', { n: data.policies.length })
             }
           />
           {data.policies === null ? (
             <EmptyHint
               message={
                 data.tokenStatus === 'active'
-                  ? 'This token is account-scoped, so Cloudflare won\'t return its own policy list (only user-scoped tokens with "User Details: Read" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.'
-                  : 'Cloudflare API tokens can only list their own policies if they include the "User Details: Read" permission. Add it to your Nuphos token to see what was granted.'
+                  ? t(
+                      'This token is account-scoped, so Cloudflare won\'t return its own policy list (only user-scoped tokens with "User Details: Read" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.',
+                    )
+                  : t(
+                      'Cloudflare API tokens can only list their own policies if they include the "User Details: Read" permission. Add it to your Nuphos token to see what was granted.',
+                    )
               }
             />
           ) : data.policies.length === 0 ? (
-            <EmptyHint message="This token has no policies attached, so every API call will be denied." />
+            <EmptyHint
+              message={t('This token has no policies attached, so every API call will be denied.')}
+            />
           ) : (
             <div className="space-y-2">
               {data.policies.map((p, idx) => (
@@ -238,7 +254,7 @@ export function CloudflareIamPermissionsView({
                     >
                       {p.effect}
                     </span>
-                    <span className="text-[11.5px] text-tertiary">on resources</span>
+                    <span className="text-[11.5px] text-tertiary">{t('on resources')}</span>
                   </div>
                   <div className="mb-2 space-y-0.5">
                     {Object.entries(p.resources).map(([k, v]) => (

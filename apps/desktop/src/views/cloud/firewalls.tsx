@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useLinkOnlyRowMenu } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -56,19 +57,19 @@ export function FirewallsView({
           open
           onClose={() => setDetail(null)}
           title={detail.name}
-          subtitle="Firewall rule"
+          subtitle={t('Firewall rule')}
           fields={[
-            { label: 'Name', value: detail.name },
-            { label: 'Direction', value: detail.direction || '—' },
-            { label: 'Network', value: detail.network || '—', mono: true },
-            { label: 'Priority', value: detail.priority ?? '—' },
+            { label: t('Name'), value: detail.name },
+            { label: t('Direction'), value: detail.direction || '—' },
+            { label: t('Network'), value: detail.network || '—', mono: true },
+            { label: t('Priority'), value: detail.priority ?? '—' },
             {
-              label: 'Sources',
+              label: t('Sources'),
               value: (detail.sourceRanges ?? []).join(', ') || '—',
               mono: true,
             },
             {
-              label: 'Allowed',
+              label: t('Allowed'),
               full: true,
               mono: true,
               value: formatFirewallAllowed(detail) || '—',
@@ -87,21 +88,21 @@ export function FirewallsView({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 240,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'direction',
-            header: 'Direction',
+            header: t('Direction'),
             width: 110,
             sortAccessor: (r) => r.direction ?? '',
             render: (r) => <span className="text-secondary">{r.direction || '-'}</span>,
           },
           {
             key: 'network',
-            header: 'Network',
+            header: t('Network'),
             width: 200,
             sortAccessor: (r) => r.network ?? '',
             render: (r) => (
@@ -110,14 +111,14 @@ export function FirewallsView({
           },
           {
             key: 'priority',
-            header: 'Priority',
+            header: t('Priority'),
             width: 100,
             sortAccessor: (r) => r.priority ?? -1,
             render: (r) => r.priority ?? '-',
           },
           {
             key: 'sources',
-            header: 'Sources',
+            header: t('Sources'),
             width: 200,
             sortAccessor: (r) => (r.sourceRanges ?? []).join(','),
             render: (r) => (
@@ -128,7 +129,7 @@ export function FirewallsView({
           },
           {
             key: 'allowed',
-            header: 'Allowed',
+            header: t('Allowed'),
             width: 220,
             sortAccessor: formatFirewallAllowed,
             render: (r) => (

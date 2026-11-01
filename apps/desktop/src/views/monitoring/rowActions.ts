@@ -1,6 +1,7 @@
 import { faArrowUpRightFromSquare, faEye, faLink, faTrash } from '@fortawesome/free-solid-svg-icons'
 
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 import { PROVIDER_LABEL } from '../../lib/monitoringWatch'
 
 import type { ContextMenuItem } from '../../components/ContextMenu'
@@ -29,7 +30,7 @@ export function menuItems(
   const items: ContextMenuItem[] = [
     {
       key: 'copy-link',
-      label: 'Copy link',
+      label: t('Copy link'),
       icon: faLink,
       onSelect: copyRowLink,
     },
@@ -38,7 +39,7 @@ export function menuItems(
   if (onWatch) {
     items.push({
       key: 'watch',
-      label: 'Watch with Agent',
+      label: t('Watch with Agent'),
       icon: faEye,
       onSelect: () => onWatch(row),
     })
@@ -46,7 +47,7 @@ export function menuItems(
   if (row.providerUrl) {
     items.push({
       key: 'open',
-      label: `Open in ${PROVIDER_LABEL[row.provider]}`,
+      label: t('Open in {provider}', { provider: PROVIDER_LABEL[row.provider] }),
       icon: faArrowUpRightFromSquare,
       onSelect: () => void api.appOpenExternal(row.providerUrl!),
     })
@@ -55,10 +56,13 @@ export function menuItems(
     if (items.length > 0) items.push({ key: 'sep', separator: true })
     items.push({
       key: 'delete',
-      label: 'Delete',
+      label: t('Delete'),
       icon: faTrash,
       destructive: true,
-      confirm: `Delete "${row.name}" from ${PROVIDER_LABEL[row.provider]}? This removes it in the provider itself and cannot be undone.`,
+      confirm: t(
+        'Delete "{name}" from {provider}? This removes it in the provider itself and cannot be undone.',
+        { name: row.name, provider: PROVIDER_LABEL[row.provider] },
+      ),
       onSelect: () => deleteRow(row),
     })
   }
@@ -73,9 +77,9 @@ export function formatRelative(iso: string | null): string {
   if (!Number.isFinite(then)) return '—'
   const diff = Date.now() - then
 
-  if (diff < 60_000) return 'just now'
-  if (diff < 3_600_000) return `${String(Math.floor(diff / 60_000))}m ago`
-  if (diff < 86_400_000) return `${String(Math.floor(diff / 3_600_000))}h ago`
+  if (diff < 60_000) return t('just now')
+  if (diff < 3_600_000) return t('{n}m ago', { n: Math.floor(diff / 60_000) })
+  if (diff < 86_400_000) return t('{n}h ago', { n: Math.floor(diff / 3_600_000) })
 
-  return `${String(Math.floor(diff / 86_400_000))}d ago`
+  return t('{n}d ago', { n: Math.floor(diff / 86_400_000) })
 }
