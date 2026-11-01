@@ -89,8 +89,6 @@ export type SleepState = SleepPreferences & {
 
 export type LocalRuntimeState = {
   sleepPrevention?: SleepState
-  /** Whether a phone may open this Mac's own screen; absent off a Mac. */
-  phoneControl?: boolean
   claudeLogin?: LocalAgentLoginState
   codexLogin?: LocalAgentLoginState
   agents: Record<LocalAgentProvider, LocalAgentState>

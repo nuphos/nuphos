@@ -1,17 +1,11 @@
-// This Mac's own screen (mac-screen.ts) as the app wires it: the tunnel's deps,
-// the "Let my phone see and control this Mac" setting, and the notice shown
-// while a phone has control.
+// This Mac's own screen (mac-screen.ts) as the app wires it: the tunnel's deps
+// and the notice shown while a phone has control.
 
 import path from 'node:path'
 
 import { Notification } from 'electron'
 
-import {
-  enableMacScreen,
-  macScreenAllowed,
-  macScreenDeps,
-  setMacScreenAllowed,
-} from './mac-screen.ts'
+import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 
@@ -24,7 +18,7 @@ function announceControl(human: boolean): void {
   }).show()
 }
 
-/** Everything is a no-op off a Mac. `changed` runs when the screen changes hands or the setting changes. */
+/** No deps off a Mac. `changed` runs when the screen changes hands. */
 export function macScreenApp(dataDir: string, bundleRoot: () => string, changed: () => void) {
   const pool = enableMacScreen(dataDir, changed)
   const handOver = announceControl
@@ -33,16 +27,9 @@ export function macScreenApp(dataDir: string, bundleRoot: () => string, changed:
   return {
     deps: (
       status: () => LocalRuntimeTunnelStatus,
+      /** The account signed in here: the only one whose phone may open the screen. */
+      owner: () => string | null,
       instances?: (request: unknown) => Promise<unknown>,
-    ) => (pool ? macScreenDeps(pool, status, { binary, handOver }, instances) : {}),
-    state: () => (pool ? { phoneControl: macScreenAllowed(pool) } : {}),
-    /** Only this Mac's own settings call it. */
-    set: (allowed: boolean): boolean => {
-      if (!pool) return false
-      setMacScreenAllowed(pool, allowed)
-      changed()
-
-      return allowed
-    },
+    ) => (pool ? macScreenDeps(pool, status, { binary, handOver, owner }, instances) : {}),
   }
 }
