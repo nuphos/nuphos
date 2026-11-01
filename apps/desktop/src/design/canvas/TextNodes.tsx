@@ -1,6 +1,8 @@
 import { NodeResizer } from '@xyflow/react'
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
+
 import { useDesignCanvas } from './context'
 import { DEFAULT_NOTE, PRIMARY } from './helpers'
 import { TextEditor } from './nodeParts'
@@ -56,7 +58,7 @@ export function TextNode({ data, selected }: NodeProps) {
         />
       ) : (
         <div className="whitespace-pre-wrap break-words" style={style}>
-          {text.text || <span className="text-tertiary">Text</span>}
+          {text.text || <span className="text-tertiary">{t('Text')}</span>}
         </div>
       )}
     </div>
@@ -111,7 +113,7 @@ export function NoteNode({ data, selected }: NodeProps) {
           className="h-full w-full overflow-hidden whitespace-pre-wrap break-words"
           style={style}
         >
-          {note.text || <span style={{ opacity: 0.5 }}>Note</span>}
+          {note.text || <span style={{ opacity: 0.5 }}>{t('Note')}</span>}
         </div>
       )}
     </div>
