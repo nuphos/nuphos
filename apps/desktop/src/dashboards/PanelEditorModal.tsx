@@ -1,6 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { Loader2, X } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 
 import { CredentialSelectorButton } from '../components/agent/panel/CredentialSelectorButton'
 import {
@@ -10,6 +10,7 @@ import {
 import { Button } from '../components/ui/button'
 import { fieldClass } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
+import { t } from '../i18n'
 
 import { usePanelCredentials } from './usePanelCredentials'
 
@@ -17,9 +18,9 @@ import type { DashboardPanel, DashboardPanelKind } from './schema'
 import type { AgentCredentialSelection } from '../api'
 
 const PANEL_KINDS = [
-  { value: 'chart', label: 'Chart' },
-  { value: 'scalar', label: 'Scalar' },
-  { value: 'table', label: 'Table' },
+  { value: 'chart', label: t('Chart') },
+  { value: 'scalar', label: t('Scalar') },
+  { value: 'table', label: t('Table') },
 ]
 
 const STARTERS: Record<DashboardPanelKind, string> = {
@@ -50,6 +51,13 @@ emit({ kind: 'scalar', title: 'Total spend', value: 17442, unit: 'usd', deltaPct
 `,
 }
 
+// Code names shown inside the script help text.
+const GLOBALS: Record<string, string> = {
+  '{params}': 'params',
+  '{nuphos}': 'nuphos',
+  '{emit}': 'emit(payload)',
+}
+
 type Props = {
   teamId: string
   panel?: DashboardPanel | null
@@ -70,6 +78,11 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
   const [code, setCode] = useState(panel?.code ?? STARTERS.chart)
   const credentials = usePanelCredentials(teamId, panel)
 
+  const counts = {
+    selected: countSelectedCredentials(credentials.control.value),
+    total: countTotalCredentials(credentials.control.options),
+  }
+
   const canSave =
     title.trim().length > 0 &&
     code.trim().length > 0 &&
@@ -88,11 +101,11 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
           <Dialog.Popup className="relative flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zGray-800 bg-zGray-950 shadow-2xl outline-none">
             <div className="flex items-center justify-between border-b border-zGray-800 px-4 py-3">
               <Dialog.Title className="text-[14px] font-medium text-main">
-                {editing ? 'Edit panel' : 'New panel'}
+                {editing ? t('Edit panel') : t('New panel')}
               </Dialog.Title>
               <Dialog.Close
                 className="rounded p-1 text-tertiary hover:bg-zGray-800 hover:text-main"
-                aria-label="Close panel editor"
+                aria-label={t('Close panel editor')}
               >
                 <X className="h-4 w-4" />
               </Dialog.Close>
@@ -101,22 +114,22 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
               <div className="flex gap-3">
                 <label className="flex-1">
                   <span className="mb-1 block text-[11px] uppercase tracking-wide text-tertiary">
-                    Title
+                    {t('Title')}
                   </span>
                   <input
                     className={`${fieldClass} h-9`}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Hetzner cost overview"
+                    placeholder={t('Hetzner cost overview')}
                   />
                 </label>
                 <label className="w-36">
                   <span className="mb-1 block text-[11px] uppercase tracking-wide text-tertiary">
-                    Kind
+                    {t('Kind')}
                   </span>
                   <AppSelect
                     positionerClassName="!z-[1100]"
-                    ariaLabel="Kind"
+                    ariaLabel={t('Kind')}
                     value={kind}
                     options={PANEL_KINDS}
                     onValueChange={(value) => {
@@ -132,7 +145,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
               </div>
               <label className="flex flex-1 flex-col">
                 <span className="mb-1 block text-[11px] uppercase tracking-wide text-tertiary">
-                  Script (JavaScript)
+                  {t('Script (JavaScript)')}
                 </span>
                 <textarea
                   className="min-h-[280px] flex-1 resize-none rounded-md border border-zGray-800 bg-zGray-900 px-3 py-2 font-mono text-[12.5px] leading-relaxed text-main outline-none focus:border-zViolet-500"
@@ -148,24 +161,29 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                   positionerClassName="!z-[1100]"
                 />
                 <span className="text-[12px] text-secondary">
-                  Credentials: {countSelectedCredentials(credentials.control.value)}/
-                  {countTotalCredentials(credentials.control.options)} selected
-                  {credentials.usesDefault ? ' · same default as a new agent' : ''}
+                  {credentials.usesDefault
+                    ? t(
+                        'Credentials: {selected}/{total} selected · same default as a new agent',
+                        counts,
+                      )
+                    : t('Credentials: {selected}/{total} selected', counts)}
                 </span>
               </div>
               <p className="text-[11px] text-tertiary">
-                Runs on one of your team's online agents when created, refreshed, or on the
-                dashboard's auto-refresh schedule. Available globals:{' '}
-                <code className="text-secondary">params</code>,{' '}
-                <code className="text-secondary">nuphos</code> (read-only Nuphos APIs as the script
-                author, limited to the credentials selected above), and{' '}
-                <code className="text-secondary">emit(payload)</code>. Editing the script creates a
-                new version; old snapshots keep theirs.
+                {t(
+                  "Runs on one of your team's online agents when created, refreshed, or on the dashboard's auto-refresh schedule. Available globals: {params}, {nuphos} (read-only Nuphos APIs as the script author, limited to the credentials selected above), and {emit}. Editing the script creates a new version; old snapshots keep theirs.",
+                )
+                  .split(/(\{params\}|\{nuphos\}|\{emit\})/)
+                  .map((part, i) => (
+                    <Fragment key={i}>
+                      {i % 2 ? <code className="text-secondary">{GLOBALS[part]}</code> : part}
+                    </Fragment>
+                  ))}
               </p>
             </div>
             <div className="flex justify-end gap-2 border-t border-zGray-800 px-4 py-3">
               <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-zGray-800">
-                Cancel
+                {t('Cancel')}
               </Dialog.Close>
               <Button
                 size="sm"
@@ -183,7 +201,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                 }
               >
                 {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {editing ? 'Save & run' : 'Create & run'}
+                {editing ? t('Save & run') : t('Create & run')}
               </Button>
             </div>
           </Dialog.Popup>

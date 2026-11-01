@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n/index.ts'
 
 import { diffDesignOps, mergeDesign } from './designOps'
 
@@ -75,7 +76,7 @@ export function useDesignSync({
         })
         .catch((e: unknown) => {
           setSaveState('idle')
-          toast.apiError('Failed to save design', e)
+          toast.apiError(t('Failed to save design'), e)
         })
         .finally(() => {
           savingRef.current = false
