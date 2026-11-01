@@ -1,7 +1,9 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
+import { api } from '../../../api'
 import { useWorkspacePane } from '../WorkspacePaneContext'
 
+import { syncWindowSurface } from './windowSurfaceSync'
 import { selectCurrentBucket, selectHistoryStep, selectScope } from './workspaceState'
 import { createWorkspaceStore } from './workspaceStore'
 import { hydrateWorkspaceState, persistWorkspaceStore } from './workspaceStorePersistence'
@@ -28,6 +30,9 @@ export function useWorkspaceStore() {
   useEffect(() => registerStore?.(workspaceStore), [registerStore, workspaceStore])
   useEffect(() => {
     if (primary) return persistWorkspaceStore(workspaceStore)
+  }, [primary, workspaceStore])
+  useEffect(() => {
+    if (primary) return syncWindowSurface(workspaceStore, api)
   }, [primary, workspaceStore])
   const bucket = selectCurrentBucket(state)
 

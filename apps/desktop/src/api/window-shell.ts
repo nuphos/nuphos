@@ -33,7 +33,17 @@ export type AppShortcutAction =
   | SessionShortcutAction
   | RegionShortcutAction
 
+/** What a window's main pane shows, saved so a relaunch reopens it. */
+export type WindowSurface = {
+  sessionId: string | null
+  readOnly: boolean
+  teamId: string | null
+  mainPageOpen: boolean
+}
+
 export type WindowShellApi = {
+  takeWindowSurface?(): Promise<WindowSurface | null>
+  reportWindowSurface?(surface: WindowSurface): void
   acceptDockTerminal(id: string): Promise<boolean>
   onDockTerminalRequest(callback: (request: DockTerminalRequest) => void): () => void
   localTerminalProcesses(): Promise<{ id: string; name: string }[]>
