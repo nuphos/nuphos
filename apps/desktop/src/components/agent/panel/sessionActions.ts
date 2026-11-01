@@ -24,7 +24,10 @@ export function sessionActionGates(tab: GateTab | null | undefined) {
 
 /** A new chat's conversation is stored with its first turn. Until the server
  *  answers (its stream starts, or a reply is on record), reading the
- *  conversation's settings finds nothing. */
-export function serverHasConversation(tab: Pick<Tab, 'connected' | 'messages'>) {
+ *  conversation's settings finds nothing. An unsaved fork carries its source's
+ *  replies but is not stored yet either. */
+export function serverHasConversation(tab: Pick<Tab, 'connected' | 'messages' | 'unsaved'>) {
+  if (tab.unsaved) return false
+
   return tab.connected || tab.messages.some((message) => message.role === 'assistant')
 }

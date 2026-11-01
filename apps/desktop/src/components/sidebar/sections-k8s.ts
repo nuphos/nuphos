@@ -19,7 +19,7 @@ import {
   Workflow,
 } from 'lucide-react'
 
-import { t } from '../../i18n'
+import { t } from '../../i18n/index.ts'
 
 import type { Section } from './types'
 

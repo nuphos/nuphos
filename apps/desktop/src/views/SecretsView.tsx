@@ -6,6 +6,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
 import { useWorkspaceRowLink } from '../lib/workspaceRowLink'
@@ -88,9 +89,9 @@ export function SecretsView({
       <ResourceSummary
         items={[
           { label: 'Secrets', value: filtered.length, icon: Shield },
-          { label: 'Keys', value: totalKeys, icon: FileKey2 },
-          { label: 'Types', value: typeCount, icon: KeyRound },
-          { label: 'Namespaces', value: namespaceCount, icon: Rows3 },
+          { label: t('Keys'), value: totalKeys, icon: FileKey2 },
+          { label: t('Types'), value: typeCount, icon: KeyRound },
+          { label: t('Namespaces'), value: namespaceCount, icon: Rows3 },
         ]}
       />
       <Table<SecretItem>
@@ -102,39 +103,39 @@ export function SecretsView({
         storageKey="secrets"
         defaultSort={AGE_DESC_SORT}
         changedCells={changedCells}
-        empty={filter ? `No Secrets match "${filter}"` : 'No Secrets found'}
+        empty={filter ? t('No Secrets match "{filter}"', { filter }) : t('No Secrets found')}
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 150,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 260,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'type',
-            header: 'Type',
+            header: t('Type'),
             width: 230,
             sortAccessor: (r) => r.type,
             render: (r) => <SecretType type={r.type} />,
           },
           {
             key: 'keyNames',
-            header: 'Key names',
+            header: t('Key names'),
             width: 320,
             sortAccessor: (r) => r.keys,
             render: (r) => <KeyChips keys={r.keyNames ?? []} count={r.keys} />,
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (
@@ -185,7 +186,7 @@ function SecretType({ type }: { type: string }) {
 }
 
 function KeyChips({ keys, count }: { keys: string[]; count: number }) {
-  if (count === 0) return <span className="text-tertiary">No keys</span>
+  if (count === 0) return <span className="text-tertiary">{t('No keys')}</span>
   const visible = keys.slice(0, 3)
 
   return (

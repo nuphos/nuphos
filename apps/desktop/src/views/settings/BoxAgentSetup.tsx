@@ -6,6 +6,7 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentNameTaken, defaultAgentName } from './boxPresentation'
@@ -25,7 +26,7 @@ function pendingInstance(agent: DeviceAgentInstance, device: AgentDevice): Runti
   return {
     id: agent.runtimeId,
     provider: agent.provider,
-    label: `${agent.label} on ${device.label}`,
+    label: t('{agent} on {computer}', { agent: agent.label, computer: device.label }),
     status: 'active',
     kind: 'local',
     createdAt: '',
@@ -70,7 +71,10 @@ export function BoxAgentSetup({
     instance,
     () => {
       if (!created || !instance) return
-      toast.success(`${account} connected`, `${instance.label} is now signed in.`)
+      toast.success(
+        t('{account} connected', { account }),
+        t('{name} is now signed in.', { name: instance.label }),
+      )
       onDone(created.runtimeId)
     },
     true,
@@ -80,7 +84,9 @@ export function BoxAgentSetup({
   const remove = (instanceId: string) =>
     void api
       .boxRemoveAgent(deviceId, teamId, instanceId)
-      .catch((cause: unknown) => toast.apiError('Could not remove the unfinished runtime', cause))
+      .catch((cause: unknown) =>
+        toast.apiError(t('Could not remove the unfinished runtime'), cause),
+      )
 
   const create = async () => {
     const chosen = name.trim()
@@ -98,7 +104,7 @@ export function BoxAgentSetup({
       if (left.current) remove(agent.instanceId)
       else setCreated(agent)
     } catch (cause) {
-      if (!left.current) toast.apiError(`Could not add ${label}`, cause)
+      if (!left.current) toast.apiError(t('Could not add {name}', { name: label }), cause)
     } finally {
       setCreating(false)
     }
@@ -122,8 +128,16 @@ export function BoxAgentSetup({
     <Modal
       open
       onClose={() => void leave()}
-      title={created ? `Sign in with ${account}` : `New ${label} runtime`}
-      description={`Step ${created ? '2 of 2 · Sign in' : '1 of 2 · Settings'} · ${device.label}`}
+      title={
+        created
+          ? t('Sign in with {account}', { account })
+          : t('New {name} runtime', { name: label })
+      }
+      description={
+        created
+          ? t('Step 2 of 2 · Sign in · {computer}', { computer: device.label })
+          : t('Step 1 of 2 · Settings · {computer}', { computer: device.label })
+      }
       closeOnBackdrop={false}
       footer={
         created ? (
@@ -131,11 +145,11 @@ export function BoxAgentSetup({
         ) : (
           <div className="flex justify-end gap-2 px-5 py-3">
             <Button size="sm" variant="secondary" onClick={() => void leave()}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button size="sm" type="submit" form={FORM} disabled={creating || !name.trim()}>
               {creating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {creating ? `Starting ${label}…` : 'Continue'}
+              {creating ? t('Starting {name}…', { name: label }) : t('Continue')}
             </Button>
           </div>
         )
@@ -165,15 +179,17 @@ export function BoxAgentSetup({
             {label}
           </div>
           <Field
-            label="Name"
+            label={t('Name')}
             hint={
               taken
-                ? 'Another runtime on this computer already has this name.'
-                : 'How this runtime appears on the computer and when choosing a runtime for an agent.'
+                ? t('Another runtime on this computer already has this name.')
+                : t(
+                    'How this runtime appears on the computer and when choosing a runtime for an agent.',
+                  )
             }
           >
             <input
-              aria-label="Runtime name"
+              aria-label={t('Runtime name')}
               className={inputClasses}
               value={name}
               maxLength={100}

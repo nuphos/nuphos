@@ -1,14 +1,5 @@
 import { config } from '@/config'
 
-const PROVIDERS = {
-  zsend: {
-    name: 'ZSend',
-    url: 'https://api.zeabur.com/api/v1/zsend/emails',
-    keyVar: 'ZSEND_API_KEY',
-  },
-  resend: { name: 'Resend', url: 'https://api.resend.com/emails', keyVar: 'RESEND_API_KEY' },
-} as const
-
 /** For values placed in an email's HTML. */
 export function escapeHtml(value: string): string {
   return value.replace(
@@ -24,24 +15,18 @@ export type SendEmailInput = {
   text: string
 }
 
-function providerApiKey(): string | undefined {
-  return config.email.provider === 'resend' ? config.email.resendApiKey : config.email.zsendApiKey
-}
-
 export function isEmailConfigured(): boolean {
-  return Boolean(providerApiKey() && config.email.from)
+  return Boolean(config.email.resendApiKey && config.email.from)
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<void> {
-  const provider = PROVIDERS[config.email.provider]
-  const apiKey = providerApiKey()
-  const { from } = config.email
+  const { resendApiKey: apiKey, from } = config.email
 
   if (!apiKey || !from) {
-    throw new Error(`Email delivery is not configured (${provider.keyVar} / NUPHOS_EMAIL_FROM)`)
+    throw new Error('Email delivery is not configured (RESEND_API_KEY / NUPHOS_EMAIL_FROM)')
   }
 
-  const res = await fetch(provider.url, {
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -61,6 +46,6 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
     const body = await res.text().catch(() => '')
     const detail = body ? ` — ${body.slice(0, 200)}` : ''
 
-    throw new Error(`${provider.name} send failed: HTTP ${String(res.status)}${detail}`)
+    throw new Error(`Resend send failed: HTTP ${String(res.status)}${detail}`)
   }
 }

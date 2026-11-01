@@ -1,7 +1,7 @@
 // Step definitions and per-team localStorage persistence for the sidebar
 // onboarding checklist (SidebarOnboardingChecklist.tsx renders them).
 
-import { t } from '../../i18n'
+import { t } from '../../i18n/index.ts'
 
 // Historically this key stored a permanent dismissal; it now means "collapsed",
 // so previously-dismissed teams show the compact row instead of nothing.

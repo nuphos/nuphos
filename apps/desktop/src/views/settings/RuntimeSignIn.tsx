@@ -1,4 +1,5 @@
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import type { RuntimeInstance } from '../../types/runtime'
 
@@ -22,19 +23,19 @@ export function RuntimeSignIn({
 }) {
   // OpenCode signs in to one model provider at a time and keeps them all.
   if (authenticated && !(instance.provider === 'opencode' && onSignIn)) {
-    return <p className="px-4 py-4 text-xs text-tertiary">Signed in on the runtime.</p>
+    return <p className="px-4 py-4 text-xs text-tertiary">{t('Signed in on the runtime.')}</p>
   }
   const hostSignIn = instance.kind === 'external' ? HOST_SIGN_IN[instance.provider] : undefined
   const signedOut = authenticated === false
   const note = authenticated
-    ? 'Signed in on the runtime. Sign in to another model provider to use its models too.'
+    ? t('Signed in on the runtime. Sign in to another model provider to use its models too.')
     : hostSignIn
       ? signedOut
-        ? 'Not signed in. Sign in here, or on the runtime’s host:'
-        : 'Sign-in status is unknown. Try signing in here, or on the runtime’s host:'
+        ? t('Not signed in. Sign in here, or on the runtime’s host:')
+        : t('Sign-in status is unknown. Try signing in here, or on the runtime’s host:')
       : signedOut
-        ? 'Not signed in.'
-        : 'This runtime does not report its sign-in yet.'
+        ? t('Not signed in.')
+        : t('This runtime does not report its sign-in yet.')
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
@@ -46,7 +47,7 @@ export function RuntimeSignIn({
       </div>
       {onSignIn && (
         <Button size="sm" className="shrink-0" type="button" onClick={onSignIn}>
-          {authenticated ? 'Add a provider' : 'Sign in'}
+          {authenticated ? t('Add a provider') : t('Sign in')}
         </Button>
       )}
     </div>

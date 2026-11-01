@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from 'react'
 import { api } from '../../api'
 import { useDialogPresence } from '../../hooks/useDialogPresence'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
+import { t } from '../../i18n'
 import { useDebouncedValue } from '../agent/panel/historyPageHooks'
 import { InputGroup, InputGroupInput } from '../ui/input-group'
 import { Kbd } from '../ui/kbd'
@@ -78,7 +79,7 @@ export function SessionSearchDialog({
               }
             }}
           >
-            <Dialog.Title className="sr-only">Search agents and people</Dialog.Title>
+            <Dialog.Title className="sr-only">{t('Search agents and people')}</Dialog.Title>
             <div className="flex h-14 shrink-0 items-center gap-2 border-b border-main px-4">
               <InputGroup className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-2">
                 <Search size={18} className="shrink-0 text-secondary" />
@@ -90,15 +91,15 @@ export function SessionSearchDialog({
                   role="combobox"
                   aria-expanded
                   aria-autocomplete="list"
-                  aria-label={mode === 'people' ? 'Search people' : 'Search agents'}
+                  aria-label={mode === 'people' ? t('Search people') : t('Search agents')}
                   placeholder={
-                    mode === 'people' ? 'Search people…' : 'Search agents, people or pages…'
+                    mode === 'people' ? t('Search people…') : t('Search agents, people or pages…')
                   }
                   className="text-base text-main placeholder:text-secondary"
                 />
               </InputGroup>
               <Dialog.Close
-                aria-label="Close search"
+                aria-label={t('Close search')}
                 className="rounded focus-visible:outline focus-visible:outline-2"
               >
                 <Kbd combo="esc" />
@@ -125,14 +126,16 @@ export function SessionSearchDialog({
                     )}
                   >
                     <Icon size={15} />
-                    {value === 'people' ? 'People' : 'Agents'}
+                    {value === 'people' ? t('People') : t('Agents')}
                   </button>
                 )
               })}
               <span className="flex-1" />
               {owner && mode === 'sessions' ? (
                 <button
-                  aria-label={`Clear person filter: ${owner.name || owner.email}`}
+                  aria-label={t('Clear person filter: {name}', {
+                    name: owner.name || owner.email,
+                  })}
                   onClick={() => {
                     setOwner(null)
                     inputRef.current?.focus()
@@ -164,14 +167,14 @@ export function SessionSearchDialog({
               onCommand={onCommand}
             />
             <div className="flex h-8 shrink-0 items-center gap-2 border-t border-main px-4 text-[11px] text-secondary">
-              <span>Navigate</span>
+              <span>{t('Navigate')}</span>
               <Kbd combo="up" />
               <Kbd combo="down" />
-              <span className="ml-2">Select</span>
+              <span className="ml-2">{t('Select')}</span>
               <Kbd combo="enter" />
               <span className="flex-1" />
               <span className="hidden sm:inline">
-                {mode === 'people' ? 'Back to agents' : 'Open beside'}
+                {mode === 'people' ? t('Back to agents') : t('Open beside')}
               </span>
               <Kbd combo={mode === 'people' ? 'esc' : 'mod+enter'} />
             </div>

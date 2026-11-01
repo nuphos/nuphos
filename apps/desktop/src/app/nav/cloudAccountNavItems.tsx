@@ -24,86 +24,88 @@ import {
   Workflow,
 } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { NavItemMeta } from './types'
 
 export function awsAccountNavItems(): NavItemMeta[] {
   return [
     {
       key: 'aws.vpcs',
-      label: 'VPCs',
-      group: 'Network',
+      label: t('VPCs'),
+      group: t('Network'),
       icon: <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.nacls',
-      label: 'Network ACLs',
-      group: 'Network',
+      label: t('Network ACLs'),
+      group: t('Network'),
       icon: <ShieldCheck className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.clusters',
-      label: 'EKS Clusters',
-      group: 'Compute',
+      label: t('EKS Clusters'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.ecs',
-      label: 'ECS Clusters',
-      group: 'Compute',
+      label: t('ECS Clusters'),
+      group: t('Compute'),
       icon: <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.ec2',
-      label: 'EC2 Instances',
-      group: 'Compute',
+      label: t('EC2 Instances'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.lightsail',
       label: 'Lightsail',
-      group: 'Compute',
+      group: t('Compute'),
       icon: <Lightbulb className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.lambda',
       label: 'Lambda',
-      group: 'Compute',
+      group: t('Compute'),
       icon: <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.cloudformation',
       label: 'CloudFormation',
-      group: 'Deploy',
+      group: t('Deploy'),
       icon: <Layers className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.s3',
-      label: 'S3 Buckets',
-      group: 'Storage',
+      label: t('S3 Buckets'),
+      group: t('Storage'),
       icon: <Database className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'aws.cloudwatch',
-      label: 'Logs',
+      label: t('Logs'),
       group: 'CloudWatch',
       icon: <FontAwesomeIcon icon={faAlignLeft} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.cloudwatch-alarms',
-      label: 'Alarms',
+      label: t('Alarms'),
       group: 'CloudWatch',
       icon: <FontAwesomeIcon icon={faBell} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.cloudwatch-metrics',
-      label: 'Metrics',
+      label: t('Metrics'),
       group: 'CloudWatch',
       icon: <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.roles',
-      label: 'Roles',
-      group: 'Identity',
+      label: t('Roles'),
+      group: t('Identity'),
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]
@@ -113,50 +115,50 @@ export function gcpProjectNavItems(): NavItemMeta[] {
   return [
     {
       key: 'gcp.vpcs',
-      label: 'VPC Networks',
-      group: 'Network',
+      label: t('VPC Networks'),
+      group: t('Network'),
       icon: <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'gcp.firewalls',
-      label: 'Firewalls',
-      group: 'Network',
+      label: t('Firewalls'),
+      group: t('Network'),
       icon: <Flame className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'gcp.clusters',
-      label: 'GKE Clusters',
-      group: 'Compute',
+      label: t('GKE Clusters'),
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'gcp.gce',
       label: 'Compute Engine',
-      group: 'Compute',
+      group: t('Compute'),
       icon: <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'gcp.cloudrun',
       label: 'Cloud Run',
-      group: 'Serverless',
+      group: t('Serverless'),
       icon: <Workflow className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'gcp.metrics',
-      label: 'Metrics',
-      group: 'Observability',
+      label: t('Metrics'),
+      group: t('Observability'),
       icon: <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'gcp.dashboards',
-      label: 'Dashboards',
-      group: 'Observability',
+      label: t('Dashboards'),
+      group: t('Observability'),
       icon: <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'gcp.service-accounts',
-      label: 'Service Accounts',
-      group: 'Identity',
+      label: t('Service Accounts'),
+      group: t('Identity'),
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]
@@ -166,8 +168,8 @@ export function azureSubscriptionNavItems(): NavItemMeta[] {
   return [
     {
       key: 'azure.apps',
-      label: 'Apps',
-      group: 'Identity',
+      label: t('Apps'),
+      group: t('Identity'),
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]
@@ -177,44 +179,44 @@ export function cloudflareAccountNavItems(): NavItemMeta[] {
   return [
     {
       key: 'cloudflare.zones',
-      label: 'Domains',
-      group: 'DNS',
+      label: t('Domains'),
+      group: t('DNS'),
       icon: <Globe className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
     {
       key: 'cloudflare.workers',
       label: 'Workers',
-      group: 'Compute & Storage',
+      group: t('Compute & Storage'),
       icon: <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.r2',
       label: 'R2',
-      group: 'Compute & Storage',
+      group: t('Compute & Storage'),
       icon: <FontAwesomeIcon icon={faHardDrive} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.pages',
       label: 'Pages',
-      group: 'Compute & Storage',
+      group: t('Compute & Storage'),
       icon: <FontAwesomeIcon icon={faLayerGroup} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.d1',
       label: 'D1',
-      group: 'Data',
+      group: t('Data'),
       icon: <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.kv',
       label: 'KV',
-      group: 'Data',
+      group: t('Data'),
       icon: <FontAwesomeIcon icon={faKey} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.iam',
-      label: 'IAM Settings',
-      group: 'Identity',
+      label: t('IAM Settings'),
+      group: t('Identity'),
       icon: <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]
@@ -224,8 +226,8 @@ export function cloudflareZoneNavItems(): NavItemMeta[] {
   return [
     {
       key: 'cloudflare.dns',
-      label: 'DNS Records',
-      group: 'DNS',
+      label: t('DNS Records'),
+      group: t('DNS'),
       icon: <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     },
   ]

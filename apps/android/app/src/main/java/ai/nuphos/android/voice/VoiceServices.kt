@@ -10,29 +10,31 @@ import java.io.File
 const val DEFAULT_WHISPER_PROMPT = "Nuphos, Zeabur, Claude Code, Codex, Kubernetes, kubectl, Helm, EKS, GKE, AWS, GCP, Cloudflare, Grafana, Linear, GitHub, PR, CI."
 
 interface VoiceSettings {
-    fun key(): String?
-    fun saveKey(value: String)
-    fun removeKey()
     var prompt: String
 }
 
-/** Fail closed: BYOK keys never fall back to ordinary preferences. */
+/** Provider keys are retired without reading or copying their value. Prompt storage stays separate. */
 class DeviceVoiceSettings(context: Context) : VoiceSettings {
     private val app = context.applicationContext
-    private val prefs by lazy {
-        EncryptedSharedPreferences.create(app, "nuphos.voice",
-            MasterKey.Builder(app).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+    init {
+        // Opening an existing encrypted store only to remove the named entry never reads the key.
+        // If the old keystore is unavailable, leave its encrypted blob dormant; it is never used.
+        if (File(app.applicationInfo.dataDir, "shared_prefs/nuphos.voice.xml").exists()) runCatching {
+            val old = EncryptedSharedPreferences.create(app, "nuphos.voice",
+                MasterKey.Builder(app).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            check(old.edit().remove("openai-key").commit())
+        }
     }
-    override fun key(): String? = prefs.getString("openai-key", null)
-    override fun saveKey(value: String) { check(prefs.edit().putString("openai-key", value).commit()) { "Could not securely save the API key." } }
-    override fun removeKey() { check(prefs.edit().remove("openai-key").commit()) { "Could not remove the API key." } }
     private val promptPrefs by lazy { app.getSharedPreferences("nuphos.voice-prompt", Context.MODE_PRIVATE) }
     override var prompt: String
         get() = promptPrefs.getString("prompt", DEFAULT_WHISPER_PROMPT) ?: DEFAULT_WHISPER_PROMPT
         set(value) { check(promptPrefs.edit().putString("prompt", value).commit()) { "Could not save the prompt." } }
 }
+
+/** Captures a single account/workspace permission context; never prints its bearer. */
+class VoiceAccess(val token: String, val teamId: String, val current: () -> Boolean, val unauthorized: () -> Unit = {})
 
 interface VoiceTake {
     fun start()
@@ -53,7 +55,7 @@ class VoiceServices(
 val LocalVoiceServices = staticCompositionLocalOf<VoiceServices?> { null }
 
 fun deviceVoiceServices(context: Context): VoiceServices = VoiceServices(
-    DeviceVoiceSettings(context), OpenAIWhisperTransport(), { MicrophoneTake(context.applicationContext) },
+    DeviceVoiceSettings(context), NuphosWhisperTransport(), { MicrophoneTake(context.applicationContext) },
     microphonePermissionGranted = {
         androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
     },

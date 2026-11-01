@@ -5,6 +5,12 @@ import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 type Person = { id: string; name: string; avatarURL: string }
 type Runtime = { label: string; provider?: OpenAbProvider }
 
+const FALLBACK_CAUSE = {
+  quota: (from: string) => `${from} was low on usage`,
+  offline: (from: string) => `${from} was unreachable`,
+  failure: (from: string) => `${from} failed a turn`,
+}
+
 export function timelineEventUserIds(events: readonly ConversationTimelineEvent[] = []): string[] {
   return events.flatMap((event) =>
     'targetId' in event ? [event.actorId, event.targetId] : [event.actorId],
@@ -35,11 +41,23 @@ export function serializeTimelineEvents(
         ? { label: event.fromLabel, provider: event.fromProvider }
         : undefined
       const to: Runtime = { label: event.toLabel, provider: event.toProvider }
-      const text = from
-        ? `${actor.name} moved this session from ${from.label} to ${to.label}`
-        : `${actor.name} moved this session to ${to.label}`
+      const reason = event.reason
+      const text =
+        reason && from
+          ? `${FALLBACK_CAUSE[reason](from.label)}, so this session moved to ${to.label}`
+          : from
+            ? `${actor.name} moved this session from ${from.label} to ${to.label}`
+            : `${actor.name} moved this session to ${to.label}`
 
-      return { kind: event.kind, at, text, actor, from, to }
+      return { kind: event.kind, at, text, actor, from, to, ...(reason ? { reason } : {}) }
+    }
+    if (event.kind === 'runtime_fallback_stopped') {
+      const passed = event.skipped.map((entry) => `${entry.label} (${entry.reason})`).join(', ')
+      const text = passed
+        ? `No agent in the fallback list could take this session: ${passed}`
+        : 'No other agent in the fallback list could take this session'
+
+      return { kind: event.kind, at, text, actor, skipped: event.skipped }
     }
     const target = person(event.targetId)
     let text: string

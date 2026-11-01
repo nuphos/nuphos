@@ -4,6 +4,7 @@ import { AlertTriangle, Eye, EyeOff, Loader2, Webhook } from 'lucide-react'
 import { Age } from '../../components/Age'
 import { CloudLogo } from '../../components/CloudLogo'
 import { VisibleErrorReporter } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 
 import { CopyableRow } from './parts'
 import { PROVIDER_LABELS, PROVIDERS_WITH_LOGOS } from './providerLabels'
@@ -40,10 +41,10 @@ export function GroupProviderSetup({
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-secondary">
-          Provider setup
+          {t('Provider setup')}
         </h3>
         <span className="text-[10.5px] text-tertiary">
-          One shared ingress per provider integration
+          {t('One shared ingress per provider integration')}
         </span>
       </div>
 
@@ -61,6 +62,10 @@ export function GroupProviderSetup({
               ? `${stripTrailingSlashes(atlasApiUrl)}/webhooks/${trigger.id}`
               : null
           const secretKey = `secret-${partition.triggerId}`
+          const [verifiedBefore, verifiedAfter] = t('Verified {age}').split('{age}')
+          const [secretBefore, secretAfter] = t(
+            "Send this provider's secret in the {header} header.",
+          ).split('{header}')
 
           return (
             <section
@@ -91,12 +96,18 @@ export function GroupProviderSetup({
                             : 'border-zViolet-500/35 text-zViolet-accent',
                       )}
                     >
-                      {loadedDetails?.error ? 'Unavailable' : ready ? 'Connected' : 'Provisioning'}
+                      {loadedDetails?.error
+                        ? t('Unavailable')
+                        : ready
+                          ? t('Connected')
+                          : t('Provisioning')}
                     </span>
                   </div>
                   <div className="mt-0.5 truncate text-[10.5px] text-tertiary">
-                    {partition.integrationId} · {partition.memberKeys.length} selected item
-                    {partition.memberKeys.length === 1 ? '' : 's'}
+                    {partition.integrationId} ·{' '}
+                    {partition.memberKeys.length === 1
+                      ? t('{n} selected item', { n: partition.memberKeys.length })
+                      : t('{n} selected items', { n: partition.memberKeys.length })}
                   </div>
                 </div>
                 {plan?.recordedAt && (
@@ -104,7 +115,9 @@ export function GroupProviderSetup({
                     className="flex-shrink-0 text-[10.5px] text-tertiary"
                     title={plan.recordedAt}
                   >
-                    Verified <Age value={plan.recordedAt} />
+                    {verifiedBefore}
+                    <Age value={plan.recordedAt} />
+                    {verifiedAfter}
                   </span>
                 )}
               </div>
@@ -112,7 +125,7 @@ export function GroupProviderSetup({
               {loading && !loadedDetails ? (
                 <div className="flex items-center gap-2 px-3 py-4 text-[11.5px] text-tertiary">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Loading provider setup…
+                  {t('Loading provider setup…')}
                 </div>
               ) : loadedDetails?.error ? (
                 <div className="px-3 py-3 text-[11.5px] text-error">
@@ -120,17 +133,17 @@ export function GroupProviderSetup({
                     message={loadedDetails.error}
                     surface="trigger_ingress_load_error"
                   />
-                  Could not load this ingress: {loadedDetails.error}
+                  {t('Could not load this ingress: {error}', { error: loadedDetails.error })}
                 </div>
               ) : (
                 <>
                   <div className="space-y-2.5 border-b border-zGray-800 px-3 py-3">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">
-                      Webhook ingress
+                      {t('Webhook ingress')}
                     </div>
                     {webhookUrl && (
                       <CopyableRow
-                        label="Webhook URL"
+                        label={t('Webhook URL')}
                         value={webhookUrl}
                         copied={copied === `url-${partition.triggerId}`}
                         onCopy={() => void copy(`url-${partition.triggerId}`, webhookUrl)}
@@ -138,7 +151,7 @@ export function GroupProviderSetup({
                     )}
                     {canManage && trigger?.webhookSecret && (
                       <CopyableRow
-                        label="Webhook secret"
+                        label={t('Webhook secret')}
                         value={trigger.webhookSecret}
                         hidden={!revealSecrets[secretKey]}
                         copied={copied === secretKey}
@@ -152,7 +165,9 @@ export function GroupProviderSetup({
                                 [secretKey]: !current[secretKey],
                               }))
                             }
-                            aria-label={revealSecrets[secretKey] ? 'Hide secret' : 'Reveal secret'}
+                            aria-label={
+                              revealSecrets[secretKey] ? t('Hide secret') : t('Reveal secret')
+                            }
                             className="flex h-6 w-6 items-center justify-center rounded text-tertiary hover:text-main"
                           >
                             {revealSecrets[secretKey] ? (
@@ -165,8 +180,9 @@ export function GroupProviderSetup({
                       />
                     )}
                     <p className="text-[11.5px] leading-snug text-tertiary">
-                      Send this provider's secret in the{' '}
-                      <code className="text-[11px]">X-Webhook-Secret</code> header.
+                      {secretBefore}
+                      <code className="text-[11px]">X-Webhook-Secret</code>
+                      {secretAfter}
                     </p>
                   </div>
                   {plan ? (
@@ -181,9 +197,9 @@ export function GroupProviderSetup({
                     <div className="flex items-start gap-2 px-3 py-3 text-[11.5px] leading-snug text-warning">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                       <span>
-                        Setup is incomplete. Provider resources were not recorded, so this ingress
-                        is not published yet. Resume the Agent setup and finalize its provider
-                        receipt before testing or publishing the group.
+                        {t(
+                          'Setup is incomplete. Provider resources were not recorded, so this ingress is not published yet. Resume the Agent setup and finalize its provider receipt before testing or publishing the group.',
+                        )}
                       </span>
                     </div>
                   )}

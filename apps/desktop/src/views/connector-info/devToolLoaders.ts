@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 import { POSTHOG_REGION_LABELS } from '../../types/posthog'
 
 import type { ConnectorInfoLoaders } from './types'
@@ -14,15 +15,15 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Workspace', value: item.workspaceName || '—' },
+        { label: t('Label'), value: item.label },
+        { label: t('Workspace'), value: item.workspaceName || '—' },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://www.notion.so',
-      externalLabel: 'Open Notion',
+      externalLabel: t('Open {name}', { name: 'Notion' }),
     }
   },
   upstash: async (teamId, connectorId) => {
@@ -33,15 +34,15 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Account email', value: item.email },
+        { label: t('Label'), value: item.label },
+        { label: t('Account email'), value: item.email },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://console.upstash.com',
-      externalLabel: 'Open Upstash Console',
+      externalLabel: t('Open {name}', { name: 'Upstash Console' }),
     }
   },
   resend: async (teamId, connectorId) => {
@@ -54,19 +55,19 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
+        { label: t('Label'), value: item.label },
         {
-          label: 'Permission',
-          value: item.permission === 'sending_access' ? 'Sending access' : 'Full access',
+          label: t('Permission'),
+          value: item.permission === 'sending_access' ? t('Sending access') : t('Full access'),
         },
-        { label: 'Domains', value: item.domains?.length ? item.domains.join(', ') : '—' },
+        { label: t('Domains'), value: item.domains?.length ? item.domains.join(', ') : '—' },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://resend.com',
-      externalLabel: 'Open Resend',
+      externalLabel: t('Open {name}', { name: 'Resend' }),
     }
   },
   linear: async (teamId, connectorId) => {
@@ -77,21 +78,21 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label || item.workspaceName,
       fields: [
-        { label: 'Workspace', value: item.workspaceName },
+        { label: t('Workspace'), value: item.workspaceName },
         {
           label: 'URL',
           value: item.organizationUrlKey ? `linear.app/${item.organizationUrlKey}` : '—',
           mono: !!item.organizationUrlKey,
         },
-        { label: 'Account', value: item.accountName || '—' },
-        { label: 'OAuth scope', value: item.scope, mono: true },
+        { label: t('Account'), value: item.accountName || '—' },
+        { label: t('OAuth scope'), value: item.scope, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: item.organizationUrlKey ? `https://linear.app/${item.organizationUrlKey}` : null,
-      externalLabel: 'Open Linear',
+      externalLabel: t('Open {name}', { name: 'Linear' }),
     }
   },
   jira: async (teamId, connectorId) => {
@@ -102,22 +103,22 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label || item.siteName,
       fields: [
-        { label: 'Site', value: item.siteName },
+        { label: t('Site'), value: item.siteName },
         {
           label: 'URL',
           value: item.siteUrl ? item.siteUrl.replace(/^https?:\/\//, '') : '—',
           mono: !!item.siteUrl,
         },
-        { label: 'Account', value: item.accountName || '—' },
-        { label: 'Cloud ID', value: item.cloudId, mono: true },
-        { label: 'OAuth scope', value: item.scope, mono: true },
+        { label: t('Account'), value: item.accountName || '—' },
+        { label: t('Cloud ID'), value: item.cloudId, mono: true },
+        { label: t('OAuth scope'), value: item.scope, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: item.siteUrl || null,
-      externalLabel: 'Open Jira',
+      externalLabel: t('Open {name}', { name: 'Jira' }),
     }
   },
   asana: async (teamId, connectorId) => {
@@ -128,17 +129,17 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label || item.accountName || item.accountGid,
       fields: [
-        { label: 'Account', value: item.accountName || '—' },
-        { label: 'Email', value: item.accountEmail || '—' },
-        { label: 'Account GID', value: item.accountGid, mono: true },
-        { label: 'OAuth scope', value: item.scope, mono: true },
+        { label: t('Account'), value: item.accountName || '—' },
+        { label: t('Email'), value: item.accountEmail || '—' },
+        { label: t('Account GID'), value: item.accountGid, mono: true },
+        { label: t('OAuth scope'), value: item.scope, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://app.asana.com',
-      externalLabel: 'Open Asana',
+      externalLabel: t('Open {name}', { name: 'Asana' }),
     }
   },
   sentry: async (teamId, connectorId) => {
@@ -149,17 +150,17 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label || item.userName || item.userId,
       fields: [
-        { label: 'Account', value: item.userName || '—' },
-        { label: 'Email', value: item.userEmail || '—' },
-        { label: 'User ID', value: item.userId, mono: true },
-        { label: 'OAuth scope', value: item.scope, mono: true },
+        { label: t('Account'), value: item.userName || '—' },
+        { label: t('Email'), value: item.userEmail || '—' },
+        { label: t('User ID'), value: item.userId, mono: true },
+        { label: t('OAuth scope'), value: item.scope, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://sentry.io',
-      externalLabel: 'Open Sentry',
+      externalLabel: t('Open {name}', { name: 'Sentry' }),
     }
   },
   posthog: async (teamId, connectorId) => {
@@ -172,17 +173,17 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Region', value: POSTHOG_REGION_LABELS[item.region] },
-        { label: 'API host', value: item.apiBaseUrl, mono: true },
-        { label: 'Account email', value: item.userEmail || '—' },
+        { label: t('Label'), value: item.label },
+        { label: t('Region'), value: POSTHOG_REGION_LABELS[item.region] },
+        { label: t('API host'), value: item.apiBaseUrl, mono: true },
+        { label: t('Account email'), value: item.userEmail || '—' },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: item.apiBaseUrl,
-      externalLabel: 'Open PostHog',
+      externalLabel: t('Open {name}', { name: 'PostHog' }),
     }
   },
   plaud: async (teamId, connectorId) => {
@@ -193,15 +194,15 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Account', value: item.userEmail || item.userName || '—' },
+        { label: t('Label'), value: item.label },
+        { label: t('Account'), value: item.userEmail || item.userName || '—' },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://web.plaud.ai',
-      externalLabel: 'Open Plaud',
+      externalLabel: t('Open {name}', { name: 'Plaud' }),
     }
   },
   vanta: async (teamId, connectorId) => {
@@ -214,16 +215,16 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.orgDisplayName || item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Organization', value: item.orgDisplayName || '—' },
-        { label: 'Auth', value: 'Client credentials' },
+        { label: t('Label'), value: item.label },
+        { label: t('Organization'), value: item.orgDisplayName || '—' },
+        { label: t('Auth'), value: t('Client credentials') },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://app.vanta.com',
-      externalLabel: 'Open Vanta',
+      externalLabel: t('Open {name}', { name: 'Vanta' }),
     }
   },
   secureframe: async (teamId, connectorId) => {
@@ -236,16 +237,16 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Region', value: item.region.toUpperCase() },
-        { label: 'Auth', value: 'API key' },
+        { label: t('Label'), value: item.label },
+        { label: t('Region'), value: item.region.toUpperCase() },
+        { label: t('Auth'), value: t('API key') },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://app.secureframe.com',
-      externalLabel: 'Open Secureframe',
+      externalLabel: t('Open {name}', { name: 'Secureframe' }),
     }
   },
   sonarqube: async (teamId, connectorId) => {
@@ -258,17 +259,17 @@ export const devToolLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
+        { label: t('Label'), value: item.label },
         { label: 'URL', value: item.baseUrl.replace(/^https?:\/\//, ''), mono: true },
-        { label: 'Version', value: item.version || '—' },
-        { label: 'Auth', value: 'Encrypted user token' },
+        { label: t('Version'), value: item.version || '—' },
+        { label: t('Auth'), value: t('Encrypted user token') },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: item.baseUrl,
-      externalLabel: 'Open SonarQube',
+      externalLabel: t('Open {name}', { name: 'SonarQube' }),
     }
   },
 }

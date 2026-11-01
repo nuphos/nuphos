@@ -2,6 +2,7 @@ import { Cloud, Container, KeyRound, Layers, Lightbulb, Server, ShieldCheck } fr
 
 import { api } from '../../api'
 import { awsResourceListCacheKey } from '../../app/accountScopes'
+import { t } from '../../i18n'
 import { withResourceListCache } from '../../lib/resourceListCache'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import {
@@ -38,7 +39,7 @@ export function renderAwsComputePages(ctx: ScopeRenderContext): React.ReactNode 
     const apps = accounts?.azure.filter((a) => a.subscriptionId === scope.subscriptionId) ?? []
 
     return renderActiveNavPage(
-      'Apps',
+      t('Apps'),
       <KeyRound className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <AzureAppsView
         onOpenAgentChat={onOpenAgentChat}
@@ -55,7 +56,7 @@ export function renderAwsComputePages(ctx: ScopeRenderContext): React.ReactNode 
 
   if (active === 'aws.vpcs') {
     return renderActiveNavPage(
-      'VPCs',
+      t('VPCs'),
       <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <VpcsView
         loader={withResourceListCache(
@@ -76,7 +77,7 @@ export function renderAwsComputePages(ctx: ScopeRenderContext): React.ReactNode 
   }
   if (active === 'aws.nacls') {
     return renderActiveNavPage(
-      'Network ACLs',
+      t('Network ACLs'),
       <ShieldCheck className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <NaclsView
         loader={withResourceListCache(
@@ -98,7 +99,7 @@ export function renderAwsComputePages(ctx: ScopeRenderContext): React.ReactNode 
   }
   if (active === 'aws.ecs') {
     return renderActiveNavPage(
-      'ECS Clusters',
+      t('ECS Clusters'),
       <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <EcsClustersView
         loader={withResourceListCache(
@@ -120,7 +121,7 @@ export function renderAwsComputePages(ctx: ScopeRenderContext): React.ReactNode 
   }
   if (active === 'aws.ec2') {
     return renderActiveNavPage(
-      'EC2 Instances',
+      t('EC2 Instances'),
       <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <EC2InstancesView
         loader={withResourceListCache(

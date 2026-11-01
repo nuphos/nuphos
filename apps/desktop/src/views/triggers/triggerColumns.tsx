@@ -1,6 +1,7 @@
 import { Age } from '../../components/Age'
 import { MemberCell } from '../../components/MemberCell'
 import { Switch } from '../../components/ui/Switch'
+import { t } from '../../i18n'
 
 import { executionPrincipalLabel } from './shared'
 import { NameCell } from './triggerCells'
@@ -41,7 +42,7 @@ export function buildTriggerColumns({
   return [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       minWidth: 220,
       // Which trigger a row *is*. Scrolled sideways past Schedule and Runs as,
       // an unpinned name leaves a row you can act on but cannot identify.
@@ -53,14 +54,14 @@ export function buildTriggerColumns({
     },
     {
       key: 'type',
-      header: 'Type',
+      header: t('Type'),
       width: 110,
       sortAccessor: rowTypeLabel,
       render: (row) => <span className="text-secondary">{rowTypeLabel(row)}</span>,
     },
     {
       key: 'schedule',
-      header: 'Schedule',
+      header: t('Schedule'),
       width: 260,
       grow: 1,
       sortAccessor: rowScheduleText,
@@ -72,7 +73,7 @@ export function buildTriggerColumns({
     },
     {
       key: 'lastRun',
-      header: 'Last run',
+      header: t('Last run'),
       width: 110,
       // Sort by the raw timestamp, not the rendered "3d". Never-run rows sort
       // to one end together, which an empty string gives us for free.
@@ -85,7 +86,7 @@ export function buildTriggerColumns({
     },
     {
       key: 'principal',
-      header: 'Runs as',
+      header: t('Runs as'),
       width: 180,
       // Sorted by the same text the cell shows, so a removed member still sorts
       // under their own name rather than a raw id.
@@ -99,7 +100,7 @@ export function buildTriggerColumns({
     },
     {
       key: 'enabled',
-      header: 'Enabled',
+      header: t('Enabled'),
       width: 90,
       sortAccessor: rowActive,
       render: (row) => (
@@ -108,7 +109,11 @@ export function buildTriggerColumns({
           <Switch
             checked={rowActive(row)}
             disabled={!canManage || togglingKey === row.key || !isTogglable(row)}
-            label={`${rowActive(row) ? 'Disable' : 'Enable'} ${rowName(row)}`}
+            label={
+              rowActive(row)
+                ? t('Disable {name}', { name: rowName(row) })
+                : t('Enable {name}', { name: rowName(row) })
+            }
             onChange={(enabled) => onToggle(row, enabled)}
           />
         </span>

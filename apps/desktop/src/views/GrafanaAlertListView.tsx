@@ -5,6 +5,7 @@ import { Table } from '../components/Table'
 import { listAlertRules } from '../grafana/client'
 import { useSilentRefresh } from '../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -96,21 +97,21 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
   const columns: Column<AlertRuleSummary>[] = [
     {
       key: 'state',
-      header: 'State',
+      header: t('State'),
       width: 110,
       sortAccessor: (r) => stateRank(r.state),
       render: (r) => <StateBadge state={r.state} />,
     },
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 320,
       sortAccessor: (r) => r.name,
       render: (r) => <span className="text-main truncate">{r.name}</span>,
     },
     {
       key: 'instances',
-      header: 'Active',
+      header: t('Active'),
       width: 90,
       sortAccessor: (r) => firingInstanceCount(r),
       render: (r) => {
@@ -125,21 +126,21 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
     },
     {
       key: 'folder',
-      header: 'Folder',
+      header: t('Folder'),
       width: 220,
       sortAccessor: (r) => r.folderTitle,
       render: (r) => <span className="text-secondary truncate">{r.folderTitle || '—'}</span>,
     },
     {
       key: 'group',
-      header: 'Group',
+      header: t('Group'),
       width: 200,
       sortAccessor: (r) => r.groupName,
       render: (r) => <span className="text-tertiary truncate">{r.groupName}</span>,
     },
     {
       key: 'health',
-      header: 'Health',
+      header: t('Health'),
       width: 110,
       sortAccessor: (r) => r.health,
       render: (r) => (
@@ -171,7 +172,7 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
   if (!items) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading alerts…
+        {t('Loading alerts…')}
       </div>
     )
   }
@@ -189,13 +190,13 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
           {summary.firing > 0 && (
             <span className="inline-flex items-center gap-1.5 text-error">
               <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />
-              {summary.firing} firing
+              {t('{count} firing', { count: summary.firing })}
             </span>
           )}
           {summary.pending > 0 && (
             <span className="inline-flex items-center gap-1.5 text-zViolet-accent">
               <Clock className="w-3.5 h-3.5" strokeWidth={2} />
-              {summary.pending} pending
+              {t('{count} pending', { count: summary.pending })}
             </span>
           )}
         </div>
@@ -206,7 +207,7 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
         rowKey={(r) => r.uid}
         onRowContextMenu={onRowContextMenu}
         storageKey="observability.alerts"
-        empty={`No alerts match "${filter ?? ''}"`}
+        empty={t('No alerts match "{filter}"', { filter: filter ?? '' })}
       />
     </div>
   )
@@ -239,7 +240,7 @@ function StateBadge({ state }: { state: AlertState }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11.5px] ${cfg.className}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap px-1.5 py-0.5 rounded text-[11.5px] ${cfg.className}`}
     >
       <Icon className="w-3 h-3" strokeWidth={2} />
       {cfg.label}
@@ -255,32 +256,32 @@ function stateBadgeConfig(state: AlertState): {
   switch (state) {
     case 'firing':
       return {
-        label: 'Firing',
+        label: t('Firing'),
         icon: AlertTriangle,
         className: 'bg-error/15 text-error',
       }
     case 'pending':
       return {
-        label: 'Pending',
+        label: t('Pending'),
         icon: Clock,
         className: 'bg-zViolet-500/15 text-zViolet-accent',
       }
     case 'nodata':
       return {
-        label: 'No data',
+        label: t('No data'),
         icon: CircleSlash,
         className: 'bg-zGray-800/60 text-tertiary',
       }
     case 'error':
       return {
-        label: 'Error',
+        label: t('Error'),
         icon: AlertTriangle,
         className: 'bg-error/15 text-error',
       }
     case 'inactive':
     case 'normal':
       return {
-        label: 'Normal',
+        label: t('Normal'),
         icon: CircleCheck,
         className: 'bg-zGray-800/60 text-secondary',
       }

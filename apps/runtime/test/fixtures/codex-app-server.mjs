@@ -53,6 +53,10 @@ for await (const line of createInterface({ input: process.stdin })) {
           isDefault: false,
           supportedReasoningEfforts: [{ reasoningEffort: 'ultra', description: 'Ultra' }],
           defaultReasoningEffort: 'ultra',
+          serviceTiers: [
+            { id: 'priority', name: 'Fast', description: 'Faster' },
+            { id: 'ultrafast', name: 'Ultrafast', description: 'Fastest' },
+          ],
         },
       ],
       nextCursor: null,
@@ -110,6 +114,16 @@ for await (const line of createInterface({ input: process.stdin })) {
     held = true
     continue
   }
+  // App Server broadcasts thread-less warnings, such as a failed log write.
+  if (
+    msg.method === 'turn/start' &&
+    msg.params.input.some((item) => item.text === 'Fixture prompt')
+  )
+    for (const message of [
+      "Codex couldn't save diagnostic logs to its local database. Run `codex doctor` for diagnostics.",
+      'Fixture warning',
+    ])
+      send({ method: 'warning', params: { threadId: null, message } })
   if (msg.method === 'turn/start' || msg.method === 'turn/steer')
     setTimeout(() => {
       held = false

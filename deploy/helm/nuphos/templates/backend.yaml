@@ -75,13 +75,11 @@ spec:
               value: {{ include "nuphos.backendUrl" . }}
             - name: NUPHOS_PUBLIC_BACKEND_URL
               value: {{ include "nuphos.backendUrl" . }}
-            - name: NUPHOS_EMAIL_PROVIDER
-              value: {{ .Values.email.provider | lower }}
-            - name: {{ include "nuphos.emailKeyName" . }}
+            - name: RESEND_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ $secret }}
-                  key: {{ include "nuphos.emailKeyName" . }}
+                  key: RESEND_API_KEY
             - name: NUPHOS_EMAIL_FROM
               value: {{ required "email.from is required" .Values.email.from | quote }}
             - name: ATLAS_REDIS_ENABLED

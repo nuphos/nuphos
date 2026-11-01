@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { AwsLambdaFunction, AwsLambdaFunctionDetail } from '../../types'
 
@@ -35,12 +36,12 @@ export function LambdaConfigEditModal({
     const timeoutSec = Number(timeout_)
 
     if (!Number.isInteger(memoryMb) || memoryMb < 128 || memoryMb > 10240) {
-      toast.error('Invalid memory', 'Memory must be an integer between 128 and 10240 MB.')
+      toast.error(t('Invalid memory'), t('Memory must be an integer between 128 and 10240 MB.'))
 
       return
     }
     if (!Number.isInteger(timeoutSec) || timeoutSec < 1 || timeoutSec > 900) {
-      toast.error('Invalid timeout', 'Timeout must be an integer between 1 and 900 seconds.')
+      toast.error(t('Invalid timeout'), t('Timeout must be an integer between 1 and 900 seconds.'))
 
       return
     }
@@ -51,7 +52,10 @@ export function LambdaConfigEditModal({
 
       if (!key) continue
       if (environment[key] !== undefined) {
-        toast.error('Duplicate variable', `Environment variable ${key} appears more than once.`)
+        toast.error(
+          t('Duplicate variable'),
+          t('Environment variable {key} appears more than once.', { key }),
+        )
 
         return
       }
@@ -62,8 +66,8 @@ export function LambdaConfigEditModal({
       await updateConfig(fn, { memoryMb, timeoutSec, environment })
       onSaved()
     } catch (e) {
-      toast.apiError('Could not update function', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Could not update function'), e, {
+        fallback: t('Check your connection and try again.'),
       })
     } finally {
       setSaving(false)
@@ -71,11 +75,11 @@ export function LambdaConfigEditModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Edit configuration" description={fn.name} width={560}>
+    <Modal open onClose={onClose} title={t('Edit configuration')} description={fn.name} width={560}>
       <div className="px-5 py-4 space-y-3 text-[13px]">
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <div className="text-[12px] text-secondary mb-1">Memory (MB)</div>
+            <div className="text-[12px] text-secondary mb-1">{t('Memory (MB)')}</div>
             <input
               value={memory}
               onChange={(e) => setMemory(e.target.value)}
@@ -84,7 +88,7 @@ export function LambdaConfigEditModal({
             />
           </label>
           <label className="block">
-            <div className="text-[12px] text-secondary mb-1">Timeout (seconds)</div>
+            <div className="text-[12px] text-secondary mb-1">{t('Timeout (seconds)')}</div>
             <input
               value={timeout_}
               onChange={(e) => setTimeout_(e.target.value)}
@@ -95,19 +99,21 @@ export function LambdaConfigEditModal({
         </div>
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px] text-secondary">Environment variables</span>
+            <span className="text-[12px] text-secondary">{t('Environment variables')}</span>
             <button
               type="button"
               onClick={() => setEnvRows((rows) => [...rows, { key: '', value: '' }])}
               className="inline-flex items-center gap-1 text-[12px] text-zViolet-accent hover:underline"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
-              Add
+              {t('Add')}
             </button>
           </div>
           <div className="flex flex-col gap-1.5 max-h-64 overflow-auto scrollbar-thin">
             {envRows.length === 0 && (
-              <div className="text-[12px] text-tertiary italic">No environment variables.</div>
+              <div className="text-[12px] text-tertiary italic">
+                {t('No environment variables.')}
+              </div>
             )}
             {envRows.map((row, i) => (
               <div key={i} className="flex items-center gap-1.5">
@@ -129,7 +135,7 @@ export function LambdaConfigEditModal({
                       rows.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)),
                     )
                   }
-                  placeholder="value"
+                  placeholder={t('value')}
                   spellCheck={false}
                   className="flex-[2] px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
                 />
@@ -137,7 +143,7 @@ export function LambdaConfigEditModal({
                   type="button"
                   onClick={() => setEnvRows((rows) => rows.filter((_, j) => j !== i))}
                   className="text-tertiary hover:text-error shrink-0"
-                  title="Remove variable"
+                  title={t('Remove variable')}
                 >
                   <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
                 </button>
@@ -145,7 +151,7 @@ export function LambdaConfigEditModal({
             ))}
           </div>
           <div className="text-[11px] text-tertiary mt-1">
-            Saving replaces the function's entire environment with the variables above.
+            {t("Saving replaces the function's entire environment with the variables above.")}
           </div>
         </div>
       </div>
@@ -156,10 +162,10 @@ export function LambdaConfigEditModal({
           disabled={saving}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" type="button" onClick={() => void save()} disabled={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
+          {saving ? t('Saving…') : t('Save changes')}
         </Button>
       </div>
     </Modal>

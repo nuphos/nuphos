@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { DeviceActivityList } from './DeviceActivityList'
 import { Field, SectionHeader } from './shared'
@@ -32,7 +33,7 @@ export function LocalExecSection({
         setLabel(result.label)
       })
       .catch((err: unknown) => {
-        toast.apiError('Could not load this computer', err)
+        toast.apiError(t('Could not load this computer'), err)
       })
 
     return () => {
@@ -53,9 +54,9 @@ export function LocalExecSection({
 
       setIdentity(next)
       setLabel(next.label)
-      toast.success('Computer renamed')
+      toast.success(t('Computer renamed'))
     } catch (err) {
-      toast.apiError('Could not rename this computer', err)
+      toast.apiError(t('Could not rename this computer'), err)
     } finally {
       setSavingLabel(false)
     }
@@ -64,16 +65,18 @@ export function LocalExecSection({
   return (
     <div>
       <SectionHeader
-        title="Local exec"
-        description="Keep Nuphos open and signed in to use this computer for local exec. Your agents can use it once its connection is ready. Only your own agents can use it."
+        title={t('Local exec')}
+        description={t(
+          'Keep Nuphos open and signed in to use this computer for local exec. Your agents can use it once its connection is ready. Only your own agents can use it.',
+        )}
       />
 
       {identity && (
         <div className="space-y-5">
           <form onSubmit={(e) => void saveLabel(e)}>
             <Field
-              label="Computer name"
-              hint="Shown wherever this computer can be picked for local exec."
+              label={t('Computer name')}
+              hint={t('Shown wherever this computer can be picked for local exec.')}
             >
               <div className="flex items-center gap-2">
                 <input
@@ -89,7 +92,7 @@ export function LocalExecSection({
                   disabled={!canSaveLabel}
                   className="h-10 flex-shrink-0 px-4"
                 >
-                  {savingLabel ? 'Saving…' : 'Save'}
+                  {savingLabel ? t('Saving…') : t('Save')}
                 </Button>
               </div>
             </Field>

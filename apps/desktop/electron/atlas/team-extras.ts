@@ -28,6 +28,46 @@ export async function archDeleteDiagram(teamId: string, diagramId: string): Prom
   await call('DELETE', `/teams/${teamId}/architecture-diagrams/${diagramId}`)
 }
 
+// --- Designs ---
+
+export async function designsList(teamId: string): Promise<unknown> {
+  const data = await call<{ designs: unknown[] }>('GET', `/teams/${teamId}/designs`)
+
+  return data.designs ?? []
+}
+
+export async function designsStamp(teamId: string, designId: string): Promise<unknown> {
+  return call('GET', `/teams/${teamId}/designs/${designId}/stamp`)
+}
+
+export async function designsGet(teamId: string, designId: string): Promise<unknown> {
+  return call('GET', `/teams/${teamId}/designs/${designId}`)
+}
+
+export async function designsCreate(teamId: string, input: unknown): Promise<unknown> {
+  return call('POST', `/teams/${teamId}/designs`, input, { retry: false })
+}
+
+export async function designsReplace(
+  teamId: string,
+  designId: string,
+  patch: unknown,
+): Promise<unknown> {
+  return call('PUT', `/teams/${teamId}/designs/${designId}`, patch)
+}
+
+export async function designsApplyOps(
+  teamId: string,
+  designId: string,
+  ops: unknown,
+): Promise<unknown> {
+  return call('POST', `/teams/${teamId}/designs/${designId}/ops`, { ops }, { retry: false })
+}
+
+export async function designsDelete(teamId: string, designId: string): Promise<void> {
+  await call('DELETE', `/teams/${teamId}/designs/${designId}`)
+}
+
 // --- Dashboards (script-driven live panels) ---
 
 export async function dashboardsList(teamId: string): Promise<unknown> {

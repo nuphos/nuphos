@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { useLocalAgentUpdate } from '../../hooks/useAgentUpdates'
 import { useTextSwap } from '../../hooks/useTextSwap'
+import { t } from '../../i18n'
 import { isWindows } from '../../lib/platform'
 
 import { unbundledStatus } from './localAgentBundle'
@@ -27,9 +28,10 @@ const AGENT: Record<
     install: isWindows
       ? 'irm https://claude.ai/install.ps1 | iex'
       : 'curl -fsSL https://claude.ai/install.sh | bash',
-    app: 'The Claude desktop app works too, once its Code tab has been opened.',
-    connectors:
+    app: t('The Claude desktop app works too, once its Code tab has been opened.'),
+    connectors: t(
       'Your own Claude Code settings, CLAUDE.md, hooks, plugins, skills, MCP servers and claude.ai connectors are never loaded.',
+    ),
   },
   codex: {
     name: 'Codex',
@@ -37,8 +39,8 @@ const AGENT: Record<
     install: isWindows
       ? 'winget install --id 9PLM9XGG6VKS -s msstore'
       : 'npm install -g @openai/codex',
-    app: 'The ChatGPT desktop app works too: it comes with Codex.',
-    connectors: 'Your own Codex config, MCP servers and connectors are never loaded.',
+    app: t('The ChatGPT desktop app works too: it comes with Codex.'),
+    connectors: t('Your own Codex config, MCP servers and connectors are never loaded.'),
   },
 }
 
@@ -52,12 +54,17 @@ function InstallButton({ provider }: { provider: CliLoginProvider }) {
     try {
       const state = await api.localRuntimeInstallAgent(provider)
 
-      if (state.agents[provider].cli?.installed) toast.success(`${name} installed`)
+      if (state.agents[provider].cli?.installed) toast.success(t('{name} installed', { name }))
       else
-        toast.info(`${name} was installed but not found yet`, 'Restart Nuphos, then check again.')
+        toast.info(
+          t('{name} was installed but not found yet', { name }),
+          t('Restart Nuphos, then check again.'),
+        )
     } catch (err) {
-      toast.apiError(`Could not install ${name}`, err, {
-        fallback: `Run \`${install}\` in ${isWindows ? 'PowerShell' : 'a terminal'} to see why.`,
+      toast.apiError(t('Could not install {name}', { name }), err, {
+        fallback: isWindows
+          ? t('Run `{command}` in PowerShell to see why.', { command: install })
+          : t('Run `{command}` in a terminal to see why.', { command: install }),
       })
     } finally {
       setInstalling(false)
@@ -71,19 +78,19 @@ function InstallButton({ provider }: { provider: CliLoginProvider }) {
       ) : (
         <Download strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
       )}
-      {installing ? 'Installing…' : `Install ${name}`}
+      {installing ? t('Installing…') : t('Install {name}', { name })}
     </Button>
   )
 }
 
 function statusLine(agent: LocalAgentState): { label: string; tone: RuntimeStatusTone } {
   if (agent.cli?.installed && agent.cli.loggedIn !== true)
-    return { label: 'Sign in to connect this runtime', tone: 'off' }
-  if (agent.online) return { label: 'Ready for your agents', tone: 'online' }
-  if (agent.cli?.installed === false) return { label: 'Not installed', tone: 'off' }
+    return { label: t('Sign in to connect this runtime'), tone: 'off' }
+  if (agent.online) return { label: t('Ready for your agents'), tone: 'online' }
+  if (agent.cli?.installed === false) return { label: t('Not installed'), tone: 'off' }
   if (agent.error) return { label: agent.error, tone: 'error' }
 
-  return { label: 'Offline', tone: 'off' }
+  return { label: t('Offline'), tone: 'off' }
 }
 
 function Code({ children }: { children: string }) {
@@ -105,10 +112,10 @@ function UpdateButton({ provider }: { provider: CliLoginProvider }) {
       {updating ? (
         <>
           <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
-          Updating…
+          {t('Updating…')}
         </>
       ) : (
-        `Update to v${version ?? ''}`
+        t('Update to v{version}', { version: version ?? '' })
       )}
     </Button>
   )
@@ -117,27 +124,41 @@ function UpdateButton({ provider }: { provider: CliLoginProvider }) {
 function CliStatus({ provider, cli }: { provider: CliLoginProvider; cli: AgentCliStatus | null }) {
   const agent = AGENT[provider]
 
-  if (!cli) return <p className="text-[12px] text-tertiary">Checking {agent.name}…</p>
-  if (!cli.installed)
+  if (!cli)
+    return (
+      <p className="text-[12px] text-tertiary">{t('Checking {name}…', { name: agent.name })}</p>
+    )
+  if (!cli.installed) {
+    // One sentence around the command, so translators can move it.
+    const [before, after] = (
+      isWindows
+        ? t('Install it here, or from PowerShell with {command}, then check again.')
+        : t('Install it here, or from a terminal with {command}, then check again.')
+    ).split('{command}')
+
     return (
       <div className="space-y-1.5 text-[12px] text-tertiary">
-        <p className="font-medium text-warning">{agent.name} is not installed on this computer.</p>
+        <p className="font-medium text-warning">
+          {t('{name} is not installed on this computer.', { name: agent.name })}
+        </p>
         <p>
-          Install it here, or from {isWindows ? 'PowerShell' : 'a terminal'} with{' '}
-          <Code>{agent.install}</Code>, then check again. {agent.app}
+          {before}
+          <Code>{agent.install}</Code>
+          {after} {agent.app}
         </p>
         <InstallButton provider={provider} />
       </div>
     )
+  }
 
   return (
     <div className="space-y-2 text-[12px] text-tertiary">
       <p>
         {cli.loggedIn === true
-          ? `Signed in to ${agent.name}.`
+          ? t('Signed in to {name}.', { name: agent.name })
           : cli.loggedIn === null
-            ? `Could not read the ${agent.name} sign-in. Check again or sign in.`
-            : `Connect ${agent.name} to run your agents on this computer.`}
+            ? t('Could not read the {name} sign-in. Check again or sign in.', { name: agent.name })
+            : t('Connect {name} to run your agents on this computer.', { name: agent.name })}
         {cli.loggedIn && cli.account && <span> {cli.account}</span>}
         {cli.plan && <span> · {cli.plan}</span>}
         {cli.version && <span> · v{cli.version}</span>}
@@ -145,7 +166,11 @@ function CliStatus({ provider, cli }: { provider: CliLoginProvider; cli: AgentCl
       <div className="flex items-center gap-2">
         <LocalAgentSignIn
           provider={provider}
-          label={cli.loggedIn === true ? 'Sign in again' : `Sign in with ${agent.name}`}
+          label={
+            cli.loggedIn === true
+              ? t('Sign in again')
+              : t('Sign in with {name}', { name: agent.name })
+          }
         />
         <UpdateButton provider={provider} />
       </div>
@@ -175,9 +200,11 @@ export function LocalAgentCard({
         <div className="min-w-0">
           <div className="text-[13px] font-medium text-main">{name}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
-            Once {name} is installed and signed in, your own agents in any of your teams can run it
-            here while Nuphos is open — including shell commands with your user&apos;s access.
-            Nobody else can use it. {connectors}
+            {t(
+              "Once {name} is installed and signed in, your own agents in any of your teams can run it here while Nuphos is open — including shell commands with your user's access. Nobody else can use it.",
+              { name },
+            )}{' '}
+            {connectors}
           </div>
         </div>
       </div>
@@ -193,7 +220,7 @@ export function LocalAgentCard({
         </div>
         <Button variant="ghost" size="sm" onClick={onCheck}>
           <RotateCw strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
-          Check again
+          {t('Check again')}
         </Button>
       </div>
     </div>

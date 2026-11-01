@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { t } from '../i18n'
+
 /** Webviews report load lifecycle, not byte progress; stop short until completion. */
 export function BrowserLoadingProgress({ loading, failed }: { loading: boolean; failed: boolean }) {
   const [progress, setProgress] = useState(0)
@@ -37,7 +39,7 @@ export function BrowserLoadingProgress({ loading, failed }: { loading: boolean; 
   return (
     <div
       role={loading ? 'progressbar' : undefined}
-      aria-label={loading ? 'Loading page' : undefined}
+      aria-label={loading ? t('Loading page') : undefined}
       aria-hidden={!visible}
       className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden transition-opacity duration-150 motion-reduce:transition-none"
       style={{ opacity: visible ? 1 : 0 }}

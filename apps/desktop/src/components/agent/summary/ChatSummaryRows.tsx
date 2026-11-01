@@ -3,7 +3,6 @@ import { ArrowUpRight, ExternalLink, Link2, MoreVertical } from 'lucide-react'
 
 import { t } from '../../../i18n'
 import { copyLinkWithFeedback } from '../../../lib/copyLink'
-import { chatRowIndicator } from '../../../lib/runtimeExecution'
 import { ResourceMark } from '../../sidebar/ResourceMark'
 import { resourceStatus } from '../../sidebar/sessionResourcePresentation'
 import { resourceStyle } from '../../sidebar/sessionResourceStyle'
@@ -15,7 +14,7 @@ import { changeSubtitle, changeTitle } from './chatSummaryModel'
 
 import type { AgentConversation } from '../../../api/agent-types'
 import type { SessionResource } from '../../../api/session-resource-types'
-import type { RuntimeExecution } from '../../../lib/runtimeExecution'
+import type { SubAgentState } from '../../../lib/subAgentState'
 import type { ReactNode, Ref } from 'react'
 
 export const sectionClass = 'rounded-xl border border-zGray-800 px-3.5 py-3'
@@ -178,16 +177,23 @@ export function ChangeRow({
 /** A thread this chat started; running ones say so. */
 export function ThreadRow({
   conversation,
-  runtimeState,
+  state,
   onOpen,
 }: {
   conversation: AgentConversation
-  runtimeState: RuntimeExecution | undefined
+  state: SubAgentState
   onOpen: (sessionId: string) => void
 }) {
-  // The list that listed this thread published its state to the shared store.
-  const indicator = chatRowIndicator(runtimeState, false)
-  const running = indicator === 'turn' || indicator === 'background'
+  let note: ReactNode = t('Done')
+
+  if (state === 'waiting') note = <span className="text-warning">{t('Waiting for you')}</span>
+  else if (state === 'running')
+    note = (
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="size-1.5 rounded-full bg-success" />
+        {t('Running')}
+      </span>
+    )
 
   return (
     <SummaryRow
@@ -200,16 +206,7 @@ export function ThreadRow({
         />
       }
       label={conversation.title || conversation.firstMessage || t('Untitled agent')}
-      note={
-        running ? (
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden className="size-1.5 rounded-full bg-success" />
-            {t('Running')}
-          </span>
-        ) : (
-          t('Done')
-        )
-      }
+      note={note}
       onClick={() => onOpen(conversation.sessionId)}
     />
   )

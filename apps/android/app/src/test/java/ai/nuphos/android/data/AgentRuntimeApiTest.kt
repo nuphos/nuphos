@@ -103,8 +103,24 @@ class AgentRuntimeApiTest {
         response = login("invented"); try { api.login("saved-id"); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
         response = login().replace(attemptId, "bad"); try { api.login("saved-id"); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
     }
+    @Test fun allProvidersAndTypedStepsUseTheExistingActorBoundContract() = runTest {
+        status = 201; response = runtime
+        for (provider in listOf("grok", "antigravity", "opencode")) {
+            api.create(provider, null); assertEquals("{\"provider\":\"$provider\"}", payload())
+        }
+        status = 200
+        response = """{"attemptId":"$attemptId","state":"awaiting_authorization","expiresAt":"2030-01-01T00:00:00Z","step":{"kind":"choose","message":"Choose provider","options":[{"value":"option","label":"Synthetic option"}]}}"""
+        val choice = api.login("saved-id")
+        assertEquals("Synthetic option", choice.step!!.options.single().label)
+        assertTrue(validRuntimeAnswer(choice,"option")); assertFalse(validRuntimeAnswer(choice,"another"))
+        response = response.replace("awaiting_authorization","connected")
+        assertNull(api.login("saved-id").step)
+        response = login()
+        api.code("saved-id",attemptId,"typed input")
+        assertEquals("{\"attemptId\":\"$attemptId\",\"code\":\"typed input\"}",payload())
+    }
     @Test fun codeAndIdentityValidationMakeNoRequestAndBrowserIsHttpsOnly() = runTest {
-        for (code in listOf("code", "c#s#extra", "非ascii#state", "a".repeat(2049) + "#s")) {
+        for (code in listOf("", " ", "a\rvalue", "a\nvalue", "a\u0000value", "a".repeat(4097))) {
             try { api.code("saved-id", attemptId, code); fail() } catch (_: IllegalArgumentException) { }
         }
         try { api.start("../other"); fail() } catch (_: IllegalArgumentException) { }

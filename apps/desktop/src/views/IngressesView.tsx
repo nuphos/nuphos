@@ -5,6 +5,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
 import { useWorkspaceRowLink } from '../lib/workspaceRowLink'
@@ -92,28 +93,28 @@ export function IngressesView({
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 160,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 240,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'class',
-            header: 'Class',
+            header: t('Class'),
             width: 130,
             sortAccessor: (r) => r.class,
             render: (r) => <span className="text-secondary">{r.class || '-'}</span>,
           },
           {
             key: 'hosts',
-            header: 'Hosts',
+            header: t('Hosts'),
             width: 280,
             sortAccessor: (r) => r.hosts.join(','),
             render: (r) => (
@@ -124,7 +125,7 @@ export function IngressesView({
           },
           {
             key: 'addresses',
-            header: 'Address',
+            header: t('Address'),
             width: 200,
             sortAccessor: (r) => r.addresses.join(','),
             render: (r) => (
@@ -135,7 +136,7 @@ export function IngressesView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

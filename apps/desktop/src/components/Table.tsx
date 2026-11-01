@@ -1,6 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useCallback, useLayoutEffect, useMemo } from 'react'
 
+import { t } from '../i18n'
 import { FALLBACK_WIDTH } from '../lib/tableColumnWidths'
 import { stickyLayout } from '../lib/tableStickyLayout'
 
@@ -217,7 +218,7 @@ export function Table<T>({
           {!loading && sortedRows.length === 0 && (
             <tr>
               <td colSpan={placeholderColSpan} className="px-4 py-12 text-center text-tertiary">
-                {empty || 'No items'}
+                {empty || t('No items')}
               </td>
             </tr>
           )}

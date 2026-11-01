@@ -488,3 +488,40 @@ describe('approval lifecycle with one runtime card', () => {
     },
   )
 })
+
+describe('Full Access permission requests', () => {
+  test('a Nuphos question card is not shown again for its runtime call', async () => {
+    const h = harness()
+    const question = { category: 'approval', question: 'Send it?', options: ['Send', 'Wait'] }
+
+    h.update('native-question', {
+      title: 'mcp.nuphos-tools.request_user_decision',
+      status: 'in_progress',
+      rawInput: { server: 'nuphos-tools', tool: 'request_user_decision', arguments: question },
+    })
+    await handleOpenAbPermissionRequest(
+      {
+        userId: 'synthetic',
+        conversationId: 'synthetic',
+        request: {
+          sessionId: 'runtime',
+          toolCall: {
+            toolCallId: 'native-question',
+            title: 'OpenAB tool request',
+            rawInput: question,
+          },
+          options: [{ optionId: 'allow', name: 'Allow once', kind: 'allow_once' }],
+        },
+        emit: h.emit,
+        handleTool: (update) => handlePreviewToolUpdate(h.emit, h.log, update),
+      },
+      {
+        getSessionBypass: async () => true,
+        registerWait: () => Promise.reject(new Error('Full Access never waits')),
+        awaitDecision: () => Promise.reject(new Error('Full Access never waits')),
+      },
+    )
+
+    expect(h.frames.filter((f) => f.type === 'tool-input-available')).toEqual([])
+  })
+})

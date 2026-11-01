@@ -38,6 +38,7 @@ import type {
   VantaIntegrationBinding,
   ZeaburProviderBinding,
 } from '@/models/bindings-integrations'
+import type { EncryptedSecret } from '@/lib/byos/secrets/shared'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type TeamByosBindings = {
@@ -82,6 +83,16 @@ export type TeamByosBindings = {
   // Optional: existing team docs predate this field, so every reader uses
   // `doc.larkApps ?? []`.
   larkApps?: LarkAppBinding[]
+  /**
+   * The team's own Google OAuth client (Web application) for its members'
+   * Gmail and Google Drive Personal Credentials. Unset until an admin adds it.
+   */
+  googleOAuthClient?: {
+    clientId: string
+    encryptedClientSecret: EncryptedSecret
+    updatedAt: Date
+    updatedBy: string
+  }
   vantaIntegrations: VantaIntegrationBinding[]
   secureframeIntegrations: SecureframeIntegrationBinding[]
   // Optional because bindings created before the SonarQube connector are not
@@ -181,6 +192,17 @@ export type TeamHomeLayout = {
   updatedAt: Date
 }
 
+export const HOME_METRIC_KINDS = [
+  'agent-time',
+  'sessions',
+  'pull-requests',
+  'streak',
+  'longest-run',
+  'runtime-mix',
+] as const
+
+export type HomeMetricKind = (typeof HOME_METRIC_KINDS)[number]
+
 export type HomeLayout = {
   team: boolean
   github: {
@@ -190,7 +212,11 @@ export type HomeLayout = {
     statuses: string[]
   }[]
   panels: { dashboardId: string; panelId: string }[]
+  /** Metric cards, each with its own range and scope. Absent on layouts saved before them. */
+  metrics?: { id: string; kind: HomeMetricKind; range: '1d' | '7d' | '30d'; scope: 'me' | 'team' }[]
   grid?: { i: string; x: number; y: number; w: number; h: number }[]
+  /** Which sizing rules `grid` was saved under; absent before the first change to them. */
+  gridVersion?: number
 }
 
 export const teamByosBindings = (): Collection<TeamByosBindings> =>
@@ -204,6 +230,21 @@ export const userTeamSidebarFavorites = (): Collection<UserTeamSidebarFavorites>
 
 export const teamHomeLayouts = (): Collection<TeamHomeLayout> =>
   db().collection<TeamHomeLayout>('team_home_layouts')
+
+/**
+ * The agents a member's conversations move to, in order, when the one they run
+ * on is out of usage or broken. One document per member and team.
+ */
+export type UserTeamRuntimeFallback = {
+  _id: ObjectId
+  teamId: ObjectId
+  userId: string
+  runtimeIds: string[]
+  updatedAt: Date
+}
+
+export const userTeamRuntimeFallbacks = (): Collection<UserTeamRuntimeFallback> =>
+  db().collection<UserTeamRuntimeFallback>('user_team_runtime_fallbacks')
 
 /**
  * One-time backfill for the Aliyun AccessKey → RAM-role-OIDC migration. Legacy

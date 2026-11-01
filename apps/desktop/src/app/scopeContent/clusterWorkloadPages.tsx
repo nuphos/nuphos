@@ -1,5 +1,6 @@
 import { Bell, FolderTree, Package, Server } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { ClusterOverview } from '../../views/ClusterOverview'
 import { DaemonSetsView } from '../../views/DaemonSetsView'
 import { DeploymentsView } from '../../views/DeploymentsView'
@@ -30,14 +31,14 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
 
   if (active === 'cluster.overview') {
     return renderActiveNavPage(
-      'Overview',
+      t('Overview'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ClusterOverview refreshKey={refreshKey} onLoading={onLoading} onNavigate={onSelectActive} />,
     )
   }
   if (active === 'cluster.events') {
     return renderActiveNavPage(
-      'Events',
+      t('Events'),
       <Bell className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <EventsView
         namespace={namespace}
@@ -50,7 +51,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'cluster.nodes') {
     return renderActiveNavPage(
-      'Nodes',
+      t('Nodes'),
       <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <NodesView
         filter={filter}
@@ -63,7 +64,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'workloads.deployments') {
     return renderActiveNavPage(
-      'Deployments',
+      t('Deployments'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <DeploymentsView
         namespace={namespace}
@@ -85,7 +86,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'workloads.replicasets') {
     return renderActiveNavPage(
-      'ReplicaSets',
+      t('ReplicaSets'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ReplicaSetsView
         namespace={namespace}
@@ -99,7 +100,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'workloads.statefulsets') {
     return renderActiveNavPage(
-      'StatefulSets',
+      t('StatefulSets'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <StatefulSetsView
         namespace={namespace}
@@ -118,7 +119,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'workloads.daemonsets') {
     return renderActiveNavPage(
-      'DaemonSets',
+      t('DaemonSets'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <DaemonSetsView
         namespace={namespace}
@@ -134,7 +135,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'workloads.jobs') {
     return renderActiveNavPage(
-      'Jobs',
+      t('Jobs'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <JobsView
         namespace={namespace}
@@ -148,7 +149,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'workloads.cronjobs') {
     return renderActiveNavPage(
-      'CronJobs',
+      t('CronJobs'),
       <FolderTree className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CronJobsView
         namespace={namespace}
@@ -162,7 +163,7 @@ export function renderClusterWorkloadPages(ctx: ScopeRenderContext): React.React
   }
   if (active === 'helm.releases') {
     return renderActiveNavPage(
-      'Helm Releases',
+      t('Helm Releases'),
       <Package className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <HelmReleasesView
         namespace={namespace}

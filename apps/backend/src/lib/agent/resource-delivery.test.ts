@@ -17,6 +17,7 @@ let fail = false
 let lookups: string[] = []
 let permission: { status: number; permission?: string } = { status: 200, permission: 'write' }
 let repoLinked = true
+let stateUpdates: unknown[] = []
 
 type CommitPull = { number: number; state: string; head: { sha: string } }
 const openPull: CommitPull = { number: 56, state: 'open', head: { sha: 'a'.repeat(40) } }
@@ -42,6 +43,11 @@ useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) })
 useByosAccount({ findGithubInstallation: async () => ({ installationId: 12 }) })
 useAgentDb({
   agentConversations: () => ({
+    updateMany: (...args: unknown[]) => {
+      stateUpdates.push(args)
+
+      return Promise.resolve({ modifiedCount: 1 })
+    },
     findOne: async (filter: unknown) => {
       expect(filter).toEqual({
         'linkedResources.key': { $regex: '^github/12/34/' },
@@ -85,6 +91,7 @@ beforeEach(() => {
   permission = { status: 200, permission: 'write' }
   conversations = [conversation]
   repoLinked = true
+  stateUpdates = []
   commitPulls = { status: 200, pulls: [openPull] }
 })
 
@@ -105,6 +112,59 @@ test('queue failure is not acknowledged as delivery', async () => {
 test('missing delivery IDs cannot route a matching event', async () => {
   await expect(routeResourceWebhook('pull_request', payload, '')).rejects.toThrow('delivery ID')
   expect(queued).toHaveLength(0)
+})
+
+test('a merge records when it happened on every linked tag', async () => {
+  await routeResourceWebhook(
+    'pull_request',
+    {
+      ...payload,
+      action: 'closed',
+      pull_request: {
+        number: 56,
+        state: 'closed',
+        merged: true,
+        merged_at: '2026-10-29T03:12:00Z',
+      },
+    },
+    'delivery',
+  )
+  expect(stateUpdates[0]).toEqual([
+    { 'linkedResources.key': 'github/12/34/56' },
+    {
+      $set: {
+        'linkedResources.$[resource].state': 'merged',
+        'linkedResources.$[resource].draft': false,
+        'linkedResources.$[resource].health': null,
+        'linkedResources.$[resource].mergedAt': '2026-10-29T03:12:00Z',
+      },
+    },
+    { arrayFilters: [{ 'resource.key': 'github/12/34/56' }] },
+  ])
+})
+
+test('a PR turned into a draft and back marks every linked tag, keeping its health', async () => {
+  for (const [action, draft] of [
+    ['converted_to_draft', true],
+    ['ready_for_review', false],
+  ] as const) {
+    stateUpdates = []
+    await routeResourceWebhook(
+      'pull_request',
+      { ...payload, action, pull_request: { number: 56, state: 'open', draft } },
+      'delivery',
+    )
+    expect(stateUpdates[0]).toEqual([
+      { 'linkedResources.key': 'github/12/34/56' },
+      {
+        $set: {
+          'linkedResources.$[resource].state': 'open',
+          'linkedResources.$[resource].draft': draft,
+        },
+      },
+      { arrayFilters: [{ 'resource.key': 'github/12/34/56' }] },
+    ])
+  }
 })
 
 const review = {

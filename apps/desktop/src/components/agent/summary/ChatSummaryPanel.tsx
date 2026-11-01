@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
@@ -10,11 +10,16 @@ import { toast } from '../../ui/toast'
 
 import { ChangesSection } from './ChatSummaryChanges'
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
-import { changesOf, splitFileName } from './chatSummaryModel'
-import { SummaryRow, SummarySection, ThreadRow } from './ChatSummaryRows'
+import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
+import { SummaryRow, SummarySection } from './ChatSummaryRows'
+import { SubAgentsSection } from './ChatSummarySubAgents'
+import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
+import { inputRequestKey } from './sessionInputRequests'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
+import type { JournalChatTarget } from '../../../lib/journalEvent'
+import type { SessionInputRequest } from './sessionInputRequests'
 import type { KeyboardEvent } from 'react'
 
 type Props = {
@@ -22,6 +27,13 @@ type Props = {
   teamId: string
   onOpenLink: (url: string, external: boolean) => void
   onOpenSession: (sessionId: string) => void
+  /** Opens the conversation in the main pane at the message asking this question. */
+  onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
+  /** Points the main composer's reply at one of this conversation's own questions. */
+  onChooseReply?: (requestId: string) => void
+  requests: SessionInputRequest[]
+  requestsLoaded: boolean
+  requestsFailed: boolean
 }
 
 const PANE = '[data-workspace-focus-surface="session"]'
@@ -106,10 +118,36 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null) {
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */
-function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
+function SummaryBody({
+  sessionId,
+  teamId,
+  onOpenLink,
+  onOpenSession,
+  onOpenRequest,
+  onChooseReply,
+  requests,
+  requestsLoaded,
+  requestsFailed,
+}: Props) {
   const rootRef = useRef<HTMLElement>(null)
+  const [selected, setSelected] = useState<SessionInputRequest | null>(null)
+  // A question this conversation asked is answered in its own chat: a second copy
+  // of the same transcript beside it would only repeat it.
+  const select = (request: SessionInputRequest) => {
+    if (request.sessionId === sessionId) {
+      const { id, question, options } = request.inputRequest
+
+      setSelected(null)
+      onChooseReply?.(id)
+      onOpenRequest(sessionId, { toolCallId: id, question, options })
+    } else {
+      setSelected(request)
+    }
+  }
   const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
+  // The lists that listed these threads published their states to the shared store.
   const runtimeStates = useAgentRuntimeStates()
+  const subAgents = subAgentsOf(threads, runtimeStates)
   const changes = changesOf(conversation?.linkedResources ?? [])
 
   return (
@@ -119,39 +157,54 @@ function SummaryBody({ sessionId, teamId, onOpenLink, onOpenSession }: Props) {
       onKeyDown={(event) => closeOnEscape(event, rootRef.current)}
       className={clsx(
         't-summary-in',
-        'absolute inset-y-0 right-0 z-10 flex w-[304px] flex-shrink-0 flex-col gap-3 overflow-y-auto border-l border-zGray-800/60 bg-main px-3.5 py-3 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
-        '@[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent @[760px]:shadow-none',
+        'absolute inset-y-0 right-0 z-10 flex max-w-full flex-shrink-0 flex-col border-l border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
+        selected
+          ? 'w-[440px] overflow-hidden @[1000px]:static'
+          : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3 @[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent',
+        '@[1000px]:shadow-none',
       )}
     >
-      {!loaded && <Skeleton />}
-      {changes.length > 0 && (
-        <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
-      )}
-      {threads.length > 0 && (
-        <SummarySection title={t('Sub-agents')}>
-          {threads.map((thread) => (
-            <ThreadRow
-              key={thread.sessionId}
-              conversation={thread}
-              runtimeState={runtimeStates.get(thread.sessionId)}
-              onOpen={onOpenSession}
-            />
-          ))}
-        </SummarySection>
-      )}
-      {conversation && <ChatSummaryEnvironment conversation={conversation} />}
-      {outputs.length > 0 && (
-        <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
-      )}
-      {loaded && !conversation && (
-        <div className="px-1 pt-1 text-[13px] leading-5">
-          <p className="text-main">{t('Nothing here yet')}</p>
-          <p className="text-tertiary">
-            {t(
-              'Pull requests, sub-agents and files from this agent appear here after its first reply.',
-            )}
-          </p>
-        </div>
+      {selected ? (
+        <SessionInputReply
+          key={inputRequestKey(selected)}
+          request={selected}
+          requests={requests}
+          teamId={teamId}
+          onSelect={select}
+          onBack={() => setSelected(null)}
+          onClose={() => setChatSummaryOpen(false)}
+          onOpenSession={onOpenRequest}
+        />
+      ) : (
+        <>
+          <SessionInputQueue
+            requests={requests}
+            loaded={requestsLoaded}
+            failed={requestsFailed}
+            onSelect={select}
+          />
+          {!loaded && <Skeleton />}
+          {changes.length > 0 && (
+            <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
+          )}
+          {subAgents.length > 0 && (
+            <SubAgentsSection sessionId={sessionId} subAgents={subAgents} onOpen={onOpenSession} />
+          )}
+          {conversation && <ChatSummaryEnvironment conversation={conversation} />}
+          {outputs.length > 0 && (
+            <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
+          )}
+          {loaded && !conversation && (
+            <div className="px-1 pt-1 text-[13px] leading-5">
+              <p className="text-main">{t('Nothing here yet')}</p>
+              <p className="text-tertiary">
+                {t(
+                  'Pull requests, sub-agents and files from this agent appear here after its first reply.',
+                )}
+              </p>
+            </div>
+          )}
+        </>
       )}
     </aside>
   )

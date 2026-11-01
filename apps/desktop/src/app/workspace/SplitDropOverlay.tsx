@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { t } from '../../i18n'
 import { PANE_DRAG_TYPE, PREVIEW_PANE, SESSION_DRAG_TYPE, dropZone } from './splitLayout'
 import { GLIDE } from './usePaneDropPreview'
 
@@ -154,18 +155,18 @@ export function SplitDropOverlay({
 }
 
 const EDGE_HINTS = {
-  left: { Icon: PanelLeft, text: 'Split left' },
-  right: { Icon: PanelRight, text: 'Split right' },
-  top: { Icon: PanelTop, text: 'Split up' },
-  bottom: { Icon: PanelBottom, text: 'Split down' },
+  left: { Icon: PanelLeft, text: t('Split left') },
+  right: { Icon: PanelRight, text: t('Split right') },
+  top: { Icon: PanelTop, text: t('Split up') },
+  bottom: { Icon: PanelBottom, text: t('Split down') },
 }
 
 function hintFor(zone: DropZone, movingPane: boolean) {
   if (zone !== 'center') return EDGE_HINTS[zone]
 
   return movingPane
-    ? { Icon: ArrowLeftRight, text: 'Swap' }
-    : { Icon: SquareArrowDown, text: 'Open here' }
+    ? { Icon: ArrowLeftRight, text: t('Swap') }
+    : { Icon: SquareArrowDown, text: t('Open here') }
 }
 
 function HintLabel({ zone, movingPane }: { zone: DropZone; movingPane: boolean }) {

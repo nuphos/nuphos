@@ -15,6 +15,8 @@ import {
 } from '@/lib/claude-code-preview/preview-transcript'
 import { logError } from '@/lib/observability'
 
+import { CONNECTION_LOST_TOOL_ERROR } from './chat-preview-handoff'
+
 import type {
   ClaudeCodeAutonomousContext,
   ClaudeCodeAutonomousPermission,
@@ -71,11 +73,13 @@ function beginTurn(context: ClaudeCodeAutonomousContext, deps: AutonomousTurnDep
 async function finishTurn(
   turn: AutonomousTurn,
   interrupted?: ReturnType<typeof turnInterruptedPart>,
+  toolError?: string,
 ): Promise<void> {
   // The transcript belongs to the conversation owner, not to whoever happened
   // to run the last interactive turn.
   const { conversationId, teamId, conversationOwnerUserId: userId, locale } = turn.context
-  const steps = interrupted ? interruptToolSteps(turn.toolSteps()) : turn.toolSteps()
+  const steps =
+    interrupted || toolError ? interruptToolSteps(turn.toolSteps(), toolError) : turn.toolSteps()
   const parts = [
     ...withoutEmptyTurnSentinel(turn.orderedParts.materialize(steps)),
     ...(interrupted ? [interrupted as unknown as UIMessage['parts'][number]] : []),
@@ -151,6 +155,14 @@ export function createClaudeCodeAutonomousUpdateHandler(deps: AutonomousTurnDeps
         turns.delete(key)
         if (update.update.kind === 'complete') {
           void finishTurn(turn)
+
+          return
+        }
+        // Only the transport dropped. The runtime keeps the agent running and
+        // the session reattaches, so its continuation arrives as the next turn,
+        // as it does for an interactive one (lostToReattach).
+        if (update.update.reason === 'runtime_connection_lost') {
+          void finishTurn(turn, undefined, CONNECTION_LOST_TOOL_ERROR)
 
           return
         }

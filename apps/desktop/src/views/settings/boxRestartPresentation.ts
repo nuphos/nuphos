@@ -3,6 +3,8 @@
 // away the list says the host is offline, so the card follows the restart instead. The
 // backend notes an update on the Box (box.updateStartedAt) for every viewer; this window
 // also follows its own requests, which covers resumes and older backends.
+import { t } from '../../i18n/index.ts'
+
 import type { AgentDevice } from '../../api/device-types'
 
 export type BoxRestartKind = 'update' | 'resume'
@@ -55,7 +57,7 @@ export function boxRestartOf(
 
 /** The card's status while its host restarts. */
 export function boxRestartLabel(kind: BoxRestartKind): string {
-  return kind === 'update' ? 'Updating, restarting…' : 'Resuming…'
+  return kind === 'update' ? t('Updating, restarting…') : t('Resuming…')
 }
 
 /** What a restart that ended tells the user; null when the card says enough. */
@@ -67,29 +69,46 @@ export function boxRestartEnded(
   if (outcome === 'timeout')
     return {
       tone: 'error',
-      title: `${label} did not come back`,
+      title: t('{label} did not come back', { label }),
       description:
         kind === 'update'
-          ? 'Its host has not reconnected 5 minutes after the update started. Resume it to start the host again.'
-          : 'Its host has not reconnected 5 minutes after resuming. Try Resume again.',
+          ? t(
+              'Its host has not reconnected 5 minutes after the update started. Resume it to start the host again.',
+            )
+          : t('Its host has not reconnected 5 minutes after resuming. Try Resume again.'),
     }
   if (outcome === 'back' && kind === 'update')
     return {
       tone: 'success',
-      title: `${label} is back`,
-      description: 'Its runtimes are available again.',
+      title: t('{label} is back', { label }),
+      description: t('Its runtimes are available again.'),
     }
 
   return null
 }
 
+/** The ⋯ menu's Update item, naming the version when it is known. */
+export function boxUpdateLabel(version: string): string {
+  return version ? t('Update to v{version}', { version }) : t('Update')
+}
+
 /** The confirmation before updating a Box's agents, which restarts its agent host. */
 export function boxUpdateConfirm(boxLabel: string, version: string | undefined) {
-  const expected = version ? ` (expected v${version})` : ''
+  const install = version
+    ? t(
+        'This restarts the runtime host on {boxLabel} to install the latest version available now (expected v{version}).',
+        { boxLabel, version },
+      )
+    : t(
+        'This restarts the runtime host on {boxLabel} to install the latest version available now.',
+        { boxLabel },
+      )
 
   return {
-    title: `Update ${boxLabel}?`,
-    confirmLabel: 'Update and restart',
-    description: `This restarts the runtime host on ${boxLabel} to install the latest version available now${expected}. The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any agent on it is replying.`,
+    title: t('Update {boxLabel}?', { boxLabel }),
+    confirmLabel: t('Update and restart'),
+    description: `${install} ${t(
+      'The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any agent on it is replying.',
+    )}`,
   }
 }

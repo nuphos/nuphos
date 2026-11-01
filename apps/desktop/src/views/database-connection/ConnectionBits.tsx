@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Database, Loader2 } from 'lucide-react'
 
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 
 import type { DatabaseConnection } from '../../types'
 
@@ -29,26 +30,27 @@ export function Row({ label, value }: { label: string; value: string }) {
 export function ProviderResourceCard({ connection }: { connection: DatabaseConnection }) {
   const origin = connection.providerOrigin!
   const capabilities = [
-    ['Catalog', origin.capabilities.catalog],
-    ['Read-only query', origin.capabilities.query],
-    ['Monitoring', origin.capabilities.monitoring],
-    ['Governed changes', origin.capabilities.changes],
-    ['Backup / restore', origin.capabilities.backupRestore],
-    ['Parameters', origin.capabilities.parameters],
+    [t('Catalog'), origin.capabilities.catalog],
+    [t('Read-only query'), origin.capabilities.query],
+    [t('Monitoring'), origin.capabilities.monitoring],
+    [t('Governed changes'), origin.capabilities.changes],
+    [t('Backup / restore'), origin.capabilities.backupRestore],
+    [t('Parameters'), origin.capabilities.parameters],
   ] as const
 
   return (
     <section className="mt-4 rounded-xl border border-zGray-800 bg-zGray-900/30 p-4">
-      <h2 className="text-[13px] font-medium text-main">Provider resource</h2>
+      <h2 className="text-[13px] font-medium text-main">{t('Provider resource')}</h2>
       <p className="mt-1 text-[11.5px] leading-5 text-tertiary">
-        This lightweight resource resolves the active Cloudflare connector on every request. No API
-        token or connection string is copied into Databases.
+        {t(
+          'This lightweight resource resolves the active Cloudflare connector on every request. No API token or connection string is copied into Databases.',
+        )}
       </p>
       <div className="mt-3 grid grid-cols-1 gap-x-6 md:grid-cols-2">
-        <Row label="Provider" value="Cloudflare D1" />
-        <Row label="Account" value={origin.accountName ?? origin.accountId} />
-        <Row label="Region" value={origin.region ?? 'Provider managed'} />
-        <Row label="External resource" value={origin.externalResourceId} />
+        <Row label={t('Provider')} value="Cloudflare D1" />
+        <Row label={t('Account')} value={origin.accountName ?? origin.accountId} />
+        <Row label={t('Region')} value={origin.region ?? t('Provider managed')} />
+        <Row label={t('External resource')} value={origin.externalResourceId} />
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {capabilities.map(([label, supported]) => (
@@ -56,7 +58,9 @@ export function ProviderResourceCard({ connection }: { connection: DatabaseConne
             key={label}
             className={`rounded-full border px-2 py-0.5 text-[10.5px] ${supported ? 'border-success/30 bg-success/5 text-success' : 'border-zGray-800 bg-zGray-900 text-tertiary'}`}
           >
-            {label}: {supported ? 'available' : 'unavailable'}
+            {supported
+              ? t('{capability}: available', { capability: label })
+              : t('{capability}: unavailable', { capability: label })}
           </span>
         ))}
       </div>
@@ -123,7 +127,7 @@ export function ErrorBlock({
         onClick={() => void onRetry()}
         className="mt-2 text-secondary underline hover:text-main"
       >
-        Try again
+        {t('Try again')}
       </button>
     </div>
   )

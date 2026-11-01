@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
 import { Kbd } from '../ui/kbd'
 
 import { Highlight } from './SearchResultRow'
@@ -25,12 +26,12 @@ export function PaletteCommandRows({
   return (
     <>
       <div className="flex h-8 items-center px-4 text-xs font-medium text-secondary">
-        Pages and actions
+        {t('Pages and actions')}
       </div>
       <div
         id={`${listId}-commands`}
         role="listbox"
-        aria-label="Pages and actions"
+        aria-label={t('Pages and actions')}
         className="px-2 pb-2"
       >
         {commands.map((command, index) => (
@@ -51,7 +52,9 @@ export function PaletteCommandRows({
             <span className="min-w-0 flex-1 truncate text-[13px] text-main">
               <Highlight text={command.label} query={query} />
             </span>
-            <span className="shrink-0 text-xs text-secondary">{command.group}</span>
+            <span className="shrink-0 text-xs text-secondary">
+              {command.group === 'Go to' ? t('Go to') : t('Actions')}
+            </span>
             {command.combo && <Kbd combo={command.combo} />}
           </div>
         ))}

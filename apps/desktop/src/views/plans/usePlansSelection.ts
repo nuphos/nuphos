@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { PAGE_SIZE } from './planRows'
 
@@ -144,7 +145,7 @@ export function usePlansSelection({
       })
       .catch((err: unknown) => {
         console.warn('[plans] failed to load deep-linked plan', err)
-        toast.apiError('Failed to open plan', err)
+        toast.apiError(t('Failed to open plan'), err)
       })
 
     return () => {

@@ -11,6 +11,7 @@ import { awaitListedAgent } from './awaitListedAgent'
 import { runDispatchTurn } from './dispatchTurn'
 import { HOME_TAB_ID } from './model'
 import { runtimeMayAcceptLater } from './queuedAutoSend'
+import { routeSend } from './sendRouting'
 import { runStartChatWith } from './startChat'
 import { fileNameFromPath } from './textUtils'
 import { useQueueActions } from './useQueueActions'
@@ -149,10 +150,17 @@ export function useTurnDispatch(acc: Acc) {
   // loading card; bytes stream Electron-main -> S3 in the background and the
   // turn only starts once the upload finalizes (the agent then pulls the files).
   const dispatchTurn = useCallback(
-    (tabId: string, text: string, filePaths: string[], turnKind?: Message['turnKind']) =>
+    (
+      tabId: string,
+      text: string,
+      filePaths: string[],
+      turnKind?: Message['turnKind'],
+      questionId?: string,
+    ) =>
       runDispatchTurn(
         {
           currentUser,
+          decisionReplyTo: questionId,
           teamId,
           tabsRef,
           uploadingTabsRef,
@@ -194,7 +202,12 @@ export function useTurnDispatch(acc: Acc) {
   })
 
   const sendInActive = useCallback(
-    async (text: string, filePaths: string[] = [], turnKind?: Message['turnKind']) => {
+    async (
+      text: string,
+      filePaths: string[] = [],
+      turnKind?: Message['turnKind'],
+      questionId?: string,
+    ) => {
       const trimmed = text.trim()
 
       if (!trimmed && filePaths.length === 0) return
@@ -227,13 +240,11 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
+      const route = routeSend(tab.runtimeState, turnKind, questionId)
+
       // The backend decides whose turn it is: a refused steer is sent as a
       // message and waits its turn in the server queue.
-      if (
-        runtimeAllows(tab.runtimeState, 'steer') &&
-        !runtimeAllows(tab.runtimeState, 'reply') &&
-        !turnKind
-      ) {
+      if (route.steer) {
         await sendSteering(activeId, trimmed, filePaths)
 
         return
@@ -248,7 +259,7 @@ export function useTurnDispatch(acc: Acc) {
 
         return
       }
-      void dispatchTurn(activeId, trimmed, filePaths, turnKind)
+      void dispatchTurn(activeId, trimmed, filePaths, turnKind, route.decisionReplyTo)
     },
     [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )

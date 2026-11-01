@@ -4,6 +4,7 @@ import { activeNavItemsFor, k8sResourceIcon } from '../../../app/navItems'
 import { Avatar } from '../../../components/Avatar'
 import { CloudLogo } from '../../../components/CloudLogo'
 import { GithubMark } from '../../../components/GithubMark'
+import { t } from '../../../i18n'
 import { isIntegrationNavigation } from '../../../lib/connectorScopeCrumb'
 
 import { pushClusterCrumbs } from './clusterCrumbs'
@@ -37,10 +38,10 @@ export function computeBreadcrumb(
   } = ctx
   const out: BreadcrumbSegment[] = []
 
-  const currentTeam = teams.find((t) => t.id === scope.teamId)
+  const currentTeam = teams.find((team) => team.id === scope.teamId)
 
   out.push({
-    label: currentTeam?.name ?? 'Team',
+    label: currentTeam?.name ?? t('Team'),
     isResource: true,
     icon: (
       <Avatar
@@ -50,14 +51,19 @@ export function computeBreadcrumb(
         className="rounded-[5px] !shadow-none"
       />
     ),
-    options: teams.map((t) => ({
-      key: t.id,
-      label: t.name,
+    options: teams.map((team) => ({
+      key: team.id,
+      label: team.name,
       icon: (
-        <Avatar src={t.avatarUrl} name={t.name} size={20} className="rounded-[5px] !shadow-none" />
+        <Avatar
+          src={team.avatarUrl}
+          name={team.name}
+          size={20}
+          className="rounded-[5px] !shadow-none"
+        />
       ),
-      selected: t.id === scope.teamId,
-      onPick: () => switchTeam(t.id),
+      selected: team.id === scope.teamId,
+      onPick: () => switchTeam(team.id),
     })),
     onExpand: refreshTeamsSilently,
   })
@@ -77,7 +83,7 @@ export function computeBreadcrumb(
     (isIntegrationNavigation(scope, active) || isOnpremConnectorResource)
   ) {
     out.push({
-      label: 'Connectors',
+      label: t('Connectors'),
       icon: <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       onClick: () => enterScope({ kind: 'team', teamId: scope.teamId }, 'team.integrations'),
       // The same sibling picker the Connectors page carries when you are on
@@ -161,7 +167,7 @@ export function computeBreadcrumb(
               : undefined,
         },
         {
-          label: githubNav.view === 'pull' ? 'PRs' : githubNav.tab === 'prs' ? 'PRs' : 'Workflows',
+          label: githubNav.view === 'pull' || githubNav.tab === 'prs' ? t('PRs') : t('Workflows'),
           onClick:
             githubNav.view === 'pull'
               ? () =>
@@ -181,7 +187,7 @@ export function computeBreadcrumb(
               ? [
                   {
                     key: 'prs',
-                    label: 'PRs',
+                    label: t('PRs'),
                     selected: githubNav.tab === 'prs',
                     onPick: () =>
                       updateActiveTab((tab) => {
@@ -192,7 +198,7 @@ export function computeBreadcrumb(
                   },
                   {
                     key: 'actions',
-                    label: 'Workflows',
+                    label: t('Workflows'),
                     selected: githubNav.tab === 'actions',
                     onPick: () =>
                       updateActiveTab((tab) => {

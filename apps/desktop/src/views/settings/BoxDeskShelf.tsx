@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { shelfEdges, shelfWatchKey } from './boxDeskShelfModel'
 
 import './BoxDeskShelf.css'
@@ -76,7 +78,7 @@ export function DeskShelf({ children }: { children: ReactNode }) {
       <ul
         ref={row}
         className="desk-shelf-row"
-        aria-label="Computers"
+        aria-label={t('Computers')}
         // Focusable only when there is somewhere to scroll.
         tabIndex={more.left || more.right ? 0 : undefined}
         onKeyDown={onKeyDown}
@@ -87,7 +89,7 @@ export function DeskShelf({ children }: { children: ReactNode }) {
         <button
           type="button"
           className="desk-shelf-step is-left"
-          aria-label="Scroll computers left"
+          aria-label={t('Scroll computers left')}
           tabIndex={-1}
           onClick={() => step(-1)}
         >
@@ -98,7 +100,7 @@ export function DeskShelf({ children }: { children: ReactNode }) {
         <button
           type="button"
           className="desk-shelf-step is-right"
-          aria-label="Scroll computers right"
+          aria-label={t('Scroll computers right')}
           tabIndex={-1}
           onClick={() => step(1)}
         >

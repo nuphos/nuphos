@@ -70,11 +70,6 @@ export function sessionDesktopTitle(sessionId: string, display: number): string 
   return bySession.get(sessionId)?.desktops.find((desktop) => desktop.display === display)?.title
 }
 
-/** The machine whose display it is, while the session still holds it. */
-export function sessionDesktopDevice(sessionId: string, display: number): string | undefined {
-  return bySession.get(sessionId)?.desktops.find((desktop) => desktop.display === display)?.deviceId
-}
-
 export type DesktopTabPlan = {
   open: { sessionId: string; teamId: string; display: number }[]
   close: string[]

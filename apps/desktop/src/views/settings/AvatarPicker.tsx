@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 
 import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import { AvatarCropDialog } from './AvatarCropDialog'
 
@@ -14,8 +15,8 @@ const PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024
 
 function validatePhoto(file: File): string | null {
-  if (!PHOTO_TYPES.includes(file.type)) return 'Choose a PNG, JPEG or WebP image.'
-  if (file.size > MAX_SOURCE_BYTES) return 'Choose an image under 25 MB.'
+  if (!PHOTO_TYPES.includes(file.type)) return t('Choose a PNG, JPEG or WebP image.')
+  if (file.size > MAX_SOURCE_BYTES) return t('Choose an image under 25 MB.')
 
   return null
 }
@@ -44,7 +45,9 @@ export function AvatarPicker({
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
-  const shape = kind === 'icon' ? 'rounded-lg' : 'rounded-full'
+  const icon = kind === 'icon'
+  const shape = icon ? 'rounded-lg' : 'rounded-full'
+  const change = icon ? t('Change icon') : t('Change photo')
 
   function pickPhoto(file: File | undefined) {
     if (!file) return
@@ -66,7 +69,13 @@ export function AvatarPicker({
     try {
       await onRemove()
     } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : `Could not remove ${kind}`)
+      setPhotoError(
+        err instanceof Error
+          ? err.message
+          : icon
+            ? t('Could not remove icon')
+            : t('Could not remove photo'),
+      )
     } finally {
       setPhotoBusy(false)
     }
@@ -77,7 +86,7 @@ export function AvatarPicker({
       <div className="flex items-center gap-4">
         <button
           type="button"
-          aria-label={`Change ${kind}`}
+          aria-label={change}
           disabled={photoBusy}
           onClick={() => fileInput.current?.click()}
           onDragOver={(event) => {
@@ -103,7 +112,7 @@ export function AvatarPicker({
             )}
           >
             <Camera className="h-3.5 w-3.5" />
-            {dragging ? `Drop ${kind}` : `Change ${kind}`}
+            {dragging ? (icon ? t('Drop icon') : t('Drop photo')) : change}
           </span>
         </button>
         <div className="space-y-1">
@@ -115,7 +124,7 @@ export function AvatarPicker({
               disabled={photoBusy}
               onClick={() => fileInput.current?.click()}
             >
-              {`Upload ${kind}`}
+              {icon ? t('Upload icon') : t('Upload photo')}
             </Button>
             {src && (
               <Button
@@ -125,12 +134,14 @@ export function AvatarPicker({
                 disabled={photoBusy}
                 onClick={() => void removePhoto()}
               >
-                {photoBusy ? 'Removing…' : `Remove ${kind}`}
+                {photoBusy ? t('Removing…') : icon ? t('Remove icon') : t('Remove photo')}
               </Button>
             )}
           </div>
           <p className="text-[12px] text-tertiary">
-            PNG, JPEG or WebP. Drop an image on the {kind}.
+            {icon
+              ? t('PNG, JPEG or WebP. Drop an image on the icon.')
+              : t('PNG, JPEG or WebP. Drop an image on the photo.')}
           </p>
         </div>
         <input

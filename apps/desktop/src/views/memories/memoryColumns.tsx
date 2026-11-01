@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 
 import { Age } from '../../components/Age'
+import { t } from '../../i18n'
 
 import type { AgentMemoryItem, AgentMemoryScore } from '../../api'
 import type { Column } from '../../components/Table'
@@ -12,7 +13,7 @@ export function buildMemoryColumns(
   return [
     {
       key: 'type',
-      header: 'Type',
+      header: t('Type'),
       width: 100,
       sortAccessor: (r) => r.type,
       render: (r) => (
@@ -21,7 +22,7 @@ export function buildMemoryColumns(
     },
     {
       key: 'text',
-      header: 'Content',
+      header: t('Content'),
       width: 560,
       sortAccessor: (r) => r.title ?? r.text,
       render: (r) => (
@@ -33,7 +34,7 @@ export function buildMemoryColumns(
     },
     {
       key: 'categories',
-      header: 'Categories',
+      header: t('Categories'),
       width: 200,
       sortAccessor: (r) => r.categories.join(','),
       render: (r) =>
@@ -51,16 +52,21 @@ export function buildMemoryColumns(
       ? [
           {
             key: 'used',
-            header: 'Used',
+            header: t('Used'),
             width: 100,
             sortAccessor: (r: AgentMemoryItem) => scores[r.id]?.applyRate ?? -1,
             render: (r: AgentMemoryItem) => {
               const s = scores[r.id]
 
               if (!s || s.turns === 0) return <span className="text-tertiary">—</span>
-              const plural = s.reachConversations === 1 ? '' : 's'
-              const corrected = s.corrections > 0 ? ` · corrected ${String(s.corrections)}×` : ''
-              const reach = `reached ${String(s.reachConversations)} agent${plural}`
+              const reach =
+                s.reachConversations === 1
+                  ? t('reached {count} agent', { count: String(s.reachConversations) })
+                  : t('reached {count} agents', { count: String(s.reachConversations) })
+              const corrected =
+                s.corrections > 0
+                  ? ` · ${t('corrected {count}×', { count: String(s.corrections) })}`
+                  : ''
 
               return (
                 <span
@@ -68,7 +74,7 @@ export function buildMemoryColumns(
                     'font-mono text-[12px]',
                     s.applied > 0 ? 'text-emerald-500' : 'text-tertiary',
                   )}
-                  title={`Verified as used in ${String(s.applied)} of ${String(s.turns)} observed turns · ${reach}${corrected}`}
+                  title={`${t('Verified as used in {applied} of {turns} observed turns', { applied: String(s.applied), turns: String(s.turns) })} · ${reach}${corrected}`}
                 >
                   {s.applied}/{s.turns}
                   {s.corrections > 0 && <span className="text-red-400"> ●</span>}
@@ -78,15 +84,15 @@ export function buildMemoryColumns(
           },
           {
             key: 'lastUsed',
-            header: 'Last used',
+            header: t('Last used'),
             width: 100,
             sortAccessor: (r: AgentMemoryItem) => scores[r.id]?.lastAppliedAt ?? '',
             render: (r: AgentMemoryItem) => {
-              const t = scores[r.id]?.lastAppliedAt
+              const usedAt = scores[r.id]?.lastAppliedAt
 
               return (
                 <span className="text-tertiary font-mono text-[12px]">
-                  {t ? <Age value={t} /> : '—'}
+                  {usedAt ? <Age value={usedAt} /> : '—'}
                 </span>
               )
             },
@@ -96,7 +102,7 @@ export function buildMemoryColumns(
     stateFilter === 'removed'
       ? {
           key: 'removed',
-          header: 'Removed',
+          header: t('Removed'),
           width: 150,
           sortAccessor: (r) => r.disabledAt ?? '',
           render: (r) => (
@@ -104,8 +110,8 @@ export function buildMemoryColumns(
               className="text-tertiary font-mono text-[12px]"
               title={
                 [
-                  r.disabledBy ? `Removed by ${r.disabledBy}` : '',
-                  r.disabledReason ? `Reason: ${r.disabledReason}` : '',
+                  r.disabledBy ? t('Removed by {name}', { name: r.disabledBy }) : '',
+                  r.disabledReason ? t('Reason: {reason}', { reason: r.disabledReason }) : '',
                 ]
                   .filter(Boolean)
                   .join(' — ') || undefined
@@ -117,7 +123,7 @@ export function buildMemoryColumns(
         }
       : {
           key: 'created',
-          header: 'Created',
+          header: t('Created'),
           width: 110,
           sortAccessor: (r) => r.createdAt,
           render: (r) => (

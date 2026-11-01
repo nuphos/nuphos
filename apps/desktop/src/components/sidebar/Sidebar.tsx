@@ -2,7 +2,6 @@ import clsx from 'clsx'
 import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
-import { t } from '../../i18n'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
@@ -22,7 +21,7 @@ import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
 import { sectionsFor, sidebarView } from './view'
 
-import type { Item, SidebarProps } from './types'
+import type { ItemMenuRequest, SidebarProps } from './types'
 
 // Memoized: the workspace renders its sidebar on every update; this skips the
 // ones whose props are unchanged.
@@ -108,7 +107,7 @@ export const Sidebar = memo(function Sidebar({
   const teamView = view.level === 0
   const settingsBack = dynamicNavigation ? settingsBackTarget(scope, active) : null
 
-  const { favoriteMatch, canFavorite, toggleFavorite, favoriteItems, pinnedChatItems } =
+  const { favoriteMatch, canFavorite, toggleFavorite, movePinned, favoriteItems, pinnedChatItems } =
     useSidebarFavorites({
       userId: user?.id ?? '',
       teamId,
@@ -121,14 +120,14 @@ export const Sidebar = memo(function Sidebar({
       onOpenKey,
     })
 
-  const [itemMenu, setItemMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
+  const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
 
   const renderSections = teamView
     ? withChatSections(sections, pinnedChatItems, favoriteMatch)
     : [...sections]
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
-    renderSections.splice(1, 0, { title: t('Favorites'), items: favoriteItems })
+    renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
   }
 
   const sidebarSections = dynamicNavigation
@@ -236,6 +235,7 @@ export const Sidebar = memo(function Sidebar({
               favoriteMatch={favoriteMatch}
               canFavorite={canFavorite}
               toggleFavorite={toggleFavorite}
+              movePinned={movePinned}
               onItemMenu={setItemMenu}
               onSelect={onSelect}
               onOpenKey={onOpenKey}

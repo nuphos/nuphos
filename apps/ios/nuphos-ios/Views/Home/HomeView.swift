@@ -15,13 +15,14 @@ struct HomeView: View {
     @State private var plans: PlansStore?
     @State private var connectors: ConnectorsStore?
     @State private var openChat: AgentPage.OpenChat?
+    @State private var columns = NavigationSplitViewVisibility.all
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
@@ -135,11 +136,17 @@ struct HomeView: View {
                 }
             }
         }
+        // Wide, the list stays beside the detail. The automatic style overlays
+        // it on a portrait-shaped window (the unfolded iPhone Duo), where picking
+        // a chat or leaving the app put it away.
+        .navigationSplitViewStyle(.balanced)
         // On the split view itself, so the detail column and pushed
         // destinations see the store too — not only pageContent.
         .environment(store)
         .environment(plans)
         .environment(connectors)
+        // Wide, a conversation shows its desktop beside it, with the list put away meanwhile.
+        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .all } : nil)
         .tint(Theme.heading)
         .animation(.easeOut(duration: 0.2), value: titleCollapsed)
         .onAppear {
@@ -150,6 +157,7 @@ struct HomeView: View {
             if store == nil, let token {
                 store = AgentStore(token: token)
                 store?.me = ChatMessage.Sender(name: user.name, avatarURL: user.avatarURL)
+                store?.userId = user.id
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
             }

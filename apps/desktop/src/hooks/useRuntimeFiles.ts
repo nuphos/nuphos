@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { parseAtlasError } from '../api/errors.ts'
 import { api } from '../api.ts'
 import { toast } from '../components/ui/toast.ts'
+import { t } from '../i18n/index.ts'
 import { runtimeFilePreview } from '../lib/runtimeFileLink.ts'
 
 type Source = {
@@ -67,7 +68,9 @@ async function readFile(target: Source, path: string, linkedPath: string) {
   return {
     file,
     shown:
-      file.origin === 'this-computer' ? { ...target, label: 'This computer', local: true } : target,
+      file.origin === 'this-computer'
+        ? { ...target, label: t('This computer'), local: true }
+        : target,
   }
 }
 
@@ -105,8 +108,8 @@ export function useRuntimeFiles(
           if (cancelled) return
           if (!conversation.runtimeId) {
             toast.error(
-              'No runtime selected',
-              'Select a runtime for this agent, then refresh Files.',
+              t('No runtime selected'),
+              t('Select a runtime for this agent, then refresh Files.'),
             )
             setResult({ source: null, directory: null, preview: null, loading: false })
 
@@ -139,7 +142,7 @@ export function useRuntimeFiles(
             const preview = runtimeFilePreview(inline.file)
 
             if (!preview)
-              toast.error('Preview unavailable', 'This file format cannot be previewed.')
+              toast.error(t('Preview unavailable'), t('This file format cannot be previewed.'))
             setResult({ source: inline.shown, directory: null, preview, loading: false })
           } else if (kind) {
             const media = await transferMedia(target, `${path}/${fileName}`, kind, filePath)
@@ -153,7 +156,7 @@ export function useRuntimeFiles(
             if (kind === 'pdf') blob = media.url
             const shown =
               'origin' in media.transfer && media.transfer.origin === 'this-computer'
-                ? { ...target, label: 'This computer', local: true }
+                ? { ...target, label: t('This computer'), local: true }
                 : target
 
             setResult({ source: shown, directory: null, preview: null, loading: false, media })
@@ -180,11 +183,11 @@ export function useRuntimeFiles(
         // Media reached the transfer store, which refused it too.
         const overLimit = tooLarge && Boolean(mediaKind(fileName))
 
-        if (!tooLarge) toast.apiError('Could not load runtime files', error)
+        if (!tooLarge) toast.apiError(t('Could not load runtime files'), error)
         setResult({
           source:
             local && source.current
-              ? { ...source.current, label: 'This computer', local: true }
+              ? { ...source.current, label: t('This computer'), local: true }
               : source.current,
           directory: null,
           preview: null,
@@ -230,15 +233,15 @@ export function useRuntimeFiles(
       if (saved.saved && saved.path) {
         const savedPath = saved.path
 
-        toast.success('Saved', file.fileName, {
+        toast.success(t('Saved'), file.fileName, {
           action: {
-            label: 'Open in folder',
+            label: t('Open in folder'),
             onClick: () => void api.fileTransferRevealInFolder(savedPath),
           },
         })
       }
     } catch (error) {
-      toast.apiError('Download failed', error)
+      toast.apiError(t('Download failed'), error)
     }
   }
 
@@ -255,7 +258,7 @@ export function useRuntimeFiles(
         `${path}/${fileName}`,
       )
     } catch (error) {
-      toast.apiError('Could not open in browser', error)
+      toast.apiError(t('Could not open in browser'), error)
     }
   }
 

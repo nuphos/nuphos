@@ -13,6 +13,7 @@ import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
 import { isFirstTurn } from './chat-permission-mode'
 import { runClaudeCodePreviewChatTurn } from './chat-preview-turn'
 import { beginSlackBoundTurnDelivery } from './chat-slack-bound'
+import { decisionReplyOf } from './decision-reply'
 import {
   appendAgentRunDone,
   appendAgentRunError,
@@ -180,6 +181,8 @@ export function launchAcceptedChatTurn(args: {
           if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
+        explicitDecisionReplies: body.clientCapabilities?.decisionReplies === true,
+        decisionReplyTo: decisionReplyOf(body),
         clientResendsRefusal: body.clientCapabilities?.resendsRefusal === true,
         ...(args.queued ? { queued: args.queued } : {}),
         ...(body.continueAfterInterruption

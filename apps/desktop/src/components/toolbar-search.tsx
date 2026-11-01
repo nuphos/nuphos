@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../hooks/useSuspendTitlebarDrag'
+import { t } from '../i18n'
 
 import { InputGroup, InputGroupInput } from './ui/input-group'
 
@@ -11,7 +12,7 @@ export function SearchBox({
   onFilterChange,
   count,
   fill = false,
-  label = 'Filter',
+  label = t('Filter'),
   autoFocus = false,
 }: {
   filter: string
@@ -92,7 +93,9 @@ export function SearchBox({
         placeholder={
           expanded || count === undefined
             ? label
-            : `${String(count)} ${count === 1 ? 'item' : 'items'}`
+            : count === 1
+              ? t('{n} item', { n: count })
+              : t('{n} items', { n: count })
         }
         className="ml-1.5 pr-2 text-[12.5px] placeholder:text-tertiary text-main"
       />

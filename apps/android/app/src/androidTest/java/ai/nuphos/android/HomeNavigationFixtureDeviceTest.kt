@@ -82,7 +82,7 @@ class HomeNavigationFixtureDeviceTest {
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
     private val network = object : ExternalResource() {
         override fun before() {
-            require(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.navigation1371", "ai.nuphos.android.runtimes1373"))
+            require(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.navigation1371", "ai.nuphos.android.runtimes1373", "ai.nuphos.android.agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedConfiguration = Configuration(app.resources.configuration)
             savedMetrics = DisplayMetrics().also { it.setTo(app.resources.displayMetrics) }
@@ -203,8 +203,8 @@ class HomeNavigationFixtureDeviceTest {
                     LocalLayoutDirection provides if (compact) LayoutDirection.Rtl else LayoutDirection.Ltr,
                     LocalAgentStore provides agent, LocalAuthSession provides auth,
                     LocalPlansStore provides plansStore, LocalConnectorsStore provides connectors) {
-                    NuphosTheme { Box(if (compact) Modifier.width(320.dp) else Modifier) {
-                        HomeScreen(NuphosUser.preview, rememberNavController(), monitoring, triggers, runs,
+                    NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { Box(if (compact) Modifier.width(320.dp) else Modifier) {
+                        HomeScreen(NuphosUser.preview, rememberNavController(),
                             showComposer = false, newChatComposer = {})
                     } }
                 }
@@ -226,16 +226,18 @@ class HomeNavigationFixtureDeviceTest {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         try { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
     }
-    @Test fun allSixPagesSelectedAndBackReturnFocusWithoutWrites() {
+    @Test fun allFourPagesSelectedAndBackReturnFocusWithoutWrites() {
         render(keyboard = true); waitText("Synthetic active conversation"); shot("normal")
         compose.onNodeWithTag("home-page-switcher").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Tab) }
         menu(); shot("menu")
+        compose.onNodeWithTag("home-page-monitoring").assertDoesNotExist()
+        compose.onNodeWithTag("home-page-triggers").assertDoesNotExist()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-agent").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("home-page-agent").assertIsSelected()
         Espresso.pressBack(); compose.waitForIdle()
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist()
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
-        for (route in listOf("runtimes", "monitoring", "triggers", "plans", "connectors", "agent")) {
+        for (route in listOf("plans", "runtimes", "connectors", "agent")) {
             select(route); menu()
             compose.onNodeWithTag("home-page-$route").assertIsSelected()
             Espresso.pressBack()
@@ -244,13 +246,13 @@ class HomeNavigationFixtureDeviceTest {
     }
     @Test fun repeatedDetailsWaitsForFreshCatalogAndDoesNotManageRemovedRuntime() {
         render(); waitText("Synthetic active conversation"); select("runtimes")
-        waitText("Cloud and servers")
-        compose.onNodeWithText("Details: Synthetic Cloud").performScrollTo().performClick()
+        waitText("Cloud")
+        compose.onNodeWithTag("runtime-row-synthetic-cloud").performScrollTo().performClick()
         waitText("Refresh runtime")
         Espresso.pressBack(); compose.waitForIdle()
         runtimeCatalogHold = CountDownLatch(1)
         try {
-            compose.onNodeWithText("Details: Synthetic Cloud").performScrollTo().performClick()
+            compose.onNodeWithTag("runtime-row-synthetic-cloud").performScrollTo().performClick()
             waitText("Manage runtimes")
             compose.onNodeWithText("Refresh runtime").assertDoesNotExist()
             compose.onNodeWithText("Save name").assertDoesNotExist()
@@ -268,8 +270,8 @@ class HomeNavigationFixtureDeviceTest {
     }
     @Test fun runtimesDestinationAndExistingManageSheetPreserveComposerSelectionAndWorkspace() {
         render(); waitText("Synthetic active conversation"); select("runtimes")
-        waitText("Cloud and servers")
-        compose.onNodeWithText("Details: Synthetic Cloud").performScrollTo().performClick()
+        waitText("Cloud")
+        compose.onNodeWithTag("runtime-row-synthetic-cloud").performScrollTo().performClick()
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Refresh runtime").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Save name").assertIsNotEnabled()
         Espresso.pressBack(); compose.waitForIdle()
@@ -324,7 +326,7 @@ class HomeNavigationFixtureDeviceTest {
     }
     @Test fun compactRtlLargeFontAllEntriesAndCheckboxRemainReachable() {
         render(compact = true); menu(); shot("rtl-large-menu")
-        for (route in listOf("agent", "runtimes", "monitoring", "triggers", "plans", "connectors"))
+        for (route in listOf("agent", "plans", "runtimes", "connectors"))
             compose.onNodeWithTag("home-page-$route").performScrollTo().assertIsDisplayed()
         Espresso.pressBack(); filter()
         compose.onNodeWithTag("filter-archived").performScrollTo().assertIsOff()

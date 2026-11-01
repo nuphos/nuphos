@@ -58,6 +58,8 @@ export type ScopeContentProps = {
   setS3Detail: (d: AwsS3Detail | null) => void
   architectureDetail: { diagramId: string; diagramName: string } | null
   setArchitectureDetail: (d: { diagramId: string; diagramName: string } | null) => void
+  designDetail: { designId: string; designName: string } | null
+  setDesignDetail: (d: { designId: string; designName: string } | null) => void
   nuphosDashboard: NuphosDashboardRef | null
   setNuphosDashboard: (d: NuphosDashboardRef | null) => void
   nuphosDashboards: { id: string; name: string }[] | undefined

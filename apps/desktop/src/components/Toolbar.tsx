@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { Check, Copy, Loader2, PanelRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
+import { t } from '../i18n'
+
 import { Breadcrumb } from './toolbar-breadcrumb'
 import { NamespaceCombobox, RefreshButton } from './toolbar-controls'
 import { ExternalPageLinkButton } from './toolbar-external-link'
@@ -142,8 +144,8 @@ export function Toolbar({
               onClick={() => void copyCurrentPageUrl()}
               disabled={!currentPageUrl}
               className="w-7 h-7 rounded-md hover:bg-zGray-800/60 disabled:hover:bg-transparent text-secondary hover:text-main disabled:text-tertiary disabled:opacity-50 flex items-center justify-center"
-              title={copiedPageUrl ? 'Copied' : 'Copy page URL'}
-              aria-label={copiedPageUrl ? 'Copied page URL' : 'Copy page URL'}
+              title={copiedPageUrl ? t('Copied') : t('Copy page URL')}
+              aria-label={copiedPageUrl ? t('Copied page URL') : t('Copy page URL')}
             >
               {copiedPageUrl ? (
                 <Check className="w-3.5 h-3.5 text-zViolet-accent" strokeWidth={2} />
@@ -161,8 +163,8 @@ export function Toolbar({
                     ? 'bg-zGray-800/60 text-main'
                     : 'text-secondary hover:text-main hover:bg-zGray-800/60',
                 )}
-                title={agentSidebarOpen ? 'Close agent chat' : 'Open agent chat'}
-                aria-label={agentSidebarOpen ? 'Close agent chat' : 'Open agent chat'}
+                title={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
+                aria-label={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
                 aria-pressed={agentSidebarOpen}
               >
                 {/* The sidebar toggle beside the traffic lights, mirrored:

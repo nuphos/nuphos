@@ -1,6 +1,7 @@
 import { Container, Server } from 'lucide-react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import {
   AliyunEcsInstancesView,
@@ -29,7 +30,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
   if (scope.kind === 'linode-account') {
     if (active === 'linode.lke') {
       return renderActiveNavPage(
-        'LKE Clusters',
+        t('LKE Clusters'),
         <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <LkeClustersView
           teamId={scope.teamId}
@@ -51,7 +52,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
     }
 
     return renderActiveNavPage(
-      'Linodes',
+      t('Linodes'),
       <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <LinodeInstancesView
         teamId={scope.teamId}
@@ -66,7 +67,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
 
   if (scope.kind === 'hetzner-account') {
     return renderActiveNavPage(
-      'Servers',
+      t('Servers'),
       <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <HetznerServersView
         teamId={scope.teamId}
@@ -85,7 +86,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
 
     if (active === 'tencent.cvm') {
       return renderActiveNavPage(
-        'CVM Instances',
+        t('CVM Instances'),
         <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <TencentCvmInstancesView
           loader={withResourceListCache(
@@ -101,7 +102,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
     }
 
     return renderActiveNavPage(
-      'TKE Clusters',
+      t('TKE Clusters'),
       <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CloudClustersView
         loader={withResourceListCache(
@@ -125,7 +126,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
 
     if (active === 'aliyun.ecs') {
       return renderActiveNavPage(
-        'ECS Instances',
+        t('ECS Instances'),
         <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <AliyunEcsInstancesView
           loader={withResourceListCache(
@@ -157,7 +158,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
     }
 
     return renderActiveNavPage(
-      'ACK Clusters',
+      t('ACK Clusters'),
       <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CloudClustersView
         loader={withResourceListCache(
@@ -181,7 +182,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
 
     if (active === 'volcengine.ecs') {
       return renderActiveNavPage(
-        'ECS Instances',
+        t('ECS Instances'),
         <Server className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
         <VolcengineEcsInstancesView
           loader={withResourceListCache(
@@ -197,7 +198,7 @@ export function renderProviderAccountPages(ctx: ScopeRenderContext): React.React
     }
 
     return renderActiveNavPage(
-      'VKE Clusters',
+      t('VKE Clusters'),
       <Container className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <CloudClustersView
         loader={withResourceListCache(

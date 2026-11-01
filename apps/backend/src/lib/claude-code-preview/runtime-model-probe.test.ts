@@ -25,7 +25,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   const result = request.method === 'initialize' ? {} : {
     sessionId: 'disposable', configOptions: [
       { id: 'model', currentValue: model, options: [{value:'model-a',name:'A'},{value:'model-b',name:'B'}] },
-      { id: 'effort', currentValue: 'high', options: [{value:'high',name:'High'}] }
+      { id: 'effort', currentValue: 'high', options: [{value:'high',name:'High'}] },
+      { id: 'fast-mode', currentValue: 'ultrafast', options: [{value:'off',name:'Off'},{value:'on',name:'Fast'},{value:'ultrafast',name:'Ultrafast'}] }
     ]
   };
   process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:request.id,result})+'\\n');
@@ -45,7 +46,12 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(result.controls).toMatchObject({
       modelId: 'model-b',
       defaultEffort: 'high',
-      fast: false,
+      defaultFast: 'ultrafast',
+      fast: [
+        { value: 'off', name: 'Off' },
+        { value: 'on', name: 'Fast' },
+        { value: 'ultrafast', name: 'Ultrafast' },
+      ],
     })
     expect(result.models).toHaveLength(2)
     const direct = JSON.parse(

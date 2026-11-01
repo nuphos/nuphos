@@ -18,6 +18,8 @@ struct AgentPage: View {
     @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
     @State private var showAgentSetup = false
+    @State private var renaming: AgentConversation?
+    @State private var renamedTitle = ""
     #if DEBUG
     /// `-preview-agent-login`: the authorization-code step with a canned attempt.
     @State private var previewLogin = false
@@ -46,6 +48,13 @@ struct AgentPage: View {
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
+            .alert("Rename agent", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
+                let title = renamedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                TextField("Title", text: $renamedTitle)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") { Task { await store.rename(conversation, title: title) } }
+                    .disabled(title.isEmpty || title.count > 120)
+            }
             #if DEBUG
             .sheet(isPresented: $previewLogin) {
                 if let team = store.selectedTeam {
@@ -250,6 +259,15 @@ struct AgentPage: View {
             }
             .tint(.teal)
         }
+        if conversation.ownsChat {
+            Button {
+                renamedTitle = conversation.displayTitle
+                renaming = conversation
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
         if conversation.ownsChat, conversation.parentSessionId != nil {
             Button {
                 Task { await store.unlinkParent(conversation) }
@@ -310,7 +328,9 @@ struct AgentPage: View {
                             ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
                         }
                     }
-                    .listRowBackground(Color.clear)
+                    // A custom row background hides the system selection
+                    // highlight, so the open chat's row draws its own.
+                    .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                     .listSectionSeparator(.hidden, edges: .top)
                     // A separator would cut through the lines of an open tree.
@@ -340,12 +360,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .task {
-            while !Task.isCancelled {
-                RuntimeObservations.shared.tick()
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
     }
 }
 

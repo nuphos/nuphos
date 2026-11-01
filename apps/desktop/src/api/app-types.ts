@@ -27,6 +27,8 @@ export type AppOpenDeepLinkPayload = {
 export type AgentFocusSessionPayload = {
   sessionId: string
   teamId?: string
+  /** A dock tab to bring forward too, by its workspace tab id. */
+  dockTab?: string
 }
 
 export type AgentChatSkillTarget = 'claude' | 'codex'

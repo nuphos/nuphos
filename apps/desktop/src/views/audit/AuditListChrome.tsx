@@ -1,5 +1,7 @@
 import { ShieldCheck } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 export function LoadMore({
   visible,
   loading,
@@ -19,7 +21,7 @@ export function LoadMore({
         disabled={loading}
         className="w-full rounded border border-zGray-800/60 px-3 py-2 text-[12px] text-secondary hover:border-zGray-700/60 hover:text-main disabled:opacity-50"
       >
-        {loading ? 'Loading…' : 'Load more'}
+        {loading ? t('Loading…') : t('Load more')}
       </button>
     </div>
   )
@@ -28,10 +30,13 @@ export function LoadMore({
 export function SearchScopeHint({ hasMore }: { hasMore: boolean }) {
   return (
     <div className="flex flex-col items-center gap-1.5 py-14 text-center">
-      <div className="text-[13px] text-secondary">No matches in the loaded rows.</div>
+      <div className="text-[13px] text-secondary">{t('No matches in the loaded rows.')}</div>
       <div className="max-w-[420px] text-[11.5px] leading-4 text-tertiary">
-        Search covers rows already loaded on this page
-        {hasMore ? ' — use “Load more” to widen the search window.' : '.'}
+        {hasMore
+          ? t(
+              'Search covers rows already loaded on this page — use “Load more” to widen the search window.',
+            )
+          : t('Search covers rows already loaded on this page.')}
       </div>
     </div>
   )
@@ -42,10 +47,10 @@ export function EmptyState({ mutationsOnly }: { mutationsOnly: boolean }) {
     <div className="flex flex-col items-center gap-2 py-14 text-center">
       <ShieldCheck className="h-6 w-6 text-tertiary" strokeWidth={1.5} />
       <div className="text-[13px] text-secondary">
-        {mutationsOnly ? 'No mutations in this window.' : 'No audit activity in this window.'}
+        {mutationsOnly ? t('No mutations in this window.') : t('No audit activity in this window.')}
       </div>
       <div className="max-w-[420px] text-[11.5px] leading-4 text-tertiary">
-        Agent turns and shared-skill mutations appear here as activity occurs.
+        {t('Agent turns and shared-skill mutations appear here as activity occurs.')}
       </div>
     </div>
   )

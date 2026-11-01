@@ -52,6 +52,10 @@ final class ChatSession {
     private(set) var agentRuntime: String?
     private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
+    /// On a teammate's computer that asks its owner first: this conversation waits, or was declined.
+    private(set) var shareApproval: ShareApprovalWait?
+    /// Counts sends the server queued, so a waiting conversation is asked about at once.
+    private(set) var queuedSends = 0
     /// Pull requests and issues the agent linked to this conversation.
     private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
@@ -90,12 +94,28 @@ final class ChatSession {
 
     private let observations = RuntimeObservations.shared
     var runtimeObservation: RuntimeObservation? { observations.value(team: teamId, session: sessionId) }
-    var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing(at: observations.now) == true : transportStreaming }
+    var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing == true : transportStreaming }
+    /// The owner can open this conversation's desktop: its runtime is a Box, or a
+    /// Mac that allows phone control, and says it can show one or already does.
+    var canOpenDesktop: Bool {
+        guard ownsChat, let snapshot = runtimeObservation?.snapshot else { return false }
+        return snapshot["canOpenDesktop"]?.boolValue == true
+            || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
+    }
+    func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// The browser tabs in this conversation's dock on its owner's computer.
+    func browserTabs() async throws -> [BrowserTab] {
+        try await AgentChatAPI.browserTabs(token: token, teamId: teamId, sessionId: sessionId)
+    }
+    /// Brings `tab` forward on that computer: its window, this conversation and the dock tab.
+    func focus(_ tab: BrowserTab) async throws {
+        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: tab.id)
+    }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }
         guard isNativeRuntime, !isNew else { return nil }
         guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
-        return runtimeObservation.status(at: observations.now)
+        return runtimeObservation.status
     }
     /// What the user just sent, shown as their bubble until the request is
     /// admitted; it goes back to the composer if the upload fails or is cancelled.
@@ -108,8 +128,9 @@ final class ChatSession {
     var submitting: Bool { sending != nil }
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
-    /// This device's send has had no response yet. Only that response clears it:
-    /// another turn executing says nothing about this message.
+    /// This device's send has no runtime status yet. Only this turn's own
+    /// runtime state clears it, so "Sending…" holds until the runtime's first
+    /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
     var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
@@ -124,17 +145,9 @@ final class ChatSession {
     private(set) var serverQueued: [AgentChatAPI.QueuedMessage] = []
     /// Queued messages being steered into the running turn.
     private(set) var steeringQueued: Set<String> = []
-    private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action, at: observations.now) == true }
+    private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
-        showLiveActivity()
-    }
-    func tickRuntimeClock() { observations.tick() }
-    private func showLiveActivity() {
-        #if os(iOS)
-        guard isStreaming else { return }
-        TurnLiveActivity.show(sessionId: sessionId, teamId: teamId, title: title, authToken: token)
-        #endif
     }
 
     /// Changes the mode; for a conversation the server knows, that is a
@@ -173,6 +186,15 @@ final class ChatSession {
         try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
     }
 
+    /// Reads where this conversation stands with the owner of the teammate's computer it
+    /// runs on; false once it is no longer pending, when there is nothing more to watch.
+    func refreshShareApproval() async -> Bool {
+        guard let answer = try? await NuphosAPI.ownShareApproval(token: token, sessionId: sessionId) else { return true }
+        shareApproval = ShareApprovalWait(status: answer.status)
+
+        return ShareApprovalWait.keepsWatching(status: answer.status)
+    }
+
     private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }
 
     // MARK: - Private
@@ -184,6 +206,9 @@ final class ChatSession {
     private var currentStreamId: String?
     private var transcriptSyncTask: Task<Void, Never>?
     private var lastSyncedSignature = 0
+    /// The last message of the last full read, so the idle poll can tell
+    /// from one message whether anything changed.
+    private var serverTail: ServerTail?
     private var autoResumeAttempts = 0
     private var transcriptFullResend = false
     private var transcriptRebasedTo: Int?
@@ -290,12 +315,12 @@ final class ChatSession {
         do {
             let observedAt = ProcessInfo.processInfo.systemUptime
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId)
+            serverTail = ServerTail(detail)
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
             manages = detail.canManage ?? isOwner
-            if let t = detail.title, !t.isEmpty { title = t }
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
@@ -334,9 +359,6 @@ final class ChatSession {
                 if !readOnly, !transportStreaming { send(text) }
             }
         } catch {
-            // The view went away mid-load (a link or notification replaced
-            // it). That is not a failure: its next appearance loads again.
-            guard !Task.isCancelled else { return }
             loadError = error.localizedDescription
             loaded = true
         }
@@ -402,9 +424,30 @@ final class ChatSession {
     }
 
     var failedSubmission: ComposerSubmission?
+    /// The unsent message the composer takes back for editing.
+    var editingSubmission: ComposerSubmission?
+
+    /// Sends the unsent message again as it was.
+    func retryFailed() {
+        guard let submission = failedSubmission else { return }
+        failedSubmission = nil
+        guard canSubmit else { failedSubmission = submission; return }
+        error = nil
+        send(submission)
+    }
+
+    /// Moves the unsent message back into the composer.
+    func editFailed() {
+        guard let submission = failedSubmission else { return }
+        failedSubmission = nil
+        error = nil
+        editingSubmission = submission
+    }
 
     /// Only restore a request rejected before admission, never a resumed turn.
-    private func rejectOversizedSubmission(_ pending: (id: String, submission: ComposerSubmission)?) {
+    /// Left in the transcript, a message the server never stored would ride
+    /// along with the next send, which the server refuses as a batch.
+    private func rejectUnadmittedSubmission(_ pending: (id: String, submission: ComposerSubmission)?) {
         guard let pending else { return }
         failedSubmission = pending.submission
         messages.removeAll { $0.id == pending.id }
@@ -598,8 +641,7 @@ final class ChatSession {
 
     func rename(_ name: String) async throws {
         guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can rename it.") }
-        struct Body: Encodable { let title: String }
-        _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
+        try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: sessionId, title: name)
         title = name
     }
 
@@ -819,7 +861,6 @@ final class ChatSession {
         error = nil
         currentStreamId = options.streamId
         awaitingAdmission = isNativeRuntime && !options.explicitResume
-        showLiveActivity()
         streamTask = Task { [weak self] in
             guard let self else { return }
             var options = options
@@ -833,6 +874,7 @@ final class ChatSession {
                     return
                 case .queued:
                     // No reply comes on this stream; the queued turn's own does.
+                    queuedSends += 1
                     if let i = streamAssistantIndex, messages.indices.contains(i) { messages.remove(at: i) }
                     streamAssistantIndex = nil
                     // The message leaves the transcript for the queue strip until its turn runs.
@@ -915,18 +957,27 @@ final class ChatSession {
         adoptTranscript(from: detail)
     }
 
+    /// Replaces the transcript with the server's, even when it holds fewer
+    /// messages than this one.
+    private func adoptServerTranscript() async {
+        guard let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) else { return }
+        messages = detail.messages
+        baseIndex = detail.messagesFirstIndex ?? 0
+    }
+
     private func adoptTranscript(from detail: AgentConversationDetail) {
+        serverTail = ServerTail(detail)
         let serverTotal = (detail.messagesFirstIndex ?? 0) + detail.messages.count
         let localTotal = baseIndex + messages.count
         guard serverTotal >= localTotal, !detail.messages.isEmpty else { return }
 
         let serverBase = detail.messagesFirstIndex ?? 0
+        let adopted: [ChatMessage]
         if isNativeRuntime {
-            messages = RuntimeTranscript.reconcile(server: detail.messages, serverBase: serverBase, local: messages, localBase: baseIndex)
-            baseIndex = serverBase
+            adopted = RuntimeTranscript.reconcile(server: detail.messages, serverBase: serverBase, local: messages, localBase: baseIndex)
         } else if serverTotal == localTotal, serverBase == baseIndex,
            zip(detail.messages, messages).allSatisfy({ $0.role == $1.role }) {
-            messages = zip(detail.messages, messages).map { server, local in
+            adopted = zip(detail.messages, messages).map { server, local in
                 var m = local
                 m.id = server.id
                 m.createdAt = server.createdAt ?? local.createdAt
@@ -935,15 +986,18 @@ final class ChatSession {
                 return m
             }
         } else {
-            messages = detail.messages
-            baseIndex = serverBase
+            adopted = detail.messages
         }
-        if let t = detail.title, !t.isEmpty { title = t }
+        // The idle poll lands here every few seconds with what is already shown.
+        // Writing it anyway redraws the whole transcript.
+        if adopted != messages { messages = adopted }
+        if baseIndex != serverBase { baseIndex = serverBase }
         adoptRuntime(from: detail)
         lastSyncedSignature = signature()
     }
 
     private func adoptRuntime(from detail: AgentConversationDetail) {
+        if let t = detail.title, !t.isEmpty, t != title { title = t }
         isOwner = detail.isOwner ?? false
         manages = detail.canManage ?? isOwner
         readOnly = detail.readOnly ?? true
@@ -960,19 +1014,23 @@ final class ChatSession {
     func pollWhileIdle() async {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(3))
-            observations.tick()
             guard !Task.isCancelled, loaded, loadError == nil, !messages.isEmpty, !submitting else { continue }
             let observedAt = ProcessInfo.processInfo.systemUptime
             let previousSignature = signature()
             let attached = attachedStreamId
-            guard let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) else { continue }
+            // Most ticks find nothing new. One message answers that; the full
+            // tail (hundreds of KB, decoded on the main thread) is read only
+            // when the conversation moved or a run is live.
+            guard let head = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1, displayed: false) else { continue }
+            let moved = head.activeRun != nil || ServerTail(head) != serverTail
+            guard let detail = moved ? try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) : head else { continue }
             guard !Task.isCancelled else { return }
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             adoptRuntime(from: detail)
             // A waiting message leaves the strip once its turn starts.
             if !serverQueued.isEmpty { await refreshQueue() }
             if !pendingModelSettings.isEmpty { await refreshSessionConfig() }
-            guard !submitting, attachedStreamId == attached else { continue }
+            guard moved, !submitting, attachedStreamId == attached else { continue }
             let follow = RuntimeTranscript.runToFollow(active: detail.activeRun?.streamId, attached: attached, stopped: lastStoppedStreamId)
             let mayMove = attached == nil ? signature() == previousSignature : isNativeRuntime && !awaitingAdmission
             if let follow, mayMove {
@@ -995,8 +1053,8 @@ final class ChatSession {
 
     private var attachedStreamId: String? { transportStreaming ? currentStreamId : nil }
 
-    private func appendSteering(id: String, text: String) {
-        RuntimeTranscript.steering(id: id, text: text, messages: &messages)
+    private func appendSteering(id: String, text: String, metadata: JSONValue? = nil) {
+        RuntimeTranscript.steering(id: id, text: text, metadata: metadata, messages: &messages)
     }
 
     /// One connection attempt loop for a turn — reconnects, fresh retries
@@ -1057,7 +1115,6 @@ final class ChatSession {
                     guard event.data != "[DONE]", let frame = JSONValue.parse(event.data),
                           let type = frame["type"]?.stringValue else { continue }
                     accepted = true
-                    awaitingAdmission = false
                     debugLog("frame \(type)")
                     if type.hasPrefix("tool-") || type == "authorization-decision" || type == "error" || type == "atlas-turn-paused" {
                         debugLog("  \(frame.compact.prefix(600))")
@@ -1106,11 +1163,11 @@ final class ChatSession {
             } catch let urlError as URLError where urlError.code == .cancelled {
                 return .aborted
             } catch is ChatPayload.TooLarge {
-                if !accepted && !shouldResume && reconnects == 0 { rejectOversizedSubmission(options.submission) }
+                if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }
                 return .failed(ChatPayload.tooLargeMessage)
             } catch SSEClient.Failure.badStatus(let status, let bodyText) {
                 if status == 413 {
-                    if !accepted && !shouldResume && reconnects == 0 { rejectOversizedSubmission(options.submission) }
+                    if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }
                     return .failed(ChatPayload.tooLargeMessage)
                 }
                 debugLog("HTTP \(status): \(bodyText ?? "")")
@@ -1135,7 +1192,18 @@ final class ChatSession {
                     try? await Task.sleep(for: backoff(gatewayRetries, base: 0.7, max: 5))
                     if !isNativeRuntime && !options.explicitResume { forceFresh = true; resumeFrom = 0 } else { reconnects += 1 }
                     continue
+                // The runtime refused the start and the server put the message back
+                // in its queue: it was not refused, so it is not a failed send.
+                case .other(let code, _, _) where code == "message_queued":
+                    return .queued
+                case .other(let code, _, _) where code == "invalid_message_batch" && !accepted:
+                    // Messages here the server never stored: take the server's transcript.
+                    rejectUnadmittedSubmission(options.submission)
+                    await adoptServerTranscript()
+                    return .failed("This agent changed elsewhere and was reloaded. Retry to send your message.")
                 default:
+                    // Only a send the server refused, never one it queued or already runs.
+                    if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }
                     return .failed(conflict.localizedDescription)
                 }
             } catch SSEClient.Failure.frameTimeout {
@@ -1193,12 +1261,13 @@ final class ChatSession {
     private func handle(frame: JSONValue, type: String) {
         switch type {
         case "runtime-state":
+            awaitingAdmission = false
             let age = max(0, Date.now.timeIntervalSince1970 - (frame["emittedAt"]?.numberValue ?? 0) / 1000)
             receiveRuntime(frame["snapshot"], observedAt: ProcessInfo.processInfo.systemUptime - age)
             return
         case "data-steering":
             if let id = frame["data"]?["id"]?.stringValue, let text = frame["data"]?["text"]?.stringValue {
-                appendSteering(id: id, text: text)
+                appendSteering(id: id, text: text, metadata: frame["data"]?["metadata"])
                 if let i = streamAssistantIndex, messages.indices.contains(i) { streamReducer?.message.parts = messages[i].parts }
             }
             return
@@ -1502,4 +1571,17 @@ final class ChatSession {
         }
         return d
     }()
+}
+
+/// A conversation's last message and its index: equal means nothing was
+/// appended or rewritten at the end since the last read.
+private struct ServerTail: Equatable {
+    let index: Int
+    let message: ChatMessage
+
+    init?(_ detail: AgentConversationDetail) {
+        guard let last = detail.messages.last else { return nil }
+        index = (detail.messagesFirstIndex ?? 0) + detail.messages.count - 1
+        message = last
+    }
 }

@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type { DatabaseEngine } from '../types'
 
 export const RELEASED_DATABASE_ENGINE = 'mongodb' as const
@@ -8,14 +10,14 @@ export const RELEASED_DATABASE_ENGINE = 'mongodb' as const
  * and their entry points stay hidden for this release.
  */
 export const DATABASE_NAV_LABELS: Record<string, string> = {
-  'database.overview': 'Overview',
-  'database.collections': 'Collections',
-  'database.query': 'Query',
-  'database.changes': 'Changes',
-  'database.monitoring': 'Monitoring',
-  'database.access': 'Access',
-  'database.audit': 'Audit',
-  'database.settings': 'Settings',
+  'database.overview': t('Overview'),
+  'database.collections': t('Collections'),
+  'database.query': t('Query'),
+  'database.changes': t('Changes'),
+  'database.monitoring': t('Monitoring'),
+  'database.access': t('Access'),
+  'database.audit': t('Audit'),
+  'database.settings': t('Settings'),
 }
 
 export function isDatabaseEngineReleased(engine: DatabaseEngine): boolean {
@@ -24,7 +26,7 @@ export function isDatabaseEngineReleased(engine: DatabaseEngine): boolean {
 
 /** Agent access levels a database connection can grant, in ascending order. */
 export const AGENT_POLICY_OPTIONS = [
-  { value: 'disabled', label: 'Disabled' },
-  { value: 'metadata-only', label: 'Metadata only' },
-  { value: 'read-only', label: 'Read-only queries' },
+  { value: 'disabled', label: t('Disabled') },
+  { value: 'metadata-only', label: t('Metadata only') },
+  { value: 'read-only', label: t('Read-only queries') },
 ]

@@ -81,26 +81,34 @@ describe('OpenAB permission bridge', () => {
     expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
   })
 
-  test('reveals the tool card so the approval request has a card to attach to', async () => {
-    const tools: Record<string, unknown>[] = []
+  test.each([
+    [false, true],
+    [true, undefined],
+  ])(
+    'reveals the tool card only when an approval request needs it (Full Access=%s)',
+    async (bypass, revealed) => {
+      const tools: Record<string, unknown>[] = []
 
-    await handleOpenAbPermissionRequest(
-      {
-        userId: 'user-1',
-        conversationId: 'conversation-1',
-        request,
-        emit: () => {},
-        handleTool: (update) => tools.push(update),
-      },
-      {
-        getSessionBypass: async () => true,
-        registerWait: () => Promise.reject(new Error('unused')),
-        awaitDecision: () => Promise.reject(new Error('unused')),
-      },
-    )
+      await handleOpenAbPermissionRequest(
+        {
+          userId: 'user-1',
+          conversationId: 'conversation-1',
+          request,
+          emit: () => {},
+          handleTool: (update) => tools.push(update),
+        },
+        {
+          getSessionBypass: async () => bypass,
+          registerWait: async (args) => ({ ...args, waitId: 'wait-1', createdAt: 1 }),
+          awaitDecision: async () => ({ timedOut: true as const, reason: 'cancelled' as const }),
+          hasPendingMessages: async () => false,
+        },
+      )
 
-    expect(tools[0]).toMatchObject({ toolCallId: 'tool-dangerous', revealed: true })
-  })
+      expect(tools[0]).toMatchObject({ toolCallId: 'tool-dangerous' })
+      expect(tools[0]?.revealed).toBe(revealed)
+    },
+  )
 
   test('parks the active turn and returns the exact option selected by the user', async () => {
     const frames: Record<string, unknown>[] = []

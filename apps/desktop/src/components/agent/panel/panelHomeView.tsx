@@ -97,7 +97,8 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         runtimeControl={runtimeControl}
         newConversationModelControl={newConversationModelControl}
         bypassControl={bypassControl}
-        pendingSeed={pendingPromptReady}
+        // The page keeps both views mounted; only the one on screen takes a seed, or it is sent twice.
+        pendingSeed={c.homeShown ? pendingPromptReady : null}
         onSeedConsumed={onPromptConsumed}
         autoFocusComposer={autoFocusComposer}
         dropRegisterRef={homeDropRef}

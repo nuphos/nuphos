@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { RefreshCw, X } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 
+import { t } from '../i18n'
+
 import {
   Combobox,
   ComboboxContent,
@@ -79,7 +81,7 @@ export function NamespaceCombobox({
   const fetchedIsPartial = Boolean(truncated)
 
   function labelForNamespace(ns: string) {
-    return ns || 'All namespaces'
+    return ns || t('All namespaces')
   }
 
   return (
@@ -107,16 +109,16 @@ export function NamespaceCombobox({
       autoHighlight
     >
       <ComboboxInput
-        aria-label="Select namespace"
-        placeholder="All namespaces"
+        aria-label={t('Select namespace')}
+        placeholder={t('All namespaces')}
         variant="ghost"
         showTrigger={!selectedNamespace}
         endAdornment={
           selectedNamespace ? (
             <button
               type="button"
-              aria-label="Clear namespace"
-              title="Clear namespace"
+              aria-label={t('Clear namespace')}
+              title={t('Clear namespace')}
               onClick={(event) => {
                 event.preventDefault()
                 event.stopPropagation()
@@ -147,18 +149,27 @@ export function NamespaceCombobox({
         </ComboboxList>
         {loading ? (
           <div className="border-t border-zGray-800 px-2 py-1.5 text-[11.5px] text-tertiary">
-            Loading namespaces…
+            {t('Loading namespaces…')}
           </div>
         ) : hiddenCount > 0 || fetchedIsPartial ? (
           <div className="border-t border-zGray-800 px-2 py-1.5 text-[11.5px] text-tertiary">
-            Showing {shownCount} of {matches.length.toLocaleString()} — type to filter
+            {t('Showing {shown} of {total} — type to filter', {
+              shown: shownCount,
+              total: matches.length.toLocaleString(),
+            })}
             {/* Naming the real total matters: on a cluster with tens of
                 thousands of namespaces the fetched page is a rounding error,
                 and only what we fetched is searchable here. */}
             {fetchedIsPartial && (
               <div className="mt-0.5 text-tertiary/80">
-                Searching the first {namespaces.length.toLocaleString()}
-                {total != null ? ` of ${total.toLocaleString()}` : ''} namespaces in this cluster
+                {total != null
+                  ? t('Searching the first {n} of {total} namespaces in this cluster', {
+                      n: namespaces.length.toLocaleString(),
+                      total: total.toLocaleString(),
+                    })
+                  : t('Searching the first {n} namespaces in this cluster', {
+                      n: namespaces.length.toLocaleString(),
+                    })}
               </div>
             )}
           </div>
@@ -179,8 +190,8 @@ export function RefreshButton({
     <button
       onClick={onRefresh}
       className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center"
-      title="Refresh"
-      aria-label="Refresh"
+      title={t('Refresh')}
+      aria-label={t('Refresh')}
     >
       <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} strokeWidth={2} />
     </button>

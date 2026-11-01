@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Plus } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import { deploymentEnvContainerKey } from './env-model'
 
@@ -44,7 +45,10 @@ export function EnvTabHeader({
           {containers.map((container) => {
             const key = deploymentEnvContainerKey(container)
             const dirty = dirtyKeys.has(key)
-            const label = `${container.type === 'initContainers' ? 'Init: ' : ''}${container.name}`
+            const label =
+              container.type === 'initContainers'
+                ? t('Init: {name}', { name: container.name })
+                : container.name
 
             return (
               <button
@@ -64,7 +68,11 @@ export function EnvTabHeader({
                     ? 'bg-zViolet-500/20 text-zViolet-accent'
                     : 'text-secondary hover:bg-zGray-800 hover:text-main',
                 )}
-                title={dirty ? `${label} - Unsaved changes` : (container.image ?? container.name)}
+                title={
+                  dirty
+                    ? t('{label} - Unsaved changes', { label })
+                    : (container.image ?? container.name)
+                }
               >
                 <span className="min-w-0 truncate">{label}</span>
                 {dirty && (
@@ -104,7 +112,7 @@ export function EnvTabHeader({
             EnvFrom
           </button>
           <Button size="sm" type="button" onClick={onSave} disabled={!changed || saving}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('Saving…') : t('Save')}
           </Button>
         </div>
       </div>

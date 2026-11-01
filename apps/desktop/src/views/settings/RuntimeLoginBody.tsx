@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { BrowserCodeEntry } from './BrowserCodeEntry'
@@ -26,15 +27,15 @@ function DeviceCode({
   return (
     <>
       <p className="text-[13px] leading-5 text-secondary">
-        Copy this one-time code, then enter it on the {account} sign-in page.
+        {t('Copy this one-time code, then enter it on the {account} sign-in page.', { account })}
       </p>
       <button
         type="button"
-        aria-label="Copy sign-in code"
+        aria-label={t('Copy sign-in code')}
         onClick={() => {
           void navigator.clipboard.writeText(login.userCode ?? '').then(
             () => setCopied(true),
-            () => toast.error('Could not copy code'),
+            () => toast.error(t('Could not copy code')),
           )
         }}
         className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
@@ -42,7 +43,7 @@ function DeviceCode({
         <code className="text-2xl font-semibold tracking-widest">{login.userCode}</code>
         <span className="flex items-center gap-1.5 text-xs text-secondary">
           {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t('Copied') : t('Copy')}
         </span>
       </button>
       {verificationUri && (
@@ -52,16 +53,17 @@ function DeviceCode({
           nativeButton={false}
           render={<a href={verificationUri} target="_blank" rel="noopener noreferrer" />}
         >
-          Open {account} <ExternalLink className="h-3.5 w-3.5" />
+          {t('Open {account}', { account })} <ExternalLink className="h-3.5 w-3.5" />
         </Button>
       )}
       <p className="flex items-center gap-2 text-[13px] text-secondary">
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-        Waiting for approval…
+        {t('Waiting for approval…')}
       </p>
       <p className="text-xs leading-5 text-tertiary">
-        We’ll connect the runtime automatically after you approve. Keep this window open; leaving it
-        cancels sign-in. The code expires in 15 minutes.
+        {t(
+          'We’ll connect the runtime automatically after you approve. Keep this window open; leaving it cancels sign-in. The code expires in 15 minutes.',
+        )}
       </p>
     </>
   )
@@ -102,14 +104,16 @@ export function RuntimeLoginBody({
         />
       ) : failed ? (
         <p className="text-[13px] leading-5 text-error">
-          {login?.error ?? error ?? 'Sign-in was cancelled.'}
+          {login?.error ?? error ?? t('Sign-in was cancelled.')}
         </p>
       ) : (
         <div className="flex items-center gap-3 text-[13px] text-secondary">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           {reachable
-            ? 'Preparing secure sign-in…'
-            : 'Starting your runtime… You can close this and sign in from its card once it is running.'}
+            ? t('Preparing secure sign-in…')
+            : t(
+                'Starting your runtime… You can close this and sign in from its card once it is running.',
+              )}
         </div>
       )}
       {error && login && !failed && <p className="text-xs text-error">{error}</p>}

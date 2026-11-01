@@ -62,6 +62,12 @@ export function useTabDetailSetters(tabId: string, updateTab: UpdateWorkspaceTab
     },
     [tabId, updateTab],
   )
+  const setDesignDetail = useCallback(
+    (designDetail: { designId: string; designName: string } | null) => {
+      updateTab(tabId, (cur) => ({ ...cur, designDetail }))
+    },
+    [tabId, updateTab],
+  )
   const setNuphosDashboard = useCallback(
     (nuphosDashboard: NuphosDashboardRef | null) => {
       updateTab(tabId, (cur) => {
@@ -138,6 +144,7 @@ export function useTabDetailSetters(tabId: string, updateTab: UpdateWorkspaceTab
     setS3Detail,
     setAwsDetail,
     setArchitectureDetail,
+    setDesignDetail,
     setNuphosDashboard,
     setNuphosDashboards,
     setLinearNav,

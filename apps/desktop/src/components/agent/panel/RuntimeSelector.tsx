@@ -32,6 +32,9 @@ export type RuntimeControl = {
   options?: RuntimeInstance[]
   /** The open conversation: a teammate's computer may still be asking its owner about it. */
   sessionId?: string
+  /** Its share approval, already watched by the conversation; null when its queued messages
+   *  say it instead of the composer's banner. */
+  shareApproval?: 'pending' | 'denied' | null
   /** Provider usage per runtime id, for the trigger and the list. */
   quotas?: ReadonlyMap<string, RuntimeQuota>
   /** Picks the agent: the one a new conversation starts on, or — for an open

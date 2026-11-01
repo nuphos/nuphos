@@ -26,12 +26,17 @@ function write(key: string, value: string) {
 const inWindow = typeof window !== 'undefined'
 let open = inWindow && read(OPEN_KEY) === '1'
 
-// Bumped by each openChatSummaryChanges call, even one that changes nothing
-// else, so the panel can scroll to the list again. `revealFor` is the chat
-// whose list should do so, asked at `revealAt`, until that list takes it, the
-// panel closes or REVEAL_LIFETIME_MS passes.
+/** A list the panel can be opened on. */
+type RevealSection = 'changes' | 'subAgents'
+
+// Bumped by each openChatSummaryChanges or openChatSummarySubAgents call, even
+// one that changes nothing else, so the panel can scroll to the list again.
+// `revealFor` is the chat whose `revealTarget` list should do so, asked at
+// `revealAt`, until that list takes it, the panel closes or
+// REVEAL_LIFETIME_MS passes.
 let revealRequest = 0
 let revealFor: string | null = null
+let revealTarget: RevealSection = 'changes'
 let revealAt = 0
 
 /** A reveal not taken by then is stale: coming back to the chat later should not scroll it. */
@@ -73,6 +78,43 @@ export function setChangesFilter(next: ChangesFilter): void {
   notify()
 }
 
+/** Which of this chat's sub-agents the panel lists. */
+export type SubAgentsFilter = 'all' | 'active' | 'done'
+
+const SUB_AGENTS_FILTER_KEY = 'nuphos.chatSummarySubAgentsFilter'
+const SUB_AGENTS_FILTERS: readonly SubAgentsFilter[] = ['all', 'active', 'done']
+
+// Active until a pill is chosen: a chat with nothing active shows All instead.
+function storedSubAgentsFilter(): SubAgentsFilter {
+  const stored = read(SUB_AGENTS_FILTER_KEY)
+
+  return SUB_AGENTS_FILTERS.find((filter) => filter === stored) ?? 'active'
+}
+
+let subAgentsFilter: SubAgentsFilter = inWindow ? storedSubAgentsFilter() : 'active'
+
+export function setSubAgentsFilter(next: SubAgentsFilter): void {
+  subAgentsFilter = next
+  write(SUB_AGENTS_FILTER_KEY, next)
+  notify()
+}
+
+function requestReveal(section: RevealSection, sessionId: string) {
+  revealRequest += 1
+  revealFor = sessionId
+  revealTarget = section
+  revealAt = Date.now()
+  setChatSummaryOpen(true)
+}
+
+function takeReveal(section: RevealSection, sessionId: string, now: number): boolean {
+  if (revealFor !== sessionId || revealTarget !== section || now - revealAt > REVEAL_LIFETIME_MS)
+    return false
+  revealFor = null
+
+  return true
+}
+
 /**
  * Opens the panel on its Changes list showing only `filter`, as the merged
  * badge does, and asks the list of chat `sessionId` to come into view. Call it
@@ -81,10 +123,7 @@ export function setChangesFilter(next: ChangesFilter): void {
 export function openChatSummaryChanges(filter: ChangesFilter, sessionId: string): void {
   changesFilter = filter
   write(FILTER_KEY, filter)
-  revealRequest += 1
-  revealFor = sessionId
-  revealAt = Date.now()
-  setChatSummaryOpen(true)
+  requestReveal('changes', sessionId)
 }
 
 /**
@@ -93,10 +132,23 @@ export function openChatSummaryChanges(filter: ChangesFilter, sessionId: string)
  * view. Other chats' lists, such as another split's, leave it in place.
  */
 export function takeChangesReveal(sessionId: string, now = Date.now()): boolean {
-  if (revealFor !== sessionId || now - revealAt > REVEAL_LIFETIME_MS) return false
-  revealFor = null
+  return takeReveal('changes', sessionId, now)
+}
 
-  return true
+/**
+ * Opens the panel on its Sub-agents list showing only `filter`, and asks the
+ * list of chat `sessionId` to come into view, as openChatSummaryChanges does
+ * for Changes. Call it before or after switching to that chat.
+ */
+export function openChatSummarySubAgents(filter: SubAgentsFilter, sessionId: string): void {
+  subAgentsFilter = filter
+  write(SUB_AGENTS_FILTER_KEY, filter)
+  requestReveal('subAgents', sessionId)
+}
+
+/** As takeChangesReveal, for an openChatSummarySubAgents call. */
+export function takeSubAgentsReveal(sessionId: string, now = Date.now()): boolean {
+  return takeReveal('subAgents', sessionId, now)
 }
 
 function subscribe(listener: () => void) {
@@ -121,8 +173,19 @@ export function useChangesFilter(): ChangesFilter {
   )
 }
 
-/** Changes with every openChatSummaryChanges call; pair with takeChangesReveal. */
-export function useChangesRevealRequest(): number {
+export function useSubAgentsFilter(): SubAgentsFilter {
+  return useSyncExternalStore(
+    subscribe,
+    () => subAgentsFilter,
+    () => 'active',
+  )
+}
+
+/**
+ * Changes with every openChatSummaryChanges and openChatSummarySubAgents call;
+ * pair with takeChangesReveal or takeSubAgentsReveal.
+ */
+export function useSummaryRevealRequest(): number {
   return useSyncExternalStore(
     subscribe,
     () => revealRequest,

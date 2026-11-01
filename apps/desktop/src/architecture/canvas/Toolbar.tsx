@@ -7,6 +7,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
+import { t } from '../../i18n'
+
 import { PRIMARY } from './helpers'
 import { btn, segBtn, segGroup, tab } from './styles'
 
@@ -71,17 +73,17 @@ export function Toolbar({
       <div style={{ flex: 1 }} />
       {editing && (
         <>
-          <button onClick={onUndo} disabled={!canUndo} title="Undo" style={btn}>
+          <button onClick={onUndo} disabled={!canUndo} title={t('Undo')} style={btn}>
             <FontAwesomeIcon icon={faRotateLeft} className="w-4 h-4" />
           </button>
-          <button onClick={onRedo} disabled={!canRedo} title="Redo" style={btn}>
+          <button onClick={onRedo} disabled={!canRedo} title={t('Redo')} style={btn}>
             <FontAwesomeIcon icon={faRotateRight} className="w-4 h-4" />
           </button>
           <button
             onClick={onAddNode}
             style={{ ...btn, width: 'auto', padding: '5px 10px', gap: 6 }}
           >
-            <FontAwesomeIcon icon={faPlus} className="w-4 h-4" /> Node
+            <FontAwesomeIcon icon={faPlus} className="w-4 h-4" /> {t('Node')}
           </button>
         </>
       )}
@@ -90,7 +92,7 @@ export function Toolbar({
         <div style={segGroup}>
           {(['browse', 'edit'] as const).map((m) => (
             <button key={m} onClick={() => onSetMode(m)} style={segBtn(mode === m)}>
-              {m === 'browse' ? 'Browse' : 'Edit'}
+              {m === 'browse' ? t('Browse') : t('Edit')}
             </button>
           ))}
         </div>
@@ -119,7 +121,7 @@ export function Toolbar({
           <FontAwesomeIcon icon={faSpinner} spin className="w-3.5 h-3.5" />
         )}
         {saveState === 'saved' && <FontAwesomeIcon icon={faCheck} className="w-3.5 h-3.5" />}
-        {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : ''}
+        {saveState === 'saving' ? t('Saving…') : saveState === 'saved' ? t('Saved') : ''}
       </span>
     </div>
   )
@@ -161,7 +163,7 @@ export function ViewTabs({ views, activeViewId, editing, onSelectView, onAddView
         </button>
       ))}
       {editing && (
-        <button onClick={onAddView} title="New view" style={{ ...tab, opacity: 0.7 }}>
+        <button onClick={onAddView} title={t('New view')} style={{ ...tab, opacity: 0.7 }}>
           <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
         </button>
       )}

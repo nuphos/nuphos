@@ -1,0 +1,76 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+import { composerDraftKey } from '../panel/composerDrafts'
+import { loadClearedReplies, saveClearedReplies } from '../panel/composerReplyCleared'
+import { replyChoice, requestQuestion } from '../panel/replyTarget'
+
+import type { ComposerReplyTarget, ReplyPick, ReplyQuestion } from '../panel/replyTarget'
+import type { SessionInputRequest } from './sessionInputRequests'
+
+/**
+ * The open conversation's questions, other than secrets, as the main chat's "Replying to" choice.
+ * A cleared chip is remembered per conversation until a newer question arrives.
+ */
+export function useComposerReplyTarget(
+  sessionId: string | null,
+  teamId: string | undefined,
+  { requests, loaded }: { requests: readonly SessionInputRequest[]; loaded: boolean },
+): { replyTarget?: ComposerReplyTarget; openQuestions: ReplyQuestion[] } {
+  const openQuestions = useMemo(
+    () =>
+      requests.flatMap(({ sessionId: asker, inputRequest }) =>
+        asker === sessionId ? [requestQuestion(inputRequest)] : [],
+      ),
+    [requests, sessionId],
+  )
+  // A secret is never typed in the chat: its question is answered in its card.
+  const questions = useMemo(
+    () => openQuestions.filter((question) => !question.secret),
+    [openQuestions],
+  )
+  const key = sessionId ? composerDraftKey(teamId, sessionId) : null
+  const [pick, setPick] = useState<ReplyPick | null>(null)
+  const [stored, setStored] = useState(() => ({ key, ids: key ? loadClearedReplies(key) : [] }))
+
+  if (stored.key !== key) setStored({ key, ids: key ? loadClearedReplies(key) : [] })
+  const storedIds = stored.key === key ? stored.ids : null
+  // Answered or dismissed questions leave the record, once the listing says what is open.
+  const cleared = useMemo(() => {
+    if (!storedIds || !loaded) return storedIds ?? []
+    const open = new Set(questions.map((question) => question.id))
+
+    return storedIds.filter((id) => open.has(id))
+  }, [loaded, questions, storedIds])
+
+  useEffect(() => {
+    if (key && storedIds && cleared.length !== storedIds.length) saveClearedReplies(key, cleared)
+  }, [cleared, key, storedIds])
+
+  const onChoose = useCallback(
+    (id: string | null) => {
+      if (!sessionId || !key) return
+      const seen = questions.map((question) => question.id)
+
+      if (id === null) {
+        saveClearedReplies(key, seen)
+        setStored({ key, ids: seen })
+        setPick(null)
+      } else {
+        setPick({ sessionId, id, seen })
+      }
+    },
+    [key, questions, sessionId],
+  )
+
+  if (!sessionId || questions.length === 0) return { openQuestions }
+
+  return {
+    replyTarget: {
+      sessionId,
+      questions,
+      chosen: replyChoice(sessionId, questions, pick, cleared),
+      onChoose,
+    },
+    openQuestions,
+  }
+}

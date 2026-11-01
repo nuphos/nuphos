@@ -10,7 +10,9 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
+import { Fill } from './bind-account/shared'
 import { useResetOnKey } from './useResetOnKey'
 
 type Props = {
@@ -63,7 +65,7 @@ export function BindLinearDialog({ open, teamId, onClose, onBound }: Props) {
     } catch (e) {
       if (attempt !== attemptRef.current) return
       setPhase('idle')
-      toast.apiError('Could not connect Linear', e)
+      toast.apiError(t('Could not connect {name}', { name: 'Linear' }), e)
     }
   }
 
@@ -71,8 +73,10 @@ export function BindLinearDialog({ open, teamId, onClose, onBound }: Props) {
     <Modal
       open={open}
       onClose={close}
-      title="Connect Linear"
-      description="Authorize Nuphos to read and create issues in your Linear workspace so the agent can open and close tickets."
+      title={t('Connect {name}', { name: 'Linear' })}
+      description={t(
+        'Authorize Nuphos to read and create issues in your Linear workspace so the agent can open and close tickets.',
+      )}
       width={460}
     >
       <div className="px-5 py-5 selectable">
@@ -82,8 +86,10 @@ export function BindLinearDialog({ open, teamId, onClose, onBound }: Props) {
               <FontAwesomeIcon icon={faDiagramProject} className="w-[22px] h-[22px] text-main" />
             </div>
             <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[400px]">
-              Click below to open Linear in your browser. Approve the OAuth request and you'll be
-              redirected back automatically.
+              {t(
+                "Click below to open {name} in your browser. Approve the OAuth request and you'll be redirected back automatically.",
+                { name: 'Linear' },
+              )}
             </div>
           </div>
         )}
@@ -95,11 +101,17 @@ export function BindLinearDialog({ open, teamId, onClose, onBound }: Props) {
               className="w-6 h-6 text-zViolet-accent animate-spin"
             />
             <div className="text-[12.5px] text-secondary text-center">
-              Waiting for Linear… complete the authorization in your browser.
+              {t('Waiting for {name}… complete the authorization in your browser.', {
+                name: 'Linear',
+              })}
             </div>
             <div className="text-[11px] text-tertiary text-center max-w-[380px]">
-              If nothing happens, make sure your browser allowed the popup and that your OS routes{' '}
-              <span className="font-mono">nuphos://</span> URLs to this app.
+              <Fill
+                text={t(
+                  'If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.',
+                )}
+                scheme={<span className="font-mono">nuphos://</span>}
+              />
             </div>
           </div>
         )}
@@ -110,12 +122,12 @@ export function BindLinearDialog({ open, teamId, onClose, onBound }: Props) {
           onClick={close}
           className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800"
         >
-          {phase === 'waiting' ? 'Cancel' : 'Close'}
+          {phase === 'waiting' ? t('Cancel') : t('Close')}
         </button>
         {phase !== 'waiting' && (
           <Button size="sm" onClick={() => void startInstall()}>
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="w-3.5 h-3.5" />
-            Authorize Linear
+            {t('Authorize {name}', { name: 'Linear' })}
           </Button>
         )}
       </div>

@@ -1,3 +1,5 @@
+import { t } from '../../i18n'
+
 import { QueryError } from './QueryError'
 
 import type { ReactNode } from 'react'
@@ -15,7 +17,7 @@ export function PanelFrame({ title, loading, error, actions, children }: Props) 
     <div className="h-full flex flex-col outline outline-1 outline-zGray-800/60">
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-zGray-800/60">
         <div className="text-[12.5px] font-medium text-secondary truncate">
-          {title || 'Untitled'}
+          {title || t('Untitled')}
         </div>
         <div className="flex flex-shrink-0 items-center gap-1.5">
           {actions}

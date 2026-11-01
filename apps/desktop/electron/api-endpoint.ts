@@ -7,6 +7,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { normalizedApi } from './auth/accounts.ts'
 import { authSession } from './auth-session.ts'
 import { CLI_CONFIG_PATH } from './cli-config-path.ts'
 
@@ -52,6 +53,25 @@ export function deviceRegistrationAllowed(dev: boolean): boolean {
  * and returns the new one. A different backend ends the session in memory.
  */
 export function setApiUrl(raw: string | null): string {
+  saveEndpoint(raw)
+  authSession.moveTo(fromEnv())
+
+  return apiUrl()
+}
+
+/**
+ * Signs in as an account on the backend that issued its token, in one step,
+ * and keeps that backend for the next launch and for the CLI.
+ */
+export function useAccount(api: string, token: string | null, userId: string | null): void {
+  const same = normalizedApi(api) === normalizedApi(apiUrl())
+
+  if (!same) saveEndpoint(api)
+  authSession.use(same ? apiUrl() : fromEnv(), token, userId)
+}
+
+/** Writes the endpoint for the next launch and the CLI, and for helpers this process spawns. */
+function saveEndpoint(raw: string | null): void {
   delete process.env.ATLAS_API_URL
   if (raw === null) {
     fs.rmSync(SAVED_PATH, { force: true })
@@ -65,8 +85,4 @@ export function setApiUrl(raw: string | null): string {
     fs.writeFileSync(SAVED_PATH, `${url.origin}\n`, 'utf8')
     process.env.NUPHOS_API_URL = url.origin
   }
-
-  authSession.moveTo(fromEnv())
-
-  return apiUrl()
 }

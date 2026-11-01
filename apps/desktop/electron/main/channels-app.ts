@@ -18,14 +18,13 @@ import { raiseWindow } from '../window-raise'
 
 import { getChangelogState } from './changelog'
 import { pickPaths, savePastedAttachments } from './dialogs'
-import { isDev } from './env'
 import { importLocalSession } from '../agent/local-session-import'
 
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
 import { openExternal } from './open-external'
 import { readAppIcon, setAppIcon } from './app-icon'
 import { writePersistedThemeSource } from './theme'
-import { autoUpdater, checkForUpdatesOnce, getUpdaterState, setUpdaterState } from './updater'
+import { checkForUpdates, getUpdaterState, installUpdate } from './updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
@@ -39,10 +38,16 @@ export const appChannels = {
     input: { name: string; username: string; avatarURL: string },
   ) => updateProfile(input),
   'atlas:listPersonalCredentials': () => atlas.listPersonalCredentials(),
-  'atlas:startPersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
-    atlas.startPersonalCredential(provider),
-  'atlas:deletePersonalCredential': (_e: unknown, provider: PersonalCredentialProvider) =>
-    atlas.deletePersonalCredential(provider),
+  'atlas:startPersonalCredential': (
+    _e: unknown,
+    provider: PersonalCredentialProvider,
+    teamId?: string,
+  ) => atlas.startPersonalCredential(provider, teamId),
+  'atlas:deletePersonalCredential': (
+    _e: unknown,
+    provider: PersonalCredentialProvider,
+    teamId?: string,
+  ) => atlas.deletePersonalCredential(provider, teamId),
   'atlas:listSignInSessions': () => atlas.listSignInSessions(),
   'atlas:signOutSession': (_e: unknown, id: string) => atlas.signOutSession(id),
   'atlas:signOutOtherSessions': () => atlas.signOutOtherSessions(),
@@ -53,7 +58,8 @@ export const appChannels = {
   // App.tsx), which has the user object at the moment of success. The main
   // process only manages identity stitching (alias/identify/reset), not the
   // events, to avoid double-counting.
-  'auth:login': () => auth.login(),
+  'auth:socialProviders': () => auth.socialProviders(),
+  'auth:login': (_e: unknown, provider: auth.SocialProvider) => auth.login(provider),
   'auth:logout': async () => {
     const result = await auth.logout()
 
@@ -242,18 +248,8 @@ export const appChannels = {
   },
   'changelog:getState': () => getChangelogState(),
   'updater:getState': () => getUpdaterState(),
-  'updater:check': () => {
-    if (isDev) {
-      setUpdaterState({ kind: 'error', message: 'Updates disabled in dev mode' })
-
-      return getUpdaterState()
-    }
-
-    return checkForUpdatesOnce()
-  },
-  'updater:install': () => {
-    if (getUpdaterState().kind === 'downloaded') autoUpdater.quitAndInstall()
-  },
+  'updater:check': () => checkForUpdates(),
+  'updater:install': () => installUpdate(),
 } as const
 
 // Avatar trust runs during render, so the renderer reads the endpoint synchronously.

@@ -1,3 +1,4 @@
+import type { TabBucket } from './workspaceState'
 import type { WorkspaceTabState } from '../../workspaceTabState'
 import type { TabDropPlacement } from '../tabs/tabsTypes'
 
@@ -47,6 +48,7 @@ export type WorkspaceAction =
   | { type: 'updateTab'; tabId: string; updater: TabUpdater; history?: TabHistoryMode }
   | { type: 'retainTeams'; teamIds: readonly string[]; preferredTeamId: string | null }
   | { type: 'removeTeam'; teamId: string }
+  | { type: 'adoptBuckets'; buckets: Readonly<Record<string, TabBucket>> }
 
 export type WorkspaceStoreDeps = {
   createTab: (teamId: string) => WorkspaceTabState

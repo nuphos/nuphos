@@ -8,6 +8,23 @@ import type { runBrowserCall as RunBrowserCall } from './browser-tabs.ts'
 const app = new EventEmitter()
 const browserSession = {}
 const guests: Guest[] = []
+/** The app window; its renderer answers with `docks[session]`, what its workspace store holds. */
+const docks: Record<string, { id: string; url: string; title: string }[]> = {}
+const window = {
+  sent: [] as unknown[][],
+  isDestroyed: () => false,
+  isMinimized: () => false,
+  restore: () => {},
+  isVisible: () => true,
+  show: () => {},
+  focus: () => {},
+  webContents: {
+    send: (...args: unknown[]) => window.sent.push(args),
+    executeJavaScript: async (script: string) =>
+      docks[(/nuphosDockBrowserTabs\?\.\((".*?")\)/.exec(script)?.[1] ?? '""').slice(1, -1)] ??
+      null,
+  },
+}
 let onDeepLink: (url: string) => void = () => {}
 let runBrowserCall: typeof RunBrowserCall
 
@@ -15,6 +32,7 @@ before(async () => {
   mock.module('electron', {
     namedExports: {
       app,
+      BrowserWindow: { getAllWindows: () => [window] },
       session: { fromPartition: () => browserSession },
       webContents: { getAllWebContents: () => guests },
     },
@@ -277,4 +295,33 @@ test('eval fails after the call timeout when the page never answers', async (t) 
 
   t.mock.timers.tick(30_000)
   await assert.rejects(result, /did not finish within 30s/)
+})
+
+test("dock lists the conversation's dock tabs, opened by the user or restored, not only by open", async () => {
+  docks.mine = [{ id: 'tab-user', url: 'https://user.test/', title: 'Opened by hand' }]
+
+  const result = await runBrowserCall({ action: 'dock', team: 't', session: 'mine' })
+
+  assert.deepEqual(JSON.parse((result.content as { text: string }[])[0]?.text ?? ''), docks.mine)
+  const other = await runBrowserCall({ action: 'dock', team: 't', session: 'other' })
+
+  assert.deepEqual(JSON.parse((other.content as { text: string }[])[0]?.text ?? ''), [])
+})
+
+test('focus raises the window and names the dock tab, only one in this conversation', async () => {
+  docks.mine = [{ id: 'tab-user', url: 'https://user.test/', title: 'Opened by hand' }]
+  window.sent = []
+  const call = (session: string): BrowserCall => ({
+    action: 'focus',
+    team: 't',
+    session,
+    dockTab: 'tab-user',
+  })
+
+  assert.equal((await runBrowserCall(call('other'))).isError, true)
+  assert.deepEqual(window.sent, [])
+  assert.equal((await runBrowserCall(call('mine'))).isError, undefined)
+  assert.deepEqual(window.sent, [
+    ['agent:focus-session', { sessionId: 'mine', teamId: 't', dockTab: 'tab-user' }],
+  ])
 })

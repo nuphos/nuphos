@@ -12,6 +12,9 @@ function browser(t: TestContext) {
   for (const [key, value] of Object.entries({
     window: { setTimeout: globalThis.setTimeout },
     CSS: { escape: (id: string) => id },
+    getComputedStyle: (node: { overflowY?: string }) => ({
+      overflowY: node.overflowY ?? 'visible',
+    }),
     requestAnimationFrame: (callback: FrameRequestCallback) => frames.push(callback),
   })) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, key)
@@ -43,11 +46,34 @@ function disclosure(initiallyOpen: boolean, onOpen: () => void) {
   }
 }
 
+/** A scrolling transcript inside an app shell that clips overflow and must never move. */
+function transcript(onScroll: (top: number) => void) {
+  const shell = {
+    overflowY: 'hidden',
+    scrollHeight: 2000,
+    clientHeight: 800,
+    parentElement: null,
+    scrollTo: () => assert.fail('the app shell never scrolls'),
+  }
+
+  return {
+    overflowY: 'auto',
+    scrollHeight: 5000,
+    clientHeight: 600,
+    scrollTop: 1000,
+    parentElement: shell,
+    getBoundingClientRect: () => ({ top: 100 }),
+    scrollTo: ({ top }: { top: number }) => onScroll(top),
+  }
+}
+
 function target(toggle: ReturnType<typeof disclosure>, calls: string[], anchor = false) {
   return {
     hasAttribute: () => anchor,
     closest: () => ({ querySelector: () => toggle }),
-    scrollIntoView: () => calls.push('scroll'),
+    parentElement: transcript(() => calls.push('scroll')),
+    offsetHeight: 100,
+    getBoundingClientRect: () => ({ top: 900 }),
     classList: { add: () => calls.push('flash'), remove: () => calls.push('unflash') },
   }
 }
@@ -88,4 +114,86 @@ test('a lazy Activity anchor and its nested tool disclosure both open before scr
   assert.deepEqual(calls, ['open Activity', 'open tool run'])
   nextFrame()
   assert.deepEqual(calls, ['open Activity', 'open tool run', 'scroll', 'flash'])
+})
+
+function card(calls: string[], attributes: Record<string, string>) {
+  return {
+    ...target(
+      disclosure(true, () => {}),
+      calls,
+    ),
+    getAttribute: (name: string) => attributes[name] ?? null,
+  }
+}
+
+test("a question whose recorded id is not the transcript's own is found as its answer would map", (t) => {
+  browser(t)
+  const calls: string[] = []
+  const other = card(calls, { 'data-tool-call-id': 'exec-0', 'data-decision-question': 'Cat?' })
+  const older = card(calls, {
+    'data-tool-call-id': 'exec-1',
+    'data-decision-question': 'Red or blue?',
+    'data-decision-options': '["red","blue"]',
+  })
+  const newer = card(calls, {
+    'data-tool-call-id': 'exec-2',
+    'data-decision-question': 'Red or blue?',
+  })
+  let found: unknown
+  const root = {
+    isConnected: true,
+    querySelector: () => null,
+    querySelectorAll: () => [other, older, newer],
+  } as unknown as HTMLElement
+
+  older.parentElement = transcript(() => {
+    found = older
+    calls.push('scroll')
+  })
+  assert.equal(
+    locateChatTarget(root, {
+      toolCallId: 'nuphos-1',
+      question: 'Red or blue?',
+      options: ['red', 'blue'],
+    }),
+    true,
+  )
+  assert.equal(found, older)
+  assert.equal(
+    locateChatTarget(root, {
+      toolCallId: 'nuphos-2',
+      question: 'Red or blue?',
+      options: ['green'],
+    }),
+    true,
+    'the card without options still matches',
+  )
+})
+
+test('a tool call that is not rendered is not mistaken for its message', (t) => {
+  browser(t)
+  const root = {
+    isConnected: true,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  } as unknown as HTMLElement
+
+  assert.equal(locateChatTarget(root, { toolCallId: 'missing', question: 'Gone?' }), false)
+})
+
+test('the card is centered by scrolling its transcript alone', (t) => {
+  browser(t)
+  const tops: number[] = []
+  const element = {
+    ...target(
+      disclosure(true, () => {}),
+      [],
+    ),
+    parentElement: transcript((top) => tops.push(top)),
+  }
+  const root = { isConnected: true, querySelector: () => element } as unknown as HTMLElement
+
+  assert.equal(locateChatTarget(root, { toolCallId: 'tool-1' }), true)
+  // 800px below the transcript's top, 1000px already scrolled, centered in 600px around 100px.
+  assert.deepEqual(tops, [1000 + 800 - (600 - 100) / 2])
 })

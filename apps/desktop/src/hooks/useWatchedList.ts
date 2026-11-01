@@ -2,6 +2,7 @@ import { useEffect, useInsertionEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 import { readSwrCache, writeSwrCache } from '../lib/swrCache'
 
@@ -249,7 +250,7 @@ export function useWatchedList<T>({
               // The live watch keeps the list current regardless, but a failed
               // user-triggered refresh shouldn't look successful — surface it.
               if (cancelled) return
-              toast.apiError('Refresh failed', e)
+              toast.apiError(t('Refresh failed'), e)
             })
             .finally(finishManualRefresh)
         } else {

@@ -33,6 +33,7 @@ export type BreadcrumbContext = {
   target: DetailTarget | null
   s3Detail: AwsS3Detail | null
   architectureDetail: { diagramId: string; diagramName: string } | null
+  designDetail: { designId: string; designName: string } | null
   nuphosDashboard: NuphosDashboardRef | null
   nuphosDashboards: { id: string; name: string }[] | undefined
   connectorDetail: ConnectorDetailRef | null

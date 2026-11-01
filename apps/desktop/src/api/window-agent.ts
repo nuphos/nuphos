@@ -10,6 +10,7 @@ import type {
   AgentMemoryScope,
   AgentMemoryScorecard,
 } from './agent-audit-types.ts'
+import type { AgentDecisionApi, AgentStartArgs } from './agent-chat-types.ts'
 import type {
   AgentTrigger,
   AgentTriggerGroup,
@@ -34,15 +35,11 @@ import type {
 } from './agent-types.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
-import type {
-  SessionConfigPick,
-  SessionConfigSelection,
-  SessionConfigState,
-} from './session-config-types'
+import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
-export type WindowAgentApi = {
+export type WindowAgentApi = AgentDecisionApi & {
   cloudProbeCliVersion(provider: CloudCliProvider, probeId?: string): Promise<string | null>
   cloudProbeCli(provider: CloudCliProvider): Promise<CloudCliProbe>
   agentMoveConversationRuntime(
@@ -69,28 +66,7 @@ export type WindowAgentApi = {
     teamId: string,
     selection: SessionConfigSelection,
   ): Promise<SessionConfigState>
-  agentStart(args: {
-    streamId: string
-    sessionId: string
-    teamId?: string
-    messages: unknown[]
-    baseIndex?: number
-    locale?: string
-    url?: string
-    kubeContext?: string
-    diagramId?: string
-    resume?: boolean
-    resumeFrom?: number
-    continueAfterInterruption?: boolean
-    resumeReason?: 'permission-decision' | 'approval-decision' | 'client-tool'
-    credentialAccess?: AgentCredentialSelection
-    /** Authorization mode for a conversation being created by this call. */
-    permissionMode?: 'auto' | 'bypass'
-    agentRuntime?: AgentProvider
-    runtimeId?: string
-    /** Model settings picked before this conversation existed. */
-    initialSessionConfig?: SessionConfigPick
-  }): Promise<void>
+  agentStart(args: AgentStartArgs): Promise<void>
   agentNotifyStopped(args: {
     title: string
     body: string

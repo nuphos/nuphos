@@ -2,6 +2,7 @@ import { ShieldCheck, UserMinus, XCircle } from 'lucide-react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { roleLabel } from './memberRows'
 
@@ -57,16 +58,16 @@ export function useMemberActions({
       await api.atlasInviteTeamMember(teamId, email)
       setInviteOpen(false)
       setInviteEmail('')
-      toast.success('Invitation sent', email)
+      toast.success(t('Invitation sent'), email)
       // The invitation exists at this point — a refresh failure must not read
       // as "invite failed" (which would invite a duplicate retry).
       try {
         setInvitations(await api.atlasListTeamInvitations(teamId))
       } catch (refreshErr) {
-        toast.apiError('Invitation sent, but list refresh failed', refreshErr)
+        toast.apiError(t('Invitation sent, but list refresh failed'), refreshErr)
       }
     } catch (err) {
-      toast.apiError('Invite failed', err)
+      toast.apiError(t('Invite failed'), err)
     } finally {
       setInviteSubmitting(false)
     }
@@ -82,10 +83,10 @@ export function useMemberActions({
       try {
         await refreshRows()
       } catch (refreshErr) {
-        toast.apiError('Invitation cancelled, but list refresh failed', refreshErr)
+        toast.apiError(t('Invitation cancelled, but list refresh failed'), refreshErr)
       }
     } catch (err) {
-      toast.apiError('Cancel invite failed', err)
+      toast.apiError(t('Cancel invite failed'), err)
     } finally {
       setActingRowKey(null)
     }
@@ -101,10 +102,10 @@ export function useMemberActions({
       try {
         await refreshRows()
       } catch (refreshErr) {
-        toast.apiError('Member removed, but list refresh failed', refreshErr)
+        toast.apiError(t('Member removed, but list refresh failed'), refreshErr)
       }
     } catch (err) {
-      toast.apiError('Remove member failed', err)
+      toast.apiError(t('Remove member failed'), err)
     } finally {
       setActingRowKey(null)
     }
@@ -119,7 +120,7 @@ export function useMemberActions({
 
       setMembers((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
     } catch (err) {
-      toast.apiError('Role change failed', err)
+      toast.apiError(t('Role change failed'), err)
     } finally {
       setActingRowKey(null)
     }
@@ -130,11 +131,11 @@ export function useMemberActions({
       return [
         {
           key: 'cancel-invite',
-          label: 'Cancel invite',
+          label: t('Cancel invite'),
           icon: XCircle,
           destructive: true,
           disabled: actingRowKey === `invitation:${row.invitation.id}`,
-          confirm: `Cancel invitation for ${row.invitation.inviteeEmail}?`,
+          confirm: t('Cancel invitation for {email}?', { email: row.invitation.inviteeEmail }),
           onSelect: () => cancelInvitation(row.invitation),
         },
       ]
@@ -145,11 +146,14 @@ export function useMemberActions({
       .filter((role) => role !== row.member.role)
       .map((role) => ({
         key: `role-${role}`,
-        label: `Make ${roleLabel(role)}`,
+        label: t('Make {role}', { role: roleLabel(role) }),
         icon: ShieldCheck,
         disabled: isSelf || actingRowKey === row.member.id,
-        hint: isSelf ? 'you' : undefined,
-        confirm: `Change ${row.member.name || row.member.email} to ${roleLabel(role)}?`,
+        hint: isSelf ? t('you') : undefined,
+        confirm: t('Change {name} to {role}?', {
+          name: row.member.name || row.member.email,
+          role: roleLabel(role),
+        }),
         onSelect: () => updateMemberRole(row.member, role),
       }))
 
@@ -158,12 +162,12 @@ export function useMemberActions({
       ...(roleItems.length > 0 ? [{ key: 'sep-role', separator: true } as ContextMenuItem] : []),
       {
         key: 'remove-member',
-        label: 'Remove from team',
+        label: t('Remove from team'),
         icon: UserMinus,
         destructive: true,
         disabled: isSelf || actingRowKey === row.member.id,
-        hint: isSelf ? 'you' : undefined,
-        confirm: `Remove ${row.member.name || row.member.email} from this team?`,
+        hint: isSelf ? t('you') : undefined,
+        confirm: t('Remove {name} from this team?', { name: row.member.name || row.member.email }),
         onSelect: () => removeMember(row.member),
       },
     ]

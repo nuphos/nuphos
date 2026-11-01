@@ -14,7 +14,8 @@ struct ChatComposerBar<Controls: View>: View {
     /// The turn accepts steering, so what is typed mid-reply goes into it.
     var canSteer = false
     var allowsAttachments = true
-    var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
+    /// An unsent message to take back into the draft, for editing.
+    var editRequest: Binding<ComposerSubmission?> = .constant(nil)
     /// What an `@` offers: the viewer's devices and other sessions; nil offers none.
     var mentions: MentionSource? = nil
     /// The team voice input transcribes for; nil hides the microphone.
@@ -60,16 +61,6 @@ struct ChatComposerBar<Controls: View>: View {
         // Collapsed, the controls row is zero high; spacing around it would
         // stay, so a collapsed composer has none.
         VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
-            if let submission = failedSubmission.wrappedValue {
-                Button("Edit unsent message") {
-                    text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                    attachments.insert(contentsOf: submission.attachments, at: 0)
-                    failedSubmission.wrappedValue = nil
-                    focused = true
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            }
             // The controls own the sheets they present (agent setup, pickers).
             // A text field in one of those sheets takes focus from the
             // composer, so the row stays mounted while collapsed; removing it
@@ -265,6 +256,13 @@ struct ChatComposerBar<Controls: View>: View {
                 }
             }
             #endif
+            .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
+                guard requested, let submission = editRequest.wrappedValue else { return }
+                text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
+                attachments.insert(contentsOf: submission.attachments, at: 0)
+                editRequest.wrappedValue = nil
+                focused = true
+            }
             .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
                 Button("OK", role: .cancel) { dictationError = nil }
             } message: {

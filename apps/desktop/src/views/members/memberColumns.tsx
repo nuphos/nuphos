@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Mail, ShieldCheck } from 'lucide-react'
 
 import { Avatar } from '../../components/Avatar'
+import { t } from '../../i18n'
 
 import { formatDate, roleClass, roleLabel, rowDate, rowEmail, rowName } from './memberRows'
 
@@ -14,7 +15,7 @@ export function buildMemberColumns(): Column<MemberRow>[] {
   return [
     {
       key: 'name',
-      header: 'Member',
+      header: t('Member'),
       width: 280,
       sortAccessor: rowName,
       render: (row) => (
@@ -34,7 +35,7 @@ export function buildMemberColumns(): Column<MemberRow>[] {
           <div className="min-w-0">
             <div className="text-main font-medium truncate">{rowName(row)}</div>
             <div className="text-[12px] text-tertiary truncate">
-              {row.kind === 'member' ? `@${row.member.username}` : 'Invited'}
+              {row.kind === 'member' ? `@${row.member.username}` : t('Invited')}
             </div>
           </div>
         </div>
@@ -42,7 +43,7 @@ export function buildMemberColumns(): Column<MemberRow>[] {
     },
     {
       key: 'email',
-      header: 'Email',
+      header: t('Email'),
       width: 260,
       sortAccessor: rowEmail,
       render: (row) => (
@@ -51,7 +52,7 @@ export function buildMemberColumns(): Column<MemberRow>[] {
     },
     {
       key: 'role',
-      header: 'Role',
+      header: t('Role'),
       width: 150,
       sortAccessor: (row) => (row.kind === 'member' ? row.member.role : 'INVITED'),
       render: (row) =>
@@ -68,13 +69,13 @@ export function buildMemberColumns(): Column<MemberRow>[] {
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[12px] font-medium text-warning">
             <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Invited
+            {t('Invited')}
           </span>
         ),
     },
     {
       key: 'joinedAt',
-      header: 'Joined',
+      header: t('Joined|date'),
       width: 160,
       sortAccessor: rowDate,
       render: (row) => <span className="text-secondary">{formatDate(rowDate(row))}</span>,

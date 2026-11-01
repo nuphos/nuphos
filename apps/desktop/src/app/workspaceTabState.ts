@@ -161,6 +161,8 @@ export type WorkspaceTabState = {
   // breadcrumb shows the diagram name; clicking the crumb clears it. Optional —
   // not persisted across tab restore yet.
   architectureDetail?: { diagramId: string; diagramName: string } | null
+  /** Open design drill-down; mirrors architectureDetail. */
+  designDetail?: { designId: string; designName: string } | null
   /** Open dashboard drill-down; mirrors architectureDetail. Null means
    *  the Dashboards list page. */
   nuphosDashboard?: NuphosDashboardRef | null

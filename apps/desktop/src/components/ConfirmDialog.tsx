@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+
 import { AppAlertDialog } from './ui/alert-dialog'
 
 import type { ReactNode } from 'react'
@@ -17,8 +19,8 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel = t('Confirm'),
+  cancelLabel = t('Cancel'),
   destructive,
   onConfirm,
   onClose,

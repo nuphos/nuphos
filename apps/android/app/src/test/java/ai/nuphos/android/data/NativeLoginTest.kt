@@ -58,7 +58,7 @@ class NativeLoginTest {
         val fixture = Fixture()
         NativeLogin(fixture.client).use { login ->
             val url = login.register()
-            assertEquals("https://nuphos.ai/api/google/start?handle=${"h".repeat(43)}", url)
+            assertEquals("${NuphosApi.BASE_URL}/auth/social/login?handle=${"h".repeat(43)}", url)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val result = executor.submit<String> { login.awaitToken() }

@@ -1,13 +1,15 @@
+import { t } from '../../i18n/index.ts'
+
 import type { TeamInvitation, TeamMember, TeamRole } from '../../types'
 
 export function roleLabel(role: TeamRole): string {
   switch (role) {
     case 'ADMINISTRATOR':
-      return 'Admin'
+      return t('Admin')
     case 'EDITOR':
-      return 'Editor'
+      return t('Editor')
     case 'VIEWER':
-      return 'Viewer'
+      return t('Viewer')
   }
 }
 
@@ -25,7 +27,7 @@ export function roleClass(role: TeamRole): string {
 export function formatDate(value: string): string {
   const date = new Date(value)
 
-  if (Number.isNaN(date.getTime())) return 'Unknown'
+  if (Number.isNaN(date.getTime())) return t('Unknown')
 
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
@@ -57,7 +59,7 @@ export function applyFilter(rows: MemberRow[], filter: string): MemberRow[] {
   return rows.filter((row) =>
     (row.kind === 'member'
       ? [row.member.name, row.member.email, row.member.username, roleLabel(row.member.role)]
-      : [row.invitation.inviteeEmail, 'invited', 'pending']
+      : [row.invitation.inviteeEmail, 'invited', 'pending', t('Invited')]
     )
       .join(' ')
       .toLowerCase()
