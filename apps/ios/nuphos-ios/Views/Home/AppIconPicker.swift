@@ -14,7 +14,11 @@ struct AppIconPicker: View {
         }
 
     static var current: String {
-        UIApplication.shared.alternateIconName.map { String($0.dropFirst("AppIcon-".count)) } ?? "B2"
+        #if NUPHOS_SHARE_EXTENSION
+        return "B2"
+        #else
+        return UIApplication.shared.alternateIconName.map { String($0.dropFirst("AppIcon-".count)) } ?? "B2"
+        #endif
     }
 
     @State private var selected = Self.current
@@ -25,9 +29,11 @@ struct AppIconPicker: View {
                 ForEach(Self.icons, id: \.id) { icon in
                     Button {
                         selected = icon.id
+                        #if !NUPHOS_SHARE_EXTENSION
                         UIApplication.shared.setAlternateIconName(icon.id == "B2" ? nil : "AppIcon-\(icon.id)") { error in
                             if error != nil { selected = Self.current }
                         }
+                        #endif
                     } label: {
                         Image("AppIconPreview-\(icon.id)")
                             .resizable()

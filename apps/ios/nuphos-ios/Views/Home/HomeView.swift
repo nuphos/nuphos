@@ -155,12 +155,23 @@ struct HomeView: View {
             if token == nil, CommandLine.arguments.contains("-preview-home") { token = "" }
             #endif
             if store == nil, let token {
+                #if DEBUG && targetEnvironment(simulator)
+                store = AgentStore(token: token, loadsHistory: !CommandLine.arguments.contains("-share-verification"))
+                #else
                 store = AgentStore(token: token)
+                #endif
                 store?.me = ChatMessage.Sender(name: user.name, avatarURL: user.avatarURL)
                 store?.userId = user.id
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
             }
+            if let loginID = session.sharingLoginID, let token = session.token {
+                store?.bindSharingLogin(loginID, token: token)
+            }
+        }
+        .onChange(of: session.sharingLoginID, initial: true) { _, loginID in
+            guard session.user?.id == user.id, let loginID, let token = session.token else { return }
+            store?.bindSharingLogin(loginID, token: token)
         }
         .focusedSceneValue(\.newChat) {
             page = .agent

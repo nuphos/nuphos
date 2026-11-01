@@ -420,15 +420,22 @@ struct SearchBar: View {
 /// The composer that starts a new chat for the selected team: under the list
 /// when compact, in the empty detail column when wide.
 struct NewChatComposer: View {
+    @Environment(AuthSession.self) private var auth
     @Environment(AgentStore.self) private var store
     @Binding var openChat: AgentPage.OpenChat?
+    var initialContent: ComposerSubmission? = nil
+    var temporaryDirectory: URL = FileManager.default.temporaryDirectory
+    var admissionCheck: (() throws -> Void)? = nil
     @State private var draft = ""
+    @State private var admissionError: String?
+    @State private var failedSubmission: ComposerSubmission?
+    @State private var importedContent = false
 
     private var draftTeam: String { store.selectedTeam?.id ?? "" }
 
     var body: some View {
         @Bindable var store = store
-        ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving && store.credentialsReady, mentions: draftTeam.isEmpty ? nil : MentionSource(
+        ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving && store.credentialsReady, editRequest: $failedSubmission, mentions: draftTeam.isEmpty ? nil : MentionSource(
             teamId: draftTeam,
             devices: store.credentialCatalog?.scoped(to: .devices).allItems ?? [],
             pickDevice: { device in
@@ -438,22 +445,35 @@ struct NewChatComposer: View {
                 await store.loadCredentialOptions()
                 return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
             }
-        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, onSend: { submission in
-            guard let session = store.newSession() else { return }
-            endEditing()
-            openChat = AgentPage.OpenChat(session: session, prompt: submission)
+        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, voiceToken: auth.token, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, onSend: { submission in
+            do {
+                try admissionCheck?()
+                guard let session = store.newSession() else { throw SharedShareSession.Failure.workspace }
+                session.admissionCheck = admissionCheck
+                endEditing()
+                openChat = AgentPage.OpenChat(session: session, prompt: submission)
+            } catch {
+                failedSubmission = submission
+                admissionError = error.localizedDescription
+            }
         }) {
             ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
         }
         .onAppear {
-            if draft.isEmpty { draft = ComposerDrafts.text(team: draftTeam, session: "new") }
+            if let initialContent, !importedContent {
+                importedContent = true
+                draft = initialContent.text
+            } else if initialContent == nil, draft.isEmpty { draft = ComposerDrafts.text(team: draftTeam, session: "new") }
         }
         .onChange(of: store.selectedTeam?.id) { old, new in
-            draft = ComposerDrafts.switchTeam(visible: draft, session: "new", from: old ?? "", to: new ?? "")
+            if initialContent == nil { draft = ComposerDrafts.switchTeam(visible: draft, session: "new", from: old ?? "", to: new ?? "") }
         }
         .onChange(of: draft) { _, text in
-            ComposerDrafts.set(text, team: draftTeam, session: "new")
+            if initialContent == nil { ComposerDrafts.set(text, team: draftTeam, session: "new") }
         }
+        .alert("Couldn't send", isPresented: Binding(get: { admissionError != nil }, set: { if !$0 { admissionError = nil } })) {
+            Button("OK", role: .cancel) { admissionError = nil }
+        } message: { Text(admissionError ?? "") }
     }
 }
 
@@ -461,7 +481,7 @@ struct NewChatComposer: View {
 /// focus a pushed chat covered and hands it back when a back swipe starts,
 /// raising a keyboard that lifts the chat's composer mid-swipe.
 private func endEditing() {
-    #if canImport(UIKit)
+    #if canImport(UIKit) && !NUPHOS_SHARE_EXTENSION
     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     #endif
 }
