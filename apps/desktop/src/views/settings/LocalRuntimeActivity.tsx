@@ -8,6 +8,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { formatActivityTime } from './deviceActivity'
+import { LoadFailed } from './shared'
 
 import type { LocalRuntimeActivityEntry, LocalRuntimeActivityPage } from '../../api'
 import type { ReactNode } from 'react'
@@ -67,6 +68,7 @@ export function LocalRuntimeActivity({
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [teamNames, setTeamNames] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   const applyPage = useCallback((page: LocalRuntimeActivityPage, append: boolean) => {
     setEntries((prev) => (append && prev ? [...prev, ...page.entries] : page.entries))
@@ -78,9 +80,10 @@ export function LocalRuntimeActivity({
       setLoading(true)
       try {
         applyPage(await api.localRuntimeListActivity(before), before !== undefined)
+        setFailed(false)
       } catch (err) {
         toast.apiError(t('Could not load local runtime activity'), err)
-        setEntries((prev) => prev ?? [])
+        if (before === undefined) setFailed(true)
       } finally {
         setLoading(false)
       }
@@ -95,12 +98,20 @@ export function LocalRuntimeActivity({
       .then((teams) => {
         setTeamNames(new Map(teams.map((team) => [team.id, team.name])))
       })
-      .catch(() => undefined)
+      .catch(() => {})
   }, [load])
 
   let body: ReactNode
 
-  if (entries === null) body = <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
+  if (entries === null)
+    body = failed ? (
+      <LoadFailed
+        message={t('Couldn’t load local runtime activity.')}
+        onRetry={() => void load()}
+      />
+    ) : (
+      <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
+    )
   else if (entries.length === 0)
     body = <p className={EMPTY_CLASSES}>{t('No agent has run on this computer yet.')}</p>
   else
