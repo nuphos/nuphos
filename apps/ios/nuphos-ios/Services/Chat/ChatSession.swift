@@ -379,6 +379,7 @@ final class ChatSession {
         let attachments = submission.attachments
         guard !trimmed.isEmpty || !attachments.isEmpty, !readOnly else { return }
         guard canSubmit else { return }
+        promptSuggestion = nil
         if canSteer {
             guard attachments.isEmpty else { error = "Send attachments after this turn; steering currently accepts text."; return }
             steeringPending = true
@@ -1005,7 +1006,11 @@ final class ChatSession {
         lastSyncedSignature = signature()
     }
 
+    /// Desktop's Tab-to-accept guess; a phone offers it as a chip to tap.
+    private(set) var promptSuggestion: String?
+
     private func adoptRuntime(from detail: AgentConversationDetail) {
+        promptSuggestion = detail.promptSuggestion.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
         if let t = detail.title, !t.isEmpty, t != title { title = t }
         isOwner = detail.isOwner ?? false
         manages = detail.canManage ?? isOwner
