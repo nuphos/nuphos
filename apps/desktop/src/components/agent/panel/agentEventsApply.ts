@@ -23,6 +23,7 @@ const BUSY_DETAIL = t(
   'The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.',
 )
 const WAITING_FOR_APPROVAL = t('Waiting for approval')
+const waitingForSignIn = (name: string) => t('Waiting for {name} to sign in', { name })
 const RUNTIME_NOT_READY_TITLE = t("The runtime isn't ready yet")
 const RUNTIME_NOT_READY_DETAIL = t('Your message was not sent. Send it again.')
 
@@ -104,7 +105,12 @@ export function applyStreamEvent(
         // A teammate's computer says why: its owner is asked, and approving sends it.
         if (typeof ev.message === 'string' && !busyNoticeShownForStream.has(streamId)) {
           busyNoticeShownForStream.add(streamId)
-          toast.info(WAITING_FOR_APPROVAL, ev.message)
+          toast.info(
+            typeof ev.waitingFor === 'string'
+              ? waitingForSignIn(ev.waitingFor)
+              : WAITING_FOR_APPROVAL,
+            ev.message,
+          )
         }
         const nextTab = showTurnQueued(t, dispatchedDraft(streamId))
 

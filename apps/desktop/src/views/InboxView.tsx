@@ -129,7 +129,7 @@ export function InboxView({
       if (!open || list.some((item) => item.sessionId === open.sessionId)) return settle(false)
       // Not listed is not proof it was answered (a longer list can push it out): ask its own record.
       void api.agentGetConversation(open.sessionId, teamId, { tail: 1, runtimeState: 'omit' }).then(
-        (detail) => settle(Boolean(detail.pendingDecision)),
+        (detail) => settle(Boolean(detail.pendingDecision ?? detail.signInRequest)),
         () => settle(true),
       )
     },
