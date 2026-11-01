@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
+import { t } from '../../i18n'
 
 import type { PickedElement } from '../../lib/browserAnnotate'
 
@@ -62,8 +63,8 @@ export function BrowserCommentBox({
             submit()
           }
         }}
-        placeholder="What should change here?"
-        aria-label="Comment"
+        placeholder={t('What should change here?')}
+        aria-label={t('Comment')}
         className="w-full resize-none text-xs text-main placeholder:text-tertiary"
       />
       <div className="mt-1 flex justify-end gap-1">
@@ -72,14 +73,14 @@ export function BrowserCommentBox({
           onClick={onCancel}
           className="h-6 rounded px-2 text-xs text-secondary hover:bg-zGray-800 hover:text-main"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <button
           type="submit"
           disabled={!note.trim()}
           className="h-6 rounded bg-zGray-100 px-2 text-xs font-medium text-zGray-900 disabled:opacity-40"
         >
-          Comment
+          {t('Comment')}
         </button>
       </div>
     </InputGroup>

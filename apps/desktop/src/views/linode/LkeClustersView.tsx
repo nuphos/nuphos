@@ -11,6 +11,7 @@ import { Table } from '../../components/Table'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import {
   getEndpointOverride,
   isValidOverrideHost,
@@ -70,10 +71,10 @@ export function LkeClustersView({
   const menuItems = (cluster: LkeCluster): ContextMenuItem[] => {
     const override = getEndpointOverride(accountId, cluster.id)
     const items: ContextMenuItem[] = [
-      { key: 'use', label: 'Use cluster', onSelect: () => onUseCluster(cluster) },
+      { key: 'use', label: t('Use cluster'), onSelect: () => onUseCluster(cluster) },
       {
         key: 'copy-label',
-        label: 'Copy label',
+        label: t('Copy label'),
         onSelect: () =>
           navigator.clipboard.writeText(cluster.label).catch((cause: unknown) => {
             reportFrontendError(
@@ -85,7 +86,7 @@ export function LkeClustersView({
       { key: 'sep', separator: true },
       {
         key: 'override',
-        label: override ? 'Edit endpoint override…' : 'Set endpoint override…',
+        label: override ? t('Edit endpoint override…') : t('Set endpoint override…'),
         onSelect: () => {
           setOverrideInput(override ?? '')
           setOverrideDialog(cluster)
@@ -96,14 +97,14 @@ export function LkeClustersView({
     if (override) {
       items.push({
         key: 'clear-override',
-        label: 'Clear endpoint override',
+        label: t('Clear endpoint override'),
         destructive: true,
         onSelect: () => {
           setEndpointOverride(accountId, cluster.id, null)
-          setOverrideTick((t) => t + 1)
+          setOverrideTick((n) => n + 1)
           toast.success(
-            'Endpoint override cleared',
-            `${cluster.label} connects via the Linode endpoint again`,
+            t('Endpoint override cleared'),
+            t('{name} connects via the Linode endpoint again', { name: cluster.label }),
           )
         },
       })
@@ -122,15 +123,18 @@ export function LkeClustersView({
 
     if (!isValidOverrideHost(host)) {
       toast.error(
-        'Invalid hostname',
-        'Expected a bare hostname like kube-apiserver-foo.tailnet.ts.net',
+        t('Invalid hostname'),
+        t('Expected a bare hostname like kube-apiserver-foo.tailnet.ts.net'),
       )
 
       return
     }
     setEndpointOverride(accountId, overrideDialog.id, host)
-    setOverrideTick((t) => t + 1)
-    toast.success('Endpoint override saved', `${overrideDialog.label} now connects via ${host}`)
+    setOverrideTick((n) => n + 1)
+    toast.success(
+      t('Endpoint override saved'),
+      t('{name} now connects via {host}', { name: overrideDialog.label, host }),
+    )
     setOverrideDialog(null)
   }
 
@@ -141,7 +145,7 @@ export function LkeClustersView({
         columns={[
           {
             key: 'label',
-            header: 'Label',
+            header: t('Label'),
             render: (c) => (
               <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
                 {c.label}
@@ -149,7 +153,9 @@ export function LkeClustersView({
                   <FontAwesomeIcon
                     icon={faShieldHalved}
                     className="h-3 w-3 text-tertiary"
-                    title={`Connects via ${String(getEndpointOverride(accountId, c.id))}`}
+                    title={t('Connects via {host}', {
+                      host: String(getEndpointOverride(accountId, c.id)),
+                    })}
                   />
                 )}
               </span>
@@ -158,25 +164,25 @@ export function LkeClustersView({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             render: (c) => <span className="text-secondary">{c.region}</span>,
             sortAccessor: (c) => c.region,
           },
           {
             key: 'version',
-            header: 'K8s Version',
+            header: t('K8s Version'),
             render: (c) => <span className="text-secondary text-[11.5px]">{c.k8s_version}</span>,
             sortAccessor: (c) => c.k8s_version,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             render: (c) => <StatusBadge status={c.status} />,
             sortAccessor: (c) => c.status,
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             render: (c) =>
               c.created ? <Age value={c.created} /> : <span className="text-tertiary">—</span>,
             sortAccessor: (c) => c.created ?? '',
@@ -200,8 +206,10 @@ export function LkeClustersView({
       <Modal
         open={overrideDialog !== null}
         onClose={() => setOverrideDialog(null)}
-        title="API server endpoint override"
-        description="Connect to this cluster through an alternative API server endpoint instead of the provider's public one — e.g. a Tailscale operator proxy when the control plane is ACL-gated, or any VPN/private hostname. The endpoint must authenticate at the network layer. Stored on this machine only."
+        title={t('API server endpoint override')}
+        description={t(
+          "Connect to this cluster through an alternative API server endpoint instead of the provider's public one — e.g. a Tailscale operator proxy when the control plane is ACL-gated, or any VPN/private hostname. The endpoint must authenticate at the network layer. Stored on this machine only.",
+        )}
       >
         <form
           onSubmit={(e) => {
@@ -224,10 +232,10 @@ export function LkeClustersView({
               onClick={() => setOverrideDialog(null)}
               className="h-7 rounded-md px-3 text-[12px] text-secondary hover:bg-zGray-850"
             >
-              Cancel
+              {t('Cancel')}
             </button>
             <Button size="sm" type="submit">
-              Save
+              {t('Save')}
             </Button>
           </div>
         </form>

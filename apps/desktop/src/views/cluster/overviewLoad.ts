@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 import {
   cronJobPhase,
   daemonSetPhase,
@@ -125,41 +126,41 @@ export async function loadOverviewCore(context: string): Promise<OverviewCore> {
   const podRows = rowsOf(pods)
 
   const cards: OverviewCard[] = [
-    phaseCard('nodes', 'Nodes', 'cluster.nodes', nodes, nodePhase),
-    phaseCard('pods', 'Pods', 'workloads.pods', pods, podPhase),
-    phaseCard('deployments', 'Deployments', 'workloads.deployments', deps, deploymentPhase),
-    phaseCard('replicasets', 'ReplicaSets', 'workloads.replicasets', rs, replicaSetPhase),
-    phaseCard('statefulsets', 'StatefulSets', 'workloads.statefulsets', ss, statefulSetPhase),
-    phaseCard('daemonsets', 'DaemonSets', 'workloads.daemonsets', ds, daemonSetPhase),
-    phaseCard('jobs', 'Jobs', 'workloads.jobs', jobs, jobPhase),
-    phaseCard('cronjobs', 'CronJobs', 'workloads.cronjobs', cron, cronJobPhase),
+    phaseCard('nodes', t('Nodes'), 'cluster.nodes', nodes, nodePhase),
+    phaseCard('pods', t('Pods'), 'workloads.pods', pods, podPhase),
+    phaseCard('deployments', t('Deployments'), 'workloads.deployments', deps, deploymentPhase),
+    phaseCard('replicasets', t('ReplicaSets'), 'workloads.replicasets', rs, replicaSetPhase),
+    phaseCard('statefulsets', t('StatefulSets'), 'workloads.statefulsets', ss, statefulSetPhase),
+    phaseCard('daemonsets', t('DaemonSets'), 'workloads.daemonsets', ds, daemonSetPhase),
+    phaseCard('jobs', t('Jobs'), 'workloads.jobs', jobs, jobPhase),
+    phaseCard('cronjobs', t('CronJobs'), 'workloads.cronjobs', cron, cronJobPhase),
     phaseCard(
       'persistentvolumes',
-      'Persistent Volumes',
+      t('Persistent Volumes'),
       'storage.persistent-volumes',
       pvs,
       pvPhase,
     ),
     {
       key: 'crds',
-      title: 'CRDs',
+      title: t('CRDs'),
       navKey: 'custom.crds',
       total: crdRows ? crdRows.length : null,
       // CRDs have no phase; show them as "Active" (not a status deep-link).
       segments: crdRows
-        ? [{ label: 'Active', count: crdRows.length, tone: 'success' as Tone }]
+        ? [{ label: t('Active'), count: crdRows.length, tone: 'success' as Tone }]
         : [],
     },
     {
       key: 'services',
-      title: 'Services',
+      title: t('Services'),
       navKey: 'networking.services',
       total: svcRows ? svcRows.length : null,
       segments: [],
     },
     {
       key: 'namespaces',
-      title: 'Namespaces',
+      title: t('Namespaces'),
       navKey: null,
       total: nsRows ? nsRows.length : null,
       segments: [],
