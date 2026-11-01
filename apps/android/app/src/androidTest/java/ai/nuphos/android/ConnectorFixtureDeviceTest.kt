@@ -16,7 +16,9 @@ import java.io.File
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ai.nuphos.android.data.*
 import ai.nuphos.android.model.*
@@ -34,8 +36,11 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Uses the Compose test Activity, synthetic stores, and a transport with no network implementation. */
 @RunWith(AndroidJUnit4::class)
 class ConnectorFixtureDeviceTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val requests = CopyOnWriteArrayList<String>()
+    private lateinit var originalConfiguration: android.content.res.Configuration
+    @org.junit.Before fun saveConfiguration() { originalConfiguration = android.content.res.Configuration(compose.activity.resources.configuration) }
+    @org.junit.After fun restoreConfiguration() { compose.runOnIdle { compose.activity.resources.updateConfiguration(originalConfiguration, compose.activity.resources.displayMetrics) } }
     private var fail = false
     private var saved = false
     private var response = "{}"
@@ -50,7 +55,9 @@ class ConnectorFixtureDeviceTest {
     }
     private lateinit var store: ConnectorsStore
     private var fixtureAutofillManager: AutofillManager? = null
-    private fun render(admin: Boolean = true, pending: ConnectorPending? = null, compact: Boolean = false) {
+    private fun render(admin: Boolean = true, pending: ConnectorPending? = null, compact: Boolean = false, dark: Boolean = false, fontScale: Float = 1f) {
+        val scale = if (compact && fontScale == 1f) 1.3f else fontScale
+        compose.runOnIdle { compose.activity.resources.updateConfiguration(android.content.res.Configuration(originalConfiguration).apply { this.fontScale = scale }, compose.activity.resources.displayMetrics) }
         store = ConnectorsStore(transport, object : ConnectorPendingStorage {
             override fun read() = pending
             override fun write(pending: ConnectorPending?) {}
@@ -69,11 +76,11 @@ class ConnectorFixtureDeviceTest {
                     view.importantForAutofill = previous
                 }
             }
-            NuphosTheme {
+            NuphosTheme(darkTheme = dark) {
                 CompositionLocalProvider(LocalConnectorsStore provides store) {
                     if (compact) {
                         val density = LocalDensity.current
-                        CompositionLocalProvider(LocalDensity provides Density(density.density, 1.3f)) {
+                        CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
                             Box(Modifier.widthIn(max = 320.dp)) { ConnectorsPage() }
                         }
                     } else ConnectorsPage()
@@ -89,7 +96,7 @@ class ConnectorFixtureDeviceTest {
         fail = false
         compose.onNodeWithText("Retry").performClick()
         compose.waitUntil(5000) { store.phase == ConnectorsStore.Phase.Loaded }
-        compose.onNodeWithText("No connectors are saved for this team.").assertIsDisplayed()
+        compose.onNodeWithText("No connectors yet").assertIsDisplayed()
         capture("13-connector-retry-empty")
         assertTrue(requests.all { it == "GET:connectors" })
     }
@@ -109,14 +116,14 @@ class ConnectorFixtureDeviceTest {
     }
     @Test fun memberSeesAdministratorHintAndCannotOpenAddCatalog() {
         render(admin = false)
-        compose.onNodeWithTag("connector-catalog").assertIsNotEnabled()
-        compose.onNodeWithText("You can browse connectors. A team administrator can add providers.").assertIsDisplayed()
+        compose.onNodeWithTag("connector-catalog").assertDoesNotExist()
+        compose.onNodeWithText("A team administrator can connect cloud accounts and integrations.").assertIsDisplayed()
         compose.onNodeWithTag("connector-add-aws").assertDoesNotExist()
         assertTrue(requests.all { it == "GET:connectors" })
     }
     @Test fun adminFormMasksSecretValidatesThenVerifiesSavedBinding() {
         render()
-        compose.onNodeWithTag("connector-catalog").performClick()
+        compose.onNodeWithTag("connector-catalog").performScrollTo().performClick()
         compose.onNodeWithTag("connector-catalog-list").performScrollToNode(hasTestTag("connector-add-notion"))
         compose.onNodeWithTag("connector-add-notion").performClick()
         compose.onNodeWithTag("connector-form-list").performScrollToNode(hasTestTag("connector-save"))
@@ -142,12 +149,13 @@ class ConnectorFixtureDeviceTest {
     }
     @Test fun cancelFormClosesSheetAndKeepsInventoryWithoutPost() {
         render()
-        compose.onNodeWithTag("connector-catalog").performClick()
-        compose.onNodeWithTag("connector-add-aws").performScrollTo().performClick()
+        compose.onNodeWithTag("connector-catalog").performScrollTo().performClick()
+        compose.onNodeWithTag("connector-catalog-list").performScrollToNode(hasTestTag("connector-add-aws"))
+        compose.onNodeWithTag("connector-add-aws").performClick()
         compose.onNodeWithTag("connector-field-roleArn").performTextInput("arn:aws:iam::123456789012:role/Fixture")
-        compose.onNodeWithText("Cancel").performScrollTo().performClick()
-        compose.onNodeWithText("Add AWS").assertDoesNotExist()
-        compose.onNodeWithText("No connectors are saved for this team.").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithTag("connector-form-panel").assertDoesNotExist()
+        compose.onNodeWithText("No connectors yet").assertIsDisplayed()
         assertFalse(requests.any { it.startsWith("POST:") })
     }
     @Test fun nativeBackCancelsPendingAuthorizationWithoutBinding() {
@@ -168,7 +176,7 @@ class ConnectorFixtureDeviceTest {
         render(compact = true)
         compose.onNodeWithText(label).assertIsDisplayed()
         capture("21-compact-long-inventory-fixture")
-        compose.onNodeWithTag("connector-catalog").performClick()
+        compose.onNodeWithTag("connector-catalog").performScrollTo().performClick()
         compose.onNodeWithTag("connector-catalog-list").performScrollToNode(hasTestTag("connector-add-azure"))
         compose.onNodeWithTag("connector-add-azure").performClick()
         // Expand the partially opened sheet before checking a field on a compact screen.
@@ -183,14 +191,85 @@ class ConnectorFixtureDeviceTest {
         assertTrue(requests.all { it == "GET:connectors" })
     }
 
-    private fun capture(name: String) {
-        if (InstrumentationRegistry.getArguments().getString("captureScreenshots") != "true") return
-        compose.waitForIdle()
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "connector-visual-20261003").apply { mkdirs() }
-        val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
-        File(directory, "$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
-        bitmap.recycle()
+    @Test fun catalogSearchFiltersGroupedRowsWithoutStartingAuthorization() {
+        render()
+        compose.onNodeWithTag("connector-catalog").performScrollTo().performClick()
+        compose.onNodeWithTag("connector-search").performTextInput("notion")
+        compose.onNodeWithTag("connector-add-notion").assertIsDisplayed()
+        compose.onNodeWithTag("connector-add-aws").assertDoesNotExist()
+        compose.onNodeWithTag("connector-search").performTextReplacement("no-such-connector")
+        compose.onNodeWithText("No connectors found").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Clear connector search").performClick()
+        compose.onNodeWithText("Done").performClick()
+        assertTrue(requests.all { it == "GET:connectors" })
     }
 
+    @Test fun longPressCopiesIdWithoutShowingTechnicalDetailsOrChangingBinding() {
+        response = """{"notion":[{"id":"fixture-details","label":"Synthetic workspace","workspaceName":"Synthetic details"}]}"""
+        render()
+        compose.onNodeWithText("Synthetic workspace").performTouchInput { longClick() }
+        compose.onNodeWithText("Technical details").assertDoesNotExist()
+        compose.onNode(hasText("ID: fixture-details", substring=true)).assertDoesNotExist()
+        compose.onNodeWithText("Synthetic workspace").assertIsDisplayed()
+        assertTrue(requests.all { it == "GET:connectors" })
+    }
+
+    @Test fun formBackReturnsToFilteredCatalogWithoutPosting() {
+        render()
+        compose.onNodeWithTag("connector-catalog").performScrollTo().performClick()
+        compose.onNodeWithTag("connector-search").performTextInput("notion")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("connector-add-notion").performClick()
+        compose.onNodeWithContentDescription("Back to Add connector").assertIsDisplayed()
+        capture("parity-form-light")
+        compose.onNodeWithContentDescription("Back to Add connector").performClick()
+        compose.onNodeWithTag("connector-search").assertTextContains("notion")
+        compose.onNodeWithTag("connector-add-notion").assertIsDisplayed()
+        assertTrue(requests.all { it == "GET:connectors" })
+    }
+
+    private val visualInventory = """{"aws":[{"id":"synthetic-aws","alias":"Production cloud","accountId":"123456789012","roleArn":"arn:aws:iam::123456789012:role/SyntheticConnector"}],"gcp":[{"id":"synthetic-gcp","projectId":"Synthetic project with a long descriptive name","serviceAccountEmail":"connector@synthetic-project.example.invalid"}],"github":[{"id":"synthetic-github","accountLogin":"Synthetic organization","accountType":"Organization"}],"notion":[{"id":"synthetic-notion","label":"Synthetic workspace","workspaceName":"Product documents"}]}"""
+    @Test fun visualInventoryLightUsesGroupedCompactRows() { response=visualInventory; render(); capture("parity-inventory-light") }
+    @Test fun visualInventoryDarkUsesCurrentThemeLogos() { response=visualInventory; render(dark=true); capture("parity-inventory-dark") }
+    @Test fun visualCatalogLightGroupsSearchableRows() { render(); compose.onNodeWithTag("connector-catalog").performScrollTo().performClick(); capture("parity-catalog-light") }
+    @Test fun visualCatalogDarkGroupsSearchableRows() { render(dark=true); compose.onNodeWithTag("connector-catalog").performScrollTo().performClick(); capture("parity-catalog-dark") }
+    @Test fun visualLargeCatalogKeepsDoneAndSearchReachable() {
+        render(dark=true,fontScale=2f)
+        compose.onNodeWithTag("connector-catalog").performScrollTo().performClick()
+        val layouts=mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNode(hasText("Add connector") and hasAnyAncestor(hasTestTag("connector-catalog-panel"))).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(2f,layouts.single().layoutInput.density.fontScale,0.01f)
+        compose.onNodeWithText("Done").assertIsDisplayed()
+        compose.onNodeWithTag("connector-search").assertIsDisplayed()
+        capture("parity-catalog-dark-2x")
+    }
+
+    @Test fun visualDarkLargeFormKeepsBackCancelAndConnectReachable() {
+        render(dark=true,fontScale=2f)
+        compose.onNodeWithTag("connector-catalog").performScrollTo().performClick()
+        compose.onNodeWithTag("connector-catalog-list").performScrollToNode(hasTestTag("connector-add-notion"))
+        compose.onNodeWithTag("connector-add-notion").performClick()
+        compose.onNodeWithContentDescription("Back to Add connector").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").assertIsDisplayed()
+        compose.onNodeWithTag("connector-save").performScrollTo().assertIsDisplayed()
+        val layouts=mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNode(hasText("Notion") and hasAnyAncestor(hasTestTag("connector-form-panel"))).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(2f,layouts.single().layoutInput.density.fontScale,0.01f)
+        capture("parity-form-dark-2x")
+        assertTrue(requests.all { it == "GET:connectors" })
+    }
+
+    private fun capture(name: String) {
+        if (InstrumentationRegistry.getArguments().getString("captureScreenshots") != "true") return
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        val target=when {
+            compose.onAllNodesWithTag("connector-form-list").fetchSemanticsNodes().isNotEmpty() -> "connector-form-panel"
+            compose.onAllNodesWithTag("connector-catalog-list").fetchSemanticsNodes().isNotEmpty() -> "connector-catalog-panel"
+            else -> "connector-inventory-list"
+        }
+        val directory=File(compose.activity.getExternalFilesDir(null),"connector-parity-1149").apply { mkdirs() }
+        val bitmap=compose.onNodeWithTag(target).captureToImage().asAndroidBitmap()
+        File(directory,"$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG,100,it)) }
+    }
 }

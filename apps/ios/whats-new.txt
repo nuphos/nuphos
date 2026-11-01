@@ -1,3 +1,5 @@
-A finished reply now folds all of its work under one quiet "Worked for" line, instead of a gray pill that could repeat several times in one turn.
+Notifications now show the agent's avatar.
 
-When an agent messages or starts another agent, the chat shows it as a single line, in line with the rest of the work log, instead of a separate card.
+Rename an agent right from the agent list.
+
+Fixes: in the split view, the open chat's row is highlighted, and runtime meters stack instead of overflowing when the sidebar is narrow.

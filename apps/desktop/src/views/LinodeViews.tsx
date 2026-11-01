@@ -7,6 +7,7 @@ import { LeafDetailPanel } from '../components/LeafDetailPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { Table } from '../components/Table'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 import { withResourceListCache, resourceListCacheKey } from '../lib/resourceListCache'
 
@@ -59,7 +60,7 @@ export function LinodeInstancesView({
   const menuItems = (instance: LinodeInstance): ContextMenuItem[] => [
     {
       key: 'copy-label',
-      label: 'Copy label',
+      label: t('Copy label'),
       onSelect: () =>
         navigator.clipboard.writeText(instance.label).catch((cause: unknown) => {
           reportFrontendError(
@@ -72,7 +73,7 @@ export function LinodeInstancesView({
       ? [
           {
             key: 'copy-ip',
-            label: 'Copy IP address',
+            label: t('Copy IP address'),
             onSelect: () =>
               navigator.clipboard.writeText(instance.ipv4[0]!).catch((cause: unknown) => {
                 reportFrontendError(
@@ -96,25 +97,25 @@ export function LinodeInstancesView({
         columns={[
           {
             key: 'label',
-            header: 'Label',
+            header: t('Label'),
             render: (i) => <span className="font-mono text-[12px]">{i.label}</span>,
             sortAccessor: (i) => i.label,
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             render: (i) => <span className="text-secondary">{i.region}</span>,
             sortAccessor: (i) => i.region,
           },
           {
             key: 'type',
-            header: 'Type',
+            header: t('Type'),
             render: (i) => <span className="text-secondary text-[11.5px]">{i.type}</span>,
             sortAccessor: (i) => i.type,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             render: (i) => <StatusBadge status={i.status} />,
             sortAccessor: (i) => i.status,
           },
@@ -128,7 +129,7 @@ export function LinodeInstancesView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             render: (i) =>
               i.created ? <Age value={i.created} /> : <span className="text-tertiary">—</span>,
             sortAccessor: (i) => i.created ?? '',
@@ -156,12 +157,12 @@ export function LinodeInstancesView({
           title={selected.label}
           fields={[
             { label: 'ID', value: String(selected.id), mono: true },
-            { label: 'Region', value: selected.region },
-            { label: 'Type', value: selected.type },
-            { label: 'Status', value: selected.status },
+            { label: t('Region'), value: selected.region },
+            { label: t('Type'), value: selected.type },
+            { label: t('Status'), value: selected.status },
             { label: 'IPv4', value: selected.ipv4.join(', ') || '—', mono: true },
             { label: 'IPv6', value: selected.ipv6 ?? '—', mono: true },
-            { label: 'Created', value: selected.created ?? '—' },
+            { label: t('Created'), value: selected.created ?? '—' },
           ]}
         />
       )}

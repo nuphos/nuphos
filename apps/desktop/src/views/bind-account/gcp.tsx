@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
 import { gcpSteps } from '../../lib/cloudBindSteps'
 
 import { GcpWizardStepContent } from './gcp-steps'
@@ -46,7 +47,7 @@ export function GcpBindWizard({
           ))}
         </div>
         <div className="text-[11px] text-tertiary uppercase tracking-wider">
-          Step {step + 1} of {steps.length} · Cloud Console
+          {t('Step {n} of {total} · Cloud Console', { n: step + 1, total: steps.length })}
         </div>
         <div className="text-[13.5px] text-main font-medium">{steps[step]}</div>
       </div>

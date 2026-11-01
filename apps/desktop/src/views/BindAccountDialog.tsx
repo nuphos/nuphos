@@ -1,6 +1,7 @@
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 import { isCloudCliProvider } from '../lib/cloudCli'
 
 import { BindDialogBody } from './bind-account/body'
@@ -64,8 +65,8 @@ export function BindAccountDialog({
       onBound()
       onClose()
     } catch (e) {
-      toast.apiError('Cloudflare connection failed', e, {
-        fallback: 'Check the details and your connection, then try again.',
+      toast.apiError(t('Could not connect {name}', { name: 'Cloudflare' }), e, {
+        fallback: t('Check the details and your connection, then try again.'),
       })
     } finally {
       st.setCloudflareConnecting(false)
@@ -89,9 +90,11 @@ export function BindAccountDialog({
     <Modal
       open={open}
       onClose={close}
-      title={`Connect ${providerLabel}`}
+      title={t('Connect {name}', { name: providerLabel })}
       description={
-        cliCheck.visible ? undefined : `Grant Nuphos access to this ${providerLabel} integration.`
+        cliCheck.visible
+          ? undefined
+          : t('Grant Nuphos access to this {name} integration.', { name: providerLabel })
       }
       width={500}
       footer={footerContent}

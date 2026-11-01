@@ -1,6 +1,7 @@
 import { ReadyCount, ReplicaCount } from '../components/K8sHealth'
 import { Age } from '../components/Age'
 import { UsageBar } from '../components/UsageBar'
+import { t } from '../i18n'
 import { formatCpu, formatMemory } from '../utils'
 
 import type { Column } from '../components/Table'
@@ -9,42 +10,42 @@ import type { DeploymentItem } from '../types'
 export const deploymentColumns: Column<DeploymentItem>[] = [
   {
     key: 'namespace',
-    header: 'Namespace',
+    header: t('Namespace'),
     width: 160,
     sortAccessor: (r) => r.namespace,
     render: (r) => <span className="text-secondary">{r.namespace}</span>,
   },
   {
     key: 'name',
-    header: 'Name',
+    header: t('Name'),
     width: 280,
     sortAccessor: (r) => r.name,
     render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
   },
   {
     key: 'ready',
-    header: 'Ready',
+    header: t('Ready'),
     width: 100,
     sortAccessor: (r) => parseInt(r.ready.split('/')[0] ?? '0', 10),
     render: (r) => <ReadyCount value={r.ready} />,
   },
   {
     key: 'up_to_date',
-    header: 'Up-to-date',
+    header: t('Up-to-date'),
     width: 110,
     sortAccessor: (r) => r.up_to_date,
     render: (r) => <ReplicaCount value={r.up_to_date} desired={Number(r.ready.split('/')[1])} />,
   },
   {
     key: 'available',
-    header: 'Available',
+    header: t('Available'),
     width: 110,
     sortAccessor: (r) => r.available,
     render: (r) => <ReplicaCount value={r.available} desired={Number(r.ready.split('/')[1])} />,
   },
   {
     key: 'cpu',
-    header: 'CPU',
+    header: t('CPU'),
     width: 170,
     sortAccessor: (r) => r.cpu,
     render: (r) => (
@@ -53,7 +54,7 @@ export const deploymentColumns: Column<DeploymentItem>[] = [
   },
   {
     key: 'memory',
-    header: 'Memory',
+    header: t('Memory'),
     width: 180,
     sortAccessor: (r) => r.memory,
     render: (r) => (
@@ -68,7 +69,7 @@ export const deploymentColumns: Column<DeploymentItem>[] = [
   },
   {
     key: 'age',
-    header: 'Age',
+    header: t('Age'),
     width: 100,
     sortAccessor: (r) => r.age ?? '',
     render: (r) => (

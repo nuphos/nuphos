@@ -1,4 +1,4 @@
-// Keep this order stable: existing Agents derive their character from their ID.
+// Keep this order stable and only append: existing Agents derive their character from their ID.
 export const BOT_AVATARS = [
   '01-vermeer-girl.svg',
   '02-leonardo.svg',
@@ -28,7 +28,11 @@ export const BOT_AVATARS = [
   '26-the-swing.svg',
   '27-the-astronomer.svg',
   '28-the-sleeping-gypsy.svg',
+  '29-amelia-earhart.svg',
 ] as const
+
+/** Only the first 28 are derived from an ID, so appending a character never changes an Agent's face. */
+export const DEFAULT_BOT_AVATAR_COUNT = 28
 
 export type BotAvatarFile = (typeof BOT_AVATARS)[number]
 
@@ -37,11 +41,18 @@ export function botAvatarName(file: BotAvatarFile): string {
   return file.slice(0, -4)
 }
 
-/** "22-lady-with-an-ermine.svg" → "Lady with an ermine". */
+// Sentence case would lowercase a person's surname ("Van gogh").
+const NAME_LABELS: Partial<Record<BotAvatarFile, string>> = {
+  '03-mona-lisa.svg': 'Mona Lisa',
+  '10-van-gogh.svg': 'Van Gogh',
+  '29-amelia-earhart.svg': 'Amelia Earhart',
+}
+
+/** "22-lady-with-an-ermine.svg" → "Lady with an ermine"; people keep their capitals. */
 export function botAvatarLabel(file: BotAvatarFile): string {
   const words = botAvatarName(file).slice(3).replaceAll('-', ' ')
 
-  return words.charAt(0).toUpperCase() + words.slice(1)
+  return NAME_LABELS[file] ?? words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 export function derivedBotAvatar(agentId: string): BotAvatarFile {
@@ -49,7 +60,7 @@ export function derivedBotAvatar(agentId: string): BotAvatarFile {
 
   for (const char of agentId) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0
 
-  return BOT_AVATARS[hash % BOT_AVATARS.length]
+  return BOT_AVATARS[hash % DEFAULT_BOT_AVATAR_COUNT]
 }
 
 /** The picked character when this build ships it, else the one the ID selects. */

@@ -8,6 +8,7 @@ import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { AppAlertDialog } from '../components/ui/alert-dialog'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
+import { t } from '../i18n'
 
 import { applyFilter } from './cloud/shared'
 import { tabs } from './memories/memoriesShared'
@@ -118,7 +119,7 @@ export function AgentMemoriesView({
     return (
       <div className="px-6 py-8 flex items-start gap-2 text-[12px] text-red-400">
         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.8} />
-        <span>Failed to load memories: {state.message}</span>
+        <span>{t('Failed to load memories: {message}', { message: state.message })}</span>
       </div>
     )
   }
@@ -127,8 +128,10 @@ export function AgentMemoriesView({
     return (
       <EmptyState
         icon={Brain}
-        title="Memories"
-        description="Cross-agent memory is not enabled on this backend. The agent will continue to work without it; it just won't recall anything between agents."
+        title={t('Memories')}
+        description={t(
+          "Cross-agent memory is not enabled on this backend. The agent will continue to work without it; it just won't recall anything between agents.",
+        )}
       />
     )
   }
@@ -146,21 +149,21 @@ export function AgentMemoriesView({
       {confirmDelete && (
         <AppAlertDialog
           open
-          title="Remove memory"
+          title={t('Remove memory')}
           description={
             <div className="space-y-2.5">
-              <p>Remove this memory? You can restore it later from Removed.</p>
+              <p>{t('Remove this memory? You can restore it later from Removed.')}</p>
               <textarea
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
-                placeholder="Why remove it? (optional — e.g. wrong, outdated, duplicate)"
+                placeholder={t('Why remove it? (optional — e.g. wrong, outdated, duplicate)')}
                 rows={2}
                 maxLength={300}
                 className="w-full resize-none rounded-md bg-zGray-850 border border-zGray-800 px-2.5 py-1.5 text-[12.5px] text-main placeholder:text-quaternary outline-none focus:border-zGray-600 transition-colors"
               />
             </div>
           }
-          confirmLabel="Delete"
+          confirmLabel={t('Delete')}
           destructive
           onConfirm={() => deleteMemory(confirmDelete, deleteReason.trim() || undefined)}
           onClose={() => {
@@ -204,7 +207,7 @@ export function AgentMemoriesView({
                     : 'text-tertiary hover:text-secondary hover:bg-zGray-800/50',
                 )}
               >
-                {s === 'live' ? 'Active' : 'Removed'}
+                {s === 'live' ? t('Active') : t('Removed')}
               </button>
             ))}
             {summary && stateFilter === 'live' && summary.turns.total > 0 && (
@@ -225,10 +228,12 @@ export function AgentMemoriesView({
         {state.kind === 'ready' && rows.length === 0 && !filter && stateFilter === 'live' ? (
           <EmptyState
             icon={Brain}
-            title="Memories"
-            description="Memories are facts the agent saves about your team and its work as you work together. Chat with the agent and useful context accumulates here."
+            title={t('Memories')}
+            description={t(
+              'Memories are facts the agent saves about your team and its work as you work together. Chat with the agent and useful context accumulates here.',
+            )}
             agentAction={{
-              label: 'Teach the agent something',
+              label: t('Teach the agent something'),
               prompt:
                 'I want to teach you something about our team or systems so you remember it — ask me what to remember.',
             }}
@@ -246,9 +251,11 @@ export function AgentMemoriesView({
             empty={
               filter
                 ? hasMore
-                  ? 'No memories match the current filter — only the memories loaded so far were searched; use "Load more" below to pull in the rest.'
-                  : 'No memories match the current filter.'
-                : 'No removed memories yet — memories you remove can be restored from here.'
+                  ? t(
+                      'No memories match the current filter — only the memories loaded so far were searched; use "Load more" below to pull in the rest.',
+                    )
+                  : t('No memories match the current filter.')
+                : t('No removed memories yet — memories you remove can be restored from here.')
             }
             columns={buildMemoryColumns(stateFilter, scores)}
           />
@@ -261,7 +268,7 @@ export function AgentMemoriesView({
               disabled={loadingMore}
               className="w-full px-3 py-2 text-[12px] text-secondary hover:text-main rounded border border-zGray-800/60 hover:border-zGray-700/60 disabled:opacity-50"
             >
-              {loadingMore ? 'Loading…' : 'Load more'}
+              {loadingMore ? t('Loading…') : t('Load more')}
             </button>
           </div>
         )}

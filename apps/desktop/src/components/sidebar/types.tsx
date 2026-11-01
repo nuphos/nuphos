@@ -5,6 +5,7 @@ import { HREF_FAVORITE_PREFIX } from '../../lib/sidebarFavorites'
 import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav'
 
 import type { HistoryTimeline } from './historyRows'
+import type { PinnedMoves } from './pinned-order'
 import type { Scope, TeamInvitation, UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 import type { LucideIcon } from 'lucide-react'
@@ -42,6 +43,9 @@ export type Item = {
   /** A finished thread with nothing left to show; its parent counts it instead. */
   finished?: boolean
 }
+
+/** A right-click or More button asking for a row's menu, where it should open. */
+export type ItemMenuRequest = { x: number; y: number; item: Item; moves?: PinnedMoves }
 
 export type Section = {
   /**

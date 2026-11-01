@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { ReadOnlyEditableCell } from './env-cells'
 import { resetEnvRowSource } from './env-model'
@@ -22,7 +23,7 @@ export function buildEnvColumns(ctx: EnvColumnsContext): Column<EnvTableRow>[] {
   return [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 220,
       render: (item) => {
         if (item.kind === 'unknown') {
@@ -58,7 +59,7 @@ export function buildEnvColumns(ctx: EnvColumnsContext): Column<EnvTableRow>[] {
     },
     {
       key: 'source',
-      header: 'Source',
+      header: t('Source'),
       width: 170,
       render: (item) => {
         if (item.kind === 'unknown')
@@ -104,7 +105,7 @@ export function buildEnvColumns(ctx: EnvColumnsContext): Column<EnvTableRow>[] {
     envDetailColumn(ctx),
     {
       key: 'optional',
-      header: 'Optional',
+      header: t('Optional'),
       width: 100,
       render: (item) => {
         if (
@@ -121,7 +122,7 @@ export function buildEnvColumns(ctx: EnvColumnsContext): Column<EnvTableRow>[] {
                 ctx.setEditingCell({ table: 'env', rowId: item.row.id, column: 'optional' })
               }
             >
-              {readonlyText(item.row.optional ? 'Yes' : 'No', { muted: !item.row.optional })}
+              {readonlyText(item.row.optional ? t('Yes') : t('No'), { muted: !item.row.optional })}
             </ReadOnlyEditableCell>
           )
         }
@@ -161,7 +162,7 @@ export function buildEnvColumns(ctx: EnvColumnsContext): Column<EnvTableRow>[] {
               })
             }}
             className="flex h-8 w-8 items-center justify-center rounded text-tertiary hover:bg-zGray-800 hover:text-error"
-            title="Remove"
+            title={t('Remove')}
           >
             <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
           </button>

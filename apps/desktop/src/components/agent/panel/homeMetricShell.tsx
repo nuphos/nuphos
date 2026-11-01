@@ -10,6 +10,7 @@ import { SCOPES, changePercent } from './homeMetricFormat'
 import { MetricCardMenu } from './homeMetricMenu'
 import { ACTIVITY_RANGES } from './teamActivity'
 
+import type { HomeCardCategory } from './homeCardCatalog'
 import type {
   AgentStats,
   TeamActivityRange,
@@ -35,8 +36,8 @@ export type MetricBodyProps = {
 export type MetricCardDef = {
   kind: HomeMetricKind
   title: string
-  /** The group a card picker files it under. */
-  category: 'metrics'
+  /** The group the card gallery files it under. */
+  category: HomeCardCategory
   icon: LucideIcon
   /** Its size on the home grid, in columns of 12 and rows. */
   size: { w: number; h: number }

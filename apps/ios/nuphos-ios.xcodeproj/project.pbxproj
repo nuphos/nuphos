@@ -10,6 +10,7 @@
 		000000000000000000000222 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000221 /* PostHog */; };
 		000000000000000000000212 /* ChatLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000211 /* ChatLayout */; };
 		000000000000000000000202 /* MarkdownView in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000201 /* MarkdownView */; };
+		000000000000000000000502 /* NuphosNotifications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000501 /* NuphosNotifications.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		000000000000000000000302 /* NuphosWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000301 /* NuphosWidgets.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -28,6 +29,13 @@
 			remoteGlobalIDString = 000000000000000200000000;
 			remoteInfo = NuphosWidgets;
 		};
+		000000000000000000000503 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000500000000;
+			remoteInfo = NuphosNotifications;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -37,6 +45,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				000000000000000000000302 /* NuphosWidgets.appex in Embed Foundation Extensions */,
+				000000000000000000000502 /* NuphosNotifications.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 		};
@@ -46,6 +55,7 @@
 		000000000000000000000401 /* nuphos-iosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "nuphos-iosUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000000000120 /* nuphos-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nuphos-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000000000301 /* NuphosWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NuphosWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000501 /* NuphosNotifications.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NuphosNotifications.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -63,6 +73,14 @@
 				Info.plist,
 			);
 			target = 000000000000000200000000 /* NuphosWidgets */;
+		};
+		000000000000000000000511 /* Exceptions for "NuphosNotifications" folder in "NuphosNotifications" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				NuphosNotifications.entitlements,
+			);
+			target = 000000000000000500000000 /* NuphosNotifications */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -93,6 +111,19 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		000000000000000000000510 /* NuphosNotifications */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				000000000000000000000511 /* Exceptions for "NuphosNotifications" folder in "NuphosNotifications" target */,
+			);
+			path = NuphosNotifications;
+			sourceTree = "<group>";
+		};
+		000000000000000000000520 /* BotAvatars */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BotAvatars;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +145,11 @@
 			files = (
 			);
 		};
+		000000000000000530000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -124,6 +160,8 @@
 				000000000000000000000310 /* NuphosWidgets */,
 				000000000000000000000320 /* Shared */,
 				000000000000000000000410 /* UITests */,
+				000000000000000000000510 /* NuphosNotifications */,
+				000000000000000000000520 /* BotAvatars */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -134,6 +172,7 @@
 				000000000000000000000120 /* nuphos-ios.app */,
 				000000000000000000000301 /* NuphosWidgets.appex */,
 				000000000000000000000401 /* nuphos-iosUITests.xctest */,
+				000000000000000000000501 /* NuphosNotifications.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -175,10 +214,12 @@
 			);
 			dependencies = (
 				000000000000000000000304 /* PBXTargetDependency */,
+				000000000000000000000504 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* nuphos-ios */,
 				000000000000000000000320 /* Shared */,
+				000000000000000000000520 /* BotAvatars */,
 			);
 			name = "nuphos-ios";
 			packageProductDependencies = (
@@ -211,6 +252,27 @@
 			productReference = 000000000000000000000301 /* NuphosWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		000000000000000500000000 /* NuphosNotifications */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 000000000000000510000000 /* Build configuration list for PBXNativeTarget "NuphosNotifications" */;
+			buildPhases = (
+				000000000000000520000000 /* Sources */,
+				000000000000000530000000 /* Frameworks */,
+				000000000000000540000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				000000000000000000000510 /* NuphosNotifications */,
+				000000000000000000000520 /* BotAvatars */,
+			);
+			name = NuphosNotifications;
+			productName = NuphosNotifications;
+			productReference = 000000000000000000000501 /* NuphosNotifications.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -230,6 +292,9 @@
 					000000000000000400000000 = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 000000000000000100000000;
+					};
+					000000000000000500000000 = {
+						CreatedOnToolsVersion = 27.1;
 					};
 				};
 			};
@@ -256,6 +321,7 @@
 				000000000000000100000000 /* nuphos-ios */,
 				000000000000000200000000 /* NuphosWidgets */,
 				000000000000000400000000 /* nuphos-iosUITests */,
+				000000000000000500000000 /* NuphosNotifications */,
 			);
 		};
 /* End PBXProject section */
@@ -272,6 +338,11 @@
 			);
 		};
 		000000000000000240000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		000000000000000540000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -294,6 +365,11 @@
 			files = (
 			);
 		};
+		000000000000000520000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -307,6 +383,12 @@
 			platformFilter = ios;
 			target = 000000000000000200000000 /* NuphosWidgets */;
 			targetProxy = 000000000000000000000303 /* PBXContainerItemProxy */;
+		};
+		000000000000000000000504 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = 000000000000000500000000 /* NuphosNotifications */;
+			targetProxy = 000000000000000000000503 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -613,6 +695,56 @@
 			};
 			name = Release;
 		};
+		000000000000000511000000 /* Debug configuration for PBXNativeTarget "NuphosNotifications" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = NuphosNotifications/NuphosNotifications.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T873K59LQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NuphosNotifications/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nuphos;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.nuphos.ios.notifications;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		000000000000000512000000 /* Release configuration for PBXNativeTarget "NuphosNotifications" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = NuphosNotifications/NuphosNotifications.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
+				PROVISIONING_PROFILE_SPECIFIER = "Nuphos Notifications App Store CI 2026-10";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T873K59LQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NuphosNotifications/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nuphos;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.nuphos.ios.notifications;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -645,6 +777,14 @@
 			buildConfigurations = (
 				000000000000000211000000 /* Debug configuration for PBXNativeTarget "NuphosWidgets" */,
 				000000000000000212000000 /* Release configuration for PBXNativeTarget "NuphosWidgets" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		000000000000000510000000 /* Build configuration list for PBXNativeTarget "NuphosNotifications" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000511000000 /* Debug configuration for PBXNativeTarget "NuphosNotifications" */,
+				000000000000000512000000 /* Release configuration for PBXNativeTarget "NuphosNotifications" */,
 			);
 			defaultConfigurationName = Release;
 		};

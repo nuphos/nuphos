@@ -231,6 +231,7 @@ test('own merges update the linked tag state even though they never wake a sessi
   expect(githubPullState('pull_request', merged)).toEqual({
     key: 'github/12/34/56',
     state: 'merged',
+    draft: false,
     mergedAt: '2026-10-29T03:12:00Z',
   })
   expect(
@@ -238,14 +239,14 @@ test('own merges update the linked tag state even though they never wake a sessi
       ...merged,
       pull_request: { number: 56, state: 'closed', merged: false, merged_at: null },
     }),
-  ).toEqual({ key: 'github/12/34/56', state: 'closed' })
+  ).toEqual({ key: 'github/12/34/56', state: 'closed', draft: false })
   // A merge time that is not a time is left out rather than stored.
   expect(
     githubPullState('pull_request', {
       ...merged,
       pull_request: { number: 56, state: 'closed', merged: true, merged_at: 'soon' },
     }),
-  ).toEqual({ key: 'github/12/34/56', state: 'merged' })
+  ).toEqual({ key: 'github/12/34/56', state: 'merged', draft: false })
   expect(
     githubPullState('pull_request', {
       ...merged,

@@ -8,12 +8,14 @@ import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { openInputRequests } from '../lib/agentInputRequests'
 import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
 import { DecisionCards } from './inbox/DecisionCards'
 import { nextSelection, replyTarget } from './inbox/inboxItems'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
+import { publishInboxListing } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { AgentConversation } from '../api'
@@ -111,6 +113,8 @@ export function InboxView({
   const onListLoaded = useCallback(
     (list: AgentConversation[]) => {
       setItems(list)
+      // Unfiltered, this is the listing the sidebar badge counts.
+      if (!query) publishInboxListing(teamId, list)
       const open = selectedRef.current
       const settle = (stillWaits: boolean) => {
         // The reader moved meanwhile: that choice stands.
@@ -129,7 +133,7 @@ export function InboxView({
         () => settle(true),
       )
     },
-    [teamId],
+    [teamId, query],
   )
 
   // Enter or → moves from the list into the open conversation's composer; Esc comes back.
@@ -196,8 +200,10 @@ export function InboxView({
         {caughtUp && (
           <EmptyState
             icon={Inbox}
-            title="You're all caught up"
-            description="When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox."
+            title={t("You're all caught up")}
+            description={t(
+              'When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
+            )}
           />
         )}
         {/* Mounted while empty too: its refetch is what brings the next question in. */}

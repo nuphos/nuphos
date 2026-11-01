@@ -25,6 +25,8 @@ export const deviceApi = {
   localRuntimeCancelCodexLogin: () => ipcRenderer.invoke('localRuntime:cancelCodexLogin'),
   localRuntimeSetSleepPreferences: (value: unknown) =>
     ipcRenderer.invoke('localRuntime:setSleepPreferences', value),
+  localRuntimeSetPhoneControl: (allowed: boolean) =>
+    ipcRenderer.invoke('localRuntime:setPhoneControl', allowed),
   localRuntimeGetState: () => ipcRenderer.invoke('localRuntime:getState'),
   onLocalRuntimeState: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)
@@ -81,8 +83,14 @@ export const deviceApi = {
     ipcRenderer.invoke('localShare:set', deviceId, teamId, input),
   localShareApprovals: (teamId: string) => ipcRenderer.invoke('localShare:approvals', teamId),
   localShareStatus: (sessionId: string) => ipcRenderer.invoke('localShare:status', sessionId),
-  localShareDecide: (approvalId: string, approve: boolean) =>
-    ipcRenderer.invoke('localShare:decide', approvalId, approve),
+  localShareDecide: (approvalId: string, approve: boolean, trust?: string) =>
+    ipcRenderer.invoke('localShare:decide', approvalId, approve, trust),
+  localShareTrusts: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('localShare:trusts', deviceId, teamId),
+  localShareUntrust: (deviceId: string, teamId: string, actorId: string) =>
+    ipcRenderer.invoke('localShare:untrust', deviceId, teamId, actorId),
+  localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
+    ipcRenderer.invoke('localShare:notify', approvalId, teamId, title, body),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),
   boxUsageHistory: (teamId: string, range: string) =>
     ipcRenderer.invoke('box:usageHistory', teamId, range),

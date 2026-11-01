@@ -1,4 +1,5 @@
 import { api } from '../api'
+import { t } from '../i18n/index.ts'
 
 import type { BindingAccess } from '../types'
 
@@ -37,20 +38,20 @@ type ProviderConfig = {
 
 export const PROVIDERS: Record<BindingAccessProvider, ProviderConfig> = {
   aws: {
-    resourceLabel: 'role',
+    resourceLabel: t('role'),
     adminBypass: false,
     load: (teamId, id, roleId) => api.atlasGetAwsAccountAccess(teamId, id, roleId),
     save: (teamId, id, input, roleId) => api.atlasUpdateAwsAccountAccess(teamId, id, input, roleId),
   },
   gcp: {
-    resourceLabel: 'service account',
+    resourceLabel: t('service account'),
     adminBypass: false,
     load: (teamId, id, bindingId) => api.atlasGetGcpProjectAccess(teamId, id, bindingId),
     save: (teamId, id, input, bindingId) =>
       api.atlasUpdateGcpProjectAccess(teamId, id, input, bindingId),
   },
   azure: {
-    resourceLabel: 'app',
+    resourceLabel: t('app'),
     // azure-accounts.ts gates the scoped routes with the same inline
     // `teamRole !== 'ADMINISTRATOR' && !canUseAllowList(...)` as the CN trio.
     adminBypass: true,
@@ -58,49 +59,49 @@ export const PROVIDERS: Record<BindingAccessProvider, ProviderConfig> = {
     save: (teamId, id, input) => api.atlasUpdateAzureAccountAccess(teamId, id, input),
   },
   upstash: {
-    resourceLabel: 'Upstash account',
+    resourceLabel: t('Upstash account'),
     adminBypass: true,
     load: (teamId, id) => api.atlasGetUpstashAccountAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateUpstashAccountAccess(teamId, id, input),
   },
   posthog: {
-    resourceLabel: 'PostHog integration',
+    resourceLabel: t('PostHog integration'),
     adminBypass: false,
     load: (teamId, id) => api.atlasGetPosthogIntegrationAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdatePosthogIntegrationAccess(teamId, id, input),
   },
   plaud: {
-    resourceLabel: 'Plaud account',
+    resourceLabel: t('Plaud account'),
     adminBypass: false,
     load: (teamId, id) => api.atlasGetPlaudAccountAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdatePlaudAccountAccess(teamId, id, input),
   },
   tencent: {
-    resourceLabel: 'Tencent Cloud binding',
+    resourceLabel: t('Tencent Cloud binding'),
     adminBypass: true,
     load: (teamId, id) => api.atlasGetTencentAccountAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateTencentAccountAccess(teamId, id, input),
   },
   aliyun: {
-    resourceLabel: 'Alibaba Cloud binding',
+    resourceLabel: t('Alibaba Cloud binding'),
     adminBypass: true,
     load: (teamId, id) => api.atlasGetAliyunAccountAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateAliyunAccountAccess(teamId, id, input),
   },
   volcengine: {
-    resourceLabel: 'Volcengine binding',
+    resourceLabel: t('Volcengine binding'),
     adminBypass: true,
     load: (teamId, id) => api.atlasGetVolcengineAccountAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateVolcengineAccountAccess(teamId, id, input),
   },
   huawei: {
-    resourceLabel: 'Huawei Cloud binding',
+    resourceLabel: t('Huawei Cloud binding'),
     adminBypass: true,
     load: (teamId, id) => api.atlasGetHuaweiAccountAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateHuaweiAccountAccess(teamId, id, input),
   },
   betterstack: {
-    resourceLabel: 'Better Stack integration',
+    resourceLabel: t('Better Stack integration'),
     adminBypass: false,
     load: (teamId, id) => api.atlasGetBetterStackIntegrationAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateBetterStackIntegrationAccess(teamId, id, input),

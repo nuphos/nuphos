@@ -1,6 +1,6 @@
 import { Slider } from '@base-ui/react/slider'
 import clsx from 'clsx'
-import { ChevronRight, RotateCcw, Zap } from 'lucide-react'
+import { ChevronRight, Rocket, RotateCcw, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { t } from '../../../i18n'
@@ -105,6 +105,10 @@ export function ModelEffortPanel({
   const fraction = stopFraction(stops.length, index)
   const fastOn = fast?.currentValue === 'on'
   const fastReason = fastUnavailableReason(fast)
+  const ultrafastOn = fast?.currentValue === 'ultrafast'
+  // Codex offers Ultrafast as a separate tier beside Fast; Claude has only Fast.
+  const offersFast = fast?.options.some((option) => option.value === 'on')
+  const offersUltrafast = fast?.options.some((option) => option.value === 'ultrafast')
   const resetLevel =
     resetValue && stops.find((stop) => stop.value === resolvedEffort(effort.options, resetValue))
   const resetHint =
@@ -117,23 +121,39 @@ export function ModelEffortPanel({
   return (
     <div className="relative px-3 pb-3 pt-2.5">
       {fast && (
-        <Tooltip
-          content={fastReason?.tooltip ?? (fastOn ? t('Fast mode is on') : t('Fast mode'))}
-          triggerClassName="absolute left-1.5 top-1.5"
-        >
-          <IconButton
-            label={
-              fastReason?.tooltip ?? (fastOn ? t('Turn off fast mode') : t('Turn on fast mode'))
-            }
-            pressed={fastOn}
-            disabled={blocked || saving}
-            inert={Boolean(fastReason)}
-            onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
-            className={fastOn ? 'text-zOrangered-400' : 'text-tertiary'}
-          >
-            <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
-          </IconButton>
-        </Tooltip>
+        <div className="absolute left-1.5 top-1.5 flex">
+          {offersFast && (
+            <Tooltip
+              content={fastReason?.tooltip ?? (fastOn ? t('Fast mode is on') : t('Fast mode'))}
+            >
+              <IconButton
+                label={
+                  fastReason?.tooltip ?? (fastOn ? t('Turn off fast mode') : t('Turn on fast mode'))
+                }
+                pressed={fastOn}
+                disabled={blocked || saving}
+                inert={Boolean(fastReason)}
+                onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
+                className={fastOn ? 'text-zOrangered-400' : 'text-tertiary'}
+              >
+                <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {offersUltrafast && (
+            <Tooltip content={ultrafastOn ? t('Ultrafast mode is on') : t('Ultrafast mode')}>
+              <IconButton
+                label={ultrafastOn ? t('Turn off Ultrafast mode') : t('Turn on Ultrafast mode')}
+                pressed={ultrafastOn}
+                disabled={blocked || saving}
+                onClick={() => onSelect(fast.id, ultrafastOn ? 'off' : 'ultrafast')}
+                className={ultrafastOn ? 'text-zOrangered-400' : 'text-tertiary'}
+              >
+                <Rocket size={16} strokeWidth={1.6} fill={ultrafastOn ? 'currentColor' : 'none'} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </div>
       )}
       {/* Reset only exists where the runtime names a default level to return to. */}
       {resetValue && (

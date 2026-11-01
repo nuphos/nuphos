@@ -7,6 +7,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { useK8sDeleteActions } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
 import { useRowLinkActions, useWorkspaceRowLink } from '../lib/workspaceRowLink'
@@ -91,10 +92,10 @@ export function ServicesView({
       ...(linkItems.length > 0 ? [{ key: 'sep0', separator: true } as const] : []),
       {
         key: 'port-forward',
-        label: 'Port forward',
+        label: t('Port forward'),
         icon: Network,
         disabled: service.servicePorts.length === 0,
-        hint: service.servicePorts.length === 0 ? 'no TCP ports' : undefined,
+        hint: service.servicePorts.length === 0 ? t('no TCP ports') : undefined,
         onSelect: () => setPortForwardTarget({ service, context: actionContext }),
       },
       ...(deleteItems.length > 0 ? [{ key: 'sep1', separator: true } as const] : []),
@@ -156,28 +157,28 @@ export function ServicesView({
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 160,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 240,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'kind',
-            header: 'Type',
+            header: t('Type'),
             width: 110,
             sortAccessor: (r) => r.kind,
             render: (r) => <span className="text-secondary">{r.kind}</span>,
           },
           {
             key: 'cluster_ip',
-            header: 'Cluster IP',
+            header: t('Cluster IP'),
             width: 130,
             sortAccessor: (r) => r.cluster_ip ?? '',
             render: (r) => (
@@ -186,7 +187,7 @@ export function ServicesView({
           },
           {
             key: 'external_ips',
-            header: 'External IPs',
+            header: t('External IPs'),
             width: 160,
             sortAccessor: (r) => r.external_ips.join(','),
             render: (r) => (
@@ -197,7 +198,7 @@ export function ServicesView({
           },
           {
             key: 'ports',
-            header: 'Ports',
+            header: t('Ports'),
             width: 200,
             sortAccessor: (r) => r.ports.join(','),
             render: (r) => (
@@ -208,7 +209,7 @@ export function ServicesView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

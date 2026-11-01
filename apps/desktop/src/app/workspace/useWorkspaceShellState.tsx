@@ -94,6 +94,9 @@ export function useWorkspaceShellState() {
   // (e.g. picking Slack in the connector marketplace); null = default.
   const [settingsInitialSection, setSettingsInitialSection] = useState<string | null>(null)
   const [settingsInitialFilter, setSettingsInitialFilter] = useState<string | undefined>()
+  // Bumped on every deep entry so Settings remounts on the requested section,
+  // even when it is already open on another one.
+  const [settingsRequest, setSettingsRequest] = useState(0)
   const openSettingsSection = useCallback(
     (section: string, filter?: string) => {
       if (section === 'workspace.agent') {
@@ -110,6 +113,7 @@ export function useWorkspaceShellState() {
       }
       setSettingsInitialSection(section)
       setSettingsInitialFilter(filter)
+      setSettingsRequest((n) => n + 1)
       setSettingsOpen(true)
     },
     [workspaceActions, workspaceStore],
@@ -213,6 +217,7 @@ export function useWorkspaceShellState() {
     settingsInitialSection,
     setSettingsInitialSection,
     settingsInitialFilter,
+    settingsRequest,
     openSettingsSection,
     sessionSearchOpen,
     setSessionSearchOpen,

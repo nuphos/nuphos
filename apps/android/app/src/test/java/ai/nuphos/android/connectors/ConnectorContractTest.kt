@@ -24,6 +24,17 @@ class ConnectorContractTest {
         val rows = ConnectorInventory.decode(JsonValue.parse("""{"slack":{"installation":null,"linkedChannels":{"count":1,"grantWorkspaces":[{"id":"w","name":"Workspace"}]}},"lark":{"installation":{"id":"l","tenantName":"Team"}},"discord":{"configured":true,"installation":null,"channels":[]}}""")!!).rows
         assertEquals(setOf("slack", "lark"), rows.map { it.provider }.toSet())
     }
+    @Test fun inventoryUsesProviderDisplayFieldsWithoutRetainingCredentials() {
+        val json = JsonValue.parse("""{"aws":[{"id":"aws-id","alias":"Production","accountId":"123456789012","roleArn":"arn:aws:iam::123456789012:role/Nuphos","token":"do-not-retain"}],"gcp":[{"id":"gcp-id","label":"Old label","projectId":"synthetic-project","serviceAccountEmail":"connector@example.invalid","privateKey":"do-not-retain"}],"azure":[{"id":"azure-id","label":"Synthetic Azure","subscriptionId":"subscription"}],"github":[{"id":"github-id","label":"Old label","accountLogin":"synthetic-org","accountType":"Organization"}]}""")!!
+        val rows = ConnectorInventory.decode(json).rows.associateBy { it.provider }
+        assertEquals("Production", rows.getValue("aws").label)
+        assertEquals("arn:aws:iam::123456789012:role/Nuphos", rows.getValue("aws").detail)
+        assertEquals("synthetic-project", rows.getValue("gcp").label)
+        assertEquals("connector@example.invalid", rows.getValue("gcp").detail)
+        assertEquals("subscription", rows.getValue("azure").detail)
+        assertEquals("synthetic-org", rows.getValue("github").label)
+        assertFalse(rows.toString().contains("do-not-retain"))
+    }
     @Test fun formsHaveExactlyFifteenSupportedProviders() {
         assertEquals(15, ConnectorCatalog.all.count { it.fields.isNotEmpty() })
         assertEquals(5, ConnectorCatalog.all.count { it.oauth })

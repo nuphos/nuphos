@@ -35,6 +35,12 @@ export function coreConfig() {
       // Browser-facing OAuth authorize base (e.g. https://nuphos.ai, which
       // proxies /oauth/authorize* to the API). Empty = same as publicBaseUrl.
       oauthAuthorizeBaseUrl: optional('NUPHOS_OAUTH_AUTHORIZE_BASE_URL')?.replace(/\/$/, ''),
+      apple: {
+        clientId: optional('APPLE_OAUTH_CLIENT_ID'),
+        teamId: optional('APPLE_OAUTH_TEAM_ID'),
+        keyId: optional('APPLE_OAUTH_KEY_ID'),
+        privateKey: optional('APPLE_OAUTH_PRIVATE_KEY'),
+      },
       google: {
         clientId: optional('GOOGLE_OAUTH_CLIENT_ID'),
         clientSecret: optional('GOOGLE_OAUTH_CLIENT_SECRET'),

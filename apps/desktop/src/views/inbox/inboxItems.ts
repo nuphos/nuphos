@@ -1,13 +1,32 @@
 import { t } from '../../i18n/index.ts'
+import { openInputRequests } from '../../lib/agentInputRequests.ts'
 
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 
-/** One listing of the Inbox: whose it is, and which request produced it. */
-export type InboxListing = { teamId: string; count: number; requestNo: number }
+/** Conversations still waiting once the questions answered on this device are set aside. */
+export function inboxCount(
+  conversations: readonly AgentConversation[],
+  answered: ReadonlyMap<string, number>,
+): number {
+  return conversations.filter((conversation) =>
+    openInputRequests(conversation).some((request) => !answered.has(request.id)),
+  ).length
+}
 
-/** Another team's listing is no answer for this one: show nothing until this team's arrives. */
-export function listingFor(listing: InboxListing | null, teamId: string): InboxListing | null {
-  return listing?.teamId === teamId ? listing : null
+/**
+ * The answered questions a listing settles: those it no longer has open, and
+ * those past their deadline, which the listing then shows as they are.
+ */
+export function answeredIn(
+  conversations: readonly AgentConversation[],
+  answered: ReadonlyMap<string, number>,
+  now: number,
+): string[] {
+  const open = new Set(
+    conversations.flatMap((conversation) => openInputRequests(conversation).map((r) => r.id)),
+  )
+
+  return [...answered].filter(([id, until]) => !open.has(id) || until < now).map(([id]) => id)
 }
 
 /**

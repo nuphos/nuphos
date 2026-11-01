@@ -152,6 +152,19 @@ export async function listPendingShareApprovals(
     .toArray()
 }
 
+/** One teammate's requests still waiting on one of this owner's computers in this team. */
+export async function listPendingShareApprovalsFrom(key: {
+  ownerId: string
+  deviceId: string
+  teamId: string
+  actorId: string
+}): Promise<ShareApproval[]> {
+  return shareApprovals()
+    .find({ ...key, status: 'pending' })
+    .limit(500)
+    .toArray()
+}
+
 /** Only the owner's own pending request changes; the answer is final for that conversation. */
 export async function decideShareApproval(
   ownerId: string,

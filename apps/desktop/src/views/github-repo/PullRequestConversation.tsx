@@ -4,16 +4,17 @@ import { FileDiff, GitCommitHorizontal } from 'lucide-react'
 import { MessageResponse } from '../../components/agent/MessageResponse'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Avatar } from '../../components/Avatar'
+import { t } from '../../i18n'
 
 import { DiffLine } from './ChangedFile'
 import { openOnGithub } from './openOnGithub'
 import { PullRequestActions } from './PullRequestActions'
-import { humanize, plural } from './pullRequestChecks'
+import { humanize } from './pullRequestChecks'
 import { PullRequestMergeBox } from './PullRequestMergeBox'
 import { PullRequestSidebar } from './PullRequestSidebar'
-import { reviewVerb } from './pullRequestStatus'
 import { TONE_BADGE } from './toneClasses'
 
+import type { StatusTone } from './pullRequestChecks'
 import type { PullRequestStatus } from './pullRequestStatus'
 import type {
   GithubPRComment,
@@ -100,7 +101,7 @@ function DescriptionCard({ pull }: { pull: GithubPRDetail }) {
         <AuthorLine
           name={pull.author}
           avatarUrl={pull.authorAvatarUrl}
-          verb="opened this pull request"
+          verb={t('opened this pull request')}
           at={pull.createdAt}
         />
       }
@@ -108,7 +109,9 @@ function DescriptionCard({ pull }: { pull: GithubPRDetail }) {
       {pull.body?.trim() ? (
         <Markdown>{pull.body}</Markdown>
       ) : (
-        <div className="px-4 py-3 text-[12px] italic text-tertiary">No description provided.</div>
+        <div className="px-4 py-3 text-[12px] italic text-tertiary">
+          {t('No description provided.')}
+        </div>
       )}
     </Card>
   )
@@ -123,7 +126,7 @@ function CommentCard({ comment }: { comment: GithubPRComment }) {
         <AuthorLine
           name={comment.author}
           avatarUrl={comment.authorAvatarUrl}
-          verb="commented"
+          verb={t('commented')}
           at={comment.createdAt}
         />
       }
@@ -147,6 +150,19 @@ function CommentCard({ comment }: { comment: GithubPRComment }) {
       <Markdown>{comment.body}</Markdown>
     </Card>
   )
+}
+
+function reviewVerb(state: string): { label: string; tone: StatusTone } {
+  switch (state.toUpperCase()) {
+    case 'APPROVED':
+      return { label: t('approved these changes'), tone: 'success' }
+    case 'CHANGES_REQUESTED':
+      return { label: t('requested changes'), tone: 'error' }
+    case 'DISMISSED':
+      return { label: t('left a review that was dismissed'), tone: 'neutral' }
+    default:
+      return { label: t('reviewed'), tone: 'neutral' }
+  }
 }
 
 function ReviewCard({ review, at }: { review: GithubPRReview; at: string }) {
@@ -187,7 +203,11 @@ function CommitsCard({ commits }: { commits: GithubPRCommit[] }) {
         <AuthorLine
           name={first.author}
           avatarUrl={first.authorAvatarUrl}
-          verb={`added ${plural(commits.length, 'commit')}`}
+          verb={
+            commits.length === 1
+              ? t('added {count} commit', { count: commits.length })
+              : t('added {count} commits', { count: commits.length })
+          }
           at={first.committedAt}
         />
       }

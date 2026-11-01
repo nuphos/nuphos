@@ -7,12 +7,19 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
+import { ShareApproveButton } from '../inbox/ShareApproveButton'
+import { afterAnswer } from '../inbox/shareTrust'
 
 import { LOCAL_AGENT_CARD } from './LocalAgentCard'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { effectiveShare, shareSummary } from './localAgentSharingPresentation'
+import { LocalAgentTrustedList } from './LocalAgentTrustedList'
 
-import type { LocalAgentShareState, LocalShareApproval } from '../../api/device-types'
+import type {
+  LocalAgentShareState,
+  LocalShareApproval,
+  ShareTrustDuration,
+} from '../../api/device-types'
 
 const APPROVAL_POLL_MS = 10_000
 
@@ -40,6 +47,7 @@ export function LocalAgentSharingCard({
   const [state, setState] = useState<LocalAgentShareState | null>(null)
   const [approvals, setApprovals] = useState<LocalShareApproval[]>([])
   const [deciding, setDeciding] = useState<string | null>(null)
+  const [trustVersion, setTrustVersion] = useState(0)
   const members = useTeamMembers(teamId)
 
   useEffect(() => {
@@ -76,11 +84,16 @@ export function LocalAgentSharingCard({
     return () => clearInterval(timer)
   }, [state, loadApprovals])
 
-  const decide = async (approval: LocalShareApproval, approve: boolean) => {
+  const decide = async (
+    approval: LocalShareApproval,
+    approve: boolean,
+    trust?: ShareTrustDuration,
+  ) => {
     setDeciding(approval.id)
     try {
-      await api.localShareDecide(approval.id, approve)
-      setApprovals((previous) => previous.filter((entry) => entry.id !== approval.id))
+      await api.localShareDecide(approval.id, approve, trust)
+      setApprovals((previous) => afterAnswer(previous, approval, trust))
+      if (trust) setTrustVersion((version) => version + 1)
     } catch (error) {
       toast.apiError(t('Could not answer this request'), error)
     } finally {
@@ -150,18 +163,23 @@ export function LocalAgentSharingCard({
                   >
                     {t('Decline')}
                   </Button>
-                  <Button
-                    size="sm"
+                  <ShareApproveButton
                     disabled={deciding !== null}
-                    onClick={() => void decide(approval, true)}
-                  >
-                    {t('Approve')}
-                  </Button>
+                    onApprove={(trust) => void decide(approval, true, trust)}
+                  />
                 </span>
               </li>
             )
           })}
         </ul>
+      )}
+      {effectiveShare(state.share, state.ceiling).level === 'approve' && (
+        <LocalAgentTrustedList
+          teamId={teamId}
+          deviceId={device.deviceId}
+          nameOf={nameOf}
+          version={trustVersion}
+        />
       )}
       {editing && shareable && (
         <LocalAgentShareDialog

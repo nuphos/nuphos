@@ -1,6 +1,8 @@
 import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { decodeText } from './helpers'
 
 import type { EdgeProps } from '@xyflow/react'
@@ -77,16 +79,16 @@ export function FlowLinkEdge({
                 if (e.key === 'Escape') setEditing(false)
                 e.stopPropagation()
               }}
-              placeholder="Label"
-              aria-label="Link label"
+              placeholder={t('Label')}
+              aria-label={t('Link label')}
               className="h-6 w-36 rounded border border-zViolet-500 bg-main px-2 text-[12px] text-main outline-none focus:ring-1 focus:ring-zViolet-500/60"
             />
           ) : label || selected ? (
             <span
               className="rounded-full border border-main bg-main px-2 py-0.5 text-[12px] text-secondary shadow-sm"
-              title="Double-click to edit"
+              title={t('Double-click to edit')}
             >
-              {label || 'Add label'}
+              {label || t('Add label')}
             </span>
           ) : null}
         </div>

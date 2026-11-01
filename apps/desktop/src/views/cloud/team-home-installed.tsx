@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 import { CONNECTOR_INFO_LABELS } from '../../lib/appRoutes'
 
 import { CONNECTOR_HOVER } from './connector-actions'
@@ -20,7 +21,7 @@ function InstalledConnector({
   const row = rows[0]
   const name = CONNECTOR_INFO_LABELS[row.provider]
   const attention = rows.find((item) => item.attention)?.attention
-  const count = rows.length === 1 ? row.account : `${String(rows.length)} connections`
+  const count = rows.length === 1 ? row.account : t('{n} connections', { n: rows.length })
   const detail = attention ? `${count} · ${attention}` : count
 
   return (
@@ -36,7 +37,7 @@ function InstalledConnector({
     >
       <button
         type="button"
-        aria-label={`Open ${name}, ${detail}`}
+        aria-label={t('Open {name}, {detail}', { name, detail })}
         onClick={() => onOpen(rows)}
         className={clsx(
           'relative flex h-11 w-11 flex-none items-center justify-center rounded-lg outline-none',
@@ -103,8 +104,8 @@ export function InstalledList({
   return (
     <p className="px-1 text-[12px] text-tertiary">
       {filter.trim()
-        ? 'No installed connectors match this search.'
-        : 'No connectors installed yet.'}
+        ? t('No installed connectors match this search.')
+        : t('No connectors installed yet.')}
     </p>
   )
 }

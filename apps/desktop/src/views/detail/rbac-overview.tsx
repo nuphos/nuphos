@@ -1,6 +1,8 @@
 import yaml from 'js-yaml'
 import { ArrowUpRight } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { Field, Section } from './shared'
 
 import type { DetailTarget } from './target'
@@ -65,7 +67,7 @@ export function RbacOverview({
       <div className="space-y-5 p-6">
         <Section>
           <Field
-            label="Grants role"
+            label={t('Grants role')}
             value={
               roleName ? (
                 <ResourceButton
@@ -82,13 +84,15 @@ export function RbacOverview({
               )
             }
           />
-          <Field label="Subjects" value={String(subjects.length)} />
+          <Field label={t('Subjects')} value={String(subjects.length)} />
         </Section>
         <div>
-          <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">Subjects</div>
+          <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
+            {t('Subjects')}
+          </div>
           <div className="divide-y divide-zGray-800 rounded-md border border-zGray-800 bg-zGray-900">
             {subjects.map((subject, index) => {
-              const kind = typeof subject.kind === 'string' ? subject.kind : 'Subject'
+              const kind = typeof subject.kind === 'string' ? subject.kind : t('Subject')
               const name = typeof subject.name === 'string' ? subject.name : '-'
               const subjectNamespace =
                 typeof subject.namespace === 'string' ? subject.namespace : namespace
@@ -118,8 +122,8 @@ export function RbacOverview({
     return (
       <div className="space-y-5 p-6">
         <Section>
-          <Field label="Namespace" value={namespace ?? '-'} />
-          <Field label="Image pull secrets" value={String(imagePullSecrets.length)} />
+          <Field label={t('Namespace')} value={namespace ?? '-'} />
+          <Field label={t('Image pull secrets')} value={String(imagePullSecrets.length)} />
         </Section>
         <div className="space-y-2">
           {imagePullSecrets.map((secret, index) => {
@@ -142,7 +146,7 @@ export function RbacOverview({
   return (
     <div className="p-6">
       <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
-        Permission rules
+        {t('Permission rules')}
       </div>
       <div className="divide-y divide-zGray-800 rounded-md border border-zGray-800 bg-zGray-900">
         {rules.map((rule, index) => {
@@ -155,11 +159,14 @@ export function RbacOverview({
           return (
             <div key={String(index)} className="grid gap-3 px-4 py-3 @2xl:grid-cols-3">
               <Field
-                label="API / targets"
+                label={t('API / targets')}
                 value={[...apiGroups, ...resources, ...nonResourceUrls].join(' · ') || '-'}
               />
-              <Field label="Verbs" value={verbs.join(', ') || '-'} />
-              <Field label="Resource names" value={resourceNames.join(', ') || 'All names'} />
+              <Field label={t('Verbs')} value={verbs.join(', ') || '-'} />
+              <Field
+                label={t('Resource names')}
+                value={resourceNames.join(', ') || t('All names')}
+              />
             </div>
           )
         })}

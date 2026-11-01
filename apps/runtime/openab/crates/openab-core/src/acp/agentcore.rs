@@ -386,44 +386,6 @@ where
         }
     }
 
-    #[allow(dead_code)]
-    fn derive_runtime_session_id(&self, params: &Value) -> String {
-        // Try to extract from sender_context in prompt blocks
-        if let Some(blocks) = params.get("prompt").and_then(|p| p.as_array()) {
-            for block in blocks {
-                if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
-                    if let Some(start) = text.find("<sender_context>") {
-                        if let Some(end) = text.find("</sender_context>") {
-                            let ctx_str = &text[start + 16..end];
-                            if let Ok(ctx) = serde_json::from_str::<Value>(ctx_str.trim()) {
-                                let platform = ctx
-                                    .get("channel")
-                                    .and_then(|c| c.as_str())
-                                    .unwrap_or("unknown");
-                                let thread_id = ctx
-                                    .get("thread_id")
-                                    .or_else(|| ctx.get("channel_id"))
-                                    .and_then(|t| t.as_str())
-                                    .unwrap_or("");
-                                let mut sid = format!("oab-{platform}-thread-{thread_id}");
-                                while sid.len() < 33 {
-                                    sid.push('0');
-                                }
-                                return sid;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        // Fallback
-        let mut sid = format!("oab-fallback-{}", uuid::Uuid::new_v4());
-        while sid.len() < 33 {
-            sid.push('0');
-        }
-        sid
-    }
-
     async fn open_shell(&self, session_id: &str) -> Result<ShellHandle> {
         let (request, host) = build_signed_request(&self.runtime_arn, session_id, &self.region).await?;
 

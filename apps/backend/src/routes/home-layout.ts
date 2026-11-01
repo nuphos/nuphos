@@ -84,6 +84,7 @@ const layoutSchema = z
       )
       .max(200)
       .optional(),
+    gridVersion: z.number().int().min(1).max(1000).optional(),
   })
   .strict()
 

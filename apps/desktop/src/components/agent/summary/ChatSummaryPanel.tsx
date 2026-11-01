@@ -29,6 +29,8 @@ type Props = {
   onOpenSession: (sessionId: string) => void
   /** Opens the conversation in the main pane at the message asking this question. */
   onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
+  /** Points the main composer's reply at one of this conversation's own questions. */
+  onChooseReply?: (requestId: string) => void
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
@@ -122,12 +124,26 @@ function SummaryBody({
   onOpenLink,
   onOpenSession,
   onOpenRequest,
+  onChooseReply,
   requests,
   requestsLoaded,
   requestsFailed,
 }: Props) {
   const rootRef = useRef<HTMLElement>(null)
   const [selected, setSelected] = useState<SessionInputRequest | null>(null)
+  // A question this conversation asked is answered in its own chat: a second copy
+  // of the same transcript beside it would only repeat it.
+  const select = (request: SessionInputRequest) => {
+    if (request.sessionId === sessionId) {
+      const { id, question, options } = request.inputRequest
+
+      setSelected(null)
+      onChooseReply?.(id)
+      onOpenRequest(sessionId, { toolCallId: id, question, options })
+    } else {
+      setSelected(request)
+    }
+  }
   const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
   // The lists that listed these threads published their states to the shared store.
   const runtimeStates = useAgentRuntimeStates()
@@ -154,7 +170,7 @@ function SummaryBody({
           request={selected}
           requests={requests}
           teamId={teamId}
-          onSelect={setSelected}
+          onSelect={select}
           onBack={() => setSelected(null)}
           onClose={() => setChatSummaryOpen(false)}
           onOpenSession={onOpenRequest}
@@ -165,7 +181,7 @@ function SummaryBody({
             requests={requests}
             loaded={requestsLoaded}
             failed={requestsFailed}
-            onSelect={setSelected}
+            onSelect={select}
           />
           {!loaded && <Skeleton />}
           {changes.length > 0 && (

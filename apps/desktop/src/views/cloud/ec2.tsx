@@ -6,6 +6,7 @@ import { ContextMenu } from '../../components/ContextMenu'
 import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -45,7 +46,7 @@ export function EC2InstancesView({
       : instance.state !== 'running'
         ? instance.state
         : !instance.publicIp
-          ? 'no public IP'
+          ? t('no public IP')
           : undefined
     const linkItems = linkActions(instance)
 
@@ -88,18 +89,18 @@ export function EC2InstancesView({
           open
           onClose={() => setDetail(null)}
           title={detail.tags.Name || detail.instanceId}
-          subtitle="EC2 instance"
+          subtitle={t('EC2 instance')}
           fields={[
-            { label: 'Instance ID', value: detail.instanceId, mono: true },
-            { label: 'Type', value: detail.instanceType, mono: true },
-            { label: 'State', value: detail.state },
-            { label: 'Public IP', value: detail.publicIp ?? '—', mono: true },
-            { label: 'Private IP', value: detail.privateIp ?? '—', mono: true },
+            { label: t('Instance ID'), value: detail.instanceId, mono: true },
+            { label: t('Type'), value: detail.instanceType, mono: true },
+            { label: t('State'), value: detail.state },
+            { label: t('Public IP'), value: detail.publicIp ?? '—', mono: true },
+            { label: t('Private IP'), value: detail.privateIp ?? '—', mono: true },
             {
-              label: 'Platform',
+              label: t('Platform'),
               value: detail.platform === 'windows' ? 'Windows' : 'Linux',
             },
-            { label: 'Launched', value: detail.launchTime ?? '—' },
+            { label: t('Launched'), value: detail.launchTime ?? '—' },
           ]}
           raw={detail}
         />
@@ -114,14 +115,14 @@ export function EC2InstancesView({
         columns={[
           {
             key: 'instanceId',
-            header: 'Instance ID',
+            header: t('Instance ID'),
             width: 200,
             sortAccessor: (r) => r.instanceId,
             render: (r) => <span className="font-mono text-[12px]">{r.instanceId}</span>,
           },
           {
             key: 'instanceType',
-            header: 'Type',
+            header: t('Type'),
             width: 130,
             sortAccessor: (r) => r.instanceType,
             render: (r) => (
@@ -130,7 +131,7 @@ export function EC2InstancesView({
           },
           {
             key: 'state',
-            header: 'State',
+            header: t('State'),
             width: 110,
             sortAccessor: (r) => r.state,
             render: (r) => {
@@ -146,14 +147,14 @@ export function EC2InstancesView({
           },
           {
             key: 'az',
-            header: 'AZ',
+            header: t('AZ'),
             width: 150,
             sortAccessor: (r) => r.availabilityZone,
             render: (r) => <span className="text-secondary">{r.availabilityZone}</span>,
           },
           {
             key: 'publicIp',
-            header: 'Public IP',
+            header: t('Public IP'),
             width: 140,
             sortAccessor: (r) => r.publicIp ?? '',
             render: (r) => (
@@ -162,7 +163,7 @@ export function EC2InstancesView({
           },
           {
             key: 'privateIp',
-            header: 'Private IP',
+            header: t('Private IP'),
             width: 140,
             sortAccessor: (r) => r.privateIp ?? '',
             render: (r) => (
@@ -171,7 +172,7 @@ export function EC2InstancesView({
           },
           {
             key: 'platform',
-            header: 'Platform',
+            header: t('Platform'),
             width: 100,
             sortAccessor: (r) => r.platform ?? '',
             render: (r) => (
@@ -182,7 +183,7 @@ export function EC2InstancesView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.launchTime ?? '',
             render: (r) => (

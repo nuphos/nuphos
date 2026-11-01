@@ -3,6 +3,7 @@ import { Container, FileClock } from 'lucide-react'
 
 import { JournalEventBody } from '../../components/agent/JournalEventBody'
 import { useReportVisibleError, VisibleErrorReporter } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 import { formatJournalTs, journalEventChatTarget, journalEventIcon } from '../../lib/journalEvent'
 
 import { EmptyState, LoadMore, SearchScopeHint } from './AuditListChrome'
@@ -34,7 +35,9 @@ export function AuditEventsStream({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-auto scrollbar-thin px-5 py-3 selectable">
         {events.kind === 'loading' ? (
-          <div className="py-10 text-center text-xs text-tertiary">Loading audit events…</div>
+          <div className="py-10 text-center text-xs text-tertiary">
+            {t('Loading audit events…')}
+          </div>
         ) : events.kind === 'error' ? (
           <div className="py-10 text-center text-xs text-error">{events.message}</div>
         ) : eventRows.length === 0 ? (
@@ -100,7 +103,7 @@ export function AuditEventsStream({
                           },
                     )
                   }
-                  title="View in journal"
+                  title={t('View in journal')}
                   className="flex gap-3 rounded-md px-2 py-2 transition-colors hover:bg-zGray-800/40"
                 >
                   <Icon
@@ -157,18 +160,21 @@ function RuntimeImageAuditRow({
           </span>
           <span className="truncate text-[11px] text-secondary">{actorLabel}</span>
           <span className="truncate text-[11px] text-tertiary" title={event.resource.runtimeId}>
-            · {event.resource.provider} agent · {event.resource.label}
+            {t('· {provider} agent · {label}', {
+              provider: event.resource.provider,
+              label: event.resource.label,
+            })}
           </span>
         </div>
         <div className="mt-0.5 text-[12px]">
-          <span className="font-mono text-main">image change</span>
+          <span className="font-mono text-main">{t('image change')}</span>
         </div>
         <div className="mt-1 space-y-0.5 font-mono text-[11px] text-tertiary">
           <div className="truncate" title={event.change.fromImage ?? undefined}>
-            from {event.change.fromImage ?? '(none)'}
+            {t('from {image}', { image: event.change.fromImage ?? t('(none)') })}
           </div>
           <div className="truncate" title={event.change.toImage}>
-            to {event.change.toImage}
+            {t('to {image}', { image: event.change.toImage })}
           </div>
         </div>
       </div>
@@ -195,7 +201,7 @@ function SkillAuditRow({
   return (
     <li
       onClick={onOpen}
-      title={onOpen ? 'View originating agent' : undefined}
+      title={onOpen ? t('View originating agent') : undefined}
       className={clsx(
         'flex gap-3 rounded-md px-2 py-2',
         onOpen && 'transition-colors hover:bg-zGray-800/40',
@@ -209,7 +215,7 @@ function SkillAuditRow({
           </span>
           <span className="truncate text-[11px] text-secondary">{actorLabel}</span>
           <span className="truncate text-[11px] text-tertiary" title={event.resource.scope}>
-            · Team skill · {event.resource.name}
+            {t('· Team skill · {name}', { name: event.resource.name })}
           </span>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
@@ -218,8 +224,12 @@ function SkillAuditRow({
             {event.mutation.status}
           </span>
           <span className="text-[11px] text-tertiary">
-            via {event.mutation.source}
-            {event.mutation.revision === null ? '' : ` · r${String(event.mutation.revision)}`}
+            {event.mutation.revision === null
+              ? t('via {source}', { source: event.mutation.source })
+              : t('via {source} · r{revision}', {
+                  source: event.mutation.source,
+                  revision: event.mutation.revision,
+                })}
           </span>
         </div>
         {event.mutation.changedKeys.length > 0 && (

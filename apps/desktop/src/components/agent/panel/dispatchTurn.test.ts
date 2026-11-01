@@ -4,14 +4,18 @@ import { before, mock, test } from 'node:test'
 
 import type { DispatchTurnCtx } from './dispatchTurn.ts'
 import type { Message, Tab } from './model'
+import type { AgentConversation } from '../../../api/agent-types'
 import type { WindowAgentApi } from '../../../api/window-agent'
 
 type SyncArgs = Parameters<WindowAgentApi['agentSyncConversationTranscript']>[0]
 type StartArgs = Parameters<WindowAgentApi['agentStart']>[0]
 
 let runDispatchTurn: typeof import('./dispatchTurn.ts').runDispatchTurn
+let inbox: typeof import('../../../views/inbox/useInbox.ts')
 const calls: (['sync', SyncArgs] | ['start', StartArgs])[] = []
 let failImport = false
+// The agent turn's start answers in its own time, or fails.
+let startGate: Promise<void> = Promise.resolve()
 // Holds the import open until a test lets it finish.
 let importGate: Promise<void> | null = null
 
@@ -75,12 +79,13 @@ before(async () => {
         agentStart: (args: StartArgs) => {
           calls.push(['start', args])
 
-          return Promise.resolve()
+          return startGate
         },
       },
     },
   })
   ;({ runDispatchTurn } = await import('./dispatchTurn.ts'))
+  inbox = await import('../../../views/inbox/useInbox.ts')
 })
 
 const history: Message[] = [
@@ -177,6 +182,31 @@ test('an explicit answer carries the question id to the agent turn', async () =>
 
   assert.equal((calls[0][1] as StartArgs).decisionReplyTo, 'question-7')
   assert.equal((calls[0][1] as StartArgs).sessionId, 'fork')
+})
+
+test('an answer leaves the Inbox badge as it is sent, and comes back if the send fails', async () => {
+  const request = { id: 'q', category: 'approval', question: '?', askedAt: '', status: 'open' }
+  const waiting = { sessionId: 'fork', inputRequests: [request] } as AgentConversation
+
+  // The failing send first, so later tests start with a gate that opens.
+  for (const fails of [true, false]) {
+    const gate = Promise.withResolvers<undefined>()
+
+    startGate = gate.promise
+    inbox.publishInboxListing('team', [waiting])
+    const state = context({ unsaved: false })
+
+    state.ctx.decisionReplyTo = 'q'
+    await runDispatchTurn(state.ctx, 'tab', 'Started the download', [])
+    await settle()
+    assert.equal(inbox.inboxCountFor('team'), 0, 'gone before the server answers')
+    if (fails) gate.reject(new Error('offline'))
+    else gate.resolve(undefined)
+    await settle()
+    assert.equal(inbox.inboxCountFor('team'), fails ? 1 : 0)
+    inbox.publishInboxListing('team', [waiting])
+    assert.equal(inbox.inboxCountFor('team'), fails ? 1 : 0, 'a listing from before the answer')
+  }
 })
 
 test('a failed import does not start the turn and surfaces the error', async () => {

@@ -68,7 +68,7 @@ export type OpenAbAcpClientOptions = {
 }
 
 /** Model settings the runtime applies when it creates the session. */
-export type RuntimeDefaults = { model?: string; fast?: 'on' | 'off'; effort?: string }
+export type RuntimeDefaults = { model?: string; fast?: string; effort?: string }
 
 export type OpenAbSessionRuntime = {
   defaults?: RuntimeDefaults

@@ -945,6 +945,13 @@ mod tests {
     }
 
     #[test]
+    fn pack_arrival_event_without_sender_omits_delimiter() {
+        let blocks = AdapterRouter::pack_arrival_event("", "hello", vec![]);
+        assert_eq!(blocks.len(), 1);
+        assert!(matches!(&blocks[0], ContentBlock::Text { text } if text == "hello"));
+    }
+
+    #[test]
     fn pack_arrival_event_with_extra_blocks() {
         let extra = vec![
             ContentBlock::Text {

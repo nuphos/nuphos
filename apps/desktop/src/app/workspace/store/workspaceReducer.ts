@@ -14,6 +14,7 @@ import {
 } from './workspaceSurfaceHistory.ts'
 import {
   activateTabIn,
+  adoptBucketsIn,
   closeOtherTabsIn,
   closeTabIn,
   mapTabsIn,
@@ -152,6 +153,7 @@ const WORKSPACE_LEVEL_ACTIONS = new Set<WorkspaceAction['type']>([
   'switchTeam',
   'retainTeams',
   'removeTeam',
+  'adoptBuckets',
 ])
 
 type WorkspaceLevelAction = Extract<
@@ -167,6 +169,7 @@ type WorkspaceLevelAction = Extract<
       | 'switchTeam'
       | 'retainTeams'
       | 'removeTeam'
+      | 'adoptBuckets'
   }
 >
 type TabAction = Exclude<WorkspaceAction, WorkspaceLevelAction>
@@ -265,6 +268,11 @@ function applyAction(
       return retainTeams(state, action.teamIds, action.preferredTeamId)
     case 'removeTeam':
       return removeTeam(state, action.teamId)
+    case 'adoptBuckets': {
+      const buckets = adoptBucketsIn(state.buckets, action.buckets)
+
+      return buckets === state.buckets ? state : { ...state, buckets }
+    }
   }
 }
 

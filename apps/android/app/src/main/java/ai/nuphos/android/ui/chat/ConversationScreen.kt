@@ -8,6 +8,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +36,8 @@ import androidx.compose.material.icons.outlined.Handyman
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,6 +63,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import ai.nuphos.android.session.ShareApprovalWait
 import ai.nuphos.android.session.ConversationReads
 import ai.nuphos.android.session.AiAccess
 import androidx.compose.runtime.key
@@ -69,6 +74,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
@@ -179,6 +186,8 @@ fun ConversationScreen(
         }
         session.pollWhileIdle()
     }
+    // A teammate's computer that asks its owner first: say so until they answer.
+    LaunchedEffect(session, session.runtimeId, session.queuedSends) { session.watchShareApproval() }
 
     // Initial entry, foreground and manual refresh work even during an active turn.
     // Turn completion is a separate event, never a resource polling loop.
@@ -218,8 +227,9 @@ fun ConversationScreen(
         text = { androidx.compose.foundation.text.selection.SelectionContainer { Text(session.title) } },
         confirmButton = { TextButton(onClick = { showTitle = false }) { Text("Done") } },
     )
+    val chatCanvas = ai.nuphos.android.ui.theme.LocalChatCanvas.current
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = chatCanvas,
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
@@ -230,13 +240,14 @@ fun ConversationScreen(
                             Text(session.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.clickable { showTitle = true }.semantics { contentDescription = "Show full agent title" })
-                            session.runtimeDeviceLabel?.let { label ->
+                            val label = session.runtimeDeviceLabel
+                            if (session.agentRuntime != null || label != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
-                                    Text(label, style = MaterialTheme.typography.labelSmall,
+                                    if (ai.nuphos.android.ui.components.botAvatarsEnabled()) ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
+                                    Text(ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label), style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        modifier = Modifier.semantics { contentDescription = "Runtime: $label" })
+                                        modifier = Modifier.semantics { contentDescription = "Runtime: ${ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label)}" })
                                 }
                             }
                         }
@@ -250,7 +261,7 @@ fun ConversationScreen(
                     if (browsingOnly) TextButton(onClick = { refreshBrowse += 1 }) { Text("Refresh") }
                     else ConversationMenu(session, store, onBack, onChooseRuntime = { showAgent = true })
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = chatCanvas),
             )
         },
     ) { padding ->
@@ -314,6 +325,20 @@ fun ConversationScreen(
                 }
             }
             if (!browsingOnly) {
+                session.shareApproval?.let { wait ->
+                    Surface(
+                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) {
+                        Text(
+                            wait.message(session.runtimeDeviceLabel ?: "this computer"),
+                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
                 if (session.runtimeRecoveryRequired) {
                     Text("Message delivery needs to be checked before you send again.", modifier = Modifier.padding(horizontal = 16.dp))
                     TextButton(enabled = session.loaded && !session.readOnly, onClick = session::recoverRuntime) { Text("Check delivery") }
@@ -412,8 +437,52 @@ fun ConversationScreen(
                         settings.refresh()
                     }
                 }
+                val queueGeneration = draftAuth.generation
+                val queueWorkspace = store.workspaceRevision
+                val queueConsent = ai.nuphos.android.session.AiAccess.revision
+                androidx.compose.runtime.DisposableEffect(session, queueGeneration, queueWorkspace, queueConsent, draft) {
+                    session.activateQueue {
+                        draft != null && draftAuth.generation == queueGeneration && draftAuth.aiAllowed &&
+                            ai.nuphos.android.session.AiAccess.revision == queueConsent &&
+                            store.workspaceRevision == queueWorkspace && store.selectedTeam?.id == session.teamId
+                    }
+                    onDispose { session.deactivateQueue() }
+                }
+                LaunchedEffect(session, resumed, queueGeneration, queueWorkspace, queueConsent, session.loaded, session.isStreaming, session.queuedSends, session.sendQueues, session.runtimeObservation?.phase) {
+                    if (resumed) while (true) {
+                        session.serverQueue.refresh()
+                        if (session.serverQueue.items.isEmpty() && !session.isStreaming && !session.sendQueues) break
+                        kotlinx.coroutines.delay(3_000)
+                    }
+                }
+                var recalledFiles by remember(session, queueGeneration, queueWorkspace, queueConsent) {
+                    mutableStateOf(emptyList<ai.nuphos.android.model.ComposerAttachment>())
+                }
+                ServerQueuedMessages(session.serverQueue, writable = !session.readOnly && !session.isArchived,
+                    canSteer = session.canSteer, onRecall = { recalled ->
+                        if (draft == null) false else runCatching {
+                            val files = recalled.files.map { file ->
+                                require(file.mediaType == "image/jpeg" && file.url.startsWith("data:image/jpeg;base64,")) {
+                                    "This queued attachment cannot be edited on this device."
+                                }
+                                require(file.url.length <= 30_000_000)
+                                ai.nuphos.android.model.ComposerAttachment(
+                                    id = "recalled-${file.url.hashCode()}-${file.filename}", name = file.filename ?: "Queued photo.jpg",
+                                    kind = ai.nuphos.android.model.ComposerAttachment.Kind.Image(java.util.Base64.getDecoder().decode(file.url.substringAfter(','))))
+                            }
+                            val existing = draftApp.incomingShares.text(draft.key) ?: draft.text
+                            val merged = if (existing == recalled.text || existing.endsWith("\n\n${recalled.text}")) existing
+                                else listOf(existing, recalled.text).filter { it.isNotBlank() }.joinToString("\n\n")
+                            draftApp.incomingShares.writeText(draft.key, merged)
+                            val saved = draft.write(merged)
+                            if (saved) recalledFiles = (recalledFiles + files).distinctBy { it.id }
+                            saved
+                        }.getOrDefault(false)
+                    })
                 ChatComposer(
                     modelSettings = session.modelSettings,
+                    recalledFiles = recalledFiles,
+                    onRecalledFilesRestored = { recalledFiles = emptyList() },
                     mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
                         SessionMentionSource(draftTeam, sessionId) { query ->
                             store.mentionableSessions(draftTeam, query)
@@ -438,6 +507,7 @@ fun ConversationScreen(
                     isStreaming = session.isStreaming && !session.isNative,
                     onSend = session::send,
                     canSubmit = session.canSubmit && session.uploadDraft == null,
+                    sendQueues = session.sendQueues,
                     rejectedSubmission = session.rejectedSubmission,
                     onRejectedRestored = session::clearRejectedSubmission,
                     onStop = if (session.canCancel) session::stop else null,
@@ -496,6 +566,7 @@ private fun ChatRowView(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.outline,
             modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
         )
         is ChatRow.Event -> AgentEventRow(row, onLink) {
             UserAttachments(row.content, session)
@@ -504,13 +575,7 @@ private fun ChatRowView(
             row.sender?.let { MessageSenderLabel(it) }
             UserAttachments(row, session)
             if (row.text.isNotEmpty()) {
-                Surface(
-                    modifier = Modifier.widthIn(max = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp * 0.8f).dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ) {
-                    Text(row.text, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), color = MaterialTheme.colorScheme.onSurface)
-                }
+                UserMessageBubble(row.text)
             }
         }
         is ChatRow.AssistantText -> MarkdownText(row.text, streaming = row.streaming, onLink = onLink)
@@ -582,18 +647,10 @@ private fun ReasoningTile(part: ChatPart.Reasoning) {
     var expanded by remember { mutableStateOf(false) }
     val thinking = part.state == ChatPart.StreamState.Streaming
     Column {
-        Surface(
-            onClick = { expanded = !expanded },
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Psychology, contentDescription = null, modifier = Modifier.size(16.dp))
-                Text(if (thinking) "Thinking…" else "Thought", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleSmall)
-            }
-        }
-        AnimatedVisibility(expanded) {
-            Text(part.text, modifier = Modifier.padding(start = 16.dp, top = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TranscriptDisclosure(if (thinking) "Thinking…" else "Thought", expanded, { expanded = !expanded })
+        if (expanded) SelectionContainer {
+            Text(part.text, modifier = Modifier.padding(start = 12.dp, top = 6.dp),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -617,10 +674,10 @@ private fun ToolCallRow(
         Surface(
             onClick = { onOpen(part) },
             shape = MaterialTheme.shapes.medium,
-            color = if (part.state in setOf(ChatPart.Tool.State.ApprovalRequested, ChatPart.Tool.State.OutputError))
-                tint.copy(alpha = 0.10f) else androidx.compose.ui.graphics.Color.Transparent,
+            color = tint.copy(alpha = 0.10f),
+            border = BorderStroke(1.dp, tint.copy(alpha = 0.18f)),
         ) {
-            Column(Modifier.padding(horizontal = 4.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(when (part.state) {
                         ChatPart.Tool.State.ApprovalRequested -> Icons.Outlined.PanTool
@@ -670,6 +727,7 @@ private fun ToolCallRow(
                 }
             }
         }
+        part.planId?.let { InlinePlanCard(it, session) }
     }
 }
 
@@ -685,9 +743,7 @@ private fun WorkGroup(
     val title = row.duration?.takeIf { it >= 1 }?.let { "Worked for ${it.toInt()}s · ${row.rows.size} steps" }
         ?: "Worked through ${row.rows.size} steps"
     Column {
-        Surface(onClick = { expanded = !expanded }, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Text(title, modifier = Modifier.padding(14.dp), style = MaterialTheme.typography.titleSmall)
-        }
+        TranscriptDisclosure(title, expanded, { expanded = !expanded })
         if (expanded) {
             Column(Modifier.padding(start = 12.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.rows.forEach { child ->
@@ -695,6 +751,40 @@ private fun WorkGroup(
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun UserMessageBubble(text: String) {
+    var expanded by remember(text) { mutableStateOf(false) }
+    val preview = remember(text) { MessagePreview.head(text) }
+    val folded = preview != null && !expanded
+    Surface(
+        modifier = Modifier.padding(start = 56.dp).widthIn(max = 640.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Selection must never copy an abbreviated preview as the full message.
+            if (folded) Text(preview.orEmpty(), color = MaterialTheme.colorScheme.onSurface)
+            else SelectionContainer { Text(text, color = MaterialTheme.colorScheme.onSurface) }
+            if (preview != null) TextButton(onClick = { expanded = !expanded }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                Text(if (expanded) "Show less" else "Show more", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TranscriptDisclosure(title: String, expanded: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClickLabel = if (expanded) "Collapse" else "Expand", onClick = onClick)
+        .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
+        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(Icons.Outlined.Psychology, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(if (expanded) Icons.Outlined.KeyboardArrowDown else Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -2,6 +2,7 @@ import { api } from '../../api'
 
 import {} from '../../app/sidebarBackTarget'
 import { pageLocationForTab } from '../../app/workspaceTabFactory'
+import { sourceText } from '../../i18n'
 import { setActiveTeam, trackPageview } from '../../lib/analytics'
 import { DEFAULT_GITHUB_NAV, DEFAULT_REPO_PROVIDER } from '../../lib/appRoutes'
 import { externalPageLink } from '../../lib/externalPageLink'
@@ -135,7 +136,8 @@ export function useWorkspaceActiveTab(a: Args) {
     trackPageview(activeTab.pageMeta.location, {
       scope_kind: activeTab.scope.kind,
       active_key: activeTab.active,
-      title: activeTab.pageMeta.title,
+      // English, so pageviews group the same way in every locale.
+      title: sourceText(activeTab.pageMeta.title),
     })
     // activeLocationHref is the change signal; other fields are read fresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps

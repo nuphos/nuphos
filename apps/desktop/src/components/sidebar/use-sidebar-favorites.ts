@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   addSidebarFavorite,
   favoriteIdentity,
+  moveSidebarFavorite,
   readSidebarFavorites,
   removeSidebarFavorite,
   subscribeSidebarFavorites,
@@ -110,6 +111,23 @@ export function useSidebarFavorites({
     [favoriteEntryForItem, favoriteMatch, teamId, userId],
   )
 
+  // Puts a pinned row just before another, or last when `before` is null.
+  const movePinned = useCallback(
+    (item: Item, before: Item | null) => {
+      const moved = favoriteMatch(item)
+      const anchor = before && favoriteMatch(before)
+
+      if (!moved || (before && !anchor)) return
+      moveSidebarFavorite(
+        userId,
+        teamId,
+        favoriteIdentity(moved),
+        anchor ? favoriteIdentity(anchor) : null,
+      )
+    },
+    [favoriteMatch, teamId, userId],
+  )
+
   // Resolve favorites against the live items so labels/active state stay
   // fresh; entries whose source left the list fall back to their snapshot.
   const liveItemsByKey = new Map<string, Item>()
@@ -189,5 +207,12 @@ export function useSidebarFavorites({
     ;(favoriteSessionId(entry) ? pinnedChatItems : favoriteItems).push(resolveFavorite(entry))
   }
 
-  return { favoriteMatch, canFavorite, toggleFavorite, favoriteItems, pinnedChatItems }
+  return {
+    favoriteMatch,
+    canFavorite,
+    toggleFavorite,
+    movePinned,
+    favoriteItems,
+    pinnedChatItems,
+  }
 }

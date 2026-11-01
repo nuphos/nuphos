@@ -6,7 +6,9 @@ import {
   applyFavoriteOperations,
   favoriteIdentity,
   mergeFavoriteLists,
+  moveSidebarFavorite,
   readSidebarFavorites,
+  removeSidebarFavorite,
   syncSidebarFavorites,
 } from './sidebarFavorites.ts'
 
@@ -222,4 +224,71 @@ test('CAS conflict fetches the winner and replays local intent', async () => {
     { label: 'Other device', key: 'other' },
     { label: 'This device', key: 'local' },
   ])
+})
+
+test('a move puts a favorite before another, or last, and syncs that order', async () => {
+  reset()
+  const teamId = 'move-team'
+  const keys = () => readSidebarFavorites('user-a', teamId).map((entry) => entry.key)
+
+  for (const key of ['a', 'b', 'c']) addSidebarFavorite('user-a', teamId, { label: key, key })
+  moveSidebarFavorite('user-a', teamId, 'c', 'a')
+  assert.deepEqual(keys(), ['c', 'a', 'b'])
+  moveSidebarFavorite('user-a', teamId, 'c', null)
+  assert.deepEqual(keys(), ['a', 'b', 'c'])
+  removeSidebarFavorite('user-a', teamId, 'b')
+  await syncSidebarFavorites('user-a', teamId)
+
+  assert.deepEqual(
+    remote.get(teamId)?.entries.map((entry) => entry.key),
+    ['a', 'c'],
+  )
+})
+
+test('a move made beside another device keeps both changes', async () => {
+  reset()
+  const teamId = 'move-conflict-team'
+
+  remote.set(teamId, {
+    entries: [
+      { label: 'a', key: 'a' },
+      { label: 'b', key: 'b' },
+    ],
+    revision: 1,
+    updatedAt: null,
+  })
+  await syncSidebarFavorites('user-a', teamId)
+  // Another device pins `c` and unpins `a` before these moves reach the server.
+  // Moving `c` in front of the gone `a` leaves it where it is.
+  remote.set(teamId, {
+    entries: [
+      { label: 'b', key: 'b' },
+      { label: 'c', key: 'c' },
+    ],
+    revision: 2,
+    updatedAt: null,
+  })
+  moveSidebarFavorite('user-a', teamId, 'b', null)
+  moveSidebarFavorite('user-a', teamId, 'c', 'a')
+  await syncSidebarFavorites('user-a', teamId)
+
+  assert.deepEqual(
+    remote.get(teamId)?.entries.map((entry) => entry.key),
+    ['c', 'b'],
+  )
+})
+
+test('moving an unknown favorite, or before one, changes nothing', () => {
+  const entries = [
+    { label: 'a', key: 'a' },
+    { label: 'b', key: 'b' },
+  ]
+
+  assert.deepEqual(
+    applyFavoriteOperations(entries, [
+      { id: '1', kind: 'move', identity: 'gone', before: 'a' },
+      { id: '2', kind: 'move', identity: 'b', before: 'gone' },
+    ]),
+    entries,
+  )
 })

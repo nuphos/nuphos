@@ -6,6 +6,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { AGE_DESC_SORT } from '../lib/tableSort'
 
 import type { EventItem } from '../types'
@@ -71,7 +72,7 @@ export function EventsView({ namespace, filter, refreshKey, onCount, onLoading }
       columns={[
         {
           key: 'type',
-          header: 'Type',
+          header: t('Type'),
           width: 90,
           sortAccessor: (e) => e.type_,
           render: (e) => (
@@ -87,14 +88,14 @@ export function EventsView({ namespace, filter, refreshKey, onCount, onLoading }
         },
         {
           key: 'reason',
-          header: 'Reason',
+          header: t('Reason'),
           width: 160,
           sortAccessor: (e) => e.reason,
           render: (e) => <span className="text-main font-medium">{e.reason}</span>,
         },
         {
           key: 'object',
-          header: 'Object',
+          header: t('Object'),
           width: 280,
           sortAccessor: (e) => `${e.kind}/${e.name}`,
           render: (e) => (
@@ -107,21 +108,21 @@ export function EventsView({ namespace, filter, refreshKey, onCount, onLoading }
         },
         {
           key: 'namespace',
-          header: 'Namespace',
+          header: t('Namespace'),
           width: 160,
           sortAccessor: (e) => e.namespace,
           render: (e) => <span className="text-secondary">{e.namespace || '-'}</span>,
         },
         {
           key: 'message',
-          header: 'Message',
+          header: t('Message'),
           width: 480,
           sortAccessor: (e) => e.message,
           render: (e) => <span className="text-secondary text-[12.5px]">{e.message}</span>,
         },
         {
           key: 'count',
-          header: 'Count',
+          header: t('Count'),
           width: 70,
           sortAccessor: (e) => e.count,
           render: (e) => (
@@ -132,7 +133,7 @@ export function EventsView({ namespace, filter, refreshKey, onCount, onLoading }
         },
         {
           key: 'age',
-          header: 'Age',
+          header: t('Age'),
           width: 100,
           sortAccessor: (e) => e.timestamp ?? '',
           render: (e) => (

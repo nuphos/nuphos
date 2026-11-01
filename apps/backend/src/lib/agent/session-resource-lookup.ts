@@ -88,6 +88,7 @@ export async function resolveResource(
       title: string
       state: string
       merged: boolean
+      draft?: boolean
       merged_at?: string | null
       mergeable_state?: string | null
       head: { sha: string }
@@ -113,6 +114,7 @@ export async function resolveResource(
       state: pr.merged ? 'merged' : pr.state,
       url: `https://github.com/${repository}/pull/${pr.number}`,
       health,
+      draft: Boolean(pr.draft),
       ...(mergedAt ? { mergedAt } : {}),
     }
   }

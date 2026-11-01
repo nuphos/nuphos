@@ -95,7 +95,7 @@ class ComposerAgentFixtureDeviceTest {
         compose.setContent {
             val context = LocalContext.current
             val store = remember { AgentStore("synthetic-no-credentials", context) }
-            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store) {
+            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                 Box(Modifier.widthIn(max = 320.dp)) { content() }
             } }
         }

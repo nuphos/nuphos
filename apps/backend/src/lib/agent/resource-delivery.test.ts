@@ -134,12 +134,37 @@ test('a merge records when it happened on every linked tag', async () => {
     {
       $set: {
         'linkedResources.$[resource].state': 'merged',
+        'linkedResources.$[resource].draft': false,
         'linkedResources.$[resource].health': null,
         'linkedResources.$[resource].mergedAt': '2026-10-29T03:12:00Z',
       },
     },
     { arrayFilters: [{ 'resource.key': 'github/12/34/56' }] },
   ])
+})
+
+test('a PR turned into a draft and back marks every linked tag, keeping its health', async () => {
+  for (const [action, draft] of [
+    ['converted_to_draft', true],
+    ['ready_for_review', false],
+  ] as const) {
+    stateUpdates = []
+    await routeResourceWebhook(
+      'pull_request',
+      { ...payload, action, pull_request: { number: 56, state: 'open', draft } },
+      'delivery',
+    )
+    expect(stateUpdates[0]).toEqual([
+      { 'linkedResources.key': 'github/12/34/56' },
+      {
+        $set: {
+          'linkedResources.$[resource].state': 'open',
+          'linkedResources.$[resource].draft': draft,
+        },
+      },
+      { arrayFilters: [{ 'resource.key': 'github/12/34/56' }] },
+    ])
+  }
 })
 
 const review = {

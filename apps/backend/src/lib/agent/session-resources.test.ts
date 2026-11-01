@@ -38,6 +38,7 @@ let connected = true
 let updates: unknown[] = []
 let lookupCount = 0
 let merged = false
+let draft = false
 
 useIdentity({ getTeamMembership: async () => (membership ? { role: 'MEMBER' } : null) })
 useByosAccount({
@@ -70,6 +71,7 @@ useGithubHttp({
       title: 'Verified PR',
       state: merged ? 'closed' : 'open',
       merged,
+      draft,
       merged_at: merged ? '2026-10-29T03:12:00Z' : null,
       mergeable_state: 'clean',
       head: { sha: 'a'.repeat(40) },
@@ -81,6 +83,7 @@ beforeEach(() => {
   invalidateInstallationToken(12)
   lookupCount = 0
   merged = false
+  draft = false
   membership = true
   connected = true
   updates = []
@@ -217,6 +220,7 @@ test('linking an already linked resource refreshes it in place', async () => {
           'linkedResources.$.state': 'open',
           'linkedResources.$.url': 'https://github.com/org/repo/pull/56',
           'linkedResources.$.health': 'checks_failed',
+          'linkedResources.$.draft': false,
         },
       },
     ],
@@ -243,6 +247,18 @@ test('linking again records a merge that no webhook delivered', async () => {
       },
     },
   ])
+})
+test('linking again records that the PR is a draft', async () => {
+  draft = true
+  const linked = await bindSessionResource(actor, {
+    provider: 'github',
+    installationId: 12,
+    repository: 'org/repo',
+    number: 56,
+  })
+
+  expect(linked).toMatchObject({ state: 'open', draft: true })
+  expect(updates[0]).toMatchObject([{}, { $set: { 'linkedResources.$.draft': true } }])
 })
 test('unselected installations are rejected before contacting GitHub', async () => {
   await expect(

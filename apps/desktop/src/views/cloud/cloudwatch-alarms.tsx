@@ -6,6 +6,7 @@ import { Age } from '../../components/Age'
 import { ContextMenu } from '../../components/ContextMenu'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -71,13 +72,13 @@ export function CloudWatchAlarmsView({
       ...(linkItems.length > 0 ? [{ key: 'sep0', separator: true } as const] : []),
       {
         key: 'copy-name',
-        label: 'Copy alarm name',
+        label: t('Copy alarm name'),
         icon: Copy,
         onSelect: () => void navigator.clipboard.writeText(alarm.name),
       },
       {
         key: 'open-console',
-        label: 'Open in AWS console',
+        label: t('Open in AWS console'),
         icon: Globe,
         onSelect: () => void api.appOpenExternal(cloudWatchAlarmUrl(alarm)),
       },
@@ -100,13 +101,18 @@ export function CloudWatchAlarmsView({
       if (loading) {
         return (
           <div className="h-full flex items-center justify-center text-sm text-tertiary">
-            Loading alarm...
+            {t('Loading alarm…')}
           </div>
         )
       }
 
       return (
-        <ErrorBlock message={`Alarm ${detailSel.name} was not found in ${detailSel.region}.`} />
+        <ErrorBlock
+          message={t('Alarm {name} was not found in {region}.', {
+            name: detailSel.name,
+            region: detailSel.region,
+          })}
+        />
       )
     }
 
@@ -142,11 +148,11 @@ export function CloudWatchAlarmsView({
         onRowContextMenu={(alarm, e) => setMenu({ alarm, x: e.clientX, y: e.clientY })}
         storageKey="aws.cloudwatch-alarms"
         defaultSort={{ key: 'state', dir: 'asc' }}
-        empty="No CloudWatch alarms"
+        empty={t('No CloudWatch alarms')}
         columns={[
           {
             key: 'state',
-            header: 'State',
+            header: t('State'),
             width: 150,
             sortAccessor: (r) =>
               r.state === 'ALARM' ? 0 : r.state === 'INSUFFICIENT_DATA' ? 1 : 2,
@@ -163,7 +169,7 @@ export function CloudWatchAlarmsView({
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 300,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -174,7 +180,7 @@ export function CloudWatchAlarmsView({
           },
           {
             key: 'condition',
-            header: 'Condition',
+            header: t('Condition'),
             width: 280,
             sortAccessor: (r) => r.metricName ?? '',
             render: (r) => (
@@ -188,21 +194,21 @@ export function CloudWatchAlarmsView({
           },
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 150,
             sortAccessor: (r) => r.namespace ?? '',
             render: (r) => <span className="text-secondary">{r.namespace ?? '—'}</span>,
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 130,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'updated',
-            header: 'State changed',
+            header: t('State changed'),
             width: 110,
             sortAccessor: (r) => r.stateUpdatedAt ?? '',
             render: (r) => (

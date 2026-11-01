@@ -99,6 +99,14 @@ struct RuntimeObservationTests {
         RuntimeTranscript.steering(id: "receipt", text: "Change direction", messages: &messages)
         RuntimeTranscript.steering(id: "receipt", text: "Change direction", messages: &messages)
         precondition(messages[index].parts.count == 2)
+        // The stream receipt landing after the API acknowledgement names the sender.
+        let sent = JSONValue.parse(#"{"version":1,"sender":{"type":"user","id":"u","displayName":"Ada"}}"#)
+        RuntimeTranscript.steering(id: "receipt", text: "Change direction", metadata: sent, messages: &messages)
+        precondition(messages[index].parts.count == 2)
+        precondition(ChatRow.assistantRows(messages[index], live: true, lastApprovalCallId: nil).contains {
+            if case .user(_, _, _, _, let sender, _) = $0 { return sender?.name == "Ada" }
+            return false
+        })
         var reducer = UIStreamReducer(message: messages[index])
         _ = reducer.apply(JSONValue.parse(#"{"type":"text-start","id":"after-steer"}"#)!)
         _ = reducer.apply(JSONValue.parse(#"{"type":"text-delta","id":"after-steer","delta":"Updated"}"#)!)

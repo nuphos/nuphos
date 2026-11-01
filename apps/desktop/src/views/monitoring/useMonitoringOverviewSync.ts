@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { PROVIDER_LABEL } from '../../lib/monitoringWatch'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { useResetOnKey } from '../useResetOnKey'
@@ -42,7 +43,7 @@ export function useMonitoringOverviewSync({
       .catch((err: unknown) => {
         // With a snapshot on screen a failed refresh must not nuke visible
         // data — surface the error and keep showing what we have.
-        toast.apiError('Failed to refresh monitoring overview', err)
+        toast.apiError(t('Failed to refresh monitoring overview'), err)
       })
       .finally(() => {
         setLoading(false)
@@ -111,9 +112,15 @@ export function useMonitoringOverviewSync({
 
           return next
         })
-        toast.success('Deleted', `${row.name} removed from ${PROVIDER_LABEL[row.provider]}`)
+        toast.success(
+          t('Deleted'),
+          t('{name} removed from {provider}', {
+            name: row.name,
+            provider: PROVIDER_LABEL[row.provider],
+          }),
+        )
       } catch (err) {
-        toast.apiError('Failed to delete', err)
+        toast.apiError(t('Failed to delete'), err)
       }
     },
     [teamId, cacheKey, onCount, setOverview],

@@ -5,7 +5,7 @@ struct AgentAvatar: View {
     let agentId: String
     let runtime: String?
     var size: CGFloat = 24
-    @AppStorage(BotAvatars.enabledKey) private var enabled = true
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var enabled = true
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {

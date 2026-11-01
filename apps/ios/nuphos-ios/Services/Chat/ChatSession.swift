@@ -95,6 +95,22 @@ final class ChatSession {
     private let observations = RuntimeObservations.shared
     var runtimeObservation: RuntimeObservation? { observations.value(team: teamId, session: sessionId) }
     var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing == true : transportStreaming }
+    /// The owner can open this conversation's desktop: its runtime is a Box, or a
+    /// Mac that allows phone control, and says it can show one or already does.
+    var canOpenDesktop: Bool {
+        guard ownsChat, let snapshot = runtimeObservation?.snapshot else { return false }
+        return snapshot["canOpenDesktop"]?.boolValue == true
+            || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
+    }
+    func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// The browser tabs in this conversation's dock on its owner's computer.
+    func browserTabs() async throws -> [BrowserTab] {
+        try await AgentChatAPI.browserTabs(token: token, teamId: teamId, sessionId: sessionId)
+    }
+    /// Brings `tab` forward on that computer: its window, this conversation and the dock tab.
+    func focus(_ tab: BrowserTab) async throws {
+        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: tab.id)
+    }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }
         guard isNativeRuntime, !isNew else { return nil }
@@ -112,8 +128,9 @@ final class ChatSession {
     var submitting: Bool { sending != nil }
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
-    /// This device's send has had no response yet. Only that response clears it:
-    /// another turn executing says nothing about this message.
+    /// This device's send has no runtime status yet. Only this turn's own
+    /// runtime state clears it, so "Sending…" holds until the runtime's first
+    /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
     var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
@@ -131,13 +148,6 @@ final class ChatSession {
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action) == true }
     private func receiveRuntime(_ snapshot: JSONValue?, observedAt: TimeInterval) {
         observations.receive(snapshot, team: teamId, session: sessionId, observedAt: observedAt)
-        showLiveActivity()
-    }
-    private func showLiveActivity() {
-        #if os(iOS)
-        guard isStreaming else { return }
-        TurnLiveActivity.show(sessionId: sessionId, teamId: teamId, title: title, authToken: token)
-        #endif
     }
 
     /// Changes the mode; for a conversation the server knows, that is a
@@ -415,9 +425,30 @@ final class ChatSession {
     }
 
     var failedSubmission: ComposerSubmission?
+    /// The unsent message the composer takes back for editing.
+    var editingSubmission: ComposerSubmission?
+
+    /// Sends the unsent message again as it was.
+    func retryFailed() {
+        guard let submission = failedSubmission else { return }
+        failedSubmission = nil
+        guard canSubmit else { failedSubmission = submission; return }
+        error = nil
+        send(submission)
+    }
+
+    /// Moves the unsent message back into the composer.
+    func editFailed() {
+        guard let submission = failedSubmission else { return }
+        failedSubmission = nil
+        error = nil
+        editingSubmission = submission
+    }
 
     /// Only restore a request rejected before admission, never a resumed turn.
-    private func rejectOversizedSubmission(_ pending: (id: String, submission: ComposerSubmission)?) {
+    /// Left in the transcript, a message the server never stored would ride
+    /// along with the next send, which the server refuses as a batch.
+    private func rejectUnadmittedSubmission(_ pending: (id: String, submission: ComposerSubmission)?) {
         guard let pending else { return }
         failedSubmission = pending.submission
         messages.removeAll { $0.id == pending.id }
@@ -611,8 +642,7 @@ final class ChatSession {
 
     func rename(_ name: String) async throws {
         guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can rename it.") }
-        struct Body: Encodable { let title: String }
-        _ = try await AgentChatAPI.send("PATCH", "agent/conversations/\(sessionId)/title", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: name))
+        try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: sessionId, title: name)
         title = name
     }
 
@@ -832,7 +862,6 @@ final class ChatSession {
         error = nil
         currentStreamId = options.streamId
         awaitingAdmission = isNativeRuntime && !options.explicitResume
-        showLiveActivity()
         streamTask = Task { [weak self] in
             guard let self else { return }
             var options = options
@@ -929,6 +958,14 @@ final class ChatSession {
         adoptTranscript(from: detail)
     }
 
+    /// Replaces the transcript with the server's, even when it holds fewer
+    /// messages than this one.
+    private func adoptServerTranscript() async {
+        guard let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) else { return }
+        messages = detail.messages
+        baseIndex = detail.messagesFirstIndex ?? 0
+    }
+
     private func adoptTranscript(from detail: AgentConversationDetail) {
         serverTail = ServerTail(detail)
         let serverTotal = (detail.messagesFirstIndex ?? 0) + detail.messages.count
@@ -1021,8 +1058,8 @@ final class ChatSession {
 
     private var attachedStreamId: String? { transportStreaming ? currentStreamId : nil }
 
-    private func appendSteering(id: String, text: String) {
-        RuntimeTranscript.steering(id: id, text: text, messages: &messages)
+    private func appendSteering(id: String, text: String, metadata: JSONValue? = nil) {
+        RuntimeTranscript.steering(id: id, text: text, metadata: metadata, messages: &messages)
     }
 
     /// One connection attempt loop for a turn — reconnects, fresh retries
@@ -1083,7 +1120,6 @@ final class ChatSession {
                     guard event.data != "[DONE]", let frame = JSONValue.parse(event.data),
                           let type = frame["type"]?.stringValue else { continue }
                     accepted = true
-                    awaitingAdmission = false
                     debugLog("frame \(type)")
                     if type.hasPrefix("tool-") || type == "authorization-decision" || type == "error" || type == "atlas-turn-paused" {
                         debugLog("  \(frame.compact.prefix(600))")
@@ -1132,11 +1168,11 @@ final class ChatSession {
             } catch let urlError as URLError where urlError.code == .cancelled {
                 return .aborted
             } catch is ChatPayload.TooLarge {
-                if !accepted && !shouldResume && reconnects == 0 { rejectOversizedSubmission(options.submission) }
+                if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }
                 return .failed(ChatPayload.tooLargeMessage)
             } catch SSEClient.Failure.badStatus(let status, let bodyText) {
                 if status == 413 {
-                    if !accepted && !shouldResume && reconnects == 0 { rejectOversizedSubmission(options.submission) }
+                    if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }
                     return .failed(ChatPayload.tooLargeMessage)
                 }
                 debugLog("HTTP \(status): \(bodyText ?? "")")
@@ -1161,7 +1197,18 @@ final class ChatSession {
                     try? await Task.sleep(for: backoff(gatewayRetries, base: 0.7, max: 5))
                     if !isNativeRuntime && !options.explicitResume { forceFresh = true; resumeFrom = 0 } else { reconnects += 1 }
                     continue
+                // The runtime refused the start and the server put the message back
+                // in its queue: it was not refused, so it is not a failed send.
+                case .other(let code, _, _) where code == "message_queued":
+                    return .queued
+                case .other(let code, _, _) where code == "invalid_message_batch" && !accepted:
+                    // Messages here the server never stored: take the server's transcript.
+                    rejectUnadmittedSubmission(options.submission)
+                    await adoptServerTranscript()
+                    return .failed("This agent changed elsewhere and was reloaded. Retry to send your message.")
                 default:
+                    // Only a send the server refused, never one it queued or already runs.
+                    if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }
                     return .failed(conflict.localizedDescription)
                 }
             } catch SSEClient.Failure.frameTimeout {
@@ -1219,12 +1266,13 @@ final class ChatSession {
     private func handle(frame: JSONValue, type: String) {
         switch type {
         case "runtime-state":
+            awaitingAdmission = false
             let age = max(0, Date.now.timeIntervalSince1970 - (frame["emittedAt"]?.numberValue ?? 0) / 1000)
             receiveRuntime(frame["snapshot"], observedAt: ProcessInfo.processInfo.systemUptime - age)
             return
         case "data-steering":
             if let id = frame["data"]?["id"]?.stringValue, let text = frame["data"]?["text"]?.stringValue {
-                appendSteering(id: id, text: text)
+                appendSteering(id: id, text: text, metadata: frame["data"]?["metadata"])
                 if let i = streamAssistantIndex, messages.indices.contains(i) { streamReducer?.message.parts = messages[i].parts }
             }
             return

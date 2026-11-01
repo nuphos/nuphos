@@ -10,6 +10,8 @@ export type UserInfo = {
   createdAt?: string
 }
 
+export type SocialProvider = 'google' | 'apple'
+
 export type AuthStatus = { loggedIn: false } | { loggedIn: true; user: UserInfo; token: string }
 
 /** One of the account's sign-ins, as GET /auth/sessions lists it. */
@@ -48,11 +50,16 @@ export type PersonalCredentialDeepLinkPayload = {
 export type UpdaterState =
   | { kind: 'idle' }
   | { kind: 'checking' }
-  | { kind: 'not-available' }
-  | { kind: 'available'; version: string }
-  | { kind: 'downloading'; percent: number }
-  | { kind: 'downloaded'; version: string }
-  | { kind: 'error'; message: string }
+  | { kind: 'up-to-date' }
+  | {
+      kind: 'downloading'
+      version: string
+      transferred: number
+      total: number
+      bytesPerSecond: number
+    }
+  | { kind: 'ready'; version: string }
+  | { kind: 'error' }
 
 export type ChangelogEntry = {
   slug: string
@@ -178,6 +185,8 @@ export type HomeLayout = {
   metrics?: HomeMetricCard[]
   /** Where each card sits, in grid units; a card without an entry goes last. */
   grid?: HomeGridItem[]
+  /** Set once card sizes are fitted to their content; see fitOldSizes. */
+  gridVersion?: number
 }
 
 /** A card's place on the home grid: `i` is the card's key, the rest grid units. */

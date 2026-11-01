@@ -24,6 +24,17 @@ const HEALTH_TEXT = {
   conflict: t('open · merge conflict'),
 }
 
+const DRAFT_HEALTH_TEXT = {
+  checks_failed: t('draft · checks failing'),
+  changes_requested: t('draft · changes requested'),
+  conflict: t('draft · merge conflict'),
+}
+
+/** An open PR still marked as a draft on GitHub. */
+export function resourceDraft(resource: SessionResource) {
+  return resource.provider === 'github' && resource.state === 'open' && Boolean(resource.draft)
+}
+
 /** What holds up an open PR. A merged or closed PR's last health no longer applies. */
 export function resourceHealth(resource: SessionResource) {
   return resource.provider === 'github' && resource.state === 'open'
@@ -31,17 +42,20 @@ export function resourceHealth(resource: SessionResource) {
     : null
 }
 
-/** A resource's state as a person would say it, e.g. `open · checks failing`. */
+/** A resource's state as a person would say it, e.g. `open · checks failing` or `draft`. */
 export function resourceStatus(resource: SessionResource): string {
   const health = resourceHealth(resource)
+
+  if (resourceDraft(resource)) return health ? DRAFT_HEALTH_TEXT[health] : t('draft')
 
   return health ? HEALTH_TEXT[health] : resource.state
 }
 
-/** A PR tag's color is its GitHub state alone, as on GitHub: open green, merged purple, closed red. */
+/** A PR tag's color is its GitHub state alone, as on GitHub: open green, draft grey, merged purple, closed red. */
 export function pullStateColor(resource: SessionResource) {
   if (resource.state === 'merged') return 'session-resource-merged'
   if (resource.state === 'closed') return 'session-resource-closed'
+  if (resourceDraft(resource)) return 'text-secondary'
 
   return 'session-resource-open'
 }

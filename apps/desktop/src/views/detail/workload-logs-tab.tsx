@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { filterLogLines } from '../../lib/logView'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -94,7 +95,7 @@ export function WorkloadLogsTab({
         .catch((e: unknown) => {
           if (cancelled) return
           setPreviousLoading(false)
-          toast.apiError('Could not load previous logs', e)
+          toast.apiError(t('Could not load previous logs'), e)
         })
 
       return () => {
@@ -118,9 +119,9 @@ export function WorkloadLogsTab({
         // streaming indicator and surface the reason via toast (per CLAUDE.md),
         // matching PodLogs' failure feedback.
         setStreaming(false)
-        toast.error('Log stream error', evt.message)
+        toast.error(t('Log stream error'), evt.message)
       } else if (evt.type === 'warning') {
-        toast.error('Some container logs are unavailable', evt.message)
+        toast.error(t('Some container logs are unavailable'), evt.message)
       } else {
         setStreaming(true)
       }
@@ -151,7 +152,7 @@ export function WorkloadLogsTab({
         // Stream never came up — drop the optimistic streaming indicator and
         // report via toast.
         setStreaming(false)
-        toast.apiError('Could not start log stream', e)
+        toast.apiError(t('Could not start log stream'), e)
       })
 
     return () => {
@@ -228,10 +229,10 @@ export function WorkloadLogsTab({
         />
         <span className="text-tertiary text-[12px]">
           {previous
-            ? 'previous instance'
+            ? t('previous instance')
             : rangeMode === 'time'
-              ? 'time window'
-              : 'backfill / container'}
+              ? t('time window')
+              : t('backfill / container')}
         </span>
         <div className="ml-auto flex items-center gap-3 text-[11.5px] text-tertiary">
           <LogViewControls
