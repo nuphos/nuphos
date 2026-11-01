@@ -65,10 +65,12 @@ export const metricKey = (card: HomeMetricCard) => `metric:${card.kind}:${card.i
 const metricKind = (key: string) => key.split(':')[1] as HomeMetricKind
 
 /** Adds `item` when no entry shares its key, otherwise removes that entry. */
-export function toggleItem<T>(list: T[], item: T, key: (t: T) => string): T[] {
+export function toggleItem<T>(list: T[], item: T, key: (entry: T) => string): T[] {
   const k = key(item)
 
-  return list.some((t) => key(t) === k) ? list.filter((t) => key(t) !== k) : [...list, item]
+  return list.some((entry) => key(entry) === k)
+    ? list.filter((entry) => key(entry) !== k)
+    : [...list, item]
 }
 
 export const PULL_STATUSES: { value: HomePullStatus; label: string; empty: string }[] = [

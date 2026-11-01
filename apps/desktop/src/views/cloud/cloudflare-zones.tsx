@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useLinkOnlyRowMenu } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -54,39 +55,39 @@ export function CloudflareZonesView({
         onPrimaryAction={onPick}
         onRowContextMenu={onRowContextMenu}
         storageKey="cloudflare.zones"
-        empty="No domains"
+        empty={t('No domains')}
         columns={[
           {
             key: 'name',
-            header: 'Domain',
+            header: t('Domain'),
             width: 260,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 120,
             sortAccessor: (r) => r.status ?? '',
-            render: (r) => <StatusBadge status={r.status || 'Unknown'} />,
+            render: (r) => <StatusBadge status={r.status || t('Unknown')} />,
           },
           {
             key: 'type',
-            header: 'Plan',
+            header: t('Plan'),
             width: 110,
             sortAccessor: (r) => r.type ?? '',
             render: (r) => <span className="text-secondary">{r.type || '-'}</span>,
           },
           {
             key: 'paused',
-            header: 'Paused',
+            header: t('Paused'),
             width: 90,
             sortAccessor: (r) => (r.paused ? 1 : 0),
-            render: (r) => (r.paused ? <span className="text-amber-400">Yes</span> : '-'),
+            render: (r) => (r.paused ? <span className="text-amber-400">{t('Yes')}</span> : '-'),
           },
           {
             key: 'nameservers',
-            header: 'Name Servers',
+            header: t('Name Servers'),
             width: 360,
             sortAccessor: (r) => r.nameServers.join(','),
             render: (r) => (
@@ -100,7 +101,7 @@ export function CloudflareZonesView({
           },
           {
             key: 'updated',
-            header: 'Updated',
+            header: t('Updated'),
             width: 100,
             sortAccessor: (r) => r.modifiedAt ?? r.createdAt ?? '',
             render: (r) => (

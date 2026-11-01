@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 
 import type { IntegrationPlatformRow, OpenConnectorInfo } from './team-home-bind'
 import type {
@@ -66,8 +67,8 @@ export function buildSaasConnectorRows({
       key: `vanta:${integration.id}`,
       provider: 'vanta' as const,
       account: integration.orgDisplayName || integration.label,
-      principal: 'Client credentials',
-      status: 'Vanta integration',
+      principal: t('Client credentials'),
+      status: t('Vanta integration'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'vanta',
@@ -80,8 +81,8 @@ export function buildSaasConnectorRows({
       key: `secureframe:${integration.id}`,
       provider: 'secureframe' as const,
       account: integration.label,
-      principal: `API key · ${integration.region.toUpperCase()}`,
-      status: 'Secureframe integration',
+      principal: t('API key · {region}', { region: integration.region.toUpperCase() }),
+      status: t('Secureframe integration'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'secureframe',
@@ -95,7 +96,7 @@ export function buildSaasConnectorRows({
       provider: 'sonarqube' as const,
       account: integration.label,
       principal: integration.baseUrl,
-      status: integration.version ? `SonarQube ${integration.version}` : 'SonarQube instance',
+      status: integration.version ? `SonarQube ${integration.version}` : t('SonarQube instance'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'sonarqube',
@@ -108,8 +109,8 @@ export function buildSaasConnectorRows({
       key: `notion:${integration.id}`,
       provider: 'notion' as const,
       account: integration.label,
-      principal: integration.workspaceName || 'Notion workspace',
-      status: 'Notion integration',
+      principal: integration.workspaceName || t('Notion workspace'),
+      status: t('Notion integration'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'notion',
@@ -123,7 +124,7 @@ export function buildSaasConnectorRows({
       provider: 'upstash' as const,
       account: account.label,
       principal: account.email,
-      status: 'Upstash account',
+      status: t('Upstash account'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'upstash',
@@ -136,8 +137,9 @@ export function buildSaasConnectorRows({
       key: `resend:${integration.id}`,
       provider: 'resend' as const,
       account: integration.label,
-      principal: integration.permission === 'sending_access' ? 'Sending access' : 'Full access',
-      status: 'Resend integration',
+      principal:
+        integration.permission === 'sending_access' ? t('Sending access') : t('Full access'),
+      status: t('Resend integration'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'resend',
@@ -150,11 +152,11 @@ export function buildSaasConnectorRows({
       key: `tencent:${account.id}`,
       provider: 'tencent' as const,
       account: account.label,
-      principal: `Role · ${account.roleArn}`,
+      principal: t('Role · {arn}', { arn: account.roleArn }),
       status:
         account.site === 'international'
-          ? 'Tencent Cloud · International'
-          : 'Tencent Cloud · China',
+          ? t('Tencent Cloud · International')
+          : t('Tencent Cloud · China'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'tencent', connectorId: account.id, name: account.label }),
       onDelete: () => api.atlasUnbindTencentAccount(teamId, account.id),
@@ -163,8 +165,9 @@ export function buildSaasConnectorRows({
       key: `aliyun:${account.id}`,
       provider: 'aliyun' as const,
       account: account.label,
-      principal: `Role · ${account.roleArn}`,
-      status: account.site === 'international' ? 'Alibaba Cloud · International' : 'Aliyun · China',
+      principal: t('Role · {arn}', { arn: account.roleArn }),
+      status:
+        account.site === 'international' ? t('Alibaba Cloud · International') : t('Aliyun · China'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'aliyun', connectorId: account.id, name: account.label }),
       onDelete: () => api.atlasUnbindAliyunAccount(teamId, account.id),
@@ -173,8 +176,8 @@ export function buildSaasConnectorRows({
       key: `volcengine:${account.id}`,
       provider: 'volcengine' as const,
       account: account.label,
-      principal: `Role · ${account.roleTrn}`,
-      status: 'Volcengine account',
+      principal: t('Role · {arn}', { arn: account.roleTrn }),
+      status: t('Volcengine account'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'volcengine',
@@ -187,8 +190,8 @@ export function buildSaasConnectorRows({
       key: `huawei:${account.id}`,
       provider: 'huawei' as const,
       account: account.label,
-      principal: `Identity provider · ${account.idpId}`,
-      status: 'Huawei Cloud account',
+      principal: t('Identity provider · {id}', { id: account.idpId }),
+      status: t('Huawei Cloud account'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'huawei', connectorId: account.id, name: account.label }),
       onDelete: () => api.atlasUnbindHuaweiAccount(teamId, account.id),
@@ -200,8 +203,8 @@ export function buildSaasConnectorRows({
       principal:
         subscription.apps.length === 1
           ? subscription.apps[0].label
-          : `${String(subscription.apps.length)} apps`,
-      status: 'Azure subscription',
+          : t('{n} apps', { n: subscription.apps.length }),
+      status: t('Azure subscription'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'azure',

@@ -1,10 +1,19 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
 import { azureSteps } from '../../lib/cloudBindSteps'
 
 import { AzureWizardStepContent } from './azure-steps'
 
+import type { AzureStepTitle } from '../../lib/cloudBindSteps'
 import type { AzureOidcInfo } from '../../types'
+
+// The titles double as step ids in azure-steps, so translate only for display.
+const STEP_LABEL: Record<AzureStepTitle, string> = {
+  'Register the app & federated credential': t('Register the app & federated credential'),
+  'Assign a role on the subscription': t('Assign a role on the subscription'),
+  'Bind the subscription': t('Bind the subscription'),
+}
 
 export function AzureBindWizard({
   step,
@@ -48,9 +57,9 @@ export function AzureBindWizard({
           ))}
         </div>
         <div className="text-[11px] text-tertiary uppercase tracking-wider">
-          Step {step + 1} of {steps.length}
+          {t('Step {n} of {total}', { n: step + 1, total: steps.length })}
         </div>
-        <div className="text-[13.5px] text-main font-medium">{steps[step]}</div>
+        <div className="text-[13.5px] text-main font-medium">{STEP_LABEL[steps[step]]}</div>
       </div>
 
       <div className="t-page-slide t-wizard-slide" data-page={step + 1}>

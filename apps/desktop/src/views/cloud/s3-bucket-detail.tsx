@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { ContextMenu } from '../../components/ContextMenu'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -175,19 +176,19 @@ export function S3BucketDetailView({
             type="button"
             onClick={() => void navigator.clipboard.writeText(s3Uri(bucket.name, prefix))}
             className="inline-flex items-center gap-1 text-tertiary hover:text-main"
-            title="Copy S3 URI of this location"
+            title={t('Copy S3 URI of this location')}
           >
             <Copy className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Copy URI
+            {t('Copy URI')}
           </button>
           <button
             type="button"
             onClick={() => void api.appOpenExternal(s3ConsoleBucketUrl(bucket, prefix))}
             className="inline-flex items-center gap-1 text-tertiary hover:text-main"
-            title="Open this location in the AWS S3 console"
+            title={t('Open this location in the AWS S3 console')}
           >
             <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
-            AWS console
+            {t('AWS console')}
           </button>
         </div>
       </div>
@@ -203,10 +204,10 @@ export function S3BucketDetailView({
               bucketName={bucket.name}
               empty={
                 filter
-                  ? `No items matching "${filter}"`
+                  ? t('No items matching "{filter}"', { filter })
                   : prefix
-                    ? 'This folder is empty'
-                    : 'This bucket is empty'
+                    ? t('This folder is empty')
+                    : t('This bucket is empty')
               }
               onRowClick={(r) => {
                 if (r.kind === 'prefix') {
@@ -227,7 +228,7 @@ export function S3BucketDetailView({
                   disabled={paging || !nextToken}
                   className="text-[12px] text-zViolet-accent hover:underline disabled:opacity-50 disabled:no-underline"
                 >
-                  {paging ? 'Loading…' : 'Load more'}
+                  {paging ? t('Loading…') : t('Load more')}
                 </button>
               </div>
             )}

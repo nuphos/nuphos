@@ -114,6 +114,7 @@ enum AgentChatAPI {
         var deviceId: String
         var environment: String
         var bundleId: String
+        var liveActivityStartToken: String?
         var platform = "ios"
     }
 
@@ -127,6 +128,7 @@ enum AgentChatAPI {
         let teamId: String
         let sessionId: String
         let environment: String
+        let deviceId: String
     }
 
     /// `PUT /push/live-activities` — puts the conversation on the phone's card.

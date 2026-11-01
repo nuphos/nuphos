@@ -55,9 +55,10 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 
     @ObservationIgnored private var authToken: String?
     @ObservationIgnored private var deviceToken: String?
+    @ObservationIgnored private var liveActivityStartToken: String?
     @ObservationIgnored private var registeredPair: String?
 
-    private static var deviceId: String {
+    static var deviceId: String {
         #if canImport(UIKit)
         UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
         #else
@@ -140,15 +141,21 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         Task { await upload() }
     }
 
+    func didRegister(liveActivityStartToken token: String) {
+        liveActivityStartToken = token
+        Task { await upload() }
+    }
+
     private func upload() async {
         guard let authToken, let deviceToken else { return }
-        let pair = "\(authToken)/\(deviceToken)"
+        let pair = "\(authToken)/\(deviceToken)/\(liveActivityStartToken ?? "")"
         guard pair != registeredPair else { return }
         do {
             try await AgentChatAPI.registerPushDevice(
                 token: authToken,
                 device: .init(token: deviceToken, deviceId: Self.deviceId, environment: Self.environment,
-                              bundleId: Bundle.main.bundleIdentifier ?? "")
+                              bundleId: Bundle.main.bundleIdentifier ?? "",
+                              liveActivityStartToken: liveActivityStartToken)
             )
             registeredPair = pair
         } catch {
@@ -203,7 +210,7 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         PushNotifications.shared.install()
         #if os(iOS)
-        TurnLiveActivity.dropExtras()
+        TurnLiveActivity.observe()
         #endif
         return true
     }

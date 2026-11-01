@@ -7,7 +7,9 @@ import { WizardConsoleLink, WizardCopyableValue } from '../components/ConnectorW
 import { AppAlertDialog } from '../components/ui/alert-dialog'
 import { Switch } from '../components/ui/Switch'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
+import { Fill } from './bind-account/shared'
 import { LARK_SUBSCRIBE_EVENTS, larkAppPageUrl } from './bind-lark/console'
 import { BindLarkDialog } from './BindLarkDialog'
 import { ConnectionActions } from './messaging-settings/ConnectionActions'
@@ -53,7 +55,7 @@ export function LarkSettingsView({
   } = useLarkSettings(teamId, currentUserId, refreshKey)
 
   if (!teamId) {
-    return <div className="text-[13px] text-tertiary">No workspace selected.</div>
+    return <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
   }
 
   const installed = !!installation || status?.installed === true
@@ -65,11 +67,11 @@ export function LarkSettingsView({
     try {
       await api.atlasDisconnectLark(teamId)
     } catch (err) {
-      toast.apiError('Could not disconnect Lark', err)
+      toast.apiError(t('Could not disconnect {name}', { name: 'Lark' }), err)
 
       return
     }
-    toast.success('Lark disconnected')
+    toast.success(t('{name} disconnected', { name: 'Lark' }))
     await load()
     onChanged?.()
   }
@@ -89,9 +91,18 @@ export function LarkSettingsView({
       />
       <AppAlertDialog
         open={confirmDisconnectOpen}
-        title="Disconnect Lark"
-        description={`Disconnect ${installation?.tenantName ?? 'this Lark app'} from Nuphos? The stored app credentials are removed and the bot stops responding until you connect again.`}
-        confirmLabel="Disconnect"
+        title={t('Disconnect {name}', { name: 'Lark' })}
+        description={
+          installation?.tenantName
+            ? t(
+                'Disconnect {name} from Nuphos? The stored app credentials are removed and the bot stops responding until you connect again.',
+                { name: installation.tenantName },
+              )
+            : t(
+                'Disconnect this Lark app from Nuphos? The stored app credentials are removed and the bot stops responding until you connect again.',
+              )
+        }
+        confirmLabel={t('Disconnect')}
         destructive
         onConfirm={disconnect}
         onClose={() => setConfirmDisconnectOpen(false)}
@@ -99,7 +110,7 @@ export function LarkSettingsView({
       {canManage && installed && (
         <ConnectionActions
           className="mb-4"
-          primaryLabel="Reconfigure"
+          primaryLabel={t('Reconfigure')}
           onPrimary={() => setReconfigureOpen(true)}
           onDisconnect={() => setConfirmDisconnectOpen(true)}
         />
@@ -107,10 +118,11 @@ export function LarkSettingsView({
       {canManage && installed && webhookUrl && (
         <div className="mb-6 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
           <div className="border-b border-zGray-800/60 px-4 py-3">
-            <div className="text-[13px] font-medium text-main">Event request URL</div>
+            <div className="text-[13px] font-medium text-main">{t('Event request URL')}</div>
             <div className="mt-0.5 text-[12px] text-tertiary">
-              Paste this into your Feishu / Lark app’s Event Configuration → Request URL, then
-              publish a new version. This is the same URL from the connect wizard.
+              {t(
+                'Paste this into your Feishu / Lark app’s Event Configuration → Request URL, then publish a new version. This is the same URL from the connect wizard.',
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 px-4 py-3">
@@ -123,24 +135,28 @@ export function LarkSettingsView({
               className="inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
             >
               <FontAwesomeIcon icon={webhookCopied ? faCheck : faCopy} className="h-3 w-3" />
-              {webhookCopied ? 'Copied' : 'Copy'}
+              {webhookCopied ? t('Copied') : t('Copy')}
             </button>
           </div>
           <div className="border-t border-zGray-800/60 px-4 py-3">
             <div className="text-[12px] leading-relaxed text-tertiary">
-              On the same tab, make sure the app subscribes to all {LARK_SUBSCRIBE_EVENTS.length}{' '}
-              events:{' '}
-              {LARK_SUBSCRIBE_EVENTS.map((ev, i) => (
-                <span key={ev}>
-                  {i > 0 && ', '}
-                  <WizardCopyableValue value={ev} />
-                </span>
-              ))}
+              <Fill
+                text={t(
+                  'On the same tab, make sure the app subscribes to all {count} events: {events}',
+                  { count: LARK_SUBSCRIBE_EVENTS.length },
+                )}
+                events={LARK_SUBSCRIBE_EVENTS.map((ev, i) => (
+                  <span key={ev}>
+                    {i > 0 && ', '}
+                    <WizardCopyableValue value={ev} />
+                  </span>
+                ))}
+              />
             </div>
             {consoleDomain && (
               <div className="mt-2.5">
                 <WizardConsoleLink href={larkAppPageUrl(consoleDomain, consoleAppId, 'event')}>
-                  Open your app’s Events &amp; Callbacks page
+                  {t('Open your app’s Events & Callbacks page')}
                 </WizardConsoleLink>
               </div>
             )}
@@ -160,51 +176,65 @@ export function LarkSettingsView({
 
       <div className="mb-8 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
         <div className="border-b border-zGray-800/60 px-4 py-3">
-          <div className="text-[13px] font-medium text-main">Groups</div>
+          <div className="text-[13px] font-medium text-main">{t('Groups')}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
-            Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which
-            groups the agent responds in, then @mention Nuphos there.
+            {t(
+              'Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.',
+            )}
           </div>
         </div>
 
         {loading ? (
-          <div className="px-4 py-6 text-[13px] text-tertiary">Loading…</div>
+          <div className="px-4 py-6 text-[13px] text-tertiary">{t('Loading…')}</div>
         ) : !canManage ? (
           <div className="px-4 py-6 text-[13px] text-tertiary">
-            Only team administrators can view and manage groups.
+            {t('Only team administrators can view and manage groups.')}
           </div>
         ) : !installed ? (
           <div className="px-4 py-6 text-[13px] text-tertiary">
-            Connect Lark first, then add the bot to a group.
+            {t('Connect Lark first, then add the bot to a group.')}
           </div>
         ) : availableChats.length === 0 ? (
           <div className="px-4 py-5 text-[12.5px] leading-relaxed text-tertiary">
             <div className="mb-2 text-secondary">
-              No groups linked yet. To add the bot to a Lark / Feishu group:
+              {t('No groups linked yet. To add the bot to a Lark / Feishu group:')}
             </div>
             <ol className="ml-4 list-decimal space-y-1">
               <li>
-                Open the group in Lark → tap the group name at the top →{' '}
-                <span className="text-main">Settings</span>.
+                <Fill
+                  text={t('Open the group in Lark → tap the group name at the top → {settings}.')}
+                  settings={<span className="text-main">Settings</span>}
+                />
               </li>
               <li>
-                Go to <span className="text-main">Group Bots</span> (群机器人) →{' '}
-                <span className="text-main">Add Bot</span>.
+                <Fill
+                  text={t('Go to {groupBots} (群机器人) → {addBot}.')}
+                  groupBots={<span className="text-main">Group Bots</span>}
+                  addBot={<span className="text-main">Add Bot</span>}
+                />
               </li>
               <li>
-                Search for your app —{' '}
-                <span className="text-main">{installation?.tenantName || 'Nuphos'}</span> — and add
-                it.
+                <Fill
+                  text={t('Search for your app — {name} — and add it.')}
+                  name={<span className="text-main">{installation?.tenantName || 'Nuphos'}</span>}
+                />
               </li>
               <li>
-                Come back here and <span className="text-main">refresh</span> (top toolbar); the
-                group appears automatically.
+                <Fill
+                  text={t(
+                    'Come back here and {refresh} (top toolbar); the group appears automatically.',
+                  )}
+                  refresh={<span className="text-main">{t('refresh')}</span>}
+                />
               </li>
             </ol>
             <div className="mt-3">
-              Shortcut: just{' '}
-              <span className="text-main">@mention {installation?.tenantName || 'Nuphos'}</span> in
-              a group the bot is already in — it auto-links on the first mention.
+              <Fill
+                text={t(
+                  'Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.',
+                )}
+                name={<span className="text-main">{installation?.tenantName || 'Nuphos'}</span>}
+              />
             </div>
           </div>
         ) : (
@@ -221,7 +251,11 @@ export function LarkSettingsView({
                   checked={chat.enabled}
                   onChange={(next) => void toggleChat(chat, next)}
                   disabled={busyKey === `chat:${chat.chatId}`}
-                  label={`${chat.enabled ? 'Disable' : 'Enable'} agent replies in ${chat.name}`}
+                  label={
+                    chat.enabled
+                      ? t('Disable agent replies in {name}', { name: chat.name })
+                      : t('Enable agent replies in {name}', { name: chat.name })
+                  }
                 />
               </div>
             ))}
@@ -242,7 +276,7 @@ export function LarkSettingsView({
       {!canManage && (
         <div className="mt-2 flex items-center gap-2 text-[12.5px] text-tertiary">
           <FontAwesomeIcon icon={faCheck} className="h-3 w-3" />
-          Ask a team administrator to link chats and manage Lark access.
+          {t('Ask a team administrator to link chats and manage Lark access.')}
         </div>
       )}
     </div>

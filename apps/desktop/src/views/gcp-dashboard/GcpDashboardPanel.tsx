@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, parseAtlasError } from '../../api'
 import { PanelFrame } from '../../grafana/components/PanelFrame'
 import { TextPanel } from '../../grafana/components/TextPanel'
+import { t } from '../../i18n'
 import { gcpDashboardWatchPrompt } from '../../lib/monitoringWatch'
 import { WatchDestinationDialog } from '../MonitoringView'
 import { useResetOnKey } from '../useResetOnKey'
@@ -35,7 +36,9 @@ function preloadState(widget: GcpMonitoringDashboardWidget): {
     return {
       frames: [],
       loading: false,
-      error: `Saved ${widget.queries.map((query) => query.sourceType).join(', ')} queries are not supported in this release.`,
+      error: t('Saved {types} queries are not supported in this release.', {
+        types: widget.queries.map((query) => query.sourceType).join(', '),
+      }),
     }
   }
 
@@ -166,17 +169,17 @@ export function GcpDashboardPanel({
             {partial && (
               <span
                 className="rounded bg-amber-500/10 px-1.5 py-px text-[9.5px] text-amber-400"
-                title="Some saved query types are not supported"
+                title={t('Some saved query types are not supported')}
               >
-                Partial
+                {t('Partial')}
               </span>
             )}
             {truncated && (
               <span
                 className="text-[9.5px] text-amber-400"
-                title="Cloud Monitoring pagination limit reached"
+                title={t('Cloud Monitoring pagination limit reached')}
               >
-                Truncated
+                {t('Truncated')}
               </span>
             )}
             {widget.queries.length > 0 && (
@@ -184,17 +187,17 @@ export function GcpDashboardPanel({
                 type="button"
                 onClick={() => setWatchOpen(true)}
                 className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-[10px] text-tertiary hover:bg-zGray-800 hover:text-main"
-                title="Watch this saved dashboard panel with the agent"
+                title={t('Watch this saved dashboard panel with the agent')}
               >
                 <Eye className="h-3 w-3" strokeWidth={1.8} />
-                Watch
+                {t('Watch')}
               </button>
             )}
             <button
               type="button"
               onClick={() => void api.appOpenExternal(dashboard.consoleUrl)}
               className="flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-zGray-800 hover:text-main"
-              title="Open this dashboard in GCP"
+              title={t('Open this dashboard in GCP')}
             >
               <ExternalLink className="h-3 w-3" strokeWidth={1.8} />
             </button>

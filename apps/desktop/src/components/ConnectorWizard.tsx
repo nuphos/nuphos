@@ -8,6 +8,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 import { useState } from 'react'
 
+import { t } from '../i18n'
+
 import { toast } from './ui/toast'
 
 // Reusable primitives for step-by-step connector onboarding wizards (Lark today;
@@ -32,7 +34,11 @@ export function WizardStepBar({ steps, current }: { steps: string[]; current: nu
         ))}
       </div>
       <div className="text-[11px] uppercase tracking-wider text-tertiary">
-        Step {current + 1} of {steps.length} · {steps[current]}
+        {t('Step {current} of {total} · {title}', {
+          current: current + 1,
+          total: steps.length,
+          title: steps[current],
+        })}
       </div>
     </div>
   )
@@ -132,7 +138,7 @@ export function WizardCopyableValue({ value }: { value: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error('Could not copy')
+      toast.error(t('Could not copy'))
     }
   }
 
@@ -140,7 +146,7 @@ export function WizardCopyableValue({ value }: { value: string }) {
     <button
       type="button"
       onClick={() => void copy()}
-      title="Copy"
+      title={t('Copy')}
       className="inline-flex max-w-full items-center gap-1.5 rounded border border-zGray-800 bg-zGray-850 px-1.5 py-0.5 align-middle font-mono text-[11.5px] text-main transition-colors hover:border-zGray-700"
     >
       <span className="truncate">{value}</span>
@@ -163,7 +169,7 @@ export function WizardCopyableBlock({ value }: { value: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error('Could not copy')
+      toast.error(t('Could not copy'))
     }
   }
 
@@ -175,7 +181,7 @@ export function WizardCopyableBlock({ value }: { value: string }) {
         className="absolute right-2 top-2 inline-flex h-6 items-center gap-1 rounded border border-zGray-800 bg-zGray-850 px-1.5 text-[11px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
       >
         <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="h-3 w-3" />
-        {copied ? 'Copied' : 'Copy'}
+        {copied ? t('Copied') : t('Copy')}
       </button>
       <pre className="overflow-x-auto whitespace-pre p-3 pr-16 font-mono text-[11px] leading-relaxed text-main">
         {value}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { toast } from '../../components/ui/toast'
 import { listLokiLabels, listLokiLabelValues, queryLokiLogs } from '../../grafana/client'
+import { t } from '../../i18n/index.ts'
 
 import {
   buildExpr,
@@ -59,7 +60,7 @@ export function useLogExplorer({ target, datasource, onOpenAgentChat }: Params) 
       })
       .catch((e: unknown) => {
         if (!cancelled) {
-          toast.apiError('Failed to load log labels', e)
+          toast.apiError(t('Failed to load log labels'), e)
         }
       })
 
@@ -101,7 +102,10 @@ export function useLogExplorer({ target, datasource, onOpenAgentChat }: Params) 
 
   async function runQuery(opts?: { silent?: boolean }) {
     if (!expr) {
-      toast.error('No label filter', 'Pick at least one label (e.g. instance) before running.')
+      toast.error(
+        t('No label filter'),
+        t('Pick at least one label (e.g. instance) before running.'),
+      )
 
       return
     }
@@ -117,8 +121,8 @@ export function useLogExplorer({ target, datasource, onOpenAgentChat }: Params) 
 
       setFrames(rows)
     } catch (e) {
-      toast.apiError('Log query failed', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Log query failed'), e, {
+        fallback: t('Check your connection and try again.'),
       })
       setLive(false)
     } finally {

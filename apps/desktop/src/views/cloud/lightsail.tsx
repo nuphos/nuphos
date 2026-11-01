@@ -7,6 +7,7 @@ import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -77,18 +78,18 @@ export function LightsailInstancesView({
         label: 'SSH',
         icon: Terminal,
         disabled: !canSsh,
-        hint: canSsh ? undefined : 'no ip',
+        hint: canSsh ? undefined : t('no ip'),
         onSelect: () => {
           onOpenSsh(instance)
         },
       },
       {
         key: 'reboot',
-        label: 'Restart',
+        label: t('Restart'),
         icon: RotateCcw,
         disabled: !running,
         hint: running ? undefined : instance.state || 'stopped',
-        confirm: `Restart Lightsail instance "${instance.name}"?`,
+        confirm: t('Restart Lightsail instance "{name}"?', { name: instance.name }),
         onSelect: async () => {
           try {
             await onReboot(instance)
@@ -129,30 +130,22 @@ export function LightsailInstancesView({
           open
           onClose={() => setDetail(null)}
           title={detail.name}
-          subtitle="Lightsail instance"
+          subtitle={t('Lightsail instance')}
           fields={[
-            { label: 'Name', value: detail.name },
-            { label: 'Region', value: detail.region },
-            { label: 'State', value: detail.state || 'Unknown' },
-            { label: 'Blueprint', value: detail.blueprintName ?? '—' },
-            { label: 'Bundle', value: detail.bundleId ?? '—', mono: true },
-            {
-              label: 'Public IP',
-              value: detail.publicIp ?? '—',
-              mono: true,
-            },
-            {
-              label: 'Private IP',
-              value: detail.privateIp ?? '—',
-              mono: true,
-            },
-            { label: 'Static IP', value: detail.isStaticIp ? 'Yes' : 'No' },
+            { label: t('Name'), value: detail.name },
+            { label: t('Region'), value: detail.region },
+            { label: t('State'), value: detail.state || t('Unknown') },
+            { label: t('Blueprint'), value: detail.blueprintName ?? '—' },
+            { label: t('Bundle'), value: detail.bundleId ?? '—', mono: true },
+            { label: t('Public IP'), value: detail.publicIp ?? '—', mono: true },
+            { label: t('Private IP'), value: detail.privateIp ?? '—', mono: true },
+            { label: t('Static IP'), value: detail.isStaticIp ? t('Yes') : t('No') },
             { label: 'vCPU', value: detail.cpuCount ?? '—' },
-            { label: 'RAM (GB)', value: detail.ramSizeInGb ?? '—' },
-            { label: 'Username', value: detail.username ?? '—', mono: true },
-            { label: 'Created', value: detail.createdAt ?? '—' },
+            { label: t('RAM (GB)'), value: detail.ramSizeInGb ?? '—' },
+            { label: t('Username'), value: detail.username ?? '—', mono: true },
+            { label: t('Created'), value: detail.createdAt ?? '—' },
             {
-              label: 'Ports',
+              label: t('Ports'),
               full: true,
               mono: true,
               value: formatLightsailPorts(detail.ports) || '—',
@@ -171,28 +164,28 @@ export function LightsailInstancesView({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 220,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'state',
-            header: 'State',
+            header: t('State'),
             width: 110,
             sortAccessor: (r) => r.state,
             render: (r) => <StatusBadge status={r.state || 'Unknown'} />,
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 130,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'bundle',
-            header: 'Bundle',
+            header: t('Bundle'),
             width: 130,
             sortAccessor: (r) => r.bundleId ?? '',
             render: (r) => (
@@ -201,7 +194,7 @@ export function LightsailInstancesView({
           },
           {
             key: 'blueprint',
-            header: 'Blueprint',
+            header: t('Blueprint'),
             width: 190,
             sortAccessor: (r) => r.blueprintName ?? r.blueprintId ?? '',
             render: (r) => (
@@ -215,7 +208,7 @@ export function LightsailInstancesView({
           },
           {
             key: 'publicIp',
-            header: 'Public IP',
+            header: t('Public IP'),
             width: 140,
             sortAccessor: (r) => r.publicIp ?? '',
             render: (r) => (
@@ -224,25 +217,25 @@ export function LightsailInstancesView({
           },
           {
             key: 'staticIp',
-            header: 'Static IP',
+            header: t('Static IP'),
             width: 90,
             sortAccessor: (r) => (r.isStaticIp ? 1 : 0),
-            render: (r) => (r.isStaticIp ? <span className="text-success">Yes</span> : '-'),
+            render: (r) => (r.isStaticIp ? <span className="text-success">{t('Yes')}</span> : '-'),
           },
           {
             key: 'size',
-            header: 'Size',
+            header: t('Size'),
             width: 110,
             sortAccessor: (r) => (r.cpuCount ?? 0) * 10000 + (r.ramSizeInGb ?? 0),
             render: (r) => (
               <span className="text-secondary">
-                {r.cpuCount ?? '-'} vCPU / {r.ramSizeInGb ?? '-'} GB
+                {t('{cpu} vCPU / {ram} GB', { cpu: r.cpuCount ?? '-', ram: r.ramSizeInGb ?? '-' })}
               </span>
             ),
           },
           {
             key: 'ports',
-            header: 'Ports',
+            header: t('Ports'),
             width: 180,
             sortAccessor: (r) => formatLightsailPorts(r.ports),
             render: (r) => (
@@ -256,7 +249,7 @@ export function LightsailInstancesView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.createdAt ?? '',
             render: (r) => (

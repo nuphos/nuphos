@@ -10,6 +10,7 @@ import type {
   TeamBillingSummary,
 } from '@/lib/identity/types'
 import type { Collection, ObjectId } from 'mongodb'
+import type { SignupSource } from '@/lib/identity/signup-source'
 
 export type NuphosUserDoc = {
   _id: ObjectId
@@ -24,6 +25,8 @@ export type NuphosUserDoc = {
   profileEdited?: boolean
   appleID?: string
   googleID?: string
+  /** Where the account came from, set once at signup (signup-source.ts). */
+  signupSource?: SignupSource
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date

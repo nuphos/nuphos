@@ -3,6 +3,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 
 import { AppError } from '@/lib/errors'
 import { authenticateToken } from '@/lib/identity/auth'
+import { FIRST_TOUCH_COOKIE, recordSignupSource } from '@/lib/identity/signup-source'
 import { exchangeSocialCode, providerSettings, signInSocial } from '@/lib/identity/social'
 import { socialAuthAttempts as attempts } from '@/lib/identity/social-store'
 import { startSession } from '@/lib/identity/start-session'
@@ -73,6 +74,8 @@ socialAuth.get('/:provider/start', async (c) => {
     provider,
     nonce,
     handle,
+    // Read here: Apple's callback is a cross-site POST, which drops Lax cookies.
+    firstTouch: getCookie(c, FIRST_TOUCH_COOKIE),
     expiresAt: new Date(Date.now() + 600_000),
   })
   setCookie(c, '__Host-nuphos-oauth', state, {
@@ -124,6 +127,8 @@ socialAuth.on(['GET', 'POST'], '/:provider/callback', async (c) => {
       provider,
       await exchangeSocialCode(provider, input.code, attempt.nonce),
     )
+
+    await recordSignupSource(identity.user, provider, attempt.firstTouch)
 
     if (attempt.handle && delivery) {
       const completed = await completeNativeSession(attempt.handle, identity.user.id)

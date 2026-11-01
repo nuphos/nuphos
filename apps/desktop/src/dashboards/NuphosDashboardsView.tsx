@@ -6,6 +6,7 @@ import { RefreshButton } from '../components/toolbar-controls'
 import { useToolbarHeaderRightSlot } from '../hooks/useToolbarControls'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { AlertModal } from './AlertModal'
 import { PanelEditorModal } from './PanelEditorModal'
@@ -131,7 +132,7 @@ export function NuphosDashboardsView({
   // Publish "New dashboard" to the shared toolbar CTA slot — nothing while a
   // dashboard is open, or while this is a keep-alive'd background tab.
   useToolbarPrimaryAction(
-    isActive && !selectedId ? 'New dashboard' : null,
+    isActive && !selectedId ? t('New dashboard') : null,
     () => void createDashboard(),
     creating,
   )
@@ -190,7 +191,7 @@ export function NuphosDashboardsView({
               title={lastRefreshAt ? new Date(lastRefreshAt).toLocaleString() : undefined}
               className="hidden whitespace-nowrap text-[12px] text-tertiary @xl:inline"
             >
-              {lastRefreshAt ? `Last updated ${refreshAge(lastRefreshAt)}` : 'No completed refresh'}
+              {lastRefreshAt ? refreshAge(lastRefreshAt) : t('No completed refresh')}
             </span>
             <CadenceMenu
               teamId={teamId}
@@ -261,13 +262,15 @@ export function NuphosDashboardsView({
       )}
       <ConfirmDialog
         open={panelToDelete !== null}
-        title="Delete panel?"
+        title={t('Delete panel?')}
         description={
           panelToDelete
-            ? `"${panelToDelete.title}" and its snapshots and alert will be permanently deleted.`
+            ? t('"{title}" and its snapshots and alert will be permanently deleted.', {
+                title: panelToDelete.title,
+              })
             : ''
         }
-        confirmLabel="Delete panel"
+        confirmLabel={t('Delete panel')}
         destructive
         onConfirm={() => (panelToDelete ? deletePanel(panelToDelete) : undefined)}
         onClose={() => setPanelToDelete(null)}

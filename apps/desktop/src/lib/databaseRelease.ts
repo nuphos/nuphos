@@ -26,7 +26,7 @@ export function isDatabaseEngineReleased(engine: DatabaseEngine): boolean {
 
 /** Agent access levels a database connection can grant, in ascending order. */
 export const AGENT_POLICY_OPTIONS = [
-  { value: 'disabled', label: 'Disabled' },
-  { value: 'metadata-only', label: 'Metadata only' },
-  { value: 'read-only', label: 'Read-only queries' },
+  { value: 'disabled', label: t('Disabled') },
+  { value: 'metadata-only', label: t('Metadata only') },
+  { value: 'read-only', label: t('Read-only queries') },
 ]

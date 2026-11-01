@@ -157,6 +157,11 @@ try {
     sessionId: created.sessionId,
     prompt: [{ type: 'text', text: 'Fixture prompt' }],
   })
+  const warnings = updates
+    .filter((u) => u.sessionUpdate === 'agent_message_chunk')
+    .map((u) => u.content.text)
+    .filter((text) => text.startsWith('Warning:'))
+  assert.deepEqual(warnings, ['Warning: Fixture warning\n\n'])
   const calls = readFileSync(`${base}/requests.jsonl`, 'utf8').trim().split('\n').map(JSON.parse)
   const start = calls.find((c) => c.method === 'thread/start')
   const resume = calls.find((c) => c.method === 'thread/resume')

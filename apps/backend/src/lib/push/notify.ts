@@ -65,7 +65,7 @@ type Delivery = {
   body: (conversation: PushConversation | null) => Promise<string | null> | string | null
 }
 
-function conversationTitle(conversation: PushConversation | null): string {
+export function conversationTitle(conversation: PushConversation | null): string {
   const title = conversation?.title?.trim()
 
   if (title) return title

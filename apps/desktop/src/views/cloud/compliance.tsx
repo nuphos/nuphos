@@ -5,6 +5,7 @@ import { Age } from '../../components/Age'
 import { DetailSidebarTransition } from '../../components/DetailSidebarTransition'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../../lib/workspaceRowLink'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -65,13 +66,13 @@ export function ComplianceIntegrationView({
       if (provider === 'secureframe') {
         const tests = await api.atlasListSecureframeTests(teamId, integrationId, true)
 
-        return tests.map((t: SecureframeTest) => ({
-          key: t.id,
-          name: htmlToText(t.description) || t.id,
+        return tests.map((test: SecureframeTest) => ({
+          key: test.id,
+          name: htmlToText(test.description) || test.id,
           category: '',
-          reason: htmlToText(t.failureMessage),
-          remediation: htmlToText(t.remediation),
-          status: t.healthStatus || 'fail',
+          reason: htmlToText(test.failureMessage),
+          remediation: htmlToText(test.remediation),
+          status: test.healthStatus || 'fail',
           lastRun: null,
         }))
       }
@@ -79,14 +80,14 @@ export function ComplianceIntegrationView({
         status: 'NEEDS_ATTENTION',
       })
 
-      return tests.map((t: VantaTest) => ({
-        key: t.id,
-        name: htmlToText(t.name) || t.id,
-        category: t.category || '',
-        reason: htmlToText(t.failureDescription),
-        remediation: htmlToText(t.remediationDescription),
-        status: t.status || 'NEEDS_ATTENTION',
-        lastRun: t.lastTestRunDate,
+      return tests.map((test: VantaTest) => ({
+        key: test.id,
+        name: htmlToText(test.name) || test.id,
+        category: test.category || '',
+        reason: htmlToText(test.failureDescription),
+        remediation: htmlToText(test.remediationDescription),
+        status: test.status || 'NEEDS_ATTENTION',
+        lastRun: test.lastTestRunDate,
       }))
     }
 
@@ -136,7 +137,9 @@ export function ComplianceIntegrationView({
   )
 
   if (!found) {
-    return <ErrorBlock message={`${providerLabel} integration not found.`} />
+    return (
+      <ErrorBlock message={t('{provider} integration not found.', { provider: providerLabel })} />
+    )
   }
 
   return (
@@ -160,16 +163,20 @@ export function ComplianceIntegrationView({
           }
           empty={
             loading
-              ? `Loading ${providerLabel} tests...`
+              ? t('Loading {provider} tests…', { provider: providerLabel })
               : filter
-                ? `No failing ${providerLabel} tests match the current filter.`
-                : `No failing ${providerLabel} tests — compliance is all green.`
+                ? t('No failing {provider} tests match the current filter.', {
+                    provider: providerLabel,
+                  })
+                : t('No failing {provider} tests — compliance is all green.', {
+                    provider: providerLabel,
+                  })
           }
           storageKey={`compliance.${provider}.tests`}
           columns={[
             {
               key: 'name',
-              header: 'Test',
+              header: t('Test'),
               width: 320,
               sortAccessor: (row) => row.name,
               render: (row) => <span className="text-main font-medium truncate">{row.name}</span>,
@@ -178,7 +185,7 @@ export function ComplianceIntegrationView({
               ? [
                   {
                     key: 'category',
-                    header: 'Category',
+                    header: t('Category'),
                     width: 180,
                     sortAccessor: (row: ComplianceRow) => row.category,
                     render: (row: ComplianceRow) => (
@@ -189,7 +196,7 @@ export function ComplianceIntegrationView({
               : []),
             {
               key: 'reason',
-              header: 'Why it is failing',
+              header: t('Why it is failing'),
               width: 420,
               sortAccessor: (row) => row.reason,
               render: (row) => (
@@ -200,7 +207,7 @@ export function ComplianceIntegrationView({
             },
             {
               key: 'status',
-              header: 'Status',
+              header: t('Status'),
               width: 150,
               sortAccessor: (row) => row.status,
               render: (row) => <StatusBadge status={row.status} />,
@@ -209,7 +216,7 @@ export function ComplianceIntegrationView({
               ? [
                   {
                     key: 'lastRun',
-                    header: 'Last run',
+                    header: t('Last run'),
                     width: 160,
                     sortAccessor: (row: ComplianceRow) => row.lastRun || '',
                     render: (row: ComplianceRow) =>
