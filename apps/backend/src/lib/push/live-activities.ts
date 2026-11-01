@@ -199,7 +199,8 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
       )
 
       for (const card of cards) {
-        if (!listed.has(card.token)) await deps.liveActivities.addToken(session.sessionId, card, row)
+        if (!listed.has(card.token))
+          await deps.liveActivities.addToken(session.sessionId, card, row)
       }
       const starts = (await deps.devices(userId)).flatMap(({ deviceId, environment, ...d }) =>
         d.liveActivityStartToken && !cards.some((c) => c.deviceId === deviceId)

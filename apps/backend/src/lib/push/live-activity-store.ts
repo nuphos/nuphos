@@ -116,7 +116,10 @@ export const liveActivityStore: LiveActivityStore = {
       .find({ 'tokens.userId': userId }, { projection: { tokens: 1 } })
       .toArray()
     const tokens = new Map(
-      listed.flatMap((s) => s.tokens).filter((t) => t.userId === userId).map((t) => [t.token, t]),
+      listed
+        .flatMap((s) => s.tokens)
+        .filter((t) => t.userId === userId)
+        .map((t) => [t.token, t]),
     )
 
     return [...tokens.values()]

@@ -19,7 +19,13 @@ export type PushDevice = {
 
 export type PushDeviceRegistration = Pick<
   PushDevice,
-  'token' | 'deviceId' | 'platform' | 'environment' | 'bundleId' | 'projectId' | 'liveActivityStartToken'
+  | 'token'
+  | 'deviceId'
+  | 'platform'
+  | 'environment'
+  | 'bundleId'
+  | 'projectId'
+  | 'liveActivityStartToken'
 >
 
 export type PushDeviceStore = {

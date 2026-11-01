@@ -98,7 +98,9 @@ const store: LiveActivityStore = {
       .map(copy)
   },
   async tokensForUser(userId) {
-    const tokens = [...sessions.values()].flatMap((s) => s.tokens).filter((t) => t.userId === userId)
+    const tokens = [...sessions.values()]
+      .flatMap((s) => s.tokens)
+      .filter((t) => t.userId === userId)
 
     return [...new Map(tokens.map((t) => [t.token, t])).values()]
   },
