@@ -8,12 +8,14 @@ import { useDb } from '@/lib/test/doubles/db'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
+import { useSessionConfig } from '@/lib/test/doubles/session-config'
 
 import { clearPendingUserMessages } from './pending-messages'
 import { getSessionBypass, setSessionBypass } from './auto-mode/store'
 import {
   authorizeThreadDelivery,
   createAgentThread,
+  listThreadRuntimes,
   sendAgentThreadMessage,
   updateThread,
   setAgentThreadArchived,
@@ -58,6 +60,7 @@ beforeEach(() => {
   moves.length = 0
   writes.length = 0
   selections.clear()
+  picks.length = 0
   getAccess = readSelection
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
@@ -145,6 +148,8 @@ useConversationRuntimeMove({
   },
 })
 useRuntimeCatalog({
+  withRuntimeReadiness: async (_teamId, instances) => instances,
+  listRuntimeQuotas: async (_teamId, instances) => instances.map(() => ({}) as never),
   // Without a user only the team's agents are listed; a local one would need the owner.
   listRuntimeInstances: async (_teamId, userId) => [
     {
@@ -165,9 +170,48 @@ useRuntimeCatalog({
             kind: 'local' as const,
             createdAt: '',
           },
+          {
+            id: 'box-1',
+            provider: 'claude-code' as const,
+            label: 'Claude Code in Box',
+            status: 'active' as const,
+            kind: 'local' as const,
+            createdAt: '',
+            local: { box: { provider: 'instabox' } } as never,
+          },
         ]
       : []),
   ],
+})
+// The model picker: what each conversation was set to, and the runtime's catalog.
+const picks: { sessionId: string; configId: string; value: string }[] = []
+const offered = { model: ['claude-fable-5-1', 'default'], effort: ['high', 'low'] }
+
+useSessionConfig({
+  conversationSessionConfig: async (conversation, selection) => {
+    const options = Object.entries(offered).map(([kind, values]) => ({
+      id: kind,
+      name: kind,
+      kind: kind as 'model',
+      currentValue: picks.findLast((pick) => pick.configId === kind)?.value ?? 'default',
+      options: values.map((value) => ({ value, name: value })),
+    }))
+
+    if (!selection) return { status: 'ready', options }
+    if (!offered[selection.configId as 'model'].includes(selection.value)) {
+      const { AppError } = await import('@/lib/errors')
+
+      throw new AppError(400, 'invalid_runtime_config', 'no longer available')
+    }
+    picks.push({ sessionId: conversation.sessionId, ...selection })
+
+    return {
+      status: 'ready',
+      options: options.map((option) =>
+        option.id === selection.configId ? { ...option, currentValue: selection.value } : option,
+      ),
+    }
+  },
 })
 useAgentDb({
   setConversationArchived: async (...args) => {
@@ -447,6 +491,40 @@ describe('conversation-scoped thread tools', () => {
       'nested under',
     )
     expect(moves).toHaveLength(1)
+  })
+
+  test("lists the team's agents and the owner's Boxes, never a computer", async () => {
+    const { runtimes } = await listThreadRuntimes(actor)
+
+    expect(runtimes.map((runtime) => runtime.runtimeId)).toEqual(['runtime-2', 'box-1'])
+  })
+
+  test('a parent moves its thread onto a Box', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await updateThread(actor, threadId, { runtimeId: 'box-1' })
+    expect(moves.map((move) => move.runtimeId)).toEqual(['box-1'])
+  })
+
+  test("sets a thread's model, then its effort, through the model picker", async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task', {
+      model: 'claude-fable-5-1',
+    })
+
+    expect(picks).toEqual([{ sessionId: threadId, configId: 'model', value: 'claude-fable-5-1' }])
+    const result = await updateThread(actor, threadId, { effort: 'high', model: 'default' })
+
+    expect(picks.slice(1).map((pick) => pick.configId)).toEqual(['model', 'effort'])
+    expect(result.model).toEqual({ model: 'default', effort: 'high' })
+  })
+
+  test('refuses a model the agent does not offer, naming the choices', async () => {
+    await expect(createAgentThread(actor, 'Work', 'Task', { model: 'gpt-1' })).rejects.toThrow(
+      'claude-fable-5-1, default',
+    )
+    // Nothing ran; the unused conversation is archived.
+    expect(claims).toHaveLength(0)
+    expect(archives).toEqual([[shells[0]?.sessionId, true]])
   })
 
   test('send returns the delivered message id', async () => {
