@@ -3,6 +3,7 @@ import { Download, Loader2, Zap } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { RANGE_LABEL } from './shared'
 
@@ -38,17 +39,17 @@ export function AuditFilterControls({
   return (
     <>
       <div className="flex items-center gap-1">
-        {(['conversations', 'events'] as const).map((t) => (
+        {(['conversations', 'events'] as const).map((id) => (
           <button
-            key={t}
+            key={id}
             type="button"
             onClick={() => {
-              setTab(t)
-              if (t !== 'conversations') setSelectedSessionIds(new Set())
+              setTab(id)
+              if (id !== 'conversations') setSelectedSessionIds(new Set())
             }}
-            className={pill(tab === t)}
+            className={pill(tab === id)}
           >
-            {t === 'conversations' ? 'Agents' : 'All events'}
+            {id === 'conversations' ? t('Agents') : t('All events')}
           </button>
         ))}
       </div>
@@ -64,7 +65,7 @@ export function AuditFilterControls({
             }}
             className={pill(scope === s)}
           >
-            {s === 'team' ? 'Team' : 'Mine'}
+            {s === 'team' ? t('Team') : t('Mine')}
           </button>
         ))}
       </div>
@@ -79,10 +80,10 @@ export function AuditFilterControls({
           'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] transition-colors',
           mutationsOnly ? 'bg-amber-500/15 text-amber-300' : 'text-tertiary hover:text-secondary',
         )}
-        title="Only mutations (skill changes, bash, outbound messages)"
+        title={t('Only mutations (skill changes, bash, outbound messages)')}
       >
         <Zap className="h-3 w-3" strokeWidth={2} />
-        Mutations only
+        {t('Mutations only')}
       </button>
       <div className="mx-1 h-4 w-px bg-zGray-800" />
       <AppSelect
@@ -95,7 +96,7 @@ export function AuditFilterControls({
           value,
           label: RANGE_LABEL[value],
         }))}
-        ariaLabel="Time range"
+        ariaLabel={t('Time range')}
         className="w-32"
         size="sm"
       />
@@ -117,14 +118,16 @@ export function AuditExportButton({
       disabled={exporting}
       onClick={onExport}
       className="h-7 flex-shrink-0 gap-1.5 px-2.5 text-[12px]"
-      title="Export a verifiable compliance evidence package for everything matching the current filters"
+      title={t(
+        'Export a verifiable compliance evidence package for everything matching the current filters',
+      )}
     >
       {exporting ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
       ) : (
         <Download className="h-3.5 w-3.5" strokeWidth={2} />
       )}
-      {exporting ? 'Exporting…' : 'Export all'}
+      {exporting ? t('Exporting…') : t('Export all')}
     </Button>
   )
 }

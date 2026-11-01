@@ -12,6 +12,7 @@ import { PlanTool } from '../../components/agent/PlanTool'
 import { emitPlanUpdated, usePlan } from '../../components/agent/planUpdates'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { Plan } from '../../api'
 
@@ -37,9 +38,12 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
       emitPlanUpdated(updated)
 
       if (updated.status === 'approved') {
-        toast.success('Plan approved', 'The approval gate is complete.')
+        toast.success(t('Plan approved'), t('The approval gate is complete.'))
       } else if (updated.approvals.length === previousApprovalCount) {
-        toast.success('Approval already recorded', 'Your vote is already included in this plan.')
+        toast.success(
+          t('Approval already recorded'),
+          t('Your vote is already included in this plan.'),
+        )
       } else {
         const remaining = Math.max(
           0,
@@ -52,15 +56,17 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
         )
 
         toast.success(
-          'Approval recorded',
-          `${String(remaining)} required approval${remaining === 1 ? '' : 's'} remaining.`,
+          t('Approval recorded'),
+          remaining === 1
+            ? t('{count} required approval remaining.', { count: '1' })
+            : t('{count} required approvals remaining.', { count: String(remaining) }),
         )
       }
 
       return updated
     } catch (err) {
-      toast.apiError('Could not approve plan', err, {
-        fallback: 'The plan was not approved. Please try again.',
+      toast.apiError(t('Could not approve plan'), err, {
+        fallback: t('The plan was not approved. Please try again.'),
       })
       throw err
     }
@@ -74,7 +80,7 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
         className="h-7 gap-1.5 px-2 text-[12.5px]"
       >
         <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-        {plan.status === 'proposed' ? 'Continue in agent' : 'Open in agent'}
+        {plan.status === 'proposed' ? t('Continue in agent') : t('Open in agent')}
       </Button>
     ) : undefined
 
@@ -101,7 +107,7 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
           />
         ) : (
           <div className="px-6 py-5 text-[12.5px] text-tertiary">
-            {loading ? 'Loading plan…' : 'Plan not found.'}
+            {loading ? t('Loading plan…') : t('Plan not found.')}
           </div>
         )}
       </div>

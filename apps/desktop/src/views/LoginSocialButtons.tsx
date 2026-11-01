@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import type { SocialProvider, UserInfo } from '../types'
 
@@ -29,8 +30,8 @@ export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => v
     try {
       onLogin(await api.authLogin(provider))
     } catch (e) {
-      toast.apiError('Sign-in failed', e, {
-        fallback: 'Check your internet connection and try again.',
+      toast.apiError(t('Sign-in failed'), e, {
+        fallback: t('Check your internet connection and try again.'),
       })
     }
   }
@@ -46,7 +47,7 @@ export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => v
         >
           <span className="flex flex-1 items-center gap-2">
             <FontAwesomeIcon icon={p.icon} />
-            Continue with {p.label}
+            {t('Continue with {provider}', { provider: p.label })}
           </span>
           <FontAwesomeIcon
             icon={faArrowRight}

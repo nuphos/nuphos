@@ -4,6 +4,7 @@ import { MessageResponse } from '../components/agent/MessageResponse'
 import { Avatar } from '../components/Avatar'
 import { LinearMark } from '../components/LinearMark'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 import { normalizeHexColor } from './linear/linearColor'
 import { StateBadge, Timestamp } from './linear/linearParts'
@@ -48,7 +49,7 @@ function OpenInLinearButton({ url }: { url: string }) {
   return (
     <Button variant="secondary" size="sm" onClick={() => openOnLinear(url)}>
       <LinearMark size={14} />
-      Open in Linear
+      {t('Open in Linear')}
     </Button>
   )
 }
@@ -82,14 +83,14 @@ function LinearIssueContent({ issue }: { issue: LinearIssueDetail }) {
                   <span className="truncate">{issue.assignee.name}</span>
                 </>
               ) : (
-                <span className="text-tertiary">Unassigned</span>
+                <span className="text-tertiary">{t('Unassigned')}</span>
               )}
             </MetaItem>
             <MetaItem>{issue.priorityLabel}</MetaItem>
             {issue.project && <MetaItem>{issue.project}</MetaItem>}
             {issue.cycle && <MetaItem>{issue.cycle}</MetaItem>}
             <MetaItem>
-              <span className="text-tertiary">Updated</span>
+              <span className="text-tertiary">{t('Updated')}</span>
               <Timestamp value={issue.updatedAt} />
             </MetaItem>
           </div>
@@ -110,15 +111,15 @@ function LinearIssueContent({ issue }: { issue: LinearIssueDetail }) {
               {issue.description}
             </MessageResponse>
           ) : (
-            <div className="text-[12px] italic text-tertiary">No description provided.</div>
+            <div className="text-[12px] italic text-tertiary">{t('No description provided.')}</div>
           )}
 
           {issue.comments.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-[12px] font-medium text-tertiary">
                 {issue.comments.length === 1
-                  ? '1 comment'
-                  : `${String(issue.comments.length)} comments`}
+                  ? t('1 comment')
+                  : t('{count} comments', { count: issue.comments.length })}
               </h2>
               {issue.comments.map((comment) => (
                 <div
@@ -168,14 +169,14 @@ export function LinearIssueView({
   if (state.kind === 'loading') {
     return (
       <div className="flex flex-1 items-center justify-center text-[12.5px] text-tertiary">
-        Loading…
+        {t('Loading…')}
       </div>
     )
   }
   if (state.kind === 'not-found') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-        <div className="text-[12.5px] text-secondary">Issue not found.</div>
+        <div className="text-[12.5px] text-secondary">{t('Issue not found.')}</div>
         <OpenInLinearButton url={fallbackLinearUrl(identifier)} />
       </div>
     )
@@ -184,7 +185,7 @@ export function LinearIssueView({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
         <div className="text-[12.5px] text-secondary">
-          You don&apos;t have access to this Linear workspace.
+          {t("You don't have access to this Linear workspace.")}
         </div>
         <OpenInLinearButton url={fallbackLinearUrl(identifier)} />
       </div>

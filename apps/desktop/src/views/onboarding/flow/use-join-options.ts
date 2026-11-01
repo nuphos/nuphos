@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 
 import { api } from '../../../api'
 import { toast } from '../../../components/ui/toast'
+import { t } from '../../../i18n'
 import { useResetOnKey } from '../../useResetOnKey'
 
 import type { ChatStep } from './shared'
@@ -110,7 +111,7 @@ export function useWorkspaceActions({
     try {
       onCreated(await onCreateWorkspace(name))
     } catch (e) {
-      toast.apiError('Could not create workspace', e)
+      toast.apiError(t('Could not create workspace'), e)
       setChatStep('workspace')
     } finally {
       setCreating(false)
@@ -199,11 +200,11 @@ export function useWorkspaceActions({
       try {
         const joinedTeamId = await onAcceptInvitation(invitation.id)
 
-        recordJoined(joinedTeamId, invitation.team?.name ?? 'Your workspace')
+        recordJoined(joinedTeamId, invitation.team?.name ?? t('Your workspace'))
         unselectInvitation(invitation.id)
       } catch (e) {
         failures += 1
-        toast.apiError('Could not accept invitation', e)
+        toast.apiError(t('Could not accept invitation'), e)
       } finally {
         setActingInvitationId(null)
       }
@@ -221,7 +222,7 @@ export function useWorkspaceActions({
         unselectTeam(team.id)
       } catch (e) {
         failures += 1
-        toast.apiError(`Could not join ${team.name}`, e)
+        toast.apiError(t('Could not join {name}', { name: team.name }), e)
       } finally {
         setJoiningTeamId(null)
       }
