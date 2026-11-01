@@ -10,14 +10,16 @@ enum AccountAPI {
     /// For a 204 reply.
     struct Empty: Decodable {}
 
-    static func request<T: Decodable>(_ path: String, method: String = "GET", token: String? = nil, body: [String: Any]? = nil) async throws -> T {
+    /// `body` is sent as JSON; `upload` as raw bytes, such as an avatar image.
+    static func request<T: Decodable>(_ path: String, method: String = "GET", token: String? = nil, body: [String: Any]? = nil, upload: Data? = nil) async throws -> T {
         var request = URLRequest(url: NuphosAPI.baseURL.appending(path: "auth/\(path)"))
         request.httpMethod = method
         request.timeoutInterval = 30
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(upload == nil ? "application/json" : "application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.setValue("nuphos-ios/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")", forHTTPHeaderField: "x-atlas-client")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body) }
+        request.httpBody = upload ?? request.httpBody
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw NuphosAPI.Failure.invalidResponse }
         guard (200..<300).contains(response.statusCode) else {

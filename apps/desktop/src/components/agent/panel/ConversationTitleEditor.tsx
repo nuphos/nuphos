@@ -2,6 +2,7 @@ import { Loader2, Pencil } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { agentAvatarPick, pickAgentAvatar } from '../../../lib/agentAvatarChoices'
 import {
   botAvatarFile,
@@ -56,11 +57,13 @@ export function EditableConversationTitle({
       <Tooltip
         side="bottom"
         triggerClassName="min-w-0"
-        content={<ShortcutLabel label="Rename agent" combo={sessionShortcutCombo('rename-chat')} />}
+        content={
+          <ShortcutLabel label={t('Rename agent')} combo={sessionShortcutCombo('rename-chat')} />
+        }
       >
         <button
           type="button"
-          aria-label={`Rename agent: ${title}`}
+          aria-label={t('Rename agent: {title}', { title })}
           onClick={() => setEditing(true)}
           className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-zGray-800/60"
         >
@@ -122,16 +125,16 @@ export function RenameConversationDialog({
 
     inFlight.current = false
     setSaving(false)
-    if (renamed.status === 'rejected') toast.apiError('Could not rename agent', renamed.reason)
-    if (picked.status === 'rejected') toast.apiError('Could not change avatar', picked.reason)
+    if (renamed.status === 'rejected') toast.apiError(t('Could not rename agent'), renamed.reason)
+    if (picked.status === 'rejected') toast.apiError(t('Could not change avatar'), picked.reason)
     if (renamed.status === 'fulfilled' && picked.status === 'fulfilled') onClose()
   }
 
   return (
     <Modal
       open
-      title="Rename agent"
-      description="Your team sees the same name and avatar."
+      title={t('Rename agent')}
+      description={t('Your team sees the same name and avatar.')}
       appearance="prompt"
       width={420}
       onClose={onClose}
@@ -149,7 +152,7 @@ export function RenameConversationDialog({
             {botAvatarLabel(shown)}
           </span>
           <input
-            aria-label="Agent name"
+            aria-label={t('Agent name')}
             autoFocus
             maxLength={120}
             value={draft}
@@ -179,7 +182,7 @@ export function RenameConversationDialog({
             disabled={saving}
             onClick={onClose}
           >
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             type="submit"
@@ -189,7 +192,7 @@ export function RenameConversationDialog({
             disabled={saving || !draft.trim()}
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('Saving…') : t('Save')}
           </Button>
         </div>
       </form>

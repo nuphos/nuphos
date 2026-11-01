@@ -7,6 +7,8 @@ struct RuntimesPage: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSetup = false
+    /// A computer's own desktop, opened from its box.
+    @State private var desktop: DesktopSession?
 
     private var boxes: [SelectorBox] { SelectorBox.grouped(store.runtimes, devices: store.agentDevices) }
     private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
@@ -27,6 +29,9 @@ struct RuntimesPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
+        // Full screen even where wide: beside this list, the list itself would be put away.
+        .desktop($desktop)
+        .environment(\.desktopBeside, nil)
         .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false).environment(store) } }
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
@@ -46,6 +51,12 @@ struct RuntimesPage: View {
         }
     }
 
+    /// The box's runtime that opens its computer's desktop: the viewer's own computer, whose host can.
+    private func desktopRuntime(in box: SelectorBox) -> RuntimeInstance? {
+        guard let userId = store.userId else { return nil }
+        return box.agents.first { $0.local?.ownerUserId == userId && $0.local?.desktopOpen == true }
+    }
+
     private var list: some View {
         List {
             if boxes.isEmpty {
@@ -58,6 +69,14 @@ struct RuntimesPage: View {
                 Section {
                     SelectorBoxHeader(box: box, current: false, expanded: true, metricsUnavailable: store.agentDevicesError, showsChevron: false)
                         .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
+                    if let runtime = desktopRuntime(in: box), let team = store.selectedTeam {
+                        Button {
+                            desktop = .computer(teamId: team.id, runtimeId: runtime.id, token: store.token)
+                        } label: {
+                            Label("Desktop", systemImage: "display").font(.system(size: 15)).foregroundStyle(Theme.brandText)
+                        }
+                        .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
+                    }
                     ForEach(box.agents) { runtime in
                         NavigationLink {
                             RuntimeDestination(runtime: runtime).environment(store)

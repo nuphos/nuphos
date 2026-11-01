@@ -1,5 +1,7 @@
+import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { t } from '../../i18n'
 
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
 import type { UserInfo } from '../../types'
@@ -85,9 +87,13 @@ export function PaneAgentPage({
             }
             setPageMeta({
               pageKey: 'team.agent',
-              title: title || 'Agent',
-              iconKey: agentRuntime ?? 'claude-code',
-              icon: <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />,
+              title: title || t('Agent'),
+              iconKey: `${reportedSessionId ?? 'new'}:${agentRuntime ?? 'claude-code'}`,
+              icon: reportedSessionId ? (
+                <AgentAvatar agentId={reportedSessionId} provider={agentRuntime} size={16} />
+              ) : (
+                <AgentProviderIcon provider={agentRuntime} className="h-3.5 w-3.5" />
+              ),
               canonicalHref: pageHref,
             })
           }}

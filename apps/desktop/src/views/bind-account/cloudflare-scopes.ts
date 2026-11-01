@@ -21,11 +21,13 @@ import {
   faUserShield,
 } from '@fortawesome/free-solid-svg-icons'
 
+import { t } from '../../i18n/index.ts'
+
 export const CLOUDFLARE_SCOPE_CATEGORIES = [
   {
     key: 'dns_and_zones',
-    label: 'DNS & zones',
-    hint: 'Zones, records, registrar',
+    label: t('DNS & zones'),
+    hint: t('Zones, records, registrar'),
     icon: faGlobe,
     scopes: [
       'account-dns-settings.read',
@@ -54,7 +56,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'developer_platform',
-    label: 'Developer platform',
+    label: t('Developer platform'),
     hint: 'Workers, Containers, Pages, R2, D1, KV, Queues',
     icon: faBolt,
     scopes: [
@@ -161,8 +163,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'analytics_and_logs',
-    label: 'Analytics & logs',
-    hint: 'Analytics, Logpush, Radar',
+    label: t('Analytics & logs'),
+    hint: t('Analytics, Logpush, Radar'),
     icon: faChartLine,
     scopes: [
       'account-analytics.read',
@@ -180,8 +182,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'app_security',
-    label: 'Application security',
-    hint: 'WAF, bots, DDoS, Page Shield',
+    label: t('Application security'),
+    hint: t('WAF, bots, DDoS, Page Shield'),
     icon: faShieldHalved,
     scopes: [
       'fraud-detection-pii.read',
@@ -251,8 +253,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'cache_and_performance',
-    label: 'Cache & SSL',
-    hint: 'Cache settings, purge, certificates',
+    label: t('Cache & SSL'),
+    hint: t('Cache settings, purge, certificates'),
     icon: faGauge,
     scopes: [
       'account-ssl-and-certificates.read',
@@ -352,8 +354,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'email_and_messaging',
-    label: 'Email',
-    hint: 'Email Routing, Email Security, sending',
+    label: t('Email'),
+    hint: t('Email Routing, Email Security, sending'),
     icon: faEnvelope,
     scopes: [
       'cloud-email-security.read',
@@ -373,7 +375,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'media',
-    label: 'Media',
+    label: t('Media'),
     hint: 'Images, Stream, Calls',
     icon: faPhotoFilm,
     scopes: [
@@ -389,8 +391,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'network_services',
-    label: 'Network services',
-    hint: 'Load balancing, Magic Transit/WAN, IP prefixes',
+    label: t('Network services'),
+    hint: t('Load balancing, Magic Transit/WAN, IP prefixes'),
     icon: faNetworkWired,
     scopes: [
       'account-waiting-rooms.read',
@@ -432,8 +434,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'rules_and_configuration',
-    label: 'Rules & configuration',
-    hint: 'Rulesets, redirects, transforms, custom pages',
+    label: t('Rules & configuration'),
+    hint: t('Rulesets, redirects, transforms, custom pages'),
     icon: faSliders,
     scopes: [
       'account-custom-error-rules.read',
@@ -474,8 +476,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'account_and_billing',
-    label: 'Account',
-    hint: 'Settings, members, API tokens, notifications',
+    label: t('Account'),
+    hint: t('Settings, members, API tokens, notifications'),
     icon: faUser,
     scopes: [
       'account-api-gateway.write',
@@ -498,8 +500,8 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
   },
   {
     key: 'other',
-    label: 'Other',
-    hint: 'Artifacts, resource sharing',
+    label: t('Other'),
+    hint: t('Artifacts, resource sharing'),
     icon: faEllipsis,
     scopes: ['artifacts.read', 'artifacts.write', 'resource-sharing.read'],
   },

@@ -3,6 +3,7 @@ import { Users } from 'lucide-react'
 
 import { Avatar } from '../../components/Avatar'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
+import { t } from '../../i18n'
 
 import type { TeamMember } from '../../types'
 
@@ -60,7 +61,9 @@ export function PrincipalFilter({
     (id) => members.find((member) => member.id === id) ?? { id, name: id, email: '' },
   )
   const selected = owners.find((member) => member.id === value)
-  const label = selected ? `Runs as ${selected.name || selected.email}` : 'Runs as anyone'
+  const label = selected
+    ? t('Runs as {name}', { name: selected.name || selected.email })
+    : t('Runs as anyone')
 
   return (
     <Menu>
@@ -83,7 +86,7 @@ export function PrincipalFilter({
           <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
         )}
         <span className="max-w-[120px] truncate">
-          {selected ? selected.name || selected.email : 'Anyone'}
+          {selected ? selected.name || selected.email : t('Anyone')}
         </span>
       </MenuTrigger>
       <MenuContent align="start" className="w-[220px]">
@@ -92,7 +95,7 @@ export function PrincipalFilter({
           selected={!value}
           onClick={() => onChange(null)}
         >
-          Anyone
+          {t('Anyone')}
         </MenuItem>
         {owners.map((member) => (
           <MenuItem

@@ -1,5 +1,6 @@
 import { ChevronDown, Lock, Users } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/menu'
 
 import type { GeneralAccess, ParticipantRole } from '../../api/agent-types'
@@ -8,19 +9,23 @@ import type { GeneralAccess, ParticipantRole } from '../../api/agent-types'
 // grant, and a role per invited person that can raise it but not lower it.
 
 const GENERAL_OPTIONS: { value: GeneralAccess; title: string; detail: string }[] = [
-  { value: 'none', title: 'Only people invited', detail: 'Only you and the people you invite' },
-  { value: 'view', title: 'Everyone in the team', detail: 'Can view' },
-  { value: 'reply', title: 'Everyone in the team', detail: 'Can view and reply' },
+  {
+    value: 'none',
+    title: t('Only people invited'),
+    detail: t('Only you and the people you invite'),
+  },
+  { value: 'view', title: t('Everyone in the team'), detail: t('Can view') },
+  { value: 'reply', title: t('Everyone in the team'), detail: t('Can view and reply') },
 ]
 
 const ROLE_LABEL: Record<ParticipantRole, string> = {
-  manage: 'Can manage',
-  reply: 'Can reply',
-  view: 'Can view',
+  manage: t('Can manage'),
+  reply: t('Can reply'),
+  view: t('Can view'),
 }
 
 const ROLE_DETAIL: Partial<Record<ParticipantRole, string>> = {
-  manage: 'Reply, and change the runtime and credentials',
+  manage: t('Reply, and change the runtime and credentials'),
 }
 
 const RANK: Record<GeneralAccess | ParticipantRole, number> = {
@@ -122,7 +127,7 @@ export function RoleMenu({
               key={role}
               selected={role === effective}
               disabled={belowFloor}
-              title={belowFloor ? 'Everyone in the team already has more access' : undefined}
+              title={belowFloor ? t('Everyone in the team already has more access') : undefined}
               onClick={() => role !== value && onChange(role)}
             >
               <span className="block">{ROLE_LABEL[role]}</span>
@@ -136,7 +141,7 @@ export function RoleMenu({
           <>
             <MenuSeparator />
             <MenuItem destructive onClick={onRemove}>
-              Remove
+              {t('Remove')}
             </MenuItem>
           </>
         )}

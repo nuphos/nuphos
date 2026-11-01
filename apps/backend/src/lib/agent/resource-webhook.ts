@@ -9,12 +9,13 @@ import { logEvent } from '@/lib/observability'
 
 import { agentConversations, getConversationBySessionId } from './db'
 import { commitPullKeys } from './github-commit-pulls'
+import { mergedAtOf } from './merged-at'
 import {
   githubHealthTargets,
   githubUnattachedSuiteCommit,
   refreshLinkedPullHealth,
 } from './resource-webhook-health'
-import { resourceCredentialAllowed } from './session-resources'
+import { resourceCredentialAllowed } from './session-resource-lookup'
 import { enqueueResourceTurn } from './thread-queue'
 
 import type { SessionResource } from './session-resources'
@@ -32,7 +33,12 @@ const payloadSchema = z.object({
   action: z.string().max(100).optional(),
   sender: z.object({ type: z.string(), login: z.string() }).optional(),
   pull_request: pr
-    .extend({ state: z.string().optional(), merged: z.boolean().optional() })
+    .extend({
+      state: z.string().optional(),
+      merged: z.boolean().optional(),
+      draft: z.boolean().optional(),
+      merged_at: z.string().nullable().optional(),
+    })
     .optional(),
   issue: pr.extend({ pull_request: z.unknown().optional() }).optional(),
   check_suite: z
@@ -153,10 +159,13 @@ export function githubStatusCommit(event: string, payload: unknown, includeOwn =
   }
 }
 
+const PULL_STATE_ACTIONS = ['closed', 'reopened', 'converted_to_draft', 'ready_for_review']
+
 /**
- * The PR state a linked tag should show after an open/close. Unlike wakeups this
- * includes our own events: agents merge through the App, and a tag that only
- * refreshed on a wake would stay "open" after every such merge.
+ * The PR state a linked tag should show after an open, close or draft change.
+ * Unlike wakeups this includes our own events: agents merge through the App,
+ * and a tag that only refreshed on a wake would stay "open" after every such
+ * merge.
  */
 export function githubPullState(event: string, payload: unknown) {
   const parsed = payloadSchema.safeParse(payload)
@@ -164,11 +173,24 @@ export function githubPullState(event: string, payload: unknown) {
   if (event !== 'pull_request' || !parsed.success) return null
   const { action, installation, repository, pull_request: pull } = parsed.data
 
-  if (!pull?.state || !['closed', 'reopened'].includes(action ?? '')) return null
+  if (!pull?.state || !PULL_STATE_ACTIONS.includes(action ?? '')) return null
 
   return {
     key: `github/${String(installation.id)}/${String(repository.id)}/${String(pull.number)}`,
     state: pull.merged ? 'merged' : pull.state,
+    draft: Boolean(pull.draft),
+    ...(pull.merged && mergedAtOf(pull.merged_at) ? { mergedAt: mergedAtOf(pull.merged_at) } : {}),
+  }
+}
+
+/** The fields a PR's open, close or draft change sets on every tag linking it. */
+function pullStateSet(pullState: NonNullable<ReturnType<typeof githubPullState>>) {
+  return {
+    'linkedResources.$[resource].state': pullState.state,
+    'linkedResources.$[resource].draft': pullState.draft,
+    // Nothing blocks a merged or closed PR; an open one keeps its health until re-read.
+    ...(pullState.state === 'open' ? {} : { 'linkedResources.$[resource].health': null }),
+    ...(pullState.mergedAt ? { 'linkedResources.$[resource].mergedAt': pullState.mergedAt } : {}),
   }
 }
 
@@ -207,11 +229,8 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
     await agentConversations().updateMany(
       { 'linkedResources.key': pullState.key },
       {
-        // Merged or closed is the whole story; reopening re-reads the health below.
-        $set: {
-          'linkedResources.$[resource].state': pullState.state,
-          'linkedResources.$[resource].health': null,
-        },
+        // Merged or closed is the whole story; reopening or readying re-reads the health below.
+        $set: pullStateSet(pullState),
       },
       { arrayFilters: [{ 'resource.key': pullState.key }] },
     )

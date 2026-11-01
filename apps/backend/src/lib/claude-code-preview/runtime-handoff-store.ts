@@ -18,6 +18,8 @@ export type RuntimeHandoff = {
   humanTurn?: boolean
   /** Crash recovery must never start a fresh session or replace a newer turn. */
   abandonedStreamId?: string
+  /** Where the session ran, so an offline computer is waited for instead of tried. */
+  runtimeUrl?: string
 }
 
 export const runtimeHandoffField = (handoff: Pick<RuntimeHandoff, 'teamId' | 'conversationId'>) =>
@@ -32,6 +34,7 @@ export function sessionHandoff(session: TeamSession): Omit<RuntimeHandoff, 'at'>
     locale: session.locale,
     // Only a teammate's own turn acts as someone other than the owner.
     humanTurn: Boolean(session.runtime?.env?.NUPHOS_SESSION_ACTOR),
+    runtimeUrl: session.endpoint.url,
   }
 }
 

@@ -71,7 +71,8 @@ export class LocalAttachmentStream implements SocketLike {
             typeof file.size === 'number' &&
             Number.isSafeInteger(file.size) &&
             file.size >= 0 &&
-            ['http:', 'https:'].includes(new URL(file.url).protocol)
+            // data: carries a secret typed into the secure input card.
+            ['http:', 'https:', 'data:'].includes(new URL(file.url).protocol)
           )
         })
       )

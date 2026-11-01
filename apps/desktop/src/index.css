@@ -557,6 +557,12 @@
     flex-shrink: 0;
     opacity: 0.95;
   }
+  .atlas-mention-avatar {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    opacity: 1;
+  }
   .atlas-mention-label {
     display: inline-block;
     max-width: 24ch;
@@ -2205,12 +2211,29 @@ html.platform-darwin:not(.window-fullscreen)
   padding-left: calc(28px + 54px / var(--zoom-factor, 1));
 }
 
-/* Home cards grid (react-grid-layout): no drop-target box. The dragged card
-   follows the pointer and the others make room, so the gap shows where it
-   lands. The extra .react-grid-layout outranks the library's stylesheet,
+/* Home cards grid (react-grid-layout): the dragged card follows the pointer,
+   lifted and translucent, the others make room, and an accent outline marks
+   where it lands. The extra .home-grid outranks the library's stylesheet,
    which loads after this one. */
-.react-grid-layout .react-grid-item.react-grid-placeholder {
-  display: none;
+.home-grid .react-grid-item.react-grid-placeholder {
+  border: 1.5px dashed rgba(var(--color-zViolet-500), 0.7);
+  border-radius: 0.5rem;
+  background: rgba(var(--color-zViolet-500), 0.08);
+  opacity: 1;
+}
+
+.home-grid .react-grid-item.react-draggable-dragging {
+  border-radius: 0.5rem;
+  background-color: rgb(var(--color-background-base));
+  opacity: 0.92;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-grid .react-grid-item,
+  .home-grid .react-grid-item.react-grid-placeholder {
+    transition: none;
+  }
 }
 
 .react-grid-item > .react-resizable-handle::after {

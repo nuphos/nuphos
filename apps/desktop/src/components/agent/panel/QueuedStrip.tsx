@@ -1,5 +1,7 @@
 import clsx from 'clsx'
-import { CornerDownRight, ListPlus, LoaderCircle, X } from 'lucide-react'
+import { Ban, CornerDownRight, Hourglass, ListPlus, LoaderCircle, X } from 'lucide-react'
+
+import { t } from '../../../i18n'
 
 import { fileNameFromPath } from './textUtils'
 
@@ -14,22 +16,43 @@ export function QueuedStrip({
   onSteer,
   sidebar = false,
   canSteer = false,
+  approval,
 }: {
   items: QueuedMessage[]
   onRemove: (queuedId: string) => void
   onSteer: (queuedId: string) => void
   canSteer?: boolean
   sidebar?: boolean
+  /** On a teammate's computer shared at "Ask me first": these wait for its owner, or were
+   *  declined. Said here, not in the banner above the composer, which would cover them. */
+  approval?: { status: 'pending' | 'denied'; text: string } | null
 }) {
   if (items.length === 0) return null
 
   return (
     <div className={clsx('mx-auto w-full', sidebar ? '' : 'max-w-[760px]')}>
-      <div className="px-1 text-xs text-tertiary">Queued messages</div>
+      <div className="px-1 text-xs text-tertiary">{t('Queued messages')}</div>
+      {approval && (
+        <div
+          role="status"
+          className="flex min-w-0 items-start gap-1.5 px-1 pb-1.5 text-[12px] text-secondary"
+        >
+          {approval.status === 'pending' ? (
+            <Hourglass
+              aria-hidden
+              className="mt-px h-3.5 w-3.5 shrink-0 text-warning"
+              strokeWidth={2}
+            />
+          ) : (
+            <Ban aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-error" strokeWidth={2} />
+          )}
+          <span className="min-w-0">{approval.text}</span>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5 px-1 pb-1">
         {items.map((item, index) => {
           const label =
-            item.text.trim() || item.filePaths.map(fileNameFromPath).join(', ') || 'Attachment'
+            item.text.trim() || item.filePaths.map(fileNameFromPath).join(', ') || t('Attachment')
 
           return (
             <div
@@ -43,12 +66,13 @@ export function QueuedStrip({
               </span>
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-secondary">{label}</span>
               <span className="flex-shrink-0 text-[11px] text-tertiary">
-                Runs after the turn ahead
+                {t('Runs after the turn ahead')}
               </span>
               {item.filePaths.length > 0 && (
                 <span className="flex-shrink-0 text-[11px] text-tertiary">
-                  {item.filePaths.length} file
-                  {item.filePaths.length > 1 ? 's' : ''}
+                  {item.filePaths.length > 1
+                    ? t('{n} files', { n: item.filePaths.length })
+                    : t('1 file')}
                 </span>
               )}
               <button
@@ -56,8 +80,8 @@ export function QueuedStrip({
                 onClick={() => onSteer(item.id)}
                 disabled={item.steering || !canSteer}
                 className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-zGray-800 enabled:hover:text-main disabled:opacity-40"
-                title="Send into the running turn"
-                aria-label="Send into the running turn"
+                title={t('Send into the running turn')}
+                aria-label={t('Send into the running turn')}
               >
                 {item.steering ? (
                   <LoaderCircle className="h-3 w-3 animate-spin" strokeWidth={2.2} />
@@ -69,8 +93,8 @@ export function QueuedStrip({
                 type="button"
                 onClick={() => onRemove(item.id)}
                 className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
-                title="Take back"
-                aria-label="Take back"
+                title={t('Take back')}
+                aria-label={t('Take back')}
               >
                 <X className="h-3 w-3" strokeWidth={2.2} />
               </button>

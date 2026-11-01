@@ -1,5 +1,6 @@
 import { MoreHorizontal } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { Button } from '../ui/button'
 
 import type { Column } from './support'
@@ -46,8 +47,8 @@ export function buildRowActionsColumn<T>(
       <Button
         variant="ghost"
         size="icon-sm"
-        title="Actions"
-        aria-label="Open row actions"
+        title={t('Actions')}
+        aria-label={t('Open row actions')}
         onClick={(e) => {
           // Rows are commonly clickable (open a detail view); without this the
           // ⋯ would open the menu and navigate away at once.

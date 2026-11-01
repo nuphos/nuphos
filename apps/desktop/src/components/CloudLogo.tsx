@@ -2,6 +2,8 @@ import { faKubernetes } from '@fortawesome/free-brands-svg-icons'
 import { faLaptop } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
+import { t } from '../i18n'
+
 import { DatabaseEngineGlyph } from './DatabaseEngineIcon'
 
 type Props = {
@@ -23,6 +25,8 @@ type Props = {
     | 'github'
     | 'gitlab'
     | 'linear'
+    | 'gmail'
+    | 'google-drive'
     | 'zeabur'
     | 'vanta'
     | 'secureframe'
@@ -68,6 +72,8 @@ const SRC = {
   github: '/github-dark.svg',
   gitlab: '/gitlab.svg',
   linear: '/linear.svg',
+  gmail: '/gmail.svg',
+  'google-drive': '/google-drive.svg',
   zeabur: '/zeabur-dark-bg.svg',
   vanta: '/vanta.png',
   secureframe: '/secureframe.png',
@@ -179,7 +185,7 @@ export function CloudLogo({ provider, size = 14, className = '' }: Props) {
     return (
       <FontAwesomeIcon
         icon={faLaptop}
-        aria-label="Computer"
+        aria-label={t('Computer')}
         className={`flex-shrink-0 text-tertiary ${className}`}
         style={{ width: size, height: size }}
       />

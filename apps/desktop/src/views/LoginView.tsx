@@ -1,6 +1,3 @@
-import { faGoogle } from '@fortawesome/free-brands-svg-icons'
-import { faArrowRight } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
@@ -8,11 +5,22 @@ import { NuphosLogo } from '../components/NuphosLogo'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 import { useErrorShake } from '../hooks/useErrorShake'
+import { useStableCallback } from '../hooks/useStableCallback'
 import { useTextSwap } from '../hooks/useTextSwap'
+import { t } from '../i18n'
+import {
+  cleanCode,
+  CODE_LENGTH,
+  completesCode,
+  hasNonDigits,
+  pasteIntoCode,
+  singleFlight,
+} from '../lib/codeEntry'
 import { signInEmailError } from '../lib/emailDomain'
 import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
 import { LoginApiEndpoint } from './LoginApiEndpoint'
+import { LoginSocialButtons } from './LoginSocialButtons'
 
 import type { UserInfo } from '../types'
 
@@ -36,15 +44,17 @@ export function LoginView({ onLogin }: Props) {
     clear: clearCodeError,
   } = useErrorShake<HTMLInputElement>()
   const { ref: sendLabelRef, text: sendLabelText } = useTextSwap<HTMLSpanElement>(
-    busy === 'send' && step === 'start' ? 'Sending code…' : 'Continue with email',
+    busy === 'send' && step === 'start' ? t('Sending code…') : t('Continue with email'),
   )
   const { ref: verifyLabelRef, text: verifyLabelText } = useTextSwap<HTMLSpanElement>(
-    busy === 'verify' ? 'Verifying…' : 'Verify code',
+    busy === 'verify' ? t('Verifying…') : t('Verify code'),
   )
   const { ref: resendLabelRef, text: resendLabelText } = useTextSwap<HTMLSpanElement>(
-    busy === 'send' && step === 'code' ? 'Sending…' : 'Resend code',
+    busy === 'send' && step === 'code' ? t('Sending…') : t('Resend code'),
   )
   const shownStep = useRef(step)
+  // A different server may offer different providers.
+  const [serverChanges, setServerChanges] = useState(0)
 
   // Both steps stay mounted for the slide, so focus the step's field once the
   // slide has settled instead of relying on autoFocus at mount.
@@ -52,27 +62,13 @@ export function LoginView({ onLogin }: Props) {
     if (shownStep.current === step) return
     shownStep.current = step
     const field = step === 'code' ? codeRef : emailRef
-    const t = window.setTimeout(
+    const timer = window.setTimeout(
       () => field.current?.focus(),
       prefersReducedMotion() ? 0 : cssDurationMs('--page-slide-dur', 250),
     )
 
-    return () => window.clearTimeout(t)
+    return () => window.clearTimeout(timer)
   }, [step, codeRef, emailRef])
-
-  // No in-flight guard: each click re-launches the auth flow so the user can
-  // retry freely (e.g. after closing the browser window without finishing).
-  async function handleGoogleLogin() {
-    try {
-      const user = await api.authLogin()
-
-      onLogin(user)
-    } catch (e) {
-      toast.apiError('Sign-in failed', e, {
-        fallback: 'Check your internet connection and try again.',
-      })
-    }
-  }
 
   async function handleSendCode() {
     if (!email.trim() || busy) return
@@ -80,7 +76,7 @@ export function LoginView({ onLogin }: Props) {
 
     if (emailError) {
       shakeEmail()
-      toast.error('Invalid email', emailError)
+      toast.error(t('Invalid email'), emailError)
 
       return
     }
@@ -91,30 +87,43 @@ export function LoginView({ onLogin }: Props) {
       clearCodeError()
       setStep('code')
     } catch (e) {
-      toast.apiError('Failed to send code', e, {
-        fallback: 'Check your internet connection and try again.',
+      toast.apiError(t('Failed to send code'), e, {
+        fallback: t('Check your internet connection and try again.'),
       })
     } finally {
       setBusy(null)
     }
   }
 
-  async function handleVerifyCode() {
-    if (code.length !== 6 || busy) return
+  async function handleVerifyCode(value: string) {
+    if (value.length !== CODE_LENGTH || busy) return
     setBusy('verify')
     try {
-      const user = await api.authEmailVerifyCode(email.trim(), code)
+      const user = await api.authEmailVerifyCode(email.trim(), value)
 
       onLogin(user)
     } catch (e) {
-      toast.apiError('Sign-in failed', e, {
-        fallback: 'Check your internet connection and try again.',
+      toast.apiError(t('Sign-in failed'), e, {
+        fallback: t('Check your internet connection and try again.'),
       })
       setBusy(null)
       shakeCode()
       codeRef.current?.select()
     }
   }
+
+  // One verify at a time: the auto-submit and an Enter or click right after it send one request.
+  const verifyLatest = useStableCallback(handleVerifyCode)
+  const [verifyCode] = useState(() => singleFlight(verifyLatest))
+
+  // The sixth digit (typed, pasted or autofilled) submits; Verify stays for a retry.
+  function enterCode(next: string) {
+    clearCodeError()
+    setCode(next)
+    if (completesCode(code, next)) void verifyCode(next)
+  }
+
+  const [codeBefore, codeAfter] = t('Enter the 6-digit code sent to {email}').split('{email}')
 
   return (
     <div className="titlebar-drag h-full flex flex-col login-surface">
@@ -124,31 +133,18 @@ export function LoginView({ onLogin }: Props) {
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
             <NuphosLogo className="h-12 w-12" variant="white-bg" />
           </div>
-          <h1 className="text-[20px] font-semibold text-main mb-1.5">Welcome to Nuphos</h1>
+          <h1 className="text-[20px] font-semibold text-main mb-1.5">{t('Welcome to Nuphos')}</h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
-            The agent workspace for your team
+            {t('The agent workspace for your team')}
           </p>
 
           <div className="t-page-slide t-wizard-slide w-full" data-page={step === 'start' ? 1 : 2}>
             <section className="t-page" data-page-id="1" inert={step !== 'start'}>
-              <Button
-                onClick={() => void handleGoogleLogin()}
-                size="lg"
-                className="group w-full titlebar-no-drag"
-              >
-                <span className="flex flex-1 items-center gap-2">
-                  <FontAwesomeIcon icon={faGoogle} />
-                  Continue with Google
-                </span>
-                <FontAwesomeIcon
-                  icon={faArrowRight}
-                  className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
-                />
-              </Button>
+              <LoginSocialButtons key={serverChanges} onLogin={onLogin} />
 
               <div className="w-full flex items-center gap-3 my-5">
                 <div className="h-px flex-1 bg-zGray-800" />
-                <span className="text-[12px] text-secondary">or</span>
+                <span className="text-[12px] text-secondary">{t('or')}</span>
                 <div className="h-px flex-1 bg-zGray-800" />
               </div>
 
@@ -169,7 +165,7 @@ export function LoginView({ onLogin }: Props) {
                   className={inputClasses}
                 />
                 <p className="text-[12px] leading-relaxed text-tertiary">
-                  Personal and work emails are welcome.
+                  {t('Personal and work emails are welcome.')}
                 </p>
                 <Button
                   type="submit"
@@ -183,26 +179,46 @@ export function LoginView({ onLogin }: Props) {
                   </span>
                 </Button>
               </form>
-              <LoginApiEndpoint inputClassName={inputClasses} />
+              <LoginApiEndpoint
+                inputClassName={inputClasses}
+                onChange={() => setServerChanges((n) => n + 1)}
+              />
             </section>
             <section className="t-page" data-page-id="2" inert={step !== 'code'}>
               <form
                 className="w-full flex flex-col gap-2.5"
                 onSubmit={(e) => {
                   e.preventDefault()
-                  void handleVerifyCode()
+                  void verifyCode(code)
                 }}
               >
                 <p className="text-[13.5px] text-secondary leading-relaxed">
-                  Enter the 6-digit code sent to{' '}
+                  {codeBefore}
                   <span className="text-main font-medium">{email.trim()}</span>
+                  {codeAfter}
                 </p>
                 <input
                   value={code}
                   ref={codeRef}
-                  onChange={(e) => {
-                    clearCodeError()
-                    setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  onChange={(e) => enterCode(cleanCode(e.target.value))}
+                  // Typed letters, spaces and symbols never go in; the cursor stays put.
+                  onBeforeInput={(e) => {
+                    if (hasNonDigits(e.data)) e.preventDefault()
+                  }}
+                  onPaste={(e) => {
+                    const input = e.currentTarget
+                    const pasted = pasteIntoCode(
+                      code,
+                      {
+                        start: input.selectionStart ?? code.length,
+                        end: input.selectionEnd ?? code.length,
+                      },
+                      e.clipboardData.getData('text'),
+                    )
+
+                    e.preventDefault()
+                    enterCode(pasted.code)
+                    requestAnimationFrame(() => input.setSelectionRange(pasted.caret, pasted.caret))
                   }}
                   placeholder="000000"
                   inputMode="numeric"
@@ -212,7 +228,7 @@ export function LoginView({ onLogin }: Props) {
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={code.length !== 6 || busy !== null}
+                  disabled={code.length !== CODE_LENGTH || busy !== null}
                   className="w-full titlebar-no-drag"
                 >
                   <span ref={verifyLabelRef} className="t-text-swap">
@@ -227,7 +243,7 @@ export function LoginView({ onLogin }: Props) {
                     onClick={() => setStep('start')}
                     className="titlebar-no-drag"
                   >
-                    Use a different email
+                    {t('Use a different email')}
                   </Button>
                   <Button
                     type="button"

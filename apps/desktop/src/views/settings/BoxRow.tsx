@@ -8,6 +8,7 @@ import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { t } from '../../i18n'
 
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
@@ -29,7 +30,7 @@ import {
   newAgentAction,
   removal,
 } from './boxPresentation'
-import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
+import { boxRestartLabel, boxRestartOf, boxUpdateLabel } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxHostUpdate } from './useBoxHostUpdate'
@@ -102,7 +103,7 @@ export function BoxRow({
 
   // The host takes a while to join after the machine starts; the card follows it until then.
   const resume = () =>
-    act('Could not resume computer', async (deviceId, team) => {
+    act(t('Could not resume computer'), async (deviceId, team) => {
       await api.boxResume(deviceId, team)
       boxRestarts.start(deviceId, team, 'resume')
     })
@@ -124,7 +125,7 @@ export function BoxRow({
   const updateVersion = useBoxHostUpdate(teamId, hostAgent)
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
-    act('Could not update computer', async (deviceId, team) => {
+    act(t('Could not update computer'), async (deviceId, team) => {
       if (!hostAgent) return
       await api.atlasRequestRuntimeUpdate(team, hostAgent)
       boxRestarts.start(deviceId, team, 'update')
@@ -156,9 +157,9 @@ export function BoxRow({
           canEdit={manage}
           editing={renaming}
           onEditingChange={setRenaming}
-          ariaLabel="Computer name"
+          ariaLabel={t('Computer name')}
           maxLength={200}
-          errorTitle="Could not rename computer"
+          errorTitle={t('Could not rename computer')}
           className="min-w-0 text-[13px] font-medium text-main"
           // This computer keeps its name locally and re-registers with it, so rename it there.
           onSave={async (label) => {
@@ -170,14 +171,14 @@ export function BoxRow({
         />
         {thisComputer && (
           <span className="shrink-0 rounded-full bg-zGray-800/60 px-1.5 text-[10.5px] leading-4 text-secondary">
-            This computer
+            {t('This computer')}
           </span>
         )}
         <span className="flex-1" />
         {manage && (
           <Menu>
             <MenuTrigger
-              aria-label={`Manage ${device.label}`}
+              aria-label={t('Manage {name}', { name: device.label })}
               disabled={busy}
               className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
             >
@@ -186,28 +187,28 @@ export function BoxRow({
             <MenuContent align="end">
               {cloud && state === 'running' && (
                 <MenuItem onClick={() => openBoxDesktop(device.deviceId, teamId)}>
-                  Open desktop
+                  {t('Open desktop')}
                 </MenuItem>
               )}
               {updateVersion !== undefined && (
                 <MenuItem onClick={() => setConfirmUpdate(true)}>
-                  {updateVersion ? `Update to v${updateVersion}` : 'Update'}
+                  {boxUpdateLabel(updateVersion)}
                 </MenuItem>
               )}
-              <MenuItem onClick={() => setRenaming(true)}>Rename</MenuItem>
-              <MenuItem onClick={() => void copyUid(device)}>Copy UID</MenuItem>
+              <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
+              <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               {canShareBox(device) && (
-                <MenuItem onClick={() => setSharing(true)}>Manage access…</MenuItem>
+                <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
               )}
-              {onShare && <MenuItem onClick={onShare}>Share with teammates…</MenuItem>}
+              {onShare && <MenuItem onClick={onShare}>{t('Share with teammates…')}</MenuItem>}
               {actions.resume && (
                 <MenuItem onClick={() => void resume()}>
-                  {state === 'error' ? 'Retry' : 'Resume'}
+                  {state === 'error' ? t('Retry') : t('Resume')}
                 </MenuItem>
               )}
               {actions.pause && (
-                <MenuItem onClick={() => void act('Could not pause computer', api.boxPause)}>
-                  Pause
+                <MenuItem onClick={() => void act(t('Could not pause computer'), api.boxPause)}>
+                  {t('Pause')}
                 </MenuItem>
               )}
               {remove.allowed && (
@@ -240,7 +241,7 @@ export function BoxRow({
             busy={busy}
             confirming={confirmUpdate}
             onConfirmingChange={setConfirmUpdate}
-            onUpdate={() => void update()}
+            onUpdate={update}
           />
         )}
       </div>
@@ -248,7 +249,7 @@ export function BoxRow({
         <div className="mt-2">
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-            {busy ? 'Resuming…' : 'Resume'}
+            {busy ? t('Resuming…') : t('Resume')}
           </Button>
         </div>
       )}
@@ -285,7 +286,7 @@ export function BoxRow({
       )}
       <ConfirmDialog
         open={confirmDelete}
-        title={`${cloud ? 'Delete' : 'Remove'} ${device.label}?`}
+        title={remove.title}
         description={remove.description}
         destructive
         confirmLabel={remove.confirm}

@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useLinkOnlyRowMenu } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -60,21 +61,21 @@ export function CloudClustersView({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 140,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'version',
-            header: 'Version',
+            header: t('Version'),
             width: 110,
             sortAccessor: (r) => r.version ?? '',
             render: (r) => (
@@ -83,14 +84,14 @@ export function CloudClustersView({
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 110,
             sortAccessor: (r) => r.status ?? '',
             render: (r) => <StatusBadge status={r.status || 'Unknown'} />,
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.createdAt ?? '',
             render: (r) => (
@@ -146,25 +147,25 @@ export function EcsClustersView({
         onRowContextMenu={onRowContextMenu}
         storageKey="aws.ecs-clusters"
         defaultSort={{ key: 'clusterName', dir: 'asc' }}
-        empty="No ECS clusters"
+        empty={t('No ECS clusters')}
         columns={[
           {
             key: 'clusterName',
-            header: 'Cluster Name',
+            header: t('Cluster Name'),
             width: 260,
             sortAccessor: (r) => r.clusterName,
             render: (r) => <span className="font-medium text-zViolet-accent">{r.clusterName}</span>,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 110,
             sortAccessor: (r) => r.status,
             render: (r) => <StatusBadge status={r.status} />,
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 140,
             sortAccessor: (r) => r.region,
             render: (r) => (
@@ -173,28 +174,28 @@ export function EcsClustersView({
           },
           {
             key: 'services',
-            header: 'Services',
+            header: t('Services'),
             width: 90,
             sortAccessor: (r) => r.activeServicesCount,
             render: (r) => <span className="text-secondary">{r.activeServicesCount}</span>,
           },
           {
             key: 'runningTasks',
-            header: 'Running',
+            header: t('Running'),
             width: 90,
             sortAccessor: (r) => r.runningTasksCount,
             render: (r) => <span className="text-secondary">{r.runningTasksCount}</span>,
           },
           {
             key: 'pendingTasks',
-            header: 'Pending',
+            header: t('Pending'),
             width: 90,
             sortAccessor: (r) => r.pendingTasksCount,
             render: (r) => <span className="text-secondary">{r.pendingTasksCount}</span>,
           },
           {
             key: 'capacityProviders',
-            header: 'Capacity Providers',
+            header: t('Capacity Providers'),
             width: 200,
             sortAccessor: (r) => r.capacityProviders.join(','),
             render: (r) => (

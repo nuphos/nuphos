@@ -39,13 +39,19 @@ import type {
   TeamRole,
   HomeLayout,
   HomeLayouts,
+  RuntimeFallback,
   TeamActivity,
   TeamActivityRange,
+  AgentStats,
+  AgentStatsQuery,
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
 
 export type WindowTeamApi = {
+  atlasGetTeamGoogleClient(teamId: string): Promise<string | null>
+  atlasSetTeamGoogleClient(teamId: string, clientId: string, clientSecret: string): Promise<void>
+  atlasDeleteTeamGoogleClient(teamId: string): Promise<void>
   atlasStartRuntimeLogin(teamId: string, runtimeId: string): Promise<RuntimeLoginStatus>
   atlasGetRuntimeLogin(teamId: string, runtimeId: string): Promise<RuntimeLoginStatus>
   atlasCancelRuntimeLogin(teamId: string, runtimeId: string, attemptId: string): Promise<void>
@@ -131,7 +137,12 @@ export type WindowTeamApi = {
     pick: SessionConfigPick,
   ): Promise<SessionConfigState>
   atlasRequestRuntimeUpdate(teamId: string, runtimeId: string): Promise<{ version: string }>
-  atlasGetRuntimeInstanceStatus(teamId: string, runtimeId: string): Promise<OpenAbRuntimeStatus>
+  /** `wake` resumes a paused Box: only a sign-in waiting for its agent asks for it. */
+  atlasGetRuntimeInstanceStatus(
+    teamId: string,
+    runtimeId: string,
+    wake?: boolean,
+  ): Promise<OpenAbRuntimeStatus>
   atlasGetRuntimeInstanceMetrics(
     teamId: string,
     runtimeId: string,
@@ -145,14 +156,18 @@ export type WindowTeamApi = {
     expectedRevision: number,
   ): Promise<SidebarFavoritesCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
+  atlasGetRuntimeFallback(teamId: string): Promise<RuntimeFallback>
+  atlasPutRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<RuntimeFallback>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
+  atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
   atlasPutHomeLayout(
     teamId: string,
     scope: 'personal' | 'team',
     layout: HomeLayout | null,
   ): Promise<void>
   atlasCreateTeam(name: string): Promise<AtlasTeam>
-  atlasUpdateTeam(teamId: string, input: { name?: string; avatarUrl?: string }): Promise<AtlasTeam>
+  atlasUpdateTeam(teamId: string, input: { name: string }): Promise<AtlasTeam>
+  atlasSetTeamAvatar(teamId: string, image: Uint8Array | null): Promise<AtlasTeam>
   atlasSetTeamEmailDomainDiscovery(teamId: string, enabled: boolean): Promise<AtlasTeam>
   atlasSetTeamAgentRuntime(teamId: string, runtime: AgentProvider): Promise<AtlasTeam>
   atlasSetTeamLocalAgentSharing(

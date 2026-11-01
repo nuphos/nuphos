@@ -1,5 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import {
   matchSlashOptions,
   slashEnterTarget,
@@ -59,7 +61,7 @@ export function useComposerSlashCommands(
   const commands: SlashCommand[] = openModel
     ? [
         ...panelCommands,
-        { id: 'model', title: 'Model', description: 'Change the model', run: openModel },
+        { id: 'model', title: t('Model'), description: t('Change the model'), run: openModel },
       ]
     : panelCommands
   const matches =

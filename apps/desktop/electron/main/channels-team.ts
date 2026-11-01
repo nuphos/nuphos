@@ -2,6 +2,7 @@ import * as atlas from '../atlas'
 import * as discordInstall from '../discord-install'
 import * as slackInstall from '../slack-install'
 
+import { designChannels } from './channels-designs'
 import { skillChannels } from './channels-skills'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
@@ -15,6 +16,15 @@ import type {
 } from '../../src/types/runtime'
 
 export const teamChannels = {
+  'atlas:getTeamGoogleClient': (_e: unknown, teamId: string) => atlas.getTeamGoogleClient(teamId),
+  'atlas:setTeamGoogleClient': (
+    _e: unknown,
+    teamId: string,
+    clientId: string,
+    clientSecret: string,
+  ) => atlas.setTeamGoogleClient(teamId, clientId, clientSecret),
+  'atlas:deleteTeamGoogleClient': (_e: unknown, teamId: string) =>
+    atlas.deleteTeamGoogleClient(teamId),
   'atlas:startRuntimeLogin': (_e: unknown, teamId: string, runtimeId: string) =>
     atlas.startRuntimeLogin(teamId, runtimeId),
   'atlas:getRuntimeLogin': (_e: unknown, teamId: string, runtimeId: string) =>
@@ -80,8 +90,12 @@ export const teamChannels = {
     atlas.getRuntimeModelConfig(...args),
   'atlas:requestRuntimeUpdate': (_e: unknown, teamId: string, runtimeId: string) =>
     atlas.requestRuntimeUpdate(teamId, runtimeId),
-  'atlas:getRuntimeInstanceStatus': (_e: unknown, teamId: string, runtimeId: string) =>
-    atlas.getRuntimeInstanceStatus(teamId, runtimeId),
+  'atlas:getRuntimeInstanceStatus': (
+    _e: unknown,
+    teamId: string,
+    runtimeId: string,
+    wake?: boolean,
+  ) => atlas.getRuntimeInstanceStatus(teamId, runtimeId, wake),
   'atlas:getRuntimeInstanceMetrics': (
     _e: unknown,
     teamId: string,
@@ -98,6 +112,9 @@ export const teamChannels = {
     expectedRevision: number,
   ) => atlas.putSidebarFavorites(teamId, entries, expectedRevision),
   'atlas:getHomeLayout': (_e: unknown, teamId: string) => atlas.getHomeLayout(teamId),
+  'atlas:getRuntimeFallback': (_e: unknown, teamId: string) => atlas.getRuntimeFallback(teamId),
+  'atlas:putRuntimeFallback': (_e: unknown, teamId: string, runtimeIds: string[]) =>
+    atlas.putRuntimeFallback(teamId, runtimeIds),
   'atlas:getTeamActivity': (_e: unknown, teamId: string, range: string) =>
     atlas.getTeamActivity(teamId, range),
   'atlas:putHomeLayout': (
@@ -167,9 +184,12 @@ export const teamChannels = {
   'dashboards:deleteAlert': (_e: unknown, teamId: string, dashboardId: string, panelId: string) =>
     atlas.dashboardsDeleteAlert(teamId, dashboardId, panelId),
   ...skillChannels,
+  ...designChannels,
   'atlas:createTeam': (_e: unknown, name: string) => atlas.createTeam(name),
-  'atlas:updateTeam': (_e: unknown, teamId: string, input: { name?: string; avatarUrl?: string }) =>
+  'atlas:updateTeam': (_e: unknown, teamId: string, input: { name: string }) =>
     atlas.updateTeam(teamId, input),
+  'atlas:setTeamAvatar': (_e: unknown, teamId: string, image: Uint8Array | null) =>
+    atlas.setTeamAvatar(teamId, image),
   'atlas:setTeamEmailDomainDiscovery': (_e: unknown, teamId: string, enabled: boolean) =>
     atlas.setTeamEmailDomainDiscovery(teamId, enabled),
   'atlas:setTeamAgentRuntime': (_e: unknown, teamId: string, runtime: AgentProvider) =>

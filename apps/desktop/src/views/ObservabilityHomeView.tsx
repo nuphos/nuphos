@@ -7,6 +7,7 @@ import { Table } from '../components/Table'
 import { useSilentTick } from '../hooks/useSilentRefresh'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { BindGrafanaDialog } from './BindGrafanaDialog'
@@ -89,36 +90,36 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
   // toolbar row so it survives on the empty state too (no header to host it).
   // Gate on isActive so a keep-alive'd background tab never clobbers the active
   // page's CTA.
-  useToolbarPrimaryAction(isActive ? 'Bind Grafana' : null, () => setBindOpen(true))
+  useToolbarPrimaryAction(isActive ? t('Bind Grafana') : null, () => setBindOpen(true))
 
   const columns: Column<GrafanaInstance>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 200,
       sortAccessor: (x) => x.name,
       render: (x) => <span className="text-main">{x.name}</span>,
     },
     {
       key: 'kind',
-      header: 'Kind',
+      header: t('Kind'),
       width: 120,
       render: () => <span className="text-secondary">Grafana</span>,
     },
     {
       key: 'url',
-      header: 'URL',
+      header: t('URL'),
       width: 360,
       render: (x) => <span className="text-tertiary font-mono text-[12px]">{x.grafanaUrl}</span>,
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('Status'),
       width: 140,
       render: () => (
         <span className="inline-flex items-center gap-1.5 text-[#73bf69]">
           <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.8} />
-          Connected
+          {t('Connected')}
         </span>
       ),
     },
@@ -133,7 +134,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
             setUnbindTarget(x)
           }}
           className="p-1 rounded text-tertiary hover:text-error hover:bg-zGray-800"
-          title="Unbind"
+          title={t('Unbind')}
         >
           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
         </button>
@@ -154,7 +155,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
   if (instances === null) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading…
+        {t('Loading…')}
       </div>
     )
   }
@@ -163,7 +164,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
     <div className="flex-1 flex flex-col min-h-0">
       {instances.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-          No Grafana instances bound to this team yet.
+          {t('No Grafana instances bound to this team yet.')}
         </div>
       ) : (
         <>
@@ -175,7 +176,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
             onPrimaryAction={onPick}
             onRowContextMenu={onRowContextMenu}
             storageKey="observability.instances"
-            empty={`No instances match "${filter}"`}
+            empty={t('No instances match "{filter}"', { filter })}
           />
         </>
       )}
@@ -192,9 +193,12 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
       {unbindTarget && (
         <ConfirmDialog
           open
-          title="Unbind Grafana instance"
-          description={`Remove "${unbindTarget.name}" from this team? Dashboards from this instance will no longer be accessible.`}
-          confirmLabel="Unbind"
+          title={t('Unbind Grafana instance')}
+          description={t(
+            'Remove "{name}" from this team? Dashboards from this instance will no longer be accessible.',
+            { name: unbindTarget.name },
+          )}
+          confirmLabel={t('Unbind')}
           destructive
           onClose={() => setUnbindTarget(null)}
           onConfirm={async () => {

@@ -7,6 +7,7 @@ import {
 } from '@/lib/agent/auto-mode/store'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
+import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
@@ -20,6 +21,7 @@ import {
 } from './db'
 
 import type { CredentialRef } from './thread-credentials'
+import type { ThreadModelPick } from './thread-runtime'
 import type { AgentConversation } from './db'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
@@ -77,7 +79,12 @@ function receipt(
   }
 }
 
-export async function createAgentThread(actor: ThreadActor, prompt: string, title: string) {
+export async function createAgentThread(
+  actor: ThreadActor,
+  prompt: string,
+  title: string,
+  pick: ThreadModelPick = {},
+) {
   const source = await authorizeThreadActor(actor)
   const threadId = randomUUID()
   const messageId = randomUUID()
@@ -103,6 +110,15 @@ export async function createAgentThread(actor: ThreadActor, prompt: string, titl
     actor.userId,
     await getSessionBypass(actor.sessionId, actor.userId),
   )
+  const { setThreadModel } = await import('./thread-runtime')
+
+  try {
+    await setThreadModel(threadId, actor.userId, pick)
+  } catch (error) {
+    // Nothing ran yet; a refused pick hides the unused conversation.
+    await setConversationArchived(threadId, true)
+    throw error
+  }
   const { status } = await startThreadTurn({
     ...actor,
     targetSessionId: threadId,
@@ -122,28 +138,9 @@ export async function sendAgentThreadMessage(actor: ThreadActor, threadId: strin
 /** The agents the owner can run a thread on, each with its readiness and usage. */
 export async function listThreadRuntimes(actor: ThreadActor) {
   const source = await authorizeThreadActor(actor)
-  const { listRuntimeInstances, listRuntimeQuotas, withRuntimeReadiness } =
-    await import('@/lib/claude-code-preview/runtime-catalog')
-  // The team's agents only. A local agent runs on the owner's own computer, which
-  // only the owner can choose, with the consent the Desktop asks for.
-  const instances = await withRuntimeReadiness(
-    actor.teamId,
-    await listRuntimeInstances(actor.teamId),
-  )
-  const quotas = await listRuntimeQuotas(actor.teamId, instances)
+  const { threadRuntimes } = await import('./thread-runtime')
 
-  return {
-    runtimes: instances.map((instance, i) => ({
-      runtimeId: instance.id,
-      label: instance.label,
-      provider: instance.provider,
-      kind: instance.kind,
-      status: instance.status,
-      ready: !instance.notReady,
-      current: instance.id === source.runtimeId,
-      quota: quotas[i],
-    })),
-  }
+  return threadRuntimes(actor, source.runtimeId)
 }
 
 /**
@@ -153,7 +150,7 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 export async function updateThread(
   actor: ThreadActor,
   threadId: string,
-  change: { fullAccess?: boolean; runtimeId?: string; grant?: CredentialRef[] },
+  change: { fullAccess?: boolean; runtimeId?: string; grant?: CredentialRef[] } & ThreadModelPick,
 ) {
   const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
@@ -165,12 +162,9 @@ export async function updateThread(
   if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
     throw new Error('Only a conversation in Full Access can give a thread Full Access.')
   }
-  if (change.runtimeId) {
-    const { listRuntimeInstances } = await import('@/lib/claude-code-preview/runtime-catalog')
+  const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
 
-    if (!(await listRuntimeInstances(actor.teamId)).some(({ id }) => id === change.runtimeId))
-      throw new Error("A thread can only move to one of the team's agents, not to a computer.")
-  }
+  await assertThreadRuntime(actor, change.runtimeId)
   const { grantThreadCredentials } = await import('./thread-credentials')
   const granted = await grantThreadCredentials(actor, threadId, change.grant)
   const { moveConversationRuntime } =
@@ -178,6 +172,8 @@ export async function updateThread(
   const runtime = change.runtimeId
     ? await moveConversationRuntime(target, change.runtimeId, 'history', actor.userId)
     : undefined
+  // After a move, which drops the old agent's model choices.
+  const model = await setThreadModel(threadId, actor.userId, change)
 
   if (change.fullAccess !== undefined) {
     await setSessionBypass(threadId, actor.userId, change.fullAccess)
@@ -196,6 +192,7 @@ export async function updateThread(
       ? {}
       : { mode: change.fullAccess ? 'full_access' : 'auto' }),
     ...(runtime ? { runtime } : {}),
+    ...(model ? { model } : {}),
   }
 }
 
@@ -226,7 +223,9 @@ async function assertTargetCanRun(target: AgentConversation): Promise<void> {
 // which runs once that turn releases the session. Returns which happened; a
 // message that then does not run is reported to its sender by runTurn.
 export async function startThreadTurn(data: ThreadTurn) {
-  const { source, target } = await authorizeThreadDelivery(data)
+  const { source, target: delivered } = await authorizeThreadDelivery(data)
+  // A thread's turn acts as its owner.
+  const target = await fallBackBeforeTurn(delivered, delivered.userId)
 
   await assertTargetCanRun(target)
   // Lazy so importing the tools does not pull in the route graph.

@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { DEFAULT_LINEAR_NAV, LINEAR_PAGE_KEY } from '../../lib/linearNav'
 import { buildCloudConnectorRows } from '../../views/cloud/team-home-rows-cloud'
 import { buildDevConnectorRows } from '../../views/cloud/team-home-rows-dev'
@@ -32,23 +33,23 @@ export function connectorInfoActions(
   switch (connectorDetail.provider) {
     case 'aws':
       return [
-        primary('View resources', () => ctx.onOpenAwsAccountResources(connectorId)),
-        secondary('Access settings', () => ctx.onOpenAwsAccountRoles(connectorId)),
+        primary(t('View resources'), () => ctx.onOpenAwsAccountResources(connectorId)),
+        secondary(t('Access settings'), () => ctx.onOpenAwsAccountRoles(connectorId)),
       ]
     case 'gcp':
       return [
-        primary('View resources', () => ctx.onOpenGcpProjectResources(connectorId)),
-        secondary('Access settings', () => ctx.onOpenGcpProjectServiceAccounts(connectorId)),
+        primary(t('View resources'), () => ctx.onOpenGcpProjectResources(connectorId)),
+        secondary(t('Access settings'), () => ctx.onOpenGcpProjectServiceAccounts(connectorId)),
       ]
     case 'cloudflare':
       return [
-        primary('View resources', () => ctx.onOpenCloudflareAccountResources(connectorId)),
-        secondary('Access settings', () => ctx.onOpenCloudflareAccountIam(connectorId)),
+        primary(t('View resources'), () => ctx.onOpenCloudflareAccountResources(connectorId)),
+        secondary(t('Access settings'), () => ctx.onOpenCloudflareAccountIam(connectorId)),
       ]
     case 'mongodb':
       return [
-        primary('View resources', () => ctx.onOpenDatabaseConnectionOverview(connectorId)),
-        secondary('Access settings', () => ctx.onOpenDatabaseConnection(connectorId)),
+        primary(t('View resources'), () => ctx.onOpenDatabaseConnectionOverview(connectorId)),
+        secondary(t('Access settings'), () => ctx.onOpenDatabaseConnection(connectorId)),
       ]
     case 'onprem-k8s': {
       const cluster = ctx.accounts?.onprem.find((item) => item.id === connectorId)
@@ -56,7 +57,7 @@ export function connectorInfoActions(
       if (!cluster?.hasCredential) return []
 
       return [
-        primary('View resources', () =>
+        primary(t('View resources'), () =>
           ctx.enterCluster({
             teamId: scope.teamId,
             parentKind: 'onprem-cluster',
@@ -67,37 +68,37 @@ export function connectorInfoActions(
       ]
     }
     case 'azure':
-      return [secondary('Access settings', () => ctx.onOpenAzureSubscriptionApps(connectorId))]
+      return [secondary(t('Access settings'), () => ctx.onOpenAzureSubscriptionApps(connectorId))]
     case 'discord':
       // Linking is the one thing a member must do here before the bot acts for them.
       if (ctx.accounts?.discordConnection?.linkedDiscordUserId !== null) return []
 
       return [
-        primary('Link Discord account', () => {
+        primary(t('Link Discord account'), () => {
           void api
             .atlasStartDiscordLink(scope.teamId)
             .then(ctx.onAccountsChanged)
-            .catch((err: unknown) => toast.apiError('Could not link Discord account', err))
+            .catch((err: unknown) => toast.apiError(t('Could not link Discord account'), err))
         }),
       ]
     case 'linode':
-      return [primary('View resources', () => ctx.onOpenLinodeAccount(connectorId))]
+      return [primary(t('View resources'), () => ctx.onOpenLinodeAccount(connectorId))]
     case 'hetzner':
-      return [primary('View resources', () => ctx.onOpenHetznerAccount(connectorId))]
+      return [primary(t('View resources'), () => ctx.onOpenHetznerAccount(connectorId))]
     case 'tencent':
-      return [primary('View resources', () => ctx.onOpenTencentAccount(connectorId))]
+      return [primary(t('View resources'), () => ctx.onOpenTencentAccount(connectorId))]
     case 'aliyun':
-      return [primary('View resources', () => ctx.onOpenAliyunAccount(connectorId))]
+      return [primary(t('View resources'), () => ctx.onOpenAliyunAccount(connectorId))]
     case 'volcengine':
-      return [primary('View resources', () => ctx.onOpenVolcengineAccount(connectorId))]
+      return [primary(t('View resources'), () => ctx.onOpenVolcengineAccount(connectorId))]
     case 'betterstack':
-      return [primary('View monitors', () => ctx.onOpenBetterStackIntegration(connectorId))]
+      return [primary(t('View monitors'), () => ctx.onOpenBetterStackIntegration(connectorId))]
     case 'uptime-kuma':
-      return [primary('View monitors', () => ctx.onOpenUptimeKumaInstance(connectorId))]
+      return [primary(t('View monitors'), () => ctx.onOpenUptimeKumaInstance(connectorId))]
     case 'tailscale':
-      return [primary('View devices', () => ctx.onOpenTailscaleClient(connectorId))]
+      return [primary(t('View devices'), () => ctx.onOpenTailscaleClient(connectorId))]
     case 'zeabur':
-      return [primary('View projects', () => ctx.onOpenZeaburProvider(connectorId))]
+      return [primary(t('View projects'), () => ctx.onOpenZeaburProvider(connectorId))]
     case 'github': {
       const installation = ctx.githubInstallations.find(
         (item) => String(item.installationId) === connectorId,
@@ -106,7 +107,7 @@ export function connectorInfoActions(
       if (!installation) return []
 
       return [
-        primary('View repositories', () => {
+        primary(t('View repositories'), () => {
           ctx.setGithubNav({ view: 'repos', installation })
           ctx.setRepoProvider('github')
           ctx.onSelectActive('team.repository')
@@ -117,7 +118,7 @@ export function connectorInfoActions(
       const binding = ctx.gitlabBindings.find((item) => item.id === connectorId)
 
       return [
-        primary('View projects', () => {
+        primary(t('View projects'), () => {
           ctx.setRepoProvider('gitlab')
           ctx.setGitlabNav(binding ? { view: 'projects', binding } : DEFAULT_GITLAB_NAV)
           ctx.onSelectActive('team.repository')
@@ -130,7 +131,7 @@ export function connectorInfoActions(
       if (!instance) return []
 
       return [
-        primary('View dashboards', () => {
+        primary(t('View dashboards'), () => {
           ctx.setGrafanaInstance({
             id: instance.id,
             name: instance.name,
@@ -142,7 +143,7 @@ export function connectorInfoActions(
     }
     case 'linear':
       return [
-        primary('View teams', () => {
+        primary(t('View teams'), () => {
           ctx.setLinearNav(DEFAULT_LINEAR_NAV)
           ctx.onSelectActive(LINEAR_PAGE_KEY)
         }),

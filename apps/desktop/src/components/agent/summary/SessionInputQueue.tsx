@@ -1,0 +1,197 @@
+import { ArrowLeft, ArrowUpRight, MessageCircleQuestion, X } from 'lucide-react'
+import { useState } from 'react'
+
+import { api } from '../../../api'
+import { t } from '../../../i18n'
+import { refreshInputRequests } from '../../../lib/inputRequestRefresh'
+import { toast } from '../../ui/toast'
+import { AgentPanel } from '../AgentPanel'
+import { conversationQuestions } from '../panel/replyTarget'
+
+import { SummarySection } from './ChatSummaryRows'
+import { inputRequestKey } from './sessionInputRequests'
+
+import type { JournalChatTarget } from '../../../lib/journalEvent'
+import type { SessionInputRequest } from './sessionInputRequests'
+
+export function SessionInputQueue({
+  requests,
+  failed,
+  loaded,
+  onSelect,
+}: {
+  requests: SessionInputRequest[]
+  failed: boolean
+  loaded: boolean
+  onSelect: (request: SessionInputRequest) => void
+}) {
+  const title = requests.length
+    ? t('Needs your input · {count}', { count: requests.length })
+    : t('Needs your input')
+
+  return (
+    <SummarySection title={title}>
+      {!loaded && !failed && requests.length === 0 && (
+        <p className="py-1 text-[12px] text-tertiary">{t('Checking for questions...')}</p>
+      )}
+      {loaded && requests.length === 0 && (
+        <p className="py-1 text-[12px] text-tertiary">{t('No questions waiting for you.')}</p>
+      )}
+      {failed && (
+        <p role="status" className="py-1 text-[12px] text-warning">
+          {t('Could not refresh questions. Retrying automatically.')}
+        </p>
+      )}
+      {requests.map((request) => (
+        <button
+          key={inputRequestKey(request)}
+          type="button"
+          onClick={() => onSelect(request)}
+          className="-mx-1.5 flex items-start gap-2.5 rounded-md px-1.5 py-2 text-left outline-none hover:bg-zGray-800/50 focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+        >
+          <MessageCircleQuestion aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[12px] font-medium text-main">
+              {request.title || t('Untitled agent')}
+            </span>
+            <span className="mt-0.5 line-clamp-2 block text-[12px] leading-5 text-secondary">
+              {request.inputRequest.question}
+            </span>
+          </span>
+        </button>
+      ))}
+    </SummarySection>
+  )
+}
+
+/** Keeps the chosen agent open while its answer runs; new arrivals never change the selection. */
+export function SessionInputReply({
+  request,
+  requests,
+  teamId,
+  onSelect,
+  onBack,
+  onClose,
+  onOpenSession,
+}: {
+  request: SessionInputRequest
+  requests: SessionInputRequest[]
+  teamId: string
+  onSelect: (request: SessionInputRequest) => void
+  onBack: () => void
+  onClose: () => void
+  onOpenSession: (sessionId: string, target?: JournalChatTarget) => void
+}) {
+  const stillPending = requests.some((item) => inputRequestKey(item) === inputRequestKey(request))
+  const next = requests.find((item) => inputRequestKey(item) !== inputRequestKey(request))
+  const [dismissed, setDismissed] = useState(false)
+  const [dismissing, setDismissing] = useState(false)
+  const questionTarget: JournalChatTarget = {
+    toolCallId: request.inputRequest.id,
+    question: request.inputRequest.question,
+    options: request.inputRequest.options,
+  }
+  const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>({
+    sessionId: request.sessionId,
+    target: questionTarget,
+  })
+
+  async function dismiss() {
+    if (dismissing) return
+    setDismissing(true)
+    try {
+      await api.agentResolveDecision(
+        request.sessionId,
+        request.inputRequest.id,
+        teamId,
+        'dismissed',
+      )
+      setDismissed(true)
+      refreshInputRequests()
+    } catch (error) {
+      toast.apiError(t('Could not dismiss question'), error)
+    } finally {
+      setDismissing(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="flex shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3 py-2.5">
+        <button
+          type="button"
+          aria-label={t('Back to pending questions')}
+          onClick={onBack}
+          className="rounded p-1 text-secondary hover:text-main"
+        >
+          <ArrowLeft aria-hidden className="size-4" />
+        </button>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">
+          {t('Reply to {name}', { name: request.title || t('Untitled agent') })}
+        </span>
+        <button
+          type="button"
+          aria-label={t('Open agent conversation')}
+          onClick={() => onOpenSession(request.sessionId, questionTarget)}
+          className="rounded p-1 text-secondary hover:text-main"
+        >
+          <ArrowUpRight aria-hidden className="size-4" />
+        </button>
+        <button
+          type="button"
+          aria-label={t('Close pending questions')}
+          onClick={onClose}
+          className="rounded p-1 text-secondary hover:text-main"
+        >
+          <X aria-hidden className="size-4" />
+        </button>
+      </div>
+      <div className="shrink-0 border-b border-zGray-800/60 px-4 py-3">
+        <p className="text-[12px] leading-5 text-main">{request.inputRequest.question}</p>
+        <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-tertiary">
+          <span role="status">
+            {!stillPending || dismissed
+              ? t('This request is no longer pending.')
+              : request.inputRequest.category === 'credential'
+                ? t('Answer in the secure card below. Never paste a secret in a message.')
+                : t('Your reply goes to this agent only.')}
+          </span>
+          {next && (
+            <button
+              type="button"
+              onClick={() => onSelect(next)}
+              className="shrink-0 text-zViolet-accent"
+            >
+              {t('Next question →')}
+            </button>
+          )}
+        </div>
+      </div>
+      {stillPending && !dismissed && !request.readOnly && (
+        <button
+          type="button"
+          disabled={dismissing}
+          onClick={() => void dismiss()}
+          className="shrink-0 self-end px-4 py-2 text-[11px] text-tertiary hover:text-main"
+        >
+          {dismissing ? t('Dismissing...') : t('Dismiss question')}
+        </button>
+      )}
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <AgentPanel
+          variant="page"
+          open
+          teamId={teamId}
+          sessionId={request.sessionId}
+          sessionReadOnly={(request.readOnly ?? false) || !stillPending || dismissed}
+          decisionReplyTo={request.inputRequest.id}
+          openQuestions={conversationQuestions(request)}
+          composerDraftId={`input:${inputRequestKey(request)}`}
+          focusComposerOnOpen={false}
+          pendingLocate={locate}
+          onLocateConsumed={() => setLocate(null)}
+        />
+      </div>
+    </>
+  )
+}

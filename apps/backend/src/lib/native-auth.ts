@@ -113,7 +113,10 @@ export async function registerNativeSession(input: {
 }): Promise<{ handle: string; expiresInSec: number }> {
   const { redirectUri, codeChallenge, codeChallengeMethod, clientState } = input
 
-  if (typeof redirectUri !== 'string' || !isLoopbackRedirectUri(redirectUri)) {
+  if (
+    typeof redirectUri !== 'string' ||
+    (!isLoopbackRedirectUri(redirectUri) && redirectUri !== 'nuphos://google-callback')
+  ) {
     throw new AppError(
       400,
       'invalid_redirect_uri',

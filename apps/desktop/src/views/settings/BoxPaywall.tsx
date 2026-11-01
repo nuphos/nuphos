@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { locale, t } from '../../i18n'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
 
 import { useOpenBilling } from './billing'
@@ -13,7 +14,7 @@ import { useBoxUsage } from './useBoxUsage'
 
 import type { BoxPaywallRequest } from './boxPaywallStore'
 
-const either = new Intl.ListFormat('en', { type: 'disjunction' })
+const either = new Intl.ListFormat(locale, { type: 'disjunction' })
 
 function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
   const members = useTeamMembers(request.teamId)
@@ -27,11 +28,13 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
   const names = either.format(admins.map(memberDisplayName))
   // A team with a plan changes it in the billing portal; one without starts at Checkout.
   const opens = usage?.subscribed
-    ? 'Your billing portal opens in your browser to change plans.'
-    : 'Checkout opens in your browser.'
+    ? t('Your billing portal opens in your browser to change plans.')
+    : t('Checkout opens in your browser.')
   const hint = isAdmin
-    ? `${opens} ${request.afterPaid ?? 'Once you have paid, your computer starts here on its own.'}`
-    : `Only team administrators can choose a plan. Ask ${names || 'a team administrator'} to upgrade.`
+    ? `${opens} ${request.afterPaid ?? t('Once you have paid, your computer starts here on its own.')}`
+    : names
+      ? t('Only team administrators can choose a plan. Ask {names} to upgrade.', { names })
+      : t('Only team administrators can choose a plan. Ask a team administrator to upgrade.')
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && boxPaywall.close()}>
@@ -41,14 +44,14 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
           <div className="flex items-start justify-between gap-4 border-b border-zGray-800 px-5 py-4">
             <div className="flex flex-col gap-1">
               <Dialog.Title className="text-[15px] font-semibold text-main">
-                Choose a computer plan
+                {t('Choose a computer plan')}
               </Dialog.Title>
               <Dialog.Description className="text-[13px] text-secondary">
                 {request.message}
               </Dialog.Description>
             </div>
             <Dialog.Close
-              aria-label="Close"
+              aria-label={t('Close')}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
             >
               <X className="h-3.5 w-3.5" />
@@ -64,7 +67,7 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
           </div>
           <div className="flex justify-end border-t border-zGray-800 px-5 py-3">
             <Button size="sm" variant="ghost" onClick={boxPaywall.close}>
-              Not now
+              {t('Not now')}
             </Button>
           </div>
         </Dialog.Popup>

@@ -38,6 +38,7 @@ const DOMAIN_COLLECTIONS = new Set([
   'dashboards',
   'cost-dashboards',
   'architecture-diagrams',
+  'designs',
   'agent-triggers',
   'knowledge',
   'instructions',

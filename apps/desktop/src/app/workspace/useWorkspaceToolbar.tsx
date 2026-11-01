@@ -77,6 +77,7 @@ export function useWorkspaceToolbar(a: Args) {
     filter,
     target,
     architectureDetail,
+    designDetail,
     nuphosDashboard,
     connectorDetail,
     awsDetail,
@@ -137,6 +138,7 @@ export function useWorkspaceToolbar(a: Args) {
     !inAlarmDetail &&
     !inPlanDetail &&
     !architectureDetail &&
+    !designDetail &&
     // The connector drill-down swaps the table out for a provider info page.
     !connectorDetail &&
     // The dashboard list page is a filterable list; an open dashboard is not.

@@ -5,19 +5,16 @@ import { Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n'
 import { Avatar } from '../../Avatar'
+import { AgentAvatar } from '../AgentAvatar'
 
-import { AgentProviderIcon } from './icons'
-import { heatmapRows } from './teamActivity'
+import { RangePill } from './homeRangePill'
+import { ACTIVITY_RANGES, heatmapRows } from './teamActivity'
 
 import type { HeatCell } from './teamActivity'
 import type { TeamActivity, TeamActivityRange } from '../../../types/team.ts'
 
-const RANGES: { value: TeamActivityRange; label: string; slotMinutes: number }[] = [
-  { value: '1d', label: '24h', slotMinutes: 30 },
-  { value: '7d', label: '7d', slotMinutes: 120 },
-  { value: '30d', label: '30d', slotMinutes: 720 },
-]
 // Empty, then four steps of the busiest cell, GitHub-style. Shades are themed
 // in index.css (--color-heatmap-*).
 const LEVELS = ['bg-heatmap-0', 'bg-heatmap-1', 'bg-heatmap-2', 'bg-heatmap-3', 'bg-heatmap-4']
@@ -27,7 +24,7 @@ const day = (d: Date) =>
   d.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' })
 const span = (c: HeatCell) => `${day(c.start)} ${time(c.start)}–${time(c.end)}`
 const slotLabel = (minutes: number) =>
-  minutes < 60 ? `${String(minutes)} min` : `${String(minutes / 60)} h`
+  minutes < 60 ? t('{n} min', { n: minutes }) : t('{n} h', { n: minutes / 60 })
 
 type Hover = { el: Element; name: string; cell: HeatCell }
 
@@ -64,7 +61,7 @@ function CellTooltip({
                 <div className="px-1 text-main">{hover.name}</div>
                 <div className="mb-1 px-1 text-tertiary">{span(hover.cell)}</div>
                 {hover.cell.sessions.length === 0 ? (
-                  <div className="px-1 text-tertiary">No agents running</div>
+                  <div className="px-1 text-tertiary">{t('No agents running')}</div>
                 ) : (
                   <div className="space-y-px">
                     {hover.cell.sessions.slice(0, MAX_TITLES).map((s) => (
@@ -73,13 +70,13 @@ function CellTooltip({
                         onClick={() => onOpenSession?.(s.id, s.title)}
                         className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:bg-zGray-800/60"
                       >
-                        <AgentProviderIcon provider={s.runtime} className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{s.title || 'Untitled agent'}</span>
+                        <AgentAvatar agentId={s.id} provider={s.runtime} size={14} />
+                        <span className="truncate">{s.title || t('Untitled agent')}</span>
                       </BaseButton>
                     ))}
                     {hover.cell.sessions.length > MAX_TITLES && (
                       <div className="px-1 text-tertiary">
-                        and {hover.cell.sessions.length - MAX_TITLES} more
+                        {t('and {n} more', { n: hover.cell.sessions.length - MAX_TITLES })}
                       </div>
                     )}
                   </div>
@@ -94,22 +91,23 @@ function CellTooltip({
 }
 
 /**
- * Who on the team has been running agents, and when: a row per member across
- * the whole range, each cell one slot, darker the more of their sessions ran
- * in it. Hovering a cell names the sessions. A longer range uses longer slots
- * so a row stays readable.
+ * Who on the team has been running agents, and when, from `activity`: a row
+ * per member across the whole range, each cell one slot, darker the more of
+ * their sessions ran in it. Hovering a cell names the sessions. A skeleton
+ * shows while `activity` is null. Without `onRange` the range cannot be
+ * changed, as in a preview.
  */
-export function TeamActivityCard({
-  teamId,
+export function TeamActivityView({
+  activity,
+  range,
+  onRange,
   onOpenConversation,
 }: {
-  teamId: string
+  activity: TeamActivity | null
+  range: TeamActivityRange
+  onRange?: (range: TeamActivityRange) => void
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
-  const [range, setRange] = useState<TeamActivityRange>('7d')
-  // Kept with the range it answers, so switching range shows the skeleton
-  // until the new range arrives instead of the old grid.
-  const [loaded, setLoaded] = useState<TeamActivity | null>(null)
   const [hover, setHover] = useState<Hover | null>(null)
   const closeTimer = useRef<number | null>(null)
   const keep = () => {
@@ -120,26 +118,7 @@ export function TeamActivityCard({
     keep()
     closeTimer.current = window.setTimeout(() => setHover(null), CLOSE_DELAY_MS)
   }
-  const activity = loaded?.range === range ? loaded : null
-  const slotMinutes = RANGES.find((r) => r.value === range)?.slotMinutes ?? 60
-
-  useEffect(() => {
-    let alive = true
-    const refresh = () =>
-      void api.atlasGetTeamActivity(teamId, range).then(
-        (next) => alive && setLoaded(next),
-        () => {},
-      )
-
-    refresh()
-    // The server's answer only moves a slot at a time; asking sooner gains nothing.
-    const timer = setInterval(refresh, slotMinutes * 60_000)
-
-    return () => {
-      alive = false
-      clearInterval(timer)
-    }
-  }, [teamId, range, slotMinutes])
+  const slotMinutes = ACTIVITY_RANGES.find((r) => r.value === range)?.slotMinutes ?? 60
 
   const rows = activity ? heatmapRows(activity) : null
   const first = rows?.[0]?.cells
@@ -153,22 +132,18 @@ export function TeamActivityCard({
     <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
       <div className="home-card-drag cursor-grab active:cursor-grabbing mb-3 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
-        <span>Team activity</span>
-        <span className="text-tertiary">· {slotLabel(slotMinutes)} per cell</span>
-        <div className="ml-auto flex items-center gap-0.5 rounded-md bg-zGray-800/40 p-0.5">
-          {RANGES.map((r) => (
-            <BaseButton
-              key={r.value}
-              onClick={() => setRange(r.value)}
-              className={clsx(
-                'rounded px-2 py-0.5 text-[11px] outline-none transition-colors',
-                r.value === range ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main',
-              )}
-            >
-              {r.label}
-            </BaseButton>
-          ))}
-        </div>
+        <span>{t('Team activity')}</span>
+        <span className="text-tertiary">
+          · {t('{slot} per cell', { slot: slotLabel(slotMinutes) })}
+        </span>
+        {onRange && (
+          <RangePill
+            className="ml-auto"
+            options={ACTIVITY_RANGES}
+            value={range}
+            onChange={onRange}
+          />
+        )}
       </div>
       {rows ? (
         <div
@@ -210,11 +185,11 @@ export function TeamActivityCard({
             </div>
           </div>
           <div className="flex flex-none items-center justify-end gap-1 pt-1 text-[10.5px] text-tertiary">
-            <span>Less</span>
+            <span>{t('Less')}</span>
             {LEVELS.map((cls) => (
               <span key={cls} className={clsx('h-2.5 w-2.5 rounded-[2px]', cls)} />
             ))}
-            <span>More</span>
+            <span>{t('More|heatmap')}</span>
           </div>
           <CellTooltip
             hover={hover}
@@ -227,8 +202,53 @@ export function TeamActivityCard({
           />
         </div>
       ) : (
-        <div className="h-32 rounded-md bg-zGray-800/40 animate-pulse" />
+        <div className="min-h-0 flex-1 rounded-md bg-zGray-800/40 animate-pulse" />
       )}
     </section>
+  )
+}
+
+/**
+ * The team activity card on the home page: loads the activity for its range,
+ * refreshing as often as a slot moves on.
+ */
+export function TeamActivityCard({
+  teamId,
+  onOpenConversation,
+}: {
+  teamId: string
+  onOpenConversation?: (sessionId: string, title: string) => void
+}) {
+  const [range, setRange] = useState<TeamActivityRange>('7d')
+  // Kept with the range it answers, so switching range shows the skeleton
+  // until the new range arrives instead of the old grid.
+  const [loaded, setLoaded] = useState<TeamActivity | null>(null)
+  const slotMinutes = ACTIVITY_RANGES.find((r) => r.value === range)?.slotMinutes ?? 60
+
+  useEffect(() => {
+    let alive = true
+    const refresh = () =>
+      void api.atlasGetTeamActivity(teamId, range).then(
+        (next) => alive && setLoaded(next),
+        () => {},
+      )
+
+    refresh()
+    // The server's answer only moves a slot at a time; asking sooner gains nothing.
+    const timer = setInterval(refresh, slotMinutes * 60_000)
+
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+  }, [teamId, range, slotMinutes])
+
+  return (
+    <TeamActivityView
+      activity={loaded?.range === range ? loaded : null}
+      range={range}
+      onRange={setRange}
+      onOpenConversation={onOpenConversation}
+    />
   )
 }

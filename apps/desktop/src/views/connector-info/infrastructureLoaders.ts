@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 import { databaseEngineLabel } from '../../lib/databaseEngine'
 
 import type { ConnectorInfoLoaders } from './types'
@@ -16,24 +17,24 @@ export function gcpConnectorInfo(
   return {
     name: first.alias ?? first.projectId,
     fields: [
-      { label: 'Project', value: first.alias ?? first.projectId },
-      { label: 'Project ID', value: first.projectId, mono: true },
-      { label: 'Service accounts', value: String(serviceAccounts.length) },
+      { label: t('Project'), value: first.alias ?? first.projectId },
+      { label: t('Project ID'), value: first.projectId, mono: true },
+      { label: t('Service accounts'), value: String(serviceAccounts.length) },
       ...(serviceAccounts.length === 1
         ? [
             {
-              label: 'Principal',
+              label: t('Principal'),
               value: first.serviceAccountEmail,
               mono: true,
             },
           ]
         : []),
       ...(first.createdAt
-        ? [{ label: 'Connected', value: new Date(first.createdAt).toLocaleString() }]
+        ? [{ label: t('Connected'), value: new Date(first.createdAt).toLocaleString() }]
         : []),
     ],
     externalUrl: `https://console.cloud.google.com/home/dashboard?project=${encodeURIComponent(first.projectId)}`,
-    externalLabel: 'Open Google Cloud',
+    externalLabel: t('Open {name}', { name: 'Google Cloud' }),
   }
 }
 
@@ -48,16 +49,16 @@ export const infrastructureLoaders: ConnectorInfoLoaders = {
     return {
       name: first.alias ?? first.accountId,
       fields: [
-        { label: 'Account', value: first.alias ?? first.accountId },
-        { label: 'Account ID', value: first.accountId, mono: true },
-        { label: 'Roles', value: String(roles.length) },
-        ...(roles.length === 1 ? [{ label: 'Role ARN', value: first.roleArn, mono: true }] : []),
+        { label: t('Account'), value: first.alias ?? first.accountId },
+        { label: t('Account ID'), value: first.accountId, mono: true },
+        { label: t('Roles'), value: String(roles.length) },
+        ...(roles.length === 1 ? [{ label: t('Role ARN'), value: first.roleArn, mono: true }] : []),
         ...(first.createdAt
-          ? [{ label: 'Connected', value: new Date(first.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(first.createdAt).toLocaleString() }]
           : []),
       ],
       externalUrl: 'https://console.aws.amazon.com',
-      externalLabel: 'Open AWS Console',
+      externalLabel: t('Open {name}', { name: 'AWS Console' }),
     }
   },
   gcp: async (teamId, connectorId) => {
@@ -75,15 +76,15 @@ export const infrastructureLoaders: ConnectorInfoLoaders = {
     return {
       name: item.accountName ?? item.accountId,
       fields: [
-        { label: 'Account', value: item.accountName ?? item.accountId },
-        { label: 'Account ID', value: item.accountId, mono: true },
-        { label: 'Auth', value: item.authType === 'oauth' ? 'OAuth' : 'API token' },
+        { label: t('Account'), value: item.accountName ?? item.accountId },
+        { label: t('Account ID'), value: item.accountId, mono: true },
+        { label: t('Auth'), value: item.authType === 'oauth' ? 'OAuth' : t('API token') },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
       ],
       externalUrl: `https://dash.cloudflare.com/${encodeURIComponent(item.accountId)}`,
-      externalLabel: 'Open Cloudflare',
+      externalLabel: t('Open {name}', { name: 'Cloudflare' }),
     }
   },
   mongodb: async (teamId, connectorId) => {
@@ -96,13 +97,13 @@ export const infrastructureLoaders: ConnectorInfoLoaders = {
     return {
       name: item.name,
       fields: [
-        { label: 'Name', value: item.name },
-        { label: 'Engine', value: databaseEngineLabel(item.engine) },
-        { label: 'Environment', value: item.environment.length > 0 ? item.environment : '—' },
-        { label: 'Endpoint', value: item.endpoint, mono: true },
-        { label: 'Agent access', value: item.agentPolicy.replaceAll('-', ' ') },
-        { label: 'Connected', value: new Date(item.createdAt).toLocaleString() },
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Name'), value: item.name },
+        { label: t('Engine'), value: databaseEngineLabel(item.engine) },
+        { label: t('Environment'), value: item.environment.length > 0 ? item.environment : '—' },
+        { label: t('Endpoint'), value: item.endpoint, mono: true },
+        { label: t('Agent access'), value: item.agentPolicy.replaceAll('-', ' ') },
+        { label: t('Connected'), value: new Date(item.createdAt).toLocaleString() },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: null,
       externalLabel: '',
@@ -117,14 +118,14 @@ export const infrastructureLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Name', value: item.label },
-        { label: 'Context', value: item.contextName, mono: true },
-        { label: 'Endpoint', value: item.endpoint ?? 'Outbound relay' },
-        { label: 'Credential', value: item.hasCredential ? 'Configured' : 'Required' },
+        { label: t('Name'), value: item.label },
+        { label: t('Context'), value: item.contextName, mono: true },
+        { label: t('Endpoint'), value: item.endpoint ?? t('Outbound relay') },
+        { label: t('Credential'), value: item.hasCredential ? t('Configured') : t('Required') },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: null,
       externalLabel: '',

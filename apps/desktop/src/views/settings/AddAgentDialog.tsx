@@ -8,6 +8,7 @@ import { useAutoHeight } from '../../hooks/useAutoHeight'
 import { useDialogPresence } from '../../hooks/useDialogPresence'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useTextSwap } from '../../hooks/useTextSwap'
+import { t } from '../../i18n'
 
 import { AddAgentChoices } from './AddAgentChoice'
 import { nextAddAgentStep } from './addAgentFlow'
@@ -24,10 +25,10 @@ import type { RuntimeInstance } from '../../types/runtime'
 import type { CSSProperties } from 'react'
 
 const TITLE: Record<AddAgentStep, string> = {
-  choose: 'Add runtime',
-  'self-hosted': 'Self-hosted runtime',
-  'self-hosted-password': 'Self-hosted runtime',
-  box: 'New computer',
+  choose: t('Add runtime'),
+  'self-hosted': t('Self-hosted runtime'),
+  'self-hosted-password': t('Self-hosted runtime'),
+  box: t('New computer'),
 }
 
 /** One place to add a team agent, from Settings › Agent or the composer's agent picker. */
@@ -91,7 +92,7 @@ export function AddAgentDialog({
               </span>
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Close"
+              aria-label={t('Close')}
               className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
             >
               <X className="h-3.5 w-3.5" />
@@ -115,7 +116,7 @@ export function AddAgentDialog({
                         void api
                           .boxJoinToken()
                           .then(setJoin, (error: unknown) =>
-                            toast.apiError('Could not make a join command', error),
+                            toast.apiError(t('Could not make a join command'), error),
                           )
                       }
                       onCancel={() => presence.onOpenChange(false)}

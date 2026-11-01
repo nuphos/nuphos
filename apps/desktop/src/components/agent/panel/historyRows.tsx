@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { t } from '../../../i18n'
+import { openInputRequests, openQuestionCount } from '../../../lib/agentInputRequests'
 import { conversationActivityBadges } from '../../../lib/conversationActivityBadges'
 import { triggerRunLabel } from '../../../lib/triggerRunLabel'
 import { Avatar } from '../../Avatar'
@@ -11,6 +13,12 @@ import { conversationOwnerName, formatHistoryTime } from './conversationMeta'
 
 import type { AgentConversation } from '../../../api'
 import type { ReactNode } from 'react'
+
+function historyTime(value: string): string {
+  const time = formatHistoryTime(value)
+
+  return time === 'now' ? t('now') : time
+}
 
 export function RevealedHistoryBlock({
   children,
@@ -90,6 +98,10 @@ export function HistoryConversationRow({
   // reads better anywhere a run shows up, not only on the Trigger page.
   const runLabel = triggerRunLabel(conversation.triggerRun)
   const triggerBadge = runLabel ? null : badges.find((badge) => badge.kind === 'trigger')
+  const openRequests = openInputRequests(conversation)
+  // The question a reply from the Inbox answers by default: the newest.
+  const waitingOn = openRequests.at(-1)
+  const questionCount = openQuestionCount(openRequests.length)
 
   return (
     <div
@@ -145,22 +157,30 @@ export function HistoryConversationRow({
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div
-            className={clsx(
-              'min-w-0 truncate group-hover:text-main',
-              titleTone({ unread, selected }),
-              titleClassName,
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              className={clsx(
+                'min-w-0 truncate group-hover:text-main',
+                titleTone({ unread, selected }),
+                titleClassName,
+              )}
+            >
+              {conversation.title || conversation.firstMessage || t('Untitled agent')}
+            </span>
+            {/* Beside the title, not in the preview, so a narrow column never cuts it off. */}
+            {questionCount && (
+              <span className="inline-flex h-4 flex-shrink-0 items-center rounded-full border border-zGray-800/80 bg-zGray-900/60 px-1.5 text-[10px] font-medium leading-none text-tertiary">
+                {questionCount}
+              </span>
             )}
-          >
-            {conversation.title || conversation.firstMessage || 'Untitled agent'}
           </div>
           <div className={clsx('truncate text-[11.5px] text-tertiary', timeClassName)}>
             {/* Waiting on a decision, the question is what the row is about. */}
-            {conversation.pendingDecision
-              ? `${formatHistoryTime(conversation.pendingDecision.askedAt)} · ${conversation.pendingDecision.question}`
-              : formatHistoryTime(conversation.lastActiveAt)}
-            {!conversation.pendingDecision && conversation.messageCount > 0
-              ? ` · ${String(conversation.messageCount)} messages`
+            {waitingOn
+              ? `${historyTime(waitingOn.askedAt)} · ${waitingOn.question}`
+              : historyTime(conversation.lastActiveAt)}
+            {!waitingOn && conversation.messageCount > 0
+              ? ` · ${t('{n} messages', { n: conversation.messageCount })}`
               : ''}
             {triggerBadge && (
               <>
@@ -184,8 +204,8 @@ export function HistoryConversationRow({
       </button>
       {unread && (
         <span
-          aria-label="Unread reply"
-          title="Unread reply"
+          aria-label={t('Unread reply')}
+          title={t('Unread reply')}
           className="mr-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zViolet-500 group-hover:hidden"
         />
       )}

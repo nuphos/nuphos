@@ -4,9 +4,12 @@ import { test } from 'node:test'
 import {
   REVEAL_LIFETIME_MS,
   openChatSummaryChanges,
+  openChatSummarySubAgents,
   setChangesFilter,
   setChatSummaryOpen,
+  setSubAgentsFilter,
   takeChangesReveal,
+  takeSubAgentsReveal,
 } from './chatSummaryPanel.ts'
 
 test('opening on Changes asks that chat for one reveal, even with the same filter again', () => {
@@ -48,4 +51,33 @@ test('closing the panel drops the reveal, and choosing a filter asks for none', 
 
   setChangesFilter('open')
   assert.equal(takeChangesReveal('a'), false)
+})
+
+test('opening on Sub-agents asks that chat for one reveal, which the Changes list cannot take', () => {
+  openChatSummarySubAgents('done', 'a')
+  assert.equal(takeChangesReveal('a'), false)
+  assert.equal(takeSubAgentsReveal('b'), false)
+  assert.equal(takeSubAgentsReveal('a'), true)
+  assert.equal(takeSubAgentsReveal('a'), false)
+})
+
+test('opening on Changes replaces a Sub-agents reveal not yet taken', () => {
+  openChatSummarySubAgents('done', 'a')
+  openChatSummaryChanges('merged', 'a')
+  assert.equal(takeSubAgentsReveal('a'), false)
+  assert.equal(takeChangesReveal('a'), true)
+})
+
+test('a Sub-agents reveal expires and closing drops it; choosing a filter asks for none', () => {
+  const asked = Date.now()
+
+  openChatSummarySubAgents('done', 'a')
+  assert.equal(takeSubAgentsReveal('a', asked + REVEAL_LIFETIME_MS + 1000), false)
+
+  openChatSummarySubAgents('active', 'a')
+  setChatSummaryOpen(false)
+  assert.equal(takeSubAgentsReveal('a'), false)
+
+  setSubAgentsFilter('all')
+  assert.equal(takeSubAgentsReveal('a'), false)
 })

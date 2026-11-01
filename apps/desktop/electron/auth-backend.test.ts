@@ -27,17 +27,17 @@ after(() => fs.rmSync(dir, { recursive: true, force: true }))
 const { changeBackend } = await import('./auth.ts')
 const { authSession } = await import('./auth-session.ts')
 
-test('a new backend ends the sign-in there, on disk too, so no launch sends it to the new one', async () => {
+test('a new backend sets the sign-in aside, on disk too, so no launch sends it to the new one', async () => {
   fs.writeFileSync(desktopFile, yaml.dump({ token: 'tok-a', userInfo: { id: 'u1' } }))
   authSession.set('tok-a', 'u1')
 
   assert.equal(await changeBackend('https://b.example.test'), 'https://b.example.test')
-  await new Promise((resolve) => setImmediate(resolve))
   assert.equal(authSession.current(), null)
-  assert.deepEqual(yaml.load(fs.readFileSync(desktopFile, 'utf8')) ?? {}, {})
-  assert.deepEqual(ended, [
-    { url: 'https://a.example.test/auth/sessions/current', authorization: 'Bearer tok-a' },
-  ])
+  // Still signed in on the backend that issued it, waiting to be switched back to.
+  assert.deepEqual(yaml.load(fs.readFileSync(desktopFile, 'utf8')), {
+    accounts: [{ api: 'https://a.example.test', token: 'tok-a', userInfo: { id: 'u1' } }],
+  })
+  assert.deepEqual(ended, [], 'the session is not ended on its backend')
 })
 
 test('the same backend again keeps the sign-in', async () => {
@@ -52,4 +52,36 @@ test('the same backend again keeps the sign-in', async () => {
     'tok-b',
   )
   assert.deepEqual(ended, [])
+})
+
+test('switching to an account on another backend moves backend and token in one step', async () => {
+  const { switchAccount, signOutAccount } = await import('./auth.ts')
+  const { writeConfig } = await import('./auth/config.ts')
+
+  // u1 waits on a.example.test (set aside above); u2 signs in on b.example.test.
+  fs.writeFileSync(
+    desktopFile,
+    yaml.dump({
+      accounts: [{ api: 'https://a.example.test', token: 'tok-a', userInfo: { id: 'u1' } }],
+    }),
+  )
+  await writeConfig({ token: 'tok-b2', userInfo: { id: 'u2', name: '', email: '', username: '' } })
+  const seen: { api: string; token: string | null }[] = []
+  const stop = authSession.subscribe(({ api, token }) => seen.push({ api, token }))
+
+  await switchAccount('u1@https://a.example.test')
+  stop()
+  assert.deepEqual(seen, [{ api: 'https://a.example.test', token: 'tok-a' }])
+  assert.equal(
+    fs.readFileSync(path.join(dir, 'cli.api-url'), 'utf8').trim(),
+    'https://a.example.test',
+  )
+
+  ended.length = 0
+  await signOutAccount('u2@https://b.example.test')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(ended, [
+    { url: 'https://b.example.test/auth/sessions/current', authorization: 'Bearer tok-b2' },
+  ])
+  assert.equal(authSession.current(), 'tok-a', 'the active account is untouched')
 })

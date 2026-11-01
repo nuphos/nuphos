@@ -18,19 +18,34 @@ export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'opencode'
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
+const controlChoicesSchema = z
+  .array(
+    z.object({
+      value: z.string().min(1).max(100),
+      name: z.string().max(200),
+      // Claude names the level its "default" stands for here.
+      description: z.string().max(200).optional(),
+    }),
+  )
+  .max(100)
+
+/** Off and each speed the agent offers (Fast, Ultrafast). Older probes sent on/off as a boolean. */
+export const fastChoicesSchema = z.union([
+  z.boolean().transform((on) =>
+    on
+      ? [
+          { value: 'on', name: 'On' },
+          { value: 'off', name: 'Off' },
+        ]
+      : [],
+  ),
+  controlChoicesSchema,
+])
+
 const modelControlsSchema = z.object({
-  effort: z
-    .array(
-      z.object({
-        value: z.string().min(1).max(100),
-        name: z.string().max(200),
-        // Claude names the level its "default" stands for here.
-        description: z.string().max(200).optional(),
-      }),
-    )
-    .max(100),
-  fast: z.boolean(),
-  defaultFast: z.enum(['on', 'off']).optional(),
+  effort: controlChoicesSchema,
+  fast: fastChoicesSchema,
+  defaultFast: z.string().max(100).optional(),
   defaultEffort: z.string().max(100).optional(),
 })
 

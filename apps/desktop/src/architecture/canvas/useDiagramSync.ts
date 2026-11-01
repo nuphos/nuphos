@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { setActiveDiagramId } from '../activeDiagram'
 
 import type { Snapshot } from './helpers'
@@ -52,7 +53,7 @@ export function useDiagramSync({
     }
     setSaveState('saving')
     savingRef.current = true
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       api
         .archSaveDiagram(teamId, diagram.id, {
           name: diagram.name,
@@ -65,14 +66,14 @@ export function useDiagramSync({
         })
         .catch((e: unknown) => {
           setSaveState('idle')
-          toast.apiError('Failed to save diagram', e)
+          toast.apiError(t('Failed to save diagram'), e)
         })
         .finally(() => {
           savingRef.current = false
         })
     }, 700)
 
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [diagram, teamId])
 
   // Report the loaded diagram's name up so the breadcrumb is correct even when

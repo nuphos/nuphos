@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { ChevronRight, ShieldCheck, Terminal } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../../i18n'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import { failedOutput } from './activity'
@@ -121,8 +122,8 @@ export function ToolPartView({
                 </span>
                 <span>
                   {(part.approval?.approved ?? part.authorization?.resolved === 'approved')
-                    ? 'You approved this command.'
-                    : 'You declined this command.'}
+                    ? t('You approved this command.')
+                    : t('You declined this command.')}
                 </span>
               </div>
             )}
@@ -130,9 +131,11 @@ export function ToolPartView({
               <CommandTerminalView part={part} />
             ) : (
               <>
-                {part.input !== undefined && <CodeSection label="Input" value={part.input} />}
-                {part.output !== undefined && <CodeSection label="Output" value={part.output} />}
-                {part.errorText && <CodeSection label="Error" value={part.errorText} />}
+                {part.input !== undefined && <CodeSection label={t('Input')} value={part.input} />}
+                {part.output !== undefined && (
+                  <CodeSection label={t('Output')} value={part.output} />
+                )}
+                {part.errorText && <CodeSection label={t('Error')} value={part.errorText} />}
               </>
             )}
           </div>

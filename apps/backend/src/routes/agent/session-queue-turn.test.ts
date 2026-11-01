@@ -9,8 +9,8 @@ import {
   enqueuePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
-import { AppError, errorHandler } from '@/lib/errors'
 import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useBoxWake } from '@/lib/test/doubles/box-wake'
 import { useDb } from '@/lib/test/doubles/db'
@@ -18,8 +18,14 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
+import { queuedChatBody } from './session-queue-body'
 import { queueForOfflineBox } from './session-queue-offline'
-import { admitQueueableChat, launchQueuedChatTurn, queuedChatReply } from './session-queue-turn'
+import {
+  admitQueueableChat,
+  launchQueuedChatTurn,
+  queuedChatContext,
+  queuedChatReply,
+} from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
@@ -31,7 +37,7 @@ const conversation = { sessionId: SESSION, userId: OWNER, teamId: 'team' } as Ag
 let caller = OWNER
 
 // Turn admission looks the conversation up; none here means no move is running.
-useDb({ db: (() => ({ collection: () => ({ findOne: async () => null }) })) as never })
+useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })
 useIdentity({ authenticateToken: async () => ({ user: { id: caller } }) })
 let boxOffline = true
 const woken: (string | undefined)[] = []
@@ -131,7 +137,13 @@ test('a busy session queues the message with the context its device sent it with
   const done = busy()
 
   try {
-    expect((await admit('later'))?.mode).toBe('queued')
+    expect(
+      (
+        await admit('later', {
+          context: { locale: 'en', localTools: true, kubeContext: 'prod', decisionReplies: true },
+        })
+      )?.mode,
+    ).toBe('queued')
   } finally {
     done()
   }
@@ -142,8 +154,62 @@ test('a busy session queues the message with the context its device sent it with
     source: 'app',
     actorUserId: OWNER,
     renderedText: 'text later',
-    chat: { streamId: 'stream-later', localTools: true, kubeContext: 'prod', locale: 'en' },
+    chat: {
+      streamId: 'stream-later',
+      localTools: true,
+      kubeContext: 'prod',
+      locale: 'en',
+      decisionReplies: true,
+    },
   })
+})
+
+test('a runtime-started turn that never saw its end does not hold the session', async () => {
+  // A turn the runtime started on its own (here: one carried across a backend
+  // rollout) stayed open after the runtime went idle. Every message then
+  // queued behind it, with nothing left to release the claim.
+  const run = createAgentRun(
+    OWNER,
+    SESSION,
+    'stream-autonomous',
+    {
+      requestId: 'request-autonomous',
+      userId: OWNER,
+      sessionId: SESSION,
+      streamId: 'stream-autonomous',
+      route: 'claude-code/autonomous',
+      method: 'RUNTIME',
+    },
+    { runtimeOwned: true },
+  )
+
+  registerAgentRun(run)
+  try {
+    const admitted = await admit('after-idle', {
+      snapshot: {
+        schemaVersion: 2,
+        state: 'idle',
+        actions: { send: true, cancel: false, steer: false },
+      },
+    })
+
+    expect(admitted?.mode).toBe('run')
+    if (admitted?.mode === 'run') admitted.release()
+    // A busy runtime still holds the message back, through its own status.
+    const waiting = await admit('while-active', {
+      snapshot: {
+        schemaVersion: 2,
+        state: 'active',
+        actions: { send: false, cancel: true, steer: true },
+      },
+    })
+
+    expect(waiting?.mode).toBe('queued')
+  } finally {
+    run.done = true
+    run.releaseOwnership()
+    agentRuns.delete(run.key)
+  }
 })
 
 test('a runtime busy outside any backend turn queues the message too', async () => {
@@ -297,7 +363,7 @@ test('a phone send while an agent message runs is queued in order, never refused
 test('a queued send ends cleanly for a phone that reads only an event stream', async () => {
   const desktop = queuedChatReply(
     { id: SESSION, messages: [], clientCapabilities: { serverQueue: true } },
-    'stream-d',
+    { status: 'queued', streamId: 'stream-d' },
   )
 
   expect(desktop.status).toBe(202)
@@ -305,12 +371,63 @@ test('a queued send ends cleanly for a phone that reads only an event stream', a
   // An error frame would offer Retry, which resends under a new id.
   const phone = queuedChatReply(
     { id: SESSION, messages: [], clientCapabilities: { resendsRefusal: true } },
-    'stream-p',
+    { status: 'queued', streamId: 'stream-p' },
   )
 
   expect(phone.status).toBe(200)
   expect(phone.headers.get('content-type')).toStartWith('text/event-stream')
   expect(await phone.text()).toBe('data: {"type":"atlas-stream-done"}\n\n')
+})
+
+test('a phone waiting on an offline Box or an approval gets the same clean end', async () => {
+  const reply = { status: 'queued' as const, streamId: 'stream-o', message: 'Waiting for the Box' }
+  const desktop = queuedChatReply(
+    { id: SESSION, messages: [], clientCapabilities: { serverQueue: true } },
+    reply,
+  )
+
+  expect(desktop.status).toBe(202)
+  expect(await desktop.json()).toEqual(reply)
+  const phone = queuedChatReply({ id: SESSION, messages: [] }, reply)
+
+  expect(phone.headers.get('content-type')).toStartWith('text/event-stream')
+  expect(await phone.text()).toBe('data: {"type":"atlas-stream-done"}\n\n')
+})
+
+test('a message with inline photos waits like any other, as a direct send would take it', async () => {
+  const done = busy()
+  const photo: UIMessage = {
+    id: 'photo',
+    role: 'user',
+    parts: [
+      { type: 'text', text: 'what is this' },
+      {
+        type: 'file',
+        mediaType: 'image/jpeg',
+        url: `data:image/jpeg;base64,${'A'.repeat(600_000)}`,
+      },
+    ],
+  }
+
+  try {
+    expect((await admit('photo', { clientView: [photo] }))?.mode).toBe('queued')
+  } finally {
+    done()
+  }
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual(['photo'])
+})
+
+test('a message larger than a stored message can be is refused before it waits', async () => {
+  const huge: UIMessage = {
+    id: 'huge',
+    role: 'user',
+    parts: [{ type: 'text', text: 'A'.repeat(12_000_001) }],
+  }
+
+  await expect(admit('huge', { clientView: [huge] })).rejects.toMatchObject({
+    code: 'message_too_large',
+  })
+  expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
 })
 
 test('a message id that could match another message is refused', async () => {
@@ -387,4 +504,46 @@ test('an ordinary duplicate persisted input still releases its claim without lau
   })
   expect(released).toBe(1)
   expect(historyReads).toBe(0)
+})
+
+test('a queued answer keeps the question it names and is admitted naming it', () => {
+  const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
+  const context = queuedChatContext(
+    c,
+    'en',
+    {
+      clientCapabilities: { localTools: true, decisionReplies: true },
+      decisionReplyTo: 'nuphos-q1',
+    },
+    undefined,
+  )
+
+  expect(context).toMatchObject({ decisionReplies: true, decisionReplyTo: 'nuphos-q1' })
+  // An id the resolve route would refuse is not carried at all.
+  expect(
+    queuedChatContext(c, 'en', { decisionReplyTo: 'x'.repeat(201) }, undefined),
+  ).not.toHaveProperty('decisionReplyTo')
+  const input = message('queued-answer')
+  const body = queuedChatBody('conv-1', 'team-1', {
+    streamId: 'stream-q',
+    message: input,
+    locale: 'en',
+    localTools: true,
+    decisionReplies: true,
+    decisionReplyTo: 'nuphos-q1',
+  })
+
+  expect(body).toMatchObject({
+    id: 'conv-1',
+    decisionReplyTo: 'nuphos-q1',
+    clientCapabilities: { decisionReplies: true },
+  })
+  expect(
+    queuedChatBody('conv-1', 'team-1', {
+      streamId: 's',
+      message: input,
+      locale: 'en',
+      localTools: true,
+    }),
+  ).not.toHaveProperty('decisionReplyTo')
 })

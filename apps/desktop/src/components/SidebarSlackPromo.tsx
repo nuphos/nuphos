@@ -2,6 +2,8 @@ import clsx from 'clsx'
 import { Minus, X } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
+import { t } from '../i18n'
+
 // A one-shot promo card docked at the bottom of the sidebar, shown once the
 // first-run onboarding checklist is gone (the team has cloud infra connected)
 // but the team has no Slack workspace bound yet. Connecting Slack unmounts it
@@ -31,6 +33,10 @@ function readPersisted(key: string): boolean {
     return false
   }
 }
+
+const [connectBefore, connectAfter = ''] = t('Connect to Slack')
+  .split('Slack')
+  .map((part) => part.trim())
 
 export function SidebarSlackPromo({
   teamId,
@@ -84,14 +90,15 @@ export function SidebarSlackPromo({
             />
             <div className="px-2.5 pb-2.5 pt-1">
               <div className="flex items-center gap-1.5 text-[13px] font-medium text-white">
-                <span>Connect to</span>
+                {/* The logo sits before the word "Slack", wherever a language puts it. */}
+                {connectBefore && <span>{connectBefore}</span>}
                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md bg-white">
                   <img src="/slack.svg" alt="" draggable={false} className="h-3 w-3 select-none" />
                 </span>
-                <span>Slack</span>
+                <span>Slack{connectAfter}</span>
               </div>
               <p className="mt-0.5 text-[11.5px] leading-snug text-white/75">
-                Chat with the agent and get updates right in your Slack workspace.
+                {t('Chat with the agent and get updates right in your Slack workspace.')}
               </p>
               <button
                 type="button"
@@ -99,7 +106,7 @@ export function SidebarSlackPromo({
                 onClick={onConnect}
                 className="mt-2 flex h-7 w-full items-center justify-center rounded-md bg-[#007A5A] text-[12px] font-medium text-white transition-opacity hover:opacity-90"
               >
-                Connect
+                {t('Connect')}
               </button>
             </div>
           </div>
@@ -117,8 +124,8 @@ export function SidebarSlackPromo({
             type="button"
             disabled={collapsed}
             onClick={() => setCollapsedPersisted(true)}
-            title="Minimize"
-            aria-label="Minimize Slack promo"
+            title={t('Minimize')}
+            aria-label={t('Minimize Slack promo')}
             className="flex h-5 w-5 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Minus className="h-3 w-3" strokeWidth={2} />
@@ -127,8 +134,8 @@ export function SidebarSlackPromo({
             type="button"
             disabled={collapsed}
             onClick={handleDismiss}
-            title="Dismiss"
-            aria-label="Dismiss Slack promo"
+            title={t('Dismiss')}
+            aria-label={t('Dismiss Slack promo')}
             className="flex h-5 w-5 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="h-3 w-3" strokeWidth={2} />
@@ -155,7 +162,7 @@ export function SidebarSlackPromo({
                 type="button"
                 disabled={!collapsed}
                 onClick={() => setCollapsedPersisted(false)}
-                aria-label="Expand Slack promo"
+                aria-label={t('Expand Slack promo')}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-white">
@@ -167,7 +174,7 @@ export function SidebarSlackPromo({
                   />
                 </span>
                 <span className="truncate text-[12px] font-medium text-white">
-                  Connect to Slack
+                  {t('Connect to Slack')}
                 </span>
               </button>
               <button
@@ -176,7 +183,7 @@ export function SidebarSlackPromo({
                 onClick={onConnect}
                 className="h-6 flex-shrink-0 rounded-md bg-[#007A5A] px-2.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90"
               >
-                Connect
+                {t('Connect')}
               </button>
             </div>
           </div>

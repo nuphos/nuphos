@@ -3,6 +3,8 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import { PRESETS } from './stall'
 import { getAgentLocale } from './textUtils'
 
@@ -33,7 +35,7 @@ function splitForAnimation(text: string, lang: string): string[] {
   }
 }
 
-export function AgentHomeAnimation({ title = 'What should we work on?' }: { title?: string }) {
+export function AgentHomeAnimation({ title = t('What should we work on?') }: { title?: string }) {
   const segments = splitForAnimation(title, getAgentLocale() ?? navigator.language ?? 'en')
   const shouldReduceMotion = useReducedMotion()
   const titleStart = 0.45

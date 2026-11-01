@@ -67,7 +67,7 @@ class DeviceMentionFixtureDeviceTest {
         val sessions = SessionMentionSource(team) { listOf(AgentConversation("synthetic-chat", title = "Fixture chat")) }
         compose.setContent {
             NuphosTheme(darkTheme = dark) {
-                CompositionLocalProvider(LocalAgentStore provides store) {
+                CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                     Surface(Modifier.fillMaxSize()) {
                         Column(Modifier.fillMaxSize().padding(top = 48.dp)) {
                             Text("Synthetic fixture · no real service or permissions", Modifier.padding(16.dp))
@@ -129,7 +129,7 @@ class DeviceMentionFixtureDeviceTest {
         val denied = DeviceMentionSource(team, load = { catalog }, pick = { picks++; false })
         compose.setContent {
             NuphosTheme {
-                CompositionLocalProvider(LocalAgentStore provides store) {
+                CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                     Column {
                         Text("Synthetic fixture · failure / read-only / scope")
                         ChatComposer(isStreaming = false, selection = selection,

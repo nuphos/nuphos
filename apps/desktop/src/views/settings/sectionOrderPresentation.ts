@@ -1,12 +1,14 @@
+import { t } from '../../i18n/index.ts'
+
 /** The Agents page's top-level sections, in their default order. */
 export const AGENT_SECTION_IDS = ['boxes', 'usage', 'agents'] as const
 
 export type AgentSectionId = (typeof AGENT_SECTION_IDS)[number]
 
 export const AGENT_SECTION_LABELS: Record<AgentSectionId, string> = {
-  boxes: 'Computers',
-  usage: 'Subscription usage',
-  agents: 'Runtimes',
+  boxes: t('Computers'),
+  usage: t('Subscription usage'),
+  agents: t('Runtimes'),
 }
 
 const STORAGE_PREFIX = 'nuphos.agentsPageOrder.v1:'
@@ -125,7 +127,7 @@ export function isNoopDrop(fromIndex: number, dropIndex: number): boolean {
 
 /** Read out after a move so screen reader users hear where the section went. */
 export function moveAnnouncement(label: string, position: number, total: number): string {
-  return `${label} moved to position ${String(position)} of ${String(total)}`
+  return t('{label} moved to position {position} of {total}', { label, position, total })
 }
 
 /**

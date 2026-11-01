@@ -1,6 +1,7 @@
 import { clsx } from 'clsx'
 import { History, Star } from 'lucide-react'
 
+import { t } from '../../i18n'
 import { newTabOptionDomId } from '../../lib/launcherMatch'
 
 import type { Item } from '../../components/sidebar/types'
@@ -64,8 +65,8 @@ export function NewTabOptionRow({
           tabIndex={-1}
           onClick={() => onRemoveFavorite(item)}
           className="mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-warning/80 opacity-0 transition-all hover:bg-zGray-700/45 hover:text-warning group-hover:opacity-100"
-          title={`Remove ${option.label} from Favorites`}
-          aria-label={`Remove ${option.label} from Favorites`}
+          title={t('Remove {title} from Favorites', { title: option.label })}
+          aria-label={t('Remove {title} from Favorites', { title: option.label })}
         >
           <Star className="h-3 w-3" fill="currentColor" strokeWidth={1.7} />
         </button>

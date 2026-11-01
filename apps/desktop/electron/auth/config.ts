@@ -3,14 +3,16 @@ import path from 'node:path'
 
 import yaml from 'js-yaml'
 
-import { apiUrl } from '../api-endpoint.ts'
+import { apiUrl, useAccount } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
 import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
+import { accountKey, keyOf, normalizedApi, stored, summaries, waiting } from './accounts.ts'
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 
 import type { AccountContext } from '../auth-session.ts'
 import type { UserInfo } from '../auth-status.ts'
+import type { AccountSummary, StoredAccount } from './accounts.ts'
 import type { TokenStore } from './token-store.ts'
 
 export const NUPHOS_LOGIN_URL =
@@ -29,6 +31,10 @@ export type Config = {
   // Full identity from the last successful /auth/me, so a transient failure at
   // startup can keep the session alive instead of looking like a logout.
   userInfo?: UserInfo
+  /** The backend that issued the token. */
+  api?: string
+  /** The other signed-in accounts (accounts.ts). */
+  accounts?: StoredAccount[]
 }
 
 type ConfigFileDeps = {
@@ -36,10 +42,14 @@ type ConfigFileDeps = {
   store: TokenStore
   secure: () => boolean
   apiUrl: () => string
-  onToken: (token: string | null, userId: string | null) => void
+  /** The account now signed in, with its backend. */
+  onAccount: (api: string, token: string | null, userId: string | null) => void
   /** The CLI's cli.yaml, which this app shared before it had its own file. */
   legacyPath?: string
 }
+
+// No empty list in the file.
+const listed = (accounts: StoredAccount[]) => (accounts.length > 0 ? accounts : undefined)
 
 /** This app's sign-in file, with its token in the keychain where there is one. */
 export function configFile(deps: ConfigFileDeps) {
@@ -62,14 +72,7 @@ export function configFile(deps: ConfigFileDeps) {
     await fs.chmod(at, 0o600)
   }
 
-  /** One item per user and backend, so a dev backend's sign-in never replaces Nuphos Cloud's. */
-  function accountFor(cfg: Config): string {
-    let api = deps.apiUrl().trim()
-
-    while (api.endsWith('/')) api = api.slice(0, -1)
-
-    return `${cfg.userInfo?.id ?? 'default'}@${api}`
-  }
+  const currentApi = () => normalizedApi(deps.apiUrl())
 
   async function forget(account: string | undefined) {
     // Only the packaged app made the item, so only it may remove it.
@@ -94,30 +97,101 @@ export function configFile(deps: ConfigFileDeps) {
     return run
   }
 
+  async function tokenOf(account: StoredAccount): Promise<string | null> {
+    if (account.token) return account.token
+    if (!account.keychainAccount || !deps.secure()) return null
+
+    return deps.store.get(account.keychainAccount).catch((e: unknown) => {
+      console.warn('auth: failed to read the session token from the keychain', e)
+
+      return null
+    })
+  }
+
+  /** Moves the token into the keychain item `item`; `active` then only names it. */
+  async function intoKeychain(active: Config, item: string, token: string, had?: string) {
+    try {
+      // Update in place only an item this app made: one that was already
+      // there could carry another app's access (a pre-created item, as in
+      // the XARA attacks), so it is replaced.
+      if (had !== item) await deps.store.delete(item).catch(() => null)
+      await deps.store.set(item, token)
+      active.token = undefined
+      active.keychainAccount = item
+    } catch (e) {
+      // Still signed in, only less safely.
+      console.warn(`auth: keeping the session token in ${deps.path} instead`, e)
+    }
+  }
+
+  /** Makes `cfg` the active account (none without a token); one signed in before it waits. */
   async function save(cfg: Config): Promise<void> {
     const previous = (await readFile(deps.path)) ?? {}
-    const stored: Config = { ...cfg, keychainAccount: undefined }
+    const api = currentApi()
+    // One item per user and backend, so a dev backend's sign-in never replaces Nuphos Cloud's.
+    const item = accountKey(api, cfg.userInfo)
+    const active: Config = { ...stored(cfg, api), api, keychainAccount: undefined }
+    const others = cfg.token
+      ? waiting(previous.accounts ?? [], previous, item, api)
+      : (previous.accounts ?? [])
 
-    if (cfg.token && deps.secure()) {
-      const account = accountFor(cfg)
+    if (cfg.token && deps.secure())
+      await intoKeychain(active, item, cfg.token, previous.keychainAccount)
+    // A sign-in that now waits in the list keeps its item.
+    const kept = others.some((a) => a.keychainAccount === previous.keychainAccount)
 
-      try {
-        // Update in place only an item this app made: one that was already
-        // there could carry another app's access (a pre-created item, as in
-        // the XARA attacks), so it is replaced.
-        if (previous.keychainAccount !== account)
-          await deps.store.delete(account).catch(() => undefined)
-        await deps.store.set(account, cfg.token)
-        stored.token = undefined
-        stored.keychainAccount = account
-      } catch (e) {
-        // Still signed in, only less safely.
-        console.warn(`auth: keeping the session token in ${deps.path} instead`, e)
-      }
-    }
-    if (previous.keychainAccount !== stored.keychainAccount) await forget(previous.keychainAccount)
-    await writeFile(deps.path, cfg.token ? stored : {})
-    deps.onToken(cfg.token ?? null, cfg.userInfo?.id ?? null)
+    if (previous.keychainAccount !== active.keychainAccount && !kept)
+      await forget(previous.keychainAccount)
+    await writeFile(deps.path, { ...(cfg.token ? active : {}), accounts: listed(others) })
+    deps.onAccount(api, cfg.token ?? null, cfg.userInfo?.id ?? null)
+  }
+
+  /** Makes a waiting account the active one, on its own backend. */
+  async function switchTo(key: string): Promise<void> {
+    const previous = (await readFile(deps.path)) ?? {}
+    const api = currentApi()
+    const others = previous.accounts ?? []
+    const target = others.find((a) => keyOf(a, api) === key)
+
+    if (!target) throw new Error('That account is not signed in on this computer')
+    const token = await tokenOf(target)
+
+    if (!token) throw new Error('Sign in to that account again')
+    const rest = waiting(others, previous, key, api)
+
+    await writeFile(deps.path, { ...target, accounts: listed(rest) })
+    deps.onAccount(target.api ?? api, token, target.userInfo?.id ?? null)
+  }
+
+  /** Signs a waiting account out of this app; its token is returned to end it on its backend. */
+  async function forgetAccount(key: string): Promise<{ api: string; token: string } | null> {
+    const previous = (await readFile(deps.path)) ?? {}
+    const api = currentApi()
+    const others = previous.accounts ?? []
+    const target = others.find((a) => keyOf(a, api) === key)
+
+    if (!target) return null
+    const token = await tokenOf(target)
+    const rest = others.filter((a) => a !== target)
+
+    await writeFile(deps.path, { ...previous, accounts: listed(rest) })
+    await forget(target.keychainAccount)
+
+    return token ? { api: target.api ?? api, token } : null
+  }
+
+  /** Moves the active account, issued by `api`, to the list: signed in, but not in use. */
+  async function park(api: string): Promise<void> {
+    const previous = (await readFile(deps.path)) ?? {}
+    const others = waiting(previous.accounts ?? [], previous, '', normalizedApi(api))
+
+    await writeFile(deps.path, { accounts: listed(others) })
+  }
+
+  async function list(): Promise<AccountSummary[]> {
+    const cfg = (await readFile(deps.path)) ?? {}
+
+    return summaries(cfg, cfg.accounts ?? [], currentApi())
   }
 
   /**
@@ -173,10 +247,14 @@ export function configFile(deps: ConfigFileDeps) {
     read: () => inTurn(load),
     write: (cfg: Config) => {
       // A sign-out takes effect in memory at once, before its turn.
-      if (!cfg.token) deps.onToken(null, null)
+      if (!cfg.token) deps.onAccount(currentApi(), null, null)
 
       return inTurn(() => save(cfg))
     },
+    switchTo: (key: string) => inTurn(() => switchTo(key)),
+    forgetAccount: (key: string) => inTurn(() => forgetAccount(key)),
+    park: (api: string) => inTurn(() => park(api)),
+    list: () => inTurn(list),
   }
 }
 
@@ -186,13 +264,15 @@ const defaultConfigFile = configFile({
   store: keychainStore,
   secure: () => secureStorageEnabled(),
   apiUrl,
-  onToken: (token, userId) => {
-    authSession.set(token, userId)
-  },
+  onAccount: useAccount,
 })
 
 export const readConfig = defaultConfigFile.read
 export const writeConfig = defaultConfigFile.write
+export const switchAccountConfig = defaultConfigFile.switchTo
+export const forgetAccountConfig = defaultConfigFile.forgetAccount
+export const listAccountConfigs = defaultConfigFile.list
+export const parkAccountConfig = defaultConfigFile.park
 
 /**
  * The account a request goes out as: one context, so its backend, token and

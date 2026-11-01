@@ -2,6 +2,7 @@ import { Database, Loader2, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { t } from '../i18n'
 
 import { MongoDocumentsExplorer } from './MongoDocumentsExplorer'
 import { useResetOnKey } from './useResetOnKey'
@@ -96,7 +97,7 @@ export function MongoQueryConsole({
       <div className="flex h-[620px] min-h-0">
         <aside className="w-56 shrink-0 overflow-y-auto border-r border-zGray-800 bg-zGray-900/45 p-2">
           <div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
-            <span>Query scope</span>
+            <span>{t('Query scope')}</span>
             {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           </div>
           {catalog?.databases.map((item) => (
@@ -139,7 +140,7 @@ export function MongoQueryConsole({
             />
           ) : (
             <div className="flex h-full items-center justify-center text-[11.5px] text-tertiary">
-              Select a collection to query.
+              {t('Select a collection to query.')}
             </div>
           )}
         </main>

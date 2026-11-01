@@ -10,8 +10,12 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+
+val LocalChatCanvas = staticCompositionLocalOf { SurfaceLight }
 
 private val LightScheme = lightColorScheme(
     primary = BrandLight,
@@ -115,6 +119,6 @@ fun NuphosTheme(
         motionScheme = MotionScheme.expressive(),
         typography = NuphosTypography,
         shapes = NuphosShapes,
-        content = content,
+        content = { CompositionLocalProvider(LocalChatCanvas provides if (darkTheme) CanvasDark else SurfaceLight, content = content) },
     )
 }

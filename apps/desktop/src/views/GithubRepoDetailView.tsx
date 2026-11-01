@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import { Table } from '../components/Table'
 import { useSlowPoll } from '../hooks/useSlowPoll'
+import { t } from '../i18n'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { prColumns, runColumns } from './github-repo/githubRepoColumns'
@@ -155,7 +156,7 @@ export function GithubRepoDetailView({
             </div>
           ) : prs === null ? (
             <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-              Loading…
+              {t('Loading…')}
             </div>
           ) : (
             <>
@@ -167,8 +168,12 @@ export function GithubRepoDetailView({
                 storageKey={`github.prs.${String(installation.installationId)}.${String(repo.id)}`}
                 empty={
                   filter
-                    ? `No pull requests match "${filter}"`
-                    : `No ${prState === 'all' ? '' : prState + ' '}pull requests`
+                    ? t('No pull requests match "{filter}"', { filter })
+                    : prState === 'all'
+                      ? t('No pull requests')
+                      : prState === 'open'
+                        ? t('No open pull requests')
+                        : t('No closed pull requests')
                 }
                 onPrimaryAction={onSelectPull}
                 onRowContextMenu={onPrContextMenu}
@@ -188,7 +193,7 @@ export function GithubRepoDetailView({
             </div>
           ) : runs === null ? (
             <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-              Loading…
+              {t('Loading…')}
             </div>
           ) : (
             <>
@@ -198,7 +203,11 @@ export function GithubRepoDetailView({
                 rows={filteredRuns}
                 rowKey={(r) => String(r.id)}
                 storageKey={`github.runs.${String(installation.installationId)}.${String(repo.id)}`}
-                empty={filter ? `No workflow runs match "${filter}"` : 'No workflow runs'}
+                empty={
+                  filter
+                    ? t('No workflow runs match "{filter}"', { filter })
+                    : t('No workflow runs')
+                }
                 onPrimaryAction={(r) => window.open(r.htmlUrl, '_blank')}
                 onRowContextMenu={onRunContextMenu}
               />

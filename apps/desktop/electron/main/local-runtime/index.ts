@@ -27,7 +27,7 @@ import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
-import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
+import { macScreenApp } from './mac-screen-app.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
@@ -65,7 +65,9 @@ function broadcastState(): void {
 }
 
 // On a Mac, a conversation's owner can watch the Mac's own screen (mac-screen.ts).
-const screenPool = enableMacScreen(dataDir(), () => tunnel?.sendStatus())
+const macScreen = macScreenApp(dataDir(), bundleRoot, () => tunnel?.sendStatus())
+
+export const setPhoneControl = macScreen.set
 let tunnel: RuntimeTunnelClient | undefined
 
 const controller: LocalRuntimeController = new LocalRuntimeController({
@@ -147,7 +149,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       status,
       onChange,
-      ...(screenPool && macScreenDeps(screenPool, status, instances)),
+      ...macScreen.deps(status, instances),
     })
 
     return tunnel
@@ -262,6 +264,7 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
   return {
     ...controller.state(),
     sleepPrevention: sleep.sleepState(),
+    ...macScreen.state(),
     claudeLogin: logins['claude-code'].state(),
     codexLogin: logins.codex.state(),
     deviceId: readDeviceIdentity().deviceId,

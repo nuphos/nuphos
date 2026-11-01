@@ -14,15 +14,16 @@ import { readThisComputerFile, resolveThisComputerFile } from './linked-file.ts'
 import { installAgentCli } from './local-runtime/agent-cli-install.ts'
 import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import {
-  getLocalRuntimeState,
-  startLocalClaudeLogin,
-  submitLocalClaudeLoginCode,
-  startLocalCodexLogin,
-  cancelLocalCodexLogin,
   cancelLocalClaudeLogin,
+  cancelLocalCodexLogin,
+  getLocalRuntimeState,
   listLocalRuntimeActivity,
   openLocalRuntimeWorkspace,
   refreshLocalRuntime,
+  setPhoneControl,
+  startLocalClaudeLogin,
+  startLocalCodexLogin,
+  submitLocalClaudeLoginCode,
   userEnv,
 } from './local-runtime/index.ts'
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
@@ -49,6 +50,8 @@ export const deviceChannels = {
   'localRuntime:startClaudeLogin': () => startLocalClaudeLogin(),
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),
+  'localRuntime:setPhoneControl': (_e: unknown, allowed: unknown) =>
+    setPhoneControl(allowed === true),
   'localRuntime:getState': () => getLocalRuntimeState(),
   'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) => {
     const local = await readThisComputerFile(args[3], getLocalRuntimeState().workspace)

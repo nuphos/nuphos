@@ -1,7 +1,8 @@
-import { Archive, FileBox } from 'lucide-react'
+import { FileBox } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
@@ -14,10 +15,12 @@ import { toast } from '../ui/toast'
 
 import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
-import { ARCHIVE_IN_FLIGHT, visibleSidebarChats } from './local-archive-guard'
+import { ARCHIVE_IN_FLIGHT, visibleSidebarChats, withRestoredChats } from './local-archive-guard'
+import { RowMenuButton } from './row-menu-button'
 import { AGENT_SESSIONS_POLL_MS, agentSessionsCacheKey, crdCacheKey } from './state'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
+import type { LocalRestoreGuard } from './local-archive-guard'
 import type { Item, Section } from './types'
 import type { AgentConversation } from '../../api'
 import type { CustomResourceDefinitionItem, Scope } from '../../types'
@@ -73,7 +76,7 @@ export function useSidebarCrdSections({
   return useMemo<Section[]>(() => {
     if (!clusterContext) return []
     if (!customResourceDefinitions) {
-      return [{ title: 'Custom resource types', items: [], loading: true }]
+      return [{ title: t('Custom resource types'), items: [], loading: true }]
     }
 
     const groups = new Map<string, Item[]>()
@@ -148,6 +151,7 @@ export function useSidebarChats({
   const refreshSeqRef = useRef(0)
   const refreshingTeamRef = useRef<string | null>(null)
   const locallyArchivedRef = useRef<Map<string, number>>(new Map())
+  const locallyRestoredRef = useRef<LocalRestoreGuard<AgentConversation>>(new Map())
   const refreshSessions = useCallback(async () => {
     // Workspace's loading skeleton intentionally renders the shared Sidebar
     // with an empty team id. Do not start a team-scoped request until the real
@@ -163,7 +167,8 @@ export function useSidebarChats({
       )
 
       if (!rows) return
-      const conversations = visibleSidebarChats(rows, locallyArchivedRef.current, seq)
+      const restored = withRestoredChats(rows, locallyRestoredRef.current, seq)
+      const conversations = visibleSidebarChats(restored, locallyArchivedRef.current, seq)
 
       writeSwrCache(agentSessionsCacheKey(teamId), conversations)
       setAgentSessions(conversations)
@@ -188,9 +193,11 @@ export function useSidebarChats({
 
   const [archivingIds, setArchivingIds] = useState<ReadonlySet<string>>(() => new Set())
 
-  useSidebarArchiveEvents({
+  const { offerUndo } = useSidebarArchiveEvents({
     teamId,
+    sessions: agentSessions,
     locallyArchivedRef,
+    locallyRestoredRef,
     refreshSeqRef,
     setSessions: setAgentSessions,
     refresh: refreshSessions,
@@ -229,11 +236,12 @@ export function useSidebarChats({
       })
       if (ok) {
         announceChatArchived({ sessionId, teamId })
+        offerUndo(sessionId)
       } else {
-        toast.error('Could not archive agent')
+        toast.error(t('Could not archive agent'))
       }
     },
-    [teamId],
+    [teamId, offerUndo],
   )
 
   const unlinkChat = useCallback(
@@ -242,7 +250,7 @@ export function useSidebarChats({
         await api.agentUnlinkConversationParent(sessionId, teamId)
         void refreshSessions()
       } catch (err) {
-        toast.apiError('Could not unlink agent', err)
+        toast.apiError(t('Could not unlink agent'), err)
       }
     },
     [teamId, refreshSessions],
@@ -264,30 +272,19 @@ export function useSidebarChats({
 
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
-  const chatItems: Item[] = agentSessions.map((conversation) =>
-    chatSidebarItem({
+  const chatItems: Item[] = agentSessions.map((conversation) => {
+    const item = chatSidebarItem({
       conversation,
       teamId,
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),
       unread: unreadSessions.has(conversation.sessionId),
-      actions: (
-        <span
-          role="button"
-          aria-label="Archive agent"
-          title="Archive agent"
-          onClick={(e) => {
-            e.stopPropagation()
-            void archiveChat(conversation.sessionId)
-          }}
-          className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]"
-        >
-          <Archive className="w-3.5 h-3.5" strokeWidth={1.8} />
-        </span>
-      ),
-    }),
-  )
+    })
+
+    // A menu rather than a one-click archive: a stray click only opens it.
+    return { ...item, actions: <RowMenuButton title={item.label} /> }
+  })
   const newChatActive = chatShown && !agentSessionId
 
-  return { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
+  return { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
 }

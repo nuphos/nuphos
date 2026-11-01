@@ -1,4 +1,6 @@
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { createMessageMetadata } from '@/lib/agent/message-attribution'
+import { attributionHeader } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
@@ -13,13 +15,14 @@ import { withSessionDesktops } from './session-desktops'
 import { steeringText } from './steering-receipt'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
+import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { AgentConversation } from '@/lib/agent/db'
 
 /** No live session to report on: the next prompt starts or restores one. */
 export const READY_FOR_NEXT_MESSAGE: SessionExecutionState = {
   state: 'dormant',
   schemaVersion: 2,
-  label: 'Ready — your next message starts the agent',
+  phase: 'dormant',
   actions: { send: true, cancel: false, steer: false, reply: false },
 }
 
@@ -147,12 +150,58 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
 }
 
 /**
+ * Writes a secret the user typed into a file on the conversation's runtime and
+ * returns its path. It rides the attachment program as an inline data URL, so
+ * the value never lands in the transcript, the database or object storage.
+ */
+export async function putConversationSecret(
+  conversation: AgentConversation,
+  secret: { name: string; value: string; userId: string },
+): Promise<string> {
+  const attachment = liveAttachment(conversation)
+
+  if (!attachment || !conversation.teamId)
+    throw new AppError(409, 'runtime_unavailable', 'This conversation has no running agent')
+  const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation, {
+    purpose: 'control',
+    userId: secret.userId,
+  })
+
+  if (!endpoint || endpoint.url !== attachment.runtimeUrl)
+    throw new AppError(409, 'runtime_unavailable', 'Conversation runtime changed')
+  const bytes = Buffer.from(secret.value, 'utf8')
+  const [file] = await materializeRuntimeAttachments(
+    conversation.teamId,
+    conversation.userId,
+    endpoint,
+    [
+      {
+        name: secret.name,
+        url: `data:application/octet-stream;base64,${bytes.toString('base64')}`,
+        size: bytes.length,
+      },
+    ],
+    true,
+  )
+  // file:///C:/x on a Windows computer, file:///tmp/x elsewhere.
+  const path = decodeURIComponent(new URL(file!.uri).pathname)
+
+  return /^\/[A-Za-z]:\//u.test(path) ? path.slice(1) : path
+}
+
+/**
  * Deliver to the existing native turn. No queue, resume, or prompt fallback.
  * Returns the text the runtime received, which is also the steering receipt.
  */
 export async function steerConversationRuntime(
   conversation: AgentConversation,
-  steer: { text: string; groupId?: string; userId: string },
+  steer: {
+    text: string
+    groupId?: string
+    userId: string
+    deviceId?: string
+    cliToken?: CliTokenPrincipal
+  },
   messageId: string,
 ): Promise<string> {
   const attachment = liveAttachment(conversation)
@@ -192,11 +241,17 @@ export async function steerConversationRuntime(
 
   try {
     await client.initialize()
+    // The same attribution a prompt carries: without it the agent cannot tell
+    // a mid-turn instruction or approval from its sender's from anyone else's.
     const result = await client.steerSession(
       attachment.openabSessionId,
       text,
       messageId,
       attachments,
+      attributionHeader(
+        messageId,
+        await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken),
+      ),
     )
 
     if (result.outcome !== 'injected')

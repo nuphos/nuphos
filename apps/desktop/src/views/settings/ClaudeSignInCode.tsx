@@ -3,6 +3,7 @@ import { useId, useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 /** Mounted only during the current sign-in; codes never enter persisted runtime state. */
 export function ClaudeSignInCode() {
@@ -18,7 +19,7 @@ export function ClaudeSignInCode() {
       await api.localRuntimeSubmitClaudeLoginCode(value)
       setCode('')
     } catch {
-      toast.error('Could not submit sign-in code', 'Try signing in again.')
+      toast.error(t('Could not submit sign-in code'), t('Try signing in again.'))
     } finally {
       setSubmitting(false)
     }
@@ -33,7 +34,7 @@ export function ClaudeSignInCode() {
       }}
     >
       <label className="block text-sm text-secondary" htmlFor={id}>
-        If Claude shows an authorization code, paste it here.
+        {t('If Claude shows an authorization code, paste it here.')}
       </label>
       <input
         id={id}
@@ -44,7 +45,7 @@ export function ClaudeSignInCode() {
         className="w-full rounded-md border border-zGray-700 bg-transparent px-3 py-2 outline-none focus:border-zViolet-500 focus:ring-1 focus:ring-zViolet-500"
       />
       <Button size="sm" type="submit" disabled={submitting || !code.trim()}>
-        Submit code
+        {t('Submit code')}
       </Button>
     </form>
   )

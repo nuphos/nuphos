@@ -86,6 +86,9 @@ export async function materializeRuntimeAttachments(
   ownerUserId: string,
   runtime: TeamRuntimeEndpoint,
   files: RuntimeAttachment[],
+  /** Kept apart from attachments, so even a shared cloud /tmp expires it. A Desktop's
+   * own job keeps everything in its workspace, which already expires. */
+  secret = false,
 ): Promise<PromptAttachment[]> {
   if (!files.length) return []
   // A runtime job needs the operator credential, which a turn's transport endpoint lacks.
@@ -119,7 +122,7 @@ export async function materializeRuntimeAttachments(
         stdin: JSON.stringify(
           job === 'attachments'
             ? { files }
-            : { runner: ATTACHMENT_RUNNER, script: '', params: { files } },
+            : { runner: ATTACHMENT_RUNNER, script: '', params: { files, secret } },
         ),
         env: {},
         timeoutMs: 120_000,

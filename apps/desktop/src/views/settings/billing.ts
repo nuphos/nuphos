@@ -2,9 +2,10 @@ import { useState } from 'react'
 
 import { api } from '../../api.ts'
 import { toast } from '../../components/ui/toast.ts'
+import { t } from '../../i18n/index.ts'
 
 /** Shown when the billing service can't be reached: opening billing must never fail silently. */
-export const BILLING_UNREACHABLE = "Couldn't reach billing. Try again later."
+export const BILLING_UNREACHABLE = t("Couldn't reach billing. Try again later.")
 
 /** Opens Checkout for a `vcpus` plan, or the portal without one; false when it couldn't. */
 export async function openBilling(teamId: string, vcpus?: number): Promise<boolean> {
@@ -13,7 +14,7 @@ export async function openBilling(teamId: string, vcpus?: number): Promise<boole
 
     return true
   } catch (error) {
-    toast.apiError('Could not open billing', error, { fallback: BILLING_UNREACHABLE })
+    toast.apiError(t('Could not open billing'), error, { fallback: BILLING_UNREACHABLE })
 
     return false
   }

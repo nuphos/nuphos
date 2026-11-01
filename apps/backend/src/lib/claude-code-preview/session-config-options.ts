@@ -83,7 +83,7 @@ export const sessionConfigPickSchema = z
   .object({
     model: z.string().trim().min(1).max(500).optional(),
     effort: z.string().trim().min(1).max(100).optional(),
-    fast: z.enum(['on', 'off']).optional(),
+    fast: z.string().trim().min(1).max(100).optional(),
   })
   .strict()
 

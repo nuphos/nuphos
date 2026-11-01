@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button'
 import { useReportLoading } from '../components/useReportLoading'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { InviteMemberModal } from './members/InviteMemberModal'
 import { buildMemberColumns } from './members/memberColumns'
@@ -109,8 +110,9 @@ export function TeamMembersView({
   const inWorkspaceShell = filter !== undefined
   const { isActive } = useWorkspaceTab()
 
-  useToolbarPrimaryAction(inWorkspaceShell && isActive && canManageMembers ? 'Invite' : null, () =>
-    setInviteOpen(true),
+  useToolbarPrimaryAction(
+    inWorkspaceShell && isActive && canManageMembers ? t('Invite') : null,
+    () => setInviteOpen(true),
   )
 
   useEffect(() => {
@@ -137,7 +139,10 @@ export function TeamMembersView({
         // Settings overlay has no toolbar; mirror the workspace's two rows — a
         // titled header, then a controls row (search left, Invite right).
         <>
-          <PageHeader title="Members" subtitle="Invite teammates and review workspace access" />
+          <PageHeader
+            title={t('Members')}
+            subtitle={t('Invite teammates and review workspace access')}
+          />
           <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6">
             <SearchBox
               filter={internalFilter}
@@ -148,7 +153,7 @@ export function TeamMembersView({
             {canManageMembers && (
               <Button size="sm" type="button" onClick={() => setInviteOpen(true)}>
                 <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-                Invite
+                {t('Invite')}
               </Button>
             )}
           </div>
@@ -166,7 +171,7 @@ export function TeamMembersView({
             }
             storageKey="team.members"
             defaultSort={{ key: 'name', dir: 'asc' }}
-            empty="No members"
+            empty={t('No members')}
             onRowContextMenu={
               canManageMembers
                 ? (row, e) => {

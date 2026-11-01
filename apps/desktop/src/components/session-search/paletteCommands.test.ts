@@ -33,8 +33,11 @@ test('another team is found by name and switches to it', () => {
     { id: 't2', name: 'Design Team' },
   ]
 
+  const found = matchPaletteCommands('design', teams).map(({ id, label }) => ({ id, label }))
+
+  assert.ok(found.some(({ id }) => id === 'team.designs'))
   assert.deepEqual(
-    matchPaletteCommands('design', teams).map(({ id, label }) => ({ id, label })),
+    found.filter(({ id }) => id.startsWith('switch-team:')),
     [{ id: 'switch-team:t2', label: 'Switch to Design Team' }],
   )
   assert.ok(matchPaletteCommands('switch', teams).length >= 2)

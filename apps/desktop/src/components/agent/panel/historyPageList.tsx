@@ -2,6 +2,7 @@ import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { Archive, Loader2, Pencil } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../../i18n'
 import { useAgentUnreadSessions } from '../../../lib/agentUnreadSessions'
 import { ContextMenu } from '../../ContextMenu'
 
@@ -23,8 +24,8 @@ function ArchiveButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      aria-label="Archive agent"
-      title="Archive agent"
+      aria-label={t('Archive agent')}
+      title={t('Archive agent')}
       onClick={onClick}
       className="mr-2 hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:inline-flex focus-visible:bg-zGray-800/60 group-hover:inline-flex"
     >
@@ -93,15 +94,15 @@ export function HistoryPageList({
     return (
       <div className="px-3 py-4 text-[12.5px] text-tertiary">
         {loading
-          ? 'Loading…'
+          ? t('Loading…')
           : debouncedQuery
-            ? 'No agents match your search.'
+            ? t('No agents match your search.')
             : (emptyLabel ??
               (ownerId
-                ? 'No agents from this member yet.'
+                ? t('No agents from this member yet.')
                 : historyScope === 'team'
-                  ? 'No team agents yet.'
-                  : "You haven't started any agents yet."))}
+                  ? t('No team agents yet.')
+                  : t("You haven't started any agents yet.")))}
       </div>
     )
   }
@@ -152,7 +153,7 @@ export function HistoryPageList({
               ? ([
                   {
                     key: 'rename',
-                    label: 'Rename agent',
+                    label: t('Rename agent'),
                     icon: Pencil,
                     disabled: !teamId,
                     onSelect: () => setRenameTarget(rowMenu.conversation),
@@ -160,8 +161,8 @@ export function HistoryPageList({
                   {
                     key: 'slack-pickup',
                     label: rowMenu.conversation.activitySource?.linkedSlackThread
-                      ? 'Open Slack thread'
-                      : 'Pick up in Slack',
+                      ? t('Open Slack thread')
+                      : t('Pick up in Slack'),
                     icon: faSlack,
                     onSelect: () =>
                       pickUpConversationInSlack(rowMenu.conversation.sessionId, teamId),
@@ -171,7 +172,7 @@ export function HistoryPageList({
               : []),
             {
               key: 'archive',
-              label: 'Archive agent',
+              label: t('Archive agent'),
               icon: Archive,
               onSelect: () => onArchive(rowMenu.conversation),
             },
@@ -188,7 +189,7 @@ export function HistoryPageList({
               onClick={() => void loadMore()}
               className="text-[12px] text-tertiary transition-colors hover:text-main"
             >
-              Load more
+              {t('Load more')}
             </button>
           )}
         </div>

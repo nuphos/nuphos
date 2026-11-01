@@ -15,13 +15,14 @@ struct HomeView: View {
     @State private var plans: PlansStore?
     @State private var connectors: ConnectorsStore?
     @State private var openChat: AgentPage.OpenChat?
+    @State private var columns = NavigationSplitViewVisibility.all
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
@@ -109,32 +110,43 @@ struct HomeView: View {
             }
             #endif
         } detail: {
-            if let openChat {
-                ConversationView(session: openChat.session, initialPrompt: openChat.prompt)
-                    .id(openChat.id)
-                    // Compact pops back to the list's composer; wide has
-                    // no back, so this returns the column to it.
-                    .toolbar {
-                        if sizeClass == .regular {
-                            ToolbarItem(placement: .topBarLeading) {
-                                Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
+            // One stable root. Collapsed, swapping the column's root between
+            // these views made a reopened chat appear and vanish at once: its
+            // tasks were cancelled while it stayed on screen, never loading.
+            ZStack {
+                if let openChat {
+                    ConversationView(session: openChat.session, initialPrompt: openChat.prompt)
+                        .id(openChat.id)
+                        // Compact pops back to the list's composer; wide has
+                        // no back, so this returns the column to it.
+                        .toolbar {
+                            if sizeClass == .regular {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
+                                }
                             }
                         }
-                    }
-            } else if page == .agent, store != nil, sizeClass == .regular {
-                Theme.chatCanvas.ignoresSafeArea()
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        NewChatComposer(openChat: $openChat).readableWidth()
-                    }
-            } else {
-                Theme.canvas.ignoresSafeArea()
+                } else if page == .agent, store != nil, sizeClass == .regular {
+                    Theme.chatCanvas.ignoresSafeArea()
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            NewChatComposer(openChat: $openChat).readableWidth()
+                        }
+                } else {
+                    Theme.canvas.ignoresSafeArea()
+                }
             }
         }
+        // Wide, the list stays beside the detail. The automatic style overlays
+        // it on a portrait-shaped window (the unfolded iPhone Duo), where picking
+        // a chat or leaving the app put it away.
+        .navigationSplitViewStyle(.balanced)
         // On the split view itself, so the detail column and pushed
         // destinations see the store too — not only pageContent.
         .environment(store)
         .environment(plans)
         .environment(connectors)
+        // Wide, a conversation shows its desktop beside it, with the list put away meanwhile.
+        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .all } : nil)
         .tint(Theme.heading)
         .animation(.easeOut(duration: 0.2), value: titleCollapsed)
         .onAppear {
@@ -145,6 +157,7 @@ struct HomeView: View {
             if store == nil, let token {
                 store = AgentStore(token: token)
                 store?.me = ChatMessage.Sender(name: user.name, avatarURL: user.avatarURL)
+                store?.userId = user.id
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
             }

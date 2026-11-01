@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
 import { finalizeIncompleteTools } from './clientTools'
@@ -174,7 +175,7 @@ export function useConversationOpen(acc: Acc) {
 
       // A newer fork replaces any edit still waiting on an earlier one.
       editResendRef.current = null
-      setOpeningConversation({ sessionId: sourceSessionId, title: 'Forking agent…' })
+      setOpeningConversation({ sessionId: sourceSessionId, title: t('Forking agent…') })
       try {
         const detail = await api.agentGetConversation(sourceSessionId, teamId)
 
@@ -191,7 +192,7 @@ export function useConversationOpen(acc: Acc) {
 
         if (edit && cut < 0) {
           setOpeningConversation(null)
-          toast.error('Could not edit message', 'That message is no longer in this agent.')
+          toast.error(t('Could not edit message'), t('That message is no longer in this agent.'))
 
           return
         }
@@ -220,6 +221,15 @@ export function useConversationOpen(acc: Acc) {
           // A fork is the caller's own writable session, regardless of who created
           // the source conversation.
           readOnly: false,
+          // It runs where its own source ran; a teammate's runtime may not be
+          // the caller's to use, so that fork takes the default instead.
+          ...(detail.isOwner === false
+            ? {}
+            : {
+                agentRuntime: detail.agentRuntime,
+                runtimeId: detail.runtimeId,
+                runtimeLabel: detail.runtimeLabel,
+              }),
           slackThread: null,
           unsaved: true,
         }
@@ -240,7 +250,7 @@ export function useConversationOpen(acc: Acc) {
           return
         }
         setOpeningConversation(null)
-        toast.apiError('Could not fork agent', err)
+        toast.apiError(t('Could not fork agent'), err)
       }
     },
     [credentialOptions, teamId],

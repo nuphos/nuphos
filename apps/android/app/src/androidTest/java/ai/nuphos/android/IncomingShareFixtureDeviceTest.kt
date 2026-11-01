@@ -135,6 +135,7 @@ class IncomingShareFixtureDeviceTest {
         }
         kotlinx.coroutines.runBlocking { app.incomingShares.awaitIdle() }
         instrumentation.runOnMainSync {
+            app.incomingShares.identityReset()
             app.incomingShares.cancel()
             app.conversationLinks.value.value?.let(app.conversationLinks::complete)
             ConnectorIntents.callback.value = null
@@ -177,6 +178,11 @@ class IncomingShareFixtureDeviceTest {
 
     private fun sender(mode: String) {
         val previous = app.incomingShares.state.value?.id
+        val selectedTeam = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE)
+            .getString("nuphos.workspace.lastTeamId", a) ?: a
+        val newKey = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, selectedTeam,
+            ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
+        val previousText = app.incomingShares.text(newKey)
         val receipt = java.util.UUID.randomUUID().toString()
         app.startActivity(Intent().setClassName(senderPackage, "ai.nuphos.sharefixture.ShareSenderActivity")
             .putExtra("fixtureMode", mode).putExtra("fixtureReceipt", receipt).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -186,7 +192,8 @@ class IncomingShareFixtureDeviceTest {
                 activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).filterIsInstance<MainActivity>().firstOrNull()
                 val pending = app.incomingShares.state.value
                 ready = activity != null && if (mode == "revoke") activity?.intent?.getStringExtra("fixtureReceipt") == receipt
-                    else pending != null && pending.id != previous && !pending.loading
+                    else (pending != null && pending.id != previous && !pending.loading) ||
+                        (app.incomingShares.text(newKey) != previousText && app.incomingShares.text(newKey)?.contains("Synthetic shared note") == true)
             }
             ready
         }
@@ -222,31 +229,31 @@ class IncomingShareFixtureDeviceTest {
         val file = java.io.File(app.getExternalFilesDir(null), "$name.png")
         file.outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
-    @Test fun crossUidMultipleFilesReachExistingDraftWithoutSendingAndSurviveRotation() {
+    @Test fun crossUidMultipleFilesMergeIntoCurrentNewDraftWithoutPickingAndSurviveRotation() {
         identity()
         kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
         instrumentation.runOnMainSync {
             app.incomingShares.writeText(ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a,
-                ai.nuphos.android.session.ComposerDrafts.Destination.Chat("fixture-chat")), "Existing synthetic draft")
+                ai.nuphos.android.session.ComposerDrafts.Destination.NewChat), "Existing synthetic draft")
             app.authSession.composerDrafts.onIdentity(NuphosUser.preview.id)
             app.authSession.composerDrafts.bind(NuphosUser.preview.id, a,
-                ai.nuphos.android.session.ComposerDrafts.Destination.Chat("fixture-chat"))!!.write("Existing synthetic draft")
+                ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)!!.write("Existing synthetic draft")
         }
         sender("multiple")
-        val pending = app.incomingShares.state.value!!
-        assertEquals(2, pending.attachments.size)
-        assertEquals("Synthetic attachment bytes", (pending.attachments.first().kind as ai.nuphos.android.model.ComposerAttachment.Kind.RetainedFile).source.open().bufferedReader().use { it.readText() })
+        compose.waitUntil(15_000) { app.incomingShares.state.value == null }
+        val key = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a,
+            ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
+        val files = app.incomingShares.attachments(key)
+        assertEquals(2, files.size)
+        assertEquals("Synthetic attachment bytes", (files.first().kind as ai.nuphos.android.model.ComposerAttachment.Kind.RetainedFile).source.open().bufferedReader().use { it.readText() })
         sender("revoke")
         try {
             app.contentResolver.openInputStream(Uri.parse("content://$senderPackage.files/fixture.txt"))?.close()
             fail("Source URI remained readable after the sender revoked its grant")
         } catch (_: SecurityException) { }
-        assertEquals("Synthetic attachment bytes", (pending.attachments.first().kind as ai.nuphos.android.model.ComposerAttachment.Kind.RetainedFile).source.open().bufferedReader().use { it.readText() })
-        snapshot("share-picker")
-        awaitText("Fixture first")
-        compose.onNodeWithTag("incoming-share-agent-fixture-chat").performClick()
-        snapshot("share-after-pick")
-        compose.waitUntil(15_000) { app.incomingShares.state.value == null }
+        assertEquals("Synthetic attachment bytes", (files.first().kind as ai.nuphos.android.model.ComposerAttachment.Kind.RetainedFile).source.open().bufferedReader().use { it.readText() })
+        compose.onNodeWithText("Add share to a draft").assertDoesNotExist()
+        compose.onNodeWithText("Find an existing agent").assertDoesNotExist()
         val merged = "Existing synthetic draft\n\nSynthetic shared note https://example.com/share-fixture"
         awaitText(merged)
         snapshot("share-existing-draft")
@@ -254,23 +261,36 @@ class IncomingShareFixtureDeviceTest {
         awaitText(merged)
         assertNull(app.incomingShares.state.value)
         assertEquals(2, app.incomingShares.attachments(ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a,
-            ai.nuphos.android.session.ComposerDrafts.Destination.Chat("fixture-chat"))).size)
+            ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)).size)
         assertEquals(0, requests.count { it.method != "GET" })
     }
     @Test fun warmTextShareGoesToNewDraftAndCancelLeavesOldDraftUntouched() {
         identity()
-        sender("text")
+        sender("denied")
         compose.onNodeWithText("Cancel share").performClick()
                 compose.waitUntil(15_000) { app.incomingShares.state.value == null }
         assertNull(app.incomingShares.state.value)
         sender("text")
-        awaitText("New agent draft")
-        compose.onNodeWithText("New agent draft").performClick()
         compose.waitUntil(15_000) { app.incomingShares.state.value == null }
         awaitText("Synthetic shared note https://example.com/share-fixture")
         snapshot("share-new-draft")
         assertEquals(0, requests.count { it.method != "GET" })
     }
+    @Test fun rememberedCurrentWorkspaceReceivesShareWithoutChoosingTheFirstWorkspace() {
+        app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).edit()
+            .putString("nuphos.workspace.lastTeamId", b).commit()
+        identity()
+        sender("text")
+        compose.waitUntil(15_000) { app.incomingShares.state.value == null }
+        val target = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, b,
+            ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
+        assertEquals("Synthetic shared note https://example.com/share-fixture", app.incomingShares.text(target))
+        assertNull(app.incomingShares.text(target.copy(teamId = a)))
+        compose.onNodeWithText("Add share to a draft").assertDoesNotExist()
+        compose.onNodeWithText("Preparing draft").assertDoesNotExist()
+        assertEquals(0, requests.count { it.method != "GET" })
+    }
+
     @Test fun deniedAndOversizeInputsRemainErrorsAndCanBeCanceled() {
         identity()
         for (mode in listOf("denied", "oversize")) {
@@ -296,7 +316,9 @@ class IncomingShareFixtureDeviceTest {
                 activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).filterIsInstance<MainActivity>().firstOrNull()
             }
             // Android may immediately dispatch a chooser that has exactly one matching target.
-            target != null || (activity != null && app.incomingShares.state.value?.loading == false)
+            target != null || (activity != null && (app.incomingShares.state.value?.loading == false ||
+                app.incomingShares.text(ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a,
+                    ai.nuphos.android.session.ComposerDrafts.Destination.NewChat))?.contains("Synthetic shared note") == true))
         }
         if (target != null && app.incomingShares.state.value == null && InstrumentationRegistry.getArguments().getString("captureSynthetic") == "true") {
             java.io.File(app.getExternalFilesDir(null), "share-system-sheet.png").outputStream().use {
@@ -312,10 +334,10 @@ class IncomingShareFixtureDeviceTest {
             instrumentation.runOnMainSync {
                 activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).filterIsInstance<MainActivity>().firstOrNull()
             }
-            activity != null && app.incomingShares.state.value?.loading == false
+            activity != null && (app.incomingShares.state.value?.loading == false ||
+                app.incomingShares.text(ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a,
+                    ai.nuphos.android.session.ComposerDrafts.Destination.NewChat))?.contains("Synthetic shared note") == true)
         }
-        awaitText("New agent draft")
-        compose.onNodeWithText("New agent draft").performClick()
         compose.waitUntil(10_000) { app.incomingShares.state.value == null }
         awaitText("Synthetic shared note https://example.com/share-fixture")
         assertEquals(0, requests.count { it.method != "GET" })

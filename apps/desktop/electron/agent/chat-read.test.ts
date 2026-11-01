@@ -274,12 +274,42 @@ test('a provider out of usage stops at once instead of resending the turn', asyn
   )
 })
 
+test('a turn that failed after streaming text ends there instead of running again', async () => {
+  // The agent's process died mid-answer: the backend ends the turn with an
+  // error frame. Restarting from message zero would answer the prompt again
+  // with no message from the person, so the attempt re-attaches instead.
+  const { ctx, emitted } = retryContext()
+  const read = await consumeChatStream(
+    ctx,
+    sse(
+      { type: 'text-start', id: 't' },
+      { type: 'text-delta', id: 't', delta: 'one two three' },
+      { ...interruption, message: 'Codex stopped unexpectedly. Send a message to continue.' },
+      { type: 'error', errorText: 'Codex stopped unexpectedly. Send a message to continue.' },
+      { type: 'atlas-stream-done' },
+    ),
+    false,
+  )
+
+  if (read.kind !== 'read') throw new Error('expected read')
+  await assert.rejects(
+    () => resolveStreamOutcome(ctx, read, false, Date.now(), true),
+    /Codex stopped unexpectedly/,
+  )
+  assert.equal(ctx.state.forceFreshStart, false)
+  assert.notEqual(ctx.state.resumeFrom, 0)
+  assert.equal(
+    emitted.some((e) => e.type === 'reset-partial'),
+    false,
+  )
+})
+
 test('an error frame after tool execution resumes the live run instead of failing the turn', async () => {
   for (const explicitResume of [false, true]) {
     const { ctx, emitted } = retryContext()
 
     ctx.explicitResume = explicitResume
-    ctx.state.toolExecutionMayHaveStarted = !explicitResume
+    ctx.state.turnRan = !explicitResume
     const read = await consumeChatStream(
       ctx,
       sse(interruption, { type: 'error', errorText: 'Session is not attached to this connection' }),
@@ -314,7 +344,7 @@ test('an error frame after tool execution resumes the live run instead of failin
 test('a stream that flaps between a frame and an error frame converges to one error', async () => {
   const { ctx, emitted } = retryContext()
 
-  ctx.state.toolExecutionMayHaveStarted = true
+  ctx.state.turnRan = true
   // Every legitimate frame resets reconnectAttempts, so the transport budget
   // alone would never trip on this pattern — the per-turn breakage budget must.
   for (let cycle = 1; cycle <= 4; cycle += 1) {

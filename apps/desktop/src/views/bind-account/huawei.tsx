@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 
-import { StepList, ConsoleLink, CopyableValue, Field } from './shared'
+import { t } from '../../i18n'
+
+import { StepList, ConsoleLink, CopyableValue, Field, Fill } from './shared'
 import { HUAWEI_STEPS } from './steps'
 
 import type { HuaweiOidcInfo } from '../../types'
@@ -40,7 +42,7 @@ export function HuaweiBindWizard({
   // would guide the user to author a mismatched identity provider (fetch
   // failure is surfaced via toast where the fetch runs).
   const oidcValue = (v: string | undefined) =>
-    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">loading…</span>
+    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">{t('loading…')}</span>
 
   return (
     <div>
@@ -57,7 +59,7 @@ export function HuaweiBindWizard({
           ))}
         </div>
         <div className="text-[11px] text-tertiary uppercase tracking-wider">
-          Step {step + 1} of {HUAWEI_STEPS.length}
+          {t('Step {n} of {total}', { n: step + 1, total: HUAWEI_STEPS.length })}
         </div>
         <div className="text-[13.5px] text-main font-medium">{HUAWEI_STEPS[step]}</div>
       </div>
@@ -83,32 +85,52 @@ export function HuaweiBindWizard({
               <div className="space-y-3">
                 <StepList>
                   <li>
-                    In the Huawei Cloud console, open{' '}
-                    <ConsoleLink href={HUAWEI_CREATE_PROVIDER_URL}>
-                      Create Identity Provider
-                    </ConsoleLink>
+                    <Fill
+                      text={t('In the Huawei Cloud console, open {link}')}
+                      link={
+                        <ConsoleLink href={HUAWEI_CREATE_PROVIDER_URL}>
+                          Create Identity Provider
+                        </ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Type <span className="text-main">OIDC</span>, and give it a name you&apos;ll
-                    recognize
-                  </li>
-                  <li>Identity provider URL: {oidcValue(oidc?.issuer)}</li>
-                  <li>Audience: {oidcValue(oidc?.audience)}</li>
-                  <li>
-                    Save — Huawei Cloud fetches the signing keys from the identity provider URL
-                    itself, there&apos;s nothing to upload
+                    <Fill
+                      text={t("Type {type}, and give it a name you'll recognize")}
+                      type={<span className="text-main">OIDC</span>}
+                    />
                   </li>
                   <li>
-                    Note the provider&apos;s <span className="text-main">name</span> (what you typed
-                    above — not the separate hex ID Huawei also shows), and your account ID from{' '}
-                    <ConsoleLink href={HUAWEI_MY_CREDENTIAL_URL}>My Credentials</ConsoleLink> — both
-                    go in the last step
+                    <Fill
+                      text={t('Identity provider URL: {value}')}
+                      value={oidcValue(oidc?.issuer)}
+                    />
+                  </li>
+                  <li>
+                    <Fill text={t('Audience: {value}')} value={oidcValue(oidc?.audience)} />
+                  </li>
+                  <li>
+                    {t(
+                      "Save — Huawei Cloud fetches the signing keys from the identity provider URL itself, there's nothing to upload",
+                    )}
+                  </li>
+                  <li>
+                    <Fill
+                      text={t(
+                        "Note the provider's {name} (what you typed above — not the separate hex ID Huawei also shows), and your account ID from {link} — both go in the last step",
+                      )}
+                      name={<span className="text-main">{t('name')}</span>}
+                      link={
+                        <ConsoleLink href={HUAWEI_MY_CREDENTIAL_URL}>My Credentials</ConsoleLink>
+                      }
+                    />
                   </li>
                 </StepList>
                 {oidc && !oidc.configured && (
                   <div className="text-[11.5px] text-zOrangered-400">
-                    Nuphos&apos;s OIDC connector isn&apos;t configured on this backend yet — binding
-                    will fail until it is.
+                    {t(
+                      "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
+                    )}
                   </div>
                 )}
               </div>
@@ -117,41 +139,62 @@ export function HuaweiBindWizard({
               <div className="space-y-3">
                 <StepList>
                   <li>
-                    In the Huawei Cloud console, open{' '}
-                    <ConsoleLink href={HUAWEI_CREATE_AGENCY_URL}>Create Trust Agency</ConsoleLink>
+                    <Fill
+                      text={t('In the Huawei Cloud console, open {link}')}
+                      link={
+                        <ConsoleLink href={HUAWEI_CREATE_AGENCY_URL}>
+                          Create Trust Agency
+                        </ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Agency Type: <span className="text-main">Identity Provider</span>, Identity
-                    Provider Type: <span className="text-main">OIDC</span>, then pick the provider
-                    you created in step 1
-                  </li>
-                  <li>Audience: {oidcValue(oidc?.audience)}</li>
-                  <li>
-                    Give it the permissions Nuphos should have (read-only is enough for browsing),
-                    scoped to <span className="text-main">All resources</span> — Nuphos requests an
-                    account-scoped credential, which a project-only agency cannot grant
+                    <Fill
+                      text={t(
+                        'Agency Type: {agencyType}, Identity Provider Type: {idpType}, then pick the provider you created in step 1',
+                      )}
+                      agencyType={<span className="text-main">Identity Provider</span>}
+                      idpType={<span className="text-main">OIDC</span>}
+                    />
                   </li>
                   <li>
-                    Under <span className="text-main">Condition</span>, click{' '}
-                    <span className="text-main">Add</span> and add{' '}
-                    <span className="font-mono text-[11px]">oidc:sub</span> /{' '}
-                    <span className="text-main">StringEquals</span> equal to{' '}
-                    {oidcValue(oidc?.subject)}, alongside the{' '}
-                    <span className="font-mono text-[11px]">oidc:iss</span> condition already there
-                    — required, not optional: Nuphos&apos;s identity provider is shared across every
-                    customer, so without it anyone who registers the same audience could assume this
-                    agency too (Huawei&apos;s own form recommends this for a shared OIDC provider)
+                    <Fill text={t('Audience: {value}')} value={oidcValue(oidc?.audience)} />
+                  </li>
+                  <li>
+                    <Fill
+                      text={t(
+                        'Give it the permissions Nuphos should have (read-only is enough for browsing), scoped to {scope} — Nuphos requests an account-scoped credential, which a project-only agency cannot grant',
+                      )}
+                      scope={<span className="text-main">All resources</span>}
+                    />
+                  </li>
+                  <li>
+                    <Fill
+                      text={t(
+                        "Under {condition}, click {add} and add {claim} / {operator} equal to {subject}, alongside the {iss} condition already there — required, not optional: Nuphos's identity provider is shared across every customer, so without it anyone who registers the same audience could assume this agency too (Huawei's own form recommends this for a shared OIDC provider)",
+                      )}
+                      condition={<span className="text-main">Condition</span>}
+                      add={<span className="text-main">Add</span>}
+                      claim={<span className="font-mono text-[11px]">oidc:sub</span>}
+                      operator={<span className="text-main">StringEquals</span>}
+                      subject={oidcValue(oidc?.subject)}
+                      iss={<span className="font-mono text-[11px]">oidc:iss</span>}
+                    />
                   </li>
                 </StepList>
                 <div className="text-[11.5px] text-tertiary">
-                  The trust agency you create is exactly what Nuphos can do in your account — note
-                  its name, it goes in the last step.
+                  {t(
+                    'The trust agency you create is exactly what Nuphos can do in your account — note its name, it goes in the last step.',
+                  )}
                 </div>
               </div>
             )}
             {i === 2 && (
               <div className="space-y-3">
-                <Field label="Label" hint="A friendly name to identify this Huawei Cloud account.">
+                <Field
+                  label={t('Label')}
+                  hint={t('A friendly name to identify this Huawei Cloud account.')}
+                >
                   <input
                     type="text"
                     value={label}
@@ -161,8 +204,8 @@ export function HuaweiBindWizard({
                   />
                 </Field>
                 <Field
-                  label="Account ID"
-                  hint="The 32-character account ID on the console's My Credentials page."
+                  label={t('Account ID')}
+                  hint={t("The 32-character account ID on the console's My Credentials page.")}
                 >
                   <input
                     type="text"
@@ -173,8 +216,10 @@ export function HuaweiBindWizard({
                   />
                 </Field>
                 <Field
-                  label="Identity provider name"
-                  hint="The name you gave the provider in step 1 — not the separate hex ID Huawei also shows."
+                  label={t('Identity provider name')}
+                  hint={t(
+                    'The name you gave the provider in step 1 — not the separate hex ID Huawei also shows.',
+                  )}
                 >
                   <input
                     type="text"
@@ -185,8 +230,8 @@ export function HuaweiBindWizard({
                   />
                 </Field>
                 <Field
-                  label="Trust agency name"
-                  hint="The name of the trust agency you assigned in step 2."
+                  label={t('Trust agency name')}
+                  hint={t('The name of the trust agency you assigned in step 2.')}
                 >
                   <input
                     type="text"

@@ -73,7 +73,7 @@ internal fun RuntimeChoiceList(
                                 RuntimeMark(runtime.provider, 20.dp)
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(displayName, style = MaterialTheme.typography.titleMedium)
-                                    if (displayName != runtimeProviderName(runtime.provider)) Text(when (runtime.provider) { "codex" -> "Codex"; "claude-code" -> "Claude Code"; "grok" -> "Grok Build"; "opencode" -> "OpenCode"; else -> runtime.provider },
+                                    if (displayName != runtimeProviderName(runtime.provider)) Text(runtimeProviderName(runtime.provider),
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     when {
                                         runtime.local?.online == false -> Text("Computer offline", style = MaterialTheme.typography.bodySmall)
@@ -92,9 +92,7 @@ internal fun RuntimeChoiceList(
     }
 }
 
-private fun runtimeProviderName(provider: String) = when (provider) {
-    "codex" -> "Codex"; "claude-code" -> "Claude Code"; "grok" -> "Grok Build"; "opencode" -> "OpenCode"; else -> provider
-}
+private fun runtimeProviderName(provider: String) = ai.nuphos.android.model.RuntimeIdentity.name(provider)
 private fun runtimeCapacity(capacity: RuntimeDevice.Capacity) = String.format(java.util.Locale.getDefault(), "%.1f / %.1f GB", capacity.used / 1_073_741_824, capacity.total / 1_073_741_824)
 
 @Composable

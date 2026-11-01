@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { api } from '../../../api'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { t } from '../../../i18n'
 import { useTeamMembers } from '../../../lib/bindingAccess'
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { viewerTimeZone } from '../../../views/triggers/cronTime'
@@ -41,7 +42,7 @@ function Placeholder({ missing }: { missing: boolean }) {
       </span>
       {missing ? (
         <span className="text-[12.5px] text-tertiary">
-          This trigger is no longer available. It was deleted, or you no longer have access.
+          {t('This trigger is no longer available. It was deleted, or you no longer have access.')}
         </span>
       ) : (
         <span className="flex flex-1 flex-col gap-1.5">
@@ -97,7 +98,7 @@ export function TriggerCard({
   }
   const save = async () => {
     if (draft === null || draft.trim() === current) return setDraft(null)
-    if (await update({ cronExpression: draft.trim() }, 'Could not change the schedule')) {
+    if (await update({ cronExpression: draft.trim() }, t('Could not change the schedule'))) {
       setDraft(null)
     }
   }
@@ -106,7 +107,11 @@ export function TriggerCard({
   }
 
   return (
-    <section className={CARD} aria-label={`Trigger ${trigger.name}`} onKeyDown={onKeyDown}>
+    <section
+      className={CARD}
+      aria-label={t('Trigger {name}', { name: trigger.name })}
+      onKeyDown={onKeyDown}
+    >
       <header className="flex items-start gap-3 px-3.5 pb-2.5 pt-3">
         <span
           className={clsx(
@@ -124,7 +129,7 @@ export function TriggerCard({
               {trigger.name}
             </span>
             <span className="shrink-0 text-[11.5px] text-tertiary">
-              {info.action === 'created' ? 'Created' : 'Updated'}
+              {info.action === 'created' ? t('Created') : t('Updated')}
             </span>
           </div>
           <p className="mt-0.5 text-[12.5px] leading-snug text-secondary">
@@ -134,24 +139,24 @@ export function TriggerCard({
         <Switch
           checked={trigger.enabled}
           disabled={busy || !canManage}
-          label={trigger.enabled ? 'Pause this trigger' : 'Resume this trigger'}
+          label={trigger.enabled ? t('Pause this trigger') : t('Resume this trigger')}
           onChange={setSwitching}
         />
       </header>
       <ConfirmDialog
         open={switching !== null}
-        title={switching ? 'Resume trigger' : 'Pause trigger'}
+        title={switching ? t('Resume trigger') : t('Pause trigger')}
         description={
           switching
-            ? `“${trigger.name}” will run on its schedule again.`
-            : `“${trigger.name}” will stop running until someone resumes it.`
+            ? t('“{name}” will run on its schedule again.', { name: trigger.name })
+            : t('“{name}” will stop running until someone resumes it.', { name: trigger.name })
         }
-        confirmLabel={switching ? 'Resume' : 'Pause'}
+        confirmLabel={switching ? t('Resume') : t('Pause')}
         onConfirm={async () => {
           if (switching === null) return
           await update(
             { enabled: switching },
-            switching ? 'Could not resume the trigger' : 'Could not pause the trigger',
+            switching ? t('Could not resume the trigger') : t('Could not pause the trigger'),
           )
         }}
         onClose={() => setSwitching(null)}
@@ -167,13 +172,13 @@ export function TriggerCard({
         {editing ? (
           <>
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDraft(null)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button size="sm" disabled={busy || !draft.trim()} onClick={() => void save()}>
               {busy && (
                 <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" />
               )}
-              Save schedule
+              {t('Save schedule')}
             </Button>
           </>
         ) : (
@@ -184,14 +189,14 @@ export function TriggerCard({
                 onLinkClick={onOpen}
                 className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline transition-colors hover:bg-zGray-800 hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent"
               >
-                All triggers
+                {t('All triggers')}
                 <ArrowUpRight aria-hidden className="size-3.5" />
               </ChatLink>
             )}
             {trigger.triggerType === 'cron' && canManage && (
               <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDraft(current)}>
                 <Pencil aria-hidden className="size-3.5" />
-                Edit schedule
+                {t('Edit schedule')}
               </Button>
             )}
           </>

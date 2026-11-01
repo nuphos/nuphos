@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Check, Ellipsis, MessageSquare, X } from 'lucide-react'
 
 import { Avatar } from '../../components/Avatar'
+import { t } from '../../i18n'
 
 import type { Reviewer, ReviewerState } from './pullRequestStatus'
 import type { GithubPRDetail } from '../../types'
@@ -9,11 +10,11 @@ import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 const REVIEWER_STATE: Record<ReviewerState, { icon: LucideIcon; tone: string; label: string }> = {
-  approved: { icon: Check, tone: 'text-success', label: 'Approved' },
-  changes_requested: { icon: X, tone: 'text-error', label: 'Requested changes' },
-  commented: { icon: MessageSquare, tone: 'text-tertiary', label: 'Commented' },
-  dismissed: { icon: Ellipsis, tone: 'text-tertiary', label: 'Review dismissed' },
-  pending: { icon: Ellipsis, tone: 'text-warning', label: 'Awaiting review' },
+  approved: { icon: Check, tone: 'text-success', label: t('Approved') },
+  changes_requested: { icon: X, tone: 'text-error', label: t('Requested changes') },
+  commented: { icon: MessageSquare, tone: 'text-tertiary', label: t('Commented') },
+  dismissed: { icon: Ellipsis, tone: 'text-tertiary', label: t('Review dismissed') },
+  pending: { icon: Ellipsis, tone: 'text-warning', label: t('Awaiting review') },
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -90,23 +91,23 @@ export function PullRequestSidebar({
 }) {
   return (
     <aside className="grid grid-cols-1 gap-x-5 gap-y-4 rounded-lg border border-zGray-800/80 bg-zGray-900/50 p-3 @md:grid-cols-2">
-      <Section title="Reviewers">
+      <Section title={t('Reviewers')}>
         {reviewers.length ? (
           reviewers.map((reviewer) => <ReviewerRow key={reviewer.login} reviewer={reviewer} />)
         ) : (
-          <Empty>No reviews</Empty>
+          <Empty>{t('No reviews')}</Empty>
         )}
       </Section>
-      <Section title="Assignees">
+      <Section title={t('Assignees')}>
         {pull.assignees.length ? (
           pull.assignees.map((assignee) => (
             <Person key={assignee.login} login={assignee.login} avatarUrl={assignee.avatarUrl} />
           ))
         ) : (
-          <Empty>No one assigned</Empty>
+          <Empty>{t('No one assigned')}</Empty>
         )}
       </Section>
-      <Section title="Labels">
+      <Section title={t('Labels')}>
         {pull.labels.length ? (
           <div className="flex flex-wrap gap-1.5">
             {pull.labels.map((label) => (
@@ -114,14 +115,14 @@ export function PullRequestSidebar({
             ))}
           </div>
         ) : (
-          <Empty>None yet</Empty>
+          <Empty>{t('None yet')}</Empty>
         )}
       </Section>
-      <Section title="Milestone">
+      <Section title={t('Milestone')}>
         {pull.milestone ? (
           <div className="text-[12.5px] text-main">{pull.milestone}</div>
         ) : (
-          <Empty>No milestone</Empty>
+          <Empty>{t('No milestone')}</Empty>
         )}
       </Section>
     </aside>

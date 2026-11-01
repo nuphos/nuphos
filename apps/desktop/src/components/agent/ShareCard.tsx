@@ -4,6 +4,7 @@ import { Check, Copy, Link2, Loader2, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
+import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
@@ -22,10 +23,13 @@ import type { TeamMember } from '../../types'
 
 /** "Ann", "Ann and Bo", "Ann, Bo, and 2 others". */
 function joinNames(names: string[]) {
-  if (names.length <= 2) return names.join(' and ')
+  if (names.length === 2) return t('{a} and {b}', { a: names[0], b: names[1] })
+  if (names.length < 2) return names.join('')
   const others = names.length - 2
 
-  return `${names[0]}, ${names[1]}, and ${String(others)} other${others === 1 ? '' : 's'}`
+  return others === 1
+    ? t('{a}, {b}, and 1 other', { a: names[0], b: names[1] })
+    : t('{a}, {b}, and {n} others', { a: names[0], b: names[1], n: String(others) })
 }
 
 const AVATAR_SIZE = 22
@@ -83,7 +87,7 @@ export function ShareButtonFace({
     return (
       <>
         <AvatarStack participants={participants} />
-        Share
+        {t('Share')}
       </>
     )
 
@@ -91,7 +95,7 @@ export function ShareButtonFace({
     <>
       <AvatarStack participants={participants} visible={1} />
       {participants.length === 0 && <UserPlus className="h-3.5 w-3.5" aria-hidden />}
-      <span className="sr-only">Share</span>
+      <span className="sr-only">{t('Share')}</span>
     </>
   )
 }
@@ -126,7 +130,7 @@ export function ShareLink({ url, children }: { url: string; children: React.Reac
         setCopied(true)
         setTimeout(() => setCopied(false), 1200)
       })
-      .catch(() => toast.error('Could not copy the link'))
+      .catch(() => toast.error(t('Could not copy the link')))
   }
 
   return (
@@ -149,7 +153,7 @@ export function ShareLink({ url, children }: { url: string; children: React.Reac
           ) : (
             <Copy className="h-3 w-3" strokeWidth={2} />
           )}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t('Copied') : t('Copy')}
         </button>
       </div>
       <div className="border-t border-zGray-800/60">{children}</div>
@@ -176,7 +180,7 @@ export function ParticipantList({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className={SECTION_LABEL}>In this agent</div>
+      <div className={SECTION_LABEL}>{t('In this agent')}</div>
       {participants.map((participant) => {
         const role = participant.role && participant.role !== 'owner' ? participant.role : 'reply'
 
@@ -193,9 +197,13 @@ export function ParticipantList({
             />
             <span className="min-w-0 flex-1 truncate text-main">
               {participant.name}
-              {participant.id === currentUserId && <span className="text-tertiary"> (you)</span>}
+              {participant.id === currentUserId && (
+                <span className="text-tertiary"> {t('(you)')}</span>
+              )}
             </span>
-            {participant.isOwner && <span className="px-1.5 text-[12px] text-tertiary">Owner</span>}
+            {participant.isOwner && (
+              <span className="px-1.5 text-[12px] text-tertiary">{t('Owner')}</span>
+            )}
             {!participant.isOwner && canManage && (
               <RoleMenu
                 value={role}
@@ -208,10 +216,10 @@ export function ParticipantList({
             {!participant.isOwner && !canManage && (
               <span className="px-1.5 text-[12px] text-tertiary">
                 {role === 'manage'
-                  ? 'Can manage'
+                  ? t('Can manage')
                   : role === 'view' && generalAccess !== 'reply'
-                    ? 'Can view'
-                    : 'Can reply'}
+                    ? t('Can view')
+                    : t('Can reply')}
               </span>
             )}
           </div>
@@ -249,15 +257,15 @@ export function AddedReceipt({
         <CheckBadge className="-bottom-0.5 -right-1 bg-success" />
       </span>
       <div className="text-[13px] font-medium text-main">
-        Added {joinNames(added.map((member) => member.name))}
+        {t('Added {names}', { names: joinNames(added.map((member) => member.name)) })}
       </div>
       <div className="mt-0.5 text-[12px] text-tertiary">{detail}</div>
       <div className="mt-4 grid w-full grid-cols-2 gap-2">
         <Button variant="secondary" size="sm" disabled={undoing} onClick={onUndo}>
           {undoing && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />}
-          Undo
+          {t('Undo')}
         </Button>
-        <Popover.Close render={<Button variant="neutral" size="sm" />}>Done</Popover.Close>
+        <Popover.Close render={<Button variant="neutral" size="sm" />}>{t('Done')}</Popover.Close>
       </div>
     </div>
   )

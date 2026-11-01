@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { ChevronDown, ChevronRight, ClipboardList } from 'lucide-react'
 
+import { t } from '../../../i18n'
+
 import { PlanStatusBadge } from './PlanStatusBadge'
 
 import type { PlanLifecycleStatus } from '../../../api'
@@ -40,8 +42,8 @@ export function PlanHeader({
         type="button"
         onClick={onToggleFold}
         className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
-        title={folded ? 'Expand plan' : 'Collapse plan'}
-        aria-label={folded ? 'Expand plan' : 'Collapse plan'}
+        title={folded ? t('Expand plan') : t('Collapse plan')}
+        aria-label={folded ? t('Expand plan') : t('Collapse plan')}
         aria-expanded={!folded}
       >
         {/* icon-swap: cross-fade the expand/collapse chevrons */}
@@ -61,16 +63,23 @@ export function PlanHeader({
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-[12px] font-medium leading-relaxed text-zViolet-accent">
           <span className="whitespace-nowrap">
-            Plan{typeof payload.number === 'number' ? ` #${String(payload.number)}` : ''}
+            {typeof payload.number === 'number'
+              ? t('Plan #{number}', { number: String(payload.number) })
+              : t('Plan')}
           </span>
           {status && <PlanStatusBadge status={status} />}
           <span className="whitespace-nowrap text-tertiary">
-            {payload.steps.length} {payload.steps.length === 1 ? 'step' : 'steps'} · {totalJobs}{' '}
-            {totalJobs === 1 ? 'job' : 'jobs'}
+            {payload.steps.length === 1
+              ? t('1 step')
+              : t('{n} steps', { n: String(payload.steps.length) })}{' '}
+            · {totalJobs === 1 ? t('1 job') : t('{n} jobs', { n: String(totalJobs) })}
             {totalCommands > 0 && (
               <>
                 {' '}
-                · {totalCommands} {totalCommands === 1 ? 'command' : 'commands'}
+                ·{' '}
+                {totalCommands === 1
+                  ? t('1 command')
+                  : t('{n} commands', { n: String(totalCommands) })}
               </>
             )}
           </span>

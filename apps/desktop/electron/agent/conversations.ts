@@ -37,6 +37,21 @@ export async function steerConversation(
   )
 }
 
+// The secure input card: the value goes straight to a file on the agent's
+// runtime and only that file's path comes back.
+export async function saveConversationSecret(
+  sessionId: string,
+  name: string,
+  value: string,
+  teamId?: string,
+): Promise<{ ok: boolean; path: string }> {
+  return callJson<{ ok: boolean; path: string }>(
+    'POST',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/secrets${teamQuery(teamId)}`,
+    { name, value },
+  )
+}
+
 export type SlackPickupResult = {
   status: 'bound' | 'already_bound'
   slackThread: {

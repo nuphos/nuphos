@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { SHORTCUT_GROUPS } from '../lib/shortcutsCatalog'
 
 import { Modal } from './Modal'
@@ -11,7 +12,7 @@ type Props = {
 /** The ⌘/ cheat sheet: every app shortcut, grouped, one row per action. */
 export function ShortcutsHelpModal({ open, onClose }: Props) {
   return (
-    <Modal open={open} onClose={onClose} title="Keyboard shortcuts" width={520}>
+    <Modal open={open} onClose={onClose} title={t('Keyboard shortcuts')} width={520}>
       <div className="grid grid-cols-1 gap-5 px-5 py-4 sm:grid-cols-2">
         {SHORTCUT_GROUPS.map((group) => (
           <section key={group.title}>
@@ -24,7 +25,7 @@ export function ShortcutsHelpModal({ open, onClose }: Props) {
                   key={entry.label}
                   className="flex min-h-7 items-center justify-between gap-3 text-[12.5px] text-secondary"
                 >
-                  <span className="min-w-0 truncate">{entry.label}</span>
+                  <span className="min-w-0">{entry.label}</span>
                   <span className="flex flex-shrink-0 items-center gap-1">
                     {entry.combos.map((combo) => (
                       <Kbd key={combo} combo={combo} />

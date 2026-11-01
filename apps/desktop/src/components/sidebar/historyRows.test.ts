@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import { fullHistoryRows, historyAge, historyMenuRows } from './historyRows.ts'
 
+import type { AgentConversation } from '../../api/agent-types'
 import type { SurfaceEntry } from '../../app/workspace/store/workspaceState'
 import type { NavigationSnapshot } from '../../lib/appRoutes'
 
@@ -19,7 +20,8 @@ const page = (active: string): SurfaceEntry => ({
   page: { active } as NavigationSnapshot,
 })
 const titles: Record<string, string> = { a: 'Fix login', b: 'Deploy API' }
-const title = (id: string) => titles[id]
+const title = (id: string) =>
+  titles[id] ? ({ sessionId: id, title: titles[id] } as AgentConversation) : undefined
 
 test('Back lists at most five places, nearest first, with chat titles and page names', () => {
   const entries = [

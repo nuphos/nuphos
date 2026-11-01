@@ -1,24 +1,19 @@
 /**
- * Frames that mean a server-side or client-side tool may already have begun.
- * Once any of these has crossed the wire, restarting the whole chat request
- * from message zero can repeat an external side effect. Be conservative: an
- * input-available frame is enough even if the result frame never arrives.
+ * Frames the agent produces only once the turn runs: its text, its reasoning
+ * and its tool calls. After any of them, restarting the chat request from
+ * message zero runs the turn again, repeating its answer and any side effect
+ * of a tool it started, so the turn's own outcome must stand.
  */
-export function frameMayHaveStartedToolExecution(frame: unknown): boolean {
+export function frameShowsTurnRan(frame: unknown): boolean {
   if (!frame || typeof frame !== 'object') return false
   const type = (frame as { type?: unknown }).type
 
-  return (
-    type === 'tool-input-available' ||
-    type === 'tool-output-available' ||
-    type === 'tool-output-error' ||
-    type === 'tool-approval-request'
-  )
+  return typeof type === 'string' && /^(text|reasoning|tool)-/u.test(type)
 }
 
 export function mayRestartFreshAfterStreamError(args: {
   explicitResume: boolean
-  toolExecutionMayHaveStarted: boolean
+  turnRan: boolean
 }): boolean {
-  return !args.explicitResume && !args.toolExecutionMayHaveStarted
+  return !args.explicitResume && !args.turnRan
 }

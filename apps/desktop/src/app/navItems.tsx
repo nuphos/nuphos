@@ -1,5 +1,6 @@
 import { Cloud, FolderTree, Server, Users } from 'lucide-react'
 
+import { t } from '../i18n'
 import { isBarePagePath, navigationFromAppPath } from '../lib/appRoutes'
 import { isSettingsNavigation } from '../lib/connectorScopeCrumb'
 import {
@@ -74,8 +75,8 @@ export function activeNavItemsFor(scope: Scope, active: string): NavItemMeta[] {
     if (active === 'team.members') {
       overview.push({
         key: 'team.members',
-        label: 'Members',
-        group: 'Settings',
+        label: t('Members'),
+        group: t('Settings'),
         icon: <Users className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       })
     }
@@ -86,14 +87,14 @@ export function activeNavItemsFor(scope: Scope, active: string): NavItemMeta[] {
     return [
       {
         key: 'team.members',
-        label: 'Members',
-        group: 'Settings',
+        label: t('Members'),
+        group: t('Settings'),
         icon: <Users className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       },
       {
         key: 'team.integrations',
-        label: 'Connectors',
-        group: 'Settings',
+        label: t('Connectors'),
+        group: t('Settings'),
         icon: <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       },
     ]

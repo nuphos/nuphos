@@ -15,6 +15,15 @@ object AiAccess {
         state.value = Access(token, false, state.value.revision + 1)
     }
 
+    /** Consent a previous process confirmed, for a process nothing has signed in yet (a notification
+     *  started it). A live session's state always wins; the server still checks every request. */
+    @Synchronized fun restore(token: String) {
+        if (state.value.token == null) state.value = Access(token, true, state.value.revision + 1)
+    }
+
+    /** A fresh process, for tests. */
+    @Synchronized internal fun clear() { state.value = Access() }
+
     @Synchronized fun grant(token: String) {
         if (state.value.token == token) state.value = state.value.copy(granted = true)
     }

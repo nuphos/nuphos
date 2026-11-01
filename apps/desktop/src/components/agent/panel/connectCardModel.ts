@@ -69,11 +69,32 @@ export function parseConnectRequest(
     : null
 }
 
+/** A credential `request_user_decision` that names a `secretName`: its secure input card. */
+export function parseSecretRequest(value: unknown): { name: string; reason: string } | null {
+  if (!value || typeof value !== 'object') return null
+  const { category, secretName, question } = value as {
+    category?: unknown
+    secretName?: unknown
+    question?: unknown
+  }
+
+  if (category !== 'credential' || typeof secretName !== 'string') return null
+  if (!/^[A-Za-z]\w{0,63}$/.test(secretName)) return null
+
+  return { name: secretName, reason: typeof question === 'string' ? question : '' }
+}
+
 /** Any other `request_user_decision`: its question card, with the options as replies. */
 export function parseChoiceRequest(
   value: unknown,
 ): { category: string; question: string; options: string[] } | null {
-  if (!value || typeof value !== 'object' || parseConnectRequest(value)) return null
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    parseConnectRequest(value) ||
+    parseSecretRequest(value)
+  )
+    return null
   const { category, question, options } = value as {
     category?: unknown
     question?: unknown

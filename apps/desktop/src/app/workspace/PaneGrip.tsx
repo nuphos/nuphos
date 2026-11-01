@@ -1,3 +1,5 @@
+import { t } from '../../i18n'
+
 import { PANE_DRAG_TYPE } from './splitLayout'
 
 import type { DragEvent } from 'react'
@@ -19,7 +21,7 @@ export function PaneGrip({ label }: { label?: string }) {
   return (
     <span
       draggable
-      title="Drag to move this pane"
+      title={t('Drag to move this pane')}
       aria-hidden
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = 'move'

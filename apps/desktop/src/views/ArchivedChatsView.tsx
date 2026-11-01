@@ -6,6 +6,7 @@ import { useSentinelAutoLoad } from '../components/agent/panel/historyPageHooks'
 import { HistoryConversationRow } from '../components/agent/panel/historyRows'
 import { EmptyState } from '../components/EmptyState'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 import { archivedAtLabel } from './archived-chats/archivedChatsList'
 import { useArchivedChats } from './archived-chats/useArchivedChats'
@@ -39,8 +40,10 @@ export function ArchivedChatsView({
     return (
       <EmptyState
         icon={Archive}
-        title="No archived agents"
-        description="Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents."
+        title={t('No archived agents')}
+        description={t(
+          'Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.',
+        )}
       />
     )
   }
@@ -59,7 +62,7 @@ export function ArchivedChatsView({
         >
           {items.length === 0 && (
             <div className="px-3 py-4 text-[12.5px] text-tertiary">
-              {loading ? 'Loading…' : 'No archived agents match your search.'}
+              {loading ? t('Loading…') : t('No archived agents match your search.')}
             </div>
           )}
           {items.map((conversation) => (
@@ -84,7 +87,7 @@ export function ArchivedChatsView({
                     onClick={() => void unarchive(conversation)}
                   >
                     <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    Unarchive
+                    {t('Unarchive')}
                   </Button>
                 </div>
               }

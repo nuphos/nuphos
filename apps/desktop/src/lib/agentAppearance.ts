@@ -60,6 +60,11 @@ function subscribe(listener: () => void) {
   }
 }
 
+/** For DOM rendered outside React, such as mention chips. */
+export function agentAppearance(): AgentAppearance {
+  return appearance
+}
+
 export function useAgentAppearance(): AgentAppearance {
   return useSyncExternalStore(
     subscribe,

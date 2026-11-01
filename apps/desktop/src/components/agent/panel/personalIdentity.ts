@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import type { AgentCredentialSelection } from '../../../api'
 import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
 
@@ -22,7 +24,7 @@ export function personalIdentityRow(
 
   return {
     provider,
-    label: `You (${credential.login}) · Personal`,
+    label: t('You ({login}) · Personal', { login: credential.login }),
     checked: !(value.teamIdentity ?? []).includes(provider),
   }
 }

@@ -59,8 +59,8 @@ export const runtimeApi = {
     ipcRenderer.invoke('atlas:getRuntimeModelConfig', teamId, runtimeId, pick),
   atlasRequestRuntimeUpdate: (teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('atlas:requestRuntimeUpdate', teamId, runtimeId),
-  atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string) =>
-    ipcRenderer.invoke('atlas:getRuntimeInstanceStatus', teamId, runtimeId),
+  atlasGetRuntimeInstanceStatus: (teamId: string, runtimeId: string, wake?: boolean) =>
+    ipcRenderer.invoke('atlas:getRuntimeInstanceStatus', teamId, runtimeId, wake),
   atlasGetRuntimeInstanceMetrics: (teamId: string, runtimeId: string, hours: number) =>
     ipcRenderer.invoke('atlas:getRuntimeInstanceMetrics', teamId, runtimeId, hours),
 }

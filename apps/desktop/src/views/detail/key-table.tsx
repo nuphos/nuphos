@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Copy, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { KeyEntry } from './config-secret-model'
 
 export function MetadataPills({
@@ -11,8 +13,8 @@ export function MetadataPills({
   annotations: Record<string, string>
 }) {
   const rows = [
-    { label: 'Labels', values: Object.entries(labels).map(([k, v]) => `${k}: ${v}`) },
-    { label: 'Annotations', values: Object.keys(annotations) },
+    { label: t('Labels'), values: Object.entries(labels).map(([k, v]) => `${k}: ${v}`) },
+    { label: t('Annotations'), values: Object.keys(annotations) },
   ]
 
   if (rows.every((row) => row.values.length === 0)) return null
@@ -36,7 +38,9 @@ export function MetadataPills({
                 </span>
               ))}
               {row.values.length > 12 && (
-                <span className="text-[11.5px] text-tertiary">+{row.values.length - 12} more</span>
+                <span className="text-[11.5px] text-tertiary">
+                  {t('+{count} more', { count: row.values.length - 12 })}
+                </span>
               )}
             </div>
           </div>
@@ -83,10 +87,10 @@ export function KeyTable({
             onClick={onAdd}
             disabled={addDisabled}
             className="inline-flex h-7 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750 disabled:opacity-45 disabled:hover:bg-zGray-800"
-            title={addDisabled ? 'Immutable resources cannot be edited' : 'Add key'}
+            title={addDisabled ? t('Immutable resources cannot be edited') : t('Add key')}
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-            Add key
+            {t('Add key')}
           </button>
         )}
       </div>
@@ -97,11 +101,11 @@ export function KeyTable({
       ) : (
         <div className="overflow-hidden border border-zGray-800">
           <div className="grid grid-cols-[minmax(150px,1.1fr)_110px_90px_minmax(180px,2fr)_132px] border-b border-zGray-800 bg-zGray-900 px-3 py-2 text-[11.5px] uppercase tracking-wider text-tertiary">
-            <div>Key</div>
-            <div>Source</div>
-            <div>Size</div>
-            <div>{redacted ? 'Value' : 'Preview'}</div>
-            <div className="text-right">Actions</div>
+            <div>{t('Key')}</div>
+            <div>{t('Source')}</div>
+            <div>{t('Size')}</div>
+            <div>{redacted ? t('Value') : t('Preview')}</div>
+            <div className="text-right">{t('Actions')}</div>
           </div>
           {keys.map((entry) => (
             <div
@@ -114,12 +118,12 @@ export function KeyTable({
               <div className="font-mono text-[12px] text-tertiary">{entry.source}</div>
               <div className="font-mono text-[12px] text-secondary">{entry.size}</div>
               <div className="min-w-0 truncate text-tertiary">
-                {redacted && !revealedIds?.has(entry.id) ? 'Hidden' : entry.preview || '-'}
+                {redacted && !revealedIds?.has(entry.id) ? t('Hidden') : entry.preview || '-'}
               </div>
               <div className="flex justify-end gap-1">
                 {redacted && onToggleReveal && (
                   <IconButton
-                    title={revealedIds?.has(entry.id) ? 'Hide value' : 'Reveal value'}
+                    title={revealedIds?.has(entry.id) ? t('Hide value') : t('Reveal value')}
                     onClick={() => onToggleReveal(entry)}
                   >
                     {revealedIds?.has(entry.id) ? (
@@ -131,7 +135,7 @@ export function KeyTable({
                 )}
                 {onCopy && (
                   <IconButton
-                    title={copiedId === entry.id ? 'Copied' : 'Copy value'}
+                    title={copiedId === entry.id ? t('Copied') : t('Copy value')}
                     onClick={() => onCopy(entry)}
                   >
                     <Copy
@@ -144,12 +148,12 @@ export function KeyTable({
                   </IconButton>
                 )}
                 {onEdit && entry.editable && (
-                  <IconButton title="Edit key" onClick={() => onEdit(entry)}>
+                  <IconButton title={t('Edit key')} onClick={() => onEdit(entry)}>
                     <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
                   </IconButton>
                 )}
                 {onRemove && entry.removable && (
-                  <IconButton title="Remove key" onClick={() => onRemove(entry)} danger>
+                  <IconButton title={t('Remove key')} onClick={() => onRemove(entry)} danger>
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                   </IconButton>
                 )}

@@ -21,7 +21,7 @@ import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
 import { sectionsFor, sidebarView } from './view'
 
-import type { Item, SidebarProps } from './types'
+import type { ItemMenuRequest, SidebarProps } from './types'
 
 // Memoized: the workspace renders its sidebar on every update; this skips the
 // ones whose props are unchanged.
@@ -73,12 +73,13 @@ export const Sidebar = memo(function Sidebar({
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } = useSidebarChats({
-    teamId,
-    agentSessionId,
-    chatShown,
-    onArchived: onChatArchived,
-  })
+  const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
+    useSidebarChats({
+      teamId,
+      agentSessionId,
+      chatShown,
+      onArchived: onChatArchived,
+    })
 
   // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
@@ -106,7 +107,7 @@ export const Sidebar = memo(function Sidebar({
   const teamView = view.level === 0
   const settingsBack = dynamicNavigation ? settingsBackTarget(scope, active) : null
 
-  const { favoriteMatch, canFavorite, toggleFavorite, favoriteItems, pinnedChatItems } =
+  const { favoriteMatch, canFavorite, toggleFavorite, movePinned, favoriteItems, pinnedChatItems } =
     useSidebarFavorites({
       userId: user?.id ?? '',
       teamId,
@@ -119,7 +120,7 @@ export const Sidebar = memo(function Sidebar({
       onOpenKey,
     })
 
-  const [itemMenu, setItemMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
+  const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
 
   const renderSections = teamView
     ? withChatSections(sections, pinnedChatItems, favoriteMatch)
@@ -198,7 +199,7 @@ export const Sidebar = memo(function Sidebar({
           onBack={onBack}
           onForward={onForward}
           history={history}
-          chatTitle={(id) => chatItems.find((chat) => chat.key === `agent-session:${id}`)?.label}
+          chatOf={(id) => agentSessions.find((chat) => chat.sessionId === id)}
         />
 
         <SidebarTeamSwitcher
@@ -234,6 +235,7 @@ export const Sidebar = memo(function Sidebar({
               favoriteMatch={favoriteMatch}
               canFavorite={canFavorite}
               toggleFavorite={toggleFavorite}
+              movePinned={movePinned}
               onItemMenu={setItemMenu}
               onSelect={onSelect}
               onOpenKey={onOpenKey}

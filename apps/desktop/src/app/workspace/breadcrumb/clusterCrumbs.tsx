@@ -1,6 +1,7 @@
 import { Bell, Container, Database, LayoutDashboard, Server } from 'lucide-react'
 
 import { activeNavItemsFor } from '../../../app/navItems'
+import { t } from '../../../i18n'
 import { isSettingsNavigation } from '../../../lib/connectorScopeCrumb'
 
 import type { BreadcrumbContext } from './breadcrumbContext'
@@ -146,7 +147,7 @@ export function pushClusterCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegment
     // this leaf the breadcrumb collapses to a lone "Home" and the toolbar hides
     // it — leaving the page with no title once its PageHeader is gone.
     out.push({
-      label: 'Observability',
+      label: t('Observability'),
       icon: <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     })
   }
@@ -163,7 +164,7 @@ export function pushClusterCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegment
     // Page ancestor so the back tree keeps a navigable level once the
     // resource segments (instance, dashboard) below are filtered out.
     out.push({
-      label: 'Observability',
+      label: t('Observability'),
       icon: <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       onClick: () => enterScope({ kind: 'team', teamId: scope.teamId }, 'team.observability'),
     })
@@ -202,21 +203,21 @@ export function pushClusterCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegment
     const grafanaSubTabs = [
       {
         key: 'observability.dashboards',
-        label: 'Dashboards',
+        label: t('Dashboards'),
         icon: <LayoutDashboard className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       },
       {
         key: 'observability.alerts',
-        label: 'Alerts',
+        label: t('Alerts'),
         icon: <Bell className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       },
       {
         key: 'observability.datasources',
-        label: 'Datasources',
+        label: t('Datasources'),
         icon: <Database className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       },
     ]
-    const currentSubTab = grafanaSubTabs.find((t) => t.key === active)
+    const currentSubTab = grafanaSubTabs.find((tab) => tab.key === active)
 
     if (currentSubTab) {
       const explorerTarget = logDatasourceTarget ?? traceDatasourceTarget
@@ -229,12 +230,12 @@ export function pushClusterCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegment
         icon: currentSubTab.icon,
         options: inLeaf
           ? undefined
-          : grafanaSubTabs.map((t) => ({
-              key: t.key,
-              label: t.label,
-              icon: t.icon,
-              selected: t.key === active,
-              onPick: () => onSidebarSelect(t.key),
+          : grafanaSubTabs.map((sub) => ({
+              key: sub.key,
+              label: sub.label,
+              icon: sub.icon,
+              selected: sub.key === active,
+              onPick: () => onSidebarSelect(sub.key),
             })),
         onClick: inDashboardDetail
           ? () => updateActiveTab((tab) => ({ ...tab, dashboardTarget: null }))

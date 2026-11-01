@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import { navigationFromAppPath } from './appRoutes.ts'
 import { HREF_FAVORITE_PREFIX } from './sidebar-favorites/store.ts'
 
@@ -38,7 +40,7 @@ export function partitionPinnedChats<T extends { entry: Pick<SidebarFavorite, 'k
 }
 
 export function favoriteToggleTitle(chatRow: boolean, favorited: boolean): string {
-  if (chatRow) return favorited ? 'Unpin agent' : 'Pin agent'
+  if (chatRow) return favorited ? t('Unpin agent') : t('Pin agent')
 
-  return favorited ? 'Remove from Favorites' : 'Add to Favorites'
+  return favorited ? t('Remove from Favorites') : t('Add to Favorites')
 }

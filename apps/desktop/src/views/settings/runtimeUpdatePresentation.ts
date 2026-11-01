@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { RuntimeUpdateStatus } from '../../types/team'
 
 export function runtimeUpdatePresentation(
@@ -8,35 +10,36 @@ export function runtimeUpdatePresentation(
 ) {
   const pending = update.state === 'waiting' || update.state === 'updating'
   const titles = {
-    available: 'Update available',
-    waiting: 'Update queued',
-    updating: 'Updating runtime…',
-    failed: 'Update failed',
-    unknown: 'Version check unavailable',
-    current: 'Up to date',
+    available: t('Update available'),
+    waiting: t('Update queued'),
+    updating: t('Updating runtime…'),
+    failed: t('Update failed'),
+    unknown: t('Version check unavailable'),
+    current: t('Up to date'),
   }
-  let detail =
-    'The running version or latest release could not be verified. We’ll check again automatically.'
+  let detail = t(
+    'The running version or latest release could not be verified. We’ll check again automatically.',
+  )
 
   if (update.state === 'waiting')
     detail = enabled
-      ? 'The update will start when agents finish replying.'
-      : 'Enable this runtime to finish the update.'
-  if (update.state === 'updating') detail = 'Waiting for the updated runtime to come online.'
+      ? t('The update will start when agents finish replying.')
+      : t('Enable this runtime to finish the update.')
+  if (update.state === 'updating') detail = t('Waiting for the updated runtime to come online.')
   if (update.state === 'failed')
-    detail = update.error ?? 'Could not complete the update. Try again.'
+    detail = update.error ?? t('Could not complete the update. Try again.')
   if (update.state === 'available') {
-    detail = 'Update the runtime on its host to get the latest models and fixes.'
+    detail = t('Update the runtime on its host to get the latest models and fixes.')
     if (managed)
       detail = canUpdate
-        ? 'Updates wait for agents to finish replying.'
-        : 'Ask a workspace administrator to update this runtime.'
+        ? t('Updates wait for agents to finish replying.')
+        : t('Ask a workspace administrator to update this runtime.')
   }
-  let button = 'Update'
+  let button = t('Update')
 
-  if (update.state === 'failed') button = 'Retry update'
-  if (update.state === 'waiting') button = 'Update queued'
-  if (update.state === 'updating') button = 'Updating…'
+  if (update.state === 'failed') button = t('Retry update')
+  if (update.state === 'waiting') button = t('Update queued')
+  if (update.state === 'updating') button = t('Updating…')
 
   return {
     pending,
@@ -46,4 +49,17 @@ export function runtimeUpdatePresentation(
     version: pending || update.state === 'failed' ? update.targetVersion : update.latestVersion,
     showButton: canUpdate && (pending || update.state === 'available' || update.state === 'failed'),
   }
+}
+
+/**
+ * The newer version a host can update to, from its latest status: '' when that version is
+ * unknown, undefined when there is nothing to update. Every answer counts, so a host that comes
+ * back current after an update clears what an earlier answer offered.
+ */
+export function hostUpdateVersion(
+  update: Pick<RuntimeUpdateStatus, 'state' | 'latestVersion'> | undefined,
+) {
+  return update?.state === 'available' || update?.state === 'failed'
+    ? (update.latestVersion ?? '')
+    : undefined
 }

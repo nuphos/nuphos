@@ -7,6 +7,8 @@ import type {
   LocalShareInput,
   LocalShareLevel,
   ShareApprovalStatus,
+  LocalShareTrust,
+  ShareTrustDuration,
 } from '../../src/api/device-types.ts'
 
 // Sharing this person's own computer's Local Agent with teammates in one team.
@@ -48,13 +50,35 @@ export async function ownShareApprovalStatus(sessionId: string): Promise<ShareAp
 export function decideShareApproval(
   approvalId: string,
   approve: boolean,
+  trust?: ShareTrustDuration,
 ): Promise<{ id: string; status: string }> {
   return call(
     'POST',
     `/agent/devices/share-approvals/${encodeURIComponent(approvalId)}`,
-    { approve },
+    { approve, ...(trust ? { trust } : {}) },
     { retry: false },
   )
+}
+
+const trusts = (deviceId: string, teamId: string, actorId?: string) =>
+  `/agent/devices/${encodeURIComponent(deviceId)}/share-trusts${
+    actorId ? `/${encodeURIComponent(actorId)}` : ''
+  }?teamId=${encodeURIComponent(teamId)}`
+
+/** Teammates the owner trusts on this computer in this team. */
+export async function listShareTrusts(
+  deviceId: string,
+  teamId: string,
+): Promise<LocalShareTrust[]> {
+  return (await call<{ trusts: LocalShareTrust[] }>('GET', trusts(deviceId, teamId))).trusts
+}
+
+export async function dropShareTrust(
+  deviceId: string,
+  teamId: string,
+  actorId: string,
+): Promise<void> {
+  await call('DELETE', trusts(deviceId, teamId, actorId), undefined, { retry: false })
 }
 
 export function setTeamLocalAgentSharing(teamId: string, level: LocalShareLevel): Promise<Team> {

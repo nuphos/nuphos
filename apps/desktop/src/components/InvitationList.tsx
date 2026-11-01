@@ -1,5 +1,7 @@
 import { Check, Loader2, X } from 'lucide-react'
 
+import { t } from '../i18n'
+
 import { Avatar } from './Avatar'
 import { Button } from './ui/button'
 
@@ -47,7 +49,7 @@ function JoinedChip() {
   return (
     <span className="inline-flex h-8 items-center gap-1 rounded-md border border-zViolet-500/35 bg-zViolet-500/10 px-2.5 text-[12.5px] font-medium text-zViolet-300">
       <Check className="h-3 w-3" />
-      Joined
+      {t('Joined')}
     </span>
   )
 }
@@ -80,7 +82,7 @@ function SelectToggle({
       ) : (
         selected && <Check className="h-3 w-3" />
       )}
-      {selected ? 'Selected' : 'Join'}
+      {selected ? t('Selected') : t('Join')}
     </button>
   )
 }
@@ -109,7 +111,7 @@ export function InvitationList({
   return (
     <>
       {showSectionLabels && (
-        <div className="px-1 pb-0.5 text-[11.5px] text-tertiary">Invitations</div>
+        <div className="px-1 pb-0.5 text-[11.5px] text-tertiary">{t('Invitations')}</div>
       )}
       {invitations.map((invitation) => {
         const joined = joinedTeamIds.has(invitation.teamId)
@@ -118,16 +120,16 @@ export function InvitationList({
           <div key={invitation.id} className={cardClass}>
             <Avatar
               src={invitation.team?.avatarUrl}
-              name={invitation.team?.name ?? 'Team invitation'}
+              name={invitation.team?.name ?? t('Team invitation')}
               size={28}
               className="rounded-md !shadow-none"
             />
             <div className="min-w-0 flex-1">
               <div className="truncate text-[14px] font-medium text-main">
-                {invitation.team?.name ?? 'Team invitation'}
+                {invitation.team?.name ?? t('Team invitation')}
               </div>
               <div className="truncate text-[12px] text-tertiary">
-                Invitation for {invitation.inviteeEmail}
+                {t('Invitation for {email}', { email: invitation.inviteeEmail })}
               </div>
             </div>
             {joined ? (
@@ -148,7 +150,7 @@ export function InvitationList({
                   className="titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md border border-zGray-700 px-2.5 text-[12.5px] font-medium text-secondary transition-colors hover:bg-zGray-800/70 hover:text-main disabled:cursor-default disabled:opacity-60"
                 >
                   <X className="h-3 w-3" />
-                  Reject
+                  {t('Reject')}
                 </button>
                 <Button
                   size="sm"
@@ -162,7 +164,7 @@ export function InvitationList({
                   ) : (
                     <Check className="h-3 w-3" />
                   )}
-                  Accept
+                  {t('Accept')}
                 </Button>
               </>
             )}
@@ -170,7 +172,9 @@ export function InvitationList({
         )
       })}
       {showSectionLabels && (
-        <div className="px-1 pb-0.5 pt-2 text-[11.5px] text-tertiary">Teams you can join</div>
+        <div className="px-1 pb-0.5 pt-2 text-[11.5px] text-tertiary">
+          {t('Teams you can join')}
+        </div>
       )}
       {discoverableTeams.map((team) => {
         const joined = joinedTeamIds.has(team.id)
@@ -186,8 +190,9 @@ export function InvitationList({
             <div className="min-w-0 flex-1">
               <div className="truncate text-[14px] font-medium text-main">{team.name}</div>
               <div className="truncate text-[12px] text-tertiary">
-                {team.memberCount === 1 ? '1 member' : `${String(team.memberCount)} members`}
-                {' · your email domain'}
+                {team.memberCount === 1
+                  ? t('1 member · your email domain')
+                  : t('{n} members · your email domain', { n: team.memberCount })}
               </div>
             </div>
             {joined ? (
@@ -208,7 +213,7 @@ export function InvitationList({
                 onClick={() => onJoinDiscoverableTeam?.(team)}
               >
                 {joiningTeamId === team.id && <Loader2 className="h-3 w-3 animate-spin" />}
-                Join
+                {t('Join')}
               </Button>
             )}
           </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Area, AreaChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { api } from '../../api'
+import { t } from '../../i18n'
 
 import { chartTicks, tickLabel } from './billingPresentation'
 import { ACCENT, CAPACITY, RangeSwitch } from './MetricChart'
@@ -71,8 +72,10 @@ export function BoxUsageChart({
   return (
     <section>
       <PanelHeading
-        title="vCPU over time"
-        hint={`Highest running vCPU per ${QUOTA_HISTORY_RANGES[range].bucketLabel}`}
+        title={t('vCPU over time')}
+        hint={t('Highest running vCPU per {bucket}', {
+          bucket: QUOTA_HISTORY_RANGES[range].bucketLabel,
+        })}
         right={
           <div className="flex items-center gap-3 text-[11px] text-tertiary">
             <span className="flex items-center gap-1.5">
@@ -81,7 +84,7 @@ export function BoxUsageChart({
                 className="h-2.5 w-2.5 rounded-sm"
                 style={{ backgroundColor: ACCENT }}
               />
-              Running vCPU
+              {t('Running vCPU')}
             </span>
             {showLimit && (
               <span className="flex items-center gap-1.5">
@@ -90,21 +93,21 @@ export function BoxUsageChart({
                   className="w-3 border-t border-dashed"
                   style={{ borderColor: CAPACITY }}
                 />
-                Plan limit
+                {t('Plan limit')}
               </span>
             )}
             <RangeSwitch
               options={RANGE_OPTIONS}
               value={range}
               onChange={setRange}
-              label="Time range"
+              label={t('Time range')}
             />
           </div>
         }
       />
       {empty ? (
         <p className="rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
-          No computers ran in this range.
+          {t('No computers ran in this range.')}
         </p>
       ) : (
         <div className="h-40 rounded-xl border border-zGray-800/60 bg-surface/40 px-2 pb-1 pt-3">
@@ -146,7 +149,7 @@ export function BoxUsageChart({
                           {showLimit && point.limit !== null && (
                             <span className="text-tertiary"> / {point.limit}</span>
                           )}{' '}
-                          <span className="text-tertiary">vCPU running</span>
+                          <span className="text-tertiary">{t('vCPU running')}</span>
                         </div>
                       </div>
                     )

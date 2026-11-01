@@ -117,6 +117,25 @@ const RULES: Rule[] = [
   },
 ]
 
+// Unambiguous token shapes: safe to apply to any text without hiding prose,
+// ids or commit hashes the way the assignment rules and entropy sweep can.
+const TOKEN_SHAPE_KINDS = new Set([
+  'pem-private-key',
+  'aws-access-key-id',
+  'jwt',
+  'nuphos-token',
+  'github-token',
+  'slack-token',
+])
+
+/** Replaces only well-known token shapes; leaves everything else readable. */
+export function redactTokenShapes(text: string): string {
+  return RULES.filter((rule) => TOKEN_SHAPE_KINDS.has(rule.kind)).reduce(
+    (out, rule) => out.replace(rule.pattern, placeholder(rule.kind)),
+    text,
+  )
+}
+
 /** Shannon entropy in bits per character. */
 export function shannonEntropy(text: string): number {
   if (text.length === 0) return 0

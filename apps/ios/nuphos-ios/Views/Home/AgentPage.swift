@@ -18,6 +18,8 @@ struct AgentPage: View {
     @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
     @State private var showAgentSetup = false
+    @State private var renaming: AgentConversation?
+    @State private var renamedTitle = ""
     #if DEBUG
     /// `-preview-agent-login`: the authorization-code step with a canned attempt.
     @State private var previewLogin = false
@@ -46,6 +48,13 @@ struct AgentPage: View {
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
+            .alert("Rename agent", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
+                let title = renamedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                TextField("Title", text: $renamedTitle)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") { Task { await store.rename(conversation, title: title) } }
+                    .disabled(title.isEmpty || title.count > 120)
+            }
             #if DEBUG
             .sheet(isPresented: $previewLogin) {
                 if let team = store.selectedTeam {
@@ -89,6 +98,17 @@ struct AgentPage: View {
                 // actions must not reopen chats (or resend a preview prompt).
                 guard !didHandleLaunchAction, !Task.isCancelled else { return }
                 didHandleLaunchAction = true
+                // `-open-links <url>…`: open each link as if tapped, two seconds
+                // apart. Not tied to this page, which leaves when a chat opens.
+                if let i = CommandLine.arguments.firstIndex(of: "-open-links") {
+                    let links = CommandLine.arguments[(i + 1)...].prefix { !$0.hasPrefix("-") }.compactMap(URL.init(string:))
+                    Task {
+                        for link in links {
+                            try? await Task.sleep(for: .seconds(2))
+                            PushNotifications.shared.open(link)
+                        }
+                    }
+                }
                 if CommandLine.arguments.contains("-open-first-chat") {
                     openChat = store.conversations.first.map { OpenChat(session: store.session(for: $0)) }
                 }
@@ -149,6 +169,7 @@ struct AgentPage: View {
         // with the same id keeps the view's identity, so it would never load.
         guard target.sessionId != openChat?.id else { return }
         if let team = store.teams.first(where: { $0.id == target.teamId }) { store.select(team: team) }
+        endEditing()
         openChat = OpenChat(session: store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId))
     }
 
@@ -219,7 +240,7 @@ struct AgentPage: View {
     @ViewBuilder
     private func rowActions(_ conversation: AgentConversation) -> some View {
         if conversation.canManage { Button {
-            Task { await store.archive(conversation) }
+            Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {
             Label("Archive", systemImage: "archivebox")
         }
@@ -238,6 +259,15 @@ struct AgentPage: View {
             }
             .tint(.teal)
         }
+        if conversation.ownsChat {
+            Button {
+                renamedTitle = conversation.displayTitle
+                renaming = conversation
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
         if conversation.ownsChat, conversation.parentSessionId != nil {
             Button {
                 Task { await store.unlinkParent(conversation) }
@@ -254,6 +284,7 @@ struct AgentPage: View {
             openChat?.id
         } set: { id in
             guard id != openChat?.id else { return }
+            endEditing()
             openChat = store.listedConversations.first { $0.sessionId == id }.map { OpenChat(session: store.session(for: $0)) }
         }
     }
@@ -297,7 +328,9 @@ struct AgentPage: View {
                             ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
                         }
                     }
-                    .listRowBackground(Color.clear)
+                    // A custom row background hides the system selection
+                    // highlight, so the open chat's row draws its own.
+                    .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                     .listSectionSeparator(.hidden, edges: .top)
                     // A separator would cut through the lines of an open tree.
@@ -327,12 +360,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-        .task {
-            while !Task.isCancelled {
-                RuntimeObservations.shared.tick()
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
     }
 }
 
@@ -412,7 +439,9 @@ struct NewChatComposer: View {
                 return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
             }
         ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, onSend: { submission in
-            if let session = store.newSession() { openChat = AgentPage.OpenChat(session: session, prompt: submission) }
+            guard let session = store.newSession() else { return }
+            endEditing()
+            openChat = AgentPage.OpenChat(session: session, prompt: submission)
         }) {
             ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
         }
@@ -426,4 +455,13 @@ struct NewChatComposer: View {
             ComposerDrafts.set(text, team: draftTeam, session: "new")
         }
     }
+}
+
+/// Puts the list's keyboard away before a chat opens. UIKit remembers the
+/// focus a pushed chat covered and hands it back when a back swipe starts,
+/// raising a keyboard that lifts the chat's composer mid-swipe.
+private func endEditing() {
+    #if canImport(UIKit)
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #endif
 }

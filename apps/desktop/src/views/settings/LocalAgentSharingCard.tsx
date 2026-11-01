@@ -5,13 +5,21 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
+import { ShareApproveButton } from '../inbox/ShareApproveButton'
+import { afterAnswer } from '../inbox/shareTrust'
 
 import { LOCAL_AGENT_CARD } from './LocalAgentCard'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { effectiveShare, shareSummary } from './localAgentSharingPresentation'
+import { LocalAgentTrustedList } from './LocalAgentTrustedList'
 
-import type { LocalAgentShareState, LocalShareApproval } from '../../api/device-types'
+import type {
+  LocalAgentShareState,
+  LocalShareApproval,
+  ShareTrustDuration,
+} from '../../api/device-types'
 
 const APPROVAL_POLL_MS = 10_000
 
@@ -39,6 +47,7 @@ export function LocalAgentSharingCard({
   const [state, setState] = useState<LocalAgentShareState | null>(null)
   const [approvals, setApprovals] = useState<LocalShareApproval[]>([])
   const [deciding, setDeciding] = useState<string | null>(null)
+  const [trustVersion, setTrustVersion] = useState(0)
   const members = useTeamMembers(teamId)
 
   useEffect(() => {
@@ -75,13 +84,18 @@ export function LocalAgentSharingCard({
     return () => clearInterval(timer)
   }, [state, loadApprovals])
 
-  const decide = async (approval: LocalShareApproval, approve: boolean) => {
+  const decide = async (
+    approval: LocalShareApproval,
+    approve: boolean,
+    trust?: ShareTrustDuration,
+  ) => {
     setDeciding(approval.id)
     try {
-      await api.localShareDecide(approval.id, approve)
-      setApprovals((previous) => previous.filter((entry) => entry.id !== approval.id))
+      await api.localShareDecide(approval.id, approve, trust)
+      setApprovals((previous) => afterAnswer(previous, approval, trust))
+      if (trust) setTrustVersion((version) => version + 1)
     } catch (error) {
-      toast.apiError('Could not answer this request', error)
+      toast.apiError(t('Could not answer this request'), error)
     } finally {
       setDeciding(null)
     }
@@ -93,7 +107,7 @@ export function LocalAgentSharingCard({
   const nameOf = (userId: string) => {
     const member = members.find((entry) => entry.id === userId)
 
-    return member ? memberDisplayName(member) : 'A teammate'
+    return member ? memberDisplayName(member) : t('A teammate')
   }
 
   return (
@@ -101,11 +115,11 @@ export function LocalAgentSharingCard({
       <div className="flex items-center justify-between gap-4 px-4 py-3.5">
         <div className="min-w-0">
           <div className="truncate text-[13px] font-medium text-main">
-            Share {device.label} with teammates
+            {t('Share {device} with teammates', { device: device.label })}
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {state.ceiling === 'off'
-              ? 'Your team’s administrators have turned off sharing your own computer.'
+              ? t('Your team’s administrators have turned off sharing your own computer.')
               : shareSummary(effectiveShare(state.share, state.ceiling), teammates)}
           </div>
         </div>
@@ -116,43 +130,56 @@ export function LocalAgentSharingCard({
           onClick={() => onEditingChange(true)}
         >
           <Users strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
-          {state.share.level === 'off' ? 'Share' : 'Change'}
+          {state.share.level === 'off' ? t('Share') : t('Change')}
         </Button>
       </div>
       {approvals.length > 0 && (
         <ul className="border-t border-zGray-800/60">
-          {approvals.map((approval) => (
-            <li
-              key={approval.id}
-              className={clsx(
-                'flex items-center justify-between gap-3 px-4 py-2.5 text-[12.5px]',
-                deciding === approval.id && 'opacity-60',
-              )}
-            >
-              <span className="min-w-0 truncate text-secondary">
-                <span className="text-main">{nameOf(approval.actorId)}</span> wants to run an agent
-                on {approval.deviceLabel}
-              </span>
-              <span className="flex shrink-0 gap-1.5">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={deciding !== null}
-                  onClick={() => void decide(approval, false)}
-                >
-                  Decline
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={deciding !== null}
-                  onClick={() => void decide(approval, true)}
-                >
-                  Approve
-                </Button>
-              </span>
-            </li>
-          ))}
+          {approvals.map((approval) => {
+            // The name is styled, so split one sentence around it.
+            const request = t('{name} wants to run an agent on {device}', {
+              device: approval.deviceLabel,
+            }).split('{name}')
+
+            return (
+              <li
+                key={approval.id}
+                className={clsx(
+                  'flex items-center justify-between gap-3 px-4 py-2.5 text-[12.5px]',
+                  deciding === approval.id && 'opacity-60',
+                )}
+              >
+                <span className="min-w-0 truncate text-secondary">
+                  {request[0]}
+                  <span className="text-main">{nameOf(approval.actorId)}</span>
+                  {request[1]}
+                </span>
+                <span className="flex shrink-0 gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={deciding !== null}
+                    onClick={() => void decide(approval, false)}
+                  >
+                    {t('Decline')}
+                  </Button>
+                  <ShareApproveButton
+                    disabled={deciding !== null}
+                    onApprove={(trust) => void decide(approval, true, trust)}
+                  />
+                </span>
+              </li>
+            )
+          })}
         </ul>
+      )}
+      {effectiveShare(state.share, state.ceiling).level === 'approve' && (
+        <LocalAgentTrustedList
+          teamId={teamId}
+          deviceId={device.deviceId}
+          nameOf={nameOf}
+          version={trustVersion}
+        />
       )}
       {editing && shareable && (
         <LocalAgentShareDialog

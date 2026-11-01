@@ -3,6 +3,7 @@ import { PanelRight } from 'lucide-react'
 import { useEffect } from 'react'
 
 import { useWorkspacePane } from '../../../app/workspace/WorkspacePaneContext'
+import { t } from '../../../i18n'
 import { artifactPagePath, pickArtifactVersion } from '../../../lib/sessionArtifacts'
 import { MessageResponse } from '../MessageResponse'
 import { LoadingText, ToolElapsedBadge } from '../panel/partChrome'
@@ -104,7 +105,9 @@ function ArtifactCard({
             disabled={!canOpen}
             onClick={() => open(latest)}
             title={
-              latest ? 'Open beside the chat' : `Open version ${String(version)} beside the chat`
+              latest
+                ? t('Open beside the chat')
+                : t('Open version {version} beside the chat', { version: String(version) })
             }
             className={clsx(
               "line-clamp-2 break-words text-left text-[15px] font-medium leading-5 outline-none after:absolute after:inset-0 after:content-[''] disabled:cursor-default",
@@ -119,7 +122,7 @@ function ArtifactCard({
           aria-hidden
           className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-zGray-800 px-2 text-[12px] leading-none text-secondary transition-colors duration-150 group-hover/artifact:bg-zGray-800/40 group-hover/artifact:text-main group-active/artifact:bg-zGray-800/60 group-has-[button:disabled]/artifact:opacity-50 motion-reduce:transition-none"
         >
-          Open
+          {t('Open')}
           <PanelRight className="size-3" strokeWidth={1.75} />
         </span>
       </div>
@@ -149,9 +152,13 @@ function useOpenWhenMade(part: ToolPart, versionKey: string | null, open: () => 
 
 function versionMeta(kind: string, version: number, total: number): string {
   if (total === 1) return kind
-  if (version === total) return `${kind} · Version ${String(version)}`
+  if (version === total) return t('{kind} · Version {version}', { kind, version: String(version) })
 
-  return `${kind} · Version ${String(version)} of ${String(total)}`
+  return t('{kind} · Version {version} of {total}', {
+    kind,
+    version: String(version),
+    total: String(total),
+  })
 }
 
 /** The first screen of the artifact, the way it will look when opened. */

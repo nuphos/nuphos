@@ -28,6 +28,7 @@ import {
   getReadableConversation,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
+import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
@@ -115,6 +116,10 @@ agent.get('/conversations', async (c) => {
     ...(c.req.query('pendingDecision') === 'true' ? { pendingDecision: true } : {}),
     withParents: true,
   })
+
+  // Sidebar tags catch up too; a repository outside the linked installation sends no webhooks.
+  for (const conversation of result.conversations)
+    void recheckLinkedResources(conversation).catch(() => null)
   const rows = await serializeConversationList(
     [...result.conversations, ...result.parents] as unknown as (Record<string, unknown> & {
       userId: string

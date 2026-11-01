@@ -100,7 +100,7 @@ beforeEach(async () => {
           models: {
             models: [{ id: 'opus', name: 'Opus' }],
             defaultModel: 'opus',
-            controls: { opus: { effort: [], fast: false } },
+            controls: { opus: { effort: [], fast: [] } },
           },
         },
       },

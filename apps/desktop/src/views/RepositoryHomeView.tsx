@@ -8,6 +8,7 @@ import { GithubMark } from '../components/GithubMark'
 import { Table } from '../components/Table'
 import { useSilentTick } from '../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -94,7 +95,7 @@ export function RepositoryHomeView({
   const columns: Column<GithubInstallation>[] = [
     {
       key: 'account',
-      header: 'Account',
+      header: t('Account'),
       width: 220,
       sortAccessor: (x) => x.accountLogin,
       render: (x) => (
@@ -106,23 +107,23 @@ export function RepositoryHomeView({
     },
     {
       key: 'kind',
-      header: 'Kind',
+      header: t('Kind'),
       width: 120,
       render: (x) => <span className="text-secondary">{x.accountType}</span>,
     },
     {
       key: 'scope',
-      header: 'Scope',
+      header: t('Scope'),
       width: 200,
       render: (x) => (
         <span className="text-tertiary text-[12px]">
-          {x.targetType === 'all' ? 'All repositories' : 'Selected repositories'}
+          {x.targetType === 'all' ? t('All repositories') : t('Selected repositories')}
         </span>
       ),
     },
     {
       key: 'age',
-      header: 'Age',
+      header: t('Age'),
       width: 100,
       sortAccessor: (x) => x.createdAt ?? '',
       render: (x) => (
@@ -133,12 +134,12 @@ export function RepositoryHomeView({
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('Status'),
       width: 140,
       render: () => (
         <span className="inline-flex items-center gap-1.5 text-[#73bf69]">
           <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.8} />
-          Connected
+          {t('Connected')}
         </span>
       ),
     },
@@ -149,13 +150,13 @@ export function RepositoryHomeView({
       render: (x) => (
         <button
           type="button"
-          aria-label={`Disconnect ${x.accountLogin}`}
+          aria-label={t('Disconnect {name}', { name: x.accountLogin })}
           onClick={(e) => {
             e.stopPropagation()
             setUnbindTarget(x)
           }}
           className="p-1 rounded text-tertiary hover:text-error hover:bg-zGray-800"
-          title="Disconnect"
+          title={t('Disconnect')}
         >
           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
         </button>
@@ -176,7 +177,7 @@ export function RepositoryHomeView({
   if (installations === null) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading…
+        {t('Loading…')}
       </div>
     )
   }
@@ -185,13 +186,13 @@ export function RepositoryHomeView({
     <div className="flex-1 flex flex-col min-h-0">
       {installations.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-tertiary text-[12.5px]">
-          <div>No GitHub accounts connected to this team yet.</div>
+          <div>{t('No GitHub accounts connected to this team yet.')}</div>
           <button
             onClick={onConnectGithub}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zGray-800 hover:bg-zGray-700 text-main text-[12.5px]"
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-            Connect your first account
+            {t('Connect your first account')}
           </button>
         </div>
       ) : (
@@ -202,7 +203,7 @@ export function RepositoryHomeView({
             rows={filtered}
             rowKey={(x) => x.id}
             storageKey="repository.installations"
-            empty={`No accounts match "${filter}"`}
+            empty={t('No accounts match "{filter}"', { filter })}
             onPrimaryAction={onSelectInstallation}
             onRowContextMenu={onRowContextMenu}
           />
@@ -211,9 +212,12 @@ export function RepositoryHomeView({
       {unbindTarget && (
         <ConfirmDialog
           open
-          title="Disconnect GitHub account"
-          description={`Nuphos will lose access to ${unbindTarget.accountLogin}. The GitHub App stays installed on GitHub — uninstall it there separately if you want to fully revoke access.`}
-          confirmLabel="Disconnect"
+          title={t('Disconnect GitHub account')}
+          description={t(
+            'Nuphos will lose access to {name}. The GitHub App stays installed on GitHub — uninstall it there separately if you want to fully revoke access.',
+            { name: unbindTarget.accountLogin },
+          )}
+          confirmLabel={t('Disconnect')}
           destructive
           onClose={() => setUnbindTarget(null)}
           onConfirm={async () => {

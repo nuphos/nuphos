@@ -4,7 +4,9 @@ import { config } from '@/config'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useRedis } from '@/lib/test/doubles/redis'
 
-import { claimAgentRunForSession } from './run-admission'
+import { agentRuns, claimAgentRunForSession, hasActiveAgentRunForSession } from './run-admission'
+
+import type { AgentRun } from '@/routes/agent/types'
 
 const nodeEnv = config.nodeEnv
 
@@ -35,4 +37,28 @@ test('a move without Redis is refused in production and allowed in development',
 
   setNodeEnv('development')
   expect(await claimAgentRunForSession('user', 'session-dev', true)).toBeFunction()
+})
+
+test('without Redis, a newer runtime-started run does not hide the backend turn holding the session', async () => {
+  const run = (streamId: string, createdAt: number, runtimeOwned?: boolean) =>
+    ({
+      key: streamId,
+      streamId,
+      sessionId: 'session-mixed',
+      userId: 'user',
+      createdAt,
+      done: false,
+      ...(runtimeOwned ? { runtimeOwned } : {}),
+    }) as AgentRun
+
+  agentRuns.set('backend', run('backend', 1))
+  agentRuns.set('runtime', run('runtime', 2, true))
+  try {
+    expect(await hasActiveAgentRunForSession('user', 'session-mixed')).toBe(true)
+    agentRuns.delete('backend')
+    expect(await hasActiveAgentRunForSession('user', 'session-mixed')).toBe(false)
+  } finally {
+    agentRuns.delete('backend')
+    agentRuns.delete('runtime')
+  }
 })

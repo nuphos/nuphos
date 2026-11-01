@@ -2,8 +2,10 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
+import { trustedAvatarURL } from '../../lib/avatarUrl'
 
-import { ProfilePhoto } from './ProfilePhoto'
+import { AvatarPicker } from './AvatarPicker'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
 
@@ -44,7 +46,7 @@ export function ProfileSection({
       setUsername(next.username)
       setSaved(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save profile')
+      setError(err instanceof Error ? err.message : t('Could not save profile'))
     } finally {
       setSaving(false)
     }
@@ -53,13 +55,18 @@ export function ProfileSection({
   return (
     <div>
       <SectionHeader
-        title="Profile"
-        description="Your account, shared across every team you belong to."
+        title={t('Profile')}
+        description={t('Your account, shared across every team you belong to.')}
       />
       <form onSubmit={(event) => void save(event)} className="space-y-5">
-        <ProfilePhoto user={user} displayName={name || username} onUserUpdated={onUserUpdated} />
+        <AvatarPicker
+          src={trustedAvatarURL(user.avatarURL)}
+          name={name || username}
+          onUpload={async (image) => onUserUpdated(await api.authUploadAvatar(image))}
+          onRemove={async () => onUserUpdated(await api.authRemoveAvatar())}
+        />
         <fieldset disabled={saving} className="space-y-4">
-          <Field label="Name">
+          <Field label={t('Name')}>
             <input
               className={inputClasses}
               value={name}
@@ -69,7 +76,7 @@ export function ProfileSection({
               autoComplete="name"
             />
           </Field>
-          <Field label="Username" hint="Letters, numbers, underscores and hyphens.">
+          <Field label={t('Username')} hint={t('Letters, numbers, underscores and hyphens.')}>
             <input
               className={inputClasses}
               value={username}
@@ -81,7 +88,7 @@ export function ProfileSection({
               autoComplete="username"
             />
           </Field>
-          <Field label="Email" hint="Your sign-in email cannot be changed here.">
+          <Field label={t('Email')} hint={t('Your sign-in email cannot be changed here.')}>
             <input className={inputClasses} value={user.email} readOnly />
           </Field>
         </fieldset>
@@ -92,17 +99,17 @@ export function ProfileSection({
         )}
         {saved && !dirty && (
           <p role="status" className="text-sm text-secondary">
-            Profile saved.
+            {t('Profile saved.')}
           </p>
         )}
         <Button type="submit" size="sm" disabled={saving || !dirty}>
-          {saving ? 'Saving…' : 'Save changes'}
+          {saving ? t('Saving…') : t('Save changes')}
         </Button>
       </form>
       <div className="mt-6 flex items-center justify-between rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
-        <div className="text-[13px] text-secondary">Log out of Nuphos on this computer.</div>
+        <div className="text-[13px] text-secondary">{t('Log out of Nuphos on this computer.')}</div>
         <Button type="button" size="sm" variant="secondary" onClick={onSignOut} disabled={saving}>
-          Log out
+          {t('Log out')}
         </Button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 
 import { api } from '../../../api'
+import { t } from '../../../i18n/index.ts'
 import { track } from '../../../lib/analytics'
 import { toast } from '../../ui/toast'
 
@@ -98,7 +99,7 @@ export function useEndOfStream(acc: Acc) {
           ...(teamId ? { teamId } : {}),
         })
         .catch((err: unknown) => {
-          toast.apiError('Could not save feedback', err)
+          toast.apiError(t('Could not save feedback'), err)
         })
     },
     [setTabs, teamId],

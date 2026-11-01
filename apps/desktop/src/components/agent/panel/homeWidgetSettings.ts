@@ -1,5 +1,12 @@
+import { t } from '../../../i18n/index.ts'
+
+import { GRID_COLUMNS, cardKind, catalogEntry } from './homeCardCatalog.ts'
+import { metricSize } from './homeMetricFormat.ts'
+
 import type { GithubPR, GithubWorkflowRun } from '../../../types'
 import type {
+  HomeMetricCard,
+  HomeMetricKind,
   HomeGithubCard,
   HomeGridItem,
   HomeLayout,
@@ -10,10 +17,18 @@ import type {
   HomeRunStatus,
 } from '../../../types/team.ts'
 
-export type { HomeGithubCard, HomeLayout, HomePanel, HomeRepo } from '../../../types/team.ts'
+export type {
+  HomeGithubCard,
+  HomeLayout,
+  HomeMetricCard,
+  HomePanel,
+  HomeRepo,
+} from '../../../types/team.ts'
+
+export { GRID_COLUMNS } from './homeCardCatalog.ts'
 
 /** What a team starts with: just the activity heatmap. */
-export const DEFAULT_HOME_LAYOUT: HomeLayout = { team: true, github: [], panels: [] }
+export const DEFAULT_HOME_LAYOUT: HomeLayout = { team: true, github: [], panels: [], metrics: [] }
 
 /**
  * The default plus what a team already has to show: pull request and CI cards
@@ -45,24 +60,29 @@ export function starterLayout({
 
 export const repoKey = (repo: HomeRepo) => repo.fullName
 export const panelKey = (panel: HomePanel) => `${panel.dashboardId}/${panel.panelId}`
+/** A metric card's grid key; the kind is in it so its size and name are known before it loads. */
+export const metricKey = (card: HomeMetricCard) => `metric:${card.kind}:${card.id}`
+const metricKind = (key: string) => key.split(':')[1] as HomeMetricKind
 
 /** Adds `item` when no entry shares its key, otherwise removes that entry. */
-export function toggleItem<T>(list: T[], item: T, key: (t: T) => string): T[] {
+export function toggleItem<T>(list: T[], item: T, key: (entry: T) => string): T[] {
   const k = key(item)
 
-  return list.some((t) => key(t) === k) ? list.filter((t) => key(t) !== k) : [...list, item]
+  return list.some((entry) => key(entry) === k)
+    ? list.filter((entry) => key(entry) !== k)
+    : [...list, item]
 }
 
 export const PULL_STATUSES: { value: HomePullStatus; label: string; empty: string }[] = [
-  { value: 'open', label: 'Open', empty: 'No open pull requests' },
-  { value: 'ready', label: 'Ready for review', empty: 'Nothing ready for review' },
-  { value: 'draft', label: 'Draft', empty: 'No drafts' },
+  { value: 'open', label: t('Open|state'), empty: t('No open pull requests') },
+  { value: 'ready', label: t('Ready for review'), empty: t('Nothing ready for review') },
+  { value: 'draft', label: t('Draft'), empty: t('No drafts') },
 ]
 
 export const RUN_STATUSES: { value: HomeRunStatus; label: string; empty: string }[] = [
-  { value: 'failed', label: 'Failing', empty: 'Nothing failing' },
-  { value: 'running', label: 'Running', empty: 'Nothing running' },
-  { value: 'latest', label: 'Latest', empty: 'No runs yet' },
+  { value: 'failed', label: t('Failing'), empty: t('Nothing failing') },
+  { value: 'running', label: t('Running'), empty: t('Nothing running') },
+  { value: 'latest', label: t('Latest'), empty: t('No runs yet') },
 ]
 
 /** A card's statuses as their labels, in menu order, e.g. "Failing, Running". */
@@ -75,6 +95,11 @@ export function statusLabel(card: HomeGithubCard): string {
     .filter((s) => chosen.includes(s.value))
     .map((s) => s.label)
     .join(', ')
+}
+
+/** A pull request or CI card's title, e.g. "CI · Failing". */
+export function githubCardTitle(card: HomeGithubCard): string {
+  return `${card.kind === 'pulls' ? t('Pull requests') : 'CI'} · ${statusLabel(card)}`
 }
 
 /** Pull requests in any of `statuses`; `open` takes them all. */
@@ -111,35 +136,56 @@ export function filterRuns(
   )
 }
 
-export const GRID_COLUMNS = 12
-
-/** A new card's size: the heatmap gets the full row, the rest half of it. */
+/**
+ * A new card's size, from its kind: the heatmap gets the full row, the rest
+ * half of it. A key of no known kind sizes as a GitHub card.
+ */
 function defaultSize(key: string): { w: number; h: number } {
-  if (key === 'team') return { w: GRID_COLUMNS, h: 8 }
-  if (key.startsWith('panel:')) return { w: GRID_COLUMNS / 2, h: 6 }
-  // GitHub cards (`gh:<id>`).
-
-  return { w: GRID_COLUMNS / 2, h: 7 }
+  return catalogEntry(cardKind(key) ?? 'pulls').size
 }
 
-const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
+/**
+ * The smallest a card may be resized to: room for its header and at least one
+ * row, so its content scrolls inside it instead of spilling onto the card below.
+ */
+export function minCardSize(key: string): { minW: number; minH: number } {
+  if (key === 'team') return { minW: GRID_COLUMNS / 2, minH: 4 }
+  // A metric card needs room for its title, number and the lines under it.
+  if (key.startsWith('metric:')) return { minW: 4, minH: metricSize(metricKind(key)).h }
+
+  return { minW: 3, minH: 3 }
+}
+
+export const overlaps = (a: HomeGridItem, b: HomeGridItem) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
 /**
  * The grid for the cards on show, in order: a card keeps its saved place and
  * size, and one without (newly added) takes the first free spot that fits it,
  * row by row — beside a half-width card when there is room, below otherwise.
- * Saved entries for cards no longer on show are dropped.
+ * Saved entries for cards no longer on show are dropped, and a saved size below
+ * the card's minimum grows back to it. `sizes` overrides the default size of
+ * a new card by key.
  */
-export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridItem[] {
-  const byKey = new Map(saved.map((item) => [item.i, item]))
+export function gridFor(
+  keys: string[],
+  saved: HomeGridItem[] = [],
+  sizes: Record<string, { w: number; h: number }> = {},
+): HomeGridItem[] {
+  const byKey = new Map(
+    saved.map((item) => {
+      const { minW, minH } = minCardSize(item.i)
+
+      return [item.i, { ...item, w: Math.max(item.w, minW), h: Math.max(item.h, minH) }]
+    }),
+  )
   const taken = keys.flatMap((k) => byKey.get(k) ?? [])
 
   return keys.map((i) => {
     const item = byKey.get(i)
 
     if (item) return item
-    const size = defaultSize(i)
+    const size = sizes[i] ?? defaultSize(i)
 
     for (let y = 0; ; y++) {
       for (let x = 0; x + size.w <= GRID_COLUMNS; x++) {
@@ -153,6 +199,43 @@ export function gridFor(keys: string[], saved: HomeGridItem[] = []): HomeGridIte
       }
     }
   })
+}
+
+/** Layouts saved since card sizes were fitted to their content carry this `gridVersion`. */
+export const HOME_GRID_VERSION = 2
+
+/**
+ * A layout saved before card sizes were fitted to their content (without a
+ * `gridVersion`), with each card still at a size that used to be the default
+ * brought down to its new one: the heatmap from 12x8 to `teamHeight`, pull
+ * request and CI cards from 6x7. Any other size was chosen by the member and
+ * stays. Cards only get shorter, so none overlap; the grid closes the gaps.
+ */
+export function fitOldSizes(layout: HomeLayout, teamHeight: number): HomeLayout {
+  if ((layout.gridVersion ?? 1) >= HOME_GRID_VERSION || !layout.grid) return layout
+  const fitted = (item: HomeGridItem): number => {
+    if (item.i === 'team' && item.w === GRID_COLUMNS && item.h === 8) return teamHeight
+    if (item.i.startsWith('gh:') && item.w === GRID_COLUMNS / 2 && item.h === 7) {
+      return catalogEntry('pulls').size.h
+    }
+
+    return item.h
+  }
+
+  return {
+    ...layout,
+    grid: layout.grid.map((item) => ({ ...item, h: Math.min(item.h, fitted(item)) })),
+  }
+}
+
+/** A card's title from its grid key, as screen readers hear it when it moves. */
+export function cardLabel(layout: HomeLayout, key: string): string {
+  const github = layout.github.find((card) => `gh:${card.id}` === key)
+
+  if (github) return githubCardTitle(github)
+  const kind = cardKind(key, layout)
+
+  return kind ? catalogEntry(kind).title : key
 }
 
 /**
@@ -172,6 +255,7 @@ export function editableLayout(
     ...layout,
     github: layout.github ?? [],
     panels: layout.panels ?? [],
+    metrics: layout.metrics ?? [],
   }
 }
 

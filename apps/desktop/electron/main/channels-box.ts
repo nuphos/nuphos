@@ -20,8 +20,10 @@ import {
 } from '../atlas/boxes.ts'
 import {
   decideShareApproval,
+  dropShareTrust,
   getDeviceShare,
   listShareApprovals,
+  listShareTrusts,
   ownShareApprovalStatus,
   setDeviceShare,
 } from '../atlas/local-share.ts'
@@ -145,9 +147,36 @@ export const boxChannels = {
   'localShare:approvals': (_e: unknown, teamId: unknown) => listShareApprovals(string(teamId)),
   'localShare:status': (_e: unknown, sessionId: unknown) =>
     ownShareApprovalStatus(string(sessionId)),
-  'localShare:decide': (_e: unknown, approvalId: unknown, approve: unknown) => {
+  'localShare:decide': (_e: unknown, approvalId: unknown, approve: unknown, trust: unknown) => {
     if (typeof approve !== 'boolean') throw new TypeError('Expected a decision')
+    if (trust !== undefined && trust !== '8h' && trust !== 'always')
+      throw new TypeError('Expected a trust duration')
 
-    return decideShareApproval(string(approvalId), approve)
+    return decideShareApproval(string(approvalId), approve, trust)
+  },
+  'localShare:trusts': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    listShareTrusts(string(deviceId), string(teamId)),
+  'localShare:untrust': (_e: unknown, deviceId: unknown, teamId: unknown, actorId: unknown) =>
+    dropShareTrust(string(deviceId), string(teamId), string(actorId)),
+  'localShare:notify': async (
+    _e: unknown,
+    approvalId: unknown,
+    teamId: unknown,
+    title: unknown,
+    body: unknown,
+  ) => {
+    // Loaded on use: both reach into Electron, which this module's tests do not load.
+    const [{ notifyShareApproval }, { handleDeepLink }] = await Promise.all([
+      import('../agent/notify.ts'),
+      import('./deep-links.ts'),
+    ])
+    const inbox = encodeURIComponent(`/teams/${encodeURIComponent(string(teamId))}/inbox`)
+
+    notifyShareApproval({
+      approvalId: string(approvalId),
+      title: string(title),
+      body: string(body),
+      openInbox: () => handleDeepLink(`nuphos://open?path=${inbox}`),
+    })
   },
 }

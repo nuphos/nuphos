@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url'
 
 import { patchRuntimeDefaults } from '../runtime-defaults.mjs'
 
+import { patchCodexUserInput } from './ask-user-input.mjs'
+import { patchCodexUltrafast } from './ultrafast.mjs'
+
 export function patchAdapter(source, helper) {
   const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
   helper = helper.replace("import { nuphosSessionHomeEnv } from '../session-home.mjs'", '')
@@ -89,6 +92,8 @@ export function patchAdapter(source, helper) {
       ),
     )
 
+  const processDeath = readFileSync(new URL('../process-death.mjs', import.meta.url), 'utf8')
+  const codexDeath = readFileSync(new URL('./process-death.mjs', import.meta.url), 'utf8')
   const restoreHistory = readFileSync(
     new URL('./restore-history.mjs', import.meta.url),
     'utf8',
@@ -112,17 +117,55 @@ export function patchAdapter(source, helper) {
     )
     .replace(fallback, '    const record2 = nuphosOmitRestoreImages(parseJsonRecord(line));')
 
+  // When App Server dies, upstream only disposes its connection: the turn waits
+  // for a turn/completed that never comes and the adapter keeps running, so
+  // OpenAB keeps routing to a dead session. Fail the turn with the cause and
+  // exit, as the Claude adapter does; the next message resumes the session.
+  const exitHandler = '  codex.on("exit", (_) => {\n    connection.dispose();\n'
+  const turnWait =
+    '  async awaitTurnCompleted(threadId, turnId) {\n    return await new Promise((resolve) => {\n      const threadResolvers = this.getOrCreatePendingTurnCompletionResolvers(threadId);\n      threadResolvers.set(turnId, resolve);\n    });'
+  if (withRestore.split(exitHandler).length !== 2 || withRestore.split(turnWait).length !== 2)
+    throw new Error('Expected one Codex exit handler and turn completion wait')
+  const withDeath = withRestore
+    .replace(
+      exitHandler,
+      '  codex.on("exit", (code, signal) => {\n    connection.dispose();\n    if (!codex.killed) nuphosCodexDied(code, signal);\n',
+    )
+    .replace(
+      turnWait,
+      turnWait
+        .replace('await new Promise(', 'await Promise.race([nuphosCodexDeath, new Promise(')
+        .replace(/\}\);$/, '})]);'),
+    )
+  // App Server warns in chat once per process when a batch of its own
+  // diagnostic logs fails to reach SQLite. The turn is unaffected and the advice
+  // (/feedback, codex doctor) does not apply in Nuphos, so keep it out of chat.
+  const warning = '  createWarningEvent(event) {\n'
+  if (withDeath.split(warning).length !== 2)
+    throw new Error('Expected one Codex warning event handler')
+  const quiet = withDeath.replace(
+    warning,
+    warning +
+      '    if (event.message.startsWith("Codex couldn\'t save diagnostic logs")) return null;\n',
+  )
+  // request_user_input asks through Nuphos; see native-question.mjs.
+  const asking = patchCodexUltrafast(patchCodexUserInput(quiet))
+  const nativeQuestion = readFileSync(
+    new URL('../native-question.mjs', import.meta.url),
+    'utf8',
+  ).replaceAll(/^export /gmu, '')
+
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.
   return patchRuntimeDefaults(
-    withRestore
+    asking
       .replace(
         'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
         'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',
       )
       .replace(
         '// src/index.ts',
-        `${restoreHistory}\n${sessionHome}\n${helper}\n${steering}\n${mcpBridge}\n// src/index.ts`,
+        `${restoreHistory}\n${sessionHome}\n${processDeath}\n${codexDeath}\n${helper}\n${steering}\n${mcpBridge}\n${nativeQuestion}\n// src/index.ts`,
       ),
   )
 }

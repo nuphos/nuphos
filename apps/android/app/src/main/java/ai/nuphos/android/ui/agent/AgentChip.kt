@@ -26,7 +26,7 @@ fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick
     val selected = selection?.selected
     val label = labelOverride ?: when {
         selection?.reselectionRequired == true -> "Choose an available runtime"
-        selected != null -> selected.label
+        selected != null -> ai.nuphos.android.model.RuntimeIdentity.detail(selected.provider, selected.label)
         else -> "Choose runtime"
     }
     TextButton(

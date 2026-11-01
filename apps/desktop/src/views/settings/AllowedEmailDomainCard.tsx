@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { AtlasTeam } from '../../types'
 
@@ -41,7 +42,7 @@ export function AllowedEmailDomainCard({
 
       onTeamUpdated(updated)
     } catch (err) {
-      toast.apiError('Could not update allowed email domains', err)
+      toast.apiError(t('Could not update allowed email domains'), err)
     } finally {
       setSaving(false)
     }
@@ -50,10 +51,11 @@ export function AllowedEmailDomainCard({
   return (
     <div className="mt-10">
       <div className="mb-4">
-        <h2 className="text-[15px] font-semibold text-main">Allowed email domains</h2>
+        <h2 className="text-[15px] font-semibold text-main">{t('Allowed email domains')}</h2>
         <p className="mt-1 text-[13px] text-tertiary">
-          Let anyone who signs in with a verified email on your company domain discover and join
-          this workspace. Public email providers (like gmail.com) can't be used.
+          {t(
+            "Let anyone who signs in with a verified email on your company domain discover and join this workspace. Public email providers (like gmail.com) can't be used.",
+          )}
         </p>
       </div>
 
@@ -65,17 +67,17 @@ export function AllowedEmailDomainCard({
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {enabled
-              ? 'Teammates on this domain can join this workspace.'
+              ? t('Teammates on this domain can join this workspace.')
               : isAdmin
-                ? 'Your email domain, taken from your account.'
-                : 'Disabled for this workspace.'}
+                ? t('Your email domain, taken from your account.')
+                : t('Disabled for this workspace.')}
           </div>
         </div>
-        <span title={isAdmin ? undefined : 'Only workspace administrators can change this'}>
+        <span title={isAdmin ? undefined : t('Only workspace administrators can change this')}>
           <Switch
             checked={enabled}
             disabled={!isAdmin || saving}
-            label={enabled ? 'Disable domain discovery' : 'Enable domain discovery'}
+            label={enabled ? t('Disable domain discovery') : t('Enable domain discovery')}
             onChange={(next) => void toggle(next)}
           />
         </span>

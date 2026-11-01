@@ -8,6 +8,7 @@ import { InlineRename } from '../../components/ui/inline-rename'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
+import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
@@ -17,7 +18,7 @@ import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
-import { STATUS_DOT, runtimeStatusView } from './runtimePresentation'
+import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
 import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
@@ -85,7 +86,7 @@ export function RuntimeInstanceCard({
       await action()
       changed()
     } catch (error) {
-      toast.apiError('Could not update runtime', error)
+      toast.apiError(t('Could not update runtime'), error)
     } finally {
       setBusy(false)
     }
@@ -104,7 +105,11 @@ export function RuntimeInstanceCard({
   const removalId = localRemovalId(instance)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
-    instance.kind === 'external' ? 'External' : instance.kind === 'development' ? 'Local' : null
+    instance.kind === 'external'
+      ? t('External')
+      : instance.kind === 'development'
+        ? t('Local')
+        : null
   const hosted = instance.kind === 'managed' || instance.kind === 'external'
   const updatable = instance.kind === 'managed'
   // A Box's update restarts its host and every agent on it, so it lives on the Box's card.
@@ -129,8 +134,8 @@ export function RuntimeInstanceCard({
                   canEdit={canEdit}
                   editing={editing}
                   onEditingChange={setEditing}
-                  ariaLabel="Runtime name"
-                  errorTitle="Could not rename runtime"
+                  ariaLabel={t('Runtime name')}
+                  errorTitle={t('Could not rename runtime')}
                   onSave={async (label) => {
                     await rename(label)
                     changed()
@@ -216,18 +221,19 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              'Removing the runtime and its files. Agent history stays in Nuphos.'}
+              t('Removing the runtime and its files. Agent history stays in Nuphos.')}
           </p>
         ) : (
           <>
             {runtime?.credentialRevoked ? (
               <p className="px-4 py-4 text-xs leading-relaxed text-secondary">
-                The runtime’s owner revoked this team’s connection from its console. Generate a new
-                pairing code there, connect again and choose Update existing connection.
+                {t(
+                  'The runtime’s owner revoked this team’s connection from its console. Generate a new pairing code there, connect again and choose Update existing connection.',
+                )}
               </p>
             ) : localSignIn ? (
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
-                <p className="text-xs leading-relaxed text-tertiary">Not signed in.</p>
+                <p className="text-xs leading-relaxed text-tertiary">{t('Not signed in.')}</p>
                 <LocalAgentSignIn provider={localSignIn} />
               </div>
             ) : (
@@ -262,18 +268,10 @@ export function RuntimeInstanceCard({
       {canEdit && (
         <ConfirmDialog
           open={confirmRemoval}
-          title={`Remove ${instance.label}?`}
-          description={
-            instance.kind === 'managed'
-              ? 'This permanently deletes the runtime, its disks, workspaces, and sign-in, and stops agents running on it. Your agent history stays in Nuphos. Move any workspace you want to keep to another runtime before removing this one.'
-              : instance.local && !instance.local.instanceId
-                ? `This signs ${instance.label} out on ${instance.local.deviceLabel} and deletes its ${instance.provider === 'codex' ? 'settings' : 'CLI history and settings'} there. Agents on it stop working; their history stays in Nuphos.`
-                : instance.local
-                  ? `This removes the agent and its sign-in from ${instance.local.deviceLabel}. Your conversation history stays in Nuphos.`
-                  : 'This disconnects the external runtime. Its files remain on the external machine. Your agents stay in Nuphos and can be moved to another runtime with their history.'
-          }
+          title={t('Remove {name}?', { name: instance.label })}
+          description={runtimeRemovalDescription(instance)}
           destructive
-          confirmLabel="Remove runtime"
+          confirmLabel={t('Remove runtime')}
           onConfirm={() =>
             mutate(() =>
               // The menu offers removal for a computer's agent only when it has a removal id.

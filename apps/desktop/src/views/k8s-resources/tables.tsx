@@ -6,6 +6,7 @@ import { Table } from '../../components/Table'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
 import { usePolledList } from '../../hooks/usePolledList'
+import { t } from '../../i18n'
 import { matchesFilter, parseFilterQuery } from '../../lib/filterQuery'
 import { useK8sResourceRowMenu } from '../../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../../lib/tableSort'
@@ -112,14 +113,14 @@ export function NamespacedTable<T extends { namespace: string; name: string; age
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 150,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
@@ -127,7 +128,7 @@ export function NamespacedTable<T extends { namespace: string; name: string; age
           ...columns,
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (
@@ -203,7 +204,7 @@ export function ClusterTable<T extends { name: string; age: string | null }>({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 300,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
@@ -211,7 +212,7 @@ export function ClusterTable<T extends { name: string; age: string | null }>({
           ...columns,
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

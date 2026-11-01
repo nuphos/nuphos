@@ -6,6 +6,7 @@ import { ContextMenu } from '../../components/ContextMenu'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -51,7 +52,7 @@ export function GCEInstancesView({
         label: 'SSH',
         icon: Terminal,
         disabled: !canSsh,
-        hint: !running ? instance.status : !instance.publicIp ? 'no public IP' : undefined,
+        hint: !running ? instance.status : !instance.publicIp ? t('no public IP') : undefined,
         onSelect: () => onOpenSsh(instance),
       },
     ]
@@ -88,28 +89,28 @@ export function GCEInstancesView({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 220,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 110,
             sortAccessor: (r) => r.status,
             render: (r) => <StatusBadge status={r.status || 'Unknown'} />,
           },
           {
             key: 'zone',
-            header: 'Zone',
+            header: t('Zone'),
             width: 150,
             sortAccessor: (r) => r.zone,
             render: (r) => <span className="text-secondary">{r.zone}</span>,
           },
           {
             key: 'machineType',
-            header: 'Machine Type',
+            header: t('Machine Type'),
             width: 150,
             sortAccessor: (r) => r.machineType,
             render: (r) => (
@@ -118,7 +119,7 @@ export function GCEInstancesView({
           },
           {
             key: 'publicIp',
-            header: 'External IP',
+            header: t('External IP'),
             width: 140,
             sortAccessor: (r) => r.publicIp ?? '',
             render: (r) => (
@@ -127,7 +128,7 @@ export function GCEInstancesView({
           },
           {
             key: 'privateIp',
-            header: 'Internal IP',
+            header: t('Internal IP'),
             width: 140,
             sortAccessor: (r) => r.privateIp ?? '',
             render: (r) => (
@@ -136,14 +137,14 @@ export function GCEInstancesView({
           },
           {
             key: 'network',
-            header: 'Network',
+            header: t('Network'),
             width: 150,
             sortAccessor: (r) => r.network ?? '',
             render: (r) => <span className="text-secondary">{r.network ?? '-'}</span>,
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.createdAt ?? '',
             render: (r) => (

@@ -17,6 +17,8 @@ export type AgentChatDeepLinkPayload = {
 export type AppOpenDeepLinkPayload = {
   url: string
   path: string
+  /** The conversation whose dock the page opens in, instead of the one on screen. */
+  session?: string
 }
 
 // Emitted when the user clicks the "agent finished" native notification. The
@@ -25,6 +27,8 @@ export type AppOpenDeepLinkPayload = {
 export type AgentFocusSessionPayload = {
   sessionId: string
   teamId?: string
+  /** A dock tab to bring forward too, by its workspace tab id. */
+  dockTab?: string
 }
 
 export type AgentChatSkillTarget = 'claude' | 'codex'
