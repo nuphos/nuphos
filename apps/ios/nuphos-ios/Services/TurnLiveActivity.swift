@@ -22,8 +22,14 @@ enum TurnLiveActivity {
             Task { await activity.end(nil, dismissalPolicy: .immediate) }
         }
         Activity<TurnActivityAttributes>.activities.forEach(follow)
+        // A newly started card replaces any other: its conversations are the current ones.
         Task {
-            for await activity in Activity<TurnActivityAttributes>.activityUpdates { follow(activity) }
+            for await activity in Activity<TurnActivityAttributes>.activityUpdates {
+                for other in Activity<TurnActivityAttributes>.activities where other.id != activity.id {
+                    Task { await other.end(nil, dismissalPolicy: .immediate) }
+                }
+                follow(activity)
+            }
         }
         Task {
             for await data in Activity<TurnActivityAttributes>.pushToStartTokenUpdates {

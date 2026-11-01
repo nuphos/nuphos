@@ -9,7 +9,7 @@ import {
 } from './live-activities'
 
 import type { ApnsRequest, ApnsResponse } from './apns'
-import type { PushDevice } from './devices'
+import type { PendingLiveActivityRow, PushDevice } from './devices'
 import type {
   LiveActivityDeps,
   LiveActivityPhase,
@@ -27,6 +27,7 @@ let scheduled: { work: () => void; delayMs: number }[]
 let clock: number
 let conversations: Record<string, PushConversation>
 let devices: Record<string, PushDevice[]>
+let starts: Map<string, { pending: PendingLiveActivityRow[] }>
 
 const token = (name: string): LiveActivityToken => ({
   token: name,
@@ -126,6 +127,28 @@ const deps: LiveActivityDeps = {
   conversation: async (sessionId) => conversations[sessionId] ?? null,
   canRead: async (_conversation, userId) => userId !== 'outsider',
   devices: async (userId) => devices[userId] ?? [],
+  startCard: async (userId, deviceId, pending) => {
+    const key = `${userId}/${deviceId}`
+    const current = starts.get(key)
+
+    if (!current) {
+      starts.set(key, { pending: [pending] })
+
+      return true
+    }
+    if (!current.pending.some((p) => p.sessionId === pending.sessionId))
+      current.pending.push(pending)
+
+    return false
+  },
+  pendingRows: async (userId, deviceId) => {
+    const key = `${userId}/${deviceId}`
+    const pending = starts.get(key)?.pending ?? []
+
+    starts.delete(key)
+
+    return pending
+  },
   now: () => 100_000,
   schedule: (work, delayMs) => {
     scheduled.push({ work, delayMs })
@@ -148,6 +171,7 @@ beforeEach(async () => {
   clock = 0
   conversations = {}
   devices = {}
+  starts = new Map()
   await store.addToken('session-1', token('la-1'), row('One'))
   await store.addToken('session-1', token('la-2'), row('One'))
   await store.addToken('session-2', token('la-other'), row('Two'))
@@ -448,6 +472,32 @@ describe('Live Activities for watched conversations', () => {
 
     expect(tokensOf('session-5')).not.toContain('la-old')
     expect(sent.map((r) => r.deviceToken)).toContain('start-v')
+  })
+
+  test('a phone waiting for its started card gets no second one; the card picks up what ran meanwhile', async () => {
+    devices.teammate = [phone('teammate', 'phone-t', 'start-t')]
+    conversations['session-6'] = { ...conversations['session-5']!, title: 'Six' }
+    await record('session-5', RUNNING)
+    await record('session-5', APPROVAL)
+    await record('session-5', RUNNING)
+    await record('session-6', RUNNING)
+
+    expect(sent.filter((r) => r.deviceToken === 'start-t')).toHaveLength(1)
+
+    sent = []
+    await registerLiveActivityToken(
+      deps,
+      'session-5',
+      { token: 'la-t', userId: 'teammate', environment: 'production', deviceId: 'phone-t' },
+      row('Five'),
+      RUNNING,
+    )
+
+    expect(tokensOf('session-6')).toEqual(['la-1', 'la-2', 'la-other', 'la-t'])
+    expect(contentOf('la-t')).toMatchObject({
+      event: 'update',
+      'content-state': { more: 0, active: 2 },
+    })
   })
 
   test('a conversation that stops running joins no card', async () => {

@@ -2,7 +2,7 @@ import { getConversationBySessionId } from '@/lib/agent/db'
 import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
-import { pushDeviceStore } from './devices'
+import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
 import { liveActivityStore } from './live-activity-store'
 import { conversationTitle } from './notify'
 import { watcherCanRead } from './watchers'
@@ -54,6 +54,9 @@ export type LiveActivityDeps = {
   conversation: (sessionId: string) => Promise<PushConversation | null>
   canRead: (conversation: PushConversation, userId: string) => Promise<boolean>
   devices: (userId: string) => Promise<PushDevice[]>
+  /** False while the phone waits for a card already started; `pending` then waits too. */
+  startCard: typeof beginLiveActivityStart
+  pendingRows: typeof takeLiveActivityPending
   now: () => number
   schedule: (work: () => void, delayMs: number) => void
 }
@@ -171,12 +174,22 @@ export async function registerLiveActivityToken(
   state: SessionExecutionState | null,
 ): Promise<void> {
   const added = await deps.liveActivities.addToken(sessionId, token, row)
+  // A card the backend started: conversations that ran while it came up join it.
+  const pending = token.deviceId
+    ? (await deps.pendingRows(token.userId, token.deviceId)).filter(
+        (p) => p.sessionId !== sessionId,
+      )
+    : []
+
+  for (const { sessionId: id, ...pendingRow } of pending)
+    await deps.liveActivities.addToken(id, token, pendingRow)
   const changed = state
     ? await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
     : null
 
   if (changed) await deliver(deps, changed, changed.tokens)
-  else if (added.phase && added.phase !== 'running') await deliver(deps, added, [token])
+  else if (pending.length > 0 || (added.phase && added.phase !== 'running'))
+    await deliver(deps, added, [token])
 }
 
 /** Puts a conversation that started running on each watcher's card: the one
@@ -204,12 +217,15 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
       }
       const starts = (await deps.devices(userId)).flatMap(({ deviceId, environment, ...d }) =>
         d.liveActivityStartToken && !cards.some((c) => c.deviceId === deviceId)
-          ? [{ deviceToken: d.liveActivityStartToken, environment }]
+          ? [{ deviceId, deviceToken: d.liveActivityStartToken, environment }]
           : [],
       )
 
       await Promise.all(
-        starts.map(async ({ deviceToken, environment }) => {
+        starts.map(async ({ deviceId, deviceToken, environment }) => {
+          const pending = { sessionId: session.sessionId, ...row }
+
+          if (!(await deps.startCard(userId, deviceId, pending))) return
           try {
             const response = await deps.send(credentials, {
               deviceToken,
@@ -266,6 +282,8 @@ export const liveActivityDeps: LiveActivityDeps = {
   canRead: (conversation, userId) => watcherCanRead(conversation, userId),
   devices: async (userId) =>
     (await pushDeviceStore.listForUser(userId)).filter((d) => d.platform === 'ios'),
+  startCard: beginLiveActivityStart,
+  pendingRows: takeLiveActivityPending,
   now: Date.now,
   schedule: (work, delayMs) => {
     setTimeout(work, delayMs).unref()
