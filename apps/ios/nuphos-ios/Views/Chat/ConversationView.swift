@@ -3,6 +3,7 @@ import SwiftUI
 /// The chat screen: transcript rows, activity, approvals, and the composer.
 struct ConversationView: View {
     @Environment(AuthSession.self) private var auth
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
     var initialPrompt: ComposerSubmission?
@@ -35,6 +36,10 @@ struct ConversationView: View {
     @State private var showShare = false
     /// The desktop open from this conversation: beside it where the window is wide, else full screen.
     @State private var desktop: DesktopSession?
+    /// The dock panel: this conversation's desktop and the browser tabs its agent opened.
+    @State private var dockOpen = false
+    /// The dock shows the owner's own computer, so only the owner gets it.
+    private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
@@ -66,6 +71,14 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .dock(isOpen: Binding(get: { dockOpen }, set: { dockOpen = $0 && hasDock })) {
+            DockPanel(session: session) {
+                dockOpen = false
+                desktop = session.makeDesktop()
+            } close: {
+                dockOpen = false
+            }
+        }
         .desktop($desktop)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(Theme.chatCanvas)
@@ -108,6 +121,12 @@ struct ConversationView: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .principal) { titleBar }
+            if hasDock {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Dock", systemImage: "sidebar.right") { dockOpen.toggle() }
+                        .accessibilityIdentifier("dock-button")
+                }
+            }
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -133,9 +152,6 @@ struct ConversationView: View {
                             } label: {
                                 Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
                             }
-                        }
-                        if session.canOpenDesktop {
-                            Button("Desktop", systemImage: "display") { desktop = session.makeDesktop() }
                         }
                         if session.ownsChat {
                             Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
@@ -222,8 +238,9 @@ struct ConversationView: View {
                 try? await Task.sleep(for: .seconds(5))
             }
         }
-        // New files land while a turn runs; read them once it settles.
-        .task(id: "\(session.isStreaming).\(session.messages.count)") {
+        // New files land while a turn runs; read them once it settles. Keyed on
+        // the newest message, not the count: a long chat holds a fixed tail.
+        .task(id: "\(session.isStreaming).\(session.messages.last?.id ?? "")") {
             await session.refreshResources()
             if !session.isStreaming { await session.refreshDownloads() }
         }
@@ -239,12 +256,17 @@ struct ConversationView: View {
                     .font(Theme.Text.label.weight(.semibold))
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
-                if let name = session.runtimeDisplayName {
-                    Text(name)
-                        .font(Theme.Text.micro)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
-                        .accessibilityLabel("Runtime: \(name)")
+                if session.loaded || session.runtimeDisplayName != nil {
+                    let name = session.runtimeDisplayName
+                    HStack(spacing: 4) {
+                        if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
+                        Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
+                            .font(Theme.Text.micro)
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
                 } else if !session.loaded {
                     Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
@@ -277,6 +299,10 @@ struct ConversationView: View {
     /// The composer, with what waits on the owner of a shared computer and any queued messages above it.
     private var composer: some View {
         VStack(spacing: 0) {
+            if let suggestion = session.promptSuggestion, draft.isEmpty, !session.isStreaming,
+               session.canSubmit, session.failedSubmission == nil {
+                SuggestionChip(text: suggestion) { draft = suggestion }
+            }
             if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
                 ShareApprovalStrip(
                     wait: wait,
@@ -333,7 +359,8 @@ struct ConversationView: View {
                         set: { session.credentialAccess = $0 }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
-                    session: session
+                    session: session,
+                    switchRuntime: { showRuntimes = true }
                 ) }
             }
         }
@@ -798,6 +825,34 @@ struct ResourceStrip: View {
         case "closed": return .red
         default: return .green
         }
+    }
+}
+
+/// The runtime's guess at the next message. Tapping it fills the composer,
+/// where it can be edited or sent: Desktop's Tab-to-accept, for a phone.
+struct SuggestionChip: View {
+    let text: String
+    var onUse: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: onUse) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles").font(Theme.Text.micro)
+                    Text(text).lineLimit(1).font(Theme.Text.label)
+                }
+                .foregroundStyle(Theme.body)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Theme.chatSurface, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Use suggestion: \(text)")
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
+        .transition(.opacity)
     }
 }
 
