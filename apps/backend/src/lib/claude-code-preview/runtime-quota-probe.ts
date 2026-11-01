@@ -86,12 +86,11 @@ async function lookup() {
     // does for the agent. It carries only the inference scope, so usage may be refused.
     const longLived = await read(join(homedir(), '.claude', '.nuphos-oauth-token.json'));
     // A lapsed one is not used, as for the agent (session-home.mjs).
-    const credentials = longLived && typeof longLived.token === 'string' && longLived.token &&
-      Date.parse(longLived.expiresAt) > Date.now()
-      ? null
-      : await read(join(homedir(), '.claude', '.credentials.json'));
+    const useToken = Boolean(longLived && typeof longLived.token === 'string' && longLived.token &&
+      Date.parse(longLived.expiresAt) > Date.now());
+    const credentials = useToken ? null : await read(join(homedir(), '.claude', '.credentials.json'));
     const oauth = credentials && credentials.claudeAiOauth;
-    if (credentials === null) {
+    if (useToken) {
       token = longLived.token;
       inferenceOnly = true;
     } else if (!oauth || typeof oauth.accessToken !== 'string' || !oauth.accessToken) {

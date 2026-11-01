@@ -75,3 +75,21 @@ test('a lapsed one-year token is not used: the ordinary login beside it is', () 
     ),
   ).toEqual({ error: 'HTTP 403', asked: true })
 })
+
+test('a runtime with no sign-in at all reports Sign in required', () => {
+  expect(probe({}, 200)).toEqual({ error: 'Sign in required' })
+})
+
+test('a lapsed one-year token with no login beside it reports Sign in required', () => {
+  expect(
+    probe(
+      {
+        '.nuphos-oauth-token.json': {
+          token: 'sk-ant-oat01-fixture',
+          expiresAt: '2020-01-01T00:00:00Z',
+        },
+      },
+      200,
+    ),
+  ).toEqual({ error: 'Sign in required' })
+})
