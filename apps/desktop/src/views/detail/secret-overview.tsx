@@ -5,6 +5,7 @@ import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 
 import {
   byteLength,
@@ -50,7 +51,7 @@ export function SecretOverview({
         key,
         source: 'data' as const,
         size: formatBytes(decodedSecretByteLength(value)),
-        preview: binary ? 'Binary value · copy returns base64' : decoded,
+        preview: binary ? t('Binary value · copy returns base64') : decoded,
         copyValue: binary ? value : decoded,
         editValue: decoded ?? undefined,
         editable: !binary && doc.immutable !== true,
@@ -114,28 +115,31 @@ export function SecretOverview({
       <div className="flex items-start gap-3 border border-warning/20 bg-warning/10 px-4 py-3 text-[12.5px] text-warning">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning" strokeWidth={2} />
         <div>
-          Secret values are hidden by default. Text values can be decoded and edited; binary values
-          stay base64 encoded so opening this view cannot corrupt their bytes.
+          {t(
+            'Secret values are hidden by default. Text values can be decoded and edited; binary values stay base64 encoded so opening this view cannot corrupt their bytes.',
+          )}
         </div>
       </div>
       <Section>
-        <Field label="Namespace" value={doc.metadata?.namespace ?? '-'} />
+        <Field label={t('Namespace')} value={doc.metadata?.namespace ?? '-'} />
         <Field
-          label="Secret type"
+          label={t('Secret type')}
           value={<span className="font-mono text-[12px]">{doc.type ?? 'Opaque'}</span>}
         />
-        <Field label="Keys" value={String(keys.length)} />
-        <Field label="API Version" value={doc.apiVersion ?? '-'} />
+        <Field label={t('Keys')} value={String(keys.length)} />
+        <Field label={t('API Version')} value={doc.apiVersion ?? '-'} />
         <Field
-          label="Created"
+          label={t('Created')}
           value={
             doc.metadata?.creationTimestamp ? <Age value={doc.metadata.creationTimestamp} /> : '-'
           }
         />
-        <Field label="Kind" value={doc.kind ?? 'Secret'} />
+        <Field label={t('Kind')} value={doc.kind ?? 'Secret'} />
         <Field
-          label="Mutability"
-          value={doc.immutable ? <span className="text-warning">Immutable</span> : 'Mutable'}
+          label={t('Mutability')}
+          value={
+            doc.immutable ? <span className="text-warning">{t('Immutable')}</span> : t('Mutable')
+          }
         />
       </Section>
       <MetadataPills
@@ -143,28 +147,28 @@ export function SecretOverview({
         annotations={stringRecord(doc.metadata?.annotations)}
       />
       <KeyTable
-        title="Secret keys"
+        title={t('Secret keys')}
         keys={keys}
-        empty="This Secret has no data keys."
+        empty={t('This Secret has no data keys.')}
         redacted
         revealedIds={revealedIds}
         copiedId={copiedId}
         addDisabled={doc.immutable === true}
         onAdd={() =>
           setDraft({
-            title: 'Add Secret key',
+            title: t('Add Secret key'),
             key: '',
             value: '',
-            submitLabel: 'Add key',
+            submitLabel: t('Add key'),
           })
         }
         onCopy={(entry) => void copyEntry(entry).catch((e: unknown) => setActionError(String(e)))}
         onEdit={(entry) =>
           setDraft({
-            title: 'Edit Secret key',
+            title: t('Edit Secret key'),
             key: entry.key,
             value: entry.editValue ?? '',
-            submitLabel: 'Save key',
+            submitLabel: t('Save key'),
             original: entry,
           })
         }
@@ -173,16 +177,18 @@ export function SecretOverview({
       />
       <KeyEditorDialog
         draft={draft}
-        valueLabel="Decoded value"
+        valueLabel={t('Decoded value')}
         onClose={() => setDraft(null)}
         onSubmit={submitDraft}
         onError={(message) => setActionError(message)}
       />
       <ConfirmDialog
         open={Boolean(removeTarget)}
-        title="Remove key"
-        description={removeTarget ? `Remove "${removeTarget.key}" from this Secret?` : ''}
-        confirmLabel="Remove"
+        title={t('Remove key')}
+        description={
+          removeTarget ? t('Remove "{key}" from this Secret?', { key: removeTarget.key }) : ''
+        }
+        confirmLabel={t('Remove')}
         destructive
         onConfirm={() => (removeTarget ? removeKey(removeTarget) : undefined)}
         onClose={() => setRemoveTarget(null)}

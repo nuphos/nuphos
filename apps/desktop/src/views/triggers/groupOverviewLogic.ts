@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { isTriggerAlreadyDeletedError } from '../../lib/agentTriggerDelete'
 
 import { executionPrincipalLabel } from './shared'
@@ -58,7 +59,7 @@ export function deriveGroupOverview({
     loadedTriggers[0]?.userId
   const principalLabel = principalId
     ? executionPrincipalLabel(members, principalId)
-    : 'Unknown user'
+    : t('Unknown user')
   const hasChanges =
     form.name.trim() !== group.name || form.messageTemplate.trim() !== group.messageTemplate
 
@@ -111,8 +112,8 @@ export async function saveTriggerGroup(ctx: GroupActionContext) {
     })
     ctx.onSaved(updated)
   } catch (error) {
-    toast.apiError('Could not save Watch group', error, {
-      fallback: 'No provider routing was changed. Refresh and try again.',
+    toast.apiError(t('Could not save Watch group'), error, {
+      fallback: t('No provider routing was changed. Refresh and try again.'),
     })
   } finally {
     ctx.setAction(null)
@@ -123,36 +124,36 @@ export async function testTriggerGroup(ctx: GroupActionContext) {
   const { group } = ctx
 
   if (!ctx.canManage) {
-    toast.error('Could not test Watch group', 'Editor or administrator access is required.')
+    toast.error(t('Could not test Watch group'), t('Editor or administrator access is required.'))
 
     return
   }
   if (ctx.loading) {
     toast.error(
-      'Could not test Watch group',
-      'Provider setup is still loading. Try again in a moment.',
+      t('Could not test Watch group'),
+      t('Provider setup is still loading. Try again in a moment.'),
     )
 
     return
   }
   if (!ctx.allIngressesLoaded) {
     toast.error(
-      'Could not test Watch group',
-      'Could not load every shared ingress. Close and reopen the Group, then retry.',
+      t('Could not test Watch group'),
+      t('Could not load every shared ingress. Close and reopen the Group, then retry.'),
     )
 
     return
   }
   if (!ctx.allResourcesRecorded) {
     toast.error(
-      'Could not test Watch group',
-      'Finish recording every provider ingress before testing.',
+      t('Could not test Watch group'),
+      t('Finish recording every provider ingress before testing.'),
     )
 
     return
   }
   if (!ctx.groupActive) {
-    toast.error('Could not test Watch group', 'Enable the Group before testing.')
+    toast.error(t('Could not test Watch group'), t('Enable the Group before testing.'))
 
     return
   }
@@ -160,16 +161,23 @@ export async function testTriggerGroup(ctx: GroupActionContext) {
   try {
     const result = await api.agentTestFireTriggerGroup(group.id, group.teamId)
 
+    const counts = { verified: result.verifiedIngressCount, total: group.partitionCount }
+
     toast.success(
       result.delivery === 'slack'
-        ? `Test fire sent to ${result.destinationLabel ?? 'Slack'}.`
-        : 'Test fire completed.',
+        ? t('Test fire sent to {destination}.', {
+            destination: result.destinationLabel ?? 'Slack',
+          })
+        : t('Test fire completed.'),
       result.delivery === 'slack'
-        ? `Verified ${String(result.verifiedIngressCount)}/${String(group.partitionCount)} shared webhook ingresses.`
-        : `${String(result.verifiedIngressCount)}/${String(group.partitionCount)} shared webhook ingresses verified. This Watch reports in Nuphos.`,
+        ? t('Verified {verified}/{total} shared webhook ingresses.', counts)
+        : t(
+            '{verified}/{total} shared webhook ingresses verified. This Watch reports in Nuphos.',
+            counts,
+          ),
     )
   } catch (error) {
-    toast.apiError('Could not test Watch group', error)
+    toast.apiError(t('Could not test Watch group'), error)
   } finally {
     ctx.setAction(null)
   }
@@ -192,7 +200,7 @@ export async function deleteTriggerGroup(ctx: {
   const { group } = ctx
 
   if (!ctx.canDelete) {
-    toast.error('Could not remove Watch group', 'Administrator access is required.')
+    toast.error(t('Could not remove Watch group'), t('Administrator access is required.'))
 
     return
   }
@@ -217,8 +225,8 @@ export async function deleteTriggerGroup(ctx: {
     ctx.setConfirmDeleteOpen(false)
     ctx.onDeleted()
   } catch (error) {
-    toast.apiError('Could not remove Watch group', error, {
-      fallback: 'Provider cleanup may be partial. Retry from the remaining group.',
+    toast.apiError(t('Could not remove Watch group'), error, {
+      fallback: t('Provider cleanup may be partial. Retry from the remaining group.'),
     })
     throw error
   } finally {

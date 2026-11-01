@@ -4,6 +4,7 @@ import { api } from '../api'
 import { LeafDetailPanel } from '../components/LeafDetailPanel'
 import { useReportLoading } from '../components/useReportLoading'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
 import { applyFilter } from './zeabur/filter'
@@ -84,9 +85,9 @@ export function ZeaburProjectsView({
           title={selected.name}
           fields={[
             { label: 'ID', value: selected.id, mono: true },
-            { label: 'Region', value: selected.region ?? '-' },
-            { label: 'Status', value: selected.status ?? '-' },
-            { label: 'Created', value: selected.createdAt ?? '-' },
+            { label: t('Region'), value: selected.region ?? '-' },
+            { label: t('Status'), value: selected.status ?? '-' },
+            { label: t('Created'), value: selected.createdAt ?? '-' },
           ]}
         />
       )}
@@ -179,31 +180,37 @@ export function ZeaburServersView({
           fields={[
             { label: 'ID', value: selected.id, mono: true },
             { label: 'IP', value: selected.ip ?? '-' },
-            { label: 'Region', value: selected.region ?? '-' },
-            { label: 'Status', value: selected.status ?? '-' },
-            { label: 'VM status', value: selected.vmStatus ?? '-' },
-            { label: 'Online', value: selected.isOnline == null ? '-' : String(selected.isOnline) },
+            { label: t('Region'), value: selected.region ?? '-' },
+            { label: t('Status'), value: selected.status ?? '-' },
+            { label: t('VM status'), value: selected.vmStatus ?? '-' },
             {
-              label: 'SSH available',
+              label: t('Online'),
+              value: selected.isOnline == null ? '-' : String(selected.isOnline),
+            },
+            {
+              label: t('SSH available'),
               value: selected.sshAvailable == null ? '-' : String(selected.sshAvailable),
             },
-            { label: 'SSH port', value: selected.sshPort == null ? '-' : String(selected.sshPort) },
-            { label: 'SSH user', value: selected.sshUsername ?? '-' },
             {
-              label: 'Latency',
+              label: t('SSH port'),
+              value: selected.sshPort == null ? '-' : String(selected.sshPort),
+            },
+            { label: t('SSH user'), value: selected.sshUsername ?? '-' },
+            {
+              label: t('Latency'),
               value: selected.latency == null ? '-' : `${String(selected.latency)} ms`,
             },
-            { label: 'CPU', value: formatUnits(selected.usedCPU, selected.totalCPU, 'm') },
+            { label: t('CPU'), value: formatUnits(selected.usedCPU, selected.totalCPU, 'm') },
             {
-              label: 'Memory',
+              label: t('Memory'),
               value: formatUnits(selected.usedMemory, selected.totalMemory, 'MiB'),
             },
-            { label: 'Disk', value: formatUnits(selected.usedDisk, selected.totalDisk, 'MiB') },
+            { label: t('Disk'), value: formatUnits(selected.usedDisk, selected.totalDisk, 'MiB') },
             {
-              label: 'Warnings',
+              label: t('Warnings'),
               value: selected.warnings?.length ? selected.warnings.join('\n') : '-',
             },
-            { label: 'Created', value: selected.createdAt ?? '-' },
+            { label: t('Created'), value: selected.createdAt ?? '-' },
           ]}
         />
       )}

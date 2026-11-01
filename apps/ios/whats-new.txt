@@ -1,9 +1,5 @@
-Sign in with Google or Apple, alongside email.
+Notifications now show the agent's avatar.
 
-Watch and control a conversation's desktop from your iPhone. When an agent works on a computer's screen, open it to see what the agent sees and take over with touch.
+Rename an agent right from the agent list.
 
-Codex chats can use Ultrafast where the model offers it.
-
-Amelia Earhart joins as a new agent character.
-
-Fixes: a message the server never stored no longer blocks every later send, the chat scrolls under the composer and bars instead of being cut off, and on iPhone Duo the navigation bar no longer makes the composer jump while you scroll.
+Fixes: in the split view, the open chat's row is highlighted, and runtime meters stack instead of overflowing when the sidebar is narrow.

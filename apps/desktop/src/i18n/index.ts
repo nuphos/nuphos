@@ -86,15 +86,16 @@ export function sourceText(shown: string): string {
  */
 export function t(text: string, vars?: Record<string, string | number>): string {
   const english = text.replace(/\|\w+$/, '')
-  const fill = (s: string) =>
-    vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => String(vars[k] ?? m)) : s
+  const fill = (s: string, map = (v: string) => v) =>
+    vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => map(String(vars[k] ?? m))) : s
 
   if (locale === 'en') return fill(english)
   const out = fill(MESSAGES[locale][text] ?? english)
 
   // A Map keeps insertion order, so the first key is the oldest.
   if (sources.size >= 5000) sources.delete(sources.keys().next().value!)
-  sources.set(out, fill(english))
+  // A value that is itself translated text goes back to English too.
+  sources.set(out, fill(english, sourceText))
 
   return out
 }

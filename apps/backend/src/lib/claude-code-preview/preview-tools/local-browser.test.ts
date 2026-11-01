@@ -98,6 +98,8 @@ describe('local_browser', () => {
     expect((await handler({ action: 'eval', script: '1' })).isError).toBe(true)
     expect((await handler({ action: 'open' })).isError).toBe(true)
     expect((await handler({ action: 'click' })).isError).toBe(true)
+    expect((await handler({ action: 'record_start' })).isError).toBe(true)
+    expect((await handler({ action: 'record_stop' })).isError).toBe(true)
     expect(fake.opened).toHaveLength(0)
   })
 

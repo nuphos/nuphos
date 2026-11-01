@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api'
 import { Table } from '../../components/Table'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -144,9 +145,9 @@ export function DeploymentEnvTab({
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        setActionNotice(
-          `Could not load ConfigMap/Secret choices: ${String(e instanceof Error ? e.message : e)}`,
-        )
+        const error = String(e instanceof Error ? e.message : e)
+
+        setActionNotice(t('Could not load ConfigMap/Secret choices: {error}', { error }))
       })
 
     return () => {
@@ -220,15 +221,15 @@ export function DeploymentEnvTab({
       await reload(selectedKey)
     } catch {
       setActionNotice(
-        'Saved, but could not refresh the environment list. Refresh to see the latest values.',
+        t('Saved, but could not refresh the environment list. Refresh to see the latest values.'),
       )
     }
   }
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (!containers) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (!containers) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
   if (!selectedContainer || !selectedKey) {
-    return <div className="p-6 text-tertiary text-[13px]">No containers.</div>
+    return <div className="p-6 text-tertiary text-[13px]">{t('No containers.')}</div>
   }
 
   return (
@@ -276,7 +277,7 @@ export function DeploymentEnvTab({
             rows={envRows}
             rowKey={(row) => (row.kind === 'editable' ? row.row.id : row.id)}
             storageKey={`${kind.toLowerCase()}.env`}
-            empty="No environment variables."
+            empty={t('No environment variables.')}
           />
         </div>
         <div className="min-h-[160px] border-t border-zGray-800">
@@ -285,7 +286,7 @@ export function DeploymentEnvTab({
             rows={envFromRows}
             rowKey={(row) => (row.kind === 'editable' ? row.row.id : row.id)}
             storageKey={`${kind.toLowerCase()}.envFrom`}
-            empty="No envFrom sources."
+            empty={t('No envFrom sources.')}
           />
         </div>
       </div>

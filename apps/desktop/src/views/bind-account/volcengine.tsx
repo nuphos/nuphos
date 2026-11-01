@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 
-import { StepList, ConsoleLink, CopyableValue, Field } from './shared'
+import { t } from '../../i18n'
+
+import { StepList, ConsoleLink, CopyableValue, Field, Fill } from './shared'
 import { VOLC_STEPS } from './steps'
 
 import type { VolcengineOidcInfo } from '../../types'
@@ -30,7 +32,7 @@ export function VolcengineBindWizard({
   // would guide the user to author a mismatched trust policy (fetch failure is
   // surfaced via toast where the fetch runs).
   const oidcValue = (v: string | undefined) =>
-    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">loading…</span>
+    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">{t('loading…')}</span>
 
   return (
     <div>
@@ -47,7 +49,7 @@ export function VolcengineBindWizard({
           ))}
         </div>
         <div className="text-[11px] text-tertiary uppercase tracking-wider">
-          Step {step + 1} of {VOLC_STEPS.length}
+          {t('Step {n} of {total}', { n: step + 1, total: VOLC_STEPS.length })}
         </div>
         <div className="text-[13.5px] text-main font-medium">{VOLC_STEPS[step]}</div>
       </div>
@@ -73,28 +75,46 @@ export function VolcengineBindWizard({
               <div className="space-y-3">
                 <StepList>
                   <li>
-                    In the Volcengine console, open{' '}
-                    <ConsoleLink href={VOLC_CREATE_PROVIDER_URL}>
-                      IAM → Identity Providers
-                    </ConsoleLink>
+                    <Fill
+                      text={t('In the Volcengine console, open {link}')}
+                      link={
+                        <ConsoleLink href={VOLC_CREATE_PROVIDER_URL}>
+                          IAM → Identity Providers
+                        </ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Add an <span className="text-main">OIDC</span> provider, SSO type{' '}
-                    <span className="text-main">Role SSO</span>
+                    <Fill
+                      text={t('Add an {type} provider, SSO type {sso}')}
+                      type={<span className="text-main">OIDC</span>}
+                      sso={<span className="text-main">Role SSO</span>}
+                    />
                   </li>
-                  <li>Issuer URL: {oidcValue(oidc?.issuer)}</li>
                   <li>
-                    Fingerprint: click <span className="text-main">Get it now</span>
+                    <Fill text={t('Issuer URL: {value}')} value={oidcValue(oidc?.issuer)} />
                   </li>
-                  <li>Client ID: {oidcValue(oidc?.audience)}</li>
                   <li>
-                    Leave <span className="text-main">Min Issue Time</span> default, then Submit
+                    <Fill
+                      text={t('Fingerprint: click {button}')}
+                      button={<span className="text-main">Get it now</span>}
+                    />
+                  </li>
+                  <li>
+                    <Fill text={t('Client ID: {value}')} value={oidcValue(oidc?.audience)} />
+                  </li>
+                  <li>
+                    <Fill
+                      text={t('Leave {field} default, then Submit')}
+                      field={<span className="text-main">Min Issue Time</span>}
+                    />
                   </li>
                 </StepList>
                 {oidc && !oidc.configured && (
                   <div className="text-[11.5px] text-zOrangered-400">
-                    Nuphos&apos;s OIDC connector isn&apos;t configured on this backend yet — binding
-                    will fail until it is.
+                    {t(
+                      "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
+                    )}
                   </div>
                 )}
               </div>
@@ -103,69 +123,98 @@ export function VolcengineBindWizard({
               <div className="space-y-3">
                 <StepList>
                   <li>
-                    In the Volcengine console, open{' '}
-                    <ConsoleLink href={VOLC_CREATE_ROLE_URL}>IAM → Roles</ConsoleLink>
+                    <Fill
+                      text={t('In the Volcengine console, open {link}')}
+                      link={<ConsoleLink href={VOLC_CREATE_ROLE_URL}>IAM → Roles</ConsoleLink>}
+                    />
                   </li>
                   <li>
-                    Create Role → trust identity{' '}
-                    <span className="text-main">Identity provider</span> →{' '}
-                    <span className="text-main">OIDC</span> → pick the provider you just added
+                    <Fill
+                      text={t(
+                        'Create Role → trust identity {idp} → {type} → pick the provider you just added',
+                      )}
+                      idp={<span className="text-main">Identity provider</span>}
+                      type={<span className="text-main">OIDC</span>}
+                    />
                   </li>
                   <li>
-                    Attach a policy covering VKE + ECS —{' '}
-                    <span className="font-mono text-[11px]">VKEFullAccess</span>, or{' '}
-                    <span className="font-mono text-[11px]">AdministratorAccess</span> for a
-                    dedicated account
+                    <Fill
+                      text={t(
+                        'Attach a policy covering VKE + ECS — {vke}, or {admin} for a dedicated account',
+                      )}
+                      vke={<span className="font-mono text-[11px]">VKEFullAccess</span>}
+                      admin={<span className="font-mono text-[11px]">AdministratorAccess</span>}
+                    />
                   </li>
                   <li>
-                    Create it, then open the role and copy its{' '}
-                    <span className="text-main">TRN</span>
+                    <Fill
+                      text={t('Create it, then open the role and copy its {trn}')}
+                      trn={<span className="text-main">TRN</span>}
+                    />
                   </li>
                 </StepList>
                 <div className="text-[11.5px] text-tertiary">
-                  IAM only covers the control plane — the next step grants this role access inside
-                  your VKE clusters.
+                  {t(
+                    'IAM only covers the control plane — the next step grants this role access inside your VKE clusters.',
+                  )}
                 </div>
               </div>
             )}
             {i === 2 && (
               <div className="space-y-3">
                 <div className="text-[11.5px] text-tertiary">
-                  Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and
-                  skip this step.
+                  {t(
+                    'Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and skip this step.',
+                  )}
                 </div>
                 <StepList>
                   <li>
-                    In the VKE console, open{' '}
-                    <ConsoleLink href={VOLC_ROLE_AUTH_URL}>
-                      Authorizations → Role authorization
-                    </ConsoleLink>
+                    <Fill
+                      text={t('In the VKE console, open {link}')}
+                      link={
+                        <ConsoleLink href={VOLC_ROLE_AUTH_URL}>
+                          Authorizations → Role authorization
+                        </ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Sign in as the{' '}
-                    <span className="text-main">cluster creator or root account</span> — only they
-                    can grant in-cluster RBAC
+                    <Fill
+                      text={t('Sign in as the {who} — only they can grant in-cluster RBAC')}
+                      who={
+                        <span className="text-main">{t('cluster creator or root account')}</span>
+                      }
+                    />
                   </li>
                   <li>
-                    Enter the exact <span className="text-main">role name</span> you created in step
-                    2, then continue
+                    <Fill
+                      text={t('Enter the exact {role} you created in step 2, then continue')}
+                      role={<span className="text-main">{t('role name')}</span>}
+                    />
                   </li>
                   <li>
-                    <span className="text-main">Add role authorization</span> — pick your clusters
-                    (or Account All Resources), a namespace scope, and an access right (read-only is
-                    enough for browsing)
+                    <Fill
+                      text={t(
+                        '{action} — pick your clusters (or Account All Resources), a namespace scope, and an access right (read-only is enough for browsing)',
+                      )}
+                      action={<span className="text-main">Add role authorization</span>}
+                    />
                   </li>
-                  <li>Repeat for each region that has clusters</li>
+                  <li>{t('Repeat for each region that has clusters')}</li>
                 </StepList>
                 <div className="text-[11.5px] text-tertiary">
-                  Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos
-                  will show this same guidance when you open one.
+                  {t(
+                    'Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos will show this same guidance when you open one.',
+                  )}
                 </div>
               </div>
             )}
             {i === 3 && (
               <div className="space-y-3">
-                <Field label="Label" hint="A friendly name to identify this Volcengine account.">
+                <Field
+                  label={t('Label')}
+                  hint={t('A friendly name to identify this Volcengine account.')}
+                >
                   <input
                     type="text"
                     value={label}
@@ -174,7 +223,7 @@ export function VolcengineBindWizard({
                     className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
-                <Field label="Role TRN" hint="The TRN of the role you created in step 2.">
+                <Field label={t('Role TRN')} hint={t('The TRN of the role you created in step 2.')}>
                   <input
                     type="text"
                     value={roleTrn}
@@ -184,8 +233,12 @@ export function VolcengineBindWizard({
                   />
                 </Field>
                 <div className="text-[11.5px] text-tertiary">
-                  Optional: pin the role&apos;s trust policy to subject {oidcValue(oidc?.subject)}{' '}
-                  so only this team can assume it.
+                  <Fill
+                    text={t(
+                      "Optional: pin the role's trust policy to subject {subject} so only this team can assume it.",
+                    )}
+                    subject={oidcValue(oidc?.subject)}
+                  />
                 </div>
               </div>
             )}

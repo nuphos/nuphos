@@ -142,17 +142,22 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         latestButton.isHidden = true
     }
 
-    func update(rows incoming: [ChatRow], submittedRowID: String?, sessionID: String,
+    func update(rows transcript: [ChatRow], submittedRowID: String?, sessionID: String,
                 content: @escaping (ChatRow) -> AnyView) {
         loadViewIfNeeded()
         self.content = content
         self.sessionID = sessionID
         guard !applying, !collection.isDragging, !collection.isDecelerating else {
             pending = { [weak self] in
-                self?.update(rows: incoming, submittedRowID: submittedRowID, sessionID: sessionID, content: content)
+                self?.update(rows: transcript, submittedRowID: submittedRowID, sessionID: sessionID, content: content)
             }
             return
         }
+        // A diffable snapshot traps on a repeated ID, and the transcript can
+        // briefly hold one message twice while a send reconciles with the
+        // server. Show the first; the next update carries the settled copy.
+        var seen = Set<String>()
+        let incoming = transcript.filter { seen.insert($0.id).inserted }
         let sent = submittedRowID != nil && submittedRowID != submittedID
         guard rows != incoming || sent else { return }
         let old = byID

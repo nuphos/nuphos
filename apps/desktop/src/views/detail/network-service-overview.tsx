@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 
 import { Field, Section } from './shared'
 
@@ -61,14 +62,14 @@ export function ServiceOverview({
   return (
     <div className="space-y-5 p-6">
       <Section>
-        <Field label="Type" value={text(spec.type, 'ClusterIP')} />
-        <Field label="Cluster IP" value={text(spec.clusterIP)} />
-        <Field label="Selector" value={JSON.stringify(record(spec.selector))} />
-        <Field label="Traffic policy" value={text(spec.externalTrafficPolicy)} />
+        <Field label={t('Type')} value={text(spec.type, 'ClusterIP')} />
+        <Field label={t('Cluster IP')} value={text(spec.clusterIP)} />
+        <Field label={t('Selector')} value={JSON.stringify(record(spec.selector))} />
+        <Field label={t('Traffic policy')} value={text(spec.externalTrafficPolicy)} />
       </Section>
       <div>
         <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
-          Endpoint slices
+          {t('Endpoint slices')}
         </div>
         <div className="flex flex-wrap gap-2">
           {sliceNames.length > 0
@@ -88,14 +89,16 @@ export function ServiceOverview({
         </div>
       </div>
       <div>
-        <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">Ports</div>
+        <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
+          {t('Ports')}
+        </div>
         <div className="divide-y divide-zGray-800 rounded-md border border-zGray-800">
           {records(spec.ports).map((port, index) => (
             <div key={String(index)} className="grid grid-cols-4 gap-3 px-4 py-3 text-[12.5px]">
-              <Field label="Name" value={text(port.name)} />
-              <Field label="Port" value={text(port.port)} />
-              <Field label="Target port" value={text(port.targetPort)} />
-              <Field label="Protocol" value={text(port.protocol, 'TCP')} />
+              <Field label={t('Name')} value={text(port.name)} />
+              <Field label={t('Port')} value={text(port.port)} />
+              <Field label={t('Target port')} value={text(port.targetPort)} />
+              <Field label={t('Protocol')} value={text(port.protocol, 'TCP')} />
             </div>
           ))}
         </div>

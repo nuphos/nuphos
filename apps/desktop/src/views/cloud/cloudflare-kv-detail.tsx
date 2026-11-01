@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { CfDetailActionBar } from './cf-shared'
@@ -102,8 +103,8 @@ export function CloudflareKvNamespaceDetailView({
 
       setEditing({ key, value: v.value, isNew: false })
     } catch (e) {
-      toast.apiError('Failed to read value', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Failed to read value'), e, {
+        fallback: t('Check your connection and try again.'),
       })
     }
   }
@@ -115,14 +116,14 @@ export function CloudflareKvNamespaceDetailView({
           onClick={() => setEditing({ key: '', value: '', isNew: true })}
           className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
         >
-          <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" /> Add key
+          <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" /> {t('Add key')}
         </button>
       </CfDetailActionBar>
       <div className="px-4 py-2 border-b border-zGray-850 flex items-center gap-2">
         <input
           value={prefix}
           onChange={(e) => setPrefix(e.target.value)}
-          placeholder="Filter by key prefix…"
+          placeholder={t('Filter by key prefix…')}
           className="px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-72"
         />
       </div>
@@ -136,11 +137,11 @@ export function CloudflareKvNamespaceDetailView({
             rowKey={(r) => r.name}
             onPrimaryAction={(r) => void openKey(r.name)}
             storageKey="cloudflare.kv.keys"
-            empty="No keys"
+            empty={t('No keys')}
             columns={[
               {
                 key: 'name',
-                header: 'Key',
+                header: t('Key'),
                 width: 420,
                 sortAccessor: (r) => r.name,
                 render: (r) => (
@@ -154,7 +155,7 @@ export function CloudflareKvNamespaceDetailView({
               },
               {
                 key: 'expiration',
-                header: 'Expiration',
+                header: t('Expiration'),
                 width: 160,
                 sortAccessor: (r) => r.expiration ?? 0,
                 render: (r) => (
@@ -174,7 +175,7 @@ export function CloudflareKvNamespaceDetailView({
                       setPendingDelete(r.name)
                     }}
                     className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                    title="Delete key"
+                    title={t('Delete key')}
                   >
                     <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
                   </button>
@@ -189,7 +190,7 @@ export function CloudflareKvNamespaceDetailView({
                 disabled={paging}
                 className="px-3 py-1 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary text-[12px] disabled:opacity-50"
               >
-                {paging ? 'Loading…' : 'Load more'}
+                {paging ? t('Loading…') : t('Load more')}
               </button>
             </div>
           )}
@@ -205,7 +206,7 @@ export function CloudflareKvNamespaceDetailView({
           onSave={async (key, value) => {
             await api.atlasWriteCloudflareKvValue(teamId, accountId, namespaceId, { key, value })
             setEditing(null)
-            toast.success('Value saved')
+            toast.success(t('Value saved'))
             loadKeys(prefix)
           }}
         />
@@ -213,14 +214,18 @@ export function CloudflareKvNamespaceDetailView({
 
       <ConfirmDialog
         open={!!pendingDelete}
-        title="Delete key?"
-        description={pendingDelete ? `Key "${pendingDelete}" will be permanently deleted.` : ''}
-        confirmLabel="Delete"
+        title={t('Delete key?')}
+        description={
+          pendingDelete
+            ? t('Key "{name}" will be permanently deleted.', { name: pendingDelete })
+            : ''
+        }
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={async () => {
           if (pendingDelete) {
             await api.atlasDeleteCloudflareKvValue(teamId, accountId, namespaceId, pendingDelete)
-            toast.success('Key deleted')
+            toast.success(t('Key deleted'))
             loadKeys(prefix)
           }
         }}

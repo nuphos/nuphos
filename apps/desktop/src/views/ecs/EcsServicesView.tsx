@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 
 import { ErrorBlock } from './ErrorBlock'
 import { applyFilter, useLoader } from './shared'
@@ -49,32 +50,32 @@ export function EcsServicesView({
       rowKey={(r) => r.serviceArn}
       storageKey="aws.ecs-services"
       defaultSort={{ key: 'serviceName', dir: 'asc' }}
-      empty="No ECS services"
+      empty={t('No ECS services')}
       columns={[
         {
           key: 'serviceName',
-          header: 'Service Name',
+          header: t('Service Name'),
           width: 280,
           sortAccessor: (r) => r.serviceName,
           render: (r) => <span className="font-medium text-zViolet-accent">{r.serviceName}</span>,
         },
         {
           key: 'status',
-          header: 'Status',
+          header: t('Status'),
           width: 100,
           sortAccessor: (r) => r.status,
           render: (r) => <StatusBadge status={r.status} />,
         },
         {
           key: 'desired',
-          header: 'Desired',
+          header: t('Desired'),
           width: 80,
           sortAccessor: (r) => r.desiredCount,
           render: (r) => <span className="text-secondary">{r.desiredCount}</span>,
         },
         {
           key: 'running',
-          header: 'Running',
+          header: t('Running'),
           width: 80,
           sortAccessor: (r) => r.runningCount,
           render: (r) => (
@@ -85,21 +86,21 @@ export function EcsServicesView({
         },
         {
           key: 'pending',
-          header: 'Pending',
+          header: t('Pending|tasks'),
           width: 80,
           sortAccessor: (r) => r.pendingCount,
           render: (r) => <span className="text-secondary">{r.pendingCount}</span>,
         },
         {
           key: 'launchType',
-          header: 'Launch Type',
+          header: t('Launch Type'),
           width: 120,
           sortAccessor: (r) => r.launchType ?? '',
           render: (r) => <span className="text-secondary">{r.launchType || '—'}</span>,
         },
         {
           key: 'taskDefinition',
-          header: 'Task Definition',
+          header: t('Task Definition'),
           width: 300,
           sortAccessor: (r) => r.taskDefinition,
           render: (r) => (
@@ -113,14 +114,14 @@ export function EcsServicesView({
         },
         {
           key: 'scheduling',
-          header: 'Scheduling',
+          header: t('Scheduling'),
           width: 110,
           sortAccessor: (r) => r.schedulingStrategy ?? '',
           render: (r) => <span className="text-secondary">{r.schedulingStrategy || '—'}</span>,
         },
         {
           key: 'age',
-          header: 'Age',
+          header: t('Age'),
           width: 100,
           sortAccessor: (r) => r.createdAt ?? '',
           render: (r) => (

@@ -22,6 +22,15 @@ export function initWebviewGuard() {
   browserSession.setPermissionCheckHandler(() => false)
   browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   browserSession.setDevicePermissionHandler(() => false)
+  // Sites that remember a trusted browser (Apple ID) bind it to the user agent, so drop the
+  // app and Electron tokens that change with every release and present plain Chrome.
+  browserSession.setUserAgent(
+    browserSession
+      .getUserAgent()
+      .replace(/ ([^\s/()]+)\/\S+/g, (token, product: string) =>
+        ['AppleWebKit', 'Chrome', 'Safari'].includes(product) ? token : '',
+      ),
+  )
 
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event, webPreferences, params) => {

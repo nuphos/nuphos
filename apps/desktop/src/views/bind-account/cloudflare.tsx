@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 
 import { CloudLogo } from '../../components/CloudLogo'
+import { t } from '../../i18n'
 
 import { CLOUDFLARE_SCOPE_CATEGORIES } from './cloudflare-scopes'
 import { cloudflareScopesFor } from './constants'
@@ -35,9 +36,9 @@ export function CloudflareConnect({
       </div>
 
       <p className="mt-3 text-center text-[12.5px] leading-relaxed text-secondary">
-        Choose what Nuphos can manage, then authorize in your browser.
+        {t('Choose what Nuphos can manage, then authorize in your browser.')}
         <br />
-        No API token to create, scope, or paste.
+        {t('No API token to create, scope, or paste.')}
       </p>
 
       {/* Access selector — picked scopes are sent to the authorize request */}
@@ -65,7 +66,7 @@ export function CloudflareConnect({
                       : 'text-tertiary hover:text-secondary',
                   )}
                 >
-                  {level === 'off' ? 'Off' : level === 'read' ? 'Read' : 'Write'}
+                  {level === 'off' ? t('Off') : level === 'read' ? t('Read') : t('Write')}
                 </button>
               ))}
             </div>
@@ -88,19 +89,19 @@ export function CloudflareConnect({
         {cloudflareConnecting ? (
           <>
             <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" />
-            Waiting for browser authorization…
+            {t('Waiting for browser authorization…')}
           </>
         ) : (
           <>
             <CloudLogo provider="cloudflare" size={18} />
-            Connect with Cloudflare
+            {t('Connect with {name}', { name: 'Cloudflare' })}
           </>
         )}
       </button>
 
       <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-tertiary">
         <FontAwesomeIcon icon={faShieldHalved} className="h-3 w-3" />
-        Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.
+        {t('Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.')}
       </p>
     </div>
   )

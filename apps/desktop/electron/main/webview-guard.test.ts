@@ -16,6 +16,9 @@ const browserSession = {
       ) => void
     >(),
   setDevicePermissionHandler: mock.fn<(handler: (...args: unknown[]) => boolean) => void>(),
+  getUserAgent: () =>
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Nuphos/0.98.0 Chrome/146.0.7680.65 Electron/43.8.3 Safari/537.36',
+  setUserAgent: mock.fn<(userAgent: string) => void>(),
 }
 const externalUrls: string[] = []
 
@@ -148,4 +151,10 @@ test('browser denies permission checks, requests, and persisted device grants', 
     assert.deepEqual(callback.mock.calls[0].arguments, [false])
   }
   assert.equal(device({ origin: 'https://example.com', deviceType: 'usb' }), false)
+})
+
+test('browser user agent drops the release-specific app and Electron tokens', () => {
+  assert.deepEqual(browserSession.setUserAgent.mock.calls[0].arguments, [
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.7680.65 Safari/537.36',
+  ])
 })

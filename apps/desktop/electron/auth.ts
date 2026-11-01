@@ -21,12 +21,14 @@ import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from './client-version.ts'
 
+import type { SocialProvider } from './auth/plan.ts'
 import type { AuthStatus, UserInfo } from './auth-status.ts'
 import type { Server } from 'node:http'
 
-export type { AuthStatus, UserInfo }
+export type { AuthStatus, SocialProvider, UserInfo }
 
 export { status } from './auth/me.ts'
+export { socialProviders } from './auth/plan.ts'
 
 let pendingServer: Server | null = null
 
@@ -34,7 +36,7 @@ let pendingServer: Server | null = null
  * Signs in through the system browser.
  *
  * Native path (RFC 8252): register this listener's loopback port with the
- * backend and send the browser straight to Google carrying only the resulting
+ * backend and send the browser straight to the provider carrying only the resulting
  * handle. The redirect back to the listener carries a one-time `code`, which we
  * exchange — together with a PKCE verifier that never leaves this process — for
  * the session over TLS. No session token ever rides a redirect URL.
@@ -42,7 +44,7 @@ let pendingServer: Server | null = null
  * Legacy path: the landing page delivers a token to the listener instead. Kept
  * for deployments without the native endpoints — see `planLogin`.
  */
-export async function login(): Promise<UserInfo> {
+export async function login(provider: SocialProvider): Promise<UserInfo> {
   cancelPendingLogin()
 
   const server = createServer()
@@ -51,7 +53,7 @@ export async function login(): Promise<UserInfo> {
   pendingServer = server
 
   try {
-    const plan = await planLogin(port)
+    const plan = await planLogin(port, provider)
 
     await shell.openExternal(plan.browserUrl)
 

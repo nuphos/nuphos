@@ -1,4 +1,6 @@
-import { ConsoleLink, Field } from './shared'
+import { t } from '../../i18n'
+
+import { ConsoleLink, Field, Fill } from './shared'
 
 import type { BindState } from './use-bind-state'
 
@@ -9,34 +11,47 @@ export function NotionForm({ st }: { st: BindState }) {
     <>
       <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
-          How to get your Notion integration token
+          {t('How to get your Notion integration token')}
         </div>
         <ol className="text-[12px] text-secondary leading-relaxed space-y-1 list-decimal list-inside marker:text-tertiary">
           <li>
-            Open <span className="text-main">notion.so/my-integrations</span> and click{' '}
-            <span className="text-main">New integration</span>.
+            <Fill
+              text={t('Open {site} and click {button}.')}
+              site={<span className="text-main">notion.so/my-integrations</span>}
+              button={<span className="text-main">New integration</span>}
+            />
           </li>
           <li>
-            Pick this workspace, give it a name, and create it as an{' '}
-            <span className="text-main">Internal</span> integration.
+            <Fill
+              text={t(
+                'Pick this workspace, give it a name, and create it as an {type} integration.',
+              )}
+              type={<span className="text-main">Internal</span>}
+            />
           </li>
           <li>
-            Copy the <span className="text-main">Internal Integration Secret</span> (starts with{' '}
-            <span className="font-mono">ntn_</span>).
+            <Fill
+              text={t('Copy the {secret} (starts with {prefix}).')}
+              secret={<span className="text-main">Internal Integration Secret</span>}
+              prefix={<span className="font-mono">ntn_</span>}
+            />
           </li>
           <li>
-            In each Notion page or database you want the agent to reach, open{' '}
-            <span className="text-main">••• → Connections</span> and add this integration — Notion
-            only exposes pages that have been shared with it.
+            <Fill
+              text={t(
+                'In each Notion page or database you want the agent to reach, open {menu} and add this integration — Notion only exposes pages that have been shared with it.',
+              )}
+              menu={<span className="text-main">••• → Connections</span>}
+            />
           </li>
         </ol>
         <div className="mt-2.5">
           <ConsoleLink href="https://www.notion.so/my-integrations">
-            Notion integrations
+            {t('Notion integrations')}
           </ConsoleLink>
         </div>
       </div>
-      <Field label="Label" hint="A friendly name to identify this Notion workspace.">
+      <Field label={t('Label')} hint={t('A friendly name to identify this Notion workspace.')}>
         <input
           type="text"
           value={notionLabel}
@@ -46,14 +61,16 @@ export function NotionForm({ st }: { st: BindState }) {
         />
       </Field>
       <Field
-        label="Integration Token"
-        hint="The Internal Integration Secret from notion.so/my-integrations. Encrypted before storage."
+        label={t('Integration Token')}
+        hint={t(
+          'The Internal Integration Secret from notion.so/my-integrations. Encrypted before storage.',
+        )}
       >
         <input
           type="password"
           value={notionToken}
           onChange={(e) => setNotionToken(e.target.value)}
-          placeholder="ntn_…"
+          placeholder={t('ntn_…')}
           className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
@@ -75,22 +92,34 @@ export function UpstashForm({ st }: { st: BindState }) {
     <>
       <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
-          How to get your Upstash Management API key
+          {t('How to get your Upstash Management API key')}
         </div>
         <ol className="text-[12px] text-secondary leading-relaxed space-y-1 list-decimal list-inside marker:text-tertiary">
           <li>
-            Open <span className="text-main">console.upstash.com</span> and go to{' '}
-            <span className="text-main">Account → Management API</span>.
+            <Fill
+              text={t('Open {site} and go to {page}.')}
+              site={<span className="text-main">console.upstash.com</span>}
+              page={<span className="text-main">Account → Management API</span>}
+            />
           </li>
           <li>
-            Click <span className="text-main">Create API Key</span> and give it a name.
+            <Fill
+              text={t('Click {button} and give it a name.')}
+              button={<span className="text-main">Create API Key</span>}
+            />
           </li>
           <li>
-            Copy the key immediately — Upstash only shows it once and cannot retrieve it later.
+            {t(
+              'Copy the key immediately — Upstash only shows it once and cannot retrieve it later.',
+            )}
           </li>
           <li>
-            Use the email you sign in to Upstash with; the API authenticates as{' '}
-            <span className="font-mono">email:apiKey</span>.
+            <Fill
+              text={t(
+                'Use the email you sign in to Upstash with; the API authenticates as {auth}.',
+              )}
+              auth={<span className="font-mono">email:apiKey</span>}
+            />
           </li>
         </ol>
         <div className="mt-2.5">
@@ -99,7 +128,7 @@ export function UpstashForm({ st }: { st: BindState }) {
           </ConsoleLink>
         </div>
       </div>
-      <Field label="Label" hint="A friendly name to identify this Upstash account.">
+      <Field label={t('Label')} hint={t('A friendly name to identify this Upstash account.')}>
         <input
           type="text"
           value={upstashLabel}
@@ -108,24 +137,27 @@ export function UpstashForm({ st }: { st: BindState }) {
           className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
-      <Field label="Account Email" hint="The email of the Upstash account the key belongs to.">
+      <Field
+        label={t('Account Email')}
+        hint={t('The email of the Upstash account the key belongs to.')}
+      >
         <input
           type="email"
           value={upstashEmail}
           onChange={(e) => setUpstashEmail(e.target.value)}
-          placeholder="ops@acme.com"
+          placeholder={t('ops@acme.com')}
           className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
-        label="Management API Key"
-        hint="From console.upstash.com → Account → Management API. Encrypted before storage."
+        label={t('Management API Key')}
+        hint={t('From console.upstash.com → Account → Management API. Encrypted before storage.')}
       >
         <input
           type="password"
           value={upstashApiKey}
           onChange={(e) => setUpstashApiKey(e.target.value)}
-          placeholder="Upstash API key"
+          placeholder={t('Upstash API key')}
           className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
@@ -140,32 +172,43 @@ export function ResendForm({ st }: { st: BindState }) {
     <>
       <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
-          How to get your Resend API key
+          {t('How to get your Resend API key')}
         </div>
         <ol className="text-[12px] text-secondary leading-relaxed space-y-1 list-decimal list-inside marker:text-tertiary">
           <li>
-            Open <span className="text-main">resend.com/api-keys</span> and click{' '}
-            <span className="text-main">Create API Key</span>.
+            <Fill
+              text={t('Open {site} and click {button}.')}
+              site={<span className="text-main">resend.com/api-keys</span>}
+              button={<span className="text-main">Create API Key</span>}
+            />
           </li>
           <li>
-            Choose a permission. <span className="text-main">Sending access</span> lets the agent
-            send mail and nothing else — prefer it unless the agent needs to manage domains or
-            audiences.
+            <Fill
+              text={t(
+                'Choose a permission. {access} lets the agent send mail and nothing else — prefer it unless the agent needs to manage domains or audiences.',
+              )}
+              access={<span className="text-main">Sending access</span>}
+            />
           </li>
           <li>
-            Copy the key (starts with <span className="font-mono">re_</span>) — Resend shows it only
-            once.
+            <Fill
+              text={t('Copy the key (starts with {prefix}) — Resend shows it only once.')}
+              prefix={<span className="font-mono">re_</span>}
+            />
           </li>
           <li>
-            The agent can only send from a <span className="text-main">verified domain</span>, set
-            up under <span className="text-main">Domains</span>.
+            <Fill
+              text={t('The agent can only send from a {domain}, set up under {page}.')}
+              domain={<span className="text-main">{t('verified domain')}</span>}
+              page={<span className="text-main">Domains</span>}
+            />
           </li>
         </ol>
         <div className="mt-2.5">
-          <ConsoleLink href="https://resend.com/api-keys">Resend API keys</ConsoleLink>
+          <ConsoleLink href="https://resend.com/api-keys">{t('Resend API keys')}</ConsoleLink>
         </div>
       </div>
-      <Field label="Label" hint="A friendly name to identify this Resend account.">
+      <Field label={t('Label')} hint={t('A friendly name to identify this Resend account.')}>
         <input
           type="text"
           value={resendLabel}
@@ -175,14 +218,16 @@ export function ResendForm({ st }: { st: BindState }) {
         />
       </Field>
       <Field
-        label="API Key"
-        hint="From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them."
+        label={t('API Key')}
+        hint={t(
+          'From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.',
+        )}
       >
         <input
           type="password"
           value={resendApiKey}
           onChange={(e) => setResendApiKey(e.target.value)}
-          placeholder="re_…"
+          placeholder={t('re_…')}
           className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
@@ -195,14 +240,14 @@ export function ZeaburForm({ st }: { st: BindState }) {
 
   return (
     <Field
-      label="API Token"
-      hint="Nuphos will discover your Zeabur user and teams from this API key."
+      label={t('API Token')}
+      hint={t('Nuphos will discover your Zeabur user and teams from this API key.')}
     >
       <input
         type="password"
         value={zeaburToken}
         onChange={(e) => setZeaburToken(e.target.value)}
-        placeholder="Zeabur API token"
+        placeholder={t('Zeabur API token')}
         className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
       />
     </Field>

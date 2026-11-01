@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { azureSteps } from '../../lib/cloudBindSteps'
 
 import {
@@ -7,7 +8,7 @@ import {
   azureCredentialName,
 } from './azure-console'
 import { AzureBindSubscriptionStep, AzureRoleAssignmentStep } from './azure-steps-subscription'
-import { StepList, ConsoleLink, CopyableValue } from './shared'
+import { StepList, ConsoleLink, CopyableValue, Fill } from './shared'
 
 import type { AzureStepTitle } from '../../lib/cloudBindSteps'
 import type { AzureOidcInfo } from '../../types'
@@ -44,7 +45,7 @@ export function AzureWizardStepContent({
   // loads. Never fall back to hard-coded issuer/subject/audience — a wrong value
   // would guide the user to author a mismatched federated credential.
   const oidcValue = (v: string | undefined) =>
-    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">loading…</span>
+    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">{t('loading…')}</span>
 
   return (
     <>
@@ -52,56 +53,87 @@ export function AzureWizardStepContent({
         <div className="space-y-3">
           <StepList>
             <li>
-              In the Azure portal, open{' '}
-              <ConsoleLink href={AZURE_APP_REGISTRATIONS_URL}>
-                Entra ID → App registrations
-              </ConsoleLink>
+              <Fill
+                text={t('In the Azure portal, open {link}')}
+                link={
+                  <ConsoleLink href={AZURE_APP_REGISTRATIONS_URL}>
+                    Entra ID → App registrations
+                  </ConsoleLink>
+                }
+              />
             </li>
             {/* The "this is a new one" belongs here rather than in an aside:
                 this is the item where the reader who has done this before
                 decides they have already done it. */}
             <li>
-              <span className="text-main">New registration</span> — name it{' '}
-              <CopyableValue value={appName} />, single tenant, no redirect URI, then Register
+              <Fill
+                text={t('{button} — name it {name}, single tenant, no redirect URI, then Register')}
+                button={<span className="text-main">New registration</span>}
+                name={<CopyableValue value={appName} />}
+              />
             </li>
             <li>
-              Open the app → left sidebar <span className="text-main">Manage</span> →{' '}
-              <span className="text-main">Certificates &amp; secrets</span> →{' '}
-              <span className="text-main">Federated credentials</span> → Add credential → scenario{' '}
-              <span className="text-main">Other issuer</span>
+              <Fill
+                text={t(
+                  'Open the app → left sidebar {manage} → {secrets} → {federated} → Add credential → scenario {issuer}',
+                )}
+                manage={<span className="text-main">Manage</span>}
+                secrets={<span className="text-main">Certificates &amp; secrets</span>}
+                federated={<span className="text-main">Federated credentials</span>}
+                issuer={<span className="text-main">Other issuer</span>}
+              />
             </li>
-            <li>Issuer: {oidcValue(oidc?.issuer)}</li>
             <li>
-              Type: keep <span className="text-main">Explicit subject identifier</span> (the
-              default)
+              <Fill text={t('Issuer: {value}')} value={oidcValue(oidc?.issuer)} />
             </li>
-            <li>Value: {oidcValue(oidc?.subject)}</li>
             <li>
-              Name (cannot be changed later): <CopyableValue value={azureCredentialName(purpose)} />
+              <Fill
+                text={t('Type: keep {value} (the default)')}
+                value={<span className="text-main">Explicit subject identifier</span>}
+              />
             </li>
-            <li>Audience: {oidcValue(oidc?.audience)}</li>
+            <li>
+              <Fill text={t('Value: {value}')} value={oidcValue(oidc?.subject)} />
+            </li>
+            <li>
+              <Fill
+                text={t('Name (cannot be changed later): {value}')}
+                value={<CopyableValue value={azureCredentialName(purpose)} />}
+              />
+            </li>
+            <li>
+              <Fill text={t('Audience: {value}')} value={oidcValue(oidc?.audience)} />
+            </li>
             {/* Two pages, two moves, so two items. Both IDs are asked for in the
                 final step, and neither is on the page the user is left standing
                 on when the credential is added — a single line naming both
                 reads as one lookup and gets half-done. */}
             <li>
-              Back to the app → left sidebar <span className="text-main">Overview</span> → copy its{' '}
-              <span className="text-main">Application (client) ID</span> — the final step asks for
-              it
+              <Fill
+                text={t(
+                  'Back to the app → left sidebar {overview} → copy its {id} — the final step asks for it',
+                )}
+                overview={<span className="text-main">Overview</span>}
+                id={<span className="text-main">Application (client) ID</span>}
+              />
             </li>
             <li>
-              Then open{' '}
-              <ConsoleLink href={AZURE_ENTRA_OVERVIEW_URL}>
-                Microsoft Entra ID → Overview
-              </ConsoleLink>{' '}
-              → copy the <span className="text-main">Directory (tenant) ID</span> — the final step
-              asks for that too
+              <Fill
+                text={t('Then open {link} → copy the {id} — the final step asks for that too')}
+                link={
+                  <ConsoleLink href={AZURE_ENTRA_OVERVIEW_URL}>
+                    Microsoft Entra ID → Overview
+                  </ConsoleLink>
+                }
+                id={<span className="text-main">Directory (tenant) ID</span>}
+              />
             </li>
           </StepList>
           {oidc && !oidc.configured && (
             <div className="text-[11.5px] text-zOrangered-400">
-              Nuphos&apos;s OIDC connector isn&apos;t configured on this backend yet — binding will
-              fail until it is.
+              {t(
+                "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
+              )}
             </div>
           )}
         </div>

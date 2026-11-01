@@ -114,6 +114,7 @@ enum AgentChatAPI {
         var deviceId: String
         var environment: String
         var bundleId: String
+        var liveActivityStartToken: String?
         var platform = "ios"
     }
 
@@ -127,6 +128,7 @@ enum AgentChatAPI {
         let teamId: String
         let sessionId: String
         let environment: String
+        let deviceId: String
     }
 
     /// `PUT /push/live-activities` — puts the conversation on the phone's card.
@@ -145,6 +147,14 @@ enum AgentChatAPI {
         _ = try await send(
             "PATCH", "agent/conversations/\(sessionId)/archive",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(archived: archived, teamId: teamId)
+        )
+    }
+
+    static func rename(token: String, teamId: String, sessionId: String, title: String) async throws {
+        struct Body: Encodable { let title: String }
+        _ = try await send(
+            "PATCH", "agent/conversations/\(sessionId)/title",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(title: title)
         )
     }
 

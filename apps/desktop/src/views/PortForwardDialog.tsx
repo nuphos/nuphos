@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 import { requestOpenPortForwardList } from '../lib/portForwardList'
 
@@ -97,7 +98,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
 
   async function handleStart() {
     if (!targetPort || !/^\d+$/.test(targetPort)) {
-      setError('Enter a valid target port (1–65535).')
+      setError(t('Enter a valid target port (1–65535).'))
       setStatus('error')
 
       return
@@ -105,13 +106,13 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
     const target = Number(targetPort)
 
     if (target < 1 || target > 65535) {
-      setError('Enter a valid target port (1–65535).')
+      setError(t('Enter a valid target port (1–65535).'))
       setStatus('error')
 
       return
     }
     if (localPort && !/^\d+$/.test(localPort)) {
-      setError('Enter a valid local port (1–65535) or leave blank for auto.')
+      setError(t('Enter a valid local port (1–65535) or leave blank for auto.'))
       setStatus('error')
 
       return
@@ -119,7 +120,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
     const local = localPort ? Number(localPort) : 0
 
     if (localPort && (local < 1 || local > 65535)) {
-      setError('Enter a valid local port (1–65535) or leave blank for auto.')
+      setError(t('Enter a valid local port (1–65535) or leave blank for auto.'))
       setStatus('error')
 
       return
@@ -187,7 +188,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
         },
         e,
       )
-      setError('Failed to copy local address.')
+      setError(t('Failed to copy local address.'))
       setStatus('error')
     }
   }
@@ -196,7 +197,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
     <Modal
       open={open}
       onClose={handleClose}
-      title={`${forwardTarget.kind} port forward`}
+      title={t('{kind} port forward', { kind: forwardTarget.kind })}
       width={440}
     >
       <div className="px-5 py-4 flex flex-col gap-4">
@@ -214,7 +215,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
         ) : status === 'connecting' ? (
           <div className="flex items-center gap-2 text-[13px] text-secondary py-2">
             <Loader2 className="w-4 h-4 animate-spin text-zViolet-accent" />
-            Connecting…
+            {t('Connecting…')}
           </div>
         ) : (
           <ActiveForwardPanel
@@ -232,10 +233,10 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
               onClick={() => void handleStop()}
               className="h-8 px-3 rounded-md text-[12.5px] text-error hover:bg-error/10 hover:text-error transition-colors"
             >
-              Stop
+              {t('Stop')}
             </button>
             <Button size="sm" onClick={handleClose}>
-              Done
+              {t('Done')}
             </Button>
           </>
         ) : (
@@ -245,10 +246,10 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
               disabled={status === 'connecting'}
               className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800 disabled:opacity-50"
             >
-              Cancel
+              {t('Cancel')}
             </button>
             <Button size="sm" onClick={() => void handleStart()} disabled={status === 'connecting'}>
-              {status === 'connecting' ? 'Connecting…' : 'Start forwarding'}
+              {status === 'connecting' ? t('Connecting…') : t('Start forwarding')}
             </Button>
           </>
         )}

@@ -21,8 +21,11 @@ current browser user, never the session token. This does not change the separate
 website must integrate this endpoint before its own UI can offer Apple login.
 No cross-origin redirects or arbitrary return URLs are accepted.
 
-The desktop detects the chooser endpoint before registration and retains its
-legacy login fallback for older servers. The CLI honors `NUPHOS_LOGIN_URL` as a
+The chooser's `X-Nuphos-Social-Providers` header lists the configured providers
+(for example `google,apple`). The desktop reads it before registration, shows a
+"Continue with Google" button and, only when Apple is listed, a "Continue with
+Apple" button, and opens `/auth/social/<provider>/start?handle=...` directly.
+Without the header it retains its legacy Google login fallback for older servers. The CLI honors `NUPHOS_LOGIN_URL` as a
 full provider chooser URL; its default now follows the selected API endpoint
 rather than `NUPHOS_WEB_URL`. Deploy the backend before mobile/CLI
 updates; those clients require the new chooser.

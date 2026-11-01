@@ -8,9 +8,9 @@ protocol TurnActivityBase: Codable {}
 import Foundation
 
 /// The app's one Live Activity: the conversations whose turns run, on the Lock
-/// Screen and in the Dynamic Island. The app starts it when a turn runs and
-/// adds later ones to it; the backend's `liveactivity` pushes keep each row on
-/// the runtime's own status and end it once nothing runs
+/// Screen and in the Dynamic Island. The backend's `liveactivity` pushes start
+/// it when a watched conversation runs, add later ones, keep each row on the
+/// runtime's own status and end it once nothing runs
 /// (`apps/backend/src/lib/push/live-activities.ts`).
 nonisolated struct TurnActivityAttributes: TurnActivityBase {
     /// Matches the backend's `LiveActivityPhase`.
