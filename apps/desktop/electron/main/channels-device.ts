@@ -20,7 +20,6 @@ import {
   listLocalRuntimeActivity,
   openLocalRuntimeWorkspace,
   refreshLocalRuntime,
-  setPhoneControl,
   startLocalClaudeLogin,
   startLocalCodexLogin,
   submitLocalClaudeLoginCode,
@@ -50,8 +49,6 @@ export const deviceChannels = {
   'localRuntime:startClaudeLogin': () => startLocalClaudeLogin(),
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),
-  'localRuntime:setPhoneControl': (_e: unknown, allowed: unknown) =>
-    setPhoneControl(allowed === true),
   'localRuntime:getState': () => getLocalRuntimeState(),
   'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) => {
     const local = await readThisComputerFile(args[3], getLocalRuntimeState().workspace)

@@ -50,7 +50,7 @@ mock.module('./cua-stream.ts', {
 })
 mock.module('./browser-tabs.ts', { namedExports: { runBrowserCall: () => {} } })
 mock.module('./mac-screen-app.ts', {
-  namedExports: { macScreenApp: () => ({ deps: () => ({}), state: () => ({}), set: () => false }) },
+  namedExports: { macScreenApp: () => ({ deps: () => ({}) }) },
 })
 mock.module('./sleep-prevention-electron.ts', {
   namedExports: {

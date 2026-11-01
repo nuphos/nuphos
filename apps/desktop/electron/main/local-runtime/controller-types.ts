@@ -34,8 +34,6 @@ export type LocalRuntimeState = {
 export type LocalRuntimeViewState = LocalRuntimeState & {
   deviceId: string
   sleepPrevention: SleepState
-  /** Whether a phone may open this Mac's own screen; only on a Mac. */
-  phoneControl?: boolean
   devBundle?: DevBundleHint
   claudeLogin: ReturnType<LocalAgentLogin['state']>
   codexLogin: ReturnType<LocalAgentLogin['state']>

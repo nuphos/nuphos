@@ -64,10 +64,8 @@ function broadcastState(): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('localRuntime:state', state)
 }
 
-// On a Mac, a conversation's owner can watch the Mac's own screen (mac-screen.ts).
+// On a Mac, its owner can watch the Mac's own screen (mac-screen.ts).
 const macScreen = macScreenApp(dataDir(), bundleRoot, () => tunnel?.sendStatus())
-
-export const setPhoneControl = macScreen.set
 let tunnel: RuntimeTunnelClient | undefined
 
 const controller: LocalRuntimeController = new LocalRuntimeController({
@@ -149,7 +147,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       status,
       onChange,
-      ...macScreen.deps(status, instances),
+      ...macScreen.deps(status, () => controller.state().userId, instances),
     })
 
     return tunnel
@@ -264,7 +262,6 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
   return {
     ...controller.state(),
     sleepPrevention: sleep.sleepState(),
-    ...macScreen.state(),
     claudeLogin: logins['claude-code'].state(),
     codexLogin: logins.codex.state(),
     deviceId: readDeviceIdentity().deviceId,

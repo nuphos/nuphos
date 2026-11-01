@@ -1,30 +1,24 @@
 import assert from 'node:assert/strict'
 import { chmodSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
-import { connect } from 'node:net'
+import { connect, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
 import {
   enableMacScreen,
+  macScreenDeps,
   macScreenStatus,
   openMacScreen,
   screenSocket,
-  setMacScreenAllowed,
   startHost,
   stopHost,
 } from './mac-screen.ts'
 
 const started = async () => undefined
 
-/** A pool whose Mac has turned "Let my phone see and control this Mac" on. */
-function allowedPool(): string {
-  const pool = mkdtempSync(path.join(tmpdir(), 'screen-'))
-
-  setMacScreenAllowed(pool, true)
-
-  return pool
-}
+const newPool = () => mkdtempSync(path.join(tmpdir(), 'screen-'))
+const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
 
 /** A stand-in for mac-screen-host: a shell script with the given body. */
 function fakeHost(body: string): string {
@@ -43,27 +37,47 @@ test('only a Mac shows its screen', () => {
   )
 })
 
-test('the screen stays closed until the Mac turns phone control on, and closes when it is turned off', async () => {
-  const pool = mkdtempSync(path.join(tmpdir(), 'screen-'))
-  let starts = 0
-  const start = async () => {
-    starts += 1
+test('the screen opens on request, and streams only to the account signed in on this Mac', async (t) => {
+  const pool = newPool()
+  let owner: string | null = 'u1'
+  const deps = macScreenDeps(pool, () => ({ agents: {} }) as never, {
+    binary: () => '/nonexistent',
+    handOver: () => undefined,
+    owner: () => owner,
+  })
+
+  assert.equal(macScreenStatus(pool).desktopOpen, true)
+  assert.equal(await openMacScreen(pool, 's1', started), 0)
+  const server = createServer((socket) => socket.end())
+
+  t.after(() => server.close())
+  await new Promise<void>((resolve) => server.listen(screenSocket(pool), resolve))
+  const viewed = async (viewer: string) => {
+    const stream = deps.connectVnc()
+    let closed = false
+
+    stream.addEventListener('close', () => {
+      closed = true
+    })
+    await tick()
+    stream.send(JSON.stringify({ t: 'open', sessionId: 's1', display: 0, viewer }))
+    const refused = closed
+
+    stream.close()
+
+    return !refused
   }
 
-  assert.equal(macScreenStatus(pool).desktopOpen, false)
-  await assert.rejects(openMacScreen(pool, 's1', start), /Let my phone see and control this Mac/u)
-  assert.equal(starts, 0)
-
-  setMacScreenAllowed(pool, true)
-  assert.equal(macScreenStatus(pool).desktopOpen, true)
-  assert.equal(await openMacScreen(pool, 's1', start), 0)
-
-  setMacScreenAllowed(pool, false)
-  assert.deepEqual(macScreenStatus(pool), { desktops: [], desktopOpen: false })
+  assert.equal(await viewed('u1'), true)
+  // A teammate, a forged id, or anyone once this Mac signs out.
+  assert.equal(await viewed('mate'), false)
+  assert.equal(await viewed(''), false)
+  owner = null
+  assert.equal(await viewed('u1'), false)
 })
 
 test('a host that cannot start says why and holds nothing', async () => {
-  const pool = allowedPool()
+  const pool = newPool()
 
   const host = fakeHost(
     'echo "mac-screen-host: Screen Recording is not allowed for Nuphos yet" >&2; exit 1',
@@ -77,7 +91,7 @@ test('a host that cannot start says why and holds nothing', async () => {
 })
 
 test('the host starts once, and opening waits until it listens', async () => {
-  const pool = allowedPool()
+  const pool = newPool()
 
   const host = fakeHost(
     `exec "${process.execPath}" -e "require('node:net').createServer().listen(process.argv[1])" "$1"`,
@@ -98,7 +112,7 @@ test('the host starts once, and opening waits until it listens', async () => {
 })
 
 test('another conversation gets the screen only once nobody watches it', async () => {
-  const pool = allowedPool()
+  const pool = newPool()
 
   assert.equal(await openMacScreen(pool, 's1', started), 0)
   assert.equal(await openMacScreen(pool, 's1', started), 0)
@@ -117,7 +131,7 @@ test('another conversation gets the screen only once nobody watches it', async (
 })
 
 test('two conversations opening the screen at once: one gets it, the other is refused', async () => {
-  const pool = allowedPool()
+  const pool = newPool()
 
   const results = await Promise.allSettled([
     openMacScreen(pool, 's1', started),
