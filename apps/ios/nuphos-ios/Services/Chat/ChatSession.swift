@@ -128,8 +128,9 @@ final class ChatSession {
     var submitting: Bool { sending != nil }
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
-    /// This device's send has had no response yet. Only that response clears it:
-    /// another turn executing says nothing about this message.
+    /// This device's send has no runtime status yet. Only this turn's own
+    /// runtime state clears it, so "Sending…" holds until the runtime's first
+    /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
     var canReply: Bool { !readOnly && (!isNativeRuntime || allows("reply")) }
@@ -1114,7 +1115,6 @@ final class ChatSession {
                     guard event.data != "[DONE]", let frame = JSONValue.parse(event.data),
                           let type = frame["type"]?.stringValue else { continue }
                     accepted = true
-                    awaitingAdmission = false
                     debugLog("frame \(type)")
                     if type.hasPrefix("tool-") || type == "authorization-decision" || type == "error" || type == "atlas-turn-paused" {
                         debugLog("  \(frame.compact.prefix(600))")
@@ -1261,6 +1261,7 @@ final class ChatSession {
     private func handle(frame: JSONValue, type: String) {
         switch type {
         case "runtime-state":
+            awaitingAdmission = false
             let age = max(0, Date.now.timeIntervalSince1970 - (frame["emittedAt"]?.numberValue ?? 0) / 1000)
             receiveRuntime(frame["snapshot"], observedAt: ProcessInfo.processInfo.systemUptime - age)
             return
