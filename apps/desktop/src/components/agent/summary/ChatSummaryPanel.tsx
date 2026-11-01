@@ -3,6 +3,7 @@ import { File, Image as ImageIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
 import { t } from '../../../i18n'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen } from '../../../lib/chatSummaryPanel'
@@ -18,8 +19,8 @@ import { inputRequestKey } from './sessionInputRequests'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
-import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { SessionInputRequest } from './sessionInputRequests'
+import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent } from 'react'
 
 type Props = {
@@ -105,14 +106,13 @@ function OutputsSection({
   )
 }
 
-/** Esc inside the panel closes it and hands focus back to the toggle that opened it. */
-function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null) {
+/** Esc inside the panel closes this pane's summary and hands focus back to the toggle that opened it. */
+function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, paneId: string) {
   if (event.key !== 'Escape' || event.defaultPrevented) return
   event.preventDefault()
-  const pane = root?.closest(PANE)
-
-  setChatSummaryOpen(false)
-  pane
+  setChatSummaryOpen(paneId, false)
+  root
+    ?.closest(PANE)
     ?.querySelector<HTMLElement>(`[aria-label="${CSS.escape(t('Toggle agent summary'))}"]`)
     ?.focus()
 }
@@ -129,6 +129,7 @@ function SummaryBody({
   requestsLoaded,
   requestsFailed,
 }: Props) {
+  const paneId = usePaneId()
   const rootRef = useRef<HTMLElement>(null)
   const [selected, setSelected] = useState<SessionInputRequest | null>(null)
   // A question this conversation asked is answered in its own chat: a second copy
@@ -154,7 +155,7 @@ function SummaryBody({
     <aside
       ref={rootRef}
       aria-label={t('Agent summary')}
-      onKeyDown={(event) => closeOnEscape(event, rootRef.current)}
+      onKeyDown={(event) => closeOnEscape(event, rootRef.current, paneId)}
       className={clsx(
         't-summary-in',
         'absolute inset-y-0 right-0 z-10 flex max-w-full flex-shrink-0 flex-col border-l border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
@@ -172,7 +173,7 @@ function SummaryBody({
           teamId={teamId}
           onSelect={select}
           onBack={() => setSelected(null)}
-          onClose={() => setChatSummaryOpen(false)}
+          onClose={() => setChatSummaryOpen(paneId, false)}
           onOpenSession={onOpenRequest}
         />
       ) : (

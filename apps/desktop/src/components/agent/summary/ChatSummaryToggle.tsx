@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
 import { t } from '../../../i18n'
 import {
   toggleChatSummary,
@@ -29,9 +30,10 @@ export function SummaryIcon() {
 }
 
 /**
- * Titlebar button for the chat summary panel. The open state is the window's,
- * so only the focused pane answers ⌘I. A narrow pane hides the button (the ⋯
- * menu offers it instead) but keeps the shortcut.
+ * Titlebar button for the chat summary panel. The open state belongs to this
+ * pane, so toggling it leaves other split panes alone, and only the focused
+ * pane answers ⌘I. A narrow pane hides the button (the ⋯ menu offers it
+ * instead) but keeps the shortcut.
  */
 export function ChatSummaryToggle({
   active,
@@ -42,20 +44,21 @@ export function ChatSummaryToggle({
   hidden?: boolean
   pendingCount?: number
 }) {
-  const open = useChatSummaryOpen()
+  const paneId = usePaneId()
+  const open = useChatSummaryOpen(paneId)
 
   useEffect(() => {
     if (!active) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || !isChatSummaryShortcut(event, isMac)) return
       event.preventDefault()
-      toggleChatSummary()
+      toggleChatSummary(paneId)
     }
 
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [active])
+  }, [active, paneId])
 
   if (hidden) return null
 
@@ -77,7 +80,7 @@ export function ChatSummaryToggle({
         type="button"
         aria-label={t('Toggle agent summary')}
         aria-pressed={open}
-        onClick={toggleChatSummary}
+        onClick={() => toggleChatSummary(paneId)}
         className="titlebar-no-drag relative ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main aria-pressed:bg-zGray-800/60 aria-pressed:text-main motion-reduce:transition-none"
       >
         <SummaryIcon />

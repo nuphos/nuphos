@@ -16,9 +16,9 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { usePaneSummary } from '../../app/workspace/usePaneSummary'
 import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
-import { toggleChatSummary, useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
 import {
@@ -104,7 +104,7 @@ export function SessionHeaderMenu({
   summaryInMenu = false,
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
-  const summaryOpen = useChatSummaryOpen()
+  const { open: summaryOpen, toggle: toggleSummary } = usePaneSummary()
   const pin = useSessionPin(userId, teamId, sessionId)
   // What the server said when the chat opened; a toggle here wins after that.
   const [toggled, setToggled] = useState<boolean | undefined>(undefined)
@@ -204,7 +204,7 @@ export function SessionHeaderMenu({
             <MenuItem
               icon={<SummaryIcon />}
               hint={<ShortcutHint combo="mod+i" className="pl-4" />}
-              onClick={toggleChatSummary}
+              onClick={toggleSummary}
             >
               {summaryOpen ? t('Hide agent summary') : t('Show agent summary')}
             </MenuItem>
