@@ -173,7 +173,8 @@ sealed class ChatRow {
                     row.part.state != ChatPart.Tool.State.ApprovalRequested && ThreadReference.from(row.part) == null
                 else -> false
             }
-            if (body.any { it is Tool && it.part.state == ChatPart.Tool.State.ApprovalRequested }) return toolRuns(body, live = false)
+            if (body.any { it is Tool && (it.part.state == ChatPart.Tool.State.ApprovalRequested ||
+                    it.part.state == ChatPart.Tool.State.OutputError) }) return toolRuns(body, live = false)
             val intermediate = body.take(lastText).filter(::foldable)
             if (intermediate.size < 2) return toolRuns(body, live = false)
             val folded = mutableListOf<ChatRow>()
