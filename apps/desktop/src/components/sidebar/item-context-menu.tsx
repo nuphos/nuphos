@@ -46,6 +46,8 @@ export function SidebarItemContextMenu({
   archiveChat: (sessionId: string) => Promise<void>
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
+  // A channel's row: its own nouns, and no pin or watch, which are an agent's.
+  const channel = menu.item.channel === true
   // A chat pins, matching the Pinned section; other destinations favorite.
   const chatRow = favoriteSessionId(menu.item) !== null
   const [addIcon, removeIcon] = chatRow ? [Pin, PinOff] : [Star, StarOff]
@@ -56,7 +58,7 @@ export function SidebarItemContextMenu({
       y={menu.y}
       onClose={onClose}
       items={[
-        ...(canFavorite(menu.item)
+        ...(!channel && canFavorite(menu.item)
           ? [
               favoriteMatch(menu.item)
                 ? {
@@ -100,13 +102,17 @@ export function SidebarItemContextMenu({
               },
               {
                 key: 'copy-session-id',
-                label: t('Copy agent ID'),
+                label: channel ? t('Copy chat ID') : t('Copy agent ID'),
                 icon: Hash,
-                onSelect: () => copy(menu.item.key.slice('agent-session:'.length), 'Agent ID'),
+                onSelect: () =>
+                  copy(
+                    menu.item.key.slice('agent-session:'.length),
+                    channel ? 'Channel ID' : 'Agent ID',
+                  ),
               },
               {
                 key: 'rename',
-                label: t('Rename agent'),
+                label: channel ? t('Rename chat') : t('Rename agent'),
                 icon: Pencil,
                 onSelect: () =>
                   renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
@@ -123,7 +129,9 @@ export function SidebarItemContextMenu({
                 : []),
             ]
           : []),
-        ...(menu.item.key.startsWith('agent-session:') && menu.item.watching !== undefined
+        ...(!channel &&
+        menu.item.key.startsWith('agent-session:') &&
+        menu.item.watching !== undefined
           ? [
               {
                 key: 'watch',
@@ -137,7 +145,7 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'archive',
-                label: t('Archive agent'),
+                label: channel ? t('Archive chat') : t('Archive agent'),
                 icon: Archive,
                 onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
               },
@@ -159,16 +167,26 @@ function watchChat(item: Item, teamId: string) {
     })
 }
 
-function copy(value: string, what: 'Link' | 'Agent ID') {
+const COPIED = {
+  Link: () => t('Link copied'),
+  'Agent ID': () => t('Agent ID copied'),
+  'Channel ID': () => t('Chat ID copied'),
+}
+
+function copy(value: string, what: keyof typeof COPIED) {
   void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
     onSuccess: () =>
-      toast.success(what === 'Link' ? t('Link copied') : t('Agent ID copied'), undefined, {
+      toast.success(COPIED[what](), undefined, {
         timeoutMs: 1200,
         dedupe: false,
       }),
     onError: () =>
       toast.error(
-        what === 'Link' ? t('Could not copy link') : t('Could not copy agent ID'),
+        what === 'Link'
+          ? t('Could not copy link')
+          : what === 'Channel ID'
+            ? t('Could not copy chat ID')
+            : t('Could not copy agent ID'),
         t('Clipboard was blocked.'),
       ),
   })
