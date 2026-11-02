@@ -51,6 +51,17 @@ class ChatSession(
     private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
     private val readEvents: (okhttp3.Request) -> kotlinx.coroutines.flow.Flow<ai.nuphos.android.data.SseEvent> = { SseClient.events(it) },
 ) {
+    private val localSenders = ai.nuphos.android.model.LocalMessageSenders()
+    private var localSenderKey: String? = null
+    private var currentLocalSender: () -> ai.nuphos.android.model.MessageAttribution? = { null }
+    internal fun bindLocalSender(key: String?, current: () -> ai.nuphos.android.model.MessageAttribution?) {
+        localSenders.bind(key)
+        localSenderKey = key
+        currentLocalSender = current
+    }
+    internal fun localSender(id: String): ai.nuphos.android.model.MessageAttribution? =
+        if (hasAiAccess && currentLocalSender() != null) localSenders.sender(id, localSenderKey) else null
+
     private var initialModelPick: Map<String, String>? = null
     fun presetModelSettings(pick: Map<String, String>) { initialModelPick = pick.takeIf { it.isNotEmpty() } }
     private var modelScopeActive = false
@@ -518,6 +529,7 @@ class ChatSession(
             updated[lastAssistant] = updated[lastAssistant].supersedePendingApprovals().finalizeIncompleteTools()
             messages = updated
         }
+        localSenders.record(message.id, localSenderKey, currentLocalSender())
         if (messages.none { it.id == message.id }) messages = messages + message
         pendingUserMessage = message
         if (wasEmpty) {
@@ -1429,6 +1441,9 @@ class ChatSession(
 
     /** Revoke local work and unsent copies without cancelling the server run. */
     fun disposeForConsent() {
+        localSenders.clear()
+        localSenderKey = null
+        currentLocalSender = { null }
         deactivateQueue()
         downloads = emptyList()
         downloadsError = null

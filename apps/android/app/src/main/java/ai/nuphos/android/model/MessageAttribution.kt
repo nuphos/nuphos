@@ -9,6 +9,7 @@ data class MessageAttribution(
     val type: String,
     val source: String,
     val viaName: String? = null,
+    val avatarURL: String? = null,
 ) {
     val label: String get() = viaName?.let { "$name · via $it" } ?: name
     val isEvent: Boolean get() = source == "agent.thread" || source == "agent.resource"
@@ -33,7 +34,7 @@ data class MessageAttribution(
             }
             if (sender["type"]?.stringValue != expected) return null
             val viaName = via?.get("displayName")?.stringValue?.takeIf { it.isNotEmpty() }
-            return MessageAttribution(id, name, expected, source, viaName)
+            return MessageAttribution(id, name, expected, source, viaName, SenderAvatar.trusted(sender["avatarURL"]?.stringValue))
         }
     }
 }

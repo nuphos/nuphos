@@ -1,5 +1,8 @@
 package ai.nuphos.android.ui.chat
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +32,22 @@ import ai.nuphos.android.ui.components.MarkdownText
 
 @Composable
 internal fun MessageSenderLabel(sender: MessageAttribution) {
-    Text(sender.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.size(20.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center,
+        ) {
+            Text(sender.name.take(1).uppercase(), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            sender.avatarURL?.let { avatar ->
+                coil3.compose.AsyncImage(model = avatar, contentDescription = null,
+                    modifier = Modifier.size(20.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            }
+        }
+        Text(sender.label, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+    }
 }
 
 @Composable
