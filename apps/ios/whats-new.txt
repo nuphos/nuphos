@@ -1,5 +1,3 @@
-Watch a browser tab of a chat's dock live on your iPhone, then tap and type into it. The Mac's pointer never moves.
+Download cards now show while a turn is still running.
 
-Runtime marks and provider names now look the same everywhere.
-
-Fixes: agent file cards show in conversations longer than one page, and an answer no longer cross-fades into two texts drawn at once.
+Fixes: the credential picker refreshes its options every time it opens.
