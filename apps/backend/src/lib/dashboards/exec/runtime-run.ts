@@ -166,7 +166,7 @@ export async function runOnRuntime(args: {
   panel: DashboardPanel
 }): Promise<{ output: DashboardPanelSnapshot['output']; durationMs: number }> {
   const { runtime, jobId, nuphosToken, code, params, panel } = args
-  const backendUrl = runtimeBackendUrl(runtime.endpoint.external)
+  const backendUrl = runtime.endpoint.backendUrl ?? runtimeBackendUrl(runtime.endpoint.external)
 
   if (!backendUrl) throw new PanelExecError('runtime_unavailable', PUBLIC_URL_MISSING_MESSAGE)
   const startedAt = Date.now()
