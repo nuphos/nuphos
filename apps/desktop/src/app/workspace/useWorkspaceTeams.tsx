@@ -33,7 +33,6 @@ export function useWorkspaceTeams(a: Args) {
     loadTeamsTokenRef,
     setTeamsLoaded,
     updateActiveTab,
-    onLogout,
   } = a
 
   const navigateHistory = useCallback(
@@ -105,9 +104,9 @@ export function useWorkspaceTeams(a: Args) {
         // backend may be momentarily unreachable (a network blip, or in local dev
         // still booting). Poll until it's back instead of stranding the user on a
         // manual Retry button; genuine app errors still surface immediately.
-        if (isSessionRejected(e)) {
-          void onLogout()
-        } else if (isNetworkError(e)) {
+        // A rejected session signs the app out through api.onSessionRejected.
+        if (isSessionRejected(e)) return
+        if (isNetworkError(e)) {
           setBackendUnreachable(true)
           backendRetryTimerRef.current = window.setTimeout(() => void run(), 1500)
         } else {
@@ -127,7 +126,6 @@ export function useWorkspaceTeams(a: Args) {
     bootstrapTeams,
     backendRetryTimerRef,
     loadTeamsTokenRef,
-    onLogout,
     setBackendUnreachable,
     setError,
     setTeamsLoading,

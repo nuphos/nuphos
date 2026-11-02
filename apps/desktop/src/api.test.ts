@@ -186,3 +186,37 @@ test('isSessionRejected is true only for a refused session, never for a denied r
   )
   assert.equal(isSessionRejected(new Error('fetch failed')), false)
 })
+
+test('onSessionRejected signs out once per registration and skips other errors', async () => {
+  const { api, onSessionRejected } = await import('./api.ts')
+  const rejected = new Error(
+    sentinel({ message: 'Invalid or expired token', code: 'unauthorized' }),
+  )
+  const forbidden = new Error(sentinel({ message: 'Nope', code: 'forbidden' }))
+  let next: Error = rejected
+
+  ;(globalThis as { window?: unknown }).window = {
+    api: { atlasListTeams: () => Promise.reject(next) },
+  }
+  const call = () => api.atlasListTeams().catch(() => undefined)
+  let calls = 0
+
+  // No handler registered (signed out): a rejected session is simply ignored.
+  await call()
+
+  onSessionRejected(() => calls++)
+  next = forbidden
+  await call()
+  assert.equal(calls, 0)
+
+  next = rejected
+  await call()
+  await call()
+  assert.equal(calls, 1, 'a burst of rejected calls signs out only once')
+
+  // Signing in again registers a fresh handler.
+  onSessionRejected(() => calls++)
+  await call()
+  assert.equal(calls, 2)
+  onSessionRejected(null)
+})
