@@ -169,24 +169,32 @@ function closingWords(message: UIMessage): string {
     .trim()
 }
 
-/** A turn woken by a channel answers there with what it ends on; silence posts nothing. */
+/**
+ * A turn a channel woke, and nothing else did, answers there with what it ends
+ * on; silence posts nothing. Only this turn's own reply counts: one that comes
+ * after what woke the turn, from a turn that completed.
+ */
 export async function replyToChannel(
   data: { userId: string; teamId: string; targetSessionId: string },
   target: AgentConversation,
-  fresh: readonly Pick<PendingUserMessage, 'metadata'>[],
+  fresh: readonly Pick<PendingUserMessage, 'id' | 'metadata'>[],
+  completed: boolean,
 ): Promise<void> {
-  const channelId = fresh
-    .map((message) => message.metadata?.sender?.id)
-    .find((id) => id?.startsWith(CHANNEL_SENDER_PREFIX))
-    ?.slice(CHANNEL_SENDER_PREFIX.length)
+  const from = fresh.map((message) => message.metadata?.sender?.id)
+  const first = from[0]
 
-  if (!channelId) return
+  if (!completed || !first?.startsWith(CHANNEL_SENDER_PREFIX) || from.some((id) => id !== first))
+    return
   const after = await getConversationWithMessages(data.targetSessionId, data.userId, data.teamId)
-  const reply = after?.messages.findLast((message) => message.role === 'assistant')
-  const ui = reply && persistedMessageToUiMessage(reply)
+  const messages = after?.messages ?? []
+  const asked = messages.findLastIndex((m) => fresh.some((entry) => entry.id === m.messageId))
+  const answered = messages.findLastIndex((m) => m.role === 'assistant')
+
+  if (asked < 0 || answered < asked) return
+  const ui = persistedMessageToUiMessage(messages[answered]!)
   const text = ui ? closingWords(ui) : ''
 
-  if (text) await postTurnReply(channelId, target, text)
+  if (text) await postTurnReply(first.slice(CHANNEL_SENDER_PREFIX.length), target, text)
 }
 
 onChannelTurnEnd(replyToChannel)

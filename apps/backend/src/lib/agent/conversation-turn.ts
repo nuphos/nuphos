@@ -172,7 +172,12 @@ export async function runTurn(
     if (outcome.finishReason === 'connection-lost' && (await runtimeRestarted(data)))
       await reportUndelivered(data, fresh, LOST_TURN)
 
-    await channelTurnEnded(data, target, fresh)
+    await channelTurnEnded(
+      data,
+      target,
+      fresh,
+      outcome.status === 'completed' && outcome.finishReason !== 'connection-lost',
+    )
 
     return outcome.finishReason
   } catch (error) {

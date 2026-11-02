@@ -379,23 +379,34 @@ describe('the loop guard and mentions', () => {
 
 describe('a turn a channel woke answers with what it ends on', () => {
   const data = { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' }
-  const wake = (id: string) => [{ metadata: { sender: { type: 'system', id } } }] as never
-  const endsWith = (parts: unknown[]) =>
+  const wake = (...senders: string[]) =>
+    senders.map((id, i) => ({
+      id: `n${String(i)}`,
+      metadata: { sender: { type: 'system', id } },
+    })) as never
+  const user = (id: string) => ({ messageId: id, role: 'user', parts: [] })
+  const said = (parts: unknown[]) => ({ messageId: 'a1', role: 'assistant', parts })
+  const history = (...messages: unknown[]) =>
     installAgentDb({
-      getConversationWithMessages: async () =>
-        ({ conversation: {}, messages: [{ messageId: 'a1', role: 'assistant', parts }] }) as never,
+      getConversationWithMessages: async () => ({ conversation: {}, messages }) as never,
     })
+  const closing = (text: string) => said([{ type: 'text', text }])
   const agent = async () => (await agentConversations().findOne({ sessionId: 'agent-a' }))!
   const posted = () =>
     agentMessages().find({ sessionId: 'channel', userId: 'channel-owner' }).toArray()
+  const reply = async (fresh: never, completed = true) =>
+    replyToChannel(data, await agent(), fresh, completed)
 
   test('its closing words become its message, not what it said before a tool call', async () => {
-    endsWith([
-      { type: 'text', text: 'Let me look.' },
-      { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
-      { type: 'text', text: ' Hi, I am here. ' },
-    ])
-    await replyToChannel(data, await agent(), wake('channel:channel'))
+    history(
+      user('n0'),
+      said([
+        { type: 'text', text: 'Let me look.' },
+        { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
+        { type: 'text', text: ' Hi, I am here. ' },
+      ]),
+    )
+    await reply(wake('channel:channel'))
 
     expect(await posted()).toMatchObject([
       {
@@ -408,19 +419,43 @@ describe('a turn a channel woke answers with what it ends on', () => {
   })
 
   test('ending without words posts nothing', async () => {
-    endsWith([
-      { type: 'text', text: '   ' },
-      { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
-    ])
-    await replyToChannel(data, await agent(), wake('channel:channel'))
+    history(
+      user('n0'),
+      said([
+        { type: 'text', text: '   ' },
+        { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
+      ]),
+    )
+    await reply(wake('channel:channel'))
 
     expect(await posted()).toHaveLength(0)
     expect(wokenSessions()).toEqual([])
   })
 
+  test('an earlier turn’s reply is not posted again by a turn that wrote none', async () => {
+    history(closing('Answered before.'), user('n0'))
+    await reply(wake('channel:channel'))
+
+    expect(await posted()).toHaveLength(0)
+  })
+
+  test('a turn that did not complete posts nothing', async () => {
+    history(user('n0'), closing('Half a thought'))
+    await reply(wake('channel:channel'), false)
+
+    expect(await posted()).toHaveLength(0)
+  })
+
   test('a turn something else woke posts nothing to any channel', async () => {
-    endsWith([{ type: 'text', text: 'Done.' }])
-    await replyToChannel(data, await agent(), wake('trigger:t1'))
+    history(user('n0'), closing('Done.'))
+    await reply(wake('trigger:t1'))
+
+    expect(await posted()).toHaveLength(0)
+  })
+
+  test('a turn that also answered someone else posts nothing to the channel', async () => {
+    history(user('n0'), user('n1'), closing('Private answer.'))
+    await reply(wake('channel:channel', 'trigger:t1'))
 
     expect(await posted()).toHaveLength(0)
   })
