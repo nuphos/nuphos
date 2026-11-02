@@ -14,7 +14,7 @@ class PinnedHistoryTest {
             {"key":"agent-session:beyond-page","label":"Duplicate"},
             {"key":"agent-session:no-label"}, {"key":"agent-session:"},
             {"key":"dashboard:private","label":"Other"}, {"href":"/agent/other"}
-        ]"""), "", false)
+        ]"""), "")
         assertEquals(listOf("no-label", "beyond-page"), pins.map { it.sessionId })
         assertEquals(listOf("Agent", "Duplicate"), pins.map { it.title })
         assertEquals(2, pins.map { it.listKey }.toSet().size)
@@ -23,9 +23,8 @@ class PinnedHistoryTest {
 
     @Test fun searchAndArchiveHideShortcutsWithoutChangingFavoriteData() {
         val data = favorites("""[{"key":"agent-session:s","label":"Saved"}]""")
-        assertTrue(PinnedHistory.shortcuts(data, "find", false).isEmpty())
-        assertTrue(PinnedHistory.shortcuts(data, "", true).isEmpty())
-        assertEquals(1, PinnedHistory.shortcuts(data, "", false).size)
+        assertTrue(PinnedHistory.shortcuts(data, "find").isEmpty())
+        assertEquals(1, PinnedHistory.shortcuts(data, "").size)
         assertTrue(data.contains("s"))
     }
 

@@ -221,10 +221,6 @@ class HistoryStatusFixtureDeviceTest {
         compose.runOnIdle { store.updateSearch("different"); assertTrue(store.conversations.isEmpty()) }
         waitText("Couldn't load agents")
         compose.onNodeWithText("History fixture").assertDoesNotExist()
-        compose.runOnIdle { store.updateScope(ConversationScope.Team); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load agents")
-        compose.runOnIdle { store.updateArchivedOnly(true); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load agents")
         compose.onNodeWithText("Retry history").assertDoesNotExist()
         assertKnownRequests()
     }

@@ -3,7 +3,6 @@ package ai.nuphos.android.data
 import ai.nuphos.android.model.validTriggerId
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.AgentConversationsPage
-import ai.nuphos.android.model.ConversationSort
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.CredentialCatalog
 import ai.nuphos.android.model.NuphosUser
@@ -57,11 +56,9 @@ object NuphosApi {
         scope: ConversationScope = ConversationScope.Mine,
         search: String? = null,
         includeArchived: Boolean = false,
-        archivedOnly: Boolean = false,
         triggerId: String? = null,
-        sort: ConversationSort = ConversationSort.Activity,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, archivedOnly, triggerId, sort)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, triggerId)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -72,9 +69,7 @@ object NuphosApi {
         scope: ConversationScope = ConversationScope.Mine,
         search: String? = null,
         includeArchived: Boolean = false,
-        archivedOnly: Boolean = false,
         triggerId: String? = null,
-        sort: ConversationSort = ConversationSort.Activity,
     ): List<Pair<String, String>> {
         if (triggerId != null) {
             require(teamId.isNotBlank() && validTriggerId(triggerId)) { "Select a valid trigger and team." }
@@ -82,13 +77,13 @@ object NuphosApi {
         return buildList {
             add("teamId" to teamId)
             add("limit" to limit.toString())
-            add("sort" to sort.raw)
+            // Same fixed order as iOS: most recent activity first.
+            add("sort" to "activity")
             add("scope" to if (triggerId != null) ConversationScope.Team.raw else scope.raw)
             if (triggerId != null) add("triggerId" to triggerId)
             if (cursor != null) add("cursor" to cursor)
             if (!search.isNullOrEmpty()) add("search" to search)
-            if (archivedOnly) add("archived" to "only")
-            else if (!includeArchived) add("archived" to "exclude")
+            if (!includeArchived) add("archived" to "exclude")
         }
     }
 
