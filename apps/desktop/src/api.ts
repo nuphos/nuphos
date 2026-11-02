@@ -6,7 +6,7 @@ import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
 import { databaseApi } from './api/database-api.ts'
 import { deviceApi } from './api/device-api.ts'
-import { isNetworkError, parseAtlasError } from './api/errors.ts'
+import { isNetworkError, isSessionRejected, parseAtlasError } from './api/errors.ts'
 import { gcpClustersApi } from './api/gcp-clusters-api.ts'
 import { gitApi } from './api/git-api.ts'
 import { instructionsApi } from './api/instructions-api.ts'
@@ -102,6 +102,14 @@ const rawApi = {
   ...deviceApi,
 }
 
+let sessionRejected: (() => void) | null = null
+
+/** Called once when any API call reports that the stored session is no longer
+ * accepted (expired or revoked). The app signs out; no retry can succeed. */
+export function onSessionRejected(handler: (() => void) | null): void {
+  sessionRejected = handler
+}
+
 export const api = instrumentApi(
   rawApi,
   (operation, error) => {
@@ -109,6 +117,14 @@ export const api = instrumentApi(
     // app defect. Every poll would report it again, so it never reaches Error
     // Tracking; backend availability is watched server-side.
     if (isNetworkError(error)) return
+    if (isSessionRejected(error)) {
+      const handler = sessionRejected
+
+      sessionRejected = null
+      handler?.()
+
+      return
+    }
     const parsed = parseAtlasError(error)
 
     reportFrontendError(
