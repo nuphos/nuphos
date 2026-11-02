@@ -7,6 +7,8 @@ import {
   Hash,
   Link2,
   Pencil,
+  Pin,
+  PinOff,
   Star,
   StarOff,
   Unlink,
@@ -44,6 +46,10 @@ export function SidebarItemContextMenu({
   archiveChat: (sessionId: string) => Promise<void>
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
+  // A chat pins, matching the Pinned section; other destinations favorite.
+  const chatRow = favoriteSessionId(menu.item) !== null
+  const [addIcon, removeIcon] = chatRow ? [Pin, PinOff] : [Star, StarOff]
+
   return (
     <ContextMenu
       x={menu.x}
@@ -55,14 +61,14 @@ export function SidebarItemContextMenu({
               favoriteMatch(menu.item)
                 ? {
                     key: 'unfavorite',
-                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, true),
-                    icon: StarOff,
+                    label: favoriteToggleTitle(chatRow, true),
+                    icon: removeIcon,
                     onSelect: () => toggleFavorite(menu.item),
                   }
                 : {
                     key: 'favorite',
-                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, false),
-                    icon: Star,
+                    label: favoriteToggleTitle(chatRow, false),
+                    icon: addIcon,
                     onSelect: () => toggleFavorite(menu.item),
                   },
             ]
