@@ -7,6 +7,7 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentName } from '../../../lib/agentName'
 import { AGENT_PROVIDER } from '../../../types/runtime'
+import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
@@ -133,6 +134,7 @@ export function RuntimeSelector({
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
       )}
+      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
       {dot && (
         <span
           role="img"
