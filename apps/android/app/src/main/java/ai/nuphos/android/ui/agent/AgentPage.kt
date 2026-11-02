@@ -115,7 +115,7 @@ fun AgentPage(
     val authGeneration = auth.generation
     val rowInteractions = remember(store, revision, consentRevision, authGeneration, team?.id) { ConversationRowInteractions() }
     val rowOrder = store.conversations.map { it.sessionId to it.parentSessionId }
-    LaunchedEffect(rowOrder, store.sort, store.search, store.archivedOnly) { rowInteractions.dismiss() }
+    LaunchedEffect(rowOrder, store.search) { rowInteractions.dismiss() }
     LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) rowInteractions.dismiss() }
     var archiveTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
     var renameTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
@@ -129,7 +129,7 @@ fun AgentPage(
         AlertDialog(onDismissRequest = { if (!busy) { archiveTarget = null; store.clearRowActionError() } },
             title = { Text(if (target.isArchived) "Restore agent?" else "Archive agent?") },
             text = { Column {
-                Text(if (target.isArchived) "Move this agent to Active." else "You can restore this agent from Archived.")
+                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Agents list. Open it again to restore it.")
                 store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = !busy, onClick = { scope.launch {
@@ -179,13 +179,13 @@ fun AgentPage(
     val pins = store.pinnedShortcuts
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
     val missingPins = pins.any { pin -> store.conversations.none { it.sessionId == pin.sessionId } }
-    val resolvingPins = store.search.isEmpty() && !store.archivedOnly && team != null &&
+    val resolvingPins = store.search.isEmpty() && team != null &&
         ((store.favorites == null && store.favoritesError == null) ||
             (missingPins && (store.favoritesLoading || store.loadingPinnedHistory || store.isLoadingMore || store.isRefreshing)))
     // A new first page can temporarily omit an already displayed pin. Keep the
     // last complete snapshot until hydration settles instead of painting a shortcut.
     // Scope keys prevent displaying another workspace/account/query's old rows.
-    var settledRows by remember(store, account, team?.id, revision, store.search, store.scope, store.sort, store.archivedOnly) {
+    var settledRows by remember(store, account, team?.id, revision, store.search) {
         mutableStateOf<List<AgentConversation>?>(null)
     }
     SideEffect {
@@ -194,7 +194,7 @@ fun AgentPage(
     val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle ||
         (store.phase == AgentStore.Phase.Loaded && resolvingPins && settledRows.isNullOrEmpty()) ||
         (store.phase == AgentStore.Phase.Loaded && store.conversations.isEmpty() && pins.isEmpty() &&
-            store.selectedTeam != null && store.search.isEmpty() && !store.archivedOnly &&
+            store.selectedTeam != null && store.search.isEmpty() &&
             store.favorites == null && store.favoritesError == null)
     val displayedRows = if (resolvingPins) settledRows.orEmpty() else store.conversations
     val tree = remember(displayedRows, pins, foldedIds, account) {
@@ -225,7 +225,7 @@ fun AgentPage(
                 },
             )
         }
-        if (store.search.isEmpty() && !store.archivedOnly) {
+        if (store.search.isEmpty()) {
             store.favoritesError?.let {
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Could not refresh pinned agents.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
@@ -264,12 +264,11 @@ fun AgentPage(
                     ) }
                 }
                 store.conversations.isEmpty() && pins.isEmpty() &&
-                    (store.search.isNotEmpty() || store.archivedOnly || store.selectedTeam == null || store.favorites != null) -> {
+                    (store.search.isNotEmpty() || store.selectedTeam == null || store.favorites != null) -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.ChatBubbleOutline,
-                        title = if (store.search.isNotEmpty()) "No matches" else if (store.archivedOnly) "No archived agents" else "No agents yet",
+                        title = if (store.search.isNotEmpty()) "No matches" else "No agents yet",
                         body = if (store.search.isNotEmpty()) "No agents match your search."
-                            else if (store.archivedOnly) "Idle agents are archived automatically after a week."
                             else if (showComposer) "Start an agent from the bar below."
                             else "Start an agent in the pane beside this list.",
                     ) }

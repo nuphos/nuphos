@@ -14,7 +14,7 @@ class PinnedListOrderTest {
  @Test fun latestPinOrderUnpinAndRepinMatchIos() {
   fun favorites(vararg ids:String)=ConversationActions.Favorites(ids.map { JsonValue.parse("{\"key\":\"agent-session:$it\"}")!! },1)
   val rows=listOf(row("A"),row("B"),row("C"),row("recent"))
-  fun order(vararg ids:String)=ids(items(rows,PinnedHistory.shortcuts(favorites(*ids),"",false)))
+  fun order(vararg ids:String)=ids(items(rows,PinnedHistory.shortcuts(favorites(*ids),"")))
   assertEquals(listOf("C","B","A","recent"),order("A","B","C"))
   assertEquals(listOf("C","A","B","recent"),order("A","C"))
   assertEquals(listOf("B","C","A","recent"),order("A","C","B"))

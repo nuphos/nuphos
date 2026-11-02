@@ -12,7 +12,7 @@ class PinnedDesktopCompatibilityTest {
         // sidebar store normalizes this same locator into its synced entries.
         val serialized = """[{"label":"Desktop saved chat","href":"/teams/A/agent/desktop-chat"},{"label":"Dashboard","href":"/dashboard"}]"""
         val favorites = ConversationActions.Favorites(JsonValue.parse(serialized)!!.arrayValue!!, 4)
-        val pins = PinnedHistory.shortcuts(favorites, "", false)
+        val pins = PinnedHistory.shortcuts(favorites, "")
         assertEquals(listOf("desktop-chat"), pins.map { it.sessionId })
         assertEquals("Desktop saved chat", pins.single().title)
     }

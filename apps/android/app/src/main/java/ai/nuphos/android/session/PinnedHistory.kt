@@ -8,8 +8,8 @@ object PinnedHistory {
         val listKey: String get() = "pin:$sessionId"
     }
 
-    fun shortcuts(favorites: ConversationActions.Favorites?, search: String, archivedOnly: Boolean): List<Shortcut> {
-        if (search.isNotEmpty() || archivedOnly) return emptyList()
+    fun shortcuts(favorites: ConversationActions.Favorites?, search: String): List<Shortcut> {
+        if (search.isNotEmpty()) return emptyList()
         return favorites?.entries.orEmpty().asReversed().mapNotNull { entry ->
             val id = ConversationActions.favoriteSessionId(entry, favorites?.teamId) ?: return@mapNotNull null
             Shortcut(id, entry["label"]?.stringValue?.takeIf { it.isNotBlank() } ?: "Agent")

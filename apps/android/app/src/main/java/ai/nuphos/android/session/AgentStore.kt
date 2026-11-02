@@ -12,7 +12,6 @@ import ai.nuphos.android.data.ConversationReadApi
 import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
-import ai.nuphos.android.model.ConversationSort
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.CredentialCatalog
 import ai.nuphos.android.model.CredentialSelection
@@ -77,15 +76,9 @@ class AgentStore(
         }
     }
 
-    var scope: ConversationScope by mutableStateOf(ConversationScope.Mine)
-        private set
-    var sort by mutableStateOf(ConversationSort.Created)
-        private set
     var search by mutableStateOf("")
         private set
 
-    var archivedOnly by mutableStateOf(false)
-        private set
     var favorites by mutableStateOf<ConversationActions.Favorites?>(null)
         private set
     var favoritesError by mutableStateOf<String?>(null)
@@ -95,7 +88,7 @@ class AgentStore(
     var favoritesLoading by mutableStateOf(false)
         private set
     val pinnedShortcuts: List<PinnedHistory.Shortcut>
-        get() = if (hasAiAccess()) PinnedHistory.shortcuts(favorites, search, archivedOnly) else emptyList()
+        get() = if (hasAiAccess()) PinnedHistory.shortcuts(favorites, search) else emptyList()
 
     private fun clearFavorites() {
         favoritesRequests.invalidate()
@@ -147,12 +140,6 @@ class AgentStore(
             it.sessionId == incoming.sessionId && (it.teamId ?: teamId) == (incoming.teamId ?: teamId)
         }, teamId)
     }
-    fun updateArchivedOnly(value: Boolean) {
-        if (value == archivedOnly) return
-        archivedOnly = value
-        resetHistory()
-        storeScope.launch { reload() }
-    }
     fun foldedThreadIds(accountId: String?, teamId: String?): Set<String> {
         if (accountId == null || teamId == null) return emptySet()
         return prefs.getStringSet("agent.folded.$accountId.$teamId", emptySet()).orEmpty().toSet()
@@ -169,7 +156,7 @@ class AgentStore(
         } == true
     private suspend fun loadMissingPinnedHistory() {
 
-        if (loadingPinnedHistory || phase != Phase.Loaded || isReloading || search.isNotEmpty() || archivedOnly) return
+        if (loadingPinnedHistory || phase != Phase.Loaded || isReloading || search.isNotEmpty()) return
         val teamId = selectedTeam?.id ?: return
         val generation = loadGeneration
         val workspace = workspaceRevision
@@ -180,7 +167,7 @@ class AgentStore(
             // exhaustion, not an arbitrary page count; reject repeated cursors.
             val visitedCursors = mutableSetOf<String>()
             while (true) {
-                if (disposed || !hasAiAccess() || selectedTeam?.id != teamId || generation != loadGeneration || workspace != workspaceRevision || search.isNotEmpty() || archivedOnly || !hasMore || isLoadingMore) return
+                if (disposed || !hasAiAccess() || selectedTeam?.id != teamId || generation != loadGeneration || workspace != workspaceRevision || search.isNotEmpty() || !hasMore || isLoadingMore) return
                 val loaded = conversations.map { it.sessionId }.toSet()
                 if (pinnedShortcuts.all { it.sessionId in loaded }) return
                 val before = nextCursor ?: return
@@ -465,20 +452,6 @@ class AgentStore(
         }
     }
 
-    fun updateSort(value: ConversationSort) {
-        if (disposed || !hasAiAccess() || value == sort) return
-        sort = value
-        resetHistory()
-        storeScope.launch { reload() }
-    }
-
-    fun updateScope(value: ConversationScope) {
-        if (value == scope) return
-        scope = value
-        resetHistory()
-        storeScope.launch { reload() }
-    }
-
     fun updateSearch(value: String) {
         if (value == search) return
         search = value
@@ -653,10 +626,9 @@ class AgentStore(
                 token = token,
                 teamId = team.id,
                 limit = pageSize,
-                scope = scope,
+                // Like iOS: only the user's own, non-archived agents.
+                scope = ConversationScope.Mine,
                 search = search,
-                archivedOnly = archivedOnly,
-                sort = sort,
             )
             if (generation != loadGeneration || selectedTeam?.id != team.id || workspace != workspaceRevision || disposed || !hasAiAccess()) return
             observeHistory(page.rows, team.id, observedAt)
@@ -699,10 +671,9 @@ class AgentStore(
                 teamId = team.id,
                 cursor = cursor,
                 limit = pageSize,
-                scope = scope,
+                // Like iOS: only the user's own, non-archived agents.
+                scope = ConversationScope.Mine,
                 search = search,
-                archivedOnly = archivedOnly,
-                sort = sort,
             )
             if (generation != loadGeneration || selectedTeam?.id != team.id || workspace != workspaceRevision || disposed || !hasAiAccess()) return
             observeHistory(page.rows, team.id, observedAt)

@@ -25,9 +25,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.semantics.selected
-import ai.nuphos.android.model.ConversationSort
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.rounded.Link
@@ -72,12 +70,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.material3.Checkbox
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
@@ -99,7 +92,6 @@ import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldValue
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import ai.nuphos.android.ui.agent.NewChatComposer
 import androidx.navigation.navArgument
-import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.HomePage
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.data.WorkspaceApi
@@ -386,7 +378,8 @@ fun HomeScreen(
                         IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
                             Icon(Icons.Outlined.Search, contentDescription = "Search")
                         }
-                        FilterButton(current)
+                        // Like iOS, Agents has search only; Plans keeps its filter.
+                        if (current == HomePage.Plans) PlansFilterButton()
                     }
                     FilledIconButton(
                         onClick = { showProfile = true },
@@ -504,63 +497,18 @@ private fun HomePage.icon(selected: Boolean): ImageVector = when (this) {
 }
 
 @Composable
-internal fun FilterButton(page: HomePage) {
-    val store = LocalAgentStore.current
+internal fun PlansFilterButton() {
     val plans = LocalPlansStore.current
     var expanded by remember { mutableStateOf(false) }
-    val active = if (page == HomePage.Agent) store.scope != ConversationScope.Mine || store.archivedOnly || store.sort != ConversationSort.Created else plans.showDismissed
     Box {
-        IconButton(onClick = { expanded = true }, modifier = Modifier.testTag("home-filter").semantics { stateDescription = if (active) "Filters applied" else "Default filters" }) {
-            Icon(
-                if ((page == HomePage.Agent && (store.scope != ConversationScope.Mine || store.archivedOnly || store.sort != ConversationSort.Created)) ||
-                    (page == HomePage.Plans && plans.showDismissed)
-                ) Icons.Rounded.FilterList else Icons.Outlined.FilterList,
-                contentDescription = if (page == HomePage.Agent) "Filter agents" else "Filter",
-            )
+        IconButton(onClick = { expanded = true }, modifier = Modifier.testTag("home-filter").semantics { stateDescription = if (plans.showDismissed) "Filters applied" else "Default filters" }) {
+            Icon(if (plans.showDismissed) Icons.Rounded.FilterList else Icons.Outlined.FilterList, contentDescription = "Filter")
         }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-            if (page == HomePage.Agent) {
-                DropdownMenuItem(
-                    text = { Text("My agents") },
-                    modifier = Modifier.semantics { selected = store.scope == ConversationScope.Mine },
-                    leadingIcon = { if (store.scope == ConversationScope.Mine) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp)) },
-                    onClick = { store.updateScope(ConversationScope.Mine); expanded = false },
-                )
-                DropdownMenuItem(
-                    text = { Text("Team agents") },
-                    modifier = Modifier.semantics { selected = store.scope == ConversationScope.Team },
-                    leadingIcon = { if (store.scope == ConversationScope.Team) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp)) },
-                    onClick = { store.updateScope(ConversationScope.Team); expanded = false },
-                )
-                HorizontalDivider()
-                DropdownMenuItem(text = { Text("Sort") }, onClick = {}, enabled = false)
-                ConversationSort.entries.forEach { order ->
-                    DropdownMenuItem(
-                        text = { Text(order.title) },
-                        modifier = Modifier.semantics { selected = store.sort == order },
-                        leadingIcon = {
-                            if (store.sort == order) Icon(Icons.Outlined.Check, contentDescription = null)
-                            else Spacer(Modifier.size(24.dp))
-                        },
-                        onClick = { store.updateSort(order); expanded = false },
-                    )
-                }
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text("Archived") },
-                    modifier = Modifier.testTag("filter-archived").semantics {
-                        toggleableState = if (store.archivedOnly) ToggleableState.On else ToggleableState.Off
-                        role = Role.Checkbox
-                    },
-                    leadingIcon = { Checkbox(store.archivedOnly, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics { }) },
-                    onClick = { store.updateArchivedOnly(!store.archivedOnly); expanded = false },
-                )
-            } else {
-                DropdownMenuItem(
-                    text = { Text("Show dismissed") },
-                    onClick = { plans.showDismissed = !plans.showDismissed; expanded = false },
-                )
-            }
+            DropdownMenuItem(
+                text = { Text("Show dismissed") },
+                onClick = { plans.showDismissed = !plans.showDismissed; expanded = false },
+            )
         }
     }
 }
