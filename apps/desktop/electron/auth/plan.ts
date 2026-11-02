@@ -3,24 +3,26 @@ import crypto from 'node:crypto'
 import { apiUrl } from '../api-endpoint.ts'
 import { nodeFetch } from '../main/chromium-fetch.ts'
 
-import { apiErrorMessage, NUPHOS_LOGIN_URL } from './config.ts'
+import { apiErrorMessage, NUPHOS_LOGIN_URL } from './web.ts'
 
 export type LoginPlan =
   | {
       mode: 'native'
+      /** The backend the sign-in runs on, and that issues its token. */
+      api: string
       browserUrl: string
       clientState: string
       handle: string
       codeVerifier: string
     }
-  | { mode: 'legacy'; browserUrl: string; clientState: string }
+  | { mode: 'legacy'; api: string; browserUrl: string; clientState: string }
 
 export type SocialProvider = 'google' | 'apple'
 
 /** The providers the backend's social sign-in offers; none on servers without it. */
-export async function socialProviders(): Promise<SocialProvider[]> {
+export async function socialProviders(api: string = apiUrl()): Promise<SocialProvider[]> {
   try {
-    const response = await nodeFetch(`${apiUrl()}/auth/social/login`, {
+    const response = await nodeFetch(`${api}/auth/social/login`, {
       redirect: 'manual',
       signal: AbortSignal.timeout(8_000),
     })
@@ -38,6 +40,9 @@ export async function socialProviders(): Promise<SocialProvider[]> {
 // Register, then open the provider's own start page. Servers without social sign-in fall back
 // to the landing page, which only offers Google.
 export async function planLogin(port: number, provider: SocialProvider): Promise<LoginPlan> {
+  // Read once: the whole sign-in runs on this backend, and its token is saved
+  // as this backend's even if the endpoint changes before it finishes.
+  const api = apiUrl()
   const clientState = crypto.randomBytes(16).toString('hex')
   const redirectUri = `http://127.0.0.1:${String(port)}/callback`
 
@@ -53,10 +58,10 @@ export async function planLogin(port: number, provider: SocialProvider): Promise
       ).toString('base64'),
     )
 
-    return { mode: 'legacy', browserUrl: url.toString(), clientState }
+    return { mode: 'legacy', api, browserUrl: url.toString(), clientState }
   }
 
-  if (!(await socialProviders()).includes(provider)) return legacy()
+  if (!(await socialProviders(api)).includes(provider)) return legacy()
 
   const codeVerifier = crypto.randomBytes(48).toString('base64url')
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url')
@@ -64,26 +69,29 @@ export async function planLogin(port: number, provider: SocialProvider): Promise
   let handle: string
 
   try {
-    handle = await registerNativeSession({ redirectUri, codeChallenge, clientState })
+    handle = await registerNativeSession(api, { redirectUri, codeChallenge, clientState })
   } catch (e) {
     console.warn('auth: native sign-in unavailable on this backend, using the legacy flow', e)
 
     return legacy()
   }
 
-  const startUrl = new URL(`${apiUrl()}/auth/social/${provider}/start`)
+  const startUrl = new URL(`${api}/auth/social/${provider}/start`)
 
   startUrl.searchParams.set('handle', handle)
 
-  return { mode: 'native', browserUrl: startUrl.toString(), clientState, handle, codeVerifier }
+  return { mode: 'native', api, browserUrl: startUrl.toString(), clientState, handle, codeVerifier }
 }
 
-async function registerNativeSession(input: {
-  redirectUri: string
-  codeChallenge: string
-  clientState: string
-}): Promise<string> {
-  const res = await fetch(`${apiUrl()}/auth/native/session`, {
+async function registerNativeSession(
+  api: string,
+  input: {
+    redirectUri: string
+    codeChallenge: string
+    clientState: string
+  },
+): Promise<string> {
+  const res = await fetch(`${api}/auth/native/session`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ...input, codeChallengeMethod: 'S256' }),

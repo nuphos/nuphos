@@ -90,6 +90,8 @@ before(async () => {
         configWrites.push(data)
       },
       chmod: async () => {},
+      rename: async () => {},
+      rm: async () => {},
       stat: async () => ({ mtimeMs: 0 }),
     },
   })
@@ -358,6 +360,39 @@ test('native: a callback carrying no delivery code fails rather than hanging', a
   await assert.rejects(loginPromise)
   assert.equal(redeemCalls, 0)
   assert.equal(configWrites.length, 0)
+})
+
+test('native: a sign-in finishing after the endpoint moved stores and uses nothing', async () => {
+  const { authSession } = await import('./auth-session.ts')
+  const started = authSession.context().api
+  const seen: { api: string; token: string | null }[] = []
+  const stop = authSession.subscribe((next) => seen.push({ api: next.api, token: next.token }))
+  const redeemedAt: string[] = []
+
+  // The endpoint field is changed and submitted while the redeem is out.
+  redeemQueue = [
+    () => {
+      authSession.moveTo('https://nuphos.example.com')
+
+      return readySession()
+    },
+  ]
+  const loginPromise = auth.login('google')
+
+  loginPromise.catch(() => {})
+  await waitForBrowser()
+  redeemedAt.push(new URL(openedUrls[0]!).origin)
+  await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
+
+  try {
+    await assert.rejects(loginPromise, /another backend/u)
+    assert.equal(configWrites.length, 0)
+    assert.ok(!seen.some((c) => c.token === TOKEN), JSON.stringify(seen))
+    assert.equal(redeemedAt[0], new URL(started).origin)
+  } finally {
+    stop()
+    authSession.moveTo(started)
+  }
 })
 
 test('native: a rejected redemption fails the sign-in and stores nothing', async () => {
