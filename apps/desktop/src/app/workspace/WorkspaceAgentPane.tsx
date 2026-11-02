@@ -230,6 +230,7 @@ export function WorkspaceAgentPane({
               active={paneInFront}
               hidden={tight}
               pendingCount={inputQueue.requests.length}
+              sessionId={savedSessionId}
             />
           )}
           {pane?.split && <PaneCloseButton onClosePane={pane.closePane} />}
