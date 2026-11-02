@@ -917,8 +917,10 @@ class ChatSession(
         return TurnOptions(active, explicitResume = true, resumeFrom = if (isNative || runtimeRecoveryRequired) streamCursors[active] ?: 0 else 0)
     }
 
-    private fun addSteering(id: String, text: String, assistantId: String?) {
-        messages = RuntimeTranscript.steering(id, text, assistantId, messages)
+    private fun addSteering(id: String, text: String, assistantId: String?) = addSteering(id, text, assistantId, null)
+
+    private fun addSteering(id: String, text: String, assistantId: String?, metadata: JsonValue?) {
+        messages = RuntimeTranscript.steering(id, text, assistantId, messages, metadata)
         reconcileSteeringReceipts()
     }
 
@@ -954,10 +956,13 @@ class ChatSession(
             }
             if (matched != null) streamAssistantIds.entries.filter { it.value == matched.id }.forEach { it.setValue(message.id) }
             val receipts = matched?.parts?.filter { it is ChatPart.Data && it.name == "steering" }.orEmpty()
-            message.copy(parts = message.parts + receipts.filter { receipt ->
-                receipt as ChatPart.Data
-                message.parts.none { it is ChatPart.Data && it.name == "steering" && it.data["id"] == receipt.data["id"] }
-            })
+            var merged = message
+            for (receipt in receipts.filterIsInstance<ChatPart.Data>()) {
+                val id = receipt.data["id"]?.stringValue ?: continue
+                merged = RuntimeTranscript.steering(id, receipt.data["text"]?.stringValue.orEmpty(), merged.id,
+                    listOf(merged), receipt.data["metadata"]).single()
+            }
+            merged
         }
         baseIndex = serverBase
         reconcileSteeringReceipts()
@@ -1258,7 +1263,9 @@ class ChatSession(
             "data-steering" -> {
                 val data = frame["data"]
                 val id = data?.get("id")?.stringValue
-                if (id != null) addSteering(id, data["text"]?.stringValue.orEmpty(), idx?.let { messages.getOrNull(it)?.id })
+                val target = idx?.let { messages.getOrNull(it)?.id }
+                    ?: messages.lastOrNull()?.takeIf { it.role == ChatMessage.Role.Assistant }?.id
+                if (id != null) addSteering(id, data["text"]?.stringValue.orEmpty(), target, data["metadata"])
                 if (red != null && idx != null) messages.getOrNull(idx)?.let { red.message = it }
                 return idx to red
             }
