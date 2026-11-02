@@ -1,7 +1,7 @@
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
-import { markChannel, useIsChannel } from '../../components/channels/channelKind'
+import { useIsChannel } from '../../components/channels/channelKind'
 import { ChannelPane } from '../../components/channels/ChannelPane'
 import { t } from '../../i18n'
 
@@ -87,10 +87,7 @@ export function PaneAgentPage({
           connectedResources={agentConnectedResources}
           onDockToSidebar={onDockAgentToSidebar}
           sessionId={tab.agentSessionId}
-          onSessionChange={(sid) => {
-            if (sid) markChannel(sid, false)
-            updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))
-          }}
+          onSessionChange={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
           onOpenNuphosLink={onOpenNuphosLink}
           onOpenAgentSettings={() => onOpenSettingsSection('workspace.agent')}
           autoFocusComposer={active}

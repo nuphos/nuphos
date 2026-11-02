@@ -12,7 +12,6 @@ import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPane
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
 import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
-import { markChannel } from '../../components/channels/channelKind'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
@@ -102,10 +101,7 @@ export function WorkspaceAgentPane({
   const handleSessionChange = useCallback(
     (sessionId: string | null, unshown?: string) => {
       if (unshown) workspaceActions.forgetSession(unshown)
-      else {
-        if (sessionId) markChannel(sessionId, false)
-        workspaceActions.selectSession(sessionId, { keepMainPage: true })
-      }
+      else workspaceActions.selectSession(sessionId, { keepMainPage: true })
     },
     [workspaceActions],
   )
