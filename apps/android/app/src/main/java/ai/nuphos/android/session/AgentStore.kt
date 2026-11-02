@@ -246,6 +246,41 @@ class AgentStore(
         (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
     } == true
 
+    fun canRename(row: AgentConversation) = canArchive(row)
+
+    suspend fun rename(row: AgentConversation, title: String): Boolean {
+        val current = currentActionRow(row) ?: return false
+        val team = selectedTeam?.id ?: return false
+        if (!canRename(current) || rowActionSessionId != null) return false
+        val workspace = workspaceRevision
+        val consent = AiAccess.revision
+        fun valid() = !disposed && hasAiAccess() && AiAccess.revision == consent &&
+            selectedTeam?.id == team && workspaceRevision == workspace && canRename(row)
+        rowActionSessionId = current.sessionId
+        rowActionError = null
+        try {
+            val validTitle = requireNotNull(ConversationActions.validTitle(title)) { "Title must contain 1–120 characters." }
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            if (!valid()) return false
+            require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true))) { "Only the owner can rename this agent." }
+            ConversationActions.rename(token, team, current.sessionId, validTitle)
+            if (!valid()) return false
+            val confirmed = NuphosApi.conversationDetail(token, team, current.sessionId)
+            if (!valid()) return false
+            require(confirmed.title == validTitle) { "The updated title could not be confirmed. Refresh and try again." }
+            conversations = conversations.map { if (it.sessionId == current.sessionId && (it.teamId ?: team) == team) it.copy(title = confirmed.title) else it }
+            sessions[SessionKey(team, current.sessionId)]?.applyConfirmedTitle(validTitle)
+            return true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (valid()) rowActionError = e.message ?: "Could not rename this agent. Try again."
+            return false
+        } finally {
+            if (workspaceRevision == workspace) rowActionSessionId = null
+        }
+    }
+
     private fun currentActionRow(row: AgentConversation): AgentConversation? {
         val team = selectedTeam?.id ?: return null
         if (disposed || !hasAiAccess() || (row.teamId != null && row.teamId != team)) return null
