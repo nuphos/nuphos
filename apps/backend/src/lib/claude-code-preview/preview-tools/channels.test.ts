@@ -18,7 +18,6 @@ const CHANNEL = '00000000-0000-4000-8000-000000000001'
 const OTHER_CHANNEL = '00000000-0000-4000-8000-000000000002'
 let memory = portabilityDb()
 let appended: Parameters<typeof agentDb.appendConversationMessages>[0][] = []
-let woken: string[] = []
 
 useDb({ db: (() => memory) as unknown as typeof dbActual.db })
 let ownerOnTeam = true
@@ -60,13 +59,8 @@ beforeEach(async () => {
   memory = portabilityDb()
   ownerOnTeam = true
   appended = []
-  woken = []
   installTurnRunner({
-    claimAgentRunOrEnqueue: async (args) => {
-      woken.push(args.sessionId)
-
-      return { mode: 'queued' }
-    },
+    claimAgentRunOrEnqueue: async () => ({ mode: 'queued' }),
   })
   await seed(CHANNEL, { kind: 'channel', agentSessionIds: ['agent-a', 'agent-b'] })
   await seed(OTHER_CHANNEL, { kind: 'channel', agentSessionIds: ['agent-b'] })
