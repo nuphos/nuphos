@@ -58,6 +58,8 @@ export async function getConversations(
     pendingDecision?: boolean
     /** Also return the rows' parents that another page would list. */
     withParents?: boolean
+    /** Channels instead of agent conversations. Lists never mix the two. */
+    channels?: boolean
   },
 ): Promise<{
   conversations: AgentConversation[]
@@ -81,6 +83,7 @@ export async function getConversations(
     teamId: options.teamId,
     // Kept apart from the search $or below, which would otherwise replace it.
     $and: [readableByFilter(viewerUserId)],
+    kind: options.channels ? 'channel' : { $ne: 'channel' },
   }
 
   if (scope === 'mine') query.userId = viewerUserId

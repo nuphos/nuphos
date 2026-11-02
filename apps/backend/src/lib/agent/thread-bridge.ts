@@ -19,6 +19,7 @@ import {
   setConversationParent,
   upsertConversationShell,
 } from './db'
+import { isChannel } from './db/channels'
 
 import type { CredentialRef } from './thread-credentials'
 import type { ThreadModelPick } from './thread-runtime'
@@ -61,6 +62,7 @@ export async function authorizeThreadDelivery(
   ) {
     throw new Error('Target must be another conversation you own in this team.')
   }
+  if (isChannel(target)) throw new Error('A channel has no agent of its own to message.')
 
   return { source, target }
 }
