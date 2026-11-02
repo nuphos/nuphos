@@ -15,6 +15,8 @@ export type WorkspacePaneValue = {
   openSessionBeside: (sessionId: string, teamId?: string) => boolean
   sidebarCollapsed: boolean
   toggleSidebarCollapsed: () => void
+  /** The sidebar is collapsed and this pane sits in the window's top-left corner. */
+  cornerPane: boolean
   isTabFocused: () => boolean
   closePane: () => void
   /** More than one pane is showing, so this one can be closed. */
