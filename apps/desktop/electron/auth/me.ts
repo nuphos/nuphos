@@ -2,6 +2,7 @@ import { apiUrl } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
 import { decideAuthStatus, isTokenRejected, isValidUserInfo } from '../auth-status.ts'
 
+import { OtherBackendError } from './accounts.ts'
 import { commitConfigIf, readConfig } from './config.ts'
 
 import type { AuthSession } from '../auth-session.ts'
@@ -13,8 +14,9 @@ import type { Config } from './config.ts'
 // surfaces as a transient probe (keep the session, retry next launch).
 const AUTH_ME_TIMEOUT_MS = 10_000
 
-export async function fetchUserInfo(token: string): Promise<UserInfo> {
-  const res = await fetch(`${apiUrl()}/auth/me`, {
+/** Who `token` is, asked of `api`, the backend that issued it. */
+export async function fetchUserInfo(token: string, api: string = apiUrl()): Promise<UserInfo> {
+  const res = await fetch(`${api}/auth/me`, {
     headers: {
       authorization: `Bearer ${token}`,
     },
@@ -37,11 +39,11 @@ export async function fetchUserInfo(token: string): Promise<UserInfo> {
 // token (real logout) apart from a transient failure (keep the session). Never
 // throws — a network/transport error, timeout, or malformed body is just a
 // transient probe.
-async function probeMe(token: string): Promise<MeProbe> {
+async function probeMe(token: string, api: string): Promise<MeProbe> {
   let res: Response
 
   try {
-    res = await fetch(`${apiUrl()}/auth/me`, {
+    res = await fetch(`${api}/auth/me`, {
       headers: { authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(AUTH_ME_TIMEOUT_MS),
     })
@@ -77,7 +79,8 @@ export type StatusDeps = {
     isCurrent: () => boolean,
     task: (save: (cfg: Config) => Promise<void>) => Promise<T>,
   ) => Promise<T | null>
-  probe: (token: string) => Promise<MeProbe>
+  /** Asks `api`, the backend that issued `token`, who it is. */
+  probe: (token: string, api: string) => Promise<MeProbe>
   session: AuthSession
 }
 
@@ -95,13 +98,25 @@ const defaultStatusDeps: StatusDeps = {
  * or to the session, and the account now current is checked instead.
  */
 export async function status(deps: StatusDeps = defaultStatusDeps): Promise<AuthStatus> {
-  const { epoch } = deps.session.context()
-  const isCurrent = () => deps.session.context().epoch === epoch
-  const cfg = await deps.readConfig()
-  const probe = cfg.token ? await deps.probe(cfg.token) : null
+  const start = deps.session.context()
+  const isCurrent = () => deps.session.context().epoch === start.epoch
+  const read = await deps.readConfig()
+  // A file from before the app recorded its backend is the current one's.
+  const cfg = { ...read, api: read.api ?? start.api }
+  const probe = cfg.token ? await deps.probe(cfg.token, cfg.api) : null
   const result = await deps.commitIf(isCurrent, async (save) => {
-    const outcome = await settle(cfg, probe, save)
+    let outcome: AuthStatus
 
+    try {
+      outcome = await settle(cfg, probe, save)
+    } catch (e) {
+      // The backend moved while the file was written: check again from there.
+      if (e instanceof OtherBackendError) return null
+      throw e
+    }
+    // A new endpoint does not wait for this turn, so it may have landed while
+    // the file was written: the session then belongs to that backend.
+    if (!isCurrent()) return null
     if (outcome.loggedIn) deps.session.set(outcome.token, outcome.user.id)
     else deps.session.set(null, null)
 
@@ -129,6 +144,7 @@ async function settle(
         userInfo: probe.user,
       })
     } catch (e) {
+      if (e instanceof OtherBackendError) throw e
       console.warn('auth: failed to refresh cached identity', e)
     }
   } else if (!probe.transient) {

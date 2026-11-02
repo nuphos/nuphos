@@ -1,7 +1,7 @@
-import { apiUrl } from '../api-endpoint.ts'
+import { authSession } from '../auth-session.ts'
 import { isValidUserInfo } from '../auth-status.ts'
 
-import { readConfig, writeConfig } from './config.ts'
+import { commitConfigIf, readConfig } from './config.ts'
 import { apiErrorMessage } from './web.ts'
 
 export type ProfileUpdate = { name: string; username: string; avatarURL: string }
@@ -31,10 +31,12 @@ async function sendProfileRequest(
   path: string,
   init: { method: string; headers?: Record<string, string>; body?: string | Uint8Array },
 ) {
-  const cfg = await readConfig()
+  const start = authSession.context()
+  const read = await readConfig()
+  const cfg = { ...read, api: read.api ?? start.api }
 
   if (!cfg.token) throw new Error('Please sign in again')
-  const res = await fetch(`${apiUrl()}${path}`, {
+  const res = await fetch(`${cfg.api}${path}`, {
     ...init,
     headers: { ...init.headers, authorization: `Bearer ${cfg.token}` },
     signal: AbortSignal.timeout(20_000),
@@ -44,10 +46,18 @@ async function sendProfileRequest(
   const user: unknown = await res.json()
 
   if (!isValidUserInfo(user)) throw new Error('Malformed profile response')
-  const current = await readConfig()
+  // Written in the file's turn, and only if no switch, sign-in or sign-out
+  // landed meanwhile: this profile is the account it was asked as.
+  const saved = await commitConfigIf(
+    () => authSession.context().epoch === start.epoch,
+    async (save) => {
+      await save({ ...cfg, user: user.name, username: user.username, userInfo: user })
 
-  if (current.token !== cfg.token) throw new Error('Your sign-in changed; reopen profile settings')
-  await writeConfig({ ...current, user: user.name, username: user.username, userInfo: user })
+      return true
+    },
+  )
+
+  if (!saved) throw new Error('Your sign-in changed; reopen profile settings')
 
   return user
 }

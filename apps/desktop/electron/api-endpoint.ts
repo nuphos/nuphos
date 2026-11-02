@@ -60,8 +60,8 @@ export function setApiUrl(raw: string | null): string {
 }
 
 /** Saves `api` as the backend for the next launch and for the CLI; throws if it cannot. */
-export function keepBackend(api: string): void {
-  if (normalizedApi(api) !== normalizedApi(apiUrl())) saveEndpoint(api)
+export function saveBackend(api: string): void {
+  saveEndpoint(api)
 }
 
 /**

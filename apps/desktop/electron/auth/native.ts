@@ -1,4 +1,3 @@
-import { apiUrl } from '../api-endpoint.ts'
 import { isValidUserInfo } from '../auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version.ts'
 
@@ -23,6 +22,7 @@ type RedeemOutcome =
   | { status: 'failed'; message: string }
 
 async function redeemNativeSession(
+  api: string,
   handle: string,
   codeVerifier: string,
   code: string,
@@ -30,7 +30,7 @@ async function redeemNativeSession(
   let res: Response
 
   try {
-    res = await fetch(`${apiUrl()}/auth/native/session/redeem`, {
+    res = await fetch(`${api}/auth/native/session/redeem`, {
       method: 'POST',
       // The app's name labels this sign-in in the account's device list.
       headers: {
@@ -110,19 +110,34 @@ export async function completeNativeLogin(
     // Retried rather than done once, so a network blip on the exchange does not
     // throw away a sign-in the user has already completed.
     if (browser.code) {
-      const outcome = await redeemNativeSession(plan.handle, plan.codeVerifier, browser.code)
+      const outcome = await redeemNativeSession(
+        plan.api,
+        plan.handle,
+        plan.codeVerifier,
+        browser.code,
+      )
 
       if (outcome.status === 'failed') {
         browser.hit?.respond(500, errorPage(outcome.message))
         throw new Error(outcome.message)
       }
       if (outcome.status === 'ready') {
-        await writeConfig({
-          token: outcome.token,
-          user: outcome.user.name,
-          username: outcome.user.username,
-          userInfo: outcome.user,
-        })
+        try {
+          await writeConfig({
+            token: outcome.token,
+            api: plan.api,
+            user: outcome.user.name,
+            username: outcome.user.username,
+            userInfo: outcome.user,
+          })
+        } catch (e) {
+          // Never leave the browser waiting on a sign-in that was not kept.
+          browser.hit?.respond(
+            500,
+            errorPage('Nuphos could not finish the sign-in. Please try again.'),
+          )
+          throw e
+        }
         browser.hit?.respond(200, SUCCESS_HTML)
 
         return outcome.user

@@ -65,7 +65,11 @@ test('switching to an account on another backend moves backend and token in one 
       accounts: [{ api: 'https://a.example.test', token: 'tok-a', userInfo: { id: 'u1' } }],
     }),
   )
-  await writeConfig({ token: 'tok-b2', userInfo: { id: 'u2', name: '', email: '', username: '' } })
+  await writeConfig({
+    token: 'tok-b2',
+    api: 'https://b.example.test',
+    userInfo: { id: 'u2', name: '', email: '', username: '' },
+  })
   const seen: { api: string; token: string | null }[] = []
   const stop = authSession.subscribe(({ api, token }) => seen.push({ api, token }))
 

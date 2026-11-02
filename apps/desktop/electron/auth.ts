@@ -83,7 +83,9 @@ export async function requestEmailCode(email: string): Promise<void> {
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
-  const res = await fetch(`${apiUrl()}/auth/email/verify-code`, {
+  // The token this returns is the backend's it was asked of, whatever the endpoint is by then.
+  const api = apiUrl()
+  const res = await fetch(`${api}/auth/email/verify-code`, {
     method: 'POST',
     // The app's name labels this sign-in in the account's device list.
     headers: { 'content-type': 'application/json', [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
@@ -104,6 +106,7 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
 
   await writeConfig({
     token,
+    api,
     user: user.name,
     username: user.username,
     userInfo: user,

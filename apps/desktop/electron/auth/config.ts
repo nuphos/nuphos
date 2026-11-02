@@ -1,8 +1,17 @@
-import { apiUrl, keepBackend, useAccount } from '../api-endpoint.ts'
+import { apiUrl, saveBackend, useAccount } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
 import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
-import { accountKey, keyOf, normalizedApi, stored, summaries, waiting } from './accounts.ts'
+import {
+  accountKey,
+  keyOf,
+  normalizedApi,
+  OtherBackendError,
+  stored,
+  summaries,
+  waiting,
+} from './accounts.ts'
+import { keychainItems } from './keychain-items.ts'
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 import { readYaml, writeYaml } from './yaml-file.ts'
 
@@ -35,7 +44,7 @@ type ConfigFileDeps = {
   /** The account now signed in, with its backend, in memory. */
   onAccount: (api: string, token: string | null, userId: string | null) => void
   /** Saves the backend for the next launch and the CLI; throws if it cannot. */
-  keepBackend: (api: string) => void
+  saveBackend: (api: string) => void
   /** The CLI's cli.yaml, which this app shared before it had its own file. */
   legacyPath?: string
 }
@@ -50,15 +59,7 @@ export function configFile(deps: ConfigFileDeps) {
 
   const currentApi = () => normalizedApi(deps.apiUrl())
 
-  async function forget(account: string | undefined) {
-    // Only the packaged app made the item, so only it may remove it.
-    if (!account || !deps.secure()) return
-    try {
-      await deps.store.delete(account)
-    } catch (e) {
-      console.warn('auth: failed to remove the session token from the keychain', e)
-    }
-  }
+  const { forget, tokenOf, intoKeychain } = keychainItems(deps.store, deps.secure, deps.path)
 
   // Every read and write of the file runs one at a time, each from the file as
   // its turn finds it: a read that moves a plaintext token to the keychain can
@@ -73,41 +74,15 @@ export function configFile(deps: ConfigFileDeps) {
     return run
   }
 
-  async function tokenOf(account: StoredAccount): Promise<string | null> {
-    if (account.token) return account.token
-    if (!account.keychainAccount || !deps.secure()) return null
-
-    return deps.store.get(account.keychainAccount).catch((e: unknown) => {
-      console.warn('auth: failed to read the session token from the keychain', e)
-
-      return null
-    })
-  }
-
-  /** Moves the token into the keychain item `item`; `active` then only names it. */
-  async function intoKeychain(active: Config, item: string, token: string, had?: string) {
-    try {
-      // Update in place only an item this app made: one that was already
-      // there could carry another app's access (a pre-created item, as in
-      // the XARA attacks), so it is replaced.
-      if (had !== item) await deps.store.delete(item).catch(() => null)
-      await deps.store.set(item, token)
-      active.token = undefined
-      active.keychainAccount = item
-    } catch (e) {
-      // Still signed in, only less safely.
-      console.warn(`auth: keeping the session token in ${deps.path} instead`, e)
-    }
-  }
-
   /** Makes `cfg` the active account (none without a token); one signed in before it waits. */
   async function save(cfg: Config): Promise<void> {
     const previous = (await readFile(deps.path)) ?? {}
     const api = currentApi()
 
-    // A token stays with the backend that issued it; it is never relabelled.
-    if (cfg.token && cfg.api && normalizedApi(cfg.api) !== api)
-      throw new Error('This sign-in belongs to another backend')
+    // A token stays with the backend that issued it; it is never relabelled,
+    // so every sign-in names that backend.
+    if (cfg.token && !cfg.api) throw new Error('A sign-in must name the backend that issued it')
+    if (cfg.token && cfg.api && normalizedApi(cfg.api) !== api) throw new OtherBackendError()
     // One item per user and backend, so a dev backend's sign-in never replaces Nuphos Cloud's.
     const item = accountKey(api, cfg.userInfo)
     const active: Config = { ...stored(cfg, api), api, keychainAccount: undefined }
@@ -139,15 +114,16 @@ export function configFile(deps: ConfigFileDeps) {
     if (!token) throw new Error('Sign in to that account again')
     const rest = waiting(others, previous, key, api)
     const to = target.api ?? api
+    const moves = normalizedApi(to) !== api
 
     // Two files change: the backend first, so a failure there changes nothing,
     // and back again if the account file then fails. A crash in between is
     // caught at the next read (see `load`).
-    deps.keepBackend(to)
+    if (moves) deps.saveBackend(to)
     try {
       await writeFile(deps.path, { ...target, accounts: listed(rest) })
     } catch (e) {
-      deps.keepBackend(api)
+      if (moves) deps.saveBackend(api)
       throw e
     }
     deps.onAccount(to, token, target.userInfo?.id ?? null)
@@ -195,6 +171,8 @@ export function configFile(deps: ConfigFileDeps) {
     if (!deps.legacyPath || !legacy?.token) return null
     const cfg = {
       token: legacy.token,
+      // cli.yaml's sign-in was made on the backend the app starts on.
+      api: currentApi(),
       user: legacy.user,
       username: legacy.username,
       userInfo: legacy.userInfo,
@@ -219,8 +197,9 @@ export function configFile(deps: ConfigFileDeps) {
     }
     if (cfg.token) {
       // Signed in before the keychain, or by a client without it: move it there.
+      // A file from before the app recorded its backend is the current one's.
       if (deps.secure())
-        await save(cfg).catch((e: unknown) => {
+        await save({ ...cfg, api: cfg.api ?? currentApi() }).catch((e: unknown) => {
           console.warn('auth: failed to move the session token to the keychain', e)
         })
 
@@ -271,7 +250,7 @@ const defaultConfigFile = configFile({
   secure: () => secureStorageEnabled(),
   apiUrl,
   onAccount: useAccount,
-  keepBackend,
+  saveBackend,
 })
 
 export const readConfig = defaultConfigFile.read

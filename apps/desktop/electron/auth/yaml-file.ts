@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -15,11 +16,21 @@ export async function readYaml<T extends object>(at: string): Promise<T | null> 
 /** Writes the file readable only by this user. */
 export async function writeYaml(at: string, value: object): Promise<void> {
   await fs.mkdir(path.dirname(at), { recursive: true })
-  // skipInvalid drops the fields left `undefined`.
-  await fs.writeFile(at, yaml.dump(value, { skipInvalid: true }), {
-    encoding: 'utf-8',
-    mode: 0o600,
-  })
-  // `mode` applies only when the file is created.
-  await fs.chmod(at, 0o600)
+  // Written beside it, then renamed over it: a reader, or a crash, never sees
+  // the file half written.
+  const temp = `${at}.${randomUUID()}.tmp`
+
+  try {
+    // skipInvalid drops the fields left `undefined`.
+    await fs.writeFile(temp, yaml.dump(value, { skipInvalid: true }), {
+      encoding: 'utf-8',
+      mode: 0o600,
+    })
+    // `mode` applies only when the file is created.
+    await fs.chmod(temp, 0o600)
+    await fs.rename(temp, at)
+  } catch (e) {
+    await fs.rm(temp, { force: true })
+    throw e
+  }
 }

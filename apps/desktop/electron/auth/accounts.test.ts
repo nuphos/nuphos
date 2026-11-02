@@ -9,6 +9,7 @@ import yaml from 'js-yaml'
 import { configFile } from './config.ts'
 
 import type { UserInfo } from '../auth-status.ts'
+import type { Config } from './config.ts'
 import type { TokenStore } from './token-store.ts'
 
 const CLOUD = 'https://api.nuphos.ai'
@@ -46,14 +47,18 @@ async function harness({ secure = true } = {}) {
       api = next
       signedIn.push({ api: next, token, userId })
     },
-    keepBackend: (next) => {
+    saveBackend: (next) => {
       kept.push(next)
     },
   })
   const onDisk = async () => yaml.load(await fs.readFile(file, 'utf8')) as Record<string, unknown>
 
   return {
-    config,
+    // As a login does: it names the backend it ran on.
+    config: {
+      ...config,
+      write: (cfg: Config) => config.write(cfg.token && !cfg.api ? { ...cfg, api } : cfg),
+    },
     file,
     items,
     kept,

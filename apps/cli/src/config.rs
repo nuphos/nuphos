@@ -113,24 +113,35 @@ pub fn desktop_signed_in() -> Option<String> {
     Some(user.or(session.user).unwrap_or_else(|| "you".into()))
 }
 
-/// The backend that issued the desktop's active sign-in, which it records
-/// beside it (`apps/desktop/electron/auth/accounts.ts`).
-#[derive(Deserialize)]
-struct Issuer {
-    api: Option<String>,
-}
-
 /// The desktop's active sign-in in `text`, unless another backend than
 /// `backend` issued it: a token is never sent to a backend that did not issue
-/// it. A file from before the desktop recorded its backend is taken as is.
+/// it. A file from before the desktop recorded its backend (no `api`) is taken
+/// as is; an `api` that is not a URL string is not.
 fn desktop_session_for(text: &str, backend: &str) -> Option<Session> {
     let session = serde_yaml::from_str::<Option<Session>>(text).ok().flatten()?;
-    let issuer = serde_yaml::from_str::<Option<Issuer>>(text).ok().flatten().and_then(|i| i.api);
-    let same = |api: &str| api.trim().trim_end_matches('/') == backend.trim().trim_end_matches('/');
+    let issuer = serde_yaml::from_str::<serde_yaml::Value>(text).ok()?.get("api").cloned();
     match issuer {
-        Some(api) if !same(&api) => None,
-        _ => Some(session),
+        None | Some(serde_yaml::Value::Null) => Some(session),
+        Some(serde_yaml::Value::String(api)) if same_backend(&api, backend) => Some(session),
+        Some(_) => None,
     }
+}
+
+/// Whether two endpoints name one backend, as the desktop compares them
+/// (`normalizedApi` in `apps/desktop/electron/auth/accounts.ts`): by origin,
+/// with every loopback name as one host.
+fn same_backend(a: &str, b: &str) -> bool {
+    normalized_backend(a) == normalized_backend(b)
+}
+
+fn normalized_backend(api: &str) -> String {
+    let Ok(mut url) = url::Url::parse(api.trim()) else {
+        return api.trim().trim_end_matches('/').to_string();
+    };
+    if matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")) {
+        let _ = url.set_host(Some("127.0.0.1"));
+    }
+    url.origin().ascii_serialization()
 }
 
 /// Paired with the sign-in file (`cli.yaml` → `cli.api-url`).
@@ -307,7 +318,9 @@ fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
 mod tests {
     use std::path::Path;
 
-    use super::{desktop_session_for, forget_rejected, read_session_file, sibling, write_private, Prefs, Session};
+    use super::{
+        desktop_session_for, forget_rejected, read_session_file, same_backend, sibling, write_private, Prefs, Session,
+    };
 
     #[test]
     fn a_desktop_sign_in_is_taken_only_on_the_backend_that_issued_it() {
@@ -320,6 +333,22 @@ mod tests {
             desktop_session_for("token: tok-old\n", "https://api.nuphos.ai").and_then(|s| s.token),
             Some("tok-old".into())
         );
+    }
+
+    #[test]
+    fn a_desktop_sign_in_with_an_api_that_is_not_a_string_is_not_taken() {
+        assert!(desktop_session_for("api: 42\ntoken: tok\n", "https://api.nuphos.ai").is_none());
+        assert!(desktop_session_for("api: [x]\ntoken: tok\n", "https://api.nuphos.ai").is_none());
+    }
+
+    #[test]
+    fn one_backend_spelt_two_ways_is_one_backend() {
+        assert!(same_backend("http://localhost:3718", "http://127.0.0.1:3718/"));
+        assert!(same_backend("https://api.nuphos.ai/", " https://api.nuphos.ai"));
+        assert!(!same_backend("http://127.0.0.1:3718", "http://127.0.0.1:3719"));
+        assert!(!same_backend("http://nuphos.example.com", "https://nuphos.example.com"));
+        let file = "api: http://localhost:3718\ntoken: tok-dev\n";
+        assert_eq!(desktop_session_for(file, "http://127.0.0.1:3718").and_then(|s| s.token), Some("tok-dev".into()));
     }
 
     #[test]

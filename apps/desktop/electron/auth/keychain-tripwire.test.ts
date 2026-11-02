@@ -37,7 +37,7 @@ test('plain Node never reaches the keychain, even beside a keychain sign-in', as
 
   assert.equal((await readConfig()).token, undefined)
   assert.equal((await requestContext()).token, null)
-  await writeConfig({ token: 'tok-1' })
+  await writeConfig({ token: 'tok-1', api: 'https://api.nuphos.ai' })
   await writeConfig({})
   await assert.rejects(keychainStore.get('u1@https://api.nuphos.ai'))
   assert.deepEqual(reached, [])
