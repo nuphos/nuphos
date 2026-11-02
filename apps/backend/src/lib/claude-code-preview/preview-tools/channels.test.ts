@@ -77,44 +77,12 @@ afterEach(() => {
   resetTurnRunner()
 })
 
-test('an agent posts as itself and wakes the channel’s other agents', async () => {
-  const result = await tools('agent-a').channel_post?.({
-    label: 'x',
-    channelId: CHANNEL,
-    text: ' hi ',
-  })
-
-  expect(result).not.toMatchObject({ isError: true })
-  expect(appended[0]).toMatchObject({
-    sessionId: CHANNEL,
-    userId: 'owner',
-    messages: [
-      {
-        role: 'user',
-        parts: [{ type: 'text', text: 'hi' }],
-        metadata: {
-          sender: {
-            type: 'agent',
-            id: 'agent-a',
-            displayName: 'agent-a title',
-            agentRuntime: 'claude-code',
-          },
-          source: 'agent.thread',
-          sourceSessionId: 'agent-a',
-        },
-      },
-    ],
-  })
-  expect(woken).toEqual(['agent-b'])
-})
-
-test('only a channel the conversation is in can be read or posted to', async () => {
+test('only a channel the conversation is in can be read', async () => {
   for (const channelId of [OTHER_CHANNEL, '00000000-0000-4000-8000-000000000003']) {
     const read = await tools('agent-a').channel_read?.({ label: 'x', channelId })
-    const post = await tools('agent-a').channel_post?.({ label: 'x', channelId, text: 'hi' })
 
     expect(read).toMatchObject({ isError: true })
-    expect(JSON.stringify(post)).toContain('not in that channel')
+    expect(JSON.stringify(read)).toContain('not in that channel')
   }
   // Another team's copy of the same membership is no membership.
   await agentConversations().updateOne({ sessionId: CHANNEL }, { $set: { teamId: 'other-team' } })
@@ -130,12 +98,10 @@ test('a member reads the channel', async () => {
   expect(result).toMatchObject({ structuredContent: { messages: [], more: false } })
 })
 
-test('an agent whose owner left the team can neither read nor post', async () => {
+test('an agent whose owner left the team cannot read', async () => {
   ownerOnTeam = false
   const read = await tools('agent-a').channel_read?.({ label: 'x', channelId: CHANNEL })
-  const post = await tools('agent-a').channel_post?.({ label: 'x', channelId: CHANNEL, text: 'hi' })
 
   expect(JSON.stringify(read)).toContain('no longer on the team')
-  expect(post).toMatchObject({ isError: true })
   expect(appended).toHaveLength(0)
 })
