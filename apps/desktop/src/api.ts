@@ -6,7 +6,7 @@ import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
 import { databaseApi } from './api/database-api.ts'
 import { deviceApi } from './api/device-api.ts'
-import { apiErrorPhase, parseAtlasError } from './api/errors.ts'
+import { isNetworkError, parseAtlasError } from './api/errors.ts'
 import { gcpClustersApi } from './api/gcp-clusters-api.ts'
 import { gitApi } from './api/git-api.ts'
 import { instructionsApi } from './api/instructions-api.ts'
@@ -105,12 +105,16 @@ const rawApi = {
 export const api = instrumentApi(
   rawApi,
   (operation, error) => {
+    // Offline, asleep, or backend unreachable: the user's connectivity, not an
+    // app defect. Every poll would report it again, so it never reaches Error
+    // Tracking; backend availability is watched server-side.
+    if (isNetworkError(error)) return
     const parsed = parseAtlasError(error)
 
     reportFrontendError(
       {
         source: 'api',
-        phase: apiErrorPhase(operation, error),
+        phase: operation,
         message: parsed.message,
         errorCode: parsed.code ?? null,
         apiOperation: operation,
