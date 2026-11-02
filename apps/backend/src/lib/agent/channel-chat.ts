@@ -3,7 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { getTeamMembers, getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
+import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
+
+import {
+  agentMessages,
+  appendConversationMessages,
+  getConversationBySessionId,
+  getConversationWithMessages,
+} from './db'
 import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
@@ -11,6 +18,8 @@ import { listPendingUserMessages } from './pending-queue'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
+import type { PendingUserMessage } from './pending-messages'
+import type { UIMessage } from 'ai'
 
 /**
  * Turns agents may wake each other for between two posts by a person. Every
@@ -110,6 +119,73 @@ async function wakeChannelAgents(
       }),
     ),
   )
+}
+
+/**
+ * A channel-woken turn's closing words are its reply, as a person's last words
+ * in a group chat are what they said. Saying nothing leaves nothing behind.
+ */
+async function postTurnReply(
+  channelId: string,
+  agent: Pick<AgentConversation, 'sessionId' | 'title' | 'agentRuntime'>,
+  text: string,
+): Promise<void> {
+  const channel = await getConversationBySessionId(channelId)
+
+  if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
+  await postChannelMessage(
+    channel,
+    {
+      id: randomUUID(),
+      text,
+      metadata: {
+        version: 1,
+        sender: {
+          type: 'agent',
+          id: agent.sessionId,
+          displayName: agent.title || 'Nuphos agent',
+          ...(agent.agentRuntime ? { agentRuntime: agent.agentRuntime } : {}),
+        },
+        source: 'agent.thread',
+        sourceSessionId: agent.sessionId,
+        sentAt: new Date().toISOString(),
+      },
+    },
+    agent.sessionId,
+  )
+}
+
+/** The last text of the turn's closing message: what the agent said, not what it did. */
+function closingWords(message: UIMessage): string {
+  const last = message.parts.findLastIndex(
+    (part) => part.type !== 'text' && part.type !== 'step-start',
+  )
+
+  return message.parts
+    .slice(last + 1)
+    .flatMap((part) => (part.type === 'text' ? [part.text] : []))
+    .join('')
+    .trim()
+}
+
+/** A turn woken by a channel answers there with what it ends on; silence posts nothing. */
+export async function replyToChannel(
+  data: { userId: string; teamId: string; targetSessionId: string },
+  target: AgentConversation,
+  fresh: readonly Pick<PendingUserMessage, 'metadata'>[],
+): Promise<void> {
+  const channelId = fresh
+    .map((message) => message.metadata?.sender?.id)
+    .find((id) => id?.startsWith(CHANNEL_SENDER_PREFIX))
+    ?.slice(CHANNEL_SENDER_PREFIX.length)
+
+  if (!channelId) return
+  const after = await getConversationWithMessages(data.targetSessionId, data.userId, data.teamId)
+  const reply = after?.messages.findLast((message) => message.role === 'assistant')
+  const ui = reply && persistedMessageToUiMessage(reply)
+  const text = ui ? closingWords(ui) : ''
+
+  if (text) await postTurnReply(channelId, target, text)
 }
 
 const senderId = (channelId: string) => `${CHANNEL_SENDER_PREFIX}${channelId}`

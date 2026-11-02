@@ -7,7 +7,7 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
 import { listChannelMentions, readChannelMessages, withoutReadNotices } from './db/channels'
-import { CHANNEL_AGENT_TURN_BUDGET, postChannelMessage } from './channel-chat'
+import { CHANNEL_AGENT_TURN_BUDGET, postChannelMessage, replyToChannel } from './channel-chat'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
@@ -24,7 +24,7 @@ let wakes: Parameters<TurnRunner['claimAgentRunOrEnqueue']>[0][] = []
 
 useDb({ db: (() => memory) as unknown as typeof dbActual.db })
 // The in-memory store has no bulkWrite, so the append writes each row itself.
-useAgentDb({
+const installAgentDb = useAgentDb({
   appendConversationMessages: async ({ sessionId, userId, messages }) => {
     const stored = await agentMessages().find({ sessionId, userId }).toArray()
 
@@ -157,7 +157,7 @@ describe('waking a channel’s agents', () => {
       },
     })
     expect(renderAttributedMessage('w', 'x', wakeA?.message.metadata)).toContain(
-      'Answer with channel_post when someone addresses you',
+      'what you say at the end of this turn is posted there as your message',
     )
   })
 
@@ -374,5 +374,54 @@ describe('the loop guard and mentions', () => {
     })
     expect((await channel()).mentions?.mei).toBeUndefined()
     expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
+  })
+})
+
+describe('a turn a channel woke answers with what it ends on', () => {
+  const data = { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' }
+  const wake = (id: string) => [{ metadata: { sender: { type: 'system', id } } }] as never
+  const endsWith = (parts: unknown[]) =>
+    installAgentDb({
+      getConversationWithMessages: async () =>
+        ({ conversation: {}, messages: [{ messageId: 'a1', role: 'assistant', parts }] }) as never,
+    })
+  const agent = async () => (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+  const posted = () =>
+    agentMessages().find({ sessionId: 'channel', userId: 'channel-owner' }).toArray()
+
+  test('its closing words become its message, not what it said before a tool call', async () => {
+    endsWith([
+      { type: 'text', text: 'Let me look.' },
+      { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
+      { type: 'text', text: ' Hi, I am here. ' },
+    ])
+    await replyToChannel(data, await agent(), wake('channel:channel'))
+
+    expect(await posted()).toMatchObject([
+      {
+        parts: [{ type: 'text', text: 'Hi, I am here.' }],
+        metadata: { sender: { type: 'agent', id: 'agent-a' } },
+      },
+    ])
+    // Like any post by an agent, it wakes the channel's other agents.
+    expect(wokenSessions()).toEqual(['agent-b'])
+  })
+
+  test('ending without words posts nothing', async () => {
+    endsWith([
+      { type: 'text', text: '   ' },
+      { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
+    ])
+    await replyToChannel(data, await agent(), wake('channel:channel'))
+
+    expect(await posted()).toHaveLength(0)
+    expect(wokenSessions()).toEqual([])
+  })
+
+  test('a turn something else woke posts nothing to any channel', async () => {
+    endsWith([{ type: 'text', text: 'Done.' }])
+    await replyToChannel(data, await agent(), wake('trigger:t1'))
+
+    expect(await posted()).toHaveLength(0)
   })
 })
