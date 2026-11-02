@@ -3,7 +3,6 @@ import { Check, Terminal, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { t } from '../../../i18n'
-import { useReportVisibleError } from '../../VisibleErrorReporter'
 
 import { LoadingText } from './partChrome'
 import { extractCommandOutput, getCommandFromInput, trimDisplayBlock } from './toolPartUtils'
@@ -26,15 +25,6 @@ export function CommandTerminalView({ part }: { part: ToolPart }) {
   useEffect(() => {
     if (!done && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [done, stdout, stderr])
-
-  useReportVisibleError(
-    failed
-      ? errorText ||
-          stderr ||
-          `Agent command failed with exit code ${String(exitCode ?? 'unknown')}`
-      : null,
-    'agent_command_failure',
-  )
 
   return (
     <div className="box-border w-full max-w-full overflow-hidden rounded-md border border-zGray-800/70 bg-zGray-950/60 font-mono text-[13px]">
