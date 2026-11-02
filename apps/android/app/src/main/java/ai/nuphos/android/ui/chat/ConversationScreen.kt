@@ -493,6 +493,7 @@ fun ConversationScreen(
                         }.getOrDefault(false)
                     })
                 ChatComposer(
+                    promptSuggestion = { session.promptSuggestion },
                     modelSettings = session.modelSettings,
                     recalledFiles = recalledFiles,
                     onRecalledFilesRestored = { recalledFiles = emptyList() },

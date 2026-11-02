@@ -62,6 +62,14 @@ class ChatSession(
     internal fun localSender(id: String): ai.nuphos.android.model.MessageAttribution? =
         if (hasAiAccess && currentLocalSender() != null) localSenders.sender(id, localSenderKey) else null
 
+    private var suggestedPrompt by mutableStateOf<String?>(null)
+    val promptSuggestion: String? get() = suggestedPrompt?.takeIf {
+        hasAiAccess && !browsingOnly && loaded && loadError == null && !readOnly && !isArchived &&
+            !isStreaming && !hasActiveRun && !steeringPending && !submissionPending && canSubmit &&
+            runtimeObservation?.let { !it.fresh(RuntimeObservation.now()) || it.phase in setOf("idle", "dormant", "cancelled") } != false &&
+            retrySubmission == null &&
+            rejectedSubmission == null && uploadDraft == null && !uploadBusy
+    }
     private var initialModelPick: Map<String, String>? = null
     fun presetModelSettings(pick: Map<String, String>) { initialModelPick = pick.takeIf { it.isNotEmpty() } }
     private var modelScopeActive = false
@@ -483,6 +491,7 @@ class ChatSession(
         val trimmed = submission.text.trim()
         val attachments = submission.attachments
         if ((trimmed.isEmpty() && attachments.isEmpty()) || !canSubmit) return false
+        suggestedPrompt = null
         if (isNative && canEnqueueSteering) {
             if (attachments.isNotEmpty()) { error = "Steering accepts text only. Keep attachments for the next message."; return false }
             queued = queued + trimmed
@@ -804,6 +813,9 @@ class ChatSession(
     }
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
+        suggestedPrompt = detail.promptSuggestion?.takeIf {
+            it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
+        }
         if (watchReadRevision == watchRevision) watching = detail.watching
         isArchived = detail.archivedAt != null
         readOnly = browsingOnly || (detail.readOnly ?: false)
@@ -1448,6 +1460,7 @@ class ChatSession(
 
     /** Revoke local work and unsent copies without cancelling the server run. */
     fun disposeForConsent() {
+        suggestedPrompt = null
         localSenders.clear()
         localSenderKey = null
         currentLocalSender = { null }
