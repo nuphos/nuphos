@@ -34,6 +34,7 @@ async function harness({ secure = true } = {}) {
     },
   }
   let api = CLOUD
+  const kept: string[] = []
   const signedIn: { api: string; token: string | null; userId: string | null }[] = []
   const config = configFile({
     path: file,
@@ -45,6 +46,9 @@ async function harness({ secure = true } = {}) {
       api = next
       signedIn.push({ api: next, token, userId })
     },
+    keepBackend: (next) => {
+      kept.push(next)
+    },
   })
   const onDisk = async () => yaml.load(await fs.readFile(file, 'utf8')) as Record<string, unknown>
 
@@ -52,6 +56,7 @@ async function harness({ secure = true } = {}) {
     config,
     file,
     items,
+    kept,
     signedIn,
     onDisk,
     useBackend: (next: string) => {

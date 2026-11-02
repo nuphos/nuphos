@@ -1,7 +1,8 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { isValidUserInfo } from '../auth-status.ts'
 
-import { apiErrorMessage, readConfig, writeConfig } from './config.ts'
+import { readConfig, writeConfig } from './config.ts'
+import { apiErrorMessage } from './web.ts'
 
 export type ProfileUpdate = { name: string; username: string; avatarURL: string }
 
