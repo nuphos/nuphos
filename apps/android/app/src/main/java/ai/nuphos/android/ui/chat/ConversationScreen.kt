@@ -620,6 +620,7 @@ private fun ChatRowView(
                 }
             }
         }
+        is ChatRow.ToolRun -> ToolRunGroup(row, session, onLink, onAlwaysAllow, onOpenTool)
         is ChatRow.Work -> WorkGroup(row, session, onLink, onAlwaysAllow, onOpenTool)
         is ChatRow.Memory -> Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainer) {
             Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -746,6 +747,32 @@ private fun ToolCallRow(
 }
 
 @Composable
+private fun ToolRunGroup(
+    row: ChatRow.ToolRun,
+    session: ChatSession,
+    onLink: (String) -> Unit,
+    onAlwaysAllow: (ChatPart.Tool) -> Unit,
+    onOpenTool: (ChatPart.Tool) -> Unit,
+) {
+    val calls = row.rows.filterIsInstance<ChatRow.Tool>()
+    val attention = calls.any { it.part.state == ChatPart.Tool.State.ApprovalRequested || it.part.state == ChatPart.Tool.State.OutputError }
+    var expanded by remember(row.id) { mutableStateOf(row.live) }
+    val visible = expanded || attention
+    val suffix = when {
+        calls.any { it.part.state == ChatPart.Tool.State.ApprovalRequested } -> " · Authorization required"
+        calls.any { it.part.state == ChatPart.Tool.State.OutputError } -> " · Failed"
+        row.live -> " · Running"
+        else -> ""
+    }
+    Column {
+        TranscriptDisclosure("${calls.last().part.displayLabel} · ${calls.size} calls$suffix", visible, { expanded = !visible })
+        if (visible) Column(Modifier.padding(start = 12.dp, top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            row.rows.forEach { child -> key(child.id) { ChatRowView(child, session, onLink, onAlwaysAllow, onOpenTool) } }
+        }
+    }
+}
+
+@Composable
 private fun WorkGroup(
     row: ChatRow.Work,
     session: ChatSession,
@@ -760,7 +787,7 @@ private fun WorkGroup(
         TranscriptDisclosure(title, expanded, { expanded = !expanded })
         if (expanded) {
             Column(Modifier.padding(start = 12.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.rows.forEach { child ->
+                ChatRow.toolRuns(row.rows, live = false).forEach { child ->
                     key(child.id) { ChatRowView(child, session, onLink, onAlwaysAllow, onOpenTool) }
                 }
             }
