@@ -33,8 +33,17 @@ export function serializeTimelineEvents(
   }
 
   return events.map((event) => {
-    const actor = person(event.actorId)
     const at = event.at.toISOString()
+
+    // No one did this: the channel's loop guard did.
+    if (event.kind === 'agents_paused')
+      return {
+        kind: event.kind,
+        at,
+        turns: event.turns,
+        text: `Agents paused after ${String(event.turns)} replies to each other. They pick up again when someone posts.`,
+      }
+    const actor = person(event.actorId)
 
     if (event.kind === 'runtime_moved') {
       const from: Runtime | undefined = event.fromLabel

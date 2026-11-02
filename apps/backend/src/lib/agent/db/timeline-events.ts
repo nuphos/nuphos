@@ -16,6 +16,11 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       reason?: RuntimeFallbackReason
     }
   | {
+      /** A channel's agents used up their turns for this stretch; actorId is 'system'. */
+      kind: 'agents_paused'
+      turns: number
+    }
+  | {
       kind: 'runtime_fallback_stopped'
       /** Each agent in the fallback list that was passed over, and why. */
       skipped: { label: string; reason: string }[]

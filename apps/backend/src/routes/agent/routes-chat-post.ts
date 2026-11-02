@@ -4,11 +4,11 @@ import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
-import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
+import { resolveChatConversation } from './chat-conversation'
 import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
@@ -29,13 +29,7 @@ import { admitRuntimeChat } from './runtime-chat-admission'
 import { isQueued, queuedReply, queueForWaitingRuntime } from './session-queue-share-approval'
 import { queueForSignIn } from './session-queue-sign-in'
 import { admitQueueableChat, queuedChatContext, queuedChatReply } from './session-queue-turn'
-import {
-  assertConversationSendable,
-  readTeamIdCandidate,
-  resolveReadableConversationForResume,
-  resolveVerifiedTeamId,
-  sanitizeKubeContextHeader,
-} from './team-scope'
+import { readTeamIdCandidate, resolveVerifiedTeamId, sanitizeKubeContextHeader } from './team-scope'
 import { getFirstUserMessage } from './transcript'
 import { acceptAgentRun } from './turn-start-frame'
 
@@ -52,9 +46,7 @@ agent.post('/chat', async (c) => {
 
   validateChatBody(body)
   const localToolsEnabled = body.clientCapabilities?.localTools === true
-  const conversationForResume = body.resume
-    ? await resolveReadableConversationForResume(id, userId, teamId)
-    : await fallBackBeforeTurn(await assertConversationSendable(id, userId, teamId), userId)
+  const conversationForResume = await resolveChatConversation(body, userId, teamId)
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
   if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {

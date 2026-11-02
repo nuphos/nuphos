@@ -155,6 +155,11 @@ export async function deleteConversation(
 
   if (result.deletedCount === 0) return false
   await agentMessages().deleteMany({ sessionId, userId })
+  // An agent leaves every channel it was in with its session.
+  await agentConversations().updateMany(
+    { agentSessionIds: sessionId },
+    { $pull: { agentSessionIds: sessionId } },
+  )
   await purgeConversationTraces(sessionId).catch((err: unknown) => {
     logError('agent.trace.purge_failed', err, { sessionId })
   })

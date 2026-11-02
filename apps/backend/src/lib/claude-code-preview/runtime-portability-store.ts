@@ -1,3 +1,4 @@
+import { assertNotChannel } from '@/lib/agent/db/channels'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
@@ -71,10 +72,13 @@ export async function assertConversationRuntimeAvailable(sessionId: string) {
   const conversation = await agentConversations().findOne(
     { sessionId },
     {
-      projection: { teamId: 1, runtimeId: 1, claudeCodePreview: 1, runtimeOperation: 1 },
+      projection: { teamId: 1, runtimeId: 1, claudeCodePreview: 1, runtimeOperation: 1, kind: 1 },
     },
   )
 
+  // Every turn claims its session through here, so this is the one place a
+  // channel refuses them: it has no agent of its own to run.
+  assertNotChannel(conversation)
   if (conversation?.runtimeOperation && conversation.runtimeOperation.expiresAt > new Date())
     throw new AppError(
       409,

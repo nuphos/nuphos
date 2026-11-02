@@ -17,6 +17,7 @@ import { publishPreviewFrame } from '../run-frame-bridge'
 import { toolModuleFromAiSdkTools } from './ai-sdk-adapter'
 import { connectorToolModule } from './connectors'
 import { decisionToolModule } from './decisions'
+import { channelToolModule } from './channels'
 import { kubeconfigToolModule } from './kubeconfig'
 import { localBrowserToolModule } from './local-browser'
 import { localCuaToolModule } from './local-cua'
@@ -165,6 +166,7 @@ type ModuleFactory = (ctx: PreviewToolContext) => Promise<PreviewToolModule>
 const EXTRA_MODULES: ModuleFactory[] = [
   () => Promise.resolve(sessionResourceToolModule()),
   () => Promise.resolve(threadToolModule()),
+  () => Promise.resolve(channelToolModule()),
   (ctx) => Promise.resolve(connectorToolModule(ctx)),
   () => Promise.resolve(decisionToolModule()),
   () => Promise.resolve(kubeconfigToolModule()),
