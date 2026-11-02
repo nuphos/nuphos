@@ -1,6 +1,8 @@
 /* eslint-disable max-lines -- Kubernetes volume and reference variants are kept together as one exhaustive projection. */
 import yaml from 'js-yaml'
 
+import { t } from '../../i18n/index.ts'
+
 import type { DetailTarget } from './target'
 
 type UnknownRecord = Record<string, unknown>
@@ -141,7 +143,7 @@ function isNavigableKind(kind: string): kind is NavigableResourceKind {
 }
 
 function sourceDetail(optional: unknown, suffix?: string | null) {
-  const parts = [suffix, optional === true ? 'optional' : null].filter(Boolean)
+  const parts = [suffix, optional === true ? t('optional') : null].filter(Boolean)
 
   return parts.length > 0 ? parts.join(' · ') : null
 }
@@ -184,7 +186,7 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
         label: 'PersistentVolumeClaim',
         kind: 'PersistentVolumeClaim',
         name: claimName,
-        detail: boolAt(claim, 'readOnly') ? 'read-only' : null,
+        detail: boolAt(claim, 'readOnly') ? t('read-only') : null,
       },
     ]
   }
@@ -198,7 +200,7 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
       if (projectedConfigMapName) {
         return [
           {
-            label: 'Projected ConfigMap',
+            label: t('Projected ConfigMap'),
             kind: 'ConfigMap' as const,
             name: projectedConfigMapName,
             detail: sourceDetail(projectedConfigMap.optional),
@@ -211,7 +213,7 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
       if (projectedSecretName) {
         return [
           {
-            label: 'Projected Secret',
+            label: t('Projected Secret'),
             kind: 'Secret' as const,
             name: projectedSecretName,
             detail: sourceDetail(projectedSecret.optional),
@@ -221,7 +223,7 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
       if (isRecord(source.serviceAccountToken)) {
         return [
           {
-            label: 'Service account token',
+            label: t('Service account token'),
             kind: null,
             name: null,
             detail: stringAt(source.serviceAccountToken, 'audience'),
@@ -246,10 +248,10 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
 
     return [
       {
-        label: medium === 'Memory' ? 'Memory-backed emptyDir' : 'Ephemeral emptyDir',
+        label: medium === 'Memory' ? t('Memory-backed emptyDir') : t('Ephemeral emptyDir'),
         kind: null,
         name: null,
-        detail: sizeLimit ? `limit ${sizeLimit}` : null,
+        detail: sizeLimit ? t('limit {size}', { size: sizeLimit }) : null,
       },
     ]
   }
@@ -259,7 +261,7 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
   if (isRecord(volume.hostPath)) {
     return [
       {
-        label: 'Host path',
+        label: t('Host path'),
         kind: null,
         name: null,
         detail: stringAt(hostPath, 'path'),
@@ -289,18 +291,18 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
         kind: null,
         name: null,
         detail: recordsAt(downwardApi, 'items').length
-          ? `${String(recordsAt(downwardApi, 'items').length)} items`
+          ? t('{count} items', { count: recordsAt(downwardApi, 'items').length })
           : null,
       },
     ]
   }
 
   const knownLabels: [string, string][] = [
-    ['ephemeral', 'Ephemeral volume claim'],
+    ['ephemeral', t('Ephemeral volume claim')],
     ['nfs', 'NFS'],
     ['awsElasticBlockStore', 'AWS EBS'],
     ['azureDisk', 'Azure Disk'],
-    ['gcePersistentDisk', 'GCE persistent disk'],
+    ['gcePersistentDisk', t('GCE persistent disk')],
     ['cephfs', 'CephFS'],
     ['rbd', 'RBD'],
     ['iscsi', 'iSCSI'],
@@ -310,7 +312,7 @@ function parseVolumeSources(volume: UnknownRecord): VolumeSourceModel[] {
     if (isRecord(volume[key])) return [{ label, kind: null, name: null, detail: null }]
   }
 
-  return [{ label: 'Volume', kind: null, name: null, detail: null }]
+  return [{ label: t('Volume'), kind: null, name: null, detail: null }]
 }
 
 function probeNames(container: UnknownRecord) {
@@ -433,22 +435,22 @@ export function parseResourceTopology(yamlText: string, target: DetailTarget): R
 
   const serviceAccount = stringAt(spec, 'serviceAccountName') ?? 'default'
 
-  addRelation('ServiceAccount', serviceAccount, 'Pod identity')
+  addRelation('ServiceAccount', serviceAccount, t('Pod identity'))
   if (resourceKind === 'Pod')
-    addRelation('Node', stringAt(spec, 'nodeName'), 'Scheduled on', null, null)
+    addRelation('Node', stringAt(spec, 'nodeName'), t('Scheduled on'), null, null)
 
   for (const owner of recordsAt(metadata, 'ownerReferences')) {
     const kind = stringAt(owner, 'kind')
 
-    if (kind && isNavigableKind(kind)) addRelation(kind, stringAt(owner, 'name'), 'Owned by')
+    if (kind && isNavigableKind(kind)) addRelation(kind, stringAt(owner, 'name'), t('Owned by'))
   }
 
   if (resourceKind === 'StatefulSet') {
-    addRelation('Service', stringAt(rootSpec, 'serviceName'), 'Stable network identity')
+    addRelation('Service', stringAt(rootSpec, 'serviceName'), t('Stable network identity'))
   }
 
   for (const imagePullSecret of recordsAt(spec, 'imagePullSecrets')) {
-    addRelation('Secret', stringAt(imagePullSecret, 'name'), 'Image pull credential')
+    addRelation('Secret', stringAt(imagePullSecret, 'name'), t('Image pull credential'))
   }
 
   for (const container of [
@@ -461,10 +463,14 @@ export function parseResourceTopology(yamlText: string, target: DetailTarget): R
     })),
   ]) {
     const containerName = stringAt(container.value, 'name') ?? 'container'
-    const containerLabel = `${container.init ? 'Init container' : container.ephemeral ? 'Ephemeral container' : 'Container'} ${containerName}`
+    const containerLabel = container.init
+      ? t('Init container {name}', { name: containerName })
+      : container.ephemeral
+        ? t('Ephemeral container {name}', { name: containerName })
+        : t('Container {name}', { name: containerName })
 
     for (const env of recordsAt(container.value, 'env')) {
-      const envName = stringAt(env, 'name') ?? 'environment variable'
+      const envName = stringAt(env, 'name') ?? t('environment variable')
       const valueFrom = recordAt(env, 'valueFrom')
       const configMap = recordAt(valueFrom, 'configMapKeyRef')
       const secret = recordAt(valueFrom, 'secretKeyRef')
@@ -492,13 +498,13 @@ export function parseResourceTopology(yamlText: string, target: DetailTarget): R
         'ConfigMap',
         stringAt(configMap, 'name'),
         `${containerLabel} · envFrom`,
-        sourceDetail(configMap.optional, prefix ? `prefix ${prefix}` : null),
+        sourceDetail(configMap.optional, prefix ? t('prefix {prefix}', { prefix }) : null),
       )
       addRelation(
         'Secret',
         stringAt(secret, 'name'),
         `${containerLabel} · envFrom`,
-        sourceDetail(secret.optional, prefix ? `prefix ${prefix}` : null),
+        sourceDetail(secret.optional, prefix ? t('prefix {prefix}', { prefix }) : null),
       )
     }
   }
@@ -512,7 +518,7 @@ export function parseResourceTopology(yamlText: string, target: DetailTarget): R
 
     for (const source of sources) {
       if (source.kind && source.name) {
-        addRelation(source.kind, source.name, `Volume ${name}`, source.detail)
+        addRelation(source.kind, source.name, t('Volume {name}', { name }), source.detail)
       }
     }
 
@@ -530,10 +536,10 @@ export function parseResourceTopology(yamlText: string, target: DetailTarget): R
       name,
       sources: [
         {
-          label: 'PVC template',
+          label: t('PVC template'),
           kind: null,
           name: null,
-          detail: 'one claim per Pod',
+          detail: t('one claim per Pod'),
         },
       ],
       mounts: allMounts.filter((mount) => mount.volumeName === name),

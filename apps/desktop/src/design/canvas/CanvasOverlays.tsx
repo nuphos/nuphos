@@ -1,5 +1,6 @@
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ContextMenu } from '../../components/ContextMenu'
+import { t } from '../../i18n'
 
 import { askAgentPrompt, canvasMenuItems } from './canvasMenu'
 import { AskAgentDialog, RenamePageDialog } from './dialogs'
@@ -34,6 +35,7 @@ type Props = {
 export function CanvasOverlays(p: Props) {
   const pageName = (id: string | null) => p.design.pages.find((pg) => pg.id === id)?.name ?? ''
   const renaming = p.renamingPage
+  const deletingName = pageName(p.deletingPage)
 
   return (
     <>
@@ -88,9 +90,15 @@ export function CanvasOverlays(p: Props) {
       )}
       <ConfirmDialog
         open={p.deletingPage !== null}
-        title="Delete page"
-        description={`Delete "${pageName(p.deletingPage) || 'this page'}" and everything on it? This cannot be undone once saved.`}
-        confirmLabel="Delete"
+        title={t('Delete page')}
+        description={
+          deletingName
+            ? t('Delete "{name}" and everything on it? This cannot be undone once saved.', {
+                name: deletingName,
+              })
+            : t('Delete this page and everything on it? This cannot be undone once saved.')
+        }
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={() => {
           if (p.deletingPage) p.deletePage(p.deletingPage)

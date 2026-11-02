@@ -9,6 +9,7 @@ import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { useResourceList } from '../useResourceList'
 
@@ -54,7 +55,7 @@ export function CloudflareD1View({
     },
   )
 
-  useToolbarPrimaryAction(isActive && !detail && !error ? 'Create database' : null, () =>
+  useToolbarPrimaryAction(isActive && !detail && !error ? t('Create database') : null, () =>
     setCreating(true),
   )
 
@@ -74,7 +75,11 @@ export function CloudflareD1View({
 
   if (detail) {
     if (!detail.id) {
-      return <ErrorBlock message={`Could not open ${detail.name}: missing D1 database ID.`} />
+      return (
+        <ErrorBlock
+          message={t('Could not open {name}: missing D1 database ID.', { name: detail.name })}
+        />
+      )
     }
 
     return (
@@ -97,11 +102,11 @@ export function CloudflareD1View({
         rowKey={(r) => r.uuid}
         onPrimaryAction={(r) => setDetail({ id: r.uuid, name: r.name })}
         storageKey="cloudflare.d1"
-        empty="No D1 databases"
+        empty={t('No D1 databases')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 240,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -110,21 +115,21 @@ export function CloudflareD1View({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 110,
             sortAccessor: (r) => r.runningInRegion ?? '',
             render: (r) => <span className="text-secondary">{r.runningInRegion || '-'}</span>,
           },
           {
             key: 'tables',
-            header: 'Tables',
+            header: t('Tables'),
             width: 80,
             sortAccessor: (r) => r.numTables ?? 0,
             render: (r) => <span className="text-secondary">{r.numTables ?? '-'}</span>,
           },
           {
             key: 'size',
-            header: 'Size',
+            header: t('Size'),
             width: 100,
             sortAccessor: (r) => r.fileSize ?? 0,
             render: (r) => (
@@ -135,7 +140,7 @@ export function CloudflareD1View({
           },
           {
             key: 'created',
-            header: 'Created',
+            header: t('Created'),
             width: 110,
             sortAccessor: (r) => r.createdAt ?? '',
             render: (r) => (
@@ -156,7 +161,7 @@ export function CloudflareD1View({
                     setPendingDelete(r)
                   }}
                   className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                  title="Delete database"
+                  title={t('Delete database')}
                 >
                   <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
                 </button>
@@ -168,14 +173,14 @@ export function CloudflareD1View({
 
       {creating && (
         <CreateNameDialog
-          title="Create D1 database"
-          label="Database name"
+          title={t('Create D1 database')}
+          label={t('Database name')}
           placeholder="my-database"
           onClose={() => setCreating(false)}
           onCreate={async (name) => {
             await api.atlasCreateCloudflareD1Database(teamId, accountId, { name })
             setCreating(false)
-            toast.success('Database created')
+            toast.success(t('Database created'))
             await reload()
           }}
         />
@@ -183,18 +188,20 @@ export function CloudflareD1View({
 
       <ConfirmDialog
         open={!!pendingDelete}
-        title="Delete D1 database?"
+        title={t('Delete D1 database?')}
         description={
           pendingDelete
-            ? `Database "${pendingDelete.name}" and all its data will be permanently deleted.`
+            ? t('Database "{name}" and all its data will be permanently deleted.', {
+                name: pendingDelete.name,
+              })
             : ''
         }
-        confirmLabel="Delete"
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={async () => {
           if (pendingDelete) {
             await api.atlasDeleteCloudflareD1Database(teamId, accountId, pendingDelete.uuid)
-            toast.success('Database deleted')
+            toast.success(t('Database deleted'))
             await reload()
           }
         }}

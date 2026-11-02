@@ -1,6 +1,7 @@
 import { Loader2, Plus } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 import { PanelCard } from '../PanelCard'
 
 import type { NuphosDashboardDetail, DashboardPanel, OpenAgentChat } from '../schema'
@@ -54,14 +55,14 @@ export function DashboardCanvas({
       {!detail ? (
         detailError ? (
           <div className="flex h-40 flex-col items-center justify-center gap-3 text-[13px] text-tertiary">
-            <span>Could not load this dashboard.</span>
+            <span>{t('Could not load this dashboard.')}</span>
             <div className="flex gap-2">
               <button
                 type="button"
                 className="rounded-md border border-zGray-800 px-2.5 py-1.5 hover:bg-zGray-800 hover:text-main"
                 onClick={() => onDashboardOpened?.(null)}
               >
-                Back to dashboards
+                {t('Back to dashboards')}
               </button>
               <Button
                 size="sm"
@@ -70,20 +71,20 @@ export function DashboardCanvas({
                   if (selectedId) void loadDetail(selectedId)
                 }}
               >
-                Retry
+                {t('Retry')}
               </Button>
             </div>
           </div>
         ) : loading ? (
           <div className="flex h-40 items-center justify-center gap-2 text-[13px] text-tertiary">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+            <Loader2 className="h-4 w-4 animate-spin" /> {t('Loading…')}
           </div>
         ) : null
       ) : panels.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-          <div className="text-[14px] text-tertiary">This dashboard is empty.</div>
+          <div className="text-[14px] text-tertiary">{t('This dashboard is empty.')}</div>
           <Button size="sm" type="button" onClick={openPanelAssistant}>
-            <Plus className="h-4 w-4" /> Add your first panel
+            <Plus className="h-4 w-4" /> {t('Add your first panel')}
           </Button>
         </div>
       ) : (
@@ -133,7 +134,9 @@ export function DashboardCanvas({
                             event.preventDefault()
                             movePanel(i, event.key === 'ArrowUp' ? -1 : 1)
                           },
-                          'aria-label': `Move ${panel.title}; use the up and down arrow keys`,
+                          'aria-label': t('Move {title}; use the up and down arrow keys', {
+                            title: panel.title,
+                          }),
                           onDragEnd: () => {
                             dragFromRef.current = null
                           },

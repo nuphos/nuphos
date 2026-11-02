@@ -10,6 +10,7 @@ import { DesignCanvas } from '../design/canvas/DesignCanvas'
 import { RenamePageDialog } from '../design/canvas/dialogs'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { buildDesignColumns } from './designs/designColumns'
 import { useResetOnKey } from './useResetOnKey'
@@ -84,14 +85,14 @@ export function DesignsView({
 
       onOpenDesign?.(design.id, design.name)
     } catch (e) {
-      toast.apiError('Failed to create design', e)
+      toast.apiError(t('Failed to create design'), e)
     } finally {
       setCreating(false)
     }
   }
 
   useToolbarPrimaryAction(
-    isActive && !openDesignId ? 'New design' : null,
+    isActive && !openDesignId ? t('New design') : null,
     () => void createDesign(),
     creating,
   )
@@ -105,7 +106,7 @@ export function DesignsView({
         onCount?.(list.length)
       })
       .catch((e: unknown) => {
-        toast.apiError('Failed to load designs', e)
+        toast.apiError(t('Failed to load designs'), e)
       })
       .finally(() => {
         onLoading?.(false)
@@ -139,7 +140,7 @@ export function DesignsView({
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        toast.apiError('Failed to open design', e)
+        toast.apiError(t('Failed to open design'), e)
         onCloseDesign?.()
       })
 
@@ -160,7 +161,7 @@ export function DesignsView({
       try {
         await api.designsDelete(teamId, id)
       } catch (e) {
-        toast.apiError('Failed to delete design', e)
+        toast.apiError(t('Failed to delete design'), e)
         load()
       }
     },
@@ -173,7 +174,7 @@ export function DesignsView({
       try {
         await api.designsApplyOps(teamId, id, [{ op: 'rename', name }])
       } catch (e) {
-        toast.apiError('Failed to rename design', e)
+        toast.apiError(t('Failed to rename design'), e)
         load()
       }
     },
@@ -182,7 +183,7 @@ export function DesignsView({
 
   if (openDesignId) {
     if (loaded?.id !== openDesignId) {
-      return <div className="px-6 py-6 text-[13px] text-tertiary">Loading…</div>
+      return <div className="px-6 py-6 text-[13px] text-tertiary">{t('Loading…')}</div>
     }
 
     return (
@@ -213,16 +214,16 @@ export function DesignsView({
           items={[
             {
               key: 'rename',
-              label: 'Rename',
+              label: t('Rename'),
               icon: Pencil,
               onSelect: () => setRenaming(menu.row),
             },
             {
               key: 'delete',
-              label: 'Delete design',
+              label: t('Delete design'),
               icon: Trash2,
               destructive: true,
-              confirm: `Delete "${menu.row.name}"? This is irreversible.`,
+              confirm: t('Delete "{name}"? This is irreversible.', { name: menu.row.name }),
               onSelect: () => void remove(menu.row.id),
             },
           ]}
@@ -231,7 +232,7 @@ export function DesignsView({
       {renaming && (
         <RenamePageDialog
           name={renaming.name}
-          title="Rename design"
+          title={t('Rename design')}
           onClose={() => setRenaming(null)}
           onSave={(name) => {
             void rename(renaming.id, name)
@@ -242,16 +243,18 @@ export function DesignsView({
       {!listLoading && designs.length === 0 ? (
         <EmptyState
           icon={Palette}
-          title="Designs"
-          description="Lay out a product's screens on one canvas: live HTML frames, sections, notes and the flow between them. Start from scratch, or let the agent sketch the screens."
+          title={t('Designs')}
+          description={t(
+            "Lay out a product's screens on one canvas: live HTML frames, sections, notes and the flow between them. Start from scratch, or let the agent sketch the screens.",
+          )}
           primaryAction={{
-            label: 'New design',
+            label: t('New design'),
             icon: Plus,
             onClick: () => void createDesign(),
             disabled: creating,
           }}
           agentAction={{
-            label: 'Sketch my screens for me',
+            label: t('Sketch my screens for me'),
             prompt:
               'Use the design-canvas skill to create a design for this product: look at the codebase or ask me what we are building, then lay out the main screens as frames on one page with the flow between them.',
           }}

@@ -1,4 +1,5 @@
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { EnvRefNavButton, ReadOnlyEditableCell } from './env-cells'
 import {
@@ -18,7 +19,7 @@ import type { Column } from '../../components/Table'
 export function envTargetColumn(ctx: EnvColumnsContext): Column<EnvTableRow> {
   return {
     key: 'target',
-    header: 'Target',
+    header: t('Target'),
     width: 300,
     render: (item) => {
       if (item.kind === 'unknown') {
@@ -97,7 +98,7 @@ export function envTargetColumn(ctx: EnvColumnsContext): Column<EnvTableRow> {
               ctx.closeEditing()
             }}
             options={selectOptions(refNameOptions)}
-            placeholder={row.source === 'secretKeyRef' ? 'Select Secret' : 'Select ConfigMap'}
+            placeholder={row.source === 'secretKeyRef' ? t('Select Secret') : t('Select ConfigMap')}
             triggerClassName={envMonoSelectTriggerClass}
           />
         )
@@ -124,7 +125,7 @@ export function envTargetColumn(ctx: EnvColumnsContext): Column<EnvTableRow> {
             onChange={(event) => ctx.updateEnvRow(row.id, { containerName: event.target.value })}
             onKeyDown={ctx.handleEditKeyDown}
             className={envInputClass}
-            placeholder="container"
+            placeholder={t('container')}
           />
           <input
             value={row.resource ?? ''}
@@ -142,7 +143,7 @@ export function envTargetColumn(ctx: EnvColumnsContext): Column<EnvTableRow> {
 export function envDetailColumn(ctx: EnvColumnsContext): Column<EnvTableRow> {
   return {
     key: 'detail',
-    header: 'Detail',
+    header: t('Detail'),
     width: 220,
     render: (item) => {
       if (item.kind === 'unknown') return null
@@ -182,7 +183,7 @@ export function envDetailColumn(ctx: EnvColumnsContext): Column<EnvTableRow> {
               ctx.closeEditing()
             }}
             options={selectOptions(keyNameOptions)}
-            placeholder="Select key"
+            placeholder={t('Select key')}
             triggerClassName={envMonoSelectTriggerClass}
           />
         )

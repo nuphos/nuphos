@@ -13,6 +13,7 @@ import { VisibleErrorReporter } from '../components/VisibleErrorReporter'
 import { toast } from '../components/ui/toast'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { monitoringItemPath } from '../lib/monitoringLink'
 import {
   monitoringWatchGroupPrompt,
@@ -42,11 +43,10 @@ import type { ProviderFilter, StatusFilter } from './monitoring/constants'
 export { WatchDestinationDialog } from './monitoring/WatchDestinationDialog'
 export type { WatchDestinationDialogProps } from './monitoring/WatchDestinationDialog'
 
-// Read-only aggregation across the team's bound observability providers.
-// Rows come live from each provider's API via the backend
-// fan-out endpoint — Nuphos stores nothing. Creation/editing happens
-// through the agent or the provider's own console; the only action here
-// is the deep link out.
+// Read-only aggregation across the team's bound observability providers. Rows
+// come live from each provider's API via the backend fan-out endpoint — Nuphos
+// stores nothing. Creation/editing happens through the agent or the provider's
+// own console; the only action here is the deep link out.
 
 type Props = {
   teamId: string
@@ -69,9 +69,8 @@ export function MonitoringView({
   onOpenAgentChat,
   onOpenConnectors,
 }: Props) {
-  // Stale-while-revalidate: a previous snapshot for this team renders
-  // instantly on mount (page switches feel instant) while a background
-  // refresh runs. Cold start — no snapshot yet — shows skeleton rows.
+  // Stale-while-revalidate: a previous snapshot for this team renders instantly on
+  // mount while a background refresh runs. Cold start (no snapshot) shows skeleton rows.
   const cacheKey = `monitoring-overview:${teamId}`
   const [overview, setOverview] = useState<MonitoringOverview | null>(
     () => readSwrCache<MonitoringOverview>(cacheKey) ?? null,
@@ -83,10 +82,9 @@ export function MonitoringView({
   const [watchRow, setWatchRow] = useState<MonitoringOverviewRow | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
-  // Search text is owned by the shared toolbar (the `filter` prop); the two
-  // status/provider filters ride the toolbar's left slot.
-  // Gate publishing on isActive so a keep-alive'd background tab never leaks its
-  // controls into the shared row.
+  // Search text is owned by the shared toolbar (the `filter` prop); the two status/provider
+  // filters ride the toolbar's left slot. Gate publishing on isActive so a keep-alive'd
+  // background tab never leaks its controls into the shared row.
   const { isActive } = useWorkspaceTab()
   const filtersSlot = useToolbarSlot('left', isActive)
   const search = filter ?? ''
@@ -112,9 +110,8 @@ export function MonitoringView({
     [rows, search, statusFilter, providerFilter],
   )
 
-  // Row multi-select → a floating BulkActionBar offers "Watch selected", which
-  // hands the group off to the agent as a single Watch Group. The
-  // per-row "Watch" stays for the single-item case.
+  // Row multi-select → a floating BulkActionBar offers "Watch selected", which hands the
+  // group off to the agent as a single Watch Group; the per-row "Watch" stays for one item.
   const {
     selectedKeys,
     setSelectedKeys,
@@ -135,8 +132,8 @@ export function MonitoringView({
     }
     if (plan.truncated) {
       toast.info(
-        `Watch Group limited to ${String(MAX_WATCH_GROUP_MEMBERS)} items`,
-        'Split larger selections into separate groups so provisioning stays reviewable.',
+        t('Watch Group limited to {count} items', { count: MAX_WATCH_GROUP_MEMBERS }),
+        t('Split larger selections into separate groups so provisioning stays reviewable.'),
       )
     }
     setWatchGroupRows(plan.rows)
@@ -174,7 +171,10 @@ export function MonitoringView({
             >
               <VisibleErrorReporter message={e.message} surface="monitoring_provider_error" />
               <FontAwesomeIcon icon={faTriangleExclamation} className="h-3 w-3" />
-              {PROVIDER_LABEL[e.provider]} · {e.integrationLabel}: unreachable
+              {t('{provider} · {integration}: unreachable', {
+                provider: PROVIDER_LABEL[e.provider],
+                integration: e.integrationLabel,
+              })}
             </span>
           ))}
         </div>
@@ -201,7 +201,7 @@ export function MonitoringView({
       {onOpenAgentChat && watchGroupRows && (
         <WatchDestinationDialog
           key={`group:${watchGroupRows.map(monitoringRowKey).join('|')}`}
-          subjectName={`${String(watchGroupRows.length)} monitoring items`}
+          subjectName={t('{count} monitoring items', { count: watchGroupRows.length })}
           teamId={teamId}
           group={{
             memberCount: watchGroupRows.length,
@@ -230,7 +230,7 @@ export function MonitoringView({
           actions={[
             {
               key: 'watch',
-              label: 'Watch selected',
+              label: t('Watch selected'),
               icon: faEye,
               onClick: beginWatchGroup,
             },
@@ -260,15 +260,19 @@ export function MonitoringView({
         ) : rows.length === 0 && !loading ? (
           <EmptyState
             icon={HeartPulse}
-            title="Monitoring"
+            title={t('Monitoring')}
             description={
               hasProviderErrors
-                ? 'Every connected provider failed to respond. Check the error chips above, or retry.'
-                : 'Monitoring aggregates uptime and health checks from the observability providers your team has connected — Better Stack, Grafana, and more. Connect a provider to see checks here.'
+                ? t(
+                    'Every connected provider failed to respond. Check the error chips above, or retry.',
+                  )
+                : t(
+                    'Monitoring aggregates uptime and health checks from the observability providers your team has connected — Better Stack, Grafana, and more. Connect a provider to see checks here.',
+                  )
             }
             primaryAction={
               !hasProviderErrors && onOpenConnectors
-                ? { label: 'Go to Connectors', icon: Cloud, onClick: onOpenConnectors }
+                ? { label: t('Go to Connectors'), icon: Cloud, onClick: onOpenConnectors }
                 : undefined
             }
           />
@@ -285,7 +289,7 @@ export function MonitoringView({
             onRowContextMenu={(row, e) => setMenu({ row, x: e.clientX, y: e.clientY })}
             empty={
               <div className="py-12 text-center text-[11px] text-tertiary">
-                No checks match the current filters.
+                {t('No checks match the current filters.')}
               </div>
             }
           />

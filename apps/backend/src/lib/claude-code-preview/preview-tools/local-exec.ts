@@ -17,9 +17,12 @@ import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-cont
 import type { LocalExecDevice } from '@/lib/agent/tools-skilled/local-tools'
 import type { AgentRef } from '@/lib/agents/identity'
 
+/** `box`: a Nuphos computer, whose screen nobody sits at. */
+export type AvailableDevice = LocalExecDevice & { box?: boolean }
+
 export async function resolveAvailableLocalExecDevices(
   ctx: PreviewToolContext,
-): Promise<LocalExecDevice[]> {
+): Promise<AvailableDevice[]> {
   const agent: AgentRef = {
     userId: ctx.userId,
     sessionId: ctx.sessionId,
@@ -37,7 +40,7 @@ export async function resolveAvailableLocalExecDevices(
   const devices = await Promise.all(
     options.devices
       .filter((device) => selected.has(device.deviceId))
-      .map(async (device): Promise<LocalExecDevice | null> => {
+      .map(async (device): Promise<AvailableDevice | null> => {
         if (!device.available && !device.box?.ready) return null
         // A device removed or unshared since the list was read is just not offered.
         const target = await requireDeviceAccess(
@@ -53,6 +56,7 @@ export async function resolveAvailableLocalExecDevices(
           deviceId: device.deviceId,
           label: device.label,
           ownerUserId: target.userId,
+          ...(device.box ? { box: true } : {}),
           ...(!device.available
             ? {
                 wake: async () => {

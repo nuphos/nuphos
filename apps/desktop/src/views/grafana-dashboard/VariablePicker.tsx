@@ -11,6 +11,7 @@ import {
   substituteVars,
 } from '../../grafana/client'
 import { reconcileVariableSelection } from '../../grafana/variableSelection'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type { GrafanaTarget } from '../../grafana/client'
@@ -126,7 +127,7 @@ export function VariablePicker({
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        toast.apiError('Failed to load variable options', e)
+        toast.apiError(t('Failed to load variable options'), e)
         setOptions([])
       })
 
@@ -137,12 +138,14 @@ export function VariablePicker({
   }, [queryKey, variable, target.teamId, target.instanceId])
 
   const label = variable.label || variable.name
+  // 'All' stays English in the texts: panel titles interpolate them, as in Grafana.
+  const shownText = selected.includes(ALL_VALUE) ? t('All') : displayText || '—'
 
   if (!pickable) {
     return (
       <div className="px-2 py-1 rounded-md bg-zGray-900 border border-zGray-800 text-[11.5px] text-tertiary">
         <span className="text-tertiary">{label}:</span>{' '}
-        <span className="text-secondary">{displayText || '—'}</span>
+        <span className="text-secondary">{shownText}</span>
       </div>
     )
   }
@@ -184,15 +187,15 @@ export function VariablePicker({
     <Menu>
       <MenuTrigger className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zGray-900 border border-zGray-800 hover:bg-zGray-800 text-[11.5px]">
         <span className="text-tertiary">{label}:</span>
-        <span className="text-main max-w-[160px] truncate">{displayText || '—'}</span>
+        <span className="text-main max-w-[160px] truncate">{shownText}</span>
         <ChevronDown className="w-3 h-3 text-tertiary" strokeWidth={1.8} />
       </MenuTrigger>
       <MenuContent align="end">
         {options === null && (
-          <div className="px-2.5 py-1.5 text-[12px] text-tertiary">Loading…</div>
+          <div className="px-2.5 py-1.5 text-[12px] text-tertiary">{t('Loading…')}</div>
         )}
         {options?.length === 0 && (
-          <div className="px-2.5 py-1.5 text-[12px] text-tertiary">No matches</div>
+          <div className="px-2.5 py-1.5 text-[12px] text-tertiary">{t('No matches')}</div>
         )}
         {options?.map((o) => (
           <MenuItem
@@ -201,7 +204,7 @@ export function VariablePicker({
             closeOnClick={!variable.multi}
             onClick={() => pick(o)}
           >
-            {o.label}
+            {o.value === ALL_VALUE ? t('All') : o.label}
           </MenuItem>
         ))}
       </MenuContent>

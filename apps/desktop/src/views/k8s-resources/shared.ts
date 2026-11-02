@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 
 import type { ContextMenuItem } from '../../components/ContextMenu'
 import type {
@@ -101,10 +102,13 @@ export const crdDeleteTarget = (r: CustomResourceDefinitionItem): DeleteTarget =
 export const helmReleaseActions: RowActionFactory<HelmReleaseItem> = (release, context) => [
   {
     key: 'uninstall-helm-release',
-    label: 'Uninstall Helm release',
+    label: t('Uninstall Helm release'),
     icon: Trash2,
     destructive: true,
-    confirm: `Uninstall Helm release "${release.namespace}/${release.name}"? This will remove the resources managed by this release.`,
+    confirm: t(
+      'Uninstall Helm release "{name}"? This will remove the resources managed by this release.',
+      { name: `${release.namespace}/${release.name}` },
+    ),
     onSelect: async () => {
       await api.uninstallHelmRelease(context, release.namespace, release.name)
     },

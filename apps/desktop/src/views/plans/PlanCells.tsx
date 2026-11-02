@@ -1,6 +1,7 @@
 import { Link2, ShieldCheck, X } from 'lucide-react'
 
 import { PermissionGrantCard } from '../../components/agent/PermissionGrantCard'
+import { t } from '../../i18n'
 
 import { stepProgress } from './planProgress'
 
@@ -26,21 +27,21 @@ export function PermissionRequestDetail({
     <div className="flex flex-1 min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zGray-800/60 flex-shrink-0">
         <ShieldCheck className="h-4 w-4 text-zViolet-accent flex-shrink-0" strokeWidth={1.8} />
-        <div className="text-[13px] text-main font-medium">Permission request</div>
+        <div className="text-[13px] text-main font-medium">{t('Permission request')}</div>
         <button
           type="button"
           onClick={onCopyLink}
-          title="Copy link to share with an administrator"
+          title={t('Copy link to share with an administrator')}
           className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary hover:bg-zGray-800/60 hover:text-secondary"
         >
           <Link2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-          Copy link
+          {t('Copy link')}
         </button>
         <button
           type="button"
           onClick={onClose}
-          title="Close"
-          aria-label="Close"
+          title={t('Close')}
+          aria-label={t('Close')}
           className="inline-flex items-center rounded-md p-1 text-tertiary hover:bg-zGray-800/60 hover:text-secondary"
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -60,8 +61,10 @@ export function ProgressCell({ plan }: { plan: Plan }) {
 
   return (
     <span className="text-secondary text-[12px] font-mono">
-      {done}/{total} steps
-      {failed > 0 && <span className="text-error"> · {failed} failed</span>}
+      {t('{done}/{total} steps', { done: String(done), total: String(total) })}
+      {failed > 0 && (
+        <span className="text-error"> · {t('{count} failed', { count: String(failed) })}</span>
+      )}
     </span>
   )
 }

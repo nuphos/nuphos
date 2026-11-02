@@ -1,15 +1,17 @@
 import clsx from 'clsx'
 import { Eye, EyeOff, KeyRound, Lock, ShieldCheck } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { SelfCapabilities } from '../../types'
 
 export function SelfManagementCard({
   capabilities,
-  title = 'Self-management',
+  title = t('Self-management'),
   readTitle,
   writeTitle,
-  readSubtitle = 'Self-introspection',
-  writeSubtitle = 'Self-modification',
+  readSubtitle = t('Self-introspection'),
+  writeSubtitle = t('Self-modification'),
 }: {
   capabilities: SelfCapabilities
   title?: string
@@ -33,9 +35,11 @@ export function SelfManagementCard({
         {capabilities.inferred && (
           <span
             className="ml-auto text-[10.5px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning"
-            title="We couldn't run an authoritative check (e.g. AWS iam:SimulatePrincipalPolicy was denied) and fell back to inferring from the policy documents."
+            title={t(
+              "We couldn't run an authoritative check (e.g. AWS iam:SimulatePrincipalPolicy was denied) and fell back to inferring from the policy documents.",
+            )}
           >
-            Inferred
+            {t('Inferred')}
           </span>
         )}
       </div>
@@ -43,12 +47,12 @@ export function SelfManagementCard({
         <CapabilityRow
           tone={capabilities.canRead ? 'good' : 'caution'}
           icon={capabilities.canRead ? Eye : EyeOff}
-          badge={capabilities.canRead ? null : 'INCOMPLETE'}
+          badge={capabilities.canRead ? null : t('Incomplete')}
           title={
             readTitle ??
             (capabilities.canRead
-              ? 'Can read its own permissions'
-              : 'Cannot read its own permissions')
+              ? t('Can read its own permissions')
+              : t('Cannot read its own permissions'))
           }
           subtitle={readSubtitle}
           detail={capabilities.readReason}
@@ -60,8 +64,8 @@ export function SelfManagementCard({
           title={
             writeTitle ??
             (capabilities.canWrite
-              ? 'Can modify its own permissions'
-              : 'Cannot modify its own permissions')
+              ? t('Can modify its own permissions')
+              : t('Cannot modify its own permissions'))
           }
           subtitle={writeSubtitle}
           detail={capabilities.writeReason}

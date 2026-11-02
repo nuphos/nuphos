@@ -7,6 +7,7 @@ import { api } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import type { DiscoverableTeam } from '../types'
 import type { FormEvent } from 'react'
@@ -66,9 +67,9 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
     try {
       await onJoin(team.id)
       setJoinedIds((prev) => new Set(prev).add(team.id))
-      toast.success(`Joined ${team.name}`)
+      toast.success(t('Joined {name}', { name: team.name }))
     } catch (err) {
-      toast.apiError(`Could not join ${team.name}`, err)
+      toast.apiError(t('Could not join {name}', { name: team.name }), err)
     } finally {
       setJoiningId(null)
     }
@@ -83,7 +84,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
     try {
       await onCreate(trimmed)
     } catch (err) {
-      toast.apiError('Could not create team', err)
+      toast.apiError(t('Could not create team'), err)
     } finally {
       setCreating(false)
     }
@@ -98,18 +99,20 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
         type="button"
         onClick={onClose}
         className="absolute top-[52px] left-4 flex items-center gap-1 h-7 px-1.5 rounded-md text-[12px] font-normal text-tertiary hover:text-secondary hover:bg-zGray-800/50 transition-colors"
-        title="Back"
-        aria-label="Back"
+        title={t('Back')}
+        aria-label={t('Back')}
       >
         <FontAwesomeIcon icon={faArrowLeft} className="w-3 h-3" />
-        Back
+        {t('Back')}
       </button>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="w-full max-w-[440px] mx-auto py-16 px-6">
           {hasDiscoverable && (
             <>
-              <h1 className="text-[20px] font-semibold text-main text-center">Join a team</h1>
+              <h1 className="text-[20px] font-semibold text-main text-center">
+                {t('Join a team')}
+              </h1>
               <div className="mt-6 rounded-lg border border-zGray-800/70 bg-surface divide-y divide-zGray-800/60">
                 {discoverable!.map((team) => {
                   const joined = joinedIds.has(team.id)
@@ -130,8 +133,8 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                         </div>
                         <div className="text-[12px] text-tertiary">
                           {team.memberCount === 1
-                            ? '1 member'
-                            : `${String(team.memberCount)} members`}
+                            ? t('1 member')
+                            : t('{count} members', { count: String(team.memberCount) })}
                         </div>
                       </div>
                       <div className="flex items-center flex-shrink-0">
@@ -165,7 +168,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                         onClick={() => void join(team)}
                         disabled={joined || joiningId !== null}
                       >
-                        {joined ? 'Joined' : joining ? 'Joining…' : 'Join'}
+                        {joined ? t('Joined') : joining ? t('Joining…') : t('Join')}
                       </Button>
                     </div>
                   )
@@ -174,7 +177,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
 
               <div className="my-8 flex items-center gap-3">
                 <div className="h-px flex-1 bg-zGray-800/70" />
-                <span className="text-[12px] text-tertiary">or</span>
+                <span className="text-[12px] text-tertiary">{t('or')}</span>
                 <div className="h-px flex-1 bg-zGray-800/70" />
               </div>
             </>
@@ -186,11 +189,11 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
               hasDiscoverable ? 'text-[16px]' : 'text-[20px]',
             )}
           >
-            Create a team
+            {t('Create a team')}
           </h1>
           <form onSubmit={(e) => void create(e)} className="mt-6 space-y-5">
             <label className="block">
-              <span className="block text-[12.5px] text-tertiary mb-1.5">Name</span>
+              <span className="block text-[12.5px] text-tertiary mb-1.5">{t('Name')}</span>
               <input
                 type="text"
                 required
@@ -198,7 +201,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                 maxLength={80}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Engineering"
+                placeholder={t('Engineering')}
                 className="w-full h-10 rounded-md border border-zGray-800 bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary"
               />
             </label>
@@ -216,7 +219,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                   : 'border border-zGray-800 text-secondary opacity-50 cursor-default',
               )}
             >
-              {creating ? 'Creating…' : 'Create'}
+              {creating ? t('Creating…') : t('Create')}
             </button>
           </form>
         </div>

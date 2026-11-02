@@ -157,6 +157,11 @@ try {
     sessionId: created.sessionId,
     prompt: [{ type: 'text', text: 'Fixture prompt' }],
   })
+  const warnings = updates
+    .filter((u) => u.sessionUpdate === 'agent_message_chunk')
+    .map((u) => u.content.text)
+    .filter((text) => text.startsWith('Warning:'))
+  assert.deepEqual(warnings, ['Warning: Fixture warning\n\n'])
   const calls = readFileSync(`${base}/requests.jsonl`, 'utf8').trim().split('\n').map(JSON.parse)
   const start = calls.find((c) => c.method === 'thread/start')
   const resume = calls.find((c) => c.method === 'thread/resume')
@@ -235,6 +240,41 @@ try {
   assert.equal(astraTurn.params.model, 'gpt-6-astra')
   assert.equal(astraTurn.params.effort, 'ultra')
   assert.equal(astraTurn.params.serviceTier, 'fast')
+  // Ultrafast is a third value of the same option, offered only where the model lists it.
+  const astraUltra = await config('fast-mode', 'ultrafast')
+
+  assert.deepEqual(
+    astraUltra.configOptions
+      .find((option) => option.id === 'fast-mode')
+      .options.map((o) => o.value),
+    ['off', 'on', 'ultrafast'],
+  )
+  await rpc('session/prompt', {
+    sessionId: created.sessionId,
+    prompt: [{ type: 'text', text: 'Fixture Ultrafast prompt' }],
+  })
+  assert.equal(
+    readFileSync(`${base}/requests.jsonl`, 'utf8')
+      .trim()
+      .split('\n')
+      .map(JSON.parse)
+      .findLast((call) => call.method === 'turn/start').params.serviceTier,
+    'ultrafast',
+  )
+  // A model without Ultrafast shows Fast off and runs at the standard tier.
+  const smokeAgain = await config('model', 'smoke-model')
+
+  assert.deepEqual(
+    smokeAgain.configOptions
+      .find((option) => option.id === 'fast-mode')
+      .options.map((o) => o.value),
+    ['off', 'on'],
+  )
+  assert.equal(
+    smokeAgain.configOptions.find((option) => option.id === 'fast-mode').currentValue,
+    'off',
+  )
+  await config('model', 'gpt-6-astra')
   const defaultArgs = args('defaults-actor')
 
   defaultArgs._meta['ai.nuphos/runtimeDefaults'] = {
@@ -320,11 +360,14 @@ child.on('exit', code => process.exit(code ?? 1));
   assert.equal(ultra.status, 0, ultra.stderr)
   assert.equal(JSON.parse(ultra.stdout).controls.modelId, 'gpt-6-astra')
   assert.ok(JSON.parse(ultra.stdout).controls.effort.some((option) => option.value === 'ultra'))
-  assert.equal(JSON.parse(ultra.stdout).controls.fast, true)
+  assert.deepEqual(
+    JSON.parse(ultra.stdout).controls.fast.map((choice) => choice.value),
+    ['off', 'on', 'ultrafast'],
+  )
   const standard = discoverSettings('smoke-second')
 
   assert.equal(standard.status, 0, standard.stderr)
-  assert.equal(JSON.parse(standard.stdout).controls.fast, false)
+  assert.deepEqual(JSON.parse(standard.stdout).controls.fast, [])
   assert.equal(
     JSON.parse(standard.stdout).controls.effort.some((option) => option.value === 'ultra'),
     false,

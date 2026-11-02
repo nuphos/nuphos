@@ -10,6 +10,7 @@ import {
   SHARE_LEVEL_LABEL,
   SHARE_LEVELS,
 } from './localAgentSharingPresentation'
+import { AdminOnlyHint } from './shared'
 
 import type { LocalShareLevel } from '../../api/device-types'
 import type { AtlasTeam } from '../../types'
@@ -56,17 +57,16 @@ export function LocalAgentSharingCeilingCard({
       </div>
       <div className="flex items-center gap-4 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
         <div className="min-w-0 flex-1 text-[12px] text-tertiary">{CEILING_DESCRIPTION[value]}</div>
-        <span title={isAdmin ? undefined : t('Only workspace administrators can change this')}>
-          <AppSelect
-            size="sm"
-            ariaLabel={t('The most a member may share')}
-            value={value}
-            disabled={!isAdmin || saving}
-            onValueChange={(next) => void save(next as LocalShareLevel)}
-            options={SHARE_LEVELS.map((level) => ({ value: level, label: CEILING_LABEL[level] }))}
-          />
-        </span>
+        <AppSelect
+          size="sm"
+          ariaLabel={t('The most a member may share')}
+          value={value}
+          disabled={!isAdmin || saving}
+          onValueChange={(next) => void save(next as LocalShareLevel)}
+          options={SHARE_LEVELS.map((level) => ({ value: level, label: CEILING_LABEL[level] }))}
+        />
       </div>
+      {!isAdmin && <AdminOnlyHint teamId={team.id} />}
     </div>
   )
 }

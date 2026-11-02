@@ -2,9 +2,13 @@ import { ShieldAlert, Copy, ExternalLink, PlugZap, RefreshCw } from 'lucide-reac
 import { useEffect, useState } from 'react'
 
 import { api } from '../api'
+import { t } from '../i18n'
 
 import { Button } from './ui/button'
 import { toast } from './ui/toast'
+import { withNodes } from './withNodes'
+
+const hi = (text: string) => <span className="text-secondary">{text}</span>
 
 /**
  * Shown when the API server never answered. Distinct from the RBAC mask: there
@@ -26,27 +30,32 @@ export function ClusterUnreachableNotice({
     <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
       <PlugZap className="mb-3 h-8 w-8 text-warning" strokeWidth={1.6} />
       <div className="mb-2 text-[14px] font-medium text-main">
-        Can&apos;t reach this cluster&apos;s API server
+        {t("Can't reach this cluster's API server")}
       </div>
       <div className="mb-4 max-w-lg text-[12px] text-secondary">
-        The credential was issued successfully, but requests to the Kubernetes API get no response —
-        so the endpoint is unreachable from this machine rather than rejecting us.
+        {t(
+          'The credential was issued successfully, but requests to the Kubernetes API get no response — so the endpoint is unreachable from this machine rather than rejecting us.',
+        )}
       </div>
       <div className="mb-5 max-w-lg text-[11px] text-tertiary">
-        Common causes:
+        {t('Common causes:')}
         <ul className="mt-2 list-inside list-disc space-y-1 text-left">
           {isTencent && (
             <li>
-              The TKE cluster&apos;s public endpoint has a CIDR allowlist that doesn&apos;t include
-              your current IP — add it under{' '}
-              <span className="text-secondary">Cluster → Basic Information → Public Access</span>.
+              {withNodes(
+                t(
+                  "The TKE cluster's public endpoint has a CIDR allowlist that doesn't include your current IP — add it under {path}.",
+                ),
+                { path: hi(t('Cluster → Basic Information → Public Access')) },
+              )}
             </li>
           )}
           <li>
-            A VPN or corporate network is required to reach the endpoint, and it isn&apos;t
-            connected.
+            {t(
+              "A VPN or corporate network is required to reach the endpoint, and it isn't connected.",
+            )}
           </li>
-          <li>Your egress IP changed since the allowlist was configured.</li>
+          <li>{t('Your egress IP changed since the allowlist was configured.')}</li>
         </ul>
       </div>
       <Button
@@ -57,7 +66,7 @@ export function ClusterUnreachableNotice({
           setRetrying(true)
           void Promise.resolve(onRetry())
             .catch((e: unknown) => {
-              toast.apiError('Retry failed', e)
+              toast.apiError(t('Retry failed'), e)
             })
             .finally(() => {
               setRetrying(false)
@@ -65,7 +74,7 @@ export function ClusterUnreachableNotice({
         }}
       >
         <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.8} />
-        {retrying ? 'Retrying…' : 'Retry'}
+        {retrying ? t('Retrying…') : t('Retry')}
       </Button>
     </div>
   )
@@ -141,9 +150,9 @@ export function ClusterRbacNotice({
     if (!value) return
     try {
       await navigator.clipboard.writeText(value)
-      toast.success('Copied', value)
+      toast.success(t('Copied'), value)
     } catch {
-      toast.error('Copy failed', 'Could not write to the clipboard')
+      toast.error(t('Copy failed'), t('Could not write to the clipboard'))
     }
   }
 
@@ -151,27 +160,29 @@ export function ClusterRbacNotice({
     <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
       <ShieldAlert className="mb-3 h-8 w-8 text-warning" strokeWidth={1.6} />
       <div className="mb-2 text-[14px] font-medium text-main">
-        Connected, but this cluster hasn&apos;t authorized Nuphos yet
+        {t("Connected, but this cluster hasn't authorized Nuphos yet")}
       </div>
       <div className="mb-4 max-w-lg text-[12px] text-secondary">
-        Authentication succeeded, but the Kubernetes API rejects every request (403) — the bound
-        role has no in-cluster RBAC permission, so nothing in this cluster can be listed. This is
-        separate from IAM: it must be granted{' '}
-        {isVolcengine ? 'by the cluster creator or the root account' : 'by a cluster administrator'}
-        .
+        {isVolcengine
+          ? t(
+              'Authentication succeeded, but the Kubernetes API rejects every request (403) — the bound role has no in-cluster RBAC permission, so nothing in this cluster can be listed. This is separate from IAM: it must be granted by the cluster creator or the root account.',
+            )
+          : t(
+              'Authentication succeeded, but the Kubernetes API rejects every request (403) — the bound role has no in-cluster RBAC permission, so nothing in this cluster can be listed. This is separate from IAM: it must be granted by a cluster administrator.',
+            )}
       </div>
 
       {(roleName ?? subject) && (
         <div className="mb-4 flex items-center gap-2 rounded-md border border-main bg-surface px-3 py-1.5">
           <span className="text-[11px] text-tertiary">
-            {roleName ? 'Role name' : 'Denied identity'}
+            {roleName ? t('Role name') : t('Denied identity')}
           </span>
           <code className="text-[12px] text-main selectable">{roleName ?? subject}</code>
           <button
             type="button"
             onClick={() => void copyRole()}
             className="text-tertiary hover:text-main"
-            title="Copy"
+            title={t('Copy')}
           >
             <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
           </button>
@@ -180,60 +191,73 @@ export function ClusterRbacNotice({
 
       {isVolcengine ? (
         <div className="mb-5 max-w-lg text-[11px] text-tertiary">
-          To grant access:
+          {t('To grant access:')}
           <ol className="mt-2 list-inside list-decimal space-y-1 text-left">
             <li>
-              Open <span className="text-secondary">Role authorization</span> in the VKE console
-              (button below) as the cluster creator or root account.
+              {withNodes(
+                t(
+                  'Open {action} in the VKE console (button below) as the cluster creator or root account.',
+                ),
+                { action: hi(t('Role authorization')) },
+              )}
             </li>
             <li>
-              Enter the role name
-              {roleName ? (
-                <>
-                  {' '}
-                  <span className="text-secondary">{roleName}</span>
-                </>
-              ) : null}{' '}
-              and continue to its authorization page.
+              {withNodes(
+                roleName
+                  ? t('Enter the role name {role} and continue to its authorization page.')
+                  : t('Enter the role name and continue to its authorization page.'),
+                { role: roleName ? hi(roleName) : null },
+              )}
             </li>
             <li>
-              <span className="text-secondary">Add role authorization</span> — pick this cluster (or
-              Account All Resources), a namespace scope, and an access right (e.g. read-only).
+              {withNodes(
+                t(
+                  '{action} — pick this cluster (or Account All Resources), a namespace scope, and an access right (e.g. read-only).',
+                ),
+                { action: hi(t('Add role authorization')) },
+              )}
             </li>
-            <li>Come back here and re-check.</li>
+            <li>{t('Come back here and re-check.')}</li>
           </ol>
         </div>
       ) : isTencent ? (
         // No console button here: TKE's authorization page lives INSIDE each
         // cluster (per-cluster/region URL), unlike VKE's stable path.
         <div className="mb-5 max-w-lg text-[11px] text-tertiary">
-          To grant access:
+          {t('To grant access:')}
           <ol className="mt-2 list-inside list-decimal space-y-1 text-left">
             <li>
-              Open this cluster in the TKE console →{' '}
-              <span className="text-secondary">Authorization Management</span> →{' '}
-              <span className="text-secondary">ClusterRoleBinding</span>.
+              {withNodes(t('Open this cluster in the TKE console → {auth} → {binding}.'), {
+                auth: hi(t('Authorization Management')),
+                binding: hi('ClusterRoleBinding'),
+              })}
             </li>
             <li>
-              <span className="text-secondary">RBAC policy generator</span> → account type{' '}
-              <span className="text-secondary">Service role</span> → select the role
-              {roleName ? (
-                <>
-                  {' '}
-                  <span className="text-secondary">{roleName}</span>
-                </>
-              ) : null}
-              .
+              {withNodes(
+                roleName
+                  ? t('{generator} → account type {type} → select the role {role}.')
+                  : t('{generator} → account type {type} → select the role.'),
+                {
+                  generator: hi(t('RBAC policy generator')),
+                  type: hi(t('Service role')),
+                  role: roleName ? hi(roleName) : null,
+                },
+              )}
             </li>
-            <li>Next — pick the RBAC permissions (read-only is enough for browsing) and apply.</li>
-            <li>Come back here and re-check.</li>
+            <li>
+              {t('Next — pick the RBAC permissions (read-only is enough for browsing) and apply.')}
+            </li>
+            <li>{t('Come back here and re-check.')}</li>
           </ol>
         </div>
       ) : (
         <div className="mb-5 max-w-lg text-[11px] text-tertiary">
-          Grant the identity above an RBAC (cluster) role binding — e.g. via your provider&apos;s
-          console or <code>kubectl create clusterrolebinding</code> run by a cluster admin — then
-          re-check.
+          {withNodes(
+            t(
+              "Grant the identity above an RBAC (cluster) role binding — e.g. via your provider's console or {command} run by a cluster admin — then re-check.",
+            ),
+            { command: <code>kubectl create clusterrolebinding</code> },
+          )}
         </div>
       )}
 
@@ -244,7 +268,7 @@ export function ClusterRbacNotice({
             onClick={() => void api.appOpenExternal(volcengineAuthorizationUrl(region))}
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Open VKE role authorization
+            {t('Open VKE role authorization')}
           </Button>
         )}
         <Button
@@ -258,7 +282,7 @@ export function ClusterRbacNotice({
             setRechecking(true)
             void Promise.resolve(onRetry())
               .catch((e: unknown) => {
-                toast.apiError('Re-check failed', e)
+                toast.apiError(t('Re-check failed'), e)
               })
               .finally(() => {
                 setRechecking(false)
@@ -266,7 +290,7 @@ export function ClusterRbacNotice({
           }}
         >
           <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.8} />
-          {rechecking ? 'Re-checking…' : "I've granted it — re-check"}
+          {rechecking ? t('Re-checking…') : t("I've granted it — re-check")}
         </Button>
       </div>
     </div>

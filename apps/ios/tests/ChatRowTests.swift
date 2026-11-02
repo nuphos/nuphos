@@ -11,6 +11,7 @@ enum ChatRowTests {
         groupsThinkingButNotNarration()
         streamsCodexThinkingIntoOneRun()
         foldsFinishedWorkUnderOneHeader()
+        liftsThreadBadgesOutOfTheFold()
         rendersReasoningMarkdown()
         keepsNarrationBetweenToolCalls()
         followsTheNewestRun()
@@ -175,6 +176,7 @@ enum ChatRowTests {
             case .toolRun(_, _, let items, _):
                 "run:" + items.map { $0.tool.map { "tool.\($0.toolCallId)" } ?? "thinking" }.joined(separator: ",")
             case .work(_, let inner, _): "work[" + shape(inner).joined(separator: " ") + "]"
+            case .tool(_, _, let part, _): "tool.\(part.toolCallId)"
             case .hint(_, let text, _): "hint:\(text)"
             default: "other"
             }
@@ -251,6 +253,27 @@ enum ChatRowTests {
         ], "\(shape(rows))")
         guard case .work(_, let inner, _) = rows[0] else { preconditionFailure() }
         precondition(inner.reduce(0) { $0 + ChatRow.workSteps($1) } == 3)
+    }
+
+    /// A thread badge stays visible but no longer splits the turn into
+    /// several folds that each repeat the whole turn's duration.
+    private static func liftsThreadBadgesOutOfTheFold() {
+        func badge(_ id: String) -> ChatPart {
+            .tool(ChatPart.ToolPart(
+                toolCallId: id, toolName: "send_message_to_thread", isDynamic: false, state: .outputAvailable,
+                input: .object(["threadId": .string("00000000-0000-4000-8000-000000000001")])
+            ))
+        }
+        let message = ChatMessage(id: "m", role: .assistant, parts: [
+            tool("a"), badge("msg1"), tool("b"), badge("msg2"), tool("c"),
+            text("Done."),
+        ])
+        let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
+        precondition(shape(rows) == [
+            "work[run:tool.a run:tool.b run:tool.c]",
+            "tool.msg1", "tool.msg2",
+            "text:Done.",
+        ], "\(shape(rows))")
     }
 
     private static func rendersReasoningMarkdown() {

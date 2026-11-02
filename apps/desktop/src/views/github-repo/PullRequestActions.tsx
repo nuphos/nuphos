@@ -5,6 +5,7 @@ import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type {
   GithubCliResult,
@@ -15,9 +16,9 @@ import type {
 } from '../../types'
 
 const MERGE_METHODS = [
-  { value: 'squash', label: 'Squash and merge' },
-  { value: 'merge', label: 'Create a merge commit' },
-  { value: 'rebase', label: 'Rebase and merge' },
+  { value: 'squash', label: t('Squash and merge') },
+  { value: 'merge', label: t('Create a merge commit') },
+  { value: 'rebase', label: t('Rebase and merge') },
 ]
 
 // Writes go through the user's own `gh` login, never the Nuphos GitHub App, so
@@ -68,6 +69,9 @@ export function PullRequestActions({
   const disabled = !viewer || busy
   const isAuthor = viewer?.login === pull.author
   const open = pull.state === 'open' && !pull.merged
+  const [actingBefore, actingAfter] = t('Acting as {login} through your GitHub CLI').split(
+    '{login}',
+  )
 
   return (
     <section className="divide-y divide-zGray-800/70 overflow-hidden rounded-lg border border-zGray-800/80 bg-zGray-900/50">
@@ -76,16 +80,19 @@ export function PullRequestActions({
           <>
             <Avatar src={viewer.avatarUrl} name={viewer.login} size={20} className="rounded-full" />
             <span className="min-w-0 truncate">
-              Acting as <span className="font-medium text-main">{viewer.login}</span> through your
-              GitHub CLI
+              {actingBefore}
+              <span className="font-medium text-main">{viewer.login}</span>
+              {actingAfter}
             </span>
           </>
         ) : (
           <>
             <span className="min-w-0 flex-1">
               {viewer === undefined
-                ? 'Checking your GitHub CLI login…'
-                : 'Install the GitHub CLI and run `gh auth login` to comment, review or merge from here.'}
+                ? t('Checking your GitHub CLI login…')
+                : t(
+                    'Install the GitHub CLI and run `gh auth login` to comment, review or merge from here.',
+                  )}
             </span>
             {viewer === null && (
               <Button
@@ -96,7 +103,7 @@ export function PullRequestActions({
                   void loadViewer()
                 }}
               >
-                Check again
+                {t('Check again')}
               </Button>
             )}
           </>
@@ -108,7 +115,7 @@ export function PullRequestActions({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           disabled={disabled}
-          placeholder="Leave a comment"
+          placeholder={t('Leave a comment')}
           rows={4}
           className="w-full resize-y rounded-md border border-zGray-800 bg-zGray-850 px-2.5 py-1.5 text-[12.5px] text-main outline-none transition-colors placeholder:text-quaternary focus:border-zGray-600 disabled:opacity-50"
         />
@@ -120,24 +127,24 @@ export function PullRequestActions({
                 size="sm"
                 disabled={disabled || !body.trim()}
                 onClick={() =>
-                  void run('Changes requested', 'Review not submitted', () =>
+                  void run(t('Changes requested'), t('Review not submitted'), () =>
                     api.githubCliReview(pullRef, 'REQUEST_CHANGES', body),
                   )
                 }
               >
-                Request changes
+                {t('Request changes')}
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
                 disabled={disabled}
                 onClick={() =>
-                  void run('Pull request approved', 'Review not submitted', () =>
+                  void run(t('Pull request approved'), t('Review not submitted'), () =>
                     api.githubCliReview(pullRef, 'APPROVE', body),
                   )
                 }
               >
-                Approve
+                {t('Approve')}
               </Button>
             </>
           )}
@@ -146,12 +153,12 @@ export function PullRequestActions({
             size="sm"
             disabled={disabled || !body.trim()}
             onClick={() =>
-              void run('Comment posted', 'Comment not posted', () =>
+              void run(t('Comment posted'), t('Comment not posted'), () =>
                 api.githubCliComment(pullRef, body),
               )
             }
           >
-            Comment
+            {t('Comment')}
           </Button>
         </div>
       </div>
@@ -163,7 +170,7 @@ export function PullRequestActions({
             onValueChange={(value) => setMethod(value as GithubMergeMethod)}
             options={MERGE_METHODS}
             disabled={disabled}
-            ariaLabel="Merge method"
+            ariaLabel={t('Merge method')}
             className="w-48"
             triggerClassName="h-8"
           />
@@ -172,12 +179,12 @@ export function PullRequestActions({
             size="sm"
             disabled={disabled}
             onClick={() =>
-              void run('Pull request merged', 'Merge not completed', () =>
+              void run(t('Pull request merged'), t('Merge not completed'), () =>
                 api.githubCliMerge(pullRef, method),
               )
             }
           >
-            Merge
+            {t('Merge')}
           </Button>
         </div>
       )}

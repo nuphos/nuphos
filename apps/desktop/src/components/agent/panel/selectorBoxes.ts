@@ -1,5 +1,5 @@
-import { listedAgents, unavailable } from '../../../lib/agentName.ts'
 import { t } from '../../../i18n/index.ts'
+import { listedAgents, unavailable } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
@@ -11,13 +11,13 @@ export type SelectorBox = {
   label: string
   device?: AgentDevice
   agents: RuntimeInstance[]
-  /** Why none of its runtimes can be picked: shown greyed out with this. */
+  /** Its computer is offline: one row, with the way to bring it back. */
   unavailable: ReturnType<typeof unavailable>
 }
 
 /**
- * Listed runtimes, grouped by device id (never display name). A computer offers only the runtimes
- * that can take a turn; with none, it is unavailable for the first one's reason and goes last.
+ * Listed runtimes, grouped by device id (never display name). A signed-out runtime stays listed so
+ * it can be signed in from here; a computer that is offline is one row and goes last.
  */
 export function selectorBoxes(
   agents: RuntimeInstance[],
@@ -25,7 +25,7 @@ export function selectorBoxes(
   quotas?: ReadonlyMap<string, RuntimeQuota>,
 ): SelectorBox[] {
   const groups = new Map<string, SelectorBox>()
-  const listed = listedAgents(agents).filter((agent) => !quotaSignedOut(quotas?.get(agent.id)))
+  const listed = listedAgents(agents)
 
   for (const agent of listed) {
     const deviceId = agent.local?.deviceId
@@ -53,15 +53,19 @@ export function selectorBoxes(
   }
 
   for (const group of groups.values()) {
-    const ready = group.agents.filter((agent) => !unavailable(agent))
-
-    if (ready.length) group.agents = ready
-    else group.unavailable = group.agents[0] ? unavailable(group.agents[0]) : null
+    // Ready ones first, then the ones the picker can sign in.
+    group.agents.sort((a, b) => Number(signedOut(a, quotas)) - Number(signedOut(b, quotas)))
+    if (group.agents.every((agent) => unavailable(agent) === 'Offline'))
+      group.unavailable = 'Offline'
   }
 
   return [...groups.values()].sort(
     (a, b) => Number(a.unavailable !== null) - Number(b.unavailable !== null),
   )
+}
+
+function signedOut(agent: RuntimeInstance, quotas?: ReadonlyMap<string, RuntimeQuota>) {
+  return unavailable(agent) !== null || quotaSignedOut(quotas?.get(agent.id))
 }
 
 export type SelectorMetrics = NonNullable<ReturnType<typeof selectorMetrics>>

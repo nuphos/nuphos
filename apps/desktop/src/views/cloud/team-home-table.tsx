@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useMemo } from 'react'
 
 import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
 
 import { CatalogLogo } from './catalog-logo'
@@ -45,7 +46,9 @@ function CatalogConnector({
     >
       <button
         type="button"
-        aria-label={`${connected ? 'Open' : 'Add'} ${item.name}`}
+        aria-label={
+          connected ? t('Open {name}', { name: item.name }) : t('Add {name}', { name: item.name })
+        }
         className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:shadow-none focus-visible:!outline-none"
       >
         <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-zGray-800/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -55,7 +58,7 @@ function CatalogConnector({
           <span className="block truncate text-[13.5px] font-medium text-main">{item.name}</span>
           {connectedSummary ? (
             <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-secondary/80">
-              <Tooltip content={connectedSummary.attention ? 'Needs attention' : 'Connected'}>
+              <Tooltip content={connectedSummary.attention ? t('Needs attention') : t('Connected')}>
                 <span
                   className={clsx(
                     'h-1.5 w-1.5 flex-none rounded-full',
@@ -64,7 +67,7 @@ function CatalogConnector({
                 />
               </Tooltip>
               <span className="sr-only">
-                {connectedSummary.attention ? 'Needs attention: ' : 'Connected: '}
+                {connectedSummary.attention ? t('Needs attention:') : t('Connected:')}{' '}
               </span>
               <OverflowMarquee text={connectedSummary.text} className="min-w-0" />
             </span>
@@ -77,7 +80,7 @@ function CatalogConnector({
         </span>
       </button>
       <span className="flex h-7 w-[76px] flex-none items-center justify-center rounded-lg border border-zGray-750 bg-zGray-900 text-[12px] font-medium text-secondary transition-colors group-hover:border-zGray-650 group-hover:text-main">
-        {connected ? 'Manage' : 'Add'}
+        {connected ? t('Manage') : t('Add')}
       </span>
     </div>
   )
@@ -97,7 +100,10 @@ function summarizeConnection(
     const text =
       installed.length === 1
         ? `${installed[0].account} · ${String(needing[0].attention)}`
-        : `${String(needing.length)} of ${String(installed.length)} connections need attention`
+        : t('{n} of {total} connections need attention', {
+            n: needing.length,
+            total: installed.length,
+          })
 
     return { text, attention: true }
   }
@@ -111,7 +117,8 @@ function summarizeConnection(
   }
 
   return {
-    text: installed.length === 1 ? installed[0].account : `${String(installed.length)} connections`,
+    text:
+      installed.length === 1 ? installed[0].account : t('{n} connections', { n: installed.length }),
     attention: false,
   }
 }
@@ -146,9 +153,11 @@ export function IntegrationCatalog({
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-[760px] px-7 py-9 selectable">
         <header className="mb-8">
-          <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">Connectors</h1>
+          <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
+            {t('Connectors')}
+          </h1>
           <p className="mb-5 mt-1.5 text-[13.5px] text-secondary">
-            Connect Nuphos to your code, data, cloud, and everyday tools.
+            {t('Connect Nuphos to your code, data, cloud, and everyday tools.')}
           </p>
           <ConnectorSearch
             filter={filter}
@@ -166,7 +175,7 @@ export function IntegrationCatalog({
         {(loading || visibleRows.length > 0 || terms.length === 0) && (
           <section>
             <h2 className="border-b border-zGray-800/55 pb-2.5 text-[13px] font-medium text-main">
-              Installed
+              {t('Installed')}
             </h2>
             <div className="flex min-h-[76px] flex-wrap items-center gap-2 py-4">
               <InstalledList loading={loading} rows={visibleRows} filter={filter} onOpen={onOpen} />
@@ -202,7 +211,7 @@ export function IntegrationCatalog({
           </div>
         ) : (
           <div className="flex min-h-44 items-center justify-center text-[12.5px] text-tertiary">
-            No connectors match “{filter.trim()}”.
+            {t('No connectors match “{query}”.', { query: filter.trim() })}
           </div>
         )}
       </div>

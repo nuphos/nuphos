@@ -17,6 +17,7 @@ export const PATCH_SOURCES = [
 export const STAMP_SOURCES = [
   'prepare.mjs',
   'computer-use-permission.swift',
+  'mac-screen-host.swift',
   'desktop-session.mjs',
   ...PATCH_SOURCES,
 ]
@@ -61,6 +62,7 @@ export const RUNTIME_SOURCES = [
     'restore-history.mjs',
     'process-death.mjs',
     'ask-user-input.mjs',
+    'ultrafast.mjs',
   ].map((file) => `codex-acp/${file}`),
 ]
 

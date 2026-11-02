@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 export function CronTriggersDialog({
   initial,
@@ -26,8 +27,8 @@ export function CronTriggersDialog({
 
       await onSave(crons)
     } catch (e) {
-      toast.apiError('Failed to update cron triggers', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Failed to update cron triggers'), e, {
+        fallback: t('Check your connection and try again.'),
       })
       setSaving(false)
     }
@@ -37,8 +38,8 @@ export function CronTriggersDialog({
     <Modal
       open
       onClose={onClose}
-      title="Edit cron triggers"
-      description="One cron expression per line"
+      title={t('Edit cron triggers')}
+      description={t('One cron expression per line')}
       width={460}
     >
       <div className="px-5 py-4 space-y-2 text-[13px]">
@@ -56,10 +57,10 @@ export function CronTriggersDialog({
           disabled={saving}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" onClick={() => void save()} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('Saving…') : t('Save')}
         </Button>
       </div>
     </Modal>

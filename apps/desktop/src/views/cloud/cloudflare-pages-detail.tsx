@@ -9,6 +9,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { CfDetailActionBar, CfMetaRow } from './cf-shared'
@@ -72,11 +73,11 @@ export function CloudflarePagesProjectDetailView({
     setBusy(true)
     try {
       await api.atlasCreateCloudflarePagesDeployment(teamId, accountId, projectName)
-      toast.success('Deployment triggered')
+      toast.success(t('Deployment triggered'))
       reload()
     } catch (e) {
-      toast.apiError('Failed to trigger deployment', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Failed to trigger deployment'), e, {
+        fallback: t('Check your connection and try again.'),
       })
     } finally {
       setBusy(false)
@@ -86,11 +87,11 @@ export function CloudflarePagesProjectDetailView({
   async function retryDeployment(deploymentId: string) {
     try {
       await api.atlasRetryCloudflarePagesDeployment(teamId, accountId, projectName, deploymentId)
-      toast.success('Retried')
+      toast.success(t('Retried'))
       reload()
     } catch (e) {
-      toast.apiError('Failed to retry deployment', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Failed to retry deployment'), e, {
+        fallback: t('Check your connection and try again.'),
       })
     }
   }
@@ -103,21 +104,21 @@ export function CloudflarePagesProjectDetailView({
           disabled={busy}
           className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5 disabled:opacity-50"
         >
-          <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" /> Deploy
+          <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" /> {t('Deploy')}
         </button>
       </CfDetailActionBar>
       {error ? (
         <ErrorBlock message={error} />
       ) : loading && !project ? (
         <div className="flex-1 flex items-center justify-center text-sm text-tertiary">
-          Loading…
+          {t('Loading…')}
         </div>
       ) : (
         <div className="flex-1 overflow-auto p-4 space-y-5 text-[12.5px]">
           <section>
-            <div className="text-[12px] font-medium text-main mb-2">Overview</div>
+            <div className="text-[12px] font-medium text-main mb-2">{t('Overview')}</div>
             <CfMetaRow
-              label="Subdomain"
+              label={t('Subdomain')}
               value={
                 project?.subdomain ? (
                   <a
@@ -135,10 +136,10 @@ export function CloudflarePagesProjectDetailView({
                 )
               }
             />
-            <CfMetaRow label="Production branch" value={project?.productionBranch || '-'} />
-            <CfMetaRow label="Source" value={project?.source || '-'} />
+            <CfMetaRow label={t('Production branch')} value={project?.productionBranch || '-'} />
+            <CfMetaRow label={t('Source')} value={project?.source || '-'} />
             <CfMetaRow
-              label="Custom domains"
+              label={t('Custom domains')}
               value={project?.domains.length ? project.domains.join(', ') : '-'}
               mono
             />
@@ -147,16 +148,16 @@ export function CloudflarePagesProjectDetailView({
           <PagesDomainsSection teamId={teamId} accountId={accountId} projectName={projectName} />
 
           <section>
-            <div className="text-[12px] font-medium text-main mb-2">Deployments</div>
+            <div className="text-[12px] font-medium text-main mb-2">{t('Deployments')}</div>
             <Table<CloudflarePagesDeploymentSummary>
               rows={deployments}
               rowKey={(r) => r.id}
               storageKey="cloudflare.pages.deployments"
-              empty="No deployments"
+              empty={t('No deployments')}
               columns={[
                 {
                   key: 'short',
-                  header: 'ID',
+                  header: t('ID'),
                   width: 110,
                   render: (r) => (
                     <span className="font-mono text-[12px] text-secondary">
@@ -166,19 +167,19 @@ export function CloudflarePagesProjectDetailView({
                 },
                 {
                   key: 'env',
-                  header: 'Env',
+                  header: t('Env'),
                   width: 100,
                   render: (r) => <span className="text-secondary">{r.environment || '-'}</span>,
                 },
                 {
                   key: 'branch',
-                  header: 'Branch',
+                  header: t('Branch'),
                   width: 120,
                   render: (r) => <span className="text-secondary">{r.branch || '-'}</span>,
                 },
                 {
                   key: 'commit',
-                  header: 'Commit',
+                  header: t('Commit'),
                   width: 240,
                   render: (r) => (
                     <span
@@ -191,13 +192,13 @@ export function CloudflarePagesProjectDetailView({
                 },
                 {
                   key: 'status',
-                  header: 'Status',
+                  header: t('Status'),
                   width: 120,
                   render: (r) => (r.stageStatus ? <StatusBadge status={r.stageStatus} /> : '-'),
                 },
                 {
                   key: 'created',
-                  header: 'Created',
+                  header: t('Created'),
                   width: 100,
                   render: (r) => (
                     <span className="text-tertiary">
@@ -214,21 +215,21 @@ export function CloudflarePagesProjectDetailView({
                       <button
                         onClick={() => setLogsFor(r.id)}
                         className="px-1.5 h-6 rounded text-[11px] text-tertiary hover:bg-zGray-800 hover:text-main flex items-center"
-                        title="Logs"
+                        title={t('Logs')}
                       >
-                        Logs
+                        {t('Logs')}
                       </button>
                       <button
                         onClick={() => void retryDeployment(r.id)}
                         className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
-                        title="Retry"
+                        title={t('Retry')}
                       >
                         <FontAwesomeIcon icon={faRotateLeft} className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setPendingRollback(r.id)}
                         className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
-                        title="Rollback to this deployment"
+                        title={t('Rollback to this deployment')}
                       >
                         <FontAwesomeIcon icon={faArrowsRotate} className="w-3.5 h-3.5" />
                       </button>
@@ -253,9 +254,9 @@ export function CloudflarePagesProjectDetailView({
 
       <ConfirmDialog
         open={!!pendingRollback}
-        title="Roll back to this deployment?"
-        description="This changes the live production deployment for this Pages project."
-        confirmLabel="Roll back"
+        title={t('Roll back to this deployment?')}
+        description={t('This changes the live production deployment for this Pages project.')}
+        confirmLabel={t('Roll back')}
         destructive
         onConfirm={async () => {
           if (!pendingRollback) return
@@ -266,11 +267,11 @@ export function CloudflarePagesProjectDetailView({
               projectName,
               pendingRollback,
             )
-            toast.success('Rolled back to this deployment')
+            toast.success(t('Rolled back to this deployment'))
             reload()
           } catch (e) {
-            toast.apiError('Failed to roll back deployment', e, {
-              fallback: 'Check your connection and try again.',
+            toast.apiError(t('Failed to roll back deployment'), e, {
+              fallback: t('Check your connection and try again.'),
             })
           }
         }}

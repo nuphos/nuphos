@@ -1,93 +1,31 @@
-import { db } from '@/lib/db'
+import { getConversationBySessionId } from '@/lib/agent/db'
 import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
+import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
+import { liveActivityStore } from './live-activity-store'
+import { conversationTitle } from './notify'
+import { watcherCanRead } from './watchers'
 
-import type { ApnsCredentials, ApnsEnvironment, ApnsRequest, ApnsResponse } from './apns'
+import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
+import type { PushDevice } from './devices'
+import type {
+  LiveActivityPhase,
+  LiveActivityRow,
+  LiveActivitySession,
+  LiveActivityStore,
+  LiveActivityToken,
+} from './live-activity-store'
+import type { PushConversation } from './notify'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
-import type { Collection } from 'mongodb'
 
-/** Must match `TurnActivityAttributes.Phase` in the iOS app. */
-export type LiveActivityPhase = 'running' | 'approval' | 'done' | 'stopped' | 'unavailable'
-
-export type LiveActivityToken = { token: string; userId: string; environment: ApnsEnvironment }
-
-/** A conversation's runtime status and the Live Activities showing it.
- *  A phone has one activity for all its running conversations, so one token
- *  sits on every session that phone's card lists. */
-export type LiveActivitySession = {
-  sessionId: string
-  /** The card's row: the conversation's team (for its link) and title. */
-  teamId?: string
-  title?: string
-  phase?: LiveActivityPhase
-  tokens: LiveActivityToken[]
-  updatedAt: Date
-}
-
-export type LiveActivityRow = { teamId: string; title: string }
-
-export type LiveActivityStore = {
-  /** Null unless the session has a Live Activity and its phase changed. */
-  setPhase: (sessionId: string, phase: LiveActivityPhase) => Promise<LiveActivitySession | null>
-  addToken: (
-    sessionId: string,
-    token: LiveActivityToken,
-    row: LiveActivityRow,
-  ) => Promise<LiveActivitySession>
-  /** Drops the token from every session: its activity is over. */
-  removeToken: (token: string) => Promise<void>
-  get: (sessionId: string) => Promise<LiveActivitySession | null>
-  /** The sessions on one activity's card, most recently updated first. */
-  forToken: (token: string) => Promise<LiveActivitySession[]>
-}
-
-// iOS ends an activity after 8 hours and removes it from the Lock Screen
-// 4 hours later; nothing here is useful after that.
-const LIVE_ACTIVITY_TTL_SECONDS = 12 * 60 * 60
-
-const sessions = (): Collection<LiveActivitySession> =>
-  db().collection<LiveActivitySession>('push_live_activity_sessions')
-
-export async function setupLiveActivityIndexes(): Promise<void> {
-  const collection = sessions()
-
-  await collection.createIndex({ sessionId: 1 }, { unique: true, name: 'live_activity_session' })
-  await collection.createIndex({ 'tokens.token': 1 }, { name: 'live_activity_token' })
-  await collection.createIndex(
-    { updatedAt: 1 },
-    { expireAfterSeconds: LIVE_ACTIVITY_TTL_SECONDS, name: 'live_activity_ttl' },
-  )
-}
-
-export const liveActivityStore: LiveActivityStore = {
-  async setPhase(sessionId, phase) {
-    return sessions().findOneAndUpdate(
-      { sessionId, phase: { $ne: phase } },
-      { $set: { phase, updatedAt: new Date() } },
-      { returnDocument: 'after' },
-    )
-  },
-  async addToken(sessionId, token, row) {
-    await sessions().updateOne({ sessionId }, { $pull: { tokens: { token: token.token } } })
-    const session = await sessions().findOneAndUpdate(
-      { sessionId },
-      { $push: { tokens: token }, $set: { ...row, updatedAt: new Date() } },
-      { upsert: true, returnDocument: 'after' },
-    )
-
-    return session!
-  },
-  async removeToken(token) {
-    await sessions().updateMany({ 'tokens.token': token }, { $pull: { tokens: { token } } })
-  },
-  async get(sessionId) {
-    return sessions().findOne({ sessionId })
-  },
-  async forToken(token) {
-    return sessions().find({ 'tokens.token': token }).sort({ updatedAt: -1 }).toArray()
-  },
-}
+export type {
+  LiveActivityPhase,
+  LiveActivityRow,
+  LiveActivitySession,
+  LiveActivityStore,
+  LiveActivityToken,
+} from './live-activity-store'
 
 // How long the card stays on the Lock Screen once nothing runs.
 export const LIVE_ACTIVITY_DISMISS_S = 30 * 60
@@ -95,6 +33,8 @@ export const LIVE_ACTIVITY_DISMISS_S = 30 * 60
 export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
 export const LIVE_ACTIVITY_RETRY_MS = [5_000, 30_000, 120_000]
+// iOS ends a card 8 hours after it starts; an older token shows nothing.
+export const LIVE_ACTIVITY_LIFETIME_MS = 8 * 60 * 60 * 1000
 
 /** The status the app shows for this runtime state (iOS `AgentThreadBadge`). */
 export function liveActivityPhase(state: SessionExecutionState): LiveActivityPhase {
@@ -111,6 +51,12 @@ export type LiveActivityDeps = {
   credentials: () => ApnsCredentials | null
   liveActivities: LiveActivityStore
   send: (credentials: ApnsCredentials, request: ApnsRequest) => Promise<ApnsResponse>
+  conversation: (sessionId: string) => Promise<PushConversation | null>
+  canRead: (conversation: PushConversation, userId: string) => Promise<boolean>
+  devices: (userId: string) => Promise<PushDevice[]>
+  /** False while the phone waits for a card already started; `pending` then waits too. */
+  startCard: typeof beginLiveActivityStart
+  pendingRows: typeof takeLiveActivityPending
   now: () => number
   schedule: (work: () => void, delayMs: number) => void
 }
@@ -228,12 +174,88 @@ export async function registerLiveActivityToken(
   state: SessionExecutionState | null,
 ): Promise<void> {
   const added = await deps.liveActivities.addToken(sessionId, token, row)
+  // A card the backend started: conversations that ran while it came up join it.
+  const pending = token.deviceId
+    ? (await deps.pendingRows(token.userId, token.deviceId)).filter(
+        (p) => p.sessionId !== sessionId,
+      )
+    : []
+
+  for (const { sessionId: id, ...pendingRow } of pending)
+    await deps.liveActivities.addToken(id, token, pendingRow)
   const changed = state
     ? await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
     : null
 
   if (changed) await deliver(deps, changed, changed.tokens)
-  else if (added.phase && added.phase !== 'running') await deliver(deps, added, [token])
+  else if (pending.length > 0 || (added.phase && added.phase !== 'running'))
+    await deliver(deps, added, [token])
+}
+
+/** Puts a conversation that started running on each watcher's card: the one
+ *  their phone shows, or, on a phone without one, a new card started over
+ *  APNs. That card's token comes back through `registerLiveActivityToken`. */
+async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promise<void> {
+  const credentials = deps.credentials()
+  const conversation = credentials ? await deps.conversation(session.sessionId) : null
+
+  if (!credentials || !conversation) return
+  const row = { teamId: conversation.teamId ?? '', title: conversationTitle(conversation) }
+  const listed = new Set(session.tokens.map((t) => t.token))
+  const since = deps.now() - LIVE_ACTIVITY_LIFETIME_MS
+
+  await Promise.all(
+    (conversation.watcherIds ?? []).map(async (userId) => {
+      if (!(await deps.canRead(conversation, userId))) return
+      const cards = (await deps.liveActivities.tokensForUser(userId)).filter(
+        (t) => (t.registeredAt?.getTime() ?? 0) > since,
+      )
+
+      for (const card of cards) {
+        if (!listed.has(card.token))
+          await deps.liveActivities.addToken(session.sessionId, card, row)
+      }
+      const starts = (await deps.devices(userId)).flatMap(({ deviceId, environment, ...d }) =>
+        d.liveActivityStartToken && !cards.some((c) => c.deviceId === deviceId)
+          ? [{ deviceId, deviceToken: d.liveActivityStartToken, environment }]
+          : [],
+      )
+
+      await Promise.all(
+        starts.map(async ({ deviceId, deviceToken, environment }) => {
+          const pending = { sessionId: session.sessionId, ...row }
+
+          if (!(await deps.startCard(userId, deviceId, pending))) return
+          try {
+            const response = await deps.send(credentials, {
+              deviceToken,
+              environment,
+              pushType: 'liveactivity',
+              payload: {
+                aps: {
+                  timestamp: Math.floor(deps.now() / 1000),
+                  event: 'start',
+                  'attributes-type': 'TurnActivityAttributes',
+                  attributes: {},
+                  'content-state': liveActivityCard([{ ...session, ...row }]),
+                  alert: { title: row.title, body: 'Running' },
+                },
+              },
+            })
+
+            if (response.status !== 200) {
+              logEvent('warn', 'push.live_activity.start_rejected', {
+                status: response.status,
+                reason: response.reason ?? null,
+              })
+            }
+          } catch (error) {
+            logError('push.live_activity.start_failed', error, { session_id: session.sessionId })
+          }
+        }),
+      )
+    }),
+  )
 }
 
 /** Moves the session's Live Activities to the runtime's newest state. */
@@ -242,15 +264,26 @@ export async function recordLiveActivityState(
   sessionId: string,
   state: SessionExecutionState,
 ): Promise<void> {
-  const session = await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
+  const changed = await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
 
-  if (session) await deliver(deps, session, session.tokens)
+  if (!changed) return
+  if (!isActive(changed.phase)) return deliver(deps, changed, changed.tokens)
+  await join(deps, changed)
+  const session = (await deps.liveActivities.get(sessionId)) ?? changed
+
+  await deliver(deps, session, session.tokens)
 }
 
 export const liveActivityDeps: LiveActivityDeps = {
   credentials: apnsCredentials,
   liveActivities: liveActivityStore,
   send: sendApns,
+  conversation: getConversationBySessionId,
+  canRead: (conversation, userId) => watcherCanRead(conversation, userId),
+  devices: async (userId) =>
+    (await pushDeviceStore.listForUser(userId)).filter((d) => d.platform === 'ios'),
+  startCard: beginLiveActivityStart,
+  pendingRows: takeLiveActivityPending,
   now: Date.now,
   schedule: (work, delayMs) => {
     setTimeout(work, delayMs).unref()

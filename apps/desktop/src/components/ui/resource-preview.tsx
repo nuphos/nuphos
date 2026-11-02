@@ -1,9 +1,10 @@
 import { PreviewCard } from '@base-ui/react/preview-card'
 import clsx from 'clsx'
+import { ExternalLink } from 'lucide-react'
 
 import { t } from '../../i18n'
 
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 
 /** Shared GitHub preview for compact chat links and linked session resources. */
 export function ResourcePreview({
@@ -15,6 +16,7 @@ export function ResourcePreview({
   loading,
   actionable = true,
   actions,
+  onOpen,
   children,
 }: {
   repository: string
@@ -25,6 +27,8 @@ export function ResourcePreview({
   loading?: boolean
   actions?: ReactNode
   actionable?: boolean
+  /** Turns the "Open in browser tab" hint into a button. */
+  onOpen?: (event: MouseEvent) => void
   children: ReactNode
 }) {
   return (
@@ -62,7 +66,19 @@ export function ResourcePreview({
             )}
             {(actionable || actions) && (
               <div className="mt-3 flex items-center justify-between gap-3 border-t border-zGray-800/60 pt-2 text-[11px] text-tertiary">
-                {actionable && <span>{t('Open in browser tab')}</span>}
+                {actionable &&
+                  (onOpen ? (
+                    <button
+                      type="button"
+                      onClick={onOpen}
+                      className="-ml-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-zGray-800/80 hover:text-main focus-visible:outline focus-visible:outline-1 focus-visible:outline-current"
+                    >
+                      <ExternalLink className="size-3" />
+                      {t('Open in browser tab')}
+                    </button>
+                  ) : (
+                    <span>{t('Open in browser tab')}</span>
+                  ))}
                 {actions}
               </div>
             )}

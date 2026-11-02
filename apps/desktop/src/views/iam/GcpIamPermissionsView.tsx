@@ -7,6 +7,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import {
@@ -112,15 +113,15 @@ export function GcpIamPermissionsView({
           title={visibleData.serviceAccountEmail}
           subtitle={visibleData.projectId}
           rows={[
-            { label: 'Project ID', value: visibleData.projectId, mono: true },
+            { label: t('Project ID'), value: visibleData.projectId, mono: true },
             visibleData.bindings.length > 0 || visibleData.effectivePermissions === null
               ? {
-                  label: 'Roles granted',
+                  label: t('Roles granted'),
                   value: String(visibleData.bindings.length),
                 }
               : {
-                  label: 'Effective permissions',
-                  value: `${String(visibleData.effectivePermissions.length)} probed`,
+                  label: t('Effective permissions'),
+                  value: t('{n} probed', { n: visibleData.effectivePermissions.length }),
                 },
           ]}
           pinned
@@ -142,12 +143,18 @@ export function GcpIamPermissionsView({
             <section className="px-6 py-4">
               <SectionHeader
                 icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
-                title="Granted roles"
+                title={t('Granted roles')}
                 hint={
                   visibleData.bindings.length > 0
-                    ? `${String(visibleData.bindings.length)} bindings include this service account`
+                    ? visibleData.bindings.length === 1
+                      ? t('{n} binding includes this service account', {
+                          n: visibleData.bindings.length,
+                        })
+                      : t('{n} bindings include this service account', {
+                          n: visibleData.bindings.length,
+                        })
                     : visibleData.effectivePermissions
-                      ? "Couldn't list bindings — showing effective permissions instead"
+                      ? t("Couldn't list bindings — showing effective permissions instead")
                       : undefined
                 }
               />
@@ -170,7 +177,11 @@ export function GcpIamPermissionsView({
                   serviceAccountEmail={visibleData.serviceAccountEmail}
                 />
               ) : (
-                <EmptyHint message="No IAM bindings include this service account on this project. Nuphos can impersonate the SA but every API call will be denied. Grant the connector roles (typically roles/container.viewer, roles/compute.viewer, etc.) and refresh." />
+                <EmptyHint
+                  message={t(
+                    'No IAM bindings include this service account on this project. Nuphos can impersonate the SA but every API call will be denied. Grant the connector roles (typically roles/container.viewer, roles/compute.viewer, etc.) and refresh.',
+                  )}
+                />
               )}
             </section>
             {serviceAccountId ? (
@@ -185,7 +196,9 @@ export function GcpIamPermissionsView({
               />
             ) : (
               <section className="px-6 py-4 border-t border-zGray-800/60">
-                <EmptyHint message="Open a specific service account to manage who can use it." />
+                <EmptyHint
+                  message={t('Open a specific service account to manage who can use it.')}
+                />
               </section>
             )}
           </LoadedDetailContentReveal>

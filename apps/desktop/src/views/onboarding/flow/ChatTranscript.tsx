@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion'
 import { useCallback, useState } from 'react'
 
+import { t } from '../../../i18n'
+
 import { UserMsg } from './chat-bits'
 import { deriveFirstName, EASE_OUT } from './shared'
 import { StreamText } from './stream'
@@ -30,6 +32,14 @@ export function ChatTranscript({
   // starting its own clock at mount — otherwise the two type over each other.
   const [greetingDone, setGreetingDone] = useState(false)
   const markGreetingDone = useCallback(() => setGreetingDone(true), [])
+  const name = firstName || t('there')
+  const [teamsPre, teamsPost = ''] = t(
+    'Hi {name}! You have {teams} waiting for you — join the ones you want, or create your own workspace.',
+    { name },
+  ).split('{teams}')
+  const [wsPre, wsPost = ''] = t("Hi {name}! Let's set up your first {workspace}.", { name }).split(
+    '{workspace}',
+  )
 
   return (
     <motion.div
@@ -44,16 +54,8 @@ export function ChatTranscript({
         onDone={markGreetingDone}
         segments={
           hasJoinOptions
-            ? [
-                `Hi ${firstName || 'there'}! You have `,
-                { text: 'teams', className: 'text-zViolet-300' },
-                ' waiting for you — join the ones you want, or create your own workspace.',
-              ]
-            : [
-                `Hi ${firstName || 'there'}! Let's set up your first `,
-                { text: 'workspace', className: 'text-zViolet-300' },
-                '.',
-              ]
+            ? [teamsPre, { text: t('teams'), className: 'text-zViolet-300' }, teamsPost]
+            : [wsPre, { text: t('workspace'), className: 'text-zViolet-300' }, wsPost]
         }
       />
 
@@ -64,7 +66,7 @@ export function ChatTranscript({
         <StreamText
           reduce={reduce}
           startDelay={200}
-          segments={['Sure — give your new workspace a name below.']}
+          segments={[t('Sure — give your new workspace a name below.')]}
         />
       )}
 
@@ -72,7 +74,9 @@ export function ChatTranscript({
         <>
           <UserMsg>{workspaceName}</UserMsg>
           <div className="flex items-center gap-2 text-[13.5px]">
-            <span className="codex-shimmer-text t-text-swap">Setting up your workspace…</span>
+            <span className="codex-shimmer-text t-text-swap">
+              {t('Setting up your workspace…')}
+            </span>
           </div>
         </>
       )}

@@ -69,6 +69,13 @@ class PersistentShareProcessDeviceTest {
     @Volatile private var detailStatus = 200
     @Volatile private var adaptiveHistory = true
     @Volatile private var onlyOtherTeam = false
+    private val heldMemberships = if (InstrumentationRegistry.getArguments().getString("persistentSharePhase") in
+        setOf("seedPending", "cancelPending")) CountDownLatch(1) else null
+
+    // Sign-out ends the server session (#890); it is the only write a phase may make, and only in that phase.
+    private fun isSignOutSessionEnd(request: okhttp3.Request) = request.method == "DELETE" &&
+        request.url.encodedPath == "/auth/sessions/current" &&
+        InstrumentationRegistry.getArguments().getString("persistentSharePhase") == "signOut"
 
     @Suppress("UNCHECKED_CAST")
     private fun setState(value: AuthSession.State) {
@@ -101,6 +108,7 @@ class PersistentShareProcessDeviceTest {
             val path = request.url.encodedPath
             var status = 200
             val body = when {
+                isSignOutSessionEnd(request) -> { status = 204; "" }
                 request.method != "GET" -> {
                     unexpected += "${request.method} $path"
                     throw IOException("No link-triggered writes are allowed")
@@ -108,7 +116,8 @@ class PersistentShareProcessDeviceTest {
                 path == "/auth/ai-consent" -> """{"version":"2026-09-28","accepted":true}"""
                 path == "/auth/me" -> Http.json.encodeToString(NuphosUser.serializer(), NuphosUser.preview)
                 path == "/teams" && onlyOtherTeam -> """{"teams":[{"id":"$b","name":"Fixture Beta"}]}"""
-                path == "/teams" -> """{"teams":[{"id":"$a","name":"Fixture Alpha"},{"id":"$b","name":"Fixture Beta"}]}"""
+                path == "/teams" -> { heldMemberships?.let { check(it.await(30, TimeUnit.SECONDS)) }; """{"teams":[{"id":"$a","name":"Fixture Alpha"},{"id":"$b","name":"Fixture Beta"}]}""" }
+                path == "/agent/devices" -> """{"devices":[]}"""
                 path == "/agent/credential-options" -> """{"options":{}}"""
                 path.endsWith("/agent-runtimes/quota") -> """{"quotas":{}}"""
                 path.endsWith("/agent-runtimes") -> """{"runtimes":[]}"""
@@ -167,6 +176,7 @@ class PersistentShareProcessDeviceTest {
             assertTrue("Fixture Activity did not close", destroyed.await(5, TimeUnit.SECONDS))
             onMain { ActivityLifecycleMonitorRegistry.getInstance().removeLifecycleCallback(callback) }
         }
+        heldMemberships?.countDown()
         if (::auth.isInitialized) onMain {
             (AuthSession::class.java.getDeclaredField("scope").also { it.isAccessible = true }.get(auth) as CoroutineScope).cancel()
             val callback = AiAccess.onRevoked
@@ -182,18 +192,25 @@ class PersistentShareProcessDeviceTest {
 
     private fun sender(mode: String) {
         val previous = app.incomingShares.state.value?.id
+        val previousText = app.incomingShares.text(newKey())
         val receipt = java.util.UUID.randomUUID().toString()
         app.startActivity(Intent().setClassName(senderPackage, "ai.nuphos.sharefixture.ShareSenderActivity")
             .putExtra("fixtureMode", mode).putExtra("fixtureReceipt", receipt).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        compose.waitUntil(10_000) {
+        try { compose.waitUntil(10_000) {
             var ready = false
             onMain {
                 activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).filterIsInstance<MainActivity>().firstOrNull()
                 val pending = app.incomingShares.state.value
                 ready = activity != null && if (mode == "revoke") activity?.intent?.getStringExtra("fixtureReceipt") == receipt
-                    else pending != null && pending.id != previous && !pending.loading
+                    else (pending != null && pending.id != previous && !pending.loading) ||
+                        (app.incomingShares.text(newKey()) != previousText && app.incomingShares.text(newKey())?.contains("Synthetic shared note") == true)
             }
             ready
+        } } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            val pending = app.incomingShares.state.value
+            throw AssertionError("Share $mode did not arrive: activity=${activity != null} pending=${pending?.id != previous} " +
+                "loading=${pending?.loading} error=${pending?.error} destination=${pending?.destination} " +
+                "textChanged=${app.incomingShares.text(newKey()) != previousText}", e)
         }
     }
     private fun recreate() {
@@ -228,7 +245,7 @@ class PersistentShareProcessDeviceTest {
         file.outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
     private fun key() = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a,
-        ai.nuphos.android.session.ComposerDrafts.Destination.Chat("fixture-chat"))
+        ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
     private fun newKey() = key().copy(destination = ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
     private fun ordinaryKey() = key().copy(destination = ai.nuphos.android.session.ComposerDrafts.Destination.Chat("ordinary-untouched"))
     private val sharedText = "Synthetic shared note https://example.com/share-fixture"
@@ -281,26 +298,30 @@ class PersistentShareProcessDeviceTest {
                 assertNull(app.incomingShares.state.value!!.destination)
                 assertEquals(sharedText, app.incomingShares.state.value!!.text)
                 open()
-                awaitText("Fixture first")
                 snapshot("persistent-pending-after-restart")
-                compose.onNodeWithTag("incoming-share-agent-fixture-chat").performClick()
-                compose.waitUntil(15_000) { app.incomingShares.state.value == null }
+                try { compose.waitUntil(15_000) { app.incomingShares.state.value == null } }
+                catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+                    val p = app.incomingShares.state.value
+                    throw AssertionError("Restored share was not routed: loading=${p?.loading} error=${p?.error} " +
+                        "destination=${p?.destination} bound=${app.incomingShares.isBound(NuphosUser.preview.id)} " +
+                        "nonGet=${requests.count { it.method != "GET" }} paths=${requests.map { it.url.encodedPath }.distinct()}", e)
+                }
                 awaitText(mergedText)
                 assertFiles(key())
             }
             "verifyExisting" -> {
                 assertNull(app.incomingShares.state.value)
-                open(existing = true)
+                open()
                 awaitText(mergedText)
                 assertFiles(key())
                 compose.onNode(hasSetTextAction() and androidx.compose.ui.test.hasText(mergedText)).performTextReplacement("Edited persisted synthetic draft")
                 snapshot("persistent-existing-after-restart")
             }
             "verifyEditedAndWarmCancel" -> {
-                open(existing = true)
+                open()
                 awaitText("Edited persisted synthetic draft")
                 assertFiles(key())
-                sender("text")
+                sender("denied")
                 compose.onNodeWithText("Cancel share").performClick()
                 compose.waitUntil(15_000) { app.incomingShares.state.value == null }
                 assertNull(app.incomingShares.state.value)
@@ -308,10 +329,13 @@ class PersistentShareProcessDeviceTest {
                 assertFiles(key())
             }
             "consumeNew" -> {
+                onMain {
+                    app.incomingShares.bindAccount(NuphosUser.preview.id)
+                    app.incomingShares.drop(newKey())
+                    auth.composerDrafts.bind(NuphosUser.preview.id, a, newKey().destination)!!.write("")
+                }
                 open()
                 sender("multiple")
-                awaitText("New agent draft")
-                compose.onNodeWithText("New agent draft").performClick()
                 compose.waitUntil(15_000) { app.incomingShares.state.value == null }
                 awaitText(sharedText)
                 assertFiles(newKey())
@@ -354,10 +378,14 @@ class PersistentShareProcessDeviceTest {
                     auth.composerDrafts.onIdentity("other-synthetic-account")
                     setState(AuthSession.State.SignedIn(NuphosUser.preview.copy(id = "other-synthetic-account")))
                 }
-                compose.waitUntil(15_000) { app.incomingShares.state.value == null }
+                // The share may already be in account A's draft; wait for the switch itself to clear it.
+                compose.waitUntil(15_000) {
+                    app.incomingShares.state.value == null && app.shareDraftStore.load().drafts.isEmpty()
+                }
                 kotlinx.coroutines.runBlocking { app.incomingShares.awaitIdle() }
                 assertNull(app.incomingShares.state.value)
-                assertTrue(app.shareDraftStore.load().drafts.isEmpty())
+                assertTrue("Drafts survived the account switch: ${app.shareDraftStore.load().drafts.map { "${it.address.account}/${it.address.team}/${it.text.length}" }}",
+                    app.shareDraftStore.load().drafts.isEmpty())
                 assertTrue(app.shareDraftStore.load().pending == null)
             }
             "removeTeam" -> {
@@ -398,8 +426,8 @@ class PersistentShareProcessDeviceTest {
                     assertEquals("Unrelated ordinary draft survives", auth.composerDrafts.bind(NuphosUser.preview.id, a, ordinaryKey().destination)!!.text)
                 }
                 assertTrue(app.incomingShares.attachments(key()).isEmpty())
-                open(existing = true)
-                awaitText("Linked fixture chat")
+                open()
+                awaitText("Fixture first")
                 compose.onAllNodesWithText("Stale shared preference must never return").assertCountEquals(0)
             }
             "removeFile" -> {
@@ -435,13 +463,13 @@ class PersistentShareProcessDeviceTest {
                 detailStatus = 403
                 open(existing = true)
                 awaitText("Could not open agent")
-                compose.waitUntil(15_000) { app.incomingShares.attachments(key()).isEmpty() }
-                assertEquals("", app.incomingShares.text(key()))
+                assertFiles(newKey())
+                assertEquals(mergedText, app.incomingShares.text(newKey()))
             }
             else -> error("Unknown phase $phase")
         }
         kotlinx.coroutines.runBlocking { app.incomingShares.awaitIdle() }
-        assertTrue("Unexpected writes: $requests", requests.all { it.method == "GET" })
+        assertTrue("Unexpected writes: $requests", requests.all { it.method == "GET" || isSignOutSessionEnd(it) })
         assertTrue(markers.edit().putInt("previousPid", android.os.Process.myPid()).commit())
         instrumentation.sendStatus(2, android.os.Bundle().apply {
             putString("stream", "PERSISTENT_SHARE_PHASE=$phase PID=${android.os.Process.myPid()}\n")

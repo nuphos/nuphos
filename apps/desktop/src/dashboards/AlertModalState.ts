@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../api'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n/index.ts'
 
 import type {
   PanelAlertExtract,
@@ -11,16 +12,16 @@ import type {
 } from './schema'
 
 export const EXTRACTS: { value: PanelAlertExtract; label: string; kinds: string[] }[] = [
-  { value: 'scalar', label: 'Scalar value', kinds: ['scalar'] },
-  { value: 'series-last', label: 'Latest series point', kinds: ['chart'] },
-  { value: 'series-sum', label: 'Sum of a series', kinds: ['chart'] },
-  { value: 'column-sum', label: 'Sum of a table column', kinds: ['table'] },
+  { value: 'scalar', label: t('Scalar value'), kinds: ['scalar'] },
+  { value: 'series-last', label: t('Latest series point'), kinds: ['chart'] },
+  { value: 'series-sum', label: t('Sum of a series'), kinds: ['chart'] },
+  { value: 'column-sum', label: t('Sum of a table column'), kinds: ['table'] },
 ]
 export const OPS: { value: PanelAlertOp; label: string }[] = [
-  { value: 'gt', label: '> greater than' },
-  { value: 'gte', label: '≥ at least' },
-  { value: 'lt', label: '< less than' },
-  { value: 'increase_pct', label: '% increase vs previous' },
+  { value: 'gt', label: t('> greater than') },
+  { value: 'gte', label: t('≥ at least') },
+  { value: 'lt', label: t('< less than') },
+  { value: 'increase_pct', label: t('% increase vs previous') },
 ]
 
 export function useAlertEditor(
@@ -86,7 +87,7 @@ export function useAlertEditor(
       .catch((err: unknown) => {
         if (cancelled) return
         setLoadFailed(true)
-        toast.apiError('Could not load alert', err)
+        toast.apiError(t('Could not load alert'), err)
       })
       .finally(() => !cancelled && setLoading(false))
 
@@ -99,7 +100,7 @@ export function useAlertEditor(
     const thr = Number(threshold)
 
     if (!Number.isFinite(thr)) {
-      toast.error('Threshold must be a number')
+      toast.error(t('Threshold must be a number'))
 
       return
     }
@@ -124,10 +125,10 @@ export function useAlertEditor(
         condition: { op, threshold: thr },
         channels: [channel, ...extraChannels],
       })
-      toast.success('Alert saved')
+      toast.success(t('Alert saved'))
       onClose()
     } catch (err) {
-      toast.apiError('Could not save alert', err)
+      toast.apiError(t('Could not save alert'), err)
     } finally {
       setSaving(false)
     }
@@ -137,11 +138,11 @@ export function useAlertEditor(
     setSaving(true)
     try {
       await api.dashboardsDeleteAlert(teamId, dashboardId, panel.id)
-      toast.success('Alert removed')
+      toast.success(t('Alert removed'))
       setConfirmingRemove(false)
       onClose()
     } catch (err) {
-      toast.apiError('Could not remove alert', err)
+      toast.apiError(t('Could not remove alert'), err)
       throw err
     } finally {
       setSaving(false)

@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { AppSelectOption } from '../../components/ui/select'
 import type {
   ConfigMapItem,
@@ -14,11 +16,11 @@ export const envMonoSelectTriggerClass =
 export const envCheckboxClass = 'h-4 w-4 rounded border-zGray-700 bg-zGray-950 accent-zViolet-500'
 
 export const envSourceOptions: AppSelectOption[] = [
-  { value: 'value', label: 'Value' },
-  { value: 'configMapKeyRef', label: 'ConfigMap key' },
-  { value: 'secretKeyRef', label: 'Secret key' },
-  { value: 'fieldRef', label: 'Field' },
-  { value: 'resourceFieldRef', label: 'Resource' },
+  { value: 'value', label: t('Value') },
+  { value: 'configMapKeyRef', label: t('ConfigMap key') },
+  { value: 'secretKeyRef', label: t('Secret key') },
+  { value: 'fieldRef', label: t('Field') },
+  { value: 'resourceFieldRef', label: t('Resource') },
 ]
 
 export const envFromSourceOptions: AppSelectOption[] = [
@@ -29,25 +31,25 @@ export const envFromSourceOptions: AppSelectOption[] = [
 export function sourceLabel(source: DeploymentEnvSource | DeploymentEnvFromInput['source']) {
   switch (source) {
     case 'value':
-      return 'Value'
+      return t('Value')
     case 'configMapKeyRef':
-      return 'ConfigMap key'
+      return t('ConfigMap key')
     case 'secretKeyRef':
-      return 'Secret key'
+      return t('Secret key')
     case 'fieldRef':
-      return 'Field'
+      return t('Field')
     case 'resourceFieldRef':
-      return 'Resource'
+      return t('Resource')
     case 'fileKeyRef':
-      return 'File key'
+      return t('File key')
     case 'configMapRef':
       return 'ConfigMap'
     case 'secretRef':
       return 'Secret'
     case 'unknown':
-      return 'Reference'
+      return t('Reference')
     default:
-      return 'Reference'
+      return t('Reference')
   }
 }
 

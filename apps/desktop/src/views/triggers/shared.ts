@@ -1,4 +1,5 @@
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 
 import type { AgentTrigger } from '../../api'
 import type { TeamMember, TeamRole } from '../../types'
@@ -14,20 +15,22 @@ export function stripTrailingSlashes(url: string): string {
 export function triggerSourceTitle(trigger: AgentTrigger): string {
   if (trigger.source === 'agent') {
     const sessionId = trigger.sourceContext?.sessionId
-    const where = sessionId ? ` in agent ${sessionId}` : ''
 
-    return `Created by the agent${where}`
+    return sessionId
+      ? t('Created by the agent in agent {sessionId}', { sessionId })
+      : t('Created by the agent')
   }
 
-  return 'Created by automation'
+  return t('Created by automation')
 }
 
 export function reportCleanupFailures(triggers: AgentTrigger[]) {
   for (const trigger of triggers) {
     if (trigger.cleanupStatus === 'cleanup_failed') {
       toast.error(
-        `Could not remove ${trigger.name}`,
-        trigger.cleanupError ?? 'Provider cleanup did not finish. Retry from the trigger details.',
+        t('Could not remove {name}', { name: trigger.name }),
+        trigger.cleanupError ??
+          t('Provider cleanup did not finish. Retry from the trigger details.'),
       )
     }
   }
@@ -47,7 +50,7 @@ export function executionPrincipalLabel(members: TeamMember[], principalId: stri
   if (!principal) return principalId
   const name = principal.name || principal.email || principalId
 
-  return principal.removedAt ? `${name} (removed)` : name
+  return principal.removedAt ? t('{name} (removed)', { name }) : name
 }
 
 export function triggerPrincipalLabel(members: TeamMember[], trigger: AgentTrigger): string {

@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { ArrowUpRight } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { DetailTarget } from './target'
 import type { ReactNode } from 'react'
 
@@ -50,8 +52,8 @@ export function EnvRefNavButton({
   return (
     <button
       type="button"
-      title={`Open ${kind} ${name}`}
-      aria-label={`Open ${kind} ${name}`}
+      title={t('Open {kind} {name}', { kind, name })}
+      aria-label={t('Open {kind} {name}', { kind, name })}
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { useDebouncedValue } from '../../components/agent/panel/historyPageHooks'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { announceChatUnarchived } from '../../lib/chatArchiveEvents'
 
 import { appendArchivedPage } from './archivedChatsList'
@@ -12,7 +13,7 @@ import type { AgentConversation } from '../../api'
 const PAGE_SIZE = 30
 
 function chatLabel(conversation: AgentConversation): string {
-  return conversation.title || conversation.firstMessage || 'Untitled agent'
+  return conversation.title || conversation.firstMessage || t('Untitled agent')
 }
 
 export function useArchivedChats({
@@ -31,6 +32,8 @@ export function useArchivedChats({
   const [cursor, setCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [restoringIds, setRestoringIds] = useState<ReadonlySet<string>>(() => new Set())
   const requestIdRef = useRef(0)
 
@@ -46,7 +49,7 @@ export function useArchivedChats({
     [teamId, search],
   )
 
-  const listKey = `${teamId}|${search}|${String(refreshKey)}`
+  const listKey = `${teamId}|${search}|${String(refreshKey)}|${String(attempt)}`
   const [loadingListKey, setLoadingListKey] = useState(listKey)
 
   if (listKey !== loadingListKey) {
@@ -63,10 +66,12 @@ export function useArchivedChats({
         if (requestIdRef.current !== requestId) return
         setItems(page.conversations)
         setCursor(page.hasMore ? page.nextCursor : null)
+        setFailed(false)
       })
       .catch((err: unknown) => {
-        if (requestIdRef.current === requestId)
-          toast.apiError('Could not load archived agents', err)
+        if (requestIdRef.current !== requestId) return
+        setFailed(true)
+        toast.apiError(t('Could not load archived agents'), err)
       })
       .finally(() => {
         if (requestIdRef.current !== requestId) return
@@ -75,7 +80,7 @@ export function useArchivedChats({
       })
     // onLoading is the page shell's setter; its identity is not a reason to refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readPage, refreshKey])
+  }, [readPage, refreshKey, attempt])
 
   const loadMore = useCallback(async () => {
     if (!cursor || loadingMore) return
@@ -89,7 +94,8 @@ export function useArchivedChats({
       setItems((prev) => appendArchivedPage(prev, page.conversations))
       setCursor(page.hasMore ? page.nextCursor : null)
     } catch (err) {
-      if (requestIdRef.current === requestId) toast.apiError('Could not load archived agents', err)
+      if (requestIdRef.current === requestId)
+        toast.apiError(t('Could not load archived agents'), err)
     } finally {
       setLoadingMore(false)
     }
@@ -105,9 +111,12 @@ export function useArchivedChats({
         await api.agentSetConversationArchived(sessionId, false, teamId)
         setItems((prev) => prev.filter((c) => c.sessionId !== sessionId))
         announceChatUnarchived(sessionId)
-        toast.success('Agent unarchived', `"${chatLabel(conversation)}" is back in Agents.`)
+        toast.success(
+          t('Agent unarchived'),
+          t('"{name}" is back in Agents.', { name: chatLabel(conversation) }),
+        )
       } catch (err) {
-        toast.apiError('Could not unarchive agent', err)
+        toast.apiError(t('Could not unarchive agent'), err)
       } finally {
         setRestoringIds((prev) => {
           const next = new Set(prev)
@@ -124,6 +133,9 @@ export function useArchivedChats({
   return {
     items,
     loading,
+    /** The last load failed: the view offers Retry instead of a false empty list. */
+    failed,
+    retry: () => setAttempt((value) => value + 1),
     loadingMore,
     hasMore: cursor !== null,
     search,

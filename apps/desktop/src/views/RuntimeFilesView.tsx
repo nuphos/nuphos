@@ -21,6 +21,7 @@ import { toast } from '../components/ui/toast'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
+import { t } from '../i18n'
 import { copyLinkWithFeedback } from '../lib/copyLink'
 
 export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
@@ -50,7 +51,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
   const entries = directory?.entries ?? []
   const folders = path.split('/').filter(Boolean)
   const breadcrumbs = folders.map((name, index) => ({
-    label: index === 0 ? 'Workspace' : name,
+    label: index === 0 ? t('Workspace') : name,
     icon: index === 0 ? <FolderOpen className="h-3.5 w-3.5" /> : undefined,
     onClick:
       index < folders.length - 1 || fileName
@@ -59,7 +60,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
   }))
 
   return (
-    <PageMeta pageKey="team.files" title="Files" icon={<FolderOpen className="h-3.5 w-3.5" />}>
+    <PageMeta pageKey="team.files" title={t('Files')} icon={<FolderOpen className="h-3.5 w-3.5" />}>
       {navigationSlot &&
         createPortal(
           <div className="flex min-w-0 items-center gap-1">
@@ -97,15 +98,15 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Copy path"
-                title={`Copy path: ${filePathShown}`}
+                aria-label={t('Copy path')}
+                title={t('Copy path: {path}', { path: filePathShown })}
                 onClick={() =>
                   void copyLinkWithFeedback(
                     filePathShown,
                     (value) => navigator.clipboard.writeText(value),
                     {
-                      onSuccess: () => toast.success('Copied', filePathShown),
-                      onError: () => toast.error('Could not copy the path'),
+                      onSuccess: () => toast.success(t('Copied'), filePathShown),
+                      onError: () => toast.error(t('Could not copy the path')),
                     },
                   )
                 }
@@ -117,11 +118,11 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Open in browser"
+                aria-label={t('Open in browser')}
                 title={
                   source?.local
-                    ? 'Open in browser'
-                    : "Open in browser (a copy of this file; files next to it won't load)"
+                    ? t('Open in browser')
+                    : t("Open in browser (a copy of this file; files next to it won't load)")
                 }
                 disabled={opening}
                 onClick={() => {
@@ -136,8 +137,8 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Download file"
-                title="Download"
+                aria-label={t('Download file')}
+                title={t('Download')}
                 disabled={downloading}
                 onClick={() => {
                   setDownloading(true)
@@ -150,8 +151,8 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Refresh files"
-              title="Refresh files"
+              aria-label={t('Refresh files')}
+              title={t('Refresh files')}
               onClick={refresh}
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -162,13 +163,13 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
       {!source ? (
         <EmptyState
           icon={FolderOpen}
-          title={conversationId && loading ? 'Opening workspace…' : 'Runtime files'}
+          title={conversationId && loading ? t('Opening workspace…') : t('Runtime files')}
           description={
             conversationId
               ? loading
                 ? undefined
-                : 'Select a runtime for this agent, then refresh Files.'
-              : 'Select an agent to browse its workspace.'
+                : t('Select a runtime for this agent, then refresh Files.')
+              : t('Select an agent to browse its workspace.')
           }
         />
       ) : fileName ? (
@@ -178,7 +179,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
               className="flex flex-1 items-center justify-center gap-2 text-[12px] text-tertiary"
               role="status"
             >
-              Opening {fileName}…
+              {t('Opening {name}…', { name: fileName })}
             </div>
           ) : preview ? (
             'image' in preview ? (
@@ -219,16 +220,16 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
           ) : overLimit ? (
             <EmptyState
               icon={FileQuestion}
-              title="Too large to open"
-              description="Files can open media up to 100 MB."
+              title={t('Too large to open')}
+              description={t('Files can open media up to 100 MB.')}
             />
           ) : tooLarge ? (
             <EmptyState
               icon={FileQuestion}
-              title="Too large to preview"
-              description="Files over 512 KiB can be downloaded instead."
+              title={t('Too large to preview')}
+              description={t('Files over 512 KiB can be downloaded instead.')}
               primaryAction={{
-                label: downloading ? 'Downloading…' : 'Download',
+                label: downloading ? t('Downloading…') : t('Download'),
                 icon: Download,
                 disabled: downloading,
                 onClick: () => {
@@ -240,8 +241,8 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
           ) : (
             <EmptyState
               icon={FileQuestion}
-              title="Preview unavailable"
-              description="This file could not be previewed."
+              title={t('Preview unavailable')}
+              description={t('This file could not be previewed.')}
             />
           )}
         </div>
@@ -251,7 +252,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
             columns={[
               {
                 key: 'name',
-                header: 'Name',
+                header: t('Name'),
                 grow: 1,
                 minWidth: 140,
                 primaryAction: true,
@@ -277,17 +278,19 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
             rows={entries}
             rowKey={(entry) => entry.name}
             loading={loading}
-            empty={!directory ? 'No files loaded' : 'This folder is empty'}
+            empty={!directory ? t('No files loaded') : t('This folder is empty')}
             storageKey="runtime-files"
           />
           {directory && (
             <div className="flex shrink-0 items-center justify-between border-t border-main px-3 py-2 text-[11px] text-tertiary">
               <span>
                 {directory.truncated
-                  ? 'First 500 items'
-                  : `${entries.length} ${entries.length === 1 ? 'item' : 'items'}`}
+                  ? t('First 500 items')
+                  : entries.length === 1
+                    ? t('{n} item', { n: entries.length })
+                    : t('{n} items', { n: entries.length })}
               </span>
-              <span>Read-only</span>
+              <span>{t('Read-only')}</span>
             </div>
           )}
         </div>

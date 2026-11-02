@@ -185,4 +185,11 @@ export const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(function
   )
 })
 
-export { MenuCheckboxItem, MenuGroupLabel, MenuSeparator, MenuSubmenuTrigger } from './menu-extras'
+export {
+  MenuCheckboxItem,
+  MenuGroupLabel,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuSeparator,
+  MenuSubmenuTrigger,
+} from './menu-extras'

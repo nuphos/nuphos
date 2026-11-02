@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 export function PagesDomainsSection({
   teamId,
@@ -28,7 +29,7 @@ export function PagesDomainsSection({
     api
       .atlasListCloudflarePagesDomains(teamId, accountId, projectName)
       .then(setDomains)
-      .catch((err: unknown) => toast.apiError('Failed to load custom domains', err))
+      .catch((err: unknown) => toast.apiError(t('Failed to load custom domains'), err))
   }, [teamId, accountId, projectName])
 
   useEffect(() => reload(), [reload])
@@ -39,11 +40,11 @@ export function PagesDomainsSection({
       await api.atlasAddCloudflarePagesDomain(teamId, accountId, projectName, newDomain.trim())
       setNewDomain('')
       setAdding(false)
-      toast.success('Domain added')
+      toast.success(t('Domain added'))
       reload()
     } catch (e) {
-      toast.apiError('Failed to add domain', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Failed to add domain'), e, {
+        fallback: t('Check your connection and try again.'),
       })
     }
   }
@@ -51,12 +52,12 @@ export function PagesDomainsSection({
   return (
     <section>
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[12px] font-medium text-main">Custom domains</span>
+        <span className="text-[12px] font-medium text-main">{t('Custom domains')}</span>
         <button
           onClick={() => setAdding((v) => !v)}
           className="text-[12px] text-zViolet-accent hover:underline flex items-center gap-1"
         >
-          <FontAwesomeIcon icon={faPlus} className="w-3 h-3" /> Add
+          <FontAwesomeIcon icon={faPlus} className="w-3 h-3" /> {t('Add')}
         </button>
       </div>
       {adding && (
@@ -68,12 +69,12 @@ export function PagesDomainsSection({
             className="px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-64"
           />
           <Button size="sm" onClick={() => void addDomain()}>
-            Add
+            {t('Add')}
           </Button>
         </div>
       )}
       {domains.length === 0 ? (
-        <div className="text-tertiary">No custom domains</div>
+        <div className="text-tertiary">{t('No custom domains')}</div>
       ) : (
         <div className="space-y-1">
           {domains.map((d) => (
@@ -83,7 +84,7 @@ export function PagesDomainsSection({
               <button
                 onClick={() => setPendingRemove(d.name)}
                 className="w-5 h-5 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                title="Remove domain"
+                title={t('Remove domain')}
               >
                 <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
               </button>
@@ -94,11 +95,13 @@ export function PagesDomainsSection({
 
       <ConfirmDialog
         open={!!pendingRemove}
-        title="Remove custom domain?"
+        title={t('Remove custom domain?')}
         description={
-          pendingRemove ? `"${pendingRemove}" will stop serving this Pages project.` : ''
+          pendingRemove
+            ? t('"{domain}" will stop serving this Pages project.', { domain: pendingRemove })
+            : ''
         }
-        confirmLabel="Remove"
+        confirmLabel={t('Remove')}
         destructive
         onConfirm={async () => {
           if (!pendingRemove) return
@@ -109,11 +112,11 @@ export function PagesDomainsSection({
               projectName,
               pendingRemove,
             )
-            toast.success('Domain removed')
+            toast.success(t('Domain removed'))
             reload()
           } catch (e) {
-            toast.apiError('Failed to remove domain', e, {
-              fallback: 'Check your connection and try again.',
+            toast.apiError(t('Failed to remove domain'), e, {
+              fallback: t('Check your connection and try again.'),
             })
           }
         }}
@@ -143,7 +146,7 @@ export function PagesDeploymentLogsModal({
       .atlasGetCloudflarePagesDeploymentLogs(teamId, accountId, projectName, deploymentId)
       .then(setLogs)
       .catch((e: unknown) => {
-        toast.apiError('Failed to load logs', e)
+        toast.apiError(t('Failed to load logs'), e)
         onClose()
       })
   }, [teamId, accountId, projectName, deploymentId, onClose])
@@ -152,15 +155,15 @@ export function PagesDeploymentLogsModal({
     <Modal
       open
       onClose={onClose}
-      title="Deployment logs"
+      title={t('Deployment logs')}
       description={deploymentId.slice(0, 12)}
       width={720}
     >
       <div className="px-5 py-4 max-h-[60vh] overflow-auto">
         {!logs ? (
-          <div className="text-tertiary text-[12px]">Loading…</div>
+          <div className="text-tertiary text-[12px]">{t('Loading…')}</div>
         ) : logs.length === 0 ? (
-          <div className="text-tertiary text-[12px]">No log lines</div>
+          <div className="text-tertiary text-[12px]">{t('No log lines')}</div>
         ) : (
           <pre className="text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all">
             {logs.map((l) => l.line).join('\n')}

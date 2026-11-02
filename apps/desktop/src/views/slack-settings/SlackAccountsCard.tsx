@@ -1,4 +1,5 @@
 import { Avatar } from '../../components/Avatar'
+import { t } from '../../i18n'
 
 import type { SlackUserMapping, TeamMember } from '../../types'
 
@@ -20,24 +21,26 @@ export function SlackAccountsCard({
   return (
     <div className="mb-8 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
       <div className="border-b border-zGray-800/60 px-4 py-3">
-        <div className="text-[13px] font-medium text-main">Slack accounts</div>
+        <div className="text-[13px] font-medium text-main">{t('Slack accounts')}</div>
         <div className="mt-0.5 text-[12px] text-tertiary">
-          Which Nuphos user the agent acts as when someone @mentions it. Usually auto-linked by
-          email on install.
+          {t(
+            'Which Nuphos user the agent acts as when someone @mentions it. Usually auto-linked by email on install.',
+          )}
         </div>
       </div>
       {!loading && !myMapping && (
         <div className="border-b border-zGray-800/60 px-4 py-3 text-[12.5px] text-tertiary">
-          Your Slack account is not linked yet — it links automatically when your Slack email
-          matches your Nuphos account email.
+          {t(
+            'Your Slack account is not linked yet — it links automatically when your Slack email matches your Nuphos account email.',
+          )}
         </div>
       )}
       {loading ? (
-        <div className="px-4 py-6 text-[13px] text-tertiary">Loading…</div>
+        <div className="px-4 py-6 text-[13px] text-tertiary">{t('Loading…')}</div>
       ) : linkedAccountRows.length === 0 ? (
         myMapping ? null : canManage ? (
           <div className="px-4 py-6 text-[13px] text-tertiary">
-            No Slack accounts linked on this team yet.
+            {t('No Slack accounts linked on this team yet.')}
           </div>
         ) : null
       ) : (
@@ -61,12 +64,12 @@ export function SlackAccountsCard({
                     </span>
                     {isSelf && (
                       <span className="flex-shrink-0 rounded border border-zGray-700 px-1.5 py-0.5 text-[11px] text-tertiary">
-                        you
+                        {t('you')}
                       </span>
                     )}
                     {mapping.slackUser?.matchMethod === 'email' && (
                       <span className="flex-shrink-0 rounded border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] text-emerald-300">
-                        matched by email
+                        {t('matched by email')}
                       </span>
                     )}
                   </div>

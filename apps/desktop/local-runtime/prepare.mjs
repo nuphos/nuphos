@@ -250,6 +250,20 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         ],
         desktopDir,
       )
+      // This Mac's screen as a desktop, without Screen Sharing (mac-screen.ts).
+      run(
+        'xcrun',
+        [
+          'swiftc',
+          '-O',
+          '-target',
+          `${arch}-apple-macosx14.0`,
+          join(desktopDir, 'local-runtime', 'mac-screen-host.swift'),
+          '-o',
+          join(out, 'mac-screen-host'),
+        ],
+        desktopDir,
+      )
     }
     const binary = skipOpenab ? null : (openab ?? buildOpenab(target, revision))
 

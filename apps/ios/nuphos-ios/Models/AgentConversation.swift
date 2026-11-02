@@ -217,9 +217,11 @@ struct AgentConversationDetail: Decodable, Sendable {
     let readSeq: Int?
     let watching: Bool?
     let timelineEvents: [TimelineEvent]
+    /// The runtime's guess at what the user will send next.
+    let promptSuggestion: String?
 
     private enum CodingKeys: String, CodingKey {
-        case isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents
+        case isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -241,5 +243,6 @@ struct AgentConversationDetail: Decodable, Sendable {
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
+        promptSuggestion = try? c.decodeIfPresent(String.self, forKey: .promptSuggestion)
     }
 }

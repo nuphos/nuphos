@@ -111,6 +111,7 @@ test('a merge stores the state and drops any stale health', async () => {
       {
         $set: {
           'linkedResources.$[resource].state': 'merged',
+          'linkedResources.$[resource].draft': false,
           'linkedResources.$[resource].health': null,
         },
       },

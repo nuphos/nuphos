@@ -1,6 +1,7 @@
 import 'react-grid-layout/css/styles.css'
 
-import { useMemo, useRef, useState } from 'react'
+import clsx from 'clsx'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactGridLayout, { useContainerWidth } from 'react-grid-layout'
 
 import { SectionGrip } from '../../../views/settings/SectionGrip'
@@ -38,6 +39,8 @@ export function HomeGrid({
   cards,
   saved,
   onChange,
+  sizes,
+  highlight,
   label,
   revealAt,
   replayKey,
@@ -45,6 +48,10 @@ export function HomeGrid({
   /** Keyed elements; the key is the card's grid id. */
   cards: ReactElement[]
   saved: HomeGridItem[] | undefined
+  /** Sizes for new cards that depend on more than their kind, by grid id. */
+  sizes?: Record<string, { w: number; h: number }>
+  /** Cards just added: outlined for a moment, the first scrolled into view. */
+  highlight?: string[]
   onChange: (grid: HomeGridItem[]) => void
   /** A card's name, from its grid id, for its grip and for announcements. */
   label: (key: string) => string
@@ -74,10 +81,22 @@ export function HomeGrid({
     gridFor(
       cards.map((card) => String(card.key)),
       saved,
+      sizes,
     ),
   )
   const layout = grid.map((item) => ({ ...item, ...minCardSize(item.i) }))
   const order = cardsInReadingOrder(grid).map((item) => item.i)
+
+  useEffect(() => {
+    const first = highlight?.[0]
+
+    if (!first) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    containerRef.current
+      ?.querySelector(`[data-card="${CSS.escape(first)}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
+  }, [highlight, containerRef])
 
   const announce = (next: HomeGridItem[], id: string) => {
     const position = cardsInReadingOrder(next).findIndex((item) => item.i === id) + 1
@@ -128,6 +147,7 @@ export function HomeGrid({
             return (
               <div
                 key={card.key}
+                data-card={id}
                 onClickCapture={(event) => {
                   if (!dragged.current) return
                   event.stopPropagation()
@@ -137,7 +157,11 @@ export function HomeGrid({
                 <DelayedPanelReveal
                   replayKey={replayKey}
                   delayMs={revealAt + 150 * i}
-                  className="group/section relative h-full"
+                  className={clsx(
+                    'group/section relative h-full rounded-lg transition-shadow duration-700 motion-reduce:transition-none',
+                    highlight?.includes(id) &&
+                      'ring-2 ring-zViolet-500 ring-offset-2 ring-offset-[rgb(var(--color-background-base))]',
+                  )}
                 >
                   <SectionGrip
                     label={label(id)}

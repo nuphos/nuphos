@@ -1,5 +1,9 @@
 package ai.nuphos.android.ui.plans
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,6 +59,7 @@ fun PlanDetailScreen(
     var fetched by remember { mutableStateOf<Plan?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf(false) }
+    var confirmUnplan by remember { mutableStateOf(false) }
     val plan = plans.plan(planId) ?: fetched
 
     LaunchedEffect(planId) {
@@ -89,7 +94,7 @@ fun PlanDetailScreen(
                         if (plan?.isCancellable == true) {
                             DropdownMenuItem(text = { Text("Mark as unplanned") }, onClick = {
                                 menu = false
-                                scope.launch { plans.markUnplanned(plan) }
+                                confirmUnplan = true
                             })
                         }
                     }
@@ -113,8 +118,15 @@ fun PlanDetailScreen(
                         Text("Plan ${plan.displayNumber}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         StatusBadge(plan.status)
                     }
-                    Text(plan.title.ifEmpty { "Untitled plan" }, style = MaterialTheme.typography.headlineSmall)
+                    Text("${plan.steps.size} steps · ${plan.totalJobs} jobs · ${plan.totalCommands} commands", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(plan.title.ifEmpty { "Untitled plan" }, style = MaterialTheme.typography.titleMedium)
                     if (plan.overview.isNotEmpty()) Text(plan.overview, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (plan.status == "failed" && !plan.executionError.isNullOrBlank()) CardSection {
+                    Text(plan.executionError, color = MaterialTheme.colorScheme.error)
+                }
+                if (plan.status == "proposed" && !plan.isReadyForApproval) CardSection {
+                    Text("The agent is still building this plan — steps, cost and risk arrive before it can be approved.", style = MaterialTheme.typography.bodySmall)
                 }
                 if (plan.decisions.isNotEmpty()) CardSection {
                     Text("Decisions", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -125,18 +137,9 @@ fun PlanDetailScreen(
                 }
                 if (plan.steps.isNotEmpty()) CardSection {
                     Text("Steps", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    plan.steps.forEachIndexed { i, step ->
-                        Text("${i + 1}. ${step.title}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-                        step.description?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        step.jobs.forEach { job ->
-                            Text(job.title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 12.dp, top = 4.dp))
-                            job.commands.forEach { cmd ->
-                                Text(cmd.command, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
+                    PlanSteps(plan.steps)
                 }
-                if (plan.costSummary != null || plan.costOneTime != null) CardSection {
+                if (plan.costSummary != null || plan.costOneTime != null || plan.costMonthly != null || plan.costSavings != null) CardSection {
                     Text("Cost", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     plan.costSummary?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                     plan.costOneTime?.let { Text("One-time  $it", style = MaterialTheme.typography.bodySmall) }
@@ -163,6 +166,14 @@ fun PlanDetailScreen(
             else -> Text("Loading plan…", modifier = Modifier.padding(padding).padding(24.dp))
         }
     }
+    if (confirmUnplan && plan != null) AlertDialog(
+        onDismissRequest = { confirmUnplan = false },
+        title = { Text("Mark plan ${plan.displayNumber} as unplanned?") },
+        text = { Text("The plan is kept for reference but will no longer be run.") },
+        confirmButton = { TextButton(onClick = { confirmUnplan = false; scope.launch { plans.markUnplanned(plan) } }) { Text("Mark as unplanned", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { confirmUnplan = false }) { Text("Cancel") } },
+    )
+    plans.actionError?.let { message -> AlertDialog(onDismissRequest = { plans.actionError = null }, title = { Text("Something went wrong") }, text = { Text(message) }, confirmButton = { TextButton(onClick = { plans.actionError = null }) { Text("OK") } }) }
 }
 
 @Composable
@@ -171,18 +182,23 @@ private fun ActionBar(plan: Plan, showsChatActions: Boolean, nav: NavHostControl
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val chat = if (showsChatActions) PlanChatTarget.from(plan) else null
+    var busy by remember(plan.id) { mutableStateOf(false) }
+    var notice by remember(plan.id) { mutableStateOf<String?>(null) }
+    notice?.let { message -> AlertDialog(onDismissRequest = { notice = null }, title = { Text("Plan approval") }, text = { Text(message) }, confirmButton = { TextButton(onClick = { notice = null }) { Text("OK") } }) }
     val canApprove = plan.status == "proposed" && plan.isReadyForApproval
     if (!canApprove && (chat == null || plan.status !in setOf("proposed", "approved"))) return
     Surface(tonalElevation = 3.dp) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (canApprove) {
                 Button(
-                    onClick = { scope.launch { runCatching { plans.approve(plan) } } },
+                    enabled = !busy,
+                    onClick = { if (!busy) { busy = true; scope.launch { try { val updated = plans.approve(plan); if (updated.status != "approved" && updated.approvalCount == plan.approvalCount) notice = "Your approval is already recorded on this plan." } catch (e: Exception) { notice = e.message ?: "Could not approve plan." } finally { busy = false } } } },
                     modifier = Modifier.weight(1f),
                 ) { Text("Approve") }
             }
             if (chat != null) {
                 FilledTonalButton(
+                    enabled = !busy,
                     onClick = {
                         val session = store.session(chat.sessionId, chat.title)
                         session.sendAfterLoad = chat.proceedMessage
@@ -200,7 +216,8 @@ private fun CardSection(content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = { content() })
     }

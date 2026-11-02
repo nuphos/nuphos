@@ -5,7 +5,9 @@ import { api } from '../api'
 import { GithubMark } from '../components/GithubMark'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
+import { Fill } from './bind-account/shared'
 import { useResetOnKey } from './useResetOnKey'
 
 type Props = {
@@ -58,8 +60,10 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
     <Modal
       open={open}
       onClose={close}
-      title="Connect GitHub"
-      description="Install the Nuphos GitHub App so the agent can read and act on your repositories."
+      title={t('Connect {name}', { name: 'GitHub' })}
+      description={t(
+        'Install the Nuphos GitHub App so the agent can read and act on your repositories.',
+      )}
       width={460}
     >
       <div className="px-5 py-5 selectable">
@@ -69,9 +73,9 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
               <GithubMark size={26} className="text-main" />
             </div>
             <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[340px]">
-              Click below to open GitHub in your browser. Pick the user or organization, choose
-              which repositories Nuphos should access, then return here — the dialog will close
-              automatically.
+              {t(
+                'Click below to open GitHub in your browser. Pick the user or organization, choose which repositories Nuphos should access, then return here — the dialog will close automatically.',
+              )}
             </div>
           </div>
         )}
@@ -80,11 +84,15 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
           <div className="flex flex-col items-center gap-4 py-3">
             <Loader2 className="w-6 h-6 text-zViolet-accent animate-spin" strokeWidth={1.8} />
             <div className="text-[12.5px] text-secondary text-center">
-              Waiting for GitHub… complete the installation in your browser.
+              {t('Waiting for GitHub… complete the installation in your browser.')}
             </div>
             <div className="text-[11px] text-tertiary text-center max-w-[340px]">
-              If nothing happens, make sure your browser allowed the popup, and that your OS allowed
-              Nuphos to handle <span className="font-mono">nuphos://</span> URLs.
+              <Fill
+                text={t(
+                  'If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.',
+                )}
+                scheme={<span className="font-mono">nuphos://</span>}
+              />
             </div>
           </div>
         )}
@@ -101,12 +109,12 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
           onClick={close}
           className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800"
         >
-          {phase.kind === 'waiting' ? 'Cancel' : 'Close'}
+          {phase.kind === 'waiting' ? t('Cancel') : t('Close')}
         </button>
         {phase.kind !== 'waiting' && (
           <Button size="sm" onClick={() => void startInstall()}>
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
-            {phase.kind === 'error' ? 'Try again' : 'Install GitHub App'}
+            {phase.kind === 'error' ? t('Try again') : t('Install GitHub App')}
           </Button>
         )}
       </div>

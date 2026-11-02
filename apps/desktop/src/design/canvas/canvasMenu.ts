@@ -1,5 +1,7 @@
 import { Bot, ClipboardPaste, Copy, Download, Play, Trash2 } from 'lucide-react'
 
+import { t } from '../../i18n/index.ts'
+
 import { hasClipboard } from './clipboard'
 import { downloadHtml } from './helpers'
 
@@ -23,7 +25,7 @@ export function canvasMenuItems(a: MenuArgs): ContextMenuItem[] {
     return [
       {
         key: 'paste',
-        label: 'Paste',
+        label: t('Paste'),
         icon: ClipboardPaste,
         disabled: !hasClipboard(),
         onSelect: a.onPaste,
@@ -34,12 +36,12 @@ export function canvasMenuItems(a: MenuArgs): ContextMenuItem[] {
   const items: ContextMenuItem[] = []
 
   if (a.canAskAgent && frames.length > 0) {
-    items.push({ key: 'ask', label: 'Ask agent to edit…', icon: Bot, onSelect: a.onAskAgent })
+    items.push({ key: 'ask', label: t('Ask agent to edit…'), icon: Bot, onSelect: a.onAskAgent })
   }
   if (frames.length === 1) {
     items.push({
       key: 'play',
-      label: 'Play from here',
+      label: t('Play from here'),
       icon: Play,
       onSelect: () => a.onPlay(frames[0]!.id),
     })
@@ -47,7 +49,10 @@ export function canvasMenuItems(a: MenuArgs): ContextMenuItem[] {
   if (frames.length > 0) {
     items.push({
       key: 'download',
-      label: frames.length === 1 ? 'Download HTML' : `Download ${String(frames.length)} screens`,
+      label:
+        frames.length === 1
+          ? t('Download HTML')
+          : t('Download {count} screens', { count: frames.length }),
       icon: Download,
       onSelect: () => {
         for (const f of frames) downloadHtml(f.title, f.html)
@@ -56,8 +61,8 @@ export function canvasMenuItems(a: MenuArgs): ContextMenuItem[] {
   }
   if (items.length > 0) items.push({ key: 'sep', separator: true })
   items.push(
-    { key: 'duplicate', label: 'Duplicate', icon: Copy, onSelect: a.onDuplicate },
-    { key: 'delete', label: 'Delete', icon: Trash2, destructive: true, onSelect: a.onDelete },
+    { key: 'duplicate', label: t('Duplicate'), icon: Copy, onSelect: a.onDuplicate },
+    { key: 'delete', label: t('Delete'), icon: Trash2, destructive: true, onSelect: a.onDelete },
   )
 
   return items

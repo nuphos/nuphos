@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 import type { DatabaseConnection } from '../types'
 import type { ReactNode } from 'react'
@@ -24,46 +25,54 @@ export function DatabaseBackupRestorePreview({ connection }: Props) {
     <PreviewShell
       issue=""
       icon={<ArchiveRestore className="h-4 w-4" />}
-      title="MongoDB backup and restore"
-      description={`Backup artifacts for ${connection.name} will run through a dedicated execution workflow; Query Console credentials will not be exposed or reused in the renderer.`}
+      title={t('MongoDB backup and restore')}
+      description={t(
+        'Backup artifacts for {name} will run through a dedicated execution workflow; Query Console credentials will not be exposed or reused in the renderer.',
+        { name: connection.name },
+      )}
       action={
         <Button size="sm" disabled>
           <HardDrive className="h-3.5 w-3.5" />
-          Create backup
+          {t('Create backup')}
         </Button>
       }
     >
       <div className="grid gap-3 md:grid-cols-3">
         <StatusPreview
-          label="Executor"
-          value="Not connected"
-          detail="Private execution plane required"
+          label={t('Executor')}
+          value={t('Not connected')}
+          detail={t('Private execution plane required')}
         />
-        <StatusPreview label="Schedule" value="Not configured" detail="Manual backup comes first" />
-        <StatusPreview label="Artifacts" value="0" detail="Encrypted inventory" />
+        <StatusPreview
+          label={t('Schedule')}
+          value={t('Not configured')}
+          detail={t('Manual backup comes first')}
+        />
+        <StatusPreview label={t('Artifacts')} value="0" detail={t('Encrypted inventory')} />
       </div>
       <section className="mt-4 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-950/35">
         <div className="grid grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr] border-b border-zGray-800 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
-          <span>Backup</span>
-          <span>Scope</span>
-          <span>Size</span>
-          <span>Status</span>
+          <span>{t('Backup')}</span>
+          <span>{t('Scope')}</span>
+          <span>{t('Size')}</span>
+          <span>{t('Status')}</span>
         </div>
         <div className="flex min-h-40 flex-col items-center justify-center px-6 text-center">
           <ArchiveRestore className="h-7 w-7 text-zGray-600" />
           <div className="mt-3 text-[12.5px] text-secondary">
-            No backup workflow is connected yet
+            {t('No backup workflow is connected yet')}
           </div>
           <p className="mt-1 max-w-xl text-[10.5px] leading-4 text-tertiary">
-            Future artifacts will show checksum, MongoDB version, encrypted storage location,
-            retention, progress, and restore compatibility.
+            {t(
+              'Future artifacts will show checksum, MongoDB version, encrypted storage location, retention, progress, and restore compatibility.',
+            )}
           </p>
         </div>
       </section>
       <PreviewFootnote icon={<ShieldCheck className="h-4 w-4" />}>
-        Restore will require integrity and target preflight, impact preview, typed confirmation,
-        approval, and an explicit authorized executor. It will never be triggered from the read-only
-        query gateway.
+        {t(
+          'Restore will require integrity and target preflight, impact preview, typed confirmation, approval, and an explicit authorized executor. It will never be triggered from the read-only query gateway.',
+        )}
       </PreviewFootnote>
     </PreviewShell>
   )
@@ -74,12 +83,15 @@ export function DatabaseParametersPreview({ connection }: Props) {
     <PreviewShell
       issue=""
       icon={<Settings2 className="h-4 w-4" />}
-      title="MongoDB runtime parameters"
-      description={`Read the effective parameter catalog for ${connection.name} here. Every parameter write will create a governed change request instead of executing directly.`}
+      title={t('MongoDB runtime parameters')}
+      description={t(
+        'Read the effective parameter catalog for {name} here. Every parameter write will create a governed change request instead of executing directly.',
+        { name: connection.name },
+      )}
       action={
         <Button size="sm" disabled>
           <FileCheck2 className="h-3.5 w-3.5" />
-          Request change
+          {t('Request change')}
         </Button>
       }
     >
@@ -88,12 +100,12 @@ export function DatabaseParametersPreview({ connection }: Props) {
           <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-zViolet-accent" />
           <div>
             <div className="text-[12px] font-medium text-main">
-              Approval is mandatory for parameter writes
+              {t('Approval is mandatory for parameter writes')}
             </div>
             <p className="mt-1 text-[10.5px] leading-4 text-tertiary">
-              The request will carry the typed value, normalized diff, target scope, restart
-              requirement, reason, and risk. It must meet this database's minimum approval policy,
-              then an authorized executor must run it from Changes.
+              {t(
+                "The request will carry the typed value, normalized diff, target scope, restart requirement, reason, and risk. It must meet this database's minimum approval policy, then an authorized executor must run it from Changes.",
+              )}
             </p>
           </div>
         </div>
@@ -102,17 +114,17 @@ export function DatabaseParametersPreview({ connection }: Props) {
         <div className="flex items-center justify-between gap-3 border-b border-zGray-800 px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-zGray-800 bg-zGray-900 px-2.5 py-1.5 text-tertiary">
             <Search className="h-3.5 w-3.5" />
-            <span className="text-[10.5px]">Search parameters</span>
+            <span className="text-[10.5px]">{t('Search parameters')}</span>
           </div>
           <span className="whitespace-nowrap rounded border border-zGray-700 px-2 py-1 text-[10px] text-tertiary">
-            Catalog not connected
+            {t('Catalog not connected')}
           </span>
         </div>
         <div className="grid grid-cols-[minmax(0,1.5fr)_1fr_1fr_1fr] border-b border-zGray-800 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
-          <span>Parameter</span>
-          <span>Effective value</span>
-          <span>Scope</span>
-          <span>Mutability</span>
+          <span>{t('Parameter')}</span>
+          <span>{t('Effective value')}</span>
+          <span>{t('Scope')}</span>
+          <span>{t('Mutability')}</span>
         </div>
         <div className="divide-y divide-zGray-800/70">
           {[0, 1, 2].map((row) => (
@@ -129,9 +141,9 @@ export function DatabaseParametersPreview({ connection }: Props) {
         </div>
       </section>
       <PreviewFootnote icon={<Database className="h-4 w-4" />}>
-        The initial catalog will use an explicit allowlist and distinguish dynamic,
-        restart-required, startup-only, node, replica, and cluster parameters. Unknown or sensitive
-        parameters remain read-only or hidden.
+        {t(
+          'The initial catalog will use an explicit allowlist and distinguish dynamic, restart-required, startup-only, node, replica, and cluster parameters. Unknown or sensitive parameters remain read-only or hidden.',
+        )}
       </PreviewFootnote>
     </PreviewShell>
   )
@@ -163,7 +175,7 @@ function PreviewShell({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-[14px] font-medium text-main">{title}</h2>
               <span className="rounded-full border border-warning/30 bg-warning/5 px-2 py-0.5 text-[9.5px] font-medium uppercase tracking-wide text-warning">
-                Preview
+                {t('Preview')}
               </span>
               <span className="font-mono text-[9.5px] text-tertiary">{issue}</span>
             </div>

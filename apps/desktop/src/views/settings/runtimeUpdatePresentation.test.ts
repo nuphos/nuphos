@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { runtimeUpdatePresentation } from './runtimeUpdatePresentation.ts'
+import { hostUpdateVersion, runtimeUpdatePresentation } from './runtimeUpdatePresentation.ts'
 
 const base = {
   currentVersion: '0.1.2',
@@ -39,4 +39,14 @@ test('queued and rolling updates disable repeated requests and describe the actu
     runtimeUpdatePresentation({ ...base, state: 'unknown' }, true, true, true).showButton,
     false,
   )
+})
+
+test('a host back on the latest version clears the update an earlier read offered', () => {
+  assert.equal(hostUpdateVersion({ state: 'available', latestVersion: '0.8.3' }), '0.8.3')
+  assert.equal(hostUpdateVersion({ state: 'failed', latestVersion: '0.8.3' }), '0.8.3')
+  assert.equal(hostUpdateVersion({ state: 'available' }), '')
+  // After the update the host reports 0.8.3 and the backend answers current.
+  assert.equal(hostUpdateVersion({ state: 'current', latestVersion: '0.8.3' }), undefined)
+  assert.equal(hostUpdateVersion({ state: 'unknown' }), undefined)
+  assert.equal(hostUpdateVersion(undefined), undefined)
 })

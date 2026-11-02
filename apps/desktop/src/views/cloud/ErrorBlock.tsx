@@ -3,6 +3,7 @@ import { AlertTriangle, ExternalLink, Sparkles } from 'lucide-react'
 import { api, parseAtlasError } from '../../api'
 import { Button } from '../../components/ui/button'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 import { useWorkspaceRowLink } from '../../lib/workspaceRowLink'
 
 export function ErrorBlock({ message }: { message: string }) {
@@ -31,11 +32,17 @@ export function ErrorBlock({ message }: { message: string }) {
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-error" strokeWidth={2} />
           <div className="min-w-0">
             <div className="text-[13px] font-medium text-main">
-              {details?.serviceTitle ?? 'A Google Cloud API'} is not enabled
-              {details?.project ? ` in ${details.project}` : ''}
+              {details?.project
+                ? t('{service} is not enabled in {project}', {
+                    service: details.serviceTitle ?? t('A Google Cloud API'),
+                    project: details.project,
+                  })
+                : t('{service} is not enabled', {
+                    service: details?.serviceTitle ?? t('A Google Cloud API'),
+                  })}
             </div>
             <div className="mt-1 text-[12.5px] leading-relaxed text-secondary">
-              This is not a missing IAM role — the API is turned off on the project.
+              {t('This is not a missing IAM role — the API is turned off on the project.')}
             </div>
             {details?.enableCommand && (
               <div className="mt-2 overflow-x-auto rounded bg-black/20 px-2 py-1.5 font-mono text-[11.5px] text-secondary scrollbar-thin">
@@ -54,7 +61,7 @@ export function ErrorBlock({ message }: { message: string }) {
                 className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-zViolet-accent/15 text-zViolet-accent hover:bg-zViolet-accent/25 text-[12px]"
               >
                 <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
-                Enable in Google Cloud Console
+                {t('Enable in Google Cloud Console')}
               </button>
             )}
           </div>
@@ -98,18 +105,18 @@ export function ErrorBlock({ message }: { message: string }) {
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-error" strokeWidth={2} />
           <div className="min-w-0">
             <div className="text-[13px] font-medium text-main">
-              Selected credential does not have permission
+              {t('Selected credential does not have permission')}
             </div>
             <div className="mt-1 text-[12.5px] leading-relaxed text-secondary">{error.message}</div>
             {details?.operation && (
               <div className="mt-2 text-[12px] text-tertiary">
-                Missing or blocked operation:{' '}
+                {t('Missing or blocked operation:')}{' '}
                 <span className="font-mono text-secondary">{details.operation}</span>
               </div>
             )}
             {details?.regions && details.regions.length > 0 && (
               <div className="mt-1 text-[12px] text-tertiary">
-                Checked regions:{' '}
+                {t('Checked regions:')}{' '}
                 <span className="font-mono text-secondary">{details.regions.join(', ')}</span>
               </div>
             )}
@@ -123,10 +130,10 @@ export function ErrorBlock({ message }: { message: string }) {
               className="mt-3"
               type="button"
               onClick={fixWithAgent}
-              title="Seed the agent chat with this permission error"
+              title={t('Seed the agent chat with this permission error')}
             >
               <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
-              Fix with Agent
+              {t('Fix with Agent')}
             </Button>
           </div>
         </div>

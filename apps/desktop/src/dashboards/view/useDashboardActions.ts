@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 
 import { createNuphosDashboard } from './helpers'
 
@@ -71,7 +72,7 @@ export function useDashboardActions({
       setDashboards((prev) => [created, ...prev])
       onDashboardOpened?.({ dashboardId: created.id, dashboardName: created.name })
     } catch (err) {
-      toast.apiError('Could not create dashboard', err)
+      toast.apiError(t('Could not create dashboard'), err)
     } finally {
       creatingRef.current = false
       setCreating(false)
@@ -86,7 +87,7 @@ export function useDashboardActions({
         if (selectedId === dashboard.id) onDashboardOpened?.(null)
         setDashboardToDelete(null)
       } catch (err) {
-        toast.apiError('Could not delete dashboard', err)
+        toast.apiError(t('Could not delete dashboard'), err)
         throw err
       }
     },
@@ -103,7 +104,7 @@ export function useDashboardActions({
         await api.dashboardsRefresh(teamId, selectedId, force, viewRange)
         await loadDetail(selectedId)
       } catch (err) {
-        toast.apiError('Refresh failed', err)
+        toast.apiError(t('Refresh failed'), err)
       } finally {
         setRefreshing(false)
       }

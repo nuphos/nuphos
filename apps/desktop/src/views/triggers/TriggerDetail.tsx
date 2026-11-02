@@ -6,6 +6,7 @@ import { AgentPanel } from '../../components/agent/AgentPanel'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/Switch'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { scheduleSummary } from './cron'
@@ -110,13 +111,13 @@ export function TriggerDetail({
     if (listStatus === 'error') {
       return (
         <div className="p-5 text-[12.5px] text-error">
-          Could not load triggers.
+          {t('Could not load triggers.')}
           <button
             type="button"
             onClick={onRetry}
             className="ml-2 underline text-secondary hover:text-main"
           >
-            Retry
+            {t('Retry')}
           </button>
         </div>
       )
@@ -124,7 +125,7 @@ export function TriggerDetail({
 
     return (
       <div className="p-5 text-[12.5px] text-error">
-        Trigger not found. It may have been deleted.
+        {t('Trigger not found. It may have been deleted.')}
       </div>
     )
   }
@@ -152,24 +153,24 @@ export function TriggerDetail({
                   setRunsKey((key) => key + 1)
                 })
               }}
-              title="Fire this trigger once, now"
+              title={t('Fire this trigger once, now')}
             >
               {firing ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Play className="h-3.5 w-3.5" strokeWidth={1.8} />
               )}
-              Run now
+              {t('Run now')}
             </Button>
             <Switch
               checked={trigger.enabled}
               disabled={!canManage || cleanupPending}
-              label={trigger.enabled ? 'Disable trigger' : 'Enable trigger'}
+              label={trigger.enabled ? t('Disable trigger') : t('Enable trigger')}
               onChange={(enabled) => void onToggle(enabled)}
             />
             <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
-              Edit
+              {t('Edit')}
             </Button>
           </div>,
           actionsSlot,
@@ -208,8 +209,8 @@ export function TriggerDetail({
           ) : (
             <div className="flex flex-1 items-center justify-center px-6 text-center text-[12.5px] text-tertiary">
               {firedAt !== null
-                ? 'Starting a run — it will appear on the left shortly.'
-                : 'Pick a run to read it, or press Run now to start one.'}
+                ? t('Starting a run — it will appear on the left shortly.')
+                : t('Pick a run to read it, or press Run now to start one.')}
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react'
 
 import { tryParseChartPayload } from '../components/agent/chartPayload'
 import { Table } from '../components/Table'
+import { t } from '../i18n'
 
 import { DashboardPanelChart } from './DashboardPanelChart'
 
@@ -90,7 +91,7 @@ function TableView({
         rows={rows}
         rowKey={(r) => String(r.index)}
         storageKey={storageKey}
-        empty={<div className="p-3 text-[12px] text-tertiary">No rows.</div>}
+        empty={<div className="p-3 text-[12px] text-tertiary">{t('No rows.')}</div>}
       />
     </div>
   )
@@ -117,7 +118,9 @@ export const PanelOutputView = memo(
 
     if (!payload)
       return (
-        <div className="p-3 text-[12px] text-tertiary">Chart output could not be rendered.</div>
+        <div className="p-3 text-[12px] text-tertiary">
+          {t('Chart output could not be rendered.')}
+        </div>
       )
 
     return <DashboardPanelChart payload={payload} fill={fill} />

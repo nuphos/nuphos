@@ -27,6 +27,8 @@ function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?
     revoked?: string[]
     dropped?: string[]
     settled?: string
+    trusted?: string
+    untrusted?: string[]
   }[] = []
   const deps: DeviceShareRouteDependencies = {
     access: {
@@ -63,20 +65,60 @@ function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?
       },
     ],
     decide: async (_owner, approvalId, approve) =>
-      approvalId === 'known'
+      approvalId === 'known' || approvalId === 'waiting'
         ? {
-            _id: 'known',
+            _id: approvalId,
             ownerId: 'owner',
             deviceId: 'mac',
             teamId: TEAM,
-            sessionId: 's1',
+            sessionId: approvalId === 'known' ? 's1' : 's2',
             actorId: 'mate',
             status: approve ? 'approved' : 'denied',
             requestedAt: new Date(0),
           }
         : null,
+    pendingFrom: async ({ actorId, deviceId }) =>
+      actorId === 'mate' && deviceId === 'mac'
+        ? [
+            {
+              _id: 'waiting',
+              ownerId: 'owner',
+              deviceId: 'mac',
+              teamId: TEAM,
+              sessionId: 's2',
+              actorId: 'mate',
+              status: 'pending',
+              requestedAt: new Date(0),
+            },
+          ]
+        : [],
     settleQueue: async (approval) => {
       calls.push({ settled: `${approval.sessionId}:${approval.status}` })
+    },
+    trust: async ({ actorId, deviceId, duration }) => {
+      calls.push({ trusted: `${actorId}@${deviceId}:${duration}` })
+    },
+    listTrusts: async () => [
+      {
+        _id: 't1',
+        ownerId: 'owner',
+        deviceId: 'mac',
+        teamId: TEAM,
+        actorId: 'mate',
+        expiresAt: new Date('2026-10-30T12:00:00Z'),
+        createdAt: new Date(0),
+      },
+      {
+        _id: 't2',
+        ownerId: 'owner',
+        deviceId: 'mac',
+        teamId: TEAM,
+        actorId: 'other',
+        createdAt: new Date(0),
+      },
+    ],
+    dropTrusts: async (_owner, _device, _team, actorIds) => {
+      calls.push({ untrusted: actorIds })
     },
     conversationTitles: async () => new Map([['s1', 'Today’s weather']]),
     ownApproval: async (sessionId, actorId) =>
@@ -218,4 +260,85 @@ test('the requester sees whether their own conversation still waits', async () =
   expect(await status('mate', 's1')).toEqual({ status: 'pending' })
   expect(await status('other', 's1')).toEqual({ status: null })
   expect(await status('mate', 's2')).toEqual({ status: null })
+})
+
+test('approving with trust also lets the teammate’s other waiting conversations on it go', async () => {
+  const { server, calls } = app()
+  const response = await server.request('/devices/share-approvals/known', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ approve: true, trust: '8h' }),
+  })
+
+  expect(await response.json()).toEqual({ id: 'known', status: 'approved' })
+  expect(calls).toEqual([
+    { trusted: 'mate@mac:8h' },
+    { settled: 's1:approved' },
+    { settled: 's2:approved' },
+  ])
+})
+
+test('a refusal never trusts, and an unknown duration is rejected', async () => {
+  const { server, calls } = app()
+  const answer = (body: unknown) =>
+    server.request('/devices/share-approvals/known', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+  expect((await answer({ approve: false, trust: 'always' })).status).toBe(200)
+  expect(calls).toEqual([{ settled: 's1:denied' }])
+  expect((await answer({ approve: true, trust: 'forever' })).status).toBe(400)
+})
+
+test('the owner lists who they trust and takes it back', async () => {
+  const { server, calls } = app()
+  const listed = await server.request(`/devices/mac/share-trusts?teamId=${TEAM}`)
+
+  expect(await listed.json()).toEqual({
+    trusts: [
+      { actorId: 'mate', expiresAt: '2026-10-30T12:00:00.000Z' },
+      { actorId: 'other', expiresAt: null },
+    ],
+  })
+
+  const dropped = await server.request(`/devices/mac/share-trusts/mate?teamId=${TEAM}`, {
+    method: 'DELETE',
+  })
+
+  expect(dropped.status).toBe(200)
+  expect(calls).toEqual([{ untrusted: ['mate'] }])
+})
+
+test('only the owner of the computer sees or changes its trusts', async () => {
+  const { server } = app({ userId: 'mate' })
+
+  expect((await server.request(`/devices/mac/share-trusts?teamId=${TEAM}`)).status).toBe(404)
+  expect(
+    (await server.request(`/devices/mac/share-trusts/other?teamId=${TEAM}`, { method: 'DELETE' }))
+      .status,
+  ).toBe(404)
+})
+
+test('teammates who lose the share lose the trust too', async () => {
+  const { server, calls } = app()
+
+  await server.request(`/devices/mac/share?teamId=${TEAM}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ level: 'approve', everyone: false, userIds: ['mate'] }),
+  })
+  expect(calls).toContainEqual({ untrusted: ['other'] })
+})
+
+test('leaving “Ask me first” forgets every trust on the computer', async () => {
+  const { server, calls } = app({ ceiling: 'full' })
+
+  await server.request(`/devices/mac/share?teamId=${TEAM}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ level: 'full', everyone: true, userIds: [] }),
+  })
+  expect(calls.some((call) => 'untrusted' in call && call.untrusted === undefined)).toBe(true)
 })

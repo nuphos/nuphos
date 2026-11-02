@@ -4,6 +4,7 @@ import { ArrowUpRight, Webhook, X } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { Button } from '../../../components/ui/button'
+import { locale, t } from '../../../i18n'
 import { scheduleSummary } from '../cron'
 import { formatUtcAndLocal, viewerTimeZone } from '../cronTime'
 
@@ -13,12 +14,12 @@ import { nextOccurrencesAfter } from './occurrences'
 import type { ScheduleEvent } from './model'
 import type { AgentTrigger } from '../../../api'
 
-const EVENT_DAY = new Intl.DateTimeFormat('en-US', {
+const EVENT_DAY = new Intl.DateTimeFormat(locale, {
   weekday: 'long',
   month: 'long',
   day: 'numeric',
 })
-const UPCOMING = new Intl.DateTimeFormat('en-US', {
+const UPCOMING = new Intl.DateTimeFormat(locale, {
   weekday: 'short',
   month: 'short',
   day: 'numeric',
@@ -91,7 +92,7 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
                     {event.name}
                     {trigger && !trigger.enabled && (
                       <span className="ml-1.5 inline-block translate-y-[-1px] rounded border border-main px-1 py-px align-middle text-[10px] font-medium text-tertiary">
-                        Disabled
+                        {t('Disabled')}
                       </span>
                     )}
                   </span>
@@ -101,7 +102,12 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
                   {EVENT_DAY.format(event.start)} · {formatUtcAndLocal(event.start, timeZone)}
                 </div>
               </div>
-              <Button variant="ghost" size="icon-sm" aria-label="Close details" onClick={onClose}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('Close details')}
+                onClick={onClose}
+              >
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -110,7 +116,7 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
               {trigger && (
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-wide text-tertiary">
-                    Schedule
+                    {t('Schedule')}
                   </div>
                   <div className="mt-1 text-[12px] text-secondary">
                     {scheduleSummary(trigger, timeZone)}
@@ -126,7 +132,7 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
               {upcoming.length > 0 && (
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-wide text-tertiary">
-                    Upcoming runs
+                    {t('Upcoming runs')}
                   </div>
                   <ul className="mt-1 space-y-0.5">
                     {upcoming.map((runAt) => (
@@ -141,7 +147,7 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
               {trigger?.messageTemplate && (
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-wide text-tertiary">
-                    Agent prompt
+                    {t('Agent prompt')}
                   </div>
                   {/* Shown in full — the popup body itself scrolls. break-words
                       because with overflow-y set on that body, the x axis
@@ -162,7 +168,7 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
                   className="w-full"
                   onClick={() => onOpenTrigger(event.triggerId, event.name)}
                 >
-                  Open trigger
+                  {t('Open trigger')}
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </Button>
               </div>

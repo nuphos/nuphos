@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 
 import { EnvRefNavButton } from './env-cells'
 import { sourceLabel } from './env-options'
@@ -34,7 +35,9 @@ export function PodEnvSection({
 
   if (withEnv.length === 0) {
     return embedded ? (
-      <div className="py-1 text-[12px] text-tertiary">No environment variables declared.</div>
+      <div className="py-1 text-[12px] text-tertiary">
+        {t('No environment variables declared.')}
+      </div>
     ) : null
   }
 
@@ -52,19 +55,19 @@ export function PodEnvSection({
   const envColumns: Column<PodEnvRow>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 220,
       render: (entry) => readonlyText(entry.name, { mono: true }),
     },
     {
       key: 'source',
-      header: 'Source',
+      header: t('Source'),
       width: 170,
       render: (entry) => readonlyText(sourceLabel(entry.source)),
     },
     {
       key: 'target',
-      header: 'Target',
+      header: t('Target'),
       width: 300,
       render: (entry) => {
         let value = ''
@@ -102,7 +105,7 @@ export function PodEnvSection({
     },
     {
       key: 'detail',
-      header: 'Detail',
+      header: t('Detail'),
       width: 220,
       render: (entry) => {
         let value = ''
@@ -119,7 +122,7 @@ export function PodEnvSection({
     },
     {
       key: 'optional',
-      header: 'Optional',
+      header: t('Optional'),
       width: 100,
       render: (entry) => {
         if (
@@ -130,7 +133,7 @@ export function PodEnvSection({
           return null
         }
 
-        return readonlyText(entry.optional ? 'Yes' : 'No', { muted: !entry.optional })
+        return readonlyText(entry.optional ? t('Yes') : t('No'), { muted: !entry.optional })
       },
     },
   ]
@@ -138,13 +141,13 @@ export function PodEnvSection({
   const envFromColumns: Column<PodEnvFromRow>[] = [
     {
       key: 'source',
-      header: 'Source',
+      header: t('Source'),
       width: 180,
       render: (entry) => readonlyText(sourceLabel(entry.source)),
     },
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 300,
       render: (entry) => (
         <div className="flex min-w-0 items-center gap-1">
@@ -164,15 +167,16 @@ export function PodEnvSection({
     },
     {
       key: 'prefix',
-      header: 'Prefix',
+      header: t('Prefix'),
       width: 220,
       render: (entry) => readonlyText(entry.prefix ?? '', { mono: true, muted: !entry.prefix }),
     },
     {
       key: 'optional',
-      header: 'Optional',
+      header: t('Optional'),
       width: 100,
-      render: (entry) => readonlyText(entry.optional ? 'Yes' : 'No', { muted: !entry.optional }),
+      render: (entry) =>
+        readonlyText(entry.optional ? t('Yes') : t('No'), { muted: !entry.optional }),
     },
   ]
 
@@ -185,12 +189,14 @@ export function PodEnvSection({
         )}
       >
         {!embedded && (
-          <h3 className="text-[14px] font-semibold text-main">Environment Variables</h3>
+          <h3 className="text-[14px] font-semibold text-main">{t('Environment Variables')}</h3>
         )}
         {withEnv.length > 1 && (
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {withEnv.map((container) => {
-              const label = `${container.is_init ? 'Init: ' : ''}${container.name}`
+              const label = container.is_init
+                ? t('Init: {name}', { name: container.name })
+                : container.name
 
               return (
                 <button
@@ -226,7 +232,7 @@ export function PodEnvSection({
             rows={envRows}
             rowKey={(entry) => entry.id}
             storageKey="pod.env"
-            empty="No environment variables."
+            empty={t('No environment variables.')}
           />
         </div>
         {envFromRows.length > 0 && (
@@ -236,7 +242,7 @@ export function PodEnvSection({
               rows={envFromRows}
               rowKey={(entry) => entry.id}
               storageKey="pod.envFrom"
-              empty="No envFrom sources."
+              empty={t('No envFrom sources.')}
             />
           </div>
         )}

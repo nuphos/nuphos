@@ -55,7 +55,7 @@ class SharingFixtureDeviceTest {
         snap("synthetic-owner-light")
         compose.runOnIdle { dark = true }
         snap("synthetic-owner-dark")
-        compose.onNodeWithText("Role for Synthetic Viewer: Can reply").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Role for Synthetic Viewer: Can reply").performScrollTo().performClick()
         compose.onNodeWithText("Can view").assertIsNotEnabled()
         compose.onNodeWithText("Can manage").performClick()
         compose.waitUntil { state.access!!.participants.last().role == "manage" }
@@ -81,7 +81,7 @@ class SharingFixtureDeviceTest {
         compose.onNodeWithText("OK").performClick()
         assertEquals(GeneralAccess.Invited, state.access!!.generalAccess)
         compose.runOnIdle { api.reject = false }
-        compose.onNodeWithText("Role for Synthetic Viewer: Can manage").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Role for Synthetic Viewer: Can manage").performScrollTo().performClick()
         compose.onNodeWithText("Remove").performClick()
         compose.waitUntil { state.access!!.participants.size == 1 }
     }

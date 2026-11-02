@@ -8,6 +8,7 @@ import {
   runtimeProvider,
 } from './runtime-provider'
 
+import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
@@ -25,6 +26,35 @@ export function assertClaudeCodeSetupConfigured(
     `${runtimeErrorPrefix(provider)}_setup_required`,
     `${runtimeLabel(provider)} is not set up in this workspace yet. A workspace administrator must add an agent in Settings → Agent and sign it in before using Agent.`,
   )
+}
+
+/**
+ * The agent a conversation nothing pins runs on: the first usable agent in its owner's
+ * fallback list, else, when the team registers no agent, the owner's first online Box agent.
+ * `instances` are listed for the owner, so local agents are theirs; a teammate's shared
+ * computer is never chosen without a person choosing it.
+ */
+export function defaultConversationRuntimeId(
+  instances: readonly Pick<RuntimeInstance, 'id' | 'provider' | 'status' | 'kind' | 'local'>[],
+  fallbackIds: readonly string[],
+  provider?: OpenAbProvider,
+): string | undefined {
+  const usable = (instance: (typeof instances)[number]) =>
+    instance.status === 'active' &&
+    (!provider || instance.provider === provider) &&
+    (instance.kind !== 'local' ||
+      Boolean(
+        instance.local?.online && !instance.local.shared && instance.local.signedIn !== false,
+      ))
+  const listed = fallbackIds
+    .map((id) => instances.find((instance) => instance.id === id))
+    .find((instance) => instance && usable(instance))
+
+  if (listed) return listed.id
+  if (instances.some((instance) => instance.kind !== 'local' && instance.status === 'active'))
+    return undefined
+
+  return instances.find((instance) => instance.local?.box && usable(instance))?.id
 }
 
 export function validateRequestedAgentRuntime(

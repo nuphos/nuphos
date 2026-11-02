@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
 import { Avatar } from '../../components/Avatar'
+import { t } from '../../i18n'
 import { allowListIsAll, memberDisplayName, normalizeAllowList } from '../../lib/bindingAccess'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -62,9 +63,19 @@ export function AccessMembersAvatarGroup({
     : normalized.map((id) => ({ id, member: memberById.get(id) ?? null }))
   const visible = entries.slice(0, 4)
   const hiddenCount = Math.max(0, entries.length - visible.length)
+  const isRole = resourceLabel === 'role'
+  const count = String(entries.length)
   const label = all
-    ? `All team members can access this ${resourceLabel}`
-    : `${String(entries.length)} member${entries.length === 1 ? '' : 's'} can access this ${resourceLabel}`
+    ? isRole
+      ? t('All team members can access this role')
+      : t('All team members can access this service account')
+    : entries.length === 1
+      ? isRole
+        ? t('1 member can access this role')
+        : t('1 member can access this service account')
+      : isRole
+        ? t('{count} members can access this role', { count })
+        : t('{count} members can access this service account', { count })
 
   return (
     <LoadedAccessMembersAvatarGroup
@@ -208,8 +219,10 @@ function LoadedAccessMembersAvatarGroup({
         </div>
         <span className="text-[12px] text-tertiary truncate">
           {all
-            ? 'All members'
-            : `${String(entries.length)} member${entries.length === 1 ? '' : 's'}`}
+            ? t('All members')
+            : entries.length === 1
+              ? t('1 member')
+              : t('{count} members', { count: entries.length })}
         </span>
       </div>
     </div>

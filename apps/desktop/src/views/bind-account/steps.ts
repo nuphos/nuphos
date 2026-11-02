@@ -1,25 +1,27 @@
+import { t } from '../../i18n/index.ts'
+
 export const VOLC_STEPS = [
-  'Add the identity provider',
-  'Create the role',
-  'Authorize cluster access (optional)',
-  'Bind the role',
+  t('Add the identity provider'),
+  t('Create the role'),
+  t('Authorize cluster access (optional)'),
+  t('Bind the role'),
 ] as const
 
 export const HUAWEI_STEPS = [
-  'Add the identity provider',
-  'Create a trust agency',
-  'Bind the account',
+  t('Add the identity provider'),
+  t('Create a trust agency'),
+  t('Bind the account'),
 ] as const
 
 export const ALIYUN_STEPS = [
-  'Add the identity provider',
-  'Create the role',
-  'Bind the role',
+  t('Add the identity provider'),
+  t('Create the role'),
+  t('Bind the role'),
 ] as const
 
 export const TENCENT_STEPS = [
-  'Add the identity provider',
-  'Create the role',
-  'Authorize cluster access (optional)',
-  'Bind the role',
+  t('Add the identity provider'),
+  t('Create the role'),
+  t('Authorize cluster access (optional)'),
+  t('Bind the role'),
 ] as const

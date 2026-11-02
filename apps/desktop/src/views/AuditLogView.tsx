@@ -22,6 +22,7 @@ import { SearchBox } from '../components/Toolbar'
 import { Button } from '../components/ui/button'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { AuditConversationsTable } from './audit/AuditConversationsTable'
 import { AuditEventsStream } from './audit/AuditEventsStream'
@@ -142,7 +143,7 @@ export function AuditLogView({
         actions={[
           {
             key: 'export',
-            label: 'Export selected',
+            label: t('Export selected'),
             icon: faFileExport,
             disabled: exporting,
             onClick: () => exportComplianceRecords([...selectedSessionIds]),
@@ -156,8 +157,8 @@ export function AuditLogView({
       {filter === undefined && (
         <>
           <PageHeader
-            title="Audit log"
-            subtitle="Review agent activity and resource changes across agents"
+            title={t('Audit log')}
+            subtitle={t('Review agent activity and resource changes across agents')}
           />
           <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6">
             <SearchBox
@@ -202,7 +203,7 @@ export function AuditLogView({
         {selected && (
           <DetailSidebarTransition
             onClose={() => setSelected(null)}
-            className="flex-shrink-0 w-[44%] min-w-[380px] max-w-[680px] flex flex-col bg-zGray-950 min-h-0 overflow-hidden border-l border-zGray-800/60"
+            className="flex-shrink-0 w-[44%] min-w-[300px] max-w-[680px] flex flex-col bg-zGray-950 min-h-0 overflow-hidden border-l border-zGray-800/60"
           >
             {/* Same journal panel the chat uses — single implementation. It is
               read-only here (no onLocateInChat: there is no transcript beside
@@ -229,7 +230,7 @@ export function AuditLogView({
                       className="h-8 w-full gap-1.5 text-[13px]"
                     >
                       <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-                      View agent
+                      {t('View agent')}
                     </Button>
                   </div>
                 )}

@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 
 import { ErrorBlock } from './ErrorBlock'
 import { applyFilter, useLoader } from './shared'
@@ -32,8 +33,8 @@ export function EcsTasksView({
   const filtered = applyFilter(
     items,
     filter,
-    (t) =>
-      `${t.taskId} ${t.taskDefinitionFamily} ${t.lastStatus} ${t.desiredStatus} ${t.group ?? ''} ${t.launchType ?? ''}`,
+    (task) =>
+      `${task.taskId} ${task.taskDefinitionFamily} ${task.lastStatus} ${task.desiredStatus} ${task.group ?? ''} ${task.launchType ?? ''}`,
   )
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export function EcsTasksView({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center gap-1.5 px-4 py-2 border-b border-zGray-850 bg-zGray-950 text-[12px]">
-        <span className="text-tertiary mr-1">Desired status</span>
+        <span className="text-tertiary mr-1">{t('Desired status')}</span>
         {(['RUNNING', 'STOPPED'] as const).map((s) => (
           <button
             key={s}
@@ -56,10 +57,10 @@ export function EcsTasksView({
                 : 'bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main'
             }`}
           >
-            {s === 'RUNNING' ? 'Running' : 'Stopped'}
+            {s === 'RUNNING' ? t('Running') : t('Stopped')}
           </button>
         ))}
-        <span className="ml-auto text-tertiary">{filtered.length} tasks</span>
+        <span className="ml-auto text-tertiary">{t('{n} tasks', { n: filtered.length })}</span>
       </div>
       <Table<AwsEcsTask>
         loading={loading}
@@ -67,11 +68,11 @@ export function EcsTasksView({
         rowKey={(r) => r.taskArn}
         storageKey="aws.ecs-tasks"
         defaultSort={{ key: 'startedAt', dir: 'desc' }}
-        empty={desiredStatus === 'RUNNING' ? 'No running tasks' : 'No stopped tasks'}
+        empty={desiredStatus === 'RUNNING' ? t('No running tasks') : t('No stopped tasks')}
         columns={[
           {
             key: 'taskId',
-            header: 'Task ID',
+            header: t('Task ID'),
             width: 280,
             sortAccessor: (r) => r.taskId,
             render: (r) => (
@@ -80,28 +81,28 @@ export function EcsTasksView({
           },
           {
             key: 'lastStatus',
-            header: 'Last Status',
+            header: t('Last Status'),
             width: 110,
             sortAccessor: (r) => r.lastStatus,
             render: (r) => <StatusBadge status={r.lastStatus} />,
           },
           {
             key: 'desiredStatus',
-            header: 'Desired',
+            header: t('Desired'),
             width: 90,
             sortAccessor: (r) => r.desiredStatus,
             render: (r) => <span className="text-secondary">{r.desiredStatus}</span>,
           },
           {
             key: 'health',
-            header: 'Health',
+            header: t('Health'),
             width: 90,
             sortAccessor: (r) => r.healthStatus ?? '',
             render: (r) => <span className="text-secondary">{r.healthStatus || '—'}</span>,
           },
           {
             key: 'family',
-            header: 'Task Definition',
+            header: t('Task Definition'),
             width: 260,
             sortAccessor: (r) => `${r.taskDefinitionFamily}:${String(r.taskDefinitionRevision)}`,
             render: (r) => (
@@ -113,35 +114,35 @@ export function EcsTasksView({
           },
           {
             key: 'launchType',
-            header: 'Launch',
+            header: t('Launch'),
             width: 110,
             sortAccessor: (r) => r.launchType ?? '',
             render: (r) => <span className="text-secondary">{r.launchType || '—'}</span>,
           },
           {
             key: 'az',
-            header: 'AZ',
+            header: t('AZ'),
             width: 130,
             sortAccessor: (r) => r.availabilityZone ?? '',
             render: (r) => <span className="text-secondary">{r.availabilityZone || '—'}</span>,
           },
           {
             key: 'cpu',
-            header: 'CPU',
+            header: t('CPU'),
             width: 80,
             sortAccessor: (r) => Number(r.cpu) || 0,
             render: (r) => <span className="text-secondary">{r.cpu || '—'}</span>,
           },
           {
             key: 'memory',
-            header: 'Memory',
+            header: t('Memory'),
             width: 90,
             sortAccessor: (r) => Number(r.memory) || 0,
             render: (r) => <span className="text-secondary">{r.memory || '—'}</span>,
           },
           {
             key: 'startedAt',
-            header: 'Started',
+            header: t('Started'),
             width: 100,
             sortAccessor: (r) => r.startedAt ?? '',
             render: (r) => (
@@ -152,7 +153,7 @@ export function EcsTasksView({
           },
           {
             key: 'stoppedAt',
-            header: 'Stopped',
+            header: t('Stopped'),
             width: 100,
             sortAccessor: (r) => r.stoppedAt ?? '',
             render: (r) => (

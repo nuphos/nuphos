@@ -2,6 +2,7 @@ import { File as FileIcon, Folder } from 'lucide-react'
 
 import { Age } from '../../components/Age'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 
 import { formatBytes } from './shared'
 
@@ -35,7 +36,7 @@ export function S3ObjectsTable({
       columns={[
         {
           key: 'name',
-          header: 'Name',
+          header: t('Name'),
           width: 480,
           sortAccessor: (r) => (r.kind === 'prefix' ? '0:' : '1:') + r.name,
           render: (r) => (
@@ -58,7 +59,7 @@ export function S3ObjectsTable({
         },
         {
           key: 'size',
-          header: 'Size',
+          header: t('Size'),
           width: 100,
           sortAccessor: (r) => (r.kind === 'object' ? r.object.size : -1),
           render: (r) =>
@@ -70,7 +71,7 @@ export function S3ObjectsTable({
         },
         {
           key: 'modified',
-          header: 'Last modified',
+          header: t('Last modified'),
           width: 140,
           sortAccessor: (r) => (r.kind === 'object' ? (r.object.lastModified ?? '') : ''),
           render: (r) =>
@@ -84,7 +85,7 @@ export function S3ObjectsTable({
         },
         {
           key: 'storage',
-          header: 'Storage',
+          header: t('Storage'),
           width: 120,
           sortAccessor: (r) => (r.kind === 'object' ? (r.object.storageClass ?? '') : ''),
           render: (r) =>

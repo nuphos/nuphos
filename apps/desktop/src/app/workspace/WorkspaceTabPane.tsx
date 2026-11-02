@@ -1,8 +1,9 @@
 import clsx from 'clsx'
-import { memo, useCallback, useMemo } from 'react'
+import { Fragment, memo, useCallback, useMemo } from 'react'
 
 import { KubeContextProvider } from '../../hooks/KubeContextProvider'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { connectKubernetesCluster } from '../../lib/kubernetesCluster'
 import { WorkspaceRowLinkProvider } from '../../lib/WorkspaceRowLinkProvider'
@@ -18,6 +19,7 @@ import { useTabConnectorActions } from './useTabConnectorActions'
 import { useTabDetailSetters } from './useTabDetailSetters'
 import { useTabPageMeta } from './useTabPageMeta'
 import { useTabViewSetters } from './useTabViewSetters'
+import { paneLayout, useWatchedDockTab } from './watchedDockTabs'
 import { WorkspaceNewTabPage } from './WorkspaceNewTabPage'
 
 import type { WorkspaceTabPaneProps } from './paneTypes'
@@ -75,6 +77,7 @@ export const WorkspaceTabPane = memo(
     dockVisible = true,
   }: WorkspaceTabPaneProps) => {
     const tabId = tab.id
+    const layout = paneLayout(active, dockVisible, useWatchedDockTab(tabId))
     const onBrowserNavigate = useCallback(
       (url: string) => {
         updateTab(
@@ -156,7 +159,7 @@ export const WorkspaceTabPane = memo(
     return (
       <WorkspaceRowLinkProvider value={rowLinkValue}>
         <WorkspaceTabContext.Provider value={{ ...workspaceTabContextValue, conversationId }}>
-          <div className={clsx(active ? 'h-full min-w-0 flex flex-col relative' : 'hidden')}>
+          <div className={layout.className} style={layout.style}>
             {mounted && (
               <div className="flex-1 min-h-0 flex">
                 <div
@@ -273,7 +276,16 @@ export const WorkspaceTabPane = memo(
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-main text-tertiary text-[12.5px]">
                 <div className="w-6 h-6 rounded-full border-2 border-zGray-700 border-t-zViolet-accent animate-spin" />
                 <div>
-                  Connecting to <span className="text-secondary">{tab.clusterLabel}</span>…
+                  {t('Connecting to {cluster}…')
+                    .split('{cluster}')
+                    .map((part, i, parts) => (
+                      <Fragment key={i}>
+                        {part}
+                        {i < parts.length - 1 && (
+                          <span className="text-secondary">{tab.clusterLabel}</span>
+                        )}
+                      </Fragment>
+                    ))}
                 </div>
               </div>
             )}

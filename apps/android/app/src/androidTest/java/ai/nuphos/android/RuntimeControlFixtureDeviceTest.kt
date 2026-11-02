@@ -1,5 +1,10 @@
 package ai.nuphos.android
 
+import androidx.compose.ui.semantics.getOrNull
+
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
@@ -99,8 +104,9 @@ class RuntimeControlFixtureDeviceTest {
         owner: Boolean = false, actor: Boolean = true, observedAt: Double = RuntimeObservation.now()) {
         val detail = AgentConversationDetail(agentRuntime = if (native) "openab" else null,
             readOnly = readOnly, isOwner = owner, canCancelRun = actor, canRespondToRun = actor, runtimeState = snapshot)
-        ChatSession::class.java.getDeclaredMethod("refreshMetadata", AgentConversationDetail::class.java, Double::class.javaPrimitiveType)
-            .also { it.isAccessible = true }.invoke(session, detail, observedAt)
+        // A fresh session has watch revision 0, matching RuntimeSheetFixtureDeviceTest.
+        ChatSession::class.java.getDeclaredMethod("refreshMetadata", AgentConversationDetail::class.java, Double::class.javaPrimitiveType, Long::class.javaPrimitiveType)
+            .also { it.isAccessible = true }.invoke(session, detail, observedAt, 0L)
     }
     private fun render(snapshot: JsonValue? = snapshot(send = true), native: Boolean = true,
         readOnly: Boolean = false, parts: List<ChatPart> = assistant.parts,
@@ -127,6 +133,8 @@ class RuntimeControlFixtureDeviceTest {
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, fixtureToken)
             state(auth, "state", AuthSession.State.SignedIn(NuphosUser("runtime-fixture", "runtime@example.invalid", "Runtime fixture")))
+            // The composer only accepts drafts once incoming shares are bound to the signed-in account.
+            compose.activity.lifecycleScope.launch { app.incomingShares.bindAccount("runtime-fixture") }
             compose.activity.setContent {
                 NuphosTheme {
                     CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
@@ -135,11 +143,18 @@ class RuntimeControlFixtureDeviceTest {
                 }
             }
         }
+        compose.waitUntil(10_000) { (compose.activity.application as NuphosApplication).incomingShares.isBound("runtime-fixture") }
         compose.onNodeWithContentDescription("Back").assertIsDisplayed()
     }
     private fun submit(text: String) {
         compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput(text)
         compose.onNodeWithContentDescription("Send").assertIsEnabled().performClick()
+        // Send saves the draft off the main thread; wait for the accepted text to leave the field
+        // so the next message is typed into an empty composer, as a person would.
+        compose.waitUntil(10_000) {
+            compose.onNodeWithContentDescription("Ask Nuphos anything").fetchSemanticsNode().config
+                .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.EditableText)?.text.isNullOrEmpty()
+        }
     }
     private fun assertNoMutations() = Assert.assertTrue(requests.none { it.method != "GET" })
 
@@ -180,7 +195,8 @@ class RuntimeControlFixtureDeviceTest {
         render(snapshot(reply = true, steer = true, cancel = true), readOnly = true)
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
         compose.onNodeWithText("Read-only agent").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Read-only retained text")
+        // Read-only conversations disable drafting entirely (checkpoint behavior), so nothing can be typed or sent.
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
         compose.onNodeWithText("Cancel run").assertDoesNotExist()
         assertNoMutations()

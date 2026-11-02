@@ -8,6 +8,7 @@ import { Age } from '../../components/Age'
 import { CloudLogo } from '../../components/CloudLogo'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type { Column } from '../../components/Table'
@@ -83,7 +84,7 @@ export function BindingsList({
   const columns: Column<GitlabBinding>[] = [
     {
       key: 'account',
-      header: 'Account',
+      header: t('Account'),
       width: 220,
       sortAccessor: (b) => b.username,
       render: (b) => (
@@ -96,7 +97,7 @@ export function BindingsList({
     },
     {
       key: 'host',
-      header: 'Host',
+      header: t('Host'),
       width: 220,
       sortAccessor: (b) => b.hostUrl,
       render: (b) => (
@@ -105,17 +106,17 @@ export function BindingsList({
     },
     {
       key: 'app',
-      header: 'OAuth app',
+      header: t('OAuth app'),
       width: 140,
       render: (b) => (
         <span className="text-tertiary text-[11.5px]">
-          {b.isDefaultClient ? 'Zeabur default' : 'Custom'}
+          {b.isDefaultClient ? t('Zeabur default') : t('Custom')}
         </span>
       ),
     },
     {
       key: 'age',
-      header: 'Age',
+      header: t('Age'),
       width: 100,
       sortAccessor: (b) => b.createdAt ?? '',
       render: (b) => (
@@ -126,12 +127,12 @@ export function BindingsList({
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('Status'),
       width: 140,
       render: () => (
         <span className="inline-flex items-center gap-1.5 text-[#73bf69]">
           <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.8} />
-          Connected
+          {t('Connected')}
         </span>
       ),
     },
@@ -142,13 +143,13 @@ export function BindingsList({
       render: (b) => (
         <button
           type="button"
-          aria-label={`Disconnect ${b.username}`}
+          aria-label={t('Disconnect {name}', { name: b.username })}
           onClick={(e) => {
             e.stopPropagation()
             setUnbindTarget(b)
           }}
           className="p-1 rounded text-tertiary hover:text-error hover:bg-zGray-800"
-          title="Disconnect"
+          title={t('Disconnect')}
         >
           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
         </button>
@@ -168,7 +169,7 @@ export function BindingsList({
   if (bindings === null) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading…
+        {t('Loading…')}
       </div>
     )
   }
@@ -177,13 +178,13 @@ export function BindingsList({
     <div className="flex-1 flex flex-col min-h-0">
       {bindings.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-tertiary text-[12.5px]">
-          <div>No GitLab accounts connected to this team yet.</div>
+          <div>{t('No GitLab accounts connected to this team yet.')}</div>
           <button
             onClick={onConnectGitlab}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zGray-800 hover:bg-zGray-700 text-main text-[12.5px]"
           >
             <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
-            Connect your first GitLab account
+            {t('Connect your first GitLab account')}
           </button>
         </div>
       ) : (
@@ -192,16 +193,19 @@ export function BindingsList({
           rows={filtered}
           rowKey={(b) => b.id}
           storageKey="gitlab.bindings"
-          empty={`No accounts match "${filter}"`}
+          empty={t('No accounts match "{filter}"', { filter })}
           onPrimaryAction={onSelect}
         />
       )}
       {unbindTarget && (
         <ConfirmDialog
           open
-          title="Disconnect GitLab account"
-          description={`Atlas will lose access to @${unbindTarget.username} on ${hostLabel(unbindTarget.hostUrl)}. The OAuth grant remains on the GitLab side — revoke it there separately to fully invalidate the tokens.`}
-          confirmLabel="Disconnect"
+          title={t('Disconnect GitLab account')}
+          description={t(
+            'Atlas will lose access to @{username} on {host}. The OAuth grant remains on the GitLab side — revoke it there separately to fully invalidate the tokens.',
+            { username: unbindTarget.username, host: hostLabel(unbindTarget.hostUrl) },
+          )}
+          confirmLabel={t('Disconnect')}
           destructive
           onClose={() => setUnbindTarget(null)}
           onConfirm={async () => {

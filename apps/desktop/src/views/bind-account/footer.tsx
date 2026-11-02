@@ -1,4 +1,5 @@
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 import { awsSteps, azureSteps, gcpSteps } from '../../lib/cloudBindSteps'
 
 import { ALIYUN_STEPS, HUAWEI_STEPS, TENCENT_STEPS, VOLC_STEPS } from './steps'
@@ -48,7 +49,7 @@ export function BindDialogFooter({
             disabled={submitting}
             className={backButtonClass}
           >
-            Back
+            {t('Back')}
           </button>
         )}
         {provider === 'gcp' && (
@@ -60,7 +61,7 @@ export function BindDialogFooter({
             disabled={submitting}
             className={backButtonClass}
           >
-            Back
+            {t('Back')}
           </button>
         )}
         {provider === 'volcengine' && volcengineStep > 0 && (
@@ -69,7 +70,7 @@ export function BindDialogFooter({
             disabled={submitting}
             className={backButtonClass}
           >
-            Back
+            {t('Back')}
           </button>
         )}
         {provider === 'huawei' && huaweiStep > 0 && (
@@ -78,7 +79,7 @@ export function BindDialogFooter({
             disabled={submitting}
             className={backButtonClass}
           >
-            Back
+            {t('Back')}
           </button>
         )}
         {provider === 'aliyun' && aliyunStep > 0 && (
@@ -87,7 +88,7 @@ export function BindDialogFooter({
             disabled={submitting}
             className={backButtonClass}
           >
-            Back
+            {t('Back')}
           </button>
         )}
         {provider === 'tencent' && tencentStep > 0 && (
@@ -96,7 +97,7 @@ export function BindDialogFooter({
             disabled={submitting}
             className={backButtonClass}
           >
-            Back
+            {t('Back')}
           </button>
         )}
         {provider === 'azure' && (
@@ -105,40 +106,40 @@ export function BindDialogFooter({
             disabled={submitting}
             className={backButtonClass}
           >
-            Back
+            {t('Back')}
           </button>
         )}
         {provider === 'gcp' && gcpStep < gcpSteps(purpose).length - 1 ? (
           <Button size="sm" onClick={() => setGcpStep((s) => s + 1)}>
-            Next
+            {t('Next')}
           </Button>
         ) : provider === 'aws' && awsStep < awsSteps(purpose).length - 1 ? (
           <Button size="sm" onClick={() => setAwsStep((s) => s + 1)}>
-            Next
+            {t('Next')}
           </Button>
         ) : provider === 'volcengine' && volcengineStep < VOLC_STEPS.length - 1 ? (
           <Button size="sm" onClick={() => setVolcengineStep((s) => s + 1)}>
-            Next
+            {t('Next')}
           </Button>
         ) : provider === 'huawei' && huaweiStep < HUAWEI_STEPS.length - 1 ? (
           <Button size="sm" onClick={() => setHuaweiStep((s) => s + 1)}>
-            Next
+            {t('Next')}
           </Button>
         ) : provider === 'aliyun' && aliyunStep < ALIYUN_STEPS.length - 1 ? (
           <Button size="sm" onClick={() => setAliyunStep((s) => s + 1)}>
-            Next
+            {t('Next')}
           </Button>
         ) : provider === 'tencent' && tencentStep < TENCENT_STEPS.length - 1 ? (
           <Button size="sm" onClick={() => setTencentStep((s) => s + 1)}>
-            Next
+            {t('Next')}
           </Button>
         ) : provider === 'azure' && azureStep < azureSteps(purpose).length - 1 ? (
           <Button size="sm" onClick={() => setAzureStep((s) => s + 1)}>
-            Next
+            {t('Next')}
           </Button>
         ) : (
           <Button size="sm" onClick={onSubmit} disabled={!valid || submitting}>
-            {submitting ? 'Binding…' : 'Bind'}
+            {submitting ? t('Binding…') : t('Bind')}
           </Button>
         )}
       </div>

@@ -4,7 +4,7 @@ import kotlinx.serialization.json.*
 
 data class RuntimeHost(val deviceId: String?, val deviceLabel: String?, val online: Boolean?, val agentLabel: String? = null)
 data class RuntimeDevice(val id: String, val label: String, val online: Boolean, val box: Boolean,
-    val metricsStatus: String, val cpuPercent: Double?, val memory: Capacity?, val disk: Capacity?) {
+    val metricsStatus: String, val cpuPercent: Double?, val memory: Capacity?, val disk: Capacity?, val access: String? = null) {
     data class Capacity(val used: Double, val total: Double) {
         val percent get() = (used / total * 100).toInt().coerceIn(0, 100)
     }
@@ -29,6 +29,6 @@ fun decodeRuntimeDevices(value: JsonObject): List<RuntimeDevice> {
         }
         RuntimeDevice(id, text("label") ?: "Computer", online, obj["box"] is JsonObject, status,
             (metrics?.get("cpuPercent") as? JsonPrimitive)?.doubleOrNull?.takeIf { it.isFinite() && it in 0.0..100.0 },
-            capacity("memory"), capacity("disk"))
+            capacity("memory"), capacity("disk"), text("access"))
     }.also { if (it.map(RuntimeDevice::id).distinct().size != it.size) throw NuphosApi.Failure.InvalidResponse }
 }

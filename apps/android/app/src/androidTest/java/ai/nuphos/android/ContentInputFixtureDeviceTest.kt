@@ -34,10 +34,24 @@ class ContentInputFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val lease = mutableStateOf<ComposerDrafts.Lease?>(null)
+    private val sendAllowed = mutableStateOf(true)
+    private val editAllowed = mutableStateOf(true)
+    private var filesRequest: Int? = null
+    private val pickerRegistry = object : androidx.activity.result.ActivityResultRegistry() {
+        override fun <I, O> onLaunch(requestCode: Int, contract: androidx.activity.result.contract.ActivityResultContract<I, O>,
+            input: I, options: androidx.core.app.ActivityOptionsCompat?) {
+            check(contract is androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents)
+            filesRequest = requestCode
+        }
+    }
+    private val pickerOwner = object : androidx.activity.result.ActivityResultRegistryOwner {
+        override val activityResultRegistry get() = pickerRegistry
+    }
+    private var sendCount = 0
     private var sent: ComposerSubmission? = null
     private var inputDescription = "Ask Nuphos anything"
 
-    private fun render(streaming: Boolean = false) {
+    private fun render(streaming: Boolean = false, controlledPicker: Boolean = false) {
         assumeTrue("Requires isolated content fixture package", context.packageName == "ai.nuphos.android.contentinput1337")
         inputDescription = if (streaming) "Queue a message" else "Ask Nuphos anything"
         lease.value?.key?.accountId?.let { account ->
@@ -55,8 +69,14 @@ class ContentInputFixtureDeviceTest {
                     }
                 }
             }
-            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store) {
-                ChatComposer(isStreaming = streaming, draft = lease.value, onSend = { sent = it; true })
+            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
+                val composer = @androidx.compose.runtime.Composable {
+                    ChatComposer(isStreaming = streaming, draft = lease.value, canSubmit = sendAllowed.value,
+                        draftingEnabled = editAllowed.value, onSend = { sendCount++; sent = it; true })
+                }
+                if (controlledPicker) CompositionLocalProvider(
+                    androidx.activity.compose.LocalActivityResultRegistryOwner provides pickerOwner, content = composer)
+                else composer()
             } }
         }
     }
@@ -70,6 +90,117 @@ class ContentInputFixtureDeviceTest {
     }
     private fun uri(name: String) = Uri.parse("content://ai.nuphos.content-input-fixture/$name")
     private fun clip(name: String) = ClipData.newUri(context.contentResolver, "Synthetic", uri(name))
+
+    private fun openFiles() {
+        compose.onNodeWithContentDescription(inputDescription).performClick()
+        compose.onNodeWithContentDescription("Files").performClick()
+        compose.waitUntil(10_000) { filesRequest != null }
+    }
+    private fun returnFile(name: String? = "fixture.txt") {
+        val request = requireNotNull(filesRequest)
+        compose.runOnIdle {
+            pickerRegistry.dispatchResult(request, if (name == null) android.app.Activity.RESULT_CANCELED else android.app.Activity.RESULT_OK,
+                name?.let { android.content.Intent().setData(uri(it)) })
+        }
+    }
+    @Test fun filesResultSurvivesTemporarySendUnavailabilityAndSubmitsOnceAfterRecovery() {
+        render(controlledPicker = true)
+        openFiles()
+        compose.runOnIdle { sendAllowed.value = false }
+        compose.waitForIdle()
+        returnFile()
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        assertNull(sent)
+        compose.runOnIdle { sendAllowed.value = true }
+        compose.onNodeWithContentDescription("Send").performClick()
+        compose.waitUntil(10_000) { sent != null }
+        val attachment = sent!!.attachments.single()
+        try {
+            assertEquals("fixture.txt", attachment.name)
+            assertEquals(1, sendCount)
+            val retained = attachment.kind as ComposerAttachment.Kind.RetainedFile
+            assertArrayEquals("Synthetic attachment bytes".toByteArray(), retained.source.open().use { it.readBytes() })
+            compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        } finally { attachment.releaseOwnedCopy() }
+    }
+    @Test fun filesRemainEditableWhenSendIsAlreadyUnavailable() {
+        sendAllowed.value = false
+        render(controlledPicker = true); openFiles(); returnFile()
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        assertNull(sent)
+        compose.onNodeWithContentDescription("Remove").performClick()
+    }
+    @Test fun cancelledFilesResultKeepsTextAndAddsNoAttachment() {
+        render(controlledPicker = true)
+        compose.onNodeWithContentDescription(inputDescription).performTextInput("Keep this draft")
+        openFiles(); returnFile(null)
+        compose.onAllNodesWithContentDescription("Remove").assertCountEquals(0)
+        compose.onNodeWithContentDescription(inputDescription).assertTextContains("Keep this draft")
+        assertNull(sent)
+    }
+    @Test fun filesReadFailureIsVisibleAndKeepsText() {
+        render(controlledPicker = true)
+        compose.onNodeWithContentDescription(inputDescription).performTextInput("Keep this draft")
+        openFiles(); returnFile("denied.txt")
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Synthetic read denied").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(inputDescription).assertTextContains("Keep this draft")
+        assertNull(sent)
+    }
+    @Test fun filesResultCannotEnterAReadOnlyOrRevokedDraft() {
+        render(controlledPicker = true); openFiles()
+        compose.runOnIdle { editAllowed.value = false }; compose.waitForIdle(); returnFile()
+        compose.onAllNodesWithContentDescription("Remove").assertCountEquals(0)
+        assertNull(sent)
+    }
+
+    private fun changedPickerOwner(accountChange: Boolean) {
+        val drafts = ComposerDrafts()
+        lease.value = drafts.bind("fixture", "team", ComposerDrafts.Destination.Chat("first"))!!
+        render(controlledPicker = true); openFiles()
+        val next = if (accountChange) {
+            val other = ComposerDrafts()
+            other.bind("other", "team", ComposerDrafts.Destination.Chat("first"))!!
+        } else drafts.bind("fixture", "other-team", ComposerDrafts.Destination.Chat("first"))!!
+        compose.runOnIdle { lease.value = next }
+        compose.waitForIdle(); returnFile()
+        compose.onNodeWithText("The draft changed while choosing files. Select the files again.").assertExists()
+        compose.onAllNodesWithContentDescription("Remove").assertCountEquals(0)
+        assertNull(sent)
+    }
+    @Test fun filesResultCannotCrossAccounts() = changedPickerOwner(true)
+    @Test fun filesResultCannotCrossWorkspaces() = changedPickerOwner(false)
+    @Test fun restoredDraftAccessDoesNotReviveAnEarlierPicker() {
+        render(controlledPicker = true); openFiles()
+        compose.runOnIdle { editAllowed.value = false }; compose.waitForIdle()
+        compose.runOnIdle { editAllowed.value = true }; compose.waitForIdle()
+        returnFile()
+        compose.onNodeWithText("The draft changed while choosing files. Select the files again.").assertExists()
+        compose.onAllNodesWithContentDescription("Remove").assertCountEquals(0)
+        assertNull(sent)
+    }
+    @Test fun consentRevisionInvalidatesAnEarlierPicker() {
+        val access = ai.nuphos.android.session.AiAccess
+        access.activate("synthetic-picker-consent"); access.grant("synthetic-picker-consent")
+        try {
+            render(controlledPicker = true); openFiles()
+            compose.runOnIdle { access.revoke() }; compose.waitForIdle()
+            returnFile()
+            compose.onNodeWithText("The draft changed while choosing files. Select the files again.").assertExists()
+            compose.onAllNodesWithContentDescription("Remove").assertCountEquals(0)
+            assertNull(sent)
+        } finally { access.clear() }
+    }
+    @Test fun sendBecomingUnavailableDuringAFileReadDoesNotCancelLocalEditing() {
+        render(controlledPicker = true); openFiles(); returnFile("delay.txt")
+        compose.onNodeWithText("Reading files…").assertExists()
+        compose.runOnIdle { sendAllowed.value = false }
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        assertNull(sent)
+        compose.onNodeWithContentDescription("Remove").performClick()
+    }
 
     @Test fun plainTextPasteRemainsTextAtSelection() {
         render()

@@ -1,22 +1,28 @@
+import { t } from '../../i18n/index.ts'
+
 export type TraceNotice = {
   title: string
   detail?: string
 }
+
+const EXAMPLE_QUERY = '`{ resource.service.name = "api" }`'
 
 export function validateTraceQuery(value: string): TraceNotice | null {
   if (!value) return null
   if (isTraceId(value)) return null
   if (/^[a-f0-9]+$/i.test(value)) {
     return {
-      title: 'That looks like a trace ID, but it is not the right length.',
-      detail: 'Trace IDs are usually 16 or 32 hexadecimal characters.',
+      title: t('That looks like a trace ID, but it is not the right length.'),
+      detail: t('Trace IDs are usually 16 or 32 hexadecimal characters.'),
     }
   }
   if (!looksLikeTraceQl(value)) {
     return {
-      title: 'Enter a TraceQL query or paste a trace ID.',
-      detail:
-        'Try `{}` to list recent traces, `{ resource.service.name = "api" }`, or a 16/32-character hex trace ID.',
+      title: t('Enter a TraceQL query or paste a trace ID.'),
+      detail: t(
+        'Try {empty} to list recent traces, {example}, or a 16/32-character hex trace ID.',
+        { empty: '`{}`', example: EXAMPLE_QUERY },
+      ),
     }
   }
 
@@ -43,9 +49,11 @@ export function formatTraceError(error: unknown, mode: 'search' | 'trace'): Trac
 
   if (/not found/i.test(detail) || /failed to get trace/i.test(detail)) {
     return {
-      title: 'No trace found for that ID.',
+      title: t('No trace found for that ID.'),
       detail:
-        mode === 'trace' ? 'I tried the selected range and wider ranges up to 7 days.' : undefined,
+        mode === 'trace'
+          ? t('I tried the selected range and wider ranges up to 7 days.')
+          : undefined,
     }
   }
 
@@ -56,14 +64,17 @@ export function formatTraceError(error: unknown, mode: 'search' | 'trace'): Trac
     /failed to execute search query/i.test(detail)
   ) {
     return {
-      title: 'That TraceQL query is not valid.',
-      detail:
-        'Try `{}` to list recent traces, or use a filter like `{ resource.service.name = "api" }`.',
+      title: t('That TraceQL query is not valid.'),
+      detail: t('Try {empty} to list recent traces, or use a filter like {example}.', {
+        empty: '`{}`',
+        example: EXAMPLE_QUERY,
+      }),
     }
   }
 
   return {
-    title: mode === 'trace' ? 'Could not open that trace.' : 'Could not run that TraceQL query.',
+    title:
+      mode === 'trace' ? t('Could not open that trace.') : t('Could not run that TraceQL query.'),
     detail,
   }
 }

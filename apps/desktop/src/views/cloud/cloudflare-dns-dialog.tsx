@@ -4,6 +4,7 @@ import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { fieldClass } from '../../components/ui/input-group'
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type { CloudflareDnsRecord, CloudflareDnsRecordInput } from '../../types'
@@ -79,17 +80,17 @@ export function DnsRecordDialog({
     const parsedPriority = priority.trim() ? Number(priority) : undefined
 
     if (!name.trim() || !content.trim()) {
-      setError('Name and content are required.')
+      setError(t('Name and content are required.'))
 
       return
     }
     if (!Number.isInteger(parsedTtl) || parsedTtl < 1) {
-      setError('TTL must be a positive integer. Use 1 for Auto.')
+      setError(t('TTL must be a positive integer. Use 1 for Auto.'))
 
       return
     }
     if (parsedPriority !== undefined && (!Number.isInteger(parsedPriority) || parsedPriority < 0)) {
-      setError('Priority must be a non-negative integer.')
+      setError(t('Priority must be a non-negative integer.'))
 
       return
     }
@@ -115,17 +116,17 @@ export function DnsRecordDialog({
     <Modal
       open
       onClose={onClose}
-      title={record ? 'Edit DNS record' : 'Add DNS record'}
+      title={record ? t('Edit DNS record') : t('Add DNS record')}
       description={zoneName}
       width={520}
       closeOnBackdrop={false}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
           <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button type="submit" form="cloudflare-dns-record" size="sm" disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('Saving…') : t('Save')}
           </Button>
         </div>
       }
@@ -133,11 +134,11 @@ export function DnsRecordDialog({
       <form id="cloudflare-dns-record" onSubmit={(e) => void submit(e)}>
         <div className="grid grid-cols-2 gap-3 px-5 py-4">
           <label className="flex flex-col gap-1 text-[12px] text-secondary">
-            Type
+            {t('Type')}
             <AppSelect
               value={type}
               onValueChange={setType}
-              options={DNS_RECORD_TYPES.map((t) => ({ value: t, label: t }))}
+              options={DNS_RECORD_TYPES.map((rt) => ({ value: rt, label: rt }))}
             />
           </label>
           <label className="flex flex-col gap-1 text-[12px] text-secondary">
@@ -151,7 +152,7 @@ export function DnsRecordDialog({
             />
           </label>
           <label className="col-span-2 flex flex-col gap-1 text-[12px] text-secondary">
-            Name
+            {t('Name')}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -160,7 +161,7 @@ export function DnsRecordDialog({
             />
           </label>
           <label className="col-span-2 flex flex-col gap-1 text-[12px] text-secondary">
-            Content
+            {t('Content')}
             <input
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -169,13 +170,13 @@ export function DnsRecordDialog({
             />
           </label>
           <label className="flex flex-col gap-1 text-[12px] text-secondary">
-            Priority
+            {t('Priority')}
             <input
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
               inputMode="numeric"
               className={`${fieldClass} h-9`}
-              placeholder="MX/SRV only"
+              placeholder={t('MX/SRV only')}
             />
           </label>
           <label className="flex items-end gap-2 pb-1 text-[12px] text-secondary">
@@ -186,15 +187,15 @@ export function DnsRecordDialog({
               onChange={(e) => setProxied(e.target.checked)}
               className="h-4 w-4 rounded border-zGray-700 bg-zGray-950"
             />
-            Proxied
+            {t('Proxied')}
           </label>
           <label className="col-span-2 flex flex-col gap-1 text-[12px] text-secondary">
-            Comment
+            {t('Comment')}
             <input
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               className={`${fieldClass} h-9`}
-              placeholder="Optional"
+              placeholder={t('Optional')}
             />
           </label>
           {error && <div className="col-span-2 text-[12px] text-error">{error}</div>}

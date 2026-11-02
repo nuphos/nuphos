@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { useReportVisibleError } from '../components/VisibleErrorReporter'
+import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 
 import type { DashboardPanel, DashboardPanelSnapshot } from './schema'
@@ -21,7 +22,7 @@ function timestamp(value: string | null): string {
 
 export function ScriptErrorModal({ open, panel, snapshot, onClose }: Props) {
   const [copied, setCopied] = useState(false)
-  const message = snapshot.error?.message ?? 'No error details were returned.'
+  const message = snapshot.error?.message ?? t('No error details were returned.')
 
   useReportVisibleError(message, 'cost_script_error_modal', open)
   const close = () => {
@@ -33,8 +34,8 @@ export function ScriptErrorModal({ open, panel, snapshot, onClose }: Props) {
     <Modal
       open={open}
       onClose={close}
-      title="Script error log"
-      description={`${panel.title} · ${snapshot.error?.kind ?? 'unknown error'}`}
+      title={t('Script error log')}
+      description={`${panel.title} · ${snapshot.error?.kind ?? t('unknown error')}`}
       width={680}
       footer={
         <div className="flex items-center justify-end gap-2 px-4 py-3">
@@ -57,34 +58,34 @@ export function ScriptErrorModal({ open, panel, snapshot, onClose }: Props) {
             }}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zGray-800 px-3 text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
           >
-            <Clipboard className="h-3.5 w-3.5" /> {copied ? 'Copied' : 'Copy log'}
+            <Clipboard className="h-3.5 w-3.5" /> {copied ? t('Copied') : t('Copy log')}
           </button>
           <Button size="sm" type="button" onClick={close}>
-            Close
+            {t('Close')}
           </Button>
         </div>
       }
     >
       <div className="space-y-4 p-5">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[12px]">
-          <dt className="text-tertiary">Snapshot</dt>
+          <dt className="text-tertiary">{t('Snapshot')}</dt>
           <dd className="font-mono text-secondary">{snapshot.id}</dd>
-          <dt className="text-tertiary">Script version</dt>
+          <dt className="text-tertiary">{t('Script version')}</dt>
           <dd className="text-secondary">v{String(snapshot.scriptVersion)}</dd>
-          <dt className="text-tertiary">Started</dt>
+          <dt className="text-tertiary">{t('Started')}</dt>
           <dd className="text-secondary">
             {timestamp(snapshot.executedAt ?? snapshot.requestedAt)}
           </dd>
-          <dt className="text-tertiary">Finished</dt>
+          <dt className="text-tertiary">{t('Finished')}</dt>
           <dd className="text-secondary">{timestamp(snapshot.finishedAt)}</dd>
-          <dt className="text-tertiary">Duration</dt>
+          <dt className="text-tertiary">{t('Duration')}</dt>
           <dd className="text-secondary">
             {snapshot.durationMs == null ? '—' : `${String(snapshot.durationMs)} ms`}
           </dd>
         </dl>
         <div>
           <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-tertiary">
-            Error
+            {t('Error')}
           </div>
           <pre
             className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zGray-800 bg-zGray-950 p-3 font-mono text-[12px] leading-5 text-error scrollbar-thin"

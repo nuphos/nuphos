@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { useResourceList } from '../useResourceList'
 
@@ -70,11 +71,11 @@ export function CloudflareWorkersView({
         rowKey={(r) => r.name}
         onPrimaryAction={(r) => setDetail({ name: r.name })}
         storageKey="cloudflare.workers"
-        empty="No Workers"
+        empty={t('No Workers')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 320,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -83,14 +84,14 @@ export function CloudflareWorkersView({
           },
           {
             key: 'usage',
-            header: 'Usage model',
+            header: t('Usage model'),
             width: 140,
             sortAccessor: (r) => r.usageModel ?? '',
             render: (r) => <span className="text-secondary">{r.usageModel || '-'}</span>,
           },
           {
             key: 'modified',
-            header: 'Modified',
+            header: t('Modified'),
             width: 110,
             sortAccessor: (r) => r.modifiedOn ?? '',
             render: (r) => (

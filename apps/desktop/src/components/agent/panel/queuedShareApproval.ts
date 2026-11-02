@@ -1,8 +1,11 @@
 import { useMemo } from 'react'
 
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 
 import { waitingMessages } from './queuedAutoSend'
+import { useSignInRequest } from './signInAsks'
+import { signInHoldNotice } from './signInHold'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
 import type { Tab } from './model'
@@ -39,6 +42,7 @@ export function useQueuedShareApproval(
   queuedApproval: { status: ShareApproval; text: string } | null
 } {
   const status = useShareApprovalWait(control, control?.sessionId)
+  const signInHold = useSignInHold(tab)
   const inQueue = Boolean(status) && Boolean(tab && waitingMessages(tab).length > 0)
   const runtimeControl = useMemo(
     () => control && { ...control, shareApproval: inQueue ? null : status },
@@ -48,9 +52,16 @@ export function useQueuedShareApproval(
     () =>
       control && status && inQueue
         ? { status, text: shareApprovalText(status, sharedComputerLabel(control)) }
-        : null,
-    [control, inQueue, status],
+        : signInHold,
+    [control, inQueue, status, signInHold],
   )
 
   return { runtimeControl, queuedApproval }
+}
+
+function useSignInHold(tab: Tab | null | undefined) {
+  const viewerId = useCurrentUser()?.id
+  const ask = useSignInRequest(tab?.sessionId ?? '', tab?.signInRequest)
+
+  return useMemo(() => signInHoldNotice(ask, viewerId, tab), [ask, viewerId, tab])
 }

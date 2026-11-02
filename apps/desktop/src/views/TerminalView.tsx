@@ -2,6 +2,7 @@ import { Terminal } from 'lucide-react'
 
 import { PageMeta } from '../app/pageMeta'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { LocalTerminalView } from './LocalTerminalView'
 
@@ -17,9 +18,15 @@ export function TerminalView({ teamId, filter }: { teamId: string; filter: strin
   if (conversationId) return <LocalTerminalView runtime={{ teamId, sessionId: conversationId }} />
 
   return (
-    <PageMeta pageKey="team.terminal" title="Terminal" icon={<Terminal className="h-3.5 w-3.5" />}>
+    <PageMeta
+      pageKey="team.terminal"
+      title={t('Terminal')}
+      icon={<Terminal className="h-3.5 w-3.5" />}
+    >
       <div className="flex h-full items-center justify-center p-6">
-        <p className="text-xs text-tertiary">Select an agent to open its runtime terminal.</p>
+        <p className="text-xs text-tertiary">
+          {t('Select an agent to open its runtime terminal.')}
+        </p>
       </div>
     </PageMeta>
   )

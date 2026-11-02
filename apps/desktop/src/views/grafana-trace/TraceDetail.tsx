@@ -1,6 +1,8 @@
 import { ChevronRight, Clock, Server } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { formatDurationMs } from './format'
 import { ColumnResizeHandle, InlineColumnResizeHandle } from './resize-handles'
 import { buildSpanTreeRows } from './span-tree'
@@ -52,7 +54,7 @@ export function TraceDetail({
   if (!trace) {
     return (
       <div className="h-full min-h-0 flex items-center justify-center px-6 text-[12.5px] text-tertiary">
-        Select a trace to inspect spans.
+        {t('Select a trace to inspect spans.')}
       </div>
     )
   }
@@ -60,7 +62,7 @@ export function TraceDetail({
   if (!bounds || trace.spans.length === 0) {
     return (
       <div className="h-full min-h-0 flex items-center justify-center px-6 text-[12.5px] text-tertiary">
-        No spans returned for this trace.
+        {t('No spans returned for this trace.')}
       </div>
     )
   }
@@ -79,15 +81,23 @@ export function TraceDetail({
           <div className="px-4 py-3 border-b border-zGray-800/50">
             <div className="flex items-center gap-2 min-w-0">
               <div className="text-[13px] text-main font-medium truncate flex-1">{root.name}</div>
-              <CopyButton value={trace.traceId} title="Copy trace ID" />
+              <CopyButton value={trace.traceId} title={t('Copy trace ID')} />
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-tertiary">
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3 h-3" strokeWidth={1.8} />
                 {formatDurationMs(bounds.span / 1e6)}
               </span>
-              <span>{trace.spans.length} spans</span>
-              <span>{services.length} services</span>
+              <span>
+                {trace.spans.length === 1
+                  ? t('1 span')
+                  : t('{count} spans', { count: trace.spans.length })}
+              </span>
+              <span>
+                {services.length === 1
+                  ? t('1 service')
+                  : t('{count} services', { count: services.length })}
+              </span>
               <span className="font-mono truncate max-w-[260px]">{trace.traceId}</span>
             </div>
           </div>
@@ -95,16 +105,16 @@ export function TraceDetail({
             className="relative grid gap-3 px-4 py-2 text-[10.5px] text-tertiary uppercase tracking-wider"
             style={{ gridTemplateColumns: spanGridTemplate }}
           >
-            <div>Span</div>
-            <div>Timeline</div>
-            <div className="text-right">Duration</div>
+            <div>{t('Span')}</div>
+            <div>{t('Timeline')}</div>
+            <div className="text-right">{t('Duration')}</div>
             <InlineColumnResizeHandle
               containerRef={waterfallRef}
               valuePct={spanColumnPct}
               onChange={setSpanColumnPct}
               minPct={24}
               maxPct={62}
-              label="Resize span column"
+              label={t('Resize span column')}
             />
           </div>
         </div>
@@ -127,7 +137,7 @@ export function TraceDetail({
         onChange={(next) => setInspectorPanePct(100 - next)}
         minPct={52}
         maxPct={78}
-        label="Resize span details column"
+        label={t('Resize span details column')}
       />
       <div
         className="h-full min-h-0 min-w-[240px]"
@@ -181,7 +191,7 @@ function SpanRow({
           style={{ paddingLeft: depth * 14 + 20 }}
         >
           <Server className="w-3 h-3 flex-shrink-0" strokeWidth={1.8} />
-          <span className="truncate">{span.serviceName || 'unknown service'}</span>
+          <span className="truncate">{span.serviceName || t('unknown service')}</span>
         </div>
       </div>
       <div className="relative h-6 rounded bg-zGray-900 overflow-hidden">

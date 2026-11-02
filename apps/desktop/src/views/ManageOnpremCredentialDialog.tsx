@@ -4,6 +4,7 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { AccessStep } from './bind-onprem/steps'
 
@@ -27,15 +28,15 @@ export function ManageOnpremCredentialDialog({
   async function save() {
     const next = kubeconfig.trim()
 
-    if (!next) return toast.error('Paste the kubeconfig printed by the command above.')
+    if (!next) return toast.error(t('Paste the kubeconfig printed by the command above.'))
     setBusy(true)
     try {
       await api.atlasSetOnpremClusterKubeconfig(teamId, cluster.id, next)
       setAccess(await api.atlasOnpremClusterAccess(teamId, cluster.id))
       onSaved()
     } catch (cause) {
-      toast.apiError('Could not update the cluster credential', cause, {
-        fallback: 'Check that the kubeconfig has a server address, CA and ServiceAccount token.',
+      toast.apiError(t('Could not update the cluster credential'), cause, {
+        fallback: t('Check that the kubeconfig has a server address, CA and ServiceAccount token.'),
       })
     } finally {
       setBusy(false)
@@ -43,7 +44,12 @@ export function ManageOnpremCredentialDialog({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Manage ${cluster.label} access`} width={640}>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('Manage {name} access', { name: cluster.label })}
+      width={640}
+    >
       <div className="px-5 py-4 text-[13px]">
         <AccessStep
           kubeconfig={kubeconfig}
@@ -59,11 +65,11 @@ export function ManageOnpremCredentialDialog({
           disabled={busy}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          {access?.reachable ? 'Done' : 'Close'}
+          {access?.reachable ? t('Done') : t('Close')}
         </button>
         {!access?.reachable && (
           <Button size="sm" type="button" onClick={() => void save()} disabled={busy}>
-            {busy ? 'Checking…' : 'Save and check access'}
+            {busy ? t('Checking…') : t('Save and check access')}
           </Button>
         )}
       </div>

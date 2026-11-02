@@ -9,6 +9,8 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { displayValue, OPERATIONS } from './documentsQuery'
 import { HighlightedJson } from './HighlightedJson'
 
@@ -49,7 +51,7 @@ export function OperationTabs({
         className={`flex items-center gap-1.5 rounded px-2 py-1 text-[10.5px] ${historyOpen ? 'bg-zGray-700 text-main' : 'text-tertiary hover:bg-zGray-800 hover:text-main'}`}
       >
         <History className="h-3.5 w-3.5" />
-        History
+        {t('History')}
       </button>
     </div>
   )
@@ -76,7 +78,7 @@ export function ResultsPager({
     <div className="flex h-10 shrink-0 items-center justify-end gap-2 border-t border-zGray-800 px-3 text-[10.5px] text-tertiary">
       {pageable ? (
         <>
-          <span>Page {page}</span>
+          <span>{t('Page {page}', { page })}</span>
           <button
             onClick={onPrevious}
             disabled={loading || skip === 0}
@@ -93,7 +95,7 @@ export function ResultsPager({
           </button>
         </>
       ) : (
-        <span>Single bounded result</span>
+        <span>{t('Single bounded result')}</span>
       )}
     </div>
   )
@@ -114,23 +116,27 @@ export function ResultsToolbar({
     <div className="flex h-10 shrink-0 items-center justify-between border-b border-zGray-800 px-3">
       <div className="flex items-center gap-2 text-[10.5px] text-tertiary">
         <ShieldCheck className="h-3.5 w-3.5 text-success" />
-        <span>Read-only gateway</span>
+        <span>{t('Read-only gateway')}</span>
         {result && (
           <>
             <span>·</span>
             <span>
-              {result.rowCount} result{result.rowCount === 1 ? '' : 's'}
+              {result.rowCount === 1
+                ? t('{n} result', { n: result.rowCount })
+                : t('{n} results', { n: result.rowCount })}
             </span>
             <span>·</span>
             <span>{result.durationMs} ms</span>
           </>
         )}
         {result?.truncated && (
-          <span className="rounded bg-warning/10 px-1.5 py-0.5 text-warning">bounded result</span>
+          <span className="rounded bg-warning/10 px-1.5 py-0.5 text-warning">
+            {t('bounded result')}
+          </span>
         )}
         {Boolean(result?.redactedFields.length) && (
           <span className="rounded bg-warning/10 px-1.5 py-0.5 text-warning">
-            {result?.redactedFields.length} protected field(s)
+            {t('{n} protected field(s)', { n: result?.redactedFields.length ?? 0 })}
           </span>
         )}
       </div>
@@ -161,7 +167,7 @@ export function ResultsToolbar({
             onViewChange('documents')
           }}
           className={`rounded p-1.5 ${view === 'documents' ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main'}`}
-          title="Document view"
+          title={t('Document view')}
         >
           <Braces className="h-3.5 w-3.5" />
         </button>
@@ -175,7 +181,7 @@ export function ResultsToolbar({
             onViewChange('table')
           }}
           className={`rounded p-1.5 ${view === 'table' ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main'}`}
-          title="Table view"
+          title={t('Table view')}
         >
           <List className="h-3.5 w-3.5" />
         </button>
@@ -207,7 +213,9 @@ export function ResultsBody({
         </div>
       ) : rows.length === 0 ? (
         <div className="flex h-full items-center justify-center text-[11.5px] text-tertiary">
-          Run the {operation === 'aggregate' ? 'pipeline' : 'query'} to see results.
+          {operation === 'aggregate'
+            ? t('Run the pipeline to see results.')
+            : t('Run the query to see results.')}
         </div>
       ) : view === 'documents' ? (
         <div className="space-y-2 p-3">

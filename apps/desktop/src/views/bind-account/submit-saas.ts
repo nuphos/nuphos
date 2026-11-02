@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 
 import { errorMessage } from './constants'
 
@@ -13,12 +14,12 @@ export async function submitVanta(st: BindState, env: SubmitEnv) {
   const clientSecret = st.vantaClientSecret.trim()
 
   if (!label) {
-    setError('Label is required.')
+    setError(t('Label is required.'))
 
     return
   }
   if (!clientId || !clientSecret) {
-    setError('Vanta client ID and secret are required.')
+    setError(t('Vanta client ID and secret are required.'))
 
     return
   }
@@ -41,12 +42,12 @@ export async function submitSecureframe(st: BindState, env: SubmitEnv) {
   const apiSecret = st.secureframeApiSecret.trim()
 
   if (!label) {
-    setError('Label is required.')
+    setError(t('Label is required.'))
 
     return
   }
   if (!apiKey || !apiSecret) {
-    setError('Secureframe API key and secret are required.')
+    setError(t('Secureframe API key and secret are required.'))
 
     return
   }
@@ -74,12 +75,12 @@ export async function submitNotion(st: BindState, env: SubmitEnv) {
   const token = st.notionToken.trim()
 
   if (!label) {
-    setError('Label is required.')
+    setError(t('Label is required.'))
 
     return
   }
   if (!token) {
-    setError('A Notion integration token is required.')
+    setError(t('A Notion integration token is required.'))
 
     return
   }
@@ -102,17 +103,17 @@ export async function submitUpstash(st: BindState, env: SubmitEnv) {
   const apiKey = st.upstashApiKey.trim()
 
   if (!label) {
-    toast.error('Label is required')
+    toast.error(t('Label is required'))
 
     return
   }
   if (!email) {
-    toast.error('Your Upstash account email is required')
+    toast.error(t('Your Upstash account email is required'))
 
     return
   }
   if (!apiKey) {
-    toast.error('An Upstash Management API key is required')
+    toast.error(t('An Upstash Management API key is required'))
 
     return
   }
@@ -123,7 +124,7 @@ export async function submitUpstash(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Upstash', e)
+    toast.apiError(t('Could not connect {name}', { name: 'Upstash' }), e)
     setSubmitting(false)
   }
 }
@@ -134,12 +135,12 @@ export async function submitResend(st: BindState, env: SubmitEnv) {
   const apiKey = st.resendApiKey.trim()
 
   if (!label) {
-    setError('Label is required.')
+    setError(t('Label is required.'))
 
     return
   }
   if (!apiKey) {
-    setError('A Resend API key is required.')
+    setError(t('A Resend API key is required.'))
 
     return
   }
@@ -160,7 +161,7 @@ export async function submitZeabur(st: BindState, env: SubmitEnv) {
   const token = st.zeaburToken.trim()
 
   if (!token) {
-    setError('Zeabur API token is required.')
+    setError(t('Zeabur API token is required.'))
 
     return
   }

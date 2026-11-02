@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type { KeyDraft } from './config-secret-model'
@@ -37,7 +38,7 @@ export function KeyEditorDialog({
     const cleanKey = key.trim()
 
     if (!cleanKey) {
-      onError('Key is required.')
+      onError(t('Key is required.'))
 
       return
     }
@@ -60,7 +61,9 @@ export function KeyEditorDialog({
     >
       <div className="space-y-4 px-5 py-4">
         <label className="block">
-          <div className="mb-1.5 text-[11.5px] uppercase tracking-wider text-tertiary">Key</div>
+          <div className="mb-1.5 text-[11.5px] uppercase tracking-wider text-tertiary">
+            {t('Key')}
+          </div>
           <input
             value={key}
             onChange={(e) => setKey(e.target.value)}
@@ -88,10 +91,10 @@ export function KeyEditorDialog({
           disabled={pending}
           className="h-8 rounded-md px-3 text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" type="button" onClick={() => void submit()} disabled={pending}>
-          {pending ? 'Saving...' : (draft?.submitLabel ?? 'Save')}
+          {pending ? t('Saving…') : (draft?.submitLabel ?? t('Save'))}
         </Button>
       </div>
     </Modal>

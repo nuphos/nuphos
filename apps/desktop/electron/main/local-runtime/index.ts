@@ -19,15 +19,14 @@ import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } fr
 import { prepareAgentHome } from './agent-home.ts'
 import { LocalAgentLogin } from './agent-login.ts'
 import { localFileConnectors } from './attachment-stream.ts'
-import { LocalBrowserStream } from './browser-stream.ts'
-import { runBrowserCall } from './browser-tabs.ts'
+import { browserStreams } from './browser-streams.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { agentCliEnv, agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
-import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
+import { macScreenApp } from './mac-screen-app.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
@@ -64,8 +63,8 @@ function broadcastState(): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('localRuntime:state', state)
 }
 
-// On a Mac, a conversation's owner can watch the Mac's own screen (mac-screen.ts).
-const screenPool = enableMacScreen(dataDir(), () => tunnel?.sendStatus())
+// On a Mac, its owner can watch the Mac's own screen (mac-screen.ts).
+const macScreen = macScreenApp(dataDir(), bundleRoot, () => tunnel?.sendStatus())
 let tunnel: RuntimeTunnelClient | undefined
 
 const controller: LocalRuntimeController = new LocalRuntimeController({
@@ -132,7 +131,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       ...localFileConnectors(() => controller.state(), bundleRoot()),
       ...localToolStreams,
-      connectBrowser: () => new LocalBrowserStream(runBrowserCall),
+      ...browserStreams,
       connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
@@ -147,7 +146,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       status,
       onChange,
-      ...(screenPool && macScreenDeps(screenPool, status, instances)),
+      ...macScreen.deps(status, () => controller.state().userId, instances),
     })
 
     return tunnel

@@ -3,16 +3,17 @@ import { useState } from 'react'
 
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { BindAccountDialog } from '../BindAccountDialog'
 
 // Marks a human-only permission-admin binding in the role/SA lists.
 export function RetiredBindingBadge() {
   return (
     <span
-      title="Retired connection — remove and reconnect to use with the agent"
+      title={t('Retired connection — remove and reconnect to use with the agent')}
       className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-zViolet-500/15 text-zViolet-accent whitespace-nowrap"
     >
-      Retired connection
+      {t('Retired connection')}
     </span>
   )
 }
@@ -26,7 +27,7 @@ export function BindingWarningIndicator({ warnings }: { warnings?: string[] }) {
   return (
     <span
       title={warnings.join('\n\n')}
-      aria-label="Misconfigured — open for details"
+      aria-label={t('Misconfigured — open for details')}
       className="flex-shrink-0 text-warning"
     >
       <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />
@@ -39,9 +40,9 @@ export function BindingWarningIndicator({ warnings }: { warnings?: string[] }) {
 // already names the provider, so this skips the connector-type picker and opens
 // that provider's bind dialog directly.
 const BIND_ANOTHER_LABEL = {
-  aws: 'Bind new role',
-  gcp: 'Bind new service account',
-  azure: 'Bind new app',
+  aws: t('Bind new role'),
+  gcp: t('Bind new service account'),
+  azure: t('Bind new app'),
 } as const
 
 export function BindAnotherIdentity({

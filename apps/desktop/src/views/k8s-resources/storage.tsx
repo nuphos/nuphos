@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { StatusBadge } from '../../components/StatusBadge'
+import { t } from '../../i18n'
 import { pvPhase } from '../../lib/workloadStatus'
 
 import { includes, persistentVolumeClaimDeleteTarget, persistentVolumeDeleteTarget } from './shared'
@@ -33,14 +34,14 @@ export function PersistentVolumesView({
       columns={[
         {
           key: 'status',
-          header: 'Status',
+          header: t('Status'),
           width: 120,
           sortAccessor: (r) => r.status,
           render: (r) => <StatusBadge status={r.status} />,
         },
         {
           key: 'capacity',
-          header: 'Capacity',
+          header: t('Capacity'),
           width: 110,
           sortAccessor: (r) => r.capacity ?? '',
           render: (r) => (
@@ -49,21 +50,21 @@ export function PersistentVolumesView({
         },
         {
           key: 'access_modes',
-          header: 'Access',
+          header: t('Access|mode'),
           width: 140,
           sortAccessor: (r) => r.access_modes.join(','),
           render: (r) => <ChipList values={r.access_modes} />,
         },
         {
           key: 'reclaim_policy',
-          header: 'Reclaim',
+          header: t('Reclaim'),
           width: 110,
           sortAccessor: (r) => r.reclaim_policy,
           render: (r) => <span className="text-secondary">{r.reclaim_policy || '-'}</span>,
         },
         {
           key: 'claim',
-          header: 'Claim',
+          header: t('Claim'),
           width: 220,
           sortAccessor: (r) => r.claim ?? '',
           render: (r) => (
@@ -77,11 +78,11 @@ export function PersistentVolumesView({
               }
             : undefined,
           canActivate: (r) => r.claim?.split('/').length === 2,
-          activationLabel: (r) => `Open claim ${r.claim ?? ''}`,
+          activationLabel: (r) => t('Open claim {name}', { name: r.claim ?? '' }),
         },
         {
           key: 'storage_class',
-          header: 'Storage Class',
+          header: t('Storage Class'),
           width: 180,
           sortAccessor: (r) => r.storage_class ?? '',
           render: (r) => <span className="text-secondary">{r.storage_class || '-'}</span>,
@@ -91,7 +92,7 @@ export function PersistentVolumesView({
               }
             : undefined,
           canActivate: (r) => Boolean(r.storage_class),
-          activationLabel: (r) => `Open storage class ${r.storage_class ?? ''}`,
+          activationLabel: (r) => t('Open storage class {name}', { name: r.storage_class ?? '' }),
         },
       ]}
     />
@@ -122,14 +123,14 @@ export function PersistentVolumeClaimsView({
       columns={[
         {
           key: 'status',
-          header: 'Status',
+          header: t('Status'),
           width: 120,
           sortAccessor: (r) => r.status,
           render: (r) => <StatusBadge status={r.status} />,
         },
         {
           key: 'capacity',
-          header: 'Capacity',
+          header: t('Capacity'),
           width: 110,
           sortAccessor: (r) => r.capacity ?? '',
           render: (r) => (
@@ -138,14 +139,14 @@ export function PersistentVolumeClaimsView({
         },
         {
           key: 'access_modes',
-          header: 'Access',
+          header: t('Access|mode'),
           width: 140,
           sortAccessor: (r) => r.access_modes.join(','),
           render: (r) => <ChipList values={r.access_modes} />,
         },
         {
           key: 'volume',
-          header: 'Volume',
+          header: t('Volume'),
           width: 220,
           sortAccessor: (r) => r.volume ?? '',
           render: (r) => (
@@ -157,11 +158,11 @@ export function PersistentVolumeClaimsView({
               }
             : undefined,
           canActivate: (r) => Boolean(r.volume),
-          activationLabel: (r) => `Open volume ${r.volume ?? ''}`,
+          activationLabel: (r) => t('Open volume {name}', { name: r.volume ?? '' }),
         },
         {
           key: 'storage_class',
-          header: 'Storage Class',
+          header: t('Storage Class'),
           width: 180,
           sortAccessor: (r) => r.storage_class ?? '',
           render: (r) => <span className="text-secondary">{r.storage_class || '-'}</span>,
@@ -171,7 +172,7 @@ export function PersistentVolumeClaimsView({
               }
             : undefined,
           canActivate: (r) => Boolean(r.storage_class),
-          activationLabel: (r) => `Open storage class ${r.storage_class ?? ''}`,
+          activationLabel: (r) => t('Open storage class {name}', { name: r.storage_class ?? '' }),
         },
       ]}
     />

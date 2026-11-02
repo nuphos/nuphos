@@ -8,6 +8,7 @@ import { conversationActivityBadges } from '../../../lib/conversationActivityBad
 import { triggerRunLabel } from '../../../lib/triggerRunLabel'
 import { Avatar } from '../../Avatar'
 
+import { openAsk } from './agentSignInModel'
 import { ConversationActivityBadgeView, ConversationChannelDot } from './conversationBadges'
 import { conversationOwnerName, formatHistoryTime } from './conversationMeta'
 
@@ -102,6 +103,8 @@ export function HistoryConversationRow({
   // The question a reply from the Inbox answers by default: the newest.
   const waitingOn = openRequests.at(-1)
   const questionCount = openQuestionCount(openRequests.length)
+  // Someone waits for a sign-in here, as long as their message can still run.
+  const signIn = openAsk(conversation.signInRequest)
 
   return (
     <div
@@ -178,8 +181,10 @@ export function HistoryConversationRow({
             {/* Waiting on a decision, the question is what the row is about. */}
             {waitingOn
               ? `${historyTime(waitingOn.askedAt)} · ${waitingOn.question}`
-              : historyTime(conversation.lastActiveAt)}
-            {!waitingOn && conversation.messageCount > 0
+              : signIn
+                ? `${historyTime(signIn.askedAt)} · ${t('{name} is waiting for a sign-in', { name: signIn.requesterName })}`
+                : historyTime(conversation.lastActiveAt)}
+            {!waitingOn && !signIn && conversation.messageCount > 0
               ? ` · ${t('{n} messages', { n: conversation.messageCount })}`
               : ''}
             {triggerBadge && (

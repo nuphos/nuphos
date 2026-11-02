@@ -1,9 +1,11 @@
+import { t } from '../i18n/index.ts'
+
 import type { AgentConversationTriggerRun, AgentTriggerRunKind } from '../api'
 
 const KIND_LABELS: Record<AgentTriggerRunKind, { label: string; description: string }> = {
-  scheduled: { label: 'Scheduled', description: 'Fired by this trigger schedule' },
-  webhook: { label: 'Webhook', description: 'Fired by an external webhook' },
-  manual: { label: 'Manual', description: 'Fired by hand from Nuphos' },
+  scheduled: { label: t('Scheduled'), description: t('Fired by this trigger schedule') },
+  webhook: { label: t('Webhook'), description: t('Fired by an external webhook') },
+  manual: { label: t('Manual'), description: t('Fired by hand from Nuphos') },
 }
 
 export type TriggerRunLabel = {

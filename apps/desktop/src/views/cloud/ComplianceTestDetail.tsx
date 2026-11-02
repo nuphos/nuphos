@@ -3,6 +3,7 @@ import { MessageSquare, X } from 'lucide-react'
 import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import type { ComplianceRow } from './compliance-helpers'
 
@@ -24,7 +25,7 @@ export function ComplianceTestDetail({
       <div className="flex items-start gap-2 px-4 py-3 border-b border-zGray-800/60">
         <div className="min-w-0 flex-1">
           <div className="text-[11px] uppercase tracking-wider text-tertiary">
-            {providerLabel} test
+            {t('{provider} test', { provider: providerLabel })}
           </div>
           <div className="mt-0.5 text-[14px] font-medium text-main break-words">{row.name}</div>
         </div>
@@ -32,8 +33,8 @@ export function ComplianceTestDetail({
           type="button"
           onClick={onClose}
           className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]"
-          title="Close"
-          aria-label="Close"
+          title={t('Close')}
+          aria-label={t('Close')}
         >
           <X className="w-4 h-4" />
         </button>
@@ -44,14 +45,14 @@ export function ComplianceTestDetail({
           {row.category && <span className="text-tertiary">· {row.category}</span>}
           {row.lastRun && (
             <span className="text-tertiary">
-              · last run <Age value={row.lastRun} />
+              · {t('last run')} <Age value={row.lastRun} />
             </span>
           )}
         </div>
         {row.reason && (
           <div>
             <div className="text-[11px] uppercase tracking-wider text-tertiary mb-1">
-              Why it is failing
+              {t('Why it is failing')}
             </div>
             <div className="text-secondary whitespace-pre-wrap break-words">{row.reason}</div>
           </div>
@@ -59,21 +60,23 @@ export function ComplianceTestDetail({
         {row.remediation && (
           <div>
             <div className="text-[11px] uppercase tracking-wider text-tertiary mb-1">
-              Remediation
+              {t('Remediation')}
             </div>
             <div className="text-secondary whitespace-pre-wrap break-words">{row.remediation}</div>
           </div>
         )}
         {!row.reason && !row.remediation && (
           <div className="text-tertiary">
-            No failure details reported by {providerLabel} for this test.
+            {t('No failure details reported by {provider} for this test.', {
+              provider: providerLabel,
+            })}
           </div>
         )}
       </div>
       <div className="flex-shrink-0 border-t border-zGray-800/60 p-3">
         <Button size="sm" className="w-full" type="button" onClick={onOpenInChat}>
           <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-          Open in agent
+          {t('Open in agent')}
         </Button>
       </div>
     </div>

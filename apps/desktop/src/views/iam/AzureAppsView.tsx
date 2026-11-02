@@ -6,6 +6,7 @@ import { api } from '../../api'
 import { BindingAccessSection } from '../../components/BindingAccess'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { formatAge } from '../../utils'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -59,19 +60,19 @@ export function AzureAppsView({
       <div className="flex-1 flex flex-col min-w-0">
         {apps.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-[13px] text-tertiary">
-            No apps available for this subscription.
+            {t('No apps available for this subscription.')}
           </div>
         ) : (
           <Table<AzureAccount>
             rows={rows}
             rowKey={(app) => app.id}
             onPrimaryAction={(app) => setSelectedAppId(app.id)}
-            empty="No matching apps."
+            empty={t('No matching apps.')}
             storageKey="azure-apps"
             columns={[
               {
                 key: 'app',
-                header: 'App',
+                header: t('App'),
                 width: 360,
                 sortAccessor: (app) => app.label,
                 render: (app) => (
@@ -97,12 +98,12 @@ export function AzureAppsView({
               },
               {
                 key: 'age',
-                header: 'Age',
+                header: t('Age'),
                 width: 110,
                 sortAccessor: (app) => app.createdAt ?? '',
                 render: (app) => (
                   <span className="text-tertiary">
-                    {app.createdAt ? `${formatAge(app.createdAt)} ago` : '—'}
+                    {app.createdAt ? t('{age} ago', { age: formatAge(app.createdAt) }) : '—'}
                   </span>
                 ),
               },
@@ -157,7 +158,7 @@ function AzureAppPermissionsView({
       .catch((e: unknown) => {
         if (cancelled) return
         setState('error')
-        toast.apiError('Could not load Azure role assignments', e)
+        toast.apiError(t('Could not load Azure role assignments'), e)
       })
 
     return () => {
@@ -179,7 +180,7 @@ function AzureAppPermissionsView({
           type="button"
           onClick={onClose}
           className="flex-shrink-0 h-7 w-7 rounded-md flex items-center justify-center text-tertiary hover:text-main hover:bg-zGray-800"
-          title="Close"
+          title={t('Close')}
         >
           <X className="w-4 h-4" strokeWidth={1.8} />
         </button>
@@ -187,18 +188,19 @@ function AzureAppPermissionsView({
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="p-4">
           <div className="text-[11px] uppercase tracking-wider text-tertiary font-medium mb-2">
-            Role assignments
+            {t('Role assignments')}
           </div>
           {state === 'loading' ? (
-            <div className="text-[12.5px] text-tertiary">Loading…</div>
+            <div className="text-[12.5px] text-tertiary">{t('Loading…')}</div>
           ) : state === 'error' ? (
             <div className="text-[12.5px] text-tertiary">
-              Couldn’t load role assignments. Close and reopen to retry.
+              {t('Couldn’t load role assignments. Close and reopen to retry.')}
             </div>
           ) : state === 'ready' && (assignments?.length ?? 0) === 0 ? (
             <div className="text-[12.5px] text-tertiary">
-              This app has no role assignments on the subscription. Grant it a role in the Azure
-              portal (Access control → Add role assignment).
+              {t(
+                'This app has no role assignments on the subscription. Grant it a role in the Azure portal (Access control → Add role assignment).',
+              )}
             </div>
           ) : state === 'ready' ? (
             <div className="space-y-1.5">

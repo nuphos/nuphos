@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { GithubInstallation } from '../../types'
 
 /** "personal" for a user account, "organization" for an org. */
@@ -7,7 +9,7 @@ export function githubAccountKind(installation: GithubInstallation): 'personal' 
 
 /** The installation's repository grant as GitHub names it. */
 export function githubRepoAccessLabel(installation: GithubInstallation): string {
-  return installation.targetType === 'all' ? 'All repositories' : 'Selected repositories'
+  return installation.targetType === 'all' ? t('All repositories') : t('Selected repositories')
 }
 
 /** Where the app is installed: the account when there is one. The card's green dot says connected. */
@@ -15,10 +17,14 @@ export function githubConnectedSummary(installations: GithubInstallation[]): str
   if (installations.length === 1) {
     const [installation] = installations
 
-    return `${installation.accountLogin} (${githubAccountKind(installation)})`
+    const name = installation.accountLogin
+
+    return githubAccountKind(installation) === 'organization'
+      ? t('{name} (organization)', { name })
+      : t('{name} (personal)', { name })
   }
 
-  return `${String(installations.length)} connections`
+  return t('{n} connections', { n: installations.length })
 }
 
 /**

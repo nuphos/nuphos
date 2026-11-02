@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { CfDetailActionBar } from './cf-shared'
@@ -135,8 +136,10 @@ export function CloudflareR2BucketDetailView({
   async function handleUpload(file: File) {
     if (file.size > MAX_R2_INLINE_UPLOAD_BYTES) {
       toast.error(
-        'File is too large',
-        `This upload path supports files up to ${formatBytes(MAX_R2_INLINE_UPLOAD_BYTES)}.`,
+        t('File is too large'),
+        t('This upload path supports files up to {size}.', {
+          size: formatBytes(MAX_R2_INLINE_UPLOAD_BYTES),
+        }),
       )
 
       return
@@ -152,7 +155,7 @@ export function CloudflareR2BucketDetailView({
       contentBase64,
       contentType: file.type || undefined,
     })
-    toast.success(`Uploaded ${file.name}`)
+    toast.success(t('Uploaded {name}', { name: file.name }))
     loadObjects(prefix)
   }
 
@@ -175,7 +178,7 @@ export function CloudflareR2BucketDetailView({
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 flex items-center justify-center text-sm text-tertiary">
-          Loading…
+          {t('Loading…')}
         </div>
       </div>
     )
@@ -198,7 +201,7 @@ export function CloudflareR2BucketDetailView({
           const status = await api.atlasBindCloudflareR2Credentials(teamId, accountId, input)
 
           setCreds(status)
-          toast.success('R2 credentials bound')
+          toast.success(t('R2 credentials bound'))
         }}
       />
     )
@@ -211,12 +214,12 @@ export function CloudflareR2BucketDetailView({
           onClick={() => fileInputRef.current?.click()}
           className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
         >
-          <FontAwesomeIcon icon={faUpload} className="w-3.5 h-3.5" /> Upload
+          <FontAwesomeIcon icon={faUpload} className="w-3.5 h-3.5" /> {t('Upload')}
         </button>
         <button
           onClick={() => loadObjects(prefix)}
           className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
-          title="Refresh"
+          title={t('Refresh')}
         >
           <FontAwesomeIcon icon={faArrowsRotate} className="w-3.5 h-3.5" />
         </button>
@@ -230,8 +233,8 @@ export function CloudflareR2BucketDetailView({
 
           if (file)
             void handleUpload(file).catch((err: unknown) =>
-              toast.apiError('Failed to upload object', err, {
-                fallback: 'Check your connection and try again.',
+              toast.apiError(t('Failed to upload object'), err, {
+                fallback: t('Check your connection and try again.'),
               }),
             )
           e.target.value = ''

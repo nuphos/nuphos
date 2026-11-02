@@ -7,6 +7,7 @@ import { ContextMenu } from '../../components/ContextMenu'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -71,7 +72,7 @@ export function S3BucketsView({
       ...(linkItems.length > 0 ? [{ key: 'sep0', separator: true } as const] : []),
       {
         key: 'open-in-browser',
-        label: 'Open in AWS console',
+        label: t('Open in AWS console'),
         icon: Globe,
         onSelect: () => {
           void api.appOpenExternal(s3ConsoleBucketUrl(bucket))
@@ -100,7 +101,10 @@ export function S3BucketsView({
       return
     }
     if (missingDetailToastRef.current !== missingDetailKey) {
-      toast.error('Could not open bucket', `S3 bucket ${missingDetailKey} was not found.`)
+      toast.error(
+        t('Could not open bucket'),
+        t('S3 bucket {name} was not found.', { name: missingDetailKey }),
+      )
       missingDetailToastRef.current = missingDetailKey
     }
     setS3Detail?.(null)
@@ -112,7 +116,7 @@ export function S3BucketsView({
       if (loading) {
         return (
           <div className="h-full flex items-center justify-center text-sm text-tertiary">
-            Loading bucket...
+            {t('Loading bucket...')}
           </div>
         )
       }
@@ -180,11 +184,11 @@ export function S3BucketsView({
         onRowContextMenu={(bucket, e) => setMenu({ bucket, x: e.clientX, y: e.clientY })}
         storageKey="aws.s3-buckets"
         defaultSort={{ key: 'name', dir: 'asc' }}
-        empty="No S3 buckets"
+        empty={t('No S3 buckets')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 320,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -195,14 +199,14 @@ export function S3BucketsView({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 160,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'created',
-            header: 'Created',
+            header: t('Created'),
             width: 100,
             sortAccessor: (r) => r.createdAt ?? '',
             render: (r) => (

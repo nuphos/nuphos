@@ -82,7 +82,7 @@ export function FrameNode({ data, selected }: NodeProps) {
         <Menu>
           <MenuTrigger
             className="nodrag nopan rounded px-1.5 py-0.5 text-[11px] text-tertiary hover:bg-zGray-800 hover:text-main"
-            title="Frame size"
+            title={t('Frame size')}
           >
             {preset
               ? FRAME_PRESETS[preset].label
@@ -103,7 +103,7 @@ export function FrameNode({ data, selected }: NodeProps) {
         </Menu>
         {error && (
           <Tooltip content={error}>
-            <span className="inline-flex items-center text-warning" aria-label="Page error">
+            <span className="inline-flex items-center text-warning" aria-label={t('Page error')}>
               <AlertTriangle className="h-3.5 w-3.5" />
             </span>
           </Tooltip>
@@ -118,7 +118,7 @@ export function FrameNode({ data, selected }: NodeProps) {
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Download"
+              aria-label={t('Download')}
               onClick={(e) => {
                 e.stopPropagation()
                 canvas.download(frame.id)

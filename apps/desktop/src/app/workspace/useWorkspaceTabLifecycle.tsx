@@ -84,6 +84,7 @@ export function useWorkspaceTabLifecycle(a: Args) {
     toolbarLeftOccupied,
     toolbarRightOccupied,
     newTab,
+    stableOpenNuphosLinkFromChat,
   } = a
   const { closeOtherTabs, reorderTab, selectAdjacentTab } = workspaceActions
 
@@ -141,6 +142,12 @@ export function useWorkspaceTabLifecycle(a: Args) {
   // drilled-in diagram with no controls).
   const toolbarHasControls =
     Boolean(toolbarPrimaryAction) || toolbarLeftOccupied || toolbarRightOccupied
+
+  // macOS hands Nuphos http(s) links once the user picks it as the default
+  // browser; they open like a link clicked in chat.
+  useEffect(() => {
+    if (paneActive) return api.onWebUrlDeepLink(stableOpenNuphosLinkFromChat)
+  }, [paneActive, stableOpenNuphosLinkFromChat])
 
   useEffect(() => {
     if (!paneActive || typeof window.api.onAppShortcut !== 'function') return

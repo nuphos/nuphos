@@ -7,6 +7,7 @@ import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { Table } from '../../components/Table'
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useLinkOnlyRowMenu } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -19,7 +20,7 @@ import type { ResourceListLoader } from '../../lib/resourceListCache'
 import type { CloudflareDnsRecord, CloudflareDnsRecordInput } from '../../types'
 
 function formatTtl(ttl: number): string {
-  return ttl === 1 ? 'Auto' : `${String(ttl)}s`
+  return ttl === 1 ? t('Auto') : `${String(ttl)}s`
 }
 
 export function CloudflareDnsRecordsView({
@@ -57,7 +58,7 @@ export function CloudflareDnsRecordsView({
     { pollTick },
   )
 
-  useToolbarPrimaryAction(isActive && !error ? 'Add record' : null, () =>
+  useToolbarPrimaryAction(isActive && !error ? t('Add record') : null, () =>
     setDialog({ mode: 'create', record: null }),
   )
 
@@ -96,19 +97,19 @@ export function CloudflareDnsRecordsView({
           open
           onClose={() => setDetail(null)}
           title={`${detail.type}  ${detail.name}`}
-          subtitle={`DNS record · ${zoneName}`}
+          subtitle={t('DNS record · {zone}', { zone: zoneName })}
           fields={[
-            { label: 'Type', value: detail.type, mono: true },
-            { label: 'Name', value: detail.name, mono: true },
-            { label: 'Content', value: detail.content, mono: true, full: true },
-            { label: 'TTL', value: formatTtl(detail.ttl) },
+            { label: t('Type'), value: detail.type, mono: true },
+            { label: t('Name'), value: detail.name, mono: true },
+            { label: t('Content'), value: detail.content, mono: true, full: true },
+            { label: t('TTL'), value: formatTtl(detail.ttl) },
             {
-              label: 'Proxy',
-              value: detail.proxied === null ? '—' : detail.proxied ? 'On' : 'Off',
+              label: t('Proxy'),
+              value: detail.proxied === null ? '—' : detail.proxied ? t('On') : t('Off'),
             },
-            { label: 'Comment', value: detail.comment || '—' },
+            { label: t('Comment'), value: detail.comment || '—' },
             {
-              label: 'Updated',
+              label: t('Updated'),
               value: detail.modifiedAt ?? detail.createdAt ?? '—',
             },
           ]}
@@ -122,18 +123,18 @@ export function CloudflareDnsRecordsView({
         onPrimaryAction={setDetail}
         onRowContextMenu={onRowContextMenu}
         storageKey="cloudflare.dns-records"
-        empty="No DNS records"
+        empty={t('No DNS records')}
         columns={[
           {
             key: 'type',
-            header: 'Type',
+            header: t('Type'),
             width: 90,
             sortAccessor: (r) => r.type,
             render: (r) => <span className="font-mono text-[12px] text-main">{r.type}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 260,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -144,7 +145,7 @@ export function CloudflareDnsRecordsView({
           },
           {
             key: 'content',
-            header: 'Content',
+            header: t('Content'),
             width: 320,
             sortAccessor: (r) => r.content,
             render: (r) => (
@@ -158,28 +159,28 @@ export function CloudflareDnsRecordsView({
           },
           {
             key: 'ttl',
-            header: 'TTL',
+            header: t('TTL'),
             width: 90,
             sortAccessor: (r) => r.ttl,
             render: (r) => <span className="text-secondary">{formatTtl(r.ttl)}</span>,
           },
           {
             key: 'proxy',
-            header: 'Proxy',
+            header: t('Proxy'),
             width: 90,
             sortAccessor: (r) => (r.proxied ? 1 : 0),
             render: (r) =>
               r.proxied === null ? (
                 '-'
               ) : r.proxied ? (
-                <span className="text-[#f38020]">On</span>
+                <span className="text-[#f38020]">{t('On')}</span>
               ) : (
-                <span className="text-tertiary">Off</span>
+                <span className="text-tertiary">{t('Off')}</span>
               ),
           },
           {
             key: 'comment',
-            header: 'Comment',
+            header: t('Comment'),
             width: 220,
             sortAccessor: (r) => r.comment ?? '',
             render: (r) => (
@@ -193,7 +194,7 @@ export function CloudflareDnsRecordsView({
           },
           {
             key: 'updated',
-            header: 'Updated',
+            header: t('Updated'),
             width: 100,
             sortAccessor: (r) => r.modifiedAt ?? r.createdAt ?? '',
             render: (r) => (
@@ -214,7 +215,7 @@ export function CloudflareDnsRecordsView({
                     setDialog({ mode: 'edit', record: r })
                   }}
                   className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
-                  title="Edit DNS record"
+                  title={t('Edit DNS record')}
                 >
                   <Pencil className="w-3.5 h-3.5" strokeWidth={1.8} />
                 </button>
@@ -224,7 +225,7 @@ export function CloudflareDnsRecordsView({
                     setPendingDelete(r)
                   }}
                   className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                  title="Delete DNS record"
+                  title={t('Delete DNS record')}
                 >
                   <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
                 </button>
@@ -253,13 +254,17 @@ export function CloudflareDnsRecordsView({
 
       <ConfirmDialog
         open={!!pendingDelete}
-        title="Delete DNS record?"
+        title={t('Delete DNS record?')}
         description={
           pendingDelete
-            ? `${pendingDelete.type} ${pendingDelete.name} will be removed from ${zoneName}.`
+            ? t('{type} {name} will be removed from {zone}.', {
+                type: pendingDelete.type,
+                name: pendingDelete.name,
+                zone: zoneName,
+              })
             : ''
         }
-        confirmLabel="Delete"
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={async () => {
           if (pendingDelete) {

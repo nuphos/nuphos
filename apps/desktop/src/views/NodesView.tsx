@@ -7,6 +7,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { makeFilterMatcher } from '../lib/filterQuery'
 import { useK8sDeleteActions } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
@@ -79,16 +80,19 @@ export function NodesView({ filter, refreshKey, onSelect, onCount, onLoading }: 
       node.schedulable
         ? {
             key: 'cordon',
-            label: 'Cordon (mark unschedulable)',
+            label: t('Cordon (mark unschedulable)'),
             icon: Ban,
-            confirm: `Cordon node "${node.name}"? New pods will not be scheduled here, but existing pods stay.`,
+            confirm: t(
+              'Cordon node "{name}"? New pods will not be scheduled here, but existing pods stay.',
+              { name: node.name },
+            ),
             onSelect: async () => {
               await api.cordonNode(actionContext, node.name, true)
             },
           }
         : {
             key: 'uncordon',
-            label: 'Uncordon (mark schedulable)',
+            label: t('Uncordon (mark schedulable)'),
             icon: ShieldCheck,
             onSelect: async () => {
               await api.cordonNode(actionContext, node.name, false)
@@ -96,10 +100,10 @@ export function NodesView({ filter, refreshKey, onSelect, onCount, onLoading }: 
           },
       {
         key: 'drain',
-        label: 'Drain',
+        label: t('Drain'),
         icon: Droplets,
         disabled: true,
-        hint: 'soon',
+        hint: t('soon'),
         onSelect: () => undefined,
       },
       { key: 'sep1', separator: true },

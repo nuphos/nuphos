@@ -20,6 +20,8 @@ export type SidebarFavorite = {
 export type SidebarFavoriteOperation =
   | { id: string; kind: 'upsert'; favorite: SidebarFavorite }
   | { id: string; kind: 'remove'; identity: string }
+  /** Puts `identity` just before `before`, or last when that is null. */
+  | { id: string; kind: 'move'; identity: string; before: string | null }
 
 export type SyncMeta = {
   migrated: boolean
@@ -148,6 +150,13 @@ function validOperation(value: unknown): value is SidebarFavoriteOperation {
   if (typeof operation.id !== 'string') return false
   if (operation.kind === 'upsert') return validFavorite(operation.favorite)
 
+  if (operation.kind === 'move') {
+    return (
+      typeof operation.identity === 'string' &&
+      (operation.before === null || typeof operation.before === 'string')
+    )
+  }
+
   return operation.kind === 'remove' && typeof operation.identity === 'string'
 }
 
@@ -216,6 +225,10 @@ export function applyFavoriteOperations(
       next = next.filter((entry) => favoriteIdentity(entry) !== operation.identity)
       continue
     }
+    if (operation.kind === 'move') {
+      next = moveFavorite(next, operation.identity, operation.before)
+      continue
+    }
     const identity = favoriteIdentity(operation.favorite)
     const index = next.findIndex((entry) => favoriteIdentity(entry) === identity)
 
@@ -224,4 +237,24 @@ export function applyFavoriteOperations(
   }
 
   return normalizeFavorites(next)
+}
+
+// Relative to a neighbour rather than an index, so a move made on one device
+// still lands sensibly on a list another device has since changed.
+function moveFavorite(
+  entries: SidebarFavorite[],
+  identity: string,
+  before: string | null,
+): SidebarFavorite[] {
+  const moved = entries.find((entry) => favoriteIdentity(entry) === identity)
+
+  if (!moved || identity === before) return entries
+  const rest = entries.filter((entry) => entry !== moved)
+  const at = before === null ? rest.length : rest.findIndex((e) => favoriteIdentity(e) === before)
+
+  // The row it was meant to go before is gone (unpinned elsewhere): stay put.
+  if (at === -1) return entries
+  rest.splice(at, 0, moved)
+
+  return rest
 }

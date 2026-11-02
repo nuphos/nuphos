@@ -7,6 +7,7 @@ import { UsageBar } from '../components/UsageBar'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { makeFilterMatcher } from '../lib/filterQuery'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
@@ -89,42 +90,42 @@ export function JobsView({ namespace, filter, refreshKey, onSelect, onCount, onL
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 160,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'completions',
-            header: 'Completions',
+            header: t('Completions'),
             width: 120,
             sortAccessor: (r) => r.completions,
             render: (r) => <span className="text-secondary">{r.completions}</span>,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 130,
             sortAccessor: (r) => r.status,
             render: (r) => <StatusBadge status={r.status} />,
           },
           {
             key: 'duration',
-            header: 'Duration',
+            header: t('Duration'),
             width: 110,
             sortAccessor: (r) => r.duration ?? '',
             render: (r) => <span className="text-tertiary">{r.duration ?? '-'}</span>,
           },
           {
             key: 'cpu',
-            header: 'CPU',
+            header: t('CPU'),
             width: 170,
             sortAccessor: (r) => r.cpu,
             render: (r) => (
@@ -138,7 +139,7 @@ export function JobsView({ namespace, filter, refreshKey, onSelect, onCount, onL
           },
           {
             key: 'memory',
-            header: 'Memory',
+            header: t('Memory'),
             width: 180,
             sortAccessor: (r) => r.memory,
             render: (r) => (
@@ -153,7 +154,7 @@ export function JobsView({ namespace, filter, refreshKey, onSelect, onCount, onL
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

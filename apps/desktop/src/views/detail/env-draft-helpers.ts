@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import {
   containerEnvDraft,
   deploymentEnvContainerKey,
@@ -112,9 +114,9 @@ export function unsavedStatusText(changed: boolean, dirtyCount: number): string 
 
   return changed
     ? otherDirtyCount > 0
-      ? `Unsaved changes (+${String(otherDirtyCount)})`
-      : 'Unsaved changes'
+      ? t('Unsaved changes (+{count})', { count: otherDirtyCount })
+      : t('Unsaved changes')
     : dirtyCount > 0
-      ? `${String(dirtyCount)} unsaved elsewhere`
+      ? t('{count} unsaved elsewhere', { count: dirtyCount })
       : null
 }

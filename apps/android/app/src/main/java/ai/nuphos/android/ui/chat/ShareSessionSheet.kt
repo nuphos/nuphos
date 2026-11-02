@@ -9,6 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -30,10 +34,10 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(state) { state.load() }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        LazyColumn(modifier = Modifier.fillMaxWidth().imePadding(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxWidth().imePadding(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Share agent", style = MaterialTheme.typography.headlineSmall)
+                    Text("Share", style = MaterialTheme.typography.titleLarge)
                     TextButton(onClick = onDismiss) { Text("Done") }
                 }
             }
@@ -66,14 +70,22 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                 item { Text("In this agent", style = MaterialTheme.typography.titleMedium) }
                 items(access.participants, key = { "participant:${it.id}" }) { person ->
                     Column(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.size(28.dp)) {
+                            Box(contentAlignment = Alignment.Center) { Text(person.displayName.take(1).uppercase(), style = MaterialTheme.typography.labelMedium) }
+                        }
+                        Column(Modifier.weight(1f)) {
                         Text(person.displayName, color = if (person.deactivated) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
                         if (person.deactivated) Text("Deactivated", style = MaterialTheme.typography.labelSmall)
+                        }
                         if (person.isOwner) Text("Owner", style = MaterialTheme.typography.labelMedium)
                         else if (!state.canManage) Text(person.effectiveRole(access.generalAccess).title)
                         else ChoiceMenu("Role for ${person.displayName}", person.effectiveRole(access.generalAccess).title,
                             state.editable, ShareRole.entries, { it.title }, allowed = { it.rank >= access.generalAccess.floor },
-                            onSelect = { scope.launch { state.role(person, it) } },
+                            onSelect = { scope.launch { state.role(person, it) } }, showLabel = false,
                             extra = { close -> DropdownMenuItem(text = { Text("Remove") }, onClick = { close(); scope.launch { state.remove(person) } }) })
+                        }
+                        HorizontalDivider(Modifier.padding(start = 38.dp), color = MaterialTheme.colorScheme.outlineVariant)
                         if (state.pending == person.id) CircularProgressIndicator(Modifier.size(20.dp))
                     }
                 }
@@ -126,10 +138,11 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
 @Composable
 private fun <T> ChoiceMenu(label: String, value: String, enabled: Boolean, options: List<T>, title: (T) -> String,
     allowed: (T) -> Boolean = { true }, onSelect: (T) -> Unit,
+    showLabel: Boolean = true,
     extra: (@Composable (() -> Unit) -> Unit)? = null) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(enabled = enabled, onClick = { open = true }) { Text("$label: $value") }
+        TextButton(enabled = enabled, onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "$label: $value" }) { Text(if (showLabel) "$label: $value" else value) }
         DropdownMenu(expanded = open && enabled, onDismissRequest = { open = false }) {
             options.forEach { option -> DropdownMenuItem(text = { Text(title(option)) }, enabled = allowed(option), onClick = { open = false; onSelect(option) }) }
             extra?.invoke { open = false }

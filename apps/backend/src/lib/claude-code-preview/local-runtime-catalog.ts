@@ -57,6 +57,8 @@ export type LocalRuntimeSummary = {
   box?: Pick<AgentDeviceBox, 'provider'>
   /** Present when it is a teammate's own computer they share with the viewer; see local-share. */
   shared?: { level: Exclude<LocalShareLevel, 'off'> }
+  /** The computer opens its desktop on request; only `ownerUserId` may open it (runtime-desktop). */
+  desktopOpen?: true
 }
 
 export type LocalRuntimeInstance = {
@@ -147,6 +149,7 @@ export async function listOwnLocalRuntimes(
               deviceLabel: device.label,
               ...(label ? { agentLabel: label } : {}),
               agentInstances: presence?.status?.agentInstances === true,
+              ...(presence?.status?.desktopOpen === true ? { desktopOpen: true as const } : {}),
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(shared ? { shared: { level: shared } } : {}),
               ...(instanceId ? { instanceId } : {}),

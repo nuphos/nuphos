@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { mrColumns, pipelineColumns } from './gitlabColumns'
@@ -137,7 +138,7 @@ export function ProjectDetail({
                 : 'text-tertiary hover:text-secondary'
             }`}
           >
-            Merge requests
+            {t('Merge requests')}
           </button>
           <button
             onClick={() => onTabChange('pipelines')}
@@ -145,7 +146,7 @@ export function ProjectDetail({
               tab === 'pipelines' ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary'
             }`}
           >
-            Pipelines
+            {t('Pipelines')}
           </button>
         </div>
         {tab === 'merge-requests' && (
@@ -158,7 +159,13 @@ export function ProjectDetail({
                   mrState === s ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary'
                 }`}
               >
-                {s}
+                {s === 'opened'
+                  ? t('Open|state')
+                  : s === 'merged'
+                    ? t('Merged')
+                    : s === 'closed'
+                      ? t('Closed')
+                      : t('All')}
               </button>
             ))}
           </div>
@@ -178,8 +185,14 @@ export function ProjectDetail({
             storageKey={`gitlab.mrs.${binding.id}.${String(project.id)}`}
             empty={
               filter
-                ? `No MRs match "${filter}"`
-                : `No ${mrState === 'all' ? '' : mrState + ' '}merge requests`
+                ? t('No MRs match "{filter}"', { filter })
+                : mrState === 'all'
+                  ? t('No merge requests')
+                  : mrState === 'opened'
+                    ? t('No opened merge requests')
+                    : mrState === 'merged'
+                      ? t('No merged merge requests')
+                      : t('No closed merge requests')
             }
             onPrimaryAction={(m) => window.open(m.webUrl, '_blank')}
           />
@@ -194,7 +207,7 @@ export function ProjectDetail({
           rows={filteredPipelines}
           rowKey={(p) => String(p.id)}
           storageKey={`gitlab.pipelines.${binding.id}.${String(project.id)}`}
-          empty={filter ? `No pipelines match "${filter}"` : 'No pipelines'}
+          empty={filter ? t('No pipelines match "{filter}"', { filter }) : t('No pipelines')}
           onPrimaryAction={(p) => window.open(p.webUrl, '_blank')}
         />
       )}

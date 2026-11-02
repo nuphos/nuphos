@@ -16,6 +16,7 @@ import {
   originLabel,
   outcomeSummary,
 } from './deviceActivity'
+import { LoadFailed } from './shared'
 
 import type { OutcomeTone } from './deviceActivity'
 import type { DeviceExecAuditEntry, DeviceExecAuditPage } from '../../api'
@@ -104,6 +105,7 @@ export function DeviceActivityList({
   const [entries, setEntries] = useState<DeviceExecAuditEntry[] | null>(null)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   const applyPage = useCallback((page: DeviceExecAuditPage, append: boolean) => {
     setEntries((prev) => (append && prev ? [...prev, ...page.entries] : page.entries))
@@ -120,7 +122,7 @@ export function DeviceActivityList({
       })
       .catch((err: unknown) => {
         toast.apiError(t('Could not load recent activity'), err)
-        if (!cancelled) setEntries([])
+        if (!cancelled) setFailed(true)
       })
 
     return () => {
@@ -132,7 +134,9 @@ export function DeviceActivityList({
     setLoading(true)
     try {
       applyPage(await api.deviceListAudit(before), before !== undefined)
+      setFailed(false)
     } catch (err) {
+      if (before === undefined) setFailed(true)
       toast.apiError(t('Could not load recent activity'), err)
     } finally {
       setLoading(false)
@@ -142,7 +146,11 @@ export function DeviceActivityList({
   let body: ReactNode
 
   if (entries === null) {
-    body = <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
+    body = failed ? (
+      <LoadFailed message={t('Couldn’t load recent activity.')} onRetry={() => void load()} />
+    ) : (
+      <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
+    )
   } else if (entries.length === 0) {
     body = <p className={EMPTY_CLASSES}>{t('Nothing has run on this computer yet.')}</p>
   } else {

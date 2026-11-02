@@ -14,14 +14,15 @@ import { useComposerReplyTarget } from '../../components/agent/summary/useCompos
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { markChannel } from '../../components/channels/channelKind'
 import { teamCanUseAgent } from '../../lib/agentAccess'
-import { useChatSummaryOpen } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
+import { PaneCloseButton } from './PaneCloseButton'
 import { PaneGrip } from './PaneGrip'
 import { PaneMenu } from './PaneMenu'
 import { SessionFindBar } from './SessionFindBar'
 import { useTitlebarFit } from './titlebarFit'
+import { useOwnPaneSummary } from './usePaneSummary'
 import { useSessionHeading } from './useSessionHeading'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -69,7 +70,7 @@ export function WorkspaceAgentPane({
     stableOpenSessionResource,
   } = ws
   const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
-  const summaryOpen = useChatSummaryOpen()
+  const { open: summaryOpen } = useOwnPaneSummary(selectedSessionId)
   const savedSessionId = currentHeading.saved !== false ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
@@ -233,8 +234,10 @@ export function WorkspaceAgentPane({
               active={paneInFront}
               hidden={tight}
               pendingCount={inputQueue.requests.length}
+              sessionId={savedSessionId}
             />
           )}
+          {pane?.split && <PaneCloseButton onClosePane={pane.closePane} />}
           {/* The rest of the header moves the window, so a pane moves by its grip. Electron cuts
             no-drag holes in page order, so the grip comes after the drag area it sits over. */}
           <PaneGrip label={currentHeading.title} />
@@ -288,6 +291,7 @@ export function WorkspaceAgentPane({
               onOpenLink={stableOpenSessionResource}
               onOpenSession={handleSessionChange}
               onOpenRequest={handleOpenRequest}
+              onChooseReply={replyTarget?.onChoose}
               requests={inputQueue.requests}
               requestsLoaded={inputQueue.loaded}
               requestsFailed={inputQueue.failed}

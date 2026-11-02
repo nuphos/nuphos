@@ -2,6 +2,7 @@ import { Loader2, Play, RotateCcw } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
 import { JsonEditor } from '../../components/YamlEditor'
+import { t } from '../../i18n'
 
 import { operationAction } from './documentsQuery'
 
@@ -54,7 +55,7 @@ export function DocumentsQueryBar({
       </Button>
       <button
         onClick={onReset}
-        title="Reset query"
+        title={t('Reset query')}
         className="h-8 rounded-md border border-zGray-700 px-2 text-tertiary hover:text-main"
       >
         <RotateCcw className="h-3.5 w-3.5" />
@@ -64,7 +65,7 @@ export function DocumentsQueryBar({
   const limitField = (
     <label className="w-20">
       <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-tertiary">
-        Limit
+        {t('Limit')}
       </span>
       <input
         type="number"
@@ -85,7 +86,7 @@ export function DocumentsQueryBar({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-tertiary">
-              Pipeline · JSON array
+              {t('Pipeline · JSON array')}
             </span>
             <JsonEditor
               value={pipeline}
@@ -101,7 +102,7 @@ export function DocumentsQueryBar({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-tertiary">
-              Filter
+              {t('Filter')}
             </span>
             <JsonEditor
               value={filter}
@@ -116,7 +117,7 @@ export function DocumentsQueryBar({
             <>
               <div className="w-44">
                 <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-tertiary">
-                  Project
+                  {t('Project|projection')}
                 </span>
                 <JsonEditor
                   value={projection}
@@ -129,7 +130,7 @@ export function DocumentsQueryBar({
               </div>
               <div className="w-40">
                 <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-tertiary">
-                  Sort
+                  {t('Sort')}
                 </span>
                 <JsonEditor
                   value={sort}

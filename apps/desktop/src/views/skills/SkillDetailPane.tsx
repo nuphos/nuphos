@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { DetailSidebarTransition } from '../../components/DetailSidebarTransition'
 import { Button } from '../../components/ui/button'
 import { formatBytes } from '../../grafana/format'
+import { t } from '../../i18n'
 
 import { SkillFilesSection, SkillHistorySection, SkillUploadSection } from './SkillDetailSections'
 
@@ -54,11 +55,15 @@ export function SkillDetailPane({
   const prefix = `skills/${skill.name}/`
   const metadata = history?.metadata ?? skill.metadata
   const memberName = (userId: string | null | undefined) => {
-    if (!userId) return 'Unknown'
+    if (!userId) return t('Unknown')
     const member = members.find((entry) => entry.id === userId)
 
     return member?.name || member?.username || userId.slice(0, 8)
   }
+  const [noSkillMdPre, noSkillMdPost = ''] = t(
+    'No {file} — the agent will skip this skill directory.',
+  ).split('{file}')
+  const [modifiedPre, modifiedPost = ''] = t('modified {age}').split('{age}')
   const historyEvents = history?.events.filter((event) => event.phase === 'result') ?? []
 
   return (
@@ -70,7 +75,9 @@ export function SkillDetailPane({
         <>
           <div className="px-4 py-3 border-b border-zGray-800/60 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[12px] uppercase tracking-wide text-tertiary">Team skill</div>
+              <div className="text-[12px] uppercase tracking-wide text-tertiary">
+                {t('Team skill')}
+              </div>
               <div className="text-[13px] text-main truncate" title={skill.displayName}>
                 {skill.displayName}
               </div>
@@ -80,8 +87,8 @@ export function SkillDetailPane({
               type="button"
               onClick={requestClose}
               className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
-              title="Close details"
-              aria-label="Close details"
+              title={t('Close details')}
+              aria-label={t('Close details')}
             >
               <X className="h-4 w-4" strokeWidth={1.8} />
             </button>
@@ -92,28 +99,37 @@ export function SkillDetailPane({
               <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.8} />
                 <span>
-                  No <code className="font-mono">SKILL.md</code> — the agent will skip this skill
-                  directory.
+                  {noSkillMdPre}
+                  <code className="font-mono">SKILL.md</code>
+                  {noSkillMdPost}
                 </span>
               </div>
             )}
 
             {skill.description && (
               <section className="space-y-1">
-                <div className="text-[11px] uppercase tracking-wide text-tertiary">Description</div>
+                <div className="text-[11px] uppercase tracking-wide text-tertiary">
+                  {t('Description')}
+                </div>
                 <p className="text-[12.5px] text-secondary leading-relaxed">{skill.description}</p>
               </section>
             )}
 
             <section className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-tertiary">Summary</div>
+              <div className="text-[11px] uppercase tracking-wide text-tertiary">
+                {t('Summary')}
+              </div>
               <div className="text-[12px] text-secondary">
-                {skill.fileCount} file{skill.fileCount === 1 ? '' : 's'} ·{' '}
-                {formatBytes(skill.totalBytes)}
+                {skill.fileCount === 1
+                  ? t('{count} file', { count: '1' })
+                  : t('{count} files', { count: String(skill.fileCount) })}{' '}
+                · {formatBytes(skill.totalBytes)}
                 {skill.lastModified ? (
                   <>
                     {' '}
-                    · modified <Age value={skill.lastModified} />
+                    · {modifiedPre}
+                    <Age value={skill.lastModified} />
+                    {modifiedPost}
                   </>
                 ) : null}
               </div>
@@ -121,20 +137,22 @@ export function SkillDetailPane({
 
             {metadata && (
               <section className="space-y-2">
-                <div className="text-[11px] uppercase tracking-wide text-tertiary">Provenance</div>
+                <div className="text-[11px] uppercase tracking-wide text-tertiary">
+                  {t('Provenance')}
+                </div>
                 <div className="grid grid-cols-[92px_1fr] gap-x-3 gap-y-1 text-[12px]">
-                  <span className="text-tertiary">Created by</span>
+                  <span className="text-tertiary">{t('Created by')}</span>
                   <span
                     className="truncate text-secondary"
                     title={metadata.createdByUserId ?? undefined}
                   >
-                    {metadata.legacy ? 'Unknown (legacy)' : memberName(metadata.createdByUserId)}
+                    {metadata.legacy ? t('Unknown (legacy)') : memberName(metadata.createdByUserId)}
                   </span>
-                  <span className="text-tertiary">Source</span>
+                  <span className="text-tertiary">{t('Source')}</span>
                   <span className="font-mono text-secondary">{metadata.createdSource}</span>
-                  <span className="text-tertiary">Revision</span>
+                  <span className="text-tertiary">{t('Revision')}</span>
                   <span className="font-mono text-secondary">{metadata.revision}</span>
-                  <span className="text-tertiary">Last changed by</span>
+                  <span className="text-tertiary">{t('Last changed by')}</span>
                   <span
                     className="truncate text-secondary"
                     title={metadata.updatedByUserId ?? undefined}
@@ -150,15 +168,16 @@ export function SkillDetailPane({
                 </div>
                 {metadata.legacy && (
                   <p className="text-[11px] leading-relaxed text-tertiary">
-                    This skill predates provenance tracking, so its original creator is not
-                    inferred.
+                    {t(
+                      'This skill predates provenance tracking, so its original creator is not inferred.',
+                    )}
                   </p>
                 )}
               </section>
             )}
 
             {loading ? (
-              <div className="text-[12px] text-tertiary">Loading files…</div>
+              <div className="text-[12px] text-tertiary">{t('Loading files…')}</div>
             ) : (
               <>
                 {skillMd?.text && (
@@ -171,7 +190,7 @@ export function SkillDetailPane({
                     </pre>
                     {skillMd.textTruncated && (
                       <p className="text-[11px] text-tertiary">
-                        Preview truncated — file is too large to inline.
+                        {t('Preview truncated — file is too large to inline.')}
                       </p>
                     )}
                   </section>
@@ -205,7 +224,7 @@ export function SkillDetailPane({
                     className="h-8 w-full text-[12px] text-red-400 hover:text-red-300"
                     onClick={onDeleteSkill}
                   >
-                    Delete entire skill
+                    {t('Delete entire skill')}
                   </Button>
                 )}
               </>

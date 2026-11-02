@@ -3,9 +3,12 @@ import { useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
 
-import type { LocalShareApproval } from '../../api/device-types'
+import { ShareApproveButton } from './ShareApproveButton'
+
+import type { LocalShareApproval, ShareTrustDuration } from '../../api/device-types'
 
 /**
  * Teammates asking to run a conversation on the viewer's own computer. Approving
@@ -18,7 +21,11 @@ export function ShareApprovalRequests({
 }: {
   teamId: string
   approvals: LocalShareApproval[]
-  decide: (approvalId: string, approve: boolean) => Promise<void>
+  decide: (
+    approval: LocalShareApproval,
+    approve: boolean,
+    trust?: ShareTrustDuration,
+  ) => Promise<void>
 }) {
   const members = useTeamMembers(teamId)
   const [deciding, setDeciding] = useState<string | null>(null)
@@ -27,14 +34,18 @@ export function ShareApprovalRequests({
   const nameOf = (userId: string) => {
     const member = members.find((entry) => entry.id === userId)
 
-    return member ? memberDisplayName(member) : 'A teammate'
+    return member ? memberDisplayName(member) : t('A teammate')
   }
-  const answer = async (approval: LocalShareApproval, approve: boolean) => {
+  const answer = async (
+    approval: LocalShareApproval,
+    approve: boolean,
+    trust?: ShareTrustDuration,
+  ) => {
     setDeciding(approval.id)
     try {
-      await decide(approval.id, approve)
+      await decide(approval, approve, trust)
     } catch (error) {
-      toast.apiError('Could not answer this request', error)
+      toast.apiError(t('Could not answer this request'), error)
     } finally {
       setDeciding(null)
     }
@@ -43,7 +54,7 @@ export function ShareApprovalRequests({
   return (
     <section className="flex-shrink-0 border-b border-zGray-800/70">
       <div className="px-4 pt-3 pb-1 text-[12px] font-medium text-tertiary">
-        Requests to use your computer
+        {t('Requests to use your computer')}
       </div>
       <ul>
         {approvals.map((approval) => (
@@ -55,13 +66,28 @@ export function ShareApprovalRequests({
             )}
           >
             <span className="min-w-0 text-secondary">
-              <span className="text-main">{nameOf(approval.actorId)}</span> wants to run{' '}
-              {approval.title ? (
-                <span className="text-main">“{approval.title}”</span>
-              ) : (
-                'a conversation'
-              )}{' '}
-              on {approval.deviceLabel}. Their message is sent once you approve.
+              {(approval.title
+                ? t(
+                    '{name} wants to run {title} on {device}. Their message is sent once you approve.',
+                    {
+                      device: approval.deviceLabel,
+                    },
+                  )
+                : t(
+                    '{name} wants to run a conversation on {device}. Their message is sent once you approve.',
+                    { device: approval.deviceLabel },
+                  )
+              )
+                .split(/(\{name\}|\{title\})/)
+                .map((part, i) =>
+                  part === '{name}' || part === '{title}' ? (
+                    <span key={i} className="text-main">
+                      {part === '{name}' ? nameOf(approval.actorId) : `“${approval.title}”`}
+                    </span>
+                  ) : (
+                    part
+                  ),
+                )}
             </span>
             <span className="flex shrink-0 gap-1.5">
               <Button
@@ -70,15 +96,12 @@ export function ShareApprovalRequests({
                 disabled={deciding !== null}
                 onClick={() => void answer(approval, false)}
               >
-                Decline
+                {t('Decline')}
               </Button>
-              <Button
-                size="sm"
+              <ShareApproveButton
                 disabled={deciding !== null}
-                onClick={() => void answer(approval, true)}
-              >
-                Approve
-              </Button>
+                onApprove={(trust) => void answer(approval, true, trust)}
+              />
             </span>
           </li>
         ))}

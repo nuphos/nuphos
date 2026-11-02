@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import type { DatabaseChangeRequest } from '../../types'
 
@@ -40,13 +41,19 @@ export function ChangeActionDialogs({
     <>
       <ConfirmDialog
         open={pendingDecision?.action === 'execute'}
-        title="Execute approved change?"
+        title={t('Execute approved change?')}
         description={
           pendingDecision
-            ? `Execute ${pendingDecision.change.operation} on ${pendingDecision.change.database}.${pendingDecision.change.collection}? This will mutate the database using the stored credential.`
+            ? t(
+                'Execute {operation} on {target}? This will mutate the database using the stored credential.',
+                {
+                  operation: pendingDecision.change.operation,
+                  target: `${pendingDecision.change.database}.${pendingDecision.change.collection}`,
+                },
+              )
             : ''
         }
-        confirmLabel="Execute"
+        confirmLabel={t('Execute')}
         destructive
         onConfirm={async () => {
           if (pendingDecision) await onExecute(pendingDecision.change)
@@ -55,7 +62,7 @@ export function ChangeActionDialogs({
       />
       <Modal
         open={pendingDecision !== null && pendingDecision.action !== 'execute'}
-        title={pendingDecision?.action === 'approve' ? 'Approve change' : 'Reject change'}
+        title={pendingDecision?.action === 'approve' ? t('Approve change') : t('Reject change')}
         description={pendingDecision?.change.title}
         onClose={() => {
           if (!busy) onClose()
@@ -63,7 +70,7 @@ export function ChangeActionDialogs({
         footer={
           <div className="flex justify-end gap-2 px-5 py-3">
             <Button variant="secondary" disabled={busy} onClick={onClose}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               disabled={busy}
@@ -72,13 +79,13 @@ export function ChangeActionDialogs({
                 void onDecide(pendingDecision.action, pendingDecision.change, comment).then(onClose)
               }}
             >
-              {pendingDecision?.action === 'approve' ? 'Approve' : 'Reject'}
+              {pendingDecision?.action === 'approve' ? t('Approve') : t('Reject')}
             </Button>
           </div>
         }
       >
         <label className="block px-5 py-4 text-[12px] text-secondary">
-          Comment (optional)
+          {t('Comment (optional)')}
           <textarea
             autoFocus
             value={comment}

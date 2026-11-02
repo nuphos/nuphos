@@ -14,7 +14,8 @@ struct ChatComposerBar<Controls: View>: View {
     /// The turn accepts steering, so what is typed mid-reply goes into it.
     var canSteer = false
     var allowsAttachments = true
-    var failedSubmission: Binding<ComposerSubmission?> = .constant(nil)
+    /// An unsent message to take back into the draft, for editing.
+    var editRequest: Binding<ComposerSubmission?> = .constant(nil)
     /// What an `@` offers: the viewer's devices and other sessions; nil offers none.
     var mentions: MentionSource? = nil
     /// The team voice input transcribes for; nil hides the microphone.
@@ -60,16 +61,6 @@ struct ChatComposerBar<Controls: View>: View {
         // Collapsed, the controls row is zero high; spacing around it would
         // stay, so a collapsed composer has none.
         VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
-            if let submission = failedSubmission.wrappedValue {
-                Button("Edit unsent message") {
-                    text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                    attachments.insert(contentsOf: submission.attachments, at: 0)
-                    failedSubmission.wrappedValue = nil
-                    focused = true
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            }
             // The controls own the sheets they present (agent setup, pickers).
             // A text field in one of those sheets takes focus from the
             // composer, so the row stays mounted while collapsed; removing it
@@ -265,6 +256,13 @@ struct ChatComposerBar<Controls: View>: View {
                 }
             }
             #endif
+            .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
+                guard requested, let submission = editRequest.wrappedValue else { return }
+                text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
+                attachments.insert(contentsOf: submission.attachments, at: 0)
+                editRequest.wrappedValue = nil
+                focused = true
+            }
             .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
                 Button("OK", role: .cancel) { dictationError = nil }
             } message: {
@@ -493,9 +491,9 @@ struct ChatComposerBar<Controls: View>: View {
         .accessibilityLabel(label)
     }
 
-    /// One button, never two: a running turn with nothing typed stops it,
-    /// and what is typed goes into that turn where the runtime takes it,
-    /// otherwise into the queue.
+    /// A running turn with nothing typed: the button stops it. What is typed
+    /// goes into that turn where the runtime takes it, otherwise into the
+    /// queue, and a stop button stays beside it as on Desktop.
     private var action: ComposerAction {
         .current(
             isStreaming: isStreaming,
@@ -507,6 +505,23 @@ struct ChatComposerBar<Controls: View>: View {
     }
 
     private var trailingButton: some View {
+        HStack(spacing: 6) {
+            if action != .stop, isStreaming, canStop, let onStop {
+                Button(action: onStop) {
+                    Image(systemName: ComposerAction.stop.systemImage)
+                        .font(Theme.Text.secondary.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .foregroundStyle(Theme.heading)
+                        .background(Theme.muted.opacity(0.18), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(ComposerAction.stop.accessibilityLabel)
+            }
+            primaryButton
+        }
+    }
+
+    private var primaryButton: some View {
         let action = action
         return Button {
             if action == .stop { onStop?() } else { send() }
@@ -619,7 +634,7 @@ struct ComposerChip: View {
     var body: some View {
         HStack(spacing: 5) {
             if let logo {
-                BrandLogo(name: logo, size: 13)
+                BrandLogo(name: logo, size: 16)
             } else if let systemImage {
                 Image(systemName: systemImage).font(.system(size: 11, weight: .semibold))
             }
@@ -646,6 +661,7 @@ struct BrandLogo: View {
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }
 

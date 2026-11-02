@@ -1,11 +1,23 @@
 import { KeyRound } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { MongoDocumentsExplorer } from '../MongoDocumentsExplorer'
 
 import { CenteredLoader, EmptyDetail, JsonPanel, Metric, SafetyNotice } from './schemaShared'
 
 import type { DetailTab } from './schemaFormat'
 import type { MongoCollectionDetail } from '../../types'
+
+const TAB_LABELS: Record<DetailTab, string> = {
+  Documents: t('Documents'),
+  Schema: t('Schema'),
+  Indexes: t('Indexes'),
+  Validation: t('Validation'),
+  View: t('View|collection'),
+  Sharding: t('Sharding'),
+  Options: t('Options'),
+}
 
 export function CollectionDetail({
   teamId,
@@ -42,14 +54,19 @@ export function CollectionDetail({
             onClick={() => onTab(item)}
             className={`border-b-2 px-3 py-2 text-[11.5px] ${tab === item ? 'border-zViolet-accent text-main' : 'border-transparent text-tertiary hover:text-secondary'}`}
           >
-            {item}
-            {item === 'Indexes' ? ` (${String(detail.indexes.length)})` : ''}
+            {item === 'Indexes'
+              ? t('Indexes ({n})', { n: detail.indexes.length })
+              : TAB_LABELS[item]}
           </button>
         ))}
       </div>
       <div className={`h-[468px] ${tab === 'Documents' ? 'overflow-hidden' : 'overflow-auto p-4'}`}>
         {tab !== 'Documents' && detail.metadataTruncated && (
-          <SafetyNotice text="Some collection metadata was omitted to stay within the backend response safety budget." />
+          <SafetyNotice
+            text={t(
+              'Some collection metadata was omitted to stay within the backend response safety budget.',
+            )}
+          />
         )}
         {tab === 'Documents' && (
           <MongoDocumentsExplorer
@@ -64,7 +81,9 @@ export function CollectionDetail({
         {tab === 'Validation' && <ValidationTab detail={detail} />}
         {tab === 'View' && detail.view && <ViewTab detail={detail} />}
         {tab === 'Sharding' && <ShardingTab detail={detail} />}
-        {tab === 'Options' && <JsonPanel value={detail.options} empty="No collection options." />}
+        {tab === 'Options' && (
+          <JsonPanel value={detail.options} empty={t('No collection options.')} />
+        )}
       </div>
     </div>
   )
@@ -75,25 +94,27 @@ function SchemaTab({ detail }: { detail: MongoCollectionDetail }) {
     <div>
       <div className="mb-3 flex flex-wrap gap-2 text-[10.5px] text-tertiary">
         <span className="rounded bg-zGray-800 px-2 py-1">
-          Sampled {detail.schema.sampleSize} documents
+          {t('Sampled {n} documents', { n: detail.schema.sampleSize })}
         </span>
         <span className="rounded bg-zGray-800 px-2 py-1">
-          {detail.schema.fields.length} field paths
+          {t('{n} field paths', { n: detail.schema.fields.length })}
         </span>
         {detail.schema.truncated && (
-          <span className="rounded bg-warning/10 px-2 py-1 text-warning">Field limit reached</span>
+          <span className="rounded bg-warning/10 px-2 py-1 text-warning">
+            {t('Field limit reached')}
+          </span>
         )}
       </div>
       {detail.schema.fields.length === 0 ? (
-        <EmptyDetail text="No fields could be sampled from this collection." />
+        <EmptyDetail text={t('No fields could be sampled from this collection.')} />
       ) : (
         <div className="overflow-hidden rounded-lg border border-zGray-800">
           <table className="w-full text-left text-[11.5px]">
             <thead className="bg-zGray-900 text-tertiary">
               <tr>
-                <th className="px-3 py-2 font-medium">Field path</th>
-                <th className="px-3 py-2 font-medium">Types</th>
-                <th className="px-3 py-2 font-medium">Presence</th>
+                <th className="px-3 py-2 font-medium">{t('Field path')}</th>
+                <th className="px-3 py-2 font-medium">{t('Types')}</th>
+                <th className="px-3 py-2 font-medium">{t('Presence')}</th>
               </tr>
             </thead>
             <tbody>
@@ -127,11 +148,13 @@ function SchemaTab({ detail }: { detail: MongoCollectionDetail }) {
 
 function IndexesTab({ detail }: { detail: MongoCollectionDetail }) {
   if (detail.indexes.length === 0)
-    return <EmptyDetail text="Index metadata is unavailable for this collection." />
+    return <EmptyDetail text={t('Index metadata is unavailable for this collection.')} />
 
   return (
     <div className="space-y-2">
-      {detail.indexesTruncated && <SafetyNotice text="Only the first 200 indexes are shown." />}
+      {detail.indexesTruncated && (
+        <SafetyNotice text={t('Only the first 200 indexes are shown.')} />
+      )}
       {detail.indexes.map((index) => (
         <div key={index.name} className="rounded-lg border border-zGray-800 p-3">
           <div className="flex items-center gap-2">
@@ -170,31 +193,35 @@ function ValidationTab({ detail }: { detail: MongoCollectionDetail }) {
   return (
     <div>
       {detail.validation.truncated && (
-        <SafetyNotice text="The validator was truncated by the metadata safety budget." />
+        <SafetyNotice text={t('The validator was truncated by the metadata safety budget.')} />
       )}
       <div className="mb-3 grid grid-cols-2 gap-3">
-        <Metric label="Validation level" value={detail.validation.level ?? 'Default'} />
-        <Metric label="Validation action" value={detail.validation.action ?? 'Default'} />
+        <Metric label={t('Validation level')} value={detail.validation.level ?? t('Default')} />
+        <Metric label={t('Validation action')} value={detail.validation.action ?? t('Default')} />
       </div>
-      <JsonPanel value={detail.validation.validator} empty="No validator configured." />
+      <JsonPanel value={detail.validation.validator} empty={t('No validator configured.')} />
     </div>
   )
 }
 
 function ViewTab({ detail }: { detail: MongoCollectionDetail }) {
-  if (!detail.view) return <EmptyDetail text="This collection is not a view." />
+  if (!detail.view) return <EmptyDetail text={t('This collection is not a view.')} />
 
   return (
     <div>
       <div className="mb-3 grid grid-cols-2 gap-3">
-        <Metric label="Source collection" value={detail.view.source} />
-        <Metric label="Pipeline stages" value={String(detail.view.pipeline.length)} />
+        <Metric label={t('Source collection')} value={detail.view.source} />
+        <Metric label={t('Pipeline stages')} value={String(detail.view.pipeline.length)} />
       </div>
-      <SafetyNotice text="Pipeline structure is shown for discovery. Sensitive keys and non-structural literal values are redacted by the backend." />
+      <SafetyNotice
+        text={t(
+          'Pipeline structure is shown for discovery. Sensitive keys and non-structural literal values are redacted by the backend.',
+        )}
+      />
       {detail.view.pipelineTruncated && (
-        <SafetyNotice text="The pipeline was truncated by the metadata safety budget." />
+        <SafetyNotice text={t('The pipeline was truncated by the metadata safety budget.')} />
       )}
-      <JsonPanel value={detail.view.pipeline} empty="This view has an empty pipeline." />
+      <JsonPanel value={detail.view.pipeline} empty={t('This view has an empty pipeline.')} />
     </div>
   )
 }
@@ -202,19 +229,23 @@ function ViewTab({ detail }: { detail: MongoCollectionDetail }) {
 function ShardingTab({ detail }: { detail: MongoCollectionDetail }) {
   if (!detail.sharding.available) {
     return (
-      <EmptyDetail text="Sharding metadata is unavailable to this database account or deployment. Nuphos does not request elevated privileges to discover it." />
+      <EmptyDetail
+        text={t(
+          'Sharding metadata is unavailable to this database account or deployment. Nuphos does not request elevated privileges to discover it.',
+        )}
+      />
     )
   }
-  if (!detail.sharding.sharded) return <EmptyDetail text="This collection is not sharded." />
+  if (!detail.sharding.sharded) return <EmptyDetail text={t('This collection is not sharded.')} />
 
   return (
     <div>
       <div className="mb-3 grid grid-cols-2 gap-3">
-        <Metric label="Unique shard key" value={detail.sharding.unique ? 'Yes' : 'No'} />
-        <Metric label="Balancing" value={detail.sharding.balancing ?? 'Unknown'} />
+        <Metric label={t('Unique shard key')} value={detail.sharding.unique ? t('Yes') : t('No')} />
+        <Metric label={t('Balancing')} value={detail.sharding.balancing ?? t('Unknown')} />
       </div>
-      <div className="mb-2 text-[10px] uppercase tracking-wide text-tertiary">Shard key</div>
-      <JsonPanel value={detail.sharding.shardKey} empty="Shard key metadata is unavailable." />
+      <div className="mb-2 text-[10px] uppercase tracking-wide text-tertiary">{t('Shard key')}</div>
+      <JsonPanel value={detail.sharding.shardKey} empty={t('Shard key metadata is unavailable.')} />
     </div>
   )
 }

@@ -43,8 +43,16 @@ class RuntimesStore(
                 null
             }
             try {
-                val catalog = read("Could not refresh runtimes.", readCatalog)
+                var catalogDenied = false
+                val catalog = read("Could not refresh runtimes.") {
+                    try { readCatalog() } catch (failure: RuntimeHttpFailure) { catalogDenied = failure.status == 403; throw failure }
+                }
                 if (!current(ticket)) return@launch
+                if (catalogDenied) {
+                    runtimes = emptyList(); quotas = emptyMap(); devices = emptyList(); loaded = false
+                    errors = listOf("Runtime access is no longer available in this workspace.")
+                    return@launch
+                }
                 val usage = read("Usage unavailable. Try refreshing.", readQuotas)
                 if (!current(ticket)) return@launch
                 val hosts = read("Computer status unavailable. Try refreshing.", readDevices)
@@ -65,3 +73,15 @@ fun runtimeGroups(runtimes: List<AgentRuntime>, devices: List<RuntimeDevice>): L
             val device = host?.deviceId?.let { id -> devices.firstOrNull { it.id == id } }
             RuntimeGroup(key, if (key == "cloud") "Cloud" else device?.label ?: host?.deviceLabel ?: rows.first().label, device, rows)
         }.sortedBy { if (it.key == "cloud") 0 else 1 }
+
+/** Unknown access never grants sign-in; the API also checks the current actor. */
+enum class InventoryDestination { CloudDetails, ProviderSignIn, HostInstructions, AdministratorInstructions, Unavailable }
+fun inventoryDestination(runtime: AgentRuntime, administrator: Boolean, devices: List<RuntimeDevice>): InventoryDestination {
+    if (runtime.kind == "managed" && administrator) return InventoryDestination.CloudDetails
+    if (runtime.deleting || runtime.status != "active") return InventoryDestination.Unavailable
+    if (runtime.local != null) {
+        val host = devices.firstOrNull { it.id == runtime.local.deviceId }
+        return if (host?.box == true && host.access == "manage" && host.online) InventoryDestination.ProviderSignIn else InventoryDestination.HostInstructions
+    }
+    return if (administrator && runtime.kind in setOf("external", "development")) InventoryDestination.ProviderSignIn else InventoryDestination.AdministratorInstructions
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { t } from '../i18n'
 
 import { DocumentsHistoryPanel } from './mongo/DocumentsHistoryPanel'
 import {
@@ -73,14 +74,14 @@ export function MongoDocumentsExplorer({ teamId, connectionId, database, collect
         let input: MongoReadQueryInput
 
         if (operation === 'aggregate') {
-          input = { ...base, pipeline: parseArrayEditor('Pipeline', pipeline) }
+          input = { ...base, pipeline: parseArrayEditor(t('Pipeline'), pipeline) }
         } else if (operation === 'count') {
-          input = { ...base, filter: parseObjectEditor('Filter', filter) }
+          input = { ...base, filter: parseObjectEditor(t('Filter'), filter) }
         } else {
           input = {
             ...base,
-            filter: parseObjectEditor('Filter', filter),
-            projection: parseObjectEditor('Project', projection),
+            filter: parseObjectEditor(t('Filter'), filter),
+            projection: parseObjectEditor(t('Project|projection'), projection),
             sort: parseSort(sort),
           }
         }
@@ -94,7 +95,7 @@ export function MongoDocumentsExplorer({ teamId, connectionId, database, collect
         if (version !== requestVersion.current) return
         setError(
           cause instanceof SyntaxError
-            ? `Invalid JSON: ${cause.message}`
+            ? t('Invalid JSON: {message}', { message: cause.message })
             : parseAtlasError(cause).message,
         )
       } finally {
@@ -209,8 +210,11 @@ export function MongoDocumentsExplorer({ teamId, connectionId, database, collect
     setError(null)
     setNotice(
       event.queryRedactedFields.length > 0
-        ? `${String(event.queryRedactedFields.length)} protected value(s) were redacted in history. Review the query before running it.`
-        : 'Query loaded from history. Review it, then run manually.',
+        ? t(
+            '{n} protected value(s) were redacted in history. Review the query before running it.',
+            { n: event.queryRedactedFields.length },
+          )
+        : t('Query loaded from history. Review it, then run manually.'),
     )
     setHistoryOpen(false)
   }

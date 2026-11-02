@@ -4,6 +4,7 @@ import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useSilentRefresh } from '../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { readSwrCache, writeSwrCache } from '../lib/swrCache'
 
 import { AbnormalUsagePanel, OverviewCardView, SkeletonCard } from './cluster/overviewCards'
@@ -137,7 +138,7 @@ export function ClusterOverview({ refreshKey, onLoading, onNavigate }: Props) {
 
   return (
     <div className="p-6 overflow-auto scrollbar-thin">
-      <h2 className="text-[15px] font-semibold mb-4 text-main">Cluster Overview</h2>
+      <h2 className="text-[15px] font-semibold mb-4 text-main">{t('Cluster Overview')}</h2>
       <div className="grid grid-cols-2 @lg:grid-cols-3 @3xl:grid-cols-4 gap-3">
         {core === null
           ? // Match the 12 real cards so the grid doesn't reflow when data lands.

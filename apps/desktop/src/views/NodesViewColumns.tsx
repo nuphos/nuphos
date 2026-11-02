@@ -1,6 +1,7 @@
 import { Age } from '../components/Age'
 import { K8sStatus as StatusBadge } from '../components/K8sHealth'
 import { UsageBar } from '../components/UsageBar'
+import { t } from '../i18n'
 import { formatCpu, formatMemory } from '../utils'
 
 import { CompactChipList } from './NodesViewChips'
@@ -11,35 +12,35 @@ import type { NodeItem } from '../types'
 export const nodeColumns: Column<NodeItem>[] = [
   {
     key: 'name',
-    header: 'Name',
+    header: t('Name'),
     width: 280,
     sortAccessor: (r) => r.name,
     render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
   },
   {
     key: 'status',
-    header: 'Status',
+    header: t('Status'),
     width: 110,
     sortAccessor: (r) => r.status,
     render: (r) => (
       <span className="flex items-center gap-1.5">
         <StatusBadge status={r.status} />
         {!r.schedulable && (
-          <span className="text-[10px] text-warning uppercase tracking-wider">cordoned</span>
+          <span className="text-[10px] text-warning uppercase tracking-wider">{t('cordoned')}</span>
         )}
       </span>
     ),
   },
   {
     key: 'roles',
-    header: 'Roles',
+    header: t('Roles'),
     width: 140,
     sortAccessor: (r) => r.roles.join(','),
     render: (r) => <span className="text-secondary">{r.roles.join(', ') || '-'}</span>,
   },
   {
     key: 'pods',
-    header: 'Pods',
+    header: t('Pods'),
     width: 100,
     sortAccessor: (r) =>
       r.pods == null || r.pods_capacity == null || r.pods_capacity <= 0
@@ -54,21 +55,21 @@ export const nodeColumns: Column<NodeItem>[] = [
   },
   {
     key: 'taints',
-    header: 'Taints',
+    header: t('Taints'),
     width: 210,
     sortAccessor: (r) => r.taints.length,
     render: (r) => <CompactChipList items={r.taints} kind="taint" />,
   },
   {
     key: 'conditions',
-    header: 'Conditions',
+    header: t('Conditions'),
     width: 230,
     sortAccessor: (r) => r.conditions.join(','),
     render: (r) => <CompactChipList items={r.conditions} kind="condition" />,
   },
   {
     key: 'cpu',
-    header: 'CPU',
+    header: t('CPU'),
     width: 170,
     sortAccessor: (r) => r.cpu,
     render: (r) => (
@@ -82,7 +83,7 @@ export const nodeColumns: Column<NodeItem>[] = [
   },
   {
     key: 'memory',
-    header: 'Memory',
+    header: t('Memory'),
     width: 180,
     sortAccessor: (r) => r.memory,
     render: (r) => (
@@ -97,14 +98,14 @@ export const nodeColumns: Column<NodeItem>[] = [
   },
   {
     key: 'version',
-    header: 'Version',
+    header: t('Version'),
     width: 120,
     sortAccessor: (r) => r.version ?? '',
     render: (r) => <span className="text-secondary">{r.version || '-'}</span>,
   },
   {
     key: 'internal_ip',
-    header: 'Internal IP',
+    header: t('Internal IP'),
     width: 140,
     sortAccessor: (r) => r.internal_ip ?? '',
     render: (r) => (
@@ -113,14 +114,14 @@ export const nodeColumns: Column<NodeItem>[] = [
   },
   {
     key: 'os',
-    header: 'OS',
+    header: t('OS'),
     width: 220,
     sortAccessor: (r) => r.os_image ?? '',
     render: (r) => <span className="text-tertiary text-[12px]">{r.os_image || '-'}</span>,
   },
   {
     key: 'age',
-    header: 'Age',
+    header: t('Age'),
     width: 100,
     sortAccessor: (r) => r.age ?? '',
     render: (r) => (

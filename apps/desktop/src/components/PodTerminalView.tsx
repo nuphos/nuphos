@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
+import { t } from '../i18n'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useTheme } from '../hooks/useTheme'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
@@ -155,7 +156,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
 
           setStatus('error')
           terminal.writeln(`\r\n\x1b[31mFailed to open terminal: ${message}\x1b[0m`)
-          toast.apiError('Could not open terminal', e)
+          toast.apiError(t('Could not open terminal'), e)
         })
     }, 0)
 
@@ -202,7 +203,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
       {status === 'connecting' && (
         <div className="px-5 pt-3 flex items-center gap-1.5 text-[11.5px] text-tertiary">
           <FontAwesomeIcon icon={faSpinner} spin className="w-3 h-3" />
-          Connecting to {label}…
+          {t('Connecting to {label}…', { label })}
         </div>
       )}
       <div

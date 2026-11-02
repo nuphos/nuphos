@@ -1,9 +1,8 @@
 import { AlarmClock, Loader2 } from 'lucide-react'
-import { Fragment, useEffect, useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 
 import { t } from '../../../i18n'
 import { runtimeAllows, runtimeIsExecuting } from '../../../lib/runtimeExecution'
-import { publishSessionDesktops } from '../../../lib/sessionDesktops'
 import { useReportVisibleError } from '../../VisibleErrorReporter'
 import {
   useOpenRequestedArtifact,
@@ -11,23 +10,24 @@ import {
 } from '../artifacts/useSessionArtifacts'
 
 import { conversationActivity } from './activity'
-import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
 import { toolAnchorIds } from './chatTarget'
+import { DecisionAnswersContext, decisionAnswers } from './decisionAnswers'
 import { AgentHomeAnimation } from './homeAnimation'
 import { CollapsedWorkView, LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
-import { sessionDesktopsOf } from './shells'
 import { DEFERRED_MESSAGE_STYLE } from './status'
+import { TabSignInCard } from './TabSignInCard'
 import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
 import { placeTimelineEvents } from './timelineEvents'
 import { UserMessage } from './UserMessage'
+import { useSessionDesktops } from './useSessionDesktops'
 import { useTransferDownloads } from './useTransferDownloads'
 
 import type { ConversationProps } from './conversationProps'
 import type { Message, Tab } from './model'
 
-export function ConversationMessageList({
+function MessageList({
   tab,
   teamId,
   currentUrl,
@@ -73,11 +73,7 @@ export function ConversationMessageList({
   onRequestFeedbackComment: (messageId: string) => void
 }) {
   useReportVisibleError(tab.error, 'agent_conversation_error')
-  // The workspace turns these into dock tabs; a chat that leaves the screen is forgotten, not closed.
-  useEffect(() => {
-    if (teamId) publishSessionDesktops(tab.sessionId, sessionDesktopsOf(teamId, tab))
-  }, [tab.sessionId, teamId, tab.runtimeState, tab.foreign])
-  useEffect(() => () => publishSessionDesktops(tab.sessionId, null), [tab.sessionId])
+  useSessionDesktops(tab, teamId)
   usePublishSessionArtifacts(tab.sessionId, tab.messages)
   useOpenRequestedArtifact(tab.sessionId, teamId, onOpenNuphosLink)
   const downloadsByMessage = useTransferDownloads(tab, teamId, hasEarlier)
@@ -228,7 +224,7 @@ export function ConversationMessageList({
               {activity.before.has(m.id) && (
                 <CollapsedWorkView
                   seconds={null}
-                  label="Activity"
+                  label={t('Activity')}
                   messageIds={activity.before.get(m.id)?.map((entry) => entry.id)}
                   toolCallIds={toolAnchorIds(
                     activity.before.get(m.id)?.flatMap((entry) => entry.parts) ?? [],
@@ -254,7 +250,7 @@ export function ConversationMessageList({
         />
       ))}
       {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
-      {statusLabel && (
+      {statusLabel && !tab.agentSetupRequired && (
         <div className="text-[13.5px] flex items-center gap-2">
           {sendingFeedback ? (
             <span role="status" className="text-tertiary">
@@ -267,15 +263,13 @@ export function ConversationMessageList({
           )}
         </div>
       )}
-      {tab.agentSetupRequired && (
-        <AgentSetupRequiredCard
-          runtimeId={tab.runtimeId}
-          message={tab.agentSetupRequired.message}
-          reason={tab.agentSetupRequired.reason}
-          isTeamAdmin={isTeamAdmin}
-          onOpenAgentSettings={onOpenAgentSettings}
-        />
-      )}
+      <TabSignInCard
+        tab={tab}
+        teamId={teamId}
+        statusLabel={statusLabel}
+        isTeamAdmin={isTeamAdmin}
+        onOpenAgentSettings={onOpenAgentSettings}
+      />
       {tab.error && (
         <div className="text-[13px] text-error bg-error/10 border border-error/20 rounded-md px-3 py-2">
           {tab.error}
@@ -283,5 +277,16 @@ export function ConversationMessageList({
       )}
       <div className="h-px" />
     </div>
+  )
+}
+
+/** The transcript; each choice card reads its answer from the replies after it. */
+export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
+  const answers = useMemo(() => decisionAnswers(props.tab.messages), [props.tab.messages])
+
+  return (
+    <DecisionAnswersContext.Provider value={answers}>
+      <MessageList {...props} />
+    </DecisionAnswersContext.Provider>
   )
 }

@@ -1,6 +1,7 @@
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
-import { ConsoleLink, Field } from './shared'
+import { ConsoleLink, Field, Fill } from './shared'
 
 import type { BindState } from './use-bind-state'
 
@@ -8,6 +9,13 @@ const SECUREFRAME_REGIONS = [
   { value: 'us', label: 'US (api.secureframe.com)' },
   { value: 'uk', label: 'UK (api-uk.secureframe.com)' },
 ]
+const mono = (text: string) => <span className="font-mono">{text}</span>
+const main = (text: string) => <span className="text-main">{text}</span>
+const Step = (props: Parameters<typeof Fill>[0]) => (
+  <li>
+    <Fill {...props} />
+  </li>
+)
 
 export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string }) {
   const {
@@ -23,7 +31,10 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
 
   return (
     <>
-      <Field label="Label" hint="A friendly name to identify this Tailscale tailnet credential.">
+      <Field
+        label={t('Label')}
+        hint={t('A friendly name to identify this Tailscale tailnet credential.')}
+      >
         <input
           type="text"
           value={tailscaleLabel}
@@ -33,18 +44,22 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
         />
       </Field>
       <Field
-        label="How Nuphos authenticates"
+        label={t('How Nuphos authenticates')}
         hint={
           tailscaleFederated
-            ? 'Nuphos proves its identity with a signed token each time, so no credential of yours is ever stored here.'
-            : 'The secret is encrypted before storage and exchanged for short-lived access tokens.'
+            ? t(
+                'Nuphos proves its identity with a signed token each time, so no credential of yours is ever stored here.',
+              )
+            : t(
+                'The secret is encrypted before storage and exchanged for short-lived access tokens.',
+              )
         }
       >
         <div className="flex gap-2">
           {(
             [
               ['federated', 'OpenID Connect', true],
-              ['oauth', 'OAuth client secret', false],
+              ['oauth', t('OAuth client secret'), false],
             ] as const
           ).map(([key, text, federated]) => (
             <button
@@ -65,46 +80,44 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
       {tailscaleFederated && (
         <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
           <div className="text-[12px] font-medium text-main mb-1.5">
-            Create the trust credential in Tailscale first
+            {t('Create the trust credential in Tailscale first')}
           </div>
           <ol className="text-[12px] text-secondary leading-relaxed space-y-1 list-decimal list-inside marker:text-tertiary">
-            <li>Admin Console → Settings → Trust credentials → New credential.</li>
-            <li>
-              Choose <span className="font-mono">OpenID Connect</span>.
-            </li>
-            <li>
-              Issuer URL: <span className="font-mono">https://nuphos.ai</span>
-            </li>
-            <li>
-              Subject: <span className="font-mono">nuphos:team:{teamId}</span>
-            </li>
-            <li>
-              Scopes: <span className="font-mono">auth_keys</span> (add{' '}
-              <span className="font-mono">devices:core</span> to list devices).
-            </li>
-            <li>Leave Audience empty, then paste the client ID below.</li>
+            <li>{t('Admin Console → Settings → Trust credentials → New credential.')}</li>
+            <Step text={t('Choose {value}.')} value={mono('OpenID Connect')} />
+            <Step text={t('Issuer URL: {value}')} value={mono('https://nuphos.ai')} />
+            <Step text={t('Subject: {value}')} value={mono(`nuphos:team:${teamId}`)} />
+            <Step
+              text={t('Scopes: {scope} (add {extra} to list devices).')}
+              scope={mono('auth_keys')}
+              extra={mono('devices:core')}
+            />
+            <li>{t('Leave Audience empty, then paste the client ID below.')}</li>
           </ol>
         </div>
       )}
-      <Field label="Client ID" hint="Tailscale Admin Console → Settings → Trust credentials.">
+      <Field
+        label={t('Client ID')}
+        hint={t('Tailscale Admin Console → Settings → Trust credentials.')}
+      >
         <input
           type="text"
           value={tailscaleClientId}
           onChange={(e) => setTailscaleClientId(e.target.value)}
-          placeholder="Tailscale OAuth client ID"
+          placeholder={t('Tailscale OAuth client ID')}
           className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       {!tailscaleFederated && (
         <Field
-          label="OAuth Client Secret"
-          hint="Stored encrypted. Prefer OpenID Connect above, which stores nothing."
+          label={t('OAuth Client Secret')}
+          hint={t('Stored encrypted. Prefer OpenID Connect above, which stores nothing.')}
         >
           <input
             type="password"
             value={tailscaleClientSecret}
             onChange={(e) => setTailscaleClientSecret(e.target.value)}
-            placeholder="Tailscale OAuth client secret"
+            placeholder={t('Tailscale OAuth client secret')}
             className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
           />
         </Field>
@@ -127,32 +140,31 @@ export function VantaForm({ st }: { st: BindState }) {
     <>
       <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
-          How to get your Vanta Client ID &amp; Secret
+          {t('How to get your Vanta Client ID & Secret')}
         </div>
         <ol className="text-[12px] text-secondary leading-relaxed space-y-1 list-decimal list-inside marker:text-tertiary">
-          <li>Sign in to Vanta as an admin.</li>
-          <li>
-            Open <span className="text-main">Settings → Developer console</span>.
-          </li>
-          <li>
-            Create an app of type <span className="text-main">“Manage Vanta”</span> (OAuth client
-            credentials).
-          </li>
-          <li>Grant it read access to tests / vulnerabilities.</li>
-          <li>
-            Copy the <span className="text-main">Client ID</span> (
-            <span className="font-mono">vci_…</span>) and generate a{' '}
-            <span className="text-main">Client Secret</span> (
-            <span className="font-mono">vcs_…</span>).
-          </li>
+          <li>{t('Sign in to {name} as an admin.', { name: 'Vanta' })}</li>
+          <Step text={t('Open {page}.')} page={main('Settings → Developer console')} />
+          <Step
+            text={t('Create an app of type {type} (OAuth client credentials).')}
+            type={main('“Manage Vanta”')}
+          />
+          <li>{t('Grant it read access to tests / vulnerabilities.')}</li>
+          <Step
+            text={t('Copy the {id} ({idPrefix}) and generate a {secret} ({secretPrefix}).')}
+            id={main('Client ID')}
+            idPrefix={mono('vci_…')}
+            secret={main('Client Secret')}
+            secretPrefix={mono('vcs_…')}
+          />
         </ol>
         <div className="mt-2.5">
           <ConsoleLink href="https://app.vanta.com/settings/developer-console">
-            Open Vanta Developer console
+            {t('Open {page}', { page: 'Vanta Developer console' })}
           </ConsoleLink>
         </div>
       </div>
-      <Field label="Label" hint="A friendly name to identify this Vanta organization.">
+      <Field label={t('Label')} hint={t('A friendly name to identify this Vanta organization.')}>
         <input
           type="text"
           value={vantaLabel}
@@ -162,8 +174,10 @@ export function VantaForm({ st }: { st: BindState }) {
         />
       </Field>
       <Field
-        label="Client ID"
-        hint="In Vanta: Settings → Developer Console → Create a “Manage Vanta” app. The client ID starts with vci_."
+        label={t('Client ID')}
+        hint={t(
+          'In Vanta: Settings → Developer Console → Create a “Manage Vanta” app. The client ID starts with vci_.',
+        )}
       >
         <input
           type="text"
@@ -174,8 +188,10 @@ export function VantaForm({ st }: { st: BindState }) {
         />
       </Field>
       <Field
-        label="Client Secret"
-        hint="Generate a client secret on the same app (starts with vcs_). It is encrypted before storage; access tokens are minted on demand."
+        label={t('Client Secret')}
+        hint={t(
+          'Generate a client secret on the same app (starts with vcs_). It is encrypted before storage; access tokens are minted on demand.',
+        )}
       >
         <input
           type="password"
@@ -205,30 +221,35 @@ export function SecureframeForm({ st }: { st: BindState }) {
     <>
       <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
-          How to get your Secureframe API Key &amp; Secret
+          {t('How to get your Secureframe API Key & Secret')}
         </div>
         <ol className="text-[12px] text-secondary leading-relaxed space-y-1 list-decimal list-inside marker:text-tertiary">
-          <li>Sign in to Secureframe as an admin.</li>
-          <li>
-            Open <span className="text-main">Company settings → API keys</span>.
-          </li>
-          <li>
-            Click <span className="text-main">Create API key</span>.
-          </li>
-          <li>
-            Copy the <span className="text-main">API key</span> (the key id) and the{' '}
-            <span className="text-main">API secret</span> — the secret is shown only once.
-          </li>
-          <li>
-            Pick the matching <span className="text-main">region</span> below (UK accounts use{' '}
-            <span className="font-mono">api-uk.secureframe.com</span>).
-          </li>
+          <li>{t('Sign in to {name} as an admin.', { name: 'Secureframe' })}</li>
+          <Step text={t('Open {page}.')} page={main('Company settings → API keys')} />
+          <Step text={t('Click {button}.')} button={main('Create API key')} />
+          <Step
+            text={t(
+              'Copy the {apiKey} (the key id) and the {secret} — the secret is shown only once.',
+            )}
+            apiKey={main('API key')}
+            secret={main('API secret')}
+          />
+          <Step
+            text={t('Pick the matching {region} below (UK accounts use {host}).')}
+            region={main(t('region'))}
+            host={mono('api-uk.secureframe.com')}
+          />
         </ol>
         <div className="mt-2.5">
-          <ConsoleLink href="https://developer.secureframe.com">Secureframe API docs</ConsoleLink>
+          <ConsoleLink href="https://developer.secureframe.com">
+            {t('{name} API docs', { name: 'Secureframe' })}
+          </ConsoleLink>
         </div>
       </div>
-      <Field label="Label" hint="A friendly name to identify this Secureframe organization.">
+      <Field
+        label={t('Label')}
+        hint={t('A friendly name to identify this Secureframe organization.')}
+      >
         <input
           type="text"
           value={secureframeLabel}
@@ -238,37 +259,39 @@ export function SecureframeForm({ st }: { st: BindState }) {
         />
       </Field>
       <Field
-        label="Region"
-        hint="Your Secureframe data region. UK accounts use api-uk.secureframe.com."
+        label={t('Region')}
+        hint={t('Your Secureframe data region. UK accounts use api-uk.secureframe.com.')}
       >
         <AppSelect
           value={secureframeRegion}
           onValueChange={(value) => setSecureframeRegion(value as 'us' | 'uk')}
           options={SECUREFRAME_REGIONS}
-          ariaLabel="Region"
+          ariaLabel={t('Region')}
         />
       </Field>
       <Field
-        label="API Key"
-        hint="In Secureframe: Company Settings → API keys → Create API Key. This is the key id."
+        label={t('API Key')}
+        hint={t(
+          'In Secureframe: Company Settings → API keys → Create API Key. This is the key id.',
+        )}
       >
         <input
           type="text"
           value={secureframeApiKey}
           onChange={(e) => setSecureframeApiKey(e.target.value)}
-          placeholder="Secureframe API key"
+          placeholder={t('Secureframe API key')}
           className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
-        label="API Secret"
-        hint="The key secret shown once when you create the key. Encrypted before storage."
+        label={t('API Secret')}
+        hint={t('The key secret shown once when you create the key. Encrypted before storage.')}
       >
         <input
           type="password"
           value={secureframeApiSecret}
           onChange={(e) => setSecureframeApiSecret(e.target.value)}
-          placeholder="Secureframe API secret"
+          placeholder={t('Secureframe API secret')}
           className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>

@@ -7,6 +7,7 @@ import { DetailSidebarTransition } from '../components/DetailSidebarTransition'
 import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 import { planNumberFromFilter } from '../lib/planRoute'
 
 import { PlanApprovalPolicyModal } from './plans/PlanApprovalPolicyModal'
@@ -139,7 +140,7 @@ function PlansListView({
     return (
       <div className="px-6 py-8 flex items-start gap-2 text-[12px] text-red-400">
         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.8} />
-        <span>Failed to load plans: {state.message}</span>
+        <span>{t('Failed to load plans: {message}', { message: state.message })}</span>
       </div>
     )
   }
@@ -182,7 +183,7 @@ function PlansListView({
               className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-secondary"
             >
               <Ban className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {showDismissed ? 'Hide dismissed' : 'Show dismissed'}
+              {showDismissed ? t('Hide dismissed') : t('Show dismissed')}
             </button>,
             dismissedSlot,
           )}
@@ -190,19 +191,21 @@ function PlansListView({
           createPortal(
             <Button size="sm" type="button" onClick={openPolicy}>
               <Settings2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-              Configure
+              {t('Configure')}
             </Button>,
             configureSlot,
           )}
         <div className="flex flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6 py-2">
           <ShieldCheck className="h-3.5 w-3.5 text-zViolet-accent" strokeWidth={1.8} />
-          <span className="text-[12px] text-secondary">Plan approval</span>
+          <span className="text-[12px] text-secondary">{t('Plan approval')}</span>
           <span className="text-[11.5px] text-tertiary">
             {approvalPolicy
               ? approvalPolicy.minimumOtherApprovals === 0
-                ? 'Requester only'
-                : `Requester + ${String(approvalPolicy.minimumOtherApprovals)} other member(s)`
-              : 'Loading…'}
+                ? t('Requester only')
+                : t('Requester + {count} other member(s)', {
+                    count: String(approvalPolicy.minimumOtherApprovals),
+                  })
+              : t('Loading…')}
           </span>
         </div>
         {state.kind === 'ready' &&
@@ -211,10 +214,12 @@ function PlansListView({
         !filter.trim() ? (
           <EmptyState
             icon={ClipboardList}
-            title="Plans"
-            description="When you ask the agent to do something that needs confirmation, it drafts a plan here for the team to review and approve. Plans are shared, so anyone with access can weigh in."
+            title={t('Plans')}
+            description={t(
+              'When you ask the agent to do something that needs confirmation, it drafts a plan here for the team to review and approve. Plans are shared, so anyone with access can weigh in.',
+            )}
             agentAction={{
-              label: 'Ask the agent to plan a change',
+              label: t('Ask the agent to plan a change'),
               prompt:
                 'Help me plan a change — ask me what I want to do, then draft a plan for the team to review.',
             }}
@@ -237,8 +242,8 @@ function PlansListView({
             onRowContextMenu={(r, e) => setMenu({ row: r, x: e.clientX, y: e.clientY })}
             empty={
               filter.trim()
-                ? 'No plans match the current search.'
-                : 'No plans to show — dismissed plans are hidden.'
+                ? t('No plans match the current search.')
+                : t('No plans to show — dismissed plans are hidden.')
             }
             columns={buildPlanColumns(membersById)}
           />
@@ -251,7 +256,7 @@ function PlansListView({
               disabled={loadingMore}
               className="w-full px-3 py-2 text-[12px] text-secondary hover:text-main rounded border border-zGray-800/60 hover:border-zGray-700/60 disabled:opacity-50"
             >
-              {loadingMore ? 'Loading…' : 'Load more'}
+              {loadingMore ? t('Loading…') : t('Load more')}
             </button>
           </div>
         )}

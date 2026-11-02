@@ -7,7 +7,7 @@ import { setAvatarApiOrigin } from '../lib/avatarUrl'
 
 const DEFAULT_API_URL = 'https://api.nuphos.ai'
 
-type Props = { inputClassName: string }
+type Props = { inputClassName: string; onChange: () => void }
 
 function isHttpUrl(raw: string) {
   try {
@@ -18,7 +18,7 @@ function isHttpUrl(raw: string) {
 }
 
 /** The sign-in screen's quiet "self-hosted backend" switch. Takes effect immediately. */
-export function LoginApiEndpoint({ inputClassName }: Props) {
+export function LoginApiEndpoint({ inputClassName, onChange }: Props) {
   const [current, setCurrent] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
@@ -41,6 +41,7 @@ export function LoginApiEndpoint({ inputClassName }: Props) {
     setAvatarApiOrigin(next)
     setCurrent(next)
     setEditing(false)
+    onChange()
   }
 
   if (!editing) {

@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { JsonEditor } from '../../components/YamlEditor'
+import { t } from '../../i18n'
 
 import { ExecutorsPicker, Field } from './ChangesCommon'
 import { buildStatement, inputClass, OPERATIONS, textareaClass } from './changesStatement'
@@ -55,7 +56,7 @@ export function CreateChangeDialog({
 
   async function create() {
     if (!title.trim() || !description.trim() || !risk.trim() || !rollbackPlan.trim())
-      return setError('Title, purpose, risk, and rollback plan are required.')
+      return setError(t('Title, purpose, risk, and rollback plan are required.'))
     setBusy(true)
     setError(null)
     try {
@@ -95,8 +96,10 @@ export function CreateChangeDialog({
     <Modal
       open
       onClose={() => !busy && onClose()}
-      title="New MongoDB change Plan"
-      description="Propose a team-scoped Plan. Approval and authorized execution remain separate actions."
+      title={t('New MongoDB change Plan')}
+      description={t(
+        'Propose a team-scoped Plan. Approval and authorized execution remain separate actions.',
+      )}
       width={760}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
@@ -105,30 +108,30 @@ export function CreateChangeDialog({
             onClick={onClose}
             className="px-3 py-1.5 text-[12px] text-secondary"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <Button size="sm" disabled={busy} onClick={() => void create()}>
-            {busy ? 'Proposing…' : 'Propose Plan'}
+            {busy ? t('Proposing…') : t('Propose Plan')}
           </Button>
         </div>
       }
     >
       <div className="space-y-4 px-5 py-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Title">
+          <Field label={t('Title')}>
             <input
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className={inputClass}
-              placeholder="Activate trial customers"
+              placeholder={t('Activate trial customers')}
             />
           </Field>
-          <Field label="Operation">
+          <Field label={t('Operation')}>
             <AppSelect
               value={operation}
               onValueChange={(value) => setOperation(value as Operation)}
-              ariaLabel="Change operation"
+              ariaLabel={t('Change operation')}
               options={OPERATIONS.map((item) => ({
                 value: item.value,
                 label: `${item.kind} · ${item.label}`,
@@ -137,14 +140,14 @@ export function CreateChangeDialog({
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Database">
+          <Field label={t('Database')}>
             <input
               value={database}
               onChange={(e) => setDatabase(e.target.value)}
               className={inputClass}
             />
           </Field>
-          <Field label="Collection">
+          <Field label={t('Collection')}>
             <input
               value={collection}
               onChange={(e) => setCollection(e.target.value)}
@@ -153,7 +156,7 @@ export function CreateChangeDialog({
           </Field>
         </div>
         {needsFilter && (
-          <Field label="Filter (Extended JSON)">
+          <Field label={t('Filter (Extended JSON)')}>
             <JsonEditor
               value={filter}
               onChange={setFilter}
@@ -166,12 +169,12 @@ export function CreateChangeDialog({
           <Field
             label={
               operation === 'createIndex'
-                ? 'Index keys (Extended JSON)'
+                ? t('Index keys (Extended JSON)')
                 : operation === 'insertMany'
-                  ? 'Documents (Extended JSON array)'
+                  ? t('Documents (Extended JSON array)')
                   : operation.startsWith('insert')
-                    ? 'Document (Extended JSON)'
-                    : 'Update operators (Extended JSON)'
+                    ? t('Document (Extended JSON)')
+                    : t('Update operators (Extended JSON)')
             }
           >
             <JsonEditor
@@ -184,7 +187,7 @@ export function CreateChangeDialog({
         )}
         {needsIndexName && (
           <div className="grid grid-cols-2 gap-3">
-            <Field label={operation === 'dropIndex' ? 'Index name' : 'Index name (optional)'}>
+            <Field label={operation === 'dropIndex' ? t('Index name') : t('Index name (optional)')}>
               <input
                 value={indexName}
                 onChange={(e) => setIndexName(e.target.value)}
@@ -199,7 +202,7 @@ export function CreateChangeDialog({
                     checked={unique}
                     onChange={(e) => setUnique(e.target.checked)}
                   />{' '}
-                  Unique
+                  {t('Unique')}
                 </label>
                 <label>
                   <input
@@ -207,28 +210,28 @@ export function CreateChangeDialog({
                     checked={sparse}
                     onChange={(e) => setSparse(e.target.checked)}
                   />{' '}
-                  Sparse
+                  {t('Sparse')}
                 </label>
               </div>
             )}
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Field label="Purpose">
+          <Field label={t('Purpose')}>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className={textareaClass}
             />
           </Field>
-          <Field label="Risk">
+          <Field label={t('Risk')}>
             <textarea
               value={risk}
               onChange={(e) => setRisk(e.target.value)}
               className={textareaClass}
             />
           </Field>
-          <Field label="Rollback plan">
+          <Field label={t('Rollback plan')}>
             <textarea
               value={rollbackPlan}
               onChange={(e) => setRollbackPlan(e.target.value)}
@@ -237,8 +240,8 @@ export function CreateChangeDialog({
           </Field>
         </div>
         <Field
-          label="Authorized executors"
-          hint="You are always included. Approval alone never adds an executor."
+          label={t('Authorized executors')}
+          hint={t('You are always included. Approval alone never adds an executor.')}
         >
           <ExecutorsPicker
             members={members}
@@ -250,8 +253,9 @@ export function CreateChangeDialog({
         {(operation === 'deleteMany' || operation === 'dropCollection') && (
           <div className="flex gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-[11px] text-warning">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            This is a high-risk operation. The gateway requires a bounded target and explicit
-            approval, but the database account remains the final permission boundary.
+            {t(
+              'This is a high-risk operation. The gateway requires a bounded target and explicit approval, but the database account remains the final permission boundary.',
+            )}
           </div>
         )}
         {error && (

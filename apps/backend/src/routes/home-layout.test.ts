@@ -113,6 +113,41 @@ test('layouts stay inside their team', async () => {
   expect(await get()).toEqual({ personal: null, team: null })
 })
 
+test('metric cards are saved with their range and scope', async () => {
+  const withMetrics: HomeLayout = {
+    ...layout(false),
+    metrics: [
+      { id: 'm1', kind: 'agent-time', range: '7d', scope: 'me' },
+      { id: 'm2', kind: 'runtime-mix', range: '1d', scope: 'team' },
+    ],
+  }
+
+  expect((await put('personal', { layout: withMetrics })).status).toBe(204)
+  expect(await get()).toEqual({ personal: withMetrics, team: null })
+  expect(
+    (
+      await put('personal', {
+        layout: {
+          ...withMetrics,
+          metrics: [{ id: 'm3', kind: 'tokens', range: '7d', scope: 'me' }],
+        },
+      })
+    ).status,
+  ).toBe(400)
+})
+
+test('the grid is saved with the version of its sizing rules', async () => {
+  const fitted: HomeLayout = {
+    ...layout(true),
+    grid: [{ i: 'team', x: 0, y: 0, w: 12, h: 6 }],
+    gridVersion: 2,
+  }
+
+  expect((await put('personal', { layout: fitted })).status).toBe(204)
+  expect(await get()).toEqual({ personal: fitted, team: null })
+  expect((await put('personal', { layout: { ...fitted, gridVersion: 0 } })).status).toBe(400)
+})
+
 test('a malformed layout is rejected', async () => {
   const res = await put('personal', {
     layout: {

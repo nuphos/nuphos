@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import { utcTimeOfDayInZone, viewerTimeZone } from './cronTime.ts'
 
 // ────────────────────── Cron preset model ──────────────────────
@@ -14,13 +16,13 @@ export const EVERY_N_HOURS_OPTIONS = [1, 2, 3, 4, 6, 8, 12] as const
 // most users mentally group "the week" — but we store/serialise the cron field
 // using the 0-Sun convention.
 export const WEEKDAYS: { value: number; short: string }[] = [
-  { value: 1, short: 'Mon' },
-  { value: 2, short: 'Tue' },
-  { value: 3, short: 'Wed' },
-  { value: 4, short: 'Thu' },
-  { value: 5, short: 'Fri' },
-  { value: 6, short: 'Sat' },
-  { value: 0, short: 'Sun' },
+  { value: 1, short: t('Mon') },
+  { value: 2, short: t('Tue') },
+  { value: 3, short: t('Wed') },
+  { value: 4, short: t('Thu') },
+  { value: 5, short: t('Fri') },
+  { value: 6, short: t('Sat') },
+  { value: 0, short: t('Sun') },
 ]
 
 export function parseCron(expr: string): CronMode {
@@ -134,40 +136,56 @@ export function scheduleSummary(
   timeZone: string = viewerTimeZone(),
   now: Date = new Date(),
 ): string {
-  if (trigger.triggerType !== 'cron') return 'Runs when its webhook receives a request'
+  if (trigger.triggerType !== 'cron') return t('Runs when its webhook receives a request')
   const expression = trigger.cronExpression?.trim()
 
-  if (!expression) return 'No schedule set'
+  if (!expression) return t('No schedule set')
   const mode = parseCron(expression)
 
   if (mode.kind === 'every-n-hours') {
     if (mode.n === 1) {
       const local = utcTimeOfDayInZone(0, mode.minute, timeZone, now).hm.slice(3)
-      const localNote = local === pad2(mode.minute) ? '' : ` (minute ${local} your time)`
+      const minute = pad2(mode.minute)
 
-      return `Runs every hour at minute ${pad2(mode.minute)}${localNote}`
+      return local === minute
+        ? t('Runs every hour at minute {minute}', { minute })
+        : t('Runs every hour at minute {minute} (minute {local} your time)', { minute, local })
     }
 
-    return `Runs every ${String(mode.n)} hours at minute ${pad2(mode.minute)}, from ${utcTimeWithLocal(0, mode.minute, timeZone, now)}`
+    return t('Runs every {n} hours at minute {minute}, from {time}', {
+      n: mode.n,
+      minute: pad2(mode.minute),
+      time: utcTimeWithLocal(0, mode.minute, timeZone, now),
+    })
   }
   if (mode.kind === 'at-time') {
     const utc = `${pad2(mode.hour)}:${pad2(mode.minute)}`
     const local = utcTimeOfDayInZone(mode.hour, mode.minute, timeZone, now)
 
     if (mode.days.length === 7) {
-      return `Runs every day at ${utcTimeWithLocal(mode.hour, mode.minute, timeZone, now)}`
+      return t('Runs every day at {time}', {
+        time: utcTimeWithLocal(mode.hour, mode.minute, timeZone, now),
+      })
     }
     const days = weekdayList(mode.days)
 
     if (local.dayShift === 0) {
-      return `Runs ${days} at ${utcTimeWithLocal(mode.hour, mode.minute, timeZone, now)}`
+      return t('Runs {days} at {time}', {
+        days,
+        time: utcTimeWithLocal(mode.hour, mode.minute, timeZone, now),
+      })
     }
     const localDays = weekdayList(mode.days.map((day) => (day + local.dayShift + 7) % 7))
 
-    return `Runs ${days} at ${utc} UTC (${localDays} ${local.hm} your time)`
+    return t('Runs {days} at {utc} UTC ({localDays} {local} your time)', {
+      days,
+      utc,
+      localDays,
+      local: local.hm,
+    })
   }
 
-  return `Runs on schedule ${expression} (UTC)`
+  return t('Runs on schedule {expression} (UTC)', { expression })
 }
 
 function weekdayList(days: number[]): string {
@@ -180,7 +198,7 @@ function utcTimeWithLocal(hour: number, minute: number, timeZone: string, now: D
   const utc = `${pad2(hour)}:${pad2(minute)} UTC`
   const local = utcTimeOfDayInZone(hour, minute, timeZone, now).hm
 
-  return local === utc.slice(0, 5) ? utc : `${utc} (${local} your time)`
+  return local === utc.slice(0, 5) ? utc : t('{utc} ({local} your time)', { utc, local })
 }
 
 export function sameMode(a: CronMode, b: CronMode): boolean {

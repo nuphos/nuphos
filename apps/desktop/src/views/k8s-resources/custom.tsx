@@ -7,6 +7,7 @@ import { Table } from '../../components/Table'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
 import { usePolledList } from '../../hooks/usePolledList'
+import { t } from '../../i18n'
 import { useK8sResourceRowMenu } from '../../lib/k8sResourceActions'
 
 import { crdDeleteTarget, includes } from './shared'
@@ -33,28 +34,28 @@ export function CustomResourceDefinitionsView(props: BaseProps<CustomResourceDef
       columns={[
         {
           key: 'kind',
-          header: 'Kind',
+          header: t('Kind'),
           width: 190,
           sortAccessor: (r) => r.kind,
           render: (r) => <span className="text-main">{r.kind}</span>,
         },
         {
           key: 'group',
-          header: 'Group',
+          header: t('Group'),
           width: 260,
           sortAccessor: (r) => r.group,
           render: (r) => <span className="font-mono text-[12px] text-secondary">{r.group}</span>,
         },
         {
           key: 'scope',
-          header: 'Scope',
+          header: t('Scope'),
           width: 120,
           sortAccessor: (r) => r.scope,
           render: (r) => <span className="text-secondary">{r.scope}</span>,
         },
         {
           key: 'versions',
-          header: 'Versions',
+          header: t('Versions'),
           width: 190,
           sortAccessor: (r) => r.versions.join(','),
           render: (r) => <ChipList values={r.versions} />,
@@ -121,28 +122,28 @@ export function CustomResourcesView(
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 150,
             sortAccessor: (r) => r.namespace ?? '',
             render: (r) => <span className="text-secondary">{r.namespace ?? '-'}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'kind',
-            header: 'Kind',
+            header: t('Kind'),
             width: 190,
             sortAccessor: (r) => r.kind,
             render: (r) => <span className="text-main">{r.kind}</span>,
           },
           {
             key: 'apiVersion',
-            header: 'API Version',
+            header: t('API Version'),
             width: 260,
             sortAccessor: (r) => r.apiVersion,
             render: (r) => (
@@ -151,7 +152,7 @@ export function CustomResourcesView(
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 140,
             sortAccessor: (r) => r.status,
             render: (r) =>
@@ -163,7 +164,7 @@ export function CustomResourcesView(
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

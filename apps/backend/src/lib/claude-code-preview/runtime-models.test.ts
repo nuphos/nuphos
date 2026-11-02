@@ -74,13 +74,23 @@ test('capabilities are discovered for each selected model and runtime default', 
 
       return Promise.resolve({
         models: [{ id: 'model', name: 'Model' }],
-        controls: { modelId: model ?? 'default-model', effort: [], fast: model === 'fast-model' },
+        controls: {
+          modelId: model ?? 'default-model',
+          effort: [],
+          fast:
+            model === 'fast-model'
+              ? [
+                  { value: 'off', name: 'Off' },
+                  { value: 'on', name: 'Fast' },
+                ]
+              : [],
+        },
       })
     },
   })
 
-  expect((await catalog('team', 'runtime', 'fast-model')).controls?.fast).toBe(true)
-  expect((await catalog('team', 'runtime', 'standard')).controls?.fast).toBe(false)
+  expect((await catalog('team', 'runtime', 'fast-model')).controls?.fast).toHaveLength(2)
+  expect((await catalog('team', 'runtime', 'standard')).controls?.fast).toEqual([])
   expect((await catalog('team', 'runtime')).controls?.modelId).toBe('default-model')
   expect(calls).toEqual(['fast-model', 'standard', undefined])
 })

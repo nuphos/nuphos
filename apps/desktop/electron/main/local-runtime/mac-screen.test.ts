@@ -1,13 +1,34 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, utimesSync } from 'node:fs'
-import { createServer } from 'node:net'
+import { chmodSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
+import { connect, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { enableMacScreen, macScreenStatus, openMacScreen } from './mac-screen.ts'
+import {
+  enableMacScreen,
+  macScreenDeps,
+  macScreenStatus,
+  openMacScreen,
+  screenSocket,
+  startHost,
+  stopHost,
+} from './mac-screen.ts'
 
-import type { AddressInfo } from 'node:net'
+const started = async () => undefined
+
+const newPool = () => mkdtempSync(path.join(tmpdir(), 'screen-'))
+const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
+
+/** A stand-in for mac-screen-host: a shell script with the given body. */
+function fakeHost(body: string): string {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'host-')), 'mac-screen-host')
+
+  writeFileSync(file, `#!/bin/sh\n${body}\n`)
+  chmodSync(file, 0o755)
+
+  return file
+}
 
 test('only a Mac shows its screen', () => {
   assert.equal(
@@ -16,28 +37,86 @@ test('only a Mac shows its screen', () => {
   )
 })
 
-test('with Screen Sharing off, opening says how to turn it on and holds nothing', async () => {
-  const pool = mkdtempSync(path.join(tmpdir(), 'screen-'))
-  const server = createServer()
+test('the screen opens on request, and streams only to the account signed in on this Mac', async (t) => {
+  const pool = newPool()
+  let owner: string | null = 'u1'
+  const deps = macScreenDeps(pool, () => ({ agents: {} }) as never, {
+    binary: () => '/nonexistent',
+    handOver: () => undefined,
+    owner: () => owner,
+  })
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const { port } = server.address() as AddressInfo
+  assert.equal(macScreenStatus(pool).desktopOpen, true)
+  assert.equal(await openMacScreen(pool, 's1', started), 0)
+  const server = createServer((socket) => socket.end())
 
-  await new Promise<void>((resolve) => server.close(() => resolve()))
-  await assert.rejects(openMacScreen(pool, 's1', port), /Screen Sharing/u)
+  t.after(() => server.close())
+  await new Promise<void>((resolve) => server.listen(screenSocket(pool), resolve))
+  const viewed = async (viewer: string) => {
+    const stream = deps.connectVnc()
+    let closed = false
+
+    stream.addEventListener('close', () => {
+      closed = true
+    })
+    await tick()
+    stream.send(JSON.stringify({ t: 'open', sessionId: 's1', display: 0, viewer }))
+    const refused = closed
+
+    stream.close()
+
+    return !refused
+  }
+
+  assert.equal(await viewed('u1'), true)
+  // A teammate, a forged id, or anyone once this Mac signs out.
+  assert.equal(await viewed('mate'), false)
+  assert.equal(await viewed(''), false)
+  owner = null
+  assert.equal(await viewed('u1'), false)
+})
+
+test('a host that cannot start says why and holds nothing', async () => {
+  const pool = newPool()
+
+  const host = fakeHost(
+    'echo "mac-screen-host: Screen Recording is not allowed for Nuphos yet" >&2; exit 1',
+  )
+
+  await assert.rejects(
+    openMacScreen(pool, 's1', () => startHost(pool, host)),
+    /^Error: Screen Recording is not allowed/u,
+  )
   assert.deepEqual(macScreenStatus(pool).desktops, [])
 })
 
+test('the host starts once, and opening waits until it listens', async () => {
+  const pool = newPool()
+
+  const host = fakeHost(
+    `exec "${process.execPath}" -e "require('node:net').createServer().listen(process.argv[1])" "$1"`,
+  )
+
+  assert.equal(await openMacScreen(pool, 's1', () => startHost(pool, host)), 0)
+  await new Promise<void>((resolve, reject) => {
+    const socket = connect(screenSocket(pool), () => {
+      socket.destroy()
+      resolve()
+    })
+
+    socket.once('error', reject)
+  })
+  // A host already listening is reused rather than started again.
+  await startHost(pool, '/nonexistent/mac-screen-host')
+  stopHost()
+})
+
 test('another conversation gets the screen only once nobody watches it', async () => {
-  const pool = mkdtempSync(path.join(tmpdir(), 'screen-'))
-  const server = createServer((socket) => socket.destroy())
+  const pool = newPool()
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const { port } = server.address() as AddressInfo
-
-  assert.equal(await openMacScreen(pool, 's1', port), 0)
-  assert.equal(await openMacScreen(pool, 's1', port), 0)
-  await assert.rejects(openMacScreen(pool, 's2', port), /another agent/u)
+  assert.equal(await openMacScreen(pool, 's1', started), 0)
+  assert.equal(await openMacScreen(pool, 's1', started), 0)
+  await assert.rejects(openMacScreen(pool, 's2', started), /another agent/u)
   assert.deepEqual(macScreenStatus(pool), {
     desktops: [{ display: 0, sessionId: 's1' }],
     desktopOpen: true,
@@ -47,25 +126,20 @@ test('another conversation gets the screen only once nobody watches it', async (
 
   utimesSync(path.join(pool, '0.lock'), idle, idle)
   assert.deepEqual(macScreenStatus(pool).desktops, [])
-  assert.equal(await openMacScreen(pool, 's2', port), 0)
+  assert.equal(await openMacScreen(pool, 's2', started), 0)
   assert.deepEqual(macScreenStatus(pool).desktops, [{ display: 0, sessionId: 's2' }])
-  server.close()
 })
 
 test('two conversations opening the screen at once: one gets it, the other is refused', async () => {
-  const pool = mkdtempSync(path.join(tmpdir(), 'screen-'))
-  const server = createServer((socket) => socket.destroy())
+  const pool = newPool()
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const { port } = server.address() as AddressInfo
   const results = await Promise.allSettled([
-    openMacScreen(pool, 's1', port),
-    openMacScreen(pool, 's2', port),
+    openMacScreen(pool, 's1', started),
+    openMacScreen(pool, 's2', started),
   ])
 
   assert.deepEqual(results.map((result) => result.status).sort(), ['fulfilled', 'rejected'])
   const winner = results[0].status === 'fulfilled' ? 's1' : 's2'
 
   assert.deepEqual(macScreenStatus(pool).desktops, [{ display: 0, sessionId: winner }])
-  server.close()
 })

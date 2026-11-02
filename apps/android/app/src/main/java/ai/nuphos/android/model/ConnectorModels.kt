@@ -37,6 +37,39 @@ data class ConnectorProvider(
         "resend" -> "Email"
         else -> "Messaging"
     }
+    val labelKeys: List<String> get() = when (key) {
+        "aws" -> listOf("alias", "accountId")
+        "gcp" -> listOf("projectId")
+        "cloudflare" -> listOf("accountName", "label")
+        "zeabur" -> listOf("name")
+        "grafana" -> listOf("name")
+        "github" -> listOf("accountLogin")
+        "gitlab" -> listOf("username")
+        "linear" -> listOf("label", "workspaceName")
+        else -> listOf("label")
+    }
+    val detailKeys: List<String> get() = when (key) {
+        "aws", "tencent", "aliyun" -> listOf("roleArn")
+        "gcp" -> listOf("serviceAccountEmail")
+        "azure" -> listOf("subscriptionId")
+        "cloudflare" -> listOf("accountId")
+        "volcengine" -> listOf("roleTrn")
+        "zeabur" -> listOf("kind")
+        "onprem" -> listOf("contextName")
+        "uptimeKuma", "sonarqube" -> listOf("baseUrl")
+        "grafana" -> listOf("grafanaUrl")
+        "sentry", "plaud" -> listOf("userEmail")
+        "tailscale" -> listOf("clientId")
+        "secureframe" -> listOf("region")
+        "github" -> listOf("accountType")
+        "gitlab" -> listOf("hostUrl")
+        "linear", "notion" -> listOf("workspaceName")
+        "jira" -> listOf("siteUrl")
+        "asana" -> listOf("accountEmail")
+        "upstash" -> listOf("email")
+        "resend" -> listOf("permission")
+        else -> emptyList()
+    }
     val canAdd get() = fields.isNotEmpty() || oauth || key == "github"
     val callbackHost get() = "$key-callback"
 
@@ -124,8 +157,8 @@ data class ConnectorInventory(val rows: List<ConnectorBinding> = emptyList()) {
                 json[provider]?.arrayValue.orEmpty().forEach rowLoop@{ row ->
                     val id = bindingId(row) ?: return@rowLoop
                     val identity = if (provider == "zeabur") ":${row["zeaburId"]?.stringValue.orEmpty()}:${row["kind"]?.stringValue.orEmpty()}" else ""
-                    val label = listOf("label", "name", "alias", "accountLogin", "accountName", "projectId", "workspaceName", "username").firstNotNullOfOrNull { row[it]?.stringValue?.takeIf(String::isNotBlank) } ?: ConnectorCatalog.named(provider)?.title ?: provider
-                    val detail = listOf("kind", "accountType", "siteUrl", "baseUrl", "grafanaUrl", "email", "accountId").firstNotNullOfOrNull { row[it]?.stringValue?.takeIf { value -> value.isNotBlank() && value != label } }
+                    val label = (ConnectorCatalog.named(provider)?.labelKeys.orEmpty() + listOf("label", "name", "alias", "accountLogin", "accountName", "projectId", "workspaceName", "username")).distinct().firstNotNullOfOrNull { row[it]?.stringValue?.takeIf(String::isNotBlank) } ?: ConnectorCatalog.named(provider)?.title ?: provider
+                    val detail = (ConnectorCatalog.named(provider)?.detailKeys.orEmpty() + listOf("kind", "accountType", "siteUrl", "baseUrl", "grafanaUrl", "email", "accountId")).distinct().firstNotNullOfOrNull { row[it]?.stringValue?.takeIf { value -> value.isNotBlank() && value != label } }
                     rows.add(ConnectorBinding(provider, id, "$provider:$id$identity", label, detail, row["installationId"]?.numberValue?.toLong()))
                 }
             }

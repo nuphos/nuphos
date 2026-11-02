@@ -182,11 +182,11 @@ class RuntimeSetupFixtureDeviceTest {
     }
     @Test fun claudeCodeStaysEphemeralAndConnectedRequiresCatalogRead() {
         provider = "claude-code"; catalog = "[${runtime()}]"; render(); select(); click("Start provider sign-in")
-        waitText("Full code#state"); click("Open provider sign-in"); assertEquals(listOf("https://example.test/claude"), browsers)
-        compose.onNodeWithText("Full code#state").performScrollTo().performTextInput("synthetic#state")
+        waitText("Authorization code"); click("Open provider sign-in"); assertEquals(listOf("https://example.test/claude"), browsers)
+        compose.onNodeWithText("Authorization code").performScrollTo().performTextInput("synthetic#state")
         click("Submit sign-in code")
         compose.waitUntil(5_000) { codeSubmitted && !store.state.busy }
-        compose.onAllNodesWithText("Full code#state").assertCountEquals(0)
+        compose.onAllNodesWithText("Authorization code").assertCountEquals(0)
         status = "connected"; click("Refresh sign-in"); waitText("Sign-in: connected")
         assertTrue(requests.last().url.encodedPath.endsWith("/agent-runtimes")); assertEquals(id, selection.binding?.runtimeId)
     }

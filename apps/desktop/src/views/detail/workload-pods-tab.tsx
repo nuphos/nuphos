@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { PodsView } from '../PodsView'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -47,10 +48,10 @@ export function WorkloadPodsTab({
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
   if (selector === undefined) {
-    return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+    return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
   }
   if (selector === null) {
-    return <div className="p-6 text-tertiary text-[13px]">Workload has no selector.</div>
+    return <div className="p-6 text-tertiary text-[13px]">{t('Workload has no selector.')}</div>
   }
 
   const filterPod = (p: PodItem) => podLabelsMatchSelector(p.labels, selector)

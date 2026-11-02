@@ -1,7 +1,5 @@
-Fixed a chat opened after going back to the list loading forever until the app was relaunched.
+Watch a browser tab of a chat's dock live on your iPhone, then tap and type into it. The Mac's pointer never moves.
 
-Scrolling up in a chat stays where you left it instead of jumping back to the end as your finger lifts.
+Runtime marks and provider names now look the same everywhere.
 
-An idle chat no longer re-reads and redraws its transcript every few seconds, which saves data and battery on long conversations.
-
-The message box resizes together with the keyboard and as you type, and the chat title on iPhone Duo no longer leaves an empty gap before the agent's name.
+Fixes: agent file cards show in conversations longer than one page, and an answer no longer cross-fades into two texts drawn at once.

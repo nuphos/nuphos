@@ -4,6 +4,54 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
+
+import type { LarkDomain } from '../../types'
+
+export function SiteStep({
+  domain,
+  onDomainChange,
+}: {
+  domain: LarkDomain
+  onDomainChange: (d: LarkDomain) => void
+}) {
+  return (
+    <div className="space-y-4">
+      <p className="text-[12px] leading-relaxed text-secondary">
+        {t(
+          'Feishu (China) and Lark (Global) are separate platforms. Pick the one your organization uses — it decides which developer console and API host Nuphos talks to.',
+        )}
+      </p>
+      <div className="flex gap-2">
+        {(['feishu', 'larksuite'] as const).map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => onDomainChange(d)}
+            className={clsx(
+              'flex flex-1 flex-col items-start gap-0.5 rounded-md border px-3 py-2.5 text-left transition-colors',
+              domain === d
+                ? 'border-zViolet-500 bg-zViolet-500/10'
+                : 'border-zGray-800 hover:border-zGray-700',
+            )}
+          >
+            <span
+              className={clsx(
+                'text-[13px] font-medium',
+                domain === d ? 'text-main' : 'text-secondary',
+              )}
+            >
+              {d === 'feishu' ? 'Feishu 飞书' : 'Lark'}
+            </span>
+            <span className="font-mono text-[11px] text-tertiary">
+              {d === 'feishu' ? 'open.feishu.cn' : 'open.larksuite.com'}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function WebhookRow({ url }: { url: string }) {
   const [copied, setCopied] = useState(false)
@@ -14,7 +62,7 @@ export function WebhookRow({ url }: { url: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error('Could not copy', 'Copy the URL manually.')
+      toast.error(t('Could not copy'), t('Copy the URL manually.'))
     }
   }
 
@@ -29,7 +77,7 @@ export function WebhookRow({ url }: { url: string }) {
         className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zGray-800 px-3 text-[12px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
       >
         <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="h-3 w-3" />
-        {copied ? 'Copied' : 'Copy'}
+        {copied ? t('Copied') : t('Copy')}
       </button>
     </div>
   )

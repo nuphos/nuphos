@@ -7,9 +7,12 @@ object RuntimeApi {
         else -> false
     }
 
-    suspend fun steer(token: String, teamId: String, sessionId: String, text: String): String {
+    suspend fun steer(token: String, teamId: String, sessionId: String, text: String): String =
+        steerQueued(token, teamId, sessionId, text, null)
+
+    suspend fun steerQueued(token: String, teamId: String, sessionId: String, text: String, queuedId: String?): String {
         val response = JsonValue.parse(AgentChatApi.send("POST", "agent/conversations/$sessionId/steer", token,
-            listOf("teamId" to teamId), JsonValue.obj("text" to JsonValue.Str(text))))
+            listOf("teamId" to teamId), JsonValue.Obj(buildMap { put("text", JsonValue.Str(text)); queuedId?.let { put("queuedId", JsonValue.Str(it)) } })))
         if (response?.get("ok")?.boolValue != true) throw NuphosApi.Failure.InvalidResponse
         return response["messageId"]?.stringValue ?: throw NuphosApi.Failure.InvalidResponse
     }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from '../../components/ui/toast'
 import { ALL_VALUE, getDashboard, resolveTimeRange, variableQueryValue } from '../../grafana/client'
 import { useSilentRefresh, useSilentTick } from '../../hooks/useSilentRefresh'
+import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { initialTimeSel } from './time'
@@ -141,7 +142,7 @@ export function useGrafanaDashboard(
       // The toast is not gen-gated — the user asked for this refresh, so its
       // failure is worth reporting even if a later fetch superseded it.
       .catch((e: unknown) => {
-        if (!cancelled) toast.apiError('Failed to refresh dashboard', e)
+        if (!cancelled) toast.apiError(t('Failed to refresh dashboard'), e)
       })
 
     return () => {

@@ -15,7 +15,7 @@ import type {
   WorkspaceAction,
   WorkspaceStoreDeps,
 } from './workspaceActions'
-import type { WorkspaceState } from './workspaceState'
+import type { TabBucket, WorkspaceState } from './workspaceState'
 import type { WorkspaceTabState } from '../../workspaceTabState'
 import type { TabDropPlacement } from '../tabs/tabsTypes'
 
@@ -49,6 +49,8 @@ export type WorkspaceActions = {
   /** Opens a tab in a conversation's own dock without bringing it on screen. */
   openTabInSession: (sessionId: string, tab: WorkspaceTabState) => void
   activateTab: (tabId: string) => void
+  /** Mounts a conversation's tab without showing it, as a phone watching it needs its page. */
+  mountTab: (sessionId: string, tabId: string) => void
   openTeamTab: (teamId: string) => void
   selectAdjacentTab: (direction: -1 | 1) => void
   selectTabAt: (position: number | 'last') => void
@@ -60,6 +62,8 @@ export type WorkspaceActions = {
   updateActiveTab: (updater: TabUpdater, options?: { history?: TabHistoryMode }) => void
   retainTeams: (teamIds: readonly string[], preferredTeamId: string | null) => void
   removeTeam: (teamId: string) => void
+  /** Takes over the docks of a split pane that is closing; see `adoptBuckets`. */
+  adoptBuckets: (buckets: Readonly<Record<string, TabBucket>>) => void
 }
 
 export type WorkspaceStore = {
@@ -140,6 +144,8 @@ export function createWorkspaceStore(
         options: { openDock: true },
       }),
     activateTab: (tabId) => inCurrentSession({ type: 'activateTab', tabId }),
+    mountTab: (sessionId, tabId) =>
+      dispatch({ type: 'mountTab', sessionKey: sessionKeyOf(sessionId), tabId }),
     openTeamTab: (teamId) => inCurrentSession({ type: 'openTeamTab', teamId }),
     selectAdjacentTab: (direction) => inCurrentSession({ type: 'selectAdjacentTab', direction }),
     selectTabAt: (position) => inCurrentSession({ type: 'selectTabAt', position }),
@@ -158,6 +164,7 @@ export function createWorkspaceStore(
     retainTeams: (teamIds, preferredTeamId) =>
       dispatch({ type: 'retainTeams', teamIds, preferredTeamId }),
     removeTeam: (teamId) => dispatch({ type: 'removeTeam', teamId }),
+    adoptBuckets: (buckets) => dispatch({ type: 'adoptBuckets', buckets }),
   }
 
   return { getState, subscribe, dispatch, actions }

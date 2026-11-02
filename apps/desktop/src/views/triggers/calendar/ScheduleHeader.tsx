@@ -2,6 +2,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Button } from '../../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../../components/ui/menu'
+import { t } from '../../../i18n'
 import { viewerTimeZone, zoneLabel } from '../cronTime'
 
 import { SCHEDULE_VIEW_MODES } from './model'
@@ -25,15 +26,16 @@ export function ScheduleHeader({ title, mode, onChangeMode, onToday, onShift }: 
       <div className="min-w-0">
         <div className="text-[16px] font-semibold text-main">{title}</div>
         <div className="truncate text-[11.5px] text-tertiary">
-          Times shown in your time zone ({zoneLabel(viewerTimeZone(), new Date())}). Trigger
-          schedules run in UTC.
+          {t('Times shown in your time zone ({zone}). Trigger schedules run in UTC.', {
+            zone: zoneLabel(viewerTimeZone(), new Date()),
+          })}
         </div>
       </div>
       <div className="flex items-center gap-1.5">
         <Menu>
           <MenuTrigger
             className="flex h-7 items-center gap-1 rounded-md border border-main bg-surface px-2.5 text-[12.5px] font-medium text-main transition-colors hover:bg-zGray-800 data-[popup-open]:bg-zGray-800"
-            aria-label="Schedule view"
+            aria-label={t('Schedule view')}
           >
             {currentLabel}
             <ChevronDown className="h-3.5 w-3.5 text-tertiary" strokeWidth={2} />
@@ -51,12 +53,17 @@ export function ScheduleHeader({ title, mode, onChangeMode, onToday, onShift }: 
           </MenuContent>
         </Menu>
         <Button variant="secondary" size="sm" className="!h-7 text-[12.5px]" onClick={onToday}>
-          Today
+          {t('Today')}
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Previous" onClick={() => onShift(-1)}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t('Previous|page')}
+          onClick={() => onShift(-1)}
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Next" onClick={() => onShift(1)}>
+        <Button variant="ghost" size="icon-sm" aria-label={t('Next')} onClick={() => onShift(1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

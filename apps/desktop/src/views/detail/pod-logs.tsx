@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { filterLogLines, formatLogTimestamp } from '../../lib/logView'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -77,7 +78,7 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
         // returns while container is null. Clear loading + report so the panel
         // doesn't sit in a perpetual "Loading…". Mirrors PodTerminalTab.
         setLoading(false)
-        toast.apiError('Could not load pod containers', e)
+        toast.apiError(t('Could not load pod containers'), e)
       })
 
     return () => {
@@ -126,7 +127,7 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
         setLoading(false)
         // A "no previous instance" miss comes back as [] from the main process,
         // so anything reaching here is a real failure. Per CLAUDE.md: toast.
-        toast.apiError('Could not load logs', e)
+        toast.apiError(t('Could not load logs'), e)
       })
 
     return () => {
@@ -139,7 +140,9 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-2 border-b border-zGray-800 flex items-center gap-2 bg-zGray-900">
-        <span className="text-[11.5px] text-tertiary uppercase tracking-wider">Container:</span>
+        <span className="text-[11.5px] text-tertiary uppercase tracking-wider">
+          {t('Container:')}
+        </span>
         {containers.map((c) => (
           <button
             key={c.name}
@@ -187,14 +190,14 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
         className="flex-1 overflow-auto scrollbar-thin font-mono text-[11.5px] p-4 bg-zGray-950 selectable"
       >
         {loading ? (
-          <span className="text-tertiary">Loading…</span>
+          <span className="text-tertiary">{t('Loading…')}</span>
         ) : visible.length === 0 ? (
           <span className="text-tertiary">
             {query
-              ? 'No matching lines'
+              ? t('No matching lines')
               : previous
-                ? 'No previous logs — this container has not restarted.'
-                : 'No logs'}
+                ? t('No previous logs — this container has not restarted.')
+                : t('No logs')}
           </span>
         ) : (
           visible.map((l) => (

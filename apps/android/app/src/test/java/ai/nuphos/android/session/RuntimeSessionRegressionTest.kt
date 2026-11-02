@@ -40,7 +40,9 @@ class RuntimeSessionRegressionTest {
             runtimeState = JsonValue.parse("""{"schemaVersion":2,"actions":{"reply":true,"send":true,"steer":true,"cancel":true}}""")), old)
         state(session, "observationClock", old)
         assertFalse(session.canReply)
-        assertFalse(session.canSubmit)
+        assertTrue(session.canSubmit) // A stale modern runtime may queue, but cannot take a direct action.
+        assertTrue(session.sendQueues)
+        assertFalse(session.canSteer)
         assertFalse(session.canCancel)
     }
     @Test fun failedSteeringCannotDrainOnNextSubmit() {
@@ -341,5 +343,24 @@ class RuntimeSessionRegressionTest {
         val method = ChatSession::class.java.getDeclaredMethod("handle", JsonValue::class.java, String::class.java, Integer::class.java, UIStreamReducer::class.java).apply { isAccessible = true }
         method.invoke(session, JsonValue.parse("""{"type":"start","messageId":"assistant"}""")!!, "start", null, null)
         assertEquals(listOf("assistant"), session.messages.map { it.id })
+    }
+    @Test fun steeringFrameFillsAcknowledgementAndSurvivesCanonicalRefresh() {
+        for (streamFirst in listOf(false, true)) {
+        val session = ChatSession.fresh("fixture", "team")
+        state(session, "messages", RuntimeTranscript.autonomous("a", emptyList()))
+        val ack = ChatSession::class.java.getDeclaredMethod("addSteering", String::class.java, String::class.java, String::class.java).apply { isAccessible = true }
+        if (!streamFirst) ack.invoke(session, "s", "Keep callback coverage", "a")
+        val handle = ChatSession::class.java.getDeclaredMethod("handle", JsonValue::class.java, String::class.java, Integer::class.java, UIStreamReducer::class.java).apply { isAccessible = true }
+        val frame = JsonValue.parse("""{"type":"data-steering","data":{"id":"s","text":"Keep callback coverage","metadata":{"version":1,"source":"nuphos","sentAt":"2026-11-02T00:00:00Z","sender":{"id":"morgan","type":"user","displayName":"Morgan"}}}}""")!!
+        handle.invoke(session, frame, "data-steering", null, null)
+        ack.invoke(session, "s", "Keep callback coverage", "a")
+        fun rendered() = ai.nuphos.android.model.ChatRow.rows(session).filterIsInstance<ai.nuphos.android.model.ChatRow.User>().single()
+        assertEquals("Morgan", rendered().sender?.name)
+        val canonical = RuntimeTranscript.steering("s", "Keep callback coverage", "a", RuntimeTranscript.autonomous("a", emptyList()))
+        ChatSession::class.java.getDeclaredMethod("adoptMessages", List::class.java, Int::class.javaPrimitiveType).apply { isAccessible = true }.invoke(session, canonical, 0)
+        assertEquals("Morgan", rendered().sender?.name)
+        assertEquals("steering.s", rendered().id)
+        session.disposeForConsent()
+        }
     }
 }

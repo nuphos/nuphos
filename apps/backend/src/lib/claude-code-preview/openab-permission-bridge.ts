@@ -100,18 +100,22 @@ export async function handleOpenAbPermissionRequest(
 
     return cancelled()
   }
+  const bypass = await deps.getSessionBypass(args.conversationId, args.userId)
+
   // Nuphos MCP tool cards are normally hidden (the handler renders its own);
   // an approval request has nowhere to attach unless this card is visible.
+  // Full Access asks nothing, so revealing it would show a call such as
+  // request_user_decision twice, beside the card its handler renders.
   args.handleTool({
     kind: 'tool',
     toolCallId,
     title: request.toolCall.title,
     status: 'pending',
-    revealed: true,
+    ...(bypass ? {} : { revealed: true }),
     ...(request.toolCall.rawInput === undefined ? {} : { rawInput: request.toolCall.rawInput }),
   })
 
-  if (await deps.getSessionBypass(args.conversationId, args.userId)) {
+  if (bypass) {
     const allowed = allowOnce(request.options)
 
     args.emit({

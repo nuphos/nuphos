@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { defaultJobName, DNS_1123_LABEL } from './jobName'
@@ -38,7 +39,7 @@ export function TriggerCronJobDialog({
         if (!cancelled) setInfo(result)
       })
       .catch((e: unknown) => {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load CronJob.')
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : t('Failed to load CronJob.'))
       })
 
     return () => {
@@ -51,13 +52,15 @@ export function TriggerCronJobDialog({
     const trimmed = jobName.trim()
 
     if (!trimmed) {
-      setError('Job name is required.')
+      setError(t('Job name is required.'))
 
       return
     }
     if (!DNS_1123_LABEL.test(trimmed)) {
       setError(
-        'Job name must be a valid DNS-1123 label: lowercase alphanumeric or "-", start and end with an alphanumeric character, and be at most 63 characters.',
+        t(
+          'Job name must be a valid DNS-1123 label: lowercase alphanumeric or "-", start and end with an alphanumeric character, and be at most 63 characters.',
+        ),
       )
 
       return
@@ -68,7 +71,7 @@ export function TriggerCronJobDialog({
       await api.triggerCronJob(context, cronJob.namespace, cronJob.name, trimmed)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to trigger CronJob.')
+      setError(e instanceof Error ? e.message : t('Failed to trigger CronJob.'))
       setSubmitting(false)
     }
   }
@@ -76,14 +79,14 @@ export function TriggerCronJobDialog({
   return (
     <Modal
       open
-      title="Trigger CronJob"
+      title={t('Trigger CronJob')}
       description={`${cronJob.namespace}/${cronJob.name}`}
       onClose={onClose}
       width={460}
     >
       <form onSubmit={(event) => void submit(event)} className="space-y-4 p-4">
         <label className="block">
-          <span className="mb-1.5 block text-[12px] text-tertiary">Job name</span>
+          <span className="mb-1.5 block text-[12px] text-tertiary">{t('Job name')}</span>
           <input
             autoFocus
             value={jobName}
@@ -93,13 +96,15 @@ export function TriggerCronJobDialog({
         </label>
 
         <div>
-          <span className="mb-1.5 block text-[12px] text-tertiary">Containers to be created</span>
+          <span className="mb-1.5 block text-[12px] text-tertiary">
+            {t('Containers to be created')}
+          </span>
           {loadError ? (
             <div className="text-[12.5px] text-error">{loadError}</div>
           ) : !info ? (
-            <div className="text-[12.5px] text-tertiary">Loading…</div>
+            <div className="text-[12.5px] text-tertiary">{t('Loading…')}</div>
           ) : info.containers.length === 0 ? (
-            <div className="text-[12.5px] text-tertiary">No containers found.</div>
+            <div className="text-[12.5px] text-tertiary">{t('No containers found.')}</div>
           ) : (
             <div className="space-y-2 rounded-md border border-zGray-800 bg-zGray-950 p-2.5">
               {info.containers.map((c) => (
@@ -131,10 +136,10 @@ export function TriggerCronJobDialog({
             onClick={onClose}
             className="h-8 rounded-md px-3 text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <Button size="sm" type="submit" disabled={submitting || !info || !!loadError}>
-            {submitting ? 'Triggering…' : 'Trigger'}
+            {submitting ? t('Triggering…') : t('Trigger|action')}
           </Button>
         </div>
       </form>

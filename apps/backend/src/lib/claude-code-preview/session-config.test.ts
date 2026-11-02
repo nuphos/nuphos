@@ -268,7 +268,11 @@ test('a runtime catalog becomes session options; picks it no longer offers fall 
     controls: {
       modelId: 'default',
       effort: [{ value: 'high', name: 'High' }],
-      fast: true,
+      fast: [
+        { value: 'off', name: 'Off' },
+        { value: 'on', name: 'Fast' },
+        { value: 'ultrafast', name: 'Ultrafast' },
+      ],
       defaultEffort: 'high',
     },
   }
@@ -286,6 +290,10 @@ test('a runtime catalog becomes session options; picks it no longer offers fall 
     { id: 'effort', kind: 'effort' },
     { id: 'fast', kind: 'fast', currentValue: 'on' },
   ])
+  expect(catalogSessionConfig(catalog, { fast: 'ultrafast' })[2]).toMatchObject({
+    currentValue: 'ultrafast',
+    options: [{ value: 'off' }, { value: 'on' }, { value: 'ultrafast' }],
+  })
   expect(catalogSessionConfig({ models: [] }, {})).toEqual([])
 })
 
@@ -314,7 +322,7 @@ test('picks the runtime no longer offers are dropped, and a stale model is read 
 
     return {
       models: [{ id: 'opus', name: 'Opus' }],
-      controls: { modelId: 'opus', effort: [{ value: 'high', name: 'High' }], fast: false },
+      controls: { modelId: 'opus', effort: [{ value: 'high', name: 'High' }], fast: [] },
     }
   }
 
@@ -346,7 +354,7 @@ test('the model list renders while a reply runs: catalog plus stored picks, neve
         { value: 'low', name: 'Low' },
         { value: 'high', name: 'High' },
       ],
-      fast: false,
+      fast: [],
       defaultEffort: 'low',
     },
   })

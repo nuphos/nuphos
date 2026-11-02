@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { RotateCcw, Trash2, X } from 'lucide-react'
 
 import { DetailSidebarTransition } from '../../components/DetailSidebarTransition'
+import { t } from '../../i18n'
 
 import { DetailBlock, DetailGrid } from './DetailBlocks'
 import { GeneDetail } from './GeneDetail'
@@ -40,7 +41,7 @@ export function MemoryDetailPane({
           <div className="px-4 py-3 border-b border-zGray-800/60 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[12px] uppercase tracking-wide text-tertiary">
-                {scope === 'team' ? 'Team shared memory' : 'Personal memory'}
+                {scope === 'team' ? t('Team shared memory') : t('Personal memory')}
               </div>
               <div className="text-[13px] text-main truncate">{memory.type}</div>
             </div>
@@ -50,10 +51,10 @@ export function MemoryDetailPane({
                   type="button"
                   onClick={onRestore}
                   className="h-7 px-2 rounded-md text-[12px] text-tertiary hover:text-main hover:bg-zGray-800 flex items-center gap-1.5"
-                  title="Restore this memory"
+                  title={t('Restore this memory')}
                 >
                   <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.8} />
-                  Restore
+                  {t('Restore')}
                 </button>
               )}
               {onDelete && (
@@ -61,18 +62,18 @@ export function MemoryDetailPane({
                   type="button"
                   onClick={onDelete}
                   className="h-7 px-2 rounded-md text-[12px] text-tertiary hover:text-red-400 hover:bg-zGray-800 flex items-center gap-1.5"
-                  title="Remove this memory"
+                  title={t('Remove this memory')}
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                  Remove
+                  {t('Remove')}
                 </button>
               )}
               <button
                 type="button"
                 onClick={requestClose}
                 className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
-                title="Close details"
-                aria-label="Close details"
+                title={t('Close details')}
+                aria-label={t('Close details')}
               >
                 <X className="h-4 w-4" strokeWidth={1.8} />
               </button>
@@ -119,18 +120,18 @@ export function MemoryDetailPane({
                 ) : (
                   <>
                     {memory.title && (
-                      <DetailBlock label="Title">
+                      <DetailBlock label={t('Title')}>
                         <div className="leading-relaxed text-main">{memory.title}</div>
                       </DetailBlock>
                     )}
-                    <DetailBlock label="Content">
+                    <DetailBlock label={t('Content')}>
                       <div className="whitespace-pre-wrap leading-relaxed text-main">
                         {memory.text}
                       </div>
                     </DetailBlock>
                   </>
                 )}
-                <DetailBlock label="Categories">
+                <DetailBlock label={t('Categories')}>
                   {memory.categories.length === 0 ? (
                     <span className="text-tertiary">—</span>
                   ) : (
@@ -147,26 +148,39 @@ export function MemoryDetailPane({
                   )}
                 </DetailBlock>
                 {score && score.turns > 0 && (
-                  <DetailBlock label="Usage (last 90 days)">
+                  <DetailBlock label={t('Usage (last 90 days)')}>
                     <DetailGrid
                       rows={[
                         [
-                          'Verified used',
-                          `${String(score.applied)} of ${String(score.turns)} observed turns`,
+                          t('Verified used'),
+                          t('{applied} of {turns} observed turns', {
+                            applied: String(score.applied),
+                            turns: String(score.turns),
+                          }),
                         ],
                         [
-                          'Reach',
-                          `${String(score.reachConversations)} conversation${score.reachConversations === 1 ? '' : 's'} · ${String(score.reachUsers)} user${score.reachUsers === 1 ? '' : 's'}`,
+                          t('Reach'),
+                          `${
+                            score.reachConversations === 1
+                              ? t('{count} conversation', { count: '1' })
+                              : t('{count} conversations', {
+                                  count: String(score.reachConversations),
+                                })
+                          } · ${
+                            score.reachUsers === 1
+                              ? t('{count} user', { count: '1' })
+                              : t('{count} users', { count: String(score.reachUsers) })
+                          }`,
                         ],
                         [
-                          'Corrected',
-                          score.corrections > 0 ? `${String(score.corrections)}×` : 'never',
+                          t('Corrected'),
+                          score.corrections > 0 ? `${String(score.corrections)}×` : t('never'),
                         ],
                         [
-                          'Last used',
+                          t('Last used'),
                           score.lastAppliedAt
                             ? new Date(score.lastAppliedAt).toLocaleString()
-                            : 'never',
+                            : t('never'),
                         ],
                       ]}
                     />
@@ -175,16 +189,16 @@ export function MemoryDetailPane({
                 <DetailGrid
                   rows={[
                     ...(memory.disabledReason
-                      ? ([['Removal reason', memory.disabledReason]] as [string, string][])
+                      ? ([[t('Removal reason'), memory.disabledReason]] as [string, string][])
                       : []),
                     ['ID', memory.id],
-                    ['Type', memory.type],
-                    ['Agent', memory.convId ?? '—'],
-                    ['User scope', memory.userId ?? '—'],
-                    ['App scope', memory.appId ?? '—'],
-                    ['Group IDs', memory.groupIds.length > 0 ? memory.groupIds.join(', ') : '—'],
-                    ['Created', new Date(memory.createdAt).toLocaleString()],
-                    ['Updated', new Date(memory.updatedAt).toLocaleString()],
+                    [t('Type'), memory.type],
+                    [t('Agent'), memory.convId ?? '—'],
+                    [t('User scope'), memory.userId ?? '—'],
+                    [t('App scope'), memory.appId ?? '—'],
+                    [t('Group IDs'), memory.groupIds.length > 0 ? memory.groupIds.join(', ') : '—'],
+                    [t('Created'), new Date(memory.createdAt).toLocaleString()],
+                    [t('Updated'), new Date(memory.updatedAt).toLocaleString()],
                   ]}
                 />
               </div>

@@ -1,6 +1,8 @@
 import { faTrash } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
+import { t } from '../../i18n'
+
 import type { LarkUserMapping, TeamMember } from '../../types'
 
 export function LarkLinkedAccountsCard({
@@ -19,16 +21,17 @@ export function LarkLinkedAccountsCard({
   return (
     <div className="overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
       <div className="border-b border-zGray-800/60 px-4 py-3">
-        <div className="text-[13px] font-medium text-main">Linked accounts</div>
+        <div className="text-[13px] font-medium text-main">{t('Linked accounts')}</div>
         <div className="mt-0.5 text-[12px] text-tertiary">
-          Lark users mapped to Nuphos members. Members link themselves by DMing the bot a pairing
-          code; remove one to revoke its access.
+          {t(
+            'Lark users mapped to Nuphos members. Members link themselves by DMing the bot a pairing code; remove one to revoke its access.',
+          )}
         </div>
       </div>
       {loading ? (
-        <div className="px-4 py-6 text-[13px] text-tertiary">Loading…</div>
+        <div className="px-4 py-6 text-[13px] text-tertiary">{t('Loading…')}</div>
       ) : userMappings.length === 0 ? (
-        <div className="px-4 py-6 text-[13px] text-tertiary">No accounts linked yet.</div>
+        <div className="px-4 py-6 text-[13px] text-tertiary">{t('No accounts linked yet.')}</div>
       ) : (
         <div className="divide-y divide-zGray-800/60">
           {userMappings.map((mapping) => {
@@ -44,7 +47,7 @@ export function LarkLinkedAccountsCard({
                     {mapping.larkOpenId}
                     {mapping.createdBy === 'pair-code' && (
                       <span className="rounded border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-0.5 font-sans text-[11px] text-emerald-300">
-                        self-linked
+                        {t('self-linked')}
                       </span>
                     )}
                   </div>
@@ -54,8 +57,8 @@ export function LarkLinkedAccountsCard({
                   onClick={() => void onDelete(mapping)}
                   disabled={busyKey === `user:${mapping.id}`}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-red-500/10 hover:text-error disabled:opacity-50"
-                  title="Remove mapping"
-                  aria-label="Remove linked account"
+                  title={t('Remove mapping')}
+                  aria-label={t('Remove linked account')}
                 >
                   <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
                 </button>

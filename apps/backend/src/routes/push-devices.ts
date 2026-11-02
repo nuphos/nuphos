@@ -33,6 +33,7 @@ const registrationSchema = z.preprocess(
       platform: z.literal('ios'),
       environment: z.enum(['sandbox', 'production']),
       bundleId: z.string().trim().max(200).optional(),
+      liveActivityStartToken: apnsToken.optional(),
     }),
     z.object({
       token: fcmToken,
@@ -53,7 +54,14 @@ export function createPushDeviceRoutes(store: PushDeviceStore) {
 
     await store.register(c.get('userId'), {
       ...body,
-      token: body.platform === 'ios' ? body.token.toLowerCase() : body.token,
+      ...(body.platform === 'ios'
+        ? {
+            token: body.token.toLowerCase(),
+            ...(body.liveActivityStartToken
+              ? { liveActivityStartToken: body.liveActivityStartToken.toLowerCase() }
+              : {}),
+          }
+        : {}),
     })
 
     return c.json({ ok: true })
@@ -83,6 +91,7 @@ const liveActivitySchema = z.object({
   teamId: z.string().trim().min(1).max(64),
   sessionId: z.string().trim().min(1).max(128),
   environment: z.enum(['sandbox', 'production']),
+  deviceId: deviceId.optional(),
 })
 
 /** The conversation, for its title on the card's row and its runtime's current
@@ -106,14 +115,14 @@ export function createLiveActivityRoutes(
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.put('/live-activities', zv('json', liveActivitySchema), async (c) => {
-    const { token, teamId, sessionId, environment } = c.req.valid('json')
+    const { token, teamId, sessionId, environment, deviceId } = c.req.valid('json')
     const userId = c.get('userId')
     const conversation = await readConversation(userId, teamId, sessionId)
 
     if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
     await register(
       sessionId,
-      { token: token.toLowerCase(), userId, environment },
+      { token: token.toLowerCase(), userId, environment, ...(deviceId ? { deviceId } : {}) },
       // Older conversations may have no title; their row still shows.
       { teamId, title: conversation.title ?? '' },
       conversation.runtimeState ?? null,

@@ -2,6 +2,7 @@ import { Link2, MessageSquare } from 'lucide-react'
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 
 import { ContextMenu } from '../components/ContextMenu'
+import { t } from '../i18n'
 
 import type { ContextMenuItem } from '../components/ContextMenu'
 import type { ReactNode } from 'react'
@@ -76,13 +77,13 @@ export function useRowLinkActions<T>(
       return [
         {
           key: 'copy-link',
-          label: 'Copy link',
+          label: t('Copy link'),
           icon: Link2,
           onSelect: () => void copyLink(href),
         },
         {
           key: 'open-in-chat',
-          label: 'Open in agent',
+          label: t('Open in agent'),
           icon: MessageSquare,
           onSelect: () => openInChat(href),
         },

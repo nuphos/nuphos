@@ -4,6 +4,7 @@ import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useLinkOnlyRowMenu } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -50,10 +51,10 @@ export function VpcsView({
           subtitle="VPC"
           fields={[
             { label: 'ID', value: detail.id, mono: true },
-            { label: 'Name', value: detail.name || '—' },
+            { label: t('Name'), value: detail.name || '—' },
             { label: 'CIDR', value: detail.cidr || '—', mono: true },
-            { label: 'Region', value: detail.region || '—' },
-            { label: 'State', value: detail.state || 'Unknown' },
+            { label: t('Region'), value: detail.region || '—' },
+            { label: t('State'), value: detail.state || t('Unknown') },
           ]}
           raw={detail}
         />
@@ -75,7 +76,7 @@ export function VpcsView({
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 220,
             sortAccessor: (r) => r.name ?? '',
             render: (r) => <span className="text-zViolet-accent">{r.name || '-'}</span>,
@@ -91,14 +92,14 @@ export function VpcsView({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 130,
             sortAccessor: (r) => r.region ?? '',
             render: (r) => <span className="text-secondary">{r.region || '-'}</span>,
           },
           {
             key: 'state',
-            header: 'State',
+            header: t('State'),
             width: 110,
             sortAccessor: (r) => r.state ?? '',
             render: (r) => <StatusBadge status={r.state || 'Unknown'} />,
@@ -142,17 +143,17 @@ export function NaclsView({
           open
           onClose={() => setDetail(null)}
           title={detail.id}
-          subtitle="Network ACL"
+          subtitle={t('Network ACL')}
           fields={[
             { label: 'ID', value: detail.id, mono: true },
             { label: 'VPC', value: detail.vpcId, mono: true },
-            { label: 'Region', value: detail.region },
-            { label: 'Default', value: detail.isDefault ? 'Yes' : 'No' },
+            { label: t('Region'), value: detail.region },
+            { label: t('Default'), value: detail.isDefault ? t('Yes') : t('No') },
             {
-              label: 'Subnet Assoc',
+              label: t('Subnet Assoc'),
               value: detail.associations?.length ?? 0,
             },
-            { label: 'Entries', value: detail.entries?.length ?? 0 },
+            { label: t('Entries'), value: detail.entries?.length ?? 0 },
           ]}
           raw={detail}
         />
@@ -183,21 +184,21 @@ export function NaclsView({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 130,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'default',
-            header: 'Default',
+            header: t('Default'),
             width: 90,
             sortAccessor: (r) => (r.isDefault ? 1 : 0),
-            render: (r) => (r.isDefault ? <span className="text-success">Yes</span> : '—'),
+            render: (r) => (r.isDefault ? <span className="text-success">{t('Yes')}</span> : '—'),
           },
           {
             key: 'assoc',
-            header: 'Subnet Assoc',
+            header: t('Subnet Assoc'),
             width: 130,
             sortAccessor: (r) => r.associations?.length ?? 0,
             render: (r) =>
@@ -209,7 +210,7 @@ export function NaclsView({
           },
           {
             key: 'entries',
-            header: 'Entries',
+            header: t('Entries'),
             width: 90,
             sortAccessor: (r) => r.entries?.length ?? 0,
             render: (r) => (r.entries ? r.entries.length : 0),

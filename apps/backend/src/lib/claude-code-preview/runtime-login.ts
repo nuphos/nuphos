@@ -1,6 +1,7 @@
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { commitLocalAgentInstance } from '@/lib/agent/devices/local-runtime/instances'
+import { settleSignInRequests } from '@/lib/agent/sign-in-settle'
 import { AppError } from '@/lib/errors'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
@@ -180,7 +181,7 @@ export async function performRuntimeLogin<Target>(
     // Connected means the agent is kept: clients list it as soon as they see this.
     await (deps.commit ?? commitAddedAgent)(doc)
     // The runtime installed the credential itself, so it is already in use.
-    await runtimeLogins().updateOne(
+    const connected = await runtimeLogins().updateOne(
       {
         ...filter,
         state: { $in: ['starting', 'awaiting_authorization'] },
@@ -188,6 +189,9 @@ export async function performRuntimeLogin<Target>(
       },
       { $set: { state: 'connected' }, $unset: AUTHORIZATION_FIELDS },
     )
+
+    // Whoever asked for this sign-in gets their held message run.
+    if (connected.matchedCount) await settleSignInRequests(doc.teamId, doc.runtimeId)
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },

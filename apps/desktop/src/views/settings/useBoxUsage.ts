@@ -11,6 +11,7 @@ const WATCH_FOR_MS = 120_000
 /** The team's Box plan and use. Refreshed when the window regains focus, as after paying in the browser. */
 export function useBoxUsage(teamId: string) {
   const [usage, setUsage] = useState<BoxUsage | null>(null)
+  const [failed, setFailed] = useState(false)
   const [revision, setRevision] = useState(0)
 
   useEffect(() => {
@@ -18,9 +19,11 @@ export function useBoxUsage(teamId: string) {
 
     void api.boxUsage(teamId).then(
       (next) => {
-        if (!cancelled) setUsage(next)
+        if (cancelled) return
+        setUsage(next)
+        setFailed(false)
       },
-      () => null,
+      () => !cancelled && setFailed(true),
     )
 
     return () => {
@@ -50,6 +53,8 @@ export function useBoxUsage(teamId: string) {
 
   return {
     usage,
+    /** The last read failed; with no usage yet the section offers Retry. */
+    failed,
     reload: () => setRevision((value) => value + 1),
     watch: () => setWatchUntil(Date.now() + WATCH_FOR_MS),
   }

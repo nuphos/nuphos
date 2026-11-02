@@ -1,6 +1,8 @@
 import { pushNavigation, replaceNavigation } from '../../../lib/navHistory.ts'
 import { isFreshTeamTab, navigationSnapshot } from '../../workspaceTabFactory.ts'
 
+import { MAIN_PAGE_BUCKET_KEY } from './workspaceState.ts'
+
 import type { OpenTabOptions, TabHistoryMode, TabUpdater } from './workspaceActions'
 import type { TabBucket } from './workspaceState'
 import type { WorkspaceTabState } from '../../workspaceTabState'
@@ -42,6 +44,13 @@ export function activateTabIn(bucket: TabBucket, tabId: string): TabBucket {
   if (bucket.activeTabId === tabId || !bucket.tabs.some((tab) => tab.id === tabId)) return bucket
 
   return { ...bucket, activeTabId: tabId }
+}
+
+/** Keeps a tab mounted without showing it, as a phone watching its page needs. */
+export function mountTabIn(bucket: TabBucket, tabId: string): TabBucket {
+  if (bucket.mountedTabIds.has(tabId) || !bucket.tabs.some((tab) => tab.id === tabId)) return bucket
+
+  return { ...bucket, mountedTabIds: new Set([...bucket.mountedTabIds, tabId]) }
 }
 
 /** Closing the last tab closes the dock and leaves the session with no tabs;
@@ -132,4 +141,39 @@ export function retainTeamsIn(bucket: TabBucket, keep: (teamId: string) => boole
   const tabs = bucket.tabs.filter((tab) => keep(tab.scope.teamId))
 
   return tabs.length === bucket.tabs.length ? bucket : { ...bucket, tabs }
+}
+
+/**
+ * Takes in the docks of a split pane that is closing, so their tabs (and the
+ * terminals behind them) keep running here instead of ending with the pane.
+ * A chat both panes hold keeps this pane's strip first; the main page stays
+ * this pane's own.
+ */
+export function adoptBucketsIn(
+  buckets: Readonly<Record<string, TabBucket>>,
+  incoming: Readonly<Record<string, TabBucket>>,
+): Readonly<Record<string, TabBucket>> {
+  let next: Record<string, TabBucket> | null = null
+
+  for (const [key, bucket] of Object.entries(incoming)) {
+    if (key === MAIN_PAGE_BUCKET_KEY || bucket.tabs.length === 0) continue
+    const existing = buckets[key] as TabBucket | undefined
+    const ids = new Set(existing?.tabs.map((tab) => tab.id))
+    const added = bucket.tabs.filter((tab) => !ids.has(tab.id))
+
+    if (existing && added.length === 0) continue
+    next ??= { ...buckets }
+    next[key] = existing
+      ? {
+          ...existing,
+          tabs: [...existing.tabs, ...added],
+          mountedTabIds: new Set([
+            ...existing.mountedTabIds,
+            ...added.filter((tab) => bucket.mountedTabIds.has(tab.id)).map((tab) => tab.id),
+          ]),
+        }
+      : bucket
+  }
+
+  return next ?? buckets
 }

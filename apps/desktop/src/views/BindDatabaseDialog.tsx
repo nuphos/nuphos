@@ -5,6 +5,7 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { AppSelect } from '../components/ui/select'
+import { t } from '../i18n'
 import { AGENT_POLICY_OPTIONS, RELEASED_DATABASE_ENGINE } from '../lib/databaseRelease'
 
 import { friendlyDatabaseError } from './bind-database/errors'
@@ -72,9 +73,9 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
   })
 
   const validate = () => {
-    if (!name.trim()) return 'Name is required.'
-    if (!environment.trim()) return 'Environment is required.'
-    if (!connectionUri.trim()) return 'Connection string is required.'
+    if (!name.trim()) return t('Name is required.')
+    if (!environment.trim()) return t('Environment is required.')
+    if (!connectionUri.trim()) return t('Connection string is required.')
 
     return null
   }
@@ -134,8 +135,10 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
     <Modal
       open
       onClose={close}
-      title="Add database"
-      description="Nuphos encrypts the credential in the backend and only returns redacted connection metadata."
+      title={t('Add database')}
+      description={t(
+        'Nuphos encrypts the credential in the backend and only returns redacted connection metadata.',
+      )}
       width={560}
       footer={
         <div className="flex items-center justify-between gap-3 px-5 py-3">
@@ -147,10 +150,10 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
             {testing ? (
               <span className="flex items-center gap-1.5">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Testing…
+                {t('Testing…')}
               </span>
             ) : (
-              'Test connection'
+              t('Test connection')
             )}
           </button>
           <div className="flex gap-2">
@@ -159,10 +162,10 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
               disabled={testing || submitting}
               className="px-3 py-1.5 text-[12.5px] text-secondary hover:text-main disabled:opacity-50"
             >
-              Cancel
+              {t('Cancel')}
             </button>
             <Button size="sm" onClick={() => void bind()} disabled={testing || submitting}>
-              {submitting ? 'Adding…' : 'Add database'}
+              {submitting ? t('Adding…') : t('Add database')}
             </Button>
           </div>
         </div>
@@ -170,7 +173,7 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
     >
       <div className="space-y-4 px-5 py-4 text-[13px]">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Name">
+          <Field label={t('Name')}>
             <input
               autoFocus
               value={name}
@@ -179,13 +182,15 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
               className={fieldClass}
             />
           </Field>
-          <Field label="Engine">
+          <Field label={t('Engine')}>
             <div className={`${fieldClass} cursor-default`}>MongoDB</div>
           </Field>
         </div>
         <Field
-          label="Connection string"
-          hint="Read-only and write-capable accounts are supported. Nuphos operations remain constrained by the access policy below. The value is cleared when this dialog closes."
+          label={t('Connection string')}
+          hint={t(
+            'Read-only and write-capable accounts are supported. Nuphos operations remain constrained by the access policy below. The value is cleared when this dialog closes.',
+          )}
         >
           <input
             type="password"
@@ -201,7 +206,7 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Environment">
+          <Field label={t('Environment')}>
             <input
               value={environment}
               onChange={(e) => setEnvironment(e.target.value)}
@@ -209,7 +214,7 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
               className={fieldClass}
             />
           </Field>
-          <Field label="Tags" hint="Comma separated">
+          <Field label={t('Tags')} hint={t('Comma separated')}>
             <input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
@@ -219,11 +224,11 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
           </Field>
         </div>
         <div>
-          <Field label="Agent access">
+          <Field label={t('Agent access')}>
             <AppSelect
               value={agentPolicy}
               onValueChange={(value) => setAgentPolicy(value as DatabaseAgentPolicy)}
-              ariaLabel="Agent access policy"
+              ariaLabel={t('Agent access policy')}
               options={AGENT_POLICY_OPTIONS}
             />
           </Field>
@@ -231,11 +236,12 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
         <div className="rounded-lg border border-zGray-800 bg-zGray-900/60 p-3 text-[12px] text-secondary">
           <div className="flex items-center gap-2 text-main">
             <ShieldCheck className="h-4 w-4 text-success" />
-            Public network via backend proxy
+            {t('Public network via backend proxy')}
           </div>
           <div className="mt-1 text-tertiary">
-            The backend connects directly to the redacted endpoint using the encrypted credential.
-            Credentials never enter the desktop or Agent sandbox.
+            {t(
+              'The backend connects directly to the redacted endpoint using the encrypted credential. Credentials never enter the desktop or Agent sandbox.',
+            )}
           </div>
         </div>
         {testResult && <TestResultPanel testResult={testResult} />}

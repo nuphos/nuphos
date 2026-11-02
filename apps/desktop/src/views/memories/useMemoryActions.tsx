@@ -3,6 +3,7 @@ import { useCallback } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { PAGE_SIZE } from './memoriesShared'
 
@@ -92,7 +93,7 @@ export function useMemoryActions(args: ActionsArgs) {
         }
       } catch (err) {
         console.warn('[memory] failed to delete memory', err)
-        toast.apiError('Could not remove memory', err)
+        toast.apiError(t('Could not remove memory'), err)
         setState({ kind: 'loading' })
         void reload()
       }
@@ -118,7 +119,7 @@ export function useMemoryActions(args: ActionsArgs) {
         }
       } catch (err) {
         console.warn('[memory] failed to restore memory', err)
-        toast.apiError('Could not restore memory', err)
+        toast.apiError(t('Could not restore memory'), err)
         setState({ kind: 'loading' })
         void reload()
       }
@@ -132,7 +133,7 @@ export function useMemoryActions(args: ActionsArgs) {
         ? [
             {
               key: 'restore',
-              label: 'Restore memory',
+              label: t('Restore memory'),
               icon: RotateCcw,
               onSelect: () => void restoreMemory(memory),
             },
@@ -140,7 +141,7 @@ export function useMemoryActions(args: ActionsArgs) {
         : [
             {
               key: 'delete',
-              label: 'Remove memory',
+              label: t('Remove memory'),
               icon: Trash2,
               destructive: true,
               onSelect: () => setConfirmDelete(memory),

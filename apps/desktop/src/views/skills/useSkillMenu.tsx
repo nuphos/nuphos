@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { MenuState } from './skillsShared'
 import type { SkillScope, TeamSkillSummary } from '../../api'
@@ -25,10 +26,10 @@ export function useSkillMenu(args: MenuArgs): ContextMenuItem[] {
     async (skill: TeamSkillSummary) => {
       try {
         await api.teamSkillsPromote(teamId, skill.name)
-        toast.success('Moved to team skills', skill.name)
+        toast.success(t('Moved to team skills'), skill.name)
         await onPromoted(skill.name)
       } catch (err) {
-        toast.apiError('Could not move skill', err)
+        toast.apiError(t('Could not move skill'), err)
       }
     },
     [onPromoted, teamId],
@@ -44,9 +45,12 @@ export function useSkillMenu(args: MenuArgs): ContextMenuItem[] {
         ? [
             {
               key: 'promote-skill',
-              label: 'Move to team skills',
+              label: t('Move to team skills'),
               icon: Users,
-              confirm: `Move "${skill.name}" to the team's skills? Everyone in the team will see and use it.`,
+              confirm: t(
+                'Move "{name}" to the team\'s skills? Everyone in the team will see and use it.',
+                { name: skill.name },
+              ),
               onSelect: () => void promoteSkill(skill),
             },
           ]
@@ -56,10 +60,13 @@ export function useSkillMenu(args: MenuArgs): ContextMenuItem[] {
       ...promote,
       {
         key: 'delete-skill',
-        label: 'Delete skill',
+        label: t('Delete skill'),
         icon: Trash2,
         destructive: true,
-        confirm: `Delete skill "${skill.name}" and all ${String(skill.fileCount)} file(s)? This cannot be undone.`,
+        confirm: t('Delete skill "{name}" and all {count} file(s)? This cannot be undone.', {
+          name: skill.name,
+          count: String(skill.fileCount),
+        }),
         onSelect: () => void deleteSkill(skill),
       },
     ]

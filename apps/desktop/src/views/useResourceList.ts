@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { toast } from '../components/ui/toast'
 import { useReportLoading } from '../components/useReportLoading'
+import { t } from '../i18n/index.ts'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 import { readCachedResourceList } from '../lib/resourceListCache'
 
@@ -112,7 +113,7 @@ export function useResourceList<T>(
           // as structured backend errors and still toast through apiError;
           // transport blips while offline stay quiet by design — the cached
           // rows plus a later refresh cover that case.
-          toast.apiError('Could not refresh — showing cached data', e)
+          toast.apiError(t('Could not refresh — showing cached data'), e)
           setLoading(false)
         } else {
           setError(message)

@@ -3,6 +3,8 @@
 // expanded client-side (see occurrences.ts); everything here is plain date
 // arithmetic shared by the Day/Week/Month grids.
 
+import { locale, t } from '../../../i18n/index.ts'
+
 export type ScheduleViewMode = 'day' | 'week' | 'month'
 
 export type ScheduleEvent = {
@@ -21,9 +23,9 @@ export type ScheduleEvent = {
 }
 
 export const SCHEDULE_VIEW_MODES: { value: ScheduleViewMode; label: string }[] = [
-  { value: 'day', label: 'Day' },
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
+  { value: 'day', label: t('Day') },
+  { value: 'week', label: t('Week') },
+  { value: 'month', label: t('Month') },
 ]
 
 export function startOfDay(date: Date): Date {
@@ -72,9 +74,10 @@ export function monthViewStartWeek(date: Date): Date {
   return startOfWeek(new Date(date.getFullYear(), date.getMonth(), 1))
 }
 
-const MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' })
-const MONTH_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short' })
-const FULL_DAY = new Intl.DateTimeFormat('en-US', {
+const MONTH_YEAR = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' })
+const MONTH_SHORT = new Intl.DateTimeFormat(locale, { month: 'short' })
+const HOUR = new Intl.DateTimeFormat(locale, { hour: 'numeric' })
+const FULL_DAY = new Intl.DateTimeFormat(locale, {
   month: 'long',
   day: 'numeric',
   year: 'numeric',
@@ -90,7 +93,11 @@ export function titleForView(mode: ScheduleViewMode, anchor: Date): string {
 
   if (start.getMonth() === end.getMonth()) return MONTH_YEAR.format(start)
 
-  return `${MONTH_SHORT.format(start)} – ${MONTH_SHORT.format(end)} ${String(end.getFullYear())}`
+  return t('{start} – {end} {year}', {
+    start: MONTH_SHORT.format(start),
+    end: MONTH_SHORT.format(end),
+    year: end.getFullYear(),
+  })
 }
 
 function pad2(n: number): string {
@@ -103,11 +110,7 @@ export function formatEventTime(date: Date): string {
 
 /** Time-grid gutter labels: "1 AM" … "11 PM" (midnight row carries no label). */
 export function hourLabel(hour: number): string {
-  if (hour === 0) return '12 AM'
-  if (hour < 12) return `${String(hour)} AM`
-  if (hour === 12) return '12 PM'
-
-  return `${String(hour - 12)} PM`
+  return HOUR.format(new Date(2000, 0, 1, hour))
 }
 
 // ────────────────────── Event colors ──────────────────────

@@ -1,4 +1,5 @@
 import { Age } from '../../components/Age'
+import { t } from '../../i18n'
 
 import { runStatusColor } from './runStatus'
 import { RunStatusIcon } from './RunStatusIcon'
@@ -16,14 +17,14 @@ export const prColumns: Column<GithubPR>[] = [
   },
   {
     key: 'title',
-    header: 'Title',
+    header: t('Title'),
     width: 320,
     sortAccessor: (pr) => pr.title,
     render: (pr) => (
       <span className="text-main">
         {pr.draft && (
           <span className="mr-1.5 text-[11px] text-tertiary border border-zGray-700 rounded px-1 py-0.5">
-            Draft
+            {t('Draft')}
           </span>
         )}
         {pr.title}
@@ -32,7 +33,7 @@ export const prColumns: Column<GithubPR>[] = [
   },
   {
     key: 'author',
-    header: 'Author',
+    header: t('Author'),
     width: 140,
     sortAccessor: (pr) => pr.author,
     render: (pr) => (
@@ -50,7 +51,7 @@ export const prColumns: Column<GithubPR>[] = [
   },
   {
     key: 'labels',
-    header: 'Labels',
+    header: t('Labels'),
     width: 180,
     render: (pr) =>
       pr.labels.length === 0 ? (
@@ -71,7 +72,7 @@ export const prColumns: Column<GithubPR>[] = [
   },
   {
     key: 'branch',
-    header: 'Branch',
+    header: t('Branch'),
     width: 200,
     render: (pr) => (
       <span className="text-tertiary text-[11px] font-mono">
@@ -81,7 +82,7 @@ export const prColumns: Column<GithubPR>[] = [
   },
   {
     key: 'age',
-    header: 'Age',
+    header: t('Age'),
     width: 90,
     sortAccessor: (pr) => pr.createdAt,
     render: (pr) => (
@@ -95,14 +96,14 @@ export const prColumns: Column<GithubPR>[] = [
 export const runColumns: Column<GithubWorkflowRun>[] = [
   {
     key: 'name',
-    header: 'Workflow',
+    header: t('Workflow'),
     width: 220,
     sortAccessor: (r) => r.name,
     render: (r) => <span className="text-main">{r.name}</span>,
   },
   {
     key: 'status',
-    header: 'Status',
+    header: t('Status'),
     width: 130,
     sortAccessor: (r) => r.conclusion ?? r.status,
     render: (r) => (
@@ -114,20 +115,20 @@ export const runColumns: Column<GithubWorkflowRun>[] = [
   },
   {
     key: 'event',
-    header: 'Event',
+    header: t('Event'),
     width: 110,
     render: (r) => <span className="text-secondary text-[12px]">{r.event}</span>,
   },
   {
     key: 'branch',
-    header: 'Branch',
+    header: t('Branch'),
     width: 160,
     sortAccessor: (r) => r.headBranch,
     render: (r) => <span className="text-tertiary text-[11px] font-mono">{r.headBranch}</span>,
   },
   {
     key: 'commit',
-    header: 'Commit',
+    header: t('Commit'),
     width: 80,
     render: (r) => (
       <span className="text-tertiary text-[11px] font-mono">{r.headSha.slice(0, 7)}</span>
@@ -135,7 +136,7 @@ export const runColumns: Column<GithubWorkflowRun>[] = [
   },
   {
     key: 'age',
-    header: 'Age',
+    header: t('Age'),
     width: 90,
     sortAccessor: (r) => r.createdAt,
     render: (r) => (

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 type Props = {
   teamId: string
@@ -26,14 +27,14 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
     setError(null)
     const n = name.trim()
     const u = grafanaUrl.trim()
-    const t = saToken.trim()
+    const token = saToken.trim()
 
-    if (!n) return setError('Name is required.')
-    if (!/^https?:\/\//.test(u)) return setError('Grafana URL must start with http(s)://')
-    if (!t) return setError('Service account token is required.')
+    if (!n) return setError(t('Name is required.'))
+    if (!/^https?:\/\//.test(u)) return setError(t('Grafana URL must start with http(s)://'))
+    if (!token) return setError(t('Service account token is required.'))
     setSubmitting(true)
     try {
-      await api.atlasBindGrafanaInstance(teamId, n, u.replace(/\/$/, ''), t)
+      await api.atlasBindGrafanaInstance(teamId, n, u.replace(/\/$/, ''), token)
       onBound()
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e))
@@ -42,9 +43,9 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
   }
 
   return (
-    <Modal open onClose={close} title="Bind Grafana instance" width={480}>
+    <Modal open onClose={close} title={t('Bind Grafana instance')} width={480}>
       <div className="px-5 py-4 space-y-3 text-[13px]">
-        <Field label="Name" hint="A short label, e.g. prod or staging">
+        <Field label={t('Name')} hint={t('A short label, e.g. prod or staging')}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -53,7 +54,10 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
           />
         </Field>
-        <Field label="Grafana URL" hint="Base URL of your Grafana instance (no trailing path)">
+        <Field
+          label={t('Grafana URL')}
+          hint={t('Base URL of your Grafana instance (no trailing path)')}
+        >
           <input
             value={grafanaUrl}
             onChange={(e) => setGrafanaUrl(e.target.value)}
@@ -62,8 +66,10 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
           />
         </Field>
         <Field
-          label="Service account token"
-          hint="Create one at Administration → Service accounts → Add token. Stored encrypted by Nuphos backend."
+          label={t('Service account token')}
+          hint={t(
+            'Create one at Administration → Service accounts → Add token. Stored encrypted by Nuphos backend.',
+          )}
         >
           <input
             value={saToken}
@@ -81,10 +87,10 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
           disabled={submitting}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" onClick={() => void submit()} disabled={submitting}>
-          {submitting ? 'Binding…' : 'Bind'}
+          {submitting ? t('Binding…') : t('Bind')}
         </Button>
       </div>
     </Modal>

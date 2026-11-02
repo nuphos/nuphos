@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 
 import { EmptyState } from '../../components/EmptyState'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { applyFilter } from '../cloud/shared'
 
 import { buildTriggerColumns } from './triggerColumns'
@@ -90,7 +91,7 @@ export function TriggersList({
           onClick={onRetry}
           className="ml-2 underline text-secondary hover:text-main"
         >
-          Retry
+          {t('Retry')}
         </button>
       </div>
     )
@@ -100,13 +101,15 @@ export function TriggersList({
     return (
       <EmptyState
         icon={Clock}
-        title="Triggers"
-        description="Triggers run the agent on a schedule or in response to a webhook. Create one to automate recurring work."
+        title={t('Triggers')}
+        description={t(
+          'Triggers run the agent on a schedule or in response to a webhook. Create one to automate recurring work.',
+        )}
         primaryAction={
-          canManage ? { label: 'New trigger', icon: Plus, onClick: onCreate } : undefined
+          canManage ? { label: t('New trigger'), icon: Plus, onClick: onCreate } : undefined
         }
         agentAction={{
-          label: 'Set up a trigger for me',
+          label: t('Set up a trigger for me'),
           prompt:
             'Set up an agent trigger for me — ask me what should run and when, then create it.',
         }}
@@ -125,7 +128,7 @@ export function TriggersList({
       loading={state.kind === 'loading'}
       storageKey="triggers"
       defaultSort={{ key: 'name', dir: 'asc' }}
-      empty="No triggers match the current search or filters."
+      empty={t('No triggers match the current search or filters.')}
     />
   )
 }

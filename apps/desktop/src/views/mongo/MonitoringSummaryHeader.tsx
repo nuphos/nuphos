@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import {
   addNullable,
@@ -79,16 +80,17 @@ export function MonitoringSummaryHeader({
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-[14px] font-medium text-main">MongoDB performance</h2>
+              <h2 className="text-[14px] font-medium text-main">{t('MongoDB performance')}</h2>
               <span
                 className={`rounded-full border px-2 py-0.5 text-[9.5px] font-medium ${paused ? 'border-zGray-700 text-tertiary' : 'border-success/30 bg-success/5 text-success'}`}
               >
-                {paused ? 'Paused' : 'Sampling while open'}
+                {paused ? t('Paused') : t('Sampling while open')}
               </span>
             </div>
             <p className="mt-1 text-[10.5px] leading-4 text-tertiary">
-              Numeric operational metrics only. Query text, result values, credentials, current
-              operations, and profiler documents are not collected.
+              {t(
+                'Numeric operational metrics only. Query text, result values, credentials, current operations, and profiler documents are not collected.',
+              )}
             </p>
           </div>
         </div>
@@ -96,7 +98,7 @@ export function MonitoringSummaryHeader({
           <AppSelect
             value={String(rangeMinutes)}
             onValueChange={(value) => onRangeChange(Number(value))}
-            ariaLabel="Time range"
+            ariaLabel={t('Time range')}
             triggerClassName="h-8 border-zGray-800 bg-surface px-2.5 text-[12px]"
             options={RANGE_OPTIONS.map((option) => ({
               value: String(option.value),
@@ -107,11 +109,11 @@ export function MonitoringSummaryHeader({
             value={String(intervalSeconds)}
             onValueChange={(value) => onIntervalChange(Number(value))}
             disabled={paused}
-            ariaLabel="Sampling interval"
+            ariaLabel={t('Sampling interval')}
             triggerClassName="h-8 border-zGray-800 bg-surface px-2.5 text-[12px]"
             options={INTERVAL_OPTIONS.map((seconds) => ({
               value: String(seconds),
-              label: `Every ${String(seconds)}s`,
+              label: t('Every {n}s', { n: seconds }),
             }))}
           />
           <button
@@ -124,11 +126,11 @@ export function MonitoringSummaryHeader({
             ) : (
               <CirclePause className="h-3.5 w-3.5" />
             )}
-            {paused ? 'Resume' : 'Pause'}
+            {paused ? t('Resume') : t('Pause')}
           </button>
           <button
             type="button"
-            aria-label="Collect a fresh sample"
+            aria-label={t('Collect a fresh sample')}
             disabled={sampling}
             onClick={onRefresh}
             className="rounded-md border border-zGray-700 p-1.5 text-tertiary hover:text-main disabled:opacity-50"
@@ -149,38 +151,40 @@ export function MonitoringSummaryHeader({
       >
         <SummaryCard
           icon={<Users />}
-          label="Connections"
+          label={t('Connections')}
           value={formatNumber(latest?.metrics.connectionsCurrent)}
           detail={
             connectionUsage === null
-              ? 'available capacity unavailable'
-              : `${formatPercent(connectionUsage)} of capacity`
+              ? t('available capacity unavailable')
+              : t('{percent} of capacity', { percent: formatPercent(connectionUsage) })
           }
         />
         <SummaryCard
           icon={<Activity />}
-          label="Operations"
+          label={t('Operations')}
           value={formatRate(opsPerSecond, '/s')}
-          detail="query, command, and writes"
+          detail={t('query, command, and writes')}
         />
         <SummaryCard
           icon={<Gauge />}
-          label="WiredTiger cache"
+          label={t('WiredTiger cache')}
           value={formatPercent(cacheUsage)}
           detail={formatBytes(latest?.metrics.wiredTigerCacheBytes)}
         />
         <SummaryCard
           icon={<MemoryStick />}
-          label="Process memory"
+          label={t('Process memory')}
           value={formatBytes(latest?.metrics.memoryResidentBytes)}
-          detail={`resident · ${formatBytes(latest?.metrics.memoryVirtualBytes)} virtual`}
+          detail={t('resident · {size} virtual', {
+            size: formatBytes(latest?.metrics.memoryVirtualBytes),
+          })}
         />
         {isReplicaSet && (
           <SummaryCard
             icon={<Clock3 />}
-            label="Replication lag"
+            label={t('Replication lag')}
             value={formatDuration(latest.metrics.replicationLagSeconds)}
-            detail={latest.replicaSetName ?? 'replica set'}
+            detail={latest.replicaSetName ?? t('replica set')}
           />
         )}
       </div>

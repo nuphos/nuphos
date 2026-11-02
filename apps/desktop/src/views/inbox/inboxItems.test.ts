@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { cardReplies, listingFor, nextSelection, replyTarget } from './inboxItems.ts'
+import { answeredIn, cardReplies, inboxCount, nextSelection, replyTarget } from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -34,11 +34,37 @@ test('an off-page conversation, once answered, hands over to the first row', () 
   assert.equal(nextSelection({ sessionId: 'z', index: -1 }, chats('a', 'b'), false), 'a')
 })
 
-test("after a team switch the last team's count is not shown", () => {
-  const listing = { teamId: 'team-a', count: 2, requestNo: 1 }
+const waiting = (sessionId: string, ...ids: string[]) =>
+  ({
+    sessionId,
+    inputRequests: ids.map((id) => ({
+      id,
+      category: 'approval',
+      question: id,
+      askedAt: '2026-10-30T00:00:00Z',
+      status: 'open',
+    })),
+  }) as AgentConversation
 
-  assert.equal(listingFor(listing, 'team-b'), null)
-  assert.equal(listingFor(listing, 'team-a'), listing)
+test('a conversation leaves the count once every question in it is answered here', () => {
+  const listing = [waiting('a', 'q1'), waiting('b', 'q2', 'q3')]
+
+  assert.equal(inboxCount(listing, new Map()), 2)
+  assert.equal(inboxCount(listing, new Map([['q1', Infinity]])), 1)
+  // One of two questions answered: the conversation still waits.
+  assert.equal(inboxCount(listing, new Map([['q2', Infinity]])), 2)
+})
+
+test('a listing settles answers it no longer has open, and those past their deadline', () => {
+  const answered = new Map([
+    ['gone', Infinity],
+    ['sending', Infinity],
+    ['sent', 2_000],
+    ['stale', 500],
+  ])
+  const listing = [waiting('a', 'sending', 'sent', 'stale')]
+
+  assert.deepEqual(answeredIn(listing, answered, 1_000), ['gone', 'stale'])
 })
 
 test('a reply answers the chosen open question, else the newest, as the chip does', () => {

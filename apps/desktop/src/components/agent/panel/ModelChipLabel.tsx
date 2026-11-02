@@ -1,9 +1,9 @@
 import clsx from 'clsx'
-import { Sparkles, Zap } from 'lucide-react'
+import { Rocket, Sparkles, Zap } from 'lucide-react'
 
 import { t } from '../../../i18n'
 
-/** The chip's text: ⚡ when fast mode is on, the model, then the effort muted. */
+/** The chip's text: ⚡ (or a rocket for Ultrafast) when on, the model, then the effort muted. */
 export function ModelChipLabel({
   name,
   loading,
@@ -19,11 +19,13 @@ export function ModelChipLabel({
   levels: string[]
   /** The effort popover is open: the chip reads "Select effort". */
   choosingEffort: boolean
-  fast: boolean
+  /** The fast option's value: 'on' (Fast), 'ultrafast', or off. */
+  fast?: string
 }) {
   // Fast mode shows in the chip, as Codex shows its mode icon.
-  const fastIcon = fast && (
-    <Zap
+  const FastIcon = fast === 'ultrafast' ? Rocket : fast === 'on' && Zap
+  const fastIcon = FastIcon && (
+    <FastIcon
       aria-hidden
       size={13}
       strokeWidth={1.8}

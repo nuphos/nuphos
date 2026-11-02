@@ -33,18 +33,8 @@ export function catalogSessionConfig(
     ...(controls?.effort.length
       ? [option('effort', 'Effort', controls.effort, controls.defaultEffort ?? 'default')]
       : []),
-    ...(controls?.fast
-      ? [
-          option(
-            'fast',
-            'Fast',
-            [
-              { value: 'on', name: 'On' },
-              { value: 'off', name: 'Off' },
-            ],
-            controls.defaultFast ?? 'off',
-          ),
-        ]
+    ...(controls?.fast.length
+      ? [option('fast', 'Fast', controls.fast, controls.defaultFast ?? 'off')]
       : []),
   ]
 }

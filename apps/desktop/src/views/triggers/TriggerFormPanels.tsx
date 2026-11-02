@@ -2,6 +2,7 @@ import { Eye, EyeOff, Loader2, Play, Trash2 } from 'lucide-react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import { CopyableRow } from './parts'
 import { ProviderCleanupPreview } from './providerResources'
@@ -25,11 +26,15 @@ export function TriggerWebhookPanel({
   copied: string | null
   copy: (kind: string, value: string) => Promise<void>
 }) {
+  const [before, after] = t(
+    'Send the secret in the {header} header on every request. Works with any sender (Grafana, Linear, Vercel, curl) — no HMAC signing required.',
+  ).split('{header}')
+
   return (
     <div className="rounded-lg border border-zGray-800 bg-zGray-950 p-3 space-y-2.5">
       {webhookUrl && (
         <CopyableRow
-          label="Webhook URL"
+          label={t('Webhook URL')}
           value={webhookUrl}
           copied={copied === 'url'}
           onCopy={() => void copy('url', webhookUrl)}
@@ -37,7 +42,7 @@ export function TriggerWebhookPanel({
       )}
       {canManage && loaded.webhookSecret && (
         <CopyableRow
-          label="Webhook secret"
+          label={t('Webhook secret')}
           value={loaded.webhookSecret}
           hidden={!revealSecret}
           copied={copied === 'secret'}
@@ -46,10 +51,10 @@ export function TriggerWebhookPanel({
             <button
               type="button"
               onClick={() => setRevealSecret((v) => !v)}
-              aria-label={revealSecret ? 'Hide secret' : 'Reveal secret'}
+              aria-label={revealSecret ? t('Hide secret') : t('Reveal secret')}
               aria-pressed={revealSecret}
               className="w-6 h-6 rounded flex items-center justify-center text-tertiary hover:text-main"
-              title={revealSecret ? 'Hide' : 'Reveal'}
+              title={revealSecret ? t('Hide') : t('Reveal')}
             >
               {revealSecret ? (
                 <EyeOff className="w-3.5 h-3.5" strokeWidth={1.8} />
@@ -61,8 +66,9 @@ export function TriggerWebhookPanel({
         />
       )}
       <p className="text-[11.5px] text-tertiary leading-snug">
-        Send the secret in the <code className="text-[11px]">X-Webhook-Secret</code> header on every
-        request. Works with any sender (Grafana, Linear, Vercel, curl) — no HMAC signing required.
+        {before}
+        <code className="text-[11px]">X-Webhook-Secret</code>
+        {after}
       </p>
     </div>
   )
@@ -93,7 +99,7 @@ export function TriggerTestFire({
         ) : (
           <Play className="w-3.5 h-3.5" strokeWidth={1.8} />
         )}
-        Test fire
+        {t('Test fire')}
       </Button>
     </div>
   )
@@ -132,20 +138,20 @@ export function TriggerFormFooter({
           >
             <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
             {loaded?.cleanupStatus === 'deleting'
-              ? 'Removing…'
+              ? t('Removing…')
               : loaded?.cleanupStatus === 'cleanup_failed'
-                ? 'Retry cleanup'
-                : 'Delete'}
+                ? t('Retry cleanup')
+                : t('Delete')}
           </Button>
         )}
       </div>
       <div className="flex items-center gap-2">
         <Button type="button" onClick={onCancel} variant="secondary" size="sm">
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button type="button" onClick={onSubmit} disabled={!canSave || saving} size="sm">
           {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {mode === 'create' ? 'Create' : 'Save'}
+          {mode === 'create' ? t('Create') : t('Save')}
         </Button>
       </div>
     </div>
@@ -163,13 +169,15 @@ export function TriggerDeleteDialog({
   onClose: () => void
   onConfirm: () => Promise<void>
 }) {
+  const provider = loaded?.providerHint ?? loaded?.providerWiring?.provider
+
   return (
     <ConfirmDialog
       open={open}
       title={
         loaded?.requiresProviderCleanup || loaded?.cleanupStatus
-          ? 'Remove Watch?'
-          : 'Delete trigger?'
+          ? t('Remove Watch?')
+          : t('Delete trigger?')
       }
       description={
         loaded?.managedProviderResources ? (
@@ -178,12 +186,22 @@ export function TriggerDeleteDialog({
             plan={loaded.managedProviderResources}
           />
         ) : loaded?.requiresProviderCleanup || loaded?.cleanupStatus ? (
-          `"${loaded?.name ?? ''}" will be disabled, detached from ${loaded?.providerHint ?? loaded?.providerWiring?.provider ?? 'its monitoring provider'}, and removed. Existing provider notification destinations will be preserved.`
+          provider ? (
+            t(
+              '"{name}" will be disabled, detached from {provider}, and removed. Existing provider notification destinations will be preserved.',
+              { name: loaded?.name ?? '', provider },
+            )
+          ) : (
+            t(
+              '"{name}" will be disabled, detached from its monitoring provider, and removed. Existing provider notification destinations will be preserved.',
+              { name: loaded?.name ?? '' },
+            )
+          )
         ) : (
-          `"${loaded?.name ?? ''}" will be removed. This cannot be undone.`
+          t('"{name}" will be removed. This cannot be undone.', { name: loaded?.name ?? '' })
         )
       }
-      confirmLabel={loaded?.cleanupStatus === 'cleanup_failed' ? 'Retry cleanup' : 'Delete'}
+      confirmLabel={loaded?.cleanupStatus === 'cleanup_failed' ? t('Retry cleanup') : t('Delete')}
       destructive
       onClose={onClose}
       onConfirm={onConfirm}

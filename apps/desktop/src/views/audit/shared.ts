@@ -5,6 +5,8 @@ import type {
   RuntimeImageAuditEvent,
   SkillAuditEvent,
 } from '../../api'
+import { t } from '../../i18n/index.ts'
+
 import type { JournalChatTarget } from '../../lib/journalEvent'
 
 export type SelectedJournal = {
@@ -19,10 +21,10 @@ export type Tab = 'conversations' | 'events'
 export type Range = '24h' | '7d' | '30d' | 'all'
 
 export const RANGE_LABEL: Record<Range, string> = {
-  '24h': 'Last 24h',
-  '7d': 'Last 7 days',
-  '30d': 'Last 30 days',
-  all: 'All time',
+  '24h': t('Last 24h'),
+  '7d': t('Last 7 days'),
+  '30d': t('Last 30 days'),
+  all: t('All time'),
 }
 
 export function rangeFrom(range: Range): string | undefined {
@@ -54,7 +56,7 @@ export type EventsState =
   | { kind: 'error'; message: string }
 
 export function userLabel(users: Record<string, AgentAuditUser>, userId: string | null): string {
-  if (!userId) return 'System / import'
+  if (!userId) return t('System / import')
   const user = users[userId]
 
   return user?.name || user?.username || userId.slice(0, 8)

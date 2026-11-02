@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { CommonProps } from './shared'
 
@@ -83,7 +84,7 @@ export function CreateNameDialog({
 
   async function create() {
     if (!name.trim()) {
-      toast.error(`${label} is required.`)
+      toast.error(t('{label} is required.', { label }))
 
       return
     }
@@ -91,8 +92,8 @@ export function CreateNameDialog({
     try {
       await onCreate(name.trim())
     } catch (e) {
-      toast.apiError('Something went wrong', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Something went wrong'), e, {
+        fallback: t('Check your connection and try again.'),
       })
       setSaving(false)
     }
@@ -118,10 +119,10 @@ export function CreateNameDialog({
           disabled={saving}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" onClick={() => void create()} disabled={saving}>
-          {saving ? 'Saving…' : (confirmLabel ?? 'Create')}
+          {saving ? t('Saving…') : (confirmLabel ?? t('Create'))}
         </Button>
       </div>
     </Modal>

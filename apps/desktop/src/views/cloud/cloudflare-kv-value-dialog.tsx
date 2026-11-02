@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 export function KvValueDialog({
   initialKey,
@@ -23,7 +24,7 @@ export function KvValueDialog({
 
   async function save() {
     if (!key.trim()) {
-      toast.error('Key is required.')
+      toast.error(t('Key is required.'))
 
       return
     }
@@ -31,8 +32,8 @@ export function KvValueDialog({
     try {
       await onSave(key, value)
     } catch (e) {
-      toast.apiError('Failed to save value', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Failed to save value'), e, {
+        fallback: t('Check your connection and try again.'),
       })
       setSaving(false)
     }
@@ -42,13 +43,13 @@ export function KvValueDialog({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? 'Add key' : 'Edit value'}
+      title={isNew ? t('Add key') : t('Edit value')}
       description={isNew ? undefined : initialKey}
       width={560}
     >
       <div className="px-5 py-4 space-y-3 text-[13px]">
         <label className="block">
-          <div className="text-[12px] text-secondary mb-1">Key</div>
+          <div className="text-[12px] text-secondary mb-1">{t('Key')}</div>
           <input
             value={key}
             onChange={(e) => setKey(e.target.value)}
@@ -57,7 +58,7 @@ export function KvValueDialog({
           />
         </label>
         <label className="block">
-          <div className="text-[12px] text-secondary mb-1">Value</div>
+          <div className="text-[12px] text-secondary mb-1">{t('Value')}</div>
           <textarea
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -73,10 +74,10 @@ export function KvValueDialog({
           disabled={saving}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" onClick={() => void save()} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('Saving…') : t('Save')}
         </Button>
       </div>
     </Modal>

@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button'
 import { InputGroup, InputGroupInput } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
 import { LogsPanel } from '../grafana/components/LogsPanel'
+import { t } from '../i18n'
 
 import { RANGE_OPTIONS } from './grafana-log/logql'
 import { useLogExplorer } from './grafana-log/useLogExplorer'
@@ -51,12 +52,12 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
   return (
     <div className="h-full flex flex-col min-h-0">
       <PageHeader
-        title="Log Explorer"
+        title={t('Log Explorer')}
         subtitle={`${datasource.name} · ${datasource.uid}`}
         actions={
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Datasources
+            {t('Datasources')}
           </Button>
         }
       />
@@ -68,8 +69,10 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
               <AppSelect
                 value={f.name}
                 onValueChange={(name) => updateFilter(f.id, { name, value: '' })}
-                ariaLabel="Log label name"
-                placeholder={labels === null ? 'Loading…' : noLabels ? 'No labels' : 'Label'}
+                ariaLabel={t('Log label name')}
+                placeholder={
+                  labels === null ? t('Loading…') : noLabels ? t('No labels') : t('Label')
+                }
                 disabled={labels === null || noLabels}
                 triggerClassName="h-8 min-w-[120px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px]"
                 options={(labels ?? [])
@@ -80,13 +83,13 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
               <AppSelect
                 value={f.value}
                 onValueChange={(value) => updateFilter(f.id, { value })}
-                ariaLabel="Log label value"
+                ariaLabel={t('Log label value')}
                 placeholder={
                   f.name && labelValues[f.name] === undefined
-                    ? 'Loading…'
+                    ? t('Loading…')
                     : f.name && labelValues[f.name]?.length === 0
-                      ? 'No values'
-                      : 'Value'
+                      ? t('No values')
+                      : t('Value')
                 }
                 disabled={!f.name || !labelValues[f.name]?.length}
                 triggerClassName="h-8 min-w-[160px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px] font-mono"
@@ -98,7 +101,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
                   size="sm"
                   className="px-1.5"
                   onClick={() => setFilters((cur) => cur.filter((x) => x.id !== f.id))}
-                  aria-label="Remove label filter"
+                  aria-label={t('Remove label filter')}
                 >
                   <X className="w-3.5 h-3.5" strokeWidth={1.8} />
                 </Button>
@@ -113,7 +116,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
             }
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Label
+            {t('Label')}
           </Button>
           {expr && (
             <span
@@ -138,14 +141,14 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
               onCompositionEnd={() => {
                 composingRef.current = false
               }}
-              placeholder="Contains keyword, e.g. timeout"
+              placeholder={t('Contains keyword, e.g. timeout')}
               className="text-[12.5px] text-main placeholder:text-tertiary font-mono"
             />
           </InputGroup>
           <AppSelect
             value={String(rangeMs)}
             onValueChange={(nextValue) => setRangeMs(Number(nextValue))}
-            ariaLabel="Log search range"
+            ariaLabel={t('Log search range')}
             triggerClassName="h-8 w-[72px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px]"
             options={RANGE_OPTIONS.map((option) => ({
               value: String(option.ms),
@@ -161,7 +164,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
               setMaxLines(Math.max(10, Math.min(1000, Number(e.target.value) || 10)))
             }
             className="h-8 w-16 bg-zGray-900 border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
-            aria-label="Max log lines"
+            aria-label={t('Max log lines')}
           />
           <Button
             variant="secondary"
@@ -170,10 +173,10 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
             className={
               live ? 'border-zViolet-500/60 bg-zViolet-500/15 text-zViolet-300' : undefined
             }
-            title="Re-run the query every few seconds"
+            title={t('Re-run the query every few seconds')}
           >
             <Radio className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Live
+            {t('Live')}
           </Button>
           {onOpenAgentChat && (
             <Button
@@ -181,10 +184,10 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
               size="sm"
               onClick={askAgent}
               disabled={!expr}
-              title="Prefill the agent with this query context"
+              title={t('Prefill the agent with this query context')}
             >
               <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.8} />
-              Ask Agent
+              {t('Ask Agent')}
             </Button>
           )}
           <Button size="sm" onClick={() => void runQuery()} disabled={loading || !expr}>
@@ -193,7 +196,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
             ) : (
               <Play className="w-3.5 h-3.5" strokeWidth={2} />
             )}
-            Run
+            {t('Run')}
           </Button>
         </div>
       </div>
@@ -202,10 +205,10 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
         {frames === null ? (
           <div className="absolute inset-0 flex items-center justify-center text-tertiary text-[12.5px]">
             {loading
-              ? 'Loading logs…'
+              ? t('Loading logs…')
               : noLabels
-                ? 'This Loki datasource has no log streams — nothing has pushed logs to it yet.'
-                : 'Pick label filters and press Run'}
+                ? t('This Loki datasource has no log streams — nothing has pushed logs to it yet.')
+                : t('Pick label filters and press Run')}
           </div>
         ) : (
           <LogsPanel frames={frames} />

@@ -1,17 +1,19 @@
+import { t } from '../../i18n/index.ts'
+
 // Grafana's standard quick ranges (the relative subset our resolver supports).
 export const QUICK_RANGES: { from: string; label: string }[] = [
-  { from: 'now-5m', label: 'Last 5 minutes' },
-  { from: 'now-15m', label: 'Last 15 minutes' },
-  { from: 'now-30m', label: 'Last 30 minutes' },
-  { from: 'now-1h', label: 'Last 1 hour' },
-  { from: 'now-3h', label: 'Last 3 hours' },
-  { from: 'now-6h', label: 'Last 6 hours' },
-  { from: 'now-12h', label: 'Last 12 hours' },
-  { from: 'now-24h', label: 'Last 24 hours' },
-  { from: 'now-2d', label: 'Last 2 days' },
-  { from: 'now-7d', label: 'Last 7 days' },
-  { from: 'now-30d', label: 'Last 30 days' },
-  { from: 'now-90d', label: 'Last 90 days' },
+  { from: 'now-5m', label: t('Last 5 minutes') },
+  { from: 'now-15m', label: t('Last 15 minutes') },
+  { from: 'now-30m', label: t('Last 30 minutes') },
+  { from: 'now-1h', label: t('Last 1 hour') },
+  { from: 'now-3h', label: t('Last 3 hours') },
+  { from: 'now-6h', label: t('Last 6 hours') },
+  { from: 'now-12h', label: t('Last 12 hours') },
+  { from: 'now-24h', label: t('Last 24 hours') },
+  { from: 'now-2d', label: t('Last 2 days') },
+  { from: 'now-7d', label: t('Last 7 days') },
+  { from: 'now-30d', label: t('Last 30 days') },
+  { from: 'now-90d', label: t('Last 90 days') },
 ]
 
 export type TimeSel =

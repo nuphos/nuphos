@@ -48,7 +48,20 @@ class ChatSession(
     private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime, String?) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
     private val readBypass: suspend (String, String) -> Boolean = AgentChatApi::bypass,
+    private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
+    private val readEvents: (okhttp3.Request) -> kotlinx.coroutines.flow.Flow<ai.nuphos.android.data.SseEvent> = { SseClient.events(it) },
 ) {
+    private val localSenders = ai.nuphos.android.model.LocalMessageSenders()
+    private var localSenderKey: String? = null
+    private var currentLocalSender: () -> ai.nuphos.android.model.MessageAttribution? = { null }
+    internal fun bindLocalSender(key: String?, current: () -> ai.nuphos.android.model.MessageAttribution?) {
+        localSenders.bind(key)
+        localSenderKey = key
+        currentLocalSender = current
+    }
+    internal fun localSender(id: String): ai.nuphos.android.model.MessageAttribution? =
+        if (hasAiAccess && currentLocalSender() != null) localSenders.sender(id, localSenderKey) else null
+
     private var initialModelPick: Map<String, String>? = null
     fun presetModelSettings(pick: Map<String, String>) { initialModelPick = pick.takeIf { it.isNotEmpty() } }
     private var modelScopeActive = false
@@ -196,6 +209,12 @@ class ChatSession(
     private var submissionAccepted = false
     var runtimeRecoveryRequired by mutableStateOf(false)
         private set
+    /** On a teammate's computer that asks its owner first: this conversation waits, or was declined. */
+    var shareApproval by mutableStateOf<ShareApprovalWait?>(null)
+        private set
+    /** Counts sends the server queued, so a waiting conversation is asked about at once. */
+    var queuedSends by mutableStateOf(0)
+        private set
     var steeringRetryRequired by mutableStateOf(false)
         private set
     private val streamCursors = mutableMapOf<String, Int>()
@@ -225,6 +244,9 @@ class ChatSession(
         if (hasAiAccess && revision == watchRevision) watching = detail.watching
     }
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
+    val canOpenDesktop get() = canManage && isOwner && !browsingOnly && runtimeObservation?.snapshot?.let { snapshot ->
+        snapshot["canOpenDesktop"]?.boolValue == true || snapshot["tools"]?.arrayValue?.any { it["kind"]?.stringValue == "desktop" } == true
+    } == true
     fun sharingState() = SharingState(ai.nuphos.android.data.SessionSharingApi(token, teamId, sessionId, runtimeId)) {
         canManage && isOwner && !browsingOnly
     }
@@ -259,7 +281,20 @@ class ChatSession(
     val canReply get() = permissions.reply && (!isNative || runtimeObservation?.allows("reply", RuntimeObservation.now()) == true) && !submissionPending
     val canEnqueueSteering get() = !steeringUnconfirmed && permissions.reply && isNative && runtimeObservation?.allows("reply", RuntimeObservation.now()) != true && runtimeObservation?.allows("steer", RuntimeObservation.now()) == true
     val canSteer get() = canEnqueueSteering && !steeringPending
-    val canSubmit get() = !movingAgent && !runtimeRecoveryRequired && (!isNative || !steeringUnconfirmed) && permissions.writable && !uploadBusy && (!submissionPending || canEnqueueSteering) && (!isNative || canReply || canEnqueueSteering || runtimeObservation?.allows("send", RuntimeObservation.now()) == true)
+    // Missing runtime observations may still queue; the server owns admission, as on iOS/Desktop.
+    val sendQueues get() = isNative && !canReply && !canEnqueueSteering && runtimeObservation?.allows("send", RuntimeObservation.now()) != true && (runtimeObservation?.mayAcceptLater ?: true)
+    private var queueCurrent: () -> Boolean = { false }
+    internal val serverQueue = ServerQueueStore(
+        current = { queueCurrent() && hasAiAccess && !browsingOnly && loaded && loadError == null && isNative },
+        writable = { permissions.writable && !movingAgent && !isArchived },
+        canSteer = { canSteer },
+        read = { AgentChatApi.queue(token, teamId, sessionId) },
+        remove = { AgentChatApi.unqueue(token, teamId, sessionId, it) },
+        steer = { RuntimeApi.steerQueued(token, teamId, sessionId, it.text, it.id); reloadFromServer() },
+    )
+    internal fun activateQueue(current: () -> Boolean) { serverQueue.invalidate(); queueCurrent = current }
+    internal fun deactivateQueue() { queueCurrent = { false }; serverQueue.invalidate() }
+    val canSubmit get() = serverQueue.busy.isEmpty() && !movingAgent && !runtimeRecoveryRequired && (!isNative || !steeringUnconfirmed) && permissions.writable && !uploadBusy && (!submissionPending || canEnqueueSteering) && (!isNative || canReply || canEnqueueSteering || runtimeObservation?.allows("send", RuntimeObservation.now()) == true || (runtimeObservation?.mayAcceptLater ?: true))
     val canCancel get() = permissions.cancel && !cancelRequested && (if (isNative) runtimeObservation?.allows("cancel", RuntimeObservation.now()) == true else isStreaming)
     val runtimeLabel get() = if (isNative) {
         val observation = runtimeObservation
@@ -489,11 +524,12 @@ class ChatSession(
         if (!permissions.writable) { rejectedSubmission = pendingSubmission; pendingSubmission = null; submissionPending = false; return }
         val wasEmpty = messages.isEmpty()
         val lastAssistant = messages.indexOfLast { it.role == ChatMessage.Role.Assistant }
-        if (lastAssistant >= 0) {
+        if (lastAssistant >= 0 && !sendQueues) {
             val updated = messages.toMutableList()
             updated[lastAssistant] = updated[lastAssistant].supersedePendingApprovals().finalizeIncompleteTools()
             messages = updated
         }
+        localSenders.record(message.id, localSenderKey, currentLocalSender())
         if (messages.none { it.id == message.id }) messages = messages + message
         pendingUserMessage = message
         if (wasEmpty) {
@@ -653,6 +689,13 @@ class ChatSession(
                 when (result) {
                     TurnResult.Aborted -> return@launch
                     TurnResult.Queued -> {
+                        queuedSends += 1
+                        submissionAccepted = true // HTTP 202 transfers ownership even without an SSE frame.
+                        pendingUserMessage?.let { pending -> messages = messages.filterNot { it.id == pending.id } }
+                        releaseAcceptedAttachmentCopies()
+                        pendingSubmission = null
+                        pendingUserMessage = null
+                        serverQueue.refresh()
                         finishTurn(null)
                         return@launch
                     }
@@ -874,8 +917,10 @@ class ChatSession(
         return TurnOptions(active, explicitResume = true, resumeFrom = if (isNative || runtimeRecoveryRequired) streamCursors[active] ?: 0 else 0)
     }
 
-    private fun addSteering(id: String, text: String, assistantId: String?) {
-        messages = RuntimeTranscript.steering(id, text, assistantId, messages)
+    private fun addSteering(id: String, text: String, assistantId: String?) = addSteering(id, text, assistantId, null)
+
+    private fun addSteering(id: String, text: String, assistantId: String?, metadata: JsonValue?) {
+        messages = RuntimeTranscript.steering(id, text, assistantId, messages, metadata)
         reconcileSteeringReceipts()
     }
 
@@ -911,10 +956,13 @@ class ChatSession(
             }
             if (matched != null) streamAssistantIds.entries.filter { it.value == matched.id }.forEach { it.setValue(message.id) }
             val receipts = matched?.parts?.filter { it is ChatPart.Data && it.name == "steering" }.orEmpty()
-            message.copy(parts = message.parts + receipts.filter { receipt ->
-                receipt as ChatPart.Data
-                message.parts.none { it is ChatPart.Data && it.name == "steering" && it.data["id"] == receipt.data["id"] }
-            })
+            var merged = message
+            for (receipt in receipts.filterIsInstance<ChatPart.Data>()) {
+                val id = receipt.data["id"]?.stringValue ?: continue
+                merged = RuntimeTranscript.steering(id, receipt.data["text"]?.stringValue.orEmpty(), merged.id,
+                    listOf(merged), receipt.data["metadata"]).single()
+            }
+            merged
         }
         baseIndex = serverBase
         reconcileSteeringReceipts()
@@ -955,6 +1003,22 @@ class ChatSession(
         if (isNative || serverTotal >= baseIndex + messages.size) adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
         recordReadTranscript(detail)
         lastSyncedSignature = signature()
+    }
+
+    /**
+     * Only a local agent can be a teammate's shared computer: asks once, then keeps
+     * asking while the owner has not answered. A decline stays shown.
+     */
+    suspend fun watchShareApproval() {
+        if (browsingOnly || runtimeId?.startsWith("local_") != true) return
+        while (coroutineContext.isActive && hasAiAccess) {
+            val status = runCatching { readShareApproval(token, sessionId) }
+            if (status.isSuccess) {
+                shareApproval = ShareApprovalWait.of(status.getOrNull())
+                if (status.getOrNull() != "pending") return
+            }
+            delay(5_000)
+        }
     }
 
     suspend fun pollWhileIdle() {
@@ -1053,7 +1117,7 @@ class ChatSession(
             try {
                 if (!hasAiAccess) return TurnResult.Aborted
                 val request = AgentChatApi.chatRequest(token, body)
-                SseClient.events(request)
+                readEvents(request)
                     .catch { e -> streamError = e }
                     .collect { event ->
                         if (generation != transportGeneration || movingAgent || !hasAiAccess) return@collect
@@ -1199,7 +1263,9 @@ class ChatSession(
             "data-steering" -> {
                 val data = frame["data"]
                 val id = data?.get("id")?.stringValue
-                if (id != null) addSteering(id, data["text"]?.stringValue.orEmpty(), idx?.let { messages.getOrNull(it)?.id })
+                val target = idx?.let { messages.getOrNull(it)?.id }
+                    ?: messages.lastOrNull()?.takeIf { it.role == ChatMessage.Role.Assistant }?.id
+                if (id != null) addSteering(id, data["text"]?.stringValue.orEmpty(), target, data["metadata"])
                 if (red != null && idx != null) messages.getOrNull(idx)?.let { red.message = it }
                 return idx to red
             }
@@ -1382,6 +1448,10 @@ class ChatSession(
 
     /** Revoke local work and unsent copies without cancelling the server run. */
     fun disposeForConsent() {
+        localSenders.clear()
+        localSenderKey = null
+        currentLocalSender = { null }
+        deactivateQueue()
         downloads = emptyList()
         downloadsError = null
         timelineEvents = emptyList()

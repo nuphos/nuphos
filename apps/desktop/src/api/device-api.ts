@@ -5,11 +5,14 @@ import type {
   LocalRuntimeState,
   LocalShareInput,
   SleepPreferences,
+  ShareTrustDuration,
 } from './device-types.ts'
 
 export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
   deviceSetLabel: (label: string) => window.api.deviceSetLabel(label),
+  /** Ends a phone watching this dock tab (`dock-tabs.ts`). */
+  stopDockTabWatch: (tabId: string) => window.api.stopDockTabWatch(tabId),
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
@@ -60,8 +63,18 @@ export const deviceApi = {
     window.api.localShareSet(deviceId, teamId, input),
   localShareApprovals: (teamId: string) => window.api.localShareApprovals(teamId),
   localShareStatus: (sessionId: string) => window.api.localShareStatus(sessionId),
-  localShareDecide: (approvalId: string, approve: boolean) =>
-    window.api.localShareDecide(approvalId, approve),
+  localShareDecide: (approvalId: string, approve: boolean, trust?: ShareTrustDuration) =>
+    window.api.localShareDecide(approvalId, approve, trust),
+  localShareTrusts: (deviceId: string, teamId: string) =>
+    window.api.localShareTrusts(deviceId, teamId),
+  localShareUntrust: (deviceId: string, teamId: string, actorId: string) =>
+    window.api.localShareUntrust(deviceId, teamId, actorId),
+  localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
+    window.api.localShareNotify(approvalId, teamId, title, body),
+  runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
+    window.api.runtimeSignInAsk(teamId, runtimeId, sessionId),
+  runtimeSignInSettle: (teamId: string, runtimeId: string) =>
+    window.api.runtimeSignInSettle(teamId, runtimeId),
   boxUsage: (teamId: string) => window.api.boxUsage(teamId),
   boxUsageHistory: (teamId: string, range: '1d' | '7d' | '30d') =>
     window.api.boxUsageHistory(teamId, range),

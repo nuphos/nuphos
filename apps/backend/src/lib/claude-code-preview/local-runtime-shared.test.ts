@@ -53,6 +53,7 @@ function setup(options: {
   device: AgentDevice
   ceiling?: LocalShareLevel
   approval?: ShareApproval['status']
+  trusted?: boolean
   members?: string[]
 }) {
   const requested: string[] = []
@@ -70,6 +71,7 @@ function setup(options: {
     requestApproval: async ({ sessionId }) => {
       requested.push(sessionId)
     },
+    isTrusted: async () => options.trusted ?? false,
   }
   const deps: LocalRuntimeCatalogDeps = {
     access: {
@@ -219,6 +221,31 @@ describe('a teammate’s conversation on a shared computer', () => {
 
     await expect(
       resolveLocalRuntimeEndpoint('team', id, 'mate', 'transport', denied.deps, {
+        sessionId: 's1',
+      }),
+    ).rejects.toMatchObject({ code: 'local_share_denied' })
+  })
+
+  test('a teammate the owner trusts runs without asking, unless this conversation was declined', async () => {
+    const trusted = setup({ device: computer([share('approve')]), trusted: true })
+
+    expect(
+      (
+        await resolveLocalRuntimeEndpoint('team', id, 'mate', 'transport', trusted.deps, {
+          sessionId: 's1',
+        })
+      ).runtimeId,
+    ).toBe(id)
+    expect(trusted.requested).toEqual([])
+
+    const declined = setup({
+      device: computer([share('approve')]),
+      trusted: true,
+      approval: 'denied',
+    })
+
+    await expect(
+      resolveLocalRuntimeEndpoint('team', id, 'mate', 'transport', declined.deps, {
         sessionId: 's1',
       }),
     ).rejects.toMatchObject({ code: 'local_share_denied' })

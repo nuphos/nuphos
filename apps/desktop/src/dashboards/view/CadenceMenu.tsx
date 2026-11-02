@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { CADENCE_LABELS, describeCadence, describeNextRefresh } from './cadence'
 
-import type { DashboardCadence } from './cadence'
-import type { NuphosDashboard, NuphosDashboardDetail } from '../schema'
+import type { DashboardCadence, NuphosDashboard, NuphosDashboardDetail } from '../schema'
 
 type Props = {
   teamId: string
@@ -30,7 +30,7 @@ export function CadenceMenu({ teamId, detail, onSaved }: Props) {
     try {
       onSaved(await api.dashboardsUpdate(teamId, id, { cadence: next }))
     } catch (err) {
-      toast.apiError('Could not update auto-refresh', err)
+      toast.apiError(t('Could not update auto-refresh'), err)
     } finally {
       setSaving(false)
     }
@@ -40,7 +40,7 @@ export function CadenceMenu({ teamId, detail, onSaved }: Props) {
     ? [describeCadence(cadence), nextRefreshAt && describeNextRefresh(nextRefreshAt)]
         .filter(Boolean)
         .join('\n')
-    : 'Auto-refresh is off'
+    : t('Auto-refresh is off')
 
   return (
     <Menu>
@@ -53,15 +53,15 @@ export function CadenceMenu({ teamId, detail, onSaved }: Props) {
             className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md border border-zGray-800 px-2 text-[12px] text-secondary outline-none hover:bg-zGray-800 hover:text-main focus:border-zViolet-500 disabled:opacity-50"
           >
             <Clock className="h-3.5 w-3.5 text-tertiary" />
-            <span className="hidden @xl:inline">Auto-refresh:</span>
-            {cadence ? CADENCE_LABELS[cadence] : 'Off'}
+            <span className="hidden @xl:inline">{t('Auto-refresh:')}</span>
+            {cadence ? CADENCE_LABELS[cadence] : t('Off')}
             <ChevronDown className="h-3.5 w-3.5 text-tertiary" />
           </button>
         }
       />
       <MenuContent align="end">
         <MenuItem selected={!cadence} onClick={() => void save(null)}>
-          Off
+          {t('Off')}
         </MenuItem>
         {CADENCES.map((c) => (
           <MenuItem key={c} selected={cadence === c} onClick={() => void save(c)}>

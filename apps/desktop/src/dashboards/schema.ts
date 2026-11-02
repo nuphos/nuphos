@@ -4,7 +4,8 @@
 // the team's agent runtimes and yields an immutable snapshot.
 
 import type { AgentCredentialSelection } from '../api/agent-credential-types'
-import type { DashboardCadence } from './view/cadence'
+
+export type DashboardCadence = 'daily' | 'weekly' | 'monthly'
 
 // Opens the right-side agent rail with a seed
 // prompt. Mirrors the callback threaded through the desktop views.

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
 import { InputGroup, InputGroupInput } from '../components/ui/input-group'
+import { t } from '../i18n'
 
 import { CollectionList, DatabasesSidebar } from './mongo/SchemaBrowserPanes'
 import { CollectionDetail } from './mongo/SchemaCollectionDetail'
@@ -188,7 +189,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
                   setDetail(null)
                 }}
                 className="mr-1 rounded p-1 text-tertiary hover:bg-zGray-800 hover:text-main"
-                title="Back to collections"
+                title={t('Back to collections')}
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
@@ -196,7 +197,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
               <FolderClosed className="h-4 w-4 text-[#47A248]" />
             )}
             <div className="min-w-0 flex-1 truncate text-[13px] text-main">
-              {selectedDatabase ?? 'Select a database'}
+              {selectedDatabase ?? t('Select a database')}
               {selectedCollection && (
                 <>
                   <span className="mx-1.5 text-tertiary">/</span>
@@ -213,7 +214,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
                 <InputGroupInput
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search collections"
+                  placeholder={t('Search collections')}
                   className="text-[11.5px] text-main"
                 />
               </InputGroup>
@@ -221,7 +222,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
             <button
               onClick={() => void refresh()}
               className="rounded p-1.5 text-tertiary hover:bg-zGray-800 hover:text-main"
-              title="Refresh metadata"
+              title={t('Refresh metadata')}
             >
               <RefreshCw
                 className={`h-3.5 w-3.5 ${loadingCollections || loadingDetail ? 'animate-spin' : ''}`}

@@ -69,3 +69,23 @@ test('a reading that does not fit costs the reading, never the heartbeat', () =>
   expect(parsed.agents.codex?.cli.installed).toBe(true)
   expect(parsed.localExec).toBe(true)
 })
+
+test('a computer on an older Desktop still reports its fast switch', () => {
+  const parsed = localRuntimeStatusSchema.parse({
+    agents: {
+      codex: {
+        cli: { installed: true, loggedIn: true },
+        models: {
+          models: [{ id: 'astra', name: 'Astra' }],
+          defaultModel: 'astra',
+          controls: { astra: { effort: [], fast: true, defaultFast: 'off' } },
+        },
+      },
+    },
+  })
+
+  expect(parsed.agents.codex?.models?.controls.astra?.fast.map((choice) => choice.value)).toEqual([
+    'on',
+    'off',
+  ])
+})

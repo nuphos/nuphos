@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { MongoCollectionSummary } from '../../types'
 
 export type DetailTab =
@@ -19,7 +21,7 @@ export function formatCount(value: number | null): string {
 }
 
 export function typeLabel(type: MongoCollectionSummary['type']): string {
-  if (type === 'timeseries') return 'Time series'
+  if (type === 'timeseries') return t('Time series')
 
-  return type === 'view' ? 'View' : 'Collection'
+  return type === 'view' ? t('View|collection') : t('Collection')
 }

@@ -127,6 +127,9 @@ test('a moved conversation reports a startable agent, not a lost connection', as
 
   expect(snapshot.state).toBe('dormant')
   expect(snapshot.schemaVersion).toBe(2)
+  // Clients hide resting phases; without one they fall back to printing a status.
+  expect(snapshot.phase).toBe('dormant')
+  expect(snapshot.label).toBeUndefined()
   expect(snapshot.actions?.send).toBe(true)
 })
 

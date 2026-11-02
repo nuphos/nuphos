@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 import { connectedMessage, findDuplicateConnection } from '../lib/posthogConnections'
 import { defaultPermissions, normalizePermissions } from '../lib/posthogPermissions'
 
@@ -30,9 +31,9 @@ type Props = {
 }
 
 const TITLES: Record<PosthogDialogKind, string> = {
-  connect: 'Connect PostHog',
-  reconnect: 'Reconnect PostHog',
-  permissions: 'Edit PostHog permissions',
+  connect: t('Connect {name}', { name: 'PostHog' }),
+  reconnect: t('Reconnect {name}', { name: 'PostHog' }),
+  permissions: t('Edit PostHog permissions'),
 }
 
 function useExistingIntegrations(teamId: string, enabled: boolean): PosthogIntegration[] {
@@ -72,7 +73,7 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
   function finish(bindingId: string) {
     if (kind === 'connect') toast.success(connectedMessage(existing, bindingId, label.trim()))
     if (active?.kind === 'permissions') {
-      toast.success(`Updated the permissions of ${active.integration.label}`)
+      toast.success(t('Updated the permissions of {name}', { name: active.integration.label }))
     }
     onBound(bindingId)
   }
@@ -94,8 +95,8 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
   })
 
   function start() {
-    if (kind === 'connect' && !label.trim()) return toast.error('Label is required.')
-    if (showMatrix && !permissions) return toast.error('Permissions are still loading.')
+    if (kind === 'connect' && !label.trim()) return toast.error(t('Label is required.'))
+    if (showMatrix && !permissions) return toast.error(t('Permissions are still loading.'))
     void oauth.authorize({
       ...(active ? { integrationId: active.integration.id } : { label: label.trim(), region }),
       ...(showMatrix && permissions ? { permissions } : {}),
@@ -104,13 +105,13 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
 
   async function saveProjects() {
     if (phase.kind !== 'projects') return
-    if (phase.selectedIds.length === 0) return toast.error('Select at least one project.')
+    if (phase.selectedIds.length === 0) return toast.error(t('Select at least one project.'))
     setSaving(true)
     try {
       await api.atlasUpdatePosthogProjects(teamId, phase.bindingId, phase.selectedIds)
       finish(phase.bindingId)
     } catch (cause) {
-      toast.apiError('Could not save PostHog projects', cause)
+      toast.apiError(t('Could not save PostHog projects'), cause)
       setSaving(false)
     }
   }
@@ -143,9 +144,10 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
           <>
             <p className="text-secondary text-[12.5px] leading-relaxed">
               {kind === 'connect'
-                ? `${connectedMessage(existing, phase.bindingId, 'PostHog')}.`
-                : 'PostHog is connected.'}{' '}
-              Choose the projects the agent may query.
+                ? t('{message}. Choose the projects the agent may query.', {
+                    message: connectedMessage(existing, phase.bindingId, 'PostHog'),
+                  })
+                : t('PostHog is connected. Choose the projects the agent may query.')}
             </p>
             <PosthogProjectChecklist
               projects={phase.available}
@@ -161,7 +163,11 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
         saving={saving}
         canStart={!showMatrix || permissions !== null}
         canSave={phase.kind === 'projects' && phase.selectedIds.length > 0}
-        startLabel={kind === 'permissions' ? 'Request new permissions' : 'Connect with PostHog'}
+        startLabel={
+          kind === 'permissions'
+            ? t('Request new permissions')
+            : t('Connect with {name}', { name: 'PostHog' })
+        }
         onCancel={cancelAction}
         onStart={start}
         onSave={() => void saveProjects()}

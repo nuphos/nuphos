@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { api, parseAtlasError } from '../../api'
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { CenteredError, CenteredMessage } from './Centered'
@@ -118,7 +119,7 @@ export function GcpDashboardDetailView({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <DashboardDetailHeader summary={summary} onBack={onBack} />
-        <CenteredMessage>Loading dashboard…</CenteredMessage>
+        <CenteredMessage>{t('Loading dashboard…')}</CenteredMessage>
       </div>
     )
   }
@@ -137,7 +138,7 @@ export function GcpDashboardDetailView({
                   setFilterValues((current) => ({ ...current, [dashboardFilter.id]: value }))
                 }
                 options={[
-                  { value: '*', label: 'All' },
+                  { value: '*', label: t('All') },
                   ...dashboardFilter.options.map((value) => ({ value, label: value })),
                 ]}
                 triggerClassName="h-7 min-w-[130px] px-2 text-[11.5px]"
@@ -159,7 +160,7 @@ export function GcpDashboardDetailView({
                     [dashboardFilter.id]: event.target.value || '*',
                   }))
                 }
-                placeholder="All"
+                placeholder={t('All')}
                 className="h-7 w-[140px] rounded border border-zGray-800 bg-surface px-2 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
               />
             </label>
@@ -194,7 +195,7 @@ export function GcpDashboardDetailView({
               setQueryTick((value) => value + 1)
             }}
             className="ml-1 flex h-7 w-7 items-center justify-center rounded border border-zGray-800 text-tertiary hover:bg-zGray-850 hover:text-main"
-            title="Refresh dashboard definition and data"
+            title={t('Refresh dashboard definition and data')}
           >
             <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.8} />
           </button>
@@ -204,7 +205,7 @@ export function GcpDashboardDetailView({
       <div className="min-h-0 flex-1 overflow-auto p-4 scrollbar-thin">
         {dashboard.widgets.length === 0 ? (
           <div className="py-12 text-center text-[12.5px] text-tertiary">
-            This dashboard has no widgets.
+            {t('This dashboard has no widgets.')}
           </div>
         ) : (
           <div

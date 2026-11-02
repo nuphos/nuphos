@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 
 import {
   byteLength,
@@ -54,7 +55,7 @@ export function ConfigMapOverview({
       key,
       source: 'binaryData' as const,
       size: formatBytes(value.length),
-      preview: 'Binary value',
+      preview: t('Binary value'),
       copyValue: value,
       editable: false,
       removable: doc.immutable !== true,
@@ -106,46 +107,48 @@ export function ConfigMapOverview({
     <div className="p-6 space-y-4">
       {actionError && <ActionError message={actionError} />}
       <Section>
-        <Field label="Namespace" value={doc.metadata?.namespace ?? '-'} />
-        <Field label="Data keys" value={String(keys.length)} />
-        <Field label="API Version" value={doc.apiVersion ?? '-'} />
+        <Field label={t('Namespace')} value={doc.metadata?.namespace ?? '-'} />
+        <Field label={t('Data keys')} value={String(keys.length)} />
+        <Field label={t('API Version')} value={doc.apiVersion ?? '-'} />
         <Field
-          label="Mode"
-          value={doc.immutable ? <span className="text-amber-300">Immutable</span> : 'Mutable'}
+          label={t('Mode')}
+          value={
+            doc.immutable ? <span className="text-amber-300">{t('Immutable')}</span> : t('Mutable')
+          }
         />
         <Field
-          label="Created"
+          label={t('Created')}
           value={
             doc.metadata?.creationTimestamp ? <Age value={doc.metadata.creationTimestamp} /> : '-'
           }
         />
-        <Field label="Kind" value={doc.kind ?? 'ConfigMap'} />
+        <Field label={t('Kind')} value={doc.kind ?? 'ConfigMap'} />
       </Section>
       <MetadataPills
         labels={stringRecord(doc.metadata?.labels)}
         annotations={stringRecord(doc.metadata?.annotations)}
       />
       <KeyTable
-        title="Keys"
+        title={t('Keys')}
         keys={keys}
-        empty="This ConfigMap has no data keys."
+        empty={t('This ConfigMap has no data keys.')}
         copiedId={copiedId}
         addDisabled={doc.immutable === true}
         onAdd={() =>
           setDraft({
-            title: 'Add ConfigMap key',
+            title: t('Add ConfigMap key'),
             key: '',
             value: '',
-            submitLabel: 'Add key',
+            submitLabel: t('Add key'),
           })
         }
         onCopy={(entry) => void copyEntry(entry).catch((e: unknown) => setActionError(String(e)))}
         onEdit={(entry) =>
           setDraft({
-            title: 'Edit ConfigMap key',
+            title: t('Edit ConfigMap key'),
             key: entry.key,
             value: entry.editValue ?? '',
-            submitLabel: 'Save key',
+            submitLabel: t('Save key'),
             original: entry,
           })
         }
@@ -153,16 +156,18 @@ export function ConfigMapOverview({
       />
       <KeyEditorDialog
         draft={draft}
-        valueLabel="Value"
+        valueLabel={t('Value')}
         onClose={() => setDraft(null)}
         onSubmit={submitDraft}
         onError={(message) => setActionError(message)}
       />
       <ConfirmDialog
         open={Boolean(removeTarget)}
-        title="Remove key"
-        description={removeTarget ? `Remove "${removeTarget.key}" from this ConfigMap?` : ''}
-        confirmLabel="Remove"
+        title={t('Remove key')}
+        description={
+          removeTarget ? t('Remove "{key}" from this ConfigMap?', { key: removeTarget.key }) : ''
+        }
+        confirmLabel={t('Remove')}
         destructive
         onConfirm={() => (removeTarget ? removeKey(removeTarget) : undefined)}
         onClose={() => setRemoveTarget(null)}

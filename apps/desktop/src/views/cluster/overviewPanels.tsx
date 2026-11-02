@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
 import { toneBgClass } from '../../lib/workloadStatus'
 import { formatAge, formatCpu, formatMemory } from '../../utils'
 
@@ -30,9 +31,9 @@ export function RecentWarningsPanel({
   let body: ReactNode
 
   if (warnings === null) {
-    body = loading ? <PanelEmpty text="Loading…" /> : <PanelEmpty text="Unavailable" />
+    body = loading ? <PanelEmpty text={t('Loading…')} /> : <PanelEmpty text={t('Unavailable')} />
   } else if (warnings.length === 0) {
-    body = <PanelEmpty text="No warning events in the last hour." />
+    body = <PanelEmpty text={t('No warning events in the last hour.')} />
   } else {
     body = (
       <div className="flex flex-col gap-2">
@@ -54,7 +55,7 @@ export function RecentWarningsPanel({
     )
   }
 
-  return <RecentPanel title="Recent Warnings">{body}</RecentPanel>
+  return <RecentPanel title={t('Recent Warnings')}>{body}</RecentPanel>
 }
 
 export function RecentRestartsPanel({
@@ -69,9 +70,9 @@ export function RecentRestartsPanel({
   let body: ReactNode
 
   if (restarts === null) {
-    body = loading ? <PanelEmpty text="Loading…" /> : <PanelEmpty text="Unavailable" />
+    body = loading ? <PanelEmpty text={t('Loading…')} /> : <PanelEmpty text={t('Unavailable')} />
   } else if (restarts.length === 0) {
-    body = <PanelEmpty text="No containers have restarted in the last hour." />
+    body = <PanelEmpty text={t('No containers have restarted in the last hour.')} />
   } else {
     body = (
       <div className="flex flex-col gap-2">
@@ -85,7 +86,9 @@ export function RecentRestartsPanel({
               'flex items-baseline justify-between gap-2 text-left',
               onNavigate && 'hover:opacity-80',
             )}
-            title={onNavigate ? `Show pod ${r.namespace}/${r.name}` : undefined}
+            title={
+              onNavigate ? t('Show pod {name}', { name: `${r.namespace}/${r.name}` }) : undefined
+            }
           >
             <span className="min-w-0">
               <span className="text-[12px] text-zViolet-accent truncate">{r.name}</span>
@@ -93,9 +96,12 @@ export function RecentRestartsPanel({
             </span>
             <span
               className="shrink-0 text-[11px] text-tertiary tabular-nums"
-              title={`${String(r.restarts)} restarts total; latest ${formatAge(r.iso)} ago`}
+              title={t('{n} restarts total; latest {age} ago', {
+                n: r.restarts,
+                age: formatAge(r.iso),
+              })}
             >
-              <span className="text-warning">{r.restarts}×</span> total · {formatAge(r.iso)}
+              <span className="text-warning">{r.restarts}×</span> {t('total')} · {formatAge(r.iso)}
             </span>
           </button>
         ))}
@@ -103,14 +109,14 @@ export function RecentRestartsPanel({
     )
   }
 
-  return <RecentPanel title="Recent Restarts">{body}</RecentPanel>
+  return <RecentPanel title={t('Recent Restarts')}>{body}</RecentPanel>
 }
 
 export function SkeletonResourcePanel() {
   return (
     <div className="mt-3 bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-3">
-        Resource Usage
+        {t('Resource Usage')}
       </div>
       <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-x-10 gap-y-4">
         {[0, 1].map((col) => (
@@ -132,22 +138,22 @@ export function ResourceUsagePanel({ resources }: { resources: ResourceSummary }
   return (
     <div className="mt-3 bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-3">
-        Resource Usage
+        {t('Resource Usage')}
       </div>
       <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-x-10 gap-y-4">
         <div>
-          <div className="text-[12px] text-secondary mb-2">Usage / Allocatable</div>
+          <div className="text-[12px] text-secondary mb-2">{t('Usage / Allocatable')}</div>
           <div className="flex flex-col gap-2">
-            <MeterRow label="CPU" meter={resources.cpuUsage} format={formatCpu} />
-            <MeterRow label="Memory" meter={resources.memUsage} format={formatMemory} />
+            <MeterRow label={t('CPU')} meter={resources.cpuUsage} format={formatCpu} />
+            <MeterRow label={t('Memory')} meter={resources.memUsage} format={formatMemory} />
           </div>
         </div>
         <div>
-          <div className="text-[12px] text-secondary mb-2">Requests / Allocatable</div>
+          <div className="text-[12px] text-secondary mb-2">{t('Requests / Allocatable')}</div>
           <div className="flex flex-col gap-2">
-            <MeterRow label="CPU" meter={resources.cpuRequest} format={formatCpu} />
-            <MeterRow label="Memory" meter={resources.memRequest} format={formatMemory} />
-            <MeterRow label="Pods" meter={resources.pods} format={(n) => String(n)} />
+            <MeterRow label={t('CPU')} meter={resources.cpuRequest} format={formatCpu} />
+            <MeterRow label={t('Memory')} meter={resources.memRequest} format={formatMemory} />
+            <MeterRow label={t('Pods')} meter={resources.pods} format={(n) => String(n)} />
           </div>
         </div>
       </div>

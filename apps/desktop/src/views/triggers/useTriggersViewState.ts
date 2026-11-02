@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { canDeleteTeamTriggers, canManageTeamTriggers, reportCleanupFailures } from './shared'
@@ -84,7 +85,7 @@ export function useTriggersViewState({
   // this list carried as a modal — workspace pages get one header, and the
   // breadcrumb already names the page. Nothing while a form is open, and
   // nothing from a keep-alive'd background tab.
-  useToolbarPrimaryAction(isActive && !inSubView && canManage ? 'New trigger' : null, onCreate)
+  useToolbarPrimaryAction(isActive && !inSubView && canManage ? t('New trigger') : null, onCreate)
   // Backend base URL, so a webhook trigger can show a copyable /webhooks/:id
   // URL with the right host (production vs local dev). Degrades gracefully:
   // the webhook URL panel stays hidden if this never arrives.
@@ -180,7 +181,7 @@ export function useTriggersViewState({
       } catch (err) {
         if (cancelled) return
         failures += 1
-        toast.apiError('Could not refresh Watch cleanup', err)
+        toast.apiError(t('Could not refresh Watch cleanup'), err)
       } finally {
         if (!cancelled && shouldContinue) {
           const delay = Math.min(2_000 * 2 ** failures, 30_000)

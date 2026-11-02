@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 // RFC 1035-ish hostname: dot-separated labels, at least one dot so bare TLDs
 // like "com" can't slip through.
 const DOMAIN_RE = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/
@@ -35,11 +37,11 @@ export function signInEmailError(email: string): string | null {
   // Require exactly one '@' (lastIndexOf === indexOf) with a non-empty,
   // well-formed local part before it.
   if (at < 1 || trimmed.indexOf('@') !== at || !LOCAL_PART_RE.test(trimmed.slice(0, at))) {
-    return 'Enter a valid email address.'
+    return t('Enter a valid email address.')
   }
   const domain = extractEmailDomain(trimmed)
 
-  if (!domain) return 'Enter a valid email address.'
+  if (!domain) return t('Enter a valid email address.')
 
   return null
 }

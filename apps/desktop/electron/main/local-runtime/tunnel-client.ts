@@ -40,6 +40,8 @@ export type TunnelClientDeps = {
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
   connectBrowser?: () => SocketLike
+  /** A phone watching one of a conversation's dock browser tabs (`browser-view.ts`). */
+  connectBrowserView?: () => SocketLike
   connectVnc?: () => SocketLike
   activity?: {
     open(id: string, purpose: string): void
@@ -118,6 +120,7 @@ export class RuntimeTunnelClient {
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
         localBrowser: Boolean(this.deps.connectBrowser),
+        localBrowserView: Boolean(this.deps.connectBrowserView),
         localAttachments: Boolean(this.deps.connectAttachments),
       },
     })

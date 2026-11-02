@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { listDashboards } from '../grafana/client'
 import { useSilentRefresh } from '../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -55,7 +56,7 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
           (d) =>
             d.title.toLowerCase().includes(effectiveFilter) ||
             (d.folderTitle ?? '').toLowerCase().includes(effectiveFilter) ||
-            d.tags.some((t) => t.toLowerCase().includes(effectiveFilter)),
+            d.tags.some((tag) => tag.toLowerCase().includes(effectiveFilter)),
         )
       : items
     const map = new Map<string, DashboardSummary[]>()
@@ -106,7 +107,7 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
   if (!items) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading dashboards…
+        {t('Loading dashboards…')}
       </div>
     )
   }
@@ -117,7 +118,7 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
       <div className="flex-1 overflow-auto scrollbar-thin">
         {grouped.length === 0 && (
           <div className="text-tertiary text-[12.5px] text-center pt-12">
-            No dashboards match "{effectiveFilter}"
+            {t('No dashboards match "{filter}"', { filter: effectiveFilter })}
           </div>
         )}
         {grouped.map((g) => (
@@ -151,12 +152,12 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
                   <div className="text-[13px] text-main truncate flex-1 min-w-0">{d.title}</div>
                   {d.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 flex-shrink-0">
-                      {d.tags.slice(0, 4).map((t) => (
+                      {d.tags.slice(0, 4).map((tag) => (
                         <span
-                          key={t}
+                          key={tag}
                           className="px-1.5 py-px text-[10.5px] rounded bg-zGray-800/60 text-tertiary"
                         >
-                          {t}
+                          {tag}
                         </span>
                       ))}
                     </div>

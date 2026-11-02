@@ -28,9 +28,31 @@ test('reports the actual initial effort and fast values for selectors', () => {
 
   assert.equal(controls.defaultEffort, 'high')
   assert.equal(controls.defaultFast, 'off')
+  assert.deepEqual(
+    controls.fast.map((choice) => choice.value),
+    ['on', 'off'],
+  )
   assert.equal(
     controls.effort.some((option) => option.value === controls.defaultEffort),
     true,
+  )
+})
+
+test('reports every speed a Codex model offers, and none without an off choice', () => {
+  const speeds = [
+    { value: 'off', name: 'Off' },
+    { value: 'on', name: 'Fast' },
+    { value: 'ultrafast', name: 'Ultrafast' },
+  ]
+
+  assert.deepEqual(controlsOf([{ id: 'fast-mode', currentValue: 'ultrafast', options: speeds }]), {
+    effort: [],
+    fast: speeds,
+    defaultFast: 'ultrafast',
+  })
+  assert.deepEqual(
+    controlsOf([{ id: 'fast-mode', currentValue: 'on', options: [speeds[1]] }]).fast,
+    [],
   )
 })
 

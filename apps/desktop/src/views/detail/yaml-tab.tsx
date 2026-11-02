@@ -6,6 +6,7 @@ import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { YamlEditor } from '../../components/YamlEditor'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { detailTargetKey, resourceYamlKey } from './target'
@@ -86,7 +87,7 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
   ])
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (!yamlText) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (!yamlText) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   const secretRedacted = target.kind === 'Secret' && !showSecretValues
   const helmReleaseReadOnly = target.kind === 'HelmRelease'
@@ -95,7 +96,7 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
   async function applyYaml() {
     if (!yamlText) return
     if (secretRedacted) {
-      setActionError('Reveal encoded Secret values before applying YAML.')
+      setActionError(t('Reveal encoded Secret values before applying YAML.'))
 
       return
     }
@@ -134,20 +135,22 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-zGray-800 bg-zGray-900 px-6 py-2.5">
         <div className="min-w-0 text-[12.5px] text-tertiary">
           {helmReleaseReadOnly
-            ? 'Helm release storage is read-only to avoid corrupting the encoded release payload.'
+            ? t(
+                'Helm release storage is read-only to avoid corrupting the encoded release payload.',
+              )
             : target.kind === 'Secret'
-              ? 'Secret data and stringData values are redacted by default.'
-              : 'Edit the manifest and apply it to this object.'}
+              ? t('Secret data and stringData values are redacted by default.')
+              : t('Edit the manifest and apply it to this object.')}
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={() => editorRef.current?.openSearchPanel()}
-            title="Find (Cmd+F / Ctrl+F)"
+            title={t('Find (Cmd+F / Ctrl+F)')}
             className="inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750"
           >
             <Search className="h-3.5 w-3.5" strokeWidth={2} />
-            Find
+            {t('Find')}
           </button>
           {target.kind === 'Secret' && (
             <button
@@ -156,7 +159,7 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
               className="inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750"
             >
               <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-              {showSecretValues ? 'Hide values' : 'Reveal encoded values'}
+              {showSecretValues ? t('Hide values') : t('Reveal encoded values')}
             </button>
           )}
           <Button
@@ -166,7 +169,7 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
             onClick={() => void applyYaml()}
             disabled={saving || secretRedacted || helmReleaseReadOnly || draftYaml === yamlText}
           >
-            {saving ? 'Applying...' : 'Apply'}
+            {saving ? t('Applying…') : t('Apply')}
           </Button>
         </div>
       </div>
@@ -178,7 +181,7 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
       {secretRedacted && (
         <div className="flex items-start gap-2 border-b border-warning/20 bg-warning/10 px-6 py-2 text-[12.5px] text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning" strokeWidth={2} />
-          <span>Reveal encoded values to edit and apply this Secret.</span>
+          <span>{t('Reveal encoded values to edit and apply this Secret.')}</span>
         </div>
       )}
       <YamlEditor

@@ -19,7 +19,9 @@ Two directions:
   card then appears in the user's conversation. Images and videos in it show
   inline, so pushing is also how you **show** the user a screenshot,
   recording, or chart image. Never leave such a file at a local path for the
-  user to open, or describe it via OCR instead of sending it.
+  user to open, or describe it via OCR instead of sending it. An image that
+  already has a public `https://` URL needs no push: put
+  `![what it shows](https://…)` on a line of its own in your reply.
 
 ## Critical cost rule
 

@@ -7,6 +7,7 @@ import { UsageBar } from '../components/UsageBar'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { makeFilterMatcher } from '../lib/filterQuery'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
@@ -96,42 +97,42 @@ export function ReplicaSetsView({
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 160,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'desired',
-            header: 'Desired',
+            header: t('Desired'),
             width: 90,
             sortAccessor: (r) => r.desired,
             render: (r) => r.desired,
           },
           {
             key: 'current',
-            header: 'Current',
+            header: t('Current'),
             width: 90,
             sortAccessor: (r) => r.current,
             render: (r) => <ReplicaCount value={r.current} desired={r.desired} />,
           },
           {
             key: 'ready',
-            header: 'Ready',
+            header: t('Ready'),
             width: 90,
             sortAccessor: (r) => r.ready,
             render: (r) => <ReplicaCount value={r.ready} desired={r.desired} />,
           },
           {
             key: 'cpu',
-            header: 'CPU',
+            header: t('CPU'),
             width: 170,
             sortAccessor: (r) => r.cpu,
             render: (r) => (
@@ -145,7 +146,7 @@ export function ReplicaSetsView({
           },
           {
             key: 'memory',
-            header: 'Memory',
+            header: t('Memory'),
             width: 180,
             sortAccessor: (r) => r.memory,
             render: (r) => (
@@ -160,7 +161,7 @@ export function ReplicaSetsView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

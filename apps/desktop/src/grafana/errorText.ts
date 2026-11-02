@@ -1,6 +1,8 @@
 // Turns whatever a failed dashboard/panel request threw into a short line the
 // user can read, plus the untouched original for the details disclosure.
 
+import { t } from '../i18n/index.ts'
+
 export type QueryErrorText = {
   summary: string
   detail: string | null
@@ -13,8 +15,8 @@ const MAX_SUMMARY = 180
 const IPC_WRAPPER = /^Error invoking remote method '[^']*':\s*/
 const ERROR_PREFIX = /^[A-Za-z]*Error:\s*/
 
-const EMPTY_SUMMARY = 'Request failed.'
-const UNREADABLE_SUMMARY = 'Request failed — the response carried no readable error message.'
+const EMPTY_SUMMARY = t('Request failed.')
+const UNREADABLE_SUMMARY = t('Request failed — the response carried no readable error message.')
 
 export function queryErrorText(raw: string): QueryErrorText {
   const message = raw.replace(IPC_WRAPPER, '').replace(ERROR_PREFIX, '').trim()
@@ -70,7 +72,7 @@ function extractMessage(body: unknown): string | null {
       if (!isRecord(result)) continue
       const text = typeof result.error === 'string' ? result.error.trim() : ''
 
-      if (text) parts.push(`Query ${refId} failed: ${text}`)
+      if (text) parts.push(t('Query {refId} failed: {error}', { refId, error: text }))
     }
     if (parts.length > 0) return parts.join('; ')
   }

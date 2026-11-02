@@ -125,7 +125,7 @@ class ModelSettingsFixtureDeviceTest {
             val agents = remember { ai.nuphos.android.session.AgentStore("synthetic", context) }
             val settings = remember { ModelSettingsStore({ true }, { true }, { false }, { state() }) }
             LaunchedEffect(settings) { settings.refresh() }
-            CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents) {
+            CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                 NuphosTheme(darkTheme = false) {
                     Surface(Modifier.fillMaxSize().systemBarsPadding()) {
                         Column(verticalArrangement = Arrangement.Bottom) {

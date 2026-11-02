@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { basename, formatBytes } from './shared'
 
@@ -58,14 +59,14 @@ export function R2ObjectsTable({
             api
               .atlasGetCloudflareR2ObjectPreview(teamId, accountId, bucketName, r.object.key)
               .then((p) => onPreview({ key: r.object.key, text: p.text, truncated: p.truncated }))
-              .catch((e: unknown) => toast.apiError('Failed to load object preview', e))
+              .catch((e: unknown) => toast.apiError(t('Failed to load object preview'), e))
         }}
         storageKey="cloudflare.r2.objects"
-        empty="Empty"
+        empty={t('Empty')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 380,
             render: (r) =>
               r.kind === 'prefix' ? (
@@ -82,7 +83,7 @@ export function R2ObjectsTable({
           },
           {
             key: 'size',
-            header: 'Size',
+            header: t('Size'),
             width: 100,
             render: (r) =>
               r.kind === 'object' ? (
@@ -93,7 +94,7 @@ export function R2ObjectsTable({
           },
           {
             key: 'modified',
-            header: 'Modified',
+            header: t('Modified'),
             width: 110,
             render: (r) =>
               r.kind === 'object' ? (
@@ -123,13 +124,13 @@ export function R2ObjectsTable({
                         )
                         .then((url) => api.appOpenExternal(url))
                         .catch((err: unknown) =>
-                          toast.apiError('Failed to download object', err, {
-                            fallback: 'Check your connection and try again.',
+                          toast.apiError(t('Failed to download object'), err, {
+                            fallback: t('Check your connection and try again.'),
                           }),
                         )
                     }}
                     className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
-                    title="Download"
+                    title={t('Download')}
                   >
                     <FontAwesomeIcon icon={faDownload} className="w-3.5 h-3.5" />
                   </button>
@@ -139,7 +140,7 @@ export function R2ObjectsTable({
                       setPendingDelete(r.object)
                     }}
                     className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                    title="Delete"
+                    title={t('Delete')}
                   >
                     <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
                   </button>
@@ -155,16 +156,18 @@ export function R2ObjectsTable({
             disabled={paging || !cursor}
             className="px-3 py-1 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary text-[12px] disabled:opacity-50"
           >
-            {paging ? 'Loading…' : 'Load more'}
+            {paging ? t('Loading…') : t('Load more')}
           </button>
         </div>
       )}
 
       <ConfirmDialog
         open={!!pendingDelete}
-        title="Delete object?"
-        description={pendingDelete ? `"${pendingDelete.key}" will be permanently deleted.` : ''}
-        confirmLabel="Delete"
+        title={t('Delete object?')}
+        description={
+          pendingDelete ? t('"{key}" will be permanently deleted.', { key: pendingDelete.key }) : ''
+        }
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={async () => {
           if (pendingDelete) {
@@ -174,7 +177,7 @@ export function R2ObjectsTable({
               bucketName,
               pendingDelete.key,
             )
-            toast.success('Object deleted')
+            toast.success(t('Object deleted'))
             onDeleted()
           }
         }}
@@ -198,11 +201,11 @@ export function R2ObjectPreviewPanel({
       open
       onClose={onClose}
       title={basename(preview.key)}
-      subtitle={`Object · ${bucketName}`}
+      subtitle={t('Object · {bucket}', { bucket: bucketName })}
       fields={[
-        { label: 'Key', value: preview.key, mono: true, full: true },
+        { label: t('Key'), value: preview.key, mono: true, full: true },
         {
-          label: `Preview${preview.truncated ? ' (truncated)' : ''}`,
+          label: preview.truncated ? t('Preview (truncated)') : t('Preview'),
           full: true,
           value: (
             <pre className="text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all max-h-[50vh] overflow-auto">

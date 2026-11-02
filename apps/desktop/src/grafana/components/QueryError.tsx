@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { parseAtlasError } from '../../api'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 import { reportFrontendError } from '../../lib/frontendErrorReporter'
 import { queryErrorText } from '../errorText'
 
@@ -23,7 +24,7 @@ export function QueryError({ message }: { message: string }) {
               className="h-2.5 w-2.5 transition-transform group-data-[panel-open]:rotate-90"
               strokeWidth={2}
             />
-            Details
+            {t('Details')}
           </Collapsible.Trigger>
           <Collapsible.Panel className="t-acc-collapsible">
             <pre
@@ -52,7 +53,7 @@ export function QueryError({ message }: { message: string }) {
               className="mt-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-tertiary hover:bg-zGray-800 hover:text-main"
             >
               <Clipboard className="h-3 w-3" strokeWidth={1.8} />
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? t('Copied') : t('Copy')}
             </button>
           </Collapsible.Panel>
         </Collapsible.Root>

@@ -155,7 +155,7 @@ export function AddToDesignDialog({
     <Modal
       open
       onClose={onClose}
-      title="Add to design"
+      title={t('Add to design')}
       appearance="prompt"
       width={420}
       description={`“${version.title}” becomes a screen on the design, where you can arrange it beside the others.`}

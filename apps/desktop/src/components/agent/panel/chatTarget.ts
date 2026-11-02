@@ -38,6 +38,35 @@ function findChatTarget(root: HTMLElement, target: JournalChatTarget): HTMLEleme
     : null
 }
 
+/** The nearest ancestor that scrolls the element: the transcript, never the app shell. */
+function scrollerOf(element: HTMLElement, root: HTMLElement): HTMLElement | null {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node)
+
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight)
+      return node
+    if (node === root) return null
+  }
+
+  return null
+}
+
+/**
+ * Centers the element in its own scroller. scrollIntoView would also scroll every
+ * clipped ancestor, pushing the window's header out of view for good.
+ */
+function centerInScroller(element: HTMLElement, root: HTMLElement) {
+  const scroller = scrollerOf(element, root)
+
+  if (!scroller) return
+  const offset = element.getBoundingClientRect().top - scroller.getBoundingClientRect().top
+
+  scroller.scrollTo({
+    top: scroller.scrollTop + offset - (scroller.clientHeight - element.offsetHeight) / 2,
+    behavior: 'smooth',
+  })
+}
+
 export function locateChatTarget(
   root: HTMLElement,
   target: JournalChatTarget,
@@ -62,7 +91,7 @@ export function locateChatTarget(
 
     return false
   }
-  element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  centerInScroller(element, root)
   const flashClasses = ['ring-2', 'ring-violet-400/70', 'rounded-lg']
 
   element.classList.add(...flashClasses)

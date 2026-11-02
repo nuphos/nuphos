@@ -22,7 +22,7 @@ import type { AgentConversation } from '@/lib/agent/db'
 export const READY_FOR_NEXT_MESSAGE: SessionExecutionState = {
   state: 'dormant',
   schemaVersion: 2,
-  label: 'Ready — your next message starts the agent',
+  phase: 'dormant',
   actions: { send: true, cancel: false, steer: false, reply: false },
 }
 

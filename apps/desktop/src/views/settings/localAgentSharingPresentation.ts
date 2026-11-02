@@ -61,3 +61,12 @@ export function shareSummary(share: LocalShareInput, memberCount?: number): stri
 
   return `${level} · ${people}`
 }
+
+/** Administrators turned sharing off: said with who to ask, once the members have loaded. */
+export function sharingOffText(admin: string | null): string {
+  return admin
+    ? t('Sharing your own computer is turned off for this team. Ask {name} to turn it on.', {
+        name: admin,
+      })
+    : t('Your team’s administrators have turned off sharing your own computer.')
+}

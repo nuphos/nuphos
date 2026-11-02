@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Box } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type { ContainerSpecModel } from './resource-topology'
 import type { ReactNode } from 'react'
 
@@ -15,7 +17,7 @@ function SmallFact({ label, children }: { label: string; children: ReactNode }) 
 
 export function ContainerSpecCards({ containers }: { containers: ContainerSpecModel[] }) {
   if (containers.length === 0) {
-    return <div className="px-6 py-5 text-[12px] text-tertiary">No containers declared.</div>
+    return <div className="px-6 py-5 text-[12px] text-tertiary">{t('No containers declared.')}</div>
   }
 
   return (
@@ -41,7 +43,7 @@ export function ContainerSpecCards({ containers }: { containers: ContainerSpecMo
                 <h3 className="truncate text-[12.5px] font-semibold text-main">{container.name}</h3>
                 {(container.init || container.ephemeral) && (
                   <span className="text-[10px] text-tertiary">
-                    {container.init ? 'init' : 'ephemeral'}
+                    {container.init ? t('init') : t('ephemeral')}
                   </span>
                 )}
               </div>
@@ -54,22 +56,31 @@ export function ContainerSpecCards({ containers }: { containers: ContainerSpecMo
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-zGray-800 pt-3">
-            <SmallFact label="CPU">
-              {container.cpuRequest ?? '-'} req · {container.cpuLimit ?? '-'} limit
+            <SmallFact label={t('CPU')}>
+              {t('{request} req · {limit} limit', {
+                request: container.cpuRequest ?? '-',
+                limit: container.cpuLimit ?? '-',
+              })}
             </SmallFact>
-            <SmallFact label="Memory">
-              {container.memoryRequest ?? '-'} req · {container.memoryLimit ?? '-'} limit
+            <SmallFact label={t('Memory')}>
+              {t('{request} req · {limit} limit', {
+                request: container.memoryRequest ?? '-',
+                limit: container.memoryLimit ?? '-',
+              })}
             </SmallFact>
-            <SmallFact label="Ports">
+            <SmallFact label={t('Ports')}>
               {container.ports.length > 0 ? container.ports.join(', ') : '-'}
             </SmallFact>
-            <SmallFact label="Health checks">
-              {container.probes.length > 0 ? container.probes.join(', ') : 'None'}
+            <SmallFact label={t('Health checks')}>
+              {container.probes.length > 0 ? container.probes.join(', ') : t('None')}
             </SmallFact>
-            <SmallFact label="Environment">
-              {String(container.envCount)} vars · {String(container.envFromCount)} sources
+            <SmallFact label={t('Environment')}>
+              {t('{vars} vars · {sources} sources', {
+                vars: container.envCount,
+                sources: container.envFromCount,
+              })}
             </SmallFact>
-            <SmallFact label="Volume mounts">{String(container.mounts.length)}</SmallFact>
+            <SmallFact label={t('Volume mounts')}>{String(container.mounts.length)}</SmallFact>
           </div>
         </article>
       ))}

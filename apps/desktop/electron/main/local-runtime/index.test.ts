@@ -58,8 +58,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   './agent-home.ts': { prepareAgentHome: noop },
   './agent-login.ts': { LocalAgentLogin: class {} },
   './attachment-stream.ts': { localFileConnectors: () => ({}) },
-  './browser-stream.ts': { LocalBrowserStream: class {} },
-  './browser-tabs.ts': { runBrowserCall: noop },
+  './browser-streams.ts': { browserStreams: {} },
   './cli-cache.ts': { readCliCache: noop, writeCliCache: noop },
   './config.ts': { agentCliEnv: noop, agentEnv: noop, readBundle: noop },
   './controller.ts': {
@@ -71,7 +70,9 @@ const boundaries: Record<string, Record<string, unknown>> = {
   },
   './cua-stream.ts': { localToolStreams: {} },
   './dev-bundle.ts': { devBundleHint: noop, watchDevBundle: noop },
-  './mac-screen.ts': { enableMacScreen: () => null, macScreenDeps: noop },
+  './mac-screen-app.ts': {
+    macScreenApp: () => ({ deps: () => ({}) }),
+  },
   './model-probe.ts': { probeLocalModels: noop },
   './openab-process.ts': { OpenabProcess: class {} },
   './sleep-prevention-electron.ts': {},

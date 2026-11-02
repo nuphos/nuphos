@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 
 import type { ConnectorInfoLoaders } from './types'
 
@@ -12,19 +13,22 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: installation.guildName,
       fields: [
-        { label: 'Server', value: installation.guildName },
-        { label: 'Server ID', value: installation.guildId, mono: true },
+        { label: t('Server'), value: installation.guildName },
+        { label: t('Server ID'), value: installation.guildId, mono: true },
         {
-          label: 'Your account',
+          label: t('Your account'),
           value: connection.linkedDiscordUsername
             ? `@${connection.linkedDiscordUsername}`
-            : (connection.linkedDiscordUserId ?? 'Not linked'),
+            : (connection.linkedDiscordUserId ?? t('Not linked')),
         },
-        { label: 'Enabled channels', value: String(connection.channels.length) },
-        { label: 'Channel access', value: 'Use /nuphos enable or /nuphos disable in Discord.' },
+        { label: t('Enabled channels'), value: String(connection.channels.length) },
+        {
+          label: t('Channel access'),
+          value: t('Use /nuphos enable or /nuphos disable in Discord.'),
+        },
       ],
       externalUrl: `https://discord.com/channels/${encodeURIComponent(installation.guildId)}`,
-      externalLabel: 'Open Discord',
+      externalLabel: t('Open {name}', { name: 'Discord' }),
     }
   },
   slack: async (teamId) => {
@@ -36,17 +40,17 @@ export const cloudLoaders: ConnectorInfoLoaders = {
       name: installation?.slackTeamName ?? 'Slack',
       fields: installation
         ? [
-            { label: 'Workspace', value: installation.slackTeamName },
-            { label: 'Workspace ID', value: installation.slackTeamId, mono: true },
-            { label: 'Bot user ID', value: installation.botUserId, mono: true },
-            { label: 'OAuth scope', value: installation.scope, mono: true },
-            { label: 'Connected', value: new Date(installation.createdAt).toLocaleString() },
+            { label: t('Workspace'), value: installation.slackTeamName },
+            { label: t('Workspace ID'), value: installation.slackTeamId, mono: true },
+            { label: t('Bot user ID'), value: installation.botUserId, mono: true },
+            { label: t('OAuth scope'), value: installation.scope, mono: true },
+            { label: t('Connected'), value: new Date(installation.createdAt).toLocaleString() },
           ]
-        : [{ label: 'Access', value: 'Linked channels from another Slack workspace' }],
+        : [{ label: t('Access'), value: t('Linked channels from another Slack workspace') }],
       externalUrl: installation
         ? `https://app.slack.com/client/${encodeURIComponent(installation.slackTeamId)}`
         : null,
-      externalLabel: 'Open Slack',
+      externalLabel: t('Open {name}', { name: 'Slack' }),
     }
   },
   lark: async (teamId) => {
@@ -57,10 +61,10 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: installation.tenantName ?? installation.appId,
       fields: [
-        { label: 'Tenant', value: installation.tenantName ?? installation.appId },
-        { label: 'App ID', value: installation.appId, mono: true },
-        { label: 'Domain', value: installation.domain === 'feishu' ? 'Feishu' : 'Lark' },
-        { label: 'Connected', value: new Date(installation.createdAt).toLocaleString() },
+        { label: t('Tenant'), value: installation.tenantName ?? installation.appId },
+        { label: t('App ID'), value: installation.appId, mono: true },
+        { label: t('Domain'), value: installation.domain === 'feishu' ? 'Feishu' : 'Lark' },
+        { label: t('Connected'), value: new Date(installation.createdAt).toLocaleString() },
       ],
       externalUrl: null,
       externalLabel: '',
@@ -74,15 +78,15 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'OAuth client ID', value: item.clientId, mono: true },
+        { label: t('Label'), value: item.label },
+        { label: t('OAuth client ID'), value: item.clientId, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://login.tailscale.com/admin',
-      externalLabel: 'Open Tailscale',
+      externalLabel: t('Open {name}', { name: 'Tailscale' }),
       tailscaleSandboxAccess: item.sandboxAccess ?? null,
     }
   },
@@ -94,15 +98,15 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Auth', value: 'Personal access token' },
+        { label: t('Label'), value: item.label },
+        { label: t('Auth'), value: t('Personal access token') },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://cloud.linode.com',
-      externalLabel: 'Open Linode',
+      externalLabel: t('Open {name}', { name: 'Linode' }),
     }
   },
   hetzner: async (teamId, connectorId) => {
@@ -113,15 +117,15 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Auth', value: 'API token' },
+        { label: t('Label'), value: item.label },
+        { label: t('Auth'), value: t('API token') },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://console.hetzner.cloud',
-      externalLabel: 'Open Hetzner',
+      externalLabel: t('Open {name}', { name: 'Hetzner' }),
     }
   },
   tencent: async (teamId, connectorId) => {
@@ -132,22 +136,22 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
+        { label: t('Label'), value: item.label },
         {
-          label: 'Site',
-          value: item.site === 'international' ? 'International' : 'China',
+          label: t('Site'),
+          value: item.site === 'international' ? t('International') : t('China'),
         },
-        { label: 'Role ARN', value: item.roleArn, mono: true },
+        { label: t('Role ARN'), value: item.roleArn, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl:
         item.site === 'international'
           ? 'https://console.tencentcloud.com'
           : 'https://console.cloud.tencent.com',
-      externalLabel: 'Open Tencent Cloud',
+      externalLabel: t('Open {name}', { name: 'Tencent Cloud' }),
     }
   },
   azure: async (teamId, connectorId) => {
@@ -160,25 +164,25 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
+        { label: t('Label'), value: item.label },
         ...(item.purpose === 'permission-admin'
           ? [
               {
-                label: 'Type',
-                value: 'Retired connection (remove and reconnect to use with the agent)',
+                label: t('Type'),
+                value: t('Retired connection (remove and reconnect to use with the agent)'),
               },
             ]
           : []),
-        { label: 'Tenant ID', value: item.tenantId, mono: true },
-        { label: 'Client ID', value: item.clientId, mono: true },
-        { label: 'Subscription ID', value: item.subscriptionId, mono: true },
+        { label: t('Tenant ID'), value: item.tenantId, mono: true },
+        { label: t('Client ID'), value: item.clientId, mono: true },
+        { label: t('Subscription ID'), value: item.subscriptionId, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://portal.azure.com',
-      externalLabel: 'Open Azure Portal',
+      externalLabel: t('Open {name}', { name: 'Azure Portal' }),
     }
   },
   aliyun: async (teamId, connectorId) => {
@@ -189,19 +193,19 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
+        { label: t('Label'), value: item.label },
         {
-          label: 'Site',
-          value: item.site === 'international' ? 'International' : 'China',
+          label: t('Site'),
+          value: item.site === 'international' ? t('International') : t('China'),
         },
-        { label: 'Role ARN', value: item.roleArn, mono: true },
+        { label: t('Role ARN'), value: item.roleArn, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://home.console.aliyun.com',
-      externalLabel: 'Open Alibaba Cloud',
+      externalLabel: t('Open {name}', { name: 'Alibaba Cloud' }),
     }
   },
   huawei: async (teamId, connectorId) => {
@@ -212,17 +216,17 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Account ID', value: item.domainId, mono: true },
-        { label: 'Identity provider', value: item.idpId, mono: true },
-        { label: 'Trust agency', value: item.agencyName, mono: true },
+        { label: t('Label'), value: item.label },
+        { label: t('Account ID'), value: item.domainId, mono: true },
+        { label: t('Identity provider'), value: item.idpId, mono: true },
+        { label: t('Trust agency'), value: item.agencyName, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://console.huaweicloud.com',
-      externalLabel: 'Open Huawei Cloud',
+      externalLabel: t('Open {name}', { name: 'Huawei Cloud' }),
     }
   },
   volcengine: async (teamId, connectorId) => {
@@ -235,15 +239,15 @@ export const cloudLoaders: ConnectorInfoLoaders = {
     return {
       name: item.label,
       fields: [
-        { label: 'Label', value: item.label },
-        { label: 'Role TRN', value: item.roleTrn, mono: true },
+        { label: t('Label'), value: item.label },
+        { label: t('Role TRN'), value: item.roleTrn, mono: true },
         ...(item.createdAt
-          ? [{ label: 'Connected', value: new Date(item.createdAt).toLocaleString() }]
+          ? [{ label: t('Connected'), value: new Date(item.createdAt).toLocaleString() }]
           : []),
-        { label: 'Connector ID', value: item.id, mono: true },
+        { label: t('Connector ID'), value: item.id, mono: true },
       ],
       externalUrl: 'https://console.volcengine.com',
-      externalLabel: 'Open Volcengine',
+      externalLabel: t('Open {name}', { name: 'Volcengine' }),
     }
   },
 }

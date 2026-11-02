@@ -9,6 +9,7 @@ import { LinearMark } from '../components/LinearMark'
 import { Modal } from '../components/Modal'
 import { SearchBox } from '../components/Toolbar'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { CATALOG } from './addIntegrationCatalog'
 import { useResetOnKey } from './useResetOnKey'
@@ -104,21 +105,22 @@ export function AddIntegrationModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Add connector"
+      title={t('Add connector')}
       description={
         <>
-          Connect a cloud, observability, networking, compliance, source-control, project, document,
-          or messaging tool to this team.{' '}
+          {t(
+            'Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.',
+          )}{' '}
           <button
             type="button"
             className="inline-flex items-center gap-1 rounded-sm text-secondary underline decoration-zGray-700 underline-offset-2 transition-colors hover:text-main focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zViolet-500"
             onClick={() => {
               void api.appOpenExternal(CONNECTOR_CAPABILITIES_URL).catch((err: unknown) => {
-                toast.apiError('Could not open connector capabilities', err)
+                toast.apiError(t('Could not open connector capabilities'), err)
               })
             }}
           >
-            View capabilities
+            {t('View capabilities')}
             <ExternalLink className="h-3 w-3" strokeWidth={1.8} />
           </button>
         </>
@@ -140,13 +142,13 @@ export function AddIntegrationModal({
             filter={query}
             onFilterChange={setQuery}
             fill
-            label="Filter connectors"
+            label={t('Filter connectors')}
             autoFocus
           />
         </div>
         {visible.length === 0 ? (
           <div className="flex flex-1 items-center justify-center px-5 py-10 text-center text-[12.5px] text-tertiary">
-            No connectors match “{query.trim()}”.
+            {t('No connectors match “{query}”.', { query: query.trim() })}
           </div>
         ) : (
           <div className="px-5 py-4 space-y-5 selectable">

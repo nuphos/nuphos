@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import './firstLaunchIntro.css'
 
 export function showFirstLaunchIntro() {
@@ -19,7 +21,7 @@ export function showFirstLaunchIntro() {
 
   url.searchParams.set('theme', light ? 'light' : 'dark')
   frame.src = url.href
-  frame.title = 'Welcome to Nuphos'
+  frame.title = t('Welcome to Nuphos')
   frame.setAttribute('sandbox', 'allow-scripts allow-same-origin')
   frame.className = 'first-launch-intro'
   frame.style.background = light ? '#fcfcfd' : '#18181b'

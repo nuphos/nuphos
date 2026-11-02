@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 
 import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import { ColorDot, LinearPageMessage, Timestamp } from './linearParts'
 import { LinearReconnectPrompt } from './LinearReconnect'
@@ -49,7 +50,7 @@ function IssueRow({ issue, onOpen }: { issue: LinearIssueRow; onOpen: () => void
         </span>
         <span
           className="flex w-5 shrink-0 justify-end"
-          title={issue.assignee?.name ?? 'Unassigned'}
+          title={issue.assignee?.name ?? t('Unassigned')}
         >
           {issue.assignee && (
             <Avatar
@@ -94,11 +95,12 @@ export function LinearTeamIssuesView({
     if (page) onLoaded(page.team)
   }, [onLoaded, page])
 
-  if (state.kind === 'loading') return <LinearPageMessage>Loading…</LinearPageMessage>
-  if (state.kind === 'not-found') return <LinearPageMessage>Team not found.</LinearPageMessage>
+  if (state.kind === 'loading') return <LinearPageMessage>{t('Loading…')}</LinearPageMessage>
+  if (state.kind === 'not-found')
+    return <LinearPageMessage>{t('Team not found.')}</LinearPageMessage>
   if (state.kind === 'no-access') {
     return (
-      <LinearPageMessage>You don&apos;t have access to this Linear workspace.</LinearPageMessage>
+      <LinearPageMessage>{t("You don't have access to this Linear workspace.")}</LinearPageMessage>
     )
   }
   if (state.kind === 'reconnect') {
@@ -109,7 +111,7 @@ export function LinearTeamIssuesView({
     )
   }
   if (state.kind === 'error') {
-    return <LinearPageMessage>Issues could not be loaded.</LinearPageMessage>
+    return <LinearPageMessage>{t('Issues could not be loaded.')}</LinearPageMessage>
   }
   const { team, nextCursor } = state.page
 
@@ -118,14 +120,18 @@ export function LinearTeamIssuesView({
       <header className="shrink-0 border-b border-zGray-800/70">
         <div className="mx-auto max-w-3xl px-4 py-3 @xl:px-6">
           <h1 className="truncate text-[15px] font-semibold text-main">{team.name}</h1>
-          <div className="text-[12px] text-tertiary">Open issues · recently updated first</div>
+          <div className="text-[12px] text-tertiary">
+            {t('Open issues · recently updated first')}
+          </div>
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
         <div className="mx-auto max-w-3xl px-2 py-2 @xl:px-4 @xl:py-3">
           {issues.length === 0 ? (
             <div className="px-2 py-6 text-center text-[12.5px] text-tertiary">
-              {filter.trim() ? `No loaded issues match “${filter}”.` : 'No open issues.'}
+              {filter.trim()
+                ? t('No loaded issues match “{filter}”.', { filter })
+                : t('No open issues.')}
             </div>
           ) : (
             <ul>
@@ -141,7 +147,7 @@ export function LinearTeamIssuesView({
           {nextCursor && (
             <div className="flex justify-center py-3">
               <Button variant="ghost" size="sm" disabled={state.loadingMore} onClick={loadMore}>
-                {state.loadingMore ? 'Loading…' : 'Load more'}
+                {state.loadingMore ? t('Loading…') : t('Load more')}
               </Button>
             </div>
           )}

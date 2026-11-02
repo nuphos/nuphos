@@ -24,7 +24,7 @@ import org.junit.runner.RunWith
 /** Isolated plan responses; all HTTP stays inside the fixture. */
 @RunWith(AndroidJUnit4::class)
 class PlansFixtureDeviceTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private lateinit var plans: PlansStore
     private var rows = """[{"id":"active","title":"Fixture active plan"},{"id":"dismissed","title":"Fixture dismissed plan","status":"cancelled"}]"""

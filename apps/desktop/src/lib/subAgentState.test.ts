@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { isSubAgentActive, subAgentState } from './subAgentState.ts'
+import { isSubAgentActive, rowDot, rowIndicator, subAgentState } from './subAgentState.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
 import type { AgentInputRequest } from '../api/agent-types.ts'
@@ -50,4 +50,44 @@ test('waiting and running sub-agents are active, done ones are not', () => {
   assert.equal(isSubAgentActive({ pendingDecision: legacy }, undefined), true)
   assert.equal(isSubAgentActive({}, background), true)
   assert.equal(isSubAgentActive({}, idle), false)
+})
+
+test('a thread ignores its unread state, whatever it is doing', () => {
+  const thread = { parentSessionId: 'parent' }
+
+  assert.equal(rowDot(thread, idle, true), null)
+  assert.equal(rowDot(thread, undefined, true), null)
+  assert.equal(rowDot(thread, { ...idle, phase: 'stopped' }, true), null)
+  assert.equal(rowDot(thread, turn, true), null)
+  assert.equal(rowDot(thread, background, true), null)
+  assert.equal(rowDot(thread, { ...idle, phase: 'failed' }, true), null)
+})
+
+test('a thread with an open question has a dot, read or not', () => {
+  const waiting = { parentSessionId: 'parent', inputRequests: [request('open')] }
+
+  assert.equal(rowDot(waiting, idle, true), 'waiting')
+  assert.equal(rowDot(waiting, idle, false), 'waiting')
+  assert.equal(rowDot({ ...waiting, inputRequests: [request('answered')] }, idle, true), null)
+})
+
+test('a top level chat has a dot while it is unread', () => {
+  assert.equal(rowDot({}, idle, true), 'unread')
+  assert.equal(rowDot({}, undefined, true), 'unread')
+  assert.equal(rowDot({}, idle, false), null)
+  assert.equal(rowDot({ inputRequests: [request('open')] }, idle, false), null)
+})
+
+test('an open question outranks work but not a failed run', () => {
+  assert.equal(rowIndicator(idle, 'waiting'), 'waiting')
+  assert.equal(rowIndicator(turn, 'waiting'), 'waiting')
+  assert.equal(rowIndicator(background, 'waiting'), 'waiting')
+  assert.equal(rowIndicator({ ...idle, schemaVersion: 2, phase: 'failed' }, 'waiting'), 'error')
+})
+
+test('an unread reply still loses to work', () => {
+  assert.equal(rowIndicator(idle, 'unread'), 'unread')
+  assert.equal(rowIndicator(turn, 'unread'), 'turn')
+  assert.equal(rowIndicator(background, 'unread'), 'background')
+  assert.equal(rowIndicator(idle, null), 'none')
 })

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { t } from '../i18n'
 import { isDatabaseEngineReleased } from '../lib/databaseRelease'
 
 import { ConnectionAccessSection } from './database-connection/ConnectionAccessSection'
@@ -161,7 +162,7 @@ function DatabaseDetail({
   if (!connection)
     return (
       <div className="p-7">
-        <ErrorBlock message={error ?? 'Database not found'} onRetry={load} />
+        <ErrorBlock message={error ?? t('Database not found')} onRetry={load} />
       </div>
     )
 
@@ -234,9 +235,19 @@ function DatabaseDetail({
       </div>
       <ConfirmDialog
         open={confirmRemove}
-        title="Remove database from Nuphos?"
-        description={`Remove “${connection.name}” and its ${connection.providerOrigin ? 'provider binding reference' : 'encrypted credential'} and resource metadata? This does not delete or modify the database itself.`}
-        confirmLabel="Remove from Nuphos"
+        title={t('Remove database from Nuphos?')}
+        description={
+          connection.providerOrigin
+            ? t(
+                'Remove “{name}” and its provider binding reference and resource metadata? This does not delete or modify the database itself.',
+                { name: connection.name },
+              )
+            : t(
+                'Remove “{name}” and its encrypted credential and resource metadata? This does not delete or modify the database itself.',
+                { name: connection.name },
+              )
+        }
+        confirmLabel={t('Remove from Nuphos')}
         destructive
         onConfirm={remove}
         onClose={() => setConfirmRemove(false)}

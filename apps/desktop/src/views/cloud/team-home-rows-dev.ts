@@ -1,4 +1,5 @@
 import { api } from '../../api'
+import { t } from '../../i18n/index.ts'
 import { posthogStatusLine } from '../../types/posthog'
 
 import type { IntegrationPlatformRow, OpenConnectorInfo } from './team-home-bind'
@@ -56,7 +57,8 @@ export function buildDevConnectorRows({
       key: `github:${String(installation.installationId)}`,
       provider: 'github' as const,
       account: installation.accountLogin,
-      principal: installation.targetType === 'all' ? 'All repositories' : 'Selected repositories',
+      principal:
+        installation.targetType === 'all' ? t('All repositories') : t('Selected repositories'),
       status: `GitHub ${installation.accountType.toLowerCase()}`,
       onAction: () =>
         onOpenConnectorInfo({
@@ -71,7 +73,7 @@ export function buildDevConnectorRows({
       provider: 'gitlab' as const,
       account: binding.displayName || binding.username,
       principal: `${binding.hostUrl.replace(/^https?:\/\//, '')}/${binding.username}`,
-      status: 'GitLab account',
+      status: t('GitLab account'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'gitlab',
@@ -86,8 +88,8 @@ export function buildDevConnectorRows({
       account: workspace.label || workspace.workspaceName,
       principal: workspace.organizationUrlKey
         ? `linear.app/${workspace.organizationUrlKey}`
-        : 'Linear workspace',
-      status: 'Linear workspace',
+        : t('Linear workspace'),
+      status: t('Linear workspace'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'linear',
@@ -100,8 +102,8 @@ export function buildDevConnectorRows({
       key: `jira:${site.id}`,
       provider: 'jira' as const,
       account: site.label || site.siteName,
-      principal: site.siteUrl ? site.siteUrl.replace(/^https?:\/\//, '') : 'Jira site',
-      status: 'Jira site',
+      principal: site.siteUrl ? site.siteUrl.replace(/^https?:\/\//, '') : t('Jira site'),
+      status: t('Jira site'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'jira',
@@ -114,8 +116,8 @@ export function buildDevConnectorRows({
       key: `asana:${account.id}`,
       provider: 'asana' as const,
       account: account.label || account.accountName || account.accountGid,
-      principal: account.accountEmail || 'Asana account',
-      status: 'Asana account',
+      principal: account.accountEmail || t('Asana account'),
+      status: t('Asana account'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'asana',
@@ -128,8 +130,8 @@ export function buildDevConnectorRows({
       key: `sentry:${account.id}`,
       provider: 'sentry' as const,
       account: account.label || account.userName || account.userId,
-      principal: account.userEmail || 'Sentry account',
-      status: 'Sentry account',
+      principal: account.userEmail || t('Sentry account'),
+      status: t('Sentry account'),
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'sentry',
@@ -144,7 +146,7 @@ export function buildDevConnectorRows({
       account: integration.label,
       principal: integration.userEmail || integration.apiBaseUrl.replace(/^https?:\/\//, ''),
       status: posthogStatusLine(integration),
-      attention: integration.status === 'reconnect_required' ? 'Reconnect required' : undefined,
+      attention: integration.status === 'reconnect_required' ? t('Reconnect required') : undefined,
       onAction: () =>
         onOpenConnectorInfo({
           provider: 'posthog',
@@ -157,8 +159,8 @@ export function buildDevConnectorRows({
       key: `plaud:${account.id}`,
       provider: 'plaud' as const,
       account: account.label,
-      principal: account.userEmail || account.userName || 'Plaud account',
-      status: 'Plaud account',
+      principal: account.userEmail || account.userName || t('Plaud account'),
+      status: t('Plaud account'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'plaud', connectorId: account.id, name: account.label }),
       onDelete: () => api.atlasUnbindPlaud(teamId, account.id),
@@ -168,7 +170,7 @@ export function buildDevConnectorRows({
       provider: 'grafana' as const,
       account: instance.name,
       principal: instance.grafanaUrl,
-      status: 'Grafana instance',
+      status: t('Grafana instance'),
       onAction: () =>
         onOpenConnectorInfo({ provider: 'grafana', connectorId: instance.id, name: instance.name }),
       onDelete: () => api.atlasUnbindGrafanaInstance(teamId, instance.id),
@@ -180,7 +182,13 @@ export function buildDevConnectorRows({
             provider: 'discord' as const,
             account: discordConnection.installation.guildName,
             principal: discordConnection.installation.guildId,
-            status: `${String(discordConnection.channels.length)} enabled channel(s) · ${discordConnection.linkedDiscordUserId ? 'Account linked' : 'Account not linked'}`,
+            status: discordConnection.linkedDiscordUserId
+              ? t('{n} enabled channel(s) · Account linked', {
+                  n: discordConnection.channels.length,
+                })
+              : t('{n} enabled channel(s) · Account not linked', {
+                  n: discordConnection.channels.length,
+                }),
             onAction: () =>
               onOpenConnectorInfo({
                 provider: 'discord',
@@ -198,7 +206,7 @@ export function buildDevConnectorRows({
             provider: 'slack' as const,
             account: slackInstallation.slackTeamName,
             principal: slackInstallation.slackTeamId,
-            status: 'Slack workspace',
+            status: t('Slack workspace'),
             onAction: () =>
               onOpenConnectorInfo({
                 provider: 'slack',
@@ -216,9 +224,9 @@ export function buildDevConnectorRows({
               account:
                 slackLinkedChannels!.grantWorkspaces
                   .map((workspace) => workspace.name ?? workspace.id)
-                  .join(', ') || 'Linked channels',
-              principal: `${String(slackLinkedChannels!.count)} linked channel(s)`,
-              status: "Channels via another workspace's installation",
+                  .join(', ') || t('Linked channels'),
+              principal: t('{n} linked channel(s)', { n: slackLinkedChannels!.count }),
+              status: t("Channels via another workspace's installation"),
               onAction: () =>
                 onOpenConnectorInfo({
                   provider: 'slack',
@@ -235,7 +243,7 @@ export function buildDevConnectorRows({
             provider: 'lark' as const,
             account: larkInstallation.tenantName ?? larkInstallation.appId,
             principal: larkInstallation.appId,
-            status: larkInstallation.domain === 'feishu' ? 'Feishu app' : 'Lark app',
+            status: larkInstallation.domain === 'feishu' ? t('Feishu app') : t('Lark app'),
             onAction: () =>
               onOpenConnectorInfo({
                 provider: 'lark',

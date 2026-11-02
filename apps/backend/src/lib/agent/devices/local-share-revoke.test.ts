@@ -32,6 +32,7 @@ function setup() {
     dropFromShares: async (_team, userId) => record(`drop-from-shares ${userId}`),
     dropOwnerShares: async (_team, userId) => record(`drop-owner-shares ${userId}`),
     dropApprovals: async (_team, userId) => record(`drop-approvals ${userId}`),
+    dropTrusts: async (_team, userId) => record(`drop-trusts ${userId}`),
     // The person who left is no longer a member.
     memberIds: async () => ['other', 'mate'],
   }
@@ -51,6 +52,7 @@ test('a guest leaving loses their streams, their place in shares, and their appr
     'drop-from-shares mate',
     'drop-owner-shares mate',
     'drop-approvals mate',
+    'drop-trusts mate',
   ])
 })
 

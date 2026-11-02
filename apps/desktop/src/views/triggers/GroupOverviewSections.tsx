@@ -1,6 +1,7 @@
 import { Clock, Loader2, Play, Trash2, Webhook } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import { Field, TypePill } from './parts'
 
@@ -20,7 +21,7 @@ export function GroupFormFields({
 }) {
   return (
     <>
-      <Field label="Name" htmlFor="trigger-group-name">
+      <Field label={t('Name')} htmlFor="trigger-group-name">
         <input
           id="trigger-group-name"
           type="text"
@@ -32,22 +33,32 @@ export function GroupFormFields({
         />
       </Field>
 
-      <Field label="Type">
-        <div className="flex gap-2" role="group" aria-label="Trigger type">
+      <Field label={t('Type')}>
+        <div className="flex gap-2" role="group" aria-label={t('Trigger type')}>
           <TypePill icon={Clock} label="Cron" active={false} disabled onClick={() => {}} />
           <TypePill icon={Webhook} label="Webhook" active disabled onClick={() => {}} />
         </div>
         <p className="mt-1.5 text-[11.5px] text-tertiary">
-          This Group uses {group.partitionCount} shared webhook ingress
-          {group.partitionCount === 1 ? '' : 'es'} for {group.expectedMemberCount} monitored item
-          {group.expectedMemberCount === 1 ? '' : 's'}.
+          {t('This Group uses {ingresses} for {items}.', {
+            ingresses:
+              group.partitionCount === 1
+                ? t('{n} shared webhook ingress', { n: group.partitionCount })
+                : t('{n} shared webhook ingresses', { n: group.partitionCount }),
+            items:
+              group.expectedMemberCount === 1
+                ? t('{n} monitored item', { n: group.expectedMemberCount })
+                : t('{n} monitored items', { n: group.expectedMemberCount }),
+          })}
         </p>
       </Field>
 
       <Field
-        label="Message template"
+        label={t('Message template')}
         htmlFor="trigger-group-message-template"
-        hint="Sent to the agent for the matched member on each fire. `{{payload.foo}}` resolves against that provider's webhook body."
+        hint={t(
+          "Sent to the agent for the matched member on each fire. {placeholder} resolves against that provider's webhook body.",
+          { placeholder: '`{{payload.foo}}`' },
+        )}
       >
         <textarea
           id="trigger-group-message-template"
@@ -90,10 +101,10 @@ export function GroupTestFireButton({
         size="sm"
         title={
           !allResourcesRecorded
-            ? 'Finish recording every provider ingress before testing'
+            ? t('Finish recording every provider ingress before testing')
             : !groupActive
-              ? 'Enable the Group before testing'
-              : 'Verify every shared ingress and send one non-incident destination test'
+              ? t('Enable the Group before testing')
+              : t('Verify every shared ingress and send one non-incident destination test')
         }
       >
         {action === 'test' ? (
@@ -101,7 +112,7 @@ export function GroupTestFireButton({
         ) : (
           <Play className="h-3.5 w-3.5" strokeWidth={1.8} />
         )}
-        Test fire
+        {t('Test fire')}
       </Button>
     </div>
   )
@@ -139,7 +150,7 @@ export function GroupOverviewFooter({
             ) : (
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} />
             )}
-            Delete
+            {t('Delete')}
           </Button>
         )}
       </div>
@@ -151,11 +162,11 @@ export function GroupOverviewFooter({
           variant="secondary"
           size="sm"
         >
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button type="button" onClick={onSave} disabled={!canSave} size="sm">
           {action === 'save' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Save
+          {t('Save')}
         </Button>
       </div>
     </div>

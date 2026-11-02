@@ -6,6 +6,7 @@ import {
   listDevicesSharedInTeam,
   requestShareApproval,
 } from './local-share-store'
+import { isShareTrusted } from './local-share-trust'
 import { LOCAL_SHARE_LEVELS } from './local-share-types'
 import { getAgentDevice, isActiveTeamMember } from './store'
 
@@ -92,6 +93,7 @@ export type LocalShareDeps = {
   getDevice: (ownerId: string, deviceId: string) => Promise<AgentDevice | null>
   findApproval: typeof findShareApproval
   requestApproval: typeof requestShareApproval
+  isTrusted: typeof isShareTrusted
 }
 export const localShareDeps: LocalShareDeps = {
   ceiling: (teamId) => getTeamLocalAgentSharing(teamId),
@@ -100,6 +102,7 @@ export const localShareDeps: LocalShareDeps = {
   getDevice: (ownerId, deviceId) => getAgentDevice(ownerId, deviceId),
   findApproval: findShareApproval,
   requestApproval: requestShareApproval,
+  isTrusted: (key) => isShareTrusted(key),
 }
 
 /** Teammates' computers shared with this person in this team, whose owners are still in it. */
@@ -168,6 +171,9 @@ export async function requireShareApproval(
       'local_share_denied',
       `The owner of ${device.label} declined to run this agent on it. Move it to another runtime to continue.`,
     )
+  // A teammate the owner trusts on this computer runs without asking, until the trust ends.
+  if (await deps.isTrusted({ ownerId: device.userId, deviceId: device.deviceId, teamId, actorId }))
+    return
   if (!found) await deps.requestApproval({ device, teamId, actorId, sessionId })
   throw new AppError(
     403,

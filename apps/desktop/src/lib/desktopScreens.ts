@@ -2,6 +2,8 @@
 // restore reopens it: the Box id alone for its own :1, or `<deviceId>:<display>:<sessionId>`
 // for a conversation's display there. A bare number is a conversation tab's own display.
 
+import { t } from '../i18n/index.ts'
+
 import type { AgentDevice } from '../api/device-types'
 
 export type DesktopScreen = { display: number; sessionId: string }
@@ -32,10 +34,10 @@ export function desktopScreens(
   deviceId: string,
 ): { value: string; label: string }[] {
   return [
-    { value: deviceId, label: `${device?.label ?? 'Computer'} · :1` },
+    { value: deviceId, label: `${device?.label ?? t('Computer')} · :1` },
     ...(device?.desktops ?? []).map((desktop) => ({
       value: desktopFilter(deviceId, desktop),
-      label: `:${String(desktop.display)} · ${desktop.title || 'Agent'}`,
+      label: `:${String(desktop.display)} · ${desktop.title || t('Agent')}`,
     })),
   ]
 }

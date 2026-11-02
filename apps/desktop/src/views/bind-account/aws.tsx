@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
 import { awsContentStep, awsSteps } from '../../lib/cloudBindSteps'
 
 import { AwsWizardStepContent } from './aws-steps'
@@ -40,7 +41,7 @@ export function AwsBindWizard({
           ))}
         </div>
         <div className="text-[11px] text-tertiary uppercase tracking-wider">
-          Step {step + 1} of {steps.length}
+          {t('Step {n} of {total}', { n: step + 1, total: steps.length })}
         </div>
         <div className="text-[13.5px] text-main font-medium">{steps[step]}</div>
       </div>

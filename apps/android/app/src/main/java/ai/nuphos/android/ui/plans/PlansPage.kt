@@ -1,6 +1,11 @@
 package ai.nuphos.android.ui.plans
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,7 +84,7 @@ fun PlansPage(
             }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         if (searching) {
             SearchField(plans.search, { plans.search = it }, "Search plans") {
                 plans.search = ""
@@ -121,10 +126,11 @@ fun PlansPage(
             else -> LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 items(plans.rows, key = { it.id }) { plan ->
                     PlanRow(plan) { nav.navigate("plan/${plan.id}") }
+                    HorizontalDivider(Modifier.padding(start = 48.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
                 }
             }
         }
@@ -139,13 +145,13 @@ private fun PolicyStrip(onConfigure: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.background,
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                Text("Plan approval", style = MaterialTheme.typography.titleSmall)
-                Text(plans.approvalPolicy?.summary ?: if (plans.phase == PlansStore.Phase.Loaded) "Not available" else "Loading…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text("Plan approval", style = MaterialTheme.typography.labelMedium)
+                Text(plans.approvalPolicy?.summary ?: if (plans.phase == PlansStore.Phase.Loaded) "Not available" else "Loading…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (store.selectedTeam?.isAdministrator == true && plans.approvalPolicy != null) {
                 FilledTonalButton(onClick = onConfigure) { Text("Configure") }
@@ -158,25 +164,25 @@ private fun PolicyStrip(onConfigure: () -> Unit) {
 private fun PlanRow(plan: Plan, onClick: () -> Unit) {
     val plans = LocalPlansStore.current
     val creator = plans.member(plan.createdBy)
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(0.dp),
+        color = MaterialTheme.colorScheme.background,
+
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            NuphosAvatar(creator?.asUser() ?: NuphosUser(id = plan.createdBy, name = "?"), size = 40.dp)
+        Row(Modifier.padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            NuphosAvatar(creator?.asUser() ?: NuphosUser(id = plan.createdBy, name = "?"), size = 36.dp)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(plan.title.ifEmpty { "Untitled plan" }, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(plan.title.ifEmpty { "Untitled plan" }, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val meta = buildList {
                     add(plan.displayNumber)
-                    if (plan.progress.total > 0) add("${plan.progress.done}/${plan.progress.total} steps")
-                    creator?.let { add(it.displayName) }
+                    if (plan.progress.total > 0) add("${plan.progress.done}/${plan.progress.total} steps" + if (plan.progress.failed > 0) " · ${plan.progress.failed} failed" else "")
+                    creator?.let { add(it.displayName + if (it.isRemoved) " (former member)" else "") }
                     plan.createdAt?.let { add(HistoryTime.format(it)) }
                 }.joinToString(" · ")
-                Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(meta, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             StatusBadge(plan.status)
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, modifier = Modifier.padding(start = 8.dp).size(18.dp), tint = MaterialTheme.colorScheme.outline)
         }
     }
 }

@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { api } from '../../api'
 import { emitPlanUpdated } from '../../components/agent/planUpdates'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { CANCELLABLE_STATUSES, proposalUrl } from './planRows'
 
@@ -87,9 +88,12 @@ export function usePlanRowActions({
         emitPlanUpdated(updated)
 
         if (updated.status === 'approved') {
-          toast.success('Plan approved', 'The approval gate is complete.')
+          toast.success(t('Plan approved'), t('The approval gate is complete.'))
         } else if (updated.approvals.length === previousApprovalCount) {
-          toast.success('Approval already recorded', 'Your vote is already included in this plan.')
+          toast.success(
+            t('Approval already recorded'),
+            t('Your vote is already included in this plan.'),
+          )
         } else {
           const remaining = Math.max(
             0,
@@ -102,15 +106,17 @@ export function usePlanRowActions({
           )
 
           toast.success(
-            'Approval recorded',
-            `${String(remaining)} required approval${remaining === 1 ? '' : 's'} remaining.`,
+            t('Approval recorded'),
+            remaining === 1
+              ? t('{count} required approval remaining.', { count: '1' })
+              : t('{count} required approvals remaining.', { count: String(remaining) }),
           )
         }
 
         return updated
       } catch (err) {
-        toast.apiError('Could not approve plan', err, {
-          fallback: 'The plan was not approved. Please try again.',
+        toast.apiError(t('Could not approve plan'), err, {
+          fallback: t('The plan was not approved. Please try again.'),
         })
         throw err
       }
@@ -123,8 +129,8 @@ export function usePlanRowActions({
       const url = proposalUrl(teamId, proposalId)
 
       navigator.clipboard.writeText(url).then(
-        () => toast.success('Link copied', 'Send it to a team administrator to approve.'),
-        () => toast.error('Could not copy link', url),
+        () => toast.success(t('Link copied'), t('Send it to a team administrator to approve.')),
+        () => toast.error(t('Could not copy link'), url),
       )
     },
     [teamId],
@@ -138,7 +144,7 @@ export function usePlanRowActions({
         return [
           {
             key: 'copy-link',
-            label: 'Copy link',
+            label: t('Copy link'),
             icon: Link2,
             onSelect: () => copyProposalLink(row.id),
           },
@@ -150,7 +156,7 @@ export function usePlanRowActions({
           key: 'open-in-chat',
           // A proposed plan can be pulled back into chat and run (any team
           // member); terminal plans are just opened for review.
-          label: plan.status === 'proposed' ? 'Continue in agent' : 'Open in agent',
+          label: plan.status === 'proposed' ? t('Continue in agent') : t('Open in agent'),
           icon: MessageSquare,
           onSelect: () => onOpenInChat?.(plan.id),
         },
@@ -163,10 +169,10 @@ export function usePlanRowActions({
           { key: 'sep', separator: true },
           {
             key: 'unplan',
-            label: 'Mark as unplanned',
+            label: t('Mark as unplanned'),
             icon: Ban,
             destructive: true,
-            confirm: `Mark plan #${String(plan.number)} as unplanned?`,
+            confirm: t('Mark plan #{number} as unplanned?', { number: String(plan.number) }),
             onSelect: () => void markUnplanned(plan),
           },
         )

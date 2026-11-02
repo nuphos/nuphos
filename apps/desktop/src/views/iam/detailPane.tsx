@@ -3,6 +3,7 @@ import { Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useDetailSidebarTransition } from '../../hooks/useDetailSidebarTransition'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 const DETAIL_PANE_WIDTH_KEY = 'nuphos.iam-detail-pane-width'
@@ -126,8 +127,8 @@ export function ResizableDetailPane({
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize detail sidebar"
-        title="Resize detail sidebar"
+        aria-label={t('Resize detail sidebar')}
+        title={t('Resize detail sidebar')}
         onPointerDown={startResize}
         className="group absolute left-0 top-0 bottom-0 z-20 w-3 -translate-x-1/2 cursor-col-resize touch-none"
       >
@@ -151,7 +152,7 @@ export function DetailSidebarCloseButton({ onClose }: { onClose?: () => void }) 
       type="button"
       onClick={onClose}
       className="absolute right-3 top-3 z-30 w-7 h-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
-      title="Close"
+      title={t('Close')}
     >
       <X className="w-3.5 h-3.5" strokeWidth={1.8} />
     </button>

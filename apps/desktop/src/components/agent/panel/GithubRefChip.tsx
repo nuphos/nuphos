@@ -19,7 +19,7 @@ import type { GithubRef } from './githubRefs'
 import type { OpenLink } from './LocalUrlChip'
 import type { GithubRefState, GithubRefSummary } from '../../../types/github-pr-detail'
 import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 
 const STATE: Record<GithubRefState, { label: string; tone: string }> = {
   open: { label: t('Open|state'), tone: 'text-success' },
@@ -79,6 +79,14 @@ function describe(ref: GithubRef, summary: GithubRefSummary | null | undefined):
   return `${summary.title}\n${line}${review}`
 }
 
+/** The preview card's open button: the chat's own link handler, else a new window. */
+function openFromPreview(href: string, onOpen?: OpenLink) {
+  return (event: MouseEvent) => {
+    if (onOpen?.(href, event.metaKey)) return
+    window.open(href, '_blank', 'noopener')
+  }
+}
+
 const CHIP =
   'group/gh inline-flex h-[22px] max-w-full items-center gap-1.5 rounded-md border border-zGray-800 bg-zGray-900/60 px-1.5 align-middle text-[12.5px] leading-none text-main no-underline transition-colors duration-150 hover:border-zGray-700 hover:bg-zGray-850 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent motion-reduce:transition-none'
 
@@ -103,6 +111,7 @@ export function GithubRefChip({
       state={summary ? STATE[summary.state].label : undefined}
       review={summary?.review ? REVIEW[summary.review].label : undefined}
       loading={entry?.loading}
+      onOpen={openFromPreview(ref.href, onOpen)}
     >
       <ChatLink
         link={ref.href}
@@ -139,6 +148,7 @@ export function GithubRefLink({
       title={summary?.title}
       state={summary ? STATE[summary.state].label : undefined}
       review={summary?.review ? REVIEW[summary.review].label : undefined}
+      onOpen={openFromPreview(ref.href, onOpen)}
     >
       <ChatLink
         link={ref.href}

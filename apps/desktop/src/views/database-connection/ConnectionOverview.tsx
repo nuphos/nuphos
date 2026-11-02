@@ -2,6 +2,7 @@ import { HeartPulse, Loader2, Network, Plug, RefreshCw } from 'lucide-react'
 
 import { DatabaseEngineIcon } from '../../components/DatabaseEngineIcon'
 import { SectionHeader } from '../../components/SectionHeader'
+import { t } from '../../i18n'
 import { databaseEngineLabel } from '../../lib/databaseEngine'
 
 import { EmptyLine, HealthBadge, ProviderResourceCard, Row, Stat } from './ConnectionBits'
@@ -44,15 +45,15 @@ export function ConnectionHeader({
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              Test connection
+              {t('Test connection')}
             </button>
           )}
         </div>
       </div>
       <div className="grid grid-cols-1 gap-2.5 @sm:grid-cols-3">
-        <Stat label="Engine" value={databaseEngineLabel(connection.engine)} />
-        <Stat label="Environment" value={connection.environment} />
-        <Stat label="Database" value={connection.databaseName ?? 'Default'} mono />
+        <Stat label={t('Engine')} value={databaseEngineLabel(connection.engine)} />
+        <Stat label={t('Environment')} value={connection.environment} />
+        <Stat label={t('Database')} value={connection.databaseName ?? t('Default')} mono />
       </div>
     </section>
   )
@@ -70,39 +71,39 @@ export function OverviewSection({
       <section className="border-t border-zGray-800/60 px-6 py-4">
         <SectionHeader
           icon={<Plug className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
-          title="Connection"
-          hint="How Nuphos reaches this database"
+          title={t('Connection')}
+          hint={t('How Nuphos reaches this database')}
         />
-        <Row label="Network" value={connection.networkMode} />
-        <Row label="TLS" value={connection.tls.enabled ? connection.tls.mode : 'Disabled'} />
+        <Row label={t('Network')} value={connection.networkMode} />
+        <Row label="TLS" value={connection.tls.enabled ? connection.tls.mode : t('Disabled')} />
         <Row
-          label="Credential capability"
+          label={t('Credential capability')}
           value={
             connection.health.readOnly === 'writable'
-              ? 'Write capable upstream binding'
+              ? t('Write capable upstream binding')
               : connection.health.readOnly === 'verified'
-                ? 'Read only'
-                : 'Unverified'
+                ? t('Read only')
+                : t('Unverified')
           }
         />
       </section>
       <section className="border-t border-zGray-800/60 px-6 py-4">
         <SectionHeader
           icon={<HeartPulse className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
-          title="Health"
-          hint={checked ? `Checked ${checked}` : undefined}
+          title={t('Health')}
+          hint={checked ? t('Checked {time}', { time: checked }) : undefined}
         />
-        <Row label="Status" value={connection.health.status} />
-        <Row label="Latency" value={`${String(connection.health.latencyMs)} ms`} />
-        <Row label="Server" value={connection.health.serverVersion ?? 'Unknown'} />
+        <Row label={t('Status')} value={connection.health.status} />
+        <Row label={t('Latency')} value={`${String(connection.health.latencyMs)} ms`} />
+        <Row label={t('Server')} value={connection.health.serverVersion ?? t('Unknown')} />
       </section>
       <section className="border-t border-zGray-800/60 px-6 py-4">
         <SectionHeader
           icon={<Network className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
-          title="Related resources"
+          title={t('Related resources')}
           hint={
             connection.relations.length
-              ? `${String(connection.relations.length)} linked`
+              ? t('{n} linked', { n: connection.relations.length })
               : undefined
           }
         />
@@ -115,7 +116,7 @@ export function OverviewSection({
             />
           ))
         ) : (
-          <EmptyLine text="No service, deployment, cluster, or repository relations yet." />
+          <EmptyLine text={t('No service, deployment, cluster, or repository relations yet.')} />
         )}
       </section>
       {connection.providerOrigin && (

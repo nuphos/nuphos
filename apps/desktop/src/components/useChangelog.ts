@@ -6,7 +6,7 @@ import { LAST_SEEN_KEY, hasUnread, readStoredSlug, storeSlug } from '../lib/what
 import type { ChangelogEntry, ChangelogState } from '../types/team'
 
 // ---- dev-only console trigger -------------------------------------------
-// Inject a fake feed straight from devtools (same pattern as updateNotify):
+// Inject a fake feed straight from devtools:
 //   changelogNotify([{ slug: 's1', title: 'Feature one', summary: 'Short pitch.',
 //     date: '2026-08-12', coverUrl: 'https://placehold.co/264x120/png',
 //     url: 'https://nuphos.ai/changelog/s1' }])

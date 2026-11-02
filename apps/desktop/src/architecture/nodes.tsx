@@ -1,6 +1,8 @@
 import { Handle, NodeResizer, Position } from '@xyflow/react'
 import { useState } from 'react'
 
+import { t } from '../i18n'
+
 import type { NodeProps } from '@xyflow/react'
 
 // Category -> accent color. `kind` is a freeform string (see schema), these are
@@ -121,7 +123,7 @@ export function ArchFlowNode({ data, selected, isConnectable }: NodeProps) {
             overflow: 'hidden',
           }}
         >
-          {d.label || 'Untitled'}
+          {d.label || t('Untitled')}
         </span>
       </div>
       {d.resourceLabel ? (
@@ -215,7 +217,7 @@ export function ArchGroupNode({ data, selected }: NodeProps) {
           cursor: 'grab',
         }}
       >
-        <span>{d.label || 'Group'}</span>
+        <span>{d.label || t('Group')}</span>
         {d.resourceLabel ? (
           <span
             style={{

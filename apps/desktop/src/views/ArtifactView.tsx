@@ -17,6 +17,7 @@ import { MessageResponse } from '../components/agent/MessageResponse'
 import { agentArtifactUrl } from '../components/agent/sessionUrl'
 import { EmptyState } from '../components/EmptyState'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { ARTIFACT_PAGE, pickArtifactVersion } from '../lib/sessionArtifacts'
 
 import type { ArtifactKind, ArtifactVersion } from '../components/agent/artifacts/artifactPayload'
@@ -75,7 +76,7 @@ export function ArtifactView({
   return (
     <PageMeta
       pageKey={ARTIFACT_PAGE}
-      title={current?.title ?? 'Artifact'}
+      title={current?.title ?? t('Artifact')}
       icon={<Icon className="h-3.5 w-3.5" />}
       iconKey={current?.kind ?? 'none'}
     >
@@ -119,8 +120,10 @@ export function ArtifactView({
       ) : (
         <EmptyState
           icon={Shapes}
-          title="Artifact not loaded"
-          description="Open it from its card in the chat. Cards further up load once you scroll back to them."
+          title={t('Artifact not loaded')}
+          description={t(
+            'Open it from its card in the chat. Cards further up load once you scroll back to them.',
+          )}
         />
       )}
     </PageMeta>

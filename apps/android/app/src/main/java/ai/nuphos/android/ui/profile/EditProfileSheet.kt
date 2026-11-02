@@ -33,8 +33,6 @@ fun EditProfileSheet(user: NuphosUser, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val current = auth.user?.takeIf { it.id == user.id } ?: user
-    var name by rememberSaveable(user.id) { mutableStateOf(user.name) }
-    var username by rememberSaveable(user.id) { mutableStateOf(user.username) }
     var busy by remember(user.id) { mutableStateOf(false) }
     var error by remember(user.id) { mutableStateOf<String?>(null) }
 
@@ -55,35 +53,54 @@ fun EditProfileSheet(user: NuphosUser, onDismiss: () -> Unit) {
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) setAvatar(uri) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Edit profile", style = MaterialTheme.typography.headlineSmall)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                NuphosAvatar(current, size = 56.dp)
-                TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy) {
-                    Text(if (current.avatar == null) "Choose photo" else "Change photo")
-                }
-                if (current.avatar != null) TextButton(onClick = { setAvatar(null) }, enabled = !busy) { Text("Remove photo") }
-            }
-            OutlinedTextField(name, { name = it; error = null }, label = { Text("Name") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(username, { username = it; error = null }, label = { Text("Username") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Button(onClick = {
-                error = profileValidationError(name, username)
-                if (error == null && auth.user?.id == user.id) {
+    ModalBottomSheet(onDismissRequest = { if (!busy) onDismiss() },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.background) {
+        EditProfileForm(current, busy, error, onDismiss = onDismiss,
+            onChoosePhoto = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onRemovePhoto = { setAvatar(null) }, onSave = { newName, newUsername, _ ->
+                error = profileValidationError(newName, newUsername)
+                if (!busy && error == null && auth.user?.id == user.id) {
                     busy = true
                     val token = auth.token
                     val generation = auth.generation
                     scope.launch {
                         if (auth.token != token || auth.generation != generation || auth.user?.id != user.id) return@launch
-                        val saved = auth.updateProfile(name.trim(), username.trim(), current.avatarURL)
+                        val saved = auth.updateProfile(newName.trim(), newUsername.trim(), current.avatarURL)
                         if (auth.token != token || auth.generation != generation || auth.user?.id != user.id) return@launch
                         busy = false
                         if (saved) onDismiss() else error = auth.profileError ?: "We could not save your profile. Please try again."
                     }
                 }
-            }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "Saving…" else "Save") }
-            TextButton(onClick = onDismiss, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+            })
+    }
+}
+
+@Composable
+internal fun EditProfileForm(user: NuphosUser, busy: Boolean, error: String?,
+    onDismiss: () -> Unit, onChoosePhoto: () -> Unit, onRemovePhoto: () -> Unit, onSave: (String, String, String) -> Unit) {
+    var name by rememberSaveable(user.id) { mutableStateOf(user.name) }
+    var username by rememberSaveable(user.id) { mutableStateOf(user.username) }
+    Column(Modifier.fillMaxWidth().imePadding()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") }
+            Text("Edit profile", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
+            TextButton(onClick = { if (!busy) onSave(name, username, user.avatarURL) },
+                enabled = !busy && profileValidationError(name, username) == null) { Text(if (busy) "Saving…" else "Save") }
+        }
+        Column(Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Profile", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                NuphosAvatar(user, size = 56.dp)
+                TextButton(onClick = onChoosePhoto, enabled = !busy) {
+                    Text(if (user.avatar == null) "Choose photo" else "Change photo")
+                }
+                if (user.avatar != null) TextButton(onClick = onRemovePhoto, enabled = !busy) { Text("Remove photo") }
+            }
+            OutlinedTextField(name, { name = it }, label = { Text("Name") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(username, { username = it }, label = { Text("Username") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
 }

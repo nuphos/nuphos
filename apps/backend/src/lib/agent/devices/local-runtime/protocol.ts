@@ -11,6 +11,7 @@ export type TunnelPurpose =
   | 'terminal'
   | 'cua'
   | 'browser'
+  | 'browserView'
   | 'vnc'
   | 'instances'
 
@@ -18,19 +19,34 @@ export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'opencode'
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
+const controlChoicesSchema = z
+  .array(
+    z.object({
+      value: z.string().min(1).max(100),
+      name: z.string().max(200),
+      // Claude names the level its "default" stands for here.
+      description: z.string().max(200).optional(),
+    }),
+  )
+  .max(100)
+
+/** Off and each speed the agent offers (Fast, Ultrafast). Older probes sent on/off as a boolean. */
+export const fastChoicesSchema = z.union([
+  z.boolean().transform((on) =>
+    on
+      ? [
+          { value: 'on', name: 'On' },
+          { value: 'off', name: 'Off' },
+        ]
+      : [],
+  ),
+  controlChoicesSchema,
+])
+
 const modelControlsSchema = z.object({
-  effort: z
-    .array(
-      z.object({
-        value: z.string().min(1).max(100),
-        name: z.string().max(200),
-        // Claude names the level its "default" stands for here.
-        description: z.string().max(200).optional(),
-      }),
-    )
-    .max(100),
-  fast: z.boolean(),
-  defaultFast: z.enum(['on', 'off']).optional(),
+  effort: controlChoicesSchema,
+  fast: fastChoicesSchema,
+  defaultFast: z.string().max(100).optional(),
   defaultEffort: z.string().max(100).optional(),
 })
 
@@ -127,6 +143,8 @@ export const localRuntimeStatusSchema = z.object({
   localCua: z.boolean().optional(),
   /** This computer's Desktop drives its workspace browser tabs for `local_browser`. */
   localBrowser: z.boolean().optional(),
+  /** This computer's Desktop streams a dock browser tab to its owner's phone. */
+  localBrowserView: z.boolean().optional(),
   /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */

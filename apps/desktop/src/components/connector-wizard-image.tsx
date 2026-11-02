@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { t } from '../i18n'
 import { cssDurationMs } from '../lib/motion'
 
 // A labeled, bordered screenshot for the right column of a WizardStep. Click to
@@ -59,11 +60,11 @@ export function WizardExampleImage({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-1 text-[11px] uppercase tracking-wider text-tertiary">Example</div>
+      <div className="mb-1 text-[11px] uppercase tracking-wider text-tertiary">{t('Example')}</div>
       <button
         type="button"
         onClick={openLightbox}
-        title="Click to enlarge"
+        title={t('Click to enlarge')}
         className="relative min-h-[220px] flex-1 cursor-zoom-in overflow-hidden rounded-md border border-zGray-800 transition-colors hover:border-zGray-600"
       >
         {/* Cropped to fill the box, anchored at objectPosition (default

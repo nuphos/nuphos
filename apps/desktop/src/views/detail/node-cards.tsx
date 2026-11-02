@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
+
 import type { NodeDetail, NodeResourceMeter } from '../../types'
 
 export function NodeUtilizationCard({
@@ -31,7 +33,7 @@ export function NodeUtilizationCard({
     <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-2">{title}</div>
       <div className="flex items-baseline justify-between text-[12px]">
-        <span className="text-secondary">Usage</span>
+        <span className="text-secondary">{t('Usage')}</span>
         <span className="tabular-nums text-main">
           {format(meter.usage)} / {format(meter.capacity)}
         </span>
@@ -51,11 +53,11 @@ export function NodeUtilizationCard({
       </div>
       <div className="mt-3 space-y-1.5">
         <div className="flex items-center justify-between text-[11.5px]">
-          <span className="text-tertiary">Allocatable</span>
+          <span className="text-tertiary">{t('Allocatable')}</span>
           <span className="tabular-nums text-secondary">{format(meter.allocatable)}</span>
         </div>
-        <NodeSubMeter label="Requests" value={format(meter.requests)} pct={reqPct} />
-        <NodeSubMeter label="Limits" value={format(meter.limits)} pct={limPct} />
+        <NodeSubMeter label={t('Requests')} value={format(meter.requests)} pct={reqPct} />
+        <NodeSubMeter label={t('Limits')} value={format(meter.limits)} pct={limPct} />
       </div>
     </div>
   )
@@ -112,11 +114,13 @@ export function CollapsibleChips({
           onClick={() => setExpanded((e) => !e)}
           aria-expanded={expanded}
           aria-label={
-            expanded ? 'Show fewer items' : `Show ${String(entries.length - limit)} more items`
+            expanded
+              ? t('Show fewer items')
+              : t('Show {count} more items', { count: entries.length - limit })
           }
           className="text-[11px] text-zViolet-accent hover:opacity-80"
         >
-          {expanded ? 'show less' : `show more (+${String(entries.length - limit)})`}
+          {expanded ? t('show less') : t('show more (+{count})', { count: entries.length - limit })}
         </button>
       )}
     </div>

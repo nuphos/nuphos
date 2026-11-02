@@ -4,6 +4,7 @@ import { api, parseAtlasError } from '../../api'
 import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { buildBetterStackRows } from './betterstack-rows'
@@ -23,6 +24,33 @@ import type {
 } from '../../types'
 
 export type { BetterStackPage } from './betterstack-rows'
+
+const EMPTY_TEXT: Record<BetterStackPage, [string, string, string, string]> = {
+  monitors: [
+    t('Loading Better Stack monitors...'),
+    t('Add an Uptime API token to view monitors.'),
+    t('No Better Stack monitors match the current filter.'),
+    t('No Better Stack monitors found.'),
+  ],
+  incidents: [
+    t('Loading Better Stack incidents...'),
+    t('Add an Uptime API token to view incidents.'),
+    t('No Better Stack incidents match the current filter.'),
+    t('No Better Stack incidents found.'),
+  ],
+  sources: [
+    t('Loading Better Stack sources...'),
+    t('Add a Telemetry API token to view sources.'),
+    t('No Better Stack sources match the current filter.'),
+    t('No Better Stack sources found.'),
+  ],
+  dashboards: [
+    t('Loading Better Stack dashboards...'),
+    t('Add a Telemetry API token to view dashboards.'),
+    t('No Better Stack dashboards match the current filter.'),
+    t('No Better Stack dashboards found.'),
+  ],
+}
 
 export function BetterStackIntegrationView({
   teamId,
@@ -152,7 +180,7 @@ export function BetterStackIntegrationView({
   }, [filtered.length, onCount])
 
   if (!integration) {
-    return <ErrorBlock message="Better Stack integration not found." />
+    return <ErrorBlock message={t('Better Stack integration not found.')} />
   }
 
   return (
@@ -166,22 +194,14 @@ export function BetterStackIntegrationView({
         loading={loading}
         rows={filtered}
         rowKey={(row) => row.key}
-        empty={
-          loading
-            ? `Loading Better Stack ${page}...`
-            : !hasRequiredToken
-              ? `Add ${requiredToken === 'telemetry' ? 'a Telemetry' : 'an Uptime'} API token to view ${page}.`
-              : filter
-                ? `No Better Stack ${page} match the current filter.`
-                : `No Better Stack ${page} found.`
-        }
+        empty={EMPTY_TEXT[page][loading ? 0 : !hasRequiredToken ? 1 : filter ? 2 : 3]}
         storageKey={`betterstack.${page}`}
         columns={[
           ...(showKindColumn
             ? [
                 {
                   key: 'kind',
-                  header: 'Kind',
+                  header: t('Kind'),
                   width: 140,
                   sortAccessor: (row: BetterStackRow) => row.kind,
                   render: (row: BetterStackRow) => (
@@ -192,7 +212,7 @@ export function BetterStackIntegrationView({
             : []),
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 300,
             sortAccessor: (row) => row.name,
             render: (row) => <span className="text-main font-medium truncate">{row.name}</span>,
@@ -202,7 +222,7 @@ export function BetterStackIntegrationView({
             : [
                 {
                   key: 'detail',
-                  header: page === 'incidents' ? 'Cause' : 'Detail',
+                  header: page === 'incidents' ? t('Cause') : t('Detail'),
                   width: 360,
                   sortAccessor: (row: BetterStackRow) => row.detail,
                   render: (row: BetterStackRow) => (
@@ -217,7 +237,7 @@ export function BetterStackIntegrationView({
             : [
                 {
                   key: 'status',
-                  header: 'Status',
+                  header: t('Status'),
                   width: 140,
                   sortAccessor: (row: BetterStackRow) => row.status ?? '',
                   render: (row: BetterStackRow) => <StatusBadge status={row.status ?? 'unknown'} />,
@@ -225,7 +245,7 @@ export function BetterStackIntegrationView({
               ]),
           {
             key: 'updated',
-            header: page === 'incidents' ? 'Last event' : 'Updated',
+            header: page === 'incidents' ? t('Last event') : t('Updated'),
             width: 180,
             sortAccessor: (row) => row.updatedAt || '',
             render: (row) =>

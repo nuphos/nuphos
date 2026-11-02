@@ -8,6 +8,7 @@ import { Table } from '../../components/Table'
 import { useReportLoading } from '../../components/useReportLoading'
 import { useSilentRefresh } from '../../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { readCachedResourceList } from '../../lib/resourceListCache'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResetOnKey } from '../useResetOnKey'
@@ -214,28 +215,28 @@ export function CloudRunServicesView({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 220,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             width: 110,
             sortAccessor: (r) => r.status,
             render: (r) => <StatusBadge status={r.status} />,
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 150,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'url',
-            header: 'URL',
+            header: t('URL'),
             width: 280,
             sortAccessor: (r) => r.url ?? '',
             render: (r) =>
@@ -255,7 +256,7 @@ export function CloudRunServicesView({
           },
           {
             key: 'ingress',
-            header: 'Ingress',
+            header: t('Ingress'),
             width: 110,
             sortAccessor: (r) => r.ingress ?? '',
             render: (r) => (
@@ -264,7 +265,7 @@ export function CloudRunServicesView({
           },
           {
             key: 'revision',
-            header: 'Latest Revision',
+            header: t('Latest Revision'),
             width: 200,
             sortAccessor: (r) => r.latestReadyRevision ?? '',
             render: (r) => (
@@ -275,7 +276,7 @@ export function CloudRunServicesView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.updatedAt ?? r.createdAt ?? '',
             render: (r) => (

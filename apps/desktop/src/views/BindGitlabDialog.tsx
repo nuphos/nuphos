@@ -1,5 +1,5 @@
 import { ExternalLink, GitBranch, GitPullRequest, Loader2, Search } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { CloudLogo } from '../components/CloudLogo'
@@ -7,6 +7,7 @@ import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
 
@@ -93,7 +94,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
       onClose()
     } catch (e) {
       if (attempt !== attemptRef.current) return
-      toast.apiError('Failed to connect GitLab', e)
+      toast.apiError(t('Failed to connect {name}', { name: 'GitLab' }), e)
       setPhase({ kind: 'idle' })
     }
   }
@@ -107,8 +108,8 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
     <Modal
       open={open}
       onClose={close}
-      title="Connect GitLab"
-      description="Choose GitLab access for Zeabur Atlas, then authorize in your browser."
+      title={t('Connect {name}', { name: 'GitLab' })}
+      description={t('Choose GitLab access for Zeabur Atlas, then authorize in your browser.')}
       width={500}
     >
       <div className="px-5 py-5 selectable">
@@ -119,13 +120,16 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                 <CloudLogo provider="gitlab" size={26} />
               </div>
               <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[400px]">
-                Click below to open GitLab in your browser. Approve the OAuth request and you'll be
-                redirected back automatically.
+                {t(
+                  "Click below to open GitLab in your browser. Approve the OAuth request and you'll be redirected back automatically.",
+                )}
               </div>
             </div>
 
             <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] text-tertiary uppercase tracking-wide">GitLab host</span>
+              <span className="text-[11px] text-tertiary uppercase tracking-wide">
+                {t('GitLab host')}
+              </span>
               <input
                 type="url"
                 value={hostUrl}
@@ -139,22 +143,22 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
               <div className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2">
                 <Search className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] leading-none text-main">Read projects</div>
+                  <div className="text-[12.5px] leading-none text-main">{t('Read projects')}</div>
                   <div className="mt-1 text-[10.5px] text-tertiary">
-                    Projects, repositories, MRs, pipelines
+                    {t('Projects, repositories, MRs, pipelines')}
                   </div>
                 </div>
                 <span className="rounded-md bg-zGray-800 px-2 py-1 text-[11px] font-medium text-secondary">
-                  Always on
+                  {t('Always on')}
                 </span>
               </div>
 
               <label className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2">
                 <GitBranch className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] leading-none text-main">Push branches</div>
+                  <div className="text-[12.5px] leading-none text-main">{t('Push branches')}</div>
                   <div className="mt-1 text-[10.5px] text-tertiary">
-                    Clone, commit, and push repository branches
+                    {t('Clone, commit, and push repository branches')}
                   </div>
                 </div>
                 <Checkbox
@@ -162,16 +166,20 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                   onCheckedChange={(checked) =>
                     setScopeAccess((s) => ({ ...s, repository: checked }))
                   }
-                  aria-label="Allow GitLab branch push access"
+                  aria-label={t('Allow GitLab branch push access')}
                 />
               </label>
 
               <label className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2">
                 <GitPullRequest className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] leading-none text-main">Manage merge requests</div>
+                  <div className="text-[12.5px] leading-none text-main">
+                    {t('Manage merge requests')}
+                  </div>
                   <div className="mt-1 text-[10.5px] text-tertiary">
-                    Requests GitLab API access to open MRs, update metadata, and post comments
+                    {t(
+                      'Requests GitLab API access to open MRs, update metadata, and post comments',
+                    )}
                   </div>
                 </div>
                 <Checkbox
@@ -179,7 +187,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                   onCheckedChange={(checked) =>
                     setScopeAccess((s) => ({ ...s, mergeRequests: checked }))
                   }
-                  aria-label="Allow GitLab merge request access"
+                  aria-label={t('Allow GitLab merge request access')}
                 />
               </label>
             </div>
@@ -190,9 +198,9 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                 onClick={() => setShowAdvanced((v) => !v)}
                 className="text-[11.5px] text-tertiary hover:text-secondary"
               >
-                {showAdvanced ? 'Hide' : 'Show'} OAuth app settings
+                {showAdvanced ? t('Hide OAuth app settings') : t('Show OAuth app settings')}
                 {selfHosted && !showAdvanced && (
-                  <span className="ml-1 text-error">(required for self-hosted)</span>
+                  <span className="ml-1 text-error">{t('(required for self-hosted)')}</span>
                 )}
               </button>
             </div>
@@ -201,12 +209,14 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
               <div className="flex flex-col gap-3 border-t border-zGray-800 pt-3">
                 <div className="text-[11.5px] text-tertiary">
                   {selfHosted
-                    ? 'Self-hosted GitLab requires you to register an OAuth application on your instance and paste its credentials here.'
-                    : 'Leave blank to use the server-default Zeabur OAuth app for gitlab.com.'}
+                    ? t(
+                        'Self-hosted GitLab requires you to register an OAuth application on your instance and paste its credentials here.',
+                      )
+                    : t('Leave blank to use the server-default Zeabur OAuth app for gitlab.com.')}
                 </div>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[11px] text-tertiary uppercase tracking-wide">
-                    OAuth application ID
+                    {t('OAuth application ID')}
                   </span>
                   <input
                     type="text"
@@ -218,7 +228,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[11px] text-tertiary uppercase tracking-wide">
-                    OAuth secret
+                    {t('OAuth secret')}
                   </span>
                   <input
                     type="password"
@@ -237,11 +247,21 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
           <div className="flex flex-col items-center gap-4 py-3">
             <Loader2 className="w-6 h-6 text-zViolet-accent animate-spin" strokeWidth={1.8} />
             <div className="text-[12.5px] text-secondary text-center">
-              Waiting for GitLab… complete the authorization in your browser.
+              {t('Waiting for {name}… complete the authorization in your browser.', {
+                name: 'GitLab',
+              })}
             </div>
             <div className="text-[11px] text-tertiary text-center max-w-[380px]">
-              If nothing happens, make sure your browser allowed the popup and that your OS routes{' '}
-              <span className="font-mono">nuphos://</span> URLs to this app.
+              {t(
+                'If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.',
+              )
+                .split('{scheme}')
+                .map((part, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && <span className="font-mono">nuphos://</span>}
+                    {part}
+                  </Fragment>
+                ))}
             </div>
           </div>
         )}
@@ -252,12 +272,12 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
           onClick={close}
           className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800"
         >
-          {phase.kind === 'waiting' ? 'Cancel' : 'Close'}
+          {phase.kind === 'waiting' ? t('Cancel') : t('Close')}
         </button>
         {phase.kind !== 'waiting' && (
           <Button size="sm" onClick={() => void startInstall()} disabled={!canStart}>
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Authorize GitLab
+            {t('Authorize {name}', { name: 'GitLab' })}
           </Button>
         )}
       </div>

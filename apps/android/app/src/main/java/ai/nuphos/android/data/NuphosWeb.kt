@@ -18,7 +18,7 @@ object NuphosWeb {
 
     fun loginUrl(handle: String): String {
         require(handle.matches(Regex("[A-Za-z0-9_-]{43}")))
-        return "$SITE_URL/api/google/start?handle=$handle"
+        return "${NuphosApi.BASE_URL}/auth/social/login?handle=$handle"
     }
 
     /** Old token intents can only return focus to the app; they carry no authority. */

@@ -1,7 +1,5 @@
 import { ChevronRight, Ellipsis } from 'lucide-react'
-import { useCallback, useState } from 'react'
 
-import { api } from '../../../api'
 import { t } from '../../../i18n'
 import {
   Menu,
@@ -14,50 +12,12 @@ import {
   MenuTrigger,
 } from '../../ui/menu'
 
+import { byNamespace, useGithubRepos } from './homeGithubRepos'
 import { PULL_STATUSES, RUN_STATUSES, repoKey, statusLabel, toggleItem } from './homeWidgetSettings'
 
 import type { HomeGithubCard, HomeRepo } from './homeWidgetSettings'
 
-async function listInstallationRepos(teamId: string, installationId: number): Promise<HomeRepo[]> {
-  const repos = await api.atlasListGithubRepositories(teamId, installationId)
-
-  return repos.map((r) => ({ installationId, fullName: r.fullName }))
-}
-
-async function listGithubRepos(teamId: string): Promise<HomeRepo[]> {
-  const installations = await api.atlasListGithubInstallations(teamId)
-  const lists = await Promise.allSettled(
-    installations.map((inst) => listInstallationRepos(teamId, inst.installationId)),
-  )
-
-  return lists.flatMap((l) => (l.status === 'fulfilled' ? l.value : []))
-}
-
-/** Every repository the team's GitHub App installations can reach, loaded when the menu first opens. */
-function useGithubRepos(teamId: string) {
-  const [repos, setRepos] = useState<HomeRepo[] | null>(null)
-  const load = useCallback(() => {
-    if (repos) return
-    listGithubRepos(teamId).then(setRepos, () => setRepos([]))
-  }, [teamId, repos])
-
-  return { repos, load }
-}
-
 const chevron = <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-
-/** Repositories grouped by owner (an org or account), owners and names in order. */
-function byNamespace(repos: HomeRepo[]): [string, HomeRepo[]][] {
-  const groups = new Map<string, HomeRepo[]>()
-
-  for (const repo of repos.toSorted((a, b) => a.fullName.localeCompare(b.fullName))) {
-    const namespace = repo.fullName.split('/')[0] ?? ''
-
-    groups.set(namespace, [...(groups.get(namespace) ?? []), repo])
-  }
-
-  return [...groups]
-}
 
 /** A GitHub card's ⋯ menu: which repositories it follows, what it shows of them, removal. */
 export function GithubCardMenu({

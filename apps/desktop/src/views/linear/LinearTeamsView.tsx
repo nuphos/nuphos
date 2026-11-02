@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 import { ColorDot, LinearPageMessage } from './linearParts'
 import { LinearReconnectPrompt } from './LinearReconnect'
@@ -62,10 +63,10 @@ function TeamRow({ team, onOpen }: { team: LinearTeamSummary; onOpen: () => void
 }
 
 function workspaceNote(group: LinearWorkspaceTeams): string | null {
-  if (group.status === 'no-access') return "You don't have access to this workspace."
-  if (group.status === 'error') return 'Teams could not be loaded.'
+  if (group.status === 'no-access') return t("You don't have access to this workspace.")
+  if (group.status === 'error') return t('Teams could not be loaded.')
 
-  return group.teams.length === 0 ? 'No teams.' : null
+  return group.teams.length === 0 ? t('No teams.') : null
 }
 
 type WorkspaceSectionProps = {
@@ -129,21 +130,23 @@ export function LinearTeamsView({
 
   useEffect(() => onCount(count), [count, onCount])
 
-  if (state.kind === 'loading') return <LinearPageMessage>Loading…</LinearPageMessage>
+  if (state.kind === 'loading') return <LinearPageMessage>{t('Loading…')}</LinearPageMessage>
   if (state.kind === 'error') {
-    return <LinearPageMessage>Linear could not be loaded.</LinearPageMessage>
+    return <LinearPageMessage>{t('Linear could not be loaded.')}</LinearPageMessage>
   }
   if (state.groups.length === 0) {
     return (
       <LinearPageMessage>
-        No Linear workspace is connected to this team.
+        {t('No Linear workspace is connected to this team.')}
         <Button variant="secondary" size="sm" onClick={onOpenConnectors}>
-          Open Connectors
+          {t('Open Connectors')}
         </Button>
       </LinearPageMessage>
     )
   }
-  if (groups.length === 0) return <LinearPageMessage>No teams match “{filter}”.</LinearPageMessage>
+  if (groups.length === 0) {
+    return <LinearPageMessage>{t('No teams match “{filter}”.', { filter })}</LinearPageMessage>
+  }
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">

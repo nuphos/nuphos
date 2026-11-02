@@ -53,9 +53,9 @@ export function MetricChart({
 
   return (
     <div className="min-w-0">
-      <div className="flex items-baseline justify-between text-[11px]">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px]">
         <span className="text-tertiary">{title}</span>
-        <span className="font-mono text-main">
+        <span className="whitespace-nowrap font-mono text-main">
           {latest === null ? '—' : format(latest)}
           {latestCapacity === null ? null : (
             <span className="text-tertiary"> / {format(latestCapacity)}</span>

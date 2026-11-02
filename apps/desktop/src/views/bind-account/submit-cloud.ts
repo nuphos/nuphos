@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 import { ARN_PATTERN, AZURE_GUID_PATTERN, SA_PATTERN } from '../../lib/cloudBindSteps'
 
 import {
@@ -20,7 +21,11 @@ export async function submitAws(st: BindState, env: SubmitEnv) {
   const { roleArn, setError, setSubmitting, reset } = st
 
   if (!ARN_PATTERN.test(roleArn.trim())) {
-    setError('Invalid ARN. Must be like arn:aws:iam::123456789012:role/NuphosRole')
+    setError(
+      t('Invalid ARN. Must be like {example}', {
+        example: 'arn:aws:iam::123456789012:role/NuphosRole',
+      }),
+    )
 
     return
   }
@@ -40,12 +45,12 @@ export async function submitGcp(st: BindState, env: SubmitEnv) {
   const { saEmail, projectId, setError, setSubmitting, reset } = st
 
   if (!SA_PATTERN.test(saEmail.trim())) {
-    setError('Invalid service account email.')
+    setError(t('Invalid service account email.'))
 
     return
   }
   if (!projectId.trim()) {
-    setError('Project ID is required.')
+    setError(t('Project ID is required.'))
 
     return
   }
@@ -56,7 +61,7 @@ export async function submitGcp(st: BindState, env: SubmitEnv) {
     // Error toasts persist until dismissed, which is what a "go grant one
     // more role" instruction needs — the bind itself succeeded.
     for (const warning of bound?.warnings ?? []) {
-      toast.error('GCP project bound with a gap', warning)
+      toast.error(t('GCP project bound with a gap'), warning)
     }
     reset()
     env.onBound()
@@ -74,17 +79,21 @@ export async function submitTencent(st: BindState, env: SubmitEnv) {
   const providerId = st.tencentProviderId.trim()
 
   if (!label) {
-    toast.error('Label is required')
+    toast.error(t('Label is required'))
 
     return
   }
   if (!TENCENT_ROLE_ARN_PATTERN.test(roleArn)) {
-    toast.error('Invalid role ARN. Must be like qcs::cam::uin/123456789:roleName/Nuphos')
+    toast.error(
+      t('Invalid role ARN. Must be like {example}', {
+        example: 'qcs::cam::uin/123456789:roleName/Nuphos',
+      }),
+    )
 
     return
   }
   if (!providerId) {
-    toast.error('OIDC provider name is required')
+    toast.error(t('OIDC provider name is required'))
 
     return
   }
@@ -95,8 +104,8 @@ export async function submitTencent(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Tencent Cloud', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Could not connect {name}', { name: 'Tencent Cloud' }), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }
@@ -109,18 +118,24 @@ export async function submitAliyun(st: BindState, env: SubmitEnv) {
   const oidcProviderArn = st.aliyunOidcProviderArn.trim()
 
   if (!label) {
-    toast.error('Label is required')
+    toast.error(t('Label is required'))
 
     return
   }
   if (!ALIYUN_ROLE_ARN_PATTERN.test(roleArn)) {
-    toast.error('Invalid role ARN. Must be like acs:ram::123456789012345:role/NuphosConnector')
+    toast.error(
+      t('Invalid role ARN. Must be like {example}', {
+        example: 'acs:ram::123456789012345:role/NuphosConnector',
+      }),
+    )
 
     return
   }
   if (!ALIYUN_OIDC_PROVIDER_ARN_PATTERN.test(oidcProviderArn)) {
     toast.error(
-      'Invalid OIDC provider ARN. Must be like acs:ram::123456789012345:oidc-provider/nuphos',
+      t('Invalid OIDC provider ARN. Must be like {example}', {
+        example: 'acs:ram::123456789012345:oidc-provider/nuphos',
+      }),
     )
 
     return
@@ -132,8 +147,8 @@ export async function submitAliyun(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Alibaba Cloud', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Could not connect {name}', { name: 'Alibaba Cloud' }), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }
@@ -145,12 +160,16 @@ export async function submitVolcengine(st: BindState, env: SubmitEnv) {
   const roleTrn = st.volcengineRoleTrn.trim()
 
   if (!label) {
-    toast.error('Label is required')
+    toast.error(t('Label is required'))
 
     return
   }
   if (!TRN_PATTERN.test(roleTrn)) {
-    toast.error('Invalid role TRN. Must be like trn:iam::2100000000:role/NuphosConnector')
+    toast.error(
+      t('Invalid role TRN. Must be like {example}', {
+        example: 'trn:iam::2100000000:role/NuphosConnector',
+      }),
+    )
 
     return
   }
@@ -161,8 +180,8 @@ export async function submitVolcengine(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Volcengine', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Could not connect {name}', { name: 'Volcengine' }), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }
@@ -176,22 +195,22 @@ export async function submitHuawei(st: BindState, env: SubmitEnv) {
   const agencyName = st.huaweiAgencyName.trim()
 
   if (!label) {
-    toast.error('Label is required')
+    toast.error(t('Label is required'))
 
     return
   }
   if (!HUAWEI_DOMAIN_ID_PATTERN.test(domainId)) {
-    toast.error('Invalid account ID. It is the 32-character id on My Credentials')
+    toast.error(t('Invalid account ID. It is the 32-character id on My Credentials'))
 
     return
   }
   if (!HUAWEI_IDP_NAME_PATTERN.test(idpId)) {
-    toast.error('Invalid identity provider name')
+    toast.error(t('Invalid identity provider name'))
 
     return
   }
   if (!HUAWEI_AGENCY_NAME_PATTERN.test(agencyName)) {
-    toast.error('Invalid trust agency name')
+    toast.error(t('Invalid trust agency name'))
 
     return
   }
@@ -202,8 +221,8 @@ export async function submitHuawei(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Huawei Cloud', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Could not connect {name}', { name: 'Huawei Cloud' }), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }
@@ -217,7 +236,7 @@ export async function submitAzure(st: BindState, env: SubmitEnv) {
   const subscriptionId = st.azureSubscriptionId.trim()
 
   if (!label) {
-    toast.error('Label is required')
+    toast.error(t('Label is required'))
 
     return
   }
@@ -226,7 +245,7 @@ export async function submitAzure(st: BindState, env: SubmitEnv) {
     !AZURE_GUID_PATTERN.test(clientId) ||
     !AZURE_GUID_PATTERN.test(subscriptionId)
   ) {
-    toast.error('Tenant, client, and subscription ids must all be GUIDs')
+    toast.error(t('Tenant, client, and subscription ids must all be GUIDs'))
 
     return
   }
@@ -237,8 +256,8 @@ export async function submitAzure(st: BindState, env: SubmitEnv) {
     env.onBound()
     env.onClose()
   } catch (e) {
-    toast.apiError('Could not connect Azure', e, {
-      fallback: 'Check the details and your connection, then try again.',
+    toast.apiError(t('Could not connect {name}', { name: 'Azure' }), e, {
+      fallback: t('Check the details and your connection, then try again.'),
     })
     setSubmitting(false)
   }

@@ -5,6 +5,7 @@ import { WizardStepBar } from '../components/ConnectorWizard'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { AccessStep, InstallStep, NameStep } from './bind-onprem/steps'
 
@@ -17,7 +18,7 @@ import type { OnpremCluster, OnpremClusterAccess, OnpremClusterInstall } from '.
 // last — so the tunnel is proven with nothing at stake, and by the time a
 // credential changes hands we can show what it actually grants, asked of their
 // own API server rather than claimed by us.
-const STEPS = ['Name it', 'Install the agent', 'Grant access']
+const STEPS = [t('Name it'), t('Install the agent'), t('Grant access')]
 
 type Props = {
   teamId: string
@@ -49,7 +50,7 @@ export function BindOnpremClusterDialog({ teamId, onClose, onBound }: Props) {
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(next)) {
       return toast.error(
-        'Use lowercase letters, digits and dashes — the name becomes a kubectl context.',
+        t('Use lowercase letters, digits and dashes — the name becomes a kubectl context.'),
       )
     }
     setBusy(true)
@@ -60,8 +61,8 @@ export function BindOnpremClusterDialog({ teamId, onClose, onBound }: Props) {
       setInstall(result.install)
       setStep(1)
     } catch (cause) {
-      toast.apiError('Could not create the cluster', cause, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Could not create the cluster'), cause, {
+        fallback: t('Check your connection and try again.'),
       })
     } finally {
       setBusy(false)
@@ -72,15 +73,15 @@ export function BindOnpremClusterDialog({ teamId, onClose, onBound }: Props) {
     if (!cluster) return
     const next = kubeconfig.trim()
 
-    if (!next) return toast.error('Paste the kubeconfig for the ServiceAccount you created.')
+    if (!next) return toast.error(t('Paste the kubeconfig for the ServiceAccount you created.'))
     setBusy(true)
     try {
       await api.atlasSetOnpremClusterKubeconfig(teamId, cluster.id, next)
       // Ask the cluster what the credential can do rather than telling them.
       setAccess(await api.atlasOnpremClusterAccess(teamId, cluster.id))
     } catch (cause) {
-      toast.apiError('Could not use that kubeconfig', cause, {
-        fallback: 'Check that it has a server address, a CA and a token.',
+      toast.apiError(t('Could not use that kubeconfig'), cause, {
+        fallback: t('Check that it has a server address, a CA and a token.'),
       })
     } finally {
       setBusy(false)
@@ -88,7 +89,7 @@ export function BindOnpremClusterDialog({ teamId, onClose, onBound }: Props) {
   }
 
   return (
-    <Modal open onClose={close} title="Connect a Kubernetes cluster" width={640}>
+    <Modal open onClose={close} title={t('Connect a Kubernetes cluster')} width={640}>
       <div className="px-5 py-4 text-[13px]">
         <WizardStepBar steps={STEPS} current={step} />
 
@@ -127,21 +128,21 @@ export function BindOnpremClusterDialog({ teamId, onClose, onBound }: Props) {
           disabled={busy}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          {access?.reachable ? 'Done' : 'Close'}
+          {access?.reachable ? t('Done') : t('Close')}
         </button>
         {step === 0 && (
           <PrimaryButton busy={busy} onClick={() => void createCluster()}>
-            {busy ? 'Creating…' : 'Continue'}
+            {busy ? t('Creating…') : t('Continue')}
           </PrimaryButton>
         )}
         {step === 1 && (
           <PrimaryButton busy={busy} disabled={!connected} onClick={() => setStep(2)}>
-            {connected ? 'Continue' : 'Waiting for the agent…'}
+            {connected ? t('Continue') : t('Waiting for the agent…')}
           </PrimaryButton>
         )}
         {step === 2 && !access?.reachable && (
           <PrimaryButton busy={busy} onClick={() => void saveKubeconfig()}>
-            {busy ? 'Checking…' : 'Save and check access'}
+            {busy ? t('Checking…') : t('Save and check access')}
           </PrimaryButton>
         )}
       </div>

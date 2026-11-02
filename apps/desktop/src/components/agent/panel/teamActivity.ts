@@ -1,4 +1,13 @@
-import type { TeamActivity } from '../../../types/team.ts'
+import { t } from '../../../i18n/index.ts'
+
+import type { TeamActivity, TeamActivityRange } from '../../../types/team.ts'
+
+/** The heatmap's ranges, which the metric cards share; longer ranges use longer slots. */
+export const ACTIVITY_RANGES: { value: TeamActivityRange; label: string; slotMinutes: number }[] = [
+  { value: '1d', label: t('24h'), slotMinutes: 30 },
+  { value: '7d', label: t('7d'), slotMinutes: 120 },
+  { value: '30d', label: t('30d'), slotMinutes: 720 },
+]
 
 export type HeatCell = {
   start: Date

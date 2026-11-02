@@ -1,5 +1,7 @@
 import yaml from 'js-yaml'
 
+import { t } from '../../i18n/index.ts'
+
 import type { OverviewChip } from './shared'
 import type { DetailTarget } from './target'
 import type { HealthTone } from '../../lib/k8sHealth'
@@ -130,7 +132,11 @@ function workloadReplicaText(kind: string, spec: UnknownRecord, status: UnknownR
     const available = numberAt(status, 'numberAvailable')
 
     if (desired !== null || ready !== null || available !== null) {
-      return `${String(ready ?? 0)} ready / ${String(available ?? 0)} available / ${String(desired ?? 0)} desired`
+      return t('{ready} ready / {available} available / {desired} desired', {
+        ready: String(ready ?? 0),
+        available: String(available ?? 0),
+        desired: String(desired ?? 0),
+      })
     }
 
     return '-'
@@ -140,13 +146,21 @@ function workloadReplicaText(kind: string, spec: UnknownRecord, status: UnknownR
     const succeeded = numberAt(status, 'succeeded')
     const parallelism = numberAt(spec, 'parallelism')
 
-    return `${String(succeeded ?? 0)} succeeded / ${String(completions ?? 1)} completions / ${String(parallelism ?? 1)} parallelism`
+    return t('{succeeded} succeeded / {completions} completions / {parallelism} parallelism', {
+      succeeded: String(succeeded ?? 0),
+      completions: String(completions ?? 1),
+      parallelism: String(parallelism ?? 1),
+    })
   }
   const desired = numberAt(spec, 'replicas') ?? 1
   const ready = numberAt(status, 'readyReplicas') ?? 0
   const available = numberAt(status, 'availableReplicas') ?? 0
 
-  return `${String(ready)} ready / ${String(available)} available / ${String(desired)} desired`
+  return t('{ready} ready / {available} available / {desired} desired', {
+    ready: String(ready),
+    available: String(available),
+    desired: String(desired),
+  })
 }
 
 function workloadReplicaCounts(kind: string, spec: UnknownRecord, status: UnknownRecord) {

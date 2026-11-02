@@ -10,6 +10,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { runBulk } from '../lib/bulkActions'
 import { makeFilterMatcher } from '../lib/filterQuery'
 import { AGE_DESC_SORT } from '../lib/tableSort'
@@ -17,7 +18,7 @@ import { useRowSelection } from '../lib/useRowSelection'
 import { podPhase } from '../lib/workloadStatus'
 import { useRowLinkActions, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
-import { podColumns } from './PodsViewColumns'
+import { bulkDeleteText, bulkRestartText, podColumns } from './PodsViewColumns'
 import { PortForwardDialog } from './PortForwardDialog'
 
 import type { ContextMenuItem } from '../components/ContextMenu'
@@ -106,9 +107,11 @@ export function PodsView({
       ...(linkItems.length > 0 ? [{ key: 'sep0', separator: true } as const] : []),
       {
         key: 'restart',
-        label: 'Restart',
+        label: t('Restart'),
         icon: RotateCcw,
-        confirm: `Restart pod "${pod.name}"? Kubernetes will recreate it via its controller.`,
+        confirm: t('Restart pod "{name}"? Kubernetes will recreate it via its controller.', {
+          name: pod.name,
+        }),
         onSelect: async () => {
           await api.deletePod(actionContext, pod.namespace, pod.name)
         },
@@ -116,7 +119,7 @@ export function PodsView({
       { key: 'sep1', separator: true },
       {
         key: 'port-forward',
-        label: 'Port forward',
+        label: t('Port forward'),
         icon: Network,
         onSelect: () => {
           setPortForwardTarget({ pod, context: actionContext })
@@ -124,19 +127,19 @@ export function PodsView({
       },
       {
         key: 'exec',
-        label: 'Exec shell',
+        label: t('Exec shell'),
         icon: Terminal,
         disabled: !onExec,
-        hint: onExec ? undefined : 'soon',
+        hint: onExec ? undefined : t('soon'),
         onSelect: () => onExec?.(pod),
       },
       { key: 'sep2', separator: true },
       {
         key: 'delete',
-        label: 'Delete pod',
+        label: t('Delete pod'),
         icon: Trash2,
         destructive: true,
-        confirm: `Delete pod "${pod.name}"? This is irreversible.`,
+        confirm: t('Delete pod "{name}"? This is irreversible.', { name: pod.name }),
         onSelect: async () => {
           await api.deletePod(actionContext, pod.namespace, pod.name)
         },
@@ -179,7 +182,7 @@ export function PodsView({
                 if (pod.node) onSelectNode(pod.node)
               },
               canActivate: (pod: PodItem) => Boolean(pod.node),
-              activationLabel: (pod: PodItem) => `Open node ${pod.node ?? ''}`,
+              activationLabel: (pod: PodItem) => t('Open node {name}', { name: pod.node ?? '' }),
             }
           : column,
       ),
@@ -210,18 +213,18 @@ export function PodsView({
     <>
       <ConfirmDialog
         open={confirmRestart}
-        title="Restart pods"
-        description={`Restart ${String(selectedItems.length)} pod${selectedItems.length === 1 ? '' : 's'}? Pods managed by a controller are recreated; standalone pods are deleted.`}
-        confirmLabel="Restart"
+        title={t('Restart pods')}
+        description={bulkRestartText(selectedItems.length)}
+        confirmLabel={t('Restart')}
         onConfirm={async () => {
           const targets = selectedItems
 
           setConfirmRestart(false)
-          await runBulk(targets, (p) => api.deletePod(context, p.namespace, p.name), {
-            verbing: 'restart',
-            verbed: 'Restarted',
-            noun: 'pod',
-          })
+          await runBulk(
+            targets,
+            (p) => api.deletePod(context, p.namespace, p.name),
+            t('Restart pods'),
+          )
           clearSelection()
         }}
         onClose={() => setConfirmRestart(false)}
@@ -232,24 +235,24 @@ export function PodsView({
         actions={[
           {
             key: 'restart',
-            label: 'Restart',
+            label: t('Restart'),
             icon: faRotateLeft,
             onClick: () => setConfirmRestart(true),
           },
           {
             key: 'delete',
-            label: 'Delete',
+            label: t('Delete'),
             icon: faTrash,
             destructive: true,
-            confirm: `Delete ${String(selectedItems.length)} pod${selectedItems.length === 1 ? '' : 's'}? This is irreversible.`,
+            confirm: bulkDeleteText(selectedItems.length),
             onClick: async () => {
               const targets = selectedItems
 
-              await runBulk(targets, (p) => api.deletePod(context, p.namespace, p.name), {
-                verbing: 'delete',
-                verbed: 'Deleted',
-                noun: 'pod',
-              })
+              await runBulk(
+                targets,
+                (p) => api.deletePod(context, p.namespace, p.name),
+                t('Delete pods'),
+              )
               clearSelection()
             },
           },

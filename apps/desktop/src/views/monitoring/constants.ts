@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.ts'
 import { monitoringWatchGroupMemberKey } from '../../lib/monitoringWatch'
 
 import type { MonitoringOverviewRow } from '../../types'
@@ -12,16 +13,16 @@ export function monitoringRowKey(row: MonitoringOverviewRow): string {
 }
 
 export const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'down', label: 'Down / Firing' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'up', label: 'Up / Normal' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'unknown', label: 'Unknown' },
+  { value: 'all', label: t('All statuses') },
+  { value: 'down', label: t('Down / Firing') },
+  { value: 'pending', label: t('Pending') },
+  { value: 'up', label: t('Up / Normal') },
+  { value: 'paused', label: t('Paused') },
+  { value: 'unknown', label: t('Unknown') },
 ]
 
 export const PROVIDER_OPTIONS: { value: ProviderFilter; label: string }[] = [
-  { value: 'all', label: 'All providers' },
+  { value: 'all', label: t('All providers') },
   { value: 'betterstack', label: 'Better Stack' },
   { value: 'grafana', label: 'Grafana' },
   { value: 'gcp', label: 'GCP Cloud Monitoring' },

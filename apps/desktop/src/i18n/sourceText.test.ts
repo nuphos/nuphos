@@ -27,3 +27,9 @@ test('the error inside a repeated-failure message survives', () => {
     "socket closed (This has failed 3 times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)",
   )
 })
+
+test('translated text inside another message is reported in English too', () => {
+  const shown = t('{action}: {n} failed', { action: t('Restart pods'), n: 2 })
+
+  assert.equal(sanitizeReportText(shown), 'Restart pods: 2 failed')
+})

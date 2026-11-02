@@ -18,6 +18,8 @@ struct LoginView: View {
                 Image("NuphosMark").resizable().scaledToFit().frame(width: 64, height: 64)
                 Text("Welcome to Nuphos").font(.largeTitle.bold())
                 Text("Sign in with your email. New accounts are created after email verification.").foregroundStyle(Theme.muted)
+                Button("Continue with Google or Apple") { Task { await session.signIn() } }
+                    .prominentButton().disabled(busy || session.state == .signingIn)
                 TextField("Email address", text: $email)
                     .textContentType(.emailAddress).autocorrectionDisabled()
                     #if os(iOS)

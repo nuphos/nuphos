@@ -2,6 +2,7 @@ import clsx from 'clsx'
 
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 type PolicyMode = 'requester' | 'one-other' | 'quorum'
 
@@ -30,16 +31,18 @@ export function PlanApprovalPolicyModal({
     <Modal
       open={open}
       onClose={() => !saving && onClose()}
-      title="Plan approval policy"
-      description="Choose who must approve execution Plans for this team, including Agent- and human-proposed database changes."
+      title={t('Plan approval policy')}
+      description={t(
+        'Choose who must approve execution Plans for this team, including Agent- and human-proposed database changes.',
+      )}
       width={520}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
           <Button variant="ghost" disabled={saving} onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button variant="primary" disabled={saving} onClick={onSave}>
-            {saving ? 'Saving…' : 'Save policy'}
+            {saving ? t('Saving…') : t('Save policy')}
           </Button>
         </div>
       }
@@ -47,16 +50,20 @@ export function PlanApprovalPolicyModal({
       <div className="space-y-3 p-5">
         {(
           [
-            ['requester', 'Requester only', 'The session user approves their own Agent plan.'],
+            [
+              'requester',
+              t('Requester only'),
+              t('The session user approves their own Agent plan.'),
+            ],
             [
               'one-other',
-              'Requester + one teammate',
-              'Adds an independent review by another team member.',
+              t('Requester + one teammate'),
+              t('Adds an independent review by another team member.'),
             ],
             [
               'quorum',
-              'Requester + multiple teammates',
-              'Require a configurable number of other team members.',
+              t('Requester + multiple teammates'),
+              t('Require a configurable number of other team members.'),
             ],
           ] as const
         ).map(([value, title, description]) => (
@@ -91,14 +98,15 @@ export function PlanApprovalPolicyModal({
                 }
                 onClick={(event) => event.stopPropagation()}
                 className="w-16 rounded-md border border-zGray-700 bg-surface px-2 py-1 text-[12px] text-main outline-none focus:border-zViolet-accent/60"
-                aria-label="Required other team approvals"
+                aria-label={t('Required other team approvals')}
               />
             )}
           </label>
         ))}
         <p className="text-[11.5px] leading-relaxed text-tertiary">
-          Agent cannot approve. Changing this policy clears votes on proposed plans; approved,
-          executing, and completed plans are unchanged.
+          {t(
+            'Agent cannot approve. Changing this policy clears votes on proposed plans; approved, executing, and completed plans are unchanged.',
+          )}
         </p>
       </div>
     </Modal>

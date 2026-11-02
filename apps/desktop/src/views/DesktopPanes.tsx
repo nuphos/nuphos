@@ -3,19 +3,17 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
-import { useMacSignIn } from '../hooks/useMacSignIn'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
 import { IpcVncChannel } from '../lib/ipcVncChannel'
 import {
   desktopTabSession,
-  sessionDesktopDevice,
   sessionDesktopTitle,
   subscribeSessionDesktops,
 } from '../lib/sessionDesktops'
 
 import { DesktopFrame } from './DesktopFrame'
-import { MacSignIn } from './MacSignIn'
 import { openBoxPaywall } from './settings/boxPaywallStore'
 
 import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
@@ -26,13 +24,13 @@ const BOX_PAGE_ENDED = /link has expired|disconnected|failed to connect/iu
 /** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
 const holdingStatus = (display: number) =>
   display === 0
-    ? 'You have the Mac’s screen; the agent can still use it too.'
-    : 'You have the desktop; the agent’s input tools wait until you hand it back.'
+    ? t('You have the Mac’s screen; the agent can still use it too.')
+    : t('You have the desktop; the agent’s input tools wait until you hand it back.')
 
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
- * `display` is the X display number, or 0 for a Mac's own screen, which asks
- * for a Mac account first. View-only until the owner takes it over:
+ * `display` is the X display number, or 0 for a Mac's own screen, which
+ * Nuphos serves itself with no Mac account. View-only until the owner takes it over:
  * the backend drops the viewer's input until then, and taking over also makes
  * the agent's input tools on that desktop wait. A dropped stream reconnects,
  * as the viewer again: the host hands the desktop back when a stream closes.
@@ -61,10 +59,6 @@ export function SessionDesktopView({
   const title = useSyncExternalStore(subscribeSessionDesktops, () =>
     conversationId ? sessionDesktopTitle(conversationId, display) : undefined,
   )
-  const device = useSyncExternalStore(subscribeSessionDesktops, () =>
-    conversationId ? sessionDesktopDevice(conversationId, display) : undefined,
-  )
-  const signIn = useMacSignIn()
 
   useEffect(() => {
     const target = host.current
@@ -80,8 +74,6 @@ export function SessionDesktopView({
       rfb.background = 'transparent'
       rfb.addEventListener('connect', opened)
       rfb.addEventListener('disconnect', closed)
-      // The Mac it was opened for: a kept account goes to that Mac only.
-      signIn.watch(rfb, device ? `${device}:${String(display)}` : undefined)
       rfbRef.current = rfb
       channelRef.current = channel
       setHolding(false)
@@ -103,11 +95,8 @@ export function SessionDesktopView({
 
     return () => {
       connection.stop()
-      signIn.reset()
     }
-    // `signIn` is fresh each render; its methods are not. A new device reconnects.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, tabId, teamId, display, device])
+  }, [conversationId, tabId, teamId, display])
 
   const toggle = () => {
     const next = !holding
@@ -119,16 +108,16 @@ export function SessionDesktopView({
 
   return (
     <DesktopFrame
-      title={title ?? `Desktop :${String(display)}`}
+      title={title ?? t('Desktop :{display}', { display: String(display) })}
       phase={conversationId ? phase : { kind: 'connecting' }}
       status={
         !conversationId
-          ? 'Select an agent to see its desktop.'
+          ? t('Select an agent to see its desktop.')
           : phase.kind !== 'connected'
             ? undefined
             : holding
               ? holdingStatus(display)
-              : 'Watching the agent’s desktop.'
+              : t('Watching the agent’s desktop.')
       }
       action={
         <button
@@ -136,21 +125,12 @@ export function SessionDesktopView({
           onClick={toggle}
           className="rounded border border-zGray-700 px-2 py-0.5 text-main hover:bg-zGray-800"
         >
-          {holding ? 'Hand back' : 'Take over'}
+          {holding ? t('Hand back') : t('Take over')}
         </button>
       }
       switcher={switcher}
       onRetry={() => retryRef.current()}
       host={host}
-      prompt={
-        signIn.asking && (
-          <MacSignIn
-            failed={signIn.asking.failed}
-            username={signIn.asking.username}
-            onSubmit={signIn.submit}
-          />
-        )
-      }
     />
   )
 }
@@ -160,9 +140,9 @@ function boxRefusal(error: unknown): unknown {
   const { code } = parseAtlasError(error)
 
   if (code === 'forbidden' || code === 'not_found')
-    return new DesktopRefusal('denied', 'You no longer have access to this computer’s desktop.')
+    return new DesktopRefusal('denied', t('You no longer have access to this computer’s desktop.'))
   if (code === 'box_state' || code === 'box_unavailable')
-    return new DesktopRefusal('offline', 'Computer is offline.')
+    return new DesktopRefusal('offline', t('Computer is offline.'))
 
   return error
 }
@@ -258,7 +238,7 @@ export function BoxDesktopView({
 
   return (
     <DesktopFrame
-      title={label ?? 'Desktop'}
+      title={label ?? t('Desktop')}
       phase={phase}
       switcher={switcher}
       onRetry={retry}

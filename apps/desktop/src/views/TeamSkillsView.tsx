@@ -8,6 +8,7 @@ import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 
 import { LocalSkillImportMenu } from './skills/LocalSkillImportMenu'
 import { buildSkillColumns } from './skills/skillColumns'
@@ -17,16 +18,31 @@ import { useSkillMenu } from './skills/useSkillMenu'
 import { useTeamSkills } from './skills/useTeamSkills'
 
 import type { SkillScope, TeamSkillSummary } from '../api'
+import type { ReactNode } from 'react'
 
 const SCOPES: { scope: SkillScope; label: string; title: string }[] = [
-  { scope: 'team', label: 'Team', title: 'Skills shared with everyone in this team' },
+  { scope: 'team', label: t('Team'), title: t('Skills shared with everyone in this team') },
   {
     scope: 'personal',
-    label: 'Personal',
-    title:
+    label: t('Personal'),
+    title: t(
       'Your own skills in this team. Claude Code runtimes load them on your turns in your own agents.',
+    ),
   },
 ]
+
+/** Splits a translated sentence on `token` and puts `node` in its place. */
+function withNode(sentence: string, token: string, node: ReactNode) {
+  const [pre, post = ''] = sentence.split(token)
+
+  return (
+    <>
+      {pre}
+      {node}
+      {post}
+    </>
+  )
+}
 
 type Props = {
   teamId: string
@@ -127,14 +143,14 @@ export function TeamSkillsView({
       return (
         <EmptyState
           icon={Sparkles}
-          title="Skills"
-          description={
-            <>
-              The skills store is not configured. Set{' '}
-              <code className="px-1 py-0.5 bg-zGray-900/60 rounded">ATLAS_SKILLS_BUCKET</code> and
-              related S3 credentials on the backend to enable team-shared agent skills.
-            </>
-          }
+          title={t('Skills')}
+          description={withNode(
+            t(
+              'The skills store is not configured. Set {name} and related S3 credentials on the backend to enable team-shared agent skills.',
+            ),
+            '{name}',
+            <code className="px-1 py-0.5 bg-zGray-900/60 rounded">ATLAS_SKILLS_BUCKET</code>,
+          )}
         />
       )
     }
@@ -142,7 +158,7 @@ export function TeamSkillsView({
     return (
       <div className="px-6 py-8 flex items-start gap-2 text-[12px] text-red-400">
         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.8} />
-        <span>Failed to load skills: {state.message}</span>
+        <span>{t('Failed to load skills: {message}', { message: state.message })}</span>
       </div>
     )
   }
@@ -194,29 +210,27 @@ export function TeamSkillsView({
         {state.kind === 'ready' && rows.length === 0 && !filter.trim() ? (
           <EmptyState
             icon={Sparkles}
-            title="Skills"
+            title={t('Skills')}
             description={
-              scope === 'personal' ? (
-                <>
-                  Personal skills are yours in this team. Claude Code runtimes load them on your
-                  turns in agents you own, and never on another member&apos;s turn. A team skill
-                  with the same name is used instead. Move a skill to the team when everyone should
-                  have it.
-                </>
-              ) : (
-                <>
-                  Skills are reusable instructions that teach the agent how your team works. Ask the
-                  agent to create one, or upload skill directories under{' '}
-                  <code className="px-1 py-0.5 bg-zGray-900/60 rounded">skills/&lt;name&gt;/</code>{' '}
-                  to your team bucket.
-                </>
-              )
+              scope === 'personal'
+                ? t(
+                    "Personal skills are yours in this team. Claude Code runtimes load them on your turns in agents you own, and never on another member's turn. A team skill with the same name is used instead. Move a skill to the team when everyone should have it.",
+                  )
+                : withNode(
+                    t(
+                      'Skills are reusable instructions that teach the agent how your team works. Ask the agent to create one, or upload skill directories under {path} to your team bucket.',
+                    ),
+                    '{path}',
+                    <code className="px-1 py-0.5 bg-zGray-900/60 rounded">
+                      skills/&lt;name&gt;/
+                    </code>,
+                  )
             }
             agentAction={
               scope === 'personal'
                 ? undefined
                 : {
-                    label: 'Create a skill for me',
+                    label: t('Create a skill for me'),
                     prompt:
                       'Create a team skill for me — ask me what workflow or convention it should teach, then write and save it.',
                   }
@@ -234,7 +248,7 @@ export function TeamSkillsView({
               canDelete ? setMenu({ skill: row, x: event.clientX, y: event.clientY }) : undefined
             }
             storageKey="team-skills"
-            empty="No skills match your search."
+            empty={t('No skills match your search.')}
             columns={buildSkillColumns(scope === 'personal' ? teamNames : undefined)}
           />
         )}

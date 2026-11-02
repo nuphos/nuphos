@@ -55,6 +55,8 @@ extension ChatRow {
         let failure = shownFailure(in: messages)
         if session.sending != nil {
             rows.append(.sending)
+        } else if session.failedSubmission != nil {
+            rows.append(.failed)
         } else if session.isNativeRuntime {
             if let status = session.runtimeStatus, session.isStreaming || failure == nil {
                 rows.append(.activity(text: status, live: session.isStreaming))

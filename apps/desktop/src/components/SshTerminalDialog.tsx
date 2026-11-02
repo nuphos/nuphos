@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../api'
 import { useTheme } from '../hooks/useTheme'
+import { t } from '../i18n'
 import { trackError } from '../lib/analytics'
 
 import { Modal } from './Modal'
@@ -53,7 +54,7 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
     terminal.open(container)
     fitAddon.fit()
     terminal.focus()
-    terminal.writeln('Connecting…')
+    terminal.writeln(t('Connecting…'))
 
     let ready = false
     const dataDisposable = terminal.onData((data) => {
@@ -70,7 +71,7 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
           message: event.message,
           sessionId,
         })
-        terminal.writeln(`\r\nConnection error: ${event.message}`)
+        terminal.writeln(`\r\n${t('Connection error: {message}', { message: event.message })}`)
       } else if (event.type === 'replayed') {
         // A resumed shell already answered the queries in its replayed output;
         // hold input until xterm has parsed it, or its second answers land on
@@ -92,7 +93,7 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
           })
         }
 
-        terminal.writeln(`\r\nConnection closed (${detail}).`)
+        terminal.writeln(`\r\n${t('Connection closed ({detail}).', { detail })}`)
       }
     })
 

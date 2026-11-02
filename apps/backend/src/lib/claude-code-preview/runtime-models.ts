@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { fastChoicesSchema } from '@/lib/agent/devices/local-runtime/protocol'
 
 import { controlRegistry } from './agent-chat-registry'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
@@ -46,8 +47,8 @@ const runtimeModelCatalogSchema = z.object({
           }),
         )
         .max(100),
-      fast: z.boolean(),
-      defaultFast: z.enum(['on', 'off']).optional(),
+      fast: fastChoicesSchema,
+      defaultFast: z.string().max(100).optional(),
       defaultEffort: z.string().max(100).optional(),
     })
     .optional(),
@@ -174,6 +175,7 @@ async function observedModels(
         const result = await client.getSessionConfigOptions(id)
         const options = parseSessionConfigOptions(result.configOptions)
         const model = options.find((option) => option.kind === 'model')
+        const speeds = options.find((option) => option.kind === 'fast')?.options
 
         if (model?.options.length) {
           observed = runtimeModelCatalogSchema.parse({
@@ -196,11 +198,9 @@ async function observedModels(
                           name,
                           ...(description ? { description } : {}),
                         })) ?? [],
-                    fast: ['on', 'off'].every((value) =>
-                      options
-                        .find((o) => o.kind === 'fast')
-                        ?.options.some((o) => o.value === value),
-                    ),
+                    fast: speeds?.some((o) => o.value === 'off')
+                      ? speeds.map(({ value, name }) => ({ value, name }))
+                      : [],
                   },
                 }
               : {}),

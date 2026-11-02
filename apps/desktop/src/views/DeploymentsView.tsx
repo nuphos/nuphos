@@ -9,6 +9,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { runBulk } from '../lib/bulkActions'
 import { makeFilterMatcher } from '../lib/filterQuery'
 import { useK8sDeleteActions } from '../lib/k8sResourceActions'
@@ -127,21 +128,23 @@ export function DeploymentsView({
       ...(linkItems.length > 0 ? [{ key: 'sep0', separator: true } as const] : []),
       {
         key: 'env',
-        label: 'Edit environment',
+        label: t('Edit environment'),
         icon: faPen,
         onSelect: () => onSelect(deployment, 'Env'),
       },
       {
         key: 'scale',
-        label: 'Scale replicas',
+        label: t('Scale replicas'),
         icon: faSliders,
         onSelect: () => setScaleTarget({ deployment, context: actionContext }),
       },
       {
         key: 'restart',
-        label: 'Restart rollout',
+        label: t('Restart rollout'),
         icon: faRotateLeft,
-        confirm: `Restart deployment "${deployment.name}"? Kubernetes will roll out new pods.`,
+        confirm: t('Restart deployment "{name}"? Kubernetes will roll out new pods.', {
+          name: deployment.name,
+        }),
         onSelect: async () => {
           await api.restartDeployment(actionContext, deployment.namespace, deployment.name)
         },
@@ -174,18 +177,26 @@ export function DeploymentsView({
       )}
       <ConfirmDialog
         open={confirmRestart}
-        title="Restart rollout"
-        description={`Restart ${String(selectedItems.length)} deployment${selectedItems.length === 1 ? '' : 's'}? Kubernetes will roll out new pods for each.`}
-        confirmLabel="Restart"
+        title={t('Restart rollout')}
+        description={
+          selectedItems.length === 1
+            ? t('Restart {n} deployment? Kubernetes will roll out new pods for each.', {
+                n: selectedItems.length,
+              })
+            : t('Restart {n} deployments? Kubernetes will roll out new pods for each.', {
+                n: selectedItems.length,
+              })
+        }
+        confirmLabel={t('Restart')}
         onConfirm={async () => {
           const targets = selectedItems
 
           setConfirmRestart(false)
-          await runBulk(targets, (d) => api.restartDeployment(context, d.namespace, d.name), {
-            verbing: 'restart',
-            verbed: 'Restarted',
-            noun: 'deployment',
-          })
+          await runBulk(
+            targets,
+            (d) => api.restartDeployment(context, d.namespace, d.name),
+            t('Restart deployments'),
+          )
           clearSelection()
         }}
         onClose={() => setConfirmRestart(false)}
@@ -201,7 +212,7 @@ export function DeploymentsView({
             await runBulk(
               targets,
               (d) => api.scaleDeployment(context, d.namespace, d.name, replicas),
-              { verbing: 'scale', verbed: 'Scaled', noun: 'deployment' },
+              t('Scale deployments'),
             )
             clearSelection()
           }}
@@ -213,13 +224,13 @@ export function DeploymentsView({
         actions={[
           {
             key: 'restart',
-            label: 'Restart rollout',
+            label: t('Restart rollout'),
             icon: faRotateLeft,
             onClick: () => setConfirmRestart(true),
           },
           {
             key: 'scale',
-            label: 'Scale',
+            label: t('Scale'),
             icon: faSliders,
             onClick: () => setBulkScale(true),
           },

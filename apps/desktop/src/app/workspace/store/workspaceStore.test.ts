@@ -406,3 +406,37 @@ test('leaving a team drops its chats from Back and Forward', () => {
   actions.stepSurface(-1)
   assert.equal(store.getState().sessionId, 'session-a')
 })
+
+test('a closing split pane’s docks carry on in the pane that adopts them', () => {
+  const closing = setup()
+  const heir = setup()
+
+  for (const { actions } of [closing, heir]) actions.retainTeams([TEAM_A], TEAM_A)
+  closing.actions.selectSession('session-x')
+  closing.actions.openTab({ ...closing.createTab(TEAM_A), id: 'shell-x', active: 'team.terminal' })
+  closing.actions.selectSession('session-y')
+  closing.actions.openTab({ ...closing.createTab(TEAM_A), id: 'shell-y', active: 'team.terminal' })
+  heir.actions.selectSession('session-y')
+  heir.actions.openTab({ ...heir.createTab(TEAM_A), id: 'heir-y', active: 'team.terminal' })
+
+  heir.actions.adoptBuckets(closing.store.getState().buckets)
+  const state = heir.store.getState()
+
+  assert.deepEqual(tabIds(selectBucket(state, 'session-x').tabs), ['shell-x'])
+  // A chat both panes held keeps the heir's own tab first and in focus.
+  assert.deepEqual(tabIds(selectBucket(state, 'session-y').tabs), ['heir-y', 'shell-y'])
+  assert.equal(selectBucket(state, 'session-y').activeTabId, 'heir-y')
+  assert.equal(state.sessionId, 'session-y')
+})
+
+test('adopting docks the pane already holds changes nothing', () => {
+  const { store, actions } = setup()
+
+  actions.retainTeams([TEAM_A], TEAM_A)
+  actions.selectSession('session-x')
+  actions.openTab({ ...createWorkspaceTab(TEAM_A), id: 'shell-x' })
+  const before = store.getState()
+
+  actions.adoptBuckets(before.buckets)
+  assert.equal(store.getState(), before)
+})

@@ -22,7 +22,10 @@ class PendingLocalNotification {
     fun take(account: String?, team: String?, aiAllowed: Boolean): LocalNotificationTarget? {
         val target = mutable.value ?: return null
         if (account == null || team == null) return null
+        if (target.accountId != account || target.teamId != team) { clear(); return null }
+        // A transient consent lookup failure is not a denial; explicit revocation clears elsewhere.
+        if (!aiAllowed) return null
         clear()
-        return target.takeIf { aiAllowed && it.accountId == account && it.teamId == team }
+        return target
     }
 }

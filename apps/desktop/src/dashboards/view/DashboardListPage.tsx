@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ContextMenu } from '../../components/ContextMenu'
 import { EmptyState } from '../../components/EmptyState'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 
 import { RANGE_PRESETS, rangeLabel } from './helpers'
 
@@ -42,15 +43,17 @@ export function DashboardListPage({
     return (
       <EmptyState
         icon={LayoutGrid}
-        title="Dashboards"
-        description="Dashboards chart what matters to your team — cloud spend, AI usage, delivery, and system health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have the agent build it."
+        title={t('Dashboards')}
+        description={t(
+          'Dashboards chart what matters to your team — cloud spend, AI usage, delivery, and system health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have the agent build it.',
+        )}
         primaryAction={{
-          label: 'Create dashboard',
+          label: t('Create dashboard'),
           icon: Plus,
           onClick: () => void createDashboard(),
         }}
         agentAction={{
-          label: 'Build it for me',
+          label: t('Build it for me'),
           prompt:
             'Build me a Nuphos dashboard from my connected accounts — add a useful set of panels automatically.',
         }}
@@ -62,7 +65,7 @@ export function DashboardListPage({
   const columns: Column<NuphosDashboard>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       sortAccessor: (d) => d.name.toLowerCase(),
       render: (d) => (
         <span className="inline-flex items-center gap-2 text-main">
@@ -73,7 +76,7 @@ export function DashboardListPage({
     },
     {
       key: 'range',
-      header: 'Range',
+      header: t('Range'),
       width: 160,
       sortAccessor: (d) => d.rangePreset ?? d.timeRange.periodStart,
       render: (d) => (
@@ -87,7 +90,7 @@ export function DashboardListPage({
     },
     {
       key: 'updated',
-      header: 'Updated',
+      header: t('Updated'),
       width: 160,
       sortAccessor: (d) => d.updatedAt,
       render: (d) => (
@@ -108,7 +111,7 @@ export function DashboardListPage({
           items={[
             {
               key: 'delete',
-              label: 'Delete dashboard',
+              label: t('Delete dashboard'),
               icon: Trash2,
               destructive: true,
               // Confirmation is the richer ConfirmDialog below, not the menu's
@@ -127,17 +130,20 @@ export function DashboardListPage({
         storageKey="cost-dashboards"
         defaultSort={{ key: 'updated', dir: 'desc' }}
         loading={loading}
-        empty="No dashboards match."
+        empty={t('No dashboards match.')}
       />
       <ConfirmDialog
         open={dashboardToDelete !== null}
-        title="Delete dashboard?"
+        title={t('Delete dashboard?')}
         description={
           dashboardToDelete
-            ? `"${dashboardToDelete.name}" and all of its panels, snapshots, and alerts will be permanently deleted.`
+            ? t(
+                '"{name}" and all of its panels, snapshots, and alerts will be permanently deleted.',
+                { name: dashboardToDelete.name },
+              )
             : ''
         }
-        confirmLabel="Delete dashboard"
+        confirmLabel={t('Delete dashboard')}
         destructive
         onConfirm={() => (dashboardToDelete ? deleteDashboard(dashboardToDelete) : undefined)}
         onClose={() => setDashboardToDelete(null)}

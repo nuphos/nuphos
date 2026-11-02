@@ -1,3 +1,5 @@
+import { t } from '../../i18n'
+
 import { DetailBlock } from './DetailBlocks'
 
 import type { AgentMemoryItem } from '../../api'
@@ -5,11 +7,11 @@ import type { AgentMemoryItem } from '../../api'
 export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']> }) {
   return (
     <>
-      <DetailBlock label="Strategy">
+      <DetailBlock label={t('Strategy')}>
         <div className="text-main leading-relaxed">{gene.title}</div>
       </DetailBlock>
       {gene.triggerSignals.length > 0 && (
-        <DetailBlock label="Signals">
+        <DetailBlock label={t('Signals')}>
           <div className="flex flex-wrap gap-1.5">
             {gene.triggerSignals.map((s, i) => (
               <span key={i} className="px-2 py-1 rounded-md bg-zGray-850 text-secondary">
@@ -20,7 +22,7 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
         </DetailBlock>
       )}
       {gene.investigationPath.length > 0 && (
-        <DetailBlock label="Investigation path">
+        <DetailBlock label={t('Investigation path')}>
           <ol className="space-y-2">
             {gene.investigationPath.map((step, i) => (
               <li key={i} className="grid grid-cols-[18px_minmax(0,1fr)] gap-2">
@@ -28,7 +30,10 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
                 <span className="text-main leading-relaxed">
                   {step.action} <span className="text-tertiary">→ {step.check}</span>
                   {step.nextWhen ? (
-                    <span className="text-quaternary"> (next when: {step.nextWhen})</span>
+                    <span className="text-quaternary">
+                      {' '}
+                      {t('(next when: {when})', { when: step.nextWhen })}
+                    </span>
                   ) : null}
                 </span>
               </li>
@@ -37,18 +42,18 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
         </DetailBlock>
       )}
       {gene.traps.length > 0 && (
-        <DetailBlock label="Traps">
+        <DetailBlock label={t('Traps')}>
           <ul className="space-y-1 list-disc pl-4">
-            {gene.traps.map((t, i) => (
+            {gene.traps.map((trap, i) => (
               <li key={i} className="text-main leading-relaxed">
-                {t}
+                {trap}
               </li>
             ))}
           </ul>
         </DetailBlock>
       )}
       {gene.doNotUseWhen.length > 0 && (
-        <DetailBlock label="Do not use when">
+        <DetailBlock label={t('Do not use when')}>
           <ul className="space-y-1 list-disc pl-4">
             {gene.doNotUseWhen.map((d, i) => (
               <li key={i} className="text-main leading-relaxed">
@@ -59,7 +64,7 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
         </DetailBlock>
       )}
       {(gene.capsules?.length ?? 0) > 0 && (
-        <DetailBlock label={`Evidence (${String(gene.capsules!.length)})`}>
+        <DetailBlock label={t('Evidence ({count})', { count: gene.capsules!.length })}>
           <div className="space-y-2.5">
             {gene.capsules!.map((c, i) => (
               <div
@@ -70,15 +75,21 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
                   <span>{c.outcome}</span>
                   <span>·</span>
                   <span className="normal-case">{new Date(c.observedAt).toLocaleDateString()}</span>
-                  {c.planId && <span className="normal-case">· plan #{c.planId}</span>}
+                  {c.planId && (
+                    <span className="normal-case">{t('· plan #{id}', { id: c.planId })}</span>
+                  )}
                 </div>
                 <div className="text-main leading-relaxed">{c.problem}</div>
                 {c.rootCause && (
-                  <div className="text-secondary leading-relaxed">Root cause: {c.rootCause}</div>
+                  <div className="text-secondary leading-relaxed">
+                    {t('Root cause: {cause}', { cause: c.rootCause })}
+                  </div>
                 )}
                 {c.actions.length > 0 && (
                   <div>
-                    <div className="text-xs text-tertiary uppercase tracking-wide">Actions</div>
+                    <div className="text-xs text-tertiary uppercase tracking-wide">
+                      {t('Actions')}
+                    </div>
                     <ul className="space-y-1 list-disc pl-4">
                       {c.actions.map((a, j) => (
                         <li key={j} className="text-secondary leading-relaxed">
@@ -90,7 +101,9 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
                 )}
                 {c.verification.length > 0 && (
                   <div>
-                    <div className="text-xs text-tertiary uppercase tracking-wide">Verified by</div>
+                    <div className="text-xs text-tertiary uppercase tracking-wide">
+                      {t('Verified by')}
+                    </div>
                     <ul className="space-y-1 list-disc pl-4">
                       {c.verification.map((v, j) => (
                         <li key={j} className="text-secondary leading-relaxed">

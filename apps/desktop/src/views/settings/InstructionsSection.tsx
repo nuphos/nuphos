@@ -9,7 +9,8 @@ import { t } from '../../i18n'
 
 import { InstructionCard } from './InstructionCard'
 import { InstructionEditorDialog } from './InstructionEditorDialog'
-import { SectionHeader } from './shared'
+import { LoadFailed, SectionHeader } from './shared'
+import { useAdminName } from './useAdminName'
 
 import type { InstructionEditorTarget } from './InstructionEditorDialog'
 import type { AtlasTeam } from '../../types'
@@ -44,7 +45,8 @@ export function InstructionsSection({
   team: AtlasTeam | undefined
   scope: InstructionScope
 }) {
-  const { listing, loading, refresh } = useInstructions(team?.id)
+  const { listing, loading, failed, refresh } = useInstructions(team?.id)
+  const admin = useAdminName(team?.id, Boolean(listing && !listing.canManageTeam))
   const [editor, setEditor] = useState<InstructionEditorTarget | null>(null)
   const [deleting, setDeleting] = useState<Instruction | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -96,9 +98,13 @@ export function InstructionsSection({
           <div className="h-16 animate-pulse rounded-xl bg-zGray-800/40" />
         </div>
       )}
+      {failed && !listing && (
+        <LoadFailed message={t('Couldn’t load instructions.')} onRetry={refresh} />
+      )}
       {team && listing && (
         <InstructionGroup
           scope={scope}
+          admin={admin}
           items={listing[scope]}
           editable={canEdit(scope)}
           full={listing[scope].length >= listing.limits.snippetsPerScope}
@@ -136,6 +142,7 @@ export function InstructionsSection({
 
 function InstructionGroup({
   scope,
+  admin,
   items,
   editable,
   full,
@@ -146,6 +153,8 @@ function InstructionGroup({
   onDelete,
 }: {
   scope: InstructionScope
+  /** Who to ask when the viewer cannot edit; null until known. */
+  admin: string | null
   items: Instruction[]
   editable: boolean
   full: boolean
@@ -164,7 +173,8 @@ function InstructionGroup({
           <h2 className="text-[15px] font-semibold text-main">{group.title}</h2>
           <p className="mt-0.5 text-[12.5px] text-tertiary">
             {group.description}
-            {!editable && ` ${t('Only workspace administrators can change them.')}`}
+            {!editable &&
+              ` ${admin ? t('Only {name} can change them.', { name: admin }) : t('Only workspace administrators can change them.')}`}
           </p>
         </div>
         {editable && (
@@ -179,7 +189,9 @@ function InstructionGroup({
             ? scope === 'team'
               ? t('No team instructions yet.')
               : t('No personal instructions yet.')
-            : t('No team instructions yet. Ask a workspace administrator to add some.')}
+            : admin
+              ? t('No team instructions yet. Ask {name} to add some.', { name: admin })
+              : t('No team instructions yet. Ask a workspace administrator to add some.')}
         </p>
       ) : (
         <div className="space-y-3">

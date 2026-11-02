@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 
 import { Age } from '../../components/Age'
+import { t } from '../../i18n'
 import { parsePvSummary, parsePvcSummary, storagePhaseTone } from '../../lib/storageOverview'
 
 import { Field, OverviewChipList, Section } from './shared'
@@ -70,7 +71,7 @@ export function PvcOverview({
   const { doc, loading, error } = useResourceDoc(target, refreshKey)
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (loading) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (loading) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   const summary = parsePvcSummary(doc)
   const volumeName = summary.volumeName
@@ -82,24 +83,27 @@ export function PvcOverview({
   return (
     <div className="p-6 space-y-5">
       <Section>
-        <Field label="Phase" value={<StoragePhaseValue phase={summary.phase} />} />
+        <Field label={t('Phase')} value={<StoragePhaseValue phase={summary.phase} />} />
         <Field
-          label="Age"
+          label={t('Age')}
           value={
             summary.age ? <Age value={summary.age} /> : <span className="text-tertiary">-</span>
           }
         />
         <Field
-          label="Namespace"
+          label={t('Namespace')}
           value={<span className="text-zViolet-accent">{summary.namespace}</span>}
         />
-        <Field label="Storage Class" value={<StorageTextValue value={summary.storageClass} />} />
-        <Field label="Capacity" value={<StorageTextValue value={summary.capacity} />} />
-        <Field label="Requested" value={<StorageTextValue value={summary.requested} />} />
-        <Field label="Access Modes" value={<OverviewChipList chips={summary.accessModes} />} />
-        <Field label="Volume Mode" value={<StorageTextValue value={summary.volumeMode} />} />
         <Field
-          label="Volume"
+          label={t('Storage Class')}
+          value={<StorageTextValue value={summary.storageClass} />}
+        />
+        <Field label={t('Capacity')} value={<StorageTextValue value={summary.capacity} />} />
+        <Field label={t('Requested')} value={<StorageTextValue value={summary.requested} />} />
+        <Field label={t('Access Modes')} value={<OverviewChipList chips={summary.accessModes} />} />
+        <Field label={t('Volume Mode')} value={<StorageTextValue value={summary.volumeMode} />} />
+        <Field
+          label={t('Volume')}
           value={
             volumeName ? (
               <StorageNavValue label={volumeName} onClick={openVolume} />
@@ -109,10 +113,10 @@ export function PvcOverview({
           }
         />
       </Section>
-      <StorageChipCard label="Labels" chips={summary.labels} />
-      <StorageChipCard label="Annotations" chips={summary.annotations} />
+      <StorageChipCard label={t('Labels')} chips={summary.labels} />
+      <StorageChipCard label={t('Annotations')} chips={summary.annotations} />
       {summary.finalizers.length > 0 && (
-        <StorageChipCard label="Finalizers" chips={summary.finalizers} />
+        <StorageChipCard label={t('Finalizers')} chips={summary.finalizers} />
       )}
     </div>
   )
@@ -130,7 +134,7 @@ export function PvOverview({
   const { doc, loading, error } = useResourceDoc(target, refreshKey)
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (loading) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (loading) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   const summary = parsePvSummary(doc)
   const claim = summary.claim
@@ -154,20 +158,26 @@ export function PvOverview({
   return (
     <div className="p-6 space-y-5">
       <Section>
-        <Field label="Phase" value={<StoragePhaseValue phase={summary.phase} />} />
+        <Field label={t('Phase')} value={<StoragePhaseValue phase={summary.phase} />} />
         <Field
-          label="Age"
+          label={t('Age')}
           value={
             summary.age ? <Age value={summary.age} /> : <span className="text-tertiary">-</span>
           }
         />
-        <Field label="Capacity" value={<StorageTextValue value={summary.capacity} />} />
-        <Field label="Storage Class" value={<StorageTextValue value={summary.storageClass} />} />
-        <Field label="Access Modes" value={<OverviewChipList chips={summary.accessModes} />} />
-        <Field label="Reclaim Policy" value={<StorageTextValue value={summary.reclaimPolicy} />} />
-        <Field label="Volume Mode" value={<StorageTextValue value={summary.volumeMode} />} />
+        <Field label={t('Capacity')} value={<StorageTextValue value={summary.capacity} />} />
         <Field
-          label="Claim"
+          label={t('Storage Class')}
+          value={<StorageTextValue value={summary.storageClass} />}
+        />
+        <Field label={t('Access Modes')} value={<OverviewChipList chips={summary.accessModes} />} />
+        <Field
+          label={t('Reclaim Policy')}
+          value={<StorageTextValue value={summary.reclaimPolicy} />}
+        />
+        <Field label={t('Volume Mode')} value={<StorageTextValue value={summary.volumeMode} />} />
+        <Field
+          label={t('Claim')}
           value={
             claimLabel ? (
               <StorageNavValue label={claimLabel} onClick={openClaim} />
@@ -179,21 +189,24 @@ export function PvOverview({
       </Section>
       {summary.csi && (
         <Section>
-          <Field label="CSI Driver" value={<StorageTextValue value={summary.csi.driver} />} />
-          <Field label="FS Type" value={<StorageTextValue value={summary.csi.fsType ?? '-'} />} />
+          <Field label={t('CSI Driver')} value={<StorageTextValue value={summary.csi.driver} />} />
           <Field
-            label="Volume Handle"
+            label={t('FS Type')}
+            value={<StorageTextValue value={summary.csi.fsType ?? '-'} />}
+          />
+          <Field
+            label={t('Volume Handle')}
             value={<StorageTextValue value={summary.csi.volumeHandle ?? '-'} />}
           />
         </Section>
       )}
-      <StorageChipCard label="Labels" chips={summary.labels} />
-      <StorageChipCard label="Annotations" chips={summary.annotations} />
+      <StorageChipCard label={t('Labels')} chips={summary.labels} />
+      <StorageChipCard label={t('Annotations')} chips={summary.annotations} />
       {summary.mountOptions.length > 0 && (
-        <StorageChipCard label="Mount Options" chips={summary.mountOptions} />
+        <StorageChipCard label={t('Mount Options')} chips={summary.mountOptions} />
       )}
       {summary.finalizers.length > 0 && (
-        <StorageChipCard label="Finalizers" chips={summary.finalizers} />
+        <StorageChipCard label={t('Finalizers')} chips={summary.finalizers} />
       )}
     </div>
   )

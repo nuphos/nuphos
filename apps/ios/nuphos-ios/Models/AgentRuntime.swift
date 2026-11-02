@@ -4,7 +4,21 @@ import Foundation
 /// (`GET /teams/:id/agent-runtimes`): a Cloud runtime, or one of the
 /// signed-in user's own computers (`kind == "local"`).
 struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
-    enum Provider: String, Codable, Sendable { case claudeCode = "claude-code", codex, grok, antigravity, opencode }
+    /// Preserve a future provider identifier instead of rejecting the whole runtime catalog.
+    struct Provider: RawRepresentable, Codable, Hashable, Sendable {
+        let rawValue: String
+        init(rawValue: String) { self.rawValue = rawValue }
+        init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
+        static let claudeCode = Self(rawValue: "claude-code")
+        static let codex = Self(rawValue: "codex")
+        static let grok = Self(rawValue: "grok")
+        static let antigravity = Self(rawValue: "antigravity")
+        static let opencode = Self(rawValue: "opencode")
+    }
     enum Status: String, Codable, Sendable { case active, disabled }
 
     struct Local: Codable, Equatable, Hashable, Sendable {
@@ -19,6 +33,8 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         let signedIn: Bool?
         /// Present when it is a teammate's own computer shared with this person.
         var shared: Shared? = nil
+        /// Its computer opens its own desktop on request; only `ownerUserId` may open it.
+        var desktopOpen: Bool? = nil
     }
 
     /// How a teammate shares their computer: `approve` asks them before each conversation runs.
@@ -82,12 +98,20 @@ extension RuntimeInstance.Provider {
     /// Asset catalog mark: Claude's for Claude Code, OpenAI's for Codex.
     static func logo(_ raw: String?) -> String {
         switch raw {
+        case "claude-code": "logo-claude"
         case "codex": "logo-openai"
         case "grok": "logo-grok"
         case "antigravity": "logo-antigravity"
         case "opencode": "logo-opencode"
-        default: "logo-claude"
+        default: "logo-runtime"
         }
+    }
+
+    /// Provider and instance are separate identities, even when an instance has a custom name.
+    static func detail(_ raw: String?, instance: String?) -> String {
+        let provider = name(raw)
+        guard let instance, !instance.isEmpty, instance != provider else { return provider }
+        return "\(provider) · \(instance)"
     }
 
     static func name(_ raw: String?) -> String {
@@ -98,7 +122,7 @@ extension RuntimeInstance.Provider {
         case "antigravity": "Antigravity"
         case "opencode": "OpenCode"
         case "nuphos": "Nuphos"
-        default: raw?.capitalized ?? "Runtime"
+        default: raw?.isEmpty == false ? "Unknown runtime" : "Runtime"
         }
     }
 }
@@ -181,7 +205,7 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     }
 
     var model: Option? { options.first { $0.kind == .model } }
-    var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue == "on" } }
+    var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue != "off" } }
 
     /// Writes restore a dormant session, so its remembered settings stay editable.
     var isEditable: Bool { [.ready, .busy, .dormant].contains(status) && !options.isEmpty }

@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 
 import { api } from '../../api'
 import { Age } from '../../components/Age'
+import { t } from '../../i18n'
 import { runBulk } from '../../lib/bulkActions'
 import { cronJobPhase } from '../../lib/workloadStatus'
 
@@ -25,17 +26,21 @@ export function CronJobsView(props: NamespacedProps<CronJobItem>) {
     (cronJob, context) => [
       {
         key: 'trigger-cronjob',
-        label: 'Trigger job',
+        label: t('Trigger job'),
         icon: Play,
         onSelect: () => setTriggerTarget({ cronJob, context }),
       },
       {
         key: 'toggle-suspend-cronjob',
-        label: cronJob.suspend ? 'Resume schedule' : 'Suspend schedule',
+        label: cronJob.suspend ? t('Resume schedule') : t('Suspend schedule'),
         icon: cronJob.suspend ? Play : Pause,
         confirm: cronJob.suspend
-          ? `Resume CronJob "${cronJob.namespace}/${cronJob.name}"? Scheduled jobs will run again.`
-          : `Suspend CronJob "${cronJob.namespace}/${cronJob.name}"? No new jobs will be scheduled until resumed.`,
+          ? t('Resume CronJob "{name}"? Scheduled jobs will run again.', {
+              name: `${cronJob.namespace}/${cronJob.name}`,
+            })
+          : t('Suspend CronJob "{name}"? No new jobs will be scheduled until resumed.', {
+              name: `${cronJob.namespace}/${cronJob.name}`,
+            }),
         onSelect: async () => {
           await api.setCronJobSuspend(context, cronJob.namespace, cronJob.name, !cronJob.suspend)
         },
@@ -58,42 +63,65 @@ export function CronJobsView(props: NamespacedProps<CronJobItem>) {
         bulkActions={(selected, clear, ctx) => [
           {
             key: 'suspend',
-            label: 'Suspend',
+            label: t('Suspend'),
             icon: faPause,
-            confirm: `Suspend ${String(selected.length)} CronJob${selected.length === 1 ? '' : 's'}? Scheduled runs stop until resumed.`,
+            confirm:
+              selected.length === 1
+                ? t('Suspend {n} CronJob? Scheduled runs stop until resumed.', { n: 1 })
+                : t('Suspend {n} CronJobs? Scheduled runs stop until resumed.', {
+                    n: selected.length,
+                  }),
             onClick: async () => {
               await runBulk(
                 selected,
                 (c) => api.setCronJobSuspend(ctx, c.namespace, c.name, true),
-                { verbing: 'suspend', verbed: 'Suspended', noun: 'CronJob' },
+                t('Suspend CronJobs'),
               )
               clear()
             },
           },
           {
             key: 'resume',
-            label: 'Resume',
+            label: t('Resume'),
             icon: faPlay,
-            confirm: `Resume ${String(selected.length)} CronJob${selected.length === 1 ? '' : 's'}? Scheduling continues from each CronJob's cron expression.`,
+            confirm:
+              selected.length === 1
+                ? t(
+                    "Resume {n} CronJob? Scheduling continues from each CronJob's cron expression.",
+                    { n: 1 },
+                  )
+                : t(
+                    "Resume {n} CronJobs? Scheduling continues from each CronJob's cron expression.",
+                    { n: selected.length },
+                  ),
             onClick: async () => {
               await runBulk(
                 selected,
                 (c) => api.setCronJobSuspend(ctx, c.namespace, c.name, false),
-                { verbing: 'resume', verbed: 'Resumed', noun: 'CronJob' },
+                t('Resume CronJobs'),
               )
               clear()
             },
           },
           {
             key: 'trigger',
-            label: 'Trigger',
+            label: t('Trigger|action'),
             icon: faBolt,
-            confirm: `Trigger ${String(selected.length)} CronJob${selected.length === 1 ? '' : 's'} now? This immediately creates ${String(selected.length)} Job${selected.length === 1 ? '' : 's'} and cannot be undone.`,
+            confirm:
+              selected.length === 1
+                ? t(
+                    'Trigger {n} CronJob now? This immediately creates {n} Job and cannot be undone.',
+                    { n: 1 },
+                  )
+                : t(
+                    'Trigger {n} CronJobs now? This immediately creates {n} Jobs and cannot be undone.',
+                    { n: selected.length },
+                  ),
             onClick: async () => {
               await runBulk(
                 selected,
                 (c) => api.triggerCronJob(ctx, c.namespace, c.name, defaultJobName(c.name)),
-                { verbing: 'trigger', verbed: 'Triggered', noun: 'CronJob' },
+                t('Trigger CronJobs'),
               )
               clear()
             },
@@ -110,7 +138,7 @@ export function CronJobsView(props: NamespacedProps<CronJobItem>) {
         columns={[
           {
             key: 'schedule',
-            header: 'Schedule',
+            header: t('Schedule'),
             width: 160,
             sortAccessor: (r) => r.schedule,
             render: (r) => (
@@ -119,26 +147,26 @@ export function CronJobsView(props: NamespacedProps<CronJobItem>) {
           },
           {
             key: 'suspend',
-            header: 'Suspend',
+            header: t('Suspend|state'),
             width: 90,
             sortAccessor: (r) => r.suspend,
             render: (r) =>
               r.suspend ? (
-                <span className="text-warning">Yes</span>
+                <span className="text-warning">{t('Yes')}</span>
               ) : (
-                <span className="text-tertiary">No</span>
+                <span className="text-tertiary">{t('No')}</span>
               ),
           },
           {
             key: 'active',
-            header: 'Active',
+            header: t('Active'),
             width: 80,
             sortAccessor: (r) => r.active,
             render: (r) => r.active,
           },
           {
             key: 'last_schedule',
-            header: 'Last Schedule',
+            header: t('Last Schedule'),
             width: 140,
             sortAccessor: (r) => r.last_schedule ?? '',
             render: (r) => (

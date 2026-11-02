@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppSelect } from '../../components/ui/select'
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 import { useResourceList } from '../useResourceList'
 
@@ -25,11 +26,11 @@ import type {
 // TimeSeriesPanel. Data comes straight from the Monitoring v3 API via the
 // bound connector; no Grafana involved.
 const GCP_ALIGNERS = [
-  { value: 'ALIGN_MEAN', label: 'Mean' },
-  { value: 'ALIGN_MAX', label: 'Max' },
-  { value: 'ALIGN_MIN', label: 'Min' },
-  { value: 'ALIGN_SUM', label: 'Sum' },
-  { value: 'ALIGN_RATE', label: 'Rate' },
+  { value: 'ALIGN_MEAN', label: t('Mean') },
+  { value: 'ALIGN_MAX', label: t('Max') },
+  { value: 'ALIGN_MIN', label: t('Min') },
+  { value: 'ALIGN_SUM', label: t('Sum') },
+  { value: 'ALIGN_RATE', label: t('Rate') },
   { value: 'ALIGN_PERCENTILE_95', label: 'P95' },
   { value: 'ALIGN_PERCENTILE_99', label: 'P99' },
 ] as const
@@ -199,7 +200,7 @@ export function GcpMetricsExplorerView({
             setService(v)
             setMetricType('')
           }}
-          placeholder={descriptorsLoading ? 'Loading services…' : 'Service'}
+          placeholder={descriptorsLoading ? t('Loading services…') : t('Service')}
           disabled={!descriptors || services.length === 0}
           triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[220px]"
           options={services.map((s) => ({ value: s, label: s }))}
@@ -207,7 +208,7 @@ export function GcpMetricsExplorerView({
         <AppSelect
           value={metricType}
           onValueChange={setMetricType}
-          placeholder="Metric"
+          placeholder={t('Metric')}
           disabled={!service}
           triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[260px]"
           options={serviceMetrics.map((d) => ({
@@ -232,14 +233,14 @@ export function GcpMetricsExplorerView({
       ) : !metricType ? (
         <div className="flex-1 flex items-center justify-center text-[13px] text-tertiary px-8 text-center">
           {descriptorsLoading
-            ? 'Listing metric descriptors…'
+            ? t('Listing metric descriptors…')
             : descriptors && services.length === 0
-              ? 'No Cloud Monitoring metrics found in this project.'
-              : 'Pick a service and metric to chart every series it emits.'}
+              ? t('No Cloud Monitoring metrics found in this project.')
+              : t('Pick a service and metric to chart every series it emits.')}
         </div>
       ) : seriesLoading && !series ? (
         <div className="flex-1 flex items-center justify-center text-[13px] text-tertiary">
-          Loading time series…
+          {t('Loading time series…')}
         </div>
       ) : (
         <MetricSeriesCard
@@ -247,12 +248,14 @@ export function GcpMetricsExplorerView({
           subtitle={
             <>
               {GCP_ALIGNERS.find((a) => a.value === aligner)?.label ?? aligner} ·{' '}
-              {series?.length ?? 0} series
+              {t('{count} series', { count: series?.length ?? 0 })}
               {truncatedSeries > 0
-                ? ` (showing first ${String(EXPLORER_MAX_SERIES)}, ${String(truncatedSeries)} more hidden)`
+                ? ` (${t('showing first {shown}, {hidden} more hidden', { shown: String(EXPLORER_MAX_SERIES), hidden: String(truncatedSeries) })})`
                 : ''}
-              {seriesTruncated ? ' · partial result (pagination limit reached)' : ''}
-              {selectedDescriptor?.unit ? ` · unit: ${selectedDescriptor.unit}` : ''}
+              {seriesTruncated ? ` · ${t('partial result (pagination limit reached)')}` : ''}
+              {selectedDescriptor?.unit
+                ? ` · ${t('unit: {unit}', { unit: selectedDescriptor.unit })}`
+                : ''}
             </>
           }
           frames={frames}

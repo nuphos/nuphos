@@ -1,6 +1,7 @@
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { LOG_RETENTION_OPTIONS } from './log-helpers'
 
@@ -22,10 +23,16 @@ export function LogRetentionModal({
   onSave: () => void
 }) {
   return (
-    <Modal open onClose={onCancel} title="Set log retention" description={group.name} width={380}>
+    <Modal
+      open
+      onClose={onCancel}
+      title={t('Set log retention')}
+      description={group.name}
+      width={380}
+    >
       <div className="px-5 py-4 text-[13px]">
         <label className="block">
-          <div className="text-[12px] text-secondary mb-1">Retention period</div>
+          <div className="text-[12px] text-secondary mb-1">{t('Retention period')}</div>
           <AppSelect
             value={value}
             onValueChange={onValueChange}
@@ -41,10 +48,10 @@ export function LogRetentionModal({
           disabled={saving}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" type="button" onClick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('Saving…') : t('Save')}
         </Button>
       </div>
     </Modal>

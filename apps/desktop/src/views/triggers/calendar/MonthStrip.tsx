@@ -2,6 +2,8 @@ import { motion } from 'framer-motion'
 import { Webhook } from 'lucide-react'
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
 
+import { locale, t } from '../../../i18n'
+
 import {
   addDays,
   dayKey,
@@ -19,8 +21,8 @@ import { useStripPager } from './useStripPager'
 import type { ScheduleEvent } from './model'
 import type { AgentTrigger } from '../../../api'
 
-const WEEKDAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTH_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short' })
+const WEEKDAY_HEADERS = [t('Sun'), t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat')]
+const MONTH_DAY = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' })
 // Fixed chip budget per cell; the tail collapses into "+N more". Room enough
 // for the common case without letting an hourly trigger flood the row.
 const MAX_CHIPS_PER_DAY = 3
@@ -186,7 +188,7 @@ function MonthCell({
   const hidden = events.length - visible.length
   // The 1st carries its month name so week rows spanning two months stay
   // readable without glancing back at the title.
-  const label = day.getDate() === 1 ? `${MONTH_SHORT.format(day)} 1` : String(day.getDate())
+  const label = day.getDate() === 1 ? MONTH_DAY.format(day) : String(day.getDate())
 
   return (
     <div
@@ -229,7 +231,11 @@ function MonthCell({
           </button>
         )
       })}
-      {hidden > 0 && <div className="px-1 text-[10.5px] text-tertiary">+{hidden} more</div>}
+      {hidden > 0 && (
+        <div className="px-1 text-[10.5px] text-tertiary">
+          {t('+{count} more', { count: hidden })}
+        </div>
+      )}
     </div>
   )
 }

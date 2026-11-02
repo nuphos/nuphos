@@ -219,20 +219,34 @@ test('own merges update the linked tag state even though they never wake a sessi
     ...base,
     action: 'closed',
     sender: { type: 'Bot', login: 'nuphos[bot]' },
-    pull_request: { number: 56, state: 'closed', merged: true },
+    pull_request: {
+      number: 56,
+      state: 'closed',
+      merged: true,
+      merged_at: '2026-10-29T03:12:00Z',
+    },
   }
 
   expect(githubResourceEvents('pull_request', merged)).toEqual([])
   expect(githubPullState('pull_request', merged)).toEqual({
     key: 'github/12/34/56',
     state: 'merged',
+    draft: false,
+    mergedAt: '2026-10-29T03:12:00Z',
   })
   expect(
     githubPullState('pull_request', {
       ...merged,
-      pull_request: { number: 56, state: 'closed', merged: false },
-    })?.state,
-  ).toBe('closed')
+      pull_request: { number: 56, state: 'closed', merged: false, merged_at: null },
+    }),
+  ).toEqual({ key: 'github/12/34/56', state: 'closed', draft: false })
+  // A merge time that is not a time is left out rather than stored.
+  expect(
+    githubPullState('pull_request', {
+      ...merged,
+      pull_request: { number: 56, state: 'closed', merged: true, merged_at: 'soon' },
+    }),
+  ).toEqual({ key: 'github/12/34/56', state: 'merged', draft: false })
   expect(
     githubPullState('pull_request', {
       ...merged,

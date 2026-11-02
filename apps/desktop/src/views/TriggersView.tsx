@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { TriggerCalendar } from './triggers/calendar/TriggerCalendar'
 import { PageViewSwitch } from './triggers/PageViewSwitch'
@@ -84,7 +85,7 @@ export function TriggersView({
   // to the list otherwise — the same rule the breadcrumb's Triggers crumb uses.
   const closeForm = () => setTriggerForm(null)
   const newTriggerAction = {
-    label: 'New trigger',
+    label: t('New trigger'),
     icon: Plus,
     onClick: () => setTriggerForm({ kind: 'create' }),
   }
@@ -97,13 +98,13 @@ export function TriggersView({
         prev.kind === 'ready'
           ? {
               ...prev,
-              triggers: prev.triggers.map((t) => (t.id === triggerId ? { ...t, ...updated } : t)),
+              triggers: prev.triggers.map((x) => (x.id === triggerId ? { ...x, ...updated } : x)),
             }
           : prev,
       )
     } catch (err) {
-      toast.apiError('Could not update trigger', err, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Could not update trigger'), err, {
+        fallback: t('Check your connection and try again.'),
       })
     }
   }
@@ -125,8 +126,9 @@ export function TriggersView({
       {membersFailed && (
         <div className="mb-2 flex items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11.5px] text-warning">
           <span>
-            Could not load team roles, so managing Triggers is unavailable. This is a loading
-            problem, not a permission one.
+            {t(
+              'Could not load team roles, so managing Triggers is unavailable. This is a loading problem, not a permission one.',
+            )}
           </span>
           <Button
             type="button"
@@ -134,7 +136,7 @@ export function TriggersView({
             size="sm"
             onClick={() => setMembersReloadKey((key) => key + 1)}
           >
-            Retry
+            {t('Retry')}
           </Button>
         </div>
       )}
@@ -178,7 +180,7 @@ export function TriggersView({
 
       {!triggerForm && triggerDetail && teamId && (
         <TriggerDetail
-          trigger={triggers.find((t) => t.id === triggerDetail.triggerId)}
+          trigger={triggers.find((x) => x.id === triggerDetail.triggerId)}
           listStatus={listState.kind}
           teamId={teamId}
           canManage={canManage}
@@ -250,8 +252,7 @@ export function TriggersView({
                 ? { ...prev, triggers: [trigger, ...prev.triggers] }
                 : { kind: 'ready', triggers: [trigger], groups: [] },
             )
-            // A brand-new trigger has no runs, but its detail page is where
-            // you go next — Run now lives there.
+            // A new trigger's detail page is where you go next — Run now lives there.
             setTriggerDetail({ triggerId: trigger.id, triggerName: trigger.name })
             closeForm()
           }}
@@ -269,14 +270,13 @@ export function TriggersView({
               prev.kind === 'ready'
                 ? {
                     ...prev,
-                    triggers: prev.triggers.map((t) =>
-                      t.id === trigger.id ? { ...t, ...trigger } : t,
+                    triggers: prev.triggers.map((x) =>
+                      x.id === trigger.id ? { ...x, ...trigger } : x,
                     ),
                   }
                 : prev,
             )
-            // A rename has to reach the breadcrumb, which is reading the name
-            // that was captured when the form opened.
+            // A rename has to reach the breadcrumb, which holds the name from when the form opened.
             if (triggerForm.returnToDetail) {
               setTriggerDetail({ triggerId: trigger.id, triggerName: trigger.name })
             }
@@ -285,7 +285,7 @@ export function TriggersView({
           onDeleted={(triggerId) => {
             setListState((prev) =>
               prev.kind === 'ready'
-                ? { ...prev, triggers: prev.triggers.filter((t) => t.id !== triggerId) }
+                ? { ...prev, triggers: prev.triggers.filter((x) => x.id !== triggerId) }
                 : prev,
             )
             // Nothing left to name on the breadcrumb.

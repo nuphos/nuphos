@@ -1,5 +1,6 @@
 import { applyVariableRegex, normalizeDashboard, substituteVars } from '../model'
 import { buildPanelQueryGroups } from '../panelQuery'
+import { t } from '../../i18n/index.ts'
 import { createReportedError } from '../../lib/frontendErrorReporter'
 
 import { framesFromResults, proxy } from './base'
@@ -58,7 +59,7 @@ export async function queryVariableOptions(
     throw createReportedError({
       source: 'grafana',
       phase: 'unsupported_variable_query',
-      message: `Unsupported variable query: ${variable.query}`,
+      message: t('Unsupported variable query: {query}', { query: variable.query }),
     })
   }
   const uid = substituteVars(variable.datasource.uid, vars)
@@ -77,7 +78,7 @@ export async function queryVariableOptions(
     throw createReportedError({
       source: 'grafana',
       phase: 'variable_query_result_error',
-      message: res.error || `Variable query failed (status: ${res.status})`,
+      message: res.error || t('Variable query failed (status: {status})', { status: res.status }),
       status: res.status,
     })
   }

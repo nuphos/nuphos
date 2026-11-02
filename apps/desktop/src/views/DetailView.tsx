@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
+import { t } from '../i18n'
 
 import { EventsTab } from './detail/events-tab'
 import { OverviewTabContent } from './detail/overview-router'
@@ -19,6 +20,14 @@ import type { PodPort } from '../types'
 import type { DetailTarget } from './detail/target'
 
 export type { DetailTarget } from './detail/target'
+
+const TAB_LABELS: Record<string, string> = {
+  Overview: t('Overview'),
+  Logs: t('Logs'),
+  Terminal: t('Terminal'),
+  YAML: t('YAML'),
+  Events: t('Events'),
+}
 
 type Props = {
   target: DetailTarget
@@ -176,7 +185,7 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
                 onClick={() => void handleOpenPortForward()}
                 disabled={portForwardLoading}
                 className="text-secondary hover:text-main w-7 h-7 flex items-center justify-center rounded hover:bg-zGray-800 disabled:opacity-50"
-                title="Port forward"
+                title={t('Port forward')}
               >
                 <Network className="w-4 h-4" strokeWidth={2} />
               </button>
@@ -184,33 +193,33 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
             <button
               onClick={onClose}
               className="text-secondary hover:text-main w-7 h-7 flex items-center justify-center rounded hover:bg-zGray-800"
-              title="Close details"
+              title={t('Close details')}
             >
               <X className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
         </div>
         <div className="-mx-6 mt-4 flex gap-1 border-b border-zGray-800 px-3">
-          {tabs.map((t) => (
+          {tabs.map((tabName) => (
             <button
-              key={t}
+              key={tabName}
               onPointerDown={(event) => {
                 if (event.button !== 0) return
-                setTab(t)
+                setTab(tabName)
               }}
               onClick={(event) => {
                 // Keyboard only — pointer presses already fired at pointerdown.
                 if (event.detail !== 0) return
-                setTab(t)
+                setTab(tabName)
               }}
               className={clsx(
                 'px-3 py-2 text-[12.5px] -mb-px border-b-2 transition-colors',
-                tab === t
+                tab === tabName
                   ? 'border-zViolet-accent text-main'
                   : 'border-transparent text-secondary hover:text-main',
               )}
             >
-              {t}
+              {TAB_LABELS[tabName] ?? tabName}
             </button>
           ))}
         </div>

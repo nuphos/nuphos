@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Age } from '../../components/Age'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { healthClass, replicaTone } from '../../lib/k8sHealth'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { useResetOnKey } from '../useResetOnKey'
@@ -60,18 +61,18 @@ function workloadTone({
 }
 
 function workloadHealthTitle(tone: HealthTone, desired: number, jobState: JobState | null) {
-  if (jobState === 'complete') return 'Run completed'
-  if (jobState === 'failed') return 'Run failed'
-  if (jobState === 'suspended') return 'Run suspended'
-  if (jobState === 'completing') return 'Run completing'
-  if (jobState === 'running') return 'Run in progress'
-  if (jobState === 'pending') return 'Run pending'
-  if (desired === 0) return 'Scaled to zero'
-  if (tone === 'success') return 'Fully available'
-  if (tone === 'error') return 'Capacity unavailable'
-  if (tone === 'warning') return 'Rollout still converging'
+  if (jobState === 'complete') return t('Run completed')
+  if (jobState === 'failed') return t('Run failed')
+  if (jobState === 'suspended') return t('Run suspended')
+  if (jobState === 'completing') return t('Run completing')
+  if (jobState === 'running') return t('Run in progress')
+  if (jobState === 'pending') return t('Run pending')
+  if (desired === 0) return t('Scaled to zero')
+  if (tone === 'success') return t('Fully available')
+  if (tone === 'error') return t('Capacity unavailable')
+  if (tone === 'warning') return t('Rollout still converging')
 
-  return 'Inactive'
+  return t('Inactive')
 }
 
 function metricTone(value: number, desired: number): HealthTone {
@@ -138,7 +139,7 @@ export function WorkloadOverview({
   ])
 
   if (error) return <div className="p-6 text-error text-[13px]">{error}</div>
-  if (!yamlText) return <div className="p-6 text-tertiary text-[13px]">Loading…</div>
+  if (!yamlText) return <div className="p-6 text-tertiary text-[13px]">{t('Loading…')}</div>
 
   const summary = parseWorkloadSummary(yamlText, target)
   const topology = parseResourceTopology(yamlText, target)
@@ -154,9 +155,13 @@ export function WorkloadOverview({
       ? `${String(summary.observedGeneration)}/${String(summary.generation)}`
       : String(summary.generation)
     : '-'
-  const readyLabel = isJob ? 'Succeeded' : 'Ready'
-  const availableLabel = isJob ? 'Active' : 'Available'
-  const updatedLabel = isJob ? 'Failed' : target.kind === 'ReplicaSet' ? 'Current' : 'Updated'
+  const readyLabel = isJob ? t('Succeeded') : t('Ready')
+  const availableLabel = isJob ? t('Active') : t('Available')
+  const updatedLabel = isJob
+    ? t('Failed')
+    : target.kind === 'ReplicaSet'
+      ? t('Current')
+      : t('Updated')
   const readyTone =
     isJob && summary.ready >= summary.desired
       ? 'neutral'
@@ -175,7 +180,7 @@ export function WorkloadOverview({
   return (
     <OperationsCanvas>
       <OperationsHero
-        eyebrow={`${summary.kind} health`}
+        eyebrow={t('{kind} health', { kind: summary.kind })}
         title={workloadHealthTitle(tone, summary.desired, summary.jobState)}
         tone={tone}
         badge={
@@ -188,29 +193,40 @@ export function WorkloadOverview({
         }
         description={
           isJob
-            ? `${String(summary.available)} active · ${String(summary.updated)} failed attempts`
-            : `${String(summary.available)} available · ${String(summary.updated)} updated · ${summary.update} strategy`
+            ? t('{active} active · {failed} failed attempts', {
+                active: summary.available,
+                failed: summary.updated,
+              })
+            : t('{available} available · {updated} updated · {strategy} strategy', {
+                available: summary.available,
+                updated: summary.updated,
+                strategy: summary.update,
+              })
         }
         facts={[
           { label: readyLabel, value: `${String(summary.ready)} / ${String(summary.desired)}` },
           {
             label: availableLabel,
             value: String(summary.available),
-            detail: `${String(summary.desired)} desired`,
+            detail: t('{count} desired', { count: summary.desired }),
           },
           {
             label: updatedLabel,
             value: String(summary.updated),
             detail: isJob
-              ? 'controller attempts'
+              ? t('controller attempts')
               : target.kind === 'ReplicaSet'
-                ? 'observed replicas'
-                : 'current revision',
+                ? t('observed replicas')
+                : t('current revision'),
           },
-          { label: 'Strategy', value: summary.update, detail: `generation ${generationText}` },
-          { label: 'Age', value: summary.createdAt ? <Age value={summary.createdAt} /> : '-' },
           {
-            label: 'Namespace',
+            label: t('Strategy'),
+            value: summary.update,
+            detail: t('generation {generation}', { generation: generationText }),
+          },
+          { label: t('Age'), value: summary.createdAt ? <Age value={summary.createdAt} /> : '-' },
+          {
+            label: t('Namespace'),
             value: <span className="text-zViolet-accent">{summary.namespace}</span>,
           },
         ]}
@@ -219,9 +235,9 @@ export function WorkloadOverview({
       <OperationsGrid>
         {target.namespace && (
           <OperationsPanel
-            title="Live Pods"
-            description="Pods currently matching this workload selector"
-            meta={summary.selector.length > 0 ? 'selector matched' : undefined}
+            title={t('Live Pods')}
+            description={t('Pods currently matching this workload selector')}
+            meta={summary.selector.length > 0 ? t('selector matched') : undefined}
             icon={<Boxes className="h-3.5 w-3.5" strokeWidth={1.8} />}
             className="@5xl:col-span-8"
             bodyClassName="h-[390px] min-h-0"
@@ -236,9 +252,11 @@ export function WorkloadOverview({
         )}
 
         <OperationsPanel
-          title={isJob ? 'Run progress' : 'Rollout convergence'}
+          title={isJob ? t('Run progress') : t('Rollout convergence')}
           description={
-            isJob ? 'Completions and controller activity' : 'Desired state against observed state'
+            isJob
+              ? t('Completions and controller activity')
+              : t('Desired state against observed state')
           }
           icon={<Activity className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className={target.namespace ? '@5xl:col-span-4' : '@5xl:col-span-12'}
@@ -266,16 +284,16 @@ export function WorkloadOverview({
           </div>
           <div className="mt-5 border-t border-zGray-800 pt-4">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              Conditions
+              {t('Conditions')}
             </div>
-            <OverviewChipList chips={summary.conditions} empty="No conditions reported" />
+            <OverviewChipList chips={summary.conditions} empty={t('No conditions reported')} />
           </div>
         </OperationsPanel>
 
         <OperationsPanel
-          title="Pod template containers"
-          description="Container settings used when this workload creates Pods"
-          meta={`${String(topology.containers.length)} containers`}
+          title={t('Pod template containers')}
+          description={t('Container settings used when this workload creates Pods')}
+          meta={t('{count} containers', { count: topology.containers.length })}
           icon={<GitCompareArrows className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-7"
         >
@@ -283,9 +301,9 @@ export function WorkloadOverview({
         </OperationsPanel>
 
         <OperationsPanel
-          title="Dependencies"
-          description="Configuration, storage and runtime references"
-          meta={`${String(topology.relations.length)} references`}
+          title={t('Dependencies')}
+          description={t('Configuration, storage and runtime references')}
+          meta={t('{count} references', { count: topology.relations.length })}
           icon={<Cable className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-5"
         >
@@ -293,9 +311,9 @@ export function WorkloadOverview({
         </OperationsPanel>
 
         <OperationsPanel
-          title="Pod template storage routes"
-          description="Volume source → template container mount path"
-          meta={`${String(topology.volumes.length)} volumes`}
+          title={t('Pod template storage routes')}
+          description={t('Volume source → template container mount path')}
+          meta={t('{count} volumes', { count: topology.volumes.length })}
           icon={<HardDrive className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-7"
         >
@@ -303,27 +321,27 @@ export function WorkloadOverview({
         </OperationsPanel>
 
         <OperationsPanel
-          title="Workload identity"
-          description="Selection, revision and API metadata"
+          title={t('Workload identity')}
+          description={t('Selection, revision and API metadata')}
           icon={<Tags className="h-3.5 w-3.5" strokeWidth={1.8} />}
           className="@5xl:col-span-5"
           bodyClassName="p-4 @2xl:p-5"
         >
           <div className="px-0.5">
-            <FactRow label="Revision" value={summary.revision ?? '-'} mono />
-            <FactRow label="Generation" value={generationText} mono />
-            <FactRow label="Service account" value={summary.serviceAccount} />
-            <FactRow label="API" value={`${summary.apiVersion} · ${summary.kind}`} />
+            <FactRow label={t('Revision')} value={summary.revision ?? '-'} mono />
+            <FactRow label={t('Generation')} value={generationText} mono />
+            <FactRow label={t('Service account')} value={summary.serviceAccount} />
+            <FactRow label={t('API')} value={`${summary.apiVersion} · ${summary.kind}`} />
           </div>
           <div className="mt-4 border-t border-zGray-800 pt-4">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              Selector
+              {t('Selector')}
             </div>
             <OverviewChipList chips={summary.selector} />
           </div>
           <div className="mt-4">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              Template labels
+              {t('Template labels')}
             </div>
             <OverviewChipList chips={summary.templateLabels} />
           </div>
@@ -331,8 +349,8 @@ export function WorkloadOverview({
 
         {target.namespace && hasEditableWorkloadEnv(target.kind) && (
           <OperationsPanel
-            title="Pod template environment"
-            description="Container-scoped values copied into newly created Pods"
+            title={t('Pod template environment')}
+            description={t('Container-scoped values copied into newly created Pods')}
             icon={<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />}
             className="@5xl:col-span-12"
           >

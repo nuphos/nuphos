@@ -6,6 +6,7 @@ import ai.nuphos.android.data.JsonValue
 data class RuntimeObservation(val snapshot: JsonValue, val observedAt: Double) {
     val epoch get() = snapshot["epoch"]?.stringValue
     val revision get() = snapshot["revision"]?.numberValue
+    val mayAcceptLater get() = snapshot["schemaVersion"]?.numberValue == 2.0 || snapshot["state"]?.stringValue == "disconnected"
     val phase get() = snapshot["phase"]?.stringValue
     fun fresh(now: Double) = now >= observedAt && now - observedAt < 12.0
     fun allows(action: String, now: Double) = fresh(now) && snapshot["schemaVersion"]?.numberValue == 2.0 && snapshot["actions"]?.get(action)?.boolValue == true

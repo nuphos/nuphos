@@ -236,8 +236,8 @@ pub struct AcpConfig {
     /// (`OPENAB_RUNTIME_LOGIN_COMMAND`, whitespace-separated argv). Unset → the method
     /// reports that this runtime has no sign-in.
     pub login_command: Option<LoginCommand>,
-    /// File whose presence means the provider CLI in this container holds a credential
-    /// (`OPENAB_RUNTIME_AUTH_FILE`). Unset → `_openab/runtime/state` reports
+    /// Files, `:`-separated, any one of whose presence means the provider CLI in this
+    /// container holds a credential (`OPENAB_RUNTIME_AUTH_FILE`). Unset → `_openab/runtime/state` reports
     /// `authenticated: null`, which is "OpenAB cannot tell", not "signed out".
     pub auth_file: Option<String>,
     /// Allowlisted commands `_openab/runtime/job` may run (`OPENAB_RUNTIME_JOBS`) and the
@@ -333,8 +333,47 @@ impl AcpConfig {
 /// must not be told "signed out", because a container can carry its own credential in a
 /// form OpenAB never sees.
 pub(crate) fn runtime_authenticated(state: &crate::AppState) -> Option<bool> {
-    let path = state.acp.as_ref()?.auth_file.as_ref()?;
-    Some(std::fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.len() > 0))
+    Some(auth_files_present(state.acp.as_ref()?.auth_file.as_ref()?))
+}
+
+/// When the runtime's sign-in lapses on its own, for a credential that says so (a
+/// long-lived token): the first auth file whose JSON carries a top-level `expiresAt`.
+/// Nothing else is read from the file, and nothing from it is logged.
+pub(crate) fn runtime_credential_expires_at(state: &crate::AppState) -> Option<String> {
+    auth_files_expiry(state.acp.as_ref()?.auth_file.as_ref()?)
+}
+
+/// `OPENAB_RUNTIME_AUTH_FILE` may list several `:`-separated files, any one of which
+/// signs the runtime in: a long-lived token, then the provider's ordinary login.
+fn auth_files(paths: &str) -> impl Iterator<Item = &str> {
+    paths.split(':').map(str::trim).filter(|path| !path.is_empty())
+}
+
+fn auth_files_present(paths: &str) -> bool {
+    auth_files_present_at(paths, chrono::Utc::now())
+}
+
+/// A credential that says when it lapses (a one-year token) signs the runtime in only until then.
+fn auth_files_present_at(paths: &str, now: chrono::DateTime<chrono::Utc>) -> bool {
+    auth_files(paths).any(|path| {
+        std::fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.len() > 0)
+            && !auth_file_lapsed(path, now)
+    })
+}
+
+fn auth_file_lapsed(path: &str, now: chrono::DateTime<chrono::Utc>) -> bool {
+    std::fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+        .and_then(|file| file.get("expiresAt")?.as_str()?.parse::<chrono::DateTime<chrono::Utc>>().ok())
+        .is_some_and(|at| at <= now)
+}
+
+fn auth_files_expiry(paths: &str) -> Option<String> {
+    auth_files(paths).find_map(|path| {
+        let file: serde_json::Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+        file.get("expiresAt")?.as_str().map(str::to_owned)
+    })
 }
 
 /// Whether a **keyless-mode** WS upgrade may proceed given its `Origin` header. WS
@@ -2650,6 +2689,7 @@ async fn handle_acp_connection(
                         json!({
                             "sessions": snapshots,
                             "authenticated": runtime_authenticated(&state),
+                            "credentialExpiresAt": runtime_credential_expires_at(&state),
                             "usage": usage,
                         }),
                     )
@@ -12149,5 +12189,34 @@ mod runtime_authority_tests {
             observed_events.try_recv().is_err(),
             "control delivery is acknowledged, never queued twice"
         );
+    }
+}
+
+#[cfg(test)]
+mod auth_file_tests {
+    use super::{auth_files_expiry, auth_files_present, auth_files_present_at};
+
+    #[test]
+    fn any_listed_auth_file_signs_the_runtime_in_and_only_one_with_expires_at_has_an_expiry() {
+        let dir = std::env::temp_dir().join(format!("openab-auth-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let token = dir.join("token.json");
+        let login = dir.join("credentials.json");
+        let list = format!("{}:{}", token.display(), login.display());
+
+        assert!(!auth_files_present(&list));
+        std::fs::write(&login, r#"{"claudeAiOauth":{"expiresAt":1}}"#).unwrap();
+        assert!(auth_files_present(&list));
+        assert_eq!(auth_files_expiry(&list), None);
+        std::fs::write(&token, r#"{"token":"t","expiresAt":"2027-10-29T00:00:00.000Z"}"#).unwrap();
+        assert_eq!(auth_files_expiry(&list).as_deref(), Some("2027-10-29T00:00:00.000Z"));
+        assert!(!auth_files_present(" : "));
+        // Lapsed, the token no longer counts; the ordinary login beside it still does.
+        let after = "2027-10-30T00:00:00Z".parse().unwrap();
+        assert!(auth_files_present_at(&list, after));
+        std::fs::remove_file(&login).unwrap();
+        assert!(!auth_files_present_at(&list, after));
+        assert!(auth_files_present_at(&list, "2027-10-28T00:00:00Z".parse().unwrap()));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

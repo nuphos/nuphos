@@ -5,6 +5,7 @@ import { toast } from '../../components/ui/toast'
 import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { DISMISSED_STATUSES, PAGE_SIZE, isRowDismissed, proposalPlanStatus } from './planRows'
@@ -142,12 +143,12 @@ export function usePlansCore({
       setState({ kind: 'loading' })
       void reload()
       toast.success(
-        'Approval policy updated',
-        'Open plans must be reviewed against the new policy.',
+        t('Approval policy updated'),
+        t('Open plans must be reviewed against the new policy.'),
       )
     } catch (err) {
-      toast.apiError('Could not update approval policy', err, {
-        fallback: 'The approval policy was not updated. Please try again.',
+      toast.apiError(t('Could not update approval policy'), err, {
+        fallback: t('The approval policy was not updated. Please try again.'),
       })
     } finally {
       setPolicySaving(false)

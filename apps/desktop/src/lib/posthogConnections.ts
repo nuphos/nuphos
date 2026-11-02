@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.ts'
 import { POSTHOG_REGION_LABELS } from '../types/posthog.ts'
 
 import type { PosthogIntegration, PosthogRegion } from '../types/posthog.ts'
@@ -19,7 +20,10 @@ export function findDuplicateConnection<T extends Connection>(
 }
 
 export function duplicateNotice(connection: Connection): string {
-  return `A PostHog connection named ${connection.label} (${POSTHOG_REGION_LABELS[connection.region]}) already exists.`
+  return t('A PostHog connection named {label} ({region}) already exists.', {
+    label: connection.label,
+    region: POSTHOG_REGION_LABELS[connection.region],
+  })
 }
 
 export function connectedMessage(
@@ -29,5 +33,7 @@ export function connectedMessage(
 ): string {
   const match = existing.find((item) => item.id === bindingId)
 
-  return match ? `Updated the existing connection ${match.label}` : `Connected ${fallbackLabel}`
+  return match
+    ? t('Updated the existing connection {name}', { name: match.label })
+    : t('Connected {name}', { name: fallbackLabel })
 }

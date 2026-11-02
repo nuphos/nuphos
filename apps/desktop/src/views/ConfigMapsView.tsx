@@ -6,6 +6,7 @@ import { Table } from '../components/Table'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
 import { AGE_DESC_SORT } from '../lib/tableSort'
 import { useWorkspaceRowLink } from '../lib/workspaceRowLink'
@@ -88,9 +89,9 @@ export function ConfigMapsView({
       <ResourceSummary
         items={[
           { label: 'ConfigMaps', value: filtered.length, icon: Rows3 },
-          { label: 'Keys', value: totalKeys, icon: FileKey2 },
-          { label: 'Namespaces', value: namespaceCount, icon: Braces },
-          { label: 'Immutable', value: immutableCount, icon: Lock },
+          { label: t('Keys'), value: totalKeys, icon: FileKey2 },
+          { label: t('Namespaces'), value: namespaceCount, icon: Braces },
+          { label: t('Immutable'), value: immutableCount, icon: Lock },
         ]}
       />
       <Table<ConfigMapItem>
@@ -102,47 +103,47 @@ export function ConfigMapsView({
         storageKey="configmaps"
         defaultSort={AGE_DESC_SORT}
         changedCells={changedCells}
-        empty={filter ? `No ConfigMaps match "${filter}"` : 'No ConfigMaps found'}
+        empty={filter ? t('No ConfigMaps match "{filter}"', { filter }) : t('No ConfigMaps found')}
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 150,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'keyNames',
-            header: 'Key names',
+            header: t('Key names'),
             width: 360,
             sortAccessor: (r) => r.keys,
             render: (r) => <KeyChips keys={r.keyNames ?? []} count={r.keys} />,
           },
           {
             key: 'immutable',
-            header: 'Mode',
+            header: t('Mode'),
             width: 110,
             sortAccessor: (r) => r.immutable,
             render: (r) =>
               r.immutable ? (
                 <span className="inline-flex items-center gap-1 text-[11.5px] text-amber-300">
                   <Lock className="w-3 h-3" strokeWidth={2} />
-                  Immutable
+                  {t('Immutable')}
                 </span>
               ) : (
-                <span className="text-tertiary">Mutable</span>
+                <span className="text-tertiary">{t('Mutable')}</span>
               ),
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (
@@ -180,7 +181,7 @@ function ResourceSummary({ items }: { items: SummaryItem[] }) {
 }
 
 function KeyChips({ keys, count }: { keys: string[]; count: number }) {
-  if (count === 0) return <span className="text-tertiary">No keys</span>
+  if (count === 0) return <span className="text-tertiary">{t('No keys')}</span>
   const visible = keys.slice(0, 3)
 
   return (

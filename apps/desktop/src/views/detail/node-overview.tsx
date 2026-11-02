@@ -7,6 +7,7 @@ import { K8sStatus as StatusBadge } from '../../components/K8sHealth'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
+import { t } from '../../i18n'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { formatCpu, formatMemory } from '../../utils'
 import { useResetOnKey } from '../useResetOnKey'
@@ -66,7 +67,7 @@ export function NodeOverview({
           console.warn('[node-detail] refresh failed; keeping cached data:', String(e))
         } else {
           setFailed(true)
-          toast.apiError('Could not load node details', e)
+          toast.apiError(t('Could not load node details'), e)
         }
       })
 
@@ -77,7 +78,7 @@ export function NodeOverview({
 
   if (!data) {
     return failed ? (
-      <div className="p-6 text-tertiary text-[13px]">Unavailable</div>
+      <div className="p-6 text-tertiary text-[13px]">{t('Unavailable')}</div>
     ) : (
       <NodeOverviewSkeleton />
     )
@@ -89,32 +90,36 @@ export function NodeOverview({
   return (
     <div className="p-6 space-y-5">
       <Section>
-        <Field label="Age" value={<Age value={data.age} />} />
-        <Field label="Status" value={<StatusBadge status={data.status} />} />
-        <Field label="Roles" value={data.roles.length ? data.roles.join(', ') : dash} />
+        <Field label={t('Age')} value={<Age value={data.age} />} />
+        <Field label={t('Status')} value={<StatusBadge status={data.status} />} />
+        <Field label={t('Roles')} value={data.roles.length ? data.roles.join(', ') : dash} />
         <Field
-          label="Schedulable"
-          value={data.schedulable ? 'Yes' : <span className="text-warning">No (cordoned)</span>}
+          label={t('Schedulable')}
+          value={
+            data.schedulable ? t('Yes') : <span className="text-warning">{t('No (cordoned)')}</span>
+          }
         />
-        <Field label="Labels" value={<CollapsibleChips entries={data.labels} />} />
+        <Field label={t('Labels')} value={<CollapsibleChips entries={data.labels} />} />
         <Field
-          label="Annotations"
+          label={t('Annotations')}
           value={<CollapsibleChips entries={data.annotations} keyOnly />}
         />
       </Section>
 
       <Section>
-        <Field label="OS Image" value={data.os_image || dash} />
-        <Field label="Kernel" value={data.kernel_version || dash} />
-        <Field label="Kubelet Version" value={data.kubelet_version || dash} />
-        <Field label="Kube-proxy Version" value={data.kube_proxy_version || dash} />
-        <Field label="Hostname" value={mono(data.hostname)} />
-        <Field label="Internal IP" value={mono(data.internal_ip)} />
-        <Field label="External IP" value={mono(data.external_ip)} />
+        <Field label={t('OS Image')} value={data.os_image || dash} />
+        <Field label={t('Kernel')} value={data.kernel_version || dash} />
+        <Field label={t('Kubelet Version')} value={data.kubelet_version || dash} />
+        <Field label={t('Kube-proxy Version')} value={data.kube_proxy_version || dash} />
+        <Field label={t('Hostname')} value={mono(data.hostname)} />
+        <Field label={t('Internal IP')} value={mono(data.internal_ip)} />
+        <Field label={t('External IP')} value={mono(data.external_ip)} />
       </Section>
 
       <div>
-        <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-2">Conditions</div>
+        <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-2">
+          {t('Conditions')}
+        </div>
         {data.conditions.length === 0 ? (
           <span className="text-tertiary text-[12.5px]">-</span>
         ) : (
@@ -127,18 +132,20 @@ export function NodeOverview({
       </div>
 
       <div>
-        <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-2">Taints</div>
+        <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-2">
+          {t('Taints')}
+        </div>
         {data.taints.length === 0 ? (
           <span className="text-tertiary text-[12.5px]">-</span>
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            {data.taints.map((t, i) => (
+            {data.taints.map((taint, i) => (
               <span
-                key={`${t.key}:${String(i)}`}
+                key={`${taint.key}:${String(i)}`}
                 className="bg-zGray-800 px-1.5 py-0.5 rounded text-[11.5px] text-secondary font-mono"
               >
-                {t.key}
-                {t.value ? `=${t.value}` : ''}:{t.effect}
+                {taint.key}
+                {taint.value ? `=${taint.value}` : ''}:{taint.effect}
               </span>
             ))}
           </div>
@@ -146,11 +153,11 @@ export function NodeOverview({
       </div>
 
       <div>
-        <h3 className="text-[14px] font-semibold mb-2 text-main">Utilization</h3>
+        <h3 className="text-[14px] font-semibold mb-2 text-main">{t('Utilization')}</h3>
         <div className="grid grid-cols-1 @lg:grid-cols-2 gap-3">
-          <NodeUtilizationCard title="CPU" meter={data.utilization.cpu} format={formatCpu} />
+          <NodeUtilizationCard title={t('CPU')} meter={data.utilization.cpu} format={formatCpu} />
           <NodeUtilizationCard
-            title="Memory"
+            title={t('Memory')}
             meter={data.utilization.memory}
             format={formatMemory}
           />
@@ -181,7 +188,7 @@ function NodeOverviewSkeleton() {
           <SkeletonField key={i} />
         ))}
       </Section>
-      {['Conditions', 'Taints'].map((title) => (
+      {[t('Conditions'), t('Taints')].map((title) => (
         <div key={title}>
           <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-2">{title}</div>
           <div className="flex gap-1.5">
@@ -191,14 +198,14 @@ function NodeOverviewSkeleton() {
         </div>
       ))}
       <div>
-        <h3 className="text-[14px] font-semibold mb-2 text-main">Utilization</h3>
+        <h3 className="text-[14px] font-semibold mb-2 text-main">{t('Utilization')}</h3>
         <div className="grid grid-cols-1 @lg:grid-cols-2 gap-3">
           <SkeletonLine className="h-[96px]" />
           <SkeletonLine className="h-[96px]" />
         </div>
       </div>
       <div>
-        <h3 className="text-[14px] font-semibold mb-2 text-main">Scheduled Pods</h3>
+        <h3 className="text-[14px] font-semibold mb-2 text-main">{t('Scheduled Pods')}</h3>
         <SkeletonLine className="h-[160px]" />
       </div>
     </div>
@@ -223,7 +230,7 @@ function NodeScheduledPods({
   return (
     <div>
       <div className="mb-2 flex items-center gap-3">
-        <h3 className="text-[14px] font-semibold text-main">Scheduled Pods</h3>
+        <h3 className="text-[14px] font-semibold text-main">{t('Scheduled Pods')}</h3>
         {pods && (
           <span className="text-[12px] text-tertiary tabular-nums">
             {count}
@@ -242,14 +249,14 @@ function NodeScheduledPods({
       </div>
       {pods === null ? (
         <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-6 text-center text-[12px] text-tertiary">
-          Unavailable
+          {t('Unavailable')}
         </div>
       ) : (
         <Table<PodItem>
           rows={pods}
           rowKey={(r) => `${r.namespace}/${r.name}`}
           defaultSort={{ key: 'name', dir: 'asc' }}
-          empty="No pods scheduled on this node."
+          empty={t('No pods scheduled on this node.')}
           onPrimaryAction={
             onNavigate
               ? (p) => onNavigate({ kind: 'Pod', namespace: p.namespace, name: p.name })

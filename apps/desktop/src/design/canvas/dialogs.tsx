@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
 const FIELD =
   'w-full rounded-md border border-main bg-surface px-3 py-2 text-[13px] text-main outline-none focus:border-zViolet-500'
@@ -22,20 +23,24 @@ export function AskAgentDialog({
     <Modal
       open
       onClose={onClose}
-      title="Ask the agent to edit"
+      title={t('Ask the agent to edit')}
       appearance="prompt"
       description={
         screens.length === 1
-          ? `The agent will change “${screens[0]}” and update it here.`
-          : `The agent will change ${String(screens.length)} screens and update them here.`
+          ? t('The agent will change “{screen}” and update it here.', {
+              screen: screens[0] ?? '',
+            })
+          : t('The agent will change {count} screens and update them here.', {
+              count: screens.length,
+            })
       }
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button size="sm" disabled={!request.trim()} onClick={() => onSend(request)}>
-            Send to agent
+            {t('Send to agent')}
           </Button>
         </div>
       }
@@ -48,8 +53,8 @@ export function AskAgentDialog({
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && request.trim()) onSend(request)
         }}
         rows={4}
-        placeholder="Make the primary button larger and move the sign-up link under the form"
-        aria-label="Request"
+        placeholder={t('Make the primary button larger and move the sign-up link under the form')}
+        aria-label={t('Request')}
         className={`${FIELD} resize-none`}
       />
     </Modal>
@@ -59,7 +64,7 @@ export function AskAgentDialog({
 /** Rename a page or a design. Mount it to open it. */
 export function RenamePageDialog({
   name,
-  title = 'Rename page',
+  title = t('Rename page'),
   onClose,
   onSave,
 }: {
@@ -85,10 +90,10 @@ export function RenamePageDialog({
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button size="sm" disabled={!draft.trim()} onClick={save}>
-            Rename
+            {t('Rename')}
           </Button>
         </div>
       }
@@ -102,7 +107,7 @@ export function RenamePageDialog({
           if (e.key === 'Enter') save()
         }}
         maxLength={100}
-        aria-label="Name"
+        aria-label={t('Name')}
         className={FIELD}
       />
     </Modal>

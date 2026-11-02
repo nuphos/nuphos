@@ -1,18 +1,20 @@
+import { t } from '../../i18n/index.ts'
+
 import type { DatabaseChangeRequest, MongoDatabaseChangeStatement } from '../../types'
 
 export type Operation = MongoDatabaseChangeStatement['operation']
 
 export const OPERATIONS: { value: Operation; label: string; kind: 'DML' | 'DDL' }[] = [
-  { value: 'insertOne', label: 'Insert one', kind: 'DML' },
-  { value: 'insertMany', label: 'Insert many', kind: 'DML' },
-  { value: 'updateOne', label: 'Update one', kind: 'DML' },
-  { value: 'updateMany', label: 'Update many', kind: 'DML' },
-  { value: 'deleteOne', label: 'Delete one', kind: 'DML' },
-  { value: 'deleteMany', label: 'Delete many', kind: 'DML' },
-  { value: 'createCollection', label: 'Create collection', kind: 'DDL' },
-  { value: 'dropCollection', label: 'Drop collection', kind: 'DDL' },
-  { value: 'createIndex', label: 'Create index', kind: 'DDL' },
-  { value: 'dropIndex', label: 'Drop index', kind: 'DDL' },
+  { value: 'insertOne', label: t('Insert one'), kind: 'DML' },
+  { value: 'insertMany', label: t('Insert many'), kind: 'DML' },
+  { value: 'updateOne', label: t('Update one'), kind: 'DML' },
+  { value: 'updateMany', label: t('Update many'), kind: 'DML' },
+  { value: 'deleteOne', label: t('Delete one'), kind: 'DML' },
+  { value: 'deleteMany', label: t('Delete many'), kind: 'DML' },
+  { value: 'createCollection', label: t('Create collection'), kind: 'DDL' },
+  { value: 'dropCollection', label: t('Drop collection'), kind: 'DDL' },
+  { value: 'createIndex', label: t('Create index'), kind: 'DDL' },
+  { value: 'dropIndex', label: t('Drop index'), kind: 'DDL' },
 ]
 
 export const inputClass =
@@ -23,7 +25,7 @@ function parseObject(label: string, source: string): Record<string, unknown> {
   const value = JSON.parse(source) as unknown
 
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new Error(`${label} must be a JSON object.`)
+    throw new Error(t('{label} must be a JSON object.', { label }))
 
   return value as Record<string, unknown>
 }
@@ -35,7 +37,7 @@ function parseDocuments(source: string): Record<string, unknown>[] {
     !Array.isArray(value) ||
     value.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry))
   ) {
-    throw new Error('Documents must be a JSON array of objects.')
+    throw new Error(t('Documents must be a JSON array of objects.'))
   }
 
   return value as Record<string, unknown>[]
@@ -75,22 +77,25 @@ export function buildStatement({
   } as MongoDatabaseChangeStatement
 
   if (operation === 'insertOne')
-    return { ...base, operation, document: parseObject('Document', payload) }
+    return { ...base, operation, document: parseObject(t('Document'), payload) }
   if (operation === 'insertMany') return { ...base, operation, documents: parseDocuments(payload) }
   if (operation === 'updateOne' || operation === 'updateMany')
     return {
       ...base,
       operation,
-      filter: parseObject('Filter', filter),
-      update: parseObject('Update', payload),
+      filter: parseObject(t('Filter'), filter),
+      update: parseObject(t('Update'), payload),
     }
   if (operation === 'deleteOne' || operation === 'deleteMany')
-    return { ...base, operation, filter: parseObject('Filter', filter) }
+    return { ...base, operation, filter: parseObject(t('Filter'), filter) }
   if (operation === 'createIndex')
     return {
       ...base,
       operation,
-      indexKeys: parseObject('Index keys', payload) as Record<string, 1 | -1 | 'text' | 'hashed'>,
+      indexKeys: parseObject(t('Index keys'), payload) as Record<
+        string,
+        1 | -1 | 'text' | 'hashed'
+      >,
       ...(indexName.trim() ? { indexName: indexName.trim() } : {}),
       unique,
       sparse,

@@ -12,6 +12,7 @@ import { memo, useState } from 'react'
 
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu'
 import { useReportVisibleError } from '../components/VisibleErrorReporter'
+import { t } from '../i18n'
 
 import { panelDisplay } from './panelDisplay'
 import { PanelOutputView } from './PanelOutputView'
@@ -52,7 +53,7 @@ function Body({
   const snap = panel.currentSnapshot
 
   if (!snap || snap.status === 'running' || snap.status === 'failed') {
-    const emptyMessage = snap ? 'No successful data yet.' : 'Not run yet.'
+    const emptyMessage = snap ? t('No successful data yet.') : t('Not run yet.')
 
     return lastSuccessfulOutput ? (
       <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
@@ -65,7 +66,7 @@ function Body({
   if (!snap.output) {
     return (
       <div className="flex h-40 items-center justify-center text-[12px] text-tertiary">
-        No output.
+        {t('No output.')}
       </div>
     )
   }
@@ -107,7 +108,7 @@ export const PanelCard = memo(
             <button
               type="button"
               className="cursor-grab text-tertiary hover:text-secondary active:cursor-grabbing"
-              aria-label="Drag to reorder"
+              aria-label={t('Drag to reorder')}
               {...dragHandleProps}
             >
               <GripVertical className="h-3.5 w-3.5" />
@@ -123,8 +124,8 @@ export const PanelCard = memo(
               render={
                 <button
                   type="button"
-                  title="Panel actions"
-                  aria-label={`Actions for ${panel.title}`}
+                  title={t('Panel actions')}
+                  aria-label={t('Actions for {title}', { title: panel.title })}
                   className="rounded p-1 text-tertiary outline-none hover:bg-zGray-800 hover:text-main focus:bg-zGray-800 focus:text-main"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -136,38 +137,38 @@ export const PanelCard = memo(
                 icon={<Sparkles className="h-3.5 w-3.5" />}
                 onClick={() => onAskAgent(panel)}
               >
-                Ask agent
+                {t('Ask agent')}
               </MenuItem>
               <MenuItem
                 icon={<RefreshCw className="h-3.5 w-3.5" />}
                 disabled={snapshotLoading}
                 onClick={() => onExecute(panel)}
               >
-                Refresh
+                {t('Refresh')}
               </MenuItem>
               <MenuItem
                 icon={<Bell className="h-3.5 w-3.5" />}
                 onClick={() => onConfigureAlert(panel)}
               >
-                Configure alert
+                {t('Configure alert')}
               </MenuItem>
               <MenuItem icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => onEdit(panel)}>
-                Edit script
+                {t('Edit script')}
               </MenuItem>
               <MenuItem
                 destructive
                 icon={<Trash2 className="h-3.5 w-3.5" />}
                 onClick={() => onDelete(panel)}
               >
-                Delete panel
+                {t('Delete panel')}
               </MenuItem>
             </MenuContent>
           </Menu>
           {panel.currentSnapshot?.status === 'failed' && (
             <button
               type="button"
-              title="View error log"
-              aria-label={`View error log for ${panel.title}`}
+              title={t('View error log')}
+              aria-label={t('View error log for {title}', { title: panel.title })}
               onClick={() => setErrorOpen(true)}
               className="rounded p-1 text-orange-400 outline-none transition-colors hover:bg-orange-400/10 hover:text-orange-300 focus-visible:ring-1 focus-visible:ring-orange-400/50"
             >

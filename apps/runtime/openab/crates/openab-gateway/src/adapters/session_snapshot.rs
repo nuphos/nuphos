@@ -77,6 +77,18 @@ impl SessionSnapshots {
             || operation != "none"
             || permissions > 0
             || !requests.is_empty();
+        // A pending request with an idle provider is either about to start or
+        // being released after the provider finished. Only the previous
+        // snapshot of this request can tell which: it saw the provider run.
+        let ran = self
+            .0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(channel)
+            .is_some_and(|previous| {
+                previous["requestPending"] == true
+                    && (previous["phase"] == "finishing" || previous["providerState"] == "active")
+            });
         let (phase, label) = if operation == "cancelling"
             || (busy && provider["gateway"]["cancelling"] == true)
         {
@@ -141,7 +153,8 @@ impl SessionSnapshots {
             ("provider_state", format!("Runtime: {provider_state}"))
         } else if request_pending && !executing {
             match provider_state {
-                "idle" => ("finishing", "Finishing the request…".to_string()),
+                "idle" if ran => ("finishing", "Finishing the request…".to_string()),
+                "idle" => ("starting", "Starting…".to_string()),
                 "interrupted" | "systemError" | "notLoaded" => (
                     "finishing",
                     "Finalizing the interrupted request…".to_string(),
@@ -310,12 +323,16 @@ mod tests {
     fn gateway_wait_is_visible_even_after_provider_idle() {
         let states = SessionSnapshots::default();
         let pending = states.project("a", json!({"state":"idle"}), true);
-        assert_eq!(pending["phase"], "finishing");
+        assert_eq!(pending["phase"], "starting");
         assert_eq!(pending["actions"]["send"], false);
+        states.project("a", json!({"state":"active"}), true);
+        let finishing = states.project("a", json!({"state":"idle"}), true);
+        assert_eq!(finishing["phase"], "finishing");
+        assert_eq!(finishing["actions"]["send"], false);
         let done = states.project("a", json!({"state":"idle"}), false);
         assert_eq!(done["actions"]["send"], true);
         assert_eq!(done["epoch"], pending["epoch"]);
-        assert_eq!(done["revision"], 1);
+        assert_eq!(done["revision"], 3);
         assert_eq!(states.project("a", json!({"state":"idle"}), false), done);
     }
     #[test]

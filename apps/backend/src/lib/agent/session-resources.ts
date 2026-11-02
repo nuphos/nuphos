@@ -50,6 +50,10 @@ export type SessionResource = {
   number?: number
   /** What blocks an open PR, kept current by GitHub webhooks; null or absent when nothing does. */
   health?: PullHealth | null
+  /** An open pull request still marked as a draft. */
+  draft?: boolean
+  /** When a linked pull request was merged, as GitHub reports it. */
+  mergedAt?: string
   linkedAt: string
   /** When a read last checked the provider for changes webhooks may have missed. */
   checkedAt?: string
@@ -171,6 +175,8 @@ async function writeFreshResource(
         'linkedResources.$.url': fresh.url,
         ...(fresh.stateType ? { 'linkedResources.$.stateType': fresh.stateType } : {}),
         ...('health' in fresh ? { 'linkedResources.$.health': fresh.health } : {}),
+        ...('draft' in fresh ? { 'linkedResources.$.draft': fresh.draft } : {}),
+        ...(fresh.mergedAt ? { 'linkedResources.$.mergedAt': fresh.mergedAt } : {}),
       },
     },
   )

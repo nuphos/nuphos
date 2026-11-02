@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type {
   BetterStackCollector,
   BetterStackDashboard,
@@ -35,7 +37,7 @@ export function buildBetterStackRows(
     return [
       ...monitors.map((monitor) => ({
         key: `monitor:${monitor.id}`,
-        kind: 'Monitor',
+        kind: t('Monitor'),
         name: monitor.pronounceableName || monitor.url || monitor.id,
         detail: monitor.url || monitor.monitorType || '',
         status: monitor.status || 'unknown',
@@ -43,9 +45,9 @@ export function buildBetterStackRows(
       })),
       ...heartbeats.map((heartbeat) => ({
         key: `heartbeat:${heartbeat.id}`,
-        kind: 'Heartbeat',
+        kind: t('Heartbeat'),
         name: heartbeat.name || heartbeat.id,
-        detail: heartbeat.period != null ? `every ${String(heartbeat.period)}s` : '',
+        detail: heartbeat.period != null ? t('every {n}s', { n: heartbeat.period }) : '',
         status: heartbeat.status || (heartbeat.pausedAt ? 'paused' : 'unknown'),
         updatedAt: heartbeat.updatedAt || heartbeat.createdAt,
       })),
@@ -54,7 +56,7 @@ export function buildBetterStackRows(
   if (page === 'incidents') {
     return incidents.map((incident) => ({
       key: `incident:${incident.id}`,
-      kind: 'Incident',
+      kind: t('Incident'),
       name: incident.name || incident.url || incident.id,
       detail: incident.cause || incident.url || '',
       status: incident.status || 'unknown',
@@ -64,7 +66,7 @@ export function buildBetterStackRows(
   if (page === 'dashboards') {
     return dashboards.map((dashboard) => ({
       key: `dashboard:${dashboard.id}`,
-      kind: 'Dashboard',
+      kind: t('Dashboard'),
       name: dashboard.name || dashboard.id,
       detail: '',
       status: null,
@@ -75,7 +77,7 @@ export function buildBetterStackRows(
   return [
     ...sources.map((source) => ({
       key: `source:${source.id}`,
-      kind: 'Source',
+      kind: t('Source'),
       name: source.name || source.id,
       detail: source.tableName || source.platform || '',
       status: source.ingestingPaused ? 'paused' : 'ingesting',
@@ -83,7 +85,7 @@ export function buildBetterStackRows(
     })),
     ...collectors.map((collector) => ({
       key: `collector:${collector.id}`,
-      kind: 'Collector',
+      kind: t('Collector'),
       name: collector.name || collector.id,
       detail: collector.platform || collector.dataRegion || '',
       status: collector.status || (collector.ingestingPaused ? 'paused' : 'unknown'),

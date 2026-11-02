@@ -49,8 +49,8 @@ until someone re-reviews the patch.
 
 | Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.312), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                    |
-| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.165.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                      |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.316), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                    |
+| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.166.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                      |
 | `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                   |
 | `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                |
 | `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                                                       |
@@ -451,8 +451,8 @@ and the credential path. A hand-built image has to pass them itself:
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/codex-login.mjs --install' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.codex/auth.json
 # Claude Code
---build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/claude-login.mjs' \
---build-arg RUNTIME_AUTH_FILE=/home/node/.claude/.credentials.json
+--build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/claude-login.mjs --long-lived' \
+--build-arg RUNTIME_AUTH_FILE=/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json
 # Grok Build
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/grok-login.mjs' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.grok/auth.json

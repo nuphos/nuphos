@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import { CronBuilder } from './CronBuilder'
 import { ExecutionPrincipalBanner, Field, TypePill } from './parts'
@@ -58,15 +59,16 @@ export function TriggerFormFields({
                 await api.agentTransferTriggerExecutionPrincipal(loaded.id, userId, loaded.teamId),
               )
             } catch (err) {
-              toast.apiError('Could not transfer this trigger', err)
+              toast.apiError(t('Could not transfer this trigger'), err)
             }
           }}
         />
       )}
       {!canManage && (
         <div className="rounded-md border border-zGray-800 bg-zGray-950 px-3 py-2 text-[11.5px] text-tertiary">
-          You can view this team trigger. Editor or administrator access is required to change or
-          test it.
+          {t(
+            'You can view this team trigger. Editor or administrator access is required to change or test it.',
+          )}
         </div>
       )}
       {loaded?.cleanupStatus && (
@@ -86,12 +88,14 @@ export function TriggerFormFields({
           )}
           <span className="leading-snug">
             {loaded.cleanupStatus === 'deleting'
-              ? 'Removing this Watch and its owned provider resources. You can close this window.'
-              : 'Provider cleanup needs attention. Retry cleanup below.'}
+              ? t(
+                  'Removing this Watch and its owned provider resources. You can close this window.',
+                )
+              : t('Provider cleanup needs attention. Retry cleanup below.')}
           </span>
         </div>
       )}
-      <Field label="Name" htmlFor="trigger-name">
+      <Field label={t('Name')} htmlFor="trigger-name">
         <input
           id="trigger-name"
           type="text"
@@ -99,13 +103,13 @@ export function TriggerFormFields({
           disabled={!canManage}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           maxLength={100}
-          placeholder="Daily standup summary"
+          placeholder={t('Daily standup summary')}
           className="w-full h-8 px-2.5 rounded-md bg-surface border border-zGray-800 text-[13px] text-main focus:outline-none focus:border-zViolet-500"
         />
       </Field>
 
-      <Field label="Type">
-        <div className="flex gap-2" role="group" aria-label="Trigger type">
+      <Field label={t('Type')}>
+        <div className="flex gap-2" role="group" aria-label={t('Trigger type')}>
           <TypePill
             icon={Clock}
             label="Cron"
@@ -123,7 +127,7 @@ export function TriggerFormFields({
         </div>
         {mode === 'edit' && (
           <p className="text-[11.5px] text-tertiary mt-1.5">
-            Type can't change after creation — delete and recreate to switch.
+            {t("Type can't change after creation — delete and recreate to switch.")}
           </p>
         )}
       </Field>
@@ -137,13 +141,13 @@ export function TriggerFormFields({
             >
               <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" strokeWidth={2} />
               <span className="leading-snug">
-                The cron scheduler is offline (Redis not configured on the backend). You can save
-                this trigger, but it won't fire automatically until the scheduler is enabled. Test
-                fire from the edit view still works.
+                {t(
+                  "The cron scheduler is offline (Redis not configured on the backend). You can save this trigger, but it won't fire automatically until the scheduler is enabled. Test fire from the edit view still works.",
+                )}
               </span>
             </div>
           )}
-          <Field label="Schedule (UTC)">
+          <Field label={t('Schedule (UTC)')}>
             <fieldset disabled={!canManage}>
               <CronBuilder
                 value={form.cronExpression}
@@ -164,12 +168,18 @@ export function TriggerFormFields({
       )}
 
       <Field
-        label="Message template"
+        label={t('Message template')}
         htmlFor="trigger-message-template"
         hint={
           form.triggerType === 'webhook'
-            ? 'Sent to the agent on each fire. `{{payload.foo}}` resolves against the webhook body.'
-            : 'Sent to the agent on each fire. `{{trigger.name}}` / `{{trigger.firedAt}}` are available.'
+            ? t(
+                'Sent to the agent on each fire. {placeholder} resolves against the webhook body.',
+                { placeholder: '`{{payload.foo}}`' },
+              )
+            : t('Sent to the agent on each fire. {name} / {firedAt} are available.', {
+                name: '`{{trigger.name}}`',
+                firedAt: '`{{trigger.firedAt}}`',
+              })
         }
       >
         <textarea
@@ -183,8 +193,10 @@ export function TriggerFormFields({
           rows={14}
           placeholder={
             form.triggerType === 'webhook'
-              ? 'A deploy just finished: {{payload.event}}. Investigate the latest commits.'
-              : 'Summarise yesterday’s open PRs across our repos.'
+              ? t('A deploy just finished: {event}. Investigate the latest commits.', {
+                  event: '{{payload.event}}',
+                })
+              : t('Summarise yesterday’s open PRs across our repos.')
           }
           className="w-full min-h-[220px] resize-y px-2.5 py-2 rounded-md bg-surface border border-zGray-800 text-[13px] leading-relaxed text-main focus:outline-none focus:border-zViolet-500"
         />
@@ -204,7 +216,7 @@ function canBind(mode: 'create' | 'edit', loaded: AgentTrigger | null, viewerId?
   return (loaded.executionPrincipalUserId ?? loaded.createdByUserId ?? loaded.userId) === viewerId
 }
 
-const NEW_CONVERSATION = { value: '', label: 'A new agent each fire' }
+const NEW_CONVERSATION = { value: '', label: t('A new agent each fire') }
 
 /** Where a fire lands: a fresh run, or one of the viewer's own sessions. */
 function DeliverToField({
@@ -228,10 +240,13 @@ function DeliverToField({
       .then((page) => {
         if (!cancelled)
           setSessions(
-            page.conversations.map((c) => ({ value: c.sessionId, label: c.title || 'Untitled' })),
+            page.conversations.map((c) => ({
+              value: c.sessionId,
+              label: c.title || t('Untitled'),
+            })),
           )
       })
-      .catch((err: unknown) => toast.apiError('Could not load your agents', err))
+      .catch((err: unknown) => toast.apiError(t('Could not load your agents'), err))
 
     return () => {
       cancelled = true
@@ -242,16 +257,18 @@ function DeliverToField({
 
   // A bound session older than the first page still has to read as itself.
   if (value && !sessions.some((s) => s.value === value))
-    options.push({ value, label: 'Current agent (not in your recent 50)' })
+    options.push({ value, label: t('Current agent (not in your recent 50)') })
 
   return (
     <Field
-      label="Deliver to"
+      label={t('Deliver to')}
       htmlFor="trigger-deliver-to"
       hint={
         value
-          ? 'Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.'
-          : 'Each fire starts its own agent, listed under this trigger.'
+          ? t(
+              'Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.',
+            )
+          : t('Each fire starts its own agent, listed under this trigger.')
       }
     >
       <AppSelect

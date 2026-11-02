@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { api } from '../../api'
+import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
@@ -15,6 +16,7 @@ import { GoogleOAuthClientCard } from './GoogleOAuthClientCard'
 import { LocalAgentSharingCeilingCard } from './LocalAgentSharingCeilingCard'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
+import { useAdminName } from './useAdminName'
 
 import type { AtlasTeam } from '../../types'
 import type { FormEvent } from 'react'
@@ -69,6 +71,9 @@ export function GeneralSection({
   const [submitting, setSubmitting] = useState(false)
 
   const dirty = team ? name.trim() !== (team.name ?? '') : false
+  // The backend lets administrators and editors rename the workspace or change its icon.
+  const canEdit = team?.role !== 'VIEWER'
+  const admin = useAdminName(team?.id, !canEdit)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -97,26 +102,40 @@ export function GeneralSection({
       {team ? (
         <>
           <form onSubmit={(e) => void submit(e)} className="space-y-5">
-            <AvatarPicker
-              key={team.id}
-              src={team.avatarUrl}
-              name={name || team.name || t('Workspace')}
-              kind="icon"
-              onUpload={async (image) =>
-                onTeamUpdated(await api.atlasSetTeamAvatar(team.id, image))
-              }
-              onRemove={async () => onTeamUpdated(await api.atlasSetTeamAvatar(team.id, null))}
-            />
+            {canEdit ? (
+              <AvatarPicker
+                key={team.id}
+                src={team.avatarUrl}
+                name={name || team.name || t('Workspace')}
+                kind="icon"
+                onUpload={async (image) =>
+                  onTeamUpdated(await api.atlasSetTeamAvatar(team.id, image))
+                }
+                onRemove={async () => onTeamUpdated(await api.atlasSetTeamAvatar(team.id, null))}
+              />
+            ) : (
+              <Avatar
+                src={team.avatarUrl}
+                name={team.name || t('Workspace')}
+                size={64}
+                className="rounded-lg !shadow-none"
+              />
+            )}
 
             <Field label={t('Name')}>
-              <input
-                type="text"
-                required
-                maxLength={80}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClasses}
-              />
+              {/* A viewer cannot rename the workspace: its name is text, not a field. */}
+              {canEdit ? (
+                <input
+                  type="text"
+                  required
+                  maxLength={80}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputClasses}
+                />
+              ) : (
+                <p className="flex h-10 items-center text-[13px] text-main">{team.name}</p>
+              )}
             </Field>
 
             <div>
@@ -126,11 +145,19 @@ export function GeneralSection({
               <CopyableTeamId id={team.id} />
             </div>
 
-            <div className="flex justify-end pt-1">
-              <Button size="sm" type="submit" disabled={!name.trim() || !dirty || submitting}>
-                {submitting ? t('Saving…') : t('Save changes')}
-              </Button>
-            </div>
+            {canEdit ? (
+              <div className="flex justify-end pt-1">
+                <Button size="sm" type="submit" disabled={!name.trim() || !dirty || submitting}>
+                  {submitting ? t('Saving…') : t('Save changes')}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-[12px] text-tertiary">
+                {admin
+                  ? t('Ask {name} or an editor to change the name or icon.', { name: admin })
+                  : t('Only administrators and editors can change the name or icon.')}
+              </p>
+            )}
           </form>
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />

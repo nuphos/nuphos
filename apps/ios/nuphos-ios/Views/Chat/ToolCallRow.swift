@@ -312,7 +312,8 @@ struct ElapsedBadge: View {
 }
 
 /// Finished intermediate work — reasoning and tool calls before the final
-/// answer — folded under "Worked for Xs".
+/// answer — folded under a "Worked for Xs" chapter rule, like the desktop's
+/// `CollapsedWorkView`.
 struct WorkGroup: View {
     let rows: [ChatRow]
     var duration: TimeInterval?
@@ -326,19 +327,18 @@ struct WorkGroup: View {
             Button {
                 disclose(readingInteraction) { expanded.toggle() }
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "wrench.and.screwdriver").font(Theme.Text.caption.weight(.semibold))
-                    Text(title).font(Theme.Text.label.weight(.medium))
-                    Spacer(minLength: 8)
+                HStack(spacing: 6) {
+                    Text(title)
                     Image(systemName: "chevron.right")
                         .font(Theme.Text.micro.weight(.bold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .opacity(expanded ? 0.6 : 0.35)
+                    Rectangle().fill(Theme.hairline).frame(height: 1).padding(.leading, 6)
                 }
-                .foregroundStyle(Theme.body)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .font(Theme.Text.label)
+                .foregroundStyle(Theme.muted)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 

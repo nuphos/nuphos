@@ -102,17 +102,11 @@ import androidx.navigation.navArgument
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.HomePage
 import ai.nuphos.android.model.NuphosUser
-import ai.nuphos.android.data.BrowsingApi
 import ai.nuphos.android.data.WorkspaceApi
 import ai.nuphos.android.session.WorkspaceSetupStore
 import ai.nuphos.android.session.AiAccess
 import ai.nuphos.android.ui.workspace.WorkspaceSetupSheet
 import ai.nuphos.android.data.NuphosApi
-import ai.nuphos.android.session.MonitoringStore
-import ai.nuphos.android.session.TriggersStore
-import ai.nuphos.android.session.TriggerRunsStore
-import ai.nuphos.android.ui.monitoring.MonitoringPage
-import ai.nuphos.android.ui.triggers.TriggersPage
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.PlansStore
 import ai.nuphos.android.session.ConnectorsStore
@@ -154,14 +148,6 @@ fun HomeRoute(
         }
     }
     val token = LocalAuthSession.current.token.orEmpty()
-    val transport = remember(token) { BrowsingApi(token) }
-    val monitoring = remember(token) { MonitoringStore(transport) }
-    val triggers = remember(token) { TriggersStore(transport) }
-    val triggerRuns = remember(token) {
-        TriggerRunsStore { team, trigger, cursor ->
-            NuphosApi.conversations(token, team, cursor = cursor, scope = ConversationScope.Team, triggerId = trigger)
-        }
-    }
     CompositionLocalProvider(
         LocalAgentStore provides agentStore,
         LocalPlansStore provides plansStore,
@@ -248,12 +234,10 @@ fun HomeRoute(
                 text = { Text(message) }, confirmButton = { TextButton(onClick = { linkError = null }) { Text("OK") } })
         }
         val notifications = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).localNotifications
-        val pendingNotification by notifications.pending.value.collectAsState()
         val notificationAuth = LocalAuthSession.current
-        val notificationAiAllowed = notificationAuth.aiAllowed
-        LaunchedEffect(pendingNotification, user.id, agentStore.selectedTeam?.id, notificationAiAllowed) {
-            val target = notifications.pending.take(notificationAuth.user?.id, agentStore.selectedTeam?.id, notificationAuth.aiAllowed)
-            if (target != null) nav.navigate("conversation/${android.net.Uri.encode(target.sessionId)}") { launchSingleTop = true }
+        ai.nuphos.android.notifications.NotificationNavigationEffect(notifications.pending,
+            notificationAuth.user?.id, agentStore.selectedTeam?.id, notificationAuth.aiAllowed) { target ->
+            nav.navigate("conversation/${android.net.Uri.encode(target.sessionId)}") { launchSingleTop = true }
         }
         ai.nuphos.android.ui.chat.IncomingShareSheet(nav)
         val entry by nav.currentBackStackEntryAsState()
@@ -269,7 +253,7 @@ fun HomeRoute(
             listPane = {
                 Box(Modifier.fillMaxSize()) {
                     if (membershipsLoading) SplashScreen()
-                    else HomeScreen(user, nav, monitoring, triggers, triggerRuns,
+                    else HomeScreen(user, nav,
                         showComposer = !wide,
                         selectedSessionId = entry?.arguments?.getString("id"), newChatComposer = newChatComposer)
                 }
@@ -302,6 +286,7 @@ fun HomeRoute(
                         if (membershipsLoading) SplashScreen()
                         else PlanDetailScreen(planId = id, nav = nav, teamId = agentStore.selectedTeam?.id)
                     }
+                    // Compatibility only: old run links remain read-only; no trigger-management UI is wired.
                     composable(
                         "trigger-run/{id}?teamId={teamId}",
                         arguments = listOf(
@@ -330,9 +315,6 @@ fun HomeRoute(
 fun HomeScreen(
     user: NuphosUser,
     nav: NavHostController,
-    monitoring: MonitoringStore,
-    triggers: TriggersStore,
-    triggerRuns: TriggerRunsStore,
     showComposer: Boolean = true,
     selectedSessionId: String? = null,
     newChatComposer: @Composable () -> Unit = { NewChatComposer(nav) },
@@ -346,9 +328,9 @@ fun HomeScreen(
         if (shared?.destination?.destination == ai.nuphos.android.session.ComposerDrafts.Destination.NewChat) page = HomePage.Agent.route
     }
     val current = HomePage.fromRoute(page)
+    val unavailablePage = HomePage.unavailableRoute(page)
     var searching by rememberSaveable { mutableStateOf(false) }
     var showProfile by remember { mutableStateOf(false) }
-    var showWorkspaces by remember { mutableStateOf(false) }
     var showSetup by remember { mutableStateOf(false) }
     val auth = LocalAuthSession.current
     val setupScope = rememberCoroutineScope()
@@ -389,23 +371,14 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    PageSwitcher(selected = current, onSelect = {
+                    if (unavailablePage) Text("Page unavailable") else PageSwitcher(selected = current, onSelect = {
                         if (it != current) {
                             if (current == HomePage.Agent) store.updateSearch("")
                             if (current == HomePage.Plans) plans.search = ""
                             page = it.route; searching = false
                         }
                     })
-                    DropdownMenu(showWorkspaces, onDismissRequest = { showWorkspaces = false }) {
-                        store.teams.forEach { team ->
-                            DropdownMenuItem(text = { Text(team.name) }, onClick = {
-                                setup.close(); showSetup = false
-                                if (store.selectedTeam?.id != team.id) nav.popBackStack("home", false)
-                                store.select(team); showWorkspaces = false
-                            })
-                        }
-                        DropdownMenuItem(text = { Text("Set up a workspace") }, onClick = { showWorkspaces = false; showSetup = true })
-                    }
+
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
@@ -441,23 +414,40 @@ fun HomeScreen(
                     Text("Choose or set up a workspace to get started.")
                     Button(onClick = { showSetup = true }, modifier = Modifier.padding(top = 12.dp)) { Text("Set up a workspace") }
                 }
+            } else if (unavailablePage) {
+                Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.Center) {
+                    Text("This page is no longer available in the mobile app.", style = MaterialTheme.typography.titleMedium)
+                    Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text("Back to Agents") }
+                }
             } else AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
                     HomePage.Agent -> AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
                     HomePage.Runtimes -> ai.nuphos.android.ui.agent.RuntimesPage()
                     HomePage.Plans -> PlansPage(searching = searching, onSearchingChange = { searching = it }, nav = nav)
                     HomePage.Connectors -> ConnectorsPage()
-                    HomePage.Monitoring -> MonitoringPage(monitoring, store.selectedTeam?.id, onOpenConnectors = { page = HomePage.Connectors.route })
-                    HomePage.Triggers -> TriggersPage(triggers, triggerRuns, store.selectedTeam?.id, onOpenRun = { sessionId, teamId ->
-                        nav.navigate("trigger-run/${android.net.Uri.encode(sessionId)}?teamId=${android.net.Uri.encode(teamId)}")
-                    })
+
                 }
             }
         }
     }
     if (showSetup) WorkspaceSetupSheet(setup) { showSetup = false }
     if (showProfile) {
-        ProfileSheet(user = user, onDismiss = { showProfile = false }, workspaceName = store.selectedTeam?.name, onWorkspace = { showProfile = false; showWorkspaces = true })
+        ProfileSheet(user = user, onDismiss = { showProfile = false }, workspaceName = store.selectedTeam?.name,
+            workspacePicker = { back ->
+                ai.nuphos.android.ui.profile.WorkspacePickerContent(
+                    teams = store.teams,
+                    selectedId = store.selectedTeam?.id,
+                    onBack = back,
+                    onSelect = { team ->
+                        // Membership and generation validation remain in AgentStore.select.
+                        setup.close(); showSetup = false
+                        if (store.selectedTeam?.id != team.id) nav.popBackStack("home", false)
+                        store.select(team)
+                        back()
+                    },
+                    onSetup = { back(); showProfile = false; showSetup = true },
+                )
+            })
     }
 }
 
@@ -509,8 +499,6 @@ internal fun PageSwitcher(
 private fun HomePage.icon(selected: Boolean): ImageVector = when (this) {
     HomePage.Agent -> if (selected) Icons.Rounded.AutoAwesome else Icons.Outlined.AutoAwesome
     HomePage.Runtimes -> Icons.Outlined.Computer
-    HomePage.Monitoring -> if (selected) Icons.Rounded.MonitorHeart else Icons.Outlined.MonitorHeart
-    HomePage.Triggers -> if (selected) Icons.Rounded.Bolt else Icons.Outlined.Bolt
     HomePage.Plans -> if (selected) Icons.Rounded.Assignment else Icons.Outlined.Assignment
     HomePage.Connectors -> if (selected) Icons.Rounded.Link else Icons.Outlined.Link
 }

@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { AppAlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 import { BindSlackDialog } from './BindSlackDialog'
 import { ConnectionActions } from './messaging-settings/ConnectionActions'
@@ -22,17 +23,20 @@ import { useSlackSettings } from './slack-settings/useSlackSettings'
 
 import type { SlackChannelMapping, SlackChannelOption } from '../types'
 
+const WARN_BADGE =
+  'flex-shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-300'
+const MUTED_BADGE =
+  'flex-shrink-0 rounded border border-zGray-700 px-1.5 py-0.5 text-[11px] text-tertiary'
+
 function channelLabel(
   mapping: SlackChannelMapping,
   channelsById: Map<string, SlackChannelOption>,
 ): string {
   const channel = mapping.channel ?? channelsById.get(mapping.slackChannelId)
 
-  if (channel) {
-    return channel.isPrivate ? `#${channel.name} (private)` : `#${channel.name}`
-  }
+  if (!channel) return mapping.slackChannelId
 
-  return mapping.slackChannelId
+  return channel.isPrivate ? t('#{name} (private)', { name: channel.name }) : `#${channel.name}`
 }
 
 export function SlackSettingsView({
@@ -76,7 +80,7 @@ export function SlackSettingsView({
   } = useSlackSettings(teamId, currentUserId)
 
   if (!teamId) {
-    return <div className="text-[13px] text-tertiary">No workspace selected.</div>
+    return <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
   }
 
   const installed = !!installation || status?.installed === true
@@ -89,11 +93,11 @@ export function SlackSettingsView({
     try {
       await api.atlasDisconnectSlack(teamId)
     } catch (err) {
-      toast.apiError('Could not disconnect Slack', err)
+      toast.apiError(t('Could not disconnect {name}', { name: 'Slack' }), err)
 
       return
     }
-    toast.success('Slack disconnected')
+    toast.success(t('{name} disconnected', { name: 'Slack' }))
     await load()
     onChanged?.()
   }
@@ -120,9 +124,12 @@ export function SlackSettingsView({
       />
       <AppAlertDialog
         open={confirmDisconnectOpen}
-        title="Disconnect Slack"
-        description={`Disconnect ${installation?.slackTeamName ?? 'this Slack workspace'} from Nuphos? The bot token is revoked and channel links stop working until you install again.`}
-        confirmLabel="Disconnect"
+        title={t('Disconnect {name}', { name: 'Slack' })}
+        description={t(
+          'Disconnect {name} from Nuphos? The bot token is revoked and channel links stop working until you install again.',
+          { name: installation?.slackTeamName ?? 'Slack' },
+        )}
+        confirmLabel={t('Disconnect')}
         destructive
         onConfirm={disconnect}
         onClose={() => setConfirmDisconnectOpen(false)}
@@ -132,8 +139,9 @@ export function SlackSettingsView({
           <div>
             <h1 className="text-[20px] font-semibold text-main">Slack</h1>
             <p className="mt-1 text-[13px] text-tertiary">
-              Install Nuphos in Slack, pick channels from the bot DM, then @mention the agent in
-              those channels.
+              {t(
+                'Install Nuphos in Slack, pick channels from the bot DM, then @mention the agent in those channels.',
+              )}
             </p>
           </div>
         )}
@@ -141,10 +149,10 @@ export function SlackSettingsView({
           {canManage && installed && (
             <ConnectionActions
               className="mt-0.5"
-              primaryLabel="Reinstall"
+              primaryLabel={t('Reinstall')}
               primaryDisabled={!oauthAvailable}
               primaryTitle={
-                oauthAvailable ? undefined : 'Slack OAuth is not configured on this server yet.'
+                oauthAvailable ? undefined : t('Slack OAuth is not configured on this server yet.')
               }
               onPrimary={() => setInstallOpen(true)}
               onDisconnect={() => setConfirmDisconnectOpen(true)}
@@ -160,21 +168,21 @@ export function SlackSettingsView({
               icon={faRotateRight}
               className={clsx('h-3 w-3', loading && 'animate-spin')}
             />
-            Refresh
+            {t('Refresh')}
           </button>
         </div>
       </div>
       {tokenRevoked && (
         <div className="mb-4 text-[12.5px] text-amber-300">
-          Slack no longer accepts this installation's token — it was likely revoked or the app was
-          removed from the workspace. Reinstall to restore the bot.
+          {t(
+            "Slack no longer accepts this installation's token — it was likely revoked or the app was removed from the workspace. Reinstall to restore the bot.",
+          )}
         </div>
       )}
-
       <div className="mb-8 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
         <div className="border-b border-zGray-800/60 px-4 py-3">
           <div className="text-[13px] font-medium text-main">
-            Linked channels
+            {t('Linked channels')}
             {!loading && channelMappings.length > 0 && (
               <span className="ml-2 rounded-full border border-zGray-700 px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
                 {channelMappings.length}
@@ -182,73 +190,65 @@ export function SlackSettingsView({
             )}
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
-            Channels chosen in Slack or linked by an admin. The agent responds to @mentions here and
-            can post notifications — including channels served by another workspace's installation.
+            {t(
+              "Channels chosen in Slack or linked by an admin. The agent responds to @mentions here and can post notifications — including channels served by another workspace's installation.",
+            )}
           </div>
         </div>
         {loading ? (
-          <div className="px-4 py-6 text-[13px] text-tertiary">Loading…</div>
+          <div className="px-4 py-6 text-[13px] text-tertiary">{t('Loading…')}</div>
         ) : channelMappings.length === 0 ? (
           <div className="px-4 py-6 text-[13px] text-tertiary">
-            No channels linked yet. After installing, open your DM with the Nuphos bot and pick a
-            channel.
+            {t(
+              'No channels linked yet. After installing, open your DM with the Nuphos bot and pick a channel.',
+            )}
           </div>
         ) : (
           <div className="divide-y divide-zGray-800/60">
-            {channelMappings.map((mapping) => {
-              return (
-                <div key={mapping.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-[12.5px] text-main">
-                      <span className="truncate">{channelLabel(mapping, channelsById)}</span>
-                      {mapping.workspace && !mapping.workspace.installed && (
-                        <span className="flex-shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-300">
-                          workspace not installed
-                        </span>
-                      )}
-                      {mapping.channel && !mapping.channel.botInChannel && (
-                        <span className="flex-shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-300">
-                          bot not in channel
-                        </span>
-                      )}
-                      {!mapping.enabled && (
-                        <span className="flex-shrink-0 rounded border border-zGray-700 px-1.5 py-0.5 text-[11px] text-tertiary">
-                          disabled
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 text-[11.5px] text-tertiary truncate">
-                      {mapping.workspace?.name ?? mapping.slackWorkspaceId}
-                    </div>
+            {channelMappings.map((mapping) => (
+              <div key={mapping.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-[12.5px] text-main">
+                    <span className="truncate">{channelLabel(mapping, channelsById)}</span>
+                    {mapping.workspace && !mapping.workspace.installed && (
+                      <span className={WARN_BADGE}>{t('workspace not installed')}</span>
+                    )}
+                    {mapping.channel && !mapping.channel.botInChannel && (
+                      <span className={WARN_BADGE}>{t('bot not in channel')}</span>
+                    )}
+                    {!mapping.enabled && <span className={MUTED_BADGE}>{t('disabled')}</span>}
                   </div>
+                  <div className="mt-0.5 text-[11.5px] text-tertiary truncate">
+                    {mapping.workspace?.name ?? mapping.slackWorkspaceId}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      `https://app.slack.com/client/${mapping.slackWorkspaceId}/${mapping.slackChannelId}`,
+                      '_blank',
+                    )
+                  }
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zGray-800 px-2 text-[11.5px] text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+                  title={t('Open this channel in Slack')}
+                >
+                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
+                  {t('Open')}
+                </button>
+                {canManage && (
                   <button
                     type="button"
-                    onClick={() =>
-                      window.open(
-                        `https://app.slack.com/client/${mapping.slackWorkspaceId}/${mapping.slackChannelId}`,
-                        '_blank',
-                      )
-                    }
-                    className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zGray-800 px-2 text-[11.5px] text-secondary transition-colors hover:border-zGray-700 hover:text-main"
-                    title="Open this channel in Slack"
+                    onClick={() => void deleteChannel(mapping)}
+                    disabled={busyKey === `channel:${mapping.id}`}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-red-500/10 hover:text-error disabled:opacity-50"
+                    title={t('Remove mapping')}
                   >
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
-                    Open
+                    <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
                   </button>
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => void deleteChannel(mapping)}
-                      disabled={busyKey === `channel:${mapping.id}`}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-red-500/10 hover:text-error disabled:opacity-50"
-                      title="Remove mapping"
-                    >
-                      <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+                )}
+              </div>
+            ))}
           </div>
         )}
         {!loading && (
@@ -260,7 +260,7 @@ export function SlackSettingsView({
             >
               <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-main">
                 <FontAwesomeIcon icon={faPlus} className="h-3 w-3 text-tertiary" />
-                Link a new channel
+                {t('Link a new channel')}
               </span>
               <FontAwesomeIcon
                 icon={linkChannelOpen ? faChevronUp : faChevronDown}
@@ -286,7 +286,6 @@ export function SlackSettingsView({
           </div>
         )}
       </div>
-
       <SlackAccountsCard
         loading={loading}
         myMapping={myMapping}

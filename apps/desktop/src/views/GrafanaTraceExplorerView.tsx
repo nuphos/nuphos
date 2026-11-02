@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button'
 import { InputGroup, InputGroupInput } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
 import { getTempoTrace, searchTempoTraces } from '../grafana/client'
+import { t } from '../i18n'
 
 import { formatTraceError, isTraceId, validateTraceQuery } from './grafana-trace/notices'
 import { ColumnResizeHandle } from './grafana-trace/resize-handles'
@@ -137,7 +138,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
   return (
     <div className="h-full flex flex-col min-h-0">
       <PageHeader
-        title="Trace Explorer"
+        title={t('Trace Explorer')}
         subtitle={`${datasource.name} · ${datasource.uid}`}
         actions={
           <button
@@ -145,7 +146,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800/60"
           >
             <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.8} />
-            Datasources
+            {t('Datasources')}
           </button>
         }
       />
@@ -164,14 +165,16 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
               onCompositionEnd={() => {
                 composingRef.current = false
               }}
-              placeholder='TraceQL search or trace ID, e.g. { resource.service.name = "api" }'
+              placeholder={t('TraceQL search or trace ID, e.g. {example}', {
+                example: '{ resource.service.name = "api" }',
+              })}
               className="text-[12.5px] text-main placeholder:text-tertiary font-mono"
             />
           </InputGroup>
           <AppSelect
             value={String(rangeMs)}
             onValueChange={(nextValue) => setRangeMs(Number(nextValue))}
-            ariaLabel="Trace search range"
+            ariaLabel={t('Trace search range')}
             triggerClassName="h-8 w-[72px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px]"
             options={RANGE_OPTIONS.map((option) => ({
               value: String(option.ms),
@@ -185,11 +188,11 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             value={limit}
             onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
             className="h-8 w-16 bg-surface border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
-            aria-label="Trace search limit"
+            aria-label={t('Trace search limit')}
           />
           <Button size="sm" onClick={() => void runSearch()} disabled={loading}>
             <Play className="w-3.5 h-3.5" strokeWidth={2} />
-            Run
+            {t('Run')}
           </Button>
         </div>
       </div>
@@ -215,7 +218,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             onChange={setResultsPanePct}
             minPct={20}
             maxPct={55}
-            label="Resize trace results column"
+            label={t('Resize trace results column')}
           />
           <div className="min-h-0 min-w-0 flex-1 h-full">
             <TraceDetail

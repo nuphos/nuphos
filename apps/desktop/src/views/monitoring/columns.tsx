@@ -1,4 +1,5 @@
 import { CloudLogo } from '../../components/CloudLogo'
+import { t } from '../../i18n'
 import { PROVIDER_LABEL } from '../../lib/monitoringWatch'
 
 import { StatusBadge } from './parts'
@@ -18,7 +19,7 @@ export function buildMonitoringColumns(): Column<MonitoringOverviewRow>[] {
   return [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       // Ahead of Status and pinned: Target alone is 320px, so an unpinned name
       // scrolls away long before the columns people come here to read. Status
       // stays right beside it, which is how the pair was meant to be scanned.
@@ -29,14 +30,14 @@ export function buildMonitoringColumns(): Column<MonitoringOverviewRow>[] {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('Status'),
       width: 110,
       sortAccessor: (r) => r.status,
       render: (r) => <StatusBadge status={r.status} label={r.statusLabel} />,
     },
     {
       key: 'provider',
-      header: 'Provider',
+      header: t('Provider'),
       width: 170,
       sortAccessor: (r) => `${r.provider}:${r.integrationLabel}`,
       render: (r) => (
@@ -51,14 +52,14 @@ export function buildMonitoringColumns(): Column<MonitoringOverviewRow>[] {
     },
     {
       key: 'kind',
-      header: 'Kind',
+      header: t('Kind'),
       width: 100,
       sortAccessor: (r) => r.kind,
       render: (r) => <span className="text-secondary text-[11.5px]">{r.kind}</span>,
     },
     {
       key: 'target',
-      header: 'Target',
+      header: t('Target'),
       width: 320,
       sortAccessor: (r) => r.target ?? '',
       render: (r) => (
@@ -72,7 +73,7 @@ export function buildMonitoringColumns(): Column<MonitoringOverviewRow>[] {
     },
     {
       key: 'lastIncident',
-      header: 'Last incident',
+      header: t('Last incident'),
       width: 140,
       sortAccessor: (r) => r.lastIncidentAt ?? '',
       render: (r) => (

@@ -5,6 +5,8 @@ import SwiftUI
 /// The files in one transfer group: what the agent sent, or what the user
 /// uploaded. Images and videos are one grid of fixed squares, so nothing
 /// grows once it loads; a video shows its first frame under a play glyph.
+/// A lone image shows whole at a fixed height instead, so a portrait
+/// screenshot is not cropped to a square and its row still keeps its height.
 /// Images open in the pager, which swipes through all of them. Videos and
 /// other files (chips) open in Quick Look from a freshly signed link, with
 /// Save and Share.
@@ -28,7 +30,9 @@ struct TransferCard: View {
 
     var body: some View {
         VStack(alignment: fromUser ? .trailing : .leading, spacing: 8) {
-            if !media.isEmpty {
+            if media.count == 1, let lone = media.first, lone.isImage {
+                openButton(lone, lone: true)
+            } else if !media.isEmpty {
                 let columns = Array(repeating: GridItem(.fixed(84), spacing: 6), count: min(media.count, 3))
                 LazyVGrid(columns: columns, spacing: 6) {
                     ForEach(media) { file in openButton(file) }
@@ -62,16 +66,33 @@ struct TransferCard: View {
     private var media: [TransferDownloadGroup.File] { files.filter { $0.isImage || $0.isVideo } }
     private var others: [TransferDownloadGroup.File] { files.filter { !$0.isImage && !$0.isVideo } }
 
-    private func openButton(_ file: TransferDownloadGroup.File) -> some View {
-        Button { Task { await open(file) } } label: { label(file) }
+    /// The lone image's height, and its widest.
+    private static let loneSide: CGFloat = 260
+
+    private func openButton(_ file: TransferDownloadGroup.File, lone: Bool = false) -> some View {
+        Button { Task { await open(file) } } label: { label(file, lone: lone) }
             .buttonStyle(.plain)
             .disabled(opening != nil)
             .accessibilityLabel("Open \(file.fileName)")
     }
 
     @ViewBuilder
-    private func label(_ file: TransferDownloadGroup.File) -> some View {
-        if file.isImage || file.isVideo, let url = file.downloadUrl.flatMap(URL.init(string:)) {
+    private func label(_ file: TransferDownloadGroup.File, lone: Bool = false) -> some View {
+        if lone, let url = file.downloadUrl.flatMap(URL.init(string:)) {
+            let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+            AsyncImage(url: url) { image in
+                // Clipped and outlined before the frame, so the outline hugs the image.
+                image.resizable().scaledToFit()
+                    .clipShape(shape)
+                    .overlay(shape.strokeBorder(Theme.bubble))
+                    .overlay { if opening == file.id { ProgressView() } }
+            } placeholder: {
+                shape.fill(Theme.bubble).frame(width: Self.loneSide * 0.75)
+            }
+            .frame(maxWidth: Self.loneSide, maxHeight: Self.loneSide, alignment: fromUser ? .trailing : .leading)
+            // The height is fixed before the image loads; only the width follows it.
+            .frame(height: Self.loneSide)
+        } else if file.isImage || file.isVideo, let url = file.downloadUrl.flatMap(URL.init(string:)) {
             let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
             Group {
                 if file.isVideo {

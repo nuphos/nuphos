@@ -113,7 +113,7 @@ export function HistoryPageList({
         <HistoryConversationRow
           key={conversation.sessionId}
           conversation={conversation}
-          unread={unreadSessions.has(conversation.sessionId)}
+          unread={!conversation.parentSessionId && unreadSessions.has(conversation.sessionId)}
           opening={openingSessionId === conversation.sessionId}
           selected={selectedSessionId === conversation.sessionId}
           rowRef={selectedSessionId === conversation.sessionId ? selectedRowRef : undefined}

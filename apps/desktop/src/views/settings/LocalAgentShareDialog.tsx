@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
+import { adminName } from '../../components/agent/panel/agentSignInModel'
 import { Avatar } from '../../components/Avatar'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
@@ -19,6 +20,7 @@ import {
   SHARE_LEVEL_DESCRIPTION,
   SHARE_LEVEL_LABEL,
   SHARE_RISK,
+  sharingOffText,
 } from './localAgentSharingPresentation'
 
 import type { LocalAgentShareState, LocalShareLevel } from '../../api/device-types'
@@ -105,7 +107,7 @@ export function LocalAgentShareDialog({
           {state.ceiling !== 'full' && (
             <p className="text-[12px] text-tertiary">
               {state.ceiling === 'off'
-                ? t('Your team’s administrators have turned off sharing your own computer.')
+                ? sharingOffText(adminName(members))
                 : t(
                     'Your team’s administrators allow sharing only with your approval of each agent.',
                   )}

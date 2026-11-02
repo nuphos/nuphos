@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n/index.ts'
 
 import type { AgentCredentialSelection } from '../../api'
 import type {
@@ -50,7 +51,7 @@ export function usePanelActions({
         await api.dashboardsExecutePanel(teamId, selectedId, panel.id, true, viewRange)
         await loadDetail(selectedId)
       } catch (err) {
-        toast.apiError('Panel run failed', err)
+        toast.apiError(t('Panel run failed'), err)
       } finally {
         setBusyPanels((s) => {
           const n = new Set(s)
@@ -80,7 +81,7 @@ export function usePanelActions({
         setPanelToDelete(null)
         await loadDetail(selectedId)
       } catch (err) {
-        toast.apiError('Could not delete panel', err)
+        toast.apiError(t('Could not delete panel'), err)
         throw err
       }
     },
@@ -116,7 +117,7 @@ export function usePanelActions({
         setEditor(null)
         await loadDetail(selectedId)
       } catch (err) {
-        toast.apiError('Could not save panel', err)
+        toast.apiError(t('Could not save panel'), err)
       } finally {
         setSaving(false)
       }
@@ -139,7 +140,7 @@ export function usePanelActions({
       try {
         await api.dashboardsUpdate(teamId, selectedId, { layout })
       } catch (err) {
-        toast.apiError('Could not save order', err)
+        toast.apiError(t('Could not save order'), err)
         void loadDetail(selectedId)
       }
     },

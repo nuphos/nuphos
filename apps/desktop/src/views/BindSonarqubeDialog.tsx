@@ -4,6 +4,7 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 
 type Props = {
   teamId: string
@@ -26,32 +27,33 @@ export function BindSonarqubeDialog({ teamId, onClose, onBound }: Props) {
     const nextBaseUrl = baseUrl.trim().replace(/\/$/, '')
     const nextToken = token.trim()
 
-    if (!nextLabel) return toast.error('Label is required.')
+    if (!nextLabel) return toast.error(t('Label is required.'))
     if (!/^https?:\/\//i.test(nextBaseUrl)) {
-      return toast.error('SonarQube URL must start with http:// or https://.')
+      return toast.error(t('SonarQube URL must start with http:// or https://.'))
     }
-    if (!nextToken) return toast.error('A SonarQube user token is required.')
+    if (!nextToken) return toast.error(t('A SonarQube user token is required.'))
 
     setSubmitting(true)
     try {
       await api.atlasBindSonarqubeIntegration(teamId, nextLabel, nextBaseUrl, nextToken)
       onBound()
     } catch (cause) {
-      toast.apiError('Could not connect SonarQube', cause, {
-        fallback: 'Check the details and your connection, then try again.',
+      toast.apiError(t('Could not connect {name}', { name: 'SonarQube' }), cause, {
+        fallback: t('Check the details and your connection, then try again.'),
       })
       setSubmitting(false)
     }
   }
 
   return (
-    <Modal open onClose={close} title="Connect SonarQube" width={500}>
+    <Modal open onClose={close} title={t('Connect {name}', { name: 'SonarQube' })} width={500}>
       <div className="px-5 py-4 space-y-3 text-[13px]">
         <p className="text-secondary text-[12.5px] leading-relaxed">
-          Nuphos validates the token against this instance and stores it encrypted on the server.
-          Source code is not uploaded by this connector.
+          {t(
+            'Nuphos validates the token against this instance and stores it encrypted on the server. Source code is not uploaded by this connector.',
+          )}
         </p>
-        <Field label="Label" hint="A short name such as security or staging">
+        <Field label={t('Label')} hint={t('A short name such as security or staging')}>
           <input
             value={label}
             onChange={(event) => setLabel(event.target.value)}
@@ -60,7 +62,10 @@ export function BindSonarqubeDialog({ teamId, onClose, onBound }: Props) {
             className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
           />
         </Field>
-        <Field label="SonarQube URL" hint="The public base URL of your SonarQube instance">
+        <Field
+          label={t('SonarQube URL')}
+          hint={t('The public base URL of your SonarQube instance')}
+        >
           <input
             value={baseUrl}
             onChange={(event) => setBaseUrl(event.target.value)}
@@ -69,8 +74,10 @@ export function BindSonarqubeDialog({ teamId, onClose, onBound }: Props) {
           />
         </Field>
         <Field
-          label="User token"
-          hint="Create a token under My Account → Security. Use a dedicated read-only service user when possible."
+          label={t('User token')}
+          hint={t(
+            'Create a token under My Account → Security. Use a dedicated read-only service user when possible.',
+          )}
         >
           <input
             value={token}
@@ -89,10 +96,10 @@ export function BindSonarqubeDialog({ teamId, onClose, onBound }: Props) {
           disabled={submitting}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px] disabled:opacity-50"
         >
-          Cancel
+          {t('Cancel')}
         </button>
         <Button size="sm" type="button" onClick={() => void submit()} disabled={submitting}>
-          {submitting ? 'Connecting…' : 'Connect'}
+          {submitting ? t('Connecting…') : t('Connect')}
         </Button>
       </div>
     </Modal>

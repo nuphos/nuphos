@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import {
@@ -115,13 +116,13 @@ export function TriggerGroupOverview({
   if (!group) {
     return (
       <div className="p-5">
-        <div className="text-[12.5px] text-error">Watch group not found.</div>
+        <div className="text-[12.5px] text-error">{t('Watch group not found.')}</div>
         <button
           type="button"
           onClick={onBack}
           className="mt-3 text-[12.5px] text-secondary hover:text-main underline"
         >
-          Back to list
+          {t('Back to list')}
         </button>
       </div>
     )
@@ -171,7 +172,7 @@ export function TriggerGroupOverview({
                 ),
               )
             } catch (err) {
-              toast.apiError('Could not transfer this Watch group', err)
+              toast.apiError(t('Could not transfer this Watch group'), err)
             }
           }}
         />
@@ -209,9 +210,19 @@ export function TriggerGroupOverview({
       />
       <ConfirmDialog
         open={confirmDeleteOpen}
-        title="Remove Watch group?"
-        description={`"${group.name}" and its ${String(group.partitionCount)} shared provider ingress${group.partitionCount === 1 ? '' : 'es'} will be removed. Nuphos will clean up every recorded provider resource and preserve unrelated notification destinations.`}
-        confirmLabel="Remove group"
+        title={t('Remove Watch group?')}
+        description={
+          group.partitionCount === 1
+            ? t(
+                '"{name}" and its {n} shared provider ingress will be removed. Nuphos will clean up every recorded provider resource and preserve unrelated notification destinations.',
+                { name: group.name, n: group.partitionCount },
+              )
+            : t(
+                '"{name}" and its {n} shared provider ingresses will be removed. Nuphos will clean up every recorded provider resource and preserve unrelated notification destinations.',
+                { name: group.name, n: group.partitionCount },
+              )
+        }
+        confirmLabel={t('Remove group')}
         destructive
         onClose={() => setConfirmDeleteOpen(false)}
         onConfirm={() => deleteTriggerGroup(actionCtx)}

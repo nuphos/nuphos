@@ -2,6 +2,8 @@ import { faArrowUpRightFromSquare, faTrash } from '@fortawesome/free-solid-svg-i
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
 
+import { t } from '../../i18n'
+
 const buttonClasses =
   'inline-flex h-8 items-center gap-1.5 rounded-md border border-zGray-800 px-2.5 text-[12.5px] font-medium text-secondary transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
@@ -39,7 +41,7 @@ export function ConnectionActions({
         className={clsx(buttonClasses, 'hover:border-error/50 hover:text-error')}
       >
         <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
-        Disconnect
+        {t('Disconnect')}
       </button>
     </div>
   )

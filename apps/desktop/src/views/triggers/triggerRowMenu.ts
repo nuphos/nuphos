@@ -1,5 +1,7 @@
 import { Pencil, Play, Trash2 } from 'lucide-react'
 
+import { t } from '../../i18n/index.ts'
+
 import type { TriggerListRow } from './triggerRows'
 import type { ContextMenuItem } from '../../components/ContextMenu'
 
@@ -22,7 +24,7 @@ export function buildTriggerRowMenu(
 ): ContextMenuItem[] {
   const remove: ContextMenuItem = {
     key: 'delete',
-    label: row.kind === 'group' ? 'Delete group' : 'Delete trigger',
+    label: row.kind === 'group' ? t('Delete group') : t('Delete trigger'),
     icon: Trash2,
     destructive: true,
     // Deleting tears down provider resources, so it follows the same
@@ -35,7 +37,7 @@ export function buildTriggerRowMenu(
     return [
       {
         key: 'manage',
-        label: ctx.canManage ? 'Manage group' : 'View group',
+        label: ctx.canManage ? t('Manage group') : t('View group'),
         icon: Pencil,
         onSelect: () => ctx.onOpenGroup(row.group.id, row.group.name),
       },
@@ -47,13 +49,13 @@ export function buildTriggerRowMenu(
   return [
     {
       key: 'edit',
-      label: ctx.canManage ? 'Edit settings' : 'View settings',
+      label: ctx.canManage ? t('Edit settings') : t('View settings'),
       icon: Pencil,
       onSelect: () => ctx.onEditTrigger(row.trigger.id, row.trigger.name),
     },
     {
       key: 'test-fire',
-      label: 'Run now',
+      label: t('Run now'),
       icon: Play,
       disabled: !ctx.canManage || ctx.firing || Boolean(row.trigger.cleanupStatus),
       onSelect: () => ctx.onRunNow(row),

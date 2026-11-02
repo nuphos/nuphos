@@ -1,6 +1,10 @@
 import { randomInt } from 'node:crypto'
 
 import { controlRegistry } from '@/lib/claude-code-preview/agent-chat-registry'
+import {
+  listOwnLocalRuntimes,
+  resolveLocalRuntimeEndpoint,
+} from '@/lib/claude-code-preview/local-runtime-catalog'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { resolveTeamRuntimeEndpoints } from '@/lib/claude-code-preview/runtime-registry'
 import { RuntimeCapabilityError } from '@/lib/claude-code-preview/team-openab-runtime'
@@ -13,7 +17,8 @@ import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-
 
 export const PANEL_JOB = 'panel'
 
-export type PanelRuntimeContext = { teamId: string; panelId: string }
+/** `userId` is the panel's execution principal: the Boxes it may use are its candidates too. */
+export type PanelRuntimeContext = { teamId: string; panelId: string; userId: string }
 
 /** Orders a team's usable runtimes by preference; the first reachable one that
  *  can run the panel job wins. */
@@ -46,18 +51,37 @@ export type PanelRuntime = {
 }
 
 export type PanelRuntimeDeps = {
-  listEndpoints: (teamId: string) => Promise<TeamRuntimeEndpoint[]>
+  listEndpoints: (teamId: string, userId: string) => Promise<TeamRuntimeEndpoint[]>
   acquire: (teamId: string, endpoint: TeamRuntimeEndpoint) => Promise<PanelRuntimeClient>
 }
 
+/** The online agents on Boxes this person may use. Only a Box runs panels; a person's own
+ *  computer never offers the job, so it is not dialled. */
+export async function boxEndpoints(
+  teamId: string,
+  userId: string,
+  list = listOwnLocalRuntimes,
+  resolve = resolveLocalRuntimeEndpoint,
+): Promise<TeamRuntimeEndpoint[]> {
+  const boxes = (await list(teamId, userId)).filter(
+    ({ local }) => local.box && !local.shared && local.online,
+  )
+  const endpoints = await Promise.all(
+    boxes.map(({ id }) => resolve(teamId, id, userId, 'control').catch(() => null)),
+  )
+
+  return endpoints.filter((endpoint) => endpoint !== null)
+}
+
 const defaultDeps: PanelRuntimeDeps = {
-  listEndpoints: async (teamId) =>
+  listEndpoints: async (teamId, userId) =>
     (
-      await Promise.all(
-        OPENAB_PROVIDERS.map((provider) =>
+      await Promise.all([
+        ...OPENAB_PROVIDERS.map((provider) =>
           resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control'),
         ),
-      )
+        boxEndpoints(teamId, userId),
+      ])
     ).flat(),
   acquire: async (teamId, endpoint) => {
     const client = await controlRegistry.acquire(teamId, endpoint)
@@ -70,7 +94,7 @@ const defaultDeps: PanelRuntimeDeps = {
 }
 
 export const NO_RUNTIME_MESSAGE =
-  'This team has no agent online. Dashboard panels run on one of your agents: add one or bring one back online in Settings → Agent, then refresh.'
+  "No agent can run this dashboard's panels. Panels run on one of the team's agents or on an online, signed-in Box agent of the panel's author: bring one online in Settings → Agent, then refresh."
 export const UNREACHABLE_RUNTIME_MESSAGE =
   "None of this team's agents could be reached. Check that an agent is online in Settings → Agent, then refresh."
 export const PARTLY_UNREACHABLE_RUNTIME_MESSAGE =
@@ -83,7 +107,7 @@ export async function selectPanelRuntime(
   strategy: PanelRuntimeStrategy = randomRuntimeOrder,
   deps: PanelRuntimeDeps = defaultDeps,
 ): Promise<PanelRuntime> {
-  const candidates = await deps.listEndpoints(context.teamId)
+  const candidates = await deps.listEndpoints(context.teamId, context.userId)
 
   if (candidates.length === 0) throw new PanelExecError('runtime_unavailable', NO_RUNTIME_MESSAGE)
   let unreachable = 0

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button'
 import { listDatasources, isLokiDatasource, isTempoDatasource } from '../grafana/client'
 import { useSilentRefresh } from '../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -100,7 +101,7 @@ export function GrafanaDatasourceListView({
   const columns: Column<DatasourceSummary>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 260,
       sortAccessor: (x) => x.name,
       render: (x) => (
@@ -120,7 +121,7 @@ export function GrafanaDatasourceListView({
     },
     {
       key: 'type',
-      header: 'Type',
+      header: t('Type'),
       width: 220,
       sortAccessor: (x) => x.type,
       render: (x) => <span className="text-secondary">{x.type}</span>,
@@ -151,7 +152,7 @@ export function GrafanaDatasourceListView({
                 else onOpenLogExplorer?.(x)
               }}
             >
-              Explore
+              {t('Explore')}
               <ChevronRight className="w-3 h-3" strokeWidth={1.8} />
             </Button>
           </span>
@@ -172,7 +173,7 @@ export function GrafanaDatasourceListView({
   if (!items) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
-        Loading datasources…
+        {t('Loading datasources…')}
       </div>
     )
   }
@@ -190,7 +191,7 @@ export function GrafanaDatasourceListView({
         }}
         onRowContextMenu={onRowContextMenu}
         storageKey="observability.datasources"
-        empty={`No datasources match "${filter ?? ''}"`}
+        empty={t('No datasources match "{filter}"', { filter: filter ?? '' })}
       />
     </div>
   )

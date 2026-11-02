@@ -24,6 +24,7 @@ import { useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
+import { t } from '../../i18n'
 import { FRAME_PRESETS } from '../schema'
 
 import { INK_COLORS } from './helpers'
@@ -36,20 +37,20 @@ import type { SaveState } from '../useDesignSync'
 import type { LucideIcon } from 'lucide-react'
 
 const TOOLS: { tool: Tool; icon: LucideIcon; label: string; key: string }[] = [
-  { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
-  { tool: 'hand', icon: Hand, label: 'Hand', key: 'H' },
-  { tool: 'text', icon: Type, label: 'Text', key: 'T' },
-  { tool: 'frame', icon: SquareDashed, label: 'Frame', key: 'F' },
-  { tool: 'section', icon: Square, label: 'Section', key: 'S' },
-  { tool: 'note', icon: StickyNote, label: 'Sticky note', key: 'N' },
-  { tool: 'pen', icon: Pencil, label: 'Pen', key: 'P' },
+  { tool: 'select', icon: MousePointer2, label: t('Select'), key: 'V' },
+  { tool: 'hand', icon: Hand, label: t('Hand'), key: 'H' },
+  { tool: 'text', icon: Type, label: t('Text'), key: 'T' },
+  { tool: 'frame', icon: SquareDashed, label: t('Frame'), key: 'F' },
+  { tool: 'section', icon: Square, label: t('Section'), key: 'S' },
+  { tool: 'note', icon: StickyNote, label: t('Sticky note'), key: 'N' },
+  { tool: 'pen', icon: Pencil, label: t('Pen'), key: 'P' },
 ]
 
 const SHAPES: { kind: DesignShapeKind; icon: LucideIcon; label: string }[] = [
-  { kind: 'rect', icon: Square, label: 'Rectangle' },
-  { kind: 'ellipse', icon: Circle, label: 'Ellipse' },
-  { kind: 'arrow', icon: ArrowRight, label: 'Arrow' },
-  { kind: 'line', icon: Minus, label: 'Line' },
+  { kind: 'rect', icon: Square, label: t('Rectangle') },
+  { kind: 'ellipse', icon: Circle, label: t('Ellipse') },
+  { kind: 'arrow', icon: ArrowRight, label: t('Arrow') },
+  { kind: 'line', icon: Minus, label: t('Line') },
 ]
 
 export type ToolbarProps = {
@@ -89,7 +90,7 @@ export function Toolbar(p: ToolbarProps) {
           <button
             type="button"
             className="h-7 max-w-[12rem] truncate rounded px-2 text-[13px] font-medium text-main hover:bg-zGray-800"
-            title="Rename design"
+            title={t('Rename design')}
             onClick={() => setDraftName(p.name)}
           >
             {p.name}
@@ -111,7 +112,7 @@ export function Toolbar(p: ToolbarProps) {
               if (e.key === 'Escape') setDraftName(null)
               e.stopPropagation()
             }}
-            aria-label="Design name"
+            aria-label={t('Design name')}
             maxLength={100}
             className="h-7 w-44 rounded border border-zViolet-500 bg-main px-2 text-[13px] text-main outline-none focus:ring-1 focus:ring-zViolet-500/60"
           />
@@ -120,9 +121,9 @@ export function Toolbar(p: ToolbarProps) {
         <Menu>
           <MenuTrigger
             className="inline-flex h-7 items-center gap-1 rounded px-2 text-[13px] text-main hover:bg-zGray-800"
-            title="Pages"
+            title={t('Pages')}
           >
-            <span className="max-w-[10rem] truncate">{page?.name ?? 'Page'}</span>
+            <span className="max-w-[10rem] truncate">{page?.name ?? t('Page')}</span>
             <ChevronDown className="h-3.5 w-3.5 text-tertiary" />
           </MenuTrigger>
           <MenuContent className="min-w-56">
@@ -137,16 +138,16 @@ export function Toolbar(p: ToolbarProps) {
             ))}
             <MenuSeparator />
             <MenuItem icon={<Plus className="size-3.5" />} onClick={p.onAddPage}>
-              New page
+              {t('New page')}
             </MenuItem>
             <MenuItem icon={<Type className="size-3.5" />} onClick={() => p.onRenamePage(p.pageId)}>
-              Rename page
+              {t('Rename page')}
             </MenuItem>
             <MenuItem
               icon={<Copy className="size-3.5" />}
               onClick={() => p.onDuplicatePage(p.pageId)}
             >
-              Duplicate page
+              {t('Duplicate page')}
             </MenuItem>
             <MenuItem
               icon={<Trash2 className="size-3.5" />}
@@ -154,13 +155,13 @@ export function Toolbar(p: ToolbarProps) {
               disabled={p.pages.length <= 1}
               onClick={() => p.onDeletePage(p.pageId)}
             >
-              Delete page
+              {t('Delete page')}
             </MenuItem>
           </MenuContent>
         </Menu>
       </div>
 
-      <div className={FLOAT} role="toolbar" aria-label="Tools">
+      <div className={FLOAT} role="toolbar" aria-label={t('Tools')}>
         {TOOLS.map(({ tool, icon: Icon, label, key }) => (
           <ToolButton
             key={tool}
@@ -174,9 +175,9 @@ export function Toolbar(p: ToolbarProps) {
         ))}
         <Menu>
           <MenuTrigger
-            aria-label="Shape"
+            aria-label={t('Shape')}
             aria-pressed={p.tool === 'shape'}
-            title="Shape (R)"
+            title={t('Shape (R)')}
             className={clsx(
               'inline-flex h-7 items-center gap-0.5 rounded-md px-1 text-secondary hover:bg-zGray-800 hover:text-main',
               p.tool === 'shape' &&
@@ -224,7 +225,11 @@ export function Toolbar(p: ToolbarProps) {
         {(p.tool === 'pen' || p.tool === 'shape') && (
           <>
             <span className="mx-0.5 h-5 w-px bg-zGray-800" />
-            <span className="flex items-center gap-1 px-1" role="radiogroup" aria-label="Color">
+            <span
+              className="flex items-center gap-1 px-1"
+              role="radiogroup"
+              aria-label={t('Color')}
+            >
               {INK_COLORS.map((color) => (
                 <button
                   key={color}
@@ -248,10 +253,10 @@ export function Toolbar(p: ToolbarProps) {
       </div>
 
       <div className={FLOAT}>
-        <ToolButton label="Undo" hint="mod+z" onClick={p.onUndo}>
+        <ToolButton label={t('Undo')} hint="mod+z" onClick={p.onUndo}>
           <Undo2 className={clsx('h-4 w-4', !p.canUndo && 'opacity-40')} />
         </ToolButton>
-        <ToolButton label="Redo" hint="mod+shift+z" onClick={p.onRedo}>
+        <ToolButton label={t('Redo')} hint="mod+shift+z" onClick={p.onRedo}>
           <Redo2 className={clsx('h-4 w-4', !p.canRedo && 'opacity-40')} />
         </ToolButton>
         <span
@@ -259,10 +264,10 @@ export function Toolbar(p: ToolbarProps) {
           aria-live="polite"
         >
           {p.saveState === 'saving' && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label="Saving" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label={t('Saving')} />
           )}
           {p.saveState === 'saved' && (
-            <Check className="h-3.5 w-3.5 text-success" aria-label="Saved" />
+            <Check className="h-3.5 w-3.5 text-success" aria-label={t('Saved')} />
           )}
         </span>
       </div>

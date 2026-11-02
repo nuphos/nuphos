@@ -2,6 +2,7 @@ import { Database, Loader2, RefreshCw, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api, parseAtlasError } from '../api'
+import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
 
@@ -55,7 +56,7 @@ export function D1SchemaExplorer({
           {connection.databaseName ?? connection.name}
         </span>
         <span className="rounded bg-zGray-800 px-2 py-0.5 text-[10px] text-tertiary">
-          SQLite tables via Cloudflare D1
+          {t('SQLite tables via Cloudflare D1')}
         </span>
         <button
           onClick={() => {
@@ -65,7 +66,7 @@ export function D1SchemaExplorer({
           }}
           disabled={loading}
           className="rounded p-1.5 text-tertiary hover:bg-zGray-800 hover:text-main disabled:opacity-50"
-          title="Refresh tables"
+          title={t('Refresh tables')}
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
@@ -80,16 +81,16 @@ export function D1SchemaExplorer({
         </div>
       ) : !catalog?.collections.length ? (
         <div className="flex h-56 items-center justify-center text-[12px] text-tertiary">
-          No D1 tables found.
+          {t('No D1 tables found.')}
         </div>
       ) : (
         <div className="max-h-[508px] overflow-auto">
           <table className="w-full text-left text-[11.5px]">
             <thead className="sticky top-0 bg-zGray-900 text-tertiary">
               <tr className="border-b border-zGray-800">
-                <th className="px-4 py-2.5 font-medium">Table</th>
-                <th className="px-3 py-2.5 font-medium">Product</th>
-                <th className="px-3 py-2.5 font-medium">Details</th>
+                <th className="px-4 py-2.5 font-medium">{t('Table')}</th>
+                <th className="px-3 py-2.5 font-medium">{t('Product')}</th>
+                <th className="px-3 py-2.5 font-medium">{t('Details')}</th>
               </tr>
             </thead>
             <tbody>
@@ -106,7 +107,7 @@ export function D1SchemaExplorer({
                   </td>
                   <td className="px-3 py-2.5">Cloudflare D1</td>
                   <td className="px-3 py-2.5 text-tertiary">
-                    Detailed SQLite schema inspection is not enabled in this workspace yet.
+                    {t('Detailed SQLite schema inspection is not enabled in this workspace yet.')}
                   </td>
                 </tr>
               ))}

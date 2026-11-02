@@ -2,6 +2,7 @@ import { CalendarDays } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 
 import { EmptyState } from '../../../components/EmptyState'
+import { t } from '../../../i18n'
 import { useResetOnKey } from '../../useResetOnKey'
 
 import { EventPopover } from './EventPopover'
@@ -116,8 +117,10 @@ export function TriggerCalendar({
     return (
       <EmptyState
         icon={CalendarDays}
-        title="Schedule"
-        description="Scheduled agent runs show up here. Create a cron trigger and every upcoming run lands on this calendar."
+        title={t('Schedule')}
+        description={t(
+          'Scheduled agent runs show up here. Create a cron trigger and every upcoming run lands on this calendar.',
+        )}
         primaryAction={emptyAction}
       />
     )

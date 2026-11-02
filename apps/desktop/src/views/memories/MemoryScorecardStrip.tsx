@@ -2,6 +2,8 @@ import { Popover } from '@base-ui/react/popover'
 import { Info } from 'lucide-react'
 import { useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { deriveMemoryHealth } from './memoryHealth'
 
 import type { AgentMemoryScorecard } from '../../api'
@@ -27,26 +29,37 @@ export function MemoryScorecardStrip({ summary }: { summary: AgentMemoryScorecar
 
   // "checked", not "judged": the reader does not need to know an attribution
   // judge exists to understand that the rate covers a subset of turns.
-  let appliedNote = 'no turns checked yet'
+  let appliedNote = t('no turns checked yet')
 
   if (h.applied) {
-    appliedNote = `${String(h.applied.applied)} of ${String(h.applied.judged)} checked turns`
+    appliedNote = t('{applied} of {judged} checked turns', {
+      applied: String(h.applied.applied),
+      judged: String(h.applied.judged),
+    })
   }
 
-  let appliedTitle = 'No turns have been checked yet, so there is nothing to compute a rate from.'
+  let appliedTitle = t(
+    'No turns have been checked yet, so there is nothing to compute a rate from.',
+  )
 
   if (h.applied) {
-    appliedTitle = `Memory was verified as used in ${String(h.applied.applied)} of the ${String(h.applied.judged)} turns we checked.`
+    appliedTitle = t('Memory was verified as used in {applied} of the {judged} turns we checked.', {
+      applied: String(h.applied.applied),
+      judged: String(h.applied.judged),
+    })
     if (notChecked > 0) {
-      appliedTitle += ` The other ${String(notChecked)} turns in the window weren't checked — often because nothing was recalled for them — so they are left out rather than counted as failures.`
+      appliedTitle += ` ${t(
+        "The other {count} turns in the window weren't checked — often because nothing was recalled for them — so they are left out rather than counted as failures.",
+        { count: String(notChecked) },
+      )}`
     }
   }
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
-        title="Memory stats"
-        aria-label="Memory stats"
+        title={t('Memory stats')}
+        aria-label={t('Memory stats')}
         className="h-7 px-2 rounded-md inline-flex items-center text-tertiary transition-colors hover:text-secondary hover:bg-zGray-800/50"
       >
         <Info className="h-3.5 w-3.5" />
@@ -56,25 +69,30 @@ export function MemoryScorecardStrip({ summary }: { summary: AgentMemoryScorecar
           <Popover.Popup className="w-[268px] rounded-lg border border-zGray-800 bg-zGray-900 p-3.5 shadow-xl outline-none">
             <div className="flex flex-col gap-3">
               <Stat
-                label="applied"
+                label={t('applied')}
                 value={h.applied ? `${String(h.applied.pct)}%` : '—'}
                 note={appliedNote}
                 window={`${String(h.windowDays)}d`}
                 title={appliedTitle}
               />
               <Stat
-                label="recall"
+                label={t('recall')}
                 value={`${String(h.recall.pct)}%`}
-                note={`${String(h.recall.hit)} of ${String(h.recall.total)} turns`}
+                note={t('{hit} of {total} turns', {
+                  hit: String(h.recall.hit),
+                  total: String(h.recall.total),
+                })}
                 window={`${String(h.windowDays)}d`}
-                title="Turns where the agent was given at least one relevant memory."
+                title={t('Turns where the agent was given at least one relevant memory.')}
               />
               <Stat
-                label="learned"
+                label={t('learned')}
                 value={String(h.learned7d)}
-                note="memories"
+                note={t('memories')}
                 window="7d"
-                title="Memories auto-learned in the last 7 days. This is the one figure on a 7-day window — the rest cover 90."
+                title={t(
+                  'Memories auto-learned in the last 7 days. This is the one figure on a 7-day window — the rest cover 90.',
+                )}
               />
             </div>
           </Popover.Popup>

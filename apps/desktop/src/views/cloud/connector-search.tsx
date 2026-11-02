@@ -9,6 +9,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '../../components/ui/combobox'
+import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
 
 import { CatalogLogo } from './catalog-logo'
@@ -63,8 +64,8 @@ export function ConnectorSearch({
           strokeWidth={2}
         />
         <ComboboxInput
-          aria-label="Search connectors"
-          placeholder="Search connectors"
+          aria-label={t('Search connectors')}
+          placeholder={t('Search connectors')}
           showTrigger={false}
           onFocus={() => setOpen(true)}
           className="h-8 rounded-lg border-zGray-800/55 bg-transparent"
@@ -72,7 +73,7 @@ export function ConnectorSearch({
         />
       </div>
       <ComboboxContent className="p-1">
-        <ComboboxEmpty className="empty:hidden">No connectors match.</ComboboxEmpty>
+        <ComboboxEmpty className="empty:hidden">{t('No connectors match.')}</ComboboxEmpty>
         <ComboboxList>
           {(item: CatalogItem) => (
             <ComboboxItem key={item.key} value={item} className="rounded-md">
@@ -80,7 +81,7 @@ export function ConnectorSearch({
                 <CatalogLogo provider={item.key} size={16} />
                 <span className="truncate">{item.name}</span>
                 <span className="ml-auto flex-none pl-3 text-[11.5px] text-tertiary">
-                  {installed.has(item.key) ? 'Connected' : 'Add'}
+                  {installed.has(item.key) ? t('Connected') : t('Add')}
                 </span>
               </span>
             </ComboboxItem>

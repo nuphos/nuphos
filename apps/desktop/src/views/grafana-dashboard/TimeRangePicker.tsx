@@ -4,6 +4,7 @@ import { ChevronDown, Clock } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { QUICK_RANGES, timeSelLabel, toLocalInput } from './time'
@@ -57,15 +58,17 @@ export function TimeRangePicker({
             style={{ transformOrigin: 'top right' }}
           >
             <div className="w-[230px] px-3 py-2.5 border-r border-zGray-800/60">
-              <div className="text-[11px] font-medium text-secondary mb-2">Absolute time range</div>
-              <label className="block text-[10.5px] text-tertiary mb-1">From</label>
+              <div className="text-[11px] font-medium text-secondary mb-2">
+                {t('Absolute time range')}
+              </div>
+              <label className="block text-[10.5px] text-tertiary mb-1">{t('From')}</label>
               <input
                 type="datetime-local"
                 value={fromInput}
                 onChange={(e) => setFromInput(e.target.value)}
                 className="w-full mb-2 px-2 py-1 rounded bg-surface border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
               />
-              <label className="block text-[10.5px] text-tertiary mb-1">To</label>
+              <label className="block text-[10.5px] text-tertiary mb-1">{t('To')}</label>
               <input
                 type="datetime-local"
                 value={toInput}
@@ -80,7 +83,7 @@ export function TimeRangePicker({
                   setOpen(false)
                 }}
               >
-                Apply time range
+                {t('Apply time range')}
               </Button>
             </div>
             <div className="w-[170px] max-h-80 overflow-auto scrollbar-thin py-1">

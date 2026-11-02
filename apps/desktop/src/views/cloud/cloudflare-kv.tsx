@@ -8,6 +8,7 @@ import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { useResourceList } from '../useResourceList'
 
@@ -54,7 +55,7 @@ export function CloudflareKvView({
     },
   )
 
-  useToolbarPrimaryAction(isActive && !detail && !error ? 'Create namespace' : null, () =>
+  useToolbarPrimaryAction(isActive && !detail && !error ? t('Create namespace') : null, () =>
     setCreating(true),
   )
 
@@ -74,7 +75,11 @@ export function CloudflareKvView({
 
   if (detail) {
     if (!detail.id) {
-      return <ErrorBlock message={`Could not open ${detail.name}: missing KV namespace ID.`} />
+      return (
+        <ErrorBlock
+          message={t('Could not open {name}: missing KV namespace ID.', { name: detail.name })}
+        />
+      )
     }
 
     return (
@@ -97,11 +102,11 @@ export function CloudflareKvView({
         rowKey={(r) => r.id}
         onPrimaryAction={(r) => setDetail({ id: r.id, name: r.title })}
         storageKey="cloudflare.kv"
-        empty="No KV namespaces"
+        empty={t('No KV namespaces')}
         columns={[
           {
             key: 'title',
-            header: 'Title',
+            header: t('Title'),
             width: 280,
             sortAccessor: (r) => r.title,
             render: (r) => (
@@ -110,7 +115,7 @@ export function CloudflareKvView({
           },
           {
             key: 'id',
-            header: 'Namespace ID',
+            header: t('Namespace ID'),
             width: 280,
             sortAccessor: (r) => r.id,
             render: (r) => <span className="font-mono text-[12px] text-tertiary">{r.id}</span>,
@@ -127,7 +132,7 @@ export function CloudflareKvView({
                     setRenaming(r)
                   }}
                   className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
-                  title="Rename"
+                  title={t('Rename')}
                 >
                   <FontAwesomeIcon icon={faPencil} className="w-3.5 h-3.5" />
                 </button>
@@ -137,7 +142,7 @@ export function CloudflareKvView({
                     setPendingDelete(r)
                   }}
                   className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                  title="Delete namespace"
+                  title={t('Delete namespace')}
                 >
                   <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
                 </button>
@@ -149,14 +154,14 @@ export function CloudflareKvView({
 
       {creating && (
         <CreateNameDialog
-          title="Create KV namespace"
-          label="Title"
+          title={t('Create KV namespace')}
+          label={t('Title')}
           placeholder="my-namespace"
           onClose={() => setCreating(false)}
           onCreate={async (title) => {
             await api.atlasCreateCloudflareKvNamespace(teamId, accountId, title)
             setCreating(false)
-            toast.success('Namespace created')
+            toast.success(t('Namespace created'))
             await reload()
           }}
         />
@@ -164,16 +169,16 @@ export function CloudflareKvView({
 
       {renaming && (
         <CreateNameDialog
-          title="Rename namespace"
-          label="Title"
+          title={t('Rename namespace')}
+          label={t('Title')}
           placeholder="my-namespace"
           initial={renaming.title}
-          confirmLabel="Rename"
+          confirmLabel={t('Rename')}
           onClose={() => setRenaming(null)}
           onCreate={async (title) => {
             await api.atlasRenameCloudflareKvNamespace(teamId, accountId, renaming.id, title)
             setRenaming(null)
-            toast.success('Namespace renamed')
+            toast.success(t('Namespace renamed'))
             await reload()
           }}
         />
@@ -181,18 +186,20 @@ export function CloudflareKvView({
 
       <ConfirmDialog
         open={!!pendingDelete}
-        title="Delete KV namespace?"
+        title={t('Delete KV namespace?')}
         description={
           pendingDelete
-            ? `Namespace "${pendingDelete.title}" and all its keys will be permanently deleted.`
+            ? t('Namespace "{name}" and all its keys will be permanently deleted.', {
+                name: pendingDelete.title,
+              })
             : ''
         }
-        confirmLabel="Delete"
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={async () => {
           if (pendingDelete) {
             await api.atlasDeleteCloudflareKvNamespace(teamId, accountId, pendingDelete.id)
-            toast.success('Namespace deleted')
+            toast.success(t('Namespace deleted'))
             await reload()
           }
         }}

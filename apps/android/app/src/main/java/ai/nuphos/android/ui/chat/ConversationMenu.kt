@@ -1,7 +1,14 @@
 package ai.nuphos.android.ui.chat
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
@@ -14,6 +21,7 @@ import kotlinx.coroutines.launch
 fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> Unit, onChooseRuntime: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var open by remember(session, store.workspaceRevision) { mutableStateOf(false) }
+    var desktop by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var share by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var rename by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var archive by remember(session, store.workspaceRevision) { mutableStateOf(false) }
@@ -30,29 +38,38 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             finally { busy = false }
         }
     }
+    // Keep the popup's anchor local to the toolbar button rather than the
+    // containing app bar. Logical end positioning also works in RTL.
+    Box {
     IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, "Agent actions") }
-    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-        DropdownMenuItem(text = { Text("Share") }, enabled = session.loaded && session.loadError == null, onClick = {
+    DropdownMenu(expanded = open, onDismissRequest = { open = false },
+        modifier = Modifier.widthIn(min = 220.dp, max = 320.dp),
+        offset = DpOffset(0.dp, 4.dp), shape = RoundedCornerShape(24.dp)) {
+        DropdownMenuItem(text = { Text("Share") }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
             open = false
             share = true
         })
+        if (session.canOpenDesktop) DropdownMenuItem(text = { Text("Desktop") }, leadingIcon = { Icon(Icons.Outlined.DesktopWindows, null) }, onClick = { open = false; desktop = true })
         val pinned = store.favorites?.contains(session.sessionId) == true
-        DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin") }, enabled = !busy && store.favorites != null && session.loaded && session.loadError == null, onClick = {
+        DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin") }, leadingIcon = { Icon(Icons.Outlined.PushPin, null) }, enabled = !busy && store.favorites != null && session.loaded && session.loadError == null, onClick = {
             open = false; perform { store.pin(session, !pinned) }
         })
         if (store.favorites == null) DropdownMenuItem(text = { Text("Retry favorites") }, onClick = { perform { store.loadFavorites(); error = store.favoritesError } })
         if (session.canWatch) DropdownMenuItem(
             text = { Text(if (session.watching == true) "Unwatch" else "Watch") },
+            leadingIcon = { Icon(if (session.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, null) },
             enabled = !busy && store.watchingSessionId == null,
             onClick = { open = false; perform { store.setWatching(session); error = store.watchError } },
         )
         if (session.canManage) {
-            if (onChooseRuntime != null) DropdownMenuItem(text = { Text("Switch runtime") },
+            DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Outlined.Edit, null) }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
+            if (onChooseRuntime != null) DropdownMenuItem(text = { Text("Switch runtime") }, leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null) },
                 enabled = !busy && session.canMoveAgent, onClick = { open = false; onChooseRuntime() })
-            DropdownMenuItem(text = { Text("Rename") }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
-            DropdownMenuItem(text = { Text(if (session.isArchived) "Restore" else "Archive") }, enabled = !busy, onClick = { open = false; archive = true })
+            DropdownMenuItem(text = { Text(if (session.isArchived) "Restore" else "Archive") }, leadingIcon = { Icon(Icons.Outlined.Archive, null) }, enabled = !busy, onClick = { open = false; archive = true })
         }
     }
+    }
+    if (desktop) ai.nuphos.android.desktop.DesktopScreen(session, store) { desktop = false }
     if (share) {
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }

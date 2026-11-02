@@ -34,6 +34,7 @@ import type {
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
   SignInSession,
+  SocialProvider,
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
@@ -57,7 +58,8 @@ export type WindowAppApi = {
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
-  authLogin(): Promise<UserInfo>
+  authSocialProviders(): Promise<SocialProvider[]>
+  authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
   authEmailRequestCode(email: string): Promise<void>
@@ -91,6 +93,7 @@ export type WindowAppApi = {
   onAgentChatDeepLink(cb: (payload: AgentChatDeepLinkPayload) => void): () => void
   onAppOpenDeepLink(cb: (payload: AppOpenDeepLinkPayload) => void): () => void
   onConnectAgentDeepLink(cb: (payload: ConnectAgentLink) => void): () => void
+  onWebUrlDeepLink(cb: (url: string) => void): () => void
   onPersonalCredentialDeepLink(cb: (payload: PersonalCredentialDeepLinkPayload) => void): () => void
   onAgentFocusSession(cb: (payload: AgentFocusSessionPayload) => void): () => void
   selectLocalFile(): Promise<string[]>
@@ -100,7 +103,7 @@ export type WindowAppApi = {
   getPathForFile(file: File): string
   savePastedAttachments(payload: PastedAttachmentPayload): Promise<string[]>
   updaterGetState(): Promise<UpdaterState>
-  updaterCheck(): Promise<UpdaterState>
+  updaterCheck(): Promise<void>
   updaterInstall(): Promise<void>
   onUpdaterStatus(cb: (state: UpdaterState) => void): () => void
   changelogGetState(): Promise<ChangelogState>

@@ -168,6 +168,7 @@ export async function runOpenConversation(
       agentRuntime: detail.agentRuntime,
       runtimeId: detail.runtimeId,
       runtimeLabel: detail.runtimeLabel,
+      signInRequest: detail.signInRequest,
       timelineEvents: detail.timelineEvents,
       promptSuggestion: detail.promptSuggestion,
       openedAt: Date.now(),

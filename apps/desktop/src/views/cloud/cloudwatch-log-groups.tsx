@@ -7,6 +7,7 @@ import { ContextMenu } from '../../components/ContextMenu'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
 import { useResourceList } from '../useResourceList'
 
@@ -91,7 +92,7 @@ export function CloudWatchLogGroupsView({
       ...(linkItems.length > 0 ? [{ key: 'sep0', separator: true } as const] : []),
       {
         key: 'copy-name',
-        label: 'Copy log group name',
+        label: t('Copy log group name'),
         icon: Copy,
         onSelect: () => void navigator.clipboard.writeText(group.name),
       },
@@ -99,7 +100,7 @@ export function CloudWatchLogGroupsView({
         ? [
             {
               key: 'set-retention',
-              label: 'Set retention…',
+              label: t('Set retention…'),
               icon: Pencil,
               onSelect: () => {
                 setRetentionValue(
@@ -112,7 +113,7 @@ export function CloudWatchLogGroupsView({
         : []),
       {
         key: 'open-console',
-        label: 'Open in AWS console',
+        label: t('Open in AWS console'),
         icon: Globe,
         onSelect: () => void api.appOpenExternal(cloudWatchLogGroupUrl(group)),
       },
@@ -135,8 +136,8 @@ export function CloudWatchLogGroupsView({
       )
       setRetentionTarget(null)
     } catch (e) {
-      toast.apiError('Could not update retention', e, {
-        fallback: 'Check your connection and try again.',
+      toast.apiError(t('Could not update retention'), e, {
+        fallback: t('Check your connection and try again.'),
       })
     } finally {
       setRetentionSaving(false)
@@ -196,11 +197,11 @@ export function CloudWatchLogGroupsView({
         onRowContextMenu={(group, e) => setMenu({ group, x: e.clientX, y: e.clientY })}
         storageKey="aws.log-groups"
         defaultSort={{ key: 'name', dir: 'asc' }}
-        empty="No CloudWatch log groups"
+        empty={t('No CloudWatch log groups')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 380,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -214,25 +215,29 @@ export function CloudWatchLogGroupsView({
           },
           {
             key: 'region',
-            header: 'Region',
+            header: t('Region'),
             width: 140,
             sortAccessor: (r) => r.region,
             render: (r) => <span className="text-secondary">{r.region}</span>,
           },
           {
             key: 'retention',
-            header: 'Retention',
+            header: t('Retention'),
             width: 110,
             sortAccessor: (r) => r.retentionDays ?? Number.MAX_SAFE_INTEGER,
             render: (r) => (
               <span className="text-secondary">
-                {r.retentionDays != null ? `${String(r.retentionDays)} days` : 'Never expire'}
+                {r.retentionDays == null
+                  ? t('Never expire')
+                  : r.retentionDays === 1
+                    ? t('1 day')
+                    : t('{n} days', { n: r.retentionDays })}
               </span>
             ),
           },
           {
             key: 'stored',
-            header: 'Stored',
+            header: t('Stored'),
             width: 100,
             sortAccessor: (r) => r.storedBytes ?? -1,
             render: (r) => (
@@ -243,14 +248,14 @@ export function CloudWatchLogGroupsView({
           },
           {
             key: 'class',
-            header: 'Class',
+            header: t('Class'),
             width: 110,
             sortAccessor: (r) => r.logGroupClass ?? '',
             render: (r) => <span className="text-tertiary">{r.logGroupClass ?? '—'}</span>,
           },
           {
             key: 'created',
-            header: 'Created',
+            header: t('Created'),
             width: 100,
             sortAccessor: (r) => r.createdAt ?? '',
             render: (r) => (

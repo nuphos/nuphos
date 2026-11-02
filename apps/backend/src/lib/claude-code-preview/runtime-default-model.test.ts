@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { resolveDefaultModel } from './runtime-default-model'
 
-const controls = { modelId: 'default', effort: [{ value: 'high', name: 'High' }], fast: false }
+const controls = { modelId: 'default', effort: [{ value: 'high', name: 'High' }], fast: [] }
 
 test('a token-signed runtime names its default by family; the version stays in the description', () => {
   expect(

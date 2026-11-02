@@ -55,7 +55,12 @@ export function RuntimeActionsMenu({
         {/* A person's computer keeps its default agents; a Box can remove any of its agents. */}
         {(instance.kind !== 'local' || localRemovalId(instance)) && (
           // The Box deletes the agent's sign-in itself, so it has to be connected.
-          <MenuItem destructive disabled={instance.local?.online === false} onClick={onRemove}>
+          <MenuItem
+            destructive
+            disabled={instance.local?.online === false}
+            hint={instance.local?.online === false ? t('Offline') : undefined}
+            onClick={onRemove}
+          >
             {t('Remove runtime')}
           </MenuItem>
         )}

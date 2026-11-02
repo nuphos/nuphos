@@ -9,15 +9,23 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import type {
   NavigableResourceKind,
   ResourceRelation,
   ResourceTopology,
+  VolumeMountModel,
   VolumeSourceModel,
 } from './resource-topology'
 import type { DetailTarget } from './target'
 
 const relationGroups = ['Configuration', 'Storage', 'Runtime'] as const
+const relationGroupLabels: Record<(typeof relationGroups)[number], string> = {
+  Configuration: t('Configuration'),
+  Storage: t('Storage'),
+  Runtime: t('Runtime'),
+}
 
 function ResourceKindIcon({ kind }: { kind: NavigableResourceKind }) {
   if (kind === 'Secret') return <KeyRound className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -54,7 +62,7 @@ function ResourceLink({
         })
       }
       className="group flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-2 text-left hover:bg-zGray-850 disabled:pointer-events-none"
-      title={usageTitle ?? `Open ${relation.kind} ${relation.name}`}
+      title={usageTitle ?? t('Open {kind} {name}', { kind: relation.kind, name: relation.name })}
     >
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zViolet-500/10 text-zViolet-accent ring-1 ring-inset ring-zViolet-500/15">
         <ResourceKindIcon kind={relation.kind} />
@@ -68,7 +76,9 @@ function ResourceLink({
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-tertiary">
           <span className="truncate">
-            {usageCount > 1 ? `${String(usageCount)} references · ${relation.via}` : relation.via}
+            {usageCount > 1
+              ? t('{count} references · {via}', { count: usageCount, via: relation.via })
+              : relation.via}
           </span>
           {relation.detail && (
             <>
@@ -83,6 +93,25 @@ function ResourceLink({
       )}
     </button>
   )
+}
+
+function mountTitle(mount: VolumeMountModel) {
+  const vars = { container: mount.container, path: mount.path }
+
+  if (mount.init) {
+    return mount.readOnly
+      ? t('Init container {container}: {path} (read-only)', vars)
+      : t('Init container {container}: {path}', vars)
+  }
+  if (mount.ephemeral) {
+    return mount.readOnly
+      ? t('Ephemeral container {container}: {path} (read-only)', vars)
+      : t('Ephemeral container {container}: {path}', vars)
+  }
+
+  return mount.readOnly
+    ? t('Container {container}: {path} (read-only)', vars)
+    : t('Container {container}: {path}', vars)
 }
 
 function collapseRelations(relations: ResourceRelation[]) {
@@ -111,7 +140,11 @@ export function ConnectedResources({
   onNavigate?: (target: DetailTarget) => void
 }) {
   if (relations.length === 0) {
-    return <div className="px-5 py-4 text-[12px] text-tertiary">No resource references found.</div>
+    return (
+      <div className="px-5 py-4 text-[12px] text-tertiary">
+        {t('No resource references found.')}
+      </div>
+    )
   }
 
   return (
@@ -126,7 +159,7 @@ export function ConnectedResources({
         return (
           <div key={group} className="py-2">
             <div className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              {group}
+              {relationGroupLabels[group]}
             </div>
             <div>
               {groupRelations.map((uses) => {
@@ -178,7 +211,7 @@ function SourceLabel({
       type="button"
       onClick={() => onNavigate({ kind, namespace, name })}
       className="group flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-left hover:text-zViolet-accent"
-      title={`Open ${kind} ${name}`}
+      title={t('Open {kind} {name}', { kind, name })}
     >
       {label}
       <ArrowUpRight className="h-3 w-3 shrink-0 text-tertiary group-hover:text-zViolet-accent" />
@@ -196,7 +229,7 @@ export function VolumeMap({
   onNavigate?: (target: DetailTarget) => void
 }) {
   if (topology.volumes.length === 0) {
-    return <div className="px-6 py-5 text-[12px] text-tertiary">No volumes declared.</div>
+    return <div className="px-6 py-5 text-[12px] text-tertiary">{t('No volumes declared.')}</div>
   }
 
   return (
@@ -232,7 +265,7 @@ export function VolumeMap({
                   <span
                     key={`${mount.container}:${mount.path}`}
                     className="max-w-full truncate rounded bg-zGray-800 px-1.5 py-0.5 font-mono text-[10.5px] text-secondary"
-                    title={`${mount.init ? 'Init container' : mount.ephemeral ? 'Ephemeral container' : 'Container'} ${mount.container}: ${mount.path}${mount.readOnly ? ' (read-only)' : ''}`}
+                    title={mountTitle(mount)}
                   >
                     {mount.init ? 'init/' : mount.ephemeral ? 'ephemeral/' : ''}
                     {mount.container} → {mount.path}
@@ -242,7 +275,7 @@ export function VolumeMap({
               </div>
             ) : (
               <div className="text-[11px] text-warning">
-                Declared but not mounted by a container
+                {t('Declared but not mounted by a container')}
               </div>
             )}
           </div>

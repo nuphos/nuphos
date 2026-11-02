@@ -12,7 +12,6 @@ import { runtimeMayAcceptLater } from './queuedAutoSend'
 import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
 import { runtimeControlSendBlock } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
-import { ShellsPanel } from './ShellsPanel'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
 import { useComposerMentions } from './useComposerMentions'
@@ -271,7 +270,6 @@ export function Composer({
                 />
               )}
             </ComposerTools>
-            {!hero && <ShellsPanel snapshot={runtimeState} />}
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
             ) : (

@@ -40,10 +40,11 @@ export async function completeLegacyLogin(
           // anything that fails here must fail the sign-in visibly rather than
           // leave the browser claiming success with the token dropped. The
           // token is opaque, so the backend is the only source of who it is.
-          const user = await fetchUserInfo(token)
+          const user = await fetchUserInfo(token, plan.api)
 
           await writeConfig({
             token,
+            api: plan.api,
             user: user.name,
             username: user.username,
             userInfo: user,

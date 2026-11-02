@@ -127,6 +127,13 @@ object NuphosApi {
     }
 
     @Serializable
+    private data class ShareApprovalEnvelope(val status: String? = null)
+
+    /** Whether the caller's conversation on a teammate's shared computer waits for its owner; null when never asked. */
+    suspend fun ownShareApproval(token: String, sessionId: String): String? =
+        get<ShareApprovalEnvelope>("agent/devices/share-approvals/mine", token, listOf("sessionId" to sessionId), timeoutSeconds = 15).status
+
+    @Serializable
     private data class ErrorEnvelope(val error: Inner? = null) {
         @Serializable
         data class Inner(val message: String? = null)

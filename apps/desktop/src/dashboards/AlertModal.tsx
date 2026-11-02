@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Button } from '../components/ui/button'
 import { fieldClass } from '../components/ui/input-group'
 import { AppSelect } from '../components/ui/select'
+import { t } from '../i18n'
 
 import { EXTRACTS, OPS, useAlertEditor } from './AlertModalState'
 
@@ -13,7 +14,7 @@ import type { PanelAlertExtract, PanelAlertOp, DashboardPanel } from './schema'
 const CHANNEL_TYPES = [
   { value: 'slack', label: 'Slack' },
   { value: 'discord', label: 'Discord' },
-  { value: 'email', label: 'Email' },
+  { value: 'email', label: t('Email') },
 ]
 
 type Props = {
@@ -53,10 +54,15 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
 
   const channelPlaceholder =
     channelType === 'slack'
-      ? 'C0123ABC (channel id)'
+      ? t('C0123ABC (channel id)')
       : channelType === 'discord'
         ? 'https://discord.com/api/webhooks/…'
         : 'a@team.com, b@team.com'
+
+  const extraVars = {
+    count: extraChannels.length,
+    types: extraChannels.map((c) => c.type).join(', '),
+  }
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
@@ -68,11 +74,11 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
           <Dialog.Popup className="relative flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-zGray-800 bg-zGray-950 shadow-2xl outline-none">
             <div className="flex items-center justify-between border-b border-zGray-800 px-4 py-3">
               <Dialog.Title className="text-[14px] font-medium text-main">
-                Alert · {panel.title}
+                {t('Alert · {title}', { title: panel.title })}
               </Dialog.Title>
               <Dialog.Close
                 className="rounded p-1 text-tertiary hover:bg-zGray-800 hover:text-main"
-                aria-label="Close alert editor"
+                aria-label={t('Close alert editor')}
               >
                 <X className="h-4 w-4" />
               </Dialog.Close>
@@ -90,15 +96,15 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                     checked={enabled}
                     onChange={(e) => setEnabled(e.target.checked)}
                   />{' '}
-                  Enabled
+                  {t('Enabled')}
                 </label>
                 <div>
                   <span className="mb-1 block text-[11px] uppercase tracking-wide text-tertiary">
-                    Watch
+                    {t('Watch')}
                   </span>
                   <AppSelect
                     positionerClassName="!z-[1100]"
-                    ariaLabel="Metric to watch"
+                    ariaLabel={t('Metric to watch')}
                     value={extract}
                     onValueChange={(value) => setExtract(value as PanelAlertExtract)}
                     options={EXTRACTS.filter((x) => x.kinds.includes(panel.kind))}
@@ -110,9 +116,9 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                   <input
                     className={`${fieldClass} h-9`}
                     name="panel-alert-reference"
-                    aria-label="Series or column key"
+                    aria-label={t('Series or column key')}
                     autoComplete="off"
-                    placeholder="series/column key (optional — defaults to first)"
+                    placeholder={t('series/column key (optional — defaults to first)')}
                     value={ref}
                     onChange={(e) => setRef(e.target.value)}
                   />
@@ -120,7 +126,7 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                 <div className="flex gap-2">
                   <AppSelect
                     positionerClassName="!z-[1100]"
-                    ariaLabel="Comparison operator"
+                    ariaLabel={t('Comparison operator')}
                     value={op}
                     onValueChange={(value) => setOp(value as PanelAlertOp)}
                     options={OPS}
@@ -129,7 +135,7 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                   <input
                     className={`${fieldClass} h-9 w-28`}
                     name="panel-alert-threshold"
-                    aria-label="Threshold"
+                    aria-label={t('Threshold')}
                     autoComplete="off"
                     type="number"
                     value={threshold}
@@ -138,12 +144,12 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                 </div>
                 <div>
                   <span className="mb-1 block text-[11px] uppercase tracking-wide text-tertiary">
-                    Notify via
+                    {t('Notify via')}
                   </span>
                   <div className="flex gap-2">
                     <AppSelect
                       positionerClassName="!z-[1100]"
-                      ariaLabel="Notification channel type"
+                      ariaLabel={t('Notification channel type')}
                       value={channelType}
                       onValueChange={(value) => {
                         setChannelType(value as typeof channelType)
@@ -155,7 +161,7 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                     <input
                       className={`${fieldClass} h-9`}
                       name="panel-alert-destination"
-                      aria-label="Notification destination"
+                      aria-label={t('Notification destination')}
                       autoComplete="off"
                       placeholder={channelPlaceholder}
                       value={channelValue}
@@ -164,9 +170,9 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                   </div>
                   {extraChannels.length > 0 && (
                     <p className="mt-1 text-[11px] text-tertiary">
-                      {extraChannels.length} other destination
-                      {extraChannels.length === 1 ? '' : 's'} (
-                      {extraChannels.map((c) => c.type).join(', ')}) stay as configured.
+                      {extraChannels.length === 1
+                        ? t('{count} other destination ({types}) stays as configured.', extraVars)
+                        : t('{count} other destinations ({types}) stay as configured.', extraVars)}
                     </p>
                   )}
                 </div>
@@ -179,11 +185,11 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                 onClick={() => setConfirmingRemove(true)}
                 disabled={saving || loadFailed || !hasAlert}
               >
-                Remove
+                {t('Remove')}
               </button>
               <div className="flex gap-2">
                 <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-zGray-800">
-                  Cancel
+                  {t('Cancel')}
                 </Dialog.Close>
                 <Button
                   size="sm"
@@ -191,7 +197,7 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                   disabled={saving || loadFailed || !channelValue.trim()}
                   onClick={() => void save()}
                 >
-                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save alert
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} {t('Save alert')}
                 </Button>
               </div>
             </div>
@@ -200,9 +206,12 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
       </Dialog.Portal>
       <ConfirmDialog
         open={confirmingRemove}
-        title="Remove alert?"
-        description={`The alert for "${panel.title}" and all of its notification destinations will be permanently removed.`}
-        confirmLabel="Remove alert"
+        title={t('Remove alert?')}
+        description={t(
+          'The alert for "{title}" and all of its notification destinations will be permanently removed.',
+          { title: panel.title },
+        )}
+        confirmLabel={t('Remove alert')}
         destructive
         onConfirm={remove}
         onClose={() => setConfirmingRemove(false)}

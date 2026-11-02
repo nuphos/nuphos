@@ -9,6 +9,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { useResourceList } from '../useResourceList'
 
@@ -91,11 +92,11 @@ export function CloudflarePagesView({
         rowKey={(r) => r.name}
         onPrimaryAction={(r) => setDetail({ name: r.name })}
         storageKey="cloudflare.pages"
-        empty="No Pages projects"
+        empty={t('No Pages projects')}
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 240,
             sortAccessor: (r) => r.name,
             render: (r) => (
@@ -104,14 +105,14 @@ export function CloudflarePagesView({
           },
           {
             key: 'branch',
-            header: 'Production branch',
+            header: t('Production branch'),
             width: 150,
             sortAccessor: (r) => r.productionBranch ?? '',
             render: (r) => <span className="text-secondary">{r.productionBranch || '-'}</span>,
           },
           {
             key: 'status',
-            header: 'Latest',
+            header: t('Latest'),
             width: 120,
             sortAccessor: (r) => r.latestDeployment?.stageStatus ?? '',
             render: (r) =>
@@ -123,14 +124,14 @@ export function CloudflarePagesView({
           },
           {
             key: 'domains',
-            header: 'Domains',
+            header: t('Domains'),
             width: 90,
             sortAccessor: (r) => r.domains.length,
             render: (r) => <span className="text-secondary">{r.domains.length}</span>,
           },
           {
             key: 'created',
-            header: 'Created',
+            header: t('Created'),
             width: 110,
             sortAccessor: (r) => r.createdOn ?? '',
             render: (r) => (
@@ -150,7 +151,7 @@ export function CloudflarePagesView({
                   setPendingDelete(r)
                 }}
                 className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
-                title="Delete project"
+                title={t('Delete project')}
               >
                 <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
               </button>
@@ -161,18 +162,20 @@ export function CloudflarePagesView({
 
       <ConfirmDialog
         open={!!pendingDelete}
-        title="Delete Pages project?"
+        title={t('Delete Pages project?')}
         description={
           pendingDelete
-            ? `Project "${pendingDelete.name}" and all its deployments will be deleted.`
+            ? t('Project "{name}" and all its deployments will be deleted.', {
+                name: pendingDelete.name,
+              })
             : ''
         }
-        confirmLabel="Delete"
+        confirmLabel={t('Delete')}
         destructive
         onConfirm={async () => {
           if (pendingDelete) {
             await api.atlasDeleteCloudflarePagesProject(teamId, accountId, pendingDelete.name)
-            toast.success('Project deleted')
+            toast.success(t('Project deleted'))
             await reload()
           }
         }}

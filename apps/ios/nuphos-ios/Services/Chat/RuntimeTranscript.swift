@@ -108,11 +108,23 @@ enum RuntimeTranscript {
         return active
     }
 
-    static func steering(id: String, text: String, messages: inout [ChatMessage]) {
-        guard !messages.contains(where: { message in message.parts.contains(where: {
-            if case .data(let value) = $0 { return value.name == "steering" && value.data["id"]?.stringValue == id }
-            return false
-        }) }), let index = messages.indices.last, messages[index].role == .assistant else { return }
-        messages[index].parts.append(.data(.init(name: "steering", data: .object(["id": .string(id), "text": .string(text)]))))
+    /// The API acknowledgement and the stream receipt race; whichever lands
+    /// second may be the one carrying the sender, so it fills that in.
+    static func steering(id: String, text: String, metadata: JSONValue? = nil, messages: inout [ChatMessage]) {
+        var data: [String: JSONValue] = ["id": .string(id), "text": .string(text)]
+        if let metadata { data["metadata"] = metadata }
+        for m in messages.indices {
+            if let p = messages[m].parts.firstIndex(where: {
+                if case .data(let value) = $0 { return value.name == "steering" && value.data["id"]?.stringValue == id }
+                return false
+            }) {
+                if metadata != nil, case .data(let value) = messages[m].parts[p], value.data["metadata"] == nil {
+                    messages[m].parts[p] = .data(.init(name: "steering", data: .object(data)))
+                }
+                return
+            }
+        }
+        guard let index = messages.indices.last, messages[index].role == .assistant else { return }
+        messages[index].parts.append(.data(.init(name: "steering", data: .object(data))))
     }
 }

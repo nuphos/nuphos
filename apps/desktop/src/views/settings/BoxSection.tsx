@@ -17,6 +17,7 @@ import { BoxRow } from './BoxRow'
 import { LocalAgentSharingCard } from './LocalAgentSharingCard'
 import { NewBoxDialog } from './NewBoxDialog'
 import { PanelHeading } from './RuntimePanel'
+import { useAdminName } from './useAdminName'
 import { useAgentDevices } from './useAgentDevices'
 import { useBoxUsage } from './useBoxUsage'
 
@@ -102,6 +103,8 @@ export function BoxSection({
   const ownComputer = owned.find(
     (device) => device.box === undefined && device.deviceId === thisComputer?.deviceId,
   )
+  // Members cannot create a Box: say who can, where the button would be.
+  const admin = useAdminName(teamId, !canCreate && Boolean(list?.boxAvailable))
   const setUpLocalAgent =
     onOpenSettingsSection && (() => onOpenSettingsSection('device.localRuntime'))
 
@@ -111,7 +114,7 @@ export function BoxSection({
         title={t('Computers')}
         right={
           list?.boxAvailable &&
-          canCreate && (
+          (canCreate ? (
             <Button
               size="sm"
               variant="secondary"
@@ -123,7 +126,13 @@ export function BoxSection({
               <Box className="h-3.5 w-3.5" />
               {t('New computer')}
             </Button>
-          )
+          ) : (
+            <span className="text-[11.5px] text-tertiary">
+              {admin
+                ? t('Ask {name} to add a cloud computer.', { name: admin })
+                : t('Administrators add cloud computers.')}
+            </span>
+          ))
         }
       />
       <div

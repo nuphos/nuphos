@@ -9,7 +9,7 @@ struct ProfileSheet: View {
     let user: NuphosUser
     private var currentUser: NuphosUser { session.user ?? user }
     @State private var editing = false
-    @AppStorage(BotAvatars.enabledKey) private var botAvatars = true
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
 
     @State private var confirmSignOut = false
     @State private var showAppIcons = false

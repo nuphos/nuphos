@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 import { toneBgClass, toneTextClass } from '../../lib/workloadStatus'
 import { formatCpu, formatMemory } from '../../utils'
 
@@ -29,29 +30,29 @@ export function AbnormalUsagePanel({
   onThresholdChange: (value: number) => void
   onNavigate?: (navKey: string, filter?: string) => void
 }) {
-  const options: AppSelectOption[] = ABNORMAL_THRESHOLDS.map((t) => ({
-    value: String(t),
-    label: `≥ ${String(t)}% of Limit`,
+  const options: AppSelectOption[] = ABNORMAL_THRESHOLDS.map((pct) => ({
+    value: String(pct),
+    label: t('≥ {pct}% of Limit', { pct }),
   }))
 
   let body: ReactNode
 
   if (rows === null) {
-    body = loading ? <PanelEmpty text="Loading…" /> : <PanelEmpty text="Unavailable" />
+    body = loading ? <PanelEmpty text={t('Loading…')} /> : <PanelEmpty text={t('Unavailable')} />
   } else {
     const filtered = rows.filter(
       (r) => (r.cpu_pct ?? 0) >= threshold || (r.memory_pct ?? 0) >= threshold,
     )
 
     if (filtered.length === 0) {
-      body = <PanelEmpty text={`No containers above ${String(threshold)}% of limit.`} />
+      body = <PanelEmpty text={t('No containers above {pct}% of limit.', { pct: threshold })} />
     } else {
       body = (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 px-1 text-[11px] uppercase tracking-wider text-tertiary">
-            <span className="min-w-0 flex-1">Container</span>
-            <span className="w-14 text-right">CPU</span>
-            <span className="w-14 text-right">Memory</span>
+            <span className="min-w-0 flex-1">{t('Container')}</span>
+            <span className="w-14 text-right">{t('CPU')}</span>
+            <span className="w-14 text-right">{t('Memory')}</span>
           </div>
           {filtered.map((r) => (
             <button
@@ -63,7 +64,9 @@ export function AbnormalUsagePanel({
                 'flex items-center gap-2 text-left rounded px-1 py-0.5',
                 onNavigate && 'hover:bg-zGray-850',
               )}
-              title={onNavigate ? `Show pod ${r.namespace}/${r.pod}` : undefined}
+              title={
+                onNavigate ? t('Show pod {name}', { name: `${r.namespace}/${r.pod}` }) : undefined
+              }
             >
               <span className="min-w-0 flex-1">
                 <span className="text-[12px] text-zViolet-accent truncate">{r.pod}</span>
@@ -93,13 +96,13 @@ export function AbnormalUsagePanel({
     <div className="mt-3 bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="text-[11.5px] uppercase tracking-wider text-tertiary">
-          High / Abnormal Resource Usage
+          {t('High / Abnormal Resource Usage')}
         </div>
         <AppSelect
           value={String(threshold)}
           onValueChange={(v) => onThresholdChange(Number(v))}
           options={options}
-          ariaLabel="Usage threshold"
+          ariaLabel={t('Usage threshold')}
           className="w-40"
           triggerClassName="h-7"
         />
@@ -170,7 +173,7 @@ export function OverviewCardView({
       </button>
 
       {card.total === null ? (
-        <div className="text-[13px] text-tertiary mt-1">Unavailable</div>
+        <div className="text-[13px] text-tertiary mt-1">{t('Unavailable')}</div>
       ) : card.segments.length === 0 ? (
         <div className="text-[24px] font-semibold text-main leading-none">{card.total}</div>
       ) : (
@@ -190,7 +193,14 @@ export function OverviewCardView({
                     'flex items-baseline gap-1.5 text-left',
                     clickable && 'hover:opacity-80',
                   )}
-                  title={clickable ? `Show ${seg.label} ${card.title.toLowerCase()}` : undefined}
+                  title={
+                    clickable
+                      ? t('Show {status} {kind}', {
+                          status: seg.label,
+                          kind: card.title.toLowerCase(),
+                        })
+                      : undefined
+                  }
                 >
                   <span
                     className={clsx(

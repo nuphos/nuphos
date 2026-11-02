@@ -1,4 +1,5 @@
 import { t } from '../../../i18n/index.ts'
+import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
 import type { RuntimeControl } from './RuntimeSelector'
 
@@ -22,6 +23,20 @@ export function selectedAgentReachability(
   if (local?.signedIn === false) return 'signIn'
 
   return local ? 'ready' : null
+}
+
+/** The agent, never just its computer: it is "Claude Code on Sam’s MacBook" that signs out. */
+export function selectedAgentName(control: Pick<RuntimeControl, 'value' | 'options'>): string {
+  const { value } = control
+  const local = control.options?.find((instance) => instance.id === value?.id)?.local
+
+  if (!value) return t('The runtime')
+  if (!local) return value.label
+
+  return t('{agent} on {computer}', {
+    agent: local.agentLabel ?? AGENT_PROVIDER[value.provider].label,
+    computer: local.deviceLabel,
+  })
 }
 
 /** Why the next message cannot go, or null when it can: no agent, or one that cannot take it. */

@@ -1,6 +1,7 @@
 import { CheckCircle2, Clock3, MessageSquare, Play, ShieldCheck } from 'lucide-react'
 
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
+import { t } from '../../i18n'
 
 import { ActionButton, Label, Metric, StatusBadge, TextBlock } from './ChangesCommon'
 import { previewValue } from './changesStatement'
@@ -26,6 +27,17 @@ export function ChangeDetail({
   onOpenPlanInChat?: (planId: string) => void
 }) {
   const loading = busyAction !== null
+  const requestVars = {
+    name: memberName(change.requesterUserId),
+    kind: change.kind.toUpperCase(),
+    plan: change.planId ?? '',
+    digest: change.statementDigest.slice(0, 12),
+  }
+  const requestLine = !change.planId
+    ? t('Requested by {name} · {kind} · digest {digest}…', requestVars)
+    : change.proposalSource === 'agent'
+      ? t('Requested by {name} · {kind} · Agent Plan #{plan} · digest {digest}…', requestVars)
+      : t('Requested by {name} · {kind} · Plan #{plan} · digest {digest}…', requestVars)
 
   useReportVisibleError(change.executionErrorMessage, 'database_change_execution_error')
 
@@ -37,13 +49,7 @@ export function ChangeDetail({
             <h3 className="text-[15px] font-medium text-main">{change.title}</h3>
             <StatusBadge status={change.status} />
           </div>
-          <div className="mt-1 text-[11px] text-tertiary">
-            Requested by {memberName(change.requesterUserId)} · {change.kind.toUpperCase()} ·{' '}
-            {change.planId
-              ? `${change.proposalSource === 'agent' ? 'Agent ' : ''}Plan #${change.planId} · `
-              : ''}
-            digest {change.statementDigest.slice(0, 12)}…
-          </div>
+          <div className="mt-1 text-[11px] text-tertiary">{requestLine}</div>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           {change.planId && onOpenPlanInChat && (
@@ -52,8 +58,8 @@ export function ChangeDetail({
               onClick={() => onOpenPlanInChat(change.planId!)}
               label={
                 change.status === 'approved' && change.proposalSource === 'agent'
-                  ? 'Continue Agent execution'
-                  : 'Open Plan in Agent'
+                  ? t('Continue Agent execution')
+                  : t('Open Plan in Agent')
               }
               icon={<MessageSquare className="h-3 w-3" />}
             />
@@ -62,14 +68,14 @@ export function ChangeDetail({
             <ActionButton
               disabled={loading}
               onClick={() => onDecide('submit')}
-              label="Submit for approval"
+              label={t('Submit for approval')}
             />
           )}
           {change.canApprove && (
             <ActionButton
               disabled={loading}
               onClick={() => onDecide('approve')}
-              label="Approve"
+              label={t('Approve')}
               tone="success"
             />
           )}
@@ -77,18 +83,22 @@ export function ChangeDetail({
             <ActionButton
               disabled={loading}
               onClick={() => onDecide('reject')}
-              label="Reject"
+              label={t('Reject')}
               tone="error"
             />
           )}
           {change.canCancel && (
-            <ActionButton disabled={loading} onClick={() => onDecide('cancel')} label="Cancel" />
+            <ActionButton
+              disabled={loading}
+              onClick={() => onDecide('cancel')}
+              label={t('Cancel')}
+            />
           )}
           {change.canExecute && (
             <ActionButton
               disabled={loading}
               onClick={onExecute}
-              label="Execute"
+              label={t('Execute')}
               tone="warning"
               icon={<Play className="h-3 w-3" />}
             />
@@ -97,52 +107,57 @@ export function ChangeDetail({
       </div>
       <div className="grid grid-cols-3 gap-3">
         <Metric
-          label="Approval"
+          label={t('Approval')}
           value={`${String(change.currentApprovals)} / ${String(change.requiredApprovals)}`}
         />
         <Metric
-          label="Authorized executors"
+          label={t('Authorized executors')}
           value={String(change.authorizedExecutorUserIds.length)}
         />
         <Metric
-          label="You can execute"
+          label={t('You can execute')}
           value={
-            change.authorizedExecutorUserIds.includes(currentUserId) ? 'Yes, after approval' : 'No'
+            change.authorizedExecutorUserIds.includes(currentUserId)
+              ? t('Yes, after approval')
+              : t('No')
           }
         />
       </div>
       <section>
-        <Label>Approved statement preview</Label>
+        <Label>{t('Approved statement preview')}</Label>
         <div className="max-h-72 overflow-auto rounded-lg border border-zGray-800 bg-[#011627] p-3">
           <HighlightedJson value={previewValue(change)} />
         </div>
         {change.statementRedactedFields.length > 0 && (
           <div className="mt-1 text-[10px] text-warning">
-            Sensitive paths redacted: {change.statementRedactedFields.join(', ')}
+            {t('Sensitive paths redacted: {paths}', {
+              paths: change.statementRedactedFields.join(', '),
+            })}
           </div>
         )}
       </section>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <TextBlock title="Purpose" text={change.description} />
-        <TextBlock title="Risk" text={change.risk} />
-        <TextBlock title="Rollback" text={change.rollbackPlan} />
+        <TextBlock title={t('Purpose')} text={change.description} />
+        <TextBlock title={t('Risk')} text={change.risk} />
+        <TextBlock title={t('Rollback')} text={change.rollbackPlan} />
       </div>
       <section>
-        <Label>Authorized executors</Label>
+        <Label>{t('Authorized executors')}</Label>
         <div className="flex flex-wrap gap-1.5">
           {change.authorizedExecutorUserIds.map((id) => (
             <span
               key={id}
               className="rounded-full border border-zGray-800 px-2 py-1 text-[10.5px] text-secondary"
             >
-              {memberName(id)}
-              {id === change.requesterUserId ? ' · requester' : ''}
+              {id === change.requesterUserId
+                ? t('{name} · requester', { name: memberName(id) })
+                : memberName(id)}
             </span>
           ))}
         </div>
       </section>
       <section>
-        <Label>Approvals</Label>
+        <Label>{t('Approvals')}</Label>
         {change.approvals.length ? (
           <div className="space-y-1.5">
             {change.approvals.map((approval) => (
@@ -162,12 +177,12 @@ export function ChangeDetail({
             ))}
           </div>
         ) : (
-          <div className="text-[11px] text-tertiary">Waiting for another team member.</div>
+          <div className="text-[11px] text-tertiary">{t('Waiting for another team member.')}</div>
         )}
       </section>
       {change.executionResult && (
         <section>
-          <Label>Execution result</Label>
+          <Label>{t('Execution result')}</Label>
           <div className="rounded-lg border border-success/25 bg-success/5 p-3">
             <HighlightedJson value={change.executionResult} />
           </div>
@@ -175,12 +190,14 @@ export function ChangeDetail({
       )}
       {change.executionErrorMessage && (
         <div className="rounded-lg border border-error/30 bg-error/5 p-3 text-[11px] text-error">
-          <div className="font-medium">Execution failed · {change.executionErrorCategory}</div>
+          <div className="font-medium">
+            {t('Execution failed · {category}', { category: change.executionErrorCategory ?? '' })}
+          </div>
           <div className="mt-1">{change.executionErrorMessage}</div>
         </div>
       )}
       <section>
-        <Label>Timeline</Label>
+        <Label>{t('Timeline')}</Label>
         <div className="space-y-1.5">
           {[...change.events].reverse().map((event, index) => (
             <div key={`${event.at}:${String(index)}`} className="flex gap-2 text-[10.5px]">
@@ -189,7 +206,9 @@ export function ChangeDetail({
                 {new Date(event.at).toLocaleString()}
               </span>
               <span className="text-secondary">{event.type.replaceAll('_', ' ')}</span>
-              <span className="text-tertiary">by {memberName(event.actorUserId)}</span>
+              <span className="text-tertiary">
+                {t('by {name}', { name: memberName(event.actorUserId) })}
+              </span>
               {event.comment && <span className="ml-auto text-tertiary">{event.comment}</span>}
             </div>
           ))}
@@ -197,8 +216,9 @@ export function ChangeDetail({
       </section>
       <div className="flex gap-2 rounded-md border border-zGray-800 bg-zGray-900/50 p-2.5 text-[10.5px] leading-4 text-tertiary">
         <ShieldCheck className="h-4 w-4 shrink-0 text-success" />
-        Approval never executes the request or grants execution rights. Only the listed executors
-        can explicitly claim the immutable approved digest.
+        {t(
+          'Approval never executes the request or grants execution rights. Only the listed executors can explicitly claim the immutable approved digest.',
+        )}
       </div>
     </div>
   )

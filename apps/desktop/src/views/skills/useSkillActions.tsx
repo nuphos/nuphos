@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 
 import type { LoadState } from './skillsShared'
 import type {
@@ -93,7 +94,7 @@ export function useSkillActions(args: ActionsArgs) {
         }
       } catch (err) {
         console.warn('[skills] failed to load skill detail', err)
-        toast.apiError('Failed to load skill', err)
+        toast.apiError(t('Failed to load skill'), err)
       } finally {
         if (detailRequestRef.current === requestId) {
           setDetailLoading(false)
@@ -150,17 +151,17 @@ export function useSkillActions(args: ActionsArgs) {
   const deleteObject = useCallback(
     async (key: string) => {
       if (!canDelete) {
-        toast.error('Permission denied', 'Only team administrators can delete skill files.')
+        toast.error(t('Permission denied'), t('Only team administrators can delete skill files.'))
 
         return
       }
       try {
         await api.teamSkillsDeleteObject(teamId, key, scope)
-        toast.success('Deleted', key)
+        toast.success(t('Deleted'), key)
         await reloadWithSkeleton()
         if (selectedName) await reloadDetailForName(selectedName)
       } catch (err) {
-        toast.apiError('Delete failed', err)
+        toast.apiError(t('Delete failed'), err)
       }
     },
     [canDelete, reloadDetailForName, reloadWithSkeleton, scope, selectedName, teamId],
@@ -169,7 +170,7 @@ export function useSkillActions(args: ActionsArgs) {
   const deleteSkill = useCallback(
     async (skill: TeamSkillSummary) => {
       if (!canDelete) {
-        toast.error('Permission denied', 'Only team administrators can delete skills.')
+        toast.error(t('Permission denied'), t('Only team administrators can delete skills.'))
 
         return
       }
@@ -183,12 +184,17 @@ export function useSkillActions(args: ActionsArgs) {
           setSkillHistory(null)
         }
         toast.success(
-          'Skill deleted',
-          `${result.name} (${String(result.deletedCount)} file${result.deletedCount === 1 ? '' : 's'})`,
+          t('Skill deleted'),
+          result.deletedCount === 1
+            ? t('{name} ({count} file)', { name: result.name, count: '1' })
+            : t('{name} ({count} files)', {
+                name: result.name,
+                count: String(result.deletedCount),
+              }),
         )
         await reloadWithSkeleton()
       } catch (err) {
-        toast.apiError('Delete failed', err)
+        toast.apiError(t('Delete failed'), err)
       }
     },
     [
@@ -207,12 +213,12 @@ export function useSkillActions(args: ActionsArgs) {
   const uploadFile = useCallback(
     async (file: File, keyOverride?: string) => {
       if (!canEdit) {
-        toast.error('Permission denied', 'Editors and administrators can upload skill files.')
+        toast.error(t('Permission denied'), t('Editors and administrators can upload skill files.'))
 
         return
       }
       if (!file.name.trim()) {
-        toast.error('Invalid file', 'Choose a file with a name.')
+        toast.error(t('Invalid file'), t('Choose a file with a name.'))
 
         return
       }
@@ -222,7 +228,7 @@ export function useSkillActions(args: ActionsArgs) {
         key = `${key}${file.name}`
       }
       if (!key.startsWith('skills/')) {
-        toast.error('Invalid key', 'Key must start with skills/')
+        toast.error(t('Invalid key'), t('Key must start with skills/'))
 
         return
       }
@@ -236,11 +242,11 @@ export function useSkillActions(args: ActionsArgs) {
           { filename: file.name, bytes, contentType: file.type || undefined },
           scope,
         )
-        toast.success('Uploaded', key)
+        toast.success(t('Uploaded'), key)
         await reloadWithSkeleton()
         if (selectedName) await reloadDetailForName(selectedName)
       } catch (err) {
-        toast.apiError('Upload failed', err)
+        toast.apiError(t('Upload failed'), err)
       } finally {
         setUploading(false)
         if (fileInputRef.current) fileInputRef.current.value = ''

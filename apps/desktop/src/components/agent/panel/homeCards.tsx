@@ -80,7 +80,11 @@ function useRepoItems<T>(
   return { items: state ? [...state.byRepo.values()].flat() : null, failed: state?.failed ?? [] }
 }
 
-function HomeCard({
+/**
+ * A pull request or CI card's frame: header with its count and menu, then the
+ * rows, or what to say when there are none, are loading or failed to load.
+ */
+export function HomeCard({
   icon,
   title,
   menu,

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
+import { t } from '../i18n'
 
 import type { DeploymentItem } from '../types'
 import type { FormEvent } from 'react'
@@ -25,7 +26,7 @@ export function ScaleDeploymentDialog({
     const nextReplicas = Number(trimmed)
 
     if (trimmed === '' || !Number.isInteger(nextReplicas) || nextReplicas < 0) {
-      setError('Replicas must be a non-negative integer.')
+      setError(t('Replicas must be a non-negative integer.'))
 
       return
     }
@@ -40,7 +41,7 @@ export function ScaleDeploymentDialog({
       )
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to scale deployment.')
+      setError(e instanceof Error ? e.message : t('Failed to scale deployment.'))
       setSaving(false)
     }
   }
@@ -48,14 +49,14 @@ export function ScaleDeploymentDialog({
   return (
     <Modal
       open
-      title="Scale deployment"
+      title={t('Scale deployment')}
       description={`${target.deployment.namespace}/${target.deployment.name}`}
       onClose={onClose}
       width={360}
     >
       <form onSubmit={(event) => void submit(event)} className="p-4 space-y-4">
         <label className="block">
-          <span className="block text-[12px] text-tertiary mb-1.5">Replicas</span>
+          <span className="block text-[12px] text-tertiary mb-1.5">{t('Replicas')}</span>
           <input
             autoFocus
             type="number"
@@ -73,10 +74,10 @@ export function ScaleDeploymentDialog({
             onClick={onClose}
             className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <Button size="sm" type="submit" disabled={saving}>
-            {saving ? 'Scaling...' : 'Scale'}
+            {saving ? t('Scaling...') : t('Scale')}
           </Button>
         </div>
       </form>
@@ -103,7 +104,7 @@ export function BulkScaleDialog({
     const next = Number(trimmed)
 
     if (trimmed === '' || !Number.isInteger(next) || next < 0) {
-      setError('Replicas must be a non-negative integer.')
+      setError(t('Replicas must be a non-negative integer.'))
 
       return
     }
@@ -115,14 +116,18 @@ export function BulkScaleDialog({
   return (
     <Modal
       open
-      title="Scale deployments"
-      description={`Set replicas for ${String(count)} selected deployment${count === 1 ? '' : 's'}`}
+      title={t('Scale deployments')}
+      description={
+        count === 1
+          ? t('Set replicas for {n} selected deployment', { n: count })
+          : t('Set replicas for {n} selected deployments', { n: count })
+      }
       onClose={onClose}
       width={360}
     >
       <form onSubmit={(event) => void submit(event)} className="p-4 space-y-4">
         <label className="block">
-          <span className="block text-[12px] text-tertiary mb-1.5">Replicas</span>
+          <span className="block text-[12px] text-tertiary mb-1.5">{t('Replicas')}</span>
           <input
             autoFocus
             type="number"
@@ -140,10 +145,10 @@ export function BulkScaleDialog({
             onClick={onClose}
             className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <Button size="sm" type="submit" disabled={saving}>
-            {saving ? 'Scaling...' : 'Scale'}
+            {saving ? t('Scaling...') : t('Scale')}
           </Button>
         </div>
       </form>

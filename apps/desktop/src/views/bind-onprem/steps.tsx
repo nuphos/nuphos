@@ -1,13 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { WizardCopyableBlock, WizardStepList } from '../../components/ConnectorWizard'
+import { t } from '../../i18n'
 
 import { persistentCredentialCommand } from './persistentCredential'
 
 import type { OnpremClusterAccess, OnpremClusterInstall } from '../../types'
 
 const POLL_INTERVAL_MS = 2000
+
+/** Splices nodes into a translated sentence in place of its `{name}` placeholders. */
+function splice(text: string, parts: Record<string, React.ReactNode>) {
+  return text
+    .split(/(\{\w+\})/)
+    .map((seg, i) => (
+      <Fragment key={i}>{parts[/^\{(\w+)\}$/.exec(seg)?.[1] ?? ''] ?? seg}</Fragment>
+    ))
+}
 
 export function NameStep({
   label,
@@ -21,11 +31,12 @@ export function NameStep({
   return (
     <div className="space-y-3">
       <p className="text-secondary text-[12.5px] leading-relaxed">
-        For a cluster with no reachable API server. You run one small pod in it; the pod dials out
-        to Nuphos and nothing dials in. It needs no inbound port, no Service and no privileges.
+        {t(
+          'For a cluster with no reachable API server. You run one small pod in it; the pod dials out to Nuphos and nothing dials in. It needs no inbound port, no Service and no privileges.',
+        )}
       </p>
       <label className="block">
-        <div className="text-[12px] text-secondary mb-1">Name</div>
+        <div className="text-[12px] text-secondary mb-1">{t('Name')}</div>
         <input
           value={label}
           onChange={(event) => onChange(event.target.value)}
@@ -37,8 +48,9 @@ export function NameStep({
           className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
         />
         <div className="text-[11px] text-tertiary mt-1">
-          Becomes the kubectl context the agent uses —{' '}
-          <code>onprem/{label || 'acme-dc1'}/cluster</code>.
+          {splice(t('Becomes the kubectl context the agent uses — {context}.'), {
+            context: <code>onprem/{label || 'acme-dc1'}/cluster</code>,
+          })}
         </div>
       </label>
     </div>
@@ -97,12 +109,13 @@ export function InstallStep({
   return (
     <div className="space-y-3">
       <WizardStepList>
-        <li>Run this against the cluster, as someone who can create a namespace.</li>
+        <li>{t('Run this against the cluster, as someone who can create a namespace.')}</li>
       </WizardStepList>
       <WizardCopyableBlock value={`kubectl apply -f - <<'EOF'\n${install.manifest}EOF`} />
       <p className="text-[11px] text-tertiary leading-relaxed">
-        The token in it is shown once and we keep no copy. To cut access off later, scale the
-        deployment to zero — that is instant and does not need us.
+        {t(
+          'The token in it is shown once and we keep no copy. To cut access off later, scale the deployment to zero — that is instant and does not need us.',
+        )}
       </p>
 
       <div
@@ -116,13 +129,20 @@ export function InstallStep({
           className={`h-2 w-2 rounded-full ${connected ? 'bg-emerald-400' : 'animate-pulse bg-zGray-600'}`}
         />
         {connected ? (
-          <span>Agent connected{agentVersion ? ` · build ${agentVersion}` : ''}.</span>
+          <span>
+            {agentVersion
+              ? t('Agent connected · build {version}.', { version: agentVersion })
+              : t('Agent connected.')}
+          </span>
         ) : relayDown ? (
-          <span>Nuphos cannot reach its own relay right now — this one is on us.</span>
+          <span>{t('Nuphos cannot reach its own relay right now — this one is on us.')}</span>
         ) : (
           <span>
-            Waiting for the agent to connect
-            {lastSeenAt ? ` · last seen ${new Date(lastSeenAt).toLocaleTimeString()}` : ''}…
+            {lastSeenAt
+              ? t('Waiting for the agent to connect · last seen {time}…', {
+                  time: new Date(lastSeenAt).toLocaleTimeString(),
+                })
+              : t('Waiting for the agent to connect…')}
           </span>
         )}
       </div>
@@ -146,16 +166,18 @@ export function AccessStep({
   return (
     <div className="space-y-3">
       <p className="text-secondary text-[12.5px] leading-relaxed">
-        The tunnel carries bytes; it does not authenticate to Kubernetes. Run this to create a
-        persistent ServiceAccount credential with cluster-admin access, then paste the kubeconfig it
-        prints. Full access is required for resource management, terminals, port forwarding, and
-        Agent operations. Nuphos still applies your permission and confirmation settings before
-        privileged actions. Delete the ServiceAccount Secret to revoke access.
+        {t(
+          'The tunnel carries bytes; it does not authenticate to Kubernetes. Run this to create a persistent ServiceAccount credential with cluster-admin access, then paste the kubeconfig it prints. Full access is required for resource management, terminals, port forwarding, and Agent operations. Nuphos still applies your permission and confirmation settings before privileged actions. Delete the ServiceAccount Secret to revoke access.',
+        )}
       </p>
       <WizardCopyableBlock value={persistentCredentialCommand(namespace)} />
       <p className="text-[11px] text-tertiary leading-relaxed">
-        Do not use <code>kubectl create token</code> here: many clusters shorten its requested
-        lifetime to one hour, which later causes HTTP 401 errors.
+        {splice(
+          t(
+            'Do not use {command} here: many clusters shorten its requested lifetime to one hour, which later causes HTTP 401 errors.',
+          ),
+          { command: <code>kubectl create token</code> },
+        )}
       </p>
       <label className="block">
         <div className="text-[12px] text-secondary mb-1">kubeconfig</div>
@@ -167,8 +189,12 @@ export function AccessStep({
           className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[11.5px]"
         />
         <div className="text-[11px] text-tertiary mt-1">
-          The server address is the one that works <em>inside</em> the cluster. It never has to be
-          publicly resolvable.
+          {splice(
+            t(
+              'The server address is the one that works {inside} the cluster. It never has to be publicly resolvable.',
+            ),
+            { inside: <em>{t('inside')}</em> },
+          )}
         </div>
       </label>
     </div>
@@ -180,10 +206,10 @@ function AccessReadout({ access }: { access: OnpremClusterAccess }) {
     return (
       <div className="space-y-2">
         <div className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-[12.5px] text-amber-200">
-          {access.unreachableReason ?? 'Could not reach the API server through the relay.'}
+          {access.unreachableReason ?? t('Could not reach the API server through the relay.')}
         </div>
         <p className="text-[11px] text-tertiary">
-          The cluster is saved. Fix the cause and re-check from its page.
+          {t('The cluster is saved. Fix the cause and re-check from its page.')}
         </p>
       </div>
     )
@@ -192,11 +218,13 @@ function AccessReadout({ access }: { access: OnpremClusterAccess }) {
   return (
     <div className="space-y-3">
       <div className="rounded-md border border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-[12.5px] text-emerald-300">
-        Connected to the API server{access.serverVersion ? ` · ${access.serverVersion}` : ''}.
+        {access.serverVersion
+          ? t('Connected to the API server · {version}.', { version: access.serverVersion })
+          : t('Connected to the API server.')}
       </div>
       <dl className="space-y-2 text-[12.5px]">
         {access.identity && (
-          <Row label="Identity">
+          <Row label={t('Identity')}>
             <span className="font-mono text-[11.5px] text-main">{access.identity.username}</span>
           </Row>
         )}
@@ -206,33 +234,44 @@ function AccessReadout({ access }: { access: OnpremClusterAccess }) {
               {access.permissions.summary.length ? (
                 access.permissions.summary.map((line) => <li key={line}>{line}</li>)
               ) : (
-                <li>No resource permissions in {access.permissions.namespace}.</li>
+                <li>
+                  {t('No resource permissions in {namespace}.', {
+                    namespace: access.permissions.namespace,
+                  })}
+                </li>
               )}
             </ul>
             {access.permissions.incompleteReason && (
               <p className="mt-1 text-[11px] text-amber-300/90">
-                {access.permissions.incompleteReason} Rules missing from a partial answer could
-                include write access, so this is not a read-only guarantee.
+                {t(
+                  '{reason} Rules missing from a partial answer could include write access, so this is not a read-only guarantee.',
+                  { reason: access.permissions.incompleteReason },
+                )}
               </p>
             )}
           </Row>
         )}
         {access.namespaces && (
-          <Row label="Namespaces">
+          <Row label={t('Namespaces')}>
             {access.namespaces.denied ? (
-              <span className="text-secondary">Not allowed to list them.</span>
+              <span className="text-secondary">{t('Not allowed to list them.')}</span>
             ) : (
               <span className="text-secondary">
-                {access.namespaces.count} visible
-                {access.namespaces.sample.length ? ` · ${access.namespaces.sample.join(', ')}` : ''}
+                {access.namespaces.sample.length
+                  ? t('{count} visible · {sample}', {
+                      count: access.namespaces.count,
+                      sample: access.namespaces.sample.join(', '),
+                    })
+                  : t('{count} visible', { count: access.namespaces.count })}
               </span>
             )}
           </Row>
         )}
       </dl>
       <p className="text-[11px] text-tertiary leading-relaxed">
-        This is what Kubernetes says the credential can do, not what we claim. Widen or narrow it
-        with RBAC in your cluster and re-check.
+        {t(
+          'This is what Kubernetes says the credential can do, not what we claim. Widen or narrow it with RBAC in your cluster and re-check.',
+        )}
       </p>
     </div>
   )
@@ -240,9 +279,9 @@ function AccessReadout({ access }: { access: OnpremClusterAccess }) {
 
 /** Never call an indeterminate answer "Read-only" — see canWrite in the readout. */
 function permissionsLabel(canWrite: boolean | null): string {
-  if (canWrite === null) return 'Partly evaluated'
+  if (canWrite === null) return t('Partly evaluated')
 
-  return canWrite ? 'Can change things' : 'Read-only'
+  return canWrite ? t('Can change things') : t('Read-only')
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {

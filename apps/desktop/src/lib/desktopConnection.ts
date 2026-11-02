@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 // Keeps a desktop view connected. Nothing short-lived is held between attempts:
 // every connect, the first and each reconnect, starts by asking the backend for
 // the link afresh (`mint`), so an expired link is never retried. A dropped
@@ -72,7 +74,11 @@ export function keepDesktopConnected<L>({
   const retry = (run: number) => {
     if (run !== generation) return
     if (failures >= MAX_FAILURES) {
-      onPhase({ kind: 'stopped', reason: 'unreachable', message: 'Could not reach the desktop.' })
+      onPhase({
+        kind: 'stopped',
+        reason: 'unreachable',
+        message: t('Could not reach the desktop.'),
+      })
 
       return
     }

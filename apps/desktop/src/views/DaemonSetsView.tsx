@@ -11,6 +11,7 @@ import { UsageBar } from '../components/UsageBar'
 import { useReportLoading } from '../components/useReportLoading'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useWatchedList } from '../hooks/useWatchedList'
+import { t } from '../i18n'
 import { runBulk } from '../lib/bulkActions'
 import { makeFilterMatcher } from '../lib/filterQuery'
 import { useK8sResourceRowMenu } from '../lib/k8sResourceActions'
@@ -82,14 +83,20 @@ export function DaemonSetsView({
     (r: DaemonSetItem, ctx: string): ContextMenuItem[] => [
       {
         key: 'restart',
-        label: 'Restart rollout',
+        label: t('Restart rollout'),
         icon: faRotateLeft,
         disabled: r.update_strategy === 'OnDelete',
         hint:
           r.update_strategy === 'OnDelete'
-            ? 'OnDelete requires replacing pods manually'
+            ? t('OnDelete requires replacing pods manually')
             : undefined,
-        confirm: `Restart DaemonSet "${r.namespace}/${r.name}"? Its RollingUpdate controller will replace the pods.`,
+        confirm: t(
+          'Restart DaemonSet "{namespace}/{name}"? Its RollingUpdate controller will replace the pods.',
+          {
+            namespace: r.namespace,
+            name: r.name,
+          },
+        ),
         onSelect: async () => {
           await api.restartWorkload(ctx, 'DaemonSet', r.namespace, r.name)
         },
@@ -125,9 +132,17 @@ export function DaemonSetsView({
       {menu}
       <ConfirmDialog
         open={confirmRestart}
-        title="Restart rollout"
-        description={`Restart ${String(selectedItems.length)} DaemonSet${selectedItems.length === 1 ? '' : 's'}? Their RollingUpdate controllers will replace the pods.`}
-        confirmLabel="Restart"
+        title={t('Restart rollout')}
+        description={
+          selectedItems.length === 1
+            ? t('Restart {n} DaemonSet? Its RollingUpdate controller will replace the pods.', {
+                n: selectedItems.length,
+              })
+            : t('Restart {n} DaemonSets? Their RollingUpdate controllers will replace the pods.', {
+                n: selectedItems.length,
+              })
+        }
+        confirmLabel={t('Restart')}
         onConfirm={async () => {
           const targets = selectedItems
 
@@ -135,7 +150,7 @@ export function DaemonSetsView({
           await runBulk(
             targets,
             (r) => api.restartWorkload(context, 'DaemonSet', r.namespace, r.name),
-            { verbing: 'restart', verbed: 'Restarted', noun: 'DaemonSet' },
+            t('Restart DaemonSets'),
           )
           clearSelection()
         }}
@@ -147,7 +162,7 @@ export function DaemonSetsView({
         actions={[
           {
             key: 'restart',
-            label: 'Restart rollout',
+            label: t('Restart rollout'),
             icon: faRotateLeft,
             disabled: restartBlocked,
             onClick: () => setConfirmRestart(true),
@@ -169,56 +184,56 @@ export function DaemonSetsView({
         columns={[
           {
             key: 'namespace',
-            header: 'Namespace',
+            header: t('Namespace'),
             width: 160,
             sortAccessor: (r) => r.namespace,
             render: (r) => <span className="text-secondary">{r.namespace}</span>,
           },
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
           },
           {
             key: 'desired',
-            header: 'Desired',
+            header: t('Desired'),
             width: 90,
             sortAccessor: (r) => r.desired,
             render: (r) => r.desired,
           },
           {
             key: 'current',
-            header: 'Current',
+            header: t('Current'),
             width: 90,
             sortAccessor: (r) => r.current,
             render: (r) => <ReplicaCount value={r.current} desired={r.desired} />,
           },
           {
             key: 'ready',
-            header: 'Ready',
+            header: t('Ready'),
             width: 90,
             sortAccessor: (r) => r.ready,
             render: (r) => <ReplicaCount value={r.ready} desired={r.desired} />,
           },
           {
             key: 'available',
-            header: 'Available',
+            header: t('Available'),
             width: 100,
             sortAccessor: (r) => r.available,
             render: (r) => <ReplicaCount value={r.available} desired={r.desired} />,
           },
           {
             key: 'up_to_date',
-            header: 'Up-to-date',
+            header: t('Up-to-date'),
             width: 110,
             sortAccessor: (r) => r.up_to_date,
             render: (r) => <ReplicaCount value={r.up_to_date} desired={r.desired} />,
           },
           {
             key: 'cpu',
-            header: 'CPU',
+            header: t('CPU'),
             width: 170,
             sortAccessor: (r) => r.cpu,
             render: (r) => (
@@ -232,7 +247,7 @@ export function DaemonSetsView({
           },
           {
             key: 'memory',
-            header: 'Memory',
+            header: t('Memory'),
             width: 180,
             sortAccessor: (r) => r.memory,
             render: (r) => (
@@ -247,7 +262,7 @@ export function DaemonSetsView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             width: 100,
             sortAccessor: (r) => r.age ?? '',
             render: (r) => (

@@ -2,6 +2,7 @@ import { KeyRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
+import { t } from '../i18n'
 import { memberDisplayName, normalizeAllowList } from '../lib/bindingAccess'
 
 import { AllowListSelect } from './binding-access-allow-list'
@@ -18,7 +19,7 @@ export type { BindingAccessProvider } from './binding-access-providers'
 function memberLabelById(userId: string, members: TeamMember[]): string {
   const member = members.find((item) => item.id === userId)
 
-  return member ? memberDisplayName(member) : 'a previous team member'
+  return member ? memberDisplayName(member) : t('a previous team member')
 }
 
 export function BindingAccessSection({
@@ -74,7 +75,7 @@ export function BindingAccessSection({
         setMembers([])
         setMemberAllowList([])
         setLoadedAccess(null)
-        toast.apiError('Failed to load access settings', err)
+        toast.apiError(t('Failed to load access settings'), err)
       })
       .finally(() => {
         if (req === reqRef.current) setLoading(false)
@@ -106,7 +107,7 @@ export function BindingAccessSection({
       onAccessChanged?.(next)
     } catch (err) {
       if (req !== reqRef.current) return
-      toast.apiError('Failed to save access', err)
+      toast.apiError(t('Failed to save access'), err)
     } finally {
       if (req === reqRef.current) setSaving(false)
     }
@@ -116,23 +117,32 @@ export function BindingAccessSection({
     <section className="px-6 py-4 border-t border-zGray-800/60">
       <div className="flex items-center gap-2 mb-3">
         <KeyRound className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />
-        <h2 className="text-[13.5px] font-semibold text-main">Access List</h2>
+        <h2 className="text-[13.5px] font-semibold text-main">{t('Access List')}</h2>
         {principal && <span className="ml-auto text-[11.5px] text-tertiary">{principal}</span>}
       </div>
       <p className="mb-3 text-[12px] text-tertiary">
-        Control which team members can use this {config.resourceLabel}, including from their agents.
-        {config.adminBypass && ' Team admins always have access, whether or not they are listed.'}
+        {config.adminBypass
+          ? t(
+              'Control which team members can use this {resource}, including from their agents. Team admins always have access, whether or not they are listed.',
+              { resource: config.resourceLabel },
+            )
+          : t('Control which team members can use this {resource}, including from their agents.', {
+              resource: config.resourceLabel,
+            })}
       </p>
       {loading ? (
         <div className="rounded-md border border-zGray-800 bg-zGray-950 px-3 py-6 text-center text-[12.5px] text-tertiary">
-          Loading access...
+          {t('Loading access...')}
         </div>
       ) : !loadedAccess ? null : (
         <>
           <div className="border-y border-zGray-800/60 divide-y divide-zGray-800/60">
             <AllowListSelect
-              title="Access"
-              subtitle={`Members allowed to use this ${config.resourceLabel}. Their agents can use it only when they also select it for that agent.`}
+              title={t('Access')}
+              subtitle={t(
+                'Members allowed to use this {resource}. Their agents can use it only when they also select it for that agent.',
+                { resource: config.resourceLabel },
+              )}
               allowList={memberAllowList}
               members={members}
               onChange={setMemberAllowList}
@@ -143,15 +153,19 @@ export function BindingAccessSection({
               <div className="text-[11.5px] text-tertiary">
                 {loadedAccess.updatedBy && (
                   <>
-                    Last updated by {memberLabelById(loadedAccess.updatedBy, members)}
                     {loadedAccess.updatedAt
-                      ? ` at ${new Date(loadedAccess.updatedAt).toLocaleString()}`
-                      : ''}
+                      ? t('Last updated by {name} at {time}', {
+                          name: memberLabelById(loadedAccess.updatedBy, members),
+                          time: new Date(loadedAccess.updatedAt).toLocaleString(),
+                        })
+                      : t('Last updated by {name}', {
+                          name: memberLabelById(loadedAccess.updatedBy, members),
+                        })}
                   </>
                 )}
               </div>
               <Button size="sm" type="button" onClick={() => void save()} disabled={saving}>
-                {saving ? 'Saving...' : 'Save access'}
+                {saving ? t('Saving...') : t('Save access')}
               </Button>
             </div>
           </div>

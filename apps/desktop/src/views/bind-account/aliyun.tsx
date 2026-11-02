@@ -1,8 +1,9 @@
 import clsx from 'clsx'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
-import { StepList, ConsoleLink, CopyableValue, Field, StepNote } from './shared'
+import { StepList, ConsoleLink, CopyableValue, Field, Fill, StepNote } from './shared'
 import { ALIYUN_STEPS } from './steps'
 
 import type { AliyunOidcInfo, AliyunSite } from '../../types'
@@ -40,7 +41,7 @@ export function AliyunBindWizard({
   // Render the backend-provided value, or a muted placeholder until oidc-info
   // loads. Never fall back to hard-coded issuer/audience/subject.
   const oidcValue = (v: string | undefined) =>
-    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">loading…</span>
+    v ? <CopyableValue value={v} /> : <span className="text-tertiary italic">{t('loading…')}</span>
 
   return (
     <div>
@@ -57,7 +58,7 @@ export function AliyunBindWizard({
           ))}
         </div>
         <div className="text-[11px] text-tertiary uppercase tracking-wider">
-          Step {step + 1} of {ALIYUN_STEPS.length}
+          {t('Step {n} of {total}', { n: step + 1, total: ALIYUN_STEPS.length })}
         </div>
         <div className="text-[13.5px] text-main font-medium">{ALIYUN_STEPS[step]}</div>
       </div>
@@ -82,42 +83,59 @@ export function AliyunBindWizard({
             {i === 0 && (
               <div className="space-y-3">
                 <Field
-                  label="Site"
-                  hint="Alibaba Cloud has two isolated partitions — pick the one the RAM account belongs to."
+                  label={t('Site')}
+                  hint={t(
+                    'Alibaba Cloud has two isolated partitions — pick the one the RAM account belongs to.',
+                  )}
                 >
                   <AppSelect
-                    ariaLabel="Alibaba Cloud site"
+                    ariaLabel={t('Alibaba Cloud site')}
                     value={site}
                     onValueChange={(value) => onSiteChange(value as AliyunSite)}
                     options={[
-                      { value: 'china', label: 'Aliyun · China (aliyun.com)' },
+                      { value: 'china', label: t('Aliyun · China (aliyun.com)') },
                       {
                         value: 'international',
-                        label: 'Alibaba Cloud · International (alibabacloud.com)',
+                        label: t('Alibaba Cloud · International (alibabacloud.com)'),
                       },
                     ]}
                   />
                 </Field>
                 <StepList>
                   <li>
-                    In the RAM console, open{' '}
-                    <ConsoleLink href={`${ALIYUN_RAM_HOST[site]}/providers`}>
-                      Identity Providers
-                    </ConsoleLink>
+                    <Fill
+                      text={t('In the RAM console, open {link}')}
+                      link={
+                        <ConsoleLink href={`${ALIYUN_RAM_HOST[site]}/providers`}>
+                          Identity Providers
+                        </ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Create an <span className="text-main">OIDC</span> identity provider
+                    <Fill
+                      text={t('Create an {type} identity provider')}
+                      type={<span className="text-main">OIDC</span>}
+                    />
                   </li>
-                  <li>Issuer URL: {oidcValue(oidc?.issuer)}</li>
-                  <li>Client ID: {oidcValue(oidc?.audience)}</li>
                   <li>
-                    Create it, then copy the provider&apos;s <span className="text-main">ARN</span>
+                    <Fill text={t('Issuer URL: {value}')} value={oidcValue(oidc?.issuer)} />
+                  </li>
+                  <li>
+                    <Fill text={t('Client ID: {value}')} value={oidcValue(oidc?.audience)} />
+                  </li>
+                  <li>
+                    <Fill
+                      text={t("Create it, then copy the provider's {arn}")}
+                      arn={<span className="text-main">ARN</span>}
+                    />
                   </li>
                 </StepList>
                 {oidc && !oidc.configured && (
                   <div className="text-[11.5px] text-zOrangered-400">
-                    Nuphos&apos;s OIDC connector isn&apos;t configured on this backend yet — binding
-                    will fail until it is.
+                    {t(
+                      "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
+                    )}
                   </div>
                 )}
               </div>
@@ -126,40 +144,61 @@ export function AliyunBindWizard({
               <div className="space-y-3">
                 <StepList>
                   <li>
-                    In the RAM console, open{' '}
-                    <ConsoleLink href={`${ALIYUN_RAM_HOST[site]}/roles`}>Roles</ConsoleLink>
+                    <Fill
+                      text={t('In the RAM console, open {link}')}
+                      link={
+                        <ConsoleLink href={`${ALIYUN_RAM_HOST[site]}/roles`}>Roles</ConsoleLink>
+                      }
+                    />
                   </li>
                   <li>
-                    Create Role → trusted entity <span className="text-main">IdP</span> →{' '}
-                    <span className="text-main">OIDC</span> → pick the provider you just added
+                    <Fill
+                      text={t(
+                        'Create Role → trusted entity {idp} → {type} → pick the provider you just added',
+                      )}
+                      idp={<span className="text-main">IdP</span>}
+                      type={<span className="text-main">OIDC</span>}
+                    />
                   </li>
                   <li>
-                    Add a condition on <span className="font-mono text-[11px]">oidc:sub</span> ={' '}
-                    {oidcValue(oidc?.subject)} so only this team can assume it
+                    <Fill
+                      text={t('Add a condition on {sub} = {value} so only this team can assume it')}
+                      sub={<span className="font-mono text-[11px]">oidc:sub</span>}
+                      value={oidcValue(oidc?.subject)}
+                    />
                   </li>
                   <li>
-                    Attach a policy covering ACK + ECS —{' '}
-                    <span className="font-mono text-[11px]">AliyunCSFullAccess</span> +{' '}
-                    <span className="font-mono text-[11px]">AliyunECSReadOnlyAccess</span>, or{' '}
-                    <span className="font-mono text-[11px]">AdministratorAccess</span>
+                    <Fill
+                      text={t('Attach a policy covering ACK + ECS — {ack} + {ecs}, or {admin}')}
+                      ack={<span className="font-mono text-[11px]">AliyunCSFullAccess</span>}
+                      ecs={<span className="font-mono text-[11px]">AliyunECSReadOnlyAccess</span>}
+                      admin={<span className="font-mono text-[11px]">AdministratorAccess</span>}
+                    />
                   </li>
                   <li>
-                    Create it, then open the role and copy its{' '}
-                    <span className="text-main">ARN</span>
+                    <Fill
+                      text={t('Create it, then open the role and copy its {arn}')}
+                      arn={<span className="text-main">ARN</span>}
+                    />
                   </li>
                 </StepList>
                 <StepNote>
-                  Keep the trust policy the console generates — its action is{' '}
-                  <span className="font-mono">sts:AssumeRole</span>, which is what RAM grants to an
-                  OIDC provider. <span className="font-mono">AssumeRoleWithOIDC</span> is the STS
-                  API Nuphos calls, not a trust-policy action; changing the action to it makes the
-                  bind fail.
+                  <Fill
+                    text={t(
+                      'Keep the trust policy the console generates — its action is {action}, which is what RAM grants to an OIDC provider. {api} is the STS API Nuphos calls, not a trust-policy action; changing the action to it makes the bind fail.',
+                    )}
+                    action={<span className="font-mono">sts:AssumeRole</span>}
+                    api={<span className="font-mono">AssumeRoleWithOIDC</span>}
+                  />
                 </StepNote>
               </div>
             )}
             {i === 2 && (
               <div className="space-y-3">
-                <Field label="Label" hint="A friendly name to identify this Alibaba Cloud account.">
+                <Field
+                  label={t('Label')}
+                  hint={t('A friendly name to identify this Alibaba Cloud account.')}
+                >
                   <input
                     type="text"
                     value={label}
@@ -168,7 +207,10 @@ export function AliyunBindWizard({
                     className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
-                <Field label="Role ARN" hint="The ARN of the RAM role you created in step 2.">
+                <Field
+                  label={t('Role ARN')}
+                  hint={t('The ARN of the RAM role you created in step 2.')}
+                >
                   <input
                     type="text"
                     value={roleArn}
@@ -178,8 +220,8 @@ export function AliyunBindWizard({
                   />
                 </Field>
                 <Field
-                  label="OIDC Provider ARN"
-                  hint="The ARN of the RAM OIDC provider from step 1."
+                  label={t('OIDC Provider ARN')}
+                  hint={t('The ARN of the RAM OIDC provider from step 1.')}
                 >
                   <input
                     type="text"

@@ -4,6 +4,7 @@ import { Age } from '../../components/Age'
 import { JournalIntegrityBadge } from '../../components/agent/JournalEventBody'
 import { Avatar } from '../../components/Avatar'
 import { Table } from '../../components/Table'
+import { t } from '../../i18n'
 
 import { EmptyState, LoadMore, SearchScopeHint } from './AuditListChrome'
 import { userLabel } from './shared'
@@ -67,7 +68,7 @@ export function AuditConversationsTable({
         columns={[
           {
             key: 'title',
-            header: 'Agent',
+            header: t('Agent'),
             width: 320,
             sortAccessor: (r) => r.title,
             render: (r) => (
@@ -78,7 +79,7 @@ export function AuditConversationsTable({
           },
           {
             key: 'actors',
-            header: 'Users',
+            header: t('Users'),
             width: 200,
             sortAccessor: (r) =>
               conversations.kind === 'ready'
@@ -111,7 +112,7 @@ export function AuditConversationsTable({
           },
           {
             key: 'events',
-            header: 'Events',
+            header: t('Events'),
             width: 80,
             sortAccessor: (r) => r.eventCount,
             render: (r) => (
@@ -120,7 +121,7 @@ export function AuditConversationsTable({
           },
           {
             key: 'mutations',
-            header: 'Mutations',
+            header: t('Mutations'),
             width: 96,
             sortAccessor: (r) => r.mutationCount,
             render: (r) => (
@@ -136,14 +137,14 @@ export function AuditConversationsTable({
           },
           {
             key: 'integrity',
-            header: 'Integrity',
+            header: t('Integrity'),
             width: 120,
             sortAccessor: (r) => r.integrityLevel,
             render: (r) => <JournalIntegrityBadge level={r.integrityLevel} compact />,
           },
           {
             key: 'last',
-            header: 'Last activity',
+            header: t('Last activity'),
             width: 110,
             sortAccessor: (r) => r.lastTs,
             render: (r) => (

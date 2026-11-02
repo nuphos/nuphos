@@ -1,8 +1,8 @@
 import { faDiscord } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { GitMerge, GitPullRequest, GitPullRequestClosed } from 'lucide-react'
+import { GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft } from 'lucide-react'
 
-import { pullStateColor } from './sessionResourcePresentation'
+import { pullStateColor, resourceDraft } from './sessionResourcePresentation'
 
 import type { SessionResource } from '../../api/session-resource-types'
 import type { ReactNode } from 'react'
@@ -106,6 +106,7 @@ export function resourceStyle(resource: SessionResource): { icon: ReactNode; col
   if (resource.state === 'merged') return { icon: <GitMerge className={iconClass} />, color }
   if (resource.state === 'closed')
     return { icon: <GitPullRequestClosed className={iconClass} />, color }
+  if (resourceDraft(resource)) return { icon: <GitPullRequestDraft className={iconClass} />, color }
 
   return { icon: <GitPullRequest className={iconClass} />, color }
 }

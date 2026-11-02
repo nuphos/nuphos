@@ -1,5 +1,7 @@
 import { AlertCircle, ChevronRight, X } from 'lucide-react'
 
+import { t } from '../../i18n'
+
 import { formatDurationMs, formatTimestamp } from './format'
 
 import type { TraceNotice } from './notices'
@@ -19,11 +21,15 @@ export function TraceResults({
   return (
     <div className="border-r border-zGray-800/60 h-full min-h-0 overflow-auto scrollbar-thin">
       <div className="sticky top-0 z-10 bg-zGray-950 border-b border-zGray-800/60 px-4 py-2 text-[11.5px] text-tertiary uppercase tracking-wider">
-        {loading ? 'Loading traces...' : `${String(traces.length)} traces`}
+        {loading
+          ? t('Loading traces…')
+          : traces.length === 1
+            ? t('1 trace')
+            : t('{count} traces', { count: traces.length })}
       </div>
       {traces.length === 0 && !loading ? (
         <div className="px-4 py-10 text-center text-[12.5px] text-tertiary">
-          Run a TraceQL search or open a trace ID.
+          {t('Run a TraceQL search or open a trace ID.')}
         </div>
       ) : (
         <div>
@@ -46,7 +52,7 @@ export function TraceResults({
                 />
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-tertiary min-w-0">
-                <span className="truncate">{trace.rootServiceName || 'unknown service'}</span>
+                <span className="truncate">{trace.rootServiceName || t('unknown service')}</span>
                 {trace.durationMs !== undefined && (
                   <span className="flex-shrink-0">{formatDurationMs(trace.durationMs)}</span>
                 )}
@@ -92,7 +98,7 @@ export function TraceNoticeBanner({
         <button
           onClick={onDismiss}
           className="h-6 w-6 inline-flex items-center justify-center rounded-md text-tertiary hover:text-main hover:bg-zGray-800"
-          title="Dismiss"
+          title={t('Dismiss')}
         >
           <X className="w-3.5 h-3.5" strokeWidth={1.8} />
         </button>

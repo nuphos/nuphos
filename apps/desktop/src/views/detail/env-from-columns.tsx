@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { EnvRefNavButton, ReadOnlyEditableCell } from './env-cells'
 import {
@@ -24,7 +25,7 @@ export function buildEnvFromColumns(ctx: EnvColumnsContext): Column<EnvFromTable
   return [
     {
       key: 'source',
-      header: 'Source',
+      header: t('Source'),
       width: 180,
       render: (item) => {
         if (item.kind === 'unknown')
@@ -66,7 +67,7 @@ export function buildEnvFromColumns(ctx: EnvColumnsContext): Column<EnvFromTable
     },
     {
       key: 'name',
-      header: 'Name',
+      header: t('Name'),
       width: 300,
       render: (item) => {
         if (item.kind === 'unknown') {
@@ -114,7 +115,9 @@ export function buildEnvFromColumns(ctx: EnvColumnsContext): Column<EnvFromTable
               ctx.closeEditing()
             }}
             options={selectOptions(refNameOptions)}
-            placeholder={item.row.source === 'secretRef' ? 'Select Secret' : 'Select ConfigMap'}
+            placeholder={
+              item.row.source === 'secretRef' ? t('Select Secret') : t('Select ConfigMap')
+            }
             triggerClassName={envMonoSelectTriggerClass}
           />
         )
@@ -122,7 +125,7 @@ export function buildEnvFromColumns(ctx: EnvColumnsContext): Column<EnvFromTable
     },
     {
       key: 'prefix',
-      header: 'Prefix',
+      header: t('Prefix'),
       width: 220,
       render: (item) => {
         if (item.kind === 'unknown') {
@@ -152,14 +155,14 @@ export function buildEnvFromColumns(ctx: EnvColumnsContext): Column<EnvFromTable
             onBlur={ctx.closeEditing}
             onKeyDown={ctx.handleEditKeyDown}
             className={envInputClass}
-            placeholder="prefix"
+            placeholder={t('prefix')}
           />
         )
       },
     },
     {
       key: 'optional',
-      header: 'Optional',
+      header: t('Optional'),
       width: 100,
       render: (item) => {
         if (item.kind === 'unknown') return null
@@ -171,7 +174,7 @@ export function buildEnvFromColumns(ctx: EnvColumnsContext): Column<EnvFromTable
                 ctx.setEditingCell({ table: 'envFrom', rowId: item.row.id, column: 'optional' })
               }
             >
-              {readonlyText(item.row.optional ? 'Yes' : 'No', { muted: !item.row.optional })}
+              {readonlyText(item.row.optional ? t('Yes') : t('No'), { muted: !item.row.optional })}
             </ReadOnlyEditableCell>
           )
         }
@@ -211,7 +214,7 @@ export function buildEnvFromColumns(ctx: EnvColumnsContext): Column<EnvFromTable
               })
             }}
             className="flex h-8 w-8 items-center justify-center rounded text-tertiary hover:bg-zGray-800 hover:text-error"
-            title="Remove"
+            title={t('Remove')}
           >
             <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
           </button>

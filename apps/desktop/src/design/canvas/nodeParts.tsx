@@ -2,6 +2,8 @@ import { Handle, Position } from '@xyflow/react'
 import clsx from 'clsx'
 import { useEffect, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+
 import { PRIMARY } from './helpers'
 
 import type { CSSProperties, KeyboardEvent } from 'react'
@@ -74,7 +76,7 @@ export function EditableTitle({
         if (e.key === 'Enter') finish()
         if (e.key === 'Escape') setDraft(null)
       }}
-      aria-label="Title"
+      aria-label={t('Title')}
       className={clsx(
         'nodrag nopan h-6 rounded border border-zViolet-500 bg-main px-1.5 text-main outline-none focus:ring-1 focus:ring-zViolet-500/60',
         className,
@@ -121,7 +123,7 @@ export function TextEditor({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => onCommit(draft)}
       onKeyDown={onKeyDown}
-      aria-label="Text"
+      aria-label={t('Text')}
       className={clsx(
         'nodrag nopan nowheel h-full w-full resize-none border border-transparent bg-transparent outline-none focus:ring-1 focus:ring-zViolet-500/60',
         className,

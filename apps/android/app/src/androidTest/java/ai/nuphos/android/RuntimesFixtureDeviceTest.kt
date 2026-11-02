@@ -3,6 +3,8 @@ package ai.nuphos.android
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,6 +33,8 @@ import java.io.IOException
 class RuntimesFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
     private var details = ""
+    private var detailClicks = 0
+    private var held: kotlinx.coroutines.CompletableDeferred<Unit>? = null
     private var management = 0
     private var failure = false
     private var empty = false
@@ -38,60 +42,85 @@ class RuntimesFixtureDeviceTest {
     private val cloud = AgentRuntime("cloud", "codex", "Synthetic Cloud", "active", "managed")
     private val local = AgentRuntime("local", "claude-code", "Synthetic Desktop", "active", "local", local = RuntimeHost("host", "Synthetic Box", true))
     private val offline = local.copy(id = "offline", label = "Synthetic Offline", local = RuntimeHost("mac", "Synthetic Mac", false))
-    private fun render(rtl: Boolean = false) {
-        require(InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.runtimes1373")
+    private fun render(rtl: Boolean = false, canManage: Boolean = true, waitLoaded: Boolean = true) {
+        require(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.runtimes1373","ai.nuphos.android.agentsaudit1382"))
         compose.setContent {
             val scope = rememberCoroutineScope()
-            store = remember { RuntimesStore(scope, { true }, { if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, local, offline) },
+            store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
                 { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0)))) },
                 { listOf(RuntimeDevice("host", "Synthetic Box", true, true, "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, false, "offline", null, null, null)) }, {}) }
             LaunchedEffect(store) { store.refresh() }
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                 LocalDensity provides Density(LocalDensity.current.density, if (rtl) 2f else 1f)) {
-                NuphosTheme(darkTheme = false) { Surface { Box(Modifier.width(320.dp)) {
-                    RuntimeInventory(store, true, { management++ }, { details = it })
-                } } }
+                RuntimeFixtureTheme { Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) { Box(Modifier.fillMaxSize()) { Box(if(rtl) Modifier.width(320.dp) else Modifier.fillMaxSize()) {
+                    RuntimeInventory(store, canManage, { management++ }, { details = it; detailClicks++ })
+                } } } }
             }
         }
-        compose.waitUntil { store.loaded }
+        if (waitLoaded) compose.waitUntil { store.loaded }
     }
     private fun shot(name: String) {
         compose.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        Thread.sleep(500) // Platform window/compositor settling, not product loading.
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        File(context.getExternalFilesDir(null), name).outputStream().use {
+        File(context.getExternalFilesDir(null), (if (InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") "dark-" else "light-") + name).outputStream().use {
             InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG,100,it)
         }
     }
     @Test fun catalogQuotaOfflineAndExactDetailCallbacks() {
         render()
-        compose.onNodeWithText("Cloud and servers").assertIsDisplayed()
-        compose.onNodeWithText("Weekly: 62% left").assertExists()
+        compose.onNodeWithText("Cloud").assertIsDisplayed()
+        compose.onNodeWithText("62% left").assertExists()
         shot("runtimes-normal.png")
-        compose.onNodeWithText("Details: Synthetic Cloud").performScrollTo().performClick()
-        assertEquals("cloud", details)
+        compose.onNodeWithTag("runtime-row-cloud").performScrollTo().performClick()
+        assertEquals("cloud", details); assertEquals(1, detailClicks)
         compose.onNodeWithText("Synthetic Box").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("CPU 22%").assertExists()
+        compose.onNodeWithContentDescription("CPU usage").assertExists()
         compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasText("Synthetic Mac"))
         compose.onNodeWithText("Offline", substring = false).assertIsDisplayed()
         shot("runtimes-computers.png")
-        compose.onNodeWithText("Details: Synthetic Desktop").performScrollTo().performClick()
+        compose.onNodeWithTag("runtime-row-local").performScrollTo().performClick()
         assertEquals("local", details)
-        compose.onNodeWithText("Manage runtimes").performScrollTo().performClick()
+        compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasText("Add runtime"))
+        compose.onNodeWithText("Add runtime").performClick()
         assertEquals(1, management)
+    }
+    @Test fun firstLoadNeverShowsEmptyAndFailedRequestOffersRealRetry() {
+        held = kotlinx.coroutines.CompletableDeferred()
+        render(waitLoaded = false)
+        compose.onNodeWithTag("runtimes-loading").assertExists()
+        compose.onNodeWithText("No runtimes").assertDoesNotExist()
+        compose.runOnIdle { failure = true; held!!.complete(Unit) }
+        compose.waitUntil(5000) {store.errors.isNotEmpty() && !store.loading}
+        compose.onNodeWithText("Couldn't load runtimes").assertIsDisplayed()
+        failure=false; empty=true
+        compose.onNodeWithText("Try again").performClick()
+        compose.waitUntil(5000) {store.loaded && !store.loading}
+        compose.onNodeWithText("No runtimes").assertIsDisplayed()
+        compose.onNodeWithText("Add runtime").assertExists()
+    }
+    @Test fun nonAdministratorHasNoAddButCanInspectRuntimeRows() {
+        render(canManage = false)
+        compose.onNodeWithText("Add runtime").assertDoesNotExist()
+        compose.onNodeWithTag("runtime-row-cloud").performClick()
+        assertEquals("cloud", details);assertEquals(1,detailClicks);assertEquals(0,management)
     }
     @Test fun emptyFailureRetryAndLargeRtlStayUsable() {
         render(true)
-        compose.onNodeWithText("Manage runtimes").assertIsDisplayed()
+        compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasText("Add runtime"))
+        compose.onNodeWithText("Add runtime").assertIsDisplayed()
         shot("runtimes-rtl-large.png")
         failure = true
-        compose.onNodeWithText("Refresh runtimes").performClick()
+        compose.runOnIdle { store.refresh() }
         compose.waitUntil { store.errors.isNotEmpty() }
+        compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasText("Could not refresh runtimes."))
         compose.onNodeWithText("Could not refresh runtimes.").assertExists()
-        assertEquals(3, store.runtimes.size)
+        assertEquals(6, store.runtimes.size)
         failure = false; empty = true
-        compose.onNodeWithText("Refresh runtimes").performClick()
+        compose.runOnIdle { store.refresh() }
         compose.waitUntil { store.loaded && store.runtimes.isEmpty() }
-        compose.onNodeWithText("No runtimes.", substring = true).assertExists()
+        compose.onNodeWithText("No runtimes", substring = true).assertExists()
         shot("runtimes-empty.png")
     }
 }

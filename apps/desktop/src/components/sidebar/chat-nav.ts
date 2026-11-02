@@ -1,6 +1,9 @@
+import { rowIndicator } from '../../lib/subAgentState.ts'
+
 import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
+import type { RuntimeExecution } from '../../lib/runtimeExecution.ts'
 
 /** ⌥↑ / ⌥↓ step through chat rows; with ⇧ they only stop at rows needing attention. */
 export function chatNavKey(
@@ -15,6 +18,16 @@ export function chatNavKey(
   if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return null
 
   return { step: event.key === 'ArrowDown' ? 1 : -1, attentionOnly: event.shiftKey }
+}
+
+/** A row showing its dot or the error mark. */
+export function chatRowNeedsAttention(
+  item: Pick<Item, 'dot'>,
+  runtimeState: RuntimeExecution | undefined,
+): boolean {
+  const indicator = rowIndicator(runtimeState, item.dot ?? null)
+
+  return indicator === 'unread' || indicator === 'waiting' || indicator === 'error'
 }
 
 /**
@@ -39,7 +52,8 @@ export function chatRowToward(
   const start = current === -1 ? edge : current
 
   for (let i = start + step; i >= 0 && i < rows.length; i += step) {
-    if (eligible(rows[i].item)) return rows[i].item
+    // A folded parent shows what the rows it hides show.
+    if (eligible(rows[i].item) || rows[i].hidden.some(eligible)) return rows[i].item
   }
 
   return undefined

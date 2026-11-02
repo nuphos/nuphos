@@ -69,3 +69,12 @@ test('a new chat reads its model settings only once the server has its conversat
   // A later turn reconnects, but a reply proves the conversation exists.
   assert.equal(serverHasConversation({ connected: false, messages: [asked, answered] }), true)
 })
+
+test('an unsaved fork has no stored conversation to read settings from', () => {
+  const answered = { id: 'a', role: 'assistant' as const, parts: [] }
+
+  assert.equal(
+    serverHasConversation({ connected: true, messages: [answered], unsaved: true }),
+    false,
+  )
+})

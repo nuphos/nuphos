@@ -1,4 +1,5 @@
 import { Age } from '../../components/Age'
+import { t } from '../../i18n'
 
 import { pipelineStatusColor } from './pipelineStatus'
 import { PipelineStatusIcon } from './PipelineStatusIcon'
@@ -16,14 +17,14 @@ export const mrColumns: Column<GitlabMergeRequest>[] = [
   },
   {
     key: 'title',
-    header: 'Title',
+    header: t('Title'),
     width: 320,
     sortAccessor: (m) => m.title,
     render: (m) => (
       <span className="text-main">
         {m.draft && (
           <span className="mr-1.5 text-[11px] text-tertiary border border-zGray-700 rounded px-1 py-0.5">
-            Draft
+            {t('Draft')}
           </span>
         )}
         {m.title}
@@ -32,7 +33,7 @@ export const mrColumns: Column<GitlabMergeRequest>[] = [
   },
   {
     key: 'author',
-    header: 'Author',
+    header: t('Author'),
     width: 140,
     sortAccessor: (m) => m.author ?? '',
     render: (m) => (
@@ -50,7 +51,7 @@ export const mrColumns: Column<GitlabMergeRequest>[] = [
   },
   {
     key: 'labels',
-    header: 'Labels',
+    header: t('Labels'),
     width: 180,
     render: (m) =>
       m.labels.length === 0 ? (
@@ -70,7 +71,7 @@ export const mrColumns: Column<GitlabMergeRequest>[] = [
   },
   {
     key: 'branch',
-    header: 'Branch',
+    header: t('Branch'),
     width: 220,
     render: (m) => (
       <span className="text-tertiary text-[11px] font-mono">
@@ -80,7 +81,7 @@ export const mrColumns: Column<GitlabMergeRequest>[] = [
   },
   {
     key: 'age',
-    header: 'Age',
+    header: t('Age'),
     width: 90,
     sortAccessor: (m) => m.createdAt,
     render: (m) => (
@@ -101,7 +102,7 @@ export const pipelineColumns: Column<GitlabPipeline>[] = [
   },
   {
     key: 'status',
-    header: 'Status',
+    header: t('Status'),
     width: 130,
     sortAccessor: (p) => p.status,
     render: (p) => (
@@ -113,26 +114,26 @@ export const pipelineColumns: Column<GitlabPipeline>[] = [
   },
   {
     key: 'source',
-    header: 'Trigger',
+    header: t('Trigger'),
     width: 130,
     render: (p) => <span className="text-secondary text-[12px]">{p.source}</span>,
   },
   {
     key: 'ref',
-    header: 'Ref',
+    header: t('Ref'),
     width: 180,
     sortAccessor: (p) => p.ref ?? '',
     render: (p) => <span className="text-tertiary text-[11px] font-mono">{p.ref ?? '—'}</span>,
   },
   {
     key: 'sha',
-    header: 'Commit',
+    header: t('Commit'),
     width: 90,
     render: (p) => <span className="text-tertiary text-[11px] font-mono">{p.sha.slice(0, 8)}</span>,
   },
   {
     key: 'age',
-    header: 'Age',
+    header: t('Age'),
     width: 90,
     sortAccessor: (p) => p.createdAt,
     render: (p) => (

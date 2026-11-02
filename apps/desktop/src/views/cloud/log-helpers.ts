@@ -1,3 +1,5 @@
+import { t } from '../../i18n/index.ts'
+
 import type { AwsLogEvent, AwsLogGroup } from '../../types'
 
 export function cloudWatchLogGroupUrl(group: AwsLogGroup): string {
@@ -19,17 +21,17 @@ export function formatLogTimestamp(iso: string | null): string {
 }
 
 export const LOG_RETENTION_OPTIONS: readonly { value: string; label: string }[] = [
-  { value: 'never', label: 'Never expire' },
-  { value: '1', label: '1 day' },
-  { value: '3', label: '3 days' },
-  { value: '7', label: '7 days' },
-  { value: '14', label: '14 days' },
-  { value: '30', label: '30 days' },
-  { value: '60', label: '60 days' },
-  { value: '90', label: '90 days' },
-  { value: '180', label: '180 days' },
-  { value: '365', label: '1 year' },
-  { value: '731', label: '2 years' },
+  { value: 'never', label: t('Never expire') },
+  { value: '1', label: t('{n} day', { n: 1 }) },
+  { value: '3', label: t('{n} days', { n: 3 }) },
+  { value: '7', label: t('{n} days', { n: 7 }) },
+  { value: '14', label: t('{n} days', { n: 14 }) },
+  { value: '30', label: t('{n} days', { n: 30 }) },
+  { value: '60', label: t('{n} days', { n: 60 }) },
+  { value: '90', label: t('{n} days', { n: 90 }) },
+  { value: '180', label: t('{n} days', { n: 180 }) },
+  { value: '365', label: t('{n} year', { n: 1 }) },
+  { value: '731', label: t('{n} years', { n: 2 }) },
 ]
 
 export function sortEventsByTs(events: AwsLogEvent[]): AwsLogEvent[] {

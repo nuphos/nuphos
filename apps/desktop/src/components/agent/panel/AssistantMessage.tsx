@@ -1,5 +1,6 @@
 import { memo } from 'react'
 
+import { t } from '../../../i18n'
 import { normalizeRecallFirstOrder, recallLeadCount } from '../../../lib/agentMessagePartOrder'
 import { MessageResponse } from '../MessageResponse'
 import { isPlanProposalToolName } from '../planReference'
@@ -232,7 +233,7 @@ export const AssistantMessage = memo(
           <>
             <CollapsedWorkView
               seconds={null}
-              label="Activity"
+              label={t('Activity')}
               toolCallIds={toolAnchorIds(displayParts.filter((_, index) => liveHistory.has(index)))}
             >
               {() => renderSelectedParts(displayParts, livePast, renderMessagePart, now)}

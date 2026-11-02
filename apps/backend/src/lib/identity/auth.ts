@@ -2,21 +2,22 @@ import { randomBytes } from 'node:crypto'
 
 import { MongoServerError, ObjectId as MongoObjectId } from 'mongodb'
 
-import type { NuphosUserDoc } from '@/lib/identity/shared'
-import type { AuthenticatedIdentity, NuphosUser } from '@/lib/identity/types'
-
 import { upsertCachedUser } from '@/lib/agent/directory'
 import { AppError } from '@/lib/errors'
 import { getGoogleAccessToken, getGoogleProfile } from '@/lib/identity/google'
-import { mapUser, teams, users } from '@/lib/identity/shared'
 import { findLiveSession, isSessionToken } from '@/lib/identity/sessions'
+import { mapUser, teams, users } from '@/lib/identity/shared'
 import { MAX_RUN_TOKEN_TTL_SEC, verifyNuphosToken } from '@/lib/identity/token'
+
+import type { NuphosUserDoc } from '@/lib/identity/shared'
+import type { AuthenticatedIdentity, NuphosUser } from '@/lib/identity/types'
 
 export { signNuphosToken } from '@/lib/identity/token'
 
 export async function setupIdentityIndexes(): Promise<void> {
   await Promise.all([
     users().createIndex({ email: 1 }, { unique: true, background: true }),
+    users().createIndex({ appleID: 1 }, { unique: true, sparse: true, background: true }),
     users().createIndex({ googleID: 1 }, { unique: true, sparse: true, background: true }),
     users().createIndex({ username: 1 }, { unique: true, background: true }),
     teams().createIndex({ ownerID: 1 }, { background: true }),
@@ -199,7 +200,7 @@ export async function getNuphosUserForCredential(
   return mapUser(user)
 }
 
-async function uniqueUsername(email: string): Promise<string> {
+export async function uniqueUsername(email: string): Promise<string> {
   const local = email.split('@')[0] ?? 'user'
   const base = local.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'user'
   let candidate = base

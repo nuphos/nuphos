@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 
 import { useReportLoading } from '../../components/useReportLoading'
+import { t } from '../../i18n'
 
 import { ErrorBlock } from './ErrorBlock'
 import { useLoader } from './shared'
@@ -18,10 +19,10 @@ import type { CommonProps } from './shared'
 import type { AwsEcsClusterMetricsResponse } from '../../types'
 
 const METRIC_LABELS: Record<string, string> = {
-  CPUUtilization: 'CPU Utilization',
-  MemoryUtilization: 'Memory Utilization',
-  CPUReservation: 'CPU Reservation',
-  MemoryReservation: 'Memory Reservation',
+  CPUUtilization: t('CPU Utilization'),
+  MemoryUtilization: t('Memory Utilization'),
+  CPUReservation: t('CPU Reservation'),
+  MemoryReservation: t('Memory Reservation'),
 }
 
 const RANGE_OPTIONS: readonly { label: string; minutes: number }[] = [
@@ -82,7 +83,7 @@ export function EcsMetricsView({
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
       <div className="flex items-center gap-1.5 px-4 py-2 border-b border-zGray-850 bg-zGray-950 text-[12px]">
-        <span className="text-tertiary mr-1">Time range</span>
+        <span className="text-tertiary mr-1">{t('Time range')}</span>
         {RANGE_OPTIONS.map((opt) => (
           <button
             key={opt.minutes}
@@ -106,16 +107,18 @@ export function EcsMetricsView({
         ))}
         {items && (
           <span className="ml-auto text-tertiary">
-            Period {items.periodSec}s · CloudWatch AWS/ECS
+            {t('Period {seconds}s · CloudWatch AWS/ECS', { seconds: items.periodSec })}
           </span>
         )}
       </div>
       {loading && !items ? (
-        <div className="p-8 text-tertiary text-[13px]">Loading metrics…</div>
+        <div className="p-8 text-tertiary text-[13px]">{t('Loading metrics…')}</div>
       ) : items && items.series.every((s) => s.datapoints.length === 0) ? (
         <div className="p-8 text-tertiary text-[13px]">
-          No CloudWatch datapoints in this range. The role may be missing
-          cloudwatch:GetMetricStatistics, or the cluster has no activity yet.
+          {t(
+            'No CloudWatch datapoints in this range. The role may be missing {permission}, or the cluster has no activity yet.',
+            { permission: 'cloudwatch:GetMetricStatistics' },
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-4 p-4">
@@ -126,7 +129,7 @@ export function EcsMetricsView({
                   {METRIC_LABELS[s.metricName] ?? s.metricName}
                 </span>
                 <span className="text-[11.5px] text-tertiary">
-                  {s.datapoints.length} pts · {s.unit}
+                  {t('{count} pts · {unit}', { count: s.datapoints.length, unit: s.unit })}
                 </span>
               </div>
               <div className="h-48">

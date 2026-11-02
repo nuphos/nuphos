@@ -9,6 +9,7 @@ import { PrivacySection } from './PrivacySection'
 import { ProfileSection } from './ProfileSection'
 import { RuntimeFallbackSection } from './RuntimeFallbackSection'
 import { SignedInDevicesSection } from './SignedInDevicesSection'
+import { UpdatesSection } from './UpdatesSection'
 
 import type { AtlasTeam, UserInfo } from '../../types'
 import type { ReactNode } from 'react'
@@ -42,6 +43,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'account.personalCredentials': ({ team }) => <PersonalCredentialsSection team={team} />,
   'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
   'device.appearance': () => <AppearanceSection />,
+  'device.updates': () => <UpdatesSection />,
   'device.privacy': () => <PrivacySection />,
   'device.localRuntime': ({ team, onOpenConversation }) => (
     <LocalRuntimeSection currentTeamId={team?.id} onOpenConversation={onOpenConversation} />

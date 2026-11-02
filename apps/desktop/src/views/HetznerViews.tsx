@@ -8,6 +8,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { Table } from '../components/Table'
 import { useReportVisibleError } from '../components/VisibleErrorReporter'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { withResourceListCache, resourceListCacheKey } from '../lib/resourceListCache'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 
@@ -77,7 +78,7 @@ export function HetznerServersView({
   const menuItems = (server: HetznerServer): ContextMenuItem[] => [
     {
       key: 'copy-name',
-      label: 'Copy name',
+      label: t('Copy name'),
       onSelect: () =>
         navigator.clipboard.writeText(server.name).catch((cause: unknown) => {
           reportFrontendError(
@@ -90,7 +91,7 @@ export function HetznerServersView({
       ? [
           {
             key: 'copy-ip',
-            label: 'Copy IP address',
+            label: t('Copy IP address'),
             onSelect: () =>
               navigator.clipboard.writeText(server.ipv4!).catch((cause: unknown) => {
                 reportFrontendError(
@@ -110,25 +111,25 @@ export function HetznerServersView({
         columns={[
           {
             key: 'name',
-            header: 'Name',
+            header: t('Name'),
             render: (s) => <span className="font-mono text-[12px]">{s.name}</span>,
             sortAccessor: (s) => s.name,
           },
           {
             key: 'location',
-            header: 'Location',
+            header: t('Location'),
             render: (s) => <span className="text-secondary">{s.location}</span>,
             sortAccessor: (s) => s.location,
           },
           {
             key: 'type',
-            header: 'Type',
+            header: t('Type'),
             render: (s) => <span className="text-secondary text-[11.5px]">{s.serverType}</span>,
             sortAccessor: (s) => s.serverType,
           },
           {
             key: 'status',
-            header: 'Status',
+            header: t('Status'),
             render: (s) => <StatusBadge status={s.status} />,
             sortAccessor: (s) => s.status,
           },
@@ -142,7 +143,7 @@ export function HetznerServersView({
           },
           {
             key: 'age',
-            header: 'Age',
+            header: t('Age'),
             render: (s) =>
               s.created ? <Age value={s.created} /> : <span className="text-tertiary">—</span>,
             sortAccessor: (s) => s.created ?? '',
@@ -170,12 +171,12 @@ export function HetznerServersView({
           title={selected.name}
           fields={[
             { label: 'ID', value: String(selected.id), mono: true },
-            { label: 'Location', value: selected.location },
-            { label: 'Type', value: selected.serverType },
-            { label: 'Status', value: selected.status },
+            { label: t('Location'), value: selected.location },
+            { label: t('Type'), value: selected.serverType },
+            { label: t('Status'), value: selected.status },
             { label: 'IPv4', value: selected.ipv4 ?? '—', mono: true },
             { label: 'IPv6', value: selected.ipv6 ?? '—', mono: true },
-            { label: 'Created', value: selected.created ?? '—' },
+            { label: t('Created'), value: selected.created ?? '—' },
           ]}
         />
       )}

@@ -71,6 +71,14 @@ describe('local runtime catalog', () => {
     expect(await listOwnLocalRuntimes('t2', 'owner', deps)).toEqual([])
   })
 
+  test('a computer that opens its desktop on request says so', async () => {
+    expect((await listOwnLocalRuntimes('t1', 'owner', deps))[0]?.local.desktopOpen).toBeUndefined()
+    const { status } = online()
+
+    presence = { ...online(), status: { agents: status?.agents ?? {}, desktopOpen: true } }
+    expect((await listOwnLocalRuntimes('t1', 'owner', deps))[0]?.local.desktopOpen).toBe(true)
+  })
+
   test('Grok Build and OpenCode are listed, and a signed-out one can still be signed in', async () => {
     const signedOut = { cli: { installed: true, loggedIn: false } }
 

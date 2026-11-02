@@ -197,6 +197,24 @@ export function removeSidebarFavorite(userId: string, teamId: string, identity: 
   enqueueOperation(userId, teamId, { id: nextOperationId(), kind: 'remove', identity })
 }
 
+/** Moves a favorite to just before `before`, or to the end when that is null. */
+export function moveSidebarFavorite(
+  userId: string,
+  teamId: string,
+  identity: string,
+  before: string | null,
+): void {
+  const operation = { id: nextOperationId(), kind: 'move' as const, identity, before }
+
+  writeFavoritesCache(
+    userId,
+    teamId,
+    applyFavoriteOperations(readSidebarFavorites(userId, teamId), [operation]),
+  )
+  dispatchChange(userId, teamId)
+  enqueueOperation(userId, teamId, operation)
+}
+
 /** Notifies on changes to this user's favorites for one team. */
 export function subscribeSidebarFavorites(
   userId: string,

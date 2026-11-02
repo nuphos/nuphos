@@ -1,24 +1,27 @@
 import { CircleAlert, Loader2 } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { chatRowIndicator, runtimeStateLabel } from '../../lib/runtimeExecution'
+import { runtimeStateLabel } from '../../lib/runtimeExecution'
+import { rowIndicator } from '../../lib/subAgentState'
 
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
+import type { RowDot } from '../../lib/subAgentState'
 
 const DOTS = {
   background: { label: t('Background task running'), color: 'bg-warning' },
   unread: { label: t('Unread reply'), color: 'bg-zViolet-500' },
+  waiting: { label: t('Needs your input'), color: 'bg-zViolet-500' },
 } as const
 
 /** The row's status at its right edge; the left icon only ever names the agent. */
 export function ChatRowStatus({
   runtimeState: state,
-  unread,
+  dot,
 }: {
   runtimeState: RuntimeExecution | undefined
-  unread: boolean
+  dot: RowDot
 }) {
-  const indicator = chatRowIndicator(state, unread)
+  const indicator = rowIndicator(state, dot)
 
   if (indicator === 'none') return null
   if (indicator === 'turn' || indicator === 'error') {

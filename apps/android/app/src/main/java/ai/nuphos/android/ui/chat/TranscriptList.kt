@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -73,6 +74,18 @@ internal fun TranscriptList(
                 autoScrolling = false
             }
         }
+    }
+    // Rows can grow after the initial jump (e.g. an inline plan finishes loading).
+    // While still following, keep the latest row in view; a reader scroll stops following.
+    val lastIndex by rememberUpdatedState(rows.lastIndex)
+    LaunchedEffect(state) {
+        snapshotFlow { following && !userScrolling && state.canScrollForward }
+            .collect { behind ->
+                if (behind && lastIndex >= 0) {
+                    autoScrolling = true
+                    try { state.scrollToItem(lastIndex) } finally { autoScrolling = false }
+                }
+            }
     }
     Column(modifier) {
         LazyColumn(

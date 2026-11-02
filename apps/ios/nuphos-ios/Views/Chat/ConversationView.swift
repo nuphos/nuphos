@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The chat screen: transcript rows, activity, approvals, and the composer.
 struct ConversationView: View {
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
     var initialPrompt: ComposerSubmission?
@@ -31,6 +32,17 @@ struct ConversationView: View {
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
     @State private var showShare = false
+    /// The desktop open from this conversation: beside it where the window is wide, else full screen.
+    @State private var desktop: DesktopSession?
+    /// The dock panel: this conversation's desktop and the browser tabs its agent opened.
+    @State private var dockOpen = false
+    /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
+    private static var screenSize: CGSize {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        return scene?.screen.bounds.size ?? CGSize(width: 390, height: 844)
+    }
+    /// The dock shows the owner's own computer, so only the owner gets it.
+    private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
@@ -62,6 +74,18 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .dock(isOpen: Binding(get: { dockOpen }, set: { dockOpen = $0 && hasDock })) {
+            DockPanel(session: session) {
+                dockOpen = false
+                desktop = session.makeDesktop()
+            } openTab: { tab in
+                dockOpen = false
+                desktop = session.makeBrowserView(tab, size: Self.screenSize)
+            } close: {
+                dockOpen = false
+            }
+        }
+        .desktop($desktop)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -99,9 +123,16 @@ struct ConversationView: View {
         .navigationTitle(session.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .keepsNavigationBar()
         #endif
         .toolbar {
             ToolbarItem(placement: .principal) { titleBar }
+            if hasDock {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Dock", systemImage: "sidebar.right") { dockOpen.toggle() }
+                        .accessibilityIdentifier("dock-button")
+                }
+            }
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -213,8 +244,9 @@ struct ConversationView: View {
                 try? await Task.sleep(for: .seconds(5))
             }
         }
-        // New files land while a turn runs; read them once it settles.
-        .task(id: "\(session.isStreaming).\(session.messages.count)") {
+        // New files land while a turn runs; read them once it settles. Keyed on
+        // the newest message, not the count: a long chat holds a fixed tail.
+        .task(id: "\(session.isStreaming).\(session.messages.last?.id ?? "")") {
             await session.refreshResources()
             if !session.isStreaming { await session.refreshDownloads() }
         }
@@ -230,12 +262,17 @@ struct ConversationView: View {
                     .font(Theme.Text.label.weight(.semibold))
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
-                if let name = session.runtimeDisplayName {
-                    Text(name)
-                        .font(Theme.Text.micro)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
-                        .accessibilityLabel("Runtime: \(name)")
+                if session.loaded || session.runtimeDisplayName != nil {
+                    let name = session.runtimeDisplayName
+                    HStack(spacing: 4) {
+                        if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
+                        Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
+                            .font(Theme.Text.micro)
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
                 } else if !session.loaded {
                     Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
@@ -268,6 +305,10 @@ struct ConversationView: View {
     /// The composer, with what waits on the owner of a shared computer and any queued messages above it.
     private var composer: some View {
         VStack(spacing: 0) {
+            if let suggestion = session.promptSuggestion, draft.isEmpty, !session.isStreaming,
+               session.canSubmit, session.failedSubmission == nil {
+                SuggestionChip(text: suggestion) { draft = suggestion }
+            }
             if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
                 ShareApprovalStrip(
                     wait: wait,
@@ -298,7 +339,7 @@ struct ConversationView: View {
                 sendsDuringTurn: session.isNativeRuntime && !session.sendQueues,
                 canSteer: session.canSteer,
                 allowsAttachments: !session.canSteer,
-                failedSubmission: $session.failedSubmission,
+                editRequest: $session.editingSubmission,
                 mentions: MentionSource(
                     teamId: session.teamId,
                     // Only someone who may change the session's devices can bring one in.
@@ -322,7 +363,8 @@ struct ConversationView: View {
                         set: { session.credentialAccess = $0 }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
-                    session: session
+                    session: session,
+                    switchRuntime: { showRuntimes = true }
                 ) }
             }
         }
@@ -350,7 +392,10 @@ struct ConversationView: View {
                 .padding(.bottom, rowSpacing(row))
                 .readableWidth())
         }
+        // Under the bars too: the collection insets itself by the safe area,
+        // and rows scroll beneath the bar's edge effect rather than being cut.
         .ignoresSafeArea(.all, edges: .bottom)
+        .ignoresSafeArea(.container, edges: .top)
         #else
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -377,7 +422,7 @@ struct ConversationView: View {
     private func rowSpacing(_ row: ChatRow) -> CGFloat {
         switch row {
         case .assistantText: 28
-        case .user, .sending: 22
+        case .user, .sending, .failed: 22
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint, .event: 18
@@ -424,6 +469,10 @@ struct ConversationView: View {
         case .sending:
             if let sending = session.sending {
                 SendingBubble(submission: sending.submission, progress: sending.progress, onCancel: session.cancelSending)
+            }
+        case .failed:
+            if let submission = session.failedSubmission {
+                FailedBubble(submission: submission, onRetry: session.retryFailed, onEdit: session.editFailed)
             }
         case .hint(_, let text, let isError):
             HintRow(text: text, isError: isError)
@@ -534,6 +583,41 @@ struct SendingBubble: View {
         // Nothing to upload, or every byte is out and the server is answering.
         guard progress.totalUnitCount > 0, progress.completedUnitCount < progress.totalUnitCount else { return "Sending…" }
         return "Uploading \(progress.completedUnitCount.formatted(.byteCount(style: .file))) of \(progress.totalUnitCount.formatted(.byteCount(style: .file)))"
+    }
+}
+
+/// A message the server never took, kept where it was sent as messaging apps
+/// do: marked as not sent, to send again as it is or take back to edit.
+struct FailedBubble: View {
+    let submission: ComposerSubmission
+    let onRetry: () -> Void
+    let onEdit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            HStack(spacing: 6) {
+                ForEach(submission.attachments.prefix(4)) { attachment in
+                    AttachmentPreview(attachment: attachment)
+                        .frame(width: 96, height: 96)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+            if !submission.text.isEmpty {
+                PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            HStack(spacing: 14) {
+                Label("Not sent", systemImage: "exclamationmark.circle.fill")
+                    .foregroundStyle(.red)
+                Button("Retry", action: onRetry)
+                Button("Edit", action: onEdit)
+            }
+            .font(Theme.Text.label)
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.leading, 56)
     }
 }
 
@@ -748,6 +832,34 @@ struct ResourceStrip: View {
     }
 }
 
+/// The runtime's guess at the next message. Tapping it fills the composer,
+/// where it can be edited or sent: Desktop's Tab-to-accept, for a phone.
+struct SuggestionChip: View {
+    let text: String
+    var onUse: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: onUse) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles").font(Theme.Text.micro)
+                    Text(text).lineLimit(1).font(Theme.Text.label)
+                }
+                .foregroundStyle(Theme.body)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Theme.chatSurface, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Use suggestion: \(text)")
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
+        .transition(.opacity)
+    }
+}
+
 /// This person's messages waiting in the session queue, in the order they
 /// run, as on Desktop: each can go into the running turn, come back to the
 /// composer to edit (tap), or be taken back.
@@ -869,5 +981,19 @@ private struct BarButtonsInSideRailKey: EnvironmentKey, UITraitBridgedEnvironmen
 
 extension EnvironmentValues {
     fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
+}
+
+private extension View {
+    /// The bar stays put while the transcript scrolls. Where the system
+    /// minimizes it (iPhone Duo), each step resized the transcript and moved
+    /// the composer docked under it.
+    @ViewBuilder
+    func keepsNavigationBar() -> some View {
+        if #available(iOS 27.0, *) {
+            toolbarMinimizationBehavior(.never, for: .navigationBar)
+        } else {
+            self
+        }
+    }
 }
 #endif

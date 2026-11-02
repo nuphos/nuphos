@@ -6,10 +6,12 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { Fragment } from 'react'
 
 import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
 
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 
 const inputClasses =
   'w-full h-9 rounded-md border border-zGray-800 bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary'
@@ -30,10 +32,10 @@ function InstallButton({
       type="button"
       onClick={onInstall}
       disabled={!oauthAvailable}
-      title={oauthAvailable ? undefined : 'Slack OAuth is not configured on this server yet.'}
+      title={oauthAvailable ? undefined : t('Slack OAuth is not configured on this server yet.')}
     >
       <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
-      {installed ? 'Reinstall Slack App' : 'Install Slack App'}
+      {installed ? t('Reinstall Slack App') : t('Install Slack App')}
     </Button>
   )
 }
@@ -65,6 +67,15 @@ export function LinkChannelPanel({
   linkChannelSubmitting: boolean
   onSubmit: (e: FormEvent) => Promise<void>
 }) {
+  // The command and the reply button are styled, so split one sentence around them.
+  const mentionSteps = botMention
+    ? t('Invite it ({command}), @mention it, then click {button} in its reply.')
+    : t('Invite it, @mention it, then click {button} in its reply.')
+  const mentionNodes: Record<string, ReactNode> = {
+    '{command}': <span className="font-mono text-[11px]">/invite @{botMention}</span>,
+    '{button}': <span className="text-secondary">Link this channel</span>,
+  }
+
   return (
     <div className="divide-y divide-zGray-800/60 border-t border-zGray-800/60">
       <div className="flex items-start gap-3 px-4 py-3.5">
@@ -72,17 +83,13 @@ export function LinkChannelPanel({
           <FontAwesomeIcon icon={faHashtag} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-medium text-main">Mention the bot in the channel</div>
+          <div className="text-[12.5px] font-medium text-main">
+            {t('Mention the bot in the channel')}
+          </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
-            Invite it
-            {botMention ? (
-              <>
-                {' '}
-                (<span className="font-mono text-[11px]">/invite @{botMention}</span>)
-              </>
-            ) : null}
-            , @mention it, then click <span className="text-secondary">Link this channel</span> in
-            its reply.
+            {mentionSteps.split(/(\{\w+\})/).map((part, i) => (
+              <Fragment key={i}>{mentionNodes[part] ?? part}</Fragment>
+            ))}
           </div>
         </div>
         {canManage && (
@@ -99,9 +106,9 @@ export function LinkChannelPanel({
           <FontAwesomeIcon icon={faComments} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-medium text-main">Pick from the bot's DM</div>
+          <div className="text-[12.5px] font-medium text-main">{t("Pick from the bot's DM")}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
-            Your DM with the bot has a channel picker for its own workspace.
+            {t('Your DM with the bot has a channel picker for its own workspace.')}
           </div>
         </div>
         {botDmLink && (
@@ -111,7 +118,7 @@ export function LinkChannelPanel({
             className="mt-1 inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-zGray-800 px-2 text-[11.5px] text-secondary transition-colors hover:border-zGray-700 hover:text-main"
           >
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
-            Open DM
+            {t('Open DM')}
           </button>
         )}
         {canManage && !installed && (
@@ -125,14 +132,15 @@ export function LinkChannelPanel({
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-medium text-main">
-            Link by ID
+            {t('Link by ID')}
             <span className="ml-2 rounded border border-zGray-700 px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
-              admins
+              {t('admins')}
             </span>
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
-            Works for any workspace with a Nuphos installation. A channel in another team's
-            workspace needs your linked Slack account to be a member of it.
+            {t(
+              "Works for any workspace with a Nuphos installation. A channel in another team's workspace needs your linked Slack account to be a member of it.",
+            )}
           </div>
           {canManage ? (
             <form
@@ -140,7 +148,7 @@ export function LinkChannelPanel({
               className="mt-3 flex flex-wrap items-end gap-2"
             >
               <label className="min-w-[140px] flex-1">
-                <span className="mb-1 block text-[11.5px] text-tertiary">Workspace ID</span>
+                <span className="mb-1 block text-[11.5px] text-tertiary">{t('Workspace ID')}</span>
                 <input
                   value={newChannelWorkspaceId}
                   onChange={(e) => setNewChannelWorkspaceId(e.target.value)}
@@ -149,7 +157,7 @@ export function LinkChannelPanel({
                 />
               </label>
               <label className="min-w-[140px] flex-1">
-                <span className="mb-1 block text-[11.5px] text-tertiary">Channel ID</span>
+                <span className="mb-1 block text-[11.5px] text-tertiary">{t('Channel ID')}</span>
                 <input
                   value={newChannelId}
                   onChange={(e) => setNewChannelId(e.target.value)}
@@ -165,12 +173,12 @@ export function LinkChannelPanel({
                 }
               >
                 <FontAwesomeIcon icon={faLink} className="h-3 w-3" />
-                {linkChannelSubmitting ? 'Linking…' : 'Link channel'}
+                {linkChannelSubmitting ? t('Linking…') : t('Link channel')}
               </Button>
             </form>
           ) : (
             <div className="mt-1 text-[12px] text-tertiary">
-              Ask a team administrator to link it for you.
+              {t('Ask a team administrator to link it for you.')}
             </div>
           )}
         </div>

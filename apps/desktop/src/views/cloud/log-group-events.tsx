@@ -4,6 +4,7 @@ import { Globe } from 'lucide-react'
 
 import { api } from '../../api'
 import { AppSelect } from '../../components/ui/select'
+import { t } from '../../i18n'
 
 import { ErrorBlock } from './ErrorBlock'
 import { LOG_RANGE_OPTIONS, cloudWatchLogGroupUrl, formatLogTimestamp } from './log-helpers'
@@ -87,7 +88,7 @@ export function LogGroupEventsView({
             type="button"
             onClick={onBack}
             className="inline-flex items-center gap-1 text-tertiary hover:text-main shrink-0"
-            title="Back to log groups"
+            title={t('Back to log groups')}
           >
             <FontAwesomeIcon icon={faArrowLeft} className="w-3.5 h-3.5" />
           </button>
@@ -101,26 +102,26 @@ export function LogGroupEventsView({
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => setReloadTick((t) => t + 1)}
+            onClick={() => setReloadTick((n) => n + 1)}
             disabled={live}
             className="inline-flex items-center gap-1 text-tertiary hover:text-main disabled:opacity-50"
-            title={live ? 'Live tail is appending automatically' : 'Reload events'}
+            title={live ? t('Live tail is appending automatically') : t('Reload events')}
           >
             <FontAwesomeIcon
               icon={faRotateRight}
               className={`w-3.5 h-3.5${loading ? ' animate-spin' : ''}`}
             />
-            Reload
+            {t('Reload')}
           </button>
           <button
             type="button"
             onClick={copyAll}
             disabled={!events || events.length === 0}
             className="inline-flex items-center gap-1 text-tertiary hover:text-main disabled:opacity-50"
-            title="Copy all loaded events"
+            title={t('Copy all loaded events')}
           >
             <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="w-3.5 h-3.5" />
-            {copied ? 'Copied' : 'Copy all'}
+            {copied ? t('Copied') : t('Copy all')}
           </button>
           <button
             type="button"
@@ -128,7 +129,7 @@ export function LogGroupEventsView({
             className="inline-flex items-center gap-1 text-tertiary hover:text-main"
           >
             <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
-            AWS console
+            {t('AWS console')}
           </button>
         </div>
       </div>
@@ -152,9 +153,9 @@ export function LogGroupEventsView({
                   ? 'bg-zViolet-accent/15 text-zViolet-accent'
                   : 'text-tertiary hover:text-main hover:bg-zGray-850'
               }`}
-              title="Latest events across the most recent streams"
+              title={t('Latest events across the most recent streams')}
             >
-              Tail
+              {t('Tail')}
             </button>
             {LOG_RANGE_OPTIONS.map((opt) => (
               <button
@@ -182,7 +183,7 @@ export function LogGroupEventsView({
             <input
               value={patternInput}
               onChange={(e) => setPatternInput(e.target.value)}
-              placeholder={'Filter pattern — e.g. ERROR, "timed out", { $.level = "error" }'}
+              placeholder={t('Filter pattern — e.g. ERROR, "timed out", { $.level = "error" }')}
               className="w-full h-6 px-2 rounded bg-surface border border-zGray-800 text-[11.5px] font-mono text-secondary placeholder:text-tertiary/70 focus:outline-none focus:border-zViolet-accent/60"
             />
           </form>
@@ -192,7 +193,7 @@ export function LogGroupEventsView({
               onValueChange={setStreamFilter}
               triggerClassName="h-6 border-zGray-800 px-2 text-[11.5px] max-w-[220px]"
               options={[
-                { value: '', label: 'All streams' },
+                { value: '', label: t('All streams') },
                 ...streams.map((s) => ({ value: s.name, label: s.name })),
               ]}
             />
@@ -205,12 +206,12 @@ export function LogGroupEventsView({
                 ? 'bg-[#73bf69]/15 text-[#73bf69]'
                 : 'text-tertiary hover:text-main hover:bg-zGray-850'
             }`}
-            title={live ? 'Stop live tail' : 'Poll for new events every few seconds'}
+            title={live ? t('Stop live tail') : t('Poll for new events every few seconds')}
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${live ? 'bg-[#73bf69] animate-pulse' : 'bg-zGray-600'}`}
             />
-            Live
+            {t('Live')}
           </button>
         </div>
       )}
@@ -219,7 +220,7 @@ export function LogGroupEventsView({
         <ErrorBlock message={errorMessage} />
       ) : loading && events === null ? (
         <div className="flex-1 flex items-center justify-center text-sm text-tertiary">
-          Loading events...
+          {t('Loading events...')}
         </div>
       ) : (
         <div
@@ -229,10 +230,10 @@ export function LogGroupEventsView({
           {filtered.length === 0 ? (
             <div className="px-4 py-6 text-tertiary font-sans text-[12.5px]">
               {filter
-                ? `No events matching "${filter}"`
+                ? t('No events matching "{filter}"', { filter })
                 : pattern
-                  ? `No events matching pattern ${pattern} in this range.`
-                  : 'No recent events in this log group.'}
+                  ? t('No events matching pattern {pattern} in this range.', { pattern })
+                  : t('No recent events in this log group.')}
             </div>
           ) : (
             <div className="px-4 py-2">
@@ -253,7 +254,7 @@ export function LogGroupEventsView({
                   disabled={paging}
                   className="my-2 h-6 px-2.5 rounded bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main font-sans text-[11.5px] disabled:opacity-50"
                 >
-                  {paging ? 'Loading…' : 'Load more'}
+                  {paging ? t('Loading…') : t('Load more')}
                 </button>
               )}
             </div>
