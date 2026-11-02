@@ -4,9 +4,7 @@ import { ChevronRight, ShieldCheck, Terminal } from 'lucide-react'
 import { useState } from 'react'
 
 import { t } from '../../../i18n'
-import { useReportVisibleError } from '../../VisibleErrorReporter'
 
-import { failedOutput } from './activity'
 import { AuthorizationApprovalActions } from './AuthorizationActions'
 import { CodeSection, CommandTerminalView } from './CommandTerminalView'
 import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
@@ -25,7 +23,6 @@ export function ToolPartView({
   /** Start with the details shown — a run of one call opens straight to them. */
   initiallyOpen?: boolean
 }) {
-  const errored = part.state === 'output-error' || failedOutput(part.output)
   // An approval request opens itself; a finished command collapses again.
   const [open, setOpen] = useState(initiallyOpen || part.state === 'approval-requested')
   const done = part.state === 'output-available' || part.state === 'output-error'
@@ -33,10 +30,6 @@ export function ToolPartView({
   const commandTool = isCommandTool(part)
   const hasLiveOutput = Boolean(part.liveOutput?.stdout || part.liveOutput?.stderr)
 
-  useReportVisibleError(
-    !commandTool && errored ? (part.errorText ?? `${label} failed`) : null,
-    'agent_tool_error_card',
-  )
   const [openedFor, setOpenedFor] = useState({
     commandTool,
     done,
