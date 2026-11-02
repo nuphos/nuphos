@@ -21,6 +21,7 @@ export function useComposerState({
   autoFocus,
   focusKey,
   promptSuggestion,
+  placeholder,
 }: {
   hero: boolean
   readOnly: boolean
@@ -30,6 +31,8 @@ export function useComposerState({
   /** The conversation shown; switching to another one takes the caret even mid-reply or with a draft. */
   focusKey?: string
   promptSuggestion?: string | null
+  /** The idle text, e.g. a channel's "Message #name"; offers no Tab completion. */
+  placeholder?: string
 }) {
   // One suggestion per composer mount, picked at random. Rotating it moved the
   // sentence out from under whoever was reading it; pinning it to the first
@@ -42,7 +45,9 @@ export function useComposerState({
     promptSuggestion || placeholderPool[placeholderIndex % placeholderPool.length]
   // A conversation offers the runtime's own guess; the hero offers an example.
   const offersSuggestion = hero || Boolean(promptSuggestion)
-  const idlePlaceholder = offersSuggestion ? suggestedPrompt : AGENT_COMPACT_PLACEHOLDER
+  const idlePlaceholder = offersSuggestion
+    ? suggestedPrompt
+    : (placeholder ?? AGENT_COMPACT_PLACEHOLDER)
   const [filePaths, setFilePaths] = useState<string[]>([])
   // Paths picked as directories (vs single files). Tracked alongside `filePaths`
   // purely so the attachment chip can show a folder icon — the underlying send

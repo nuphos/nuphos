@@ -37,13 +37,16 @@ export function optionKey(option: MentionOption): string {
 }
 
 /** What a picked option leaves in the editor. */
-export function optionChip(option: MentionOption, teamId: string): HTMLElement {
+/** In a channel an agent is named, as a person is, so it knows it was addressed. */
+export function optionChip(option: MentionOption, teamId: string, channel = false): HTMLElement {
   switch (option.kind) {
     case 'member':
       return nameChip(option.member.name || option.member.email, option.member.id)
     case 'device':
       return nameChip(option.device.label)
     case 'session':
-      return renderMentionChip(sessionMentionUrl(teamId, option.session.sessionId))
+      return channel
+        ? nameChip(option.session.title || option.session.sessionId)
+        : renderMentionChip(sessionMentionUrl(teamId, option.session.sessionId))
   }
 }

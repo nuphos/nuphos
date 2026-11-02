@@ -1,4 +1,5 @@
 import type { Item, Section } from './types'
+import type { ReactNode } from 'react'
 
 /**
  * The chat groups in team view: what the viewer pinned, above their own Chats.
@@ -38,4 +39,18 @@ export function withChatSections(
   }
 
   return result
+}
+
+const CHAT_SECTIONS = new Set<string | undefined>(['Pinned', 'Channels', 'Agents'])
+
+/** The sections that hold chats, the only ones a split sidebar keeps. */
+export function isChatSection(section: Section): boolean {
+  return CHAT_SECTIONS.has(section.title)
+}
+
+/** Channels carries its "+" beside the title. */
+export function withChannelAction(sections: Section[], action: ReactNode): Section[] {
+  return sections.map((section) =>
+    section.title === 'Channels' ? { ...section, action } : section,
+  )
 }

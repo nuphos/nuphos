@@ -43,7 +43,13 @@ function mentionedUserIds(el: HTMLElement | null): string[] {
 export function useComposerMentions(
   editorRef: RefObject<HTMLDivElement | null>,
   onEdited: () => void,
-  scope?: { teamId: string; sessionId?: string },
+  scope?: {
+    teamId: string
+    sessionId?: string
+    channel?: boolean
+    /** A channel's own people and agents: only they are offered, and not the sender. */
+    only?: { agentIds: string[]; selfId: string }
+  },
   credentials?: Pick<CredentialSelectorControl, 'options' | 'value' | 'onChange'>,
 ) {
   const [members, setMembers] = useState<TeamMember[] | null>(null)
@@ -80,9 +86,17 @@ export function useComposerMentions(
   function loadMembers() {
     if (members || !scope) return
     setMembers([])
-    api
-      .atlasListTeamMembers(scope.teamId)
-      .then(setMembers)
+    const { only, sessionId, teamId } = scope
+
+    Promise.all([
+      api.atlasListTeamMembers(teamId),
+      only && sessionId ? api.agentGetConversationParticipants(sessionId, teamId) : undefined,
+    ])
+      .then(([team, access]) => {
+        const here = access && new Set(access.participants.map((person) => person.id))
+
+        setMembers(here ? team.filter((m) => here.has(m.id) && m.id !== only?.selfId) : team)
+      })
       .catch(() => setMembers(null))
   }
 
@@ -98,6 +112,7 @@ export function useComposerMentions(
           query: next,
           list: page.conversations
             .filter((session) => session.sessionId !== scope.sessionId)
+            .filter((session) => !scope.only || scope.only.agentIds.includes(session.sessionId))
             .slice(0, 5),
         })
       })
@@ -131,7 +146,7 @@ export function useComposerMentions(
     range.setStart(caret.node, caret.offset - query.length - 1)
     range.setEnd(caret.node, caret.offset)
     range.deleteContents()
-    const chip = optionChip(option, scope.teamId)
+    const chip = optionChip(option, scope.teamId, scope.channel)
 
     if (
       option.kind === 'device' &&

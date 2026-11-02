@@ -5,6 +5,7 @@ import { t } from '../../../i18n'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { CloudLogo } from '../../CloudLogo'
+import { ChannelMark } from '../../channels/channelParts'
 import { AgentAvatar } from '../AgentAvatar'
 import { MessageResponse } from '../MessageResponse'
 
@@ -39,6 +40,33 @@ export function AgentEventMessage({
     teamId && metadata.sourceSessionId
       ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${metadata.sourceSessionId}`)
       : null
+
+  // A channel's wake-up says only "something new there": show the channel, not the raw notice.
+  const channelId = metadata.sender.id.startsWith('channel:')
+    ? metadata.sender.id.slice('channel:'.length)
+    : null
+
+  if (channelId) {
+    const channelUrl = teamId ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${channelId}`) : null
+
+    return (
+      <Rule title={new Date(metadata.sentAt).toLocaleString()}>
+        <ChannelMark size={14} className="rounded" />
+        <span>{t('New messages in')}</span>
+        {channelUrl && onOpenNuphosLink ? (
+          <button
+            type="button"
+            onClick={() => onOpenNuphosLink(channelUrl)}
+            className="min-w-0 truncate font-medium text-secondary hover:underline"
+          >
+            #{displayName}
+          </button>
+        ) : (
+          <span className="min-w-0 truncate font-medium text-secondary">#{displayName}</span>
+        )}
+      </Rule>
+    )
+  }
 
   let icon = <Avatar name={displayName} size={14} className="shrink-0 rounded-full" />
 

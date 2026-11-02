@@ -145,7 +145,11 @@ export function teamSections(
         enabled: true,
       })),
     },
-    ...(agentSessionItems.length > 0 ? [{ title: 'Agents', items: agentSessionItems }] : []),
+    // Always shown, so its "+" can start the first one.
+    { title: 'Channels', items: agentSessionItems.filter((item) => item.channel) },
+    ...(agentSessionItems.some((item) => !item.channel)
+      ? [{ title: 'Agents', items: agentSessionItems.filter((item) => !item.channel) }]
+      : []),
     ...loadingPlaceholder,
     ...connectorGroups.map(({ category, items }) => ({
       title: category.label,

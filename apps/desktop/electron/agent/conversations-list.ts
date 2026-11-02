@@ -25,6 +25,8 @@ export type ListConversationsOptions = {
   sort?: ConversationsSort
   /** The Inbox: only conversations waiting on the owner's decision, trigger runs included. */
   pendingDecision?: boolean
+  /** Channels instead of agent conversations; lists never mix the two. */
+  kind?: 'channel'
 }
 
 /**
@@ -48,6 +50,7 @@ export async function listConversations(
   if (options?.archived) params.set('archived', options.archived)
   if (options?.sort) params.set('sort', options.sort)
   if (options?.pendingDecision) params.set('pendingDecision', 'true')
+  if (options?.kind) params.set('kind', options.kind)
 
   const route = `/agent/conversations?${String(params)}`
 
