@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { answeredIn, cardReplies, inboxCount, nextSelection, replyTarget } from './inboxItems.ts'
+import {
+  answeredIn,
+  cardReplies,
+  inboxCount,
+  nextSelection,
+  replyTarget,
+  inboxReader,
+} from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -53,6 +60,22 @@ test('a conversation leaves the count once every question in it is answered here
   assert.equal(inboxCount(listing, new Map([['q1', Infinity]])), 1)
   // One of two questions answered: the conversation still waits.
   assert.equal(inboxCount(listing, new Map([['q2', Infinity]])), 2)
+})
+
+test('the Inbox drops a conversation answered here before the listing does, and opens the next', () => {
+  const listing = [waiting('a', 'q1'), waiting('b', 'q2'), waiting('c', 'q3')]
+  const view = inboxReader(listing, { sessionId: 'b', index: 1 }, new Map([['q2', Infinity]]))
+
+  assert.deepEqual(
+    view.waiting?.map((c) => c.sessionId),
+    ['a', 'c'],
+  )
+  assert.deepEqual([...view.hiddenSessionIds], ['b'])
+  assert.equal(view.openId, 'c')
+  // Nothing answered here: the open one stays, nothing is hidden.
+  assert.equal(inboxReader(listing, { sessionId: 'b', index: 1 }, new Map()).openId, 'b')
+  // Not listed yet: no waiting list, the selection stands.
+  assert.equal(inboxReader(null, { sessionId: 'b', index: 1 }, new Map()).openId, 'b')
 })
 
 test('a listing settles answers it no longer has open, and those past their deadline', () => {
