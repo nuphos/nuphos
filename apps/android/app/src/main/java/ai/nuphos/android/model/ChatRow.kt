@@ -38,6 +38,7 @@ sealed class ChatRow {
             downloads = if (session.canReadDownloads) session.downloads else emptyList(),
             timeline = session.timelineEvents,
             hasEarlier = session.baseIndex > 0,
+            localSender = session::localSender,
         )
 
         internal fun rows(
@@ -49,6 +50,7 @@ sealed class ChatRow {
             downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
             timeline: List<AgentConversationDetail.TimelineEvent> = emptyList(),
             hasEarlier: Boolean = false,
+            localSender: (String) -> MessageAttribution? = { null },
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
             val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
@@ -62,7 +64,7 @@ sealed class ChatRow {
                 val previous = messages.getOrNull(index - 1)?.createdAt
                 when (message.role) {
                     ChatMessage.Role.User -> {
-                        val sender = MessageAttribution.parse(message.metadata)
+                        val sender = MessageAttribution.parse(message.metadata) ?: if (message.metadata == null) localSender(message.id) else null
                         if (sender?.isEvent != true && ChatTime.showsTimestamp(message.createdAt, previous) && message.createdAt != null) {
                             rows += Timestamp("time.${message.id}", message.createdAt)
                         }

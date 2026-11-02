@@ -217,6 +217,19 @@ fun ConversationScreen(
             delay(15_000)
         }
     }
+    val senderKey = "${auth.generation}:${AiAccess.revision}:${auth.user?.id}:${session.teamId}"
+    DisposableEffect(session, senderKey, browsingOnly) {
+        val user = auth.user
+        val generation = auth.generation
+        val revision = AiAccess.revision
+        session.bindLocalSender(senderKey.takeUnless { browsingOnly }) {
+            user?.takeIf { !browsingOnly && auth.aiAllowed && auth.generation == generation &&
+                AiAccess.revision == revision && auth.user?.id == it.id && store.selectedTeam?.id == session.teamId
+            }?.let { ai.nuphos.android.model.MessageAttribution(it.id, it.displayName, "user", "nuphos",
+                avatarURL = ai.nuphos.android.model.SenderAvatar.trusted(it.avatarURL)) }
+        }
+        onDispose { session.bindLocalSender(null) { null } }
+    }
     val rows = ChatRow.rows(session)
     val uriHandler = LocalUriHandler.current
 
