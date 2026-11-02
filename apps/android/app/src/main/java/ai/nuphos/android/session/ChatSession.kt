@@ -141,6 +141,7 @@ class ChatSession(
     val outgoingCreationBinding get() = creationRuntimeBinding.takeUnless { serverMetadataObserved }
     var title by mutableStateOf(title)
         private set
+    internal fun applyConfirmedTitle(value: String) { title = value }
     var messages by mutableStateOf(listOf<ChatMessage>())
         private set
     data class ReadTranscript(val generation: Long, val seq: Long, val messages: List<ChatMessage>)
