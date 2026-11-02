@@ -6,7 +6,6 @@ import {
   boxSessions,
   boxSizeChoices,
   accessHint,
-  canShareBox,
   removal,
   BOX_BADGE,
   boxActions,
@@ -292,13 +291,6 @@ test('only a manager sees who may use a Box', () => {
   assert.equal(accessHint(shared({ everyone: false, userIds: [] }, 'manage')), 'Admins only')
   assert.equal(accessHint(shared({ everyone: true, userIds: [] }, 'use')), null)
   assert.equal(accessHint({ deviceId: 'c1', label: 'Mac', platform: 'darwin' }), null)
-  // Manage access… is offered to managers of a Box only.
-  assert.equal(canShareBox(shared({ everyone: true, userIds: [] }, 'manage')), true)
-  assert.equal(canShareBox(shared({ everyone: true, userIds: [] }, 'use')), false)
-  assert.equal(
-    canShareBox({ deviceId: 'c1', label: 'Mac', platform: 'darwin', access: 'manage' }),
-    false,
-  )
 })
 
 test('boxSizeChoices says "1 agent", not "1 agents"', () => {

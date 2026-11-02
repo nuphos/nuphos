@@ -138,11 +138,6 @@ export function seenFrom(device: AgentDevice): string | null {
   return [place, device.lastSeen.ip].filter(Boolean).join(' · ')
 }
 
-/** Choosing who may use a Box is for its managers; a computer is only ever its owner's. */
-export function canShareBox(device: AgentDevice): boolean {
-  return device.box !== undefined && canManage(device)
-}
-
 /** A manager's view of who may use a Box; null for a computer or a viewer who only uses it. */
 export function accessHint(device: AgentDevice): string | null {
   const access = device.box?.access

@@ -14,7 +14,6 @@ import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxP
 import { boxRestartEnded } from './boxRestartPresentation'
 import { boxRestarts } from './boxRestartStore'
 import { BoxRow } from './BoxRow'
-import { LocalAgentSharingCard } from './LocalAgentSharingCard'
 import { NewBoxDialog } from './NewBoxDialog'
 import { PanelHeading } from './RuntimePanel'
 import { useAdminName } from './useAdminName'
@@ -54,8 +53,6 @@ export function BoxSection({
 }) {
   const thisComputer = useThisComputer()
   const [creating, setCreating] = useState(false)
-  const [sharing, setSharing] = useState(false)
-  const [shareable, setShareable] = useState(false)
   const previous = useRef<AgentDevice[]>([])
   const { usage, reload: reloadUsage } = useBoxUsage(teamId)
   const { isActive } = useWorkspaceTab()
@@ -99,10 +96,6 @@ export function BoxSection({
 
   // Everything ever registered stays listed; only its status follows presence.
   const owned = list?.devices ?? []
-  // Sharing is for the person's own computer, never a Box: its card sits under the computers.
-  const ownComputer = owned.find(
-    (device) => device.box === undefined && device.deviceId === thisComputer?.deviceId,
-  )
   // Members cannot create a Box: say who can, where the button would be.
   const admin = useAdminName(teamId, !canCreate && Boolean(list?.boxAvailable))
   const setUpLocalAgent =
@@ -171,9 +164,6 @@ export function BoxSection({
                   agents={boxAgents(device.deviceId, instances)}
                   onSelect={onSelect}
                   onSetUpLocalAgent={setUpLocalAgent}
-                  {...(device === ownComputer && shareable
-                    ? { onShare: () => setSharing(true) }
-                    : {})}
                   onChanged={() => {
                     reload()
                     reloadUsage()
@@ -181,18 +171,6 @@ export function BoxSection({
                 />
               ))}
             </DeskShelf>
-          )}
-          {ownComputer && thisComputer && (
-            <div className="mt-3">
-              <LocalAgentSharingCard
-                teamId={teamId}
-                currentUserId={thisComputer.userId}
-                device={ownComputer}
-                editing={sharing}
-                onEditingChange={setSharing}
-                onShareableChange={setShareable}
-              />
-            </div>
           )}
         </div>
       </div>
