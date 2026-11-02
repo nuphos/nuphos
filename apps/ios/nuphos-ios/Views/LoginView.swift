@@ -10,6 +10,7 @@ struct LoginView: View {
     @State private var email = ""
     @State private var credential = ""
     @State private var codeFocused = false
+    @State private var usePassword = false
     @State private var busy = false
     @State private var error: String?
     @State private var resendAt = Date.distantPast
@@ -20,13 +21,14 @@ struct LoginView: View {
     @ScaledMetric(relativeTo: .title2) private var codeCellHeight: CGFloat = 56
 
     private enum Screen: Hashable { case code }
-    private enum Field { case email }
+    private enum Field { case email, password }
     private var signingIn: Bool { busy || session.state == .signingIn }
     private var cleanEmail: String { email.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var validEmail: Bool { cleanEmail.contains("@") && !cleanEmail.contains(" ") }
     private var loginButtonFill: Color { colorScheme == .dark ? .white : .black }
     private var loginButtonLabel: Color { colorScheme == .dark ? .black : .white }
     private var validCode: Bool { credential.count == 6 && credential.allSatisfy(\.isNumber) }
+    private var canContinue: Bool { validEmail && (!usePassword || !credential.isEmpty) }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -51,7 +53,7 @@ struct LoginView: View {
             }
         }
         .onChange(of: savedURL) {
-            path = []; email = ""; credential = ""
+            path = []; email = ""; credential = ""; usePassword = false
             clearFeedback()
         }
     }
@@ -79,23 +81,40 @@ struct LoginView: View {
                                 .padding(.horizontal, 16).frame(minHeight: 52)
                                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
                         }
+                        if usePassword {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Password").font(.subheadline.weight(.medium))
+                                SecureField("Password", text: $credential).textContentType(.password)
+                                    .focused($focused, equals: .password).submitLabel(.go)
+                                    .onSubmit { if canContinue { Task { await signIn(password: true) } } }
+                                    .accessibilityIdentifier("login.password-field")
+                                    .padding(.horizontal, 16).frame(minHeight: 52)
+                                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                            }
+                        }
                         Button {
                             focused = nil
-                            Task { await sendCode() }
+                            Task { usePassword ? await signIn(password: true) : await sendCode() }
                         } label: {
                             HStack {
                                 if signingIn { ProgressView() }
-                                Text(signingIn ? "Please wait…" : "Continue")
+                                Text(signingIn ? "Please wait…" : usePassword ? "Sign in" : "Continue")
                             }
                             .frame(maxWidth: .infinity, minHeight: 20)
-                            .foregroundStyle(validEmail && !signingIn ? loginButtonLabel : Theme.body)
+                            .foregroundStyle(canContinue && !signingIn ? loginButtonLabel : Theme.body)
                         }
                         .buttonStyle(LoginPrimaryButtonStyle())
-                        .disabled(!validEmail).accessibilityIdentifier("login.submit")
+                        .disabled(!canContinue).accessibilityIdentifier("login.submit")
                         if let message = displayedError {
                             Text(message).font(.footnote).foregroundStyle(.red)
                                 .accessibilityIdentifier("login.error")
                         }
+                        Button(usePassword ? "Use an email code instead" : "Use a password") {
+                            usePassword.toggle(); credential = ""; clearFeedback()
+                            focused = usePassword ? (validEmail ? .password : .email) : nil
+                        }
+                        .font(.subheadline).buttonStyle(.plain).foregroundStyle(Theme.body)
+                        .frame(minHeight: 44).accessibilityIdentifier("login.password")
                         if !providers.isEmpty {
                             HStack(spacing: 16) {
                                 Rectangle().fill(.quaternary).frame(height: 1)
@@ -197,7 +216,7 @@ struct LoginView: View {
         .navigationBarBackButtonHidden(signingIn)
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
-            primaryAction("Sign in", disabled: !validCode) { await signIn() }
+            primaryAction("Sign in", disabled: !validCode) { await signIn(password: false) }
         }
         .disabled(signingIn)
     }
@@ -246,7 +265,8 @@ struct LoginView: View {
             #endif
             .focused($focused, equals: .email).submitLabel(.next)
             .onSubmit {
-                if validEmail { Task { await sendCode() } }
+                if usePassword { focused = .password }
+                else if validEmail { Task { await sendCode() } }
             }
             .accessibilityIdentifier("login.email")
     }
@@ -299,12 +319,12 @@ struct LoginView: View {
         loadingProviders = false
     }
 
-    private func signIn() async {
-        guard !signingIn, validCode else { return }
+    private func signIn(password: Bool) async {
+        guard !signingIn, password ? canContinue : validCode else { return }
         busy = true; clearFeedback()
         defer { busy = false }
         do {
-            try await session.emailSignIn(email: cleanEmail, credential: credential, password: false)
+            try await session.emailSignIn(email: cleanEmail, credential: credential, password: password)
         } catch { self.error = error.localizedDescription }
     }
 

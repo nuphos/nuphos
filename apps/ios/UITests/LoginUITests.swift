@@ -51,20 +51,42 @@ final class LoginUITests: XCTestCase {
         XCTAssertTrue(app.buttons["login.submit"].exists)
     }
 
-    func testVerificationBackPreservesEmailWithoutPasswordOptions() {
+    func testVerificationBackPreservesEmail() {
         let app = launch()
-        XCTAssertFalse(app.buttons["login.password"].exists)
         let email = app.textFields["login.email"]
         email.tap()
         email.typeText("alex@example.com")
         app.buttons["login.submit"].tap()
         XCTAssertTrue(app.textFields["login.code"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.secureTextFields.firstMatch.exists)
-        XCTAssertFalse(app.buttons["Set a password"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(email.waitForExistence(timeout: 5))
         XCTAssertEqual(email.value as? String, "alex@example.com")
-        XCTAssertFalse(app.buttons["login.password"].exists)
+    }
+
+    func testPasswordIsASecondaryPathOnTheSameScreen() {
+        let app = launch()
+        let toggle = app.buttons["login.password"]
+        XCTAssertTrue(toggle.exists)
+        XCTAssertFalse(app.secureTextFields["login.password-field"].exists)
+        let email = app.textFields["login.email"]
+        email.tap()
+        email.typeText("review@example.com")
+        if !toggle.isHittable { app.swipeUp() }
+        toggle.tap()
+        let password = app.secureTextFields["login.password-field"]
+        XCTAssertTrue(password.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["login.submit"].isEnabled)
+        password.tap()
+        password.typeText("not-the-password")
+        capture("Login — password path")
+        app.buttons["login.submit"].tap()
+        XCTAssertTrue(app.staticTexts["login.error"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["login.code"].exists)
+        if !toggle.isHittable { app.swipeUp() }
+        toggle.tap()
+        XCTAssertFalse(password.exists)
+        XCTAssertEqual(email.value as? String, "review@example.com")
     }
 
     func testProviderButtonsAndEmailAreReachable() {
