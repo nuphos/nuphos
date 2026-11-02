@@ -160,36 +160,12 @@ function ChannelMessage({
 }
 
 /**
- * Whether `text` names `title` as a whole word, so "Ops" does not match "stops".
- * Only Latin letters and digits bound a word: CJK runs on without spaces.
+ * iMessage-style dots for an agent in a turn. They surface after a beat, so an
+ * agent that reads the post and has nothing to say never flashes them.
  */
-function names(text: string, title: string): boolean {
-  const escaped = title.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(text)
-}
-
-/**
- * iMessage-style dots for an agent that is in a turn and was spoken to: the
- * latest post names it, or it is the channel's only agent. Every agent wakes
- * to catch up, but one nobody addressed usually stays silent, so no dots.
- */
-function Typing({
-  agents,
-  last,
-}: {
-  agents: ChannelAgent[]
-  last: AgentPersistedMessage | undefined
-}) {
+function Typing({ agents }: { agents: ChannelAgent[] }) {
   const states = useAgentRuntimeStates()
-  const text = last ? textOf(last).toLowerCase() : ''
-  const author = last ? senderOf(last) : undefined
-  const busy = agents.filter(
-    (agent) =>
-      author !== agent.sessionId &&
-      (agents.length === 1 || names(text, agent.title)) &&
-      runtimeTurnActive(states.get(agent.sessionId)),
-  )
+  const busy = agents.filter((agent) => runtimeTurnActive(states.get(agent.sessionId)))
 
   return busy.map((agent) => (
     <div
@@ -199,7 +175,7 @@ function Typing({
       aria-label={t('{name} is thinking', { name: agent.title })}
     >
       <AgentAvatar agentId={agent.sessionId} avatar={agent.avatar} size={28} />
-      <div className="t-bubble-in flex items-center gap-1 rounded-2xl rounded-bl-md bg-zGray-800/70 px-3.5 py-3">
+      <div className="t-bubble-in flex items-center gap-1 rounded-2xl rounded-bl-md bg-zGray-800/70 px-3.5 py-3 [animation-delay:800ms]">
         {[0, 160, 320].map((delay) => (
           <span
             key={delay}
@@ -284,7 +260,7 @@ export function ChannelMessages({
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing agents={agents} last={messages.at(-1)} />
+      <Typing agents={agents} />
     </div>
   )
 }

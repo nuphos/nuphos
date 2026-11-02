@@ -8,7 +8,6 @@ import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { toast } from '../ui/toast'
 
-import { ChannelAgentsButton } from './ChannelAgentsButton'
 import { ChannelMessages } from './ChannelMessages'
 import { ChannelMark } from './channelParts'
 import { useChannel } from './useChannel'
@@ -54,7 +53,7 @@ export function ChannelPane({
 
   const send = async (text: string, filePaths: string[]) => {
     if (filePaths.length > 0) {
-      toast.error(t('Files can’t be posted in a channel yet.'))
+      toast.error(t('Files can’t be posted in a chat yet.'))
       setRestore({ text, filePaths, nonce: Date.now() })
 
       return
@@ -96,17 +95,16 @@ export function ChannelPane({
           canManage={detail?.isOwner === true || detail?.canManage === true}
           warnLocalAgent={false}
           compact={false}
+          channel={
+            detail
+              ? {
+                  agents,
+                  ownerId: detail.owner?.id ?? (detail.isOwner ? user.id : ''),
+                  onAgentsChange: refresh,
+                }
+              : undefined
+          }
         />
-        {detail && (
-          <ChannelAgentsButton
-            teamId={teamId}
-            channelId={channelId}
-            channelOwnerId={detail.owner?.id ?? (detail.isOwner ? user.id : '')}
-            viewerId={user.id}
-            agents={agents}
-            onChange={refresh}
-          />
-        )}
         {grip}
       </div>
       <div
@@ -119,7 +117,7 @@ export function ChannelPane({
             <div className="text-lg font-semibold leading-snug text-main">{title}</div>
             <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
               {t(
-                'Every agent here reads each message and decides for itself whether to answer, from its own session.',
+                'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
               )}
             </div>
           </div>
@@ -143,7 +141,12 @@ export function ChannelPane({
           pendingSeed={restore}
           onSeedConsumed={() => setRestore(null)}
           draftKey={composerDraftKey(teamId, channelId)}
-          mentionScope={{ teamId, sessionId: channelId, channel: true }}
+          mentionScope={{
+            teamId,
+            sessionId: channelId,
+            channel: true,
+            only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
+          }}
           placeholder={t('Message {name}', { name: `#${title}` })}
         />
       </div>

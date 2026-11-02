@@ -1,13 +1,9 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { Check, Hash, X } from 'lucide-react'
+import { Hash, X } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { AgentAvatar } from '../agent/AgentAvatar'
 
-import { ROW } from './channelShared'
-
-import type { AgentConversation } from '../../api'
 import type { ReactNode } from 'react'
 
 /** A channel's mark: a hash on the quiet surface. */
@@ -23,43 +19,6 @@ export function ChannelMark({ size = 22, className }: { size?: number; className
     >
       <Hash style={{ width: size * 0.58, height: size * 0.58 }} strokeWidth={2.25} />
     </span>
-  )
-}
-
-/** A toggle row for one agent, checked when picked. */
-export function AgentPickRow({
-  agent,
-  picked,
-  onToggle,
-}: {
-  agent: Pick<AgentConversation, 'sessionId' | 'title' | 'avatar' | 'agentRuntime'>
-  picked: boolean
-  onToggle: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={clsx(ROW, 'w-full text-left hover:bg-zGray-800/40')}
-    >
-      <AgentAvatar
-        agentId={agent.sessionId}
-        avatar={agent.avatar}
-        provider={agent.agentRuntime}
-        size={20}
-      />
-      <span className="min-w-0 flex-1 truncate text-main">
-        {agent.title || t('Untitled agent')}
-      </span>
-      <span
-        className={clsx(
-          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-          picked ? 'border-zViolet-500 bg-zViolet-500 text-white' : 'border-zGray-600',
-        )}
-      >
-        {picked && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
-      </span>
-    </button>
   )
 }
 

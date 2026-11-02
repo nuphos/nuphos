@@ -10,9 +10,10 @@ import { InputGroup, InputGroupInput } from '../ui/input-group'
 import { toast } from '../ui/toast'
 
 import { markChannel } from './channelKind'
-import { AgentPickRow, ChannelPopover } from './channelParts'
+import { ChannelPopover } from './channelParts'
 import { SECTION_LABEL, ownAgents } from './channelShared'
 
+import type { Pickable } from '../agent/PersonFace'
 import type { TeamMember } from '../../types'
 
 /**
@@ -31,10 +32,15 @@ export function NewChannelButton({
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [members, setMembers] = useState<TeamMember[] | null>(null)
-  const [people, setPeople] = useState<TeamMember[]>([])
-  const [agentIds, setAgentIds] = useState<string[]>([])
+  // Teammates and the viewer's own agents are picked alike: an agent is a teammate here.
+  const [picked, setPicked] = useState<Pickable[]>([])
   const [busy, setBusy] = useState(false)
-  const agents = open ? ownAgents(teamId, viewerId) : []
+  const agents: Pickable[] = (open ? ownAgents(teamId, viewerId) : []).map((agent) => ({
+    id: agent.sessionId,
+    name: agent.title || t('Untitled agent'),
+    email: '',
+    agent: { avatar: agent.avatar, provider: agent.agentRuntime },
+  }))
 
   useEffect(() => {
     if (!open || members) return
@@ -43,13 +49,11 @@ export function NewChannelButton({
 
   const reset = () => {
     setTitle('')
-    setPeople([])
-    setAgentIds([])
+    setPicked([])
   }
-  const onlyAgent =
-    agentIds.length === 1 ? agents.find((agent) => agent.sessionId === agentIds[0]) : undefined
+  const onlyAgent = picked.length === 1 && picked[0]!.agent ? picked[0] : undefined
   // Named after the agent, as a channel is named: never the agent's own name.
-  const fallback = (onlyAgent?.title ?? '').trim().toLowerCase().replace(/\s+/g, '-')
+  const fallback = (onlyAgent?.name ?? '').trim().toLowerCase().replace(/\s+/g, '-')
   const name = title.trim() || fallback
 
   const create = async () => {
@@ -58,6 +62,8 @@ export function NewChannelButton({
       const { sessionId } = await api.agentCreateChannel(teamId, name)
 
       markChannel(sessionId)
+      const people = picked.filter((member) => !member.agent)
+
       if (people.length > 0)
         await api.agentInviteConversationParticipants(
           sessionId,
@@ -65,12 +71,13 @@ export function NewChannelButton({
           people.map((person) => person.id),
           'reply',
         )
-      for (const agentId of agentIds) await api.agentAddChannelAgent(sessionId, teamId, agentId)
+      for (const agent of picked.filter((member) => member.agent))
+        await api.agentAddChannelAgent(sessionId, teamId, agent.id)
       setOpen(false)
       reset()
       onCreated(sessionId)
     } catch (error) {
-      toast.apiError(t('Could not create the channel'), error)
+      toast.apiError(t('Could not create the chat'), error)
     } finally {
       setBusy(false)
     }
@@ -82,13 +89,13 @@ export function NewChannelButton({
       onOpenChange={setOpen}
       align="start"
       nativeButton={false}
-      title={t('New channel')}
+      title={t('New chat')}
       trigger={
         <span
           role="button"
           tabIndex={0}
-          aria-label={t('New channel')}
-          title={t('New channel')}
+          aria-label={t('New chat')}
+          title={t('New chat')}
           onPointerDown={(event) => event.stopPropagation()}
           className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary"
         >
@@ -111,43 +118,22 @@ export function NewChannelButton({
       </div>
       <TeammatePicker
         members={members}
-        invitable={(members ?? []).filter((member) => member.id !== viewerId)}
-        picked={people}
+        invitable={[...(members ?? []).filter((member) => member.id !== viewerId), ...agents]}
+        picked={picked}
         disabled={busy}
         onToggle={(member) =>
-          setPeople((current) =>
+          setPicked((current) =>
             current.some((p) => p.id === member.id)
               ? current.filter((p) => p.id !== member.id)
               : [...current, member],
           )
         }
       />
-      {agents.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <div className={SECTION_LABEL}>{t('Your agents')}</div>
-          <div className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
-            {agents.map((agent) => (
-              <AgentPickRow
-                key={agent.sessionId}
-                agent={agent}
-                picked={agentIds.includes(agent.sessionId)}
-                onToggle={() =>
-                  setAgentIds((current) =>
-                    current.includes(agent.sessionId)
-                      ? current.filter((id) => id !== agent.sessionId)
-                      : [...current, agent.sessionId],
-                  )
-                }
-              />
-            ))}
-          </div>
-        </div>
-      )}
       <div className="px-1 text-[12px] leading-snug text-tertiary">
-        {t('Pick one agent and no name for a channel with just that agent.')}
+        {t('Pick one agent and no name for a chat with just that agent.')}
       </div>
       <Button variant="neutral" size="sm" disabled={busy || !name} onClick={() => void create()}>
-        {t('Create channel')}
+        {t('Create chat')}
       </Button>
     </ChannelPopover>
   )

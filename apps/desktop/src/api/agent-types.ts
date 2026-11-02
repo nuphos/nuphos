@@ -20,9 +20,14 @@ export type GeneralAccess = 'none' | 'view' | 'reply'
 export type ParticipantRole = 'view' | 'reply' | 'manage'
 export type ConversationAccess = 'owner' | ParticipantRole
 
+/** What makes a person an agent: the face it shows, and whether this viewer may take it out. */
+export type AgentFace = { avatar?: string; provider?: AgentProvider; removable?: boolean }
+
 export type AgentConversationParticipant = AgentConversationPerson & {
   isOwner: boolean
   role: ConversationAccess | null
+  /** Set on a channel's agent, which the Share card lists among its people. */
+  agent?: AgentFace
 }
 
 export type ConversationAccessState = {

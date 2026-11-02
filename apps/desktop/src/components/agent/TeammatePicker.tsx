@@ -3,14 +3,14 @@ import { Loader2, X } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 
 import { t } from '../../i18n'
-import { Avatar } from '../Avatar'
 import { InputGroup, InputGroupInput } from '../ui/input-group'
 
+import { PersonFace } from './PersonFace'
 import { CheckBadge } from './ShareCard'
 
-import type { TeamMember } from '../../types'
+import type { Pickable } from './PersonFace'
 
-function matches(member: TeamMember, query: string) {
+function matches(member: Pickable, query: string) {
   const q = query.trim().toLowerCase()
 
   return !q || member.name.toLowerCase().includes(q) || member.email.toLowerCase().includes(q)
@@ -29,11 +29,11 @@ export function TeammatePicker({
   disabled,
   onToggle,
 }: {
-  members: TeamMember[] | null
-  invitable: TeamMember[]
-  picked: TeamMember[]
+  members: Pickable[] | null
+  invitable: Pickable[]
+  picked: Pickable[]
   disabled: boolean
-  onToggle: (member: TeamMember) => void
+  onToggle: (member: Pickable) => void
 }) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -48,7 +48,7 @@ export function TeammatePicker({
     if (line) line.scrollLeft = line.scrollWidth
   }, [picked.length])
 
-  const toggle = (member: TeamMember) => {
+  const toggle = (member: Pickable) => {
     onToggle(member)
     setQuery('')
   }
@@ -74,7 +74,7 @@ export function TeammatePicker({
             key={member.id}
             className="t-share-in flex h-6 shrink-0 items-center gap-1 rounded-full bg-zGray-800/60 pl-0.5 pr-1 text-[12px] text-main"
           >
-            <Avatar src={member.avatarURL} name={member.name} size={20} className="!rounded-full" />
+            <PersonFace person={member} size={20} className="!rounded-full" />
             <span className="max-w-[96px] truncate">{member.name}</span>
             <button
               type="button"
@@ -138,20 +138,15 @@ export function TeammatePicker({
               >
                 <span
                   className={clsx(
-                    'relative rounded-full ring-2 ring-offset-2 ring-offset-[rgb(var(--color-background-base))] transition-shadow',
+                    'relative flex rounded-full ring-2 ring-offset-2 ring-offset-[rgb(var(--color-background-base))] transition-shadow',
                     selected ? 'ring-zViolet-accent' : 'ring-transparent',
                   )}
                 >
-                  <Avatar
-                    src={member.avatarURL}
-                    name={member.name}
-                    size={36}
-                    className="!rounded-full"
-                  />
+                  <PersonFace person={member} size={36} className="!rounded-full" />
                   {selected && <CheckBadge className="-bottom-0.5 -right-0.5 bg-zViolet-500" />}
                 </span>
                 <span className="w-full truncate text-[11px] text-secondary">
-                  {member.name.split(' ')[0]}
+                  {member.agent ? member.name : member.name.split(' ')[0]}
                 </span>
               </button>
             )

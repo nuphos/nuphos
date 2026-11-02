@@ -15,7 +15,7 @@ export function favoriteToggleAriaLabel(
 // These titles double as section ids (chat-sections, Sidebar) and collapse-state
 // keys, so they are translated only where they are shown.
 export const SECTION_LABELS: Record<string, string> = {
-  Channels: t('Channels'),
+  Channels: t('Chats'),
   Agents: t('Agents'),
   Pinned: t('Pinned'),
   Favorites: t('Favorites'),

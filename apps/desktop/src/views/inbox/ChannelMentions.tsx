@@ -16,7 +16,7 @@ export function ChannelMentions({
   return (
     <section className="flex-shrink-0 border-b border-zGray-800/70">
       <div className="px-4 pt-3 pb-1 text-[12px] font-medium text-tertiary">
-        {t('Mentions in channels')}
+        {t('Mentions in chats')}
       </div>
       <ul>
         {mentions.map((mention) => (

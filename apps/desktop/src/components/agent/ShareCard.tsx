@@ -5,10 +5,10 @@ import { useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { t } from '../../i18n'
-import { Avatar } from '../Avatar'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
+import { PersonFace } from './PersonFace'
 import { RoleMenu } from './ShareAccess'
 
 import type {
@@ -16,7 +16,7 @@ import type {
   GeneralAccess,
   ParticipantRole,
 } from '../../api/agent-types'
-import type { TeamMember } from '../../types'
+import type { Pickable } from './PersonFace'
 
 // The pieces of the Share card in SessionParticipants (the picker lives in
 // TeammatePicker). The card owns who is picked, who was just added, and what is busy.
@@ -52,10 +52,9 @@ export function AvatarStack({
   return (
     <span className="flex -space-x-1.5">
       {participants.slice(0, visible).map((participant) => (
-        <Avatar
+        <PersonFace
           key={participant.id}
-          src={participant.avatarURL}
-          name={participant.name}
+          person={participant}
           size={AVATAR_SIZE}
           className={clsx(AVATAR_CHROME, participant.deactivated && 'opacity-50')}
         />
@@ -167,10 +166,12 @@ export function ParticipantList({
   generalAccess,
   canManage,
   pending,
+  label = t('In this agent'),
   onRoleChange,
   onRemove,
 }: {
   participants: AgentConversationParticipant[]
+  label?: string
   currentUserId: string
   generalAccess: GeneralAccess
   canManage: boolean
@@ -180,7 +181,7 @@ export function ParticipantList({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className={SECTION_LABEL}>{t('In this agent')}</div>
+      <div className={SECTION_LABEL}>{label}</div>
       {participants.map((participant) => {
         const role = participant.role && participant.role !== 'owner' ? participant.role : 'reply'
 
@@ -189,9 +190,8 @@ export function ParticipantList({
             key={participant.id}
             className="flex h-7 items-center gap-2 rounded-md px-1 text-[13px] hover:bg-zGray-800/40"
           >
-            <Avatar
-              src={participant.avatarURL}
-              name={participant.name}
+            <PersonFace
+              person={participant}
               size={18}
               className={clsx('!rounded-full', participant.deactivated && 'opacity-50')}
             />
@@ -204,7 +204,22 @@ export function ParticipantList({
             {participant.isOwner && (
               <span className="px-1.5 text-[12px] text-tertiary">{t('Owner')}</span>
             )}
-            {!participant.isOwner && canManage && (
+            {participant.agent && (
+              <>
+                <span className="px-1.5 text-[12px] text-tertiary">{t('Agent')}</span>
+                {participant.agent.removable && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={pending !== null}
+                    onClick={() => onRemove(participant)}
+                  >
+                    {t('Remove')}
+                  </Button>
+                )}
+              </>
+            )}
+            {!participant.isOwner && !participant.agent && canManage && (
               <RoleMenu
                 value={role}
                 floor={generalAccess}
@@ -213,7 +228,7 @@ export function ParticipantList({
                 onRemove={() => onRemove(participant)}
               />
             )}
-            {!participant.isOwner && !canManage && (
+            {!participant.isOwner && !participant.agent && !canManage && (
               <span className="px-1.5 text-[12px] text-tertiary">
                 {role === 'manage'
                   ? t('Can manage')
@@ -236,7 +251,7 @@ export function AddedReceipt({
   undoing,
   onUndo,
 }: {
-  added: TeamMember[]
+  added: Pickable[]
   /** What they can now do, e.g. "They can view and reply". */
   detail: string
   undoing: boolean
@@ -246,10 +261,9 @@ export function AddedReceipt({
     <div className="t-share-in flex flex-col items-center p-4 text-center">
       <span className="relative mb-3 flex -space-x-2">
         {added.slice(0, 3).map((member) => (
-          <Avatar
+          <PersonFace
             key={member.id}
-            src={member.avatarURL}
-            name={member.name}
+            person={member}
             size={32}
             className="!rounded-full border-2 border-main"
           />

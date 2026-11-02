@@ -72,7 +72,7 @@ export function SidebarItemContextMenu({
               },
               {
                 key: 'copy-session-id',
-                label: channel ? t('Copy channel ID') : t('Copy agent ID'),
+                label: channel ? t('Copy chat ID') : t('Copy agent ID'),
                 icon: Hash,
                 onSelect: () =>
                   copy(
@@ -82,7 +82,7 @@ export function SidebarItemContextMenu({
               },
               {
                 key: 'rename',
-                label: channel ? t('Rename channel') : t('Rename agent'),
+                label: channel ? t('Rename chat') : t('Rename agent'),
                 icon: Pencil,
                 onSelect: () =>
                   renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
@@ -115,7 +115,7 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'archive',
-                label: channel ? t('Archive channel') : t('Archive agent'),
+                label: channel ? t('Archive chat') : t('Archive agent'),
                 icon: Archive,
                 onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
               },
@@ -140,7 +140,7 @@ function watchChat(item: Item, teamId: string) {
 const COPIED = {
   Link: () => t('Link copied'),
   'Agent ID': () => t('Agent ID copied'),
-  'Channel ID': () => t('Channel ID copied'),
+  'Channel ID': () => t('Chat ID copied'),
 }
 
 function copy(value: string, what: keyof typeof COPIED) {
@@ -155,7 +155,7 @@ function copy(value: string, what: keyof typeof COPIED) {
         what === 'Link'
           ? t('Could not copy link')
           : what === 'Channel ID'
-            ? t('Could not copy channel ID')
+            ? t('Could not copy chat ID')
             : t('Could not copy agent ID'),
         t('Clipboard was blocked.'),
       ),

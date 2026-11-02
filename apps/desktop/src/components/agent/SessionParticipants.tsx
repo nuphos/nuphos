@@ -1,17 +1,18 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { Info, Loader2, X } from 'lucide-react'
+import { Info, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
 import { LOCAL_AGENT_SHARING_NOTE } from '../../lib/localAgentSharing'
-import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
+import { addableAgents, agentPeople, removePeople } from './channelPeople'
+import { InviteSection } from './InviteSection'
 import { agentSessionUrl } from './sessionUrl'
-import { GeneralAccessRow, RoleMenu } from './ShareAccess'
+import { GeneralAccessRow } from './ShareAccess'
 import {
   AddedReceipt,
   ParticipantList,
@@ -19,21 +20,16 @@ import {
   ShareLink,
   TitlebarDragSuspender,
 } from './ShareCard'
-import { TeammatePicker } from './TeammatePicker'
 
+import type { Pickable } from './PersonFace'
 import type {
   AgentConversationParticipant,
+  ChannelAgent,
   ConversationAccessState,
   GeneralAccess,
   ParticipantRole,
 } from '../../api/agent-types'
 import type { TeamMember } from '../../types'
-
-function addLabel(count: number) {
-  if (count === 0) return t('Add to agent')
-
-  return count === 1 ? t('Add 1 person') : t('Add {n} people', { n: String(count) })
-}
 
 /**
  * The session's people, and the Share card that decides who else may open it:
@@ -49,6 +45,7 @@ export function SessionParticipants({
   canManage,
   warnLocalAgent,
   compact,
+  channel,
 }: {
   sessionId: string
   teamId: string
@@ -60,14 +57,16 @@ export function SessionParticipants({
   warnLocalAgent: boolean
   /** A narrow pane header: one avatar and no "Share" label. */
   compact?: boolean
+  /** A channel: its agents are listed, picked and removed here like any teammate. */
+  channel?: { agents: ChannelAgent[]; ownerId: string; onAgentsChange: () => void }
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
   const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
   const [inviteRole, setInviteRole] = useState<ParticipantRole>('reply')
   const [members, setMembers] = useState<TeamMember[] | null>(null)
-  const [picked, setPicked] = useState<TeamMember[]>([])
+  const [picked, setPicked] = useState<Pickable[]>([])
   // Set once an invite lands: the card shows its receipt instead of the picker.
-  const [added, setAdded] = useState<TeamMember[] | null>(null)
+  const [added, setAdded] = useState<Pickable[] | null>(null)
   // 'invite', 'undo', 'access', or the id of the participant being changed.
   const [pending, setPending] = useState<string | null>(null)
 
@@ -113,7 +112,7 @@ export function SessionParticipants({
       .catch((err: unknown) => toast.apiError(t('Failed to load team members'), err))
   }
 
-  const togglePicked = (member: TeamMember) =>
+  const togglePicked = (member: Pickable) =>
     setPicked((current) =>
       current.some((m) => m.id === member.id)
         ? current.filter((m) => m.id !== member.id)
@@ -121,34 +120,42 @@ export function SessionParticipants({
     )
 
   const invite = () => {
+    const people = picked.filter((member) => !member.agent)
+
     setPending('invite')
-    api
-      .agentInviteConversationParticipants(
-        sessionId,
-        teamId,
-        picked.map((member) => member.id),
-        inviteRole,
-      )
-      .then((result) => {
-        apply(result)
+    Promise.all([
+      people.length > 0
+        ? api
+            .agentInviteConversationParticipants(
+              sessionId,
+              teamId,
+              people.map((member) => member.id),
+              inviteRole,
+            )
+            .then(apply)
+        : undefined,
+      ...picked
+        .filter((member) => member.agent)
+        .map((agent) => api.agentAddChannelAgent(sessionId, teamId, agent.id)),
+    ])
+      .then(() => {
         setAdded(picked)
         setPicked([])
+        channel?.onAgentsChange()
         announceTimelineChange(sessionId)
       })
       .catch((err: unknown) => toast.apiError(t('Failed to add teammates'), err))
       .finally(() => setPending(null))
   }
 
-  const removeIds = async (ids: string[]) => {
-    for (const id of ids) {
-      apply(await api.agentRemoveConversationParticipant(sessionId, teamId, id))
-    }
-    announceTimelineChange(sessionId)
-  }
+  const removeAll = (people: { id: string; agent?: unknown }[]) =>
+    removePeople(people, { sessionId, teamId, apply, onAgentsChange: channel?.onAgentsChange })
 
-  const remove = ({ id, name }: AgentConversationParticipant) => {
+  const remove = (person: AgentConversationParticipant) => {
+    const { id, name } = person
+
     setPending(id)
-    removeIds([id])
+    removeAll([person])
       .catch((err: unknown) => toast.apiError(t('Failed to remove {name}', { name }), err))
       .finally(() => setPending(null))
   }
@@ -171,12 +178,10 @@ export function SessionParticipants({
       .finally(() => setPending(null))
   }
 
-  // Undo takes the people back out and returns them to the picker, so a wrong
-  // pick is one click from fixed.
   const undo = () => {
     if (!added) return
     setPending('undo')
-    removeIds(added.map((member) => member.id))
+    removeAll(added)
       .then(() => {
         setPicked(added)
         setAdded(null)
@@ -185,8 +190,16 @@ export function SessionParticipants({
       .finally(() => setPending(null))
   }
 
-  const joined = new Set(participants.map((participant) => participant.id))
-  const invitable = (members ?? []).filter((member) => !joined.has(member.id))
+  // A channel's agents count as people here, and so do the viewer's own that could join.
+  const agents = channel?.agents ?? []
+  const everyone = [...participants, ...agentPeople(agents, currentUserId, channel?.ownerId ?? '')]
+  const addable = channel ? addableAgents(teamId, currentUserId, agents) : []
+  // Anyone may add their own agent; only the owner invites people.
+  const invitable: Pickable[] = [
+    ...(canManage ? (members ?? []).filter((m) => !participants.some((p) => p.id === m.id)) : []),
+    ...addable,
+  ]
+  const canPick = canManage || addable.length > 0
 
   return (
     <Popover.Root onOpenChange={onOpenChange}>
@@ -198,7 +211,7 @@ export function SessionParticipants({
         )}
         title={t('Share this agent with a teammate')}
       >
-        <ShareButtonFace participants={participants} compact={compact} />
+        <ShareButtonFace participants={everyone} compact={compact} />
       </Popover.Trigger>
       <Popover.Portal>
         <TitlebarDragSuspender />
@@ -251,7 +264,8 @@ export function SessionParticipants({
                   </div>
                 )}
                 <ParticipantList
-                  participants={participants}
+                  participants={everyone}
+                  label={channel ? t('In this chat') : undefined}
                   currentUserId={currentUserId}
                   generalAccess={generalAccess}
                   canManage={canManage}
@@ -259,31 +273,18 @@ export function SessionParticipants({
                   onRoleChange={changeRole}
                   onRemove={remove}
                 />
-                {canManage ? (
-                  <>
-                    <TeammatePicker
-                      members={members}
-                      invitable={invitable}
-                      picked={picked}
-                      disabled={pending !== null}
-                      onToggle={togglePicked}
-                    />
-                    <div className="flex items-center gap-2">
-                      <RoleMenu value={inviteRole} onChange={setInviteRole} />
-                      <Button
-                        variant="neutral"
-                        size="sm"
-                        className="flex-1"
-                        disabled={picked.length === 0 || pending !== null}
-                        onClick={invite}
-                      >
-                        {pending === 'invite' && (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                        )}
-                        {pending === 'invite' ? t('Adding…') : addLabel(picked.length)}
-                      </Button>
-                    </div>
-                  </>
+                {canPick ? (
+                  <InviteSection
+                    members={members}
+                    invitable={invitable}
+                    picked={picked}
+                    onToggle={togglePicked}
+                    role={canManage ? inviteRole : undefined}
+                    onRoleChange={setInviteRole}
+                    chat={channel !== undefined}
+                    pending={pending}
+                    onInvite={invite}
+                  />
                 ) : (
                   <div className="px-1 text-[12px] text-tertiary">
                     {t('Only the owner can change who has access.')}
