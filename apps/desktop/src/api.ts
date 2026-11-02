@@ -140,11 +140,14 @@ export const api = instrumentApi(
   },
   {
     stallAfterMs: 30_000,
-    observeStall: (operation, elapsedMs) => {
+    observeStall: (operation, elapsedMs, error) => {
+      // A call that ends offline is the user's connectivity, like the failure
+      // itself; sign-in waits on the user in the browser, so its time is not ours.
+      if (operation === 'authLogin' || isNetworkError(error)) return
       reportFrontendError({
         source: 'api',
         phase: `${operation}_stalled`,
-        message: `${operation} did not settle after ${String(elapsedMs / 1000)} seconds.`,
+        message: `${operation} took ${String(Math.round(elapsedMs / 1000))} seconds to settle.`,
         apiOperation: operation,
         elapsedMs,
       })
