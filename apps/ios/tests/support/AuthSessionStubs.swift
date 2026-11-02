@@ -71,10 +71,11 @@ enum ComposerDrafts {
 }
 
 enum NuphosWeb {
+    enum Provider { case apple, google }
     enum CallbackResult { case code(String), failure(String) }
     static let callbackScheme = "nuphos"
     static func randomSecret() throws -> String { "secret" }
     static func challenge(_ verifier: String) -> String { verifier }
-    static func loginURL(baseURL: URL, handle: String) -> URL { baseURL.appending(path: "auth/social/login") }
+    static func loginURL(baseURL: URL, handle: String, provider: Provider) -> URL { baseURL.appending(path: "auth/social/login") }
     static func parseCallback(_ url: URL, expectedState: String) -> CallbackResult? { nil }
 }
