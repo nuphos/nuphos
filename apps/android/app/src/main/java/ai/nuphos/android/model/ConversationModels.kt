@@ -125,6 +125,7 @@ data class AgentConversationDetail(
     val archivedAt: Instant? = null,
     val credentialAccess: JsonValue? = null,
     val timelineEvents: List<TimelineEvent> = emptyList(),
+    val promptSuggestion: String? = null,
 ) {
     @Serializable
     data class TimelineEvent(

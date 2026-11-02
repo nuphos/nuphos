@@ -363,4 +363,29 @@ class RuntimeSessionRegressionTest {
         session.disposeForConsent()
         }
     }
+    @Test fun promptSuggestionUsesDetailAndRemainsBehindAdmissionAndFailureGuards() {
+        val detail = ai.nuphos.android.data.Http.json.decodeFromString<AgentConversationDetail>("""{"isOwner":true,"promptSuggestion":"Review callback coverage"}""")
+        val session = ChatSession.fresh("fixture", "team")
+        metadata(session, detail)
+        assertEquals("Review callback coverage", session.promptSuggestion)
+        state(session, "isStreaming", true)
+        assertNull(session.promptSuggestion)
+        state(session, "isStreaming", false)
+        state(session, "rejectedSubmission", ComposerSubmission("Keep failed draft"))
+        assertNull(session.promptSuggestion)
+        state(session, "rejectedSubmission", null)
+        metadata(session, detail.copy(readOnly = true))
+        assertNull(session.promptSuggestion)
+        metadata(session, detail.copy(activeRun = AgentConversationDetail.ActiveRun("active")))
+        assertNull(session.promptSuggestion)
+        metadata(session, detail.copy(promptSuggestion = "   "))
+        assertNull(session.promptSuggestion)
+        metadata(session, detail.copy(promptSuggestion = "x".repeat(ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT + 1)))
+        assertNull(session.promptSuggestion)
+        metadata(session, detail)
+        assertEquals("Review callback coverage", session.promptSuggestion)
+        AiAccess.revoke()
+        assertNull(session.promptSuggestion)
+        session.disposeForConsent()
+    }
 }

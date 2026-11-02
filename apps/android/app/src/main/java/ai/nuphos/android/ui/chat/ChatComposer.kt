@@ -161,6 +161,7 @@ fun ChatComposer(
     devices: DeviceMentionSource? = null,
     draftingEnabled: Boolean = true,
     rejectedSubmission: ComposerSubmission? = null,
+    promptSuggestion: () -> String? = { null },
     onRejectedRestored: () -> Unit = {},
     onStop: (() -> Unit)? = null,
     showControls: Boolean = false,
@@ -558,11 +559,48 @@ fun ChatComposer(
     val colors = MaterialTheme.colorScheme
     val fieldStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface)
 
+    var promptScopeActive by remember(selectionScope) { mutableStateOf(false) }
+    DisposableEffect(selectionScope) {
+        promptScopeActive = true
+        onDispose { promptScopeActive = false }
+    }
+    val promptOwnerGeneration = voiceAuth.generation
+    val promptWorkspaceRevision = store.workspaceRevision
+    fun ownsPromptDraft() = promptScopeActive && latestSelectionScope === selectionScope &&
+        voiceAuth.generation == promptOwnerGeneration && voiceAuth.token == voiceToken &&
+        voiceAuth.user?.id == voiceAccount && voiceAccount != null && voiceTeam != null &&
+        store.workspaceRevision == promptWorkspaceRevision && store.selectedTeam?.id == voiceTeam &&
+        ai.nuphos.android.session.AiAccess.revision == voiceConsentRevision &&
+        ai.nuphos.android.session.AiAccess.allows(voiceToken) &&
+        (draft == null || draft.key.accountId == voiceAccount)
+    fun canFillPrompt() = effectiveDraftingEnabled && latestSendAllowed && !isStreaming &&
+        fieldState.text.isEmpty() && attachments.isEmpty() && recalledFiles.isEmpty() &&
+        !savingSend && !picking && !voice.active && voice.pendingText == null && voice.error == null &&
+        rejectedSubmission == null && storageError == null && pickerError == null && ownsPromptDraft()
+    val suggestion = promptSuggestion()?.takeIf {
+        it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT && canFillPrompt()
+    }
+    Column(modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    if (suggestion != null) {
+        Surface(onClick = {
+            // Check the live session and ownership again; tapping a stale chip never submits anything.
+            if (canFillPrompt() && promptSuggestion() == suggestion) {
+                try { updateText(suggestion) }
+                catch (_: Exception) { pickerError = "Could not save this draft. Free storage and try again." }
+            }
+        }, shape = RoundedCornerShape(20.dp), color = colors.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Suggested next message" }) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("✦", color = colors.onSurfaceVariant)
+                Text(suggestion, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            }
+        }
+    }
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .imePadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = Modifier.fillMaxWidth()
             .graphicsLayer { translationY = handleDrag },
         shape = RoundedCornerShape(24.dp),
         color = colors.surfaceContainerHigh,
@@ -873,6 +911,7 @@ fun ChatComposer(
             },
             onDismiss = { showMode = false },
         )
+    }
     }
 }
 
