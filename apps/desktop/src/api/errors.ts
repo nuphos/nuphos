@@ -120,9 +120,3 @@ export function isNetworkError(e: unknown): boolean {
     raw.includes('socket hang up')
   )
 }
-
-/** Keep one Error Tracking issue per connectivity incident class while the
- * apiOperation property preserves which renderer calls were affected. */
-export function apiErrorPhase(operation: string, error: unknown): string {
-  return isNetworkError(error) ? 'network_failure' : operation
-}
