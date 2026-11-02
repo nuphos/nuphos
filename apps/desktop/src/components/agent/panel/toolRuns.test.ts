@@ -257,6 +257,33 @@ test('a user decision lifts out of the fold as its card, with or without provide
   assert.deepEqual(foldedTurnLayout(parts, 0, 3), { planIndices: [1, 2], foldHasWork: true })
 })
 
+test('an open question with no result stays a card after the turn, not an interrupted row', () => {
+  const question = {
+    ...tool('request_user_decision'),
+    state: 'input-available',
+    input: { category: 'preference', question: 'Which one?', options: ['A', 'B'] },
+  } as Part
+  const shown = turnDisplayParts([question, text('Waiting for you.')], false)
+
+  assert.equal(shown[0], question)
+  assert.deepEqual(foldedTurnLayout(shown, 0, 1), { planIndices: [0], foldHasWork: false })
+})
+
+test('a question stored as interrupted is still lifted as its card; a real failure is not', () => {
+  const input = { category: 'preference', question: 'Which one?', options: ['A', 'B'] }
+  const stored = (errorText: string): Part =>
+    ({ ...tool('request_user_decision'), state: 'output-error', errorText, input }) as Part
+
+  assert.deepEqual(foldedTurnLayout([stored('Interrupted before the tool finished.')], 0, 1), {
+    planIndices: [0],
+    foldHasWork: false,
+  })
+  assert.deepEqual(foldedTurnLayout([stored('Invalid input')], 0, 1), {
+    planIndices: [],
+    foldHasWork: true,
+  })
+})
+
 test('an errored plan call stays in the fold as a tool row', () => {
   const failed: Part = { ...tool('plan_create'), state: 'output-error' } as Part
 

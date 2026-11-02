@@ -41,10 +41,11 @@ type Props = {
 
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
- * above every conversation waiting on the viewer. The reader shows that conversation's open questions as
- * cards: a choice answers its own question, and the composer below answers the
- * selected one. The transcript stays hidden until asked for; only delivery or
- * dismissal clears a question.
+ * above every conversation waiting on the viewer. The reader shows that
+ * conversation's open questions as cards: a choice, or a short reply typed on
+ * the selected card, answers its own question. The conversation, with its full
+ * composer, stays hidden until asked for; only delivery or dismissal clears a
+ * question.
  */
 export function InboxView({
   teamId,
@@ -139,7 +140,8 @@ export function InboxView({
     [teamId, query],
   )
 
-  // Enter or → moves from the list into the open conversation's composer; Esc comes back.
+  // Enter or → moves from the list into the selected card's reply field, or the
+  // conversation's composer when it is shown; Esc comes back.
   useEffect(() => {
     if (!isActive || !twoPane) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -157,8 +159,10 @@ export function InboxView({
       }
       if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing) {
         if (target && target !== document.body && !railRef.current?.contains(target)) return
-        // The first match can be a hidden copy; the composer is the one that takes focus.
-        const composers = readerRef.current?.querySelectorAll<HTMLElement>('[aria-label="Message"]')
+        // The first match can be a hidden copy; the field is the one that takes focus.
+        const composers = readerRef.current?.querySelectorAll<HTMLElement>(
+          '[data-inbox-reply], [aria-label="Message"]',
+        )
 
         for (const composer of composers ?? []) {
           composer.focus()
@@ -257,12 +261,10 @@ export function InboxView({
               />
             )}
             {selected && (
-              // Without the transcript the panel is just its composer, under the cards.
+              // Hidden until the conversation is asked for: the Inbox answers with
+              // the cards, but stays mounted, since a card's answer is sent through it.
               <div
-                className={clsx(
-                  'flex min-h-0 flex-col',
-                  showConversation ? 'flex-1' : 'h-56 shrink-0',
-                )}
+                className={clsx('min-h-0 flex-1 flex-col', showConversation ? 'flex' : 'hidden')}
               >
                 <AgentPanel
                   key="inbox"
