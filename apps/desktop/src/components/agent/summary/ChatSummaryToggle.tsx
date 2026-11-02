@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
 import { t } from '../../../i18n'
+import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import {
   toggleChatSummary,
   isChatSummaryShortcut,
@@ -10,6 +11,7 @@ import {
 import { isMac } from '../../../lib/platform'
 import { Kbd } from '../../ui/kbd'
 import { Tooltip } from '../../ui/tooltip'
+import { shellsFromRuntimeState } from '../panel/shells'
 
 export function SummaryIcon() {
   return (
@@ -29,6 +31,14 @@ export function SummaryIcon() {
   )
 }
 
+/** An open question outranks running background work; neither leaves the plain label. */
+function tooltipLabel(pendingCount: number, background: string | null): string {
+  if (pendingCount === 1) return t('1 question needs your input')
+  if (pendingCount) return t('{count} questions need your input', { count: pendingCount })
+
+  return background ?? t('Toggle agent summary')
+}
+
 /**
  * Titlebar button for the chat summary panel. The open state belongs to this
  * pane, so toggling it leaves other split panes alone, and only the focused
@@ -39,13 +49,20 @@ export function ChatSummaryToggle({
   active,
   hidden = false,
   pendingCount = 0,
+  sessionId,
 }: {
   active: boolean
   hidden?: boolean
   pendingCount?: number
+  /** Its background tasks earn a dot in the sidebar row's background color. */
+  sessionId?: string
 }) {
   const paneId = usePaneId()
   const open = useChatSummaryOpen(paneId)
+  const runtimeStates = useAgentRuntimeStates()
+  const backgroundCount = sessionId
+    ? shellsFromRuntimeState(runtimeStates.get(sessionId)).length
+    : 0
 
   useEffect(() => {
     if (!active) return
@@ -61,17 +78,17 @@ export function ChatSummaryToggle({
   }, [active, paneId])
 
   if (hidden) return null
+  const background =
+    backgroundCount === 1
+      ? t('1 background task running')
+      : t('{count} background tasks running', { count: backgroundCount })
 
   return (
     <Tooltip
       side="bottom"
       content={
         <span className="flex items-center gap-2">
-          {pendingCount === 1
-            ? t('1 question needs your input')
-            : pendingCount
-              ? t('{count} questions need your input', { count: pendingCount })
-              : t('Toggle agent summary')}
+          {tooltipLabel(pendingCount, backgroundCount > 0 ? background : null)}
           <Kbd combo="mod+i" />
         </span>
       }
@@ -95,6 +112,13 @@ export function ChatSummaryToggle({
           >
             {pendingCount > 99 ? '99+' : pendingCount}
           </span>
+        )}
+        {pendingCount === 0 && backgroundCount > 0 && (
+          <span
+            role="img"
+            aria-label={background}
+            className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning"
+          />
         )}
       </button>
     </Tooltip>

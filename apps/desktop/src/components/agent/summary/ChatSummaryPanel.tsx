@@ -8,7 +8,9 @@ import { t } from '../../../i18n'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen } from '../../../lib/chatSummaryPanel'
 import { toast } from '../../ui/toast'
+import { shellsFromRuntimeState } from '../panel/shells'
 
+import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
 import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
@@ -150,6 +152,7 @@ function SummaryBody({
   const runtimeStates = useAgentRuntimeStates()
   const subAgents = subAgentsOf(threads, runtimeStates)
   const changes = changesOf(conversation?.linkedResources ?? [])
+  const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
 
   return (
     <aside
@@ -184,6 +187,7 @@ function SummaryBody({
             failed={requestsFailed}
             onSelect={select}
           />
+          {background.length > 0 && <BackgroundTasksSection shells={background} />}
           {!loaded && <Skeleton />}
           {changes.length > 0 && (
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
