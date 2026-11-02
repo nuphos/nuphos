@@ -19,6 +19,7 @@ import { posthogApi } from './preload-parts/api-posthog'
 import { sessionAccessApi } from './preload-parts/api-session-access'
 import { signInSessionsApi } from './preload-parts/api-sign-in-sessions'
 import { teamApi } from './preload-parts/api-team'
+import { windowSessionApi } from './preload-parts/api-window-session'
 
 const api = {
   ...appConfigApi,
@@ -38,6 +39,7 @@ const api = {
   ...plaudApi,
   ...sessionAccessApi,
   ...signInSessionsApi,
+  ...windowSessionApi,
   ...connectApi,
   ...instructionsApi,
 }

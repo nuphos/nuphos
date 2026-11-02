@@ -10,6 +10,7 @@ import {
   createUpdaterErrorDedupe,
   updaterTelemetryError,
 } from './updater-error'
+import { markAppQuitting } from './window-session'
 
 export const { autoUpdater } = electronUpdater
 
@@ -53,7 +54,10 @@ export function checkForUpdates() {
 }
 
 export function installUpdate() {
-  if (updaterState.kind === 'ready') autoUpdater.quitAndInstall()
+  if (updaterState.kind !== 'ready') return
+  // quitAndInstall closes every window before before-quit fires.
+  markAppQuitting()
+  autoUpdater.quitAndInstall()
 }
 
 export function startUpdatePolling() {
