@@ -11,6 +11,7 @@ import {
   getConversationBySessionId,
   getConversationWithMessages,
 } from './db'
+import { onChannelTurnEnd } from './channel-reply'
 import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
@@ -187,6 +188,8 @@ export async function replyToChannel(
 
   if (text) await postTurnReply(channelId, target, text)
 }
+
+onChannelTurnEnd(replyToChannel)
 
 const senderId = (channelId: string) => `${CHANNEL_SENDER_PREFIX}${channelId}`
 

@@ -7,7 +7,7 @@ import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import { replyToChannel } from './channel-chat'
+import { channelTurnEnded } from './channel-reply'
 import { withoutReadNotices } from './db/channels'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
@@ -172,7 +172,7 @@ export async function runTurn(
     if (outcome.finishReason === 'connection-lost' && (await runtimeRestarted(data)))
       await reportUndelivered(data, fresh, LOST_TURN)
 
-    await replyToChannel(data, target, fresh)
+    await channelTurnEnded(data, target, fresh)
 
     return outcome.finishReason
   } catch (error) {
