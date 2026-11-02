@@ -92,6 +92,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   )
   const chatRuntime = await resolveConversationChatRuntime(teamId, existingConversation, {
     userId,
+    ownerUserId: conversationOwnerUserId,
     sessionId,
     source,
   })
@@ -166,6 +167,8 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       trigger: params.trigger,
       client: params.client,
       agentRuntime: chatRuntime.runtime,
+      runtimeId: chatRuntime.runtimeId,
+      runtimeLabel: chatRuntime.runtimeLabel,
     })
       .then((acceptedTurn) => acceptedTurn?.isNew ?? isPotentialNewConversation)
       .catch((err: unknown) => {
