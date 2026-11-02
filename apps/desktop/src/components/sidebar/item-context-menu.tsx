@@ -1,4 +1,18 @@
-import { Archive, Bell, BellOff, Hash, Link2, Pencil, Star, StarOff, Unlink } from 'lucide-react'
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  Bell,
+  BellOff,
+  Hash,
+  Link2,
+  Pencil,
+  Pin,
+  PinOff,
+  Star,
+  StarOff,
+  Unlink,
+} from 'lucide-react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
@@ -8,7 +22,7 @@ import { agentSessionUrl } from '../agent/sessionUrl'
 import { ContextMenu } from '../ContextMenu'
 import { toast } from '../ui/toast'
 
-import type { Item } from './types'
+import type { Item, ItemMenuRequest } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 
 export function SidebarItemContextMenu({
@@ -22,7 +36,7 @@ export function SidebarItemContextMenu({
   unlinkChat,
   renameChat,
 }: {
-  menu: { x: number; y: number; item: Item }
+  menu: ItemMenuRequest
   teamId: string
   onClose: () => void
   canFavorite: (item: Item) => boolean
@@ -32,8 +46,9 @@ export function SidebarItemContextMenu({
   archiveChat: (sessionId: string) => Promise<void>
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
-  // A channel's row: its own nouns, and no pin or watch, which are an agent's.
-  const channel = menu.item.channel === true
+  // A chat pins, matching the Pinned section; other destinations favorite.
+  const chatRow = favoriteSessionId(menu.item) !== null
+  const [addIcon, removeIcon] = chatRow ? [Pin, PinOff] : [Star, StarOff]
 
   return (
     <ContextMenu
@@ -41,21 +56,34 @@ export function SidebarItemContextMenu({
       y={menu.y}
       onClose={onClose}
       items={[
-        ...(!channel && canFavorite(menu.item)
+        ...(canFavorite(menu.item)
           ? [
               favoriteMatch(menu.item)
                 ? {
                     key: 'unfavorite',
-                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, true),
-                    icon: StarOff,
+                    label: favoriteToggleTitle(chatRow, true),
+                    icon: removeIcon,
                     onSelect: () => toggleFavorite(menu.item),
                   }
                 : {
                     key: 'favorite',
-                    label: favoriteToggleTitle(favoriteSessionId(menu.item) !== null, false),
-                    icon: Star,
+                    label: favoriteToggleTitle(chatRow, false),
+                    icon: addIcon,
                     onSelect: () => toggleFavorite(menu.item),
                   },
+            ]
+          : []),
+        ...(menu.moves?.up
+          ? [{ key: 'move-up', label: t('Move up'), icon: ArrowUp, onSelect: menu.moves.up }]
+          : []),
+        ...(menu.moves?.down
+          ? [
+              {
+                key: 'move-down',
+                label: t('Move down'),
+                icon: ArrowDown,
+                onSelect: menu.moves.down,
+              },
             ]
           : []),
         ...(menu.item.key.startsWith('agent-session:')
@@ -72,17 +100,13 @@ export function SidebarItemContextMenu({
               },
               {
                 key: 'copy-session-id',
-                label: channel ? t('Copy chat ID') : t('Copy agent ID'),
+                label: t('Copy agent ID'),
                 icon: Hash,
-                onSelect: () =>
-                  copy(
-                    menu.item.key.slice('agent-session:'.length),
-                    channel ? 'Channel ID' : 'Agent ID',
-                  ),
+                onSelect: () => copy(menu.item.key.slice('agent-session:'.length), 'Agent ID'),
               },
               {
                 key: 'rename',
-                label: channel ? t('Rename chat') : t('Rename agent'),
+                label: t('Rename agent'),
                 icon: Pencil,
                 onSelect: () =>
                   renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
@@ -99,9 +123,7 @@ export function SidebarItemContextMenu({
                 : []),
             ]
           : []),
-        ...(!channel &&
-        menu.item.key.startsWith('agent-session:') &&
-        menu.item.watching !== undefined
+        ...(menu.item.key.startsWith('agent-session:') && menu.item.watching !== undefined
           ? [
               {
                 key: 'watch',
@@ -115,7 +137,7 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'archive',
-                label: channel ? t('Archive chat') : t('Archive agent'),
+                label: t('Archive agent'),
                 icon: Archive,
                 onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
               },
@@ -137,26 +159,16 @@ function watchChat(item: Item, teamId: string) {
     })
 }
 
-const COPIED = {
-  Link: () => t('Link copied'),
-  'Agent ID': () => t('Agent ID copied'),
-  'Channel ID': () => t('Chat ID copied'),
-}
-
-function copy(value: string, what: keyof typeof COPIED) {
+function copy(value: string, what: 'Link' | 'Agent ID') {
   void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
     onSuccess: () =>
-      toast.success(COPIED[what](), undefined, {
+      toast.success(what === 'Link' ? t('Link copied') : t('Agent ID copied'), undefined, {
         timeoutMs: 1200,
         dedupe: false,
       }),
     onError: () =>
       toast.error(
-        what === 'Link'
-          ? t('Could not copy link')
-          : what === 'Channel ID'
-            ? t('Could not copy chat ID')
-            : t('Could not copy agent ID'),
+        what === 'Link' ? t('Could not copy link') : t('Could not copy agent ID'),
         t('Clipboard was blocked.'),
       ),
   })

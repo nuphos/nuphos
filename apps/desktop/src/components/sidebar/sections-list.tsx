@@ -1,10 +1,10 @@
 import clsx from 'clsx'
-import { ChevronDown, ChevronRight, Star } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Fragment } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentAppearance } from '../../lib/agentAppearance'
-import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
+import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
 import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import {
   SIDEBAR_GROUP_GAP_CLASS,
@@ -15,17 +15,28 @@ import {
 } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
-import { FinishedThreadsBadge, NestedRowBody } from './nest-guides'
+import { DropLine } from './drop-line'
+import { FavoriteToggle } from './favorite-toggle'
+import { NestedRowBody } from './nest-guides'
+import { rowNote } from './row-note'
 import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
-import { SECTION_LABELS, favoriteToggleAriaLabel } from './section-labels'
 import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
 import { useInboxBadge } from './use-inbox-badge'
+import { usePinnedDrag } from './use-pinned-drag'
 
-import type { Item, Section } from './types'
+import type { Item, ItemMenuRequest, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
+
+// These titles double as section ids (chat-sections, Sidebar) and collapse-state
+// keys, so they are translated only where they are shown.
+const SECTION_LABELS: Record<string, string> = {
+  Agents: t('Agents'),
+  Pinned: t('Pinned'),
+  Favorites: t('Favorites'),
+}
 
 type SectionListProps = {
   sections: Section[]
@@ -39,7 +50,8 @@ type SectionListProps = {
   favoriteMatch: (item: Item) => SidebarFavorite | undefined
   canFavorite: (item: Item) => boolean
   toggleFavorite: (item: Item) => void
-  onItemMenu: (menu: { x: number; y: number; item: Item }) => void
+  movePinned?: (item: Item, before: Item | null) => void
+  onItemMenu: (menu: ItemMenuRequest) => void
   onSelect: (key: string) => void
   onOpenKey?: (key: string, favoriteLabel: string | null, newTab: boolean) => void
 }
@@ -56,6 +68,7 @@ export function SidebarSectionList({
   favoriteMatch,
   canFavorite,
   toggleFavorite,
+  movePinned,
   onItemMenu,
   onSelect,
   onOpenKey,
@@ -63,6 +76,7 @@ export function SidebarSectionList({
   // The Inbox row carries how many conversations wait on the viewer.
   const shown = useInboxBadge(scope.teamId, sections)
   const { density } = useAgentAppearance()
+  const pinned = usePinnedDrag(shown.find((s) => s.title === 'Pinned')?.items ?? [], movePinned)
 
   return (
     <>
@@ -75,38 +89,37 @@ export function SidebarSectionList({
           )}
         >
           {section.title && (
-            <div className="flex items-center">
-              <button
-                type="button"
-                onPointerDown={(event) => {
-                  if (event.button === 0) toggleGroup(section)
-                }}
-                onClick={(event) => {
-                  if (event.detail === 0) toggleGroup(section)
-                }}
-                className={clsx(
-                  SIDEBAR_GROUP_TITLE_CLASS,
-                  'min-w-0 flex-1 hover:text-secondary flex items-center gap-1.5',
-                )}
+            <button
+              type="button"
+              onPointerDown={(event) => {
+                if (event.button === 0) toggleGroup(section)
+              }}
+              onClick={(event) => {
+                if (event.detail === 0) toggleGroup(section)
+              }}
+              className={clsx(
+                SIDEBAR_GROUP_TITLE_CLASS,
+                'w-full hover:text-secondary flex items-center gap-1.5',
+              )}
+            >
+              <span className="text-left">{SECTION_LABELS[section.title] ?? section.title}</span>
+              <span
+                className="t-icon-swap w-3 h-3 flex-shrink-0"
+                data-state={isGroupCollapsed(section) ? 'a' : 'b'}
               >
-                <span className="text-left">{SECTION_LABELS[section.title] ?? section.title}</span>
-                <span
-                  className="t-icon-swap w-3 h-3 flex-shrink-0"
-                  data-state={isGroupCollapsed(section) ? 'a' : 'b'}
-                >
-                  <ChevronRight className="t-icon w-3 h-3" data-icon="a" />
-                  <ChevronDown className="t-icon w-3 h-3" data-icon="b" />
-                </span>
-              </button>
-              {section.action}
-            </div>
+                <ChevronRight className="t-icon w-3 h-3" data-icon="a" />
+                <ChevronDown className="t-icon w-3 h-3" data-icon="b" />
+              </span>
+            </button>
           )}
           <div className="t-collapse" data-open={isGroupCollapsed(section) ? 'false' : 'true'}>
             <div className="t-collapse-inner">
               <div
+                {...(section.title === 'Pinned' && { ref: pinned.listRef, ...pinned.listHandlers })}
                 className={clsx(
                   SIDEBAR_GROUP_ITEMS_CLASS,
                   't-panel-slide [--panel-translate-y:8px]',
+                  section.title === 'Pinned' && 'relative',
                 )}
                 data-open="true"
               >
@@ -116,6 +129,7 @@ export function SidebarSectionList({
                   nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
                     ({ item, trail, hasChildren, hidden, done }) => {
                       const Icon = item.icon
+                      const inPinned = section.title === 'Pinned'
                       const isActive =
                         item.enabled &&
                         (item.key === 'team.agent'
@@ -127,35 +141,17 @@ export function SidebarSectionList({
                       const rowSessionId = item.key.startsWith('agent-session:')
                         ? item.key.slice('agent-session:'.length)
                         : null
-                      // Hover-revealed pin toggle, so favoriting is discoverable
-                      // without knowing about the right-click menu — and so a
-                      // Favorites row can unpin itself in place. Same gate as the
-                      // context menu: team-level, enabled rows only.
+                      // Same gate as the context menu: team-level, enabled rows only.
                       const shortcut = SIDEBAR_ITEM_SHORTCUTS[item.key]
                       const favorited = Boolean(favoriteMatch(item))
                       const chatRow = favoriteSessionId({ key: item.key, href: item.href }) !== null
                       const favoriteToggle = canFavorite(item) ? (
-                        <span
-                          role="button"
-                          aria-label={favoriteToggleAriaLabel(chatRow, favorited, item.label)}
-                          title={favoriteToggleTitle(chatRow, favorited)}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleFavorite(item)
-                          }}
-                          className={clsx(
-                            'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded hover:bg-[var(--sidebar-overlay-hover)]',
-                            favorited
-                              ? 'text-warning hover:text-warning/70'
-                              : 'text-tertiary hover:text-main',
-                          )}
-                        >
-                          <Star
-                            className="w-3.5 h-3.5"
-                            strokeWidth={1.8}
-                            fill={favorited ? 'currentColor' : 'none'}
-                          />
-                        </span>
+                        <FavoriteToggle
+                          chatRow={chatRow}
+                          favorited={favorited}
+                          label={item.label}
+                          onToggle={() => toggleFavorite(item)}
+                        />
                       ) : null
                       // A thread parent folds its threads; the fold is remembered
                       // per team like a section's.
@@ -190,12 +186,15 @@ export function SidebarSectionList({
                           onSelect={onSelect}
                           sessionId={rowSessionId}
                           teamId={scope.teamId}
+                          reorderDrag={inPinned ? pinned.rowDrag(item.key) : undefined}
                           onContextMenu={
                             // Only open when the menu would have something in it.
                             canFavorite(item) || (teamView && Boolean(rowSessionId))
                               ? (e) => {
                                   e.preventDefault()
-                                  onItemMenu({ x: e.clientX, y: e.clientY, item })
+                                  const moves = inPinned ? pinned.menuMoves(item.key) : undefined
+
+                                  onItemMenu({ x: e.clientX, y: e.clientY, item, moves })
                                 }
                               : undefined
                           }
@@ -208,9 +207,8 @@ export function SidebarSectionList({
                             navigateOnRelease={Boolean(rowSessionId)}
                             onClick={(event) => {
                               if (!item.enabled) return
-                              // cmd/ctrl-click opens beside the current page, the
-                              // way it does everywhere else; a plain click still
-                              // navigates in place.
+                              // cmd/ctrl-click opens beside the current page, as it does
+                              // everywhere else; a plain click still navigates in place.
                               const newTab = event.metaKey || event.ctrlKey
 
                               if (item.onActivate) item.onActivate(newTab)
@@ -218,7 +216,8 @@ export function SidebarSectionList({
                               else onSelect(item.key)
                             }}
                             label={item.label}
-                            note={done.length ? <FinishedThreadsBadge threads={done} /> : undefined}
+                            animateLabel={chatRow}
+                            note={rowNote(item, done)}
                             badge={item.badge}
                             trailing={
                               <>
@@ -258,12 +257,17 @@ export function SidebarSectionList({
                       return rowSessionId ? (
                         <div
                           key={item.key}
+                          ref={inPinned ? pinned.rowRef(item.key) : undefined}
                           className={clsx(
                             't-collapse t-sidebar-session t-stagger relative',
                             archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
+                            pinned.isDragged(item.key) && 'opacity-40',
                           )}
                           data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                         >
+                          {inPinned && pinned.dropIndex === pinned.heads.indexOf(item.key) && (
+                            <DropLine edge="top" />
+                          )}
                           <NestedRowBody
                             trail={trail}
                             expanded={hasChildren && !folded}
@@ -278,11 +282,17 @@ export function SidebarSectionList({
                     },
                   )
                 )}
+                {section.title === 'Pinned' && pinned.dropIndex === pinned.heads.length && (
+                  <DropLine edge="bottom" />
+                )}
               </div>
             </div>
           </div>
         </div>
       ))}
+      <div role="status" aria-live="polite" className="sr-only">
+        {pinned.announcement}
+      </div>
     </>
   )
 }
