@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { OPENAB_PROVIDERS } from './runtime-provider'
 import {
   assertClaudeCodeSetupConfigured,
+  defaultConversationRuntimeId,
   isServerAuthoritativeTranscript,
   resolveConversationAgentRuntime,
   resolveConversationRuntimeId,
@@ -10,6 +11,7 @@ import {
   selectClaudeCodeChatEndpoint,
 } from './runtime-routing'
 
+import type { RuntimeInstance } from './runtime-instances'
 import type { AppError } from '@/lib/errors'
 
 describe('assertClaudeCodeSetupConfigured', () => {
@@ -287,4 +289,44 @@ test('Agents behind the ACP shim get one shim-facing shape with the instructions
         },
       },
     })
+})
+
+const box = (id: string, local: Partial<NonNullable<RuntimeInstance['local']>> = {}) =>
+  ({
+    id,
+    provider: 'claude-code',
+    status: 'active',
+    kind: 'local',
+    local: { online: true, signedIn: true, box: { provider: 'instabox' }, ...local },
+  }) as RuntimeInstance
+const registered = (id: string): RuntimeInstance =>
+  ({ id, provider: 'claude-code', status: 'active', kind: 'managed' }) as RuntimeInstance
+
+describe('defaultConversationRuntimeId', () => {
+  test("takes the first usable agent in the owner's fallback list", () => {
+    const instances = [box('offline', { online: false }), box('signed-out', { signedIn: false })]
+
+    expect(
+      defaultConversationRuntimeId(
+        [...instances, registered('team'), box('listed')],
+        ['gone', 'offline', 'signed-out', 'listed', 'team'],
+      ),
+    ).toBe('listed')
+  })
+
+  test('falls back to an online Box only when the team registers no agent', () => {
+    const boxes = [box('laptop', { box: undefined }), box('asleep', { online: false }), box('box')]
+
+    expect(defaultConversationRuntimeId(boxes, [])).toBe('box')
+    expect(defaultConversationRuntimeId([registered('team'), ...boxes], [])).toBeUndefined()
+  })
+
+  test("never picks a teammate's shared computer or another provider", () => {
+    const shared = box('shared', { shared: { level: 'full' } })
+    const codex = { ...box('codex'), provider: 'codex' } as RuntimeInstance
+
+    expect(defaultConversationRuntimeId([shared], ['shared'])).toBeUndefined()
+    expect(defaultConversationRuntimeId([codex], ['codex'], 'claude-code')).toBeUndefined()
+    expect(defaultConversationRuntimeId([codex], [], 'codex')).toBe('codex')
+  })
 })
