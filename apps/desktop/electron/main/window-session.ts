@@ -2,12 +2,13 @@ import path from 'node:path'
 
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
 
+import { readConfig } from '../auth/config'
 import { authSession } from '../auth-session'
 
 import {
   DEFAULT_WINDOW_SIZE,
   MAX_SAVED_WINDOWS,
-  accountKeyOf,
+  accountWhenKnown,
   fitBoundsToDisplays,
   parseWindowSurface,
   readWindowSession,
@@ -29,15 +30,14 @@ export type WindowPlacement = {
 const tracked = new Map<BrowserWindow, SavedWindow>()
 let quitting = false
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+let reports: Promise<void> = Promise.resolve()
 
 function sessionFile(): string {
   return path.join(app.getPath('userData'), 'window-session.json')
 }
 
-function currentAccount(): string | null {
-  const { api, userId } = authSession.context()
-
-  return accountKeyOf(api, userId)
+function currentAccount(): Promise<string | null> {
+  return accountWhenKnown(authSession, readConfig)
 }
 
 function saveNow() {
@@ -134,19 +134,26 @@ export function trackWindow(win: BrowserWindow, restored: SavedWindow | null) {
 }
 
 export function initWindowSessionChannels() {
-  ipcMain.handle('window-session:take-surface', (event) => {
+  ipcMain.handle('window-session:take-surface', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const saved = win ? tracked.get(win) : undefined
 
-    return saved ? restorableSurface(saved, currentAccount()) : null
+    return saved ? restorableSurface(saved, await currentAccount()) : null
   })
   ipcMain.on('window-session:report-surface', (event, raw: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    const saved = win ? tracked.get(win) : undefined
     const surface = parseWindowSurface(raw)
 
-    if (!win || !saved || !surface) return
-    tracked.set(win, { ...saved, account: currentAccount(), surface })
-    scheduleSave()
+    if (!win || !surface) return
+    // In order, so a report waiting on the config file never lands after a newer one.
+    reports = reports.then(async () => {
+      const account = await currentAccount()
+      const saved = tracked.get(win)
+
+      // Without a known account the surface could never be restored; keep the saved one.
+      if (!saved || win.isDestroyed() || account === null) return
+      tracked.set(win, { ...saved, account, surface })
+      scheduleSave()
+    })
   })
 }

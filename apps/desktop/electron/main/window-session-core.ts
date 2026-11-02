@@ -162,3 +162,30 @@ export function fitBoundsToDisplays(
 export function accountKeyOf(api: string, userId: string | null): string | null {
   return userId ? `${api}#${userId}` : null
 }
+
+export type AccountSource = {
+  settled(): boolean
+  context(): { api: string; userId: string | null }
+}
+
+export type StoredAccount = { token?: string; api?: string; userInfo?: { id?: string } }
+
+/**
+ * The signed-in account, even before the startup check has set the session: a
+ * window asks for its surface as soon as it mounts, and a null account there
+ * would hand back nothing and then overwrite the saved surface.
+ */
+export async function accountWhenKnown(
+  session: AccountSource,
+  readStored: () => Promise<StoredAccount>,
+): Promise<string | null> {
+  if (session.settled()) return accountKeyOf(session.context().api, session.context().userId)
+  const stored = await readStored().catch(() => null)
+
+  if (session.settled()) return accountKeyOf(session.context().api, session.context().userId)
+  const { api } = session.context()
+
+  if (!stored?.token || (stored.api !== undefined && stored.api !== api)) return null
+
+  return accountKeyOf(api, stored.userInfo?.id ?? null)
+}

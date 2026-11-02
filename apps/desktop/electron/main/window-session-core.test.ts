@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import {
   MAX_SAVED_WINDOWS,
   accountKeyOf,
+  accountWhenKnown,
   fitBoundsToDisplays,
   parseWindowSession,
   readWindowSession,
@@ -14,7 +15,7 @@ import {
   writeWindowSession,
 } from './window-session-core.ts'
 
-import type { SavedWindow } from './window-session-core.ts'
+import type { AccountSource, SavedWindow } from './window-session-core.ts'
 
 const LAPTOP = { x: 0, y: 25, width: 1512, height: 920 }
 const EXTERNAL = { x: 1512, y: 0, width: 2560, height: 1440 }
@@ -119,4 +120,62 @@ test('a session written to disk reads back the same', () => {
   } finally {
     fs.rmSync(root, { recursive: true })
   }
+})
+
+const API = 'https://api.nuphos.ai'
+
+function sourceOf(settled: boolean, userId: string | null = null): AccountSource {
+  return { settled: () => settled, context: () => ({ api: API, userId }) }
+}
+
+test('an account not yet in memory at take time is read from the stored sign-in', async () => {
+  const account = await accountWhenKnown(sourceOf(false), () =>
+    Promise.resolve({ token: 't', api: API, userInfo: { id: 'user-1' } }),
+  )
+
+  assert.equal(account, `${API}#user-1`)
+  assert.deepEqual(restorableSurface(saved(), account), saved().surface)
+})
+
+test('once the session is set, memory wins and the file is not read', async () => {
+  let reads = 0
+  const account = await accountWhenKnown(sourceOf(true, 'user-2'), () => {
+    reads += 1
+
+    return Promise.resolve({ token: 't', api: API, userInfo: { id: 'user-1' } })
+  })
+
+  assert.equal(account, `${API}#user-2`)
+  assert.equal(reads, 0)
+})
+
+test('a session set while the file was being read wins over the file', async () => {
+  let settled = false
+  const source: AccountSource = {
+    settled: () => settled,
+    context: () => ({ api: API, userId: settled ? 'user-2' : null }),
+  }
+  const account = await accountWhenKnown(source, () => {
+    settled = true
+
+    return Promise.resolve({ token: 't', api: API, userInfo: { id: 'user-1' } })
+  })
+
+  assert.equal(account, `${API}#user-2`)
+})
+
+test('no stored token, another backend or an unreadable file means no account', async () => {
+  const stored = { api: API, userInfo: { id: 'user-1' } }
+
+  assert.equal(await accountWhenKnown(sourceOf(false), () => Promise.resolve(stored)), null)
+  assert.equal(
+    await accountWhenKnown(sourceOf(false), () =>
+      Promise.resolve({ ...stored, token: 't', api: 'https://self-hosted.example' }),
+    ),
+    null,
+  )
+  assert.equal(
+    await accountWhenKnown(sourceOf(false), () => Promise.reject(new Error('locked'))),
+    null,
+  )
 })
