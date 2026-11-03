@@ -1308,15 +1308,18 @@
     background-color: rgb(var(--color-appBg));
   }
 
+  /* Dark mode stays opaque: the window's vibrancy blurs whatever sits behind
+     it, so a light window there (a browser, say) bled through the 25% gap as a
+     white glow that came and went with window order. */
   .sidebar-surface {
-    background-color: rgba(var(--color-appBg), 0.75);
+    background-color: rgb(var(--color-appBg));
   }
   html.light .sidebar-surface {
     background-color: rgba(var(--color-appBg), 0.65);
   }
-  /* Docked, the partial alpha lets the window's vibrancy through. Floating over
-     the content while collapsed there is no vibrancy behind it — only the page,
-     which then ghosts through the panel. Keep that state opaque. */
+  /* Docked in light mode, the partial alpha lets the window's vibrancy through.
+     Floating over the content while collapsed there is no vibrancy behind it —
+     only the page, which then ghosts through the panel. Keep that state opaque. */
   .sidebar-surface.is-floating,
   html.light .sidebar-surface.is-floating {
     background-color: rgb(var(--color-appBg));
