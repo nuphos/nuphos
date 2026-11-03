@@ -179,6 +179,10 @@ struct HomeView: View {
             ConversationUnread.shared.setReading(id != nil, reader: chatReader,
                                                  team: openChat?.channel?.teamId ?? "", session: id ?? "")
         }
+        // Only the open chat polls. Here, not on the chat's view or session:
+        // collapsed, SwiftUI cancels that view's tasks while it stays on
+        // screen (#1440), and keeps the view, with its session, after going back.
+        .task(id: openChat?.channel?.channelId) { await openChat?.channel?.poll() }
         .focusedSceneValue(\.newChat) {
             page = .agent
             openChat = nil
