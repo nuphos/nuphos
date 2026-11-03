@@ -71,7 +71,9 @@ class PinnedHistoryFixtureDeviceTest {
                 AiAccess.activate(token)
             }
             val client = OkHttpClient.Builder().addInterceptor { chain ->
-                val req = chain.request(); requests += req
+                val req = chain.request()
+                if (ChatsFixture.isListing(req)) return@addInterceptor ChatsFixture.empty(req)
+                requests += req
                 val path = req.url.encodedPath
                 var code = 200
                 val text = when {

@@ -97,7 +97,9 @@ class HomeNavigationFixtureDeviceTest {
                 NuphosApplication::class.java.getDeclaredField("authSession").also { it.isAccessible = true }.set(app, auth)
             }
             val client = OkHttpClient.Builder().addInterceptor { chain ->
-                val request = chain.request(); requests += request
+                val request = chain.request()
+                if (ChatsFixture.isListing(request)) return@addInterceptor ChatsFixture.empty(request)
+                requests += request
                 val path = request.url.encodedPath
                 val runtimeCatalog = request.method == "GET" && path in setOf("/teams/${a.id}/agent-runtimes", "/teams/${b.id}/agent-runtimes")
                 val runtimeQuotas = request.method == "GET" && path in setOf("/teams/${a.id}/agent-runtimes/quota", "/teams/${b.id}/agent-runtimes/quota")
