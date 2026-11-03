@@ -14,7 +14,7 @@ import { Workspace } from './app/workspace/Workspace'
 import { toast } from './components/ui/toast'
 import { CurrentUserContext } from './hooks/useCurrentUser'
 import { t } from './i18n'
-import { identifyUser, track } from './lib/analytics'
+import { identifyUser, setActiveTeam, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
 
@@ -86,7 +86,9 @@ function SignedInApp() {
           : undefined
       }
       onLogin={(user) => {
-        // Who signed in first, so the event is theirs and not the last account's.
+        // Who signed in first, so the event is theirs and not the last account's,
+        // nor the team of the workspace still mounted behind Add account.
+        if (signedIn) setActiveTeam(null)
         identifyUser(user)
         track('login', { method: 'oauth' })
         cancelAddAccount()
