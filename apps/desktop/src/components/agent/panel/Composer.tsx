@@ -214,6 +214,7 @@ export function Composer({
               slackThread={slackThread}
               label={sendNotice?.label}
               action={sendNotice?.action}
+              secondary={sendNotice?.secondary}
             />
           ) : (
             <ComposerEditor

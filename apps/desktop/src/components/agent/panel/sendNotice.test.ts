@@ -13,7 +13,7 @@ function agent(id: string, online = true) {
   return { id, label: id, status: 'active', local: { online } } as RuntimeInstance
 }
 
-function notice(tab: Partial<Tab>, catalog: RuntimeInstance[] = []) {
+function notice(tab: Partial<Tab>, catalog: RuntimeInstance[] = [], admin = false) {
   const calls: string[] = []
   const result = sendNoticeFor(
     {
@@ -25,6 +25,7 @@ function notice(tab: Partial<Tab>, catalog: RuntimeInstance[] = []) {
     catalog,
     (id) => calls.push(`chat ${id}`),
     () => calls.push('setup'),
+    admin ? () => calls.push('cloud') : undefined,
   )
 
   result?.action?.onSelect()
@@ -38,6 +39,15 @@ test('a new teammate with no agent of their own is offered setup, never a dead e
   assert.match(result?.label ?? '', /only they can send/)
   assert.equal(result?.action?.label, 'Set up your agent')
   assert.deepEqual(calls, ['setup'])
+})
+
+test('an admin may take a cloud runtime instead; a member, who cannot create one, is not offered it', () => {
+  const admin = notice({}, [], true).result
+
+  assert.equal(admin?.secondary?.label, 'Use a cloud runtime instead')
+  assert.equal(notice({}).result?.secondary, undefined)
+  // Someone with an agent already has their one way on.
+  assert.equal(notice({}, [agent(timsComputer)], true).result?.secondary, undefined)
 })
 
 test('a teammate who may use the owner’s computer starts their own chat there', () => {

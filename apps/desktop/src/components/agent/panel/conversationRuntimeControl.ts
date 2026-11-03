@@ -6,7 +6,8 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n/index.ts'
 import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
-import { openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
+import { openAddRuntime, openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
+import { useBoxAvailable } from '../../../views/settings/useAgentDevices'
 import { toast } from '../../ui/toast'
 
 import { sendNoticeFor } from './sendNotice'
@@ -40,6 +41,8 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     runtimeQuotas,
     onOpenAgentSettings,
   } = c
+  // Only offered where a cloud computer can be made: this team's admins, on a plan that has them.
+  const cloudOffered = useBoxAvailable() && isTeamAdmin
   // A teammate's own chat on the computer this conversation runs on.
   const startChatOn = useStableCallback((runtimeId: string) => {
     c.selectConversationRuntime(runtimeId)
@@ -179,7 +182,13 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       loading: runtimeInstancesLoading,
       error: runtimeInstancesError,
       onSettings: onOpenAgentSettings,
-      sendNotice: sendNoticeFor(tab, runtimeInstances, startChatOn, openAgentSetup),
+      sendNotice: sendNoticeFor(
+        tab,
+        runtimeInstances,
+        startChatOn,
+        openAgentSetup,
+        cloudOffered ? () => openAddRuntime(teamId) : undefined,
+      ),
       ...(pendingLocal
         ? {
             confirm: {
@@ -212,6 +221,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     runtimeQuotas,
     onOpenAgentSettings,
     startChatOn,
+    cloudOffered,
   ])
 
   return { runtimeControl }

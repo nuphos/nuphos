@@ -1,12 +1,16 @@
 import { useSyncExternalStore } from 'react'
 
+import { AddAgentDialog } from '../../settings/AddAgentDialog'
+
 import { AgentSetupFlow } from './AgentSetupFlow'
 import { agentSetup } from './agentSetupStore'
 
 export function AgentSetupHost() {
-  const open = useSyncExternalStore(agentSetup.subscribe, agentSetup.current)
+  const request = useSyncExternalStore(agentSetup.subscribe, agentSetup.current)
 
-  if (!open) return null
+  if (request?.kind === 'runtime')
+    return <AddAgentDialog teamId={request.teamId} onClose={agentSetup.close} />
+  if (!request) return null
 
   return (
     <>

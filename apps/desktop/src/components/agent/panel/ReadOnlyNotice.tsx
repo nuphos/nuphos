@@ -30,6 +30,7 @@ export function ReadOnlyConversationNotice({
   slackThread,
   label,
   action,
+  secondary,
 }: {
   activitySource?: AgentConversation['activitySource']
   slackThread?: AgentSlackThread | null
@@ -38,6 +39,7 @@ export function ReadOnlyConversationNotice({
   label?: string
   /** What the viewer can do instead, beside the reason. */
   action?: SendNotice['action']
+  secondary?: SendNotice['secondary']
 }) {
   return (
     <div className="flex min-h-9 min-w-0 items-center gap-2">
@@ -51,6 +53,11 @@ export function ReadOnlyConversationNotice({
       >
         {label ?? conversationReadOnlyLabel(activitySource, Boolean(slackThread))}
       </span>
+      {secondary && (
+        <Button type="button" variant="ghost" size="sm" onClick={secondary.onSelect}>
+          {secondary.label}
+        </Button>
+      )}
       {action && (
         <Button type="button" size="sm" onClick={action.onSelect}>
           {action.label}

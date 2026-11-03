@@ -14,6 +14,8 @@ export function sendNoticeFor(
   runtimeInstances: RuntimeInstance[],
   startChatOn: (runtimeId: string) => void,
   setUpAgent: () => void,
+  /** Only where a cloud computer can be made: creating one is an admin's, on a plan that has them. */
+  addCloudRuntime?: () => void,
 ): SendNotice | undefined {
   const runtimeId = tab?.runtimeId
 
@@ -32,5 +34,8 @@ export function sendNoticeFor(
           onSelect: () => startChatOn(own.id),
         }
       : { label: t('Set up your agent'), onSelect: setUpAgent },
+    ...(!own && addCloudRuntime
+      ? { secondary: { label: t('Use a cloud runtime instead'), onSelect: addCloudRuntime } }
+      : {}),
   }
 }

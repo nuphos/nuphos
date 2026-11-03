@@ -23,8 +23,10 @@ import { usePickerFixes } from './usePickerFixes'
 import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
+type NoticeAction = { label: string; onSelect: () => void }
+
 /** What a viewer who may reply, yet not send, sees in place of the editor. */
-export type SendNotice = { label: string; action?: { label: string; onSelect: () => void } }
+export type SendNotice = { label: string; action?: NoticeAction; secondary?: NoticeAction }
 
 export type RuntimeControl = {
   /** Lets the selector ask each agent whether an update is available. */

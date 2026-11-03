@@ -1,8 +1,11 @@
-const listeners = new Set<() => void>()
-let open = false
+/** Which setup is open over the app: the new-user one, or adding a runtime to a team. */
+export type AgentSetupRequest = { kind: 'local' } | { kind: 'runtime'; teamId: string }
 
-function set(next: boolean) {
-  open = next
+const listeners = new Set<() => void>()
+let request: AgentSetupRequest | null = null
+
+function set(next: AgentSetupRequest | null) {
+  request = next
   for (const listener of listeners) listener()
 }
 
@@ -14,11 +17,16 @@ export const agentSetup = {
       listeners.delete(listener)
     }
   },
-  current: () => open,
-  close: () => set(false),
+  current: () => request,
+  close: () => set(null),
 }
 
 /** The setup a new workspace's creator gets, for anyone who has no runtime yet. */
 export function openAgentSetup(): void {
-  set(true)
+  set({ kind: 'local' })
+}
+
+/** Settings › Runtimes' own "Add new runtime" dialog, e.g. for a cloud runtime. */
+export function openAddRuntime(teamId: string): void {
+  set({ kind: 'runtime', teamId })
 }

@@ -68,7 +68,7 @@ function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
 function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   const state = useLocalRuntimeState()
   const status = localAgentStatus(state?.agents[provider].cli)
-  const { name, maker, installUrl } = LOCAL_AGENT_INFO[provider]
+  const { name, maker, installUrl, command } = LOCAL_AGENT_INFO[provider]
   const Icon = ICON[provider]
 
   return (
@@ -89,6 +89,14 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
         <StatusPill status={status} />
       </div>
       {status === 'signed-out' && <InlineSignIn provider={provider} />}
+      {status === 'missing' && (
+        <p className="text-[12.5px] leading-snug text-secondary">
+          {t(
+            'Nuphos couldn’t find `{command}` on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.',
+            { command },
+          )}
+        </p>
+      )}
       {status === 'missing' && (
         <a
           href={installUrl}
