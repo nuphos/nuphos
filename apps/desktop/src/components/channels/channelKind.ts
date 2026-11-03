@@ -4,6 +4,8 @@ import { api } from '../../api'
 import { readSwrCache } from '../../lib/swrCache'
 import { agentSessionsCacheKey } from '../sidebar/state'
 
+import { afterFailedCheck } from './channelKindRetry'
+
 import type { AgentConversation } from '../../api'
 
 // What is known to be a channel, so opening one never shows an agent first.
@@ -26,11 +28,6 @@ function cached(teamId: string, sessionId: string): boolean | undefined {
   return listed ? listed.kind === 'channel' : undefined
 }
 
-// A failed check is tried again on this beat; until it answers, nothing is shown.
-const RETRY_MS = 3_000
-// After this many failures (a deleted session, lost access) the agent view
-// opens, which says what is wrong; the backend refuses agent turns on a channel.
-const MAX_TRIES = 3
 const failures = new Map<string, number>()
 
 /**
@@ -57,12 +54,12 @@ export function useIsChannel(
           known.set(sessionId, detail.kind === 'channel')
           if (live) setAttempt((n) => n + 1)
         },
-        () => {
-          const tries = (failures.get(sessionId) ?? 0) + 1
+        (err: unknown) => {
+          const { tries, givenUp, delayMs } = afterFailedCheck(err, failures.get(sessionId) ?? 0)
 
           failures.set(sessionId, tries)
-          if (tries >= MAX_TRIES) known.set(sessionId, false)
-          if (live) retry = window.setTimeout(() => setAttempt((n) => n + 1), RETRY_MS)
+          if (givenUp) known.set(sessionId, false)
+          if (live) retry = window.setTimeout(() => setAttempt((n) => n + 1), delayMs)
         },
       )
 
