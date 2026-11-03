@@ -30,7 +30,11 @@ function setup() {
       ),
     dropFromGrants: async (_team, userId) => record(`drop-from-grants ${userId}`),
     dropOwnerGrants: async (_team, userId) => record(`drop-owner-grants ${userId}`),
-    transferComputers: (_team, from, to) => Promise.resolve(record(`transfer ${from} -> ${to}`)),
+    transferComputers: (_team, from, to) => {
+      record(`transfer ${from} -> ${to}`)
+
+      return Promise.resolve()
+    },
     teamOwner: () => Promise.resolve('boss'),
     dropApprovals: async (_team, userId) => record(`drop-approvals ${userId}`),
     dropTrusts: async (_team, userId) => record(`drop-trusts ${userId}`),
