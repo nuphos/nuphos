@@ -10,7 +10,6 @@ struct ConversationView: View {
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
 
-    @Environment(AuthSession.self) private var auth
     @Environment(\.scenePhase) private var scenePhase
     @State private var readerID = UUID()
     @State private var onScreen = false
@@ -20,6 +19,7 @@ struct ConversationView: View {
     @State private var planLink: PlanLink.Target?
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
+    @Environment(AuthSession.self) private var auth
     @State private var didSendInitial = false
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
