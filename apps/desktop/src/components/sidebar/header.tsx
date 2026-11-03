@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings } from 'lucide-react'
+import { ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings, Users } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -239,6 +239,7 @@ export function SidebarUserEntry({
         </MenuItem>
         {waiting.length > 0 && (
           <MenuItem
+            icon={<Users className="h-3.5 w-3.5" />}
             onClick={() => {
               signOutLocally()
               void api.authSignOutAllAccounts().catch(() => onLogout())

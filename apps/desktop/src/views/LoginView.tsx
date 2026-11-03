@@ -130,6 +130,12 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
     if (completesCode(code, next)) void verifyCode(next)
   }
 
+  // Named for why the screen is shown: an account to sign in to again comes first.
+  let title = t('Welcome to Nuphos')
+
+  if (notice) title = t('Sign in again')
+  else if (onCancel) title = t('Add an account')
+
   const [codeBefore, codeAfter] = t('Enter the 6-digit code sent to {email}').split('{email}')
 
   return (
@@ -141,9 +147,7 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
             <NuphosLogo className="h-12 w-12" variant="white-bg" />
           </div>
-          <h1 className="text-[20px] font-semibold text-main mb-1.5">
-            {onCancel ? t('Add an account') : t('Welcome to Nuphos')}
-          </h1>
+          <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
             {notice ??
               (onCancel

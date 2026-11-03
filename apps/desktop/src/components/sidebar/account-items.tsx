@@ -36,10 +36,13 @@ export function SidebarAccountItems({ waiting }: { waiting: AccountSummary[] }) 
                 className="rounded-full !shadow-none"
               />
             }
-            hint={backend ?? undefined}
             onClick={() => void choose(account)}
           >
-            <span className="truncate">{name}</span>
+            {/* Under the name, not in the hint slot: a host is long and must not overlap it. */}
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate">{name}</span>
+              {backend && <span className="truncate text-[11.5px] text-tertiary">{backend}</span>}
+            </span>
           </MenuItem>
         )
       })}
