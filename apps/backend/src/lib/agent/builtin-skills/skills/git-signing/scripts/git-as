@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Runs git as one Nuphos participant, with that participant's author and
+# signing key:
+#
+#   git-as <sender-id> <git args...>
+#
+# Fails when setup-signing.sh has not created an identity for the sender.
+set -euo pipefail
+
+id="${1:?usage: git-as <sender-id> <git args...>}"
+shift
+[[ "$id" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "git-as: invalid sender id" >&2; exit 2; }
+config="$HOME/.config/nuphos-git-identities/$id/gitconfig"
+[[ -f "$config" ]] || { echo "git-as: no git identity configured for participant $id" >&2; exit 1; }
+
+# Command-line config includes the participant's file on top of the shared one.
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=include.path GIT_CONFIG_VALUE_0="$config" exec git "$@"
