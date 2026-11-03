@@ -94,11 +94,7 @@ export type AgentDeviceRouteDependencies = {
   readMetrics: typeof readBoxMetrics
   upsertAgentDevice: (userId: string, device: AgentDeviceRegistration) => Promise<void>
   getAgentDevice: (userId: string, deviceId: string) => Promise<AgentDevice | null>
-  listDeviceExecAudit: (
-    ownerUserId: string,
-    deviceId: string,
-    options: { limit: number; cursor?: string },
-  ) => Promise<DeviceExecAuditPage>
+  listDeviceExecAudit: typeof listDeviceExecAudit
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
   boxDesktops: typeof boxDesktops
   issueJoinToken: typeof issueDeviceJoinToken

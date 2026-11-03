@@ -267,7 +267,7 @@ describe('agent device routes', () => {
     const response = await buildApp().request('/agent/devices/d1/audit?includeUnfinished=true')
 
     expect(response.status).toBe(200)
-    const body = await response.json()
+    const body = (await response.json()) as { entries: Record<string, unknown>[] }
 
     expect(body.entries[0]).toMatchObject({
       outcome: 'unknown',
@@ -282,7 +282,9 @@ describe('agent device routes', () => {
     const response = await buildApp().request('/agent/devices/d1/audit')
 
     expect(response.status).toBe(200)
-    expect((await response.json()).entries).toEqual([])
+    const body = (await response.json()) as { entries: unknown[] }
+
+    expect(body.entries).toEqual([])
   })
 
   test('GET .../audit rejects an undecodable cursor instead of restarting at page one', async () => {
