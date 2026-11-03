@@ -26,7 +26,7 @@ import {
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
 
-import { previewTurnAccess } from './chat-preview-access'
+import { previewTurnAccess, renewPreviewTurnEnv } from './chat-preview-access'
 import {
   finishPreviewTurn,
   persistHandedOffPreviewTurn,
@@ -148,6 +148,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       endpoint: args.endpoint,
       mcpServers: access.mcpServers,
       runtime: { provider: args.endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
+      renewRuntimeEnv: renewPreviewTurnEnv(args, prepared),
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta, metadata) => {

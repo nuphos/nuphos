@@ -23,6 +23,7 @@ import {
   sessionContextStale,
   turnDefaults,
 } from './session-context'
+import { pushSessionCredentials } from './session-credential-push'
 import { probeExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
@@ -30,6 +31,7 @@ import {
   cancelActiveTeamTurn,
   previewRuntimeCwd,
 } from './team-openab-runtime'
+import { renewTurnCredentials } from './turn-credential-renewal'
 import { RuntimeStateProbeError } from './turn-diagnostics'
 
 import type { previewSessionAccess } from './credentials-mcp'
@@ -95,6 +97,8 @@ export async function runClaudeCodePreviewPrompt(args: {
   ) => void
   onAgentUpdate?: (update: PreviewAgentUpdate) => void
   onPermissionRequest?: OpenAbPermissionHandler
+  /** Mints this turn's runtime env again; the running session gets it every 10 minutes. */
+  renewRuntimeEnv?: Parameters<typeof renewTurnCredentials>[0]['mint']
 }): Promise<{ stopReason: string }> {
   if (args.conversationId.length > MAX_PREVIEW_CONVERSATION_ID_LENGTH) {
     throw new Error('Conversation id is invalid.')
@@ -178,6 +182,8 @@ export async function runClaudeCodePreviewPrompt(args: {
     if (session.activeTurn === activeTurn) cancelActiveTeamTurn(session)
   }
 
+  let renewal: ReturnType<typeof renewTurnCredentials> | undefined
+
   args.signal.addEventListener('abort', onAbort, { once: true })
   try {
     // Later turns stay on the runtime the conversation was placed on, even if
@@ -234,6 +240,22 @@ export async function runClaudeCodePreviewPrompt(args: {
       .filter(Boolean)
       .join('\n\n')
     const text = redactedPromptUpdates(args.onTextDelta, args.onAgentUpdate)
+    const target = {
+      teamId: session.teamId,
+      conversationId: session.conversationId,
+      userId: session.conversationOwnerUserId ?? session.userId,
+      provider: session.endpoint.provider ?? 'claude-code',
+      runtimeId: session.endpoint.runtimeId,
+      runtimeUrl: session.endpoint.url,
+      openabSessionId: session.openabSessionId,
+    }
+
+    if (args.renewRuntimeEnv)
+      renewal = renewTurnCredentials({
+        installed: nextContext.runtime.env,
+        mint: args.renewRuntimeEnv,
+        push: (expected, next) => pushSessionCredentials(target, expected, next),
+      })
     // A refusal or transport failure does not grant authority to cancel or
     // replace the runtime session. Its snapshot remains the lifecycle source.
     const result = await client
@@ -266,6 +288,7 @@ export async function runClaudeCodePreviewPrompt(args: {
 
     return { stopReason: await settledCodexStopReason(session, result, text.last()) }
   } finally {
+    renewal?.stop()
     args.signal.removeEventListener('abort', onAbort)
     if (session.activeTurn === activeTurn) {
       session.activeTurn = undefined
