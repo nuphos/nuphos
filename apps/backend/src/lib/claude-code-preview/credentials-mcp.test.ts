@@ -81,6 +81,17 @@ describe('credentialsMcpTools', () => {
     }
   })
 
+  test('the nuphos-tools URL carries the tools version the runtime compares', () => {
+    const url = (toolsVersion?: string) =>
+      previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+        backendUrl: 'https://backend.example',
+        toolsVersion,
+      }).mcpServers.find((server) => server.name === 'nuphos-tools')?.url
+
+    expect(url('abc123')).toEndWith('/agent-sessions/conv-1/teams/team-1/mcp-tools?tools=abc123')
+    expect(url()).toEndWith('/agent-sessions/conv-1/teams/team-1/mcp-tools')
+  })
+
   // A live agent keeps the MCP headers it was spawned with for the rest of the
   // session, so their token must outlive a long turn.
   test('the MCP header token still verifies after the turn has run 31 minutes', () => {

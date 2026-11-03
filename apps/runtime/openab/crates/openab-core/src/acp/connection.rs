@@ -379,6 +379,9 @@ pub struct AcpConnection {
     /// Installed by `prompt_done`; read by the reader loop as a fallback.
     idle_notify_tx: NotificationSender,
     pub acp_session_id: Option<String>,
+    /// The MCP servers this agent's session was opened with. The agent reads
+    /// their tool lists only then, so a later declaration needs a new process.
+    pub mcp_servers: Vec<serde_json::Value>,
     pub supports_load_session: bool,
     supports_steering: bool,
     /// Agent name from `initialize` (`agentInfo.name`), e.g. "Kiro CLI Agent".
@@ -885,6 +888,7 @@ impl AcpConnection {
             notify_tx,
             idle_notify_tx,
             acp_session_id: None,
+            mcp_servers: Vec::new(),
             supports_load_session: false,
             supports_steering: false,
             agent_name: String::new(),
@@ -1054,6 +1058,7 @@ impl AcpConnection {
 
         info!(session_id = %session_id, "session created");
         self.acp_session_id = Some(session_id.clone());
+        self.mcp_servers = mcp_servers.to_vec();
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
             if !self.config_options.is_empty() {
@@ -1341,6 +1346,7 @@ impl AcpConnection {
         }
         info!(session_id, "session loaded");
         self.acp_session_id = Some(session_id.to_string());
+        self.mcp_servers = mcp_servers.to_vec();
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
         }
