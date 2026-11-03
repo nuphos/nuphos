@@ -153,6 +153,8 @@ export const listAccounts = listAccountConfigs
  * out of this app instead, to be signed in again.
  */
 export async function switchAccount(key: string): Promise<'switched' | 'signInAgain'> {
+  // A sign-in still out in another window must not replace the account chosen here.
+  cancelPendingLogin()
   try {
     await switchAccountConfig(key)
 

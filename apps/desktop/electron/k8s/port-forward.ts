@@ -21,7 +21,10 @@ export async function startPortForward(
   podName: string,
   targetPort: number,
   localPort = 0,
+  /** The account the kubeconfig belongs to; no forward opens once it has left. */
+  signal?: AbortSignal,
 ): Promise<PortForwardInfo> {
+  signal?.throwIfAborted()
   const { kc } = getClients(context)
   const id = randomUUID()
 
@@ -94,6 +97,12 @@ export async function startPortForward(
     })
 
     server.listen(localPort, '127.0.0.1', () => {
+      if (signal?.aborted) {
+        server.close()
+        reject(new Error('The account changed. Start the port forward again.'))
+
+        return
+      }
       started = true
       const addr = server.address() as net.AddressInfo
       const info: PortForwardInfo = {
@@ -129,6 +138,7 @@ export function startServicePortForward(
   serviceName: string,
   servicePort: number,
   localPort = 0,
+  signal?: AbortSignal,
 ): Promise<PortForwardInfo> {
   return withAuthRetry(context, async () => {
     const { coreApi } = getClients(context)
@@ -177,7 +187,7 @@ export function startServicePortForward(
       throw new Error(`Service "${serviceName}" resolved to a pod without a name.`)
     }
 
-    return startPortForward(context, namespace, podName, podPort, localPort)
+    return startPortForward(context, namespace, podName, podPort, localPort, signal)
   })
 }
 

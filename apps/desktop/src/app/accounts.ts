@@ -40,6 +40,9 @@ const addAccountListeners = new Set<() => void>()
 
 function setAddAccount(request: AddAccountRequest | null): void {
   addAccount = request
+  // The workspace stays mounted behind the sign-in screen; Cmd+W and the like
+  // must not reach it.
+  if (typeof window !== 'undefined') window.api.suspendAppShortcuts(request !== null)
   for (const listener of addAccountListeners) listener()
 }
 
