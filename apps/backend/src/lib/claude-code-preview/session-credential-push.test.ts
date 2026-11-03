@@ -190,7 +190,7 @@ test('renewals run one at a time; a failed push keeps the previous expectation',
 })
 
 // The runtime applies a push only while it holds the push's `expected`.
-function fakeRuntime(lostReplies: number[], undelivered: number[]) {
+function fakeRuntime(lostReplies: number[], undelivered: number[], failedWrites: number[] = []) {
   const state = { held: 'turn', attempt: 0 }
 
   return {
@@ -200,7 +200,10 @@ function fakeRuntime(lostReplies: number[], undelivered: number[]) {
       await Promise.resolve()
       if (undelivered.includes(state.attempt)) throw new UndeliveredCredentialPush('offline')
       if (expected?.NUPHOS_TOKEN !== state.held)
-        throw new OpenAbRpcError('Session credentials changed since this refresh', -32602)
+        throw new OpenAbRpcError('Session credentials changed since this refresh', -32004)
+      // The session holds `expected`, but writing the new credential files fails.
+      if (failedWrites.includes(state.attempt))
+        throw new OpenAbRpcError('No space left on device (os error 28)', -32004)
       state.held = next?.NUPHOS_TOKEN ?? ''
       if (lostReplies.includes(state.attempt)) throw new Error('OpenAB ACP call timed out')
 
@@ -242,5 +245,13 @@ test('several lost replies are reconciled once the runtime answers again', async
   const runtime = fakeRuntime([1, 2, 3, 4], [])
 
   await renewUntil(runtime, 6)
+  expect(runtime.state.held).toBe(`next-${String(runtime.state.attempt)}`)
+})
+
+test('a failed credential write does not rule out the set the runtime holds', async () => {
+  // Reply to the first push is lost; the next push matches it but cannot be written.
+  const runtime = fakeRuntime([1], [], [2])
+
+  await renewUntil(runtime, 4)
   expect(runtime.state.held).toBe(`next-${String(runtime.state.attempt)}`)
 })

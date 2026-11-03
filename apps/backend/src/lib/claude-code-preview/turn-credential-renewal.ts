@@ -5,6 +5,8 @@ import { OpenAbRpcError } from './openab-acp-errors'
 type Env = Record<string, string> | undefined
 
 const RENEW_INTERVAL_MS = 10 * 60 * 1000
+// OpenAB's refusal when the session does not hold `expected` (`SessionPool::refresh_session_credentials`).
+const CREDENTIALS_CHANGED = 'Session credentials changed since this refresh'
 
 /** A push that failed before it reached the runtime, so the runtime changed nothing. */
 export class UndeliveredCredentialPush extends Error {
@@ -65,8 +67,10 @@ export function renewTurnCredentials(args: {
         return
       } catch (error) {
         failure = error
-        // The runtime answered: it does not hold `expected` and applied nothing.
         if (error instanceof OpenAbRpcError) {
+          // Only a mismatch rules `expected` out. Any other refusal (a failed
+          // credential write) also applied nothing, but `expected` may be held.
+          if (error.message !== CREDENTIALS_CHANGED) break
           unconfirmed = unconfirmed.filter((candidate) => candidate !== expected)
           continue
         }
