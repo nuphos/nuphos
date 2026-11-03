@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
 import { migrateDeviceAccessGrants } from './device-grants-migration'
@@ -39,15 +40,18 @@ export function teamUse(
 }
 
 /**
- * Replaces who may use the computer in this team, keeping its managers. One update,
- * so two saves at once never leave the team with two grants or none.
+ * Replaces who may use the computer in this team, and its managers when given; otherwise it
+ * keeps them. One update, so two saves at once never leave the team with two grants or none.
  */
 export async function setTeamUse(
   userId: string,
   deviceId: string,
   teamId: string,
   use: { everyone: boolean; userIds: string[] },
+  /** The new managers, and when they follow from the ones read, those, which must still hold. */
+  managers?: { ids: string[]; read?: string[] },
 ): Promise<boolean> {
+  const { ids: managerIds, read: readManagers } = managers ?? {}
   const others = {
     $filter: { input: { $ifNull: ['$access', []] }, cond: { $ne: ['$$this.teamId', teamId] } },
   }
@@ -59,7 +63,8 @@ export async function setTeamUse(
       0,
     ],
   }
-  const result = await agentDevices().updateOne({ userId, deviceId }, [
+  const filter = { userId, deviceId, ...(readManagers ? sameManagers(teamId, readManagers) : {}) }
+  const result = await agentDevices().updateOne(filter, [
     {
       $set: {
         access: {
@@ -70,9 +75,9 @@ export async function setTeamUse(
                 teamId: { $literal: teamId },
                 everyone: { $literal: use.everyone },
                 userIds: { $literal: use.userIds },
-                managerIds: {
-                  $let: { vars: { current }, in: { $ifNull: ['$$current.managerIds', []] } },
-                },
+                managerIds: managerIds
+                  ? { $literal: managerIds }
+                  : { $let: { vars: { current }, in: { $ifNull: ['$$current.managerIds', []] } } },
               },
             ],
           ],
@@ -83,7 +88,24 @@ export async function setTeamUse(
     },
   ])
 
+  // Someone changed the managers since the read: writing would put the old ones back.
+  if (!result.matchedCount && readManagers && (await agentDevices().findOne({ userId, deviceId })))
+    throw new AppError(
+      409,
+      'access_changed',
+      'Access changed while you were editing; reopen Manage access.',
+    )
+
   return result.matchedCount === 1
+}
+
+/** Matches only while this team's managers are still exactly these; none also means no grant yet. */
+function sameManagers(teamId: string, managerIds: string[]) {
+  const same = { access: { $elemMatch: { teamId, managerIds } } }
+
+  return managerIds.length
+    ? same
+    : { $or: [same, { access: { $not: { $elemMatch: { teamId } } } }] }
 }
 
 /**

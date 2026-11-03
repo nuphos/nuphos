@@ -5,12 +5,15 @@ import { useDb } from '@/lib/test/doubles/db'
 type Call = { op: string; filter: unknown; update?: unknown; options?: unknown }
 
 const calls: Call[] = []
+// What the next update matches, and whether the computer is still there.
+const db = { matched: 1, exists: true }
 const collection = {
   updateOne: (filter: unknown, update: unknown) => {
     calls.push({ op: 'updateOne', filter, update })
 
-    return Promise.resolve({ matchedCount: 1 })
+    return Promise.resolve({ matchedCount: db.matched })
   },
+  findOne: () => Promise.resolve(db.exists ? { deviceId: 'mac' } : null),
   updateMany: (filter: unknown, update: unknown, options?: unknown) => {
     calls.push({ op: 'updateMany', filter, update, ...(options ? { options } : {}) })
 
@@ -46,6 +49,41 @@ test('replacing a team’s use list is one update that keeps its managers', asyn
   expect(JSON.stringify(update[0]?.$set)).toContain(
     '{"teamId":"team","level":"full","everyone":false,"userIds":["mate"]}',
   )
+})
+
+test('managers that followed from a read are written only while they still hold', async () => {
+  calls.length = 0
+  const use = { everyone: false, userIds: ['mate'] }
+
+  expect(
+    await setTeamUse('owner', 'mac', 'team', use, { ids: ['mate'], read: ['mate', 'lead'] }),
+  ).toBe(true)
+  expect(calls[0]?.filter).toEqual({
+    userId: 'owner',
+    deviceId: 'mac',
+    access: { $elemMatch: { teamId: 'team', managerIds: ['mate', 'lead'] } },
+  })
+  // None read also matches a team with no grant yet.
+  await setTeamUse('owner', 'mac', 'team', use, { ids: [], read: [] })
+  expect(calls[1]?.filter).toEqual({
+    userId: 'owner',
+    deviceId: 'mac',
+    $or: [
+      { access: { $elemMatch: { teamId: 'team', managerIds: [] } } },
+      { access: { $not: { $elemMatch: { teamId: 'team' } } } },
+    ],
+  })
+  db.matched = 0
+  const error = await setTeamUse('owner', 'mac', 'team', use, { ids: [], read: ['lead'] }).catch(
+    (e: unknown) => e,
+  )
+
+  expect(error).toMatchObject({ status: 409, code: 'access_changed' })
+  // A computer that is gone is still just not found.
+  db.exists = false
+  expect(await setTeamUse('owner', 'mac', 'team', use, { ids: [], read: ['lead'] })).toBe(false)
+  db.matched = 1
+  db.exists = true
 })
 
 test('teamGrant reads only the asked team', () => {
