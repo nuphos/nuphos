@@ -121,6 +121,7 @@ export async function runTurn(
     const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
+      data.userId,
       pending.filter((message) => !ran.has(message.id)),
     )
     const [head, ...rest] = fresh
