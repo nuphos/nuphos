@@ -69,11 +69,14 @@ struct ChannelView: View {
                 updateReading()
             }
             .onChange(of: scenePhase) { _, _ in updateReading() }
-            .task(id: inTurn.map(\.id)) {
+            .onChange(of: inTurn.map(\.id), initial: true) {
                 guard inTurn.map(\.id) != typing.map(\.id) else { return }
-                await channel.refresh(force: true)
-                guard !Task.isCancelled else { return }
-                typing = inTurn
+                // Not the view's own task: SwiftUI can cancel those while the
+                // view stays on screen (#1440), which would leave the dots stale.
+                Task {
+                    await channel.refresh(force: true)
+                    typing = inTurn
+                }
             }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId) }
             .alert("Couldn't send the message", isPresented: Binding(
