@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 
 import { StepActions } from './StepActions'
 
+import type { AddAgentAction } from './addAgentFlow'
 import type { ReactNode } from 'react'
 
 /** One option card in Add agent: an icon, a title and what it does. */
@@ -49,13 +50,13 @@ export function Choice({
 export function AddAgentChoices({
   boxAvailable,
   footer,
-  onCloud,
+  onPick,
   onJoin,
   onCancel,
 }: {
   boxAvailable: boolean
   footer: HTMLElement | null
-  onCloud: () => void
+  onPick: (action: AddAgentAction) => void
   /** Connect your own machine: shows a one-time join command. */
   onJoin: () => void
   onCancel: () => void
@@ -69,7 +70,7 @@ export function AddAgentChoices({
           description={t(
             'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.',
           )}
-          onClick={onCloud}
+          onClick={() => onPick('box')}
         />
       )}
       <Choice

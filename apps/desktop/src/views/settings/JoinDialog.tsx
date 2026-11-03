@@ -18,7 +18,16 @@ import type { BoxJoin } from './joinCommand'
  * Makes a Linux or macOS machine one of your computers: Desktop connects to it with your own ssh,
  * or you run the command on it yourself.
  */
-export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => void }) {
+export function JoinDialog({
+  join,
+  onClose,
+  onPairRuntime,
+}: {
+  join: BoxJoin
+  onClose: () => void
+  /** A self-hosted runtime (Docker, Kubernetes) pairs with a code instead of joining. */
+  onPairRuntime: () => void
+}) {
   const [host, setHost] = useState('')
   const ssh = useSshJoin()
   const busy = ssh.phase === 'connecting' || ssh.phase === 'waiting'
@@ -72,7 +81,14 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
           <pre className="whitespace-pre-wrap break-all rounded-lg border border-zGray-800 bg-main p-3 font-mono text-[12px] text-main">
             {command}
           </pre>
-          <div className="flex justify-end gap-2">
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onPairRuntime}
+              className="mr-auto text-[12px] text-tertiary underline-offset-2 hover:text-secondary hover:underline"
+            >
+              {t('Pairing a self-hosted runtime (Docker, Kubernetes)?')}
+            </button>
             <Button
               size="sm"
               variant="secondary"

@@ -11,20 +11,35 @@ import { useTextSwap } from '../../hooks/useTextSwap'
 import { t } from '../../i18n'
 
 import { AddAgentChoices } from './AddAgentChoice'
+import { nextAddAgentStep } from './addAgentFlow'
 import { BoxAgentForm } from './BoxAgentStep'
+import { ExternalRuntimeForm } from './ExternalRuntimeForm'
+import { ExternalRuntimePasswordForm } from './ExternalRuntimePasswordForm'
 import { JoinDialog } from './JoinDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxAvailable } from './useAgentDevices'
 
+import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
 import type { BoxJoin } from './joinCommand'
 import type { RuntimeInstance } from '../../types/runtime'
 import type { CSSProperties } from 'react'
 
-type Step = 'choose' | 'box'
-
-const TITLE: Record<Step, string> = {
+const TITLE: Record<AddAgentStep, string> = {
   choose: t('Add computer'),
+  'self-hosted': t('Self-hosted runtime'),
+  'self-hosted-password': t('Self-hosted runtime'),
   box: t('Nuphos cloud computer'),
+}
+
+/** Swaps to a new title. Its own component so a remounted dialog starts from its current text. */
+function SwapText({ text }: { text: string }) {
+  const { ref, text: shown } = useTextSwap<HTMLSpanElement>(text)
+
+  return (
+    <span ref={ref} className="t-text-swap">
+      {shown}
+    </span>
+  )
 }
 
 /** The one place to add a computer (and so its runtimes), from the Runtimes page or the composer's agent picker. */
@@ -37,31 +52,40 @@ export function AddAgentDialog({
   onClose: () => void
   onAdded?: (runtimeId: string) => void
 }) {
-  const [step, setStep] = useState<Step>('choose')
+  const [step, setStep] = useState<AddAgentStep>('choose')
   const boxAvailable = useBoxAvailable()
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
   const [join, setJoin] = useState<BoxJoin | null>(null)
   // Slide direction of the step that just entered: deeper from the right, back
-  // from the left. null until the first move, so opening the dialog only plays
-  // the dialog's own transition.
+  // from the left, the pairing ↔ password swap in place. null until the first
+  // move, so opening the dialog only plays the dialog's own transition.
   const [dir, setDir] = useState<number | null>(null)
-  const go = (next: Step) => {
-    setDir(next === 'box' ? 1 : -1)
-    setStep(next)
+  const go = (action: AddAgentAction) => {
+    setDir(action === 'back' ? -1 : action === 'self-hosted' || action === 'box' ? 1 : 0)
+    setStep((current) => nextAddAgentStep(current, action))
   }
   const presence = useDialogPresence(onClose)
   // The Box step's say on closing, so a Box being made or the plans over it keep the dialog open.
   const closeGuard = useRef<(() => boolean) | null>(null)
   const [footer, setFooter] = useState<HTMLDivElement | null>(null)
   const autoHeight = useAutoHeight<HTMLDivElement>()
-  const { ref: titleRef, text: title } = useTextSwap<HTMLSpanElement>(TITLE[step])
   const added = (runtimeId: string) => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     onAdded?.(runtimeId)
     onClose()
   }
 
-  if (join) return <JoinDialog join={join} onClose={onClose} />
+  if (join)
+    return (
+      <JoinDialog
+        join={join}
+        onClose={onClose}
+        onPairRuntime={() => {
+          setJoin(null)
+          go('self-hosted')
+        }}
+      />
+    )
   if (signingIn)
     return (
       <RuntimeLoginDialog
@@ -83,9 +107,7 @@ export function AddAgentDialog({
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none">
           <div className="flex items-center justify-between border-b border-zGray-800 px-5 py-4">
             <Dialog.Title className="text-[14px] font-semibold text-main">
-              <span ref={titleRef} className="t-text-swap">
-                {title}
-              </span>
+              <SwapText text={TITLE[step]} />
             </Dialog.Title>
             <Dialog.Close
               aria-label={t('Close')}
@@ -107,7 +129,7 @@ export function AddAgentDialog({
                     <AddAgentChoices
                       boxAvailable={boxAvailable}
                       footer={footer}
-                      onCloud={() => go('box')}
+                      onPick={go}
                       onJoin={() =>
                         void api
                           .boxJoinToken()
@@ -118,6 +140,29 @@ export function AddAgentDialog({
                       onCancel={() => presence.onOpenChange(false)}
                     />
                   )}
+                  {step === 'self-hosted' && (
+                    <ExternalRuntimeForm
+                      footer={footer}
+                      onCancel={() => go('back')}
+                      onUsePassword={() => go('use-password')}
+                      onPair={(input) => api.atlasPairExternalRuntime(teamId, input)}
+                      onConnected={(runtime) => added(runtime.id)}
+                    />
+                  )}
+                  {step === 'self-hosted-password' && (
+                    <ExternalRuntimePasswordForm
+                      footer={footer}
+                      onCancel={() => go('back')}
+                      onUsePairingCode={() => go('use-pairing')}
+                      onDetectProvider={async (url, password) =>
+                        (await api.atlasProbeExternalRuntimeProvider(teamId, url, password))
+                          .provider
+                      }
+                      onRegister={async (input) => {
+                        added((await api.atlasRegisterExternalRuntime(teamId, input)).id)
+                      }}
+                    />
+                  )}
                   {step === 'box' && (
                     <BoxAgentForm
                       teamId={teamId}
@@ -125,7 +170,7 @@ export function AddAgentDialog({
                       onCloseGuard={(guard) => {
                         closeGuard.current = guard
                       }}
-                      onBack={() => go('choose')}
+                      onBack={() => go('back')}
                       onChosen={setSigningIn}
                     />
                   )}
