@@ -2,6 +2,7 @@ package ai.nuphos.android
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.Http
@@ -9,6 +10,7 @@ import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelPost
+import ai.nuphos.android.model.ChatMessage
 import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.ui.chats.ChannelTranscript
 import ai.nuphos.android.ui.theme.NuphosTheme
@@ -88,5 +90,58 @@ class ChannelTranscriptFixtureDeviceTest {
         val mine = compose.onNodeWithText("Post 32").fetchSemanticsNode().boundsInRoot
         val theirs = compose.onNodeWithText("Post 31").fetchSemanticsNode().boundsInRoot
         assertTrue("mine=$mine theirs=$theirs", mine.right > theirs.right)
+    }
+    private fun message(id: String, sender: String, name: String, at: String, text: String, agent: Boolean = false): ChannelPost {
+        val type = if (agent) "agent" else "user"
+        val source = if (agent) ",\"sourceSessionId\":\"$sender\"" else ""
+        val json = """{"id":"$id","role":"user","metadata":{"version":1,"sender":{"type":"$type","id":"$sender","displayName":"$name"},"sentAt":"$at"$source},"parts":[{"type":"text","text":${Http.json.encodeToString(kotlinx.serialization.serializer<String>(), text)}}]}"""
+        return ChannelPost.from(Http.json.decodeFromString<ChatMessage>(json))!!
+    }
+
+    /** iOS #1441: times between runs, no avatar on your posts, a small avatar beside others' names, compact Markdown. */
+    @Test fun runsReadLikeAMessagingApp() {
+        val session = ChannelSession("team", "chat-spacing", "release-planning", Transport())
+        val posts = listOf(
+            message("p1", "clark", "Clark Kent", "2026-11-03T09:00:00Z", "Thanks both, looks good to me."),
+            message("p2", "me", "Bruce Wayne", "2026-11-03T09:02:00Z", "Will do"),
+            message("p3", "diana", "Diana Prince", "2026-11-03T12:10:00Z", "Back from lunch. Any update on the build?"),
+            message("p4", "diana", "Diana Prince", "2026-11-03T12:11:00Z", "ok?"),
+            message("p5", "agent-ops", "Release ops", "2026-11-03T12:12:00Z",
+                "### Release status\n\nBuild 412 finished processing.\n\nNext steps:\n\n- Submit to Play\n- Notify QA\n- Update the changelog\n\nI will post again when it is live.", agent = true),
+            message("p6", "me", "Bruce Wayne", "2026-11-03T12:13:00Z", "Thumbs up"),
+            message("p7", "me", "Bruce Wayne", "2026-11-03T12:14:00Z", "Synthetic sending check").copy(sending = true),
+        )
+        compose.setContent {
+            NuphosTheme(darkTheme = dark) {
+                ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {})
+            }
+        }
+        compose.waitForIdle()
+        val inst = InstrumentationRegistry.getInstrumentation()
+        java.io.File(inst.targetContext.getExternalFilesDir(null), "channel-spacing-${if (dark) "dark" else "light"}.png").outputStream().use {
+            inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        // The pause before Diana's post gets a centered time and a new run; the next minute does not.
+        compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Clark Kent"))
+        compose.onAllNodesWithTag("channel-time").assertCountEquals(2)
+        compose.onNodeWithText("Diana Prince").assertExists()
+        // No time under any bubble; a post on its way still says so.
+        listOf("09:00", "09:02", "12:11", "12:13").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+        compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Synthetic sending check"))
+        compose.onNodeWithText("Sending…").assertIsDisplayed()
+        // Your own posts carry no name and no avatar.
+        compose.onNodeWithText("Bruce Wayne").assertDoesNotExist()
+        // Others: a 20 dp avatar left of the name, once per run, the bubble from the same leading edge.
+        compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Back from lunch. Any update on the build?"))
+        val avatars = compose.onAllNodesWithTag("channel-avatar", useUnmergedTree = true).fetchSemanticsNodes()
+        assertEquals("Clark, Diana and Release ops each start one run", 3, avatars.size)
+        val density = compose.density
+        avatars.forEach { assertEquals(20f, with(density) { it.size.width.toDp().value }, 1f) }
+        val diana = compose.onNodeWithText("Diana Prince", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val dianaAvatar = avatars.map { it.boundsInRoot }.single { kotlin.math.abs(it.center.y - diana.center.y) < diana.height }
+        assertTrue("avatar=$dianaAvatar name=$diana", dianaAvatar.right <= diana.left)
+        val bubble = compose.onNodeWithText("Back from lunch. Any update on the build?", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val edge = with(density) { 24.dp.toPx() }
+        assertTrue("avatar=$dianaAvatar bubble=$bubble", kotlin.math.abs((bubble.left - with(density) { 14.dp.toPx() }) - dianaAvatar.left) < edge)
     }
 }

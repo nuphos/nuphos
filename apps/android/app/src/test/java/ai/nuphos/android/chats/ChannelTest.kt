@@ -51,12 +51,27 @@ class ChannelTest {
         val other = AgentConversationDetail.TimelineEvent(Instant.parse("2026-11-03T09:26:00Z"), "Ignored", "other")
         val sending = c.copy(id = "local", sentAt = Instant.EPOCH, sending = true)
         val items = ChannelPost.items(listOf(a, b, c, sending), listOf(paused, other), listOf(ChannelAgent("agent-ops", "Release ops")))
-        assertEquals(listOf("post.m1", "post.m2", items[2].key, "post.m3", "post.local", "typing"), items.map { it.key })
-        assertTrue(items[2] is ChannelItem.Paused)
-        assertTrue((items[0] as ChannelItem.Post).first); assertTrue((items[1] as ChannelItem.Post).first)
-        assertTrue("A different sender starts a run", (items[3] as ChannelItem.Post).first)
-        assertFalse("Same sender continues the run", (items[4] as ChannelItem.Post).first)
+        assertEquals(listOf("time.m1", "post.m1", "post.m2", items[3].key, "time.m3", "post.m3", "post.local", "typing"), items.map { it.key })
+        assertTrue(items[3] is ChannelItem.Paused)
+        assertEquals("The first post is timed", a.sentAt, (items[0] as ChannelItem.Time).at)
+        assertTrue((items[1] as ChannelItem.Post).first); assertTrue((items[2] as ChannelItem.Post).first)
+        assertTrue("A post after a pause starts a run", (items[5] as ChannelItem.Post).first)
+        assertFalse("Same sender continues the run", (items[6] as ChannelItem.Post).first)
         assertEquals(listOf("m1"), ChannelPost.stillSending(listOf(b), listOf(a, b)).map { it.id })
+    }
+
+    @Test fun aPauseOfMoreThanFiveMinutesShowsATimeAndStartsANewRun() {
+        val a = ChannelPost.from(message(person))!!
+        fun at(id: String, time: String) = a.copy(id = id, sentAt = Instant.parse(time))
+        val posts = listOf(a, at("m2", "2026-11-03T09:25:00Z"), at("m3", "2026-11-03T09:30:01Z"), at("m4", "2026-11-03T12:40:00Z"),
+            at("m5", "2026-11-03T12:41:00Z"), at("local", "2026-11-03T20:00:00Z").copy(sending = true))
+        val items = ChannelPost.items(posts, emptyList(), emptyList())
+        assertEquals(listOf("time.m1", "post.m1", "post.m2", "time.m3", "post.m3", "time.m4", "post.m4", "post.m5", "post.local"),
+            items.map { it.key })
+        val runs = items.filterIsInstance<ChannelItem.Post>().associate { it.post.id to it.first }
+        assertEquals(mapOf("m1" to true, "m2" to false, "m3" to true, "m4" to true, "m5" to false, "local" to false), runs)
+        assertTrue("Exactly five minutes is no pause", items.none { it.key == "time.m2" })
+        assertTrue("A post on its way is never timed", items.none { it.key == "time.local" })
     }
 
     private class FakeTransport : ChannelSession.Transport {

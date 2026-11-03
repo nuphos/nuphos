@@ -68,10 +68,15 @@ data class ChannelPost(
                   typing: List<ChannelAgent>): List<ChannelItem> {
             data class Timed(val at: Instant, val order: Int, val item: ChannelItem)
             val rows = mutableListOf<Timed>()
+            var previous: Instant? = null
             posts.forEachIndexed { index, post ->
-                val first = index == 0 || posts[index - 1].senderId != post.senderId
                 // A post on its way is the newest, whatever the clocks say.
                 val at = if (post.sending) Instant.MAX else post.sentAt ?: Instant.MIN
+                // A post after a pause gets a centered time and starts a new run.
+                val timed = !post.sending && ChatTime.showsTimestamp(post.sentAt, previous)
+                if (timed) rows += Timed(at, rows.size, ChannelItem.Time("time.${post.id}", at))
+                previous = post.sentAt ?: previous
+                val first = timed || index == 0 || posts[index - 1].senderId != post.senderId
                 rows += Timed(at, rows.size, ChannelItem.Post(post, first))
             }
             events.filter { it.kind == "agents_paused" }.forEach { event ->
@@ -88,6 +93,8 @@ sealed class ChannelItem {
     abstract val key: String
     /** `first` starts a run: it carries the avatar and the name. */
     data class Post(val post: ChannelPost, val first: Boolean) : ChannelItem() { override val key get() = "post.${post.id}" }
+    /** A centered time above a post that follows a pause. */
+    data class Time(override val key: String, val at: Instant) : ChannelItem()
     /** The loop guard stopped agents answering agents. */
     data class Paused(override val key: String, val text: String) : ChannelItem()
     /** Agents in a turn right now. */
