@@ -16,6 +16,15 @@ pub const SERVICE: &str = "ai.nuphos.cli.session";
 /// The desktop app's item (`apps/desktop/electron/auth/token-store.ts`).
 pub const DESKTOP_SERVICE: &str = "ai.nuphos.desktop.session";
 
+/// The credential store's name, for `nuphos auth status`.
+pub const STORE_NAME: &str = if cfg!(target_os = "macos") {
+    "macOS Keychain"
+} else if cfg!(target_os = "windows") {
+    "Windows Credential Manager"
+} else {
+    "the Secret Service"
+};
+
 /// Whether a new token goes to the credential store: on macOS and Windows,
 /// and on Linux when a Secret Service answers. A store that refuses the write
 /// (locked, in an SSH session) leaves it in `cli.yaml`.
