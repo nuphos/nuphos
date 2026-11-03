@@ -8,6 +8,10 @@ struct HomeView: View {
     let user: NuphosUser
 
     @State private var page: HomePage = Self.initialPage
+    /// The viewer picked a page, so the default tab no longer applies.
+    @State private var pageChosen = false
+    /// The next page change is the default tab, not the viewer's pick.
+    @State private var autoPage = false
     @State private var showProfile = false
     @State private var isSearching = false
     @State private var titleCollapsed = false
@@ -54,7 +58,7 @@ struct HomeView: View {
 
                 // Each control gets its own glass group
                 // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
-                if page == .agent, store != nil {
+                if page.isHomeList, store != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             isSearching.toggle()
@@ -171,6 +175,7 @@ struct HomeView: View {
             openChat = nil
         }
         .onChange(of: page) { oldPage, newPage in
+            if autoPage { autoPage = false } else { pageChosen = true }
             isSearching = false
             openChat = nil
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
@@ -180,7 +185,14 @@ struct HomeView: View {
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
         .onChange(of: PushNotifications.shared.pendingTarget, initial: true) { _, target in
-            if target != nil { page = .agent }
+            if target != nil, !page.isHomeList { page = .agent }
+        }
+        // The default tab, once the chats are known: Chats when there is one.
+        // Never after the viewer picked a page, nor under a chat already open.
+        .onChange(of: store?.channelsLoaded) { _, loaded in
+            guard loaded == true, let store, !pageChosen, openChat == nil, page.isHomeList else { return }
+            let tab: HomePage = store.channels.isEmpty ? .agent : .chats
+            if tab != page { autoPage = true; page = tab }
         }
         .onChange(of: PushNotifications.shared.pendingConversations, initial: true) { _, show in
             guard show else { return }
@@ -209,13 +221,13 @@ struct HomeView: View {
             return page
         }
         #endif
-        return .agent
+        return HomePage.hasChats ? .chats : .agent
     }
 
     @ViewBuilder
     private var pageContent: some View {
         switch page {
-        case .agent:
+        case .chats, .agent:
             AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
         case .plans:
             PlansPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed)

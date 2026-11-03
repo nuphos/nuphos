@@ -26,6 +26,8 @@ final class AgentStore {
 
     /// The chats the viewer owns or joined, newest activity first.
     private(set) var channels: [AgentConversation] = []
+    /// Set once the chats have loaded, so the home list can open on the right tab.
+    private(set) var channelsLoaded = false
 
     /// Both listings the desktop sidebar reads: chats of one's own, then the ones joined.
     func loadChannels() async {
@@ -41,6 +43,8 @@ final class AgentStore {
         }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        if query.isEmpty { HomePage.hasChats = !channels.isEmpty }
+        channelsLoaded = true
     }
 
     func channel(for conversation: AgentConversation) -> ChannelSession {
