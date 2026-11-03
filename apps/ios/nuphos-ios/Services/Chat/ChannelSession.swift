@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 /// A chat: people and agents talking. It runs no agent of its own; each agent
-/// here answers from its own session. Polled while on screen, as the desktop's
-/// `useChannel` is: a cheap probe, and the full read only when it changed.
+/// here answers from its own session. Polled while it is the open chat, as the
+/// desktop's `useChannel` is: a cheap probe, and the full read only when it changed.
 @Observable
 final class ChannelSession {
     static let pollInterval: Duration = .seconds(4)
@@ -23,7 +23,7 @@ final class ChannelSession {
     /// What a sending post attached, drawn from the device until it is posted.
     private(set) var sendingAttachments: [String: [ComposerAttachment]] = [:]
     /// Each posted file group's files, read before its post shows, so a post
-    /// is measured once at its final height. Empty for a group that is gone.
+    /// is measured once at its final height.
     private(set) var files: [String: [TransferDownloadGroup.File]] = [:]
     /// The latest send, so the transcript returns to the end for it.
     private(set) var lastSubmittedRowID: String?
@@ -50,12 +50,21 @@ final class ChannelSession {
 
     // MARK: - Reading
 
+    /// Reads the chat until cancelled. `AgentStore.poll` runs it while this is the open chat.
+    func poll() async {
+        while !Task.isCancelled {
+            await refresh()
+            try? await Task.sleep(for: Self.pollInterval)
+        }
+    }
+
     /// The probe, then the full read when the chat changed; `force` skips the probe.
     func refresh(force: Bool = false) async {
         do {
             if !force, loaded {
-                let probe = try await NuphosAPI.conversationDetail(
-                    token: token, teamId: teamId, sessionId: channelId, tail: 1, displayed: false)
+                // The probe reads the newest post, so an open chat is read up to it: a
+                // post's activity can land after the transcript change the probe compares.
+                let probe = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1)
                 guard stamp(of: probe) != revision else { return }
             }
             async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
@@ -65,16 +74,6 @@ final class ChannelSession {
             apply(read, agents: people)
         } catch {
             if !loaded { loadError = error.localizedDescription; loaded = true }
-        }
-    }
-
-    /// Until cancelled, with the view that shows the chat.
-    func poll() async {
-        await refresh(force: !loaded)
-        while !Task.isCancelled {
-            try? await Task.sleep(for: Self.pollInterval)
-            guard !Task.isCancelled else { return }
-            await refresh()
         }
     }
 
@@ -97,11 +96,12 @@ final class ChannelSession {
 
     private func resolveFiles(of posts: [ChannelPost]) async {
         let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads }).subtracting(files.keys)
-        await withTaskGroup(of: (String, [TransferDownloadGroup.File]).self) { group in
+        await withTaskGroup(of: (String, [TransferDownloadGroup.File]?).self) { group in
             for id in missing {
-                group.addTask { [self] in (id, (try? await transferGroup(id))?.readyFiles ?? []) }
+                group.addTask { [self] in (id, (try? await transferGroup(id))?.readyFiles) }
             }
-            for await (id, ready) in group { files[id] = ready }
+            // A failed read stays out, so the next refresh, or the card itself, tries again.
+            for await (id, ready) in group { if let ready { files[id] = ready } }
         }
     }
 

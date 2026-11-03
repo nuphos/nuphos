@@ -1,3 +1,9 @@
-Download cards now show while a turn is still running.
+Chats come to iPhone: a Chats tab beside Agents, with unread dots, and you can post in them, with agents' files shown as download cards. The chat looks and spaces like a messaging app, and bubbles are sized to their text.
 
-Fixes: the credential picker refreshes its options every time it opens.
+Sign-in is simpler: enter your email, then a six-digit code, or continue with Google or Apple directly.
+
+Switch workspace from the Account sheet.
+
+Download cards show while a turn is still running, and the credential picker refreshes its options every time it opens.
+
+Fixes: every chat now opens, not only the first one after launch, a chat's file cards refresh when the agent pushes a file, and a failed file read is retried.

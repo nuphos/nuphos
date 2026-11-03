@@ -52,8 +52,10 @@ import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.MarkdownAnimations
 import com.mikepenz.markdown.model.MarkdownColors
+import com.mikepenz.markdown.model.MarkdownPadding
 import com.mikepenz.markdown.model.MarkdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
+import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.rememberStreamingMarkdownState
 import java.net.URI
@@ -67,6 +69,8 @@ fun MarkdownText(
     modifier: Modifier = Modifier,
     streaming: Boolean = false,
     onLink: ((String) -> Unit)? = null,
+    /** A chat bubble: a short gap between paragraphs, tight lists. */
+    compact: Boolean = false,
 ) {
     val fallbackHandler = LocalUriHandler.current
     val uriHandler = remember(onLink, fallbackHandler) {
@@ -84,15 +88,15 @@ fun MarkdownText(
     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
         val documentModifier = modifier.fillMaxWidth()
         if (streamLatch.value) {
-            StreamingMarkdownDocument(text, documentModifier)
+            StreamingMarkdownDocument(text, documentModifier, compact)
         } else {
-            StaticMarkdownDocument(text, documentModifier)
+            StaticMarkdownDocument(text, documentModifier, compact)
         }
     }
 }
 
 @Composable
-private fun StreamingMarkdownDocument(text: String, modifier: Modifier) {
+private fun StreamingMarkdownDocument(text: String, modifier: Modifier, compact: Boolean) {
     var generation by remember { mutableIntStateOf(0) }
     val latestText by rememberUpdatedState(text)
     key(generation) {
@@ -110,12 +114,13 @@ private fun StreamingMarkdownDocument(text: String, modifier: Modifier) {
                 }
             }
         }
-        NuphosMarkdown {
+        NuphosMarkdown(compact) {
             Markdown(
                 streamingMarkdownState = state,
                 modifier = modifier,
                 colors = it.colors,
                 typography = it.typography,
+                padding = it.padding,
                 imageTransformer = Coil3ImageTransformerImpl,
                 animations = it.animations,
                 components = it.components,
@@ -125,14 +130,15 @@ private fun StreamingMarkdownDocument(text: String, modifier: Modifier) {
 }
 
 @Composable
-private fun StaticMarkdownDocument(text: String, modifier: Modifier) {
+private fun StaticMarkdownDocument(text: String, modifier: Modifier, compact: Boolean) {
     val markdownState = rememberMarkdownState(text, retainState = true)
-    NuphosMarkdown {
+    NuphosMarkdown(compact) {
         Markdown(
             markdownState = markdownState,
             modifier = modifier,
             colors = it.colors,
             typography = it.typography,
+            padding = it.padding,
             imageTransformer = Coil3ImageTransformerImpl,
             animations = it.animations,
             components = it.components,
@@ -146,10 +152,11 @@ private class MarkdownChrome(
     val typography: MarkdownTypography,
     val animations: MarkdownAnimations,
     val components: MarkdownComponents,
+    val padding: MarkdownPadding,
 )
 
 @Composable
-private fun NuphosMarkdown(content: @Composable (MarkdownChrome) -> Unit) {
+private fun NuphosMarkdown(compact: Boolean, content: @Composable (MarkdownChrome) -> Unit) {
     val body = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp)
     val colors = markdownColor(text = MaterialTheme.colorScheme.onSurface)
     val typography = markdownTypography(
@@ -187,7 +194,11 @@ private fun NuphosMarkdown(content: @Composable (MarkdownChrome) -> Unit) {
         checkbox = { MarkdownCheckBox(it.content, it.node, it.typography.text) },
         table = { NuphosMarkdownTable(it) },
     )
-    content(MarkdownChrome(colors, typography, animations, components))
+    // Bubbles, like iOS: about 8 dp between paragraphs and 4 dp between list items. The renderer puts
+    // three block spacers between two paragraphs, so 3 dp reads as the 8 dp gap on screen.
+    val padding = if (compact) markdownPadding(block = 3.dp, list = 0.dp, listItemTop = 2.dp, listItemBottom = 2.dp)
+        else markdownPadding()
+    content(MarkdownChrome(colors, typography, animations, components, padding))
 }
 
 @Composable

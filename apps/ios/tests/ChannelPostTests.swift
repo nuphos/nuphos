@@ -5,6 +5,7 @@ enum ChannelPostTests {
         readsPeopleAgentsAndFiles()
         skipsMessagesWithoutASenderOrContent()
         startsARunAtEachNewSender()
+        putsATimeAboveAPostAfterAPause()
         keepsSendingPostsUntilTheChatReturnsThem()
         placesPausedLinesAndTypingInOrder()
         decodesChatsFromTheList()
@@ -71,13 +72,26 @@ enum ChannelPostTests {
         precondition(firsts(items) == ["a", "c", "d"])
     }
 
+    private static func putsATimeAboveAPostAfterAPause() {
+        let items = ChannelPost.items(posts: [post("a", "x", at: 0), post("b", "x", at: 60), post("c", "x", at: 60 + ChatTime.separatorInterval + 1)],
+                                      events: [], typing: [])
+        precondition(items.map(\.id) == ["time.a", "post.a", "post.b", "time.c", "post.c"])
+        // The sender's name shows again under the time.
+        precondition(firsts(items) == ["a", "c"])
+    }
+
     private static func keepsSendingPostsUntilTheChatReturnsThem() {
         let sending = [post("s1", "me", at: 5, sending: true), post("s2", "me", at: 6, sending: true)]
         precondition(ChannelPost.stillSending(stored: [post("s1", "me", at: 5)], sending: sending).map(\.id) == ["s2"])
         precondition(ChannelPost.stillSending(stored: [], sending: sending).count == 2)
         // A post on its way is the newest even when this device's clock runs behind.
         let items = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: 1, sending: true)], events: [], typing: [])
-        precondition(items.map(\.id) == ["post.old", "post.s"])
+        precondition(items.map(\.id) == ["time.old", "post.old", "post.s"])
+        // After a pause it carries its time while sending, so being returned changes no rows.
+        let later = 100 + ChatTime.separatorInterval + 1
+        let sent = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: later, sending: true)], events: [], typing: [])
+        let returned = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: later)], events: [], typing: [])
+        precondition(sent.map(\.id) == ["time.old", "post.old", "time.s", "post.s"] && returned.map(\.id) == sent.map(\.id))
     }
 
     private static func placesPausedLinesAndTypingInOrder() {
@@ -86,7 +100,7 @@ enum ChannelPostTests {
         let typing = [ChannelAgent(sessionId: "agent-1", title: "Ops", ownerId: "me")]
         let items = ChannelPost.items(posts: [post("a", "x", at: 1), post("b", "x", at: 2), post("c", "x", at: 3)],
                                       events: [paused, joined], typing: typing)
-        precondition(items.map(\.id) == ["post.a", "post.b", "paused.2.5", "post.c", "typing"])
+        precondition(items.map(\.id) == ["time.a", "post.a", "post.b", "paused.2.5", "post.c", "typing"])
         precondition(items.last?.item == .typing(typing))
         // The line between two posts does not split their sender's run.
         precondition(firsts(items) == ["a"])

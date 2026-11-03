@@ -149,9 +149,11 @@ export function portabilityDb() {
         rows(name).push(created)
         doc = created
       }
+      const before = options?.returnDocument === 'before' && doc ? structuredClone(doc) : undefined
+
       if (doc) update(doc, query, mutation)
 
-      return doc ?? null
+      return before ?? doc ?? null
     },
     updateOne: async (query: Doc, mutation: Doc, options?: Doc) => {
       const doc = await collection(name).findOneAndUpdate(query, mutation, options)

@@ -1308,15 +1308,18 @@
     background-color: rgb(var(--color-appBg));
   }
 
+  /* Dark mode stays opaque: the window's vibrancy blurs whatever sits behind
+     it, so a light window there (a browser, say) bled through the 25% gap as a
+     white glow that came and went with window order. */
   .sidebar-surface {
-    background-color: rgba(var(--color-appBg), 0.75);
+    background-color: rgb(var(--color-appBg));
   }
   html.light .sidebar-surface {
     background-color: rgba(var(--color-appBg), 0.65);
   }
-  /* Docked, the partial alpha lets the window's vibrancy through. Floating over
-     the content while collapsed there is no vibrancy behind it — only the page,
-     which then ghosts through the panel. Keep that state opaque. */
+  /* Docked in light mode, the partial alpha lets the window's vibrancy through.
+     Floating over the content while collapsed there is no vibrancy behind it —
+     only the page, which then ghosts through the panel. Keep that state opaque. */
   .sidebar-surface.is-floating,
   html.light .sidebar-surface.is-floating {
     background-color: rgb(var(--color-appBg));
@@ -2250,11 +2253,10 @@
   -webkit-app-region: no-drag;
 }
 
-/* With the sidebar hidden, only the top-left session sits under macOS's
-   native traffic lights. Keep their clearance stable at every app zoom. */
-html.platform-darwin:not(.window-fullscreen)
-  [data-traffic-light-inset='true']
-  .workspace-agent-titlebar {
+/* With the sidebar hidden, the header in the top-left corner sits under macOS's
+   native traffic lights; its toggle lands where the sidebar's own did. Keep the
+   clearance stable at every app zoom. */
+html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
   padding-left: calc(28px + 54px / var(--zoom-factor, 1));
 }
 
@@ -2340,8 +2342,32 @@ html.platform-darwin:not(.window-fullscreen)
 .t-summary-in {
   animation: t-summary-in 220ms var(--panel-ease) both;
 }
+.t-summary-out {
+  animation: t-summary-in 200ms var(--panel-ease) reverse both;
+}
+/* The slot beside the transcript opens and closes with the dock's timing, so
+   the transcript narrows and widens with it instead of jumping. */
+@keyframes t-summary-slot-in {
+  from {
+    width: 0;
+  }
+}
+@keyframes t-summary-slot-out {
+  to {
+    width: 0;
+  }
+}
+.t-summary-slot-in {
+  animation: t-summary-slot-in 300ms var(--panel-ease) both;
+}
+.t-summary-slot-out {
+  animation: t-summary-slot-out 300ms var(--panel-ease) both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .t-summary-in {
+  .t-summary-in,
+  .t-summary-out,
+  .t-summary-slot-in,
+  .t-summary-slot-out {
     animation: none;
   }
 }

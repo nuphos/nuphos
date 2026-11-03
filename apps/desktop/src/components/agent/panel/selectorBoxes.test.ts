@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { boxAgentName, selectorBoxes, selectorMetrics } from './selectorBoxes.ts'
+import { boxAgentName, selectorBoxes, selectorMetrics, sharedBoxOwner } from './selectorBoxes.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
@@ -150,4 +150,55 @@ test('inside its computer a runtime shows its own name, or its provider', () => 
   )
   assert.equal(boxAgentName({ label: 'Codex in Studio', provider: 'codex', local }), 'Codex')
   assert.equal(boxAgentName({ label: 'Team Claude', provider: 'claude-code' }), 'Team Claude')
+})
+
+test('shared-host disclosure follows use grants, without warning owners or managers', async () => {
+  const { showSharedComputerDisclosure } = await import('./selectorBoxes.ts')
+  const agents = [{ local: { shared: { level: 'full' } } }] as unknown as Parameters<
+    typeof selectorBoxes
+  >[0]
+
+  for (const access of ['owner', 'manage', 'use'] as const) {
+    assert.equal(
+      showSharedComputerDisclosure({ device: device('fixture', { access }), agents }),
+      access === 'use',
+    )
+  }
+  assert.equal(showSharedComputerDisclosure({ agents }), true)
+  assert.equal(showSharedComputerDisclosure({ agents: [] }), false)
+})
+
+test("a teammate's computer names its owner; the viewer's own, a cloud one and the cloud do not", () => {
+  const members = [
+    {
+      id: 'alice',
+      name: 'Alice',
+      email: 'hello@hermai.ai',
+      username: 'alice',
+      role: 'EDITOR' as const,
+      joinedAt: '2026-01-01T00:00:00Z',
+    },
+  ]
+  const shared = device('mini', { access: 'use', ownerUserId: 'alice' })
+
+  assert.equal(sharedBoxOwner({ device: shared }, members), 'Shared by hello@hermai.ai')
+  assert.equal(sharedBoxOwner({ device: shared }, null), 'Shared by a teammate')
+  assert.equal(
+    sharedBoxOwner({ device: device('mbp', { access: 'owner', ownerUserId: 'u1' }) }, members),
+    null,
+  )
+  assert.equal(
+    sharedBoxOwner(
+      {
+        device: device('box', {
+          access: 'use',
+          ownerUserId: 'alice',
+          box: { provider: 'instabox' } as AgentDevice['box'],
+        }),
+      },
+      members,
+    ),
+    null,
+  )
+  assert.equal(sharedBoxOwner({}, members), null)
 })

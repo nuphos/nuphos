@@ -5,12 +5,16 @@ import { shell } from 'electron'
 // Extension-qualified so this module also resolves under plain node ESM, which
 // is how auth-login.test.ts drives login().
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
+import { AccountUnavailableError } from './auth/accounts.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
+import { requestContext } from './auth/request-context.ts'
+import { assertWanted, beginSignIn, cancelSignIns } from './auth/sign-in-attempt.ts'
 import {
   forgetAccountConfig,
+  forgetAllAccountConfigs,
+  signOutConfig,
   listAccountConfigs,
   parkAccountConfig,
-  requestContext,
   switchAccountConfig,
   writeConfig,
 } from './auth/config.ts'
@@ -46,7 +50,7 @@ let pendingServer: Server | null = null
  */
 export async function login(provider: SocialProvider): Promise<UserInfo> {
   cancelPendingLogin()
-
+  const attempt = beginSignIn()
   const server = createServer()
   const port = await listenOnLoopback(server)
 
@@ -58,8 +62,8 @@ export async function login(provider: SocialProvider): Promise<UserInfo> {
     await shell.openExternal(plan.browserUrl)
 
     return plan.mode === 'native'
-      ? await completeNativeLogin(server, plan)
-      : await completeLegacyLogin(server, plan)
+      ? await completeNativeLogin(server, plan, attempt)
+      : await completeLegacyLogin(server, plan, attempt)
   } finally {
     server.close()
     if (pendingServer === server) pendingServer = null
@@ -83,6 +87,7 @@ export async function requestEmailCode(email: string): Promise<void> {
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
+  const attempt = beginSignIn()
   // The token this returns is the backend's it was asked of, whatever the endpoint is by then.
   const api = apiUrl()
   const res = await fetch(`${api}/auth/email/verify-code`, {
@@ -104,6 +109,7 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
   }
   const user = body.user
 
+  assertWanted(attempt)
   await writeConfig({
     token,
     api,
@@ -116,15 +122,13 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
 }
 
 export async function logout() {
-  if (pendingServer) {
-    pendingServer.close()
-    pendingServer = null
-  }
-  const { api, token } = await requestContext()
+  // A sign-in still out must not land after this one is gone.
+  cancelPendingLogin()
+  // The account removed here is the one whose session is ended: both are
+  // decided in one turn of the sign-in file. Ending it is best effort.
+  const ended = await signOutConfig()
 
-  // Signed out here first; ending the session on the server is best effort.
-  await writeConfig({})
-  if (token) await endServerSession(api, token)
+  if (ended) await endServerSession(ended.api, ended.token)
 }
 
 /**
@@ -145,8 +149,25 @@ export async function changeBackend(url: string | null): Promise<string> {
 /** The accounts signed in on this computer, the active one first; never their tokens. */
 export const listAccounts = listAccountConfigs
 
-/** Makes another signed-in account the active one, on the backend that issued its token. */
-export const switchAccount = switchAccountConfig
+/**
+ * Makes another signed-in account the active one, on the backend that issued
+ * its token. One whose token is gone (a locked or cleared keychain) is signed
+ * out of this app instead, to be signed in again.
+ */
+export async function switchAccount(key: string): Promise<'switched' | 'signInAgain'> {
+  // A sign-in still out in another window must not replace the account chosen here.
+  cancelPendingLogin()
+  try {
+    await switchAccountConfig(key)
+
+    return 'switched'
+  } catch (e) {
+    if (!(e instanceof AccountUnavailableError)) throw e
+    await signOutAccount(key)
+
+    return 'signInAgain'
+  }
+}
 
 /** Signs one account out of this app and ends its session on its backend. */
 export async function signOutAccount(key: string): Promise<void> {
@@ -158,6 +179,14 @@ export async function signOutAccount(key: string): Promise<void> {
   if (ended) void endServerSession(ended.api, ended.token)
 }
 
+/** Signs every account out of this app, the active one last. */
+export async function signOutAllAccounts(): Promise<void> {
+  cancelPendingLogin()
+  // In one turn of the sign-in file, so a switch from another window cannot
+  // slip an account past it.
+  for (const { api, token } of await forgetAllAccountConfigs()) void endServerSession(api, token)
+}
+
 async function endServerSession(api: string, token: string): Promise<void> {
   await fetch(`${api}/auth/sessions/current`, {
     method: 'DELETE',
@@ -167,6 +196,7 @@ async function endServerSession(api: string, token: string): Promise<void> {
 }
 
 export function cancelPendingLogin() {
+  cancelSignIns()
   if (pendingServer) {
     pendingServer.close()
     pendingServer = null

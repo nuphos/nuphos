@@ -326,6 +326,15 @@ describe('what each token kind may call', () => {
     }
   })
 
+  test('no CLI token or agent run posts in a channel; agents use channel_post', () => {
+    for (const kind of [agent, personal, { kind: 'run' as const }]) {
+      expect(
+        cliTokenDenied(kind, 'POST', '/agent/conversations/c1/channel-messages'),
+      ).not.toBeNull()
+      expect(cliTokenDenied(kind, 'GET', '/agent/conversations/c1')).toBeNull()
+    }
+  })
+
   test('a personal token lists and revokes its own', () => {
     expect(cliTokenDenied(personal, 'GET', '/auth/cli-tokens')).toBeNull()
     expect(cliTokenDenied(personal, 'DELETE', '/auth/cli-tokens/abc')).toBeNull()

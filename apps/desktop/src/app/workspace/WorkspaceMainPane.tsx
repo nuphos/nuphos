@@ -1,18 +1,15 @@
-import { faPlus } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Profiler, useEffect, useRef, useState } from 'react'
 
 import { WorkspaceTabPane } from '../../app/workspace/WorkspaceTabPane'
-import { EMPTY_LIST, FULL_BLEED_PAGE_KEYS } from '../../app/workspaceTabState'
-import { Toolbar } from '../../components/Toolbar'
-import { Button } from '../../components/ui/button'
+import { EMPTY_LIST } from '../../app/workspaceTabState'
 import { PageAsideContext } from '../../hooks/usePageAside'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
 import { ToolbarPrimaryActionContext } from '../../hooks/useToolbarPrimaryAction'
 import { teamCanUseAgent } from '../../lib/agentAccess'
-import { reportPaneRender, reportShellRender } from '../../lib/tabSwitchLog'
+import { reportPaneRender } from '../../lib/tabSwitchLog'
 
 import { usePaneOrder } from './usePaneOrder'
+import { WorkspacePageToolbar } from './WorkspacePageToolbar'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
@@ -51,38 +48,20 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     firstRunDevForced,
     sidebarAgentPagePendingImport,
     clearSidebarAgentPagePendingImport,
-    activeTab,
     pendingChatPrompt,
-    activeExternalLink,
-    toolbarPageUrl,
     scope,
-    filter,
-    count,
-    viewLoading,
     setAgentSessionTitle,
-    namespaces,
-    switching,
     updateTab,
-    loadNamespaces,
     accounts,
     enterScopeInTab,
     copyLink,
     consumeChatPrompt,
     openAuditConversation,
-    setClusterNamespace,
     openLightsailSshTab,
     openEc2SshTab,
     openGceSshTab,
-    onRefresh,
-    toolbarSegments,
-    showListControls,
     setActiveFilter,
-    toolbarPrimaryAction,
     setToolbarPrimaryAction,
-    setToolbarLeftEl,
-    setToolbarRightEl,
-    setToolbarHeaderRightEl,
-    toolbarHeaderRightOccupied,
     toolbarSlots,
     stableDockAgentToSidebar,
     stableOpenNuphosLinkFromChat,
@@ -92,7 +71,6 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     stableEnterCluster,
     stableOpenInChat,
     stableOpenAgentChatWithPrompt,
-    toolbarHasControls,
     rootIntegrations,
     scopeChipForPath,
     onSidebarOpenPath,
@@ -139,76 +117,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     >
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden workspace-content-surface">
-          {!FULL_BLEED_PAGE_KEYS.has(activeTab?.active ?? '') && (
-            <Profiler id="toolbar" onRender={(id, _p, ms) => reportShellRender(id, ms)}>
-              <Toolbar
-                segments={toolbarSegments}
-                filter={filter}
-                onFilterChange={setActiveFilter}
-                count={count}
-                headerRightActions={
-                  <div
-                    ref={setToolbarHeaderRightEl}
-                    className="titlebar-no-drag flex min-w-0 items-center gap-1 empty:hidden"
-                  />
-                }
-                hasHeaderRightActions={toolbarHeaderRightOccupied}
-                filterControls={
-                  // Left portal target: views push filters/tabs/pickers here via
-                  // useToolbarSlot('left', …). `empty:hidden` so an unused slot never
-                  // adds a stray flex gap next to the search box.
-                  <div
-                    ref={setToolbarLeftEl}
-                    className="titlebar-no-drag flex min-w-0 items-center gap-1 empty:hidden"
-                  />
-                }
-                extraActions={
-                  <>
-                    {/* Right portal target: always present so any active view can
-                      render its own controls (e.g. the Grafana dashboard's
-                      variable / time-range pickers) via useToolbarSlots().right.
-                      `empty:hidden` so it adds no flex gap before the CTA when a
-                      page uses the App-level action below instead. */}
-                    <div
-                      ref={setToolbarRightEl}
-                      className="titlebar-no-drag flex items-center gap-2 empty:hidden"
-                    />
-                    {toolbarPrimaryAction ? (
-                      <Button
-                        size="sm"
-                        type="button"
-                        disabled={toolbarPrimaryAction.disabled}
-                        onClick={toolbarPrimaryAction.onClick}
-                      >
-                        <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
-                        {toolbarPrimaryAction.label}
-                      </Button>
-                    ) : null}
-                  </>
-                }
-                onRefresh={onRefresh}
-                hasControls={toolbarHasControls}
-                showFilter={showListControls}
-                namespaces={showListControls && scope.kind === 'cluster' ? namespaces : undefined}
-                namespacesLoading={activeTab?.namespacesState === 'loading'}
-                namespacesTruncated={activeTab?.namespacesTruncated}
-                namespacesTotal={activeTab?.namespacesTotal}
-                onLoadNamespaces={
-                  showListControls && scope.kind === 'cluster' ? loadNamespaces : undefined
-                }
-                selectedNamespace={
-                  showListControls && scope.kind === 'cluster' ? (scope.namespace ?? '') : undefined
-                }
-                onSelectNamespace={
-                  showListControls && scope.kind === 'cluster' ? setClusterNamespace : undefined
-                }
-                switching={switching}
-                loading={viewLoading}
-                currentPageUrl={toolbarPageUrl}
-                externalLink={activeExternalLink}
-              />
-            </Profiler>
-          )}
+          <WorkspacePageToolbar ws={ws} />
           <div className="flex-1 flex flex-col min-h-0">
             {error && (
               <div className="px-6 py-2 bg-error/15 text-error text-[12.5px] border-b border-error/30">

@@ -81,7 +81,7 @@ export function AgentSection({
   const { isActive } = useWorkspaceTab()
   const panelShown = isActive && aside !== null && selected !== undefined
 
-  useToolbarPrimaryAction(isActive && isAdmin ? t('Add runtime') : null, () => setAdding(true))
+  useToolbarPrimaryAction(isActive && isAdmin ? t('Add computer') : null, () => setAdding(true))
   useEffect(() => {
     onCount(instances.length)
   }, [instances.length, onCount])

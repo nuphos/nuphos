@@ -1,3 +1,6 @@
+import { t } from '../i18n/index.ts'
+
+import type { AgentDevice } from '../api/device-types'
 import type { RuntimeInstance } from '../types/runtime'
 
 /** A local agent runs on its owner's own computer (`local_<user>_<device>`). */
@@ -11,19 +14,25 @@ export function isLocalAgentRuntime(runtimeId: string | undefined): boolean {
 export const LOCAL_AGENT_SHARING_NOTE =
   'This agent runs on your computer’s local runtime. People you share it with can read it, but only you can send messages. Move it to a team runtime to work on it together.'
 
-/** The confirmation a move needs before it puts the session on a computer:
- *  from then on only the owner can send messages, so anyone who could reply
- *  before is left read-only. */
+export const OWN_LOCAL_AGENT_MOVE_NOTICE = t(
+  'After the move, only you can send messages; people you shared it with can still read it.',
+)
+
+/** Host trust and losing collaboration are separate reasons to explain a move. */
 export function localAgentMoveWarning(
   target: Pick<RuntimeInstance, 'kind' | 'local'>,
+  access?: AgentDevice['access'],
+  viewerUserId?: string,
 ): string | undefined {
   if (target.kind !== 'local') return undefined
-  const shared = target.local?.shared
+  const own =
+    access === 'owner' ||
+    access === 'manage' ||
+    (viewerUserId !== undefined && target.local?.ownerUserId === viewerUserId)
 
-  if (shared)
-    return `This runtime runs on a teammate’s own computer, which they share with you. It runs as them, and they can see what runs there.${
-      shared.level === 'approve' ? ' They approve this agent before its first message runs.' : ''
-    } Only you can send messages in this agent.`
+  if (!own && (access === 'use' || target.local?.shared))
+    return t('Its owner can see this work, and only you can send messages in this agent.')
+  if (target.local?.box) return undefined
 
-  return 'This runtime runs on your computer. After the move, only you can send messages in this agent. People you shared it with can still read it.'
+  return OWN_LOCAL_AGENT_MOVE_NOTICE
 }

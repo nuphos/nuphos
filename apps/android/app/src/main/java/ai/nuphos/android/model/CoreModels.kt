@@ -85,6 +85,7 @@ data class TeamMember(
 data class TeamMembersEnvelope(val members: List<TeamMember> = emptyList())
 
 enum class HomePage(val title: String, val route: String) {
+    Chats("Chats", "chats"),
     Agent("Agents", "agent"),
     Plans("Plans", "plans"),
     Runtimes("Runtimes", "runtimes"),
@@ -93,10 +94,14 @@ enum class HomePage(val title: String, val route: String) {
     companion object {
         fun fromRoute(raw: String?): HomePage = entries.firstOrNull { it.route == raw } ?: Agent
         fun unavailableRoute(raw: String?): Boolean = raw != null && entries.none { it.route == raw }
+        /** Launch opens on Chats when the last listing had a chat, as on iOS. */
+        fun launch(hasChats: Boolean): HomePage = if (hasChats) Chats else Agent
     }
 }
 
 enum class ConversationScope(val raw: String) {
     Mine("mine"),
     Team("team"),
+    /** Chats other people brought this viewer into. */
+    Shared("shared"),
 }

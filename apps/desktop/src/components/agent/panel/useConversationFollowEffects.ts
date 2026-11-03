@@ -8,6 +8,7 @@ import type { RefObject } from 'react'
 export function useConversationFollowEffects({
   tab,
   lastMsg,
+  lastMsgIsOwn,
   lastStreamToken,
   localCommandToolToken,
   statusLabel,
@@ -20,6 +21,7 @@ export function useConversationFollowEffects({
 }: {
   tab: Tab
   lastMsg: Message | undefined
+  lastMsgIsOwn: boolean
   lastStreamToken: string
   statusLabel: string | null
   localCommandToolToken: string
@@ -28,7 +30,7 @@ export function useConversationFollowEffects({
   userLockedScrollRef: RefObject<boolean>
   setShowJumpToLatest: (show: boolean) => void
   scrollToBottomAfterLayout: () => () => void
-  followLatestOrMarkUnseen: () => (() => void) | undefined
+  followLatestOrMarkUnseen: (ownSend?: boolean) => (() => void) | undefined
 }) {
   const [followedTabId, setFollowedTabId] = useState(tab.id)
 
@@ -56,19 +58,13 @@ export function useConversationFollowEffects({
     return scrollToBottomAfterLayout()
   }, [isActive, scrollToBottomAfterLayout, shouldFollowRef, userLockedScrollRef])
 
-  useEffect(() => {
-    if (lastMsg?.role === 'user') {
-      return scrollToBottomAfterLayout()
-    }
-
-    return followLatestOrMarkUnseen()
-  }, [
-    followLatestOrMarkUnseen,
-    lastMsg?.role,
-    lastStreamToken,
-    scrollToBottomAfterLayout,
-    tab.messages.length,
-  ])
+  // Only your own send jumps to the bottom. A teammate's message, like a reply,
+  // follows only a reader at the bottom. Keyed on the last message, not the count,
+  // so an earlier page loading above is not new content.
+  useEffect(
+    () => followLatestOrMarkUnseen(lastMsgIsOwn),
+    [followLatestOrMarkUnseen, lastMsg?.id, lastMsgIsOwn, lastStreamToken],
+  )
 
   // Timeline lines (invites, removals, a move in flight) are new content too.
   useEffect(

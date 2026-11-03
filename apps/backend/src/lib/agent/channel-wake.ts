@@ -16,7 +16,7 @@ export const channelNotice = (channelId: string) =>
  */
 export async function withChannelPosts<
   M extends { source?: string; metadata?: MessageMetadata; renderedText: string },
->(agentSessionId: string, messages: M[]) {
+>(agentSessionId: string, ownerId: string, messages: M[]) {
   const kept: M[] = []
   const read: [string, number][] = []
 
@@ -34,7 +34,7 @@ export async function withChannelPosts<
       kept.push(message)
       continue
     }
-    const page = await readChannelMessages(channel, agentSessionId, true)
+    const page = await readChannelMessages(channel, agentSessionId, ownerId, true)
 
     if (page.messages.length === 0) continue
     if (page.upTo !== undefined) read.push([channelId, page.upTo])

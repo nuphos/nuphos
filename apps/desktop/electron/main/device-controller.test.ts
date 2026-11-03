@@ -21,7 +21,7 @@ mock.module('./device-identity.ts', {
 mock.module('../agent/local-exec.ts', {
   namedExports: { logLocalTool: () => {}, normalizeToolError: String },
 })
-mock.module('../auth/config.ts', {
+mock.module('../auth/request-context.ts', {
   namedExports: {
     requestContext: async () => ({
       ...(await import('../auth-session.ts')).authSession.context(),

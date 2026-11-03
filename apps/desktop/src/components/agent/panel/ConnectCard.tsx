@@ -18,6 +18,7 @@ import { ConnectHeader, ConnectRow, ContinueFooter } from './ConnectCardRows'
 import { allCredentialAccess, normalizeCredentialOptions } from './credentialAccess'
 import { SecretCard } from './SecretCard'
 import { ToolPartView } from './ToolPartView'
+import { isDecisionFailed } from './toolRuns'
 
 import type { ConnectPhase, ConnectProvider, ConnectRowStatus } from './connectCardModel'
 import type { CredentialSelectorControl } from './credentialSections'
@@ -200,7 +201,7 @@ export function DecisionToolPart({
   teamId?: string
   canAct: boolean
 }) {
-  const failed = part.state === 'output-error'
+  const failed = isDecisionFailed(part)
   const connect = failed ? null : parseConnectRequest(part.input)
   const secret = failed || connect ? null : parseSecretRequest(part.input)
   const choice = failed || connect || secret ? null : parseChoiceRequest(part.input)

@@ -1,6 +1,5 @@
 import clsx from 'clsx'
-import { Box } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
@@ -14,11 +13,9 @@ import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxP
 import { boxRestartEnded } from './boxRestartPresentation'
 import { boxRestarts } from './boxRestartStore'
 import { BoxRow } from './BoxRow'
-import { NewBoxDialog } from './NewBoxDialog'
 import { PanelHeading } from './RuntimePanel'
 import { useAdminName } from './useAdminName'
 import { useAgentDevices } from './useAgentDevices'
-import { useBoxUsage } from './useBoxUsage'
 
 import './BoxLoading.css'
 
@@ -44,7 +41,7 @@ export function BoxSection({
   onOpenSettingsSection,
 }: {
   teamId: string
-  /** Only the team's administrators make Boxes; the backend enforces it. */
+  /** Only the team's administrators add computers, from the page's Add computer; the backend enforces it. */
   canCreate: boolean
   instances: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
@@ -52,9 +49,7 @@ export function BoxSection({
   onOpenSettingsSection?: (section: string) => void
 }) {
   const thisComputer = useThisComputer()
-  const [creating, setCreating] = useState(false)
   const previous = useRef<AgentDevice[]>([])
-  const { usage, reload: reloadUsage } = useBoxUsage(teamId)
   const { isActive } = useWorkspaceTab()
   const {
     list,
@@ -107,25 +102,13 @@ export function BoxSection({
         title={t('Computers')}
         right={
           list?.boxAvailable &&
-          (canCreate ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                reloadUsage()
-                setCreating(true)
-              }}
-            >
-              <Box className="h-3.5 w-3.5" />
-              {t('New computer')}
-            </Button>
-          ) : (
+          !canCreate && (
             <span className="text-[11.5px] text-tertiary">
               {admin
                 ? t('Ask {name} to add a cloud computer.', { name: admin })
                 : t('Administrators add cloud computers.')}
             </span>
-          ))
+          )
         }
       />
       <div
@@ -164,29 +147,13 @@ export function BoxSection({
                   agents={boxAgents(device.deviceId, instances)}
                   onSelect={onSelect}
                   onSetUpLocalAgent={setUpLocalAgent}
-                  onChanged={() => {
-                    reload()
-                    reloadUsage()
-                  }}
+                  onChanged={reload}
                 />
               ))}
             </DeskShelf>
           )}
         </div>
       </div>
-      {creating && (
-        <NewBoxDialog
-          teamId={teamId}
-          usage={usage}
-          labels={owned.map((device) => device.label)}
-          onClose={() => setCreating(false)}
-          onCreated={() => {
-            reload()
-            reloadUsage()
-          }}
-          onPlanChanged={reloadUsage}
-        />
-      )}
     </section>
   )
 }

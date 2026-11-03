@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ai.nuphos.android.model.CredentialDraft
@@ -110,6 +111,7 @@ class AgentStore(
             else kotlinx.coroutines.coroutineScope {
                 launch { reload() }
                 launch { loadFavorites() }
+                launch { loadChannels() }
             }
         }
     }
@@ -121,7 +123,63 @@ class AgentStore(
         refresh()
     }
 
+    // MARK: Chats (channels): their own listing, as on iOS and Desktop.
+    var channels by mutableStateOf<List<AgentConversation>>(emptyList())
+        private set
+    var channelsLoaded by mutableStateOf(false)
+        private set
+    private var channelGeneration = 0
+
+    /** Whether the last listing had a chat, so launch can open on Chats before it loads. */
+    val rememberedHasChats: Boolean get() = prefs.getBoolean(HAS_CHATS_KEY, false)
+
+    suspend fun loadChannels() {
+        if (disposed || !hasAiAccess()) return
+        val team = selectedTeam ?: return
+        val generation = ++channelGeneration
+        val query = search
+        val workspace = workspaceRevision
+        val consent = AiAccess.revision
+        fun current() = !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
+            workspaceRevision == workspace && generation == channelGeneration
+        try {
+            val rows = kotlinx.coroutines.coroutineScope {
+                listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
+                    async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, channels = true).rows }
+                }.flatMap { it.await() }
+            }
+            if (!current()) return
+            // A listing only ever shows chats; an agent row from an older server is left out.
+            channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
+                .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }
+            channelsLoaded = true
+            if (query.isEmpty()) prefs.edit().putBoolean(HAS_CHATS_KEY, channels.isNotEmpty()).apply()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Keep what was shown; the next refresh tries again.
+        }
+    }
+
+    fun channel(sessionId: String): AgentConversation? = channels.firstOrNull { it.sessionId == sessionId }
+
+    private val channelSessions = mutableMapOf<Pair<String, String>, ChannelSession>()
+
+    /** One chat session per workspace and chat, dropped with the workspace. */
+    fun channelSession(sessionId: String, title: String? = null): ChannelSession? {
+        val team = selectedTeam ?: return null
+        if (disposed || !hasAiAccess()) return null
+        return channelSessions.getOrPut(team.id to sessionId) {
+            ChannelSession(team.id, sessionId, title ?: channel(sessionId)?.displayTitle ?: "Chat",
+                ChannelSession.Api(token, team.id, sessionId))
+        }
+    }
+
     private fun resetHistory() {
+        channelGeneration++
+        channels = emptyList()
+        channelsLoaded = false
+        channelSessions.clear()
         searchJob?.cancel()
         refreshRequests.invalidate()
         isReloading = false
@@ -459,6 +517,7 @@ class AgentStore(
         searchJob?.cancel()
         searchJob = storeScope.launch {
             delay(250)
+            launch { loadChannels() }
             reload()
         }
     }
@@ -771,6 +830,7 @@ class AgentStore(
 
     companion object {
         private const val LAST_TEAM_KEY = "nuphos.workspace.lastTeamId"
+        private const val HAS_CHATS_KEY = "nuphos.home.hasChats"
         private const val PERMISSION_KEY = "nuphos.agentPermissionMode"
     }
 }

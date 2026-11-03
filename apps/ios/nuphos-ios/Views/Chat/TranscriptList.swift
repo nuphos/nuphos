@@ -13,6 +13,9 @@ struct TranscriptList: UIViewControllerRepresentable {
     let composer: AnyView
     /// Centered where the rows go while there are none to show.
     let placeholder: AnyView
+    /// New rows slide in, rows that leave fade, and the rows on screen glide
+    /// to make room, as in Messages. Off, only a sent row comes in this way.
+    var animatesArrivals = false
     let rowContent: (ChatRow) -> AnyView
 
     func makeUIViewController(context: Context) -> TranscriptController {
@@ -23,7 +26,7 @@ struct TranscriptList: UIViewControllerRepresentable {
         controller.setComposer(composer)
         controller.placeholder.rootView = placeholder
         controller.update(rows: rows, submittedRowID: submittedRowID,
-                          sessionID: sessionID, content: rowContent)
+                          sessionID: sessionID, animatesArrivals: animatesArrivals, content: rowContent)
     }
 }
 
@@ -36,7 +39,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var content: ((ChatRow) -> AnyView)?
     private var sessionID = ""
     private var submittedID: String?
-    private var pendingSentAnimationID: String?
+    /// Rows that come in with a transition once their cells exist.
+    private var arrivals: Set<String> = []
     /// Whether the reader was at the end where they or the transcript last
     /// came to rest. Read from the position itself, so no event can leave it
     /// stale; layout settling under the reader does not count as moving.
@@ -142,14 +146,16 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         latestButton.isHidden = true
     }
 
-    func update(rows transcript: [ChatRow], submittedRowID: String?, sessionID: String,
+    func update(rows transcript: [ChatRow], submittedRowID: String?, sessionID: String, animatesArrivals: Bool = false,
                 content: @escaping (ChatRow) -> AnyView) {
         loadViewIfNeeded()
+        let sameSession = self.sessionID == sessionID
         self.content = content
         self.sessionID = sessionID
         guard !applying, !collection.isDragging, !collection.isDecelerating else {
             pending = { [weak self] in
-                self?.update(rows: transcript, submittedRowID: submittedRowID, sessionID: sessionID, content: content)
+                self?.update(rows: transcript, submittedRowID: submittedRowID, sessionID: sessionID,
+                             animatesArrivals: animatesArrivals, content: content)
             }
             return
         }
@@ -165,13 +171,19 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         let anchor = readingAnchor(keeping: updated)
         // Decided before the change: applying it moves the offset itself.
         let follow = !positioned || following
+        // Only rows that are new to an open transcript move: never a first
+        // read, another conversation, or a refresh that changed nothing on screen.
+        let moves = animatesArrivals && sameSession && positioned && !old.isEmpty
+        let before = moves ? onScreen() : [:]
+        let leaving = moves ? departing(keeping: updated) : []
+        if moves { arrivals.formUnion(incoming.map(\.id).filter { old[$0] == nil }) }
         var snapshot = NSDiffableDataSourceSnapshot<Int, String>()
         snapshot.appendSections([0])
         snapshot.appendItems(incoming.map(\.id))
         snapshot.reconfigureItems(incoming.filter { old[$0.id] != nil && old[$0.id] != $0 }.map(\.id))
-        if sent {
+        if sent, let submittedRowID {
             submittedID = submittedRowID
-            pendingSentAnimationID = submittedRowID
+            arrivals.insert(submittedRowID)
         }
         layout.keepContentOffsetAtBottomOnBatchUpdates = positioned && follow
         applying = true
@@ -193,7 +205,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         } else if let anchor {
             restore(id: anchor.id, offset: anchor.offset)
         }
-        animatePendingSend()
+        animateArrivals(moved: moves ? slide(from: before, leaving: leaving) : 0)
     }
 
     /// A draft lives in the page's state, so every keystroke arrives here.
@@ -239,30 +251,89 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             // rotation moves them straight to their new layout instead.
             if root.rotating { UIView.performWithoutAnimation(positionAtEnd) } else { positionAtEnd() }
         }
-        animatePendingSend()
+        animateArrivals()
     }
 
-    private func animatePendingSend() {
-        guard collection.bounds.height > 0,
-              let id = pendingSentAnimationID,
-              let index = rows.firstIndex(where: { $0.id == id }),
-              let cell = collection.cellForItem(at: IndexPath(item: index, section: 0)) else { return }
-        pendingSentAnimationID = nil
-        // Presentation-only: never animate the layout, reading anchor, or offset.
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 0
-        fade.toValue = 1
-        let arrival = CAAnimationGroup()
-        arrival.animations = [fade]
-        if !UIAccessibility.isReduceMotionEnabled {
-            let lift = CABasicAnimation(keyPath: "transform.translation.y")
-            lift.fromValue = 6
-            lift.toValue = 0
-            arrival.animations?.append(lift)
+    /// New rows on screen fade in and rise from where the content was, or a
+    /// little below it. Rows that came in off screen just appear.
+    /// Presentation-only: never animate the layout, reading anchor, or offset.
+    private func animateArrivals(moved: CGFloat = 0) {
+        guard collection.bounds.height > 0, !arrivals.isEmpty else { return }
+        for (index, row) in rows.enumerated() where arrivals.contains(row.id) {
+            guard let cell = collection.cellForItem(at: IndexPath(item: index, section: 0)) else { continue }
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = 0.2
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            let arrival = CAAnimationGroup()
+            arrival.animations = [fade]
+            arrival.duration = fade.duration
+            if !UIAccessibility.isReduceMotionEnabled {
+                let lift = Self.glide(from: max(moved, 16))
+                arrival.animations?.append(lift)
+                arrival.duration = lift.duration
+            }
+            cell.layer.add(arrival, forKey: "sent-arrival")
         }
-        arrival.duration = 0.18
-        arrival.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        cell.layer.add(arrival, forKey: "sent-arrival")
+        arrivals.removeAll()
+    }
+
+    /// Each row on screen, by id, at its distance from the top of the visible area.
+    private func onScreen() -> [String: CGFloat] {
+        Dictionary(collection.indexPathsForVisibleItems.compactMap { path in
+            guard rows.indices.contains(path.item), let frame = layout.layoutAttributesForItem(at: path)?.frame else { return nil }
+            return (rows[path.item].id, frame.minY - collection.contentOffset.y)
+        }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Pictures of the rows on screen that the update removes, where they are now.
+    private func departing(keeping kept: [String: ChatRow]) -> [UIView] {
+        collection.indexPathsForVisibleItems.compactMap { path in
+            guard rows.indices.contains(path.item), kept[rows[path.item].id] == nil,
+                  let cell = collection.cellForItem(at: path),
+                  let picture = cell.snapshotView(afterScreenUpdates: false) else { return nil }
+            picture.frame = collection.convert(cell.frame, to: view)
+            return picture
+        }
+    }
+
+    /// The rows on screen glide from where they were to where the update put
+    /// them, together, and the rows it removed shrink and fade on the way.
+    /// Returns how far the content moved up.
+    private func slide(from before: [String: CGFloat], leaving: [UIView]) -> CGFloat {
+        let after = onScreen()
+        // The lowest row on screen both times: the change is below it.
+        let moved = after.filter { before[$0.key] != nil }.max { $0.value < $1.value }.map { before[$0.key]! - $0.value } ?? 0
+        let motion = !UIAccessibility.isReduceMotionEnabled
+        if motion, moved != 0 {
+            for path in collection.indexPathsForVisibleItems where rows.indices.contains(path.item) && !arrivals.contains(rows[path.item].id) {
+                // Additive, so a glide that starts before the last one ends adds to it.
+                collection.cellForItem(at: path)?.layer.add(Self.glide(from: moved), forKey: nil)
+            }
+        }
+        for picture in leaving {
+            view.insertSubview(picture, belowSubview: composer.view)
+            let frame = picture.frame
+            picture.layer.anchorPoint = CGPoint(x: 0, y: 1)
+            picture.frame = frame
+            UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseOut) {
+                picture.alpha = 0
+                if motion { picture.transform = CGAffineTransform(translationX: 0, y: -moved).scaledBy(x: 0.8, y: 0.8) }
+            } completion: { _ in picture.removeFromSuperview() }
+        }
+        return moved
+    }
+
+    /// A spring of about 0.3 s from `y` points below to where the row is.
+    private static func glide(from y: CGFloat) -> CASpringAnimation {
+        let spring = CASpringAnimation(perceptualDuration: 0.3, bounce: 0.1)
+        spring.keyPath = "transform.translation.y"
+        spring.fromValue = y
+        spring.toValue = 0
+        spring.isAdditive = true
+        spring.duration = spring.settlingDuration
+        return spring
     }
 
     /// The end of the content.
@@ -391,7 +462,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             case .user(_, _, let text, _, _, _):
                 AnyView(UserBubble(text: text).padding(16))
             case .assistantText(_, _, let text, let streaming):
-                AnyView(AssistantMarkdown(text: text, streaming: streaming).padding(16))
+                AnyView(AssistantMarkdown(text: text, streaming: streaming).frame(maxWidth: .infinity, alignment: .leading).padding(16))
             case .hint(let id, let text, let isError) where id.hasPrefix("event."):
                 AnyView(HintRow(text: text, isError: isError).padding(.horizontal, 16).padding(.bottom, 18))
             case .activity(let text, let live):
@@ -434,7 +505,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         apply("user.sent")
         let sentCell = collection.cellForItem(at: IndexPath(item: fixture.count - 1, section: 0))
         check("sent_transition", sentCell?.layer.animation(forKey: "sent-arrival") != nil,
-              "presentation-only duration=0.18")
+              "presentation-only spring")
         // A send sits at the end, above the composer, like any message.
         var sendingError: CGFloat = 0
         let sendingProbe = TranscriptFrameProbe { [unowned self] in sendingError = max(sendingError, abs(distanceToEnd)) }
@@ -761,7 +832,7 @@ private final class TranscriptCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        layer.removeAnimation(forKey: "sent-arrival")
+        layer.removeAllAnimations()
     }
 
     func configure(_ content: AnyView, parent: UIViewController) {

@@ -63,6 +63,8 @@ export async function startPodExecSession(
   pod: string,
   container: string,
   opts?: { cols?: number; rows?: number; shell?: string },
+  /** The account the kubeconfig belongs to; no exec opens once it has left. */
+  signal?: AbortSignal,
 ): Promise<{ id: string }> {
   // Idempotent: a remounted view asks for its own id back rather than opening a
   // second exec into the same container.
@@ -72,6 +74,7 @@ export async function startPodExecSession(
     : await resolvePodShell((candidate) => probePodShell(kc, namespace, pod, container, candidate))
 
   if (!command) throw new Error(NO_SUPPORTED_SHELL_MESSAGE)
+  signal?.throwIfAborted()
 
   const session = createSession(target, id, opts)
 

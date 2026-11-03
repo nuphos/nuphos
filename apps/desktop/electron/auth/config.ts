@@ -1,21 +1,22 @@
 import { apiUrl, saveBackend, useAccount } from '../api-endpoint.ts'
-import { authSession } from '../auth-session.ts'
 import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import {
+  AccountUnavailableError,
   accountKey,
   keyOf,
   normalizedApi,
   OtherBackendError,
+  signedIn,
   stored,
   summaries,
   waiting,
 } from './accounts.ts'
 import { keychainItems } from './keychain-items.ts'
+import { adoptLegacySignIn } from './legacy-adopt.ts'
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 import { readYaml, writeYaml } from './yaml-file.ts'
 
-import type { AccountContext } from '../auth-session.ts'
 import type { UserInfo } from '../auth-status.ts'
 import type { AccountSummary, StoredAccount } from './accounts.ts'
 import type { TokenStore } from './token-store.ts'
@@ -108,10 +109,12 @@ export function configFile(deps: ConfigFileDeps) {
     const others = previous.accounts ?? []
     const target = others.find((a) => keyOf(a, api) === key)
 
-    if (!target) throw new Error('That account is not signed in on this computer')
+    // Already the one in use, as when two windows ask at once: nothing to do.
+    if (!target && keyOf(previous, api) === key && (await tokenOf(previous))) return
+    if (!target) throw new AccountUnavailableError('That account is not signed in on this computer')
     const token = await tokenOf(target)
 
-    if (!token) throw new Error('Sign in to that account again')
+    if (!token) throw new AccountUnavailableError('Sign in to that account again')
     const rest = waiting(others, previous, key, api)
     const to = target.api ?? api
     const moves = normalizedApi(to) !== api
@@ -146,6 +149,48 @@ export function configFile(deps: ConfigFileDeps) {
     return token ? { api: target.api ?? api, token } : null
   }
 
+  /**
+   * Signs the active account out, in memory at once. Which account that is,
+   * and its token to end on its backend, are read in the same turn that
+   * removes it, so a switch queued before it cannot make the two differ. If
+   * the file keeps the sign-in after all, memory follows it rather than pretend.
+   */
+  async function signOut(): Promise<{ api: string; token: string } | null> {
+    deps.onAccount(currentApi(), null, null)
+    try {
+      return await inTurn(async () => {
+        const active = (await readFile(deps.path)) ?? {}
+        const token = await tokenOf(active)
+
+        await save({})
+
+        return token ? { api: active.api ?? currentApi(), token } : null
+      })
+    } catch (e) {
+      const kept = await inTurn(load)
+
+      if (kept.token)
+        deps.onAccount(kept.api ?? currentApi(), kept.token, kept.userInfo?.id ?? null)
+      throw e
+    }
+  }
+
+  /** Signs every account out of this app in one turn; their tokens are returned to end them. */
+  async function forgetAll(): Promise<{ api: string; token: string }[]> {
+    const previous = (await readFile(deps.path)) ?? {}
+    const api = currentApi()
+    const all = [...(signedIn(previous) ? [previous] : []), ...(previous.accounts ?? [])]
+    const ended = await Promise.all(
+      all.map(async (a) => ({ api: a.api ?? api, token: await tokenOf(a) })),
+    )
+
+    await writeFile(deps.path, {})
+    for (const account of all) await forget(account.keychainAccount)
+    deps.onAccount(api, null, null)
+
+    return ended.filter((e): e is { api: string; token: string } => e.token !== null)
+  }
+
   /** Moves the active account, issued by `api`, to the list: signed in, but not in use. */
   async function park(api: string): Promise<void> {
     const previous = (await readFile(deps.path)) ?? {}
@@ -160,34 +205,14 @@ export function configFile(deps: ConfigFileDeps) {
     return summaries(cfg, cfg.accounts ?? [], currentApi())
   }
 
-  /**
-   * Before this app had its own file it shared cli.yaml with the CLI: start
-   * from that sign-in, once. Where the token goes to the keychain it leaves
-   * cli.yaml as well, and `nuphos login` then takes it from here.
-   */
-  async function adopt(): Promise<Config | null> {
-    const legacy = deps.legacyPath ? await readFile(deps.legacyPath) : null
-
-    if (!deps.legacyPath || !legacy?.token) return null
-    const cfg = {
-      token: legacy.token,
-      // cli.yaml's sign-in was made on the backend the app starts on.
-      api: currentApi(),
-      user: legacy.user,
-      username: legacy.username,
-      userInfo: legacy.userInfo,
-    }
-
-    await save(cfg)
-    if (deps.secure()) await writeFile(deps.legacyPath, { ...legacy, token: undefined })
-
-    return cfg
-  }
-
   async function load(): Promise<Config> {
     const cfg = await readFile(deps.path)
 
-    if (!cfg) return (await adopt().catch(() => null)) ?? {}
+    if (!cfg) {
+      const adopted = adoptLegacySignIn({ ...deps, api: currentApi(), save })
+
+      return (await adopted.catch(() => null)) ?? {}
+    }
     // An account issued by another backend than the current one is never used
     // here: it waits in the list, still signed in there.
     if (cfg.api && normalizedApi(cfg.api) !== currentApi() && (cfg.token || cfg.keychainAccount)) {
@@ -221,12 +246,11 @@ export function configFile(deps: ConfigFileDeps) {
 
   return {
     read: () => inTurn(load),
-    write: (cfg: Config) => {
-      // A sign-out takes effect in memory at once, before its turn.
-      if (!cfg.token) deps.onAccount(currentApi(), null, null)
-
-      return inTurn(() => save(cfg))
+    write: async (cfg: Config) => {
+      if (cfg.token) return inTurn(() => save(cfg))
+      await signOut()
     },
+    signOut,
     /**
      * Runs `task` in the file's turn only if `isCurrent` still holds when the
      * turn comes, so work begun as one account never commits after another
@@ -238,6 +262,7 @@ export function configFile(deps: ConfigFileDeps) {
     ): Promise<T | null> => inTurn(async () => (isCurrent() ? await task(save) : null)),
     switchTo: (key: string) => inTurn(() => switchTo(key)),
     forgetAccount: (key: string) => inTurn(() => forgetAccount(key)),
+    forgetAll: () => inTurn(forgetAll),
     park: (api: string) => inTurn(() => park(api)),
     list: () => inTurn(list),
   }
@@ -258,20 +283,7 @@ export const writeConfig = defaultConfigFile.write
 export const commitConfigIf = defaultConfigFile.commitIf
 export const switchAccountConfig = defaultConfigFile.switchTo
 export const forgetAccountConfig = defaultConfigFile.forgetAccount
+export const forgetAllAccountConfigs = defaultConfigFile.forgetAll
+export const signOutConfig = defaultConfigFile.signOut
 export const listAccountConfigs = defaultConfigFile.list
 export const parkAccountConfig = defaultConfigFile.park
-
-/**
- * The account a request goes out as: one context, so its backend, token and
- * signal always belong together. Until the startup check has run the token
- * comes from the file; once anything has set the session, only from memory.
- */
-export async function requestContext(): Promise<AccountContext> {
-  const ctx = authSession.context()
-
-  if (ctx.token || authSession.settled()) return ctx
-  const { token } = await readConfig()
-  const now = authSession.context()
-
-  return now === ctx && token ? { ...ctx, token } : now
-}

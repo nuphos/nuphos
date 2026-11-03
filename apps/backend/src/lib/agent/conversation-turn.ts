@@ -7,7 +7,6 @@ import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import { channelTurnEnded } from './channel-reply'
 import { withChannelPosts } from './channel-wake'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
@@ -122,6 +121,7 @@ export async function runTurn(
     const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
+      data.userId,
       pending.filter((message) => !ran.has(message.id)),
     )
     const [head, ...rest] = fresh
@@ -173,13 +173,6 @@ export async function runTurn(
     await markRead()
     if (outcome.finishReason === 'connection-lost' && (await runtimeRestarted(data)))
       await reportUndelivered(data, fresh, LOST_TURN)
-
-    await channelTurnEnded(
-      data,
-      target,
-      fresh,
-      outcome.status === 'completed' && outcome.finishReason !== 'connection-lost',
-    )
 
     return outcome.finishReason
   } catch (error) {

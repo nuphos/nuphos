@@ -36,6 +36,8 @@ data class TransferDownloadFile(
 ) {
     val isImage: Boolean get() = if (contentType != null) contentType.lowercase() in setOf("image/png", "image/jpeg", "image/webp", "image/gif")
         else fileName.substringAfterLast('.', "").lowercase() in setOf("png", "jpg", "jpeg", "webp", "gif")
+    val isVideo: Boolean get() = contentType?.lowercase()?.startsWith("video/")
+        ?: (fileName.substringAfterLast('.', "").lowercase() in setOf("mp4", "mov", "m4v", "webm"))
     val safeName: String get() = fileName.substringAfterLast('/').substringAfterLast('\\')
         .filter { !it.isISOControl() }.trim().take(200).takeUnless { it.isBlank() || it == "." || it == ".." } ?: "attachment"
 }

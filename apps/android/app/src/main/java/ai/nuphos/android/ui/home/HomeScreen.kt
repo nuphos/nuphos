@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Assignment
+import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Bolt
@@ -30,6 +31,9 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Assignment
+import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material3.Badge
+import androidx.compose.material3.FilterChip
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.FilterList
@@ -247,6 +251,8 @@ fun HomeRoute(
                     if (membershipsLoading) SplashScreen()
                     else HomeScreen(user, nav,
                         showComposer = !wide,
+                        // On a phone the list pane stays composed behind an open chat; it must not poll there.
+                        listVisible = wide || !showingDetail,
                         selectedSessionId = entry?.arguments?.getString("id"), newChatComposer = newChatComposer)
                 }
             },
@@ -270,8 +276,16 @@ fun HomeRoute(
                         val id = entry.arguments?.getString("id").orEmpty()
                         val fresh = entry.arguments?.getBoolean("fresh") == true
                         if (membershipsLoading) SplashScreen()
+                        // A link or notification can name a chat: it opens as a chat, never as an agent.
+                        else if (!fresh && agentStore.channel(id) != null)
+                            ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack("home", false) })
                         else ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack("home", false) }, nav = nav,
                             newChat = wide)
+                    }
+                    composable("channel/{id}") { entry ->
+                        val id = entry.arguments?.getString("id").orEmpty()
+                        if (membershipsLoading) SplashScreen()
+                        else ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack("home", false) })
                     }
                     composable("plan/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()
@@ -310,10 +324,19 @@ fun HomeScreen(
     showComposer: Boolean = true,
     selectedSessionId: String? = null,
     newChatComposer: @Composable () -> Unit = { NewChatComposer(nav) },
+    listVisible: Boolean = true,
 ) {
     val store = LocalAgentStore.current
     val plans = LocalPlansStore.current
-    var page by rememberSaveable { mutableStateOf(HomePage.Agent.route) }
+    var page by rememberSaveable { mutableStateOf(HomePage.launch(store.rememberedHasChats).route) }
+    // Once chats load, the launch page is corrected unless the viewer already picked one or opened something.
+    var pagePicked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(store.channelsLoaded, store.channels.isEmpty(), store.workspaceRevision) {
+        if (!store.channelsLoaded || pagePicked || selectedSessionId != null || store.search.isNotEmpty()) return@LaunchedEffect
+        val current = HomePage.fromRoute(page)
+        if (current == HomePage.Chats || current == HomePage.Agent) page = HomePage.launch(store.channels.isNotEmpty()).route
+        pagePicked = true
+    }
     val shares = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
     val shared by shares.state.collectAsState()
     LaunchedEffect(shared?.id, shared?.destination) {
@@ -365,7 +388,8 @@ fun HomeScreen(
                 title = {
                     if (unavailablePage) Text("Page unavailable") else PageSwitcher(selected = current, onSelect = {
                         if (it != current) {
-                            if (current == HomePage.Agent) store.updateSearch("")
+                            pagePicked = true
+                            if (current == HomePage.Agent || current == HomePage.Chats) store.updateSearch("")
                             if (current == HomePage.Plans) plans.search = ""
                             page = it.route; searching = false
                         }
@@ -374,7 +398,7 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
-                    if (current == HomePage.Agent || current == HomePage.Plans) {
+                    if (current == HomePage.Agent || current == HomePage.Plans || current == HomePage.Chats) {
                         IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
                             Icon(Icons.Outlined.Search, contentDescription = "Search")
                         }
@@ -412,14 +436,20 @@ fun HomeScreen(
                     Text("This page is no longer available in the mobile app.", style = MaterialTheme.typography.titleMedium)
                     Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text("Back to Agents") }
                 }
-            } else AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
+            } else {
+            if (current == HomePage.Chats || current == HomePage.Agent) HomeListTabs(current) { tab ->
+                if (tab != current) { pagePicked = true; store.updateSearch(""); searching = false; page = tab.route }
+            }
+            AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
+                    HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible)
                     HomePage.Agent -> AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
                     HomePage.Runtimes -> ai.nuphos.android.ui.agent.RuntimesPage()
                     HomePage.Plans -> PlansPage(searching = searching, onSearchingChange = { searching = it }, nav = nav)
                     HomePage.Connectors -> ConnectorsPage()
 
                 }
+            }
             }
         }
     }
@@ -489,7 +519,31 @@ internal fun PageSwitcher(
     }
 }
 
+/** Chats and Agents, side by side under the bar. Chats counts the ones with unread posts. */
+@Composable
+private fun HomeListTabs(selected: HomePage, onSelect: (HomePage) -> Unit) {
+    val store = LocalAgentStore.current
+    val unread = store.channels.count { with(ai.nuphos.android.ui.chats.Unread) { it.unread() } }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).testTag("home-list-tabs"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(HomePage.Chats to unread, HomePage.Agent to 0).forEach { (tab, badge) ->
+            FilterChip(
+                selected = selected == tab,
+                onClick = { onSelect(tab) },
+                label = { Text(tab.title) },
+                trailingIcon = if (badge > 0) ({
+                    Badge { Text("$badge") }
+                }) else null,
+                modifier = Modifier.testTag("home-tab-${tab.route}").semantics {
+                    stateDescription = if (badge > 0) "$badge unread" else ""
+                },
+            )
+        }
+    }
+}
+
 private fun HomePage.icon(selected: Boolean): ImageVector = when (this) {
+    HomePage.Chats -> if (selected) Icons.Rounded.Forum else Icons.Outlined.Forum
     HomePage.Agent -> if (selected) Icons.Rounded.AutoAwesome else Icons.Outlined.AutoAwesome
     HomePage.Runtimes -> Icons.Outlined.Computer
     HomePage.Plans -> if (selected) Icons.Rounded.Assignment else Icons.Outlined.Assignment

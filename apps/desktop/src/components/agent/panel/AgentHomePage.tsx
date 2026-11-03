@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { Composer } from './Composer'
@@ -137,21 +136,23 @@ export function AgentHomePage({
                 behind it, same width, with its square top tucked under the
                 composer's bottom so only the part below shows. */}
             <div className="relative">
-              {/* Strip backing: an opaque fill at the composer's exact
-                  radius, so the translucent composer composites over page
-                  colour instead of tinting the tray tucked behind it — and
-                  a soft shadow, carried here rather than by the Composer,
-                  so the composer visibly presses down on the tray. In the
-                  corner notches the rounded backing doesn't reach, the
-                  tray's grey shows: that's the emerging-from-behind look,
-                  not a leak. Only the star strip brings it. */}
-              <div
-                className={clsx(
-                  'relative z-10',
-                  showStar &&
-                    'rounded-xl bg-appBg shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)]',
+              <div className="relative z-10">
+                {/* Strip backing: an opaque fill in the composer's exact
+                    shape, so the composer composites over page colour
+                    instead of tinting the tray tucked behind it — and a soft
+                    shadow, carried here rather than by the Composer, so the
+                    composer visibly presses down on the tray. It starts
+                    below the hero's `pt-5` banner gap: covering that gap
+                    painted a band above the composer. In the corner notches
+                    the rounded backing doesn't reach, the tray shows: that's
+                    the emerging-from-behind look, not a leak. Only the star
+                    strip brings it. */}
+                {showStar && (
+                  <div
+                    aria-hidden
+                    className="absolute inset-x-0 bottom-0 top-5 -z-10 rounded-[24px] bg-agentCanvas shadow-[0_1px_2px_rgb(0_0_0_/_0.05),0_6px_18px_-6px_rgb(0_0_0_/_0.08)] [corner-shape:squircle]"
+                  />
                 )}
-              >
                 <Composer
                   variant="hero"
                   newChat

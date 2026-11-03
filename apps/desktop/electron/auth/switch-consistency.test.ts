@@ -8,7 +8,7 @@ import yaml from 'js-yaml'
 
 import { AuthSession } from '../auth-session.ts'
 
-import { OtherBackendError } from './accounts.ts'
+import { AccountUnavailableError, OtherBackendError } from './accounts.ts'
 import { configFile } from './config.ts'
 import { status } from './me.ts'
 
@@ -226,4 +226,59 @@ test('one backend spelt two ways is one account: not parked, not listed twice', 
     [['bob@http://127.0.0.1:3718', true]],
   )
   assert.equal(session.context().token, 'tok-dev')
+})
+
+test('a switch to the account already in use does nothing, as when two windows ask at once', async () => {
+  const h = await harness()
+  const before = await h.onDisk()
+
+  await h.config.switchTo(`bob@${SELF}`)
+  assert.deepEqual(await h.onDisk(), before)
+  assert.deepEqual(pair(h.session), { api: SELF, token: 'tok-bob' })
+})
+
+test('the account in use whose token cannot be read is not taken as already switched to', async () => {
+  const h = await harness()
+  const file = (await h.onDisk()) as Record<string, unknown>
+
+  // Its token is in a keychain item this build cannot read.
+  await fs.writeFile(
+    h.file,
+    yaml.dump({ ...file, token: undefined, keychainAccount: `bob@${SELF}` }, { skipInvalid: true }),
+  )
+  await assert.rejects(h.config.switchTo(`bob@${SELF}`), AccountUnavailableError)
+})
+
+test('signing out of every account is one turn: a switch queued behind it finds nothing', async () => {
+  const h = await harness()
+  const all = h.config.forgetAll()
+  const racing = h.config.switchTo(`alice@${CLOUD}`)
+
+  assert.deepEqual((await all).map((e) => e.token).sort(), ['tok-alice', 'tok-bob'])
+  await assert.rejects(racing, AccountUnavailableError)
+  assert.deepEqual(await h.onDisk(), {})
+  assert.equal(h.session.context().token, null)
+})
+
+test('a sign-out the file refuses leaves the sign-in it still holds in memory', async () => {
+  const h = await harness()
+
+  await fs.chmod(h.dir, 0o500)
+  await assert.rejects(h.config.write({}))
+  await fs.chmod(h.dir, 0o700)
+  assert.deepEqual(pair(h.session), { api: SELF, token: 'tok-bob' })
+})
+
+test('a sign-out queued behind a switch removes and ends the same account', async () => {
+  const h = await harness()
+  const switching = h.config.switchTo(`alice@${CLOUD}`)
+  const ended = await h.config.signOut()
+
+  await switching
+  assert.deepEqual(ended, { api: CLOUD, token: 'tok-alice' }, 'the account the switch made active')
+  assert.ok(!(await h.config.list()).some((a) => a.key === `alice@${CLOUD}`))
+  assert.ok(
+    (await h.config.list()).some((a) => a.key === `bob@${SELF}`),
+    'Bob stays signed in',
+  )
 })

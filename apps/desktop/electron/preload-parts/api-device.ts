@@ -57,6 +57,16 @@ export const deviceApi = {
   boxDesktop: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:desktop', deviceId, teamId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),
+  sshHosts: () => ipcRenderer.invoke('ssh:hosts'),
+  sshJoin: (id: string, target: string) => ipcRenderer.invoke('ssh:join', id, target),
+  sshJoinCancel: (id: string) => ipcRenderer.invoke('ssh:cancel', id),
+  onSshJoinOutput: (cb: (id: string, text: string) => void) => {
+    const handler = (_event: unknown, id: string, text: string) => cb(id, text)
+
+    ipcRenderer.on('ssh-join:output', handler)
+
+    return () => ipcRenderer.off('ssh-join:output', handler)
+  },
   openSessionDesktop: (teamId: string, sessionId: string) =>
     ipcRenderer.invoke('box:openSessionDesktop', teamId, sessionId),
   boxCreateAgent: (

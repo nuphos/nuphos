@@ -22,6 +22,11 @@ struct HomeView: View {
     @State private var columns = NavigationSplitViewVisibility.all
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.scenePhase) private var scenePhase
+    /// Read the open chat and agent conversation. Here, not on their views:
+    /// collapsed, SwiftUI ends a view's appearance while it stays on screen (#1440).
+    @State private var chatReader = UUID()
+    @State private var conversationReader = UUID()
 
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
@@ -180,6 +185,19 @@ struct HomeView: View {
         .onChange(of: session.sharingLoginID, initial: true) { _, loginID in
             guard session.user?.id == user.id, let loginID, let token = session.token else { return }
             store?.bindSharingLogin(loginID, token: token)
+        }
+        // While a chat is open and the app active, it is read up to its newest
+        // post, and it alone polls; becoming active again reads it at once.
+        .onChange(of: scenePhase == .active ? openChat?.channel?.channelId : nil, initial: true) { _, id in
+            ConversationUnread.shared.setReading(id != nil, reader: chatReader,
+                                                 team: openChat?.channel?.teamId ?? "", session: id ?? "")
+            store?.poll(id == nil ? nil : openChat?.channel)
+        }
+        // An agent's conversation the same way: read and polled while it is open and the app active.
+        .onChange(of: scenePhase == .active ? openChat?.session?.sessionId : nil, initial: true) { _, id in
+            ConversationUnread.shared.setReading(id != nil, reader: conversationReader,
+                                                 team: openChat?.session?.teamId ?? "", session: id ?? "")
+            store?.follow(id == nil ? nil : openChat?.session)
         }
         .focusedSceneValue(\.newChat) {
             page = .agent

@@ -11,27 +11,23 @@ import { useTextSwap } from '../../hooks/useTextSwap'
 import { t } from '../../i18n'
 
 import { AddAgentChoices } from './AddAgentChoice'
-import { nextAddAgentStep } from './addAgentFlow'
 import { BoxAgentForm } from './BoxAgentStep'
-import { JoinDialog } from './BoxParts'
-import { ExternalRuntimeForm } from './ExternalRuntimeForm'
-import { ExternalRuntimePasswordForm } from './ExternalRuntimePasswordForm'
+import { JoinDialog } from './JoinDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxAvailable } from './useAgentDevices'
 
-import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
-import type { BoxJoin } from './BoxParts'
+import type { BoxJoin } from './joinCommand'
 import type { RuntimeInstance } from '../../types/runtime'
 import type { CSSProperties } from 'react'
 
-const TITLE: Record<AddAgentStep, string> = {
-  choose: t('Add runtime'),
-  'self-hosted': t('Self-hosted runtime'),
-  'self-hosted-password': t('Self-hosted runtime'),
-  box: t('New computer'),
+type Step = 'choose' | 'box'
+
+const TITLE: Record<Step, string> = {
+  choose: t('Add computer'),
+  box: t('Nuphos cloud computer'),
 }
 
-/** One place to add a team agent, from Settings › Agent or the composer's agent picker. */
+/** The one place to add a computer (and so its runtimes), from the Runtimes page or the composer's agent picker. */
 export function AddAgentDialog({
   teamId,
   onClose,
@@ -41,17 +37,17 @@ export function AddAgentDialog({
   onClose: () => void
   onAdded?: (runtimeId: string) => void
 }) {
-  const [step, setStep] = useState<AddAgentStep>('choose')
+  const [step, setStep] = useState<Step>('choose')
   const boxAvailable = useBoxAvailable()
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
   const [join, setJoin] = useState<BoxJoin | null>(null)
   // Slide direction of the step that just entered: deeper from the right, back
-  // from the left, the pairing ↔ password swap in place. null until the first
-  // move, so opening the dialog only plays the dialog's own transition.
+  // from the left. null until the first move, so opening the dialog only plays
+  // the dialog's own transition.
   const [dir, setDir] = useState<number | null>(null)
-  const go = (action: AddAgentAction) => {
-    setDir(action === 'back' ? -1 : action === 'self-hosted' || action === 'box' ? 1 : 0)
-    setStep((current) => nextAddAgentStep(current, action))
+  const go = (next: Step) => {
+    setDir(next === 'box' ? 1 : -1)
+    setStep(next)
   }
   const presence = useDialogPresence(onClose)
   // The Box step's say on closing, so a Box being made or the plans over it keep the dialog open.
@@ -111,7 +107,7 @@ export function AddAgentDialog({
                     <AddAgentChoices
                       boxAvailable={boxAvailable}
                       footer={footer}
-                      onPick={go}
+                      onCloud={() => go('box')}
                       onJoin={() =>
                         void api
                           .boxJoinToken()
@@ -122,29 +118,6 @@ export function AddAgentDialog({
                       onCancel={() => presence.onOpenChange(false)}
                     />
                   )}
-                  {step === 'self-hosted' && (
-                    <ExternalRuntimeForm
-                      footer={footer}
-                      onCancel={() => go('back')}
-                      onUsePassword={() => go('use-password')}
-                      onPair={(input) => api.atlasPairExternalRuntime(teamId, input)}
-                      onConnected={(runtime) => added(runtime.id)}
-                    />
-                  )}
-                  {step === 'self-hosted-password' && (
-                    <ExternalRuntimePasswordForm
-                      footer={footer}
-                      onCancel={() => go('back')}
-                      onUsePairingCode={() => go('use-pairing')}
-                      onDetectProvider={async (url, password) =>
-                        (await api.atlasProbeExternalRuntimeProvider(teamId, url, password))
-                          .provider
-                      }
-                      onRegister={async (input) => {
-                        added((await api.atlasRegisterExternalRuntime(teamId, input)).id)
-                      }}
-                    />
-                  )}
                   {step === 'box' && (
                     <BoxAgentForm
                       teamId={teamId}
@@ -152,7 +125,7 @@ export function AddAgentDialog({
                       onCloseGuard={(guard) => {
                         closeGuard.current = guard
                       }}
-                      onBack={() => go('back')}
+                      onBack={() => go('choose')}
                       onChosen={setSigningIn}
                     />
                   )}

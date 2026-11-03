@@ -14,7 +14,8 @@ import type { AgentInputRequest } from '../../api/agent-types'
 /**
  * The open questions of one conversation, each with what the agent wrote to
  * decide it from. A choice, or "Done." for a to-do, is sent as the reply to
- * its own question; typing in the composer below answers the selected one.
+ * its own question; the selected card also takes a short reply typed in its
+ * own field. The full composer only comes with the conversation.
  */
 export function DecisionCards({
   teamId,
@@ -91,9 +92,14 @@ export function DecisionCards({
               selected ? 'border-zViolet-accent/60 bg-zGray-800/40' : 'border-zGray-800/70',
             )}
           >
-            <h2 className="text-[15px] font-medium leading-6 text-main">{request.question}</h2>
+            <h2 className="selectable text-[15px] font-medium leading-6 text-main">
+              {request.question}
+            </h2>
             {request.body && (
-              <MessageResponse className="mt-2 text-[13px] text-secondary" streaming={false}>
+              <MessageResponse
+                className="selectable mt-2 text-[13px] text-secondary"
+                streaming={false}
+              >
                 {request.body}
               </MessageResponse>
             )}
@@ -129,15 +135,46 @@ export function DecisionCards({
                 {dismissing === request.id ? t('Dismissing...') : t('Dismiss question')}
               </button>
             </div>
-            {selected && replies && (
-              <p className="mt-2 text-[11px] text-tertiary">
-                {t('Or type a reply below; it answers this question.')}
-              </p>
-            )}
+            {selected && replies && <ReplyField onSend={(text) => onAnswer(request.id, text)} />}
           </section>
         )
       })}
     </div>
+  )
+}
+
+/** A short typed answer for a question none of the choices fits. */
+function ReplyField({ onSend }: { onSend: (text: string) => void }) {
+  const [text, setText] = useState('')
+  const send = () => {
+    const reply = text.trim()
+
+    if (!reply) return
+    onSend(reply)
+    setText('')
+  }
+
+  return (
+    <form
+      className="mt-3 flex items-center gap-2"
+      onClick={(event) => event.stopPropagation()}
+      onSubmit={(event) => {
+        event.preventDefault()
+        send()
+      }}
+    >
+      <input
+        data-inbox-reply=""
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        placeholder={t('Or type a different answer')}
+        aria-label={t('Reply to this question')}
+        className="min-w-0 flex-1 rounded-md border border-zGray-700 bg-transparent px-2.5 py-1.5 text-[12px] text-main outline-none placeholder:text-tertiary focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+      />
+      <button type="submit" disabled={!text.trim()} className={primaryButton}>
+        {t('Send')}
+      </button>
+    </form>
   )
 }
 

@@ -10,9 +10,6 @@ struct ConversationView: View {
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
 
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var readerID = UUID()
-    @State private var onScreen = false
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
@@ -53,10 +50,6 @@ struct ConversationView: View {
     @State private var referencedAgents = ReferencedAgents()
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
-
-    private func updateReading() {
-        ConversationUnread.shared.setReading(onScreen && scenePhase == .active, reader: readerID, team: session.teamId, session: session.sessionId)
-    }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -104,8 +97,6 @@ struct ConversationView: View {
         .onAppear {
             UIEventLog.pageTransition(from: sourcePage, to: "chat")
             Analytics.shared.screen("chat", teamID: session.teamId)
-            onScreen = true
-            updateReading()
             if draft.isEmpty { draft = ComposerDrafts.text(team: session.teamId, session: session.sessionId) }
         }
         .onChange(of: draft) { _, text in
@@ -113,10 +104,7 @@ struct ConversationView: View {
         }
         .onDisappear {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)
-            onScreen = false
-            updateReading()
         }
-        .onChange(of: scenePhase) { _, _ in updateReading() }
         .alert("Rename agent", isPresented: $showRename) {
             TextField("Title", text: $renamedTitle)
             Button("Cancel", role: .cancel) {}
@@ -237,12 +225,6 @@ struct ConversationView: View {
             }
             #endif
         }
-        // SwiftUI cancels this when the chat leaves the screen; the stream
-        // lives on the session, so close it here.
-        .task {
-            await session.pollWhileIdle()
-            session.leave()
-        }
         // A teammate's computer that asks its owner first: say so until they answer.
         .task(id: "\(ShareApprovalWait.asksOwner(conversationRuntime)).\(session.queuedSends)") {
             await store.loadRuntimes()
@@ -250,13 +232,6 @@ struct ConversationView: View {
             while !Task.isCancelled, await session.refreshShareApproval() {
                 try? await Task.sleep(for: .seconds(5))
             }
-        }
-        // Read the files the agent sent, whatever the runtime is doing, and again
-        // when a turn settles. Keyed on the newest message, not the count: a long
-        // chat holds a fixed tail.
-        .task(id: "\(session.isStreaming).\(session.messages.last?.id ?? "")") {
-            await session.refreshResources()
-            await session.refreshDownloads()
         }
     }
 
@@ -449,6 +424,7 @@ struct ConversationView: View {
             UserBubble(text: text, images: images, sender: sender, transfers: transfers, session: session)
         case .assistantText(_, _, let text, let streaming):
             AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:))
+                .frame(maxWidth: .infinity, alignment: .leading)
         case .reasoning(_, let part):
             ReasoningTile(part: part)
         case .tool(_, _, let part, let canDecide):
@@ -734,6 +710,7 @@ struct EventLine: View {
             .accessibilityHint(expanded ? "Collapses the message" : "Shows the full message")
             if expanded {
                 AssistantMarkdown(text: event.text, streaming: false, onLink: onLink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.hairline))

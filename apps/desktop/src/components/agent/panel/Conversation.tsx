@@ -1,21 +1,25 @@
 import clsx from 'clsx'
-import { ArrowDownToLine, PanelRightOpen } from 'lucide-react'
+import { PanelRightOpen } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 
 import { FeedbackCommentDialog } from './conversationBanners'
+import { isOwnMessage } from './conversationFollow'
 import { ConversationMessageList } from './conversationMessageList'
 import {
   hasRunningToolFor,
   lastStreamTokenFor,
   localCommandToolTokenFor,
 } from './conversationStreamTokens'
+import { JumpToLatestButton } from './JumpToLatestButton'
 import { computeStatus } from './status'
 import { isShownMessage } from './turnBoundaries'
 import { TurnRail } from './TurnRail'
 import { useConversationRead } from './useConversationRead'
 import { useConversationScroll } from './useConversationScroll'
+import { useJumpToLatest } from './useJumpToLatest'
 import { useTranscriptPageKeys } from './useTranscriptPageKeys'
 
 import type { ConversationProps } from './conversationProps'
@@ -45,12 +49,14 @@ export function Conversation({
   const userScrollIntentVersionRef = useRef(0)
   const userLockedScrollRef = useRef(false)
   const touchStartYRef = useRef<number | null>(null)
-  const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   // Assistant message awaiting the optional thumbs-down comment. The vote is
   // already recorded when this opens; the dialog only adds detail.
   const [feedbackCommentFor, setFeedbackCommentFor] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const lastMsg = tab.messages.findLast(isShownMessage)
+  const currentUserId = useCurrentUser()?.id
+  const lastMsgIsOwn = isOwnMessage(lastMsg, currentUserId, tab.foreign)
+  const jump = useJumpToLatest(tab.messages, lastMsg?.id)
   const localCommandToolToken = useMemo(() => localCommandToolTokenFor(lastMsg), [lastMsg])
   const hasRunningTool = useMemo(() => hasRunningToolFor(lastMsg), [lastMsg])
   const lastStreamToken = useMemo(() => lastStreamTokenFor(lastMsg), [lastMsg])
@@ -79,6 +85,7 @@ export function Conversation({
   } = useConversationScroll({
     tab,
     lastMsg,
+    lastMsgIsOwn,
     lastStreamToken,
     localCommandToolToken,
     statusLabel: displayStatusLabel,
@@ -90,7 +97,7 @@ export function Conversation({
     userScrollIntentVersionRef,
     userLockedScrollRef,
     touchStartYRef,
-    setShowJumpToLatest,
+    setShowJumpToLatest: jump.setShow,
   })
 
   useConversationRead(tab.sessionId, visible)
@@ -167,17 +174,7 @@ export function Conversation({
         />
       </div>
       <TurnRail messages={tab.messages} scrollRef={ref} onBeforeJump={lockScrollToHistory} />
-      {showJumpToLatest && (
-        <button
-          type="button"
-          onClick={scrollToBottom}
-          className="absolute bottom-3 left-1/2 z-20 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-zGray-700/80 bg-elevated/90 text-secondary shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-[transform,color,border-color,background-color] hover:-translate-x-1/2 hover:-translate-y-0.5 hover:border-zViolet-accent/60 hover:bg-zGray-800 hover:text-main"
-          title={t('Jump to latest')}
-          aria-label={t('Jump to latest')}
-        >
-          <ArrowDownToLine className="h-4 w-4" strokeWidth={1.8} />
-        </button>
-      )}
+      {jump.show && <JumpToLatestButton unseen={jump.unseen} onClick={scrollToBottom} />}
       {feedbackCommentFor && (
         <FeedbackCommentDialog
           onClose={() => setFeedbackCommentFor(null)}

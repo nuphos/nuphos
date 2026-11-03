@@ -251,3 +251,13 @@ export type BillingSummary = {
     url: string | null
   }[]
 }
+
+/** A Host alias from the user's own ~/.ssh/config, offered when connecting a computer over SSH. */
+export type SshHost = { alias: string; hostName?: string; user?: string }
+
+/** Why Desktop could not set up a computer over SSH. */
+export type SshJoinProblem = 'no-ssh' | 'host-key' | 'auth' | 'unreachable' | 'failed'
+
+/** On success, the joined computer's id when the machine reported it. */
+export type SshJoinResult =
+  { ok: true; deviceId: string | null } | { ok: false; problem: SshJoinProblem }

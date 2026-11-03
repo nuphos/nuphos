@@ -16,6 +16,7 @@ import { teamCanUseAgent } from '../../lib/agentAccess'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
+import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
 import { PaneCloseButton } from './PaneCloseButton'
 import { PaneGrip } from './PaneGrip'
 import { PaneMenu } from './PaneMenu'
@@ -147,22 +148,21 @@ export function WorkspaceAgentPane({
       )}
     >
       <div
-        // Laid out at the width the column has once the dock settles, so the
-        // dock's width transition slides over or uncovers it instead of
-        // reflowing the transcript on every frame. Expanded keeps the docked width.
-        style={{ width: dockOpen ? 'calc(100cqw - var(--workspace-dock-width))' : '100cqw' }}
-        className="flex min-h-0 flex-1 flex-col"
+        style={{ minWidth: dockOpen ? 'calc(100cqw - var(--workspace-dock-width))' : undefined }}
+        className="flex min-h-0 w-full flex-1 flex-col"
       >
         <div
           ref={titlebarRef}
           className={clsx(
             'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
+            pane?.cornerPane && CORNER_TITLEBAR_CLASS,
             // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
             // sits over this header only while the dock is closed; once it is
             // open the toggle rides the dock's own tab strip instead.
             dockOpen ? 'pr-3' : 'pr-12',
           )}
         >
+          <CornerSidebarToggle />
           {/* Drag area sits beside Share (no no-drag hole); it clips so chips never cover Share. */}
           <div
             key={`heading-${selectedSessionId ?? 'home'}`}

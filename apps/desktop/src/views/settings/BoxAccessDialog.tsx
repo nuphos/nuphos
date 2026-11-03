@@ -7,6 +7,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { BoxAccessFields } from './BoxAccessFields'
+import { SharedComputerNotice } from './SharedComputerNotice'
 import { useBoxAccessChoice } from './useBoxAccessChoice'
 
 import type { AgentDevice } from '../../api'
@@ -56,8 +57,9 @@ export function BoxAccessDialog({
         </div>
       }
     >
-      <div className="p-5">
+      <div className="space-y-4 p-5">
         <BoxAccessFields teamId={teamId} choice={choice} />
+        <SharedComputerNotice />
       </div>
     </Modal>
   )
