@@ -139,7 +139,7 @@ struct ChannelView: View {
             switch item {
             case .post(let post, let first):
                 ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
-                               attachments: channel.sendingAttachments[post.id] ?? [],
+                               attachments: channel.sendingAttachments[post.id] ?? [], files: channel.files,
                                resolve: channel.transferGroup, onLink: open(link:))
             case .paused(let text):
                 PausedLine(text: text)
@@ -177,10 +177,18 @@ private struct ChannelPostRow: View {
     let first: Bool
     let mine: Bool
     let attachments: [ComposerAttachment]
+    /// The chat's file groups, already read.
+    let files: [String: [TransferDownloadGroup.File]]
     let resolve: (String) async throws -> TransferDownloadGroup
     let onLink: (URL) -> Void
 
     private static let avatar: CGFloat = 28
+
+    /// The groups' files when the chat has read them all; else the card reads them.
+    private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
+        let groups = groupIds.compactMap { files[$0] }
+        return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -189,12 +197,13 @@ private struct ChannelPostRow: View {
                 if first, !mine { header }
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
-                                 names: post.uploads.flatMap { $0.files.map(\.fileName) }, resolve: resolve)
+                                 names: post.uploads.flatMap { $0.files.map(\.fileName) },
+                                 files: read(post.uploads.map(\.groupId)), resolve: resolve)
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty { bubble }
                 if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, resolve: resolve)
+                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
                 }
                 footer
             }

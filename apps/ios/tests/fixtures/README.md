@@ -41,4 +41,5 @@ SIMCTL_CHILD_NUPHOS_PREVIEW_RESPONSES="$PWD/tests/fixtures/channel-responses.jso
 Add `-channel-send "text"` to post a few seconds after the chat opens. The
 fixture never returns that post, so it stays in its sending state.
 A fixture key may end in `?name=value` to answer only requests with that query
-item, and an entry may serve a `file` (relative to the fixture) instead of a `body`.
+item. `$FIXTURE_DIR` in a body is replaced with the fixture's folder, so transfer
+links can point at local images (`file://$FIXTURE_DIR/…`).

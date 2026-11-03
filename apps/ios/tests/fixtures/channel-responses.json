@@ -409,17 +409,10 @@
           "fileName": "shot-1.png",
           "contentType": "image/png",
           "status": "ready",
-          "downloadUrl": "https://api.nuphos.ai/preview-files/g-shot1.png"
+          "downloadUrl": "file://$FIXTURE_DIR/../../nuphos-ios/Assets.xcassets/AppIcon-E3.appiconset/icon-1024.png"
         }
       ]
     }
-  },
-  "GET /preview-files/g-shot1.png": {
-    "status": 200,
-    "headers": {
-      "Content-Type": "image/png"
-    },
-    "file": "../../nuphos-ios/Assets.xcassets/AppIcon-E3.appiconset/icon-1024.png"
   },
   "GET /agent/conversations/chat-release/attachments/g-shot2": {
     "status": 200,
@@ -433,17 +426,10 @@
           "fileName": "shot-2.png",
           "contentType": "image/png",
           "status": "ready",
-          "downloadUrl": "https://api.nuphos.ai/preview-files/g-shot2.png"
+          "downloadUrl": "file://$FIXTURE_DIR/../../nuphos-ios/Assets.xcassets/AppIcon-D2.appiconset/icon-1024.png"
         }
       ]
     }
-  },
-  "GET /preview-files/g-shot2.png": {
-    "status": 200,
-    "headers": {
-      "Content-Type": "image/png"
-    },
-    "file": "../../nuphos-ios/Assets.xcassets/AppIcon-D2.appiconset/icon-1024.png"
   },
   "GET /agent/conversations/chat-release/attachments/g-photo": {
     "status": 200,
@@ -457,16 +443,9 @@
           "fileName": "crash.png",
           "contentType": "image/png",
           "status": "ready",
-          "downloadUrl": "https://api.nuphos.ai/preview-files/g-photo.png"
+          "downloadUrl": "file://$FIXTURE_DIR/../../nuphos-ios/Assets.xcassets/AppIcon-B1.appiconset/icon-1024.png"
         }
       ]
     }
-  },
-  "GET /preview-files/g-photo.png": {
-    "status": 200,
-    "headers": {
-      "Content-Type": "image/png"
-    },
-    "file": "../../nuphos-ios/Assets.xcassets/AppIcon-B1.appiconset/icon-1024.png"
   }
 }

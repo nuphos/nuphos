@@ -24,13 +24,20 @@ struct TransferCard: View {
         self.init(groupIds: [groupId], fromUser: fromUser, names: names) { try await session.transferGroup($0) }
     }
 
-    init(groupIds: [String], fromUser: Bool, names: [String] = [],
+    /// `files`, when already read, are drawn from the first frame, so the card
+    /// never grows under the reader; nil reads them when it appears.
+    init(groupIds: [String], fromUser: Bool, names: [String] = [], files: [TransferDownloadGroup.File]? = nil,
          resolve: @escaping (String) async throws -> TransferDownloadGroup) {
         self.groupIds = groupIds
         self.fromUser = fromUser
         self.names = names
         self.resolve = resolve
+        preloaded = files != nil
+        _files = State(initialValue: files ?? [])
+        _unavailable = State(initialValue: files?.isEmpty == true)
     }
+
+    private let preloaded: Bool
 
     @State private var files: [TransferDownloadGroup.File] = []
     @State private var opening: String?
@@ -62,6 +69,7 @@ struct TransferCard: View {
             }
         }
         .task {
+            guard !preloaded else { return }
             guard let groups = try? await fetch() else {
                 unavailable = true
                 return

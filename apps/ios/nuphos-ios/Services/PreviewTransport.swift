@@ -21,9 +21,11 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
             ?? responses[key] as? [String: Any]
         let status = entry?["status"] as? Int ?? 404
         let body = entry?["body"] ?? ["error": ["message": "No preview response for \(key)"]]
-        // `file`: raw bytes, relative to the fixture, such as an image a transfer link points at.
-        let raw = (entry?["file"] as? String).flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0, relativeTo: URL(fileURLWithPath: file))) }
-        let data = raw ?? (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed])) ?? Data()
+        // `$FIXTURE_DIR` in a body is the fixture's folder, so a transfer link can name a local image:
+        // image views load with their own session, which this transport never sees.
+        let json = (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed, .withoutEscapingSlashes])) ?? Data()
+        let folder = URL(fileURLWithPath: file).deletingLastPathComponent().path
+        let data = Data((String(data: json, encoding: .utf8) ?? "").replacingOccurrences(of: "$FIXTURE_DIR", with: folder).utf8)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data)
         client?.urlProtocolDidFinishLoading(self)

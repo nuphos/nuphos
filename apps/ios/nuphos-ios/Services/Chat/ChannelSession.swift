@@ -22,6 +22,9 @@ final class ChannelSession {
     private(set) var sending: [ChannelPost] = []
     /// What a sending post attached, drawn from the device until it is posted.
     private(set) var sendingAttachments: [String: [ComposerAttachment]] = [:]
+    /// Each posted file group's files, read before its post shows, so a post
+    /// is measured once at its final height. Empty for a group that is gone.
+    private(set) var files: [String: [TransferDownloadGroup.File]] = [:]
     /// The latest send, so the transcript returns to the end for it.
     private(set) var lastSubmittedRowID: String?
     /// A post that could not be sent goes back into the composer.
@@ -58,6 +61,7 @@ final class ChannelSession {
             async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
             async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
             let (read, people) = try await (detail, listed)
+            await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
             apply(read, agents: people)
         } catch {
             if !loaded { loadError = error.localizedDescription; loaded = true }
@@ -89,6 +93,16 @@ final class ChannelSession {
         revision = stamp(of: detail)
         loadError = nil
         loaded = true
+    }
+
+    private func resolveFiles(of posts: [ChannelPost]) async {
+        let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads }).subtracting(files.keys)
+        await withTaskGroup(of: (String, [TransferDownloadGroup.File]).self) { group in
+            for id in missing {
+                group.addTask { [self] in (id, (try? await transferGroup(id))?.readyFiles ?? []) }
+            }
+            for await (id, ready) in group { files[id] = ready }
+        }
     }
 
     /// A file posted here, with fresh links, for anyone who can read the chat.
