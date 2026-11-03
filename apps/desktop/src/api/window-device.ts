@@ -9,6 +9,8 @@ import type {
   BoxUsageHistory,
   DeviceAgentInstance,
   SleepPreferences,
+  SshHost,
+  SshJoinResult,
   SleepState,
   DeviceExecAuditPage,
   LocalAgentLoginState,
@@ -97,4 +99,8 @@ export type WindowDeviceApi = {
   boxBillingPage(teamId: string, vcpus?: number): Promise<{ url: string }>
   boxBillingSummary(teamId: string): Promise<BillingSummary>
   boxJoinToken(): Promise<{ token: string; expiresAt: string; apiUrl: string | null }>
+  sshHosts(): Promise<SshHost[]>
+  sshJoin(id: string, target: string): Promise<SshJoinResult>
+  sshJoinCancel(id: string): Promise<void>
+  onSshJoinOutput(cb: (id: string, text: string) => void): () => void
 }

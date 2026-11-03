@@ -1,74 +1,20 @@
 import clsx from 'clsx'
 import { Plus } from 'lucide-react'
-import { useState } from 'react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
-import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
-import { fieldClass } from '../../components/ui/input-group'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
-import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline } from './agentPresentation'
 import { accessHint, machineLine, newAgentAction, seenFrom } from './boxPresentation'
-import { joinCommand } from './joinCommand'
 import { STATUS_DOT } from './runtimePresentation'
 
-import type { BoxJoin } from './joinCommand'
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
-
-/** Joins a Linux or macOS machine as one of your computers: run the command on it, or send it over SSH. */
-export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => void }) {
-  const [sshTarget, setSshTarget] = useState('')
-  const command = joinCommand(join, sshTarget)
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={t('Your own computer')}
-      description={t('Run this on the machine. The token works once and expires in an hour.')}
-    >
-      <div className="space-y-3 p-5">
-        <label className="block space-y-1.5">
-          <span className="block text-[12px] text-secondary">
-            {t('Send it from here over SSH (optional)')}
-          </span>
-          <input
-            className={`${fieldClass} h-9 font-mono`}
-            placeholder="user@host"
-            spellCheck={false}
-            autoCapitalize="off"
-            value={sshTarget}
-            onChange={(event) => setSshTarget(event.target.value)}
-          />
-        </label>
-        <pre className="whitespace-pre-wrap break-all rounded-lg border border-zGray-800 bg-main p-3 font-mono text-[12px] text-main">
-          {command}
-        </pre>
-        <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              void navigator.clipboard.writeText(command).then(() => toast.success(t('Copied')))
-            }
-          >
-            {t('Copy')}
-          </Button>
-          <Button size="sm" onClick={onClose}>
-            {t('Done')}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
 
 /** Open the same agent details panel as the usage table. */
 export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
