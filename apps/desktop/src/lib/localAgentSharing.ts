@@ -1,3 +1,5 @@
+import { SHARED_COMPUTER_AUDIT, SHARED_COMPUTER_PRIVACY } from './sharedComputerDisclosure.ts'
+
 import type { RuntimeInstance } from '../types/runtime'
 
 /** A local agent runs on its owner's own computer (`local_<user>_<device>`). */
@@ -11,19 +13,14 @@ export function isLocalAgentRuntime(runtimeId: string | undefined): boolean {
 export const LOCAL_AGENT_SHARING_NOTE =
   'This agent runs on your computer’s local runtime. People you share it with can read it, but only you can send messages. Move it to a team runtime to work on it together.'
 
-/** The confirmation a move needs before it puts the session on a computer:
- *  from then on only the owner can send messages, so anyone who could reply
- *  before is left read-only. */
+/** Explain the destination trust boundary before moving conversation context. */
 export function localAgentMoveWarning(
   target: Pick<RuntimeInstance, 'kind' | 'local'>,
 ): string | undefined {
   if (target.kind !== 'local') return undefined
   const shared = target.local?.shared
 
-  if (shared)
-    return `This runtime runs on a teammate’s own computer, which they share with you. It runs as them, and they can see what runs there.${
-      shared.level === 'approve' ? ' They approve this agent before its first message runs.' : ''
-    } Only you can send messages in this agent.`
+  if (shared || target.local?.box) return `${SHARED_COMPUTER_PRIVACY} ${SHARED_COMPUTER_AUDIT}`
 
   return 'This runtime runs on your computer. After the move, only you can send messages in this agent. People you shared it with can still read it.'
 }

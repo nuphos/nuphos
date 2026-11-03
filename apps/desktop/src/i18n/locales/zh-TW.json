@@ -4344,7 +4344,6 @@
   "Team skill": "團隊技能",
   "Teammates on this domain can join this workspace.": "此網域的隊友可以加入此工作區。",
   "Teammates who can open this chat will see the artifact.": "能開啟此對話的隊友都會看到此成品。",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "你選取的隊友可以將他們自己的 Agent 放在這台電腦的本機執行環境上。他們無法開啟這台電腦的終端機或檔案、登入其執行環境，也無法使用本機執行。",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "你選取的隊友無須詢問即可在這裡執行他們自己的 Agent。適用於專門用於此用途的機器。",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "你選取的隊友可以在這裡執行他們自己的 Agent。每個 Agent 啟動前都需經你核准。",
   "Teammates' computers": "隊友的電腦",
@@ -4494,7 +4493,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "此值會寫入 Agent 執行環境中的檔案，絕不會出現在此對話中。",
   "The whole team": "整個團隊",
   "The working files could not come along.": "工作檔案無法一併移動。",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "他們的 Agent 會以你在這台電腦上的使用者身分執行，並可使用其上的所有登入資訊：SSH 金鑰、GitHub 與雲端 CLI，以及你的檔案。來自 Slack、Discord 或觸發條件的 Agent 絕不會在這裡執行。",
   "Theme": "主題",
   "Then click {button} in AWS.": "然後在 AWS 中按一下 {button}。",
   "Then open {link} → copy the {id} — the final step asks for that too": "接著開啟 {link} → 複製 {id}，最後一步也會要求填入",
@@ -5662,5 +5660,9 @@
   "≥ {pct}% of Limit": "≥ 限制的 {pct}%",
   "Stop viewing from iPhone": "停止在 iPhone 上檢視",
   "Viewing from iPhone. Click to stop.": "正在 iPhone 上檢視。點一下即可停止。",
-  "✓ used": "✓ 已使用"
+  "✓ used": "✓ 已使用",
+  "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "請只分享給你信任的人。存取範圍包含指令、檔案、終端機與電腦操作。Agent 可能使用作業系統帳號可存取的檔案與既有登入狀態。",
+  "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "這是共用電腦，不是私人沙盒。主機管理員與使用相同作業系統帳號的程序，可能存取送往這裡的工作資料，包含對話上下文、檔案與憑證。",
+  "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "電腦擁有者與管理者可以查看受支援的裝置操作紀錄，包含請求人、對話標題、指令摘要、時間與結果。紀錄保留 90 天。機密遮罩採盡力處理，紀錄涵蓋範圍並不完整；這不會授予整段對話的存取權。",
+  "Choose the teammates who may use this computer and its runtimes.": "選擇可以使用這台電腦及其 runtime 的團隊成員。"
 }

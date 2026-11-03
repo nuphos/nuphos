@@ -4344,7 +4344,6 @@
   "Team skill": "ทักษะของทีม",
   "Teammates on this domain can join this workspace.": "เพื่อนร่วมทีมในโดเมนนี้เข้าร่วมเวิร์กสเปซนี้ได้",
   "Teammates who can open this chat will see the artifact.": "เพื่อนร่วมทีมที่เปิดแชทนี้ได้จะเห็นอาร์ติแฟกต์นี้",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "เพื่อนร่วมทีมที่คุณเลือกจะวางเอเจนต์ของตนบนรันไทม์ในเครื่องของคอมพิวเตอร์นี้ได้ แต่เปิดเทอร์มินัลหรือไฟล์ ลงชื่อเข้าใช้รันไทม์ หรือใช้การรันในเครื่องไม่ได้",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "เพื่อนร่วมทีมที่คุณเลือกรันเอเจนต์ของตนที่นี่ได้โดยไม่ต้องถาม ใช้ตัวเลือกนี้กับเครื่องที่แยกไว้สำหรับงานนี้โดยเฉพาะ",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "เพื่อนร่วมทีมที่คุณเลือกรันเอเจนต์ของตนที่นี่ได้ โดยคุณต้องอนุมัติเอเจนต์แต่ละตัวก่อนเริ่มทำงาน",
   "Teammates' computers": "คอมพิวเตอร์ของเพื่อนร่วมทีม",
@@ -4494,7 +4493,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "ค่านี้จะถูกเขียนลงไฟล์บนรันไทม์ของเอเจนต์ และจะไม่ปรากฏในบทสนทนานี้",
   "The whole team": "ทั้งทีม",
   "The working files could not come along.": "ไม่สามารถย้ายไฟล์งานไปด้วยได้",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "เอเจนต์ของพวกเขาจะทำงานในนามผู้ใช้ของคุณบนคอมพิวเตอร์นี้ พร้อมทุกการลงชื่อเข้าใช้บนเครื่อง ทั้งคีย์ SSH, CLI ของ GitHub และคลาวด์ รวมถึงไฟล์ของคุณ เอเจนต์จาก Slack, Discord หรือทริกเกอร์จะไม่ทำงานที่นี่",
   "Theme": "ธีม",
   "Then click {button} in AWS.": "จากนั้นคลิก {button} ใน AWS",
   "Then open {link} → copy the {id} — the final step asks for that too": "จากนั้นเปิด {link} → คัดลอก {id} — ขั้นตอนสุดท้ายจะขอค่านี้ด้วย",
@@ -5662,5 +5660,9 @@
   "≥ {pct}% of Limit": "≥ {pct}% ของขีดจำกัด",
   "Stop viewing from iPhone": "หยุดดูจาก iPhone",
   "Viewing from iPhone. Click to stop.": "กำลังดูจาก iPhone คลิกเพื่อหยุด",
-  "✓ used": "✓ ใช้แล้ว"
+  "✓ used": "✓ ใช้แล้ว",
+  "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "แชร์เฉพาะกับคนที่คุณไว้ใจ การเข้าถึงรวมถึงคำสั่ง ไฟล์ เทอร์มินัล และการควบคุมคอมพิวเตอร์ เอเจนต์อาจใช้ไฟล์และสถานะการลงชื่อเข้าใช้ที่บัญชีระบบปฏิบัติการเข้าถึงได้",
+  "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "นี่คือคอมพิวเตอร์ที่ใช้ร่วมกัน ไม่ใช่แซนด์บ็อกซ์ส่วนตัว ผู้ดูแลโฮสต์และโปรเซสที่ใช้บัญชีระบบปฏิบัติการเดียวกันอาจเข้าถึงงานที่ส่งมาที่นี่ รวมถึงบริบทการสนทนา ไฟล์ และข้อมูลรับรอง",
+  "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "เจ้าของและผู้จัดการคอมพิวเตอร์ดูบันทึกการทำงานของอุปกรณ์ที่รองรับได้ รวมถึงผู้ร้องขอ ชื่อการสนทนา สรุปคำสั่ง เวลา และผลลัพธ์ บันทึกเก็บไว้ 90 วัน การปิดบังข้อมูลลับทำเท่าที่ทำได้และบันทึกไม่ครอบคลุมทั้งหมด สิ่งนี้ไม่ให้สิทธิ์เข้าถึงการสนทนาทั้งหมด",
+  "Choose the teammates who may use this computer and its runtimes.": "เลือกสมาชิกทีมที่ใช้คอมพิวเตอร์นี้และรันไทม์ได้"
 }

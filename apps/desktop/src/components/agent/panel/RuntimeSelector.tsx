@@ -17,6 +17,7 @@ import { selectedAgentReachability } from './runtimeControlSignOut'
 import { selectorBoxes } from './selectorBoxes'
 import { SelectorBoxMenu } from './SelectorBoxMenu'
 import { usePickerFixes } from './usePickerFixes'
+import { useRuntimePickConsent } from './useRuntimePickConsent'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
@@ -84,6 +85,7 @@ export function RuntimeSelector({
   onSettings,
   onAddAgent,
   confirm,
+  sessionId,
   hero = false,
 }: RuntimeControl & {
   /** Lets the composer open the list, e.g. from the agent-status banner. */
@@ -101,6 +103,12 @@ export function RuntimeSelector({
     setInternalOpen(next)
     onMenuOpenChange?.(next)
   }
+  const pickConsent = useRuntimePickConsent({
+    options,
+    sessionId,
+    onSelect,
+    closeMenu: () => setOpen(false),
+  })
   const devices = useAgentDevices(() => 5_000, teamId, {
     metrics: true,
     enabled: open && Boolean(teamId),
@@ -154,6 +162,7 @@ export function RuntimeSelector({
   return (
     <>
       {dialogs}
+      {pickConsent.dialog}
       {confirm && (
         <ConfirmDialog
           open
@@ -191,7 +200,7 @@ export function RuntimeSelector({
                 updates={updates}
                 fixes={fixes}
                 selectDisabled={selectDisabled}
-                onSelect={onSelect}
+                onSelect={pickConsent.onSelect}
               />
             ))}
           </div>

@@ -18,7 +18,7 @@ test('the Share note no longer says teammates can run commands on the computer',
   assert.doesNotMatch(LOCAL_AGENT_SHARING_NOTE, /run commands on your computer/)
 })
 
-test('a move onto a teammate’s shared computer says whose it is and whether they approve', () => {
+test('a move onto a teammate’s shared computer discloses host access and partial audit visibility', () => {
   const local = { ownerUserId: 'mate', deviceId: 'mac', deviceLabel: 'Mac', signedIn: true }
   const approve = localAgentMoveWarning({
     kind: 'local',
@@ -29,12 +29,32 @@ test('a move onto a teammate’s shared computer says whose it is and whether th
     local: { ...local, shared: { level: 'full' } },
   })
 
-  assert.match(approve ?? '', /teammate’s own computer/)
-  assert.match(approve ?? '', /They approve this agent/)
-  assert.doesNotMatch(full ?? '', /They approve/)
+  for (const warning of [approve, full]) {
+    assert.match(warning ?? '', /not a private sandbox/)
+    assert.match(warning ?? '', /same operating-system account/)
+    assert.match(warning ?? '', /conversation context, files and credentials/)
+    assert.match(warning ?? '', /90 days/)
+    assert.match(warning ?? '', /coverage is incomplete/)
+    assert.doesNotMatch(warning ?? '', /They approve|runs as them/)
+  }
 })
 
 test('moves onto hosted agents need no Local Agent consent', () => {
   assert.equal(localAgentMoveWarning({ kind: 'managed' }), undefined)
   assert.equal(localAgentMoveWarning({ kind: 'external' }), undefined)
+})
+
+test('a Box also discloses shared-host access before a move', () => {
+  const warning = localAgentMoveWarning({
+    kind: 'local',
+    local: {
+      ownerUserId: 'owner',
+      deviceId: 'vm',
+      deviceLabel: 'VM',
+      signedIn: true,
+      box: { state: 'running' },
+    },
+  })
+
+  assert.match(warning ?? '', /not a private sandbox/)
 })

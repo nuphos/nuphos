@@ -4344,7 +4344,6 @@
   "Team skill": "팀 스킬",
   "Teammates on this domain can join this workspace.": "이 도메인의 팀원은 이 워크스페이스에 참여할 수 있습니다.",
   "Teammates who can open this chat will see the artifact.": "이 채팅을 열 수 있는 팀원은 아티팩트를 볼 수 있습니다.",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "선택한 팀원은 이 컴퓨터의 로컬 런타임에 자신의 에이전트를 배치할 수 있습니다. 터미널이나 파일을 열거나, 런타임에 로그인하거나, 로컬 실행을 사용할 수는 없습니다.",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "선택한 팀원이 묻지 않고 여기에서 자신의 에이전트를 실행할 수 있습니다. 이 용도로 따로 마련한 머신에 사용하세요.",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "선택한 팀원이 여기에서 자신의 에이전트를 실행할 수 있습니다. 각 에이전트는 시작 전에 내 승인을 받습니다.",
   "Teammates' computers": "팀원의 컴퓨터",
@@ -4494,7 +4493,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "값은 에이전트 런타임의 파일에 기록되며 이 대화에는 표시되지 않습니다.",
   "The whole team": "팀 전체",
   "The working files could not come along.": "작업 파일은 함께 옮기지 못했습니다.",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "팀원의 에이전트는 이 컴퓨터에서 내 사용자 권한으로, 이 컴퓨터의 모든 로그인 정보(SSH 키, GitHub 및 클라우드 CLI, 내 파일)를 사용해 실행됩니다. Slack, Discord, 트리거에서 시작된 에이전트는 여기에서 실행되지 않습니다.",
   "Theme": "테마",
   "Then click {button} in AWS.": "그런 다음 AWS에서 {button}을(를) 클릭하세요.",
   "Then open {link} → copy the {id} — the final step asks for that too": "그런 다음 {link}을(를) 열고 → {id}을(를) 복사하세요. 마지막 단계에서 이 값도 입력합니다",
@@ -5662,5 +5660,9 @@
   "≥ {pct}% of Limit": "제한의 {pct}% 이상",
   "Stop viewing from iPhone": "iPhone에서 보기 중지",
   "Viewing from iPhone. Click to stop.": "iPhone에서 보는 중입니다. 클릭하면 중지됩니다.",
-  "✓ used": "✓ 사용됨"
+  "✓ used": "✓ 사용됨",
+  "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "신뢰하는 사람에게만 공유하세요. 접근 권한에는 명령, 파일, 터미널 및 컴퓨터 제어가 포함됩니다. 에이전트는 운영 체제 계정에서 접근할 수 있는 파일과 기존 로그인 상태를 사용할 수 있습니다.",
+  "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "이 컴퓨터는 공유 환경이며 개인 샌드박스가 아닙니다. 호스트 관리자와 같은 운영 체제 계정을 사용하는 프로세스가 대화 맥락, 파일, 자격 증명 등 이곳으로 전송된 작업 데이터에 접근할 수 있습니다.",
+  "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "컴퓨터 소유자와 관리자는 요청자, 대화 제목, 명령 요약, 시간 및 결과를 포함한 지원되는 장치 작업 기록을 볼 수 있습니다. 기록은 90일간 보관됩니다. 비밀 정보 마스킹은 최선의 노력으로 수행되며 기록 범위는 불완전합니다. 전체 대화 접근 권한은 부여되지 않습니다.",
+  "Choose the teammates who may use this computer and its runtimes.": "이 컴퓨터와 런타임을 사용할 팀원을 선택하세요."
 }

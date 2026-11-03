@@ -4344,7 +4344,6 @@
   "Team skill": "Habilidad del equipo",
   "Teammates on this domain can join this workspace.": "Los compañeros con este dominio pueden unirse a este espacio de trabajo.",
   "Teammates who can open this chat will see the artifact.": "Los compañeros que puedan abrir este chat verán el artefacto.",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "Los compañeros que elijas pueden colocar sus propios agentes en el entorno de ejecución local de esta computadora. No pueden abrir su terminal ni sus archivos, iniciar sesión en sus entornos de ejecución ni usar la ejecución local.",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "Los compañeros que elijas pueden ejecutar sus propios agentes aquí sin preguntar. Úsalo en una máquina reservada para ello.",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "Los compañeros que elijas pueden ejecutar sus propios agentes aquí. Apruebas cada agente antes de que se inicie.",
   "Teammates' computers": "Computadoras de los compañeros",
@@ -4494,7 +4493,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "El valor se escribe en un archivo del entorno de ejecución del agente y nunca aparece en esta conversación.",
   "The whole team": "Todo el equipo",
   "The working files could not come along.": "No se pudieron trasladar los archivos de trabajo.",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "Sus agentes se ejecutan como tu usuario en esta computadora, con todas sus sesiones iniciadas: claves SSH, CLI de GitHub y de la nube, y tus archivos. Los agentes de Slack, Discord o disparadores nunca se ejecutan aquí.",
   "Theme": "Tema",
   "Then click {button} in AWS.": "Luego haz clic en {button} en AWS.",
   "Then open {link} → copy the {id} — the final step asks for that too": "Luego abre {link} → copia el {id}; el último paso también lo pide",
@@ -5662,5 +5660,9 @@
   "≥ {pct}% of Limit": "≥ {pct}% del límite",
   "Stop viewing from iPhone": "Dejar de ver desde el iPhone",
   "Viewing from iPhone. Click to stop.": "Viéndose desde el iPhone. Haz clic para detener.",
-  "✓ used": "✓ usada"
+  "✓ used": "✓ usada",
+  "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "Comparte solo con personas de confianza. El acceso incluye comandos, archivos, terminales y control del equipo. Los agentes pueden usar archivos y sesiones iniciadas disponibles para la cuenta del sistema operativo.",
+  "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "Este equipo es compartido, no un entorno privado aislado. Los administradores del equipo y los procesos de la misma cuenta del sistema operativo pueden acceder al trabajo enviado aquí, incluidos el contexto de la conversación, archivos y credenciales.",
+  "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "Los propietarios y gestores del equipo pueden ver los registros de operaciones compatibles: solicitante, títulos de conversaciones, resúmenes de comandos, horas y resultados. Se conservan durante 90 días. El ocultamiento de secretos se realiza en la medida de lo posible y la cobertura es incompleta. Esto no otorga acceso a la conversación completa.",
+  "Choose the teammates who may use this computer and its runtimes.": "Elige quiénes del equipo pueden usar este equipo y sus runtimes."
 }

@@ -4344,7 +4344,6 @@
   "Team skill": "团队技能",
   "Teammates on this domain can join this workspace.": "此域名下的队友可以加入此工作区。",
   "Teammates who can open this chat will see the artifact.": "能打开此对话的队友都能看到该产物。",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "你选择的队友可以将自己的 Agent 放到此电脑的本地运行环境上运行。他们无法打开此电脑的终端或文件、登录其运行环境，也无法使用本地执行。",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "你选择的队友无需询问即可在此运行自己的 Agent。适用于专门用于此用途的机器。",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "你选择的队友可以在此运行自己的 Agent。每个 Agent 启动前都需经你批准。",
   "Teammates' computers": "队友的电脑",
@@ -4494,7 +4493,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "该值会写入 Agent 运行环境上的文件，不会出现在此对话中。",
   "The whole team": "整个团队",
   "The working files could not come along.": "工作文件未能一并迁移。",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "他们的 Agent 会以你在此电脑上的用户身份运行，可使用其中的所有登录凭据：SSH 密钥、GitHub 和云服务 CLI，以及你的文件。来自 Slack、Discord 或触发器的 Agent 不会在此运行。",
   "Theme": "主题",
   "Then click {button} in AWS.": "然后在 AWS 中点击 {button}。",
   "Then open {link} → copy the {id} — the final step asks for that too": "然后打开 {link} → 复制 {id}，最后一步也需要填写",
@@ -5662,5 +5660,9 @@
   "≥ {pct}% of Limit": "≥ 限制的 {pct}%",
   "Stop viewing from iPhone": "停止在 iPhone 上查看",
   "Viewing from iPhone. Click to stop.": "正在 iPhone 上查看。点击停止。",
-  "✓ used": "✓ 已使用"
+  "✓ used": "✓ 已使用",
+  "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "请只分享给你信任的人。访问范围包含命令、文件、终端与电脑操作。Agent 可能使用操作系统账户可访问的文件与现有登录状态。",
+  "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "这是共享电脑，不是私人沙盒。主机管理员与使用相同操作系统账户的进程，可能访问发送到这里的工作数据，包括对话上下文、文件与凭据。",
+  "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "电脑所有者与管理者可以查看受支持的设备操作记录，包括请求人、对话标题、命令摘要、时间与结果。记录保留 90 天。敏感信息遮蔽尽力执行，记录覆盖范围并不完整；这不会授予完整对话的访问权。",
+  "Choose the teammates who may use this computer and its runtimes.": "选择可以使用这台电脑及其 runtime 的团队成员。"
 }
