@@ -22,12 +22,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
+import ai.nuphos.android.model.ChatTime
 import ai.nuphos.android.model.TransferUpload
 import ai.nuphos.android.session.AiAccess
 import ai.nuphos.android.session.ChannelSession
@@ -37,8 +40,6 @@ import ai.nuphos.android.ui.chat.TransferCard
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
 import kotlinx.coroutines.launch
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /** A chat opened from the list, a link or a notification. It never runs an agent turn. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,6 +125,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             items(reversed, key = { it.key }) { item ->
                 when (item) {
                     is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed)
+                    is ChannelItem.Time -> TimeDivider(item.at)
                     is ChannelItem.Paused -> PausedLine(item.text)
                     is ChannelItem.Typing -> TypingRow(item)
                 }
@@ -136,18 +138,16 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     }
 }
 
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
-
+/** Yours on the right; everyone else's on the left under their avatar and name, once per run. */
 @Composable
 private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, mine: Boolean, onLink: (String) -> Unit, allowed: () -> Boolean) {
-    Row(Modifier.fillMaxWidth().padding(top = if (first) 12.dp else 4.dp), verticalAlignment = Alignment.Top) {
-        // Your posts sit on the right; people and agents on the left.
+    Row(Modifier.fillMaxWidth().padding(top = if (first) 12.dp else 4.dp)) {
         if (mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
-        else Box(Modifier.width(44.dp)) { if (first) SenderAvatar(post) }
         Column(Modifier.widthIn(max = 300.dp), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             if (first && !mine) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(bottom = 4.dp)) {
-                Text(post.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)) {
+                Box(Modifier.testTag("channel-avatar")) { SenderAvatar(post) }
+                Text(post.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (post.isAgent) Text("Agent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .padding(horizontal = 6.dp, vertical = 2.dp))
@@ -155,7 +155,7 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
             // A bubble is as wide as its words, up to the column's width.
             if (post.text.isNotEmpty()) Surface(modifier = Modifier.width(IntrinsicSize.Max), shape = RoundedCornerShape(18.dp),
                 color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh) {
-                Box(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) { MarkdownText(post.text, onLink = onLink) }
+                Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) { MarkdownText(post.text, onLink = onLink, compact = true) }
             }
             // A post on its way shows the files it is uploading.
             if (post.sending) session.sendingAttachments[post.id]?.forEach { attachment ->
@@ -169,22 +169,31 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                         loadGroup = { session.transferGroup(group) }, canAccess = true, allowed = allowed, compact = true)
                 }
             }
-            Text(if (post.sending) "Sending…" else post.sentAt?.atZone(ZoneId.systemDefault())?.format(timeFormat).orEmpty(),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // Times are dividers between runs now; only a post on its way says so.
+            if (post.sending) Text("Sending…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp))
         }
-        if (mine) Box(Modifier.width(44.dp), contentAlignment = Alignment.TopEnd) { if (first) SenderAvatar(post) }
-        else Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
+        if (!mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
     }
 }
 
+/** A centered time above a post that follows a pause of more than five minutes. */
+@Composable
+private fun TimeDivider(at: java.time.Instant) {
+    Text(ChatTime.label(at), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline,
+        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp).testTag("channel-time"))
+}
+
+private val AVATAR = 20.dp
+
 @Composable
 private fun SenderAvatar(post: ChannelPost) {
-    if (post.isAgent) { AgentAvatar(post.senderId, runtime = null, size = 36.dp); return }
-    Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+    if (post.isAgent) { AgentAvatar(post.senderId, runtime = null, size = AVATAR); return }
+    Box(Modifier.size(AVATAR).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center) {
         Text(post.name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() },
-            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
-        post.avatarURL?.let { coil3.compose.AsyncImage(it, null, Modifier.size(36.dp), contentScale = ContentScale.Crop) }
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, lineHeight = 8.sp), color = MaterialTheme.colorScheme.onPrimary)
+        post.avatarURL?.let { coil3.compose.AsyncImage(it, null, Modifier.size(AVATAR), contentScale = ContentScale.Crop) }
     }
 }
 
