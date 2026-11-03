@@ -1,6 +1,7 @@
 import { accountFailure, accountSignal, signedIn, stillCurrent } from '../account-request.ts'
 import { apiUrl } from '../api-endpoint.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version.ts'
+import { beginGet, notModified, readJson } from '../conditional-get.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
 import { buildAtlasError } from './error.ts'
@@ -59,6 +60,7 @@ export async function call<T>(
     [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
   }
   const requestId = tagRequest(headers)
+  const get = beginGet(account, method, route, headers)
   const init: RequestInit = { method, headers }
 
   if (body instanceof Uint8Array) {
@@ -83,6 +85,9 @@ export async function call<T>(
   } catch (e) {
     throw backendFailure(accountFailure(account, e), route, requestId)
   }
+  const unchanged = notModified(get, res)
+
+  if (unchanged) return unchanged.value as T
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`
     let code: string | undefined
@@ -108,7 +113,7 @@ export async function call<T>(
     throw buildAtlasError(message, code, details)
   }
   if (res.status === 204) return undefined as T
-  const value = (await res.json()) as T
+  const value = await readJson<T>(get, res)
 
   stillCurrent(account)
 
