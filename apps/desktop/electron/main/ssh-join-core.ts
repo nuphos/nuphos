@@ -161,12 +161,12 @@ export function sshJoinScript({ token, apiUrl }: { token: string; apiUrl: string
   ].join('\n')
 }
 
-/** Why an ssh run failed, from its exit code and what it wrote to stderr. */
+/** Why an ssh run failed. Only exit 255 is ssh's own failure; anything else came from the script. */
 export function sshJoinProblem(code: number | null, stderr: string): SshJoinProblem {
+  if (code !== 255) return 'failed'
   if (/Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i.test(stderr))
     return 'host-key'
   if (/Permission denied|Too many authentication failures/i.test(stderr)) return 'auth'
-  if (code === 255) return 'unreachable'
 
-  return 'failed'
+  return 'unreachable'
 }

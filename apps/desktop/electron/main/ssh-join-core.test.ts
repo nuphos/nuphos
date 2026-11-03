@@ -93,6 +93,7 @@ test('failures are told apart by what ssh wrote', () => {
   assert.equal(sshJoinProblem(255, 'me@box: Permission denied (publickey).'), 'auth')
   assert.equal(sshJoinProblem(255, 'ssh: Could not resolve hostname box'), 'unreachable')
   assert.equal(sshJoinProblem(1, 'The Nuphos CLI did not install.'), 'failed')
+  assert.equal(sshJoinProblem(1, 'mkdir: /opt/x: Permission denied'), 'failed')
 })
 
 test('the system ssh, wherever OpenSSH puts it', () => {
