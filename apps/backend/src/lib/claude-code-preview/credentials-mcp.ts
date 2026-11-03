@@ -72,15 +72,16 @@ export function previewSessionEnv(args: {
   }
 }
 
-export function previewMcpServers(
+export async function previewMcpServers(
   conversationId: string,
   teamId: string,
   userId: string,
   conversationOwnerUserId = userId,
   options?: PreviewSessionAccessOptions,
-): AcpHttpMcpServer[] {
-  return previewSessionAccess(conversationId, teamId, userId, conversationOwnerUserId, options)
-    .mcpServers
+): Promise<AcpHttpMcpServer[]> {
+  return (
+    await previewSessionAccess(conversationId, teamId, userId, conversationOwnerUserId, options)
+  ).mcpServers
 }
 
 // A teammate's own turn runs in their HOME. Everything else, including
@@ -102,18 +103,18 @@ export type PreviewSessionAccessOptions = {
   toolsVersion?: string
 }
 
-export function previewSessionAccess(
+export async function previewSessionAccess(
   conversationId: string,
   teamId: string,
   userId: string,
   conversationOwnerUserId = userId,
   options?: PreviewSessionAccessOptions,
-): { mcpServers: AcpHttpMcpServer[]; runtimeEnv?: Record<string, string> } {
+): Promise<{ mcpServers: AcpHttpMcpServer[]; runtimeEnv?: Record<string, string> }> {
   const base = previewMcpBaseUrl(options?.external, options?.backendUrl)
 
   if (!base || !userId) return { mcpServers: [] }
   const mount = `${base.endsWith('/') ? base.slice(0, -1) : base}/agent-sessions/${conversationId}/teams/${teamId}`
-  const token = mintPreviewMcpToken({
+  const token = await mintPreviewMcpToken({
     userId,
     conversationOwnerUserId,
     sessionId: conversationId,

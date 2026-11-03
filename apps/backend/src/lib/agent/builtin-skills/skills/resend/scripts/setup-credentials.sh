@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ -n "${OPENAB_CREDENTIALS_DIR:-}" ]]; then
-  NUPHOS_TOKEN=$(cat "$OPENAB_CREDENTIALS_DIR/NUPHOS_TOKEN" 2>/dev/null || true)
-  export NUPHOS_TOKEN
-fi
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: setup-credentials.sh <teamId> <bindingId>" >&2
@@ -22,33 +18,10 @@ print(urllib.parse.quote(sys.argv[1], safe=""))
 PY
 }
 
-read_local_nuphos_token() {
-  python3 <<'PY'
-from pathlib import Path
-import re
-for name in ("cli.yaml", "desktop.yaml"):
-    try:
-        text = (Path.home() / ".config" / "nuphos" / name).read_text()
-    except FileNotFoundError:
-        continue
-    match = re.search(r'(?m)^token:\s*(.+?)\s*$', text)
-    if match:
-        token = match.group(1).strip()
-        if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
-            token = token[1:-1]
-        print(token)
-        break
-PY
-}
-
-auth_token="${NUPHOS_TOKEN:-}"
-if [ -z "$auth_token" ]; then
-  auth_token="$(read_local_nuphos_token || true)"
-fi
-if [ -z "$auth_token" ]; then
-  echo "NUPHOS_TOKEN is not set and no local Nuphos sign-in has a token in ~/.config/nuphos" >&2
-  exit 1
-fi
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=../../_runtime/scripts/nuphos-token.sh
+source "$script_dir/../../_runtime/scripts/nuphos-token.sh"
+auth_token="$(nuphos_token)" || exit 1
 
 team_enc="$(urlencode "$team_id")"
 binding_enc="$(urlencode "$binding_id")"

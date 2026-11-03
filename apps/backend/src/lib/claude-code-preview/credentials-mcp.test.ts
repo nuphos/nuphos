@@ -57,12 +57,12 @@ describe('credentialsMcpTools', () => {
     })
   })
 
-  test('names the actor only when a teammate acts in someone else’s conversation', () => {
-    const own = previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+  test('names the actor only when a teammate acts in someone else’s conversation', async () => {
+    const own = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
       backendUrl: 'https://backend.example',
       humanTurn: true,
     })
-    const guest = previewSessionAccess('conv-1', 'team-1', 'guest', 'owner', {
+    const guest = await previewSessionAccess('conv-1', 'team-1', 'guest', 'owner', {
       backendUrl: 'https://backend.example',
       humanTurn: true,
     })
@@ -71,9 +71,9 @@ describe('credentialsMcpTools', () => {
     expect(guest.runtimeEnv).toMatchObject({ NUPHOS_SESSION_ACTOR: 'guest' })
   })
 
-  test('automated turns act as the session owner, in the owner’s HOME', () => {
+  test('automated turns act as the session owner, in the owner’s HOME', async () => {
     for (const actor of ['owner', 'guest']) {
-      const automated = previewSessionAccess('conv-1', 'team-1', actor, 'owner', {
+      const automated = await previewSessionAccess('conv-1', 'team-1', actor, 'owner', {
         backendUrl: 'https://backend.example',
       })
 
@@ -81,25 +81,29 @@ describe('credentialsMcpTools', () => {
     }
   })
 
-  test('the nuphos-tools URL carries the tools version the runtime compares', () => {
-    const url = (toolsVersion?: string) =>
-      previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
-        backendUrl: 'https://backend.example',
-        toolsVersion,
-      }).mcpServers.find((server) => server.name === 'nuphos-tools')?.url
+  test('the nuphos-tools URL carries the tools version the runtime compares', async () => {
+    const url = async (toolsVersion?: string) =>
+      (
+        await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+          backendUrl: 'https://backend.example',
+          toolsVersion,
+        })
+      ).mcpServers.find((server) => server.name === 'nuphos-tools')?.url
 
-    expect(url('abc123')).toEndWith('/agent-sessions/conv-1/teams/team-1/mcp-tools?tools=abc123')
-    expect(url()).toEndWith('/agent-sessions/conv-1/teams/team-1/mcp-tools')
+    expect(await url('abc123')).toEndWith(
+      '/agent-sessions/conv-1/teams/team-1/mcp-tools?tools=abc123',
+    )
+    expect(await url()).toEndWith('/agent-sessions/conv-1/teams/team-1/mcp-tools')
   })
 
   // A live agent keeps the MCP headers it was spawned with for the rest of the
   // session, so their token must outlive a long turn.
-  test('the MCP header token still verifies after the turn has run 31 minutes', () => {
+  test('the MCP header token still verifies after the turn has run 31 minutes', async () => {
     const start = new Date('2026-10-26T12:00:00Z')
 
     setSystemTime(start)
     try {
-      const access = previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      const access = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
         backendUrl: 'https://backend.example',
       })
       const header = access.mcpServers[0]?.headers.find((h) => h.name === 'Authorization')

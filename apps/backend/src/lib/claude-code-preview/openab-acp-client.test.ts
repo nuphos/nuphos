@@ -358,7 +358,11 @@ describe('OpenAbAcpClient', () => {
       authKey: 'transport-key',
       socketFactory: h.connect,
     })
-    const token = mintPreviewMcpToken({ userId: 'u1', sessionId: 'sess-redact', teamId: 't1' })
+    const token = await mintPreviewMcpToken({
+      userId: 'u1',
+      sessionId: 'sess-redact',
+      teamId: 't1',
+    })
     const seen: unknown[] = []
     const prompting = client.prompt('sess-redact', 'hello', (update) => seen.push(update))
     const promptFrame = await nextSent(h.socket(), 0)

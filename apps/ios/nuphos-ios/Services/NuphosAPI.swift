@@ -39,17 +39,21 @@ extension NuphosAPI {
         teamId: String,
         cursor: String? = nil,
         limit: Int = 30,
-        search: String? = nil
+        search: String? = nil,
+        scope: String = "mine",
+        channels: Bool = false
     ) async throws -> AgentConversationsPage {
         var query = [
             URLQueryItem(name: "teamId", value: teamId),
             URLQueryItem(name: "limit", value: String(limit)),
-            URLQueryItem(name: "scope", value: "mine"),
+            URLQueryItem(name: "scope", value: scope),
             URLQueryItem(name: "sort", value: "activity"),
             URLQueryItem(name: "archived", value: "exclude"),
         ]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "search", value: search)) }
+        // Chats are their own listing: the server never mixes them with agents.
+        if channels { query.append(URLQueryItem(name: "kind", value: "channel")) }
         let observedAt = ProcessInfo.processInfo.systemUptime
         let page: AgentConversationsPage = try await get("agent/conversations", query: query, token: token, timeout: 20)
         for row in page.rows {

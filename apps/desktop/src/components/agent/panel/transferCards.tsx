@@ -29,11 +29,14 @@ export function DownloadFilesCard({
   group,
   teamId,
   channelId,
+  previews = true,
 }: {
   group: FileTransferGroup
   teamId: string
   /** Posted in a chat: every member opens and saves it through the chat. */
   channelId?: string
+  /** False when the images and videos are previewed elsewhere (DownloadGroups): rows only. */
+  previews?: boolean
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
@@ -60,7 +63,10 @@ export function DownloadFilesCard({
   )
   // Team-scoped resolve (no sessionId) — the group is team+user scoped.
   const base = { teamId, groupId: group.groupId, ...(channelId ? { channelId } : {}) }
-  const hasPreviews = !expired && ready.some((f) => previewKind(f) !== null)
+  const hasPreviews = previews && !expired && ready.some((f) => previewKind(f) !== null)
+  // Previewed elsewhere, the media are not listed again; an expired group lists all.
+  const listed =
+    previews || expired ? group.files : group.files.filter((f) => previewKind(f) === null)
 
   function savedToast(title: string, description: string, path: string) {
     // "Open in folder" lives only on the (transient) toast — right after the
@@ -155,6 +161,8 @@ export function DownloadFilesCard({
     }
   }
 
+  if (!hasPreviews && listed.length === 0) return null
+
   return (
     <div className="w-full max-w-[85%] self-start">
       {hasPreviews ? (
@@ -168,7 +176,7 @@ export function DownloadFilesCard({
           {(previewed) => fileRows(filesBesidePreviews(group.files, previewed))}
         </TransferPreviews>
       ) : (
-        fileRows(group.files)
+        fileRows(listed)
       )}
     </div>
   )

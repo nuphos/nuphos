@@ -422,26 +422,26 @@ describe('Google token handout', () => {
 
   test('the owner’s own and automated turns get the owner’s token', async () => {
     for (const humanTurn of [true, false]) {
-      const res = await fetchToken('gmail', turn('owner', humanTurn))
+      const res = await fetchToken('gmail', await turn('owner', humanTurn))
 
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ token: 'owner-mail', login: 'owner@example.com' })
     }
     // An agent's turn on the owner's behalf, e.g. a thread message.
-    expect(await (await fetchToken('gmail', turn('teammate', false))).json()).toMatchObject({
+    expect(await (await fetchToken('gmail', await turn('teammate', false))).json()).toMatchObject({
       token: 'owner-mail',
     })
   })
 
   test('each team’s conversations get that team’s grant', async () => {
     saved.push({ ...googleGrant('owner', 'gmail', 'owner-mail-b'), teamId: TEAM_B })
-    const res = await fetchToken('gmail', turn('owner', true, TEAM_B))
+    const res = await fetchToken('gmail', await turn('owner', true, TEAM_B))
 
     expect(await res.json()).toMatchObject({ token: 'owner-mail-b' })
   })
 
   test('a teammate’s message in someone else’s session gets no token', async () => {
-    const res = await fetchToken('gmail', turn('teammate', true))
+    const res = await fetchToken('gmail', await turn('teammate', true))
 
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ code: 'personal_credential_owner_only' })
@@ -449,14 +449,14 @@ describe('Google token handout', () => {
 
   test('409 when the team has no Google OAuth client', async () => {
     teamClient = null
-    const res = await fetchToken('gmail', turn('owner', true))
+    const res = await fetchToken('gmail', await turn('owner', true))
 
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({ code: 'google_oauth_client_not_configured' })
   })
 
   test('404 when the member has not connected the provider', async () => {
-    const res = await fetchToken('google-drive', turn('owner', true))
+    const res = await fetchToken('google-drive', await turn('owner', true))
 
     expect(res.status).toBe(404)
     expect(await res.json()).toEqual({ code: 'personal_credential_not_connected' })
@@ -464,6 +464,6 @@ describe('Google token handout', () => {
 
   test('only conversation tokens, and only Google providers', async () => {
     expect((await fetchToken('gmail')).status).toBe(403)
-    expect((await fetchToken('github', turn('owner', true))).status).toBe(404)
+    expect((await fetchToken('github', await turn('owner', true))).status).toBe(404)
   })
 })

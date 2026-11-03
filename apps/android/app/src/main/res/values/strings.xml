@@ -1,10 +1,9 @@
 <resources>
     <string name="app_name">Nuphos</string>
     <string name="welcome_title">Welcome to Nuphos</string>
-    <string name="welcome_body">Sign in with your Nuphos account to continue.</string>
+    <string name="welcome_body">Sign in or create an account.</string>
     <string name="sign_in">Sign in</string>
     <string name="signing_in">Signing in…</string>
-    <string name="sign_in_hint">Opens your Nuphos server in a secure browser window.</string>
     <string name="sign_out">Sign out</string>
     <string name="sign_out_confirm">Sign out of Nuphos?</string>
     <string name="account">Account</string>

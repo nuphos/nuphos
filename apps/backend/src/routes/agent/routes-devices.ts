@@ -51,7 +51,6 @@ import { createAgentDeviceBoxRoutes } from './routes-devices-box'
 import { createDeviceAgentRoutes } from './routes-device-agents'
 import { readTeamIdCandidate } from './team-scope'
 
-import type { DeviceExecAuditPage } from '@/lib/agent/devices/audit'
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
 import type { BoxState } from '@/lib/agent/devices/box-instabox'
 import type { HolderMessage } from '@/lib/agent/devices/local-runtime/protocol'
@@ -77,6 +76,7 @@ const joinTokenSchema = z.object({
 })
 
 const auditQuerySchema = z.object({
+  includeUnfinished: z.enum(['true', 'false']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   before: z
     .string()
@@ -93,11 +93,7 @@ export type AgentDeviceRouteDependencies = {
   readMetrics: typeof readBoxMetrics
   upsertAgentDevice: (userId: string, device: AgentDeviceRegistration) => Promise<void>
   getAgentDevice: (userId: string, deviceId: string) => Promise<AgentDevice | null>
-  listDeviceExecAudit: (
-    ownerUserId: string,
-    deviceId: string,
-    options: { limit: number; cursor?: string },
-  ) => Promise<DeviceExecAuditPage>
+  listDeviceExecAudit: typeof listDeviceExecAudit
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
   boxDesktops: typeof boxDesktops
   issueJoinToken: typeof issueDeviceJoinToken
@@ -253,12 +249,13 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
         'manage',
         deps.access,
       )
-      const { limit, before } = c.req.valid('query')
+      const { limit, before, includeUnfinished } = c.req.valid('query')
       const device = await deps.getAgentDevice(userId, deviceId)
 
       if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
       const page = await deps.listDeviceExecAudit(userId, deviceId, {
         limit,
+        ...(includeUnfinished === 'true' ? { includeUnfinished: true } : {}),
         ...(before ? { cursor: before } : {}),
       })
       const titles = await deps.conversationTitlesFor([
@@ -279,7 +276,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
           commandRedacted: entry.commandRedacted,
           requestedAt: entry.requestedAt.toISOString(),
           dispatchedAt: entry.dispatchedAt?.toISOString() ?? null,
-          finishedAt: entry.finishedAt.toISOString(),
+          finishedAt: entry.finishedAt?.toISOString() ?? null,
           durationMs: entry.durationMs,
           outcome: entry.outcome,
           exitCode: entry.exitCode ?? null,

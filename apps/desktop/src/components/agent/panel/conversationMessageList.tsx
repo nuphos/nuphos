@@ -20,6 +20,7 @@ import { DEFERRED_MESSAGE_STYLE } from './status'
 import { TabSignInCard } from './TabSignInCard'
 import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
 import { placeTimelineEvents } from './timelineEvents'
+import { isShownMessage } from './turnBoundaries'
 import { UserMessage } from './UserMessage'
 import { useSessionDesktops } from './useSessionDesktops'
 import { useTransferDownloads } from './useTransferDownloads'
@@ -173,7 +174,7 @@ function MessageList({
         </div>
       ) : (
         messages.map((m, mi) => {
-          if (activity.hidden.has(m.id)) return null
+          if (activity.hidden.has(m.id) || !isShownMessage(m)) return null
           const isLast = m.id === lastMsg?.id
           // Turn start for the "Worked for Xs" fold: the preceding user
           // message's persisted time.

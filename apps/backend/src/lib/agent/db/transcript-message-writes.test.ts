@@ -5,8 +5,8 @@ import { messageWrites } from './transcript-message-writes'
 import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { createPreviewAssistantPartAccumulator } from '@/lib/claude-code-preview/preview-transcript'
 
-test('a token streamed across chunks is redacted once the message is assembled', () => {
-  const token = mintPreviewMcpToken({ userId: 'u1', sessionId: 'conv-1', teamId: 't1' })
+test('a token streamed across chunks is redacted once the message is assembled', async () => {
+  const token = await mintPreviewMcpToken({ userId: 'u1', sessionId: 'conv-1', teamId: 't1' })
   const parts = createPreviewAssistantPartAccumulator()
   const cut = Math.floor(token.length / 2)
 

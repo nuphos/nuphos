@@ -189,7 +189,7 @@ describe('local_cua', () => {
     )({ code: 'await cua.getState()' })
 
     expect(result.isError).toBe(true)
-    expect(outcomes).toEqual(['device_offline'])
+    expect(outcomes).toEqual(['unknown', 'device_offline'])
   })
 
   test('an actor without use on the device gets an error and nothing reaches the device', async () => {

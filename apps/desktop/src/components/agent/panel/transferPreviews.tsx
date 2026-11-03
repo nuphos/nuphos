@@ -11,8 +11,8 @@ import { MEDIA_BOX, previewKind } from './transferDownloads'
 import type { FileTransferFile } from '../../../types'
 import type { ReactNode } from 'react'
 
-// Inline previews for the images and videos in a transfer group, whichever
-// side sent it. Presigned URLs last minutes, so a preview that breaks after
+// Inline previews for the images and videos in a transfer group (or several,
+// drawn as one row with one pager), whichever side sent it. Presigned URLs last minutes, so a preview that breaks after
 // its links have aged re-resolves them. Every image and video gets the same
 // square, drawn empty while the links resolve; the preview opens any of them
 // full size and steps through all of them. `children` receives the names of
@@ -28,12 +28,12 @@ export function TransferPreviews({
   children,
 }: {
   teamId: string
-  groupId: string
+  groupId: string | readonly string[]
   /** How many previews the group should have, drawn as empty boxes until resolved. */
   expected: number
   /** Right-align the thumbnails, for files the user sent. */
   alignEnd?: boolean
-  onDownload?: (file: FileTransferFile) => void
+  onDownload?: (file: FileTransferFile & { groupId: string }) => void
   /** A chat's files load through the chat, so every member sees them. */
   channelId?: string
   children?: (
@@ -41,16 +41,23 @@ export function TransferPreviews({
     previewedVideos: ReadonlySet<string> | null,
   ) => ReactNode
 }) {
-  const [files, setFiles] = useState<FileTransferFile[] | null>(null)
+  const [files, setFiles] = useState<(FileTransferFile & { groupId: string })[] | null>(null)
+  // A stable key for the effect: an array prop is a new value on every render.
+  const groups = typeof groupId === 'string' ? groupId : groupId.join(',')
   const [preview, setPreview] = useState<number | null>(null)
   const resolvedAt = useRef(0)
   const resolve = useCallback(() => {
     resolvedAt.current = Date.now()
-    void api
-      .fileTransferResolve({ teamId, groupId, ...(channelId ? { channelId } : {}) })
-      .then((resolved) => setFiles(resolved.files.filter((f) => f.downloadUrl && previewKind(f))))
-      .catch(() => setFiles([]))
-  }, [teamId, groupId, channelId])
+    void Promise.all(
+      groups.split(',').map((id) =>
+        api
+          .fileTransferResolve({ teamId, groupId: id, ...(channelId ? { channelId } : {}) })
+          .then((resolved) => resolved.files.map((f) => ({ ...f, groupId: id })))
+          // An expired group has nothing to show; the others still do.
+          .catch(() => []),
+      ),
+    ).then((resolved) => setFiles(resolved.flat().filter((f) => f.downloadUrl && previewKind(f))))
+  }, [teamId, groups, channelId])
 
   useEffect(resolve, [resolve])
   const rowClass = clsx('mb-2 flex flex-wrap gap-2', alignEnd && 'justify-end')

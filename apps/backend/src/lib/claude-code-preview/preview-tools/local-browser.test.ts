@@ -88,7 +88,10 @@ describe('local_browser', () => {
       tab: 7,
       script: 'document.title',
     })
-    expect(audits).toEqual(['[browser] eval tab=7 document.title'])
+    expect(audits).toEqual([
+      '[browser] eval tab=7 document.title',
+      '[browser] eval tab=7 document.title',
+    ])
   })
 
   test('rejects an incomplete call before touching the device', async () => {

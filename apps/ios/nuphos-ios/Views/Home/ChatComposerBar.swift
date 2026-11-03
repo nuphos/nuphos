@@ -24,6 +24,8 @@ struct ChatComposerBar<Controls: View>: View {
     var mentions: MentionSource? = nil
     /// The team voice input transcribes for; nil hides the microphone.
     var voiceTeamId: String? = nil
+    /// Who a message goes to, such as a chat's `#name`; nil asks Nuphos.
+    var recipient: String? = nil
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -47,6 +49,12 @@ struct ChatComposerBar<Controls: View>: View {
     #if canImport(UIKit)
     @State private var pasteHandler = ComposerPaste()
     #endif
+
+    private var prompt: LocalizedStringKey {
+        if isStreaming { return sendsDuringTurn ? "Send a message…" : "Queue a message…" }
+        if let recipient { return "Message \(recipient)" }
+        return "Ask Nuphos anything…"
+    }
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
@@ -230,7 +238,7 @@ struct ChatComposerBar<Controls: View>: View {
     }
 
     private var field: some View {
-        TextField(isStreaming ? (sendsDuringTurn ? "Send a message…" : "Queue a message…") : "Ask Nuphos anything…", text: $text, axis: .vertical)
+        TextField(prompt, text: $text, axis: .vertical)
             .lineLimit(1...8)
             .font(.body)
             .foregroundStyle(Theme.heading)

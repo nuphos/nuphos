@@ -67,7 +67,9 @@ function ActivityRow({
         )}
         <span className="ml-auto flex-shrink-0 whitespace-nowrap">
           <span className={clsx('font-medium', TONE_CLASSES[outcome.tone])}>{outcome.label}</span>
-          {entry.outcome !== 'rejected' && <span> · {formatDuration(entry.durationMs)}</span>}
+          {entry.outcome !== 'rejected' && entry.durationMs !== null && (
+            <span> · {formatDuration(entry.durationMs)}</span>
+          )}
         </span>
       </div>
       {preview.truncated ? (

@@ -10,7 +10,6 @@ import {
   runClaudeCodePreviewPrompt,
 } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/codex-turn-failure'
-import { previewSessionAccess } from '@/lib/claude-code-preview/credentials-mcp'
 import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
 import {
   createPreviewAssistantPartAccumulator,
@@ -27,6 +26,7 @@ import {
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
 
+import { previewTurnAccess, renewPreviewTurnEnv } from './chat-preview-access'
 import {
   finishPreviewTurn,
   persistHandedOffPreviewTurn,
@@ -87,10 +87,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
   installPreviewFrameConsumer(state, toolLog, prepared.memory)
 
-  const access = previewSessionAccess(sessionId, teamId, actorUserId, userId, {
-    ...args.endpoint,
-    ...prepared.accessOptions,
-  })
+  const access = await previewTurnAccess(args, prepared, () => state.unbind())
 
   if (args.endpoint.local)
     void recordLocalRuntimeTurn({
@@ -151,6 +148,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       endpoint: args.endpoint,
       mcpServers: access.mcpServers,
       runtime: { provider: args.endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
+      renewRuntimeEnv: renewPreviewTurnEnv(args, prepared),
       ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta, metadata) => {

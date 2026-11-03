@@ -39,8 +39,10 @@ struct PlansPage: View {
                 PlanConversationView(target: target)
             }
             .navigationDestination(item: $newChat) { chat in
-                ConversationView(session: chat.session, initialPrompt: chat.prompt, sourcePage: HomePage.plans.rawValue)
-                    .onDisappear { Task { await plans.reload() } }
+                if let session = chat.session {
+                    ConversationView(session: session, initialPrompt: chat.prompt, sourcePage: HomePage.plans.rawValue)
+                        .onDisappear { Task { await plans.reload() } }
+                }
             }
             .sheet(isPresented: $showPolicy) {
                 PlanApprovalPolicySheet()

@@ -22,8 +22,8 @@ const runtimeHome = mkdtempSync(join(tmpdir(), 'nuphos-home-'))
 afterAll(() => rmSync(runtimeHome, { recursive: true, force: true }))
 
 /** One turn in conv-1 (owned by `owner`): who it acts as, and where its CLI logins live. */
-function turn(actor: string, humanTurn: boolean) {
-  const access = previewSessionAccess('conv-1', 'team-1', actor, 'owner', {
+async function turn(actor: string, humanTurn: boolean) {
+  const access = await previewSessionAccess('conv-1', 'team-1', actor, 'owner', {
     backendUrl: 'https://backend.example',
     humanTurn,
   })
@@ -46,15 +46,15 @@ function login(path: string) {
   writeFileSync(path, 'personal')
 }
 
-const changed = (from: ReturnType<typeof turn>, to: ReturnType<typeof turn>) =>
+const changed = (from: Awaited<ReturnType<typeof turn>>, to: Awaited<ReturnType<typeof turn>>) =>
   previewSessionPrincipalChanged({ userId: from.actor, ...from }, to.actor, to.runtime)
 
 describe('Personal Credential identity across a session’s turns', () => {
-  test('owner turn -> automated turn -> owner turn act as the owner, in the owner’s HOME', () => {
-    const human = turn('owner', true)
-    const trigger = turn('owner', false)
+  test('owner turn -> automated turn -> owner turn act as the owner, in the owner’s HOME', async () => {
+    const human = await turn('owner', true)
+    const trigger = await turn('owner', false)
     // An agent-thread message is sent by another session's principal.
-    const thread = turn('someone-else', false)
+    const thread = await turn('someone-else', false)
 
     login(human.githubLogin)
     login(human.linearLogin)
@@ -65,12 +65,12 @@ describe('Personal Credential identity across a session’s turns', () => {
       expect(automated.linearLogin).toBe(human.linearLogin)
     }
     expect(changed(human, trigger)).toBe(false)
-    expect(turn('owner', true).subject).toBe('owner')
+    expect((await turn('owner', true)).subject).toBe('owner')
   })
 
-  test('a teammate’s turn acts as the teammate and never sees the owner’s logins', () => {
-    const owner = turn('owner', true)
-    const teammate = turn('teammate', true)
+  test('a teammate’s turn acts as the teammate and never sees the owner’s logins', async () => {
+    const owner = await turn('owner', true)
+    const teammate = await turn('teammate', true)
 
     login(owner.githubLogin)
     login(owner.linearLogin)
@@ -81,6 +81,6 @@ describe('Personal Credential identity across a session’s turns', () => {
     // Each switch reloads the session; the runtime recreates it in the new HOME (#504).
     expect(changed(owner, teammate)).toBe(true)
     expect(changed(teammate, owner)).toBe(true)
-    expect(changed(teammate, turn('owner', false))).toBe(true)
+    expect(changed(teammate, await turn('owner', false))).toBe(true)
   })
 })

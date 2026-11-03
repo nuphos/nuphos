@@ -14,10 +14,18 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         let key = "\(request.httpMethod ?? "GET") \(url.path)"
         // Simulator regression scripts read this to see which requests ran.
         Logger(subsystem: "ai.nuphos.ios", category: "preview").notice("preview_request \(key, privacy: .public)")
-        let entry = responses[key] as? [String: Any]
+        // `GET /path?name=value` answers only requests with that query item; the last items are the
+        // narrowest filters (a chats listing's `kind=channel`), so they are tried first.
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let entry = items.reversed().lazy.compactMap { responses["\(key)?\($0.name)=\($0.value ?? "")"] as? [String: Any] }.first
+            ?? responses[key] as? [String: Any]
         let status = entry?["status"] as? Int ?? 404
         let body = entry?["body"] ?? ["error": ["message": "No preview response for \(key)"]]
-        let data = (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed])) ?? Data()
+        // `$FIXTURE_DIR` in a body is the fixture's folder, so a transfer link can name a local image:
+        // image views load with their own session, which this transport never sees.
+        let json = (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed, .withoutEscapingSlashes])) ?? Data()
+        let folder = URL(fileURLWithPath: file).deletingLastPathComponent().path
+        let data = Data((String(data: json, encoding: .utf8) ?? "").replacingOccurrences(of: "$FIXTURE_DIR", with: folder).utf8)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data)
         client?.urlProtocolDidFinishLoading(self)
