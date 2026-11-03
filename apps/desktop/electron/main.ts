@@ -1,3 +1,5 @@
+// Must stay first: sets userData before any other module reads it.
+import './main/app-paths'
 import path from 'node:path'
 
 import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
@@ -50,7 +52,7 @@ import {
   initDeepLinkWindowHooks,
 } from './main/deep-links'
 import { startDevBackendHealthProbe } from './main/dev-backend-health'
-import { APP_NAME, devSuffix, isDev } from './main/env'
+import { devSuffix, isDev } from './main/env'
 import { prepareFirstLaunch } from './main/first-launch'
 import { initLocalRuntime, stopLocalRuntime } from './main/local-runtime'
 import { resumeLocalSetupSync } from './main/local-setup-watch'
@@ -99,10 +101,6 @@ for (const stream of [process.stdout, process.stderr]) {
   })
 }
 
-app.setName(APP_NAME)
-if (isDev) {
-  app.setPath('userData', path.join(app.getPath('appData'), APP_NAME))
-}
 watchCrashes()
 
 if (process.platform === 'darwin' && process.env.ATLAS_WT_BADGE) {
