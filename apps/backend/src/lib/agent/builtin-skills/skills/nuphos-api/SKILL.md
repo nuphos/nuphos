@@ -76,6 +76,12 @@ Reusable helper:
 ac() { curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}$1" "${@:2}"; }
 ```
 
+Call the backend with `curl` (this helper or a skill's scripts), not an HTTP
+client you write yourself. A CDN in front of the backend can reject some
+default client signatures before the request reaches Nuphos. Python's
+`urllib` is one example: it gets `403` with the plain-text body
+`error code: 1010`. Only a JSON `403` comes from Nuphos itself.
+
 ## Admin routes and human-only operations
 
 In a conversation principal (`NUPHOS_SESSION_ID` set) the allow-list is the
