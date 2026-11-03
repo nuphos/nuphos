@@ -218,12 +218,6 @@ struct ConversationView: View {
             }
             #endif
         }
-        // SwiftUI cancels this when the chat leaves the screen; the stream
-        // lives on the session, so close it here.
-        .task {
-            await session.pollWhileIdle()
-            session.leave()
-        }
         // A teammate's computer that asks its owner first: say so until they answer.
         .task(id: "\(ShareApprovalWait.asksOwner(conversationRuntime)).\(session.queuedSends)") {
             await store.loadRuntimes()
