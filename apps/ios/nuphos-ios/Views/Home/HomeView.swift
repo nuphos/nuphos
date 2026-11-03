@@ -22,6 +22,10 @@ struct HomeView: View {
     @State private var columns = NavigationSplitViewVisibility.all
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.scenePhase) private var scenePhase
+    /// Reads the open chat. Here, not on the chat's view: collapsed, SwiftUI
+    /// ends that view's appearance while it stays on screen (#1440).
+    @State private var chatReader = UUID()
 
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
@@ -169,6 +173,11 @@ struct HomeView: View {
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
             }
+        }
+        // While a chat is open it is read up to its newest post.
+        .onChange(of: scenePhase == .active ? openChat?.channel?.channelId : nil, initial: true) { _, id in
+            ConversationUnread.shared.setReading(id != nil, reader: chatReader,
+                                                 team: openChat?.channel?.teamId ?? "", session: id ?? "")
         }
         .focusedSceneValue(\.newChat) {
             page = .agent

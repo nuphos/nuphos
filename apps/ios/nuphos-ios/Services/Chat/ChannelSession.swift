@@ -65,8 +65,9 @@ final class ChannelSession {
     func refresh(force: Bool = false) async {
         do {
             if !force, loaded {
-                let probe = try await NuphosAPI.conversationDetail(
-                    token: token, teamId: teamId, sessionId: channelId, tail: 1, displayed: false)
+                // The probe reads the newest post, so an open chat is read up to it: a
+                // post's activity can land after the transcript change the probe compares.
+                let probe = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1)
                 guard stamp(of: probe) != revision else { return }
             }
             async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
