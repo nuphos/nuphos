@@ -51,6 +51,20 @@ final class AgentStore {
         channel(sessionId: conversation.sessionId, title: conversation.displayTitle, teamId: conversation.teamId)
     }
 
+    /// The open chat's poll. Owned here, not by a view: SwiftUI can cancel a
+    /// view's tasks while it stays on screen (#1440) and keeps a closed chat's
+    /// view, with its session, after going back.
+    private var channelPoll: Task<Void, Never>?
+
+    /// The poll holds only its chat, so it would outlive a signed-out store.
+    deinit { channelPoll?.cancel() }
+
+    /// Polls `channel` alone, or nothing when no chat is open.
+    func poll(_ channel: ChannelSession?) {
+        channelPoll?.cancel()
+        channelPoll = channel.map { channel in Task { await channel.poll() } }
+    }
+
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
         let channel = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
         channel.viewerId = userId

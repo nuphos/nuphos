@@ -38,28 +38,25 @@ final class ChannelSession {
     private var revision = ""
     /// A resend of the same post reuses its id, so a post that did land is not doubled.
     private var retry: (key: String, id: String)?
-    /// Owned here rather than by the view: SwiftUI can cancel a view's tasks
-    /// while it stays on screen, which left a chat on its cancelled first read.
-    private var polling: Task<Void, Never>?
 
     init(token: String, teamId: String, channelId: String, title: String) {
         self.token = token
         self.teamId = teamId
         self.channelId = channelId
         self.title = title
-        polling = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(for: Self.pollInterval)
-            }
-        }
     }
-
-    deinit { polling?.cancel() }
 
     var posts: [ChannelPost] { stored + ChannelPost.stillSending(stored: stored, sending: sending) }
 
     // MARK: - Reading
+
+    /// Reads the chat until cancelled. `AgentStore.poll` runs it while this is the open chat.
+    func poll() async {
+        while !Task.isCancelled {
+            await refresh()
+            try? await Task.sleep(for: Self.pollInterval)
+        }
+    }
 
     /// The probe, then the full read when the chat changed; `force` skips the probe.
     func refresh(force: Bool = false) async {

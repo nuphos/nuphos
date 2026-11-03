@@ -174,10 +174,12 @@ struct HomeView: View {
                 connectors = ConnectorsStore(token: token)
             }
         }
-        // While a chat is open it is read up to its newest post.
+        // While a chat is open and the app active, it is read up to its newest
+        // post, and it alone polls; becoming active again reads it at once.
         .onChange(of: scenePhase == .active ? openChat?.channel?.channelId : nil, initial: true) { _, id in
             ConversationUnread.shared.setReading(id != nil, reader: chatReader,
                                                  team: openChat?.channel?.teamId ?? "", session: id ?? "")
+            store?.poll(id == nil ? nil : openChat?.channel)
         }
         .focusedSceneValue(\.newChat) {
             page = .agent
