@@ -10,13 +10,13 @@ struct ConversationView: View {
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
 
+    @Environment(AuthSession.self) private var auth
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
     @State private var planLink: PlanLink.Target?
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
-    @Environment(AuthSession.self) private var auth
     @State private var didSendInitial = false
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?

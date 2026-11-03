@@ -145,7 +145,7 @@ final class ShareViewController: UIViewController {
     }
     private func cancelShare() {
         guard !finished else { return }
-        finished = true; model.epoch = UUID(); model.openChat?.session?.cancelSending(); task?.cancel(); cleanup()
+        finished = true; model.epoch = UUID(); model.openChat?.session?.cancelSending(); model.store?.follow(nil); task?.cancel(); cleanup()
         extensionContext?.cancelRequest(withError: NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
     }
     private func cleanup() {
@@ -203,6 +203,7 @@ private final class ShareComposerModel {
                 do { try SharedShareSession.validate(lease) }
                 catch {
                     openChat?.session?.cancelSending()
+                    store?.follow(nil)
                     if (error as? SharedShareSession.Failure).map({ if case .changed = $0 { return true }; return false }) == true {
                         identityInvalidated = true
                         text = ""; attachments = []; discardFiles?()
@@ -213,6 +214,36 @@ private final class ShareComposerModel {
             }
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
         }
+    }
+}
+
+/// Polls and reads the conversation Sharing pushed. The app's HomeView does this
+/// for its open conversation, and the extension has no HomeView. It polls for as
+/// long as the conversation is shown, and reads it while the extension is active.
+private struct FollowWhileShown: ViewModifier {
+    let session: ChatSession
+    @Environment(AgentStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var reader = UUID()
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                shown = true
+                store.follow(session)
+                updateReading()
+            }
+            .onDisappear {
+                shown = false
+                store.unfollow(session)
+                updateReading()
+            }
+            .onChange(of: scenePhase) { _, _ in updateReading() }
+    }
+
+    private func updateReading() {
+        ConversationUnread.shared.setReading(shown && scenePhase == .active, reader: reader, team: session.teamId, session: session.sessionId)
     }
 }
 
@@ -239,6 +270,7 @@ private struct ShareConversationView: View {
                         // Sharing only starts agent conversations, never chats.
                         if let session = chat.session {
                             ConversationView(session: session, initialPrompt: chat.prompt, temporaryDirectory: model.temporaryDirectory)
+                                .modifier(FollowWhileShown(session: session))
                                 .environment(store)
                                 .environment(model.auth)
                         }
