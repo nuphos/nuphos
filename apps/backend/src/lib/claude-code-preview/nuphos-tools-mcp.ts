@@ -1,6 +1,9 @@
 // The `nuphos-tools` MCP surface: host-control tools that cannot be expressed
 // as ordinary domain REST resources (memory, decisions, local Desktop actions,
 // channel delivery, …), served to the Claude Code runtime per conversation.
+import { createHash } from 'node:crypto'
+
+import { resolvePreviewToolContext } from './preview-tool-context-resolve'
 import { previewToolModules } from './preview-tools'
 
 import type { PreviewToolContext, PreviewToolModule } from './preview-tool-context'
@@ -60,4 +63,24 @@ export async function nuphosToolsMcp(
   const modules = await previewToolModules(ctx)
 
   return { surface: nuphosToolsSurface(modules), tools: mergeToolHandlers(modules, ctx) }
+}
+
+/**
+ * A short hash of the conversation's tool names, declared in the `nuphos-tools`
+ * URL. Agents read the tool list only when they start, so the runtime respawns
+ * an idle agent, resuming its conversation, when this changes.
+ */
+export async function nuphosToolsVersion(
+  args: Parameters<typeof resolvePreviewToolContext>[0],
+): Promise<string | undefined> {
+  try {
+    const modules = await previewToolModules(await resolvePreviewToolContext(args))
+    const names = nuphosToolsSurface(modules).toolDefinitions.map(
+      (definition) => (definition as { name: string }).name,
+    )
+
+    return createHash('sha256').update(names.join('\n')).digest('hex').slice(0, 12)
+  } catch {
+    return undefined
+  }
 }

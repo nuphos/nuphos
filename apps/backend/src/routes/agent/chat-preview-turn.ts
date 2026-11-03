@@ -89,7 +89,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
   const access = previewSessionAccess(sessionId, teamId, actorUserId, userId, {
     ...args.endpoint,
-    humanTurn: args.humanTurn,
+    ...prepared.accessOptions,
   })
 
   if (args.endpoint.local)
