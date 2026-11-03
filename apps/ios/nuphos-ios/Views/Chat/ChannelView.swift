@@ -12,8 +12,8 @@ struct ChannelView: View {
     @State private var readerID = UUID()
     @State private var onScreen = false
     @State private var draft = ""
-    /// Who is in a turn, as of the last read of this chat. See `inTurn`.
-    @State private var turns: [ChannelAgent] = []
+    /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
+    @State private var typing: [ChannelAgent] = []
 
     private var rows: [ChatRow] {
         ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing)
@@ -22,20 +22,15 @@ struct ChannelView: View {
 
     /// The chat's agents in a turn, as far as this device has seen their runtimes.
     /// Seen from the conversation list's poll, not this chat's, so it only
-    /// takes effect (`turns`) after a read of the chat that started later. An
-    /// agent posts before its turn ends, so its post and the end of its dots
-    /// arrive in the same update, never the dots' end first.
+    /// takes effect (`typing`) after a read of the chat that started later. An
+    /// agent posts before its turn ends, so its reply and the end of its dots
+    /// arrive in the same update, never the dots' end first. A post during the
+    /// turn shows above the dots: the agent is still working.
     private var inTurn: [ChannelAgent] {
         channel.agents.filter { agent in
             RuntimeObservations.shared.value(team: channel.teamId, session: agent.sessionId)?.turnActive == true
                 || store.conversations.first { $0.sessionId == agent.sessionId }?.activeRun != nil
         }
-    }
-
-    /// One with the last word is not typing: its reply takes the dots' place
-    /// in the same update, though its turn may end a poll later, as in iMessage.
-    private var typing: [ChannelAgent] {
-        turns.filter { channel.posts.last?.senderId != $0.sessionId }
     }
 
     private func updateReading() {
@@ -75,10 +70,10 @@ struct ChannelView: View {
             }
             .onChange(of: scenePhase) { _, _ in updateReading() }
             .task(id: inTurn.map(\.id)) {
-                guard inTurn.map(\.id) != turns.map(\.id) else { return }
+                guard inTurn.map(\.id) != typing.map(\.id) else { return }
                 await channel.refresh(force: true)
                 guard !Task.isCancelled else { return }
-                turns = inTurn
+                typing = inTurn
             }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId) }
             .alert("Couldn't send the message", isPresented: Binding(
