@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
@@ -13,6 +13,7 @@ import { ChannelMessages } from './ChannelMessages'
 import { ChannelMark } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useChannel } from './useChannel'
+import { useStickToBottom } from './useStickToBottom'
 
 import type { AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
@@ -30,6 +31,7 @@ export function ChannelPane({
   dockOpen,
   grip,
   onOpenSession,
+  onOpenNuphosLink,
 }: {
   teamId: string
   channelId: string
@@ -37,6 +39,8 @@ export function ChannelPane({
   dockOpen: boolean
   grip?: ReactNode
   onOpenSession: (sessionId: string) => void
+  /** Opens a Nuphos link in the app, as a conversation's messages do. */
+  onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
 
@@ -57,12 +61,8 @@ export function ChannelPane({
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
 
-  // Open at the latest post, and follow new ones.
-  useEffect(() => {
-    const scroller = scrollRef.current
-
-    if (scroller) scroller.scrollTop = scroller.scrollHeight
-  }, [messages.length])
+  // Open at the latest post, and follow new ones and the typing bubble.
+  const stickToBottom = useStickToBottom(scrollRef)
 
   const send = async (text: string, filePaths: string[]) => {
     if (filePaths.length > 0) {
@@ -75,6 +75,7 @@ export function ChannelPane({
     const id = unsent.current?.text === text ? unsent.current.id : crypto.randomUUID()
 
     unsent.current = { text, id }
+    stickToBottom()
     setSending((posts) => [...posts, sendingPost(id, text, user)])
     try {
       await api.agentPostChannelMessage(channelId, teamId, text, id)
@@ -126,27 +127,31 @@ export function ChannelPane({
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-3 pt-5 pb-4 selectable"
       >
-        {detail && messages.length === 0 && (
-          <div className="mx-auto flex w-full max-w-[760px] flex-col items-start gap-3 px-3 pt-10">
-            <ChannelMark size={44} className="rounded-xl" />
-            <div className="text-lg font-semibold leading-snug text-main">{title}</div>
-            <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
-              {t(
-                'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
-              )}
+        {/* One box, so its height says when anything below grows. */}
+        <div>
+          {detail && messages.length === 0 && (
+            <div className="mx-auto flex w-full max-w-[760px] flex-col items-start gap-3 px-3 pt-10">
+              <ChannelMark size={44} className="rounded-xl" />
+              <div className="text-lg font-semibold leading-snug text-main">{title}</div>
+              <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
+                {t(
+                  'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
+                )}
+              </div>
             </div>
-          </div>
-        )}
-        {detail && (
-          <ChannelMessages
-            messages={messages}
-            events={detail?.timelineEvents ?? []}
-            agents={agents}
-            viewerId={user.id}
-            teamId={teamId}
-            onOpenSession={onOpenSession}
-          />
-        )}
+          )}
+          {detail && (
+            <ChannelMessages
+              messages={messages}
+              events={detail?.timelineEvents ?? []}
+              agents={agents}
+              viewerId={user.id}
+              teamId={teamId}
+              onOpenSession={onOpenSession}
+              onOpenNuphosLink={onOpenNuphosLink}
+            />
+          )}
+        </div>
       </div>
       <div className="mx-auto w-full max-w-[760px] px-3 pb-3">
         <Composer
