@@ -25,7 +25,16 @@ import type { LucideIcon } from 'lucide-react'
 // Images show as thumbnails (saved from the preview) and videos play inline, with
 // no frame around them; any other file is a row saved through a native dialog,
 // and several rows can be saved together as a zip of the whole group.
-export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
+export function DownloadFilesCard({
+  group,
+  teamId,
+  channelId,
+}: {
+  group: FileTransferGroup
+  teamId: string
+  /** Posted in a chat: every member opens and saves it through the chat. */
+  channelId?: string
+}) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
   // after the turn settles — so schedule a single re-render at the expiry
@@ -50,7 +59,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     'agent_download_file_failed',
   )
   // Team-scoped resolve (no sessionId) — the group is team+user scoped.
-  const base = { teamId, groupId: group.groupId }
+  const base = { teamId, groupId: group.groupId, ...(channelId ? { channelId } : {}) }
   const hasPreviews = !expired && ready.some((f) => previewKind(f) !== null)
 
   function savedToast(title: string, description: string, path: string) {
@@ -152,6 +161,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
         <TransferPreviews
           teamId={teamId}
           groupId={group.groupId}
+          channelId={channelId}
           expected={ready.filter((f) => previewKind(f)).length}
           onDownload={(f) => void downloadOne(f.id, f.fileName)}
         >
@@ -171,13 +181,13 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
 export function UploadedFilesCard({
   part,
   teamId,
-  load,
+  channelId,
   alignEnd = true,
 }: {
   part: TransferUploadPart
   teamId?: string
   /** See TransferPreviews: a chat's uploads load through the chat. */
-  load?: (groupId: string) => Promise<FileTransferGroup>
+  channelId?: string
   /** Right-aligned, as the viewer's own files are. */
   alignEnd?: boolean
 }) {
@@ -204,7 +214,7 @@ export function UploadedFilesCard({
         groupId={part.groupId}
         expected={part.files.filter((f) => mediaKind(f.fileName)).length}
         alignEnd={alignEnd}
-        load={load}
+        channelId={channelId}
       >
         {(images, videos) => {
           const rows = filesBesidePreviews(part.files, images).filter((f) =>

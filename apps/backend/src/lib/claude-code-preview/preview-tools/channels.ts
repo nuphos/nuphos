@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { z } from 'zod'
 
-import { resolveChannelUpload } from '@/lib/agent/channel-attachments'
+import { agentFileParts, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { postAsAgent } from '@/lib/agent/channel-chat'
 import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
 import {
@@ -30,6 +30,18 @@ const label = z
   .describe('Short step label in the conversation language.')
 const channelId = z.string().uuid().describe('The channelId from the channel wake-up.')
 const read = z.object({ label, channelId }).strict()
+const post = z
+  .object({
+    label,
+    channelId,
+    text: z.string().trim().min(1).max(20_000).describe('What you say in the channel.'),
+    files: z
+      .array(z.string().min(1))
+      .max(10)
+      .optional()
+      .describe('Transfer group ids you pushed (e.g. with transfer-push.sh), shown as file cards.'),
+  })
+  .strict()
 const create = z
   .object({
     label,
@@ -96,7 +108,7 @@ async function withFiles(
     page.messages.map(async ({ uploads, ...message }) => {
       if (!uploads) return message
       try {
-        const groups = await Promise.all(uploads.map((id) => resolveChannelUpload(channel, id)))
+        const groups = await Promise.all(uploads.map((id) => resolveChannelFiles(channel, id)))
         const files = groups.flatMap((group) =>
           group.files.flatMap((file) =>
             file.downloadUrl && file.size != null
@@ -195,6 +207,17 @@ export function channelToolModule(): PreviewToolModule {
         inputSchema: toolInputJsonSchema(read),
       },
       {
+        name: 'channel_post',
+        description:
+          'Post a message as yourself in a Nuphos channel this conversation is in, with files ' +
+          'you pushed attached as download cards. Use it to deliver a result or follow-up to ' +
+          'the channel a request came from when this turn was not started by that channel ' +
+          '(a sub-agent report, a trigger, your owner’s chat): people waiting there do not see ' +
+          'your own chat. In a turn the channel woke, just answer: your final words are posted ' +
+          'there already, so posting the same thing here would say it twice.',
+        inputSchema: toolInputJsonSchema(post),
+      },
+      {
         name: 'channel_create',
         description:
           'Open a new Nuphos channel (a group chat in the Chats sidebar) and invite teammates ' +
@@ -217,6 +240,20 @@ export function channelToolModule(): PreviewToolModule {
           memberChannel(ctx, parsed.data.channelId).then(async ({ channel, self }) =>
             withFiles(channel, self, await readChannelMessages(channel, ctx.sessionId)),
           ),
+        )
+      },
+      channel_post: async (args) => {
+        const parsed = post.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+        const { channelId: id, text, files = [] } = parsed.data
+
+        return answer(
+          memberChannel(ctx, id).then(async ({ self }) => {
+            await postAsAgent(id, self, text, await agentFileParts(self, files))
+
+            return { posted: true, channelId: id, files: files.length }
+          }),
         )
       },
       channel_create: async (args) => {

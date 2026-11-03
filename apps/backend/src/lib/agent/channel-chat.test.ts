@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
+import * as transfers from '@/lib/file-transfer/service'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -266,7 +267,12 @@ describe('waking a channel’s agents', () => {
   test('a file goes up with its post, with or without words, and agents learn of it', async () => {
     const upload = { type: 'transfer-upload', groupId: 'g1', status: 'ready', files: [] }
 
-    await postChannelMessage(await channel(), { id: 'pic', text: '', metadata: person, upload })
+    await postChannelMessage(await channel(), {
+      id: 'pic',
+      text: '',
+      metadata: person,
+      files: [upload],
+    })
     const [stored] = await agentMessages().find({ sessionId: 'channel' }).toArray()
 
     expect(stored!.parts).toEqual([upload])
@@ -430,6 +436,38 @@ describe('a turn a channel woke answers with what it ends on', () => {
     ])
     // Like any post by an agent, it wakes the channel's other agents.
     expect(wokenSessions()).toEqual(['agent-b'])
+  })
+
+  test('files it pushed this turn go with its words; earlier pushes stay out', async () => {
+    const asked = new Date()
+    const list = spyOn(transfers, 'listTransferGroups').mockResolvedValue([
+      { groupId: 'later', createdAt: new Date(asked.getTime() + 1000).toISOString() },
+      { groupId: 'before', createdAt: new Date(asked.getTime() - 1000).toISOString() },
+    ] as never)
+
+    try {
+      history({ ...user('n0'), createdAt: asked }, closing('Here are the clips.'))
+      await replyToChannel(
+        data,
+        { ...(await agent()), teamId: '69e989027ab63e8d6a0ffcb6' },
+        wake('channel:channel'),
+        true,
+      )
+      expect(await posted()).toMatchObject([
+        {
+          parts: [
+            { type: 'text', text: 'Here are the clips.' },
+            { type: 'transfer-download', groupId: 'later' },
+          ],
+        },
+      ])
+      expect(list.mock.calls[0]![0]).toMatchObject({
+        userId: 'agent-a-owner',
+        sessionId: 'agent-a',
+      })
+    } finally {
+      list.mockRestore()
+    }
   })
 
   test('ending without words posts nothing', async () => {

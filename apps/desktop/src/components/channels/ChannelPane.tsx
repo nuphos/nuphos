@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
@@ -64,11 +64,6 @@ export function ChannelPane({
 
   // Open at the latest post, and follow new ones and the typing bubble.
   const stickToBottom = useStickToBottom(scrollRef)
-
-  const loadUpload = useCallback(
-    (groupId: string) => api.agentResolveChannelAttachment(channelId, teamId, groupId),
-    [channelId, teamId],
-  )
 
   const send = async (text: string, filePaths: string[]) => {
     if (!text.trim() && filePaths.length === 0) return
@@ -153,7 +148,7 @@ export function ChannelPane({
               teamId={teamId}
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
-              loadUpload={loadUpload}
+              channelId={channelId}
             />
           )}
         </div>

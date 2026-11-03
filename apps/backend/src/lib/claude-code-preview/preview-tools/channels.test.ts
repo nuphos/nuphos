@@ -224,3 +224,52 @@ test('files posted with a message are placed on the reader’s runtime, under th
     place.mockRestore()
   }
 })
+
+test('a member posts a follow-up into its channel, with only its own finished files', async () => {
+  const team = '69e989027ab63e8d6a0ffcb6'
+  const chat = '00000000-0000-4000-8000-000000000010'
+
+  await seed(chat, { kind: 'channel', agentSessionIds: ['agent-p'], teamId: team })
+  await seed('agent-p', { teamId: team })
+  const get = spyOn(transfers, 'getTransferGroup').mockImplementation(async (scope, groupId) => {
+    if (groupId !== 'mine') throw new Error('Transfer not found')
+
+    return { groupId, status: 'ready' } as Awaited<ReturnType<typeof transfers.getTransferGroup>>
+  })
+  const post = channelToolModule().handlers({
+    userId: 'teammate',
+    teamId: team,
+    sessionId: 'agent-p',
+    locale: 'en',
+  } as PreviewToolContext).channel_post
+
+  try {
+    expect(
+      await post?.({ label: 'x', channelId: chat, text: 'The clips are ready.', files: ['mine'] }),
+    ).toMatchObject({ structuredContent: { posted: true, files: 1 } })
+    expect(appended[0]).toMatchObject({
+      sessionId: chat,
+      messages: [
+        {
+          parts: [
+            { type: 'text', text: 'The clips are ready.' },
+            { type: 'transfer-download', groupId: 'mine' },
+          ],
+          metadata: { sender: { type: 'agent', id: 'agent-p' } },
+        },
+      ],
+    })
+    // Its own session's files only, under its owner.
+    expect(get.mock.calls[0]![0]).toMatchObject({ userId: 'owner', sessionId: 'agent-p' })
+    expect(
+      await post?.({ label: 'x', channelId: chat, text: 'Theirs.', files: ['someone-else'] }),
+    ).toMatchObject({ isError: true })
+    // A channel it is not in is refused.
+    expect(await post?.({ label: 'x', channelId: OTHER_CHANNEL, text: 'Hello.' })).toMatchObject({
+      isError: true,
+    })
+    expect(appended).toHaveLength(1)
+  } finally {
+    get.mockRestore()
+  }
+})

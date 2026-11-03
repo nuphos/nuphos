@@ -3,6 +3,7 @@ import { pipeline } from 'node:stream/promises'
 
 import { ZipArchive } from 'archiver'
 
+import { resolveChannelAttachment } from '../agent/channels'
 import { getFileTransfer } from '../atlas'
 
 import { safeZipEntryName, toNodeStream } from './zip'
@@ -11,12 +12,17 @@ import type { TransferGroup } from './types'
 
 let downloadTmpSeq = 0
 
-// Resolve a group's presigned download URLs.
+// Resolve a group's presigned download URLs. A chat's files resolve through the
+// chat, so every member can open what anyone posted there.
 export async function resolveDownloads(
   teamId: string,
   sessionId: string | undefined,
   groupId: string,
+  channelId?: string,
 ): Promise<TransferGroup> {
+  if (channelId)
+    return (await resolveChannelAttachment(channelId, teamId, groupId)) as unknown as TransferGroup
+
   return getFileTransfer<TransferGroup>(teamId, sessionId, `/${groupId}/download`)
 }
 
@@ -44,8 +50,9 @@ export async function downloadOne(args: {
   groupId: string
   fileId: string
   destPath: string
+  channelId?: string
 }): Promise<void> {
-  const group = await resolveDownloads(args.teamId, args.sessionId, args.groupId)
+  const group = await resolveDownloads(args.teamId, args.sessionId, args.groupId, args.channelId)
   const file = group.files.find((f) => f.id === args.fileId)
 
   if (!file?.downloadUrl) throw new Error('File is not ready to download')
@@ -59,8 +66,9 @@ export async function downloadAllAsZip(args: {
   sessionId?: string
   groupId: string
   destZipPath: string
+  channelId?: string
 }): Promise<{ count: number; skipped: number }> {
-  const group = await resolveDownloads(args.teamId, args.sessionId, args.groupId)
+  const group = await resolveDownloads(args.teamId, args.sessionId, args.groupId, args.channelId)
   const ready = group.files.filter((f) => f.status === 'ready' && f.downloadUrl)
   const skipped = group.files.length - ready.length
 

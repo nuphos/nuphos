@@ -120,7 +120,10 @@ function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
   return (parts ?? []).flatMap((part) => {
     const { type, groupId } = part as { type?: unknown; groupId?: unknown }
 
-    return type === 'transfer-upload' && typeof groupId === 'string' ? [groupId] : []
+    return (type === 'transfer-upload' || type === 'transfer-download') &&
+      typeof groupId === 'string'
+      ? [groupId]
+      : []
   })
 }
 

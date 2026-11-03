@@ -1,9 +1,9 @@
 import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
-import { getTransferGroup, resolveDownloads } from '@/lib/file-transfer/service'
+import { getTransferGroup, listTransferGroups, resolveDownloads } from '@/lib/file-transfer/service'
 
-import { agentMessages } from './db/shared'
+import { agentConversations, agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
 
 import type { AgentConversation } from './db/shared'
@@ -34,28 +34,80 @@ export async function channelUploadPart(teamId: string, userId: string, groupId:
 }
 
 /**
- * An upload is only ever read through the chat it was posted to, under its
- * uploader's scope: whoever may read the chat, and its agents, see what was
- * posted there, and a group id from anywhere else finds nothing.
+ * A chat's files are only ever read through the chat they were posted to, under
+ * their poster's scope: a person's upload as that person, an agent's pushed files
+ * as its owner. Whoever may read the chat, and its agents, see what was posted
+ * there, and a group id from anywhere else finds nothing.
  */
-async function uploaderScope(channel: Channel, groupId: string): Promise<TransferScope> {
+async function posterScope(channel: Channel, groupId: string): Promise<TransferScope> {
   const doc = await agentMessages().findOne(
     {
       sessionId: channel.sessionId,
       userId: channel.userId,
-      parts: { $elemMatch: { type: 'transfer-upload', groupId } },
+      parts: { $elemMatch: { type: { $in: ['transfer-upload', 'transfer-download'] }, groupId } },
     },
     { projection: { metadata: 1 } },
   )
-  const sender = parseMessageMetadata(doc?.metadata)?.sender
+  const metadata = parseMessageMetadata(doc?.metadata)
+  const agent =
+    metadata?.sender.type === 'agent'
+      ? await agentConversations().findOne(
+          { sessionId: metadata.sourceSessionId ?? metadata.sender.id, teamId: channel.teamId },
+          { projection: { userId: 1 } },
+        )
+      : null
+  const userId = metadata?.sender.type === 'user' ? metadata.sender.id : agent?.userId
 
-  if (!doc || !channel.teamId || sender?.type !== 'user')
-    throw new AppError(404, 'not_found', 'Attachment not found')
+  if (!channel.teamId || !userId) throw new AppError(404, 'not_found', 'Attachment not found')
 
-  return { teamId: new ObjectId(channel.teamId), userId: sender.id }
+  return { teamId: new ObjectId(channel.teamId), userId }
 }
 
-/** The files of an upload posted to this chat, with fresh download links. */
-export async function resolveChannelUpload(channel: Channel, groupId: string) {
-  return await resolveDownloads(await uploaderScope(channel, groupId), groupId)
+/** The files of a group posted to this chat, with fresh download links. */
+export async function resolveChannelFiles(channel: Channel, groupId: string) {
+  return await resolveDownloads(await posterScope(channel, groupId), groupId)
+}
+
+/** What an agent pushed for download since `since` (its turn), as parts for its chat post. */
+export async function pushedFileParts(
+  agent: Pick<AgentConversation, 'sessionId' | 'userId' | 'teamId'>,
+  since: Date,
+) {
+  if (!agent.teamId) return []
+  const groups = await listTransferGroups(
+    { teamId: new ObjectId(agent.teamId), userId: agent.userId, sessionId: agent.sessionId },
+    'download',
+  )
+
+  return groups
+    .filter((group) => Date.parse(group.createdAt) >= since.getTime())
+    .reverse()
+    .map((group) => ({ type: 'transfer-download' as const, groupId: group.groupId }))
+}
+
+/**
+ * Files an agent names to post, as parts: only finished groups its own session
+ * (or one of its sub-agents) produced, so it cannot post someone else's files.
+ */
+export async function agentFileParts(
+  agent: Pick<AgentConversation, 'sessionId' | 'userId' | 'teamId'>,
+  groupIds: readonly string[],
+) {
+  if (!agent.teamId) return []
+  const scope = {
+    teamId: new ObjectId(agent.teamId),
+    userId: agent.userId,
+    sessionId: agent.sessionId,
+  }
+
+  return await Promise.all(
+    [...new Set(groupIds)].map(async (groupId) => {
+      const group = await getTransferGroup(scope, groupId)
+
+      if (group.status !== 'ready')
+        throw new AppError(400, 'invalid_request', `Files ${groupId} are not finished uploading`)
+
+      return { type: 'transfer-download' as const, groupId: group.groupId }
+    }),
+  )
 }

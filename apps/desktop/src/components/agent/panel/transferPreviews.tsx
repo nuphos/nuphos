@@ -8,7 +8,7 @@ import { t } from '../../../i18n'
 import { ImageAttachmentThumb, ImageLightbox } from './messageInline'
 import { MEDIA_BOX, previewKind } from './transferDownloads'
 
-import type { FileTransferFile, FileTransferGroup } from '../../../types'
+import type { FileTransferFile } from '../../../types'
 import type { ReactNode } from 'react'
 
 // Inline previews for the images and videos in a transfer group, whichever
@@ -24,7 +24,7 @@ export function TransferPreviews({
   expected,
   onDownload,
   alignEnd = false,
-  load,
+  channelId,
   children,
 }: {
   teamId: string
@@ -34,8 +34,8 @@ export function TransferPreviews({
   /** Right-align the thumbnails, for files the user sent. */
   alignEnd?: boolean
   onDownload?: (file: FileTransferFile) => void
-  /** Where the group's links come from; by default the uploader's own store. */
-  load?: (groupId: string) => Promise<FileTransferGroup>
+  /** A chat's files load through the chat, so every member sees them. */
+  channelId?: string
   children?: (
     previewedImages: ReadonlySet<string> | null,
     previewedVideos: ReadonlySet<string> | null,
@@ -46,10 +46,11 @@ export function TransferPreviews({
   const resolvedAt = useRef(0)
   const resolve = useCallback(() => {
     resolvedAt.current = Date.now()
-    void (load ? load(groupId) : api.fileTransferResolve({ teamId, groupId }))
+    void api
+      .fileTransferResolve({ teamId, groupId, ...(channelId ? { channelId } : {}) })
       .then((resolved) => setFiles(resolved.files.filter((f) => f.downloadUrl && previewKind(f))))
       .catch(() => setFiles([]))
-  }, [teamId, groupId, load])
+  }, [teamId, groupId, channelId])
 
   useEffect(resolve, [resolve])
   const rowClass = clsx('mb-2 flex flex-wrap gap-2', alignEnd && 'justify-end')

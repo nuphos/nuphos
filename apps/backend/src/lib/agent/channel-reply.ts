@@ -2,6 +2,7 @@ import { logError } from '@/lib/observability'
 
 import type { AgentConversation } from './db'
 import type { PendingUserMessage } from './pending-messages'
+import type { UIMessage } from 'ai'
 
 type TurnEnd = (
   data: { userId: string; teamId: string; targetSessionId: string },
@@ -28,4 +29,17 @@ export const channelTurnEnded: TurnEnd = async (data, target, fresh, completed) 
   } catch (error) {
     logError('agent.channel.reply_failed', error, { session_id: data.targetSessionId })
   }
+}
+
+/** The last text of the turn's closing message: what the agent said, not what it did. */
+export function closingWords(message: UIMessage): string {
+  const last = message.parts.findLastIndex(
+    (part) => part.type !== 'text' && part.type !== 'step-start',
+  )
+
+  return message.parts
+    .slice(last + 1)
+    .flatMap((part) => (part.type === 'text' ? [part.text] : []))
+    .join('')
+    .trim()
 }

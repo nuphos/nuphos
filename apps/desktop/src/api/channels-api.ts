@@ -15,6 +15,4 @@ export const channelsApi = {
     id: string,
     upload?: string,
   ) => window.api.agentPostChannelMessage(channelId, teamId, text, id, upload),
-  agentResolveChannelAttachment: (channelId: string, teamId: string, groupId: string) =>
-    window.api.agentResolveChannelAttachment(channelId, teamId, groupId),
 }
