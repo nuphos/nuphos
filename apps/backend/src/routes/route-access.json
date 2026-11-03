@@ -241,6 +241,7 @@
   "GET /health/db": "public",
   "GET /health/ready": "public",
   "GET /health/redis": "public",
+  "GET /internal/.well-known/jwks.json": "public",
   "GET /internal/claude-code-runtime-skills/:teamId": "user",
   "GET /invitations": "user",
   "GET /invite": "public",
