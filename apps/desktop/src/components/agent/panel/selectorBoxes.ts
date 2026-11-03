@@ -11,8 +11,8 @@ export type SelectorBox = {
   label: string
   device?: AgentDevice
   agents: RuntimeInstance[]
-  /** Its computer is offline: one row, with the way to bring it back. */
-  unavailable: ReturnType<typeof unavailable>
+  /** Its computer is offline: one row, with the way to bring it back. A state, never shown. */
+  unavailable: 'Offline' | null
 }
 
 /**
@@ -55,8 +55,8 @@ export function selectorBoxes(
   for (const group of groups.values()) {
     // Ready ones first, then the ones the picker can sign in.
     group.agents.sort((a, b) => Number(signedOut(a, quotas)) - Number(signedOut(b, quotas)))
-    if (group.agents.every((agent) => unavailable(agent) === 'Offline'))
-      group.unavailable = 'Offline'
+    // Its agents' state, not unavailable()'s text: that is translated.
+    if (group.agents.every((agent) => agent.local?.online === false)) group.unavailable = 'Offline'
   }
 
   return [...groups.values()].sort(
