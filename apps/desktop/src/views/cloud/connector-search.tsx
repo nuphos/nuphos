@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { CloudLogo } from '../../components/CloudLogo'
 import {
   Combobox,
   ComboboxContent,
@@ -11,11 +12,24 @@ import {
 } from '../../components/ui/combobox'
 import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
+import { nameOf } from '../settings/personalCredentials'
 
 import { CatalogLogo } from './catalog-logo'
-import { connectorSuggestions } from './connector-suggestions'
+import { connectorSuggestions, searchTerms } from './connector-suggestions'
 
 import type { CatalogItem } from '../addIntegrationCatalog'
+import type { PersonalConnector } from '../settings/personalCredentials'
+
+type Suggestion =
+  | { kind: 'team'; key: string; name: string; item: CatalogItem }
+  | { kind: 'personal'; key: string; name: string; item: PersonalConnector }
+
+function statusOf(suggestion: Suggestion, installed: ReadonlySet<string>) {
+  // The subtitle already names it as personal.
+  if (suggestion.kind === 'personal') return null
+
+  return installed.has(suggestion.item.key) ? t('Connected') : t('Add')
+}
 
 /**
  * The Connectors search field. It still filters the page as you type, and while focused it also
@@ -25,18 +39,39 @@ export function ConnectorSearch({
   filter,
   onFilterChange,
   installed,
+  personal,
   onPick,
+  onPickPersonal,
 }: {
   filter: string
   onFilterChange: (filter: string) => void
   installed: ReadonlySet<string>
+  /** The member's own accounts matching the search; listed after the team's while typing. */
+  personal: PersonalConnector[]
   onPick: (item: CatalogItem) => void
+  onPickPersonal: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const items = useMemo(() => connectorSuggestions(CATALOG, filter, installed), [filter, installed])
+  const items = useMemo<Suggestion[]>(
+    () => [
+      ...connectorSuggestions(CATALOG, filter, installed).map((item) => ({
+        kind: 'team' as const,
+        key: item.key,
+        name: item.name,
+        item,
+      })),
+      ...(searchTerms(filter).length > 0 ? personal : []).map((item) => ({
+        kind: 'personal' as const,
+        key: `personal-${item.provider}`,
+        name: nameOf(item.provider),
+        item,
+      })),
+    ],
+    [filter, installed, personal],
+  )
 
   return (
-    <Combobox<CatalogItem>
+    <Combobox<Suggestion>
       items={items}
       filter={null}
       value={null}
@@ -49,10 +84,11 @@ export function ConnectorSearch({
           onFilterChange(value)
         }
       }}
-      onValueChange={(item) => {
-        if (!item) return
+      onValueChange={(suggestion) => {
+        if (!suggestion) return
         setOpen(false)
-        onPick(item)
+        if (suggestion.kind === 'personal') onPickPersonal()
+        else onPick(suggestion.item)
       }}
       itemToStringLabel={(item) => item.name}
       autoHighlight
@@ -75,13 +111,25 @@ export function ConnectorSearch({
       <ComboboxContent className="p-1">
         <ComboboxEmpty className="empty:hidden">{t('No connectors match.')}</ComboboxEmpty>
         <ComboboxList>
-          {(item: CatalogItem) => (
-            <ComboboxItem key={item.key} value={item} className="rounded-md">
+          {(suggestion: Suggestion) => (
+            <ComboboxItem key={suggestion.key} value={suggestion} className="rounded-md">
               <span className="flex min-w-0 items-center gap-2">
-                <CatalogLogo provider={item.key} size={16} />
-                <span className="truncate">{item.name}</span>
+                {suggestion.kind === 'personal' ? (
+                  <CloudLogo provider={suggestion.item.provider} size={16} />
+                ) : (
+                  <CatalogLogo provider={suggestion.item.key} size={16} />
+                )}
+                {/* The subtitle tells a team connector from a personal account of the same name. */}
+                <span className="min-w-0">
+                  <span className="block truncate">{suggestion.name}</span>
+                  <span className="block truncate text-[11.5px] text-tertiary">
+                    {suggestion.kind === 'personal'
+                      ? t('Your personal account')
+                      : t('Team connector')}
+                  </span>
+                </span>
                 <span className="ml-auto flex-none pl-3 text-[11.5px] text-tertiary">
-                  {installed.has(item.key) ? t('Connected') : t('Add')}
+                  {statusOf(suggestion, installed)}
                 </span>
               </span>
             </ComboboxItem>

@@ -5678,5 +5678,12 @@
   "Someone else’s computer. Its owner can see what runs here.": "这是别人的电脑，所有者能看到在此运行的工作。",
   "Only share with people you trust; they may access this computer’s files and sign-ins.": "请只分享给信任的人；对方可能访问这台电脑的文件与登录状态。",
   "Its owner can see this work, and only you can send messages in this agent.": "所有者能看到这项工作，且只有你能在这个 agent 中发送消息。",
-  "After the move, only you can send messages; people you shared it with can still read it.": "移动后只有你能发送消息；已分享对话的成员仍可阅读。"
+  "After the move, only you can send messages; people you shared it with can still read it.": "移动后只有你能发送消息；已分享对话的成员仍可阅读。",
+  "Commits, PRs and comments authored by you.": "commit、PR 和评论都以你的身份发出。",
+  "Issues and comments authored by you.": "Issue 和评论都以你的身份发出。",
+  "Read, draft and send your mail.": "读取、草拟并发送你的邮件。",
+  "Find, read and save your own files.": "搜索、读取并保存你自己的文件。",
+  "Open Team settings": "打开团队设置",
+  "Team connector": "团队连接器",
+  "Your personal account": "你的个人账号"
 }

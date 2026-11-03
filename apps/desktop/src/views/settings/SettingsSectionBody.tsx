@@ -22,6 +22,7 @@ type SectionProps = {
   onTeamRemoved: (teamId: string) => void
   onSignOut: () => void
   onOpenConversation?: (sessionId: string) => void
+  onOpenSection?: (section: string) => void
 }
 
 const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
@@ -40,7 +41,9 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (
     <ProfileSection user={user} onSignOut={onSignOut} onUserUpdated={onUserUpdated} />
   ),
-  'account.personalCredentials': ({ team }) => <PersonalCredentialsSection team={team} />,
+  'account.personalCredentials': ({ team, onOpenSection }) => (
+    <PersonalCredentialsSection team={team} onOpenSection={onOpenSection} />
+  ),
   'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
   'device.appearance': () => <AppearanceSection />,
   'device.updates': () => <UpdatesSection />,

@@ -4,12 +4,18 @@ import { useMemo } from 'react'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
+import {
+  PERSONAL_CREDENTIALS_SECTION,
+  matchingPersonalConnectors,
+} from '../settings/personalCredentials'
 
 import { CatalogLogo } from './catalog-logo'
 import { CONNECTOR_HOVER } from './connector-actions'
 import { ConnectorSearch } from './connector-search'
+import { searchTerms } from './connector-suggestions'
 import { githubConnectedSummary, visibleGithubInstallations } from './github-installation-display'
 import { OverflowMarquee } from './overflow-marquee'
+import { PersonalConnectors } from './personal-connectors'
 import { InstalledList } from './team-home-installed'
 
 import type { IntegrationPlatformRow } from './team-home-bind'
@@ -124,6 +130,7 @@ function summarizeConnection(
 }
 
 export function IntegrationCatalog({
+  teamId,
   rows,
   visibleRows,
   githubInstallations,
@@ -132,7 +139,9 @@ export function IntegrationCatalog({
   onFilterChange,
   onAdd,
   onOpen,
+  onOpenSettingsSection,
 }: {
+  teamId: string
   rows: IntegrationPlatformRow[]
   visibleRows: IntegrationPlatformRow[]
   githubInstallations: GithubInstallation[]
@@ -141,6 +150,7 @@ export function IntegrationCatalog({
   onFilterChange: (filter: string) => void
   onAdd: (key: AddIntegrationKey) => void
   onOpen: (rows: IntegrationPlatformRow[]) => void
+  onOpenSettingsSection: (section: string) => void
 }) {
   const terms = filter.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const installedKeys = useMemo(() => new Set<string>(rows.map((row) => row.provider)), [rows])
@@ -148,6 +158,8 @@ export function IntegrationCatalog({
     ...category,
     items: category.items.filter((item) => terms.every((term) => item.haystack.includes(term))),
   })).filter((category) => category.items.length > 0)
+  const personal = useMemo(() => matchingPersonalConnectors(searchTerms(filter)), [filter])
+  const openPersonalCredentials = () => onOpenSettingsSection(PERSONAL_CREDENTIALS_SECTION)
 
   return (
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
@@ -163,6 +175,8 @@ export function IntegrationCatalog({
             filter={filter}
             onFilterChange={onFilterChange}
             installed={installedKeys}
+            personal={personal}
+            onPickPersonal={openPersonalCredentials}
             onPick={(item) => {
               const installed = rows.filter((row) => row.provider === item.key)
 
@@ -183,8 +197,15 @@ export function IntegrationCatalog({
           </section>
         )}
 
-        {visibleCategories.length > 0 ? (
+        {visibleCategories.length > 0 || personal.length > 0 ? (
           <div className="space-y-8 pt-4">
+            {personal.length > 0 && (
+              <PersonalConnectors
+                teamId={teamId}
+                items={personal}
+                onOpenSettings={openPersonalCredentials}
+              />
+            )}
             {visibleCategories.map((category) => (
               <section key={category.id}>
                 <h2 className="mb-1.5 border-b border-zGray-800/55 pb-2.5 text-[13px] font-medium text-main">

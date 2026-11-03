@@ -5678,5 +5678,12 @@
   "Someone else’s computer. Its owner can see what runs here.": "Ini komputer orang lain. Pemiliknya dapat melihat pekerjaan yang dijalankan di sini.",
   "Only share with people you trust; they may access this computer’s files and sign-ins.": "Bagikan hanya kepada orang tepercaya; mereka dapat mengakses berkas dan sesi login komputer ini.",
   "Its owner can see this work, and only you can send messages in this agent.": "Pemiliknya dapat melihat pekerjaan ini, dan hanya Anda yang dapat mengirim pesan di agen ini.",
-  "After the move, only you can send messages; people you shared it with can still read it.": "Setelah dipindahkan, hanya Anda yang dapat mengirim pesan; orang yang Anda ajak berbagi tetap dapat membacanya."
+  "After the move, only you can send messages; people you shared it with can still read it.": "Setelah dipindahkan, hanya Anda yang dapat mengirim pesan; orang yang Anda ajak berbagi tetap dapat membacanya.",
+  "Commits, PRs and comments authored by you.": "Commit, PR, dan komentar ditulis atas nama Anda.",
+  "Issues and comments authored by you.": "Issue dan komentar ditulis atas nama Anda.",
+  "Read, draft and send your mail.": "Baca, buat draf, dan kirim email Anda.",
+  "Find, read and save your own files.": "Cari, baca, dan simpan file Anda sendiri.",
+  "Open Team settings": "Buka pengaturan tim",
+  "Team connector": "Konektor tim",
+  "Your personal account": "Akun pribadi Anda"
 }
