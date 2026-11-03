@@ -12,6 +12,7 @@ import {
   getConversationWithMessages,
 } from './db'
 import { closingWords, onChannelTurnEnd } from './channel-reply'
+import { channelNotice } from './channel-wake'
 import { pushedFileParts } from './channel-attachments'
 import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
@@ -269,7 +270,7 @@ async function notifyAgent(
     agent,
     // Fixed per channel, so the queue's dedupe keeps one; the title is a
     // member's words and travels only in the metadata.
-    `New messages in a Nuphos channel (channelId ${channel.sessionId}).`,
+    channelNotice(channel.sessionId),
     'agent.resource',
     {
       version: 1,

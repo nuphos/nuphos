@@ -262,6 +262,26 @@ describe('waking a channel’s agents', () => {
     expect(await withChannelPosts('agent-b', [notices[0]!])).toEqual([])
   })
 
+  test('a refused, requeued notice keeps its posts and gains any posted since', async () => {
+    await say('first')
+    const notice = wakes[0]!.message as never as {
+      id: string
+      source?: string
+      renderedText: string
+      metadata?: MessageMetadata
+    }
+    const [delivered] = await withChannelPosts('agent-b', [notice])
+    // The runtime refused the turn: the delivered notice goes back on the queue.
+    const [again] = await withChannelPosts('agent-b', [delivered!])
+
+    expect(again!.renderedText).toBe(delivered!.renderedText)
+    await say('second')
+    const [later] = await withChannelPosts('agent-b', [again!])
+
+    expect(later!.renderedText).toContain('first')
+    expect(later!.renderedText).toContain('second')
+  })
+
   test('posts with files are delivered as words, and channel_read still places the files', async () => {
     const upload = { type: 'transfer-upload', groupId: 'g1', status: 'ready', files: [] }
 

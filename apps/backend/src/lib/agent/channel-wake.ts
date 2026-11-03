@@ -3,11 +3,16 @@ import { agentConversations } from './db/shared'
 
 import type { MessageMetadata } from './message-metadata'
 
+/** A channel's wake notice as queued: fixed per channel, so the queue keeps one. */
+export const channelNotice = (channelId: string) =>
+  `New messages in a Nuphos channel (channelId ${channelId}).`
+
 /**
  * Puts what a channel notice is about into it: the posts the agent has not read,
  * read now that its turn starts, so it answers what was said rather than relying
- * on it to call channel_read. A notice with nothing left to read (the agent
- * caught up during the turn it waited behind) is dropped.
+ * on it to call channel_read. A notice that already carries posts keeps them,
+ * should its turn be refused and requeued, and gains any posted since. One with
+ * nothing to show (the agent caught up during the turn it waited behind) is dropped.
  */
 export async function withChannelPosts<
   M extends { source?: string; metadata?: MessageMetadata; renderedText: string },
@@ -21,17 +26,16 @@ export async function withChannelPosts<
       kept.push(message)
       continue
     }
-    const channel = await agentConversations().findOne({
-      sessionId: id.slice(CHANNEL_SENDER_PREFIX.length),
-    })
+    const channelId = id.slice(CHANNEL_SENDER_PREFIX.length)
+    const channel = await agentConversations().findOne({ sessionId: channelId })
     const page = channel && (await readChannelMessages(channel, agentSessionId, true))
+    const carries = message.renderedText !== channelNotice(channelId)
 
-    if (channel && page?.messages.length === 0) continue
-    kept.push(
-      page
-        ? { ...message, renderedText: `${message.renderedText}\n\n${channelPage(page)}` }
-        : message,
-    )
+    if (!page?.messages.length) {
+      if (carries || !channel) kept.push(message)
+      continue
+    }
+    kept.push({ ...message, renderedText: `${message.renderedText}\n\n${channelPage(page)}` })
   }
 
   return kept
