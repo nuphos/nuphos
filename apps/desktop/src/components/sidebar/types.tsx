@@ -47,6 +47,10 @@ export type Item = {
   finished?: boolean
   /** A channel: listed under Channels rather than Agents. */
   channel?: boolean
+  /** An agent the viewer does not own: no rename or unlink, which are the owner's. */
+  readOnlyChat?: boolean
+  /** Such an agent the viewer manages, so they may archive it for everyone. */
+  managedChat?: boolean
   /** Why the row carries its dot, for attention navigation. */
   dot?: RowDot
 }

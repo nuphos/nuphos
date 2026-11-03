@@ -16,6 +16,7 @@ import {
   teamOverviewNavItemFor,
 } from '../../lib/teamOverviewNav'
 
+import { pinnedChatFields } from './pinned-chat-row'
 import { favoriteFallbackIcon } from './types'
 
 import type { Item, Section } from './types'
@@ -158,17 +159,11 @@ export function useSidebarFavorites({
         // fold under it in Pinned exactly as they do in Chats.
         key: sessionId ? `${AGENT_SESSION_KEY_PREFIX}${sessionId}` : identity,
         href,
-        parentKey: live?.parentKey,
-        foldedStatus: live?.foldedStatus,
-        dot: live?.dot,
+        ...pinnedChatFields(live),
         label,
         icon:
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),
         iconNode: chip?.icon ?? live?.iconNode,
-        trailing: live?.trailing,
-        actions: live?.actions,
-        watching: live?.watching,
-        description: live?.description,
         enabled: true,
         active: sessionId
           ? sessionId === activeSessionId

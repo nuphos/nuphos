@@ -2,6 +2,7 @@ import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { rowDot } from '../../lib/subAgentState'
 
+import { chatRowAccess } from './chat-row-access'
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
 import { PhoneViewingBadge } from './PhoneViewingBadge'
@@ -43,6 +44,7 @@ export function chatSidebarItem({
     enabled: true,
     active,
     ...(conversation.kind === 'channel' ? { channel: true } : {}),
+    ...chatRowAccess(conversation),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
     ...(conversation.parentSessionId
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }

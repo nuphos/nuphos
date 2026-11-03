@@ -110,14 +110,18 @@ export function SidebarItemContextMenu({
                     channel ? 'Channel ID' : 'Agent ID',
                   ),
               },
-              {
-                key: 'rename',
-                label: channel ? t('Rename chat') : t('Rename agent'),
-                icon: Pencil,
-                onSelect: () =>
-                  renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
-              },
-              ...(menu.item.parentKey
+              ...(menu.item.readOnlyChat
+                ? []
+                : [
+                    {
+                      key: 'rename',
+                      label: channel ? t('Rename chat') : t('Rename agent'),
+                      icon: Pencil,
+                      onSelect: () =>
+                        renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
+                    },
+                  ]),
+              ...(menu.item.parentKey && !menu.item.readOnlyChat
                 ? [
                     {
                       key: 'unlink',
@@ -141,7 +145,8 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        ...(menu.item.key.startsWith('agent-session:')
+        ...(menu.item.key.startsWith('agent-session:') &&
+        (!menu.item.readOnlyChat || menu.item.managedChat)
           ? [
               {
                 key: 'archive',
