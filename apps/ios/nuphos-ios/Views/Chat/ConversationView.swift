@@ -9,9 +9,6 @@ struct ConversationView: View {
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
 
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var readerID = UUID()
-    @State private var onScreen = false
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
@@ -46,10 +43,6 @@ struct ConversationView: View {
     @State private var referencedAgents = ReferencedAgents()
 
     private var rows: [ChatRow] { ChatRow.rows(for: session) }
-
-    private func updateReading() {
-        ConversationUnread.shared.setReading(onScreen && scenePhase == .active, reader: readerID, team: session.teamId, session: session.sessionId)
-    }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -97,8 +90,6 @@ struct ConversationView: View {
         .onAppear {
             UIEventLog.pageTransition(from: sourcePage, to: "chat")
             Analytics.shared.screen("chat", teamID: session.teamId)
-            onScreen = true
-            updateReading()
             if draft.isEmpty { draft = ComposerDrafts.text(team: session.teamId, session: session.sessionId) }
         }
         .onChange(of: draft) { _, text in
@@ -106,10 +97,7 @@ struct ConversationView: View {
         }
         .onDisappear {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)
-            onScreen = false
-            updateReading()
         }
-        .onChange(of: scenePhase) { _, _ in updateReading() }
         .alert("Rename agent", isPresented: $showRename) {
             TextField("Title", text: $renamedTitle)
             Button("Cancel", role: .cancel) {}

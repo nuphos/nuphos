@@ -91,6 +91,17 @@ struct RuntimeObservationTests {
         precondition(!unread.contains(team: "t", session: "s"))
         unread.receive(team: "t", session: "s", activity: 4, read: 3, displayed: true)
         precondition(unread.contains(team: "t", session: "s") && unread.claimRead(team: "t", session: "s") == nil)
+        // HomeView keeps one reader per kind on its open selection: opening another
+        // moves the reader, closing clears it without ids, and the kinds stay apart.
+        let chat = UUID(), conversation = UUID()
+        unread.setReading(true, reader: conversation, team: "t", session: "a")
+        unread.setReading(true, reader: conversation, team: "t", session: "b")
+        precondition(!unread.isReading(team: "t", session: "a") && unread.isReading(team: "t", session: "b"))
+        unread.setReading(true, reader: chat, team: "t", session: "c")
+        unread.setReading(false, reader: conversation, team: "", session: "")
+        precondition(!unread.isReading(team: "t", session: "b") && unread.isReading(team: "t", session: "c"))
+        unread.setReading(false, reader: chat, team: "", session: "")
+        precondition(!unread.isReading(team: "t", session: "c"))
         var messages = [ChatMessage.user("Start")]
         let index = RuntimeTranscript.autonomous("auto-one", messages: &messages)
         messages[index].parts.append(.text(.init(text: "Working", state: .streaming)))

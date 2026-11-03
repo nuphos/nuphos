@@ -41,6 +41,7 @@ struct PlansPage: View {
             .navigationDestination(item: $newChat) { chat in
                 if let session = chat.session {
                     ConversationView(session: session, initialPrompt: chat.prompt, sourcePage: HomePage.plans.rawValue)
+                        .readWhileShown(session)
                         .onDisappear { Task { await plans.reload() } }
                 }
             }
@@ -306,6 +307,7 @@ struct PlanConversationView: View {
         Group {
             if let session {
                 ConversationView(session: session, sourcePage: HomePage.plans.rawValue)
+                    .readWhileShown(session)
             } else {
                 Theme.canvas
             }
@@ -329,4 +331,30 @@ struct PlanConversationView: View {
     }
     .environment(AgentStore(token: ""))
     .environment(PlansStore(token: ""))
+}
+
+/// Reads a conversation pushed from Plans while it is shown and the app active.
+/// Plans keeps its open conversation in its own page, which this push covers,
+/// so it cannot read from a selection the way HomeView does.
+private struct ReadWhileShown: ViewModifier {
+    let session: ChatSession
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var reader = UUID()
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { shown = true; update() }
+            .onDisappear { shown = false; update() }
+            .onChange(of: scenePhase) { _, _ in update() }
+    }
+
+    private func update() {
+        ConversationUnread.shared.setReading(shown && scenePhase == .active, reader: reader,
+                                             team: session.teamId, session: session.sessionId)
+    }
+}
+
+private extension View {
+    func readWhileShown(_ session: ChatSession) -> some View { modifier(ReadWhileShown(session: session)) }
 }
