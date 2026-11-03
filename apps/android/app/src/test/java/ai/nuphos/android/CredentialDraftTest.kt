@@ -119,6 +119,36 @@ class CredentialDraftTest {
         assertNotNull(failed.error)
     }
 
+    @Test fun reboundConnectorReplacesTheStaleIdWithoutAutoSelectingIt() {
+        val before = catalog("""{"githubInstallations":[{"installationId":"install-a","accountLogin":"fixture"}],"devices":[{"deviceId":"online"}]}""")
+        val after = catalog("""{"githubInstallations":[{"installationId":"install-b","accountLogin":"fixture"}],"devices":[{"deviceId":"online"}]}""")
+        val initial = loaded(before)
+        assertEquals(setOf("install-a"), initial.selection.ids["githubInstallationIds"])
+        val pending = initial.begin()
+        // The cached list and selection stay visible while the refresh is in flight.
+        assertSame(initial.catalog, pending.catalog)
+        assertEquals(initial.selection, pending.selection)
+        val refreshed = pending.finish(pending.request, Result.success(after))
+        assertEquals(listOf("install-b"), refreshed.catalog!!.allItems.filter { it.provider.optionsKey == "githubInstallations" }.map { it.id })
+        assertTrue(refreshed.selection.ids["githubInstallationIds"]!!.isEmpty())
+        assertEquals(setOf("online"), refreshed.selection.ids["deviceIds"])
+        val replacement = after.allItems.first { it.id == "install-b" }
+        assertEquals(setOf("install-b"), refreshed.selection.toggle(replacement).ids["githubInstallationIds"])
+    }
+
+    @Test fun failedForcedRefreshKeepsCachedListAndReopeningRecovers() {
+        val after = catalog("""{"githubInstallations":[{"installationId":"install-b","accountLogin":"fixture"}]}""")
+        val initial = loaded(catalog("""{"githubInstallations":[{"installationId":"install-a","accountLogin":"fixture"}]}"""))
+        val pending = initial.begin()
+        val failed = pending.finish(pending.request, Result.failure(IllegalStateException("unavailable")))
+        assertSame(initial.catalog, failed.catalog)
+        assertEquals(initial.selection, failed.selection)
+        val reopened = failed.refresh(after)
+        assertNull(reopened.error)
+        assertEquals(setOf("install-b"), reopened.catalog!!.allItems.map { it.id }.toSet())
+        assertTrue(reopened.selection.ids["githubInstallationIds"]!!.isEmpty())
+    }
+
     @Test fun latestRequestWinsForSuccessAndFailure() {
         val first = CredentialDraft().begin()
         val second = first.begin()
