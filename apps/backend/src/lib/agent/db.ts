@@ -93,5 +93,6 @@ export type {
 } from './db/conversations-list'
 export {
   addConversationCredentialIds,
+  removeConversationCredentialIds,
   setConversationCredentialFields,
 } from './db/credential-fields'

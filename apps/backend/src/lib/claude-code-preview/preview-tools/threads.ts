@@ -36,8 +36,21 @@ const modelPick = {
   model: z.string().trim().min(1).max(500).optional().describe('Model id, e.g. claude-fable-5-1.'),
   effort: z.string().trim().min(1).max(100).optional().describe('Reasoning effort, e.g. high.'),
 }
+// (provider, id) pairs as the parent's own list_credentials shows them.
+const credentialRefs = z
+  .array(z.object({ provider: z.string().min(1), id: z.string().min(1) }).strict())
+  .max(50)
+  .optional()
 const create = z
-  .object({ ...common, title: z.string().trim().min(1).max(160), ...modelPick })
+  .object({
+    ...common,
+    title: z.string().trim().min(1).max(160),
+    credentials: credentialRefs.describe(
+      '(provider, id) pairs from your own list_credentials: the thread gets exactly these. ' +
+        '[] gives it none; omit to give it your whole selection.',
+    ),
+    ...modelPick,
+  })
   .strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
 const setParent = z
@@ -57,11 +70,10 @@ const update = z
     threadId: z.string().uuid(),
     fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
     runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
-    grant: z
-      .array(z.object({ provider: z.string().min(1), id: z.string().min(1) }).strict())
-      .max(50)
-      .optional()
-      .describe('(provider, id) pairs from your own list_credentials to add to the thread.'),
+    grant: credentialRefs.describe(
+      '(provider, id) pairs from your own list_credentials to add to the thread.',
+    ),
+    revoke: credentialRefs.describe('(provider, id) pairs to remove from the thread.'),
     ...modelPick,
   })
   .strict()
@@ -93,7 +105,10 @@ export function threadToolModule(
         name: 'create_thread',
         description:
           'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it only when asked for a sub-agent or to delegate/background work. ' +
-          'Inherits your current runtime, selected credentials and permission mode, not your transcript. ' +
+          'Inherits your current runtime and permission mode, not your transcript. ' +
+          'Pass credentials with only the (provider, id) pairs from your list_credentials that the ' +
+          'task needs; the thread gets exactly those, and anything you have not selected is ' +
+          'refused. Without credentials it gets your whole selection. ' +
           "model and effort set its model picker before its first turn; its agent's defaults otherwise. " +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
@@ -144,10 +159,11 @@ export function threadToolModule(
           "(never to someone's computer); its next turn " +
           'runs there. grant adds credentials or devices (provider "device") that this ' +
           "conversation has selected, as its list_credentials shows them, to the thread's " +
-          "selection; it never removes any. model and effort set the thread's model picker for its " +
+          'selection; grant only what its task needs. revoke removes ones the thread has, ' +
+          "from its next credential request on. model and effort set the thread's model picker for its " +
           'next turn, after any runtimeId move; a value its agent does not offer is refused with ' +
           "the choices. A new thread already starts in this conversation's " +
-          'mode, agent and selection.',
+          'mode and agent, and with the credentials create_thread gave it.',
         inputSchema: toolInputJsonSchema(update),
       },
       {
@@ -203,10 +219,11 @@ export function threadToolModule(
           change.fullAccess === undefined &&
           !change.runtimeId &&
           !change.grant?.length &&
+          !change.revoke?.length &&
           !change.model &&
           !change.effort
         )
-          return toolError('Set fullAccess, runtimeId, grant, model or effort.')
+          return toolError('Set fullAccess, runtimeId, grant, revoke, model or effort.')
 
         return answer(updateThread(ctx, threadId, change))
       },

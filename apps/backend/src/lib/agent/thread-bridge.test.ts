@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { listSessionCredentials } from '@/lib/claude-code-preview/credential-listing'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared'
 import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
@@ -59,6 +60,7 @@ beforeEach(() => {
   events.length = 0
   moves.length = 0
   writes.length = 0
+  removals.length = 0
   selections.clear()
   picks.length = 0
   getAccess = readSelection
@@ -89,6 +91,11 @@ const moves: { sessionId: string; runtimeId: string; mode: string; userId: strin
 // Each conversation's selection as list_credentials reads it, and the fields grants write.
 const selections = new Map<string, Partial<AgentCredentialAccess>>()
 const writes: { sessionId: string; fields: Partial<Record<string, string[]>> }[] = []
+const removals: {
+  sessionId: string
+  pull: Partial<Record<string, string[]>>
+  narrow: Partial<Record<string, string[]>>
+}[] = []
 const options = await realOptions.getAgentCredentialOptions(undefined, 'owner')
 
 useCredentialOptions({
@@ -251,6 +258,23 @@ useAgentDb({
 
     for (const [key, ids] of Object.entries(fields))
       next[key] = [...new Set([...((next[key] as string[] | undefined) ?? []), ...(ids ?? [])])]
+    selections.set(sessionId, next as Partial<AgentCredentialAccess>)
+
+    return {} as AgentConversation
+  },
+  // The store's $pull and $set, guarded that pulled fields are lists and narrowed
+  // ones unset: missing or null, as the driver stores undefined.
+  removeConversationCredentialIds: async (sessionId, _userId, _teamId, pull, narrow) => {
+    const stored = selections.get(sessionId) ?? {}
+    const isList = (key: string) => Array.isArray(stored[key as keyof AgentCredentialAccess])
+
+    if (Object.keys(pull).some((key) => !isList(key)) || Object.keys(narrow).some(isList))
+      return null
+    removals.push({ sessionId, pull, narrow })
+    const next = { ...stored, ...narrow } as Record<string, unknown>
+
+    for (const [key, ids] of Object.entries(pull))
+      next[key] = (next[key] as string[]).filter((id) => !ids.includes(id))
     selections.set(sessionId, next as Partial<AgentCredentialAccess>)
 
     return {} as AgentConversation
@@ -454,6 +478,158 @@ describe('conversation-scoped thread tools', () => {
       ),
     )
     expect(selections.get(threadId)?.awsRoleIds).toEqual(['role-1', 'role-2'])
+  })
+
+  test('a thread created with a subset gets exactly that subset', async () => {
+    selections.set('source', {
+      awsRoleIds: ['role-1', 'role-2'],
+      linearWorkspaceIds: ['ws-1'],
+      deviceIds: ['mac-1', 'mac-2'],
+      teamIdentity: ['github'],
+      // githubInstallationIds unset: all of them.
+    })
+    source = { ...source, credentialAccess: { ...access, teamIdentity: ['github'] } }
+    const credentials = [
+      { provider: 'aws', id: 'role-2' },
+      { provider: 'device', id: 'mac-1' },
+      { provider: 'github', id: 'gh-1' },
+    ]
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task', { credentials })
+    const stored = shells[0]?.credentialAccess
+
+    expect(stored).toMatchObject({
+      awsRoleIds: ['role-2'],
+      deviceIds: ['mac-1'],
+      githubInstallationIds: ['gh-1'],
+      linearWorkspaceIds: [],
+      // Every field is set, so one whose unset selection means all is narrowed too.
+      gitlabBindingIds: [],
+      cloudflareAccountIds: [],
+      teamIdentity: ['github'],
+      updatedBy: 'owner',
+    })
+    // What its list_credentials, and so get_credential, then sees.
+    selections.set(threadId, stored as never)
+    const listed = await listSessionCredentials({ userId: 'owner', sessionId: threadId }, 'team')
+
+    expect(listed.selected.map(({ provider, id }) => ({ provider, id }))).toEqual([
+      { provider: 'aws', id: 'role-2' },
+      { provider: 'github', id: 'gh-1' },
+      { provider: 'device', id: 'mac-1' },
+    ])
+  })
+
+  test('a thread created with an empty subset gets nothing, and without one inherits all', async () => {
+    selections.set('source', { awsRoleIds: ['role-1'], deviceIds: ['mac-1'] })
+    await createAgentThread(actor, 'Work', 'Task', { credentials: [] })
+    await createAgentThread(actor, 'Work', 'Task')
+    selections.set('empty', shells[0]?.credentialAccess as never)
+
+    expect(
+      (await listSessionCredentials({ userId: 'owner', sessionId: 'empty' }, 'team')).selected,
+    ).toEqual([])
+    expect(shells[1]?.credentialAccess).toBe(access)
+  })
+
+  test("create_thread refuses anything outside the parent's selection, before any write", async () => {
+    selections.set('source', { awsRoleIds: ['role-1'], deviceIds: ['mac-1'] })
+    for (const ref of [
+      { provider: 'aws', id: 'role-2' },
+      { provider: 'device', id: 'mac-2' },
+      { provider: 'linear', id: 'ws-1' },
+      { provider: 'gcp', id: 'role-1' },
+    ]) {
+      await expect(
+        createAgentThread(actor, 'Work', 'Task', {
+          credentials: [{ provider: 'aws', id: 'role-1' }, ref],
+        }),
+      ).rejects.toThrow(`${ref.provider} ${ref.id}`)
+    }
+    expect(shells).toHaveLength(0)
+    expect(claims).toHaveLength(0)
+  })
+
+  test('a parent revokes what its thread has, leaving the rest of the selection', async () => {
+    selections.set('source', { awsRoleIds: ['role-1', 'role-2'], deviceIds: ['mac-1'] })
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    selections.set(threadId, { awsRoleIds: ['role-1', 'role-2'], deviceIds: ['mac-1'] })
+    const revoke = [
+      { provider: 'aws', id: 'role-1' },
+      { provider: 'device', id: 'mac-1' },
+    ]
+    const result = await updateThread(actor, threadId, { revoke })
+
+    expect(result).toMatchObject({ revoked: revoke })
+    expect(result).not.toHaveProperty('granted')
+    expect(removals).toEqual([
+      {
+        sessionId: threadId,
+        pull: { awsRoleIds: ['role-1'], deviceIds: ['mac-1'] },
+        narrow: {},
+      },
+    ])
+    expect(selections.get(threadId)).toEqual({ awsRoleIds: ['role-2'], deviceIds: [] })
+  })
+
+  test('revoking from a connector whose unset selection means all keeps the rest', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    selections.set(threadId, {})
+    await updateThread(actor, threadId, { revoke: [{ provider: 'github', id: 'gh-1' }] })
+    expect(selections.get(threadId)).toEqual({ githubInstallationIds: ['gh-2'] })
+    // Set to an explicit list after the thread was read: nothing is written.
+    selections.set(threadId, {})
+    getAccess = async ({ sessionId }) => {
+      const read = selections.get(sessionId) ?? {}
+
+      if (sessionId === threadId) selections.set(threadId, { githubInstallationIds: ['gh-1'] })
+
+      return read as never
+    }
+    await expect(
+      updateThread(actor, threadId, { revoke: [{ provider: 'github', id: 'gh-2' }] }),
+    ).rejects.toThrow('changed meanwhile')
+    expect(selections.get(threadId)).toEqual({ githubInstallationIds: ['gh-1'] })
+  })
+
+  test('a null selection, as the driver stores undefined, is revoked from as all', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    selections.set(threadId, { githubInstallationIds: null } as never)
+    await updateThread(actor, threadId, { revoke: [{ provider: 'github', id: 'gh-1' }] })
+    expect(removals.at(-1)).toMatchObject({ pull: {}, narrow: { githubInstallationIds: ['gh-2'] } })
+    expect(selections.get(threadId)).toEqual({ githubInstallationIds: ['gh-2'] })
+  })
+
+  test('refuses to revoke what the thread does not have, or to grant and revoke one pair', async () => {
+    selections.set('source', { awsRoleIds: ['role-1', 'role-2'] })
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    selections.set(threadId, { awsRoleIds: ['role-1'] })
+    await expect(
+      updateThread(actor, threadId, {
+        revoke: [
+          { provider: 'aws', id: 'role-1' },
+          { provider: 'aws', id: 'role-2' },
+        ],
+      }),
+    ).rejects.toThrow('Not selected for the thread: aws role-2')
+    const ref = { provider: 'aws', id: 'role-2' }
+
+    await expect(updateThread(actor, threadId, { grant: [ref], revoke: [ref] })).rejects.toThrow(
+      'Both granted and revoked: aws role-2',
+    )
+    // A refused grant in the same call stops the revoke too.
+    await expect(
+      updateThread(actor, threadId, {
+        grant: [{ provider: 'linear', id: 'ws-1' }],
+        revoke: [{ provider: 'aws', id: 'role-1' }],
+      }),
+    ).rejects.toThrow('linear ws-1')
+    expect(writes).toHaveLength(0)
+    expect(removals).toHaveLength(0)
+    expect(selections.get(threadId)).toEqual({ awsRoleIds: ['role-1'] })
   })
 
   test("only a thread nested here gets a grant, never another owner's", async () => {
