@@ -8,12 +8,14 @@ import {
   SESSION_POLL_INTERVAL_MS,
 } from './callback-server.ts'
 import { writeConfig } from './config.ts'
+import { assertWanted } from './sign-in-attempt.ts'
 import { apiErrorMessage } from './web.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 import type { CallbackHit } from './callback-server.ts'
 import type { LoginPlan } from './plan.ts'
+import type { SignInAttempt } from './sign-in-attempt.ts'
 import type { Server } from 'node:http'
 
 type RedeemOutcome =
@@ -70,6 +72,7 @@ async function redeemNativeSession(
 export async function completeNativeLogin(
   server: Server,
   plan: Extract<LoginPlan, { mode: 'native' }>,
+  attempt: SignInAttempt,
 ): Promise<UserInfo> {
   // An object rather than plain `let`s: TypeScript narrows those to their
   // initial values across the callback boundary, and the loop below reads them.
@@ -123,6 +126,7 @@ export async function completeNativeLogin(
       }
       if (outcome.status === 'ready') {
         try {
+          assertWanted(attempt)
           await writeConfig({
             token: outcome.token,
             api: plan.api,

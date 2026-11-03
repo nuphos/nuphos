@@ -58,6 +58,8 @@ data class AgentConversation(
     val agentRuntime: String? = null,
     val runtimeId: String? = null,
     val runtimeLabel: String? = null,
+    /** `channel` for a chat where people and agents talk; null for an agent. */
+    val kind: String? = null,
 ) {
     @Transient
     val id: String get() = sessionId
@@ -66,6 +68,8 @@ data class AgentConversation(
         get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled agent" } }
 
     val isArchived: Boolean get() = archivedAt != null
+
+    val isChannel: Boolean get() = kind == "channel"
 
     @Serializable
     data class Owner(
@@ -126,11 +130,17 @@ data class AgentConversationDetail(
     val credentialAccess: JsonValue? = null,
     val timelineEvents: List<TimelineEvent> = emptyList(),
     val promptSuggestion: String? = null,
+    /** `channel` for a chat; such a session never runs an agent turn of its own. */
+    val kind: String? = null,
+    val messageCount: Int? = null,
 ) {
+    val isChannel: Boolean get() = kind == "channel"
+
     @Serializable
     data class TimelineEvent(
         @Serializable(with = InstantAsStringSerializer::class) val at: Instant,
         val text: String,
+        val kind: String? = null,
     )
     @Serializable
     data class ActiveRun(

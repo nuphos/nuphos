@@ -87,6 +87,8 @@ function assertTcpReachable(host: string, port: number, timeoutMs: number): Prom
 export async function startSshSession(
   target: WebContents,
   access: SshAccessDetails,
+  /** The account the access was fetched as; a session never opens once it has left. */
+  signal?: AbortSignal,
 ): Promise<{ id: string }> {
   await assertTcpReachable(access.ipAddress, 22, 8_000)
 
@@ -108,6 +110,7 @@ export async function startSshSession(
     await fs.mkdir(knownHostsDir, { recursive: true })
     const knownHostsPath = path.join(knownHostsDir, 'atlas_known_hosts')
 
+    signal?.throwIfAborted()
     const child = spawn(
       '/usr/bin/ssh',
       [

@@ -361,6 +361,7 @@ final class ChatSession {
                 loaded = true
             }
             lastSyncedSignature = signature()
+            Task { await refreshResourcesAndDownloads() }
             if isNativeRuntime, !transportStreaming { Task { await refreshSessionConfig() } }
             if let text = sendAfterLoad {
                 sendAfterLoad = nil
@@ -597,6 +598,15 @@ final class ChatSession {
     func refreshResources() async {
         guard !isNew, let list = try? await AgentChatAPI.sessionResources(token: token, teamId: teamId, sessionId: sessionId) else { return }
         resources = list
+    }
+
+    /// The linked resources and the files the agent sent, read whenever this
+    /// session takes in a transcript: on load and when a turn settles. Owned by
+    /// the session like the load itself, so a view whose tasks stopped running
+    /// cannot leave a chat without its file cards.
+    private func refreshResourcesAndDownloads() async {
+        await refreshResources()
+        await refreshDownloads()
     }
 
     /// Moves this conversation to another agent. The working files come along
@@ -950,6 +960,7 @@ final class ChatSession {
 
         Task {
             if message == nil || wasStopped { await reloadFromServer() }
+            await refreshResourcesAndDownloads()
             if isNativeRuntime {
                 await refreshSessionConfig()
                 await refreshQueue()
@@ -1070,6 +1081,7 @@ final class ChatSession {
             // one update: a turn that starts never shows the last reply as
             // live (and unfolded) before the message that started it.
             adoptTranscript(from: detail)
+            await refreshResourcesAndDownloads()
         }
     }
 

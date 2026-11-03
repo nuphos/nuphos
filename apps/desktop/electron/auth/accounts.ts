@@ -33,6 +33,14 @@ export class OtherBackendError extends Error {
   }
 }
 
+/** An account that can no longer be switched to here: it has to sign in again. */
+export class AccountUnavailableError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'AccountUnavailableError'
+  }
+}
+
 // Every name for this computer is one host: a dev backend reached as
 // `localhost` and as `127.0.0.1` is the same server, and the same account.
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])

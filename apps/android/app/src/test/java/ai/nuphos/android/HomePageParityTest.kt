@@ -4,7 +4,7 @@ import org.junit.Assert.*
 import org.junit.Test
 class HomePageParityTest {
     @Test fun onlyIosPagesAppearInTheSameOrder() {
-        assertEquals(listOf("Agents", "Plans", "Runtimes", "Connectors"), HomePage.entries.map { it.title })
+        assertEquals(listOf("Chats", "Agents", "Plans", "Runtimes", "Connectors"), HomePage.entries.map { it.title })
     }
     @Test fun retiredAndUnknownSavedRoutesHaveAnExplicitUnavailableState() {
         listOf("monitoring", "triggers", "unknown").forEach { assertTrue(HomePage.unavailableRoute(it)) }
