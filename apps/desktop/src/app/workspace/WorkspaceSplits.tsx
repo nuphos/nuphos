@@ -220,6 +220,7 @@ export function WorkspaceSplits({
           }
 
           const at = placed.get(rect.id) ?? rect
+          const cornerPane = sidebarCollapsed && rect.left === 0 && rect.top === 0
 
           return (
             <WorkspacePaneContext.Provider
@@ -233,6 +234,7 @@ export function WorkspaceSplits({
                   openSessionBeside(rect.id, sessionId, teamId),
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
+                cornerPane,
                 isTabFocused: () => focusSurfaces.get(rect.id) === 'tab',
                 closePane: () => close(rect.id),
                 split: multiple,
@@ -247,9 +249,6 @@ export function WorkspaceSplits({
               <section
                 data-workspace-split-pane={rect.id}
                 data-pane-active={activeId === rect.id ? 'true' : 'false'}
-                data-traffic-light-inset={
-                  sidebarCollapsed && rect.left === 0 && rect.top === 0 ? 'true' : undefined
-                }
                 data-split-multiple={multiple ? 'true' : undefined}
                 className={clsx(
                   'group/pane absolute flex min-h-0 min-w-0 flex-col overflow-hidden',

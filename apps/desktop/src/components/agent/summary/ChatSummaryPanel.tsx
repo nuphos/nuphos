@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
@@ -41,9 +41,24 @@ type Props = {
 
 const PANE = '[data-workspace-focus-surface="session"]'
 
-/** The panel beside the transcript, mounted only while open. */
+// Matches `.t-summary-slot-out` in index.css.
+const CLOSE_MS = 300
+
+/** The panel beside the transcript, mounted while open and while it slides shut. */
 export function ChatSummaryPanel({ open, ...props }: Props & { open: boolean }) {
-  return open ? <SummaryBody {...props} /> : null
+  const [mounted, setMounted] = useState(open)
+
+  if (open && !mounted) setMounted(true)
+
+  useEffect(() => {
+    if (open || !mounted) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timer = window.setTimeout(() => setMounted(false), reduced ? 0 : CLOSE_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [open, mounted])
+
+  return mounted ? <SummaryBody {...props} closing={!open} /> : null
 }
 
 function Skeleton() {
@@ -130,7 +145,8 @@ function SummaryBody({
   requests,
   requestsLoaded,
   requestsFailed,
-}: Props) {
+  closing,
+}: Props & { closing: boolean }) {
   const paneId = usePaneId()
   const rootRef = useRef<HTMLElement>(null)
   const [selected, setSelected] = useState<SessionInputRequest | null>(null)
@@ -155,62 +171,80 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
 
   return (
-    <aside
-      ref={rootRef}
-      aria-label={t('Agent summary')}
-      onKeyDown={(event) => closeOnEscape(event, rootRef.current, paneId)}
+    // Overlaying the transcript the slot is layout-free; beside it, the slot's
+    // width grows and shrinks so the transcript reflows with the panel.
+    <div
       className={clsx(
-        't-summary-in',
-        'absolute inset-y-0 right-0 z-10 flex max-w-full flex-shrink-0 flex-col border-l border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
+        'contents',
+        closing ? 't-summary-slot-out' : 't-summary-slot-in',
         selected
-          ? 'w-[440px] overflow-hidden @[1000px]:static'
-          : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3 @[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent',
-        '@[1000px]:shadow-none',
+          ? '[--summary-width:440px] @[1000px]:flex'
+          : '[--summary-width:304px] @[760px]:flex',
+        '@[760px]:w-[var(--summary-width)] @[760px]:flex-shrink-0 @[760px]:justify-end @[760px]:overflow-hidden',
       )}
     >
-      {selected ? (
-        <SessionInputReply
-          key={inputRequestKey(selected)}
-          request={selected}
-          requests={requests}
-          teamId={teamId}
-          onSelect={select}
-          onBack={() => setSelected(null)}
-          onClose={() => setChatSummaryOpen(paneId, false)}
-          onOpenSession={onOpenRequest}
-        />
-      ) : (
-        <>
-          <SessionInputQueue
+      <aside
+        ref={rootRef}
+        aria-label={t('Agent summary')}
+        inert={closing}
+        onKeyDown={(event) => closeOnEscape(event, rootRef.current, paneId)}
+        className={clsx(
+          closing ? 't-summary-out' : 't-summary-in',
+          'absolute inset-y-0 right-0 z-10 flex max-w-full flex-shrink-0 flex-col border-l border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
+          selected
+            ? 'w-[440px] overflow-hidden @[1000px]:static'
+            : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3 @[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent',
+          '@[1000px]:shadow-none',
+        )}
+      >
+        {selected ? (
+          <SessionInputReply
+            key={inputRequestKey(selected)}
+            request={selected}
             requests={requests}
-            loaded={requestsLoaded}
-            failed={requestsFailed}
+            teamId={teamId}
             onSelect={select}
+            onBack={() => setSelected(null)}
+            onClose={() => setChatSummaryOpen(paneId, false)}
+            onOpenSession={onOpenRequest}
           />
-          {background.length > 0 && <BackgroundTasksSection shells={background} />}
-          {!loaded && <Skeleton />}
-          {changes.length > 0 && (
-            <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
-          )}
-          {subAgents.length > 0 && (
-            <SubAgentsSection sessionId={sessionId} subAgents={subAgents} onOpen={onOpenSession} />
-          )}
-          {conversation && <ChatSummaryEnvironment conversation={conversation} />}
-          {outputs.length > 0 && (
-            <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
-          )}
-          {loaded && !conversation && (
-            <div className="px-1 pt-1 text-[13px] leading-5">
-              <p className="text-main">{t('Nothing here yet')}</p>
-              <p className="text-tertiary">
-                {t(
-                  'Pull requests, sub-agents and files from this agent appear here after its first reply.',
-                )}
-              </p>
-            </div>
-          )}
-        </>
-      )}
-    </aside>
+        ) : (
+          <>
+            <SessionInputQueue
+              requests={requests}
+              loaded={requestsLoaded}
+              failed={requestsFailed}
+              onSelect={select}
+            />
+            {background.length > 0 && <BackgroundTasksSection shells={background} />}
+            {!loaded && <Skeleton />}
+            {changes.length > 0 && (
+              <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
+            )}
+            {subAgents.length > 0 && (
+              <SubAgentsSection
+                sessionId={sessionId}
+                subAgents={subAgents}
+                onOpen={onOpenSession}
+              />
+            )}
+            {conversation && <ChatSummaryEnvironment conversation={conversation} />}
+            {outputs.length > 0 && (
+              <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
+            )}
+            {loaded && !conversation && (
+              <div className="px-1 pt-1 text-[13px] leading-5">
+                <p className="text-main">{t('Nothing here yet')}</p>
+                <p className="text-tertiary">
+                  {t(
+                    'Pull requests, sub-agents and files from this agent appear here after its first reply.',
+                  )}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </aside>
+    </div>
   )
 }

@@ -55,6 +55,9 @@ type Props = {
    */
   agentSidebarOpen?: boolean
   onToggleAgentSidebar?: () => void
+  /** Leads the header row, which it keeps alive; e.g. the collapsed sidebar's toggle. */
+  leading?: ReactNode
+  headerClassName?: string
 }
 
 export function Toolbar({
@@ -82,6 +85,8 @@ export function Toolbar({
   externalLink,
   agentSidebarOpen,
   onToggleAgentSidebar,
+  leading,
+  headerClassName,
 }: Props) {
   const [copiedPageUrl, setCopiedPageUrl] = useState(false)
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -107,7 +112,7 @@ export function Toolbar({
   const showNs =
     namespaces !== undefined && onSelectNamespace !== undefined && onLoadNamespaces !== undefined
   const showControlsRow = showNs || showFilter || hasControls
-  const showHeaderRow = segments.length > 0 || Boolean(onToggleAgentSidebar)
+  const showHeaderRow = segments.length > 0 || Boolean(onToggleAgentSidebar) || Boolean(leading)
 
   if (!showHeaderRow && !showControlsRow) return null
 
@@ -126,8 +131,10 @@ export function Toolbar({
           className={clsx(
             'h-[42px] flex items-center px-3 gap-1',
             showControlsRow && 'border-b border-zGray-800/60',
+            headerClassName,
           )}
         >
+          {leading}
           <Breadcrumb segments={segments} />
 
           <div className="flex-1 titlebar-drag" />
