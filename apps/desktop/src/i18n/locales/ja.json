@@ -867,7 +867,6 @@
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "クラウド、オブザーバビリティ、ネットワーク、コンプライアンス、ソース管理、プロジェクト、ドキュメント、メッセージングのツールをこのチームに接続します。",
   "Connect a runtime in Settings → Runtimes to get started.": "［設定］→［ランタイム］でランタイムを接続して始めましょう。",
   "Connect a runtime to get started": "ランタイムを接続して始めましょう",
-  "Connect a runtime you run on your own server, with a pairing code from its console.": "自分のサーバーで運用しているランタイムを、コンソールに表示されるペアリングコードで接続します。",
   "Connect apps to continue": "続行するにはアプリを接続してください",
   "Connect or enable a runtime in Settings → Runtimes.": "［設定］→［ランタイム］でランタイムを接続するか有効にしてください。",
   "Connect runtime": "ランタイムを接続",
@@ -5694,5 +5693,6 @@
   "The agent was started there. Its log is ~/.nuphos-agent.log on that machine.": "エージェントはそのマシンで起動しました。ログはそのマシンの ~/.nuphos-agent.log です。",
   "Setup failed on {host}": "{host} でのセットアップに失敗しました",
   "See the output, or run the command on the machine yourself.": "出力を確認するか、マシン上で自分でコマンドを実行してください。",
-  "Could not connect the computer": "コンピューターを接続できませんでした"
+  "Could not connect the computer": "コンピューターを接続できませんでした",
+  "Pairing a self-hosted runtime (Docker, Kubernetes)?": "セルフホストのランタイム（Docker、Kubernetes）をペアリングしますか？"
 }

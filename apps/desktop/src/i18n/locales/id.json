@@ -867,7 +867,6 @@
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "Hubungkan alat cloud, observabilitas, jaringan, kepatuhan, kontrol sumber, proyek, dokumen, atau perpesanan ke tim ini.",
   "Connect a runtime in Settings → Runtimes to get started.": "Hubungkan runtime di Pengaturan → Runtime untuk memulai.",
   "Connect a runtime to get started": "Hubungkan runtime untuk memulai",
-  "Connect a runtime you run on your own server, with a pairing code from its console.": "Hubungkan runtime yang Anda jalankan di server sendiri dengan kode pemasangan dari konsolnya.",
   "Connect apps to continue": "Hubungkan aplikasi untuk melanjutkan",
   "Connect or enable a runtime in Settings → Runtimes.": "Hubungkan atau aktifkan runtime di Pengaturan → Runtime.",
   "Connect runtime": "Hubungkan runtime",
@@ -5694,5 +5693,6 @@
   "The agent was started there. Its log is ~/.nuphos-agent.log on that machine.": "Agen sudah dimulai di sana. Lognya ada di ~/.nuphos-agent.log di mesin itu.",
   "Setup failed on {host}": "Penyiapan gagal di {host}",
   "See the output, or run the command on the machine yourself.": "Lihat output-nya, atau jalankan perintah itu sendiri di mesin tersebut.",
-  "Could not connect the computer": "Tidak dapat menghubungkan komputer"
+  "Could not connect the computer": "Tidak dapat menghubungkan komputer",
+  "Pairing a self-hosted runtime (Docker, Kubernetes)?": "Memasangkan runtime yang di-host sendiri (Docker, Kubernetes)?"
 }

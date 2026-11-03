@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Box, Laptop, Server } from 'lucide-react'
+import { Box, Laptop } from 'lucide-react'
 
 import { t } from '../../i18n'
 
@@ -46,7 +46,7 @@ export function Choice({
   )
 }
 
-/** Add computer's first step: a cloud computer, your own, or a self-hosted runtime. */
+/** Add computer's first step: a Nuphos cloud computer or your own. */
 export function AddAgentChoices({
   boxAvailable,
   footer,
@@ -73,21 +73,11 @@ export function AddAgentChoices({
           onClick={() => onPick('box')}
         />
       )}
-      {boxAvailable && (
-        <Choice
-          icon={<Laptop className="h-4 w-4" />}
-          title={t('Your own computer')}
-          description={t('A laptop or server you run, connected with a one-time command.')}
-          onClick={onJoin}
-        />
-      )}
       <Choice
-        icon={<Server className="h-4 w-4" />}
-        title={t('Self-hosted runtime')}
-        description={t(
-          'Connect a runtime you run on your own server, with a pairing code from its console.',
-        )}
-        onClick={() => onPick('self-hosted')}
+        icon={<Laptop className="h-4 w-4" />}
+        title={t('Your own computer')}
+        description={t('A laptop or server you run, connected with a one-time command.')}
+        onClick={onJoin}
       />
       <StepActions footer={footer} className="flex items-center justify-end gap-2">
         <button

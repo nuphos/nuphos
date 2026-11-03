@@ -867,7 +867,6 @@
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "เชื่อมต่อเครื่องมือด้านคลาวด์ การสังเกตการณ์ระบบ เครือข่าย การปฏิบัติตามข้อกำหนด การควบคุมซอร์สโค้ด โปรเจกต์ เอกสาร หรือการส่งข้อความเข้ากับทีมนี้",
   "Connect a runtime in Settings → Runtimes to get started.": "เชื่อมต่อรันไทม์ที่การตั้งค่า → รันไทม์ เพื่อเริ่มต้นใช้งาน",
   "Connect a runtime to get started": "เชื่อมต่อรันไทม์เพื่อเริ่มต้นใช้งาน",
-  "Connect a runtime you run on your own server, with a pairing code from its console.": "เชื่อมต่อรันไทม์ที่รันบนเซิร์ฟเวอร์ของคุณเอง ด้วยรหัสจับคู่จากคอนโซลของรันไทม์",
   "Connect apps to continue": "เชื่อมต่อแอปเพื่อดำเนินการต่อ",
   "Connect or enable a runtime in Settings → Runtimes.": "เชื่อมต่อหรือเปิดใช้รันไทม์ที่การตั้งค่า → รันไทม์",
   "Connect runtime": "เชื่อมต่อรันไทม์",
@@ -5694,5 +5693,6 @@
   "The agent was started there. Its log is ~/.nuphos-agent.log on that machine.": "เอเจนต์เริ่มทำงานบนเครื่องนั้นแล้ว บันทึกอยู่ที่ ~/.nuphos-agent.log บนเครื่องนั้น",
   "Setup failed on {host}": "การตั้งค่าบน {host} ล้มเหลว",
   "See the output, or run the command on the machine yourself.": "ดูผลลัพธ์ หรือรันคำสั่งบนเครื่องนั้นด้วยตนเอง",
-  "Could not connect the computer": "เชื่อมต่อคอมพิวเตอร์ไม่ได้"
+  "Could not connect the computer": "เชื่อมต่อคอมพิวเตอร์ไม่ได้",
+  "Pairing a self-hosted runtime (Docker, Kubernetes)?": "จะจับคู่รันไทม์ที่โฮสต์เอง (Docker, Kubernetes) ใช่ไหม"
 }

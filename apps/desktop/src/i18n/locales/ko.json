@@ -867,7 +867,6 @@
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "클라우드, 관측성, 네트워킹, 규정 준수, 소스 제어, 프로젝트, 문서, 메시징 도구를 이 팀에 연결합니다.",
   "Connect a runtime in Settings → Runtimes to get started.": "시작하려면 설정 → 런타임에서 런타임을 연결하세요.",
   "Connect a runtime to get started": "런타임을 연결하여 시작하세요",
-  "Connect a runtime you run on your own server, with a pairing code from its console.": "직접 운영하는 서버의 런타임을 콘솔의 페어링 코드로 연결합니다.",
   "Connect apps to continue": "계속하려면 앱을 연결하세요",
   "Connect or enable a runtime in Settings → Runtimes.": "설정 → 런타임에서 런타임을 연결하거나 활성화하세요.",
   "Connect runtime": "런타임 연결",
@@ -5694,5 +5693,6 @@
   "The agent was started there. Its log is ~/.nuphos-agent.log on that machine.": "에이전트가 해당 머신에서 시작되었습니다. 로그는 그 머신의 ~/.nuphos-agent.log에 있습니다.",
   "Setup failed on {host}": "{host}에서 설정에 실패했습니다",
   "See the output, or run the command on the machine yourself.": "출력을 확인하거나 머신에서 직접 명령을 실행하세요.",
-  "Could not connect the computer": "컴퓨터를 연결할 수 없습니다"
+  "Could not connect the computer": "컴퓨터를 연결할 수 없습니다",
+  "Pairing a self-hosted runtime (Docker, Kubernetes)?": "자체 호스팅 런타임(Docker, Kubernetes)을 페어링하시나요?"
 }

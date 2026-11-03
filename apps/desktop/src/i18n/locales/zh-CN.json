@@ -867,7 +867,6 @@
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "将云、可观测性、网络、合规、源代码管理、项目、文档或消息工具连接到此团队。",
   "Connect a runtime in Settings → Runtimes to get started.": "请前往“设置 → 运行环境”连接运行环境后开始使用。",
   "Connect a runtime to get started": "连接运行环境以开始使用",
-  "Connect a runtime you run on your own server, with a pairing code from its console.": "使用控制台提供的配对码，连接部署在你自己服务器上的运行环境。",
   "Connect apps to continue": "连接应用以继续",
   "Connect or enable a runtime in Settings → Runtimes.": "请前往“设置 → 运行环境”连接或启用运行环境。",
   "Connect runtime": "连接运行环境",
@@ -5694,5 +5693,6 @@
   "The agent was started there. Its log is ~/.nuphos-agent.log on that machine.": "Agent 已在该机器上启动，日志位于该机器的 ~/.nuphos-agent.log。",
   "Setup failed on {host}": "在 {host} 上设置失败",
   "See the output, or run the command on the machine yourself.": "请查看输出内容，或自行在该机器上运行命令。",
-  "Could not connect the computer": "无法连接这台电脑"
+  "Could not connect the computer": "无法连接这台电脑",
+  "Pairing a self-hosted runtime (Docker, Kubernetes)?": "要配对自托管的运行环境（Docker、Kubernetes）？"
 }

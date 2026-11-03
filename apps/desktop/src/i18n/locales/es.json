@@ -867,7 +867,6 @@
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "Conecta a este equipo una herramienta de nube, observabilidad, redes, cumplimiento, control de código fuente, proyectos, documentos o mensajería.",
   "Connect a runtime in Settings → Runtimes to get started.": "Conecta un entorno de ejecución en Configuración → Entornos de ejecución para empezar.",
   "Connect a runtime to get started": "Conecta un entorno de ejecución para empezar",
-  "Connect a runtime you run on your own server, with a pairing code from its console.": "Conecta un entorno de ejecución que ejecutas en tu propio servidor con un código de vinculación de su consola.",
   "Connect apps to continue": "Conecta apps para continuar",
   "Connect or enable a runtime in Settings → Runtimes.": "Conecta o habilita un entorno de ejecución en Configuración → Entornos de ejecución.",
   "Connect runtime": "Conectar entorno de ejecución",
@@ -5694,5 +5693,6 @@
   "The agent was started there. Its log is ~/.nuphos-agent.log on that machine.": "El agente se inició allí. Su registro está en ~/.nuphos-agent.log en esa máquina.",
   "Setup failed on {host}": "La configuración falló en {host}",
   "See the output, or run the command on the machine yourself.": "Revisa la salida o ejecuta el comando tú mismo en la máquina.",
-  "Could not connect the computer": "No se pudo conectar el ordenador"
+  "Could not connect the computer": "No se pudo conectar el ordenador",
+  "Pairing a self-hosted runtime (Docker, Kubernetes)?": "¿Vas a emparejar un runtime autoalojado (Docker, Kubernetes)?"
 }

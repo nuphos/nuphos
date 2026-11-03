@@ -31,6 +31,17 @@ const TITLE: Record<AddAgentStep, string> = {
   box: t('Nuphos cloud computer'),
 }
 
+/** Swaps to a new title. Its own component so a remounted dialog starts from its current text. */
+function SwapText({ text }: { text: string }) {
+  const { ref, text: shown } = useTextSwap<HTMLSpanElement>(text)
+
+  return (
+    <span ref={ref} className="t-text-swap">
+      {shown}
+    </span>
+  )
+}
+
 /** The one place to add a computer (and so its runtimes), from the Runtimes page or the composer's agent picker. */
 export function AddAgentDialog({
   teamId,
@@ -58,14 +69,23 @@ export function AddAgentDialog({
   const closeGuard = useRef<(() => boolean) | null>(null)
   const [footer, setFooter] = useState<HTMLDivElement | null>(null)
   const autoHeight = useAutoHeight<HTMLDivElement>()
-  const { ref: titleRef, text: title } = useTextSwap<HTMLSpanElement>(TITLE[step])
   const added = (runtimeId: string) => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     onAdded?.(runtimeId)
     onClose()
   }
 
-  if (join) return <JoinDialog join={join} onClose={onClose} />
+  if (join)
+    return (
+      <JoinDialog
+        join={join}
+        onClose={onClose}
+        onPairRuntime={() => {
+          setJoin(null)
+          go('self-hosted')
+        }}
+      />
+    )
   if (signingIn)
     return (
       <RuntimeLoginDialog
@@ -87,9 +107,7 @@ export function AddAgentDialog({
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none">
           <div className="flex items-center justify-between border-b border-zGray-800 px-5 py-4">
             <Dialog.Title className="text-[14px] font-semibold text-main">
-              <span ref={titleRef} className="t-text-swap">
-                {title}
-              </span>
+              <SwapText text={TITLE[step]} />
             </Dialog.Title>
             <Dialog.Close
               aria-label={t('Close')}

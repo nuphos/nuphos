@@ -72,6 +72,7 @@ export function SshHostField({
         onChange(host.alias)
       }}
       itemToStringLabel={(host) => host.alias}
+      openOnInputClick
     >
       <ComboboxInput
         aria-label={t('SSH host')}
@@ -80,7 +81,6 @@ export function SshHostField({
         disabled={disabled}
         spellCheck={false}
         autoCapitalize="off"
-        onFocus={() => setOpen(true)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !showing) onSubmit()
         }}
