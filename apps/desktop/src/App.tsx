@@ -14,7 +14,7 @@ import { Workspace } from './app/workspace/Workspace'
 import { toast } from './components/ui/toast'
 import { CurrentUserContext } from './hooks/useCurrentUser'
 import { t } from './i18n'
-import { identifyUser, setActiveTeam, track } from './lib/analytics'
+import { identifyUser, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
 
@@ -57,13 +57,16 @@ function SignedInApp() {
   }, [signedIn])
 
   async function logout(rejected = false) {
-    signOutLocally()
+    const undo = signOutLocally()
+
     try {
       await api.authLogout()
     } catch (e) {
-      // Still signed in on this computer: say so instead of showing a sign-in
-      // screen the next launch would skip. A rejected session leaves anyway.
-      if (!rejected) {
+      // Still signed in on this computer: say so, and put this window's drafts
+      // back, instead of showing a sign-in screen the next launch would skip.
+      // A rejected session leaves anyway.
+      if (!rejected && auth.status === 'authenticated') {
+        undo(auth.user)
         toast.apiError(t('Could not log out'), e)
 
         return
@@ -86,11 +89,11 @@ function SignedInApp() {
           : undefined
       }
       onLogin={(user) => {
-        // Who signed in first, so the event is theirs and not the last account's,
-        // nor the team of the workspace still mounted behind Add account.
-        if (signedIn) setActiveTeam(null)
+        // Who signed in first, so the event is theirs and not the last account's.
+        // Its team is none: the workspace behind Add account is the previous
+        // account's, and the scope stays as it is for what follows.
         identifyUser(user)
-        track('login', { method: 'oauth' })
+        track('login', { method: 'oauth', team_id: null })
         cancelAddAccount()
         // Signed in over another account: every window reloads as this one.
         if (!signedIn) void enterAs(user).then(setAuth)
