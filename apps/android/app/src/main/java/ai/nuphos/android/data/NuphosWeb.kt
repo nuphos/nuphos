@@ -1,7 +1,12 @@
 package ai.nuphos.android.data
 
 import android.net.Uri
+import java.io.IOException
 import java.net.URI
+import java.util.concurrent.TimeUnit
+import okhttp3.CacheControl
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.net.URLDecoder
 import java.security.MessageDigest
 
@@ -16,9 +21,31 @@ object NuphosWeb {
         data class Failure(val message: String) : CallbackResult()
     }
 
-    fun loginUrl(handle: String): String {
+    /** Providers in iOS display order. */
+    enum class Provider(val raw: String, val title: String) { Apple("apple", "Apple"), Google("google", "Google") }
+
+    /** Older servers send no header and only offer Google. */
+    fun providers(header: String?): List<Provider> {
+        if (header == null) return listOf(Provider.Google)
+        val configured = header.split(',').map { it.trim() }.toSet()
+        return Provider.entries.filter { it.raw in configured }
+    }
+
+    /** 503 means social sign-in is not configured; any other failure is retryable. */
+    fun availableProviders(client: OkHttpClient = Http.client): List<Provider> {
+        val request = Request.Builder().url("${NuphosApi.BASE_URL}/auth/social/login")
+            .cacheControl(CacheControl.FORCE_NETWORK).get().build()
+        client.newBuilder().callTimeout(10, TimeUnit.SECONDS).build().newCall(request).execute().use { response ->
+            if (response.code == 503) return emptyList()
+            if (!response.isSuccessful) throw IOException("Sign-in options are unavailable.")
+            return providers(response.header("X-Nuphos-Social-Providers"))
+        }
+    }
+
+    /** Opens the chosen provider directly; the handle stays the only parameter. */
+    fun loginUrl(handle: String, provider: Provider): String {
         require(handle.matches(Regex("[A-Za-z0-9_-]{43}")))
-        return "${NuphosApi.BASE_URL}/auth/social/login?handle=$handle"
+        return "${NuphosApi.BASE_URL}/auth/social/${provider.raw}/start?handle=$handle"
     }
 
     /** Old token intents can only return focus to the app; they carry no authority. */

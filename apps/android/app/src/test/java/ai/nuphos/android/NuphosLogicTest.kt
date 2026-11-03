@@ -10,12 +10,43 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import okhttp3.ResponseBody.Companion.toResponseBody
 
 class NuphosLogicTest {
     @Test
-    fun loginUrlCarriesOnlyOpaqueHandle() {
+    fun loginUrlOpensTheChosenProviderWithOnlyTheOpaqueHandle() {
         val handle = "h".repeat(43)
-        assertEquals("${ai.nuphos.android.data.NuphosApi.BASE_URL}/auth/social/login?handle=$handle", NuphosWeb.loginUrl(handle))
+        val base = ai.nuphos.android.data.NuphosApi.BASE_URL
+        assertEquals("$base/auth/social/google/start?handle=$handle", NuphosWeb.loginUrl(handle, NuphosWeb.Provider.Google))
+        assertEquals("$base/auth/social/apple/start?handle=$handle", NuphosWeb.loginUrl(handle, NuphosWeb.Provider.Apple))
+        try { NuphosWeb.loginUrl("a+b&c", NuphosWeb.Provider.Google); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test
+    fun providerHeaderMatchesIosOrderAndFallback() {
+        assertEquals(listOf(NuphosWeb.Provider.Apple, NuphosWeb.Provider.Google), NuphosWeb.providers("google,apple"))
+        assertEquals(listOf(NuphosWeb.Provider.Google), NuphosWeb.providers(" google,unknown,google "))
+        assertEquals(emptyList<NuphosWeb.Provider>(), NuphosWeb.providers(""))
+        assertEquals(listOf(NuphosWeb.Provider.Google), NuphosWeb.providers(null))
+    }
+
+    @Test
+    fun providerDiscoveryTreats503AsNoneAndOtherFailuresAsRetryable() {
+        fun client(code: Int, header: String?) = okhttp3.OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            assertEquals("GET", request.method)
+            assertEquals("/auth/social/login", request.url.encodedPath)
+            assertNull(request.header("Authorization"))
+            okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(code).message("fixture")
+                .apply { if (header != null) header("X-Nuphos-Social-Providers", header) }
+                .body("".toResponseBody()).build()
+        }.build()
+        assertEquals(listOf(NuphosWeb.Provider.Apple, NuphosWeb.Provider.Google), NuphosWeb.availableProviders(client(200, "google,apple")))
+        assertEquals(listOf(NuphosWeb.Provider.Google), NuphosWeb.availableProviders(client(200, null)))
+        assertEquals(emptyList<NuphosWeb.Provider>(), NuphosWeb.availableProviders(client(503, "google")))
+        for (code in listOf(500, 404, 401)) {
+            try { NuphosWeb.availableProviders(client(code, "google")); org.junit.Assert.fail() } catch (_: java.io.IOException) { }
+        }
     }
 
     @Test

@@ -34,13 +34,11 @@ class AccountApi internal constructor(private val token: String, private val cli
         if (result["ok"] != JsonPrimitive(true)) throw NuphosApi.Failure.InvalidResponse
     }
 
-    suspend fun emailSignIn(email: String, code: String, newPassword: String? = null): String {
+    suspend fun emailSignIn(email: String, code: String): String {
         require(email.trim().isNotBlank() && email.trim().length <= 254)
         require(code.matches(Regex("[0-9]{6}")))
-        require(newPassword == null || newPassword.length in 12..128)
-        val result: JsonObject = execute(if (newPassword == null) "email/verify-code" else "password/set", "POST", buildJsonObject {
+        val result: JsonObject = execute("email/verify-code", "POST", buildJsonObject {
             put("email", email.trim()); put("code", code)
-            if (newPassword != null) put("password", newPassword)
         }, authenticated = false, allowRedirects = false)
         return (result["token"] as? JsonPrimitive)?.takeIf { it.isString }?.content
             ?.takeIf { it.isNotBlank() } ?: throw NuphosApi.Failure.InvalidResponse
