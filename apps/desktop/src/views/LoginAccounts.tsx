@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
-import { api } from '../api'
-import { accountName, backendLabel, requestAddAccount, switchToAccount } from '../app/accounts'
+import { accountName, backendLabel } from '../app/accounts'
+import { chooseAccount } from '../app/chooseAccount'
 import { Avatar } from '../components/Avatar'
 import { toast } from '../components/ui/toast'
 import { t } from '../i18n'
@@ -20,11 +20,7 @@ export function LoginAccounts({ accounts }: { accounts: AccountSummary[] }) {
   async function choose(account: AccountSummary) {
     setBusy(account.key)
     try {
-      const outcome = await switchToAccount(
-        account,
-        (name) => t('Sign in to {name} again.', { name }),
-        { switchAccount: api.authSwitchAccount, requestAddAccount },
-      )
+      const outcome = await chooseAccount(account, 'signIn')
 
       if (outcome === 'signInAgain') setGone((keys) => [...keys, account.key])
     } catch (e) {

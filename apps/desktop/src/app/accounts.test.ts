@@ -41,23 +41,44 @@ test('the waiting accounts are every one but the active', () => {
   assert.deepEqual(waitingAccounts([alice, bob]), [bob])
 })
 
-test('an account that can no longer be used asks to be signed in again', async () => {
-  const notices: (string | undefined)[] = []
-  const switched: string[] = []
-  const deps = (outcome: 'switched' | 'signInAgain') => ({
-    switchAccount: async (key: string) => {
-      switched.push(key)
+function switchDeps(outcome: 'switched' | 'signInAgain', current = 'https://api.nuphos.ai') {
+  const events: string[] = []
 
-      return outcome
+  return {
+    events,
+    deps: {
+      switchAccount: async (key: string) => {
+        events.push(`switch ${key}`)
+
+        return outcome
+      },
+      requestAddAccount: (r: { notice?: string }) => events.push(`sign in: ${r.notice ?? ''}`),
+      currentApi: async () => current,
+      moveTo: async (api: string) => events.push(`move ${api}`),
+      reload: () => events.push('reload'),
     },
-    requestAddAccount: (r: { notice?: string }) => notices.push(r.notice),
-  })
+  }
+}
 
-  assert.equal(await switchToAccount(bob, (name) => `again: ${name}`, deps('switched')), 'switched')
-  assert.deepEqual(notices, [])
-  await switchToAccount(bob, (name) => `again: ${name}`, deps('signInAgain'))
-  assert.deepEqual(notices, ['again: bob'])
-  assert.deepEqual(switched, [bob.key, bob.key])
+test('a switch that worked asks for nothing more', async () => {
+  const { events, deps } = switchDeps('switched')
+
+  assert.equal(await switchToAccount(bob, (n) => `again: ${n}`, deps), 'switched')
+  assert.deepEqual(events, [`switch ${bob.key}`])
+})
+
+test('an account that can no longer be used is asked for again on this backend', async () => {
+  const { events, deps } = switchDeps('signInAgain', 'https://nuphos.example.com/')
+
+  assert.equal(await switchToAccount(bob, (n) => `again: ${n}`, deps), 'signInAgain')
+  assert.deepEqual(events, [`switch ${bob.key}`, 'sign in: again: bob'])
+})
+
+test('one on another backend moves the app there before asking for it', async () => {
+  const { events, deps } = switchDeps('signInAgain', 'https://api.nuphos.ai')
+
+  await switchToAccount(bob, (n) => `again: ${n}`, deps)
+  assert.deepEqual(events, [`switch ${bob.key}`, 'move https://nuphos.example.com', 'reload'])
 })
 
 test('an add-account request is held until it is cancelled, and announced', () => {

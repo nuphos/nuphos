@@ -227,3 +227,12 @@ test('one backend spelt two ways is one account: not parked, not listed twice', 
   )
   assert.equal(session.context().token, 'tok-dev')
 })
+
+test('a switch to the account already in use does nothing, as when two windows ask at once', async () => {
+  const h = await harness()
+  const before = await h.onDisk()
+
+  await h.config.switchTo(`bob@${SELF}`)
+  assert.deepEqual(await h.onDisk(), before)
+  assert.deepEqual(pair(h.session), { api: SELF, token: 'tok-bob' })
+})

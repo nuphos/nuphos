@@ -1,7 +1,7 @@
 import { UserPlus } from 'lucide-react'
 
-import { api } from '../../api'
-import { accountName, backendLabel, requestAddAccount, switchToAccount } from '../../app/accounts'
+import { accountName, backendLabel, requestAddAccount } from '../../app/accounts'
+import { chooseAccount } from '../../app/chooseAccount'
 import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 import { MenuItem } from '../ui/menu'
@@ -11,10 +11,7 @@ import type { AccountSummary } from '../../types'
 
 async function choose(account: AccountSummary) {
   try {
-    await switchToAccount(account, (name) => t('Sign in to {name} again.', { name }), {
-      switchAccount: api.authSwitchAccount,
-      requestAddAccount,
-    })
+    await chooseAccount(account, 'menu')
   } catch (e) {
     toast.apiError(t('Could not switch accounts'), e)
   }

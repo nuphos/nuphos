@@ -1,7 +1,12 @@
 import { Suspense, use, useEffect, useState, useSyncExternalStore } from 'react'
 
 import { api, onSessionRejected } from './api'
-import { addAccountRequest, cancelAddAccount, subscribeAddAccount } from './app/accounts'
+import {
+  addAccountRequest,
+  cancelAddAccount,
+  subscribeAddAccount,
+  takeSignInNotice,
+} from './app/accounts'
 import { enterAs, startupAuth } from './app/startupAuth'
 import { Workspace } from './app/workspace/Workspace'
 import { clearComposerDrafts } from './components/agent/panel/composerDrafts'
@@ -21,6 +26,9 @@ function Splash() {
     </div>
   )
 }
+
+// Left by an account that had to sign in again on another backend (accounts.ts).
+const signInNotice = takeSignInNotice()
 
 export default function App() {
   return (
@@ -44,39 +52,40 @@ function SignedInApp() {
   }, [signedIn])
 
   async function logout() {
-    // Leave the workspace even if the main process fails to clear the token:
-    // a rejected session must never strand the user on a dead workspace.
-    await api.authLogout().catch(() => undefined)
+    // This window's own state goes first: signing out reloads every window.
     clearComposerDrafts()
     clearClearedReplies()
     track('logout')
     resetAnalytics()
+    // Leave the workspace even if the main process fails to clear the token:
+    // a rejected session must never strand the user on a dead workspace.
+    await api.authLogout().catch(() => undefined)
     // Every window then reloads (account-leave.ts) and lists the accounts left.
     setAuth({ status: 'anonymous', accounts: [] })
   }
 
-  if (auth.status === 'anonymous' || adding) {
-    return (
-      <LoginView
-        accounts={auth.status === 'anonymous' ? auth.accounts : []}
-        notice={adding?.notice}
-        onCancel={
-          adding && signedIn
-            ? () => {
-                void api.authCancel()
-                cancelAddAccount()
-              }
-            : undefined
-        }
-        onLogin={(user) => {
-          track('login', { method: 'oauth' })
-          cancelAddAccount()
-          // Signed in over another account: every window reloads as this one.
-          if (!signedIn) void enterAs(user).then(setAuth)
-        }}
-      />
-    )
-  }
+  const signIn = (
+    <LoginView
+      accounts={auth.status === 'anonymous' ? auth.accounts : []}
+      notice={adding?.notice ?? signInNotice}
+      onCancel={
+        adding && signedIn
+          ? () => {
+              void api.authCancel()
+              cancelAddAccount()
+            }
+          : undefined
+      }
+      onLogin={(user) => {
+        track('login', { method: 'oauth' })
+        cancelAddAccount()
+        // Signed in over another account: every window reloads as this one.
+        if (!signedIn) void enterAs(user).then(setAuth)
+      }}
+    />
+  )
+
+  if (auth.status === 'anonymous') return signIn
 
   return (
     <CurrentUserContext value={auth.user}>
@@ -89,6 +98,8 @@ function SignedInApp() {
         onLogout={logout}
       />
       <BoxPaywallHost />
+      {/* Over the workspace, which stays mounted: Cancel returns to it as it was. */}
+      {adding && <div className="fixed inset-0 z-[1000] bg-main">{signIn}</div>}
     </CurrentUserContext>
   )
 }

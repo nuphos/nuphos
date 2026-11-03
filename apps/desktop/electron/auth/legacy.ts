@@ -1,16 +1,19 @@
 import { LOGIN_TIMEOUT_MS, onCallback } from './callback-server.ts'
 import { writeConfig } from './config.ts'
+import { assertWanted } from './sign-in-attempt.ts'
 import { fetchUserInfo } from './me.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 import type { LoginPlan } from './plan.ts'
+import type { SignInAttempt } from './sign-in-attempt.ts'
 import type { Server } from 'node:http'
 
 /** The landing page delivers a token straight to our loopback listener. */
 export async function completeLegacyLogin(
   server: Server,
   plan: Extract<LoginPlan, { mode: 'legacy' }>,
+  attempt: SignInAttempt,
 ): Promise<UserInfo> {
   return new Promise<UserInfo>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Login timed out')), LOGIN_TIMEOUT_MS)
@@ -42,6 +45,7 @@ export async function completeLegacyLogin(
           // token is opaque, so the backend is the only source of who it is.
           const user = await fetchUserInfo(token, plan.api)
 
+          assertWanted(attempt)
           await writeConfig({
             token,
             api: plan.api,

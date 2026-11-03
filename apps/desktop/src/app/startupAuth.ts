@@ -26,7 +26,8 @@ function readAccounts(): Promise<AccountSummary[]> {
 export async function enterAs(user: UserInfo): Promise<AuthState> {
   const accounts = await readAccounts()
 
-  setStorageAccount(accounts.find((a) => a.active)?.key ?? null)
+  // Without the list, state is still kept apart: under the user, never unscoped.
+  setStorageAccount(accounts.find((a) => a.active)?.key ?? `${user.id}@unlisted`)
   identifyUser(user)
   claimComposerDrafts(user.id)
   claimClearedReplies(user.id)

@@ -67,11 +67,42 @@ export function subscribeAddAccount(listener: () => void): () => void {
 type SwitchDeps = {
   switchAccount: (key: string) => Promise<'switched' | 'signInAgain'>
   requestAddAccount: (request: AddAccountRequest) => void
+  /** The backend this app uses now. */
+  currentApi: () => Promise<string>
+  /** Moves the app to another backend, setting the account in use aside there. */
+  moveTo: (api: string) => Promise<unknown>
+  /** Reloads this window; every account change is a new page. */
+  reload: () => void
+}
+
+const sameBackend = (a: string, b: string) => {
+  try {
+    return new URL(a).origin === new URL(b).origin
+  } catch {
+    return a === b
+  }
+}
+
+// Survives the reload a move to another backend takes.
+const NOTICE_KEY = 'nuphos.signInAgain.notice'
+
+/** The notice left for the sign-in screen by `switchToAccount`, once. */
+export function takeSignInNotice(): string | undefined {
+  try {
+    const notice = sessionStorage.getItem(NOTICE_KEY) ?? undefined
+
+    sessionStorage.removeItem(NOTICE_KEY)
+
+    return notice
+  } catch {
+    return undefined
+  }
 }
 
 /**
- * Switches to `account`. On success every window reloads as it; one that can
- * no longer be used has been signed out, and the sign-in screen asks for it.
+ * Switches to `account`; on success every window reloads as it. One that can
+ * no longer be used has been signed out, and the sign-in screen asks for it
+ * again, on its own backend.
  */
 export async function switchToAccount(
   account: AccountSummary,
@@ -79,8 +110,20 @@ export async function switchToAccount(
   deps: SwitchDeps,
 ): Promise<'switched' | 'signInAgain'> {
   const outcome = await deps.switchAccount(account.key)
+  const text = notice(accountName(account))
 
-  if (outcome === 'signInAgain') deps.requestAddAccount({ notice: notice(accountName(account)) })
+  if (outcome === 'switched' || sameBackend(account.api, await deps.currentApi())) {
+    if (outcome === 'signInAgain') deps.requestAddAccount({ notice: text })
+
+    return outcome
+  }
+  try {
+    sessionStorage.setItem(NOTICE_KEY, text)
+  } catch {
+    // The sign-in screen just shows no notice.
+  }
+  await deps.moveTo(account.api)
+  deps.reload()
 
   return outcome
 }

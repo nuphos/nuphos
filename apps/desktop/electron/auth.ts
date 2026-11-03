@@ -7,6 +7,7 @@ import { shell } from 'electron'
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
 import { AccountUnavailableError } from './auth/accounts.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
+import { assertWanted, beginSignIn, cancelSignIns } from './auth/sign-in-attempt.ts'
 import {
   forgetAccountConfig,
   listAccountConfigs,
@@ -47,7 +48,7 @@ let pendingServer: Server | null = null
  */
 export async function login(provider: SocialProvider): Promise<UserInfo> {
   cancelPendingLogin()
-
+  const attempt = beginSignIn()
   const server = createServer()
   const port = await listenOnLoopback(server)
 
@@ -59,8 +60,8 @@ export async function login(provider: SocialProvider): Promise<UserInfo> {
     await shell.openExternal(plan.browserUrl)
 
     return plan.mode === 'native'
-      ? await completeNativeLogin(server, plan)
-      : await completeLegacyLogin(server, plan)
+      ? await completeNativeLogin(server, plan, attempt)
+      : await completeLegacyLogin(server, plan, attempt)
   } finally {
     server.close()
     if (pendingServer === server) pendingServer = null
@@ -84,6 +85,7 @@ export async function requestEmailCode(email: string): Promise<void> {
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
+  const attempt = beginSignIn()
   // The token this returns is the backend's it was asked of, whatever the endpoint is by then.
   const api = apiUrl()
   const res = await fetch(`${api}/auth/email/verify-code`, {
@@ -105,6 +107,7 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
   }
   const user = body.user
 
+  assertWanted(attempt)
   await writeConfig({
     token,
     api,
@@ -191,6 +194,7 @@ async function endServerSession(api: string, token: string): Promise<void> {
 }
 
 export function cancelPendingLogin() {
+  cancelSignIns()
   if (pendingServer) {
     pendingServer.close()
     pendingServer = null
