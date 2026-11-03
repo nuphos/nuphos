@@ -5664,5 +5664,6 @@
   "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "請只分享給你信任的人。存取範圍包含指令、檔案、終端機與電腦操作。Agent 可能使用作業系統帳號可存取的檔案與既有登入狀態。",
   "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "這是共用電腦，不是私人沙盒。主機管理員與使用相同作業系統帳號的程序，可能存取送往這裡的工作資料，包含對話上下文、檔案與憑證。",
   "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "電腦擁有者與管理者可以查看受支援的裝置操作紀錄，包含請求人、對話標題、指令摘要、時間與結果。紀錄保留 90 天。機密遮罩採盡力處理，紀錄涵蓋範圍並不完整；這不會授予整段對話的存取權。",
-  "Choose the teammates who may use this computer and its runtimes.": "選擇可以使用這台電腦及其 runtime 的團隊成員。"
+  "Choose the teammates who may use this computer and its runtimes.": "選擇可以使用這台電腦及其 runtime 的團隊成員。",
+  "Only you can send messages in this agent.": "只有你可以在這個 agent 中傳送訊息。"
 }

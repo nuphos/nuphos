@@ -2,6 +2,10 @@ import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop } from 'lucide-react'
 
 import { t } from '../../../i18n'
+import {
+  SHARED_COMPUTER_AUDIT,
+  SHARED_COMPUTER_PRIVACY,
+} from '../../../lib/sharedComputerDisclosure'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { MenuContent, MenuItem, MenuSubmenu, MenuSubmenuTrigger } from '../../ui/menu'
@@ -11,7 +15,7 @@ import { agentAskText, agentProblem } from './agentRowFix'
 import { adminName } from './agentSignInModel'
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
-import { boxAgentName, selectorMetrics } from './selectorBoxes'
+import { boxAgentName, selectorMetrics, showSharedComputerDisclosure } from './selectorBoxes'
 
 import type { SelectorBox, SelectorMetrics } from './selectorBoxes'
 import type { PickerFixes } from './usePickerFixes'
@@ -131,6 +135,12 @@ export function SelectorBoxMenu({
       <MenuContent className="w-72">
         <p className="truncate px-2.5 pb-1 pt-2 text-xs font-medium">{group.label}</p>
         {metrics && <p className="px-2.5 pb-2 text-[10px] text-tertiary">{metrics.capacity}</p>}
+        {showSharedComputerDisclosure(group) && (
+          <div className="space-y-2 px-2.5 py-2 text-[11px] leading-snug text-secondary">
+            <p>{SHARED_COMPUTER_PRIVACY}</p>
+            <p>{SHARED_COMPUTER_AUDIT}</p>
+          </div>
+        )}
         {group.agents.map((instance) => {
           const update = updates.get(instance.id)
           const problem = agentProblem(instance, quotas?.get(instance.id), fixes.viewer)

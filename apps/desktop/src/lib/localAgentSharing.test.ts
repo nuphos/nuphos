@@ -34,6 +34,7 @@ test('a move onto a teammate’s shared computer discloses host access and parti
     assert.match(warning ?? '', /same operating-system account/)
     assert.match(warning ?? '', /conversation context, files and credentials/)
     assert.match(warning ?? '', /90 days/)
+    assert.match(warning ?? '', /Only you can send messages/)
     assert.match(warning ?? '', /coverage is incomplete/)
     assert.doesNotMatch(warning ?? '', /They approve|runs as them/)
   }

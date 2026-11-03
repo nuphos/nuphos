@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import { SHARED_COMPUTER_AUDIT, SHARED_COMPUTER_PRIVACY } from './sharedComputerDisclosure.ts'
 
 import type { RuntimeInstance } from '../types/runtime'
@@ -20,7 +22,8 @@ export function localAgentMoveWarning(
   if (target.kind !== 'local') return undefined
   const shared = target.local?.shared
 
-  if (shared || target.local?.box) return `${SHARED_COMPUTER_PRIVACY} ${SHARED_COMPUTER_AUDIT}`
+  if (shared || target.local?.box)
+    return `${SHARED_COMPUTER_PRIVACY} ${SHARED_COMPUTER_AUDIT} ${t('Only you can send messages in this agent.')}`
 
   return 'This runtime runs on your computer. After the move, only you can send messages in this agent. People you shared it with can still read it.'
 }

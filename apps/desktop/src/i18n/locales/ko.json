@@ -5664,5 +5664,6 @@
   "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "신뢰하는 사람에게만 공유하세요. 접근 권한에는 명령, 파일, 터미널 및 컴퓨터 제어가 포함됩니다. 에이전트는 운영 체제 계정에서 접근할 수 있는 파일과 기존 로그인 상태를 사용할 수 있습니다.",
   "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "이 컴퓨터는 공유 환경이며 개인 샌드박스가 아닙니다. 호스트 관리자와 같은 운영 체제 계정을 사용하는 프로세스가 대화 맥락, 파일, 자격 증명 등 이곳으로 전송된 작업 데이터에 접근할 수 있습니다.",
   "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "컴퓨터 소유자와 관리자는 요청자, 대화 제목, 명령 요약, 시간 및 결과를 포함한 지원되는 장치 작업 기록을 볼 수 있습니다. 기록은 90일간 보관됩니다. 비밀 정보 마스킹은 최선의 노력으로 수행되며 기록 범위는 불완전합니다. 전체 대화 접근 권한은 부여되지 않습니다.",
-  "Choose the teammates who may use this computer and its runtimes.": "이 컴퓨터와 런타임을 사용할 팀원을 선택하세요."
+  "Choose the teammates who may use this computer and its runtimes.": "이 컴퓨터와 런타임을 사용할 팀원을 선택하세요.",
+  "Only you can send messages in this agent.": "이 에이전트에서는 본인만 메시지를 보낼 수 있습니다."
 }
