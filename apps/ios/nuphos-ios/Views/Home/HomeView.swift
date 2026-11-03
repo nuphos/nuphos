@@ -23,9 +23,10 @@ struct HomeView: View {
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
-    /// Reads the open chat. Here, not on the chat's view: collapsed, SwiftUI
-    /// ends that view's appearance while it stays on screen (#1440).
+    /// Read the open chat and agent conversation. Here, not on their views:
+    /// collapsed, SwiftUI ends a view's appearance while it stays on screen (#1440).
     @State private var chatReader = UUID()
+    @State private var conversationReader = UUID()
 
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
@@ -180,6 +181,11 @@ struct HomeView: View {
             ConversationUnread.shared.setReading(id != nil, reader: chatReader,
                                                  team: openChat?.channel?.teamId ?? "", session: id ?? "")
             store?.poll(id == nil ? nil : openChat?.channel)
+        }
+        // An agent's conversation the same way: read while it is open and the app active.
+        .onChange(of: scenePhase == .active ? openChat?.session?.sessionId : nil, initial: true) { _, id in
+            ConversationUnread.shared.setReading(id != nil, reader: conversationReader,
+                                                 team: openChat?.session?.teamId ?? "", session: id ?? "")
         }
         .focusedSceneValue(\.newChat) {
             page = .agent
