@@ -18,7 +18,7 @@ import { DeskAgents, DeskReadings } from './BoxDeskInfo'
 import { deskModel } from './boxDeskModel'
 import { openBoxDesktop } from './boxDesktop'
 import { BoxHostUpdate } from './BoxHostUpdate'
-import { AccessHint, LiveDot, MachineLine } from './BoxParts'
+import { AccessHint, LiveDot, MachineLine, OwnerLine } from './BoxParts'
 import { copyUid } from './boxCopyUid'
 import { openBoxPaywall } from './boxPaywallStore'
 import {
@@ -34,6 +34,7 @@ import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxHostUpdate } from './useBoxHostUpdate'
+import { useComputerOwner } from './useComputerOwner'
 
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
@@ -72,6 +73,7 @@ export function BoxRow({
   const cloud = device.box !== undefined
   const AccessDialog = cloud ? BoxAccessDialog : LocalAgentShareDialog
   const manage = canManage(device)
+  const owner = useComputerOwner(teamId, device)
   const remove = removal(device)
   const badge = BOX_BADGE[state]
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
@@ -240,6 +242,7 @@ export function BoxRow({
           />
         )}
       </div>
+      <OwnerLine device={device} owner={owner} />
       {manage && away && (
         <div className="mt-2">
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>

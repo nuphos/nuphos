@@ -4066,6 +4066,8 @@
   "Share {device}": "共用 {device}",
   "Share “{title}”": "分享「{title}」",
   "Shared agent · view-only": "共用的 Agent · 僅供檢視",
+  "Shared by a teammate": "由隊友分享",
+  "Shared by {name}": "由 {name} 分享",
   "Shared with everyone in this workspace. Injected first.": "與此工作區中的所有人共用。最先注入。",
   "Shared with {n}": "已與 {n} 人共用",
   "Sharing your own computer is turned off for this team. Ask {name} to turn it on.": "此團隊已關閉共享你自己的電腦。請 {name} 開啟。",
