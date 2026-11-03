@@ -125,8 +125,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
-  // A move onto a Local Agent opens this computer to the whole team, so it
-  // waits for the user's go-ahead.
+  // Keep the existing move warning only for a computer the viewer borrows.
   const [pendingLocal, setPendingLocal] = useState<{
     target: RuntimeInstance
     warning: string
@@ -154,9 +153,9 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
           ? runtimeInstances.filter((instance) => instance.kind === 'managed')
           : runtimeInstances,
       ...(canMove && {
-        onSelect: (runtimeId: string) => {
+        onSelect: (runtimeId: string, access) => {
           const target = runtimeInstances.find((instance) => instance.id === runtimeId)
-          const warning = target && localAgentMoveWarning(target)
+          const warning = target && localAgentMoveWarning(target, access, c.currentUser?.id)
 
           if (target && warning) setPendingLocal({ target, warning })
           else void move(runtimeId)
@@ -174,6 +173,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
             confirm: {
               title: t('Move to {name}?', { name: pendingLocal.target.label }),
               description: pendingLocal.warning,
+              sharedComputerDocs: true,
               confirmLabel: t('Move'),
               onConfirm: () => {
                 setPendingLocal(null)
@@ -186,6 +186,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     }
   }, [
     pendingLocal,
+    c.currentUser?.id,
     move,
     moving,
     provider,

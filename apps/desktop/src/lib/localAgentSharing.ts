@@ -1,7 +1,6 @@
 import { t } from '../i18n/index.ts'
 
-import { SHARED_COMPUTER_AUDIT, SHARED_COMPUTER_PRIVACY } from './sharedComputerDisclosure.ts'
-
+import type { AgentDevice } from '../api/device-types'
 import type { RuntimeInstance } from '../types/runtime'
 
 /** A local agent runs on its owner's own computer (`local_<user>_<device>`). */
@@ -18,12 +17,13 @@ export const LOCAL_AGENT_SHARING_NOTE =
 /** Explain the destination trust boundary before moving conversation context. */
 export function localAgentMoveWarning(
   target: Pick<RuntimeInstance, 'kind' | 'local'>,
+  access?: AgentDevice['access'],
+  viewerUserId?: string,
 ): string | undefined {
-  if (target.kind !== 'local') return undefined
-  const shared = target.local?.shared
+  if (target.kind !== 'local' || !target.local) return undefined
+  if (access === 'owner' || access === 'manage') return undefined
+  if (!access && target.local.ownerUserId === viewerUserId) return undefined
+  if (access !== 'use' && !target.local.shared && !target.local.box) return undefined
 
-  if (shared || target.local?.box)
-    return `${SHARED_COMPUTER_PRIVACY} ${SHARED_COMPUTER_AUDIT} ${t('Only you can send messages in this agent.')}`
-
-  return 'This runtime runs on your computer. After the move, only you can send messages in this agent. People you shared it with can still read it.'
+  return t('Its owner can see this work, and only you can send messages in this agent.')
 }

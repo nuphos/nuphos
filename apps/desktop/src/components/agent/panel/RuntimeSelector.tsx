@@ -10,6 +10,7 @@ import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { ConfirmDialog } from '../../ConfirmDialog'
+import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
 
 import { AgentProviderIcon } from './icons'
@@ -18,6 +19,7 @@ import { selectorBoxes } from './selectorBoxes'
 import { SelectorBoxMenu } from './SelectorBoxMenu'
 import { usePickerFixes } from './usePickerFixes'
 
+import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
@@ -42,7 +44,7 @@ export type RuntimeControl = {
   /** Picks the agent: the one a new conversation starts on, or — for an open
    *  conversation — the one it moves to. Absent, the list still shows each agent's
    *  state and fixes, with nothing to pick. */
-  onSelect?: (runtimeId: string) => void
+  onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
   /** Nothing can be picked right now (a turn is streaming, or a move is in flight). */
   selectDisabled?: boolean
   /** The runtime this conversation is bound to is disabled or gone. */
@@ -56,6 +58,7 @@ export type RuntimeControl = {
   confirm?: {
     title: string
     description: string
+    sharedComputerDocs?: boolean
     confirmLabel: string
     onConfirm: () => void
     onCancel: () => void
@@ -158,7 +161,11 @@ export function RuntimeSelector({
         <ConfirmDialog
           open
           title={confirm.title}
-          description={confirm.description}
+          description={
+            <>
+              {confirm.description} {confirm.sharedComputerDocs && <SharedComputerLearnMore />}
+            </>
+          }
           confirmLabel={confirm.confirmLabel}
           onConfirm={confirm.onConfirm}
           onClose={confirm.onCancel}

@@ -2,12 +2,10 @@ import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop } from 'lucide-react'
 
 import { t } from '../../../i18n'
-import {
-  SHARED_COMPUTER_AUDIT,
-  SHARED_COMPUTER_PRIVACY,
-} from '../../../lib/sharedComputerDisclosure'
+import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
+import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
 import { MenuContent, MenuItem, MenuSubmenu, MenuSubmenuTrigger } from '../../ui/menu'
 
 import { AgentFixChip } from './AgentFixChip'
@@ -19,6 +17,7 @@ import { boxAgentName, selectorMetrics, showSharedComputerDisclosure } from './s
 
 import type { SelectorBox, SelectorMetrics } from './selectorBoxes'
 import type { PickerFixes } from './usePickerFixes'
+import type { AgentDevice } from '../../../api/device-types'
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
 import type { RuntimeQuota } from '../../../types/runtime'
 
@@ -91,7 +90,7 @@ export function SelectorBoxMenu({
   fixes: PickerFixes
   selectDisabled?: boolean
   /** Absent for a teammate's conversation: the list shows state and fixes, nothing to pick. */
-  onSelect?: (runtimeId: string) => void
+  onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
 }) {
   const current = group.agents.some((agent) => agent.id === selectedId)
   const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
@@ -136,10 +135,9 @@ export function SelectorBoxMenu({
         <p className="truncate px-2.5 pb-1 pt-2 text-xs font-medium">{group.label}</p>
         {metrics && <p className="px-2.5 pb-2 text-[10px] text-tertiary">{metrics.capacity}</p>}
         {showSharedComputerDisclosure(group) && (
-          <div className="space-y-2 px-2.5 py-2 text-[11px] leading-snug text-secondary">
-            <p>{SHARED_COMPUTER_PRIVACY}</p>
-            <p>{SHARED_COMPUTER_AUDIT}</p>
-          </div>
+          <p className="px-2.5 py-2 text-[11px] leading-snug text-secondary">
+            {SHARED_COMPUTER_PRIVACY} <SharedComputerLearnMore />
+          </p>
         )}
         {group.agents.map((instance) => {
           const update = updates.get(instance.id)
@@ -159,7 +157,7 @@ export function SelectorBoxMenu({
               // A row that cannot take a turn starts its fix instead.
               closeOnClick={pickable}
               onClick={() => {
-                if (pickable) onSelect?.(instance.id)
+                if (pickable) onSelect?.(instance.id, group.device?.access)
                 else if (problem) fixes.run(problem.fix)
               }}
             >

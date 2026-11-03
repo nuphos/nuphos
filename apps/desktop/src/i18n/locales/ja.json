@@ -5661,9 +5661,9 @@
   "Stop viewing from iPhone": "iPhoneでの表示を停止",
   "Viewing from iPhone. Click to stop.": "iPhoneで表示中です。クリックで停止します。",
   "✓ used": "✓ 使用済み",
-  "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "信頼する相手にのみ共有してください。アクセスにはコマンド、ファイル、ターミナル、コンピューター操作が含まれます。エージェントは OS アカウントで利用できるファイルや既存のログイン状態を使用する可能性があります。",
-  "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "これは共有コンピューターであり、専用のサンドボックスではありません。ホスト管理者や同じ OS アカウントのプロセスが、会話のコンテキスト、ファイル、認証情報など、ここに送られた作業データにアクセスする可能性があります。",
-  "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "コンピューターの所有者と管理者は、対応するデバイス操作の記録（依頼者、会話タイトル、コマンドの概要、時刻、結果）を閲覧できます。記録は90日間保持されます。機密情報のマスキングはベストエフォートで、記録範囲は完全ではありません。会話全体へのアクセス権は付与されません。",
   "Choose the teammates who may use this computer and its runtimes.": "このコンピューターとランタイムを使用できるチームメンバーを選んでください。",
-  "Only you can send messages in this agent.": "このエージェントでメッセージを送信できるのはあなただけです。"
+  "Only share with people you trust; they may access this computer’s files and sign-ins.": "信頼する人にのみ共有してください。このコンピューターのファイルやログイン状態にアクセスされる可能性があります。",
+  "Someone else’s computer. Its owner can see what runs here.": "他の人のコンピューターです。所有者はここで実行する作業を見ることができます。",
+  "Its owner can see this work, and only you can send messages in this agent.": "所有者はこの作業を見ることができ、このエージェントでメッセージを送れるのはあなただけです。",
+  "Learn more": "詳しく見る"
 }

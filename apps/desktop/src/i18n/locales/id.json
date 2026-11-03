@@ -5661,9 +5661,9 @@
   "Stop viewing from iPhone": "Berhenti melihat dari iPhone",
   "Viewing from iPhone. Click to stop.": "Sedang dilihat dari iPhone. Klik untuk menghentikan.",
   "✓ used": "✓ dipakai",
-  "Only share with people you trust. Access includes commands, files, terminals and computer control. Agents may use files and existing sign-ins available to the operating-system account.": "Bagikan hanya kepada orang yang Anda percayai. Akses mencakup perintah, berkas, terminal, dan kendali komputer. Agen dapat menggunakan berkas dan sesi login yang tersedia bagi akun sistem operasi.",
-  "This is a shared computer, not a private sandbox. Host administrators and processes using the same operating-system account may access work sent here, including conversation context, files and credentials.": "Ini komputer bersama, bukan sandbox pribadi. Administrator host dan proses yang menggunakan akun sistem operasi yang sama mungkin dapat mengakses pekerjaan yang dikirim ke sini, termasuk konteks percakapan, berkas, dan kredensial.",
-  "Computer owners and managers can view supported device-operation records, including who requested them, conversation titles, command summaries, times and results. Records are retained for 90 days. Secret masking is best effort; coverage is incomplete. This does not grant access to the full conversation.": "Pemilik dan pengelola komputer dapat melihat catatan operasi perangkat yang didukung, termasuk pemohon, judul percakapan, ringkasan perintah, waktu, dan hasil. Catatan disimpan selama 90 hari. Penyembunyian rahasia dilakukan sebisa mungkin; cakupan tidak lengkap. Ini tidak memberikan akses ke seluruh percakapan.",
   "Choose the teammates who may use this computer and its runtimes.": "Pilih rekan tim yang boleh menggunakan komputer ini dan runtime-nya.",
-  "Only you can send messages in this agent.": "Hanya Anda yang dapat mengirim pesan di agen ini."
+  "Only share with people you trust; they may access this computer’s files and sign-ins.": "Bagikan hanya kepada orang tepercaya; mereka dapat mengakses berkas dan sesi login komputer ini.",
+  "Someone else’s computer. Its owner can see what runs here.": "Ini komputer orang lain. Pemiliknya dapat melihat pekerjaan yang dijalankan di sini.",
+  "Its owner can see this work, and only you can send messages in this agent.": "Pemiliknya dapat melihat pekerjaan ini, dan hanya Anda yang dapat mengirim pesan di agen ini.",
+  "Learn more": "Pelajari lebih lanjut"
 }
