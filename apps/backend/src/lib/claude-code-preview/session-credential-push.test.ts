@@ -182,3 +182,30 @@ test('renewals run one at a time; a failed push keeps the previous expectation',
   await renewal.settled()
   expect(expected.slice(0, 3)).toEqual(['turn', 'turn', 'next-2'])
 })
+
+test('a push applied without a reply is reconciled by the next one', async () => {
+  // The runtime applies a push only while it holds the push's `expected`.
+  let held = 'turn'
+  let attempt = 0
+  const renewal = renewTurnCredentials({
+    installed: { NUPHOS_TOKEN: 'turn' },
+    mint: () => ({ NUPHOS_TOKEN: `next-${String(++attempt)}` }),
+    push: async (expected, next) => {
+      if (expected?.NUPHOS_TOKEN !== held)
+        throw new Error('Session credentials changed since this refresh')
+      held = next?.NUPHOS_TOKEN ?? ''
+      // The first push lands, but its reply is lost.
+      if (attempt === 1) throw new Error('OpenAB ACP call timed out')
+
+      return true
+    },
+    intervalMs: 2,
+  })
+
+  const attempts = () => attempt
+
+  for (let waited = 0; attempts() < 3 && waited < 1_000; waited += 2) await Bun.sleep(2)
+  renewal.stop()
+  await renewal.settled()
+  expect(held).toBe(`next-${String(attempt)}`)
+})
