@@ -100,7 +100,7 @@ function MiniBox({ brand }: { brand: DeskModel['brand'] }) {
   )
 }
 
-/** Every machine starts seen from above; once the page shows it, the view turns to face it. Each
+/** A machine that is on starts seen from above; once the page shows it, the view turns to face it. Each
  * stands in the same space on the same baseline. A laptop shows its readings on its screen; a box
  * shows them in a card beside it, inside the same space, never over the machine. */
 export function DeskArt({
@@ -114,16 +114,19 @@ export function DeskArt({
   /** The machine's readings and agents. */
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
+  // A machine that is off has nothing to show as it opens, so it already faces the viewer.
+  const [open, setOpen] = useState(!on)
 
   useEffect(() => {
+    if (open) return
+
     const timer = window.setTimeout(
       () => setOpen(true),
       deskOpenDelay(performance.now(), openingWave),
     )
 
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [open])
 
   const laptop = model.form === 'laptop'
   // Nothing on it can be reached until it has turned to face the viewer.
