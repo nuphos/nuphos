@@ -1,5 +1,6 @@
-import { beforeEach, expect, test } from 'bun:test'
+import { afterEach, beforeEach, expect, test } from 'bun:test'
 
+import { installTurnRunner, resetTurnRunner } from '@/lib/agent/turn-runner'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
@@ -23,6 +24,7 @@ let refusals: Record<string, string>
 let moves: { to: string; reason?: string; claimed?: boolean }[]
 let updates: Record<string, unknown>[]
 let instances: RuntimeInstance[]
+let continued: { actor?: string; sender?: string; source: string }[]
 
 const instance = (id: string, extra: Partial<RuntimeInstance> = {}): RuntimeInstance => ({
   id,
@@ -51,6 +53,7 @@ useModels({
 })
 useAgentDb({
   getConversationBySessionId: async () => conversation,
+  agentMessages: () => ({ findOne: async () => null }),
   agentConversations: () => ({
     updateOne: async (_filter: unknown, update: Record<string, unknown>) => {
       updates.push(update)
@@ -96,6 +99,18 @@ beforeEach(() => {
   refusals = {}
   moves = []
   updates = []
+  continued = []
+  installTurnRunner({
+    claimAgentRunOrEnqueue: async ({ message }) => {
+      continued.push({
+        actor: message.actorUserId,
+        sender: message.metadata?.sender.id,
+        source: message.source,
+      })
+
+      return { mode: 'queued' }
+    },
+  })
   conversation = {
     sessionId: 'session',
     userId: 'owner',
@@ -103,6 +118,8 @@ beforeEach(() => {
     runtimeId: 'a',
   } as AgentConversation
 })
+
+afterEach(resetTurnRunner)
 
 const stops = () =>
   updates.flatMap((update) => {
@@ -169,6 +186,31 @@ test('a failed turn records its agent and moves on down the list', async () => {
 
   expect(moves).toEqual([{ to: 'b', reason: 'failure', claimed: true }])
   expect(updates[0]).toMatchObject({ $set: { runtimeFallback: { failed: ['a'] } } })
+})
+
+test('the owner’s failed turn goes on by itself on the agent it moved to', async () => {
+  await fallBackAfterFailure('session', new AppError(503, 'runtime_offline', ''), 'owner')
+
+  await Bun.sleep(10)
+  expect(moves.map((move) => move.to)).toEqual(['b'])
+  expect(continued).toEqual([{ actor: 'owner', sender: 'nuphos', source: 'agent.resource' }])
+})
+
+test('a teammate’s failed turn moves but waits for them to send again', async () => {
+  await fallBackAfterFailure('session', new AppError(503, 'runtime_offline', ''), 'teammate')
+
+  await Bun.sleep(10)
+  expect(moves.map((move) => move.to)).toEqual(['b'])
+  expect(continued).toEqual([])
+})
+
+test('nothing goes on when no agent could take the conversation', async () => {
+  list = []
+
+  await fallBackAfterFailure('session', new AppError(503, 'runtime_offline', ''), 'owner')
+
+  await Bun.sleep(10)
+  expect(continued).toEqual([])
 })
 
 test('agents that failed within the hour are skipped, and the stop says why', async () => {
