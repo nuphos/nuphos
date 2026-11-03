@@ -433,6 +433,7 @@ struct ConversationView: View {
             UserBubble(text: text, images: images, sender: sender, transfers: transfers, session: session)
         case .assistantText(_, _, let text, let streaming):
             AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:))
+                .frame(maxWidth: .infinity, alignment: .leading)
         case .reasoning(_, let part):
             ReasoningTile(part: part)
         case .tool(_, _, let part, let canDecide):
@@ -718,6 +719,7 @@ struct EventLine: View {
             .accessibilityHint(expanded ? "Collapses the message" : "Shows the full message")
             if expanded {
                 AssistantMarkdown(text: event.text, streaming: false, onLink: onLink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.hairline))

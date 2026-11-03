@@ -7,7 +7,8 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Assistant text, rendered as Markdown with no bubble. Wraps the package's
+/// Text rendered as Markdown, only as wide as it needs; a transcript that
+/// wants a full-width column frames it. Wraps the package's
 /// `MarkdownTextView` directly (its SwiftUI `MarkdownView` wires no link
 /// handler) so taps on links reach `onLink`; streaming deltas are throttled
 /// the same way the package does it.
@@ -43,7 +44,6 @@ struct AssistantMarkdown: View {
 
     private func markdown(_ text: String) -> some View {
         MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     static var theme: MarkdownTheme {
@@ -136,7 +136,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     /// The theme's fonts are resolved from this; it is stored so that a new
     /// text size reaches `updateUIView`.
     let typeSize: DynamicTypeSize
-    /// The text as typed, sized to fit it rather than the row.
+    /// The text as typed rather than parsed as Markdown.
     let plain: Bool
     let selectable: Bool
     let onLink: ((URL) -> Void)?
@@ -256,7 +256,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
                 return nil
             }
             let size = view.boundingSize(for: fittingWidth)
-            return CGSize(width: plain ? min(fittingWidth, ceil(size.width)) : fittingWidth, height: ceil(size.height))
+            return CGSize(width: min(fittingWidth, ceil(size.width)), height: ceil(size.height))
         }
 
         private func apply(text: String, theme: MarkdownTheme, to view: MarkdownTextView) {

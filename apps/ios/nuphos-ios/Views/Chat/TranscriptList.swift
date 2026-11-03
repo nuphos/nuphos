@@ -391,7 +391,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             case .user(_, _, let text, _, _, _):
                 AnyView(UserBubble(text: text).padding(16))
             case .assistantText(_, _, let text, let streaming):
-                AnyView(AssistantMarkdown(text: text, streaming: streaming).padding(16))
+                AnyView(AssistantMarkdown(text: text, streaming: streaming).frame(maxWidth: .infinity, alignment: .leading).padding(16))
             case .hint(let id, let text, let isError) where id.hasPrefix("event."):
                 AnyView(HintRow(text: text, isError: isError).padding(.horizontal, 16).padding(.bottom, 18))
             case .activity(let text, let live):
