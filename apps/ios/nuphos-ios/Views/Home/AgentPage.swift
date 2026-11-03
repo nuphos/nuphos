@@ -31,9 +31,11 @@ struct AgentPage: View {
     /// A chat to show, with the prompt a new one starts with. Keyed by
     /// session id, so the list highlights its row once it is listed.
     struct OpenChat: Identifiable, Hashable {
-        let session: ChatSession
+        /// An agent's conversation, or else a chat.
+        var session: ChatSession?
         var prompt: ComposerSubmission?
-        var id: String { session.sessionId }
+        var channel: ChannelSession?
+        var id: String { channel?.channelId ?? session?.sessionId ?? "" }
         static func == (a: OpenChat, b: OpenChat) -> Bool { a.id == b.id }
         func hash(into hasher: inout Hasher) { hasher.combine(id) }
     }
@@ -67,6 +69,9 @@ struct AgentPage: View {
             }
             #endif
             .safeAreaInset(edge: .top, spacing: 0) {
+                HomeTabs(page: $page)
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
                 if isSearching {
                     SearchBar(text: $store.search) {
                         store.search = ""
@@ -77,7 +82,7 @@ struct AgentPage: View {
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if showsComposer { NewChatComposer(openChat: $openChat) }
+                if showsComposer, page == .agent { NewChatComposer(openChat: $openChat) }
             }
             // A chat's keyboard is not this page's to make room for: a back
             // swipe would show this composer gliding down from it.
@@ -170,13 +175,18 @@ struct AgentPage: View {
         guard target.sessionId != openChat?.id else { return }
         if let team = store.teams.first(where: { $0.id == target.teamId }) { store.select(team: team) }
         endEditing()
+        // A chat not listed yet opens as a session first; HomeView switches it once loaded.
+        if let channel = store.channels.first(where: { $0.sessionId == target.sessionId }) {
+            openChat = OpenChat(channel: store.channel(for: channel))
+            return
+        }
         openChat = OpenChat(session: store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId))
     }
 
     @ViewBuilder
     private var content: some View {
         switch store.phase {
-        case .loaded where !store.listedConversations.isEmpty:
+        case .loaded where page == .chats ? !store.channels.isEmpty : !store.listedConversations.isEmpty:
             list
         default:
             // A scroll view even for the non-list states: with plain
@@ -225,6 +235,16 @@ struct AgentPage: View {
             } actions: {
                 Button("Try again") { Task { await store.loadTeams() } }
                     .prominentButton()
+            }
+        case .loaded where page == .chats && !store.channelsLoaded:
+            ProgressView("Loading chats…")
+                .tint(Theme.muted)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .loaded where page == .chats:
+            ContentUnavailableView {
+                Label(store.search.isEmpty ? "No chats yet" : "No matches", systemImage: "bubble.left.and.bubble.right")
+            } description: {
+                Text(store.search.isEmpty ? "Chats where people and agents talk together show up here." : "No chats match your search.")
             }
         case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
@@ -285,69 +305,86 @@ struct AgentPage: View {
         } set: { id in
             guard id != openChat?.id else { return }
             endEditing()
+            if let channel = store.channels.first(where: { $0.sessionId == id }) {
+                openChat = OpenChat(channel: store.channel(for: channel))
+                return
+            }
             openChat = store.listedConversations.first { $0.sessionId == id }.map { OpenChat(session: store.session(for: $0)) }
         }
     }
 
     private var list: some View {
         List(selection: selection) {
-            Section {
-                ForEach(store.nestedConversations) { item in
-                    let conversation = item.conversation
-                    let folded = item.hasChildren && store.isFolded(conversation.sessionId)
-                    NavigationLink(value: conversation.sessionId) {
-                        HStack(spacing: 0) {
-                            ConversationRow(
-                                conversation: conversation, pinned: store.isPinned(conversation.sessionId), hidden: item.hidden
-                            )
-                            if item.hasChildren {
-                                // The thread count, so it never reads as the row's own disclosure chevron.
-                                Button { store.toggleFolded(conversation.sessionId) } label: {
-                                    HStack(spacing: 3) {
-                                        Text("\(item.threads)")
-                                        Image(systemName: folded ? "chevron.down" : "chevron.up")
-                                            .font(Theme.Text.caption.weight(.semibold))
+            if page == .chats {
+                Section {
+                    ForEach(store.channels) { channel in
+                        NavigationLink(value: channel.sessionId) {
+                            ChannelRow(channel: channel).padding(.vertical, 12)
+                        }
+                        .listRowBackground(openChat?.id == channel.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+                        .listSectionSeparator(.hidden, edges: .top)
+                    }
+                }
+            } else {
+                Section {
+                    ForEach(store.nestedConversations) { item in
+                        let conversation = item.conversation
+                        let folded = item.hasChildren && store.isFolded(conversation.sessionId)
+                        NavigationLink(value: conversation.sessionId) {
+                            HStack(spacing: 0) {
+                                ConversationRow(
+                                    conversation: conversation, pinned: store.isPinned(conversation.sessionId), hidden: item.hidden
+                                )
+                                if item.hasChildren {
+                                    // The thread count, so it never reads as the row's own disclosure chevron.
+                                    Button { store.toggleFolded(conversation.sessionId) } label: {
+                                        HStack(spacing: 3) {
+                                            Text("\(item.threads)")
+                                            Image(systemName: folded ? "chevron.down" : "chevron.up")
+                                                .font(Theme.Text.caption.weight(.semibold))
+                                        }
+                                        .font(Theme.Text.label.weight(.medium))
+                                        .foregroundStyle(Theme.muted)
+                                        .padding(.horizontal, 8)
+                                        .frame(height: 24)
+                                        .background(Capsule().fill(Theme.muted.opacity(0.12)))
+                                        .padding(.leading, 8)
+                                        .frame(minHeight: 44)
+                                        .contentShape(Rectangle())
                                     }
-                                    .font(Theme.Text.label.weight(.medium))
-                                    .foregroundStyle(Theme.muted)
-                                    .padding(.horizontal, 8)
-                                    .frame(height: 24)
-                                    .background(Capsule().fill(Theme.muted.opacity(0.12)))
-                                    .padding(.leading, 8)
-                                    .frame(minHeight: 44)
-                                    .contentShape(Rectangle())
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
                                 }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
+                            }
+                            // Insets live here, not on the row, so the tree lines span the whole row.
+                            .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
+                            .padding(.vertical, 12)
+                            .background(alignment: .leading) {
+                                ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
                             }
                         }
-                        // Insets live here, not on the row, so the tree lines span the whole row.
-                        .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
-                        .padding(.vertical, 12)
-                        .background(alignment: .leading) {
-                            ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
-                        }
+                        // A custom row background hides the system selection
+                        // highlight, so the open chat's row draws its own.
+                        .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+                        .listSectionSeparator(.hidden, edges: .top)
+                        // A separator would cut through the lines of an open tree.
+                        .listRowSeparator(item.depth > 0 || (item.hasChildren && !folded) ? .hidden : .automatic)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) { rowActions(conversation) }
+                        // The same actions for a long press or a secondary click.
+                        .contextMenu { rowActions(conversation) }
                     }
-                    // A custom row background hides the system selection
-                    // highlight, so the open chat's row draws its own.
-                    .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
-                    .listSectionSeparator(.hidden, edges: .top)
-                    // A separator would cut through the lines of an open tree.
-                    .listRowSeparator(item.depth > 0 || (item.hasChildren && !folded) ? .hidden : .automatic)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) { rowActions(conversation) }
-                    // The same actions for a long press or a secondary click.
-                    .contextMenu { rowActions(conversation) }
-                }
 
-                if store.hasMore {
-                    HStack {
-                        Spacer()
-                        ProgressView().tint(Theme.muted)
-                        Spacer()
+                    if store.hasMore {
+                        HStack {
+                            Spacer()
+                            ProgressView().tint(Theme.muted)
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                        .task { await store.loadMore() }
                     }
-                    .listRowBackground(Color.clear)
-                    .task { await store.loadMore() }
                 }
             }
         }
@@ -360,6 +397,85 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
+    }
+}
+
+/// Chats and Agents, side by side under the bar. Chats counts the ones
+/// with unread posts.
+struct HomeTabs: View {
+    @Binding var page: HomePage
+    @Environment(AgentStore.self) private var store
+
+    private var unread: Int {
+        store.channels.filter {
+            ConversationUnread.shared.contains(team: $0.teamId ?? store.selectedTeam?.id ?? "", session: $0.sessionId)
+        }.count
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            tab(.chats, badge: unread)
+            tab(.agent, badge: 0)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+    }
+
+    private func tab(_ tab: HomePage, badge: Int) -> some View {
+        let selected = page == tab
+        return Button { page = tab } label: {
+            HStack(spacing: 6) {
+                Text(tab.title)
+                if badge > 0 {
+                    Text(verbatim: "\(badge)")
+                        .font(.caption2.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .background(Capsule().fill(Theme.unread))
+                }
+            }
+            .font(Theme.Text.label.weight(.semibold))
+            .foregroundStyle(selected ? Theme.canvas : Theme.heading)
+            .padding(.horizontal, 14)
+            .frame(height: 34)
+            .background(Capsule().fill(selected ? Theme.heading : Theme.muted.opacity(0.12)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue(badge > 0 ? Text("\(badge) unread") : Text(""))
+    }
+}
+
+/// A chat in the list: its mark, its title, and when it last moved.
+struct ChannelRow: View {
+    let channel: AgentConversation
+    @Environment(AgentStore.self) private var store
+
+    var body: some View {
+        let team = channel.teamId ?? store.selectedTeam?.id ?? ""
+        HStack(spacing: 12) {
+            ChannelMark(size: 36)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(channel.displayTitle)
+                    .font(Theme.Text.body.weight(.medium))
+                    .foregroundStyle(Theme.heading)
+                    .lineLimit(1)
+                Text(HistoryTime.format(channel.lastActiveAt))
+                    .font(Theme.Text.label)
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if ConversationUnread.shared.contains(team: team, session: channel.sessionId) {
+                Circle().fill(Theme.unread).frame(width: 7, height: 7).accessibilityLabel("Unread posts")
+            }
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 }
 

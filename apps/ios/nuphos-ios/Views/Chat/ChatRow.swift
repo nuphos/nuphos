@@ -47,13 +47,15 @@ enum ChatRow: Identifiable, Equatable {
     case failed
     case hint(id: String, text: String, isError: Bool)
     case event(id: String, event: ChatMessage.Event)
+    /// A chat's post, loop-guard line or typing bubble.
+    case channel(id: String, item: ChannelItem)
 
     var id: String {
         switch self {
         case .timestamp(let id, _), .user(let id, _, _, _, _, _), .assistantText(let id, _, _, _),
              .reasoning(let id, _), .tool(let id, _, _, _), .toolRun(let id, _, _, _), .work(let id, _, _),
              .memory(let id, _, _), .memoryRecall(let id, _, _), .downloads(let id, _), .hint(let id, _, _),
-             .event(let id, _):
+             .event(let id, _), .channel(let id, _):
             return id
         case .activity: return "activity"
         case .sending: return "sending"
