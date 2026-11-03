@@ -7,7 +7,7 @@ import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
-import { SectionHeader } from './shared'
+import { LoadFailed, SectionHeader } from './shared'
 
 import type { LocalSetupResult, LocalSetupStatus } from '../../api'
 import type { AtlasTeam } from '../../types'
@@ -105,12 +105,15 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
   const teamId = team?.id
   const [status, setStatus] = useState<LocalSetupStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!teamId) return
     try {
       setStatus(await api.localSetupStatus(teamId))
+      setFailed(false)
     } catch (err) {
+      setFailed(true)
       toast.apiError(t('Could not read this computer’s setup'), err)
     }
   }, [teamId])
@@ -125,6 +128,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
         if (!cancelled) setStatus(result)
       })
       .catch((err: unknown) => {
+        if (!cancelled) setFailed(true)
         toast.apiError(t('Could not read this computer’s setup'), err)
       })
 
@@ -177,6 +181,15 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
         )}
       />
 
+      {!status &&
+        (failed ? (
+          <LoadFailed
+            message={t('Couldn’t read this computer’s setup.')}
+            onRetry={() => void refresh()}
+          />
+        ) : (
+          <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-zGray-800/40" />
+        ))}
       {status && (
         <div className="space-y-5">
           <div className="rounded-lg border border-zGray-800 px-4 py-3 text-[13px] text-secondary">

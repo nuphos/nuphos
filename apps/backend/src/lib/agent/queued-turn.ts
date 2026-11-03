@@ -1,6 +1,6 @@
 // Starts a session's next turn from its queue, in arrival order.
+
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
-import { awaitsShareApproval } from '@/lib/agent/devices/local-share'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
@@ -10,7 +10,13 @@ import { getConversationBySessionId } from './db'
 import { canReply, conversationAccess } from './db/access'
 import { PENDING_TTL_SEC } from './pending-messages'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
-import { queuedTurnSettled, requeueTurnQueue, retryQueuedTurn } from './session-released'
+import {
+  queuedTurnSettled,
+  requeueTurnQueue,
+  retryQueuedTurn,
+  sessionReleased,
+} from './session-released'
+import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -105,13 +111,16 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
     const queue = await listPendingUserMessages(userId, sessionId)
     const next = queueHead(queue, userId)[0]
 
-    // A teammate's send to a shared computer waits for its owner: their answer starts it.
-    if (
-      target &&
-      next?.chat &&
-      (await awaitsShareApproval(target, next.actorUserId ?? target.userId))
-    )
+    // Someone was asked to sign its agent in: their sign-in starts it (sign-in-settle).
+    const ask = next?.chat ? openSignInRequest(target) : null
+
+    if (ask) {
+      releaseWhenAskLapses(`${userId}:${sessionId}`, ask, () => {
+        sessionReleased(userId, sessionId)
+      })
+
       return
+    }
 
     // A send never waits for a Box: the queue does, while it resumes in the background.
     if (queue.length > 0 && (await wakeOfflineBox(target?.runtimeId))) {

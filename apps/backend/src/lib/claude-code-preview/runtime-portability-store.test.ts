@@ -3,7 +3,10 @@ import { beforeEach, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { assertRuntimeNotDeleting } from './runtime-portability-store'
+import {
+  assertConversationRuntimeAvailable,
+  assertRuntimeNotDeleting,
+} from './runtime-portability-store'
 
 let memory = portabilityDb()
 
@@ -32,4 +35,13 @@ test('only unfinished deletions block matching runtime identities and URLs withi
   ).rejects.toMatchObject({ code: 'runtime_deleting' })
   await assertRuntimeNotDeleting('other-team', 'old-binding', 'wss://runtime/acp')
   await assertRuntimeNotDeleting('team', 'new-binding', 'wss://another/acp')
+})
+
+test('a channel never runs a turn, whichever path asks', async () => {
+  memory.rows('agent_conversations').push({ sessionId: 'channel', teamId: 'team', kind: 'channel' })
+  memory.rows('agent_conversations').push({ sessionId: 'agent', teamId: 'team' })
+  await expect(assertConversationRuntimeAvailable('channel')).rejects.toMatchObject({
+    code: 'channel_conversation',
+  })
+  await assertConversationRuntimeAvailable('agent')
 })

@@ -44,6 +44,8 @@ export type RuntimeDesktopTarget = {
   display: number
   /** Who is watching: named in the lock when they take over, never a secret. */
   viewer: string
+  /** A dock browser tab instead of a display: the Desktop's `browserView` stream serves it. */
+  tab?: { id: string; width: number; height: number }
 }
 
 const notFound = () => new AppError(404, 'not_found', 'Conversation desktop not found')
@@ -157,9 +159,12 @@ export function runtimeDesktopEvents(
   target: RuntimeDesktopTarget,
   deps: DeviceRuntimeSocketDeps = { bus: tunnelBus(), presence: runtimePresenceStore() },
 ): WSEvents {
-  const { sessionId, display, viewer, ...device } = target
+  const { sessionId, display, viewer, tab, ...device } = target
   // The viewer is the actor: revoking them closes this stream and nobody else's.
-  const stream = new DeviceRuntimeSocket({ ...device, actorId: viewer, purpose: 'vnc' }, deps)
+  const stream = new DeviceRuntimeSocket(
+    { ...device, actorId: viewer, purpose: tab ? 'browserView' : 'vnc' },
+    deps,
+  )
   const input = clientInputFilter()
   let holding = false
   const close = () => {
@@ -182,7 +187,13 @@ export function runtimeDesktopEvents(
   return {
     onOpen(_event, ws) {
       stream.addEventListener('open', () => {
-        stream.send(JSON.stringify({ t: 'open', sessionId, display, viewer }))
+        stream.send(
+          JSON.stringify(
+            tab
+              ? { t: 'open', sessionId, tab: tab.id, width: tab.width, height: tab.height }
+              : { t: 'open', sessionId, display, viewer },
+          ),
+        )
       })
       stream.addEventListener('message', ({ data }) => {
         if (typeof data !== 'string') return

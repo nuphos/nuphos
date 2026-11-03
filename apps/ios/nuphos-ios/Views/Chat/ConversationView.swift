@@ -38,6 +38,11 @@ struct ConversationView: View {
     @State private var desktop: DesktopSession?
     /// The dock panel: this conversation's desktop and the browser tabs its agent opened.
     @State private var dockOpen = false
+    /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
+    private static var screenSize: CGSize {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        return scene?.screen.bounds.size ?? CGSize(width: 390, height: 844)
+    }
     /// The dock shows the owner's own computer, so only the owner gets it.
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
@@ -75,6 +80,9 @@ struct ConversationView: View {
             DockPanel(session: session) {
                 dockOpen = false
                 desktop = session.makeDesktop()
+            } openTab: { tab in
+                dockOpen = false
+                desktop = session.makeBrowserView(tab, size: Self.screenSize)
             } close: {
                 dockOpen = false
             }
@@ -238,11 +246,12 @@ struct ConversationView: View {
                 try? await Task.sleep(for: .seconds(5))
             }
         }
-        // New files land while a turn runs; read them once it settles. Keyed on
-        // the newest message, not the count: a long chat holds a fixed tail.
+        // Read the files the agent sent, whatever the runtime is doing, and again
+        // when a turn settles. Keyed on the newest message, not the count: a long
+        // chat holds a fixed tail.
         .task(id: "\(session.isStreaming).\(session.messages.last?.id ?? "")") {
             await session.refreshResources()
-            if !session.isStreaming { await session.refreshDownloads() }
+            await session.refreshDownloads()
         }
     }
 

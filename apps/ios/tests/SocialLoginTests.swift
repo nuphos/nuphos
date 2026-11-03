@@ -17,8 +17,16 @@ import Foundation
         let verifier = try NuphosWeb.randomSecret()
         precondition(verifier.count == 43)
         precondition(NuphosWeb.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk") == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
-        let url = NuphosWeb.loginURL(baseURL: URL(string: "https://api.example.com")!, handle: "handle")
-        precondition(url.absoluteString == "https://api.example.com/auth/social/login?handle=handle")
+        let url = NuphosWeb.loginURL(baseURL: URL(string: "https://api.example.com")!, handle: "handle", provider: .google)
+        precondition(url.absoluteString == "https://api.example.com/auth/social/google/start?handle=handle")
+        let apple = NuphosWeb.loginURL(baseURL: URL(string: "https://self.example.com")!, handle: "a+b&c", provider: .apple)
+        precondition(apple.path == "/auth/social/apple/start")
+        let items = URLComponents(url: apple, resolvingAgainstBaseURL: false)!.queryItems!
+        precondition(items == [URLQueryItem(name: "handle", value: "a+b&c")])
+        precondition(NuphosWeb.providers(header: "google,apple") == [.apple, .google])
+        precondition(NuphosWeb.providers(header: " google,unknown,google ") == [.google])
+        precondition(NuphosWeb.providers(header: "") == [])
+        precondition(NuphosWeb.providers(header: nil) == [.google])
         print("Social login callback and PKCE checks passed")
     }
 }

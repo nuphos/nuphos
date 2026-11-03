@@ -48,8 +48,12 @@ export const monitoringApi = {
     filePaths: string[]
     label?: string
   }) => window.api.fileTransferUpload(args),
-  fileTransferResolve: (args: { teamId: string; sessionId?: string; groupId: string }) =>
-    window.api.fileTransferResolve(args),
+  fileTransferResolve: (args: {
+    teamId: string
+    sessionId?: string
+    groupId: string
+    channelId?: string
+  }) => window.api.fileTransferResolve(args),
   fileTransferListDownloads: (args: { teamId: string; sessionId?: string }) =>
     window.api.fileTransferListDownloads(args),
   fileTransferRevealInFolder: (path: string) => window.api.fileTransferRevealInFolder(path),
@@ -61,12 +65,14 @@ export const monitoringApi = {
     groupId: string
     fileId: string
     fileName: string
+    channelId?: string
   }) => window.api.fileTransferDownloadOne(args),
   fileTransferDownloadAllZip: (args: {
     teamId: string
     sessionId?: string
     groupId: string
     zipName: string
+    channelId?: string
   }) => window.api.fileTransferDownloadAllZip(args),
   atlasDeleteBetterStackMonitor: (teamId: string, integrationId: string, monitorId: string) =>
     window.api.atlasDeleteBetterStackMonitor(teamId, integrationId, monitorId),

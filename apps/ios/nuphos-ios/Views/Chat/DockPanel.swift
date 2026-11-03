@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// The conversation's dock, as the Mac shows it beside the chat: its desktop, and its browser
-/// tabs, whoever opened them. A tab's page stays on that computer, so tapping one shows it there
-/// and opens the desktop on it.
+/// tabs, whoever opened them. A tab's page stays on that computer: tapping one watches it live
+/// from there, and its menu can show it on the Mac's own screen instead.
 struct DockPanel: View {
     let session: ChatSession
     var openDesktop: () -> Void
+    var openTab: (BrowserTab) -> Void
     var close: () -> Void
 
     @State private var tabs: [BrowserTab]?
@@ -67,8 +68,11 @@ struct DockPanel: View {
                     .foregroundStyle(Theme.muted)
             }
             ForEach(tabs) { tab in
-                Button { Task { await show(tab) } } label: { row(tab) }
+                Button { openTab(tab) } label: { row(tab) }
                     .disabled(focusing != nil)
+                    .contextMenu {
+                        Button("Show on Mac", systemImage: "macbook") { Task { await show(tab) } }
+                    }
                     .accessibilityIdentifier("dock-tab-\(tab.id)")
             }
         } else if let loadError {

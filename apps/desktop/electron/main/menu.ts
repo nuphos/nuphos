@@ -73,7 +73,7 @@ export function installApplicationMenu() {
         {
           label: 'New Window',
           accelerator: 'CommandOrControl+Shift+N',
-          click: () => createWindow(),
+          click: () => createWindow(null),
         },
         {
           label: 'New Tab',

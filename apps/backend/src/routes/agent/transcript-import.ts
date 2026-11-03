@@ -21,7 +21,8 @@ export function isTranscriptImport(
     baseIndex > 0 &&
     baseIndex === existing.messageCount &&
     !existing.activitySeq &&
-    !existing.claudeCodePreview
+    !existing.claudeCodePreview &&
+    existing.kind !== 'channel'
   )
 }
 

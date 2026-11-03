@@ -26,6 +26,7 @@ before(async () => {
   mock.module('electron', {
     namedExports: {
       app,
+      BrowserWindow: { fromWebContents: () => null },
       session: { fromPartition: () => browserSession },
       shell: {
         openExternal: async (url: string) => {
@@ -47,14 +48,20 @@ function host() {
   return contents
 }
 
-function guest(browser: boolean) {
-  let open: (details: { url: string }) => { action: string } = ({ url }) => {
+type OpenDetails = { url: string; disposition: string }
+type OpenResult = {
+  action: string
+  overrideBrowserWindowOptions?: { webPreferences?: Record<string, boolean> }
+}
+
+function guest(browser: boolean, type = 'webview') {
+  let open: (details: OpenDetails) => OpenResult = ({ url }) => {
     throw new Error(`Missing popup handler for ${url}`)
   }
   const loaded: string[] = []
   const contents = Object.assign(new EventEmitter(), {
     session: browser ? browserSession : {},
-    getType: () => 'webview',
+    getType: () => type,
     // The initial document may still be blank; classification must not use its URL.
     getURL: () => 'about:blank',
     loadURL: async (url: string) => {
@@ -67,7 +74,11 @@ function guest(browser: boolean) {
 
   app.emit('web-contents-created', {}, contents)
 
-  return { contents, loaded, open: (url: string) => open({ url }) }
+  return {
+    contents,
+    loaded,
+    open: (url: string, disposition = 'foreground-tab') => open({ url, disposition }),
+  }
 }
 
 test('only the browser partition accepts arbitrary HTTP pages and every guest is hardened', () => {
@@ -157,4 +168,62 @@ test('browser user agent drops the release-specific app and Electron tokens', ()
   assert.deepEqual(browserSession.setUserAgent.mock.calls[0].arguments, [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.7680.65 Safari/537.36',
   ])
+})
+
+test('sign-in popups open as real windows that keep their opener; links still load in the tab', () => {
+  const { open, loaded } = guest(true)
+
+  for (const [url, disposition] of [
+    // window.open with features, as Google, Apple and Microsoft sign-in call it.
+    ['https://accounts.google.com/gsi/transform', 'new-window'],
+    ['https://example.com/oauth/authorize', 'new-window'],
+    // Known sign-in pages keep their opener even when opened without features.
+    ['https://accounts.google.com/o/oauth2/v2/auth', 'foreground-tab'],
+    ['https://appleid.apple.com/auth/authorize', 'foreground-tab'],
+    ['https://login.microsoftonline.com/common/oauth2/v2.0/authorize', 'foreground-tab'],
+    ['https://github.com/login/oauth/authorize', 'foreground-tab'],
+  ] as const) {
+    const result = open(url, disposition)
+
+    assert.equal(result.action, 'allow', url)
+    assert.deepEqual(result.overrideBrowserWindowOptions?.webPreferences, {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    })
+  }
+  assert.deepEqual(loaded, [])
+
+  // target=_blank links and non-HTTP popups keep today's behaviour.
+  assert.deepEqual(open('https://github.com/nuphos/nuphos', 'foreground-tab'), { action: 'deny' })
+  assert.deepEqual(open('https://example.com/docs', 'background-tab'), { action: 'deny' })
+  assert.deepEqual(open('file:///etc/passwd', 'new-window'), { action: 'deny' })
+  assert.deepEqual(loaded, ['https://github.com/nuphos/nuphos', 'https://example.com/docs'])
+})
+
+test('a browser popup window gets the same guard, and closes with the tab that opened it', () => {
+  const popupWindow = guest(true, 'window')
+  const preventDefault = mock.fn()
+
+  popupWindow.contents.emit('will-navigate', { preventDefault }, 'file:///etc/passwd')
+  assert.equal(preventDefault.mock.callCount(), 1)
+  assert.equal(popupWindow.open('https://appleid.apple.com/auth/authorize').action, 'allow')
+
+  const { contents } = guest(true)
+  const close = mock.fn()
+
+  contents.emit('did-create-window', { isDestroyed: () => false, close })
+  assert.equal(close.mock.callCount(), 0)
+  contents.emit('destroyed')
+  assert.equal(close.mock.callCount(), 1)
+})
+
+test('changelog popups still open externally, with or without window features', () => {
+  const { open, loaded } = guest(false)
+
+  assert.deepEqual(open('https://accounts.google.com/gsi/transform', 'new-window'), {
+    action: 'deny',
+  })
+  assert.deepEqual(loaded, [])
+  assert.equal(externalUrls.at(-1), 'https://accounts.google.com/gsi/transform')
 })

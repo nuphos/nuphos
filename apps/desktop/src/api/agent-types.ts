@@ -20,9 +20,14 @@ export type GeneralAccess = 'none' | 'view' | 'reply'
 export type ParticipantRole = 'view' | 'reply' | 'manage'
 export type ConversationAccess = 'owner' | ParticipantRole
 
+/** What makes a person an agent: the face it shows, and whether this viewer may take it out. */
+export type AgentFace = { avatar?: string; provider?: AgentProvider; removable?: boolean }
+
 export type AgentConversationParticipant = AgentConversationPerson & {
   isOwner: boolean
   role: ConversationAccess | null
+  /** Set on a channel's agent, which the Share card lists among its people. */
+  agent?: AgentFace
 }
 
 export type ConversationAccessState = {
@@ -30,7 +35,24 @@ export type ConversationAccessState = {
   participants: AgentConversationParticipant[]
 }
 
+/** A post that @mentions the viewer in a channel they have not posted in since. */
+export type ChannelMention = {
+  channelId: string
+  title: string
+  messageId: string
+  at: string
+  sender: { type: 'user' | 'agent' | 'system'; id: string; name: string } | null
+  text: string
+}
+
+/** An agent in a channel: its session, which is the agent. */
+export type ChannelAgent = { sessionId: string; title: string; ownerId: string; avatar?: string }
+
 export type AgentConversation = {
+  /** A channel: a place where people and agents talk. It runs no agent of its own. */
+  kind?: 'channel'
+  /** A channel's agents, as their session ids. */
+  agentSessionIds?: string[]
   runtimeState?: import('../lib/runtimeExecution').RuntimeExecution
   linkedResources?: SessionResource[]
   sessionId: string
@@ -75,6 +97,17 @@ export type AgentConversation = {
   pendingDecision?: AgentPendingDecision
   /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
   inputRequests?: AgentInputRequest[]
+  /** Someone asked who can sign this conversation's agent in; their message waits for it. */
+  signInRequest?: AgentSignInRequest
+}
+
+export type AgentSignInRequest = {
+  runtimeId: string
+  requesterId: string
+  requesterName: string
+  askedUserIds: string[]
+  askedName: string
+  askedAt: string
 }
 
 export type AgentPendingDecision = {
@@ -212,6 +245,8 @@ export type AgentTimelineEvent = {
   kind: string
   at: string
   text: string
+  /** agents_paused: the turn budget the channel's agents used up. */
+  turns?: number
   actor?: AgentTimelinePerson
   target?: AgentTimelinePerson
   from?: AgentTimelineRuntime

@@ -25,12 +25,37 @@ export type AccountSummary = {
   active: boolean
 }
 
+/** A token offered for another backend than the one in use. */
+export class OtherBackendError extends Error {
+  constructor() {
+    super('This sign-in belongs to another backend')
+    this.name = 'OtherBackendError'
+  }
+}
+
+// Every name for this computer is one host: a dev backend reached as
+// `localhost` and as `127.0.0.1` is the same server, and the same account.
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/**
+ * The backend as one spelling: its origin, with loopback names as
+ * `127.0.0.1`. Every comparison and key of a backend goes through it, as does
+ * the CLI's `same_backend`.
+ */
 export function normalizedApi(api: string): string {
-  let out = api.trim()
+  try {
+    const url = new URL(api.trim())
 
-  while (out.endsWith('/')) out = out.slice(0, -1)
+    if (LOOPBACK.has(url.hostname)) url.hostname = '127.0.0.1'
 
-  return out
+    return url.origin
+  } catch {
+    let out = api.trim()
+
+    while (out.endsWith('/')) out = out.slice(0, -1)
+
+    return out
+  }
 }
 
 /** Also the keychain item's name, so an account and its item always match. */

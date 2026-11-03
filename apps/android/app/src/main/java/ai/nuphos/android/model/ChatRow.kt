@@ -12,6 +12,7 @@ sealed class ChatRow {
     data class AssistantText(override val id: String, val messageId: String, val text: String, val streaming: Boolean) : ChatRow()
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
+    data class ToolRun(override val id: String, val rows: List<ChatRow>, val live: Boolean) : ChatRow()
     data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow()
     data class Downloads(override val id: String, val group: ai.nuphos.android.data.TransferDownloadGroup) : ChatRow()
     data class Memory(override val id: String, val created: Int, val updated: Int) : ChatRow()
@@ -38,6 +39,7 @@ sealed class ChatRow {
             downloads = if (session.canReadDownloads) session.downloads else emptyList(),
             timeline = session.timelineEvents,
             hasEarlier = session.baseIndex > 0,
+            localSender = session::localSender,
         )
 
         internal fun rows(
@@ -49,6 +51,7 @@ sealed class ChatRow {
             downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
             timeline: List<AgentConversationDetail.TimelineEvent> = emptyList(),
             hasEarlier: Boolean = false,
+            localSender: (String) -> MessageAttribution? = { null },
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
             val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
@@ -57,12 +60,19 @@ sealed class ChatRow {
             }
             fun eventRows(index: Int) = events[index].orEmpty().map { Hint("event.${it.at}.${it.text}", it.text, false) }
             val lastApprovalCallId = lastPendingApproval(messages)
+            val steeringIds = mutableSetOf<String>()
+            val steeringSenders = linkedMapOf<String, MessageAttribution>()
+            messages.flatMap { it.parts }.filterIsInstance<ChatPart.Data>().filter { it.name == "steering" }.forEach { part ->
+                val id = part.data["id"]?.stringValue
+                val sender = MessageAttribution.parse(part.data["metadata"])
+                if (id != null && sender != null) steeringSenders.putIfAbsent(id, sender)
+            }
             for ((index, message) in messages.withIndex()) {
                 if (index > 0 || !hasEarlier) rows += eventRows(index)
                 val previous = messages.getOrNull(index - 1)?.createdAt
                 when (message.role) {
                     ChatMessage.Role.User -> {
-                        val sender = MessageAttribution.parse(message.metadata)
+                        val sender = MessageAttribution.parse(message.metadata) ?: if (message.metadata == null) localSender(message.id) else null
                         if (sender?.isEvent != true && ChatTime.showsTimestamp(message.createdAt, previous) && message.createdAt != null) {
                             rows += Timestamp("time.${message.id}", message.createdAt)
                         }
@@ -78,7 +88,7 @@ sealed class ChatRow {
                     }
                     ChatMessage.Role.Assistant -> {
                         val isLive = isStreaming && index == messages.lastIndex
-                        rows += assistantRows(message, isLive, lastApprovalCallId)
+                        rows += assistantRows(message, isLive, lastApprovalCallId, steeringIds, steeringSenders)
                         rows += anchoredDownloads[message.id].orEmpty().map { Downloads("downloads.${it.groupId}", it) }
                         if (message.stoppedByUser == true && !isLive) {
                             val calls = message.parts.count { it is ChatPart.Tool }
@@ -96,7 +106,7 @@ sealed class ChatRow {
             return rows
         }
 
-        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?): List<ChatRow> {
+        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>): List<ChatRow> {
             val body = mutableListOf<ChatRow>()
             message.parts.forEachIndexed { pi, part ->
                 when (part) {
@@ -111,6 +121,15 @@ sealed class ChatRow {
                     is ChatPart.Tool -> {
                         if (part.toolName !in hiddenTools) {
                             body += Tool("tool.${message.id}.${part.toolCallId}", message.id, part, part.toolCallId == lastApprovalCallId)
+                        }
+                    }
+                    is ChatPart.Data if part.name == "steering" -> {
+                        val id = part.data["id"]?.stringValue?.takeIf { it.isNotBlank() }
+                        val text = part.data["text"]?.stringValue
+                        if (id != null && text != null && text.isNotBlank() && steeringIds.add(id)) {
+                            val sender = steeringSenders[id]
+                            val user = User("steering.$id", message.id, text, emptyList(), sender = sender)
+                            body += if (sender?.isEvent == true) Event("steering.$id", user) else user
                         }
                     }
                     is ChatPart.Other if part.value["type"]?.stringValue == "memory-provenance" -> {
@@ -142,19 +161,22 @@ sealed class ChatRow {
             }
             if (live) {
                 while (body.lastOrNull() is Reasoning) body.removeAt(body.lastIndex)
-                return body
+                return toolRuns(body, live = true)
             }
+            // Receipts preserve the interleaving of the user's steering and the agent's work.
+            if (body.any { it is User || it is Event }) return toolRuns(body, live = false)
             val lastText = body.indexOfLast { it is AssistantText }
-            if (lastText < 0) return body
+            if (lastText < 0) return toolRuns(body, live = false)
             fun foldable(row: ChatRow) = when (row) {
                 is Reasoning -> true
                 is Tool -> row.part.kind != ChatPart.Tool.Kind.Plan && row.part.kind != ChatPart.Tool.Kind.Question &&
                     row.part.state != ChatPart.Tool.State.ApprovalRequested && ThreadReference.from(row.part) == null
                 else -> false
             }
+            if (body.any { it is Tool && (it.part.state == ChatPart.Tool.State.ApprovalRequested ||
+                    it.part.state == ChatPart.Tool.State.OutputError) }) return toolRuns(body, live = false)
             val intermediate = body.take(lastText).filter(::foldable)
-            if (intermediate.size < 2) return body
-            if (intermediate.any { it is Tool && it.part.state == ChatPart.Tool.State.ApprovalRequested }) return body
+            if (intermediate.size < 2) return toolRuns(body, live = false)
             val folded = mutableListOf<ChatRow>()
             val group = mutableListOf<ChatRow>()
             body.forEachIndexed { i, row ->
@@ -168,7 +190,30 @@ sealed class ChatRow {
                 }
                 folded += row
             }
-            return folded
+            return toolRuns(folded, live = false)
+        }
+
+        internal fun toolRuns(rows: List<ChatRow>, live: Boolean): List<ChatRow> {
+            fun ordinary(row: ChatRow) = row is Tool && row.part.kind != ChatPart.Tool.Kind.Plan &&
+                row.part.kind != ChatPart.Tool.Kind.Question && ThreadReference.from(row.part) == null
+            val result = mutableListOf<ChatRow>()
+            var index = 0
+            while (index < rows.size) {
+                if (!ordinary(rows[index])) { result += rows[index++]; continue }
+                var end = index + 1
+                var lastTool = index
+                var calls = 1
+                while (end < rows.size && (ordinary(rows[end]) || rows[end] is Reasoning)) {
+                    if (ordinary(rows[end])) { lastTool = end; calls++ }
+                    end++
+                }
+                if (calls > 1) {
+                    // Keep the first call's key when a live sequence grows into a run.
+                    result += ToolRun(rows[index].id, rows.subList(index, lastTool + 1).toList(), live)
+                    index = lastTool + 1
+                } else result += rows[index++]
+            }
+            return result
         }
 
         private fun workDuration(message: ChatMessage): Double? {

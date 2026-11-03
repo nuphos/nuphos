@@ -26,12 +26,12 @@ import {
   boxActions,
   boxState,
   canManage,
-  canShareBox,
   newAgentAction,
   removal,
 } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf, boxUpdateLabel } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
+import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxHostUpdate } from './useBoxHostUpdate'
 
@@ -47,7 +47,6 @@ export function BoxRow({
   agents,
   onSelect,
   onChanged,
-  onShare,
   onSetUpLocalAgent,
 }: {
   thisComputer: boolean
@@ -56,8 +55,6 @@ export function BoxRow({
   agents: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
   onChanged: () => void
-  /** The person's own computer: share its local runtime with teammates. */
-  onShare?: () => void
   /** Opens User settings where this computer's local agent signs in. */
   onSetUpLocalAgent?: () => void
 }) {
@@ -73,6 +70,7 @@ export function BoxRow({
   // A host restarting at the user's request is away on purpose: follow it, not offer Resume.
   const restart = boxRestartOf(useBoxRestart(device.deviceId), device)
   const cloud = device.box !== undefined
+  const AccessDialog = cloud ? BoxAccessDialog : LocalAgentShareDialog
   const manage = canManage(device)
   const remove = removal(device)
   const badge = BOX_BADGE[state]
@@ -197,10 +195,7 @@ export function BoxRow({
               )}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
-              {canShareBox(device) && (
-                <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
-              )}
-              {onShare && <MenuItem onClick={onShare}>{t('Share with teammates…')}</MenuItem>}
+              <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
               {actions.resume && (
                 <MenuItem onClick={() => void resume()}>
                   {state === 'error' ? t('Retry') : t('Resume')}
@@ -277,7 +272,7 @@ export function BoxRow({
         />
       )}
       {sharing && (
-        <BoxAccessDialog
+        <AccessDialog
           teamId={teamId}
           device={device}
           onClose={() => setSharing(false)}

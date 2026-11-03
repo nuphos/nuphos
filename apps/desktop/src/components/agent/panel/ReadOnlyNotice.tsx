@@ -5,15 +5,20 @@ import { Ban, ExternalLink, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
+import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
+import { agentTier } from '../../../lib/agentName'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
+import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
+import { resumeBox } from './bannerActions'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
-import { selectedAgentReachability } from './runtimeControlSignOut'
+import { selectedAgentName, selectedAgentReachability } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
@@ -98,13 +103,21 @@ const BANNER = {
 
 type BannerKind = keyof typeof BANNER
 
+/** What the viewer can do about the agent from here, worked out by the banner. */
+type BannerFix = {
+  signIn?: () => void
+  resume?: () => void
+  askOwner?: boolean
+}
+
 function bannerCopy(
   reachability: BannerKind,
   control: RuntimeControl,
   onSwitchAgent?: () => void,
+  fix: BannerFix = {},
 ): { text: string; action: { label: string; run: () => void } | null } {
   const { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings } = control
-  const name = value?.label ?? t('The runtime')
+  const name = selectedAgentName(control)
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
   const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }
 
@@ -120,13 +133,22 @@ function bannerCopy(
 
     return {
       text: box ? t('{box} is offline.', { box }) : t('Its computer is offline.'),
-      action: switchAgent ?? {
-        label: t('Retry'),
-        run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
-      },
+      action: (fix.resume && { label: t('Resume'), run: fix.resume }) ??
+        switchAgent ?? {
+          label: t('Retry'),
+          run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
+        },
     }
   }
   if (switchAgent) return { text: t('{name} is signed out.', { name }), action: switchAgent }
+  if (fix.signIn)
+    return {
+      text: t('{name} is signed out. Sign it in to send messages.', { name }),
+      action: { label: t('Sign in'), run: fix.signIn },
+    }
+  // A teammate's computer: only its owner can sign it in, administrators included.
+  if (fix.askOwner)
+    return { text: t('{name} is signed out. Ask its owner to sign it in.', { name }), action: null }
   // Only an administrator can sign a team agent back in.
   if (isTeamAdmin && onSettings)
     return {
@@ -168,50 +190,83 @@ export function AgentStatusBanner({
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // The words stay while the banner leaves, so it closes on what it said.
   const [shown, setShown] = useState(blocked)
+  const [signingIn, setSigningIn] = useState(false)
+  const viewerId = useCurrentUser()?.id
+  const thisComputer = useThisComputer()
+  const selected = control.options?.find((instance) => instance.id === control.value?.id)
+  // Your own Box or other computer signs in from here; this computer's agent uses its CLI.
+  const ownSignIn =
+    reachability === 'signIn' &&
+    control.teamId &&
+    viewerId &&
+    selected?.local?.ownerUserId === viewerId &&
+    agentTier(selected, thisComputer) === 'remote'
+      ? { teamId: control.teamId, instance: selected }
+      : null
+  const local = selected?.local
+  const teamId = control.teamId
+  const fix: BannerFix = {
+    ...(ownSignIn && { signIn: () => setSigningIn(true) }),
+    ...(reachability === 'signIn' && local && local.ownerUserId !== viewerId && { askOwner: true }),
+    // Your own paused Box wakes from here instead of Retry.
+    ...(reachability === 'offline' &&
+      teamId &&
+      local?.box?.state === 'paused' &&
+      local.ownerUserId === viewerId && { resume: () => void resumeBox(local.deviceId, teamId) }),
+  }
 
   if (blocked && blocked !== shown) setShown(blocked)
   const variant = shown ? BANNER[shown] : null
   const { text, action } = shown
-    ? bannerCopy(shown, control, onSwitchAgent)
+    ? bannerCopy(shown, control, onSwitchAgent, fix)
     : { text: '', action: null }
 
   return (
-    <div
-      role="status"
-      aria-hidden={!blocked}
-      // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
-      inert={!blocked}
-      className={clsx(
-        't-toast absolute bottom-full',
-        hero ? 'inset-x-6' : 'inset-x-4',
-        blocked ? 'is-open' : 'pointer-events-none',
-      )}
-    >
-      {variant && (
-        <div
-          className={clsx(
-            'relative overflow-hidden rounded-t-[10px] border border-b-0 bg-composer',
-            variant.border,
-          )}
-        >
-          <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
-          <div className="relative flex h-8 min-w-0 items-center gap-2 px-3 text-[12.5px] text-secondary">
-            <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
-            <span className="min-w-0 flex-1 truncate">{text}</span>
-            {action && (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-6 shrink-0 px-2 text-[12px]"
-                onClick={action.run}
-              >
-                {action.label}
-              </Button>
+    <>
+      <div
+        role="status"
+        aria-hidden={!blocked}
+        // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
+        inert={!blocked}
+        className={clsx(
+          't-toast absolute bottom-full',
+          hero ? 'inset-x-6' : 'inset-x-4',
+          blocked ? 'is-open' : 'pointer-events-none',
+        )}
+      >
+        {variant && (
+          <div
+            className={clsx(
+              'relative overflow-hidden rounded-t-[10px] border border-b-0 bg-composer',
+              variant.border,
             )}
+          >
+            <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
+            <div className="relative flex h-8 min-w-0 items-center gap-2 px-3 text-[12.5px] text-secondary">
+              <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
+              <span className="min-w-0 flex-1 truncate">{text}</span>
+              {action && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 shrink-0 px-2 text-[12px]"
+                  onClick={action.run}
+                >
+                  {action.label}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+      {signingIn && ownSignIn && (
+        <RuntimeLoginDialog
+          teamId={ownSignIn.teamId}
+          instance={ownSignIn.instance}
+          onClose={() => setSigningIn(false)}
+        />
       )}
-    </div>
+    </>
   )
 }

@@ -7,6 +7,7 @@ import openApiDocument from '@/generated/api/openapi.json'
 import { errorHandler, notFoundHandler } from '@/lib/errors'
 import { analyticsMiddleware } from '@/middleware/analytics'
 import { responseCompression } from '@/middleware/compression'
+import { jsonEtag } from '@/middleware/etag'
 import { requestLog } from '@/middleware/request-log'
 import { otelHono } from '@/otel'
 import { adminRoutes } from '@/routes/admin'
@@ -80,6 +81,9 @@ app.use(
 // Capture every request as a PostHog `api_request` event. After cors so
 // preflights are visible to the skip filter; reads userId/teamId post-next.
 app.use('*', analyticsMiddleware)
+// Innermost, so request logs, spans and analytics record the 304 that is sent;
+// still inside compression, so the tag hashes the uncompressed body.
+app.use('*', jsonEtag())
 
 app.get('/openapi.json', (c) => c.json(openApiDocument))
 app.route('/health', health)

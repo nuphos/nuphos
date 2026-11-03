@@ -11,6 +11,7 @@ export type StreamPurpose =
   | 'terminal'
   | 'cua'
   | 'browser'
+  | 'browserView'
   | 'vnc'
   | 'instances'
 

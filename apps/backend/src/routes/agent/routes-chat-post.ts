@@ -4,11 +4,11 @@ import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
-import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
+import { resolveChatConversation } from './chat-conversation'
 import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
@@ -27,14 +27,9 @@ import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from 
 import { streamAgentRunResponse } from './run-stream'
 import { admitRuntimeChat } from './runtime-chat-admission'
 import { isQueued, queuedReply, queueForWaitingRuntime } from './session-queue-share-approval'
+import { queueForSignIn } from './session-queue-sign-in'
 import { admitQueueableChat, queuedChatContext, queuedChatReply } from './session-queue-turn'
-import {
-  assertConversationSendable,
-  readTeamIdCandidate,
-  resolveReadableConversationForResume,
-  resolveVerifiedTeamId,
-  sanitizeKubeContextHeader,
-} from './team-scope'
+import { readTeamIdCandidate, resolveVerifiedTeamId, sanitizeKubeContextHeader } from './team-scope'
 import { getFirstUserMessage } from './transcript'
 import { acceptAgentRun } from './turn-start-frame'
 
@@ -51,9 +46,7 @@ agent.post('/chat', async (c) => {
 
   validateChatBody(body)
   const localToolsEnabled = body.clientCapabilities?.localTools === true
-  const conversationForResume = body.resume
-    ? await resolveReadableConversationForResume(id, userId, teamId)
-    : await fallBackBeforeTurn(await assertConversationSendable(id, userId, teamId), userId)
+  const conversationForResume = await resolveChatConversation(body, userId, teamId)
   const runOwnerUserId = conversationForResume?.userId ?? userId
 
   if (runOwnerUserId === userId && shouldInitializePermissionMode(body, conversationForResume)) {
@@ -112,12 +105,15 @@ agent.post('/chat', async (c) => {
     if (attached) return attached
   }
   if (body.resume) return await resumeFromRedisOrThrow(resumeParams)
-  const chatRuntime = await resolveConversationChatRuntime(teamId, conversationForResume, {
-    userId,
-    sessionId: id,
-    ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
-    ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-  }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams))
+  // Someone was asked to sign this agent in: the send waits for them.
+  const chatRuntime =
+    (await queueForSignIn(resumeParams)) ??
+    (await resolveConversationChatRuntime(teamId, conversationForResume, {
+      userId,
+      sessionId: id,
+      ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
+      ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
+    }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams)))
 
   if (isQueued(chatRuntime)) return queuedChatReply(body, queuedReply(streamId, chatRuntime))
   const runtimeProvider = chatRuntime.runtime

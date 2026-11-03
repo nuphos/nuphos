@@ -7,6 +7,8 @@ import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
+import { channelTurnEnded } from './channel-reply'
+import { withChannelPosts } from './channel-wake'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
@@ -118,7 +120,10 @@ export async function runTurn(
     // one after the last reply was accepted by a refused turn and runs again.
     const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
     const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
-    const fresh = pending.filter((message) => !ran.has(message.id))
+    const { messages: fresh, markRead } = await withChannelPosts(
+      data.targetSessionId,
+      pending.filter((message) => !ran.has(message.id)),
+    )
     const [head, ...rest] = fresh
 
     taken = fresh
@@ -164,8 +169,17 @@ export async function runTurn(
 
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
+    // The channel posts it carried were delivered: a retry would show them again.
+    await markRead()
     if (outcome.finishReason === 'connection-lost' && (await runtimeRestarted(data)))
       await reportUndelivered(data, fresh, LOST_TURN)
+
+    await channelTurnEnded(
+      data,
+      target,
+      fresh,
+      outcome.status === 'completed' && outcome.finishReason !== 'connection-lost',
+    )
 
     return outcome.finishReason
   } catch (error) {

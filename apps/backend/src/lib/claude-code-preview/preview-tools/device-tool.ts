@@ -159,7 +159,7 @@ function dispatch(
 }
 
 /** The device this call may drive, or the error that explains why none. */
-async function resolveDevice(
+export async function resolveDevice(
   ctx: PreviewToolContext,
   tool: DeviceTool,
   requested: string | undefined,

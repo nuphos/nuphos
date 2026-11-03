@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { resolveSessionSync } from '../../../lib/agentSessionSync'
 import { onChatArchived } from '../../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../../lib/chatTitleEvents'
+import { markChannel } from '../../channels/channelKind'
 
 import { HOME_TAB_ID } from './model'
 import { retainBackgroundTabs } from './sessionContinuity'
@@ -178,6 +179,8 @@ export function usePanelSessionBridge(acc: Acc) {
             : undefined
 
         lastSyncedSessionIdRef.current = action.sessionId
+        // The panel only shows agents, so a session it reports is never a channel.
+        if (action.sessionId) markChannel(action.sessionId, false)
         onSessionChangeRef.current?.(action.sessionId, unshown)
 
         return

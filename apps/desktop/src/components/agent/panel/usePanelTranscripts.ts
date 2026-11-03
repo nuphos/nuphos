@@ -1,16 +1,16 @@
 import { useCallback, useMemo } from 'react'
 
-import { api } from '../../../api'
+import { api } from '../../../api.ts'
 
 import {
   defaultCredentialAccess,
   normalizeCredentialAccess,
   credentialOptionsLoaded,
   pruneCredentialAccessToOptions,
-} from './credentialAccess'
-import { includeBoundOnpremCredential } from './credentialRequest'
-import { transcriptSignature } from './persistence'
-import { toPersistedMessages } from './toUiMessages'
+} from './credentialAccess.ts'
+import { includeBoundOnpremCredential } from './credentialRequest.ts'
+import { transcriptSignature } from './persistence.ts'
+import { toPersistedMessages } from './toUiMessages.ts'
 
 import type { PanelCtx } from './ctx'
 import type { Tab } from './model'
@@ -59,11 +59,14 @@ export function usePanelTranscripts(acc: Acc) {
       // view here (the PUT has delete-absent semantics).
       if (tab.slackThread) return
       if (tab.messages.length === 0) return
-      // Runtime-owned turns are persisted by the backend after their terminal
-      // frame. A live renderer snapshot is necessarily partial and used to
-      // race that write, allowing either side's stale full-transcript PUT to
-      // delete a just-finished neighboring turn.
-      if (tab.streaming && tab.messages.at(-1)?.turnOrigin === 'autonomous') return
+      // A runtime conversation is server-authoritative: the backend stores each
+      // turn itself and skips this PUT (`server_authoritative`), but only after
+      // reading the body, which is the whole current turn on every stream event.
+      if (tab.agentRuntime) {
+        if (!tab.streaming) void refreshHistory()
+
+        return
+      }
       const signature = transcriptSignature(tab)
 
       if (lastSyncedRef.current.get(tab.sessionId) === signature) return

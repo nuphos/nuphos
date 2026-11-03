@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { api } from './api'
+import { api, onSessionRejected } from './api'
 import { Workspace } from './app/workspace/Workspace'
 import { claimComposerDrafts, clearComposerDrafts } from './components/agent/panel/composerDrafts'
 import {
@@ -43,6 +43,26 @@ export default function App() {
     }
   }, [])
 
+  const signedIn = auth.status === 'authenticated'
+
+  useEffect(() => {
+    if (!signedIn) return
+    onSessionRejected(() => void logout())
+
+    return () => onSessionRejected(null)
+  }, [signedIn])
+
+  async function logout() {
+    // Leave the workspace even if the main process fails to clear the token:
+    // a rejected session must never strand the user on a dead workspace.
+    await api.authLogout().catch(() => undefined)
+    clearComposerDrafts()
+    clearClearedReplies()
+    track('logout')
+    resetAnalytics()
+    setAuth({ status: 'anonymous' })
+  }
+
   if (auth.status === 'checking') {
     return (
       <div className="h-full flex flex-col bg-main">
@@ -74,14 +94,7 @@ export default function App() {
           identifyUser(user)
           setAuth({ status: 'authenticated', user })
         }}
-        onLogout={async () => {
-          await api.authLogout()
-          clearComposerDrafts()
-          clearClearedReplies()
-          track('logout')
-          resetAnalytics()
-          setAuth({ status: 'anonymous' })
-        }}
+        onLogout={logout}
       />
       <BoxPaywallHost />
     </CurrentUserContext>

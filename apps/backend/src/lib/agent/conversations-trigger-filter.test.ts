@@ -30,7 +30,8 @@ useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbAc
 
 const TEAM = '64b5f1c2e4b0a1d2c3e4f5a6'
 const VIEWER = '642802f4c38340345aa2384d'
-const READABLE = { $and: [readableByFilter(VIEWER)] }
+// Every list keeps agents and channels apart; see conversations-list-kind.test.ts.
+const READABLE = { $and: [readableByFilter(VIEWER)], kind: { $ne: 'channel' } }
 const TRIGGER = '6512f0a1b2c3d4e5f6a7b8c9'
 const OTHER_TRIGGER = '6512f0a1b2c3d4e5f6a7b8ca'
 

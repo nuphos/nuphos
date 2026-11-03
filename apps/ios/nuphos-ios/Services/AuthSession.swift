@@ -129,7 +129,11 @@ final class AuthSession {
 
     // MARK: - Sign in
 
-    func signIn() async {
+    func dismissSignInError() {
+        if case .signedOut(let error) = state, error != nil { state = .signedOut(error: nil) }
+    }
+
+    func signIn(provider: NuphosWeb.Provider) async {
         guard state != .signingIn else { return }
         state = .signingIn
 
@@ -141,7 +145,7 @@ final class AuthSession {
                 "redirectUri": "nuphos://google-callback", "codeChallenge": NuphosWeb.challenge(verifier),
                 "codeChallengeMethod": "S256", "clientState": clientState
             ])
-            let callback = try await authenticate(url: NuphosWeb.loginURL(baseURL: NuphosAPI.baseURL, handle: registration.handle))
+            let callback = try await authenticate(url: NuphosWeb.loginURL(baseURL: NuphosAPI.baseURL, handle: registration.handle, provider: provider))
             switch NuphosWeb.parseCallback(callback, expectedState: clientState) {
             case .code(let code):
                 let result: AccountAPI.SignIn = try await AccountAPI.request("native/session/redeem", method: "POST", body: [

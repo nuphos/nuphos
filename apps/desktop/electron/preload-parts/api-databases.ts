@@ -68,8 +68,12 @@ export const databasesApi = {
     filePaths: string[]
     label?: string
   }) => ipcRenderer.invoke('fileTransfer:upload', args),
-  fileTransferResolve: (args: { teamId: string; sessionId?: string; groupId: string }) =>
-    ipcRenderer.invoke('fileTransfer:resolve', args),
+  fileTransferResolve: (args: {
+    teamId: string
+    sessionId?: string
+    groupId: string
+    channelId?: string
+  }) => ipcRenderer.invoke('fileTransfer:resolve', args),
   fileTransferListDownloads: (args: { teamId: string; sessionId?: string }) =>
     ipcRenderer.invoke('fileTransfer:listDownloads', args),
   fileTransferRevealInFolder: (path: string) =>
@@ -83,12 +87,14 @@ export const databasesApi = {
     groupId: string
     fileId: string
     fileName: string
+    channelId?: string
   }) => ipcRenderer.invoke('fileTransfer:downloadOne', args),
   fileTransferDownloadAllZip: (args: {
     teamId: string
     sessionId?: string
     groupId: string
     zipName: string
+    channelId?: string
   }) => ipcRenderer.invoke('fileTransfer:downloadAllZip', args),
   atlasDeleteBetterStackMonitor: (teamId: string, integrationId: string, monitorId: string) =>
     ipcRenderer.invoke('atlas:deleteBetterStackMonitor', teamId, integrationId, monitorId),

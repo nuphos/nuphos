@@ -51,6 +51,25 @@ class ChatSession(
     private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
     private val readEvents: (okhttp3.Request) -> kotlinx.coroutines.flow.Flow<ai.nuphos.android.data.SseEvent> = { SseClient.events(it) },
 ) {
+    private val localSenders = ai.nuphos.android.model.LocalMessageSenders()
+    private var localSenderKey: String? = null
+    private var currentLocalSender: () -> ai.nuphos.android.model.MessageAttribution? = { null }
+    internal fun bindLocalSender(key: String?, current: () -> ai.nuphos.android.model.MessageAttribution?) {
+        localSenders.bind(key)
+        localSenderKey = key
+        currentLocalSender = current
+    }
+    internal fun localSender(id: String): ai.nuphos.android.model.MessageAttribution? =
+        if (hasAiAccess && currentLocalSender() != null) localSenders.sender(id, localSenderKey) else null
+
+    private var suggestedPrompt by mutableStateOf<String?>(null)
+    val promptSuggestion: String? get() = suggestedPrompt?.takeIf {
+        hasAiAccess && !browsingOnly && loaded && loadError == null && !readOnly && !isArchived &&
+            !isStreaming && !hasActiveRun && !steeringPending && !submissionPending && canSubmit &&
+            runtimeObservation?.let { !it.fresh(RuntimeObservation.now()) || it.phase in setOf("idle", "dormant", "cancelled") } != false &&
+            retrySubmission == null &&
+            rejectedSubmission == null && uploadDraft == null && !uploadBusy
+    }
     private var initialModelPick: Map<String, String>? = null
     fun presetModelSettings(pick: Map<String, String>) { initialModelPick = pick.takeIf { it.isNotEmpty() } }
     private var modelScopeActive = false
@@ -122,6 +141,7 @@ class ChatSession(
     val outgoingCreationBinding get() = creationRuntimeBinding.takeUnless { serverMetadataObserved }
     var title by mutableStateOf(title)
         private set
+    internal fun applyConfirmedTitle(value: String) { title = value }
     var messages by mutableStateOf(listOf<ChatMessage>())
         private set
     data class ReadTranscript(val generation: Long, val seq: Long, val messages: List<ChatMessage>)
@@ -472,6 +492,7 @@ class ChatSession(
         val trimmed = submission.text.trim()
         val attachments = submission.attachments
         if ((trimmed.isEmpty() && attachments.isEmpty()) || !canSubmit) return false
+        suggestedPrompt = null
         if (isNative && canEnqueueSteering) {
             if (attachments.isNotEmpty()) { error = "Steering accepts text only. Keep attachments for the next message."; return false }
             queued = queued + trimmed
@@ -518,6 +539,7 @@ class ChatSession(
             updated[lastAssistant] = updated[lastAssistant].supersedePendingApprovals().finalizeIncompleteTools()
             messages = updated
         }
+        localSenders.record(message.id, localSenderKey, currentLocalSender())
         if (messages.none { it.id == message.id }) messages = messages + message
         pendingUserMessage = message
         if (wasEmpty) {
@@ -792,6 +814,9 @@ class ChatSession(
     }
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
+        suggestedPrompt = detail.promptSuggestion?.takeIf {
+            it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
+        }
         if (watchReadRevision == watchRevision) watching = detail.watching
         isArchived = detail.archivedAt != null
         readOnly = browsingOnly || (detail.readOnly ?: false)
@@ -905,8 +930,10 @@ class ChatSession(
         return TurnOptions(active, explicitResume = true, resumeFrom = if (isNative || runtimeRecoveryRequired) streamCursors[active] ?: 0 else 0)
     }
 
-    private fun addSteering(id: String, text: String, assistantId: String?) {
-        messages = RuntimeTranscript.steering(id, text, assistantId, messages)
+    private fun addSteering(id: String, text: String, assistantId: String?) = addSteering(id, text, assistantId, null)
+
+    private fun addSteering(id: String, text: String, assistantId: String?, metadata: JsonValue?) {
+        messages = RuntimeTranscript.steering(id, text, assistantId, messages, metadata)
         reconcileSteeringReceipts()
     }
 
@@ -942,10 +969,13 @@ class ChatSession(
             }
             if (matched != null) streamAssistantIds.entries.filter { it.value == matched.id }.forEach { it.setValue(message.id) }
             val receipts = matched?.parts?.filter { it is ChatPart.Data && it.name == "steering" }.orEmpty()
-            message.copy(parts = message.parts + receipts.filter { receipt ->
-                receipt as ChatPart.Data
-                message.parts.none { it is ChatPart.Data && it.name == "steering" && it.data["id"] == receipt.data["id"] }
-            })
+            var merged = message
+            for (receipt in receipts.filterIsInstance<ChatPart.Data>()) {
+                val id = receipt.data["id"]?.stringValue ?: continue
+                merged = RuntimeTranscript.steering(id, receipt.data["text"]?.stringValue.orEmpty(), merged.id,
+                    listOf(merged), receipt.data["metadata"]).single()
+            }
+            merged
         }
         baseIndex = serverBase
         reconcileSteeringReceipts()
@@ -1246,7 +1276,9 @@ class ChatSession(
             "data-steering" -> {
                 val data = frame["data"]
                 val id = data?.get("id")?.stringValue
-                if (id != null) addSteering(id, data["text"]?.stringValue.orEmpty(), idx?.let { messages.getOrNull(it)?.id })
+                val target = idx?.let { messages.getOrNull(it)?.id }
+                    ?: messages.lastOrNull()?.takeIf { it.role == ChatMessage.Role.Assistant }?.id
+                if (id != null) addSteering(id, data["text"]?.stringValue.orEmpty(), target, data["metadata"])
                 if (red != null && idx != null) messages.getOrNull(idx)?.let { red.message = it }
                 return idx to red
             }
@@ -1429,6 +1461,10 @@ class ChatSession(
 
     /** Revoke local work and unsent copies without cancelling the server run. */
     fun disposeForConsent() {
+        suggestedPrompt = null
+        localSenders.clear()
+        localSenderKey = null
+        currentLocalSender = { null }
         deactivateQueue()
         downloads = emptyList()
         downloadsError = null

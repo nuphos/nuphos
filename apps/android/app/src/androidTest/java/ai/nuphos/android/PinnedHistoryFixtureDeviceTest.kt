@@ -47,6 +47,7 @@ class PinnedHistoryFixtureDeviceTest {
     private var preferences: Map<String, *> = emptyMap<String, Any>()
     @Volatile private var owner = true
     @Volatile private var emptyHistory = false
+    @Volatile private var beyondArchived = true
     @Volatile private var failFavorites = false
     @Volatile private var holdNextA = false
     private val held = CountDownLatch(1)
@@ -91,10 +92,19 @@ class PinnedHistoryFixtureDeviceTest {
                         } else """{"revision":$revision,"entries":$snapshot}"""
                     }
                     path == "/teams/B/favorites" -> """{"revision":1,"entries":[{"key":"agent-session:b","label":"Team B pin"}]}"""
-                    path == "/agent/conversations" -> if (emptyHistory) """{"conversations":[],"hasMore":false}""" else
-                        """{"conversations":[{"sessionId":"normal","teamId":"${req.url.queryParameter("teamId")}","title":"Normal history"}],"hasMore":false}"""
+                    path == "/agent/conversations" -> if (emptyHistory) """{"conversations":[],"hasMore":false}""" else {
+                        // The list excludes archived chats, so a restored chat returns to it.
+                        val restored = if (beyondArchived || req.url.queryParameter("archived") != "exclude") "" else
+                            """,{"sessionId":"beyond","teamId":"${req.url.queryParameter("teamId")}","title":"Restored history row","isOwner":true}"""
+                        """{"conversations":[{"sessionId":"normal","teamId":"${req.url.queryParameter("teamId")}","title":"Normal history"}$restored],"hasMore":false}"""
+                    }
+                    path == "/agent/conversations/beyond/archive" && req.method == "PATCH" -> {
+                        val buffer = okio.Buffer(); req.body!!.writeTo(buffer)
+                        assertEquals(false, JsonValue.parse(buffer.readUtf8())?.get("archived")?.boolValue)
+                        beyondArchived = false; """{"ok":true,"archived":false}"""
+                    }
                     path == "/agent/conversations/beyond" -> Http.json.encodeToString(AgentConversationDetail.serializer(), AgentConversationDetail(
-                        title = "Authorized archived detail", isOwner = owner, archivedAt = Instant.EPOCH,
+                        title = "Authorized archived detail", isOwner = owner, archivedAt = if (beyondArchived) Instant.EPOCH else null,
                         messages = listOf(ChatMessage(id = "saved", parts = listOf(ChatPart.Text(text = "Authorized fixture transcript"))))))
                     path == "/agent/conversations/denied" -> { code = 403; """{"error":{"message":"Fixture access denied"}}""" }
                     else -> { code = 404; "{}" }
@@ -155,20 +165,14 @@ class PinnedHistoryFixtureDeviceTest {
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
 
-    @Test fun pinsOpenBeyondPageWithoutHydrationAndKeepFilterAndArchiveRules() {
+    @Test fun pinsOpenBeyondPageWithoutHydrationAndKeepSearchAndArchiveRules() {
         render()
         assertTrue(requests.none { it.url.encodedPath.startsWith("/agent/conversations/") })
         compose.onAllNodesWithContentDescription("Pinned agent").assertCountEquals(3)
-        for (scope in listOf(ConversationScope.Team, ConversationScope.Mine)) {
-            compose.runOnIdle { store.updateScope(scope) }; compose.waitForIdle()
-            compose.onNodeWithText("Beyond first page").assertExists()
-        }
+        compose.onNodeWithText("Beyond first page").assertExists()
         compose.runOnIdle { store.updateSearch("find") }; compose.waitForIdle()
         compose.onNodeWithText("Pinned").assertDoesNotExist()
         compose.runOnIdle { store.updateSearch("") }; waitText("Beyond first page")
-        compose.runOnIdle { store.updateArchivedOnly(true) }; compose.waitForIdle()
-        compose.onNodeWithText("Pinned").assertDoesNotExist()
-        compose.runOnIdle { store.updateArchivedOnly(false) }; waitText("Beyond first page")
         compose.onNodeWithText("Beyond first page").performClick()
         waitText("Authorized fixture transcript")
         compose.onNodeWithText("Authorized archived detail").assertExists()
@@ -180,6 +184,23 @@ class PinnedHistoryFixtureDeviceTest {
         assertTrue(JsonValue.parse(entries)!!.arrayValue!!.any { it["href"]?.stringValue == "/dashboard" })
         compose.waitUntil(5_000) { store.favorites?.contains("beyond") == false }
         assertFalse(store.favorites!!.contains("beyond"))
+    }
+
+    @Test fun restoringInsideTheChatReturnsItToTheList() {
+        render()
+        compose.onNodeWithText("Restored history row").assertDoesNotExist()
+        compose.onNodeWithText("Beyond first page").performClick()
+        waitText("Authorized fixture transcript")
+        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithText("Restore").performClick()
+        compose.onAllNodesWithText("Restore").onLast().performClick()
+        compose.waitUntil(5_000) { !beyondArchived }
+        try { compose.waitUntil(10_000) { store.conversations.any { it.sessionId == "beyond" } } }
+        catch (e: Throwable) { throw AssertionError("Restored chat did not return; requests=" + requests.map { "${it.method} ${it.url.encodedPath}?${it.url.query}" }, e) }
+        compose.activity.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        waitText("Restored history row")
+        assertEquals(1, requests.count { it.method == "PATCH" })
+        assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all { it.url.queryParameter("archived") == "exclude" && it.url.queryParameter("scope") == "mine" })
     }
 
     @Test fun archivedSharedPinDisplaysArchiveStateWithoutOwnerActions() {

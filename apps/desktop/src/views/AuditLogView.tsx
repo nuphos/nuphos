@@ -203,7 +203,7 @@ export function AuditLogView({
         {selected && (
           <DetailSidebarTransition
             onClose={() => setSelected(null)}
-            className="flex-shrink-0 w-[44%] min-w-[380px] max-w-[680px] flex flex-col bg-zGray-950 min-h-0 overflow-hidden border-l border-zGray-800/60"
+            className="flex-shrink-0 w-[44%] min-w-[300px] max-w-[680px] flex flex-col bg-zGray-950 min-h-0 overflow-hidden border-l border-zGray-800/60"
           >
             {/* Same journal panel the chat uses — single implementation. It is
               read-only here (no onLocateInChat: there is no transcript beside

@@ -1,9 +1,12 @@
 import type { Plan } from './plan-types.ts'
 import type { K8sWatchEvent, K8sWatchKind } from './watch-types.ts'
+import type { WindowSurface } from './window-shell.ts'
 import type { PodExecEvent, SshTerminalEvent } from '../types/aws-compute.ts'
 import type { PortForwardEvent } from '../types/navigation.ts'
 
 export const shellApi = {
+  takeWindowSurface: () => window.api.takeWindowSurface?.() ?? Promise.resolve(null),
+  reportWindowSurface: (surface: WindowSurface) => window.api.reportWindowSurface?.(surface),
   acceptDockTerminal: (id: string) => window.api.acceptDockTerminal(id),
   onDockTerminalRequest: (...args: Parameters<typeof window.api.onDockTerminalRequest>) =>
     window.api.onDockTerminalRequest(...args),

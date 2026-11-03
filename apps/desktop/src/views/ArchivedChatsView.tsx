@@ -10,6 +10,7 @@ import { t } from '../i18n'
 
 import { archivedAtLabel } from './archived-chats/archivedChatsList'
 import { useArchivedChats } from './archived-chats/useArchivedChats'
+import { LoadFailed } from './settings/shared'
 
 type Props = {
   teamId: string
@@ -28,14 +29,30 @@ export function ArchivedChatsView({
   onLoading,
   onOpenConversation,
 }: Props) {
-  const { items, loading, loadingMore, hasMore, search, restoringIds, loadMore, unarchive } =
-    useArchivedChats({ teamId, filter, refreshKey, onLoading })
+  const {
+    items,
+    loading,
+    failed,
+    retry,
+    loadingMore,
+    hasMore,
+    search,
+    restoringIds,
+    loadMore,
+    unarchive,
+  } = useArchivedChats({ teamId, filter, refreshKey, onLoading })
   const { scrollRef, sentinelRef } = useSentinelAutoLoad(hasMore, loadMore)
 
   useEffect(() => {
     onCount?.(items.length)
   }, [items.length, onCount])
 
+  if (!loading && failed && items.length === 0)
+    return (
+      <div className="mx-auto w-full max-w-[820px] px-9 pt-6">
+        <LoadFailed message={t('Couldn’t load archived agents.')} onRetry={retry} />
+      </div>
+    )
   if (!loading && items.length === 0 && !search) {
     return (
       <EmptyState

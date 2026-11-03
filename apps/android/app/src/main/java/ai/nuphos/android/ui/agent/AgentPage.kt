@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Notifications
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.outlined.LinkOff
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -113,10 +115,11 @@ fun AgentPage(
     val authGeneration = auth.generation
     val rowInteractions = remember(store, revision, consentRevision, authGeneration, team?.id) { ConversationRowInteractions() }
     val rowOrder = store.conversations.map { it.sessionId to it.parentSessionId }
-    LaunchedEffect(rowOrder, store.sort, store.search, store.archivedOnly) { rowInteractions.dismiss() }
+    LaunchedEffect(rowOrder, store.search) { rowInteractions.dismiss() }
     LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) rowInteractions.dismiss() }
     var archiveTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
-    if (store.rowActionError != null && archiveTarget == null) AlertDialog(
+    var renameTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
+    if (store.rowActionError != null && archiveTarget == null && renameTarget == null) AlertDialog(
         onDismissRequest = { store.clearRowActionError() }, title = { Text("Action failed") },
         text = { Text(store.rowActionError.orEmpty()) },
         confirmButton = { TextButton(onClick = { store.clearRowActionError(); scope.launch { store.reload(); store.loadFavorites() } }) { Text("Refresh") } },
@@ -126,7 +129,7 @@ fun AgentPage(
         AlertDialog(onDismissRequest = { if (!busy) { archiveTarget = null; store.clearRowActionError() } },
             title = { Text(if (target.isArchived) "Restore agent?" else "Archive agent?") },
             text = { Column {
-                Text(if (target.isArchived) "Move this agent to Active." else "You can restore this agent from Archived.")
+                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Agents list. Open it again to restore it.")
                 store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = !busy, onClick = { scope.launch {
@@ -134,6 +137,22 @@ fun AgentPage(
                 if (store.rowActionError == null) archiveTarget = null
             } }) { Text(if (busy) "Saving…" else if (target.isArchived) "Restore" else "Archive") } },
             dismissButton = { TextButton(enabled = !busy, onClick = { archiveTarget = null; store.clearRowActionError() }) { Text("Cancel") } },
+        )
+    }
+
+    renameTarget?.takeIf { store.canRename(it) }?.let { target ->
+        var title by remember(target.sessionId) { mutableStateOf(target.displayTitle) }
+        val busy = store.rowActionSessionId != null
+        AlertDialog(onDismissRequest = { if (!busy) { renameTarget = null; store.clearRowActionError() } },
+            title = { Text("Rename agent") },
+            text = { Column {
+                OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
+                    enabled = !busy, label = { Text("Title") }, isError = ai.nuphos.android.data.ConversationActions.validTitle(title) == null)
+                store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            } },
+            confirmButton = { TextButton(enabled = !busy && ai.nuphos.android.data.ConversationActions.validTitle(title) != null,
+                onClick = { scope.launch { if (store.rename(target, title)) renameTarget = null } }) { Text(if (busy) "Saving…" else "Save") } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { renameTarget = null; store.clearRowActionError() }) { Text("Cancel") } },
         )
     }
 
@@ -160,13 +179,13 @@ fun AgentPage(
     val pins = store.pinnedShortcuts
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
     val missingPins = pins.any { pin -> store.conversations.none { it.sessionId == pin.sessionId } }
-    val resolvingPins = store.search.isEmpty() && !store.archivedOnly && team != null &&
+    val resolvingPins = store.search.isEmpty() && team != null &&
         ((store.favorites == null && store.favoritesError == null) ||
             (missingPins && (store.favoritesLoading || store.loadingPinnedHistory || store.isLoadingMore || store.isRefreshing)))
     // A new first page can temporarily omit an already displayed pin. Keep the
     // last complete snapshot until hydration settles instead of painting a shortcut.
     // Scope keys prevent displaying another workspace/account/query's old rows.
-    var settledRows by remember(store, account, team?.id, revision, store.search, store.scope, store.sort, store.archivedOnly) {
+    var settledRows by remember(store, account, team?.id, revision, store.search) {
         mutableStateOf<List<AgentConversation>?>(null)
     }
     SideEffect {
@@ -175,7 +194,7 @@ fun AgentPage(
     val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle ||
         (store.phase == AgentStore.Phase.Loaded && resolvingPins && settledRows.isNullOrEmpty()) ||
         (store.phase == AgentStore.Phase.Loaded && store.conversations.isEmpty() && pins.isEmpty() &&
-            store.selectedTeam != null && store.search.isEmpty() && !store.archivedOnly &&
+            store.selectedTeam != null && store.search.isEmpty() &&
             store.favorites == null && store.favoritesError == null)
     val displayedRows = if (resolvingPins) settledRows.orEmpty() else store.conversations
     val tree = remember(displayedRows, pins, foldedIds, account) {
@@ -206,7 +225,7 @@ fun AgentPage(
                 },
             )
         }
-        if (store.search.isEmpty() && !store.archivedOnly) {
+        if (store.search.isEmpty()) {
             store.favoritesError?.let {
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Could not refresh pinned agents.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
@@ -245,12 +264,11 @@ fun AgentPage(
                     ) }
                 }
                 store.conversations.isEmpty() && pins.isEmpty() &&
-                    (store.search.isNotEmpty() || store.archivedOnly || store.selectedTeam == null || store.favorites != null) -> {
+                    (store.search.isNotEmpty() || store.selectedTeam == null || store.favorites != null) -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.ChatBubbleOutline,
-                        title = if (store.search.isNotEmpty()) "No matches" else if (store.archivedOnly) "No archived agents" else "No agents yet",
+                        title = if (store.search.isNotEmpty()) "No matches" else "No agents yet",
                         body = if (store.search.isNotEmpty()) "No agents match your search."
-                            else if (store.archivedOnly) "Idle agents are archived automatically after a week."
                             else if (showComposer) "Start an agent from the bar below."
                             else "Start an agent in the pane beside this list.",
                     ) }
@@ -287,6 +305,7 @@ fun AgentPage(
                                         onPin = { scope.launch { store.pin(row.conversation, store.favorites?.contains(row.conversation.sessionId) != true) } },
                                         pinEnabled = store.canPin(row.conversation),
                                         onArchive = if (store.canArchive(row.conversation)) ({ store.clearRowActionError(); archiveTarget = row.conversation }) else null,
+                                        onRename = if (store.canRename(row.conversation)) ({ store.clearRowActionError(); renameTarget = row.conversation }) else null,
                                         actionBusy = store.rowActionSessionId != null,
                                         onToggle = {
                                             foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
@@ -324,7 +343,7 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 
 /** Cap visual indentation so malformed/deep trees cannot squeeze the title off-screen. */
 @Composable
-internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false) {
+internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null) {
     val depth = row.depth.coerceAtMost(4)
     val line = MaterialTheme.colorScheme.outlineVariant
     Box(Modifier.fillMaxWidth().drawWithContent {
@@ -354,13 +373,14 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, 
     }.padding(start = (depth * 32).dp).semantics {
         stateDescription = "Sub-agent level ${row.depth}"; this.selected = selected
     }) {
-        ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onPin, pinEnabled, onArchive, actionBusy)
+        ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onPin, pinEnabled, onArchive, actionBusy, onRename)
     }
 }
 
 @Composable
-internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false) {
+internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null) {
     val actions = buildList {
+        if (onRename != null) add(ConversationRowAction("rename", "Rename", Icons.Outlined.Edit, !actionBusy, onRename))
         if (onWatch != null) add(ConversationRowAction("watch", if (conversation.watching == true) "Unwatch" else "Watch",
             if (conversation.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, !watchBusy && !actionBusy, onWatch))
         if (onUnlink != null) add(ConversationRowAction("unlink", if (unlinking) "Unlinking…" else "Unlink", Icons.Outlined.LinkOff, !unlinking && !actionBusy, onUnlink))

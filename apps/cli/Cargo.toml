@@ -1,6 +1,6 @@
 [package]
 name = "nuphos-cli"
-version = "0.9.0"
+version = "0.10.0"
 edition = "2021"
 rust-version = "1.82"
 license = "Apache-2.0"
@@ -30,6 +30,16 @@ unicode-width = "0.2"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
 
-# The session token lives in the login keychain, where the desktop app reads it too.
+# The session token lives in the OS credential store, where the desktop app reads it too:
+# the login keychain on macOS, Credential Manager on Windows, the Secret Service on Linux.
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring-core = "1"
+windows-native-keyring-store = "1"
+
+# Pure Rust D-Bus, so the static musl build needs no libdbus.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring-core = "1"
+zbus-secret-service-keyring-store = { version = "1", features = ["rt-async-io-crypto-rust"] }

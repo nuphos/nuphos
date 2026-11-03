@@ -10,7 +10,6 @@ import {
 } from '../artifacts/useSessionArtifacts'
 
 import { conversationActivity } from './activity'
-import { AgentSetupRequiredCard } from './AgentSetupRequiredCard'
 import { AssistantMessage } from './AssistantMessage'
 import { toolAnchorIds } from './chatTarget'
 import { DecisionAnswersContext, decisionAnswers } from './decisionAnswers'
@@ -18,6 +17,7 @@ import { AgentHomeAnimation } from './homeAnimation'
 import { CollapsedWorkView, LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
 import { DEFERRED_MESSAGE_STYLE } from './status'
+import { TabSignInCard } from './TabSignInCard'
 import { MovingSessionLine, TimelineEventLine } from './TimelineEventLine'
 import { placeTimelineEvents } from './timelineEvents'
 import { UserMessage } from './UserMessage'
@@ -250,7 +250,7 @@ function MessageList({
         />
       ))}
       {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
-      {statusLabel && (
+      {statusLabel && !tab.agentSetupRequired && (
         <div className="text-[13.5px] flex items-center gap-2">
           {sendingFeedback ? (
             <span role="status" className="text-tertiary">
@@ -263,15 +263,13 @@ function MessageList({
           )}
         </div>
       )}
-      {tab.agentSetupRequired && (
-        <AgentSetupRequiredCard
-          runtimeId={tab.runtimeId}
-          message={tab.agentSetupRequired.message}
-          reason={tab.agentSetupRequired.reason}
-          isTeamAdmin={isTeamAdmin}
-          onOpenAgentSettings={onOpenAgentSettings}
-        />
-      )}
+      <TabSignInCard
+        tab={tab}
+        teamId={teamId}
+        statusLabel={statusLabel}
+        isTeamAdmin={isTeamAdmin}
+        onOpenAgentSettings={onOpenAgentSettings}
+      />
       {tab.error && (
         <div className="text-[13px] text-error bg-error/10 border border-error/20 rounded-md px-3 py-2">
           {tab.error}

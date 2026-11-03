@@ -98,6 +98,8 @@ export type PreviewSessionAccessOptions = {
   backendUrl?: string
   /** The actor sent this turn's message; otherwise the turn acts as the session owner. */
   humanTurn?: boolean
+  /** From `nuphosToolsVersion`; a change makes the runtime respawn an idle agent. */
+  toolsVersion?: string
 }
 
 export function previewSessionAccess(
@@ -124,7 +126,14 @@ export function previewSessionAccess(
   return {
     mcpServers: [
       { name: 'nuphos-credentials', type: 'http', url: `${mount}/mcp`, headers },
-      { name: 'nuphos-tools', type: 'http', url: `${mount}/mcp-tools`, headers },
+      {
+        name: 'nuphos-tools',
+        type: 'http',
+        url: options?.toolsVersion
+          ? `${mount}/mcp-tools?tools=${options.toolsVersion}`
+          : `${mount}/mcp-tools`,
+        headers,
+      },
     ],
     runtimeEnv: previewSessionEnv({
       base,

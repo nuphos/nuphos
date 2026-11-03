@@ -14,6 +14,7 @@ export function connectLocalStream(
     exec: deps.connectExec,
     cua: deps.connectCua,
     browser: deps.connectBrowser,
+    browserView: deps.connectBrowserView,
     vnc: deps.connectVnc,
   }
 

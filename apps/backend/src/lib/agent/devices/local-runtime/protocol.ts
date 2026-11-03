@@ -11,6 +11,7 @@ export type TunnelPurpose =
   | 'terminal'
   | 'cua'
   | 'browser'
+  | 'browserView'
   | 'vnc'
   | 'instances'
 
@@ -142,6 +143,8 @@ export const localRuntimeStatusSchema = z.object({
   localCua: z.boolean().optional(),
   /** This computer's Desktop drives its workspace browser tabs for `local_browser`. */
   localBrowser: z.boolean().optional(),
+  /** This computer's Desktop streams a dock browser tab to its owner's phone. */
+  localBrowserView: z.boolean().optional(),
   /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */

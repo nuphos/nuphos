@@ -1,8 +1,9 @@
 import clsx from 'clsx'
 import { TriangleAlert } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { adminName } from '../../components/agent/panel/agentSignInModel'
 import { Avatar } from '../../components/Avatar'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
@@ -10,6 +11,7 @@ import { Checkbox } from '../../components/ui/checkbox'
 import { AppSelect } from '../../components/ui/select'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { t } from '../../i18n'
 import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
 
@@ -19,16 +21,65 @@ import {
   SHARE_LEVEL_DESCRIPTION,
   SHARE_LEVEL_LABEL,
   SHARE_RISK,
+  sharingOffText,
 } from './localAgentSharingPresentation'
 
 import type { LocalAgentShareState, LocalShareLevel } from '../../api/device-types'
 
-/** Who in this team may run their own agents on this computer, and whether the owner approves each. */
+/** Who in this team may run their own agents on the viewer's own computer, wherever the viewer is. */
 export function LocalAgentShareDialog({
+  teamId,
+  device,
+  onClose,
+  onSaved,
+}: {
+  teamId: string
+  device: { deviceId: string; label: string }
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [state, setState] = useState<LocalAgentShareState | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    const live = { current: true }
+
+    api
+      .localShareGet(device.deviceId, teamId)
+      .then((next) => live.current && setState(next))
+      .catch((error: unknown) => {
+        if (!live.current) return
+        toast.apiError(t('Couldn’t load sharing for {device}.', { device: device.label }), error)
+        setFailed(true)
+      })
+
+    return () => {
+      live.current = false
+    }
+  }, [device.deviceId, device.label, teamId])
+
+  useEffect(() => {
+    if (failed) onClose()
+  }, [failed, onClose])
+
+  return (
+    state && (
+      <ShareForm
+        teamId={teamId}
+        deviceId={device.deviceId}
+        deviceLabel={device.label}
+        state={state}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    )
+  )
+}
+
+function ShareForm({
   teamId,
   deviceId,
   deviceLabel,
-  currentUserId,
   state,
   onClose,
   onSaved,
@@ -36,11 +87,11 @@ export function LocalAgentShareDialog({
   teamId: string
   deviceId: string
   deviceLabel: string
-  currentUserId: string
   state: LocalAgentShareState
   onClose: () => void
-  onSaved: (next: LocalAgentShareState) => void
+  onSaved: () => void
 }) {
+  const currentUserId = useCurrentUser()?.id
   const members = useTeamMembers(teamId).filter((member) => member.id !== currentUserId)
   // A level the ceiling has since lowered opens at the ceiling, which is what applies.
   const [level, setLevel] = useState<LocalShareLevel>(
@@ -60,7 +111,8 @@ export function LocalAgentShareDialog({
   const save = async () => {
     setSaving(true)
     try {
-      onSaved(await api.localShareSet(deviceId, teamId, { level, everyone, userIds: [...chosen] }))
+      await api.localShareSet(deviceId, teamId, { level, everyone, userIds: [...chosen] })
+      onSaved()
       onClose()
     } catch (error) {
       toast.apiError(t('Could not change who can use this computer'), error)
@@ -105,7 +157,7 @@ export function LocalAgentShareDialog({
           {state.ceiling !== 'full' && (
             <p className="text-[12px] text-tertiary">
               {state.ceiling === 'off'
-                ? t('Your team’s administrators have turned off sharing your own computer.')
+                ? sharingOffText(adminName(members))
                 : t(
                     'Your team’s administrators allow sharing only with your approval of each agent.',
                   )}

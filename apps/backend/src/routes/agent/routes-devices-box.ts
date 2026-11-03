@@ -3,17 +3,21 @@ import { z } from 'zod'
 
 import {
   deviceAccess,
+  deviceOwner,
   listAccessibleDevices,
+  losingUse,
   memberAccess,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
 import { boxUpdatingSince } from '@/lib/agent/devices/box-updating'
+import { teamUse } from '@/lib/agent/devices/device-grants'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 
 import { readTeamIdCandidate } from './team-scope'
 
 import type { AgentDeviceRouteDependencies } from './routes-devices'
+import type { DeviceAccessLevel } from '@/lib/agent/devices/box-access'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
 
@@ -49,7 +53,7 @@ async function deviceView(
   deps: AgentDeviceRouteDependencies,
   device: AgentDevice,
   /** What the viewer may do with it; a manager also sees who may use it. */
-  level: 'use' | 'manage',
+  level: DeviceAccessLevel,
   /** Right after a pause the frozen tunnel still looks alive; the caller knows better. */
   online?: boolean,
 ) {
@@ -71,16 +75,17 @@ async function deviceView(
     allowLocalExec: device.allowLocalExec,
     online,
     access: level,
+    ownerUserId: deviceOwner(device),
     createdAt: device.createdAt.toISOString(),
     // The IP is personal data: only for those who manage the machine.
-    ...(level === 'manage' && device.lastSeenAt
+    ...(level !== 'use' && device.lastSeenAt
       ? { lastSeenAt: device.lastSeenAt.toISOString(), lastSeen: device.lastSeen ?? null }
       : {}),
     ...(device.box && state
       ? {
           box: {
             provider: device.box.provider,
-            ...(level === 'manage' && device.box.access ? { access: device.box.access } : {}),
+            ...(level !== 'use' ? { access: teamUse(device, device.box.teamId) } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             state,
             // Its host restarting for an update: offline on purpose, and back on its own.
@@ -125,7 +130,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
             const view = await deviceView(
               deps,
               device,
-              deviceAccess(device, userId, teamId, role) ?? 'use',
+              deviceAccess(device, userId, teamId) ?? 'use',
             )
 
             return view
@@ -241,7 +246,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
   })
 
   // Deletes the machine, revokes its credential and forgets the device.
-  // Who may use a Box: team administrators only. Whoever loses access has their open
+  // Who may use a Box: its owner and managers decide. Whoever loses access has their open
   // terminal, CUA and chat streams on it closed; a one-shot exec already sent finishes.
   routes.put(
     '/devices/:deviceId/box/access',
@@ -256,17 +261,15 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
         'manage',
         deps.access,
       )
-      const members = await deps.teamMembers(device.box?.teamId ?? '')
+      const boxTeam = device.box?.teamId ?? ''
+      const members = await deps.teamMembers(boxTeam)
       const access = memberAccess(members, c.req.valid('json'))
 
-      if (!(await deps.setBoxAccess(device.userId, device.deviceId, access)))
+      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
-      const lost = members
-        .filter((member) => member.role !== 'ADMINISTRATOR')
-        .filter((member) => !access.everyone && !access.userIds.includes(member.id))
-        .map((member) => member.id)
+      const memberIds = members.map((member) => member.id)
 
-      await deps.revokeStreams([device], lost)
+      await deps.revokeStreams([device], losingUse(memberIds, device, boxTeam, access))
 
       return c.json({ access })
     },
@@ -278,7 +281,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       c.get('userId'),
       readTeamIdCandidate(c),
       deviceId,
-      'manage',
+      'owner',
       deps.access,
     )
 

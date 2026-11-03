@@ -74,11 +74,14 @@ export function LimitCallout({
   isAdmin,
   usage,
   message,
+  admin,
 }: {
   billing: OpenBilling
   isAdmin: boolean
   usage: BoxUsage
   message: string
+  /** Who a member asks to upgrade; null until known. */
+  admin: string | null
 }) {
   const next = BOX_PLANS.find(({ vcpus }) => vcpus > (usage.limitVcpus ?? 0))
 
@@ -111,9 +114,17 @@ export function LimitCallout({
           </div>
         ) : (
           <p className="text-[12px] text-tertiary">
-            {t('Pause one of your computers, or ask a team administrator to upgrade to {plan}.', {
-              plan: next.name,
-            })}
+            {admin
+              ? t('Pause one of your computers, or ask {name} to upgrade to {plan}.', {
+                  name: admin,
+                  plan: next.name,
+                })
+              : t(
+                  'Pause one of your computers, or ask a team administrator to upgrade to {plan}.',
+                  {
+                    plan: next.name,
+                  },
+                )}
           </p>
         ))}
     </section>

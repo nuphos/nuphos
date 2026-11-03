@@ -54,6 +54,7 @@ export type WindowMonitoringApi = {
     teamId: string
     sessionId?: string
     groupId: string
+    channelId?: string
   }): Promise<FileTransferGroup>
   fileTransferListDownloads(args: {
     teamId: string
@@ -70,12 +71,14 @@ export type WindowMonitoringApi = {
     groupId: string
     fileId: string
     fileName: string
+    channelId?: string
   }): Promise<{ saved: boolean; path?: string }>
   fileTransferDownloadAllZip(args: {
     teamId: string
     sessionId?: string
     groupId: string
     zipName: string
+    channelId?: string
   }): Promise<{ saved: boolean; path?: string; count?: number; skipped?: number }>
   atlasDeleteBetterStackMonitor(
     teamId: string,

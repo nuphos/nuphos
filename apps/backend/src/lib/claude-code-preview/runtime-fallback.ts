@@ -1,5 +1,8 @@
+import { randomUUID } from 'node:crypto'
+
 import { ObjectId } from 'mongodb'
 
+import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { AppError } from '@/lib/errors'
@@ -231,11 +234,43 @@ export async function fallBackAfterFailure(
     }
 
     await agentConversations().updateOne({ sessionId }, { $set: { runtimeFallback } })
-    await fallBack({ ...conversation, runtimeFallback }, list, 'failure', {
+    const moved = await fallBack({ ...conversation, runtimeFallback }, list, 'failure', {
       actorId,
       claimed: true,
     })
+
+    // The owner's interrupted turn goes on by itself on the agent it moved to. It runs as
+    // the owner, so a teammate's failed turn is left for them to send again.
+    if (moved && actorId === conversation.userId) continueOn(conversation, moved)
   } catch (fallbackError) {
     logError('agent.runtime_fallback.error', fallbackError, { session_id: sessionId })
   }
+}
+
+/** Queues the next turn behind the failed run, which still holds the session. */
+function continueOn(conversation: Conversation, moved: AgentConversation): void {
+  const { userId, teamId, sessionId } = conversation
+
+  startConversationTurn(
+    {
+      userId,
+      teamId,
+      targetSessionId: sessionId,
+      messageId: randomUUID(),
+      locale: conversation.metadata?.locale ?? 'en-US',
+    },
+    moved,
+    'The agent this conversation ran on stopped before finishing, so it moved to you. Check what was already done, then continue the task from where it stopped.',
+    'agent.resource',
+    {
+      version: 1,
+      sender: { type: 'system', id: 'nuphos', displayName: 'Nuphos' },
+      source: 'agent.resource',
+      sentAt: new Date().toISOString(),
+    },
+  )
+    .then(({ run }) => run)
+    .catch((error: unknown) => {
+      logError('agent.runtime_fallback.continue_failed', error, { session_id: sessionId })
+    })
 }

@@ -138,6 +138,9 @@ export type ShareTrustDuration = '8h' | 'always'
 /** A teammate the owner trusts on their computer; `expiresAt` null until taken back. */
 export type LocalShareTrust = { actorId: string; expiresAt: string | null }
 
+/** Who was asked to sign an agent in, or reminded to approve; a repeat notifies nobody. */
+export type SignInAsk = { askedName: string; notified: boolean }
+
 export type LocalShareApproval = {
   id: string
   deviceId: string
@@ -187,8 +190,10 @@ export type AgentDevice = {
   createdAt?: string
   allowLocalExec?: boolean
   online?: boolean
-  /** What the viewer may do: 'use' runs its agents; 'manage' also changes or deletes it. */
-  access?: 'use' | 'manage'
+  /** What the viewer may do: 'use' runs its agents; 'manage' also changes it; 'owner' also removes it. */
+  access?: 'use' | 'manage' | 'owner'
+  /** Who owns it: whoever added a person's computer or created a cloud computer. */
+  ownerUserId?: string
   /** For managers: when and from where the host last reported in. */
   lastSeenAt?: string
   lastSeen?: { ip: string; city?: string; country?: string } | null

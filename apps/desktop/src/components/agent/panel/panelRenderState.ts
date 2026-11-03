@@ -1,8 +1,8 @@
-import { dataTransferHasFiles } from './attachmentDrag'
 import { allCredentialAccess, credentialOptionsLoaded } from './credentialAccess'
 import { unseenCredentials } from './credentialFreshness'
 import { HOME_TAB_ID } from './model'
 import { homeVisible } from './panelVisibility'
+import { fileDropHandlers } from './fileDrop'
 
 import type { CredentialSelectorControl } from './credentialSections'
 import type { PanelCtx, PanelRenderState } from './ctx'
@@ -66,33 +66,16 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
   // Drop routes to the composer of whichever page is visible.
   const activeDropTarget = () =>
     showingConversationPage ? conversationDropRef.current : homeDropRef.current
-  const onPanelDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!dataTransferHasFiles(e.dataTransfer)) return
-    // Always preventDefault on a file drag so it never falls through to
-    // Electron's default file-open/navigation, even when no composer is
-    // registered (read-only / opening states).
-    e.preventDefault()
-    if (!activeDropTarget()) return
-    dragDepthRef.current += 1
-    setDraggingFiles(true)
-  }
-  const onPanelDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!dataTransferHasFiles(e.dataTransfer)) return
-    e.preventDefault() // block the browser default + let the drop event fire
-    e.dataTransfer.dropEffect = activeDropTarget() ? 'copy' : 'none'
-  }
-  const onPanelDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!dataTransferHasFiles(e.dataTransfer)) return
-    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
-    if (dragDepthRef.current === 0) setDraggingFiles(false)
-  }
-  const onPanelDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!dataTransferHasFiles(e.dataTransfer)) return
-    e.preventDefault() // block the default file-open even if we can't attach
-    dragDepthRef.current = 0
-    setDraggingFiles(false)
-    activeDropTarget()?.(e.dataTransfer)
-  }
+  const {
+    onDragEnter: onPanelDragEnter,
+    onDragOver: onPanelDragOver,
+    onDragLeave: onPanelDragLeave,
+    onDrop: onPanelDrop,
+  } = fileDropHandlers({
+    target: activeDropTarget,
+    depth: dragDepthRef,
+    setDragging: setDraggingFiles,
+  })
   const credentialSelectorControl: CredentialSelectorControl | undefined = teamId
     ? {
         options: credentialOptions,

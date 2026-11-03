@@ -12,9 +12,11 @@ import { t } from '../i18n'
 import { openInputRequests } from '../lib/agentInputRequests'
 import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
+import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCards } from './inbox/DecisionCards'
 import { nextSelection, replyTarget } from './inbox/inboxItems'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
+import { useChannelMentions } from './inbox/useChannelMentions'
 import { publishInboxListing } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
@@ -38,8 +40,8 @@ type Props = {
 }
 
 /**
- * Teammates asking to use the viewer's own computer, above every conversation
- * waiting on the viewer. The reader shows that conversation's open questions as
+ * Teammates asking to use the viewer's own computer and channel @mentions,
+ * above every conversation waiting on the viewer. The reader shows that conversation's open questions as
  * cards: a choice answers its own question, and the composer below answers the
  * selected one. The transcript stays hidden until asked for; only delivery or
  * dismissal clears a question.
@@ -76,6 +78,7 @@ export function InboxView({
     setSelected(null)
   }
   const shareApprovals = useShareApprovals(teamId)
+  const mentions = useChannelMentions(teamId)
   const railRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
 
@@ -129,7 +132,7 @@ export function InboxView({
       if (!open || list.some((item) => item.sessionId === open.sessionId)) return settle(false)
       // Not listed is not proof it was answered (a longer list can push it out): ask its own record.
       void api.agentGetConversation(open.sessionId, teamId, { tail: 1, runtimeState: 'omit' }).then(
-        (detail) => settle(Boolean(detail.pendingDecision)),
+        (detail) => settle(Boolean(detail.pendingDecision ?? detail.signInRequest)),
         () => settle(true),
       )
     },
@@ -191,11 +194,12 @@ export function InboxView({
         },
       })
   }
-  const caughtUp = empty && shareApprovals.approvals.length === 0
+  const caughtUp = empty && shareApprovals.approvals.length === 0 && mentions.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ShareApprovalRequests teamId={teamId} {...shareApprovals} />
+      <ChannelMentions mentions={mentions} onOpen={onOpenConversation} />
       <div ref={ref} className="flex min-h-0 flex-1">
         {caughtUp && (
           <EmptyState

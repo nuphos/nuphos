@@ -46,10 +46,13 @@ test('an owner-side read-only view still loads', () => {
   assert.equal(shouldLoadTransferDownloads(tab({ readOnly: true })), true)
 })
 
-test('skips an executing turn, a transcript without replies, and no tab', () => {
+test('loads a conversation opened mid-turn, whose earlier turns sent files', () => {
   const executing = { state: 'active', observedAt: performance.now() } as Tab['runtimeState']
 
-  assert.equal(shouldLoadTransferDownloads(tab({ runtimeState: executing })), false)
+  assert.equal(shouldLoadTransferDownloads(tab({ runtimeState: executing })), true)
+})
+
+test('skips a transcript without replies, and no tab', () => {
   assert.equal(shouldLoadTransferDownloads(tab({ messages: [] })), false)
   assert.equal(shouldLoadTransferDownloads(undefined), false)
 })

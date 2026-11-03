@@ -1,11 +1,12 @@
 import { agentApi } from './api/agent-api.ts'
 import { appApi } from './api/app-api.ts'
+import { channelsApi } from './api/channels-api.ts'
 import { awsApi } from './api/aws-api.ts'
 import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
 import { databaseApi } from './api/database-api.ts'
 import { deviceApi } from './api/device-api.ts'
-import { apiErrorPhase, parseAtlasError } from './api/errors.ts'
+import { isNetworkError, isSessionRejected, parseAtlasError } from './api/errors.ts'
 import { gcpClustersApi } from './api/gcp-clusters-api.ts'
 import { gitApi } from './api/git-api.ts'
 import { instructionsApi } from './api/instructions-api.ts'
@@ -22,6 +23,7 @@ import { instrumentApi } from './lib/instrumentApi.ts'
 
 import type { WindowAgentApi } from './api/window-agent.ts'
 import type { WindowAppApi } from './api/window-app.ts'
+import type { WindowChannelsApi } from './api/window-channels.ts'
 import type { WindowAwsApi } from './api/window-aws.ts'
 import type { WindowCloudflarePagesApi } from './api/window-cloudflare-pages.ts'
 import type { WindowCloudflareApi } from './api/window-cloudflare.ts'
@@ -67,6 +69,7 @@ declare global {
       WindowPosthogApi &
       WindowPlaudApi &
       WindowSessionAccessApi &
+      WindowChannelsApi &
       WindowAwsApi &
       WindowGcpClustersApi &
       WindowGitApi &
@@ -93,20 +96,41 @@ const rawApi = {
   ...gcpClustersApi,
   ...gitApi,
   ...agentApi,
+  ...channelsApi,
   ...shellApi,
   ...instructionsApi,
   ...deviceApi,
 }
 
+let sessionRejected: (() => void) | null = null
+
+/** Called once when any API call reports that the stored session is no longer
+ * accepted (expired or revoked). The app signs out; no retry can succeed. */
+export function onSessionRejected(handler: (() => void) | null): void {
+  sessionRejected = handler
+}
+
 export const api = instrumentApi(
   rawApi,
   (operation, error) => {
+    // Offline, asleep, or backend unreachable: the user's connectivity, not an
+    // app defect. Every poll would report it again, so it never reaches Error
+    // Tracking; backend availability is watched server-side.
+    if (isNetworkError(error)) return
+    if (isSessionRejected(error)) {
+      const handler = sessionRejected
+
+      sessionRejected = null
+      handler?.()
+
+      return
+    }
     const parsed = parseAtlasError(error)
 
     reportFrontendError(
       {
         source: 'api',
-        phase: apiErrorPhase(operation, error),
+        phase: operation,
         message: parsed.message,
         errorCode: parsed.code ?? null,
         apiOperation: operation,
@@ -116,11 +140,14 @@ export const api = instrumentApi(
   },
   {
     stallAfterMs: 30_000,
-    observeStall: (operation, elapsedMs) => {
+    observeStall: (operation, elapsedMs, error) => {
+      // A call that ends offline is the user's connectivity, like the failure
+      // itself; sign-in waits on the user in the browser, so its time is not ours.
+      if (operation === 'authLogin' || isNetworkError(error)) return
       reportFrontendError({
         source: 'api',
         phase: `${operation}_stalled`,
-        message: `${operation} did not settle after ${String(elapsedMs / 1000)} seconds.`,
+        message: `${operation} took ${String(Math.round(elapsedMs / 1000))} seconds to settle.`,
         apiOperation: operation,
         elapsedMs,
       })

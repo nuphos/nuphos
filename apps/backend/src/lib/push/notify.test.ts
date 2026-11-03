@@ -478,3 +478,42 @@ test('placeholder text never suppresses a real permission approval', async () =>
     aps: { alert: { body: 'Waiting for your approval: Terminal' } },
   })
 })
+
+describe('nudge', () => {
+  const push = {
+    sessionId: 'session-9',
+    teamId: 'team-1',
+    title: 'Sign-in requested',
+    body: 'Shant asked you',
+  }
+
+  test('someone who can read the conversation gets a push that opens it', async () => {
+    await notifier().nudge('user-1', push)
+
+    expect(sent).toHaveLength(2)
+    expect(sent[0]?.payload).toMatchObject({
+      sessionId: 'session-9',
+      teamId: 'team-1',
+      aps: { alert: { title: 'Sign-in requested', body: 'Shant asked you' }, badge: 3 },
+    })
+  })
+
+  test('someone who cannot read it is still asked, without a link into it', async () => {
+    lostAccess = ['user-1']
+    await notifier().nudge('user-1', push)
+
+    expect(sent).toHaveLength(2)
+    expect(sent[0]?.payload).not.toHaveProperty('sessionId')
+    expect(sent[0]?.payload).toMatchObject({ teamId: 'team-1' })
+    expect(sent[0]?.collapseId).toBe('nudge:user-1')
+  })
+
+  test('a repeat inside the coalescing window sends nothing', async () => {
+    const n = notifier()
+
+    await n.nudge('user-1', push)
+    await n.nudge('user-1', push)
+
+    expect(sent).toHaveLength(2)
+  })
+})

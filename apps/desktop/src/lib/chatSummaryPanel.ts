@@ -1,10 +1,11 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 
 import type { ChangeStatus } from '../components/sidebar/sessionResourcePresentation'
 
 // One value per window: each Electron window has its own sessionStorage,
 // which also survives a reload of that window.
 const OPEN_KEY = 'nuphos.chatSummaryOpen'
+
 const listeners = new Set<() => void>()
 
 function read(key: string): string | null {
@@ -24,7 +25,20 @@ function write(key: string, value: string) {
 }
 
 const inWindow = typeof window !== 'undefined'
-let open = inWindow && read(OPEN_KEY) === '1'
+
+/** The id the first pane starts with: its open state is the one restored after a reload. */
+export const PRIMARY_PANE_ID = 'primary'
+
+// The pane whose open state survives a reload; it follows the workspace's `primary` flag.
+let persistedPaneId = PRIMARY_PANE_ID
+
+// Panes whose summary panel is open. A newly split pane is not in it, so it starts closed.
+const openPanes = new Set<string>(inWindow && read(OPEN_KEY) === '1' ? [PRIMARY_PANE_ID] : [])
+// The chat each pane is showing, so a badge can open the panel only where its chat is.
+const paneSessions = new Map<string, string>()
+// An open asked for a chat no pane shows yet ("before switching to that chat").
+let pendingOpenFor: string | null = null
+let pendingOpenAt = 0
 
 /** A list the panel can be opened on. */
 type RevealSection = 'changes' | 'subAgents'
@@ -46,16 +60,66 @@ function notify() {
   for (const listener of listeners) listener()
 }
 
-export function setChatSummaryOpen(next: boolean): void {
-  open = next
-  // Closing drops a reveal the panel never made, so a later open stays put.
-  if (!next) revealFor = null
-  write(OPEN_KEY, next ? '1' : '0')
+export function setChatSummaryOpen(paneId: string, next: boolean): void {
+  if (next) {
+    openPanes.add(paneId)
+  } else {
+    openPanes.delete(paneId)
+    // Closing drops a reveal this pane never made, so a later open stays put.
+    if (revealFor !== null && paneSessions.get(paneId) === revealFor) revealFor = null
+  }
+  if (paneId === persistedPaneId) write(OPEN_KEY, next ? '1' : '0')
   notify()
 }
 
-export function toggleChatSummary(): void {
-  setChatSummaryOpen(!open)
+export function toggleChatSummary(paneId: string): void {
+  setChatSummaryOpen(paneId, !openPanes.has(paneId))
+}
+
+/** Whether the pane's summary panel is open, for code outside React. */
+export function isChatSummaryOpen(paneId: string): boolean {
+  return openPanes.has(paneId)
+}
+
+/** Records which chat a pane shows; a pending badge open for that chat lands here. */
+export function setPaneSession(paneId: string, sessionId: string | null, now = Date.now()): void {
+  if (sessionId === null) {
+    paneSessions.delete(paneId)
+
+    return
+  }
+  paneSessions.set(paneId, sessionId)
+  if (pendingOpenFor === sessionId && now - pendingOpenAt <= REVEAL_LIFETIME_MS) {
+    pendingOpenFor = null
+    setChatSummaryOpen(paneId, true)
+  }
+}
+
+/** Records which chat a pane shows; `primary` marks the pane that owns persistence. */
+export function useRegisterPaneSession(
+  paneId: string,
+  sessionId: string | null,
+  primary = false,
+): void {
+  useEffect(() => {
+    if (!primary) return
+    persistedPaneId = paneId
+    write(OPEN_KEY, openPanes.has(paneId) ? '1' : '0')
+  }, [paneId, primary])
+
+  useEffect(() => {
+    setPaneSession(paneId, sessionId)
+
+    return () => setPaneSession(paneId, null)
+  }, [paneId, sessionId])
+
+  // A closed pane leaves no open state behind; the persisted pane keeps its own.
+  useEffect(
+    () => () => {
+      if (paneId !== persistedPaneId) openPanes.delete(paneId)
+    },
+    [paneId],
+  )
 }
 
 /** Which pull requests and issues the panel's Changes list shows. */
@@ -104,7 +168,20 @@ function requestReveal(section: RevealSection, sessionId: string) {
   revealFor = sessionId
   revealTarget = section
   revealAt = Date.now()
-  setChatSummaryOpen(true)
+  pendingOpenFor = null
+
+  let shown = false
+
+  for (const [paneId, id] of paneSessions) {
+    if (id !== sessionId) continue
+    shown = true
+    setChatSummaryOpen(paneId, true)
+  }
+  if (!shown) {
+    pendingOpenFor = sessionId
+    pendingOpenAt = revealAt
+  }
+  notify() // the request counter changed even if no pane opened
 }
 
 function takeReveal(section: RevealSection, sessionId: string, now: number): boolean {
@@ -157,10 +234,10 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener)
 }
 
-export function useChatSummaryOpen(): boolean {
+export function useChatSummaryOpen(paneId: string): boolean {
   return useSyncExternalStore(
     subscribe,
-    () => open,
+    () => openPanes.has(paneId),
     () => false,
   )
 }

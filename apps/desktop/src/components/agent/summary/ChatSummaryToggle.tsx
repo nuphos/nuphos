@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 
+import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
 import { t } from '../../../i18n'
+import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import {
   toggleChatSummary,
   isChatSummaryShortcut,
@@ -9,6 +11,7 @@ import {
 import { isMac } from '../../../lib/platform'
 import { Kbd } from '../../ui/kbd'
 import { Tooltip } from '../../ui/tooltip'
+import { shellsFromRuntimeState } from '../panel/shells'
 
 export function SummaryIcon() {
   return (
@@ -28,47 +31,64 @@ export function SummaryIcon() {
   )
 }
 
+/** An open question outranks running background work; neither leaves the plain label. */
+function tooltipLabel(pendingCount: number, background: string | null): string {
+  if (pendingCount === 1) return t('1 question needs your input')
+  if (pendingCount) return t('{count} questions need your input', { count: pendingCount })
+
+  return background ?? t('Toggle agent summary')
+}
+
 /**
- * Titlebar button for the chat summary panel. The open state is the window's,
- * so only the focused pane answers ⌘I. A narrow pane hides the button (the ⋯
- * menu offers it instead) but keeps the shortcut.
+ * Titlebar button for the chat summary panel. The open state belongs to this
+ * pane, so toggling it leaves other split panes alone, and only the focused
+ * pane answers ⌘I. A narrow pane hides the button (the ⋯ menu offers it
+ * instead) but keeps the shortcut.
  */
 export function ChatSummaryToggle({
   active,
   hidden = false,
   pendingCount = 0,
+  sessionId,
 }: {
   active: boolean
   hidden?: boolean
   pendingCount?: number
+  /** Its background tasks earn a dot in the sidebar row's background color. */
+  sessionId?: string
 }) {
-  const open = useChatSummaryOpen()
+  const paneId = usePaneId()
+  const open = useChatSummaryOpen(paneId)
+  const runtimeStates = useAgentRuntimeStates()
+  const backgroundCount = sessionId
+    ? shellsFromRuntimeState(runtimeStates.get(sessionId)).length
+    : 0
 
   useEffect(() => {
     if (!active) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || !isChatSummaryShortcut(event, isMac)) return
       event.preventDefault()
-      toggleChatSummary()
+      toggleChatSummary(paneId)
     }
 
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [active])
+  }, [active, paneId])
 
   if (hidden) return null
+  const background =
+    backgroundCount === 1
+      ? t('1 background task running')
+      : t('{count} background tasks running', { count: backgroundCount })
 
   return (
     <Tooltip
       side="bottom"
       content={
         <span className="flex items-center gap-2">
-          {pendingCount === 1
-            ? t('1 question needs your input')
-            : pendingCount
-              ? t('{count} questions need your input', { count: pendingCount })
-              : t('Toggle agent summary')}
+          {tooltipLabel(pendingCount, backgroundCount > 0 ? background : null)}
           <Kbd combo="mod+i" />
         </span>
       }
@@ -77,7 +97,7 @@ export function ChatSummaryToggle({
         type="button"
         aria-label={t('Toggle agent summary')}
         aria-pressed={open}
-        onClick={toggleChatSummary}
+        onClick={() => toggleChatSummary(paneId)}
         className="titlebar-no-drag relative ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main aria-pressed:bg-zGray-800/60 aria-pressed:text-main motion-reduce:transition-none"
       >
         <SummaryIcon />
@@ -92,6 +112,13 @@ export function ChatSummaryToggle({
           >
             {pendingCount > 99 ? '99+' : pendingCount}
           </span>
+        )}
+        {pendingCount === 0 && backgroundCount > 0 && (
+          <span
+            role="img"
+            aria-label={background}
+            className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning"
+          />
         )}
       </button>
     </Tooltip>

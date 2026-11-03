@@ -95,6 +95,7 @@ async function executeWithRetry(run: Run): Promise<void> {
       const runtime = await selectPanelRuntime({
         teamId: run.snapshot.teamId.toHexString(),
         panelId: run.panel._id.toHexString(),
+        userId: run.userId,
       })
 
       if (!(await holdLease(run))) return

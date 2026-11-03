@@ -52,6 +52,7 @@ export async function upsertConversationShell(data: {
   runtimeId?: string
   runtimeLabel?: string
   parentSessionId?: string
+  kind?: 'channel'
 }): Promise<{ isNew: boolean }> {
   const now = new Date()
   const generalAccess = initialGeneralAccess(data.source)
@@ -74,6 +75,7 @@ export async function upsertConversationShell(data: {
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
     ...(data.parentSessionId ? { parentSessionId: data.parentSessionId } : {}),
+    ...(data.kind ? { kind: data.kind } : {}),
     metadata: {
       locale: data.locale,
       provider: data.provider,

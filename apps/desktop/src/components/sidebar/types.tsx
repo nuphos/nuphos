@@ -24,6 +24,8 @@ export type Item = {
   badge?: number
   /** Status content preserved when the item is pinned. */
   trailing?: ReactNode
+  /** Shown after the label even while the row's actions take the trailing slot on hover. */
+  note?: ReactNode
   /** Row actions shown on hover or focus, such as a chat's More button. */
   actions?: ReactNode
   /** Overrides the default onSelect(key) click behavior (Favorites rows).
@@ -43,6 +45,8 @@ export type Item = {
   foldedStatus?: ReactNode
   /** A finished thread with nothing left to show; its parent counts it instead. */
   finished?: boolean
+  /** A channel: listed under Channels rather than Agents. */
+  channel?: boolean
   /** Why the row carries its dot, for attention navigation. */
   dot?: RowDot
 }
@@ -61,6 +65,8 @@ export type Section = {
   loading?: boolean
   /** Default for a group with no persisted user preference. */
   defaultCollapsed?: boolean
+  /** Beside the title, outside its collapse toggle, e.g. Channels' "+". */
+  action?: ReactNode
 }
 
 export function isTeamIntegrationsActive(active: string): boolean {

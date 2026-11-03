@@ -1,6 +1,8 @@
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
+import { longLivedSignIn } from './longLivedSignIn'
+
 import type { RuntimeInstance } from '../../types/runtime'
 
 /** Antigravity signs in through a browser on the agent's own loopback address, so only the app can. */
@@ -15,12 +17,28 @@ const HOST_SIGN_IN: Partial<Record<RuntimeInstance['provider'], string>> = {
 export function RuntimeSignIn({
   instance,
   authenticated,
+  expiresAt,
   onSignIn,
 }: {
   instance: RuntimeInstance
   authenticated: boolean | undefined
+  /** Set for a sign-in that lapses on its own: a one-year token. */
+  expiresAt?: string
   onSignIn?: () => void
 }) {
+  const longLived = authenticated && expiresAt ? longLivedSignIn(expiresAt) : null
+
+  if (longLived)
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+        <p className="min-w-0 text-xs leading-relaxed text-tertiary">{longLived.note}</p>
+        {longLived.renew && onSignIn && (
+          <Button size="sm" className="shrink-0" type="button" onClick={onSignIn}>
+            {t('Sign in')}
+          </Button>
+        )}
+      </div>
+    )
   // OpenCode signs in to one model provider at a time and keeps them all.
   if (authenticated && !(instance.provider === 'opencode' && onSignIn)) {
     return <p className="px-4 py-4 text-xs text-tertiary">{t('Signed in on the runtime.')}</p>

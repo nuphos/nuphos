@@ -6,7 +6,6 @@ import {
   boxSessions,
   boxSizeChoices,
   accessHint,
-  canShareBox,
   removal,
   BOX_BADGE,
   boxActions,
@@ -249,6 +248,22 @@ test('a Box can always be deleted; a computer can be removed only while offline'
     )
 })
 
+test('only the owner removes a machine; a manager does not', () => {
+  const computer = {
+    deviceId: 'c1',
+    label: 'Mac',
+    platform: 'darwin',
+    online: false,
+  } as AgentDevice
+  const cloud = { ...computer, box: { provider: 'instabox' } } as AgentDevice
+
+  assert.equal(removal({ ...computer, access: 'owner' }).allowed, true)
+  assert.equal(removal({ ...computer, access: 'manage' }).allowed, false)
+  assert.equal(removal({ ...cloud, access: 'owner' }).allowed, true)
+  assert.equal(removal({ ...cloud, access: 'manage' }).allowed, false)
+  assert.equal(canManage({ ...cloud, access: 'owner' }), true)
+})
+
 test('where a machine was last seen reads as place then IP, and nothing when it never reported', () => {
   const device = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
 
@@ -292,13 +307,6 @@ test('only a manager sees who may use a Box', () => {
   assert.equal(accessHint(shared({ everyone: false, userIds: [] }, 'manage')), 'Admins only')
   assert.equal(accessHint(shared({ everyone: true, userIds: [] }, 'use')), null)
   assert.equal(accessHint({ deviceId: 'c1', label: 'Mac', platform: 'darwin' }), null)
-  // Manage access… is offered to managers of a Box only.
-  assert.equal(canShareBox(shared({ everyone: true, userIds: [] }, 'manage')), true)
-  assert.equal(canShareBox(shared({ everyone: true, userIds: [] }, 'use')), false)
-  assert.equal(
-    canShareBox({ deviceId: 'c1', label: 'Mac', platform: 'darwin', access: 'manage' }),
-    false,
-  )
 })
 
 test('boxSizeChoices says "1 agent", not "1 agents"', () => {

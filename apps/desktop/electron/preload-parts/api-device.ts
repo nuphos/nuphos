@@ -16,6 +16,7 @@ export const deviceApi = {
   },
   deviceGetIdentity: () => ipcRenderer.invoke('device:getIdentity'),
   deviceSetLabel: (label: string) => ipcRenderer.invoke('device:setLabel', label),
+  stopDockTabWatch: (tabId: string) => ipcRenderer.send('dock:stopWatch', tabId),
   deviceListAudit: (before?: string) => ipcRenderer.invoke('device:listAudit', before),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     ipcRenderer.invoke('localRuntime:submitClaudeLoginCode', code),
@@ -89,6 +90,10 @@ export const deviceApi = {
     ipcRenderer.invoke('localShare:untrust', deviceId, teamId, actorId),
   localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
     ipcRenderer.invoke('localShare:notify', approvalId, teamId, title, body),
+  runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
+    ipcRenderer.invoke('signIn:ask', teamId, runtimeId, sessionId),
+  runtimeSignInSettle: (teamId: string, runtimeId: string) =>
+    ipcRenderer.invoke('signIn:settle', teamId, runtimeId),
   boxUsage: (teamId: string) => ipcRenderer.invoke('box:usage', teamId),
   boxUsageHistory: (teamId: string, range: string) =>
     ipcRenderer.invoke('box:usageHistory', teamId, range),

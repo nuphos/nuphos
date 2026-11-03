@@ -46,6 +46,13 @@ export function activateTabIn(bucket: TabBucket, tabId: string): TabBucket {
   return { ...bucket, activeTabId: tabId }
 }
 
+/** Keeps a tab mounted without showing it, as a phone watching its page needs. */
+export function mountTabIn(bucket: TabBucket, tabId: string): TabBucket {
+  if (bucket.mountedTabIds.has(tabId) || !bucket.tabs.some((tab) => tab.id === tabId)) return bucket
+
+  return { ...bucket, mountedTabIds: new Set([...bucket.mountedTabIds, tabId]) }
+}
+
 /** Closing the last tab closes the dock and leaves the session with no tabs;
  *  reopening the dock seeds a fresh one. */
 export function closeTabIn(bucket: TabBucket, tabId: string): TabBucket {

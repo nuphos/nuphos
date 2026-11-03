@@ -86,7 +86,9 @@ struct CredentialPickerSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .task { await store.loadCredentialOptions() }
+            // Always ask the server: a connector unbound and rebound since launch
+            // must not be offered under its old id.
+            .task { await store.loadCredentialOptions(force: true) }
             .refreshable { await store.loadCredentialOptions(force: true) }
         }
         .tint(Theme.heading)

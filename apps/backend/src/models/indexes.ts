@@ -4,6 +4,7 @@ import { setupAutoModeIndexes } from '@/lib/agent/auto-mode/store'
 import { backfillConversationWatchers, setupAgentIndexes } from '@/lib/agent/db'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
+import { setupDeviceGrantIndexes } from '@/lib/agent/devices/device-grants'
 import { setupDeviceJoinTokenIndexes } from '@/lib/agent/devices/join-tokens'
 import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
 import { setupShareApprovalIndexes } from '@/lib/agent/devices/local-share-store'
@@ -119,6 +120,7 @@ export async function setupIndexes(): Promise<void> {
     ['push-live-activities', setupLiveActivityIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
     ['agent-device-shares', setupShareApprovalIndexes],
+    ['agent-device-access', setupDeviceGrantIndexes],
     ['agent-device-share-trusts', setupShareTrustIndexes],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],

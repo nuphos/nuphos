@@ -1,10 +1,10 @@
-import { app, BrowserWindow, session, webContents } from 'electron'
+import { app, session, webContents } from 'electron'
 
-import { raiseWindow } from '../../window-raise.ts'
 import { handleDeepLink } from '../deep-links.ts'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
+import { dockTabs, focusDockTab } from './dock-tabs.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
@@ -151,60 +151,6 @@ function openedTab(url: string, conversation: string): Promise<WebContents | nul
 
     app.on('web-contents-created', onCreated)
   })
-}
-
-/** How long a window's renderer may take to list its docks. */
-const DOCK_TIMEOUT_MS = 5_000
-
-type DockTab = { id: string; url: string; title: string }
-
-/**
- * A window's dock tabs for the conversation, from its workspace store: tabs the
- * user opened and tabs restored after a restart, not only those `open` made.
- * Null when the window does not answer in time (no workspace loaded yet).
- */
-async function windowDockTabs(window: BrowserWindow, session: string): Promise<DockTab[] | null> {
-  const read = window.webContents.executeJavaScript(
-    `window.nuphosDockBrowserTabs?.(${JSON.stringify(session)}) ?? null`,
-  ) as Promise<DockTab[] | null>
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const late = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), DOCK_TIMEOUT_MS)
-  })
-
-  try {
-    return await Promise.race([read.catch(() => null), late])
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-/** The conversation's dock tabs across this Mac's windows, each with the window that holds it. */
-async function dockTabs(session: string) {
-  const found = new Map<string, { tab: DockTab; window: BrowserWindow }>()
-
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (window.isDestroyed()) continue
-    for (const tab of (await windowDockTabs(window, session)) ?? [])
-      if (!found.has(tab.id)) found.set(tab.id, { tab, window })
-  }
-
-  return found
-}
-
-/** Another screen (the iPhone) asks to see a dock tab on this Mac: its window, its chat, its tab. */
-async function focusDockTab(call: BrowserCall): Promise<CuaToolResult> {
-  const found = call.dockTab ? (await dockTabs(call.session)).get(call.dockTab) : undefined
-
-  if (!found) return failed(`Tab ${String(call.dockTab)} is not in this conversation's dock.`)
-  if (!raiseWindow(found.window)) return failed('No Nuphos window is showing this tab.')
-  found.window.webContents.send('agent:focus-session', {
-    sessionId: call.session,
-    teamId: call.team,
-    dockTab: found.tab.id,
-  })
-
-  return text(found.tab)
 }
 
 /** Runs one `local_browser` action against the workspace's browser tabs. */

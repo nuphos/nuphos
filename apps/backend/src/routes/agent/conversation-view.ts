@@ -201,8 +201,9 @@ export function serializeConversationForViewer(
     canRespondToRun: canReply(access),
     // May move the session to another runtime and change its credentials.
     canManage: canManage(access),
-    ...(isOwner
-      ? conversationReadState(conversation)
+    // A channel's members each have their own marker; any other conversation is the owner's.
+    ...(isOwner || conversation.kind === 'channel'
+      ? conversationReadState(conversation, viewer.id)
       : { activitySeq: undefined, readSeq: undefined, unread: false }),
   }
 }

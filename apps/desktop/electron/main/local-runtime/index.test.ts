@@ -58,8 +58,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   './agent-home.ts': { prepareAgentHome: noop },
   './agent-login.ts': { LocalAgentLogin: class {} },
   './attachment-stream.ts': { localFileConnectors: () => ({}) },
-  './browser-stream.ts': { LocalBrowserStream: class {} },
-  './browser-tabs.ts': { runBrowserCall: noop },
+  './browser-streams.ts': { browserStreams: {} },
   './cli-cache.ts': { readCliCache: noop, writeCliCache: noop },
   './config.ts': { agentCliEnv: noop, agentEnv: noop, readBundle: noop },
   './controller.ts': {

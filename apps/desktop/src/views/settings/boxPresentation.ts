@@ -42,14 +42,19 @@ export function canManage(device: AgentDevice): boolean {
 /** Shown when the backend gives no reason, e.g. an older backend without the route. */
 const REMOVE_FALLBACK = t('Could not remove it. Update Nuphos and try again.')
 
+/** Only the owner removes a machine; a list without the access field is the viewer's own. */
+export function isOwner(device: AgentDevice): boolean {
+  return device.access === undefined || device.access === 'owner'
+}
+
 /**
- * How a machine leaves the list: a Box is deleted, any time; a computer is only forgotten once
+ * How its owner removes a machine: a Box is deleted, any time; a computer is only forgotten once
  * offline, since online it would register again.
  */
 export function removal(device: AgentDevice) {
   if (device.box)
     return {
-      allowed: true,
+      allowed: isOwner(device),
       title: t('Delete {name}?', { name: device.label }),
       action: t('Delete'),
       confirm: t('Delete computer'),
@@ -61,7 +66,7 @@ export function removal(device: AgentDevice) {
     }
 
   return {
-    allowed: !device.online,
+    allowed: isOwner(device) && !device.online,
     title: t('Remove {name}?', { name: device.label }),
     action: t('Remove computer'),
     confirm: t('Remove computer'),
@@ -136,11 +141,6 @@ export function seenFrom(device: AgentDevice): string | null {
   const place = [device.lastSeen.city, device.lastSeen.country].filter(Boolean).join(', ')
 
   return [place, device.lastSeen.ip].filter(Boolean).join(' · ')
-}
-
-/** Choosing who may use a Box is for its managers; a computer is only ever its owner's. */
-export function canShareBox(device: AgentDevice): boolean {
-  return device.box !== undefined && canManage(device)
 }
 
 /** A manager's view of who may use a Box; null for a computer or a viewer who only uses it. */

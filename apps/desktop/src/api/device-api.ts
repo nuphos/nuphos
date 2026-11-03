@@ -11,6 +11,8 @@ import type {
 export const deviceApi = {
   deviceGetIdentity: () => window.api.deviceGetIdentity(),
   deviceSetLabel: (label: string) => window.api.deviceSetLabel(label),
+  /** Ends a phone watching this dock tab (`dock-tabs.ts`). */
+  stopDockTabWatch: (tabId: string) => window.api.stopDockTabWatch(tabId),
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
@@ -69,6 +71,10 @@ export const deviceApi = {
     window.api.localShareUntrust(deviceId, teamId, actorId),
   localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
     window.api.localShareNotify(approvalId, teamId, title, body),
+  runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
+    window.api.runtimeSignInAsk(teamId, runtimeId, sessionId),
+  runtimeSignInSettle: (teamId: string, runtimeId: string) =>
+    window.api.runtimeSignInSettle(teamId, runtimeId),
   boxUsage: (teamId: string) => window.api.boxUsage(teamId),
   boxUsageHistory: (teamId: string, range: '1d' | '7d' | '30d') =>
     window.api.boxUsageHistory(teamId, range),

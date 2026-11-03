@@ -125,6 +125,7 @@ data class AgentConversationDetail(
     val archivedAt: Instant? = null,
     val credentialAccess: JsonValue? = null,
     val timelineEvents: List<TimelineEvent> = emptyList(),
+    val promptSuggestion: String? = null,
 ) {
     @Serializable
     data class TimelineEvent(
@@ -221,7 +222,3 @@ object PlanLink {
 }
 
 /** The two history orders exposed by the native clients. */
-enum class ConversationSort(val raw: String, val title: String) {
-    Created("created", "Date created"),
-    Activity("activity", "Recent activity"),
-}

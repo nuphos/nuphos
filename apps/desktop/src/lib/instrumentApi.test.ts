@@ -46,24 +46,36 @@ test('does not report successful async or synchronous calls', async () => {
   assert.deepEqual(seen, [])
 })
 
-test('reports a promise that remains pending past the stall deadline', async () => {
-  const stalls: { operation: string; elapsedMs: number }[] = []
-  const pending = new Promise<never>(() => undefined)
+test('reports a call that settles after the stall deadline, with its duration and outcome', async () => {
+  const stalls: { operation: string; elapsedMs: number; error?: unknown }[] = []
+  const failure = new Error('fetch failed')
+  const later = <T>(settle: () => T) =>
+    new Promise<T>((resolve) => setTimeout(() => resolve(settle()), 20))
   const api = instrumentApi(
-    { loadSlowPage: async () => pending },
-    () => assert.fail('a pending call is not a rejection'),
+    {
+      loadSlowPage: () => later(() => 'done'),
+      loadSlowFailure: () => later(() => Promise.reject(failure)),
+    },
+    () => undefined,
     {
       stallAfterMs: 10,
-      observeStall: (operation, elapsedMs) => stalls.push({ operation, elapsedMs }),
+      observeStall: (operation, elapsedMs, error) => stalls.push({ operation, elapsedMs, error }),
     },
   )
 
-  void api.loadSlowPage()
-  await new Promise((resolve) => setTimeout(resolve, 30))
-  assert.deepEqual(stalls, [{ operation: 'loadSlowPage', elapsedMs: 10 }])
+  assert.equal(await api.loadSlowPage(), 'done')
+  await assert.rejects(api.loadSlowFailure(), failure)
+  assert.deepEqual(
+    stalls.map(({ operation, error }) => ({ operation, error })),
+    [
+      { operation: 'loadSlowPage', error: undefined },
+      { operation: 'loadSlowFailure', error: failure },
+    ],
+  )
+  assert.ok(stalls.every(({ elapsedMs }) => elapsedMs >= 10))
 })
 
-test('clears the stall deadline when the API call settles', async () => {
+test('does not report a call that settles before the stall deadline', async () => {
   const stalls: unknown[] = []
   const api = instrumentApi({ loadFastPage: async () => 'done' }, () => assert.fail(), {
     stallAfterMs: 10,

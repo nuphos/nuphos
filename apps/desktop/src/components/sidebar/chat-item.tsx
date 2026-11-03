@@ -4,6 +4,7 @@ import { rowDot } from '../../lib/subAgentState'
 
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
+import { PhoneViewingBadge } from './PhoneViewingBadge'
 import { SessionResources } from './SessionResources'
 import { threadFoldsAway } from './thread-status'
 
@@ -41,6 +42,7 @@ export function chatSidebarItem({
     ),
     enabled: true,
     active,
+    ...(conversation.kind === 'channel' ? { channel: true } : {}),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
     ...(conversation.parentSessionId
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }
@@ -51,6 +53,9 @@ export function chatSidebarItem({
       }),
     ).href,
     trailing: status,
+    // A phone viewing this chat's dock tab shows here too, where the tab itself may be out of
+    // sight. Not in the trailing slot: hover swaps that for the row's actions, hiding Stop.
+    note: <PhoneViewingBadge sessionId={conversation.sessionId} />,
     foldedStatus: status,
     finished: threadFoldsAway({ conversation, runtimeState, open: active }),
     dot,

@@ -63,8 +63,8 @@ class HomeNavigationFixtureDeviceTest {
     @Volatile private var memberships = emptyList<Team>()
     private lateinit var savedConfiguration: Configuration
     private lateinit var savedMetrics: DisplayMetrics
-    @Volatile private var restoreFailure = false
-    @Volatile private var restored = false
+    @Volatile private var archiveFailure = false
+    @Volatile private var archived = false
     @Volatile private var historyFailure = false
     @Volatile private var runtimeCatalogHold: CountDownLatch? = null
     @Volatile private var runtimeCatalogFailure = false
@@ -105,7 +105,7 @@ class HomeNavigationFixtureDeviceTest {
                 val teamRead = request.method == "GET" && path == "/teams"
                 val discovery = request.method == "GET" && path == "/teams/discoverable"
                 val favorites = request.method == "GET" && path in setOf("/teams/${a.id}/favorites", "/teams/${b.id}/favorites")
-                val restore = request.method == "PATCH" && path == "/agent/conversations/fixture-chat/archive" && request.url.queryParameter("teamId") == a.id
+                val archive = request.method == "PATCH" && path == "/agent/conversations/fixture-chat/archive" && request.url.queryParameter("teamId") == a.id
                 val detail = request.method == "GET" && path == "/agent/conversations/fixture-chat" && request.url.queryParameter("teamId") == a.id
                 val credentials = request.method == "GET" && path == "/agent/credential-options"
                 val consent = request.method == "GET" && path == "/auth/ai-consent"
@@ -115,7 +115,7 @@ class HomeNavigationFixtureDeviceTest {
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
                 val browsing = request.method == "GET" && path in setOf("/teams/${a.id}/monitoring/overview", "/teams/${a.id}/agent-triggers", "/teams/${a.id}/agent-triggers/scheduler-status", "/teams/${b.id}/monitoring/overview", "/teams/${b.id}/agent-triggers", "/teams/${b.id}/agent-triggers/scheduler-status")
                 val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
-                if (!runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !restore && !detail) unexpected += request
+                if (!runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
                 var code = 200
                 val body = when {
                     runtimeCatalog -> {
@@ -126,22 +126,20 @@ class HomeNavigationFixtureDeviceTest {
                     devices -> """{"devices":[]}"""
                     teamRead -> { """{"teams":${Http.json.encodeToString(ListSerializer(Team.serializer()), memberships)}}""" }
                     discovery -> "{\"teams\":[]}"
-                    restore -> {
+                    archive -> {
                         val body = okio.Buffer().also { request.body!!.writeTo(it) }.readUtf8()
-                        check(JsonValue.parse(body)?.get("archived")?.boolValue == false)
-                        if (restoreFailure) { code = 503; "{}" } else { restored = true; "{\"ok\":true,\"archived\":false}" }
+                        check(JsonValue.parse(body)?.get("archived")?.boolValue == true)
+                        if (archiveFailure) { code = 503; "{}" } else { archived = true; "{\"ok\":true,\"archived\":true}" }
                     }
-                    detail -> """{"sessionId":"fixture-chat","title":"Synthetic archived conversation","archivedAt":"2026-01-02T00:00:00Z","canManage":true,"isOwner":true,"messages":[]}"""
+                    detail -> """{"sessionId":"fixture-chat","title":"Synthetic active conversation","archivedAt":${if (archived) "\"2026-01-02T00:00:00Z\"" else "null"},"canManage":true,"isOwner":true,"messages":[]}"""
                     credentials -> "{}"
                     consent -> """{"version":"2026-09-28","accepted":true}"""
                     connectors -> "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
-                        if (historyFailure) { code = 403; "{}" } else if (restored && request.url.queryParameter("archived") == "only") "{\"conversations\":[],\"nextCursor\":null}" else {
-                            val archived = request.url.queryParameter("archived") == "only"
-                            val title = if (archived) "Synthetic archived conversation" else "Synthetic active conversation"
-                            """{"conversations":[{"sessionId":"fixture-chat","teamId":"${request.url.queryParameter("teamId")}","title":"$title","archivedAt":${if (archived) "\"2026-01-02T00:00:00Z\"" else "null"},"canManage":true,"isOwner":true,"createdAt":"2026-01-01T00:00:00Z"}],"nextCursor":null}"""
-                        }
+                        // Archived chats are excluded from the list, matching iOS.
+                        if (historyFailure) { code = 403; "{}" } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
+                            """{"conversations":[{"sessionId":"fixture-chat","teamId":"${request.url.queryParameter("teamId")}","title":"Synthetic active conversation","archivedAt":null,"canManage":true,"isOwner":true,"createdAt":"2026-01-01T00:00:00Z"}],"nextCursor":null}"""
                     }
                     browsing -> if (path.endsWith("agent-triggers")) "{\"triggers\":[]}" else "{}"
                     plans -> """{"plans":[],"hasMore":false}"""
@@ -217,7 +215,9 @@ class HomeNavigationFixtureDeviceTest {
     private fun menu() { compose.onNodeWithTag("home-page-switcher").performClick() }
     private fun select(route: String) { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick(); compose.waitForIdle() }
     private fun filter() { compose.onNodeWithTag("home-filter").performClick() }
-    private fun toggleArchived() { filter(); compose.onNodeWithTag("filter-archived").performScrollTo().performClick() }
+    private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
+        it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
+    })
     private fun noWrites() = assertTrue(requests.none { it.method != "GET" })
     private fun shot(name: String) {
         compose.waitForIdle()
@@ -279,36 +279,30 @@ class HomeNavigationFixtureDeviceTest {
         assertNull(auth.runtimeSelections.bind(NuphosUser.preview.id, a.id).selectedId)
         select("agent"); waitText("Synthetic active conversation"); noWrites()
     }
-    @Test fun archiveCheckboxQueriesAndPageSwitchRetainsFilterButPlansIsIndependent() {
+    @Test fun agentsHasSearchButNoFilterWhilePlansKeepsItsFilter() {
         render(); waitText("Synthetic active conversation")
-        compose.onNodeWithText("Archived").assertDoesNotExist()
-        filter(); compose.onNodeWithTag("filter-archived").assertIsOff()
-        compose.onNodeWithTag("filter-archived").performScrollTo().performClick()
-        waitText("Synthetic archived conversation")
-        assertTrue(requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("archived") == "only" })
-        filter(); compose.onNodeWithTag("filter-archived").assertIsOn(); shot("archived-filter"); Espresso.pressBack()
+        compose.onNodeWithTag("home-search").assertIsDisplayed()
+        compose.onNodeWithTag("home-filter").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Filter agents").assertDoesNotExist()
+        shot("agents-toolbar")
         select("plans"); filter()
-        compose.onNodeWithText("Show dismissed").assertIsDisplayed()
-        compose.onNodeWithTag("filter-archived").assertDoesNotExist(); Espresso.pressBack()
-        select("agent"); filter(); compose.onNodeWithTag("filter-archived").assertIsOn(); Espresso.pressBack()
-        toggleArchived(); waitText("Synthetic active conversation"); noWrites()
+        compose.onNodeWithText("Show dismissed").assertIsDisplayed(); shot("plans-filter"); Espresso.pressBack()
+        select("agent"); waitText("Synthetic active conversation")
+        compose.onNodeWithTag("home-filter").assertDoesNotExist()
+        assertFixedListSelectors(); noWrites()
     }
-    @Test fun searchResetTeamSwitchAndSortPreserveArchive() {
+
+    @Test fun searchResetAndTeamSwitchKeepTheFixedListSelectors() {
         render(); waitText("Synthetic active conversation")
-        filter(); compose.onNodeWithText("Team agents").performClick()
-        filter(); compose.onNodeWithText("Recent activity").performClick()
-        toggleArchived(); waitText("Synthetic archived conversation")
         compose.onNodeWithTag("home-search").performClick()
         compose.onNodeWithText("Search agents").performTextInput("needle")
+        compose.waitUntil(5_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("search") == "needle" } }
         select("plans"); compose.runOnIdle { assertEquals("", agent.search) }
-        select("agent"); compose.runOnIdle {
-            assertTrue(agent.archivedOnly); assertEquals(ConversationScope.Team, agent.scope)
-            assertEquals(ConversationSort.Activity, agent.sort)
-            agent.select(b)
-        }
-        compose.waitUntil(8_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("teamId") == b.id && it.url.queryParameter("archived") == "only" } }
-        noWrites()
+        select("agent"); compose.runOnIdle { agent.select(b) }
+        compose.waitUntil(8_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("teamId") == b.id } }
+        assertFixedListSelectors(); noWrites()
     }
+
     @Test fun selectedPageSurvivesSavedStateAndOutsideDismisses() {
         val restoration = StateRestorationTester(compose)
         render(restoration = restoration); select("plans")
@@ -324,16 +318,16 @@ class HomeNavigationFixtureDeviceTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-menu").fetchSemanticsNodes().isEmpty() }
         noWrites()
     }
-    @Test fun compactRtlLargeFontAllEntriesAndCheckboxRemainReachable() {
+    @Test fun compactRtlLargeFontAllEntriesAndPlansFilterRemainReachable() {
         render(compact = true); menu(); shot("rtl-large-menu")
         for (route in listOf("agent", "plans", "runtimes", "connectors"))
             compose.onNodeWithTag("home-page-$route").performScrollTo().assertIsDisplayed()
-        Espresso.pressBack(); filter()
-        compose.onNodeWithTag("filter-archived").performScrollTo().assertIsOff()
-        shot("rtl-large-filter")
-        compose.onNodeWithTag("filter-archived").performClick()
-        waitText("Synthetic archived conversation"); noWrites()
+        Espresso.pressBack(); compose.onNodeWithTag("home-filter").assertDoesNotExist()
+        select("plans"); filter()
+        compose.onNodeWithText("Show dismissed").performScrollTo().assertIsDisplayed()
+        shot("rtl-large-plans-filter"); noWrites()
     }
+
     @Test fun deniedHistoryDoesNotBlockNavigationOrAlterWorkspace() {
         historyFailure = true; render()
         select("plans"); select("agent")
@@ -353,32 +347,31 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist(); noWrites()
     }
 
-    @Test fun restoreRequiresConfirmationAndStaysInArchivedAfterSuccess() {
-        render(); waitText("Synthetic active conversation"); toggleArchived()
-        waitText("Synthetic archived conversation")
-        compose.onNodeWithText("Synthetic archived conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Restore").performClick(); waitText("Restore agent?")
-        compose.onNodeWithText("Cancel").performClick(); assertFalse(restored); noWrites()
-        compose.onNodeWithText("Synthetic archived conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Restore").performClick(); waitText("Restore agent?")
-        compose.onNodeWithText("Restore").performClick()
-        compose.waitUntil(8_000) { restored && agent.conversations.isEmpty() && agent.rowActionSessionId == null }
-        filter(); compose.onNodeWithTag("filter-archived").assertIsOn()
+    @Test fun archiveRequiresConfirmationAndRemovesTheRowFromTheList() {
+        render(); waitText("Synthetic active conversation")
+        compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onNodeWithText("Cancel").performClick(); assertFalse(archived); noWrites()
+        compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onAllNodesWithText("Archive").onLast().performClick()
+        compose.waitUntil(8_000) { archived && agent.conversations.isEmpty() && agent.rowActionSessionId == null }
+        compose.onNodeWithText("Synthetic active conversation").assertDoesNotExist()
         assertEquals(1, requests.count { it.method == "PATCH" })
         assertTrue(requests.none { it.method !in setOf("GET", "PATCH") })
+        assertFixedListSelectors()
     }
 
-    @Test fun restoreFailureKeepsArchivedAndOffersExplicitRetry() {
-        restoreFailure = true; render(); waitText("Synthetic active conversation"); toggleArchived()
-        waitText("Synthetic archived conversation")
-        compose.onNodeWithText("Synthetic archived conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Restore").performClick(); waitText("Restore agent?")
-        compose.onNodeWithText("Restore").performClick()
+    @Test fun archiveFailureKeepsTheRowAndOffersExplicitRetry() {
+        archiveFailure = true; render(); waitText("Synthetic active conversation")
+        compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onAllNodesWithText("Archive").onLast().performClick()
         waitText("Action failed. Refresh the list and try again.")
-        assertFalse(restored); assertTrue(agent.archivedOnly)
-        restoreFailure = false; compose.onNodeWithText("Restore").performClick()
-        compose.waitUntil(8_000) { restored && agent.conversations.isEmpty() && agent.rowActionSessionId == null }
-        assertTrue(agent.archivedOnly); assertEquals(2, requests.count { it.method == "PATCH" })
+        assertFalse(archived); compose.onNodeWithText("Synthetic active conversation").assertExists()
+        archiveFailure = false; compose.onAllNodesWithText("Archive").onLast().performClick()
+        compose.waitUntil(8_000) { archived && agent.conversations.isEmpty() && agent.rowActionSessionId == null }
+        assertEquals(2, requests.count { it.method == "PATCH" })
     }
 
 }

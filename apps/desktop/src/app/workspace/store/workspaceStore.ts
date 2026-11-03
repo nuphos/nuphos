@@ -49,6 +49,8 @@ export type WorkspaceActions = {
   /** Opens a tab in a conversation's own dock without bringing it on screen. */
   openTabInSession: (sessionId: string, tab: WorkspaceTabState) => void
   activateTab: (tabId: string) => void
+  /** Mounts a conversation's tab without showing it, as a phone watching it needs its page. */
+  mountTab: (sessionId: string, tabId: string) => void
   openTeamTab: (teamId: string) => void
   selectAdjacentTab: (direction: -1 | 1) => void
   selectTabAt: (position: number | 'last') => void
@@ -142,6 +144,8 @@ export function createWorkspaceStore(
         options: { openDock: true },
       }),
     activateTab: (tabId) => inCurrentSession({ type: 'activateTab', tabId }),
+    mountTab: (sessionId, tabId) =>
+      dispatch({ type: 'mountTab', sessionKey: sessionKeyOf(sessionId), tabId }),
     openTeamTab: (teamId) => inCurrentSession({ type: 'openTeamTab', teamId }),
     selectAdjacentTab: (direction) => inCurrentSession({ type: 'selectAdjacentTab', direction }),
     selectTabAt: (position) => inCurrentSession({ type: 'selectTabAt', position }),

@@ -278,7 +278,7 @@ export function requireModelRuntimeInstance(
   userId?: string,
   require: typeof requireRuntimeInstance = requireRuntimeInstance,
 ): Promise<RuntimeInstance> {
-  return require(teamId, runtimeId, userId, { shared: true })
+  return require(teamId, runtimeId, userId)
 }
 
 export const runtimeModelCatalog = createRuntimeModelCatalog({

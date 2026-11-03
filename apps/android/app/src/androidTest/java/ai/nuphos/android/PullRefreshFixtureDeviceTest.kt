@@ -167,9 +167,6 @@ class PullRefreshFixtureDeviceTest {
                             NavHost(nav, startDestination = "history") {
                                 composable("history") {
                                     androidx.compose.foundation.layout.Column {
-                                        if (sortHistory) CompositionLocalProvider(LocalPlansStore provides PlansStore(token)) {
-                                            ai.nuphos.android.ui.home.FilterButton(HomePage.Agent)
-                                        }
                                         androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
                                             AgentPage(searching.value, { searching.value = it }, nav)
                                         }
@@ -271,23 +268,23 @@ class PullRefreshFixtureDeviceTest {
         shot("resume-inflight-light")
     }
 
-    @Test fun returningFromDetailRefreshesCurrentSearchAndArchiveScope() {
+    @Test fun returningFromDetailRefreshesCurrentSearchWithFixedSelectors() {
         render()
-        compose.runOnIdle { store.updateSort(ConversationSort.Activity); store.updateScope(ConversationScope.Team); store.updateSearch("needle"); store.updateArchivedOnly(true) }
+        compose.runOnIdle { store.updateSearch("needle") }
         Thread.sleep(350); settled()
         compose.runOnIdle { navController.navigate("fixture-detail") }
         waitText("Synthetic detail")
         val reads = historyReads()
-        historyTitle = "Remote archived result"
+        historyTitle = "Remote search result"
         compose.runOnIdle { navController.popBackStack() }
-        waitText("Remote archived result"); settled()
+        waitText("Remote search result"); settled()
         assertEquals(reads + 1, historyReads())
         val last = requests.last { it.url.encodedPath == "/agent/conversations" }
         assertEquals("activity", last.url.queryParameter("sort"))
         assertEquals("needle", last.url.queryParameter("search"))
-        assertEquals("team", last.url.queryParameter("scope"))
-        assertEquals("only", last.url.queryParameter("archived"))
-        shot("return-filtered-light")
+        assertEquals("mine", last.url.queryParameter("scope"))
+        assertEquals("exclude", last.url.queryParameter("archived"))
+        shot("return-search-light")
     }
 
     @Test fun actualGestureRefreshesHistoryAndPinsAndFailureCanRetry() {
@@ -310,26 +307,25 @@ class PullRefreshFixtureDeviceTest {
         assertNull(store.phaseError); assertNull(store.favoritesError)
     }
 
-    @Test fun emptyAndSearchAndArchivedStillAcceptGestureAndKeepFilters() {
+    @Test fun emptyAndSearchStillAcceptGestureAndKeepSearch() {
         emptyHistory = true; entries = "[]"; render()
         waitText("No agents yet"); assertCentered("No agents yet"); shot("empty-light")
         var reads = historyReads()
         pull(); compose.waitUntil(5_000) { historyReads() > reads }; settled()
-        compose.runOnIdle { store.updateScope(ConversationScope.Team); searching.value = true }
+        compose.runOnIdle { searching.value = true }
         compose.onNodeWithText("Search agents").performTextInput("needle")
-        compose.runOnIdle { store.updateArchivedOnly(true) }
         hideKeyboard()
         waitText("No matches")
         // Let the debounced search finish before measuring a manual refresh.
         Thread.sleep(350); compose.waitForIdle()
         reads = historyReads(); pull()
         compose.waitUntil(5_000) { historyReads() > reads }; settled()
-        shot("filters-light")
-        assertEquals("needle", store.search); assertTrue(store.archivedOnly); assertEquals(ConversationScope.Team, store.scope)
+        shot("search-light")
+        assertEquals("needle", store.search)
         val last = requests.last { it.url.encodedPath == "/agent/conversations" }
         assertEquals("needle", last.url.queryParameter("search"))
-        assertEquals("team", last.url.queryParameter("scope"))
-        assertEquals("only", last.url.queryParameter("archived"))
+        assertEquals("mine", last.url.queryParameter("scope"))
+        assertEquals("exclude", last.url.queryParameter("archived"))
     }
 
     @Test fun repeatedRefreshAndPaginationAreBlockedAndLateWorkspaceResultIsRejected() {
@@ -422,74 +418,22 @@ class PullRefreshFixtureDeviceTest {
         emptyHistory = false; historyTitle = "Recovered interrupted refresh"
         pull(); waitText("Recovered interrupted refresh"); settled()
     }
-    @Test fun sortMenuChangesOrderAndResetsCursorWithPinsAndFiltersIntact() {
+    @Test fun agentsListUsesRecentActivityOrderLikeIos() {
         sortHistory = true; render()
         compose.runOnIdle { store.refresh() }
-        waitText("Newer chat, older activity"); settled()
-        assertEquals(ConversationSort.Created, store.sort)
-        assertEquals(listOf("created", "recent"), store.conversations.map { it.sessionId })
-        compose.onNodeWithContentDescription("Filter agents").performClick()
-        compose.onNodeWithText("Date created").assertIsSelected()
-        shot("sort-menu-created-light")
-        compose.onNodeWithText("Recent activity").performClick()
-        compose.waitUntil(5_000) { store.conversations.firstOrNull()?.sessionId == "recent" }
-        assertEquals(ConversationSort.Activity, store.sort)
+        waitText("Older chat, recent activity"); settled()
         assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })
-        val last = requests.last { it.url.encodedPath == "/agent/conversations" }
-        assertEquals("activity", last.url.queryParameter("sort"))
-        assertNull(last.url.queryParameter("cursor"))
+        val reads = requests.filter { it.url.encodedPath == "/agent/conversations" }
+        assertTrue(reads.isNotEmpty())
+        assertTrue(reads.all { it.url.queryParameter("sort") == "activity" && it.url.queryParameter("scope") == "mine" && it.url.queryParameter("archived") == "exclude" })
         compose.onNodeWithText("Beyond first page").assertExists()
-        shot("sort-activity-light")
+        shot("activity-order-light")
         compose.runOnIdle { state(store, "hasMore").value = true }
         runBlocking(Dispatchers.Main) { store.loadMore() }
-        assertEquals("activity-cursor", requests.last { it.url.encodedPath == "/agent/conversations" }.url.queryParameter("cursor"))
+        val page = requests.last { it.url.encodedPath == "/agent/conversations" }
+        assertEquals("activity-cursor", page.url.queryParameter("cursor"))
+        assertEquals("activity", page.url.queryParameter("sort"))
         assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })
-        compose.runOnIdle { store.updateScope(ConversationScope.Team); store.updateSearch("needle"); store.updateArchivedOnly(true) }
-        Thread.sleep(350); settled()
-        compose.runOnIdle { store.updateSort(ConversationSort.Created) }
-        compose.waitUntil(5_000) { store.conversations.firstOrNull()?.sessionId == "created" }
-        val filtered = requests.last { it.url.encodedPath == "/agent/conversations" }
-        assertEquals("created", filtered.url.queryParameter("sort"))
-        assertEquals("needle", filtered.url.queryParameter("search"))
-        assertEquals("team", filtered.url.queryParameter("scope"))
-        assertEquals("only", filtered.url.queryParameter("archived"))
-        assertNull(filtered.url.queryParameter("cursor"))
-    }
-
-    @Test fun oldCursorResponseCannotAppendAfterSortChange() {
-        sortHistory = true; render()
-        compose.runOnIdle { store.refresh() }; settled()
-        compose.waitUntil(5_000) { store.conversations.firstOrNull()?.sessionId == "created" }
-        val work = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-        try {
-            holdPage = true
-            compose.runOnIdle { state(store, "hasMore").value = true; work.launch { store.loadMore() } }
-            assertTrue(historyHeld.await(5, TimeUnit.SECONDS))
-            compose.runOnIdle { store.updateSort(ConversationSort.Activity) }
-            compose.waitUntil(5_000) { store.conversations.firstOrNull()?.sessionId == "recent" }
-            historyRelease.countDown()
-            compose.waitUntil(5_000) { work.coroutineContext[Job]?.children?.none() == true }
-            assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })
-            assertFalse(store.isLoadingMore)
-            assertEquals(ConversationSort.Activity, store.sort)
-        } finally { historyRelease.countDown(); work.cancel() }
-    }
-
-    @Test fun refreshStartedInOldOrderCannotReplaceSortSelection() {
-        sortHistory = true; render()
-        compose.runOnIdle { store.refresh() }; settled()
-        holdHistory = true
-        compose.runOnIdle { store.refresh() }
-        assertTrue(historyHeld.await(5, TimeUnit.SECONDS))
-        compose.runOnIdle { store.updateSort(ConversationSort.Activity) }
-        compose.waitUntil(5_000) { store.conversations.firstOrNull()?.sessionId == "recent" }
-        historyRelease.countDown(); settled()
-        assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })
-        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.STARTED)
-        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
-        compose.waitUntil(5_000) { !store.isRefreshing }
-        assertEquals("activity", requests.last { it.url.encodedPath == "/agent/conversations" }.url.queryParameter("sort"))
-        assertEquals(ConversationSort.Activity, store.sort)
     }
 
 }

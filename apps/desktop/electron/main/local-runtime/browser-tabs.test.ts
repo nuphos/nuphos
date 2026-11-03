@@ -33,6 +33,7 @@ before(async () => {
     namedExports: {
       app,
       BrowserWindow: { getAllWindows: () => [window] },
+      ipcMain: { on: () => {} },
       session: { fromPartition: () => browserSession },
       webContents: { getAllWebContents: () => guests },
     },

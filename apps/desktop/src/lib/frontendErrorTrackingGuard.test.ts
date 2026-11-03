@@ -37,6 +37,13 @@ test('the exported renderer API is instrumented for rejections and stalls', () =
   assert.match(api, /export const api = instrumentApi\(/)
   assert.match(api, /reportFrontendError\(/)
   assert.match(api, /observeStall:/)
+  // A stall is skipped only for connectivity and for sign-in, which waits on
+  // the user; anything else must still reach reportFrontendError.
+  const stall = api.slice(api.indexOf('observeStall:'))
+  const skip = "if (operation === 'authLogin' || isNetworkError(error)) return"
+
+  assert.ok(stall.includes(skip), 'observeStall skips more than connectivity and sign-in')
+  assert.ok(stall.indexOf(skip) < stall.indexOf('reportFrontendError('))
 })
 
 test('global UI failure surfaces use the shared exception funnel', () => {

@@ -13,9 +13,12 @@ import { flushPendingDeepLinks } from './deep-links'
 import { APP_NAME, isDev } from './env'
 import { openExternal } from './open-external'
 import { liveSessionShortcut } from './session-shortcuts'
+import { lastClosedWindow, placementFor, readSavedWindows, trackWindow } from './window-session'
+import { MIN_WINDOW_SIZE } from './window-session-core'
 import { titleBarOverlayFor } from './window-titlebar'
 import { trafficLightPositionFor, zoom, zoomStepForKey } from './zoom'
 
+import type { SavedWindow } from './window-session-core'
 import type { AppShortcutAction as AppShortcut } from '../../src/api/window-shell'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -93,15 +96,24 @@ export function dispatchAppShortcut(action: AppShortcut) {
   win.webContents.send('app:shortcut', action)
 }
 
-export function createWindow(): BrowserWindow {
+/** Reopens the windows the last run left open, or one default window. */
+export function restoreWindows() {
+  const saved = readSavedWindows()
+
+  if (saved.length === 0) createWindow(null)
+  for (const window of saved) createWindow(window)
+}
+
+/** With no window open, a new one takes the last closed window's place. */
+export function createWindow(restore: SavedWindow | null = lastClosedWindow()): BrowserWindow {
   const isDarwin = process.platform === 'darwin'
   const isWindows = process.platform === 'win32'
+  const placement = placementFor(restore)
   const win = new BrowserWindow({
     title: APP_NAME,
-    width: 1400,
-    height: 880,
-    minWidth: 900,
-    minHeight: 600,
+    ...placement.bounds,
+    minWidth: MIN_WINDOW_SIZE.width,
+    minHeight: MIN_WINDOW_SIZE.height,
     // macOS keeps the inset native traffic lights. Every other platform gets a
     // fully frameless window (no native frame, no menu bar) so our custom
     // titlebar is the entire chrome and the app looks native. On Windows the
@@ -154,9 +166,12 @@ export function createWindow(): BrowserWindow {
 
   appWindows.add(win)
   rememberAppWindowFocus(win)
+  trackWindow(win, restore)
 
   win.once('ready-to-show', () => {
+    if (placement.maximized) win.maximize()
     win.show()
+    if (placement.fullScreen) win.setFullScreen(true)
     // Readiness marker for scripts/dev-desktop.ts.
     if (isDev) console.log('[nuphos-dev] electron window opened')
   })
@@ -236,7 +251,7 @@ export function createWindow(): BrowserWindow {
 
     if (input.shift && key === 'n') {
       event.preventDefault()
-      createWindow()
+      createWindow(null)
     } else if (!input.shift && key === 'k' && modOnly) {
       sendShortcut('search-sessions')
     } else if (!input.shift && key === 'n') {

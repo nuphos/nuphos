@@ -30,7 +30,8 @@ useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbAc
 
 const TEAM = '64b5f1c2e4b0a1d2c3e4f5a6'
 const VIEWER = '642802f4c38340345aa2384d'
-const READABLE = { $and: [readableByFilter(VIEWER)] }
+// Every list keeps agents and channels apart; see conversations-list-kind.test.ts.
+const READABLE = { $and: [readableByFilter(VIEWER)], kind: { $ne: 'channel' } }
 const OTHER = '62e6289482f5f9d9408f1a79'
 
 async function queryFor(options: Parameters<typeof getConversations>[1]) {

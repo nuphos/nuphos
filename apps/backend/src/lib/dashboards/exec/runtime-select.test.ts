@@ -4,6 +4,7 @@ import { RuntimeCapabilityError } from '@/lib/claude-code-preview/team-openab-ru
 
 import { PanelExecError } from './errors'
 import {
+  boxEndpoints,
   PANEL_JOB,
   NO_RUNTIME_MESSAGE,
   OUTDATED_RUNTIME_MESSAGE,
@@ -14,9 +15,10 @@ import {
 } from './runtime-select'
 
 import type { PanelRuntimeClient, PanelRuntimeDeps } from './runtime-select'
+import type { LocalRuntimeInstance } from '@/lib/claude-code-preview/local-runtime-catalog'
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 
-const context = { teamId: 'team-1', panelId: 'panel-1' }
+const context = { teamId: 'team-1', panelId: 'panel-1', userId: 'user-1' }
 const endpoint = (id: string): TeamRuntimeEndpoint => ({
   runtimeId: id,
   url: `wss://${id}.example/acp`,
@@ -31,12 +33,18 @@ const inOrder = (candidates: readonly TeamRuntimeEndpoint[]) => [...candidates]
 function deps(
   endpoints: TeamRuntimeEndpoint[],
   byId: Record<string, PanelRuntimeClient | Error>,
-): PanelRuntimeDeps & { tried: string[] } {
+): PanelRuntimeDeps & { tried: string[]; listedFor: string[] } {
   const tried: string[] = []
+  const listedFor: string[] = []
 
   return {
     tried,
-    listEndpoints: () => Promise.resolve(endpoints),
+    listedFor,
+    listEndpoints: (teamId, userId) => {
+      listedFor.push(`${teamId}/${userId}`)
+
+      return Promise.resolve(endpoints)
+    },
     acquire: (_teamId, target) => {
       tried.push(target.runtimeId ?? '')
       const outcome = byId[target.runtimeId ?? '']
@@ -76,6 +84,7 @@ describe('selectPanelRuntime', () => {
 
     expect(picked.endpoint.runtimeId).toBe('c')
     expect(d.tried).toEqual(['a', 'b', 'c'])
+    expect(d.listedFor).toEqual(['team-1/user-1'])
   })
 
   test('reports an outdated image when every reachable runtime lacks the job', async () => {
@@ -135,6 +144,37 @@ describe('selectPanelRuntime', () => {
     const picked = await selectPanelRuntime(context, (candidates) => [...candidates].reverse(), d)
 
     expect(picked.endpoint.runtimeId).toBe('b')
+  })
+})
+
+const agent = (id: string, local: Partial<LocalRuntimeInstance['local']>) =>
+  ({ id, local: { online: true, box: { provider: 'instabox' }, ...local } }) as LocalRuntimeInstance
+
+describe('boxEndpoints', () => {
+  test("offers the online agents of the principal's own Boxes", async () => {
+    const resolved: string[] = []
+    const endpoints = await boxEndpoints(
+      'team-1',
+      'user-1',
+      () =>
+        Promise.resolve([
+          agent('box', {}),
+          agent('offline', { online: false }),
+          agent('laptop', { box: undefined }),
+          agent('shared', { shared: { level: 'full' } }),
+          agent('signed-out', {}),
+        ]),
+      (teamId, runtimeId, userId, purpose) => {
+        resolved.push(`${teamId}/${runtimeId}/${userId}/${purpose}`)
+
+        return runtimeId === 'signed-out'
+          ? Promise.reject(new Error('runtime_login_required'))
+          : Promise.resolve({ ...endpoint(runtimeId), runtimeId })
+      },
+    )
+
+    expect(endpoints.map((e) => e.runtimeId)).toEqual(['box'])
+    expect(resolved).toEqual(['team-1/box/user-1/control', 'team-1/signed-out/user-1/control'])
   })
 })
 

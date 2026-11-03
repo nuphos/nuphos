@@ -30,6 +30,8 @@ test('an added agent says who added it and when; older and default agents say no
       getDevice: () => Promise.resolve(box),
       listDevices: () => Promise.resolve([box]),
       listBoxes: () => Promise.resolve([]),
+      listGranted: () => Promise.resolve([]),
+      findGranted: () => Promise.resolve([]),
       role: () => Promise.resolve('EDITOR'),
     },
     isMember: () => Promise.resolve(true),

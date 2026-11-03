@@ -1,7 +1,9 @@
 type ErrorObserver = (operation: string, error: unknown) => void
 type InstrumentApiOptions = {
   stallAfterMs?: number
-  observeStall?: (operation: string, elapsedMs: number) => void
+  /** Called when a call settles after `stallAfterMs`, with its real duration
+   * and the rejection, if any, so the caller can tell slowness from an outage. */
+  observeStall?: (operation: string, elapsedMs: number, error?: unknown) => void
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
@@ -40,22 +42,28 @@ export function instrumentApi<T extends Record<string, unknown>>(
             throw error
           }
           if (!isPromiseLike(result)) return result
-          let stallTimer: ReturnType<typeof setTimeout> | undefined
-          const stallAfterMs = options.stallAfterMs
-          const observeStall = options.observeStall
+          const startedAt = Date.now()
+          const { stallAfterMs, observeStall } = options
+          const settled = (error?: unknown) => {
+            const elapsedMs = Date.now() - startedAt
 
-          if (stallAfterMs !== undefined && observeStall) {
-            stallTimer = setTimeout(() => observeStall(operation, stallAfterMs), stallAfterMs)
+            if (stallAfterMs !== undefined && elapsedMs >= stallAfterMs) {
+              observeStall?.(operation, elapsedMs, error)
+            }
           }
 
-          return Promise.resolve(result)
-            .catch((error: unknown) => {
+          return Promise.resolve(result).then(
+            (value) => {
+              settled()
+
+              return value
+            },
+            (error: unknown) => {
+              settled(error)
               observeError(operation, error)
               throw error
-            })
-            .finally(() => {
-              if (stallTimer !== undefined) clearTimeout(stallTimer)
-            })
+            },
+          )
         },
       ]
     }),

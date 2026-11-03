@@ -1,15 +1,22 @@
+import { ObjectId } from 'mongodb'
+
 import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
 import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
-import { isUnattendedSource } from '@/lib/agent/devices/local-share'
 import { AppError } from '@/lib/errors'
 import { getTeamAgentRuntime } from '@/lib/identity'
+import { userTeamRuntimeFallbacks } from '@/models'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
-import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
+import {
+  developmentRuntimeEndpoint,
+  listRuntimeInstances,
+  requireRuntimeInstance,
+} from './runtime-catalog'
 import { runtimeLabel as providerLabel } from './runtime-provider'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 import {
   assertClaudeCodeSetupConfigured,
+  defaultConversationRuntimeId,
   resolveConversationAgentRuntime,
   resolveConversationRuntimeId,
   selectClaudeCodeChatEndpoint,
@@ -19,7 +26,6 @@ import type { OpenAbProvider } from './runtime-provider'
 import type { ConversationAgentRuntime } from './runtime-routing'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
-import type { SharedLocalRuntimeUse } from '@/lib/agent/devices/local-share-types'
 
 export type ConversationChatRuntime = {
   runtime: ConversationAgentRuntime
@@ -31,6 +37,8 @@ export type ConversationChatRuntime = {
 export type ConversationChatRequest = {
   /** Who acts this turn; defaults to the conversation's owner. */
   userId?: string
+  /** Who owns a conversation not stored yet (a channel's binding owner); defaults to the actor. */
+  ownerUserId?: string
   runtime?: OpenAbProvider
   runtimeId?: string
   purpose?: 'transport' | 'control'
@@ -40,21 +48,17 @@ export type ConversationChatRequest = {
   source?: string
 }
 
-/**
- * The conversation a shared computer asks about, and where this turn comes from.
- * A brand-new chat has no stored conversation yet, and a channel or trigger
- * turn counts even when the conversation began in the app.
- */
-export function sharedRuntimeUse(
-  conversation: { sessionId?: string; metadata?: { source?: string } } | null | undefined,
-  request: Pick<ConversationChatRequest, 'sessionId' | 'source'>,
-): SharedLocalRuntimeUse {
-  return {
-    sessionId: conversation?.sessionId ?? request.sessionId,
-    source: isUnattendedSource(request.source)
-      ? request.source
-      : (conversation?.metadata?.source ?? request.source),
-  }
+async function ownerDefaultRuntimeId(
+  teamId: string,
+  ownerId: string,
+  provider: OpenAbProvider | undefined,
+): Promise<string | undefined> {
+  const [instances, fallbacks] = await Promise.all([
+    listRuntimeInstances(teamId, ownerId),
+    userTeamRuntimeFallbacks().findOne({ teamId: new ObjectId(teamId), userId: ownerId }),
+  ])
+
+  return defaultConversationRuntimeId(instances, fallbacks?.runtimeIds ?? [], provider)
 }
 
 /** Resolve every conversation onto the supported OpenAB runtime and placement. */
@@ -71,23 +75,29 @@ export async function resolveConversationChatRuntime(
 ): Promise<ConversationChatRuntime> {
   const { runtime: requestedRuntime, purpose = 'transport' } = request
   const pinned = Boolean(conversation?.agentRuntime || conversation?.claudeCodePreview)
-  const selectedId = resolveConversationRuntimeId(conversation, request.runtimeId)
   const actor = request.userId ?? conversation?.userId
+  const owner = conversation ? conversation.userId : (request.ownerUserId ?? actor)
+  const localAgentUser = owner === actor ? actor : undefined
+  // Nothing pins an agent (a trigger's or channel's first turn): the owner's own default.
+  const selectedId =
+    resolveConversationRuntimeId(conversation, request.runtimeId) ??
+    (teamId && localAgentUser && !pinned
+      ? await ownerDefaultRuntimeId(teamId, localAgentUser, requestedRuntime)
+      : undefined)
 
   // A local agent runs on its owner's computer, as them, so only they drive it.
   if (conversation && actor !== conversation.userId && isLocalRuntimeId(conversation.runtimeId))
     throw new AppError(
       403,
       'local_runtime_owner_only',
-      'This conversation runs on its owner’s own computer, so only they can send messages here. Ask them to move it to a team agent to continue together.',
+      'This conversation runs on its owner’s own agent, which is not available to anyone else, so only they can send messages here.',
     )
-  const localAgentUser = conversation && conversation.userId !== actor ? undefined : actor
 
   if (selectedId && !teamId)
     throw new AppError(400, 'invalid_request', 'An agent requires a workspace')
   const instance =
     selectedId && teamId
-      ? await requireRuntimeInstance(teamId, selectedId, localAgentUser, { shared: true })
+      ? await requireRuntimeInstance(teamId, selectedId, localAgentUser)
       : undefined
 
   if (instance?.status === 'disabled')
@@ -107,15 +117,7 @@ export async function resolveConversationChatRuntime(
   }
   if (!teamId) throw new Error('OpenAB conversation is missing its Team scope.')
   if (instance?.kind === 'local' && localAgentUser) {
-    // A teammate's computer shared with this person runs only its conversation's own calls.
-    const endpoint = await resolveLocalRuntimeEndpoint(
-      teamId,
-      instance.id,
-      localAgentUser,
-      purpose,
-      undefined,
-      sharedRuntimeUse(conversation, request),
-    )
+    const endpoint = await resolveLocalRuntimeEndpoint(teamId, instance.id, localAgentUser, purpose)
 
     if (conversation && !conversation.runtimeId)
       await stampConversationRuntimeInstance(conversation.sessionId, instance.id, instance.label)

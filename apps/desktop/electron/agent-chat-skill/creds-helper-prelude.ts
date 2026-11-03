@@ -120,7 +120,7 @@ if [ -z "$auth_token" ]; then
 fi
 if [ -z "$auth_token" ]; then
   echo "Nuphos is not signed in. Open Nuphos and sign in, then retry." >&2
-  echo "On macOS the sign-in is kept in the keychain, which this helper cannot read; set NUPHOS_TOKEN." >&2
+  echo "The sign-in is kept in the OS credential store (keychain, Credential Manager or Secret Service), which this helper cannot read; set NUPHOS_TOKEN." >&2
   exit 1
 fi
 

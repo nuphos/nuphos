@@ -48,6 +48,7 @@ class ConversationUnlinkFixtureDeviceTest {
     @Volatile private var responseBody = """{"ok":true,"parentSessionId":null}"""
     @Volatile private var detailBody = """{"messages":[],"title":"Synthetic child","isOwner":true,"canManage":true,"readOnly":false}"""
     @Volatile private var detailCode = 200
+    @Volatile private var renameCode = 200
     private var detailEntered: java.util.concurrent.CountDownLatch? = null
     private var detailRelease: java.util.concurrent.CountDownLatch? = null
     private var entered: java.util.concurrent.CountDownLatch? = null
@@ -80,7 +81,13 @@ class ConversationUnlinkFixtureDeviceTest {
                     entered?.countDown()
                     check(release?.await(10, java.util.concurrent.TimeUnit.SECONDS) != false)
                 }
+                if (path.endsWith("/title") && req.method == "PATCH" && renameCode == 200) {
+                    val buffer = okio.Buffer(); req.body!!.writeTo(buffer)
+                    val title = JsonValue.parse(buffer.readUtf8())!!["title"]!!.stringValue!!
+                    detailBody = """{"messages":[],"title":"$title","isOwner":true,"canManage":true,"readOnly":false}"""
+                }
                 val text = when (path) {
+                    "/agent/conversations/child/title" -> if (renameCode == 200) detailBody else """{"error":"Rename unavailable"}"""
                     "/agent/conversations/child/parent" -> responseBody
                     "/agent/conversations/child" -> detailBody
                     "/agent/conversations/child/archive" -> """{"ok":true,"archived":true}"""
@@ -89,6 +96,7 @@ class ConversationUnlinkFixtureDeviceTest {
                     else -> "{}"
                 }
                 val code = when (path) {
+                    "/agent/conversations/child/title" -> renameCode
                     "/agent/conversations/child/parent" -> responseCode
                     "/agent/conversations/child" -> detailCode
                     "/agent/conversations/child/archive", "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites", "/agent/conversations" -> 200
@@ -241,6 +249,50 @@ class ConversationUnlinkFixtureDeviceTest {
         compose.runOnIdle { store.disposeForConsent() }
         release!!.countDown(); Thread.sleep(400); compose.waitForIdle()
         assertTrue(store.conversations.isEmpty()); assertNull(store.unlinkError)
+    }
+
+    @Test fun listRenameCancelAndFailureRetryPreserveRows() {
+        render()
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
+        compose.onNodeWithText("Rename").performClick()
+        waitText("Rename agent")
+        compose.onNode(hasSetTextAction() and hasText("Title")).performTextReplacement("Changed title")
+        compose.onNodeWithText("Cancel").performClick()
+        assertTrue(requests.none { it.method == "PATCH" })
+        renameCode = 500
+        assertFalse(runBlocking(Dispatchers.Main) { store.rename(child(), "  Changed title  ") })
+        assertNotNull(store.rowActionError)
+        assertEquals("Synthetic child", child().title)
+        assertEquals(AgentStore.Phase.Loaded, store.phase)
+        val cachedSession = store.session(child())
+        renameCode = 200
+        assertTrue(runBlocking(Dispatchers.Main) { store.rename(child(), "  Changed title  ") })
+        assertEquals("Changed title", child().title)
+        assertEquals("Changed title", cachedSession.title)
+        assertNull(store.rowActionError)
+        assertEquals(2, requests.count { it.method == "PATCH" && it.url.encodedPath.endsWith("/title") })
+        assertTrue(requests.filter { it.method == "PATCH" }.all { it.url.queryParameter("teamId") == "aaaaaaaaaaaaaaaaaaaaaaaa" })
+    }
+
+    @Test fun listRenameRejectsInvalidInputAndFreshOwnership() {
+        render()
+        assertFalse(store.canRename(store.conversations.first { it.sessionId == "shared" }))
+        assertFalse(runBlocking(Dispatchers.Main) { store.rename(child(), " ") })
+        assertFalse(runBlocking(Dispatchers.Main) { store.rename(child(), "x".repeat(121)) })
+        detailBody = """{"messages":[],"isOwner":true,"canManage":false,"readOnly":false}"""
+        assertFalse(runBlocking(Dispatchers.Main) { store.rename(child(), "Changed") })
+        assertTrue(requests.none { it.method == "PATCH" })
+    }
+
+    @Test fun listRenameScopeChangeDuringFreshReadMakesNoWrite() {
+        render()
+        detailEntered = java.util.concurrent.CountDownLatch(1); detailRelease = java.util.concurrent.CountDownLatch(1)
+        val task = CoroutineScope(Dispatchers.Main).async { store.rename(child(), "Changed") }
+        assertTrue(detailEntered!!.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        compose.runOnIdle { store.disposeForConsent() }
+        detailRelease!!.countDown()
+        runBlocking { assertFalse(task.await()) }
+        assertTrue(requests.none { it.method == "PATCH" })
     }
 
     @Test fun rowArchiveReadsCurrentPermissionsAndDoesNotResumeAChat() {

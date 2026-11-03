@@ -25,7 +25,16 @@ import type { LucideIcon } from 'lucide-react'
 // Images show as thumbnails (saved from the preview) and videos play inline, with
 // no frame around them; any other file is a row saved through a native dialog,
 // and several rows can be saved together as a zip of the whole group.
-export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup; teamId: string }) {
+export function DownloadFilesCard({
+  group,
+  teamId,
+  channelId,
+}: {
+  group: FileTransferGroup
+  teamId: string
+  /** Posted in a chat: every member opens and saves it through the chat. */
+  channelId?: string
+}) {
   const [busy, setBusy] = useState<string | null>(null)
   // Expiry is metadata on the card, but an idle conversation has no renders
   // after the turn settles — so schedule a single re-render at the expiry
@@ -50,7 +59,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
     'agent_download_file_failed',
   )
   // Team-scoped resolve (no sessionId) — the group is team+user scoped.
-  const base = { teamId, groupId: group.groupId }
+  const base = { teamId, groupId: group.groupId, ...(channelId ? { channelId } : {}) }
   const hasPreviews = !expired && ready.some((f) => previewKind(f) !== null)
 
   function savedToast(title: string, description: string, path: string) {
@@ -152,6 +161,7 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
         <TransferPreviews
           teamId={teamId}
           groupId={group.groupId}
+          channelId={channelId}
           expected={ready.filter((f) => previewKind(f)).length}
           onDownload={(f) => void downloadOne(f.id, f.fileName)}
         >
@@ -168,7 +178,19 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
 // Images and videos preview above it; the card lists only the rest (a previewed
 // video has no Download row to keep here), and is dropped when nothing is left.
-export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
+export function UploadedFilesCard({
+  part,
+  teamId,
+  channelId,
+  alignEnd = true,
+}: {
+  part: TransferUploadPart
+  teamId?: string
+  /** See TransferPreviews: a chat's uploads load through the chat. */
+  channelId?: string
+  /** Right-aligned, as the viewer's own files are. */
+  alignEnd?: boolean
+}) {
   const previewTeam =
     part.status !== 'uploading' &&
     part.status !== 'error' &&
@@ -181,12 +203,18 @@ export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; 
   if (!previewTeam) return <UploadedFilesList part={part} rows={part.files} />
 
   return (
-    <div className="flex max-w-[480px] flex-col items-end self-end">
+    <div
+      className={clsx(
+        'flex max-w-[480px] flex-col',
+        alignEnd ? 'items-end self-end' : 'items-start self-start',
+      )}
+    >
       <TransferPreviews
         teamId={previewTeam}
         groupId={part.groupId}
         expected={part.files.filter((f) => mediaKind(f.fileName)).length}
-        alignEnd
+        alignEnd={alignEnd}
+        channelId={channelId}
       >
         {(images, videos) => {
           const rows = filesBesidePreviews(part.files, images).filter((f) =>

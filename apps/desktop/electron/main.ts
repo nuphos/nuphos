@@ -25,6 +25,7 @@ import { startChangelogPolling } from './main/changelog'
 import { routeFetchThroughChromium } from './main/chromium-fetch'
 import { accountsChannels } from './main/channels-accounts'
 import { agentChannels } from './main/channels-agent'
+import { agentChannelChannels } from './main/channels-agent-channels'
 import { agentReadChannels } from './main/channels-agent-read'
 import { appChannels } from './main/channels-app'
 import { cloudInfraChannels } from './main/channels-cloud-infra'
@@ -58,7 +59,8 @@ import { applyAppIcon, readAppIcon } from './main/app-icon'
 import { readPersistedThemeSource } from './main/theme'
 import { initAutoUpdaterEvents, startUpdatePolling, stopUpdatePolling } from './main/updater'
 import { initWebviewGuard } from './main/webview-guard'
-import { createWindow, focusedAppWindow, showMainWindow } from './main/windows'
+import { initWindowSessionChannels, markAppQuitting } from './main/window-session'
+import { focusedAppWindow, restoreWindows, showMainWindow } from './main/windows'
 import * as podExec from './pod-exec'
 import * as plaudInstall from './plaud-install'
 import * as posthogInstall from './posthog-install'
@@ -163,7 +165,10 @@ let quitCaptured = false
 let quitTeardownRan = false
 let nodeShellCleanupAwaited = false
 
+initWindowSessionChannels()
+
 app.on('before-quit', (e) => {
+  markAppQuitting()
   if (!quitTeardownRan) {
     quitTeardownRan = true
     if (!quitCaptured) {
@@ -244,7 +249,7 @@ app
     await k8s.init().catch((e: unknown) => {
       console.warn('initial kube auto-connect failed:', e)
     })
-    createWindow()
+    restoreWindows()
     flushPendingDeepLinks()
     app.on('activate', () => {
       showMainWindow()
@@ -283,6 +288,7 @@ const channels = {
   ...gitChannels,
   ...agentChannels,
   ...agentReadChannels,
+  ...agentChannelChannels,
   ...instructionsChannels,
   ...deviceChannels,
   ...boxChannels,
