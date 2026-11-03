@@ -186,29 +186,27 @@ export function normalizePersistedPart(part: unknown): Part | null {
   return null
 }
 
+// Keeps every stored message, even one with nothing to show: tab.messages[i]
+// is conversation index historyBaseIndex + i, and transcript tails splice by it.
 export function fromPersistedMessages(messages: AgentPersistedMessage[]): Message[] {
-  return messages
-    .map((message): Message | null => {
-      const parts = message.parts
-        .map(normalizePersistedPart)
-        .filter((part): part is Part => part !== null)
+  return messages.map((message): Message => {
+    const parts = message.parts
+      .map(normalizePersistedPart)
+      .filter((part): part is Part => part !== null)
+    const createdAt = message.createdAt ? Date.parse(message.createdAt) : NaN
 
-      if (parts.length === 0) return null
-      const createdAt = message.createdAt ? Date.parse(message.createdAt) : NaN
-
-      return {
-        id: message.id,
-        role: message.role,
-        parts,
-        ...(message.metadata?.version === 1 ? { metadata: message.metadata } : {}),
-        ...(message.turnOrigin === 'autonomous' ? { turnOrigin: 'autonomous' as const } : {}),
-        ...(message.turnKind === 'plan-approval' ? { turnKind: 'plan-approval' as const } : {}),
-        ...(message.stoppedByUser === true ? { stoppedByUser: true } : {}),
-        ...(Number.isFinite(createdAt) ? { createdAt } : {}),
-        ...(message.feedback ? { feedback: message.feedback } : {}),
-      }
-    })
-    .filter((message): message is Message => message !== null)
+    return {
+      id: message.id,
+      role: message.role,
+      parts,
+      ...(message.metadata?.version === 1 ? { metadata: message.metadata } : {}),
+      ...(message.turnOrigin === 'autonomous' ? { turnOrigin: 'autonomous' as const } : {}),
+      ...(message.turnKind === 'plan-approval' ? { turnKind: 'plan-approval' as const } : {}),
+      ...(message.stoppedByUser === true ? { stoppedByUser: true } : {}),
+      ...(Number.isFinite(createdAt) ? { createdAt } : {}),
+      ...(message.feedback ? { feedback: message.feedback } : {}),
+    }
+  })
 }
 
 export function transcriptSignature(tab: Pick<Tab, 'sessionId' | 'title' | 'messages'>): string {
