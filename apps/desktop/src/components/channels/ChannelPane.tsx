@@ -5,13 +5,16 @@ import { api } from '../../api'
 import { t } from '../../i18n'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
+import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { toast } from '../ui/toast'
 
 import { ChannelMessages } from './ChannelMessages'
 import { ChannelMark } from './channelParts'
+import { sendingPost, stillSending } from './sendingPosts'
 import { useChannel } from './useChannel'
 
+import type { AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
@@ -36,13 +39,23 @@ export function ChannelPane({
   onOpenSession: (sessionId: string) => void
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
+
+  // On screen, the channel is read, as an open conversation is.
+  useConversationRead(channelId, true)
   // Text that could not be posted goes back into the composer.
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
   // A resend of the same text reuses its id, so a post that did land is not doubled.
   const unsent = useRef<{ text: string; id: string } | null>(null)
+  // Posts shown at once, until the channel returns them under the same id.
+  const [sending, setSending] = useState<AgentPersistedMessage[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const title = detail?.title ?? ''
-  const messages = detail?.messages ?? []
+  const stored = detail?.messages ?? []
+  const pending = stillSending(stored, sending)
+
+  // Once the channel returns a post, it is shown from there.
+  if (pending !== sending) setSending(pending)
+  const messages = [...stored, ...pending]
 
   // Open at the latest post, and follow new ones.
   useEffect(() => {
@@ -62,9 +75,11 @@ export function ChannelPane({
     const id = unsent.current?.text === text ? unsent.current.id : crypto.randomUUID()
 
     unsent.current = { text, id }
+    setSending((posts) => [...posts, sendingPost(id, text, user)])
     try {
       await api.agentPostChannelMessage(channelId, teamId, text, id)
     } catch (error) {
+      setSending((posts) => posts.filter((post) => post.id !== id))
       toast.apiError(t('Could not send the message'), error)
       setRestore({ text, nonce: Date.now() })
 
