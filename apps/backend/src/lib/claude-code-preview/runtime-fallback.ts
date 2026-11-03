@@ -260,7 +260,7 @@ function continueOn(conversation: Conversation, moved: AgentConversation): void 
       locale: conversation.metadata?.locale ?? 'en-US',
     },
     moved,
-    'The agent this conversation ran on stopped before finishing, so it moved to you. Continue the task from where it stopped.',
+    'The agent this conversation ran on stopped before finishing, so it moved to you. Check what was already done, then continue the task from where it stopped.',
     'agent.resource',
     {
       version: 1,
