@@ -1,78 +1,39 @@
-import { useEffect, useState } from 'react'
+import { Suspense, use, useEffect, useState, useSyncExternalStore } from 'react'
 
 import { api, onSessionRejected } from './api'
-import { onAddAccount } from './app/accounts'
-import { setStorageAccount } from './app/accountStorage'
+import { addAccountRequest, cancelAddAccount, subscribeAddAccount } from './app/accounts'
+import { enterAs, startupAuth } from './app/startupAuth'
 import { Workspace } from './app/workspace/Workspace'
-import { claimComposerDrafts, clearComposerDrafts } from './components/agent/panel/composerDrafts'
-import {
-  claimClearedReplies,
-  clearClearedReplies,
-} from './components/agent/panel/composerReplyCleared'
+import { clearComposerDrafts } from './components/agent/panel/composerDrafts'
+import { clearClearedReplies } from './components/agent/panel/composerReplyCleared'
 import { CurrentUserContext } from './hooks/useCurrentUser'
 import { identifyUser, resetAnalytics, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
 
-import type { AddAccountRequest } from './app/accounts'
-import type { AccountSummary, UserInfo } from './types'
+import type { AuthState } from './app/startupAuth'
 
-type AuthState =
-  { status: 'checking' } | { status: 'anonymous' } | { status: 'authenticated'; user: UserInfo }
-
-/** The accounts signed in on this computer; none if the list cannot be read. */
-async function readAccounts(): Promise<AccountSummary[]> {
-  return api.authListAccounts().catch(() => [])
+function Splash() {
+  return (
+    <div className="h-full flex flex-col bg-main">
+      <div className="titlebar-drag h-[44px] flex-shrink-0" />
+      <div className="flex-1" />
+    </div>
+  )
 }
 
 export default function App() {
-  const [auth, setAuth] = useState<AuthState>({ status: 'checking' })
-  const [accounts, setAccounts] = useState<AccountSummary[]>([])
-  // Signing in to one more account, over the workspace.
-  const [adding, setAdding] = useState<AddAccountRequest | null>(null)
-
-  // Every account change reloads the window (account-leave.ts), so the
-  // account this page shows is settled here, once, before the workspace reads
-  // anything stored for it.
-  async function enter(user: UserInfo) {
-    const list = await readAccounts()
-
-    setStorageAccount(list.find((a) => a.active)?.key ?? null)
-    setAccounts(list)
-    identifyUser(user)
-    claimComposerDrafts(user.id)
-    claimClearedReplies(user.id)
-    setAuth({ status: 'authenticated', user })
-  }
-
-  useEffect(() => {
-    let cancelled = false
-
-    api
-      .authStatus()
-      .then(async (s) => {
-        if (cancelled) return
-        if (s.loggedIn) return enter(s.user)
-        setAccounts(await readAccounts())
-        setAuth({ status: 'anonymous' })
-      })
-      .catch(() => !cancelled && setAuth({ status: 'anonymous' }))
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(
-    () =>
-      onAddAccount((request) => {
-        setAdding(request)
-        // An account that had to sign in again has left the list.
-        void readAccounts().then(setAccounts)
-      }),
-    [],
+  return (
+    <Suspense fallback={<Splash />}>
+      <SignedInApp />
+    </Suspense>
   )
+}
 
+function SignedInApp() {
+  const [auth, setAuth] = useState<AuthState>(use(startupAuth()))
+  // Signing in to one more account, over the workspace.
+  const adding = useSyncExternalStore(subscribeAddAccount, addAccountRequest)
   const signedIn = auth.status === 'authenticated'
 
   useEffect(() => {
@@ -90,36 +51,28 @@ export default function App() {
     clearClearedReplies()
     track('logout')
     resetAnalytics()
-    setAuth({ status: 'anonymous' })
-  }
-
-  if (auth.status === 'checking') {
-    return (
-      <div className="h-full flex flex-col bg-main">
-        <div className="titlebar-drag h-[44px] flex-shrink-0" />
-        <div className="flex-1" />
-      </div>
-    )
+    // Every window then reloads (account-leave.ts) and lists the accounts left.
+    setAuth({ status: 'anonymous', accounts: [] })
   }
 
   if (auth.status === 'anonymous' || adding) {
     return (
       <LoginView
-        accounts={auth.status === 'authenticated' ? [] : accounts}
+        accounts={auth.status === 'anonymous' ? auth.accounts : []}
         notice={adding?.notice}
         onCancel={
-          adding && auth.status === 'authenticated'
+          adding && signedIn
             ? () => {
                 void api.authCancel()
-                setAdding(null)
+                cancelAddAccount()
               }
             : undefined
         }
         onLogin={(user) => {
           track('login', { method: 'oauth' })
-          setAdding(null)
+          cancelAddAccount()
           // Signed in over another account: every window reloads as this one.
-          if (auth.status !== 'authenticated') void enter(user)
+          if (!signedIn) void enterAs(user).then(setAuth)
         }}
       />
     )

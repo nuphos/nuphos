@@ -33,14 +33,30 @@ export type AddAccountRequest = {
   notice?: string
 }
 
-const addAccountListeners = new Set<(request: AddAccountRequest) => void>()
+// The open request to add an account, as an external store for
+// `useSyncExternalStore`: the account menu sets it, App shows the sign-in screen.
+let addAccount: AddAccountRequest | null = null
+const addAccountListeners = new Set<() => void>()
+
+function setAddAccount(request: AddAccountRequest | null): void {
+  addAccount = request
+  for (const listener of addAccountListeners) listener()
+}
 
 /** Shows the sign-in screen over the workspace, to sign in to one more account. */
 export function requestAddAccount(request: AddAccountRequest = {}): void {
-  for (const listener of addAccountListeners) listener(request)
+  setAddAccount(request)
 }
 
-export function onAddAccount(listener: (request: AddAccountRequest) => void): () => void {
+export function cancelAddAccount(): void {
+  setAddAccount(null)
+}
+
+export function addAccountRequest(): AddAccountRequest | null {
+  return addAccount
+}
+
+export function subscribeAddAccount(listener: () => void): () => void {
   addAccountListeners.add(listener)
 
   return () => {
@@ -61,7 +77,10 @@ export async function switchToAccount(
   account: AccountSummary,
   notice: (name: string) => string,
   deps: SwitchDeps,
-): Promise<void> {
-  if ((await deps.switchAccount(account.key)) === 'signInAgain')
-    deps.requestAddAccount({ notice: notice(accountName(account)) })
+): Promise<'switched' | 'signInAgain'> {
+  const outcome = await deps.switchAccount(account.key)
+
+  if (outcome === 'signInAgain') deps.requestAddAccount({ notice: notice(accountName(account)) })
+
+  return outcome
 }

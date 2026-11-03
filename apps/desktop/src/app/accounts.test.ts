@@ -3,8 +3,11 @@ import { test } from 'node:test'
 
 import {
   accountName,
+  addAccountRequest,
   backendLabel,
-  onAddAccount,
+  cancelAddAccount,
+  requestAddAccount,
+  subscribeAddAccount,
   switchToAccount,
   waitingAccounts,
 } from './accounts.ts'
@@ -50,20 +53,25 @@ test('an account that can no longer be used asks to be signed in again', async (
     requestAddAccount: (r: { notice?: string }) => notices.push(r.notice),
   })
 
-  await switchToAccount(bob, (name) => `again: ${name}`, deps('switched'))
+  assert.equal(await switchToAccount(bob, (name) => `again: ${name}`, deps('switched')), 'switched')
   assert.deepEqual(notices, [])
   await switchToAccount(bob, (name) => `again: ${name}`, deps('signInAgain'))
   assert.deepEqual(notices, ['again: bob'])
   assert.deepEqual(switched, [bob.key, bob.key])
 })
 
-test('add-account requests reach every listener until it stops listening', async () => {
-  const { requestAddAccount } = await import('./accounts.ts')
-  const seen: string[] = []
-  const stop = onAddAccount((r) => seen.push(r.notice ?? 'none'))
+test('an add-account request is held until it is cancelled, and announced', () => {
+  let changes = 0
+  const stop = subscribeAddAccount(() => {
+    changes += 1
+  })
 
-  requestAddAccount()
+  requestAddAccount({ notice: 'again' })
+  assert.deepEqual(addAccountRequest(), { notice: 'again' })
+  cancelAddAccount()
+  assert.equal(addAccountRequest(), null)
   stop()
-  requestAddAccount({ notice: 'late' })
-  assert.deepEqual(seen, ['none'])
+  requestAddAccount()
+  assert.equal(changes, 2)
+  cancelAddAccount()
 })

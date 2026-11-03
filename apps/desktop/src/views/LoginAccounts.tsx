@@ -11,16 +11,22 @@ import type { AccountSummary } from '../types'
 /** The accounts still signed in on this computer, to continue as one without signing in. */
 export function LoginAccounts({ accounts }: { accounts: AccountSummary[] }) {
   const [busy, setBusy] = useState<string | null>(null)
+  // Accounts signed out here because they have to sign in again.
+  const [gone, setGone] = useState<string[]>([])
+  const shown = accounts.filter((a) => !gone.includes(a.key))
 
-  if (accounts.length === 0) return null
+  if (shown.length === 0) return null
 
   async function choose(account: AccountSummary) {
     setBusy(account.key)
     try {
-      await switchToAccount(account, (name) => t('Sign in to {name} again.', { name }), {
-        switchAccount: api.authSwitchAccount,
-        requestAddAccount,
-      })
+      const outcome = await switchToAccount(
+        account,
+        (name) => t('Sign in to {name} again.', { name }),
+        { switchAccount: api.authSwitchAccount, requestAddAccount },
+      )
+
+      if (outcome === 'signInAgain') setGone((keys) => [...keys, account.key])
     } catch (e) {
       toast.apiError(t('Could not switch accounts'), e)
     } finally {
@@ -32,7 +38,7 @@ export function LoginAccounts({ accounts }: { accounts: AccountSummary[] }) {
     <div className="w-full mb-6">
       <p className="text-[12px] text-tertiary mb-2">{t('Signed in on this computer')}</p>
       <ul className="flex flex-col gap-1.5">
-        {accounts.map((account) => {
+        {shown.map((account) => {
           const name = accountName(account)
           const backend = backendLabel(account.api)
 
