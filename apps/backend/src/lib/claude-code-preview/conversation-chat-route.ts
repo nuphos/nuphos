@@ -2,7 +2,6 @@ import { ObjectId } from 'mongodb'
 
 import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
 import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
-import { isUnattendedSource } from '@/lib/agent/devices/local-share'
 import { AppError } from '@/lib/errors'
 import { getTeamAgentRuntime } from '@/lib/identity'
 import { userTeamRuntimeFallbacks } from '@/models'
@@ -27,7 +26,6 @@ import type { OpenAbProvider } from './runtime-provider'
 import type { ConversationAgentRuntime } from './runtime-routing'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
-import type { SharedLocalRuntimeUse } from '@/lib/agent/devices/local-share-types'
 
 export type ConversationChatRuntime = {
   runtime: ConversationAgentRuntime
@@ -48,23 +46,6 @@ export type ConversationChatRequest = {
   sessionId?: string
   /** Where this turn comes from (a channel or trigger), which may differ from where the conversation began. */
   source?: string
-}
-
-/**
- * The conversation a shared computer asks about, and where this turn comes from.
- * A brand-new chat has no stored conversation yet, and a channel or trigger
- * turn counts even when the conversation began in the app.
- */
-export function sharedRuntimeUse(
-  conversation: { sessionId?: string; metadata?: { source?: string } } | null | undefined,
-  request: Pick<ConversationChatRequest, 'sessionId' | 'source'>,
-): SharedLocalRuntimeUse {
-  return {
-    sessionId: conversation?.sessionId ?? request.sessionId,
-    source: isUnattendedSource(request.source)
-      ? request.source
-      : (conversation?.metadata?.source ?? request.source),
-  }
 }
 
 async function ownerDefaultRuntimeId(
@@ -116,7 +97,7 @@ export async function resolveConversationChatRuntime(
     throw new AppError(400, 'invalid_request', 'An agent requires a workspace')
   const instance =
     selectedId && teamId
-      ? await requireRuntimeInstance(teamId, selectedId, localAgentUser, { shared: true })
+      ? await requireRuntimeInstance(teamId, selectedId, localAgentUser)
       : undefined
 
   if (instance?.status === 'disabled')
@@ -136,15 +117,7 @@ export async function resolveConversationChatRuntime(
   }
   if (!teamId) throw new Error('OpenAB conversation is missing its Team scope.')
   if (instance?.kind === 'local' && localAgentUser) {
-    // A teammate's computer shared with this person runs only its conversation's own calls.
-    const endpoint = await resolveLocalRuntimeEndpoint(
-      teamId,
-      instance.id,
-      localAgentUser,
-      purpose,
-      undefined,
-      sharedRuntimeUse(conversation, request),
-    )
+    const endpoint = await resolveLocalRuntimeEndpoint(teamId, instance.id, localAgentUser, purpose)
 
     if (conversation && !conversation.runtimeId)
       await stampConversationRuntimeInstance(conversation.sessionId, instance.id, instance.label)

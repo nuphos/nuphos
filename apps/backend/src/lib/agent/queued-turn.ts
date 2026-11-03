@@ -1,6 +1,6 @@
 // Starts a session's next turn from its queue, in arrival order.
+
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
-import { awaitsShareApproval } from '@/lib/agent/devices/local-share'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
@@ -111,18 +111,13 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
     const queue = await listPendingUserMessages(userId, sessionId)
     const next = queueHead(queue, userId)[0]
 
-    // A teammate's send to a shared computer waits for its owner: their answer starts it.
-    if (
-      target &&
-      next?.chat &&
-      (await awaitsShareApproval(target, next.actorUserId ?? target.userId))
-    )
-      return
     // Someone was asked to sign its agent in: their sign-in starts it (sign-in-settle).
     const ask = next?.chat ? openSignInRequest(target) : null
 
     if (ask) {
-      releaseWhenAskLapses(`${userId}:${sessionId}`, ask, () => sessionReleased(userId, sessionId))
+      releaseWhenAskLapses(`${userId}:${sessionId}`, ask, () => {
+        sessionReleased(userId, sessionId)
+      })
 
       return
     }

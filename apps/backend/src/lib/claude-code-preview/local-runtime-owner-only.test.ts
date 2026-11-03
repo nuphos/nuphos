@@ -85,6 +85,8 @@ beforeEach(async () => {
     getDevice: (userId: string) => Promise.resolve(userId === 'owner' ? own : null),
     listDevices: (userId: string) => Promise.resolve(userId === 'owner' ? [own] : []),
     listBoxes: () => Promise.resolve([]),
+    listGranted: () => Promise.resolve([]),
+    findGranted: () => Promise.resolve([]),
     role: () => Promise.resolve(null),
   })
   memory = portabilityDb()

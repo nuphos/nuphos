@@ -15,7 +15,7 @@ useRuntimeCatalog({
   },
 })
 
-test('a teammate’s shared computer reports its status to the person it is shared with', async () => {
+test('a teammate’s computer reports its status to whoever may use it, checked as the viewer', async () => {
   const { Hono } = await import('hono')
   const { registerAgentRuntimeRoutes } = await import('./agent-runtimes')
   const app = new Hono<{ Variables: TeamAuthVariables }>()
@@ -30,5 +30,5 @@ test('a teammate’s shared computer reports its status to the person it is shar
   registerAgentRuntimeRoutes(app)
   await app.request('/agent-runtimes/local_owner_mac/status')
 
-  expect(asked).toEqual([['team-1', 'local_owner_mac', 'mate', { shared: true }]])
+  expect(asked).toEqual([['team-1', 'local_owner_mac', 'mate']])
 })

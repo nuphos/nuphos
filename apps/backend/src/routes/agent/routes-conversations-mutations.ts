@@ -212,7 +212,7 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
   const existing = await assertConversationWritable(sessionId, userId, teamId)
   const instance =
     !existing && body.runtimeId && teamId
-      ? await requireRuntimeInstance(teamId, body.runtimeId, userId, { shared: true })
+      ? await requireRuntimeInstance(teamId, body.runtimeId, userId)
       : undefined
 
   if (!existing && body.runtimeId && !teamId)

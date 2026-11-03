@@ -29,6 +29,7 @@ import {
   issueDeviceJoinToken,
 } from '@/lib/agent/devices/join-tokens'
 import { readBoxMetrics } from '@/lib/agent/devices/box-metrics'
+import { setTeamUse } from '@/lib/agent/devices/device-grants'
 import { boxDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
@@ -40,7 +41,6 @@ import {
   renameAgentDevice,
   revokeAgentDeviceCredential,
   upsertAgentDevice,
-  setBoxAccess,
 } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
@@ -87,11 +87,7 @@ const auditQuerySchema = z.object({
 
 export type AgentDeviceRouteDependencies = {
   access: DeviceAccessDeps
-  setBoxAccess: (
-    userId: string,
-    deviceId: string,
-    access: { everyone: boolean; userIds: string[] },
-  ) => Promise<boolean>
+  setTeamUse: typeof setTeamUse
   teamMembers: (teamId: string) => Promise<{ id: string; role: string }[]>
   revokeStreams: (devices: AgentDevice[], actorIds: string[]) => Promise<void>
   readMetrics: typeof readBoxMetrics
@@ -131,7 +127,7 @@ export type AgentDeviceRouteDependencies = {
 
 const defaultDependencies: AgentDeviceRouteDependencies = {
   access: deviceAccessDeps,
-  setBoxAccess,
+  setTeamUse,
   teamMembers: (teamId) => getTeamMembers(teamId),
   revokeStreams: revokeBoxStreams,
   readMetrics: (userId, deviceId, demand) => readBoxMetrics(userId, deviceId, demand),
@@ -210,7 +206,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
         c.get('userId'),
         readTeamIdCandidate(c),
         deviceId,
-        'manage',
+        'owner',
         deps.access,
       )
 
