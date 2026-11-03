@@ -244,6 +244,9 @@ const SESSION_ONLY: [RegExp, RegExp][] = [
   [/./, /^\/auth\/sessions(\/|$)/],
   [/./, /^\/auth\/device\/approve\/?$/],
   [/^POST$/, /^\/agent\/devices\/join-tokens\/?$/],
+  // Agents post with channel_post, which spends the agents' budget; a token posting
+  // here would refill it for them.
+  [/^POST$/, /^\/agent\/conversations\/[^/]+\/channel-messages\/?$/],
 ]
 
 /**
