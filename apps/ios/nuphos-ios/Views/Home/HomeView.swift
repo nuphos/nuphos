@@ -182,10 +182,11 @@ struct HomeView: View {
                                                  team: openChat?.channel?.teamId ?? "", session: id ?? "")
             store?.poll(id == nil ? nil : openChat?.channel)
         }
-        // An agent's conversation the same way: read while it is open and the app active.
+        // An agent's conversation the same way: read and polled while it is open and the app active.
         .onChange(of: scenePhase == .active ? openChat?.session?.sessionId : nil, initial: true) { _, id in
             ConversationUnread.shared.setReading(id != nil, reader: conversationReader,
                                                  team: openChat?.session?.teamId ?? "", session: id ?? "")
+            store?.follow(id == nil ? nil : openChat?.session)
         }
         .focusedSceneValue(\.newChat) {
             page = .agent

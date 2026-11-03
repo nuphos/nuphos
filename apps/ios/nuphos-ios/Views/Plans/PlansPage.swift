@@ -333,11 +333,12 @@ struct PlanConversationView: View {
     .environment(PlansStore(token: ""))
 }
 
-/// Reads a conversation pushed from Plans while it is shown and the app active.
-/// Plans keeps its open conversation in its own page, which this push covers,
-/// so it cannot read from a selection the way HomeView does.
+/// Reads and polls a conversation pushed from Plans while it is shown and the
+/// app active. Plans keeps its open conversation in its own pages, which this
+/// push covers, so it cannot follow a selection the way HomeView does.
 private struct ReadWhileShown: ViewModifier {
     let session: ChatSession
+    @Environment(AgentStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
     @State private var reader = UUID()
     @State private var shown = false
@@ -350,8 +351,9 @@ private struct ReadWhileShown: ViewModifier {
     }
 
     private func update() {
-        ConversationUnread.shared.setReading(shown && scenePhase == .active, reader: reader,
-                                             team: session.teamId, session: session.sessionId)
+        let open = shown && scenePhase == .active
+        ConversationUnread.shared.setReading(open, reader: reader, team: session.teamId, session: session.sessionId)
+        if open { store.follow(session) } else { store.unfollow(session) }
     }
 }
 

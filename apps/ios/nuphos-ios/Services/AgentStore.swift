@@ -56,13 +56,35 @@ final class AgentStore {
     /// view, with its session, after going back.
     private var channelPoll: Task<Void, Never>?
 
-    /// The poll holds only its chat, so it would outlive a signed-out store.
-    deinit { channelPoll?.cancel() }
+    /// The open agent conversation's idle poll, owned here for the same reason.
+    private var conversationPoll: (session: ChatSession, task: Task<Void, Never>)?
+
+    /// The polls hold only their conversation, so they would outlive a signed-out store.
+    deinit {
+        channelPoll?.cancel()
+        conversationPoll?.task.cancel()
+    }
 
     /// Polls `channel` alone, or nothing when no chat is open.
     func poll(_ channel: ChannelSession?) {
         channelPoll?.cancel()
         channelPoll = channel.map { channel in Task { await channel.poll() } }
+    }
+
+    /// Follows `session` alone, or nothing when no conversation is open. The one
+    /// it replaces stops polling and lets go of any run it was following.
+    func follow(_ session: ChatSession?) {
+        guard session !== conversationPoll?.session else { return }
+        if let open = conversationPoll {
+            open.task.cancel()
+            open.session.leave()
+        }
+        conversationPoll = session.map { session in (session, Task { await session.pollWhileIdle() }) }
+    }
+
+    /// Stops following `session` if it is still the one followed.
+    func unfollow(_ session: ChatSession) {
+        if conversationPoll?.session === session { follow(nil) }
     }
 
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
