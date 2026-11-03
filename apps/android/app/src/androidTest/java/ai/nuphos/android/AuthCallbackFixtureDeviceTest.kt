@@ -91,7 +91,7 @@ class AuthCallbackFixtureDeviceTest {
         try {
             instrumentation.runOnMainSync {
                 setState(auth, AuthSession.State.SignedOut(null))
-                auth.signIn(Activity())
+                auth.signIn(Activity(), ai.nuphos.android.data.NuphosWeb.Provider.Google)
             }
             assertTrue(started.await(3, TimeUnit.SECONDS))
             val job = AuthSession::class.java.getDeclaredField("loginJob").also { it.isAccessible = true }.get(auth) as Job
@@ -126,7 +126,7 @@ class AuthCallbackFixtureDeviceTest {
                 .code(200).message("fixture").body(reply.toResponseBody(Http.jsonMedia)).build()
         }.build()
         NativeLogin(client).use { login ->
-            login.register()
+            login.register(ai.nuphos.android.data.NuphosWeb.Provider.Google)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val result = executor.submit<String> { login.awaitToken() }

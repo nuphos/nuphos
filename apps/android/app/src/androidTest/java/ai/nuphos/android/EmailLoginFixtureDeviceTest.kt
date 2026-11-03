@@ -1,12 +1,14 @@
 package ai.nuphos.android
 
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.text.AnnotatedString
+import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.ui.login.EmailLoginContent
@@ -26,8 +28,9 @@ class EmailLoginFixtureDeviceTest {
     private val authError = mutableStateOf<String?>(null)
     private var requests = 0
     private var submits = 0
+    private var passwordSubmits = 0
     private var cancellations = 0
-    private var receivedPassword = false
+    private var dismissals = 0
     private var transport: suspend () -> Unit = {}
 
     @Before fun isolatedPackageOnly() {
@@ -35,122 +38,191 @@ class EmailLoginFixtureDeviceTest {
     }
     @androidx.compose.runtime.Composable
     private fun content() {
-        Surface { EmailLoginContent(busy.value, authError.value, { email, code, password ->
-            assertEquals("fixture@example.com", email)
-            assertEquals(6, code.length)
-            receivedPassword = password != null
-            submits++; busy.value = true
-        }, { cancellations++ }, nowMillis = clock::get, requestCode = {
-            assertEquals("fixture@example.com", it); requests++; transport()
-        }) }
+        Surface {
+            EmailLoginContent(busy.value, authError.value,
+                onSubmit = { email, code ->
+                    assertEquals("fixture@example.com", email); assertEquals(6, code.length)
+                    submits++; busy.value = true
+                },
+                onPasswordSubmit = { email, password ->
+                    assertEquals("fixture@example.com", email); assertEquals("synthetic-password", password)
+                    passwordSubmits++; busy.value = true
+                },
+                onCancel = { cancellations++; busy.value = false },
+                onDismissError = { dismissals++; authError.value = null },
+                alternatives = { Text("Synthetic alternatives") },
+                nowMillis = clock::get,
+                requestCode = { assertEquals("fixture@example.com", it); requests++; transport() },
+            )
+        }
     }
-    private fun render() { compose.setContent { NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("darkTheme") == "true") { content() } } }
+    private val dark get() = InstrumentationRegistry.getArguments().getString("darkTheme") == "true"
+    private fun render() { compose.setContent { NuphosTheme(darkTheme = dark) { content() } } }
+    private fun typeEmail() { compose.onNodeWithText("Email address").performTextInput("fixture@example.com") }
     private fun send() {
-        compose.onNodeWithText("Email address").performTextInput("fixture@example.com")
-        compose.onNodeWithText("Send verification code").performScrollTo().performClick()
+        typeEmail()
+        compose.onNodeWithText("Continue").performScrollTo().performClick()
         compose.waitUntil { requests == 1 }
-        compose.waitForIdle()
+        compose.waitUntil { compose.onAllNodesWithText("Check your email").fetchSemanticsNodes().isNotEmpty() }
     }
+    private fun code() = compose.onNodeWithContentDescription("6-digit email code")
     private fun advance(millis: Long) {
         clock.addAndGet(millis)
         compose.mainClock.advanceTimeBy(1_100)
         compose.waitForIdle()
     }
-    @Test fun captureSyntheticEmptyCredentials() {
-        render(); send()
+    private fun shot(name: String) {
         compose.waitForIdle()
         val inst = InstrumentationRegistry.getInstrumentation()
-        val theme = if (InstrumentationRegistry.getArguments().getString("darkTheme") == "true") "dark" else "light"
-        java.io.File(inst.targetContext.getExternalFilesDir(null), "email-code-$theme.png").outputStream().use {
-            inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-        compose.onNode(isToggleable()).performScrollTo().performClick()
-        compose.onNodeWithText("New password (12–128 characters)").performScrollTo()
-        compose.waitForIdle()
-        java.io.File(inst.targetContext.getExternalFilesDir(null), "email-reset-$theme.png").outputStream().use {
+        java.io.File(inst.targetContext.getExternalFilesDir(null), "$name-${if (dark) "dark" else "light"}.png").outputStream().use {
             inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
     }
 
-    @Test fun sendsOnceEnforcesCooldownAndResendReplacesCode() {
+    @Test fun captureSyntheticWelcomeAndCodeScreens() {
+        render()
+        compose.onNodeWithText("Continue").assertIsNotEnabled()
+        compose.onNodeWithText("Synthetic alternatives").assertExists()
+        shot("email-welcome")
+        send()
+        shot("email-code")
+        code().performTextInput("123456")
+        compose.onNodeWithText("Sign in").performClick()
+        compose.runOnIdle { busy.value = false; authError.value = "That code is invalid or has expired. Request a new code." }
+        shot("email-code-error")
+    }
+
+    @Test fun continueSendsOnceAndOpensTheCodeScreenWithoutPasswordReset() {
         render(); send()
-        compose.onNodeWithText("6-digit email code").performTextInput("123456")
-        compose.onNodeWithText("Resend in 60s").assertIsNotEnabled()
+        compose.onNodeWithText("Enter the 6-digit code sent to").assertExists()
+        compose.onNodeWithText("fixture@example.com").assertExists()
+        compose.onNodeWithText("The code expires in 10 minutes.").assertExists()
+        compose.onNodeWithText("Set or reset my password").assertDoesNotExist()
+        compose.onNodeWithText("Sign in").assertIsNotEnabled()
+        code().performTextInput("12a3456789")
+        code().assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("123456")))
+        compose.onNodeWithText("Sign in").assertIsEnabled().performClick()
+        compose.onNodeWithText("Please wait…").assertIsNotEnabled()
+        assertEquals(1, submits); assertEquals(1, requests)
+    }
+
+    @Test fun resendWaitsSixtySecondsAndClearsTheCode() {
+        render(); send()
+        compose.onNodeWithText("Resend code in 60s").assertExists()
+        compose.onNodeWithText("Resend code").assertDoesNotExist()
+        code().performTextInput("123456")
         advance(60_000)
         compose.onNodeWithText("Resend code").performScrollTo().performClick()
         compose.waitUntil { requests == 2 }
         compose.onNodeWithText("Sign in").assertIsNotEnabled()
-        compose.onNodeWithText("Resend in 60s").assertIsNotEnabled()
+        compose.onNodeWithText("Resend code in 60s").assertExists()
     }
-    @Test fun passwordResetNeedsFullCredentialsAndGuardsSecondSubmit() {
+
+    @Test fun wrongCodeShowsErrorClearsOnEditAndRetriesWithoutAnotherEmail() {
         render(); send()
-        compose.onNodeWithText("6-digit email code").performTextInput("123456")
-        compose.onNode(isToggleable()).performScrollTo().performClick()
-        compose.onNodeWithText("Sign in").assertIsNotEnabled()
-        compose.onNodeWithText("New password (12–128 characters)").performTextInput("synthetic-password")
-        compose.onNodeWithText("Sign in").performScrollTo().performClick()
-        compose.onNodeWithText("Please wait…").assertIsNotEnabled()
-        assertEquals(1, submits); assertTrue(receivedPassword)
-        compose.onNodeWithText("Cancel").performScrollTo().performClick()
-        assertEquals(1, cancellations)
-    }
-    @Test fun wrongCodeCanRetryWithoutAnotherEmailAndSignupNeedsNoPassword() {
-        render(); send()
-        compose.onNodeWithText("6-digit email code").performTextInput("123456")
-        compose.onNodeWithText("Sign in").performScrollTo().performClick()
-        compose.runOnIdle {
-            busy.value = false
-            authError.value = "Incorrect or expired code. Request a new code if needed."
-        }
+        code().performTextInput("123456")
+        compose.onNodeWithText("Sign in").performClick()
+        compose.runOnIdle { busy.value = false; authError.value = "Incorrect or expired code. Request a new code if needed." }
         compose.onNodeWithText("Incorrect or expired code. Request a new code if needed.").assertExists()
-        compose.onNodeWithText("Sign in").assertIsNotEnabled()
-        compose.onNodeWithText("6-digit email code").performTextInput("654321")
-        compose.onNodeWithText("Sign in").performScrollTo().performClick()
-        assertEquals(2, submits); assertEquals(1, requests); assertFalse(receivedPassword)
+        code().performTextClearance(); code().performTextInput("654321")
+        compose.onNodeWithText("Incorrect or expired code. Request a new code if needed.").assertDoesNotExist()
+        assertTrue(dismissals > 0)
+        compose.onNodeWithText("Sign in").performClick()
+        assertEquals(2, submits); assertEquals(1, requests)
+    }
+
+    @Test fun changeAndBackKeepTheEmailAndReopenTheValidCodeWithoutResending() {
+        render(); send()
+        compose.onNodeWithContentDescription("Use a different email").performClick()
+        compose.onNodeWithText("Email address").assert(hasText("fixture@example.com"))
+        compose.onNodeWithText("Continue").performClick()
+        compose.onNodeWithText("Check your email").assertExists()
+        // The first Back only hides the code keyboard, as everywhere on Android.
+        Espresso.closeSoftKeyboard()
+        Espresso.pressBack()
+        compose.onNodeWithText("Email address").assert(hasText("fixture@example.com"))
+        assertEquals(1, requests); assertEquals(0, cancellations)
+    }
+
+    @Test fun backWhileVerifyingCancelsTheAttempt() {
+        render(); send()
+        code().performTextInput("123456")
+        compose.onNodeWithText("Sign in").performClick()
+        Espresso.pressBack()
+        compose.onNodeWithText("Email address").assertExists()
+        assertEquals(1, cancellations); assertEquals(1, submits)
     }
 
     @Test fun expiredCodeCannotSubmitAndCanRequestAnother() {
         render(); send()
-        compose.onNodeWithText("6-digit email code").performTextInput("123456")
+        code().performTextInput("123456")
         advance(600_000)
         compose.onNodeWithText("Sign in").assertIsNotEnabled()
         compose.onNodeWithText("Code expired. Request a new code.").assertExists()
         compose.onNodeWithText("Resend code").performScrollTo().performClick()
         compose.waitUntil { requests == 2 }
     }
+
     @Test fun recreationKeepsDeliveryProgressButNeverRestoresSecrets() {
         val restoration = StateRestorationTester(compose)
-        restoration.setContent { NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("darkTheme") == "true") { content() } }
+        restoration.setContent { NuphosTheme(darkTheme = dark) { content() } }
         send()
-        compose.onNodeWithText("6-digit email code").performTextInput("123456")
-        compose.onNode(isToggleable()).performScrollTo().performClick()
-        compose.onNodeWithText("New password (12–128 characters)").performTextInput("synthetic-password")
+        code().performTextInput("123456")
         restoration.emulateSavedInstanceStateRestore()
-        compose.onNodeWithText("Email address").assert(hasText("fixture@example.com"))
+        compose.onNodeWithText("Check your email").assertExists()
+        compose.onNodeWithText("fixture@example.com").assertExists()
+        code().assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
         compose.onNodeWithText("Sign in").assertIsNotEnabled()
-        compose.onNodeWithText("6-digit email code").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
-        compose.onNodeWithText("New password (12–128 characters)").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
-        compose.onNodeWithText("Resend in 60s").assertIsNotEnabled()
+        compose.onNodeWithText("Resend code in 60s").assertExists()
         assertEquals(1, requests)
     }
-    @Test fun canceledDeliveryCannotSubmitOrAcceptLateSuccess() {
+
+    @Test fun passwordIsASecondaryPathOnTheSameScreen() {
+        render()
+        typeEmail()
+        compose.onNodeWithText("Use a password").performClick()
+        compose.onNodeWithText("Password").performTextInput("short")
+        compose.onNodeWithText("Sign in").assertIsNotEnabled()
+        compose.onNodeWithText("Password").performTextClearance()
+        compose.onNodeWithText("Password").performTextInput("synthetic-password")
+        compose.onNodeWithText("Sign in").performScrollTo().performClick()
+        assertEquals(1, passwordSubmits); assertEquals(0, requests)
+        compose.runOnIdle { busy.value = false; authError.value = "The email or password is incorrect." }
+        compose.onNodeWithText("The email or password is incorrect.").assertExists()
+        shot("email-password-error")
+        compose.onNodeWithText("Use an email code instead").performScrollTo().performClick()
+        compose.onNodeWithText("Password").assertDoesNotExist()
+        compose.onNodeWithText("The email or password is incorrect.").assertDoesNotExist()
+        compose.onNodeWithText("Email address").assert(hasText("fixture@example.com"))
+        compose.onNodeWithText("Continue").assertIsEnabled()
+    }
+
+    @Test fun canceledDeliveryStaysOnTheWelcomeScreen() {
         val held = CompletableDeferred<Unit>()
         transport = { held.await() }
-        render(); send()
+        render(); typeEmail()
+        compose.onNodeWithText("Continue").performClick()
+        compose.waitUntil { requests == 1 }
         compose.onNodeWithText("Please wait…").assertIsNotEnabled()
-        compose.onNodeWithText("Cancel").performScrollTo().performClick()
+        Espresso.pressBack()
         held.complete(Unit)
         compose.waitForIdle()
+        compose.onNodeWithText("Check your email").assertDoesNotExist()
         assertEquals(1, cancellations); assertEquals(0, submits)
     }
+
     @Test fun requestFailureKeepsEmailAndDoesNotRetryAutomatically() {
         transport = { throw NuphosApi.Failure.Http(429, "untrusted transport text") }
-        render(); send()
+        render(); typeEmail()
+        compose.onNodeWithText("Continue").performClick()
+        compose.waitUntil { requests == 1 }
         compose.onNodeWithText("Too many codes requested. Wait and try again later.").assertExists()
         compose.onNodeWithText("untrusted transport text").assertDoesNotExist()
-        compose.onNodeWithText("Send verification code").assertIsNotEnabled()
+        compose.onNodeWithText("Check your email").assertDoesNotExist()
+        compose.onNodeWithText("Continue").assertIsNotEnabled()
+        transport = {}
         advance(60_000)
-        compose.onNodeWithText("Send verification code").performScrollTo().performClick()
+        compose.onNodeWithText("Continue").performScrollTo().performClick()
         compose.waitUntil { requests == 2 }
         assertEquals(0, submits)
     }
