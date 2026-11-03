@@ -56,6 +56,9 @@ final class AgentStore {
     /// view, with its session, after going back.
     private var channelPoll: Task<Void, Never>?
 
+    /// The poll holds only its chat, so it would outlive a signed-out store.
+    deinit { channelPoll?.cancel() }
+
     /// Polls `channel` alone, or nothing when no chat is open.
     func poll(_ channel: ChannelSession?) {
         channelPoll?.cancel()
