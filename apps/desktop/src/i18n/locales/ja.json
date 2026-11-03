@@ -2950,7 +2950,7 @@
   "Now": "現在",
   "Numeric operational metrics only. Query text, result values, credentials, current operations, and profiler documents are not collected.": "数値の運用メトリクスのみを収集します。クエリテキスト、結果の値、認証情報、現在の操作、プロファイラーのドキュメントは収集しません。",
   "Nuphos cannot reach its own relay right now — this one is on us.": "現在 Nuphos 自身のリレーに到達できません。これは当方側の問題です。",
-  "Nuphos couldn’t find `{command}` on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.": "このコンピュータで `{command}` が見つかりませんでした。インストール済みの場合は、ログインシェルの PATH に追加してから Nuphos を開き直してください。",
+  "Nuphos couldn’t find {command} on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.": "このコンピュータで {command} が見つかりませんでした。インストール済みの場合は、ログインシェルの PATH に追加してから Nuphos を開き直してください。",
   "Nuphos downloads updates in the background.": "Nuphos はバックグラウンドでアップデートをダウンロードします。",
   "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy.": "ランタイムへの送信時に Nuphos が暗号化し、ランタイムが保持します。Nuphos はコピーを保持しません。",
   "Nuphos encrypts the credential in the backend and only returns redacted connection metadata.": "Nuphos は認証情報をバックエンドで暗号化し、マスク済みの接続メタデータのみを返します。",

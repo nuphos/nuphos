@@ -65,6 +65,21 @@ function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
   )
 }
 
+/** The CLI may be installed but out of sight: a GUI app reads the login shell's PATH. */
+function MissingCli({ command }: { command: string }) {
+  const [pre, post = ''] = t(
+    'Nuphos couldn’t find {command} on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.',
+  ).split('{command}')
+
+  return (
+    <p className="text-[12.5px] leading-snug text-secondary">
+      {pre}
+      <code className="font-mono">{command}</code>
+      {post}
+    </p>
+  )
+}
+
 function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   const state = useLocalRuntimeState()
   const status = localAgentStatus(state?.agents[provider].cli)
@@ -89,14 +104,7 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
         <StatusPill status={status} />
       </div>
       {status === 'signed-out' && <InlineSignIn provider={provider} />}
-      {status === 'missing' && (
-        <p className="text-[12.5px] leading-snug text-secondary">
-          {t(
-            'Nuphos couldn’t find `{command}` on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.',
-            { command },
-          )}
-        </p>
-      )}
+      {status === 'missing' && <MissingCli command={command} />}
       {status === 'missing' && (
         <a
           href={installUrl}

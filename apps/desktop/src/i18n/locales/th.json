@@ -2950,7 +2950,7 @@
   "Now": "ตอนนี้",
   "Numeric operational metrics only. Query text, result values, credentials, current operations, and profiler documents are not collected.": "เก็บเฉพาะเมตริกการทำงานที่เป็นตัวเลข จะไม่เก็บข้อความคิวรี ค่าผลลัพธ์ ข้อมูลรับรอง การดำเนินการปัจจุบัน และเอกสารของ profiler",
   "Nuphos cannot reach its own relay right now — this one is on us.": "ขณะนี้ Nuphos เข้าถึงรีเลย์ของตัวเองไม่ได้ — ปัญหานี้อยู่ที่ฝั่งเรา",
-  "Nuphos couldn’t find `{command}` on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.": "Nuphos ไม่พบ `{command}` บนคอมพิวเตอร์เครื่องนี้ หากติดตั้งแล้ว ให้เพิ่มลงใน PATH ของล็อกอินเชลล์ แล้วเปิด Nuphos ใหม่",
+  "Nuphos couldn’t find {command} on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.": "Nuphos ไม่พบ {command} บนคอมพิวเตอร์เครื่องนี้ หากติดตั้งแล้ว ให้เพิ่มลงใน PATH ของล็อกอินเชลล์ แล้วเปิด Nuphos ใหม่",
   "Nuphos downloads updates in the background.": "Nuphos ดาวน์โหลดอัปเดตในเบื้องหลัง",
   "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy.": "Nuphos เข้ารหัสข้อมูลระหว่างส่งไปยังรันไทม์ซึ่งเป็นผู้เก็บไว้ Nuphos ไม่เก็บสำเนา",
   "Nuphos encrypts the credential in the backend and only returns redacted connection metadata.": "Nuphos เข้ารหัสข้อมูลรับรองที่แบ็กเอนด์ และส่งกลับเฉพาะเมทาดาทาการเชื่อมต่อที่ปิดบังข้อมูลแล้ว",

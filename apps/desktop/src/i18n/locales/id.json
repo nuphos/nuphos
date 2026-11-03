@@ -2950,7 +2950,7 @@
   "Now": "Sekarang",
   "Numeric operational metrics only. Query text, result values, credentials, current operations, and profiler documents are not collected.": "Hanya metrik operasional numerik. Teks kueri, nilai hasil, kredensial, operasi saat ini, dan dokumen profiler tidak dikumpulkan.",
   "Nuphos cannot reach its own relay right now — this one is on us.": "Nuphos tidak dapat menjangkau relay-nya sendiri saat ini — ini kesalahan kami.",
-  "Nuphos couldn’t find `{command}` on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.": "Nuphos tidak menemukan `{command}` di komputer ini. Jika sudah terpasang, tambahkan ke PATH shell login Anda, lalu buka ulang Nuphos.",
+  "Nuphos couldn’t find {command} on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.": "Nuphos tidak menemukan {command} di komputer ini. Jika sudah terpasang, tambahkan ke PATH shell login Anda, lalu buka ulang Nuphos.",
   "Nuphos downloads updates in the background.": "Nuphos mengunduh pembaruan di latar belakang.",
   "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy.": "Nuphos mengenkripsinya dalam perjalanan ke runtime, yang kemudian menyimpannya; Nuphos tidak menyimpan salinannya.",
   "Nuphos encrypts the credential in the backend and only returns redacted connection metadata.": "Nuphos mengenkripsi kredensial di backend dan hanya mengembalikan metadata koneksi yang telah disamarkan.",
