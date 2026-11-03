@@ -87,7 +87,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
   installPreviewFrameConsumer(state, toolLog, prepared.memory)
 
-  const access = await previewTurnAccess(args, prepared)
+  const access = await previewTurnAccess(args, prepared, () => state.unbind())
 
   if (args.endpoint.local)
     void recordLocalRuntimeTurn({

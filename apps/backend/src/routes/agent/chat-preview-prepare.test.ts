@@ -273,6 +273,7 @@ test('a failed token mint hands the carried queue back and releases the turn', a
 
   expect(taken.map((m) => m.id)).toEqual([carried.id])
   let released = false
+  let unbound = false
   const failing = {
     sign: () => Promise.reject(new Error('KMS unavailable')),
     publicKey: () => Promise.resolve(generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey),
@@ -296,10 +297,15 @@ test('a failed token mint hands the carried queue back and releases the turn', a
       },
     } as unknown as PreparedPreviewTurn
 
-    await expect(previewTurnAccess(args, prepared)).rejects.toThrow('KMS unavailable')
+    await expect(
+      previewTurnAccess(args, prepared, () => {
+        unbound = true
+      }),
+    ).rejects.toThrow('KMS unavailable')
   } finally {
     await setInternalTokenSignerForTest(null)
   }
   expect(released).toBe(true)
+  expect(unbound).toBe(true)
   expect(await hasPendingUserMessage('owner', 'mint-fails', carried.id)).toBe(true)
 })
