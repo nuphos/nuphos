@@ -34,7 +34,12 @@ const post = z
   .object({
     label,
     channelId,
-    text: z.string().trim().min(1).max(20_000).describe('What you say in the channel.'),
+    text: z
+      .string()
+      .trim()
+      .min(1)
+      .max(20_000)
+      .describe('One short message: one idea, no headings or long tables.'),
     files: z
       .array(z.string().min(1))
       .max(10)
@@ -212,8 +217,12 @@ export function channelToolModule(): PreviewToolModule {
           'Post a message as yourself in a Nuphos channel this conversation is in, with files ' +
           'you pushed attached as download cards. This is the only way you speak in a channel, ' +
           'including in a turn the channel woke: nothing you write in this conversation is ' +
-          'posted for you, and people there do not see your own chat. Post once per reply; if ' +
-          'you have nothing to say, do not post.',
+          'posted for you, and people there do not see your own chat. Write like a person in a ' +
+          'group chat: short messages, one idea each, so split a longer answer into several ' +
+          'calls rather than one wall of text. For work that takes a while, post a quick ' +
+          'acknowledgement first, then post results as they come in instead of staying silent ' +
+          'until the end. No headings or long tables; attach images as files, not inside ' +
+          'tables. If you have nothing to say, do not post.',
         inputSchema: toolInputJsonSchema(post),
       },
       {
