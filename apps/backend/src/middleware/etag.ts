@@ -62,6 +62,7 @@ export function jsonEtag(): MiddlewareHandler {
   return async (c, next) => {
     if (c.req.method !== 'GET') return next()
     const jsonBodies = new WeakSet<ReadableStream>()
+
     // A Proxy keeps c.json's overloads without a cast. `never[]` is the
     // any-function parameter type, so TS needn't infer through JSONRespond.
     c.json = new Proxy<typeof c.json>(c.json, {
