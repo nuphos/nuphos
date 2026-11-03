@@ -114,18 +114,22 @@ struct HomeView: View {
             // these views made a reopened chat appear and vanish at once: its
             // tasks were cancelled while it stayed on screen, never loading.
             ZStack {
-                if let openChat {
-                    ConversationView(session: openChat.session, initialPrompt: openChat.prompt)
+                if let channel = openChat?.channel {
+                    ChannelView(channel: channel)
+                        .id(channel.channelId)
+                        .toolbar { newAgentItem }
+                } else if let openChat, let chatSession = openChat.session {
+                    ConversationView(session: chatSession, initialPrompt: openChat.prompt)
                         .id(openChat.id)
+                        // A link to a chat opens as a session until its kind is known.
+                        .onChange(of: chatSession.isChannel) { _, isChannel in
+                            guard isChannel, let store else { return }
+                            self.openChat = AgentPage.OpenChat(channel: store.channel(
+                                sessionId: chatSession.sessionId, title: chatSession.title, teamId: chatSession.teamId))
+                        }
                         // Compact pops back to the list's composer; wide has
                         // no back, so this returns the column to it.
-                        .toolbar {
-                            if sizeClass == .regular {
-                                ToolbarItem(placement: .topBarLeading) {
-                                    Button("New agent", systemImage: "square.and.pencil") { self.openChat = nil }
-                                }
-                            }
-                        }
+                        .toolbar { newAgentItem }
                 } else if page == .agent, store != nil, sizeClass == .regular {
                     Theme.chatCanvas.ignoresSafeArea()
                         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -183,6 +187,17 @@ struct HomeView: View {
             PushNotifications.shared.pendingConversations = false
             page = .agent
             openChat = nil
+        }
+    }
+
+    /// Compact pops back to the list's composer; wide has no back, so this
+    /// returns the column to it.
+    @ToolbarContentBuilder
+    private var newAgentItem: some ToolbarContent {
+        if sizeClass == .regular {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("New agent", systemImage: "square.and.pencil") { openChat = nil }
+            }
         }
     }
 

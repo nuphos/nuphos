@@ -31,9 +31,11 @@ struct AgentPage: View {
     /// A chat to show, with the prompt a new one starts with. Keyed by
     /// session id, so the list highlights its row once it is listed.
     struct OpenChat: Identifiable, Hashable {
-        let session: ChatSession
+        /// An agent's conversation, or else a chat.
+        var session: ChatSession?
         var prompt: ComposerSubmission?
-        var id: String { session.sessionId }
+        var channel: ChannelSession?
+        var id: String { channel?.channelId ?? session?.sessionId ?? "" }
         static func == (a: OpenChat, b: OpenChat) -> Bool { a.id == b.id }
         func hash(into hasher: inout Hasher) { hasher.combine(id) }
     }
@@ -170,13 +172,18 @@ struct AgentPage: View {
         guard target.sessionId != openChat?.id else { return }
         if let team = store.teams.first(where: { $0.id == target.teamId }) { store.select(team: team) }
         endEditing()
+        // A chat not listed yet opens as a session first; HomeView switches it once loaded.
+        if store.channels.contains(where: { $0.sessionId == target.sessionId }) {
+            openChat = OpenChat(channel: store.channel(sessionId: target.sessionId, title: target.title, teamId: target.teamId))
+            return
+        }
         openChat = OpenChat(session: store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId))
     }
 
     @ViewBuilder
     private var content: some View {
         switch store.phase {
-        case .loaded where !store.listedConversations.isEmpty:
+        case .loaded where !store.listedConversations.isEmpty || !store.channels.isEmpty:
             list
         default:
             // A scroll view even for the non-list states: with plain
@@ -226,7 +233,7 @@ struct AgentPage: View {
                 Button("Try again") { Task { await store.loadTeams() } }
                     .prominentButton()
             }
-        case .loaded where store.listedConversations.isEmpty:
+        case .loaded where store.listedConversations.isEmpty && store.channels.isEmpty:
             ContentUnavailableView {
                 Label(store.search.isEmpty ? "No agents yet" : "No matches", systemImage: "message")
             } description: {
@@ -285,12 +292,29 @@ struct AgentPage: View {
         } set: { id in
             guard id != openChat?.id else { return }
             endEditing()
+            if let channel = store.channels.first(where: { $0.sessionId == id }) {
+                openChat = OpenChat(channel: store.channel(for: channel))
+                return
+            }
             openChat = store.listedConversations.first { $0.sessionId == id }.map { OpenChat(session: store.session(for: $0)) }
         }
     }
 
     private var list: some View {
         List(selection: selection) {
+            if !store.channels.isEmpty {
+                Section {
+                    ForEach(store.channels) { channel in
+                        NavigationLink(value: channel.sessionId) {
+                            ChannelRow(channel: channel).padding(.vertical, 12)
+                        }
+                        .listRowBackground(openChat?.id == channel.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+                    }
+                } header: {
+                    ListSectionHeader(title: "Chats")
+                }
+            }
             Section {
                 ForEach(store.nestedConversations) { item in
                     let conversation = item.conversation
@@ -349,6 +373,8 @@ struct AgentPage: View {
                     .listRowBackground(Color.clear)
                     .task { await store.loadMore() }
                 }
+            } header: {
+                if !store.channels.isEmpty { ListSectionHeader(title: "Agents") }
             }
         }
         .listStyle(.plain)
@@ -360,6 +386,47 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
+    }
+}
+
+/// A section title in the Agent page's list, as the desktop sidebar's.
+private struct ListSectionHeader: View {
+    let title: LocalizedStringKey
+
+    var body: some View {
+        Text(title)
+            .font(Theme.Text.label.weight(.semibold))
+            .foregroundStyle(Theme.muted)
+            .textCase(nil)
+    }
+}
+
+/// A chat in the list: its mark, its title, and when it last moved.
+struct ChannelRow: View {
+    let channel: AgentConversation
+    @Environment(AgentStore.self) private var store
+
+    var body: some View {
+        let team = channel.teamId ?? store.selectedTeam?.id ?? ""
+        HStack(spacing: 12) {
+            ChannelMark(size: 36)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(channel.displayTitle)
+                    .font(Theme.Text.body.weight(.medium))
+                    .foregroundStyle(Theme.heading)
+                    .lineLimit(1)
+                Text(HistoryTime.format(channel.lastActiveAt))
+                    .font(Theme.Text.label)
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if ConversationUnread.shared.contains(team: team, session: channel.sessionId) {
+                Circle().fill(Theme.unread).frame(width: 7, height: 7).accessibilityLabel("Unread posts")
+            }
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 }
 

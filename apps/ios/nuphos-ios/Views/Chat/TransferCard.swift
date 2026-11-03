@@ -11,12 +11,26 @@ import SwiftUI
 /// other files (chips) open in Quick Look from a freshly signed link, with
 /// Save and Share.
 struct TransferCard: View {
-    let groupId: String
+    /// One message's groups, drawn as one grid so its images sit in one row.
+    let groupIds: [String]
     let fromUser: Bool
-    let session: ChatSession
+    /// A group's files with fresh links: a conversation's or a chat's.
+    let resolve: (String) async throws -> TransferDownloadGroup
     /// Shown as plain chips once the files can no longer be fetched (the
     /// transfer expired, or it belongs to someone else).
     var names: [String] = []
+
+    init(groupId: String, fromUser: Bool, session: ChatSession, names: [String] = []) {
+        self.init(groupIds: [groupId], fromUser: fromUser, names: names) { try await session.transferGroup($0) }
+    }
+
+    init(groupIds: [String], fromUser: Bool, names: [String] = [],
+         resolve: @escaping (String) async throws -> TransferDownloadGroup) {
+        self.groupIds = groupIds
+        self.fromUser = fromUser
+        self.names = names
+        self.resolve = resolve
+    }
 
     @State private var files: [TransferDownloadGroup.File] = []
     @State private var opening: String?
@@ -48,11 +62,11 @@ struct TransferCard: View {
             }
         }
         .task {
-            guard let group = try? await session.transferGroup(groupId) else {
+            guard let groups = try? await fetch() else {
                 unavailable = true
                 return
             }
-            files = group.readyFiles
+            files = groups.flatMap(\.readyFiles)
         }
         .quickLookPreview($preview, in: previewItems)
         #if os(iOS)
@@ -149,9 +163,9 @@ struct TransferCard: View {
             // Presigned URLs expire; mint fresh ones for every open. Only the
             // tapped file must arrive; the group's other images come along when
             // they can, so Quick Look can swipe between them.
-            let fresh = try await session.transferGroup(groupId)
+            let fresh = try await fetch().flatMap(\.files)
             func remote(_ item: TransferDownloadGroup.File) -> URL? {
-                fresh.files.first(where: { $0.id == item.id })?.downloadUrl.flatMap(URL.init(string:))
+                fresh.first(where: { $0.id == item.id })?.downloadUrl.flatMap(URL.init(string:))
             }
             guard let url = remote(file) else { throw URLError(.fileDoesNotExist) }
             var locals = [file.id: try await Self.download(file, from: url)]
@@ -179,6 +193,17 @@ struct TransferCard: View {
         } catch {
             failed = true
         }
+    }
+
+    /// Every group; one that is gone drops out, and only all of them gone fails.
+    private func fetch() async throws -> [TransferDownloadGroup] {
+        var groups: [TransferDownloadGroup] = []
+        var failure: Error?
+        for id in groupIds {
+            do { groups.append(try await resolve(id)) } catch { failure = error }
+        }
+        if groups.isEmpty, let failure { throw failure }
+        return groups
     }
 
     /// One local copy per file: a file already downloaded is reused, not fetched again.
