@@ -16,7 +16,7 @@ import {
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
-import { channelUploadPart, resolveChannelUpload } from '@/lib/agent/channel-attachments'
+import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
@@ -158,7 +158,7 @@ channelRoutes.get('/conversations/:sessionId/attachments/:groupId', async (c) =>
     await getReadableConversation(c.req.param('sessionId'), c.get('userId'), teamId),
   )
 
-  return c.json(await resolveChannelUpload(channel, c.req.param('groupId')))
+  return c.json(await resolveChannelFiles(channel, c.req.param('groupId')))
 })
 
 // Records the message and wakes the channel's agents; each decides whether to answer.
@@ -194,7 +194,7 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
     c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
   )
 
-  await postChannelMessage(channel, { id, text, metadata, ...(upload ? { upload } : {}) })
+  await postChannelMessage(channel, { id, text, metadata, files: upload ? [upload] : [] })
   // Speaking in a channel is joining it, as it is anywhere else.
   if (userId !== channel.userId) await addConversationParticipants(channel.sessionId, [userId])
 

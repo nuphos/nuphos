@@ -18,6 +18,4 @@ export const channelsApi = {
     id: string,
     upload?: string,
   ) => ipcRenderer.invoke('agent:postChannelMessage', channelId, teamId, text, id, upload),
-  agentResolveChannelAttachment: (channelId: string, teamId: string, groupId: string) =>
-    ipcRenderer.invoke('agent:resolveChannelAttachment', channelId, teamId, groupId),
 }

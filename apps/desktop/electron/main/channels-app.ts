@@ -178,8 +178,8 @@ export const appChannels = {
   ) => fileTransfer.uploadFiles(args),
   'fileTransfer:resolve': (
     _e: IpcMainInvokeEvent,
-    args: { teamId: string; sessionId?: string; groupId: string },
-  ) => fileTransfer.resolveDownloads(args.teamId, args.sessionId, args.groupId),
+    args: { teamId: string; sessionId?: string; groupId: string; channelId?: string },
+  ) => fileTransfer.resolveDownloads(args.teamId, args.sessionId, args.groupId, args.channelId),
   'fileTransfer:listDownloads': (
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string },
@@ -213,7 +213,14 @@ export const appChannels = {
   },
   'fileTransfer:downloadOne': async (
     e: IpcMainInvokeEvent,
-    args: { teamId: string; sessionId?: string; groupId: string; fileId: string; fileName: string },
+    args: {
+      teamId: string
+      sessionId?: string
+      groupId: string
+      fileId: string
+      fileName: string
+      channelId?: string
+    },
   ) => {
     const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
     const result = await dialog.showSaveDialog(
@@ -228,7 +235,13 @@ export const appChannels = {
   },
   'fileTransfer:downloadAllZip': async (
     e: IpcMainInvokeEvent,
-    args: { teamId: string; sessionId?: string; groupId: string; zipName: string },
+    args: {
+      teamId: string
+      sessionId?: string
+      groupId: string
+      zipName: string
+      channelId?: string
+    },
   ) => {
     const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
     const result = await dialog.showSaveDialog(
@@ -241,6 +254,7 @@ export const appChannels = {
       teamId: args.teamId,
       sessionId: args.sessionId,
       groupId: args.groupId,
+      channelId: args.channelId,
       destZipPath: result.filePath,
     })
 

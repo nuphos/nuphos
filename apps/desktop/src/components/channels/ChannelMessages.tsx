@@ -6,24 +6,23 @@ import { t } from '../../i18n'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { MessageResponse } from '../agent/MessageResponse'
-import { normalizeTransferUploadPart } from '../agent/panel/parts'
-import { UploadedFilesCard } from '../agent/panel/transferCards'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { formatMessageTimestamp } from '../agent/panel/streamText'
 import { Avatar } from '../Avatar'
 
+import { ChannelFiles } from './ChannelFiles'
+import { channelFiles } from './postFiles'
 import { Typing } from './ChannelTyping'
 
 import type { AgentPersistedMessage, AgentTimelineEvent, ChannelAgent } from '../../api'
-import type { FileTransferGroup } from '../../types'
 import type { ReactNode } from 'react'
 
 type Links = {
   renderLink: (href: string, children: ReactNode) => ReactNode
   onLinkClick?: (href: string, beside?: boolean) => boolean
-  /** A chat's uploads load through the chat, so every member sees them. */
-  loadUpload: (groupId: string) => Promise<FileTransferGroup>
+  /** The chat: its files load through it, so every member sees them. */
+  channelId: string
 }
 
 function textOf(message: AgentPersistedMessage): string {
@@ -77,13 +76,9 @@ function ChannelMessage({
 }) {
   const metadata = parseMessageMetadata(message.metadata)
   const text = textOf(message)
-  const uploads = message.parts.flatMap((part) => {
-    const upload = normalizeTransferUploadPart((part ?? {}) as Record<string, unknown>)
+  const posted = channelFiles(message)
 
-    return upload ? [upload] : []
-  })
-
-  if (!metadata || (!text && uploads.length === 0)) return null
+  if (!metadata || (!text && !posted.any)) return null
   const { sender } = metadata
   const when = time(message, metadata.sentAt)
   const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
@@ -100,16 +95,11 @@ function ChannelMessage({
   )
 
   const mine = !agentId && sender.id === viewerId
-  // Files show above the words, as they do in a conversation.
-  const files = uploads.map((part, i) => (
-    <UploadedFilesCard
-      key={i}
-      part={part}
-      teamId={teamId}
-      load={links.loadUpload}
-      alignEnd={mine}
-    />
-  ))
+  // A person's files show above their words and an agent's below, as in a conversation.
+  const shown = (files: typeof posted) => (
+    <ChannelFiles files={files} teamId={teamId} channelId={links.channelId} mine={mine} />
+  )
+  const files = shown({ ...posted, downloads: [] })
 
   if (mine)
     return (
@@ -196,6 +186,7 @@ function ChannelMessage({
             {body}
           </div>
         )}
+        {shown({ ...posted, uploads: [] })}
         <span className="px-1 text-[11px] text-tertiary tabular-nums">{when}</span>
       </div>
     </div>
@@ -231,7 +222,7 @@ export function ChannelMessages({
   teamId,
   onOpenSession,
   onOpenNuphosLink,
-  loadUpload,
+  channelId,
 }: {
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
@@ -240,10 +231,10 @@ export function ChannelMessages({
   teamId: string
   onOpenSession: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
-  loadUpload: (groupId: string) => Promise<FileTransferGroup>
+  channelId: string
 }) {
   const links = {
-    loadUpload,
+    channelId,
     renderLink: useAgentLinks(teamId, onOpenNuphosLink),
     onLinkClick: onOpenNuphosLink,
   }

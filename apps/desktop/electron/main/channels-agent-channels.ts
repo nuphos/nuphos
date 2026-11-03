@@ -19,10 +19,4 @@ export const agentChannelChannels = {
     id: string,
     upload?: string,
   ) => agent.postChannelMessage(channelId, teamId, text, id, upload),
-  'agent:resolveChannelAttachment': (
-    _e: unknown,
-    channelId: string,
-    teamId: string,
-    groupId: string,
-  ) => agent.resolveChannelAttachment(channelId, teamId, groupId),
 }

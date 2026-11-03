@@ -1,12 +1,14 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
+import * as transfers from '@/lib/file-transfer/service'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { listChannelMentions, readChannelMessages, withoutReadNotices } from './db/channels'
+import { withChannelPosts } from './channel-wake'
+import { listChannelMentions, readChannelMessages } from './db/channels'
 import { CHANNEL_AGENT_TURN_BUDGET, postChannelMessage, replyToChannel } from './channel-chat'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
@@ -232,22 +234,71 @@ describe('waking a channel’s agents', () => {
     expect((await channel()).agentTurns ?? 0).toBe(0)
   })
 
-  test('a notice is dropped when the agent has already read everything', async () => {
+  type Notice = { id: string; source?: string; renderedText: string; metadata?: MessageMetadata }
+  const firstNotice = () => wakes[0]!.message as never as Notice
+  const deliver = async (agentId: string, notices: Notice[]) =>
+    await withChannelPosts(agentId, notices)
+
+  test('a notice carries the posts its agent has not read, or is dropped', async () => {
     await say('first')
     await say('second')
-    const notices = wakes.map((wake) => wake.message)
     // Only a resource notice is a channel notice, whatever its sender says.
-    const forged = { id: 'forged', source: 'agent.thread', metadata: notices[0]!.metadata }
-    const all = [...notices, forged, { id: 'other', metadata: person }]
+    const forged = { ...firstNotice(), id: 'forged', source: 'agent.thread' }
 
     // agent-a read up to the last message during the turn its notice waited behind.
     await agentConversations().updateOne(
       { sessionId: 'channel' },
       { $set: { 'agentReadIndex.agent-a': 1 } },
     )
-    expect((await withoutReadNotices('agent-a', all)).map((m) => m.id)).toEqual(['forged', 'other'])
-    // agent-b has not: its notice runs.
-    expect(await withoutReadNotices('agent-b', all)).toHaveLength(4)
+    expect((await deliver('agent-a', [firstNotice(), forged])).messages.map((m) => m.id)).toEqual([
+      'forged',
+    ])
+    // agent-b has not: its notice runs with what was said.
+    const { messages, markRead } = await deliver('agent-b', [firstNotice()])
+
+    expect(messages[0]!.renderedText).toContain('first')
+    expect(messages[0]!.renderedText).toContain('second')
+    // Read only once the turn ran.
+    expect((await channel()).agentReadIndex?.['agent-b']).toBeUndefined()
+    await markRead()
+    expect((await channel()).agentReadIndex?.['agent-b']).toBe(1)
+    expect((await deliver('agent-b', [firstNotice()])).messages).toEqual([])
+  })
+
+  test('a turn that failed or was refused delivers the same posts again, once', async () => {
+    await say('first')
+    // The first attempt threw: nothing is marked read, and the retry gets the bare notice.
+    const failed = (await deliver('agent-b', [firstNotice()])).messages[0]!
+    const retried = (await deliver('agent-b', [firstNotice()])).messages[0]!
+
+    expect(retried.renderedText).toBe(failed.renderedText)
+    // A refused turn requeues the notice it was given: its posts are not doubled.
+    await say('second')
+    const requeued = (await deliver('agent-b', [failed])).messages[0]!
+
+    expect(requeued.renderedText.match(/first/g)).toHaveLength(1)
+    expect(requeued.renderedText).toContain('second')
+  })
+
+  test('posts with files are delivered as words, and channel_read still places the files', async () => {
+    const upload = { type: 'transfer-upload', groupId: 'g1', status: 'ready', files: [] }
+
+    await say('before the picture')
+    await postChannelMessage(await channel(), {
+      id: 'pic',
+      text: 'the picture',
+      metadata: person,
+      files: [upload],
+    })
+    const { messages, markRead } = await deliver('agent-b', [firstNotice()])
+
+    expect(messages[0]!.renderedText).toContain('the picture')
+    expect(messages[0]!.renderedText).toContain('Call channel_read to get the files')
+    await markRead()
+    // The cursor stops before the post with files, so channel_read returns it with them.
+    expect((await readChannelMessages(await channel(), 'agent-b')).messages).toMatchObject([
+      { uploads: ['g1'] },
+    ])
   })
 
   test('a resent message is neither stored, announced nor unread again', async () => {
@@ -266,7 +317,12 @@ describe('waking a channel’s agents', () => {
   test('a file goes up with its post, with or without words, and agents learn of it', async () => {
     const upload = { type: 'transfer-upload', groupId: 'g1', status: 'ready', files: [] }
 
-    await postChannelMessage(await channel(), { id: 'pic', text: '', metadata: person, upload })
+    await postChannelMessage(await channel(), {
+      id: 'pic',
+      text: '',
+      metadata: person,
+      files: [upload],
+    })
     const [stored] = await agentMessages().find({ sessionId: 'channel' }).toArray()
 
     expect(stored!.parts).toEqual([upload])
@@ -430,6 +486,38 @@ describe('a turn a channel woke answers with what it ends on', () => {
     ])
     // Like any post by an agent, it wakes the channel's other agents.
     expect(wokenSessions()).toEqual(['agent-b'])
+  })
+
+  test('files it pushed this turn go with its words; earlier pushes stay out', async () => {
+    const asked = new Date()
+    const list = spyOn(transfers, 'listTransferGroups').mockResolvedValue([
+      { groupId: 'later', createdAt: new Date(asked.getTime() + 1000).toISOString() },
+      { groupId: 'before', createdAt: new Date(asked.getTime() - 1000).toISOString() },
+    ] as never)
+
+    try {
+      history({ ...user('n0'), createdAt: asked }, closing('Here are the clips.'))
+      await replyToChannel(
+        data,
+        { ...(await agent()), teamId: '69e989027ab63e8d6a0ffcb6' },
+        wake('channel:channel'),
+        true,
+      )
+      expect(await posted()).toMatchObject([
+        {
+          parts: [
+            { type: 'text', text: 'Here are the clips.' },
+            { type: 'transfer-download', groupId: 'later' },
+          ],
+        },
+      ])
+      expect(list.mock.calls[0]![0]).toMatchObject({
+        userId: 'agent-a-owner',
+        sessionId: 'agent-a',
+      })
+    } finally {
+      list.mockRestore()
+    }
   })
 
   test('ending without words posts nothing', async () => {
