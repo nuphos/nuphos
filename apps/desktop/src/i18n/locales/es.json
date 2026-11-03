@@ -4347,7 +4347,6 @@
   "Team skill": "Habilidad del equipo",
   "Teammates on this domain can join this workspace.": "Los compañeros con este dominio pueden unirse a este espacio de trabajo.",
   "Teammates who can open this chat will see the artifact.": "Los compañeros que puedan abrir este chat verán el artefacto.",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "Los compañeros que elijas pueden colocar sus propios agentes en el entorno de ejecución local de esta computadora. No pueden abrir su terminal ni sus archivos, iniciar sesión en sus entornos de ejecución ni usar la ejecución local.",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "Los compañeros que elijas pueden ejecutar sus propios agentes aquí sin preguntar. Úsalo en una máquina reservada para ello.",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "Los compañeros que elijas pueden ejecutar sus propios agentes aquí. Apruebas cada agente antes de que se inicie.",
   "Teammates' computers": "Computadoras de los compañeros",
@@ -4497,7 +4496,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "El valor se escribe en un archivo del entorno de ejecución del agente y nunca aparece en esta conversación.",
   "The whole team": "Todo el equipo",
   "The working files could not come along.": "No se pudieron trasladar los archivos de trabajo.",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "Sus agentes se ejecutan como tu usuario en esta computadora, con todas sus sesiones iniciadas: claves SSH, CLI de GitHub y de la nube, y tus archivos. Los agentes de Slack, Discord o disparadores nunca se ejecutan aquí.",
   "Theme": "Tema",
   "Then click {button} in AWS.": "Luego haz clic en {button} en AWS.",
   "Then open {link} → copy the {id} — the final step asks for that too": "Luego abre {link} → copia el {id}; el último paso también lo pide",
@@ -5673,5 +5671,11 @@
   "Signed in on this computer": "Con sesión iniciada en este equipo",
   "Sign in to {name} again.": "Vuelve a iniciar sesión como {name}.",
   "You stay signed in to the others, and can switch back any time.": "Seguirás con la sesión iniciada en las demás y podrás volver cuando quieras.",
-  "Could not log out": "No se pudo cerrar sesión"
+  "Could not log out": "No se pudo cerrar sesión",
+  "Choose the teammates who may use this computer and its runtimes.": "Elige quiénes del equipo pueden usar este equipo y sus runtimes.",
+  "Only share with people you trust; they may access this computer’s files and sign-ins.": "Comparte solo con personas de confianza; pueden acceder a los archivos y sesiones de este equipo.",
+  "Someone else’s computer. Its owner can see what runs here.": "Es el equipo de otra persona. Su propietario puede ver lo que se ejecuta aquí.",
+  "Its owner can see this work, and only you can send messages in this agent.": "Su propietario puede ver este trabajo y solo tú puedes enviar mensajes en este agente.",
+  "Learn more": "Más información",
+  "After the move, only you can send messages; people you shared it with can still read it.": "Tras moverlo, solo tú puedes enviar mensajes; las personas con quienes lo compartiste pueden seguir leyendo."
 }

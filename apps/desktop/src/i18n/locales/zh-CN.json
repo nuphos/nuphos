@@ -4347,7 +4347,6 @@
   "Team skill": "团队技能",
   "Teammates on this domain can join this workspace.": "此域名下的队友可以加入此工作区。",
   "Teammates who can open this chat will see the artifact.": "能打开此对话的队友都能看到该产物。",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "你选择的队友可以将自己的 Agent 放到此电脑的本地运行环境上运行。他们无法打开此电脑的终端或文件、登录其运行环境，也无法使用本地执行。",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "你选择的队友无需询问即可在此运行自己的 Agent。适用于专门用于此用途的机器。",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "你选择的队友可以在此运行自己的 Agent。每个 Agent 启动前都需经你批准。",
   "Teammates' computers": "队友的电脑",
@@ -4497,7 +4496,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "该值会写入 Agent 运行环境上的文件，不会出现在此对话中。",
   "The whole team": "整个团队",
   "The working files could not come along.": "工作文件未能一并迁移。",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "他们的 Agent 会以你在此电脑上的用户身份运行，可使用其中的所有登录凭据：SSH 密钥、GitHub 和云服务 CLI，以及你的文件。来自 Slack、Discord 或触发器的 Agent 不会在此运行。",
   "Theme": "主题",
   "Then click {button} in AWS.": "然后在 AWS 中点击 {button}。",
   "Then open {link} → copy the {id} — the final step asks for that too": "然后打开 {link} → 复制 {id}，最后一步也需要填写",
@@ -5673,5 +5671,11 @@
   "Signed in on this computer": "已在此电脑上登录",
   "Sign in to {name} again.": "请重新登录 {name}。",
   "You stay signed in to the others, and can switch back any time.": "其他账号会保持登录，随时可以切换回去。",
-  "Could not log out": "无法退出登录"
+  "Could not log out": "无法退出登录",
+  "Choose the teammates who may use this computer and its runtimes.": "选择可以使用这台电脑及其 runtime 的团队成员。",
+  "Only share with people you trust; they may access this computer’s files and sign-ins.": "请只分享给信任的人；对方可能访问这台电脑的文件与登录状态。",
+  "Someone else’s computer. Its owner can see what runs here.": "这是别人的电脑，所有者能看到在此运行的工作。",
+  "Its owner can see this work, and only you can send messages in this agent.": "所有者能看到这项工作，且只有你能在这个 agent 中发送消息。",
+  "Learn more": "了解更多",
+  "After the move, only you can send messages; people you shared it with can still read it.": "移动后只有你能发送消息；已分享对话的成员仍可阅读。"
 }

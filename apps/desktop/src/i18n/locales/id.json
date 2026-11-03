@@ -4347,7 +4347,6 @@
   "Team skill": "Skill tim",
   "Teammates on this domain can join this workspace.": "Rekan tim dengan domain ini dapat bergabung ke workspace ini.",
   "Teammates who can open this chat will see the artifact.": "Rekan tim yang dapat membuka obrolan ini akan melihat artefak ini.",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "Rekan tim yang Anda pilih dapat menempatkan agen mereka sendiri di runtime lokal komputer ini. Mereka tidak dapat membuka terminal atau file-nya, memasukkan akun ke runtime-nya, atau memakai eksekusi lokal.",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "Rekan tim yang Anda pilih dapat menjalankan agen mereka sendiri di sini tanpa bertanya. Gunakan ini untuk mesin yang memang disiapkan untuk itu.",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "Rekan tim yang Anda pilih dapat menjalankan agen mereka sendiri di sini. Anda menyetujui setiap agen sebelum dimulai.",
   "Teammates' computers": "Komputer rekan tim",
@@ -4497,7 +4496,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "Nilai ini ditulis ke file di runtime agen dan tidak pernah muncul di percakapan ini.",
   "The whole team": "Seluruh tim",
   "The working files could not come along.": "File kerja tidak dapat ikut dipindahkan.",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "Agen mereka berjalan sebagai pengguna Anda di komputer ini, dengan semua akun yang masuk di sini: kunci SSH, CLI GitHub dan cloud, serta file Anda. Agen dari Slack, Discord, atau pemicu tidak pernah berjalan di sini.",
   "Theme": "Tema",
   "Then click {button} in AWS.": "Lalu klik {button} di AWS.",
   "Then open {link} → copy the {id} — the final step asks for that too": "Lalu buka {link} → salin {id} — langkah terakhir juga memintanya",
@@ -5673,5 +5671,11 @@
   "Signed in on this computer": "Masuk di komputer ini",
   "Sign in to {name} again.": "Masuk lagi sebagai {name}.",
   "You stay signed in to the others, and can switch back any time.": "Anda tetap masuk di akun lainnya dan bisa beralih kembali kapan saja.",
-  "Could not log out": "Tidak dapat keluar"
+  "Could not log out": "Tidak dapat keluar",
+  "Choose the teammates who may use this computer and its runtimes.": "Pilih rekan tim yang boleh menggunakan komputer ini dan runtime-nya.",
+  "Only share with people you trust; they may access this computer’s files and sign-ins.": "Bagikan hanya kepada orang tepercaya; mereka dapat mengakses berkas dan sesi login komputer ini.",
+  "Someone else’s computer. Its owner can see what runs here.": "Ini komputer orang lain. Pemiliknya dapat melihat pekerjaan yang dijalankan di sini.",
+  "Its owner can see this work, and only you can send messages in this agent.": "Pemiliknya dapat melihat pekerjaan ini, dan hanya Anda yang dapat mengirim pesan di agen ini.",
+  "Learn more": "Pelajari lebih lanjut",
+  "After the move, only you can send messages; people you shared it with can still read it.": "Setelah dipindahkan, hanya Anda yang dapat mengirim pesan; orang yang Anda ajak berbagi tetap dapat membacanya."
 }
