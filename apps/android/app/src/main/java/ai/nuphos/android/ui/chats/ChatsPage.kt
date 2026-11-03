@@ -26,6 +26,7 @@ import androidx.navigation.NavHostController
 import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.model.HistoryTime
 import ai.nuphos.android.ui.LocalAgentStore
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 
 /** Whether a chat row has posts the viewer has not read, from the same read state as agents. */
@@ -45,11 +46,15 @@ internal fun AgentConversation.hasUnreadPosts(): Boolean = with(Unread) { unread
 internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false, onSearchingChange: (Boolean) -> Unit = {}) {
     val store = LocalAgentStore.current
     val team = store.selectedTeam?.id
-    // Refreshed with the list while it is on screen, like the iOS list poll.
-    LaunchedEffect(store, team, store.workspaceRevision) {
-        while (true) {
-            store.loadChannels()
-            delay(3_000)
+    // Refreshed with the list while it is on screen, like the iOS list poll. Only while the
+    // screen is resumed: a backgrounded app or a page left behind must not keep reading.
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(store, team, store.workspaceRevision, lifecycle) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (true) {
+                store.loadChannels()
+                delay(3_000)
+            }
         }
     }
     val chats = store.channels
