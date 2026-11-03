@@ -18,17 +18,17 @@ const inCluster = {
 }
 
 describe('runtime backend url', () => {
-  test('keeps a managed runtime on the in-cluster Service', () => {
+  test('keeps a managed runtime on the in-cluster Service', async () => {
     expect(pickRuntimeBackendUrl(false, inCluster)).toBe('http://nuphos-backend.nuphos.svc:3000')
   })
 
-  test('hands an external runtime the public base, trailing slash trimmed', () => {
+  test('hands an external runtime the public base, trailing slash trimmed', async () => {
     expect(
       pickRuntimeBackendUrl(true, { ...inCluster, publicBackendUrl: 'https://api.nuphos.ai/' }),
     ).toBe('https://api.nuphos.ai')
   })
 
-  test('rejects a cluster-internal or loopback base as the public one', () => {
+  test('rejects a cluster-internal or loopback base as the public one', async () => {
     expect(pickPublicBackendUrl({ ...inCluster, publicBackendUrl: undefined })).toBeUndefined()
     expect(
       pickPublicBackendUrl({
@@ -39,14 +39,14 @@ describe('runtime backend url', () => {
     ).toBeUndefined()
   })
 
-  test('off-cluster, a loopback backend url is the only reachable one', () => {
+  test('off-cluster, a loopback backend url is the only reachable one', async () => {
     const local = { port: 3000, backendUrl: 'http://localhost:3000' }
 
     expect(pickPublicBackendUrl(local)).toBe('http://localhost:3000')
     expect(pickRuntimeBackendUrl(false, local)).toBe('http://localhost:3000')
   })
 
-  test('ignores a base that is neither https nor a dev loopback', () => {
+  test('ignores a base that is neither https nor a dev loopback', async () => {
     expect(
       pickPublicBackendUrl({
         port: 3000,
@@ -58,7 +58,7 @@ describe('runtime backend url', () => {
 
   // The bearer that travels to this base vends the team's cloud credentials,
   // the same reason a remote runtime URL must be wss://.
-  test('refuses a plaintext public base', () => {
+  test('refuses a plaintext public base', async () => {
     expect(
       pickPublicBackendUrl({ ...inCluster, publicBackendUrl: 'http://api.nuphos.ai' }),
     ).toBeUndefined()
@@ -75,7 +75,7 @@ describe('isAllowedRemoteOpenAbUrl', () => {
     config.localStack = localStack
   })
 
-  test('accepts wss anywhere and cleartext ws only inside the cluster', () => {
+  test('accepts wss anywhere and cleartext ws only inside the cluster', async () => {
     expect(isAllowedRemoteOpenAbUrl('wss://openab.example/acp')).toBe(true)
     expect(isAllowedRemoteOpenAbUrl('ws://openab-team-x.openab-runtimes.svc:8080/acp')).toBe(true)
     expect(isAllowedRemoteOpenAbUrl('ws://openab.nuphos.svc.cluster.local:8080/acp')).toBe(true)
@@ -84,7 +84,7 @@ describe('isAllowedRemoteOpenAbUrl', () => {
     expect(isAllowedRemoteOpenAbUrl('not a url')).toBe(false)
   })
 
-  test('on a local stack, this machine and a compose service host are internal', () => {
+  test('on a local stack, this machine and a compose service host are internal', async () => {
     config.localStack = true
 
     expect(isAllowedRemoteOpenAbUrl('ws://runtime:8080/acp')).toBe(true)
@@ -95,7 +95,7 @@ describe('isAllowedRemoteOpenAbUrl', () => {
     expect(isAllowedRemoteOpenAbUrl('ws://openab.example/acp')).toBe(false)
   })
 
-  test('elsewhere, only *.svc hosts may skip wss', () => {
+  test('elsewhere, only *.svc hosts may skip wss', async () => {
     config.localStack = false
 
     expect(isAllowedRemoteOpenAbUrl('ws://runtime:8080/acp')).toBe(false)
@@ -111,14 +111,16 @@ describe('isAllowedRemoteOpenAbUrl', () => {
 // and an external one has exactly the public base.
 describe('what a self-hosted session is handed', () => {
   const managed = previewSessionAccess('conv-1', 'team-1', 'user-1')
-  const external = previewSessionAccess('conv-1', 'team-1', 'user-1', 'user-1', { external: true })
+  const external = previewSessionAccess('conv-1', 'team-1', 'user-1', 'user-1', {
+    external: true,
+  })
 
-  test('MCP mounts resolve to the public base', () => {
-    expect(managed.mcpServers).toEqual([])
-    expect(external.mcpServers.map((server) => server.url)).toEqual([
+  test('MCP mounts resolve to the public base', async () => {
+    expect((await managed).mcpServers).toEqual([])
+    expect((await external).mcpServers.map((server) => server.url)).toEqual([
       'https://unit-test.invalid/agent-sessions/conv-1/teams/team-1/mcp',
       'https://unit-test.invalid/agent-sessions/conv-1/teams/team-1/mcp-tools',
     ])
-    expect(external.runtimeEnv?.NUPHOS_BACKEND_URL).toBe('https://unit-test.invalid')
+    expect((await external).runtimeEnv?.NUPHOS_BACKEND_URL).toBe('https://unit-test.invalid')
   })
 })

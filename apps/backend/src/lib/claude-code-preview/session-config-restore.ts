@@ -15,7 +15,7 @@ export async function sessionConfigRestoreContext(
   const teamId = conversation.teamId
 
   if (!teamId) throw new Error('A workspace is required to restore model settings')
-  const access = previewSessionAccess(
+  const access = await previewSessionAccess(
     conversation.sessionId,
     teamId,
     conversation.userId,

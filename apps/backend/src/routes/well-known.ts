@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { config } from '@/config'
 import { getAwsOidcDiscovery, getAwsOidcJwks, isAwsOidcConfigured } from '@/lib/byos/aws-oidc'
 import { AppError } from '@/lib/errors'
+import { internalJwks } from '@/lib/internal-token'
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
@@ -55,4 +56,15 @@ wellKnownRoutes.get('/jwks.json', (c) => {
   c.header('Cache-Control', 'public, max-age=300')
 
   return c.json(getAwsOidcJwks())
+})
+
+// JWKS of the internal issuer that signs conversation tokens. It is served
+// apart from the cloud federation JWKS above and must never be merged into it:
+// clouds accept a token signed by any key in a trusted issuer's JWKS.
+export const internalWellKnownRoutes = new Hono()
+
+internalWellKnownRoutes.get('/jwks.json', (c) => {
+  c.header('Cache-Control', 'public, max-age=300')
+
+  return c.json(internalJwks())
 })

@@ -10,8 +10,12 @@ import {
 } from './mcp-token'
 
 describe('preview MCP token', () => {
-  test('round-trips its (user, session, team) scope', () => {
-    const token = mintPreviewMcpToken({ userId: 'user-1', sessionId: 'conv-1', teamId: 'team-1' })
+  test('round-trips its (user, session, team) scope', async () => {
+    const token = await mintPreviewMcpToken({
+      userId: 'user-1',
+      sessionId: 'conv-1',
+      teamId: 'team-1',
+    })
     const claims = verifyPreviewMcpToken(token)
 
     expect(claims).toMatchObject({
@@ -26,8 +30,8 @@ describe('preview MCP token', () => {
     expect(token.split('.')).toHaveLength(3)
   })
 
-  test('binds a shared-channel actor separately from the conversation owner', () => {
-    const token = mintPreviewMcpToken({
+  test('binds a shared-channel actor separately from the conversation owner', async () => {
+    const token = await mintPreviewMcpToken({
       userId: 'actor-2',
       conversationOwnerUserId: 'owner-1',
       sessionId: 'conv-1',
@@ -42,8 +46,12 @@ describe('preview MCP token', () => {
     })
   })
 
-  test('rejects tampered payloads and garbage', () => {
-    const token = mintPreviewMcpToken({ userId: 'user-1', sessionId: 'conv-1', teamId: 'team-1' })
+  test('rejects tampered payloads and garbage', async () => {
+    const token = await mintPreviewMcpToken({
+      userId: 'user-1',
+      sessionId: 'conv-1',
+      teamId: 'team-1',
+    })
     const [head = '', payload = '', signature = ''] = token.split('.')
     const forged = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       tid: string
@@ -57,8 +65,8 @@ describe('preview MCP token', () => {
     expect(verifyPreviewMcpToken('')).toBeNull()
   })
 
-  test('rejects expired tokens', () => {
-    const token = mintPreviewMcpToken({
+  test('rejects expired tokens', async () => {
+    const token = await mintPreviewMcpToken({
       userId: 'user-1',
       sessionId: 'conv-1',
       teamId: 'team-1',
@@ -68,8 +76,8 @@ describe('preview MCP token', () => {
     expect(verifyPreviewMcpToken(token)).toBeNull()
   })
 
-  test('binds the token to its API origin', () => {
-    const token = mintPreviewMcpToken({
+  test('binds the token to its API origin', async () => {
+    const token = await mintPreviewMcpToken({
       userId: 'user-1',
       sessionId: 'conv-1',
       teamId: 'team-1',
@@ -83,7 +91,7 @@ describe('preview MCP token', () => {
 describe('scopedPathAllowed', () => {
   const claims = { sid: 'conv-1', tid: 'team-1' }
 
-  test('accepts everything under the conversation team mount, with or without prefix', () => {
+  test('accepts everything under the conversation team mount, with or without prefix', async () => {
     expect(scopedPathAllowed('/agent-sessions/conv-1/teams/team-1/mcp', claims)).toBe(true)
     expect(scopedPathAllowed('/agent-sessions/conv-1/teams/team-1/mcp-tools', claims)).toBe(true)
     expect(
@@ -97,7 +105,7 @@ describe('scopedPathAllowed', () => {
     )
   })
 
-  test('rejects other sessions, other teams, and non-team paths', () => {
+  test('rejects other sessions, other teams, and non-team paths', async () => {
     expect(scopedPathAllowed('/agent-sessions/other/teams/team-1/mcp', claims)).toBe(false)
     expect(scopedPathAllowed('/agent-sessions/conv-1/teams/other/mcp', claims)).toBe(false)
     expect(scopedPathAllowed('/agent-sessions/conv-1/kubeconfig', claims)).toBe(false)
@@ -115,32 +123,36 @@ describe('personalCredentialSubject', () => {
       humanTurn,
     })
 
-  test('is the sender on a member’s own turn and the session owner otherwise', () => {
-    expect(personalCredentialSubject(`Bearer ${mint(true)}`)).toBe('actor-2')
-    expect(personalCredentialSubject(`Bearer ${mint(false)}`)).toBe('owner-1')
-    expect(personalCredentialSubject(`Bearer ${mint()}`)).toBe('owner-1')
+  test('is the sender on a member’s own turn and the session owner otherwise', async () => {
+    expect(personalCredentialSubject(`Bearer ${await mint(true)}`)).toBe('actor-2')
+    expect(personalCredentialSubject(`Bearer ${await mint(false)}`)).toBe('owner-1')
+    expect(personalCredentialSubject(`Bearer ${await mint()}`)).toBe('owner-1')
   })
 
-  test('is nobody when the agent asks for the team identity', () => {
-    expect(personalCredentialSubject(`Bearer ${mint(true)}`, 'team')).toBeNull()
-    expect(personalCredentialSubject(`Bearer ${mint()}`, 'team')).toBeNull()
+  test('is nobody when the agent asks for the team identity', async () => {
+    expect(personalCredentialSubject(`Bearer ${await mint(true)}`, 'team')).toBeNull()
+    expect(personalCredentialSubject(`Bearer ${await mint()}`, 'team')).toBeNull()
   })
 
-  test('ignores missing, non-bearer and forged tokens', () => {
-    const [head = '', , signature = ''] = mint().split('.')
+  test('ignores missing, non-bearer and forged tokens', async () => {
+    const [head = '', , signature = ''] = (await mint()).split('.')
     const forged = Buffer.from(JSON.stringify({ sub: 'x', own: 'x', hum: true })).toString(
       'base64url',
     )
 
     expect(personalCredentialSubject(undefined)).toBeNull()
-    expect(personalCredentialSubject(mint(true))).toBeNull()
+    expect(personalCredentialSubject(await mint(true))).toBeNull()
     expect(personalCredentialSubject(`Bearer ${head}.${forged}.${signature}`)).toBeNull()
   })
 })
 
 describe('redactSignedTokens', () => {
-  test('replaces tokens this backend signed, including inside raw JSON', () => {
-    const token = mintPreviewMcpToken({ userId: 'user-1', sessionId: 'conv-1', teamId: 'team-1' })
+  test('replaces tokens this backend signed, including inside raw JSON', async () => {
+    const token = await mintPreviewMcpToken({
+      userId: 'user-1',
+      sessionId: 'conv-1',
+      teamId: 'team-1',
+    })
     const skills = mintRuntimeSkillsToken('team-1', 'user-1')
     const frame = JSON.stringify({ text: `NUPHOS_TOKEN=${token}\nBearer ${token}\tS=${skills}` })
 
@@ -149,7 +161,7 @@ describe('redactSignedTokens', () => {
     })
   })
 
-  test('keeps JWTs it did not sign and plain text', () => {
+  test('keeps JWTs it did not sign and plain text', async () => {
     const foreign = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2lnbmF0dXJl'
 
     expect(redactSignedTokens(`id_token=${foreign} ok`)).toBe(`id_token=${foreign} ok`)
