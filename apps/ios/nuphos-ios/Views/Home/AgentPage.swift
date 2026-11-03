@@ -435,7 +435,7 @@ struct NewChatComposer: View {
 
     var body: some View {
         @Bindable var store = store
-        ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving && store.credentialsReady, editRequest: $failedSubmission, mentions: draftTeam.isEmpty ? nil : MentionSource(
+        ChatComposerBar(text: $draft, canSend: !store.selectedRuntimeUnavailable && !store.newModelSaving && store.credentialsReady, editRequest: $failedSubmission, voiceToken: auth.token, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, mentions: draftTeam.isEmpty ? nil : MentionSource(
             teamId: draftTeam,
             devices: store.credentialCatalog?.scoped(to: .devices).allItems ?? [],
             pickDevice: { device in
@@ -445,7 +445,7 @@ struct NewChatComposer: View {
                 await store.loadCredentialOptions()
                 return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
             }
-        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, voiceToken: auth.token, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, onSend: { submission in
+        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, onSend: { submission in
             do {
                 try admissionCheck?()
                 guard let session = store.newSession() else { throw SharedShareSession.Failure.workspace }
