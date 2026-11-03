@@ -104,7 +104,7 @@ export async function agentFileParts(
     [...new Set(groupIds)].map(async (groupId) => {
       const group = await getTransferGroup(scope, groupId)
 
-      if (group.status !== 'ready')
+      if (group.direction !== 'download' || group.status !== 'ready')
         throw new AppError(400, 'invalid_request', `Files ${groupId} are not finished uploading`)
 
       return { type: 'transfer-download' as const, groupId: group.groupId }

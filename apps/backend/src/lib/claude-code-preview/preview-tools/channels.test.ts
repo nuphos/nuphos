@@ -232,9 +232,13 @@ test('a member posts a follow-up into its channel, with only its own finished fi
   await seed(chat, { kind: 'channel', agentSessionIds: ['agent-p'], teamId: team })
   await seed('agent-p', { teamId: team })
   const get = spyOn(transfers, 'getTransferGroup').mockImplementation(async (scope, groupId) => {
-    if (groupId !== 'mine') throw new Error('Transfer not found')
+    if (groupId === 'theirs') throw new Error('Transfer not found')
 
-    return { groupId, status: 'ready' } as Awaited<ReturnType<typeof transfers.getTransferGroup>>
+    return {
+      groupId,
+      status: 'ready',
+      direction: groupId === 'mine' ? 'download' : 'upload',
+    } as Awaited<ReturnType<typeof transfers.getTransferGroup>>
   })
   const post = channelToolModule().handlers({
     userId: 'teammate',
@@ -262,7 +266,11 @@ test('a member posts a follow-up into its channel, with only its own finished fi
     // Its own session's files only, under its owner.
     expect(get.mock.calls[0]![0]).toMatchObject({ userId: 'owner', sessionId: 'agent-p' })
     expect(
-      await post?.({ label: 'x', channelId: chat, text: 'Theirs.', files: ['someone-else'] }),
+      await post?.({ label: 'x', channelId: chat, text: 'Theirs.', files: ['theirs'] }),
+    ).toMatchObject({ isError: true })
+    // Only files it pushed for download, not something uploaded to it.
+    expect(
+      await post?.({ label: 'x', channelId: chat, text: 'Upload.', files: ['an-upload'] }),
     ).toMatchObject({ isError: true })
     // A channel it is not in is refused.
     expect(await post?.({ label: 'x', channelId: OTHER_CHANNEL, text: 'Hello.' })).toMatchObject({

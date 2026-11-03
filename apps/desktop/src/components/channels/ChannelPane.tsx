@@ -49,8 +49,8 @@ export function ChannelPane({
   useConversationRead(channelId, true)
   // Text that could not be posted goes back into the composer.
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
-  // A resend of the same text reuses its id, so a post that did land is not doubled.
-  const unsent = useRef<{ text: string; id: string } | null>(null)
+  // A resend of the same post reuses its id, so a post that did land is not doubled.
+  const unsent = useRef<{ key: string; id: string } | null>(null)
   // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -67,11 +67,12 @@ export function ChannelPane({
 
   const send = async (text: string, filePaths: string[]) => {
     if (!text.trim() && filePaths.length === 0) return
-    const id = unsent.current?.text === text ? unsent.current.id : crypto.randomUUID()
+    const key = [text, ...filePaths].join('\n')
+    const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
     // Files take the conversation's upload path: shown at once, uploaded, then posted.
     const files = filePaths.length > 0 ? makeAttachmentTurn(text, filePaths, teamId) : null
 
-    unsent.current = { text, id }
+    unsent.current = { key, id }
     stickToBottom()
     setSending((posts) => [...posts, sendingPost(id, text, user, files?.optimisticPart())])
     try {
