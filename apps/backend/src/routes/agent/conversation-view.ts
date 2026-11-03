@@ -3,6 +3,7 @@ import { normalizeConversationActivitySource } from '@/lib/agent/conversation-ac
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import { canManage, canReply, conversationAccess, generalAccessOf } from '@/lib/agent/db/access'
 import { conversationReadState } from '@/lib/agent/db/read-state'
+import { refusesLocalTurn } from '@/lib/agent/devices/local-runtime/address'
 import { fetchCachedUsers } from '@/lib/agent/directory'
 import { slackThreadFallbackUrl } from '@/lib/agent/session-thread-resources'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
@@ -194,6 +195,12 @@ export function serializeConversationForViewer(
     access,
     generalAccess: generalAccessOf(grants),
     readOnly: !canReply(access),
+    // Reply access that still cannot send: someone's own computer takes only
+    // their turns. Kept apart from readOnly so Stop and approvals stay.
+    sendBlocked:
+      canReply(access) && refusesLocalTurn(grants, viewer.id)
+        ? ('local_runtime_owner_only' as const)
+        : undefined,
     // iOS v0.8.0 and earlier read these two and treat a missing value as
     // false, which hides steering, approvals and Stop during a turn. Anyone
     // who can reply may steer or stop, so both follow reply access.

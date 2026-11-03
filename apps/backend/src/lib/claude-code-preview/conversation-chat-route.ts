@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb'
 
 import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
-import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { refusesLocalTurn } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 import { getTeamAgentRuntime } from '@/lib/identity'
 import { userTeamRuntimeFallbacks } from '@/models'
@@ -85,8 +85,7 @@ export async function resolveConversationChatRuntime(
       ? await ownerDefaultRuntimeId(teamId, localAgentUser, requestedRuntime)
       : undefined)
 
-  // A local agent runs on its owner's computer, as them, so only they drive it.
-  if (conversation && actor !== conversation.userId && isLocalRuntimeId(conversation.runtimeId))
+  if (conversation && refusesLocalTurn(conversation, actor))
     throw new AppError(
       403,
       'local_runtime_owner_only',

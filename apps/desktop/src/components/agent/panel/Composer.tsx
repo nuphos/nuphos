@@ -36,7 +36,6 @@ export function Composer({
   runtimeState,
   executing = false,
   readOnly = false,
-  readOnlyPlaceholder,
   activitySource,
   slackThread,
   credentialSelector,
@@ -63,9 +62,6 @@ export function Composer({
   runtimeState?: RuntimeExecution
   executing?: boolean
   readOnly?: boolean
-  /** Placeholder shown while `readOnly` — defaults to the read-only-conversation
-   *  copy; overridden (e.g. by the integration gate) to explain the lock. */
-  readOnlyPlaceholder?: string
   activitySource?: AgentConversation['activitySource']
   slackThread?: AgentSlackThread | null
   credentialSelector?: CredentialSelectorControl
@@ -117,10 +113,12 @@ export function Composer({
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
   const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
   const sendBlocked = runtimeSendBlocked || modelControl.saving || Boolean(agentSendBlock)
+  const sendNotice = runtimeControl?.sendNotice
+  // Nothing to type either way; only readOnly also takes Stop away.
+  const locked = readOnly || Boolean(sendNotice)
   const state = useComposerState({
     hero,
-    readOnly,
-    readOnlyPlaceholder,
+    readOnly: locked,
     streaming,
     autoFocus,
     focusKey: draftKey,
@@ -128,7 +126,7 @@ export function Composer({
     placeholder,
   })
 
-  useComposerDraft(state, readOnly ? undefined : draftKey)
+  useComposerDraft(state, locked ? undefined : draftKey)
   const mentions = useComposerMentions(state.ref, state.syncEmpty, mentionScope, credentialSelector)
   const slash = useComposerSlashCommands(
     state.ref,
@@ -141,7 +139,7 @@ export function Composer({
   )
   const actions = useComposerActions(state, {
     sendBlocked,
-    readOnly,
+    readOnly: locked,
     streaming,
     onSend: mentions.wrapSend(slash.wrapSend(modelControl.wrapSend(onSend))),
     pendingSeed,
@@ -151,7 +149,7 @@ export function Composer({
   })
   const { filePaths, isEmpty } = state
 
-  const sendDisabled = sendBlocked || (isEmpty && filePaths.length === 0) || streaming || readOnly
+  const sendDisabled = sendBlocked || (isEmpty && filePaths.length === 0) || streaming || locked
 
   return (
     <div
@@ -210,11 +208,12 @@ export function Composer({
               onRemove={state.removeAttachment}
             />
           )}
-          {readOnly ? (
+          {locked ? (
             <ReadOnlyConversationNotice
               activitySource={activitySource}
               slackThread={slackThread}
-              label={readOnlyPlaceholder}
+              label={sendNotice?.label}
+              action={sendNotice?.action}
             />
           ) : (
             <ComposerEditor
@@ -246,7 +245,7 @@ export function Composer({
               <ComposerAttachmentMenu
                 open={state.attachmentMenuOpen}
                 onOpenChange={state.setAttachmentMenuOpen}
-                readOnly={readOnly}
+                readOnly={locked}
                 hero={hero}
                 localSessionsBySource={state.localSessionsBySource}
                 localSessionsLoading={state.localSessionsLoading}
@@ -271,7 +270,7 @@ export function Composer({
               )}
             </ComposerTools>
             {modelSession ? (
-              <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
+              <ModelSelector control={modelControl} disabled={locked} hero={hero} />
             ) : (
               newConversationModelControl
             )}

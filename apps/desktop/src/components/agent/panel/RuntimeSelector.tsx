@@ -1,11 +1,12 @@
 import clsx from 'clsx'
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentName } from '../../../lib/agentName'
+import { onOpenAgentMenu } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
@@ -21,6 +22,9 @@ import { usePickerFixes } from './usePickerFixes'
 
 import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
+
+/** What a viewer who may reply, yet not send, sees in place of the editor. */
+export type SendNotice = { label: string; action?: { label: string; onSelect: () => void } }
 
 export type RuntimeControl = {
   /** Lets the selector ask each agent whether an update is available. */
@@ -54,6 +58,8 @@ export type RuntimeControl = {
   onSettings?: () => void
   /** New conversation: add a team agent in place, without leaving the conversation. */
   onAddAgent?: () => void
+  /** Why this viewer cannot send here though they may reply; the composer shows it instead of its editor. */
+  sendNotice?: SendNotice
   /** A pick that needs the user's go-ahead before it takes effect. */
   confirm?: {
     title: string
@@ -75,6 +81,7 @@ export function RuntimeSelector({
   menuOpen,
   onMenuOpenChange,
   teamId,
+  sessionId,
   canUpdateTeamAgents,
   value,
   options = [],
@@ -104,6 +111,17 @@ export function RuntimeSelector({
     setInternalOpen(next)
     onMenuOpenChange?.(next)
   }
+  const movable = Boolean(sessionId && onSelect)
+
+  // The Share card asks for it, to move a session teammates cannot send in.
+  useEffect(() => {
+    if (!sessionId || !movable) return
+
+    return onOpenAgentMenu(sessionId, () => {
+      setInternalOpen(true)
+      onMenuOpenChange?.(true)
+    })
+  }, [sessionId, movable, onMenuOpenChange])
   const devices = useAgentDevices(() => 5_000, teamId, {
     metrics: true,
     enabled: open && Boolean(teamId),

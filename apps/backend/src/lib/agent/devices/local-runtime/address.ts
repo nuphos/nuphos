@@ -57,6 +57,17 @@ export function isLocalRuntimeId(runtimeId: string | undefined): boolean {
 }
 
 /**
+ * A local agent runs on its owner's computer, as them, so only they send turns
+ * there (#667). The chat route enforces it; conversation views report it.
+ */
+export function refusesLocalTurn(
+  conversation: { userId: string; runtimeId?: string },
+  actorId: string | undefined,
+): boolean {
+  return actorId !== conversation.userId && isLocalRuntimeId(conversation.runtimeId)
+}
+
+/**
  * The address a conversation is pinned to. It names no host: the backend reaches
  * the runtime only through the tunnel its computer holds open.
  */

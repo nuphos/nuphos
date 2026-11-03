@@ -160,6 +160,7 @@ export async function runOpenConversation(
       auditForcedReadOnly:
         opts?.forceReadOnly === true && detail.readOnly !== true ? true : undefined,
       foreign: detail.isOwner === false ? true : undefined,
+      sendBlocked: detail.sendBlocked,
       canManage: detail.canManage === true ? true : undefined,
       archived: detail.archivedAt ? true : undefined,
       watching: detail.watching,

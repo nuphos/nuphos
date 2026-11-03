@@ -18,6 +18,23 @@ export const OWN_LOCAL_AGENT_MOVE_NOTICE = t(
   'After the move, only you can send messages; people you shared it with can still read it.',
 )
 
+const OPEN_AGENT_MENU = 'nuphos:open-agent-menu'
+
+/** Opens the agent picker in this session's composer, e.g. from the Share card. */
+export function openAgentMenu(sessionId: string): void {
+  window.dispatchEvent(new CustomEvent(OPEN_AGENT_MENU, { detail: sessionId }))
+}
+
+export function onOpenAgentMenu(sessionId: string, open: () => void): () => void {
+  const listener = (event: Event) => {
+    if ((event as CustomEvent<string>).detail === sessionId) open()
+  }
+
+  window.addEventListener(OPEN_AGENT_MENU, listener)
+
+  return () => window.removeEventListener(OPEN_AGENT_MENU, listener)
+}
+
 /** Host trust and losing collaboration are separate reasons to explain a move. */
 export function localAgentMoveWarning(
   target: Pick<RuntimeInstance, 'kind' | 'local'>,

@@ -1,16 +1,16 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { Info, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { LOCAL_AGENT_SHARING_NOTE } from '../../lib/localAgentSharing'
 import { toast } from '../ui/toast'
 
-import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
 import { addableAgents, agentPeople, removePeople } from './channelPeople'
 import { InviteSection } from './InviteSection'
+import { LocalAgentSharingNote } from './LocalAgentSharingNote'
+import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
 import { agentSessionUrl } from './sessionUrl'
 import { GeneralAccessRow } from './ShareAccess'
 import {
@@ -257,12 +257,7 @@ export function SessionParticipants({
                     onChange={changeGeneralAccess}
                   />
                 </ShareLink>
-                {warnLocalAgent && (
-                  <div className="flex gap-2 px-1 text-[12px] leading-snug text-tertiary">
-                    <Info className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                    {LOCAL_AGENT_SHARING_NOTE}
-                  </div>
-                )}
+                {warnLocalAgent && <LocalAgentSharingNote sessionId={sessionId} />}
                 <ParticipantList
                   participants={everyone}
                   label={channel ? t('In this chat') : undefined}

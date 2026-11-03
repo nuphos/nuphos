@@ -138,6 +138,8 @@ export type Tab = {
   auditForcedReadOnly?: boolean
   /** A teammate's conversation: owner-only endpoints answer 403, so never call them. */
   foreign?: boolean
+  /** Why this viewer cannot send here though they may reply; see AgentConversation. */
+  sendBlocked?: AgentConversation['sendBlocked']
   /** A teammate's conversation this viewer may still move and re-credential. */
   canManage?: boolean
   /** A fork the server has not stored yet: its sessionId is client-minted until the first turn. */

@@ -70,6 +70,8 @@ export type AgentConversation = {
   triggerRun?: AgentConversationTriggerRun
   isOwner?: boolean
   readOnly?: boolean
+  /** May reply, yet cannot send: it runs on its owner's own computer. Stop and approvals stay. */
+  sendBlocked?: 'local_runtime_owner_only'
   /** The owner or a manager: may change the runtime and credentials. */
   canManage?: boolean
   owner?: AgentConversationPerson

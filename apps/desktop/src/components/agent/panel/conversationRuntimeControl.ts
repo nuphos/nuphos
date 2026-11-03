@@ -2,10 +2,13 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
+import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n/index.ts'
 import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
+
+import { sendNoticeFor } from './sendNotice'
 
 import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
@@ -36,6 +39,11 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     runtimeQuotas,
     onOpenAgentSettings,
   } = c
+  // A teammate's own chat on the computer this conversation runs on.
+  const startChatOn = useStableCallback((runtimeId: string) => {
+    c.selectConversationRuntime(runtimeId)
+    c.startNewChat()
+  })
   const sessionId = tab?.sessionId
   const tabId = tab?.id
   const provider = tab?.agentRuntime ?? 'claude-code'
@@ -170,6 +178,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       loading: runtimeInstancesLoading,
       error: runtimeInstancesError,
       onSettings: onOpenAgentSettings,
+      sendNotice: sendNoticeFor(tab, runtimeInstances, startChatOn),
       ...(pendingLocal
         ? {
             confirm: {
@@ -201,6 +210,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     runtimeInstancesError,
     runtimeQuotas,
     onOpenAgentSettings,
+    startChatOn,
   ])
 
   return { runtimeControl }

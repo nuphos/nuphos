@@ -22,26 +22,40 @@ import { selectedAgentName, selectedAgentReachability } from './runtimeControlSi
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
-import type { RuntimeControl } from './RuntimeSelector'
+import type { RuntimeControl, SendNotice } from './RuntimeSelector'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
 
 export function ReadOnlyConversationNotice({
   activitySource,
   slackThread,
   label,
+  action,
 }: {
   activitySource?: AgentConversation['activitySource']
   slackThread?: AgentSlackThread | null
   // Overrides the default read-only copy — e.g. the gated "connect an
   // integration" guidance, which would otherwise be hidden behind this notice.
   label?: string
+  /** What the viewer can do instead, beside the reason. */
+  action?: SendNotice['action']
 }) {
   return (
     <div className="flex min-h-9 min-w-0 items-center gap-2">
       <ConversationActivityBadges source={activitySource} />
-      <span className="min-w-0 truncate text-[13px] text-secondary">
+      <span
+        className={clsx(
+          'min-w-0 flex-1 text-[13px] text-secondary',
+          // Beside an action the reason wraps rather than hide its end.
+          action ? 'leading-snug' : 'truncate',
+        )}
+      >
         {label ?? conversationReadOnlyLabel(activitySource, Boolean(slackThread))}
       </span>
+      {action && (
+        <Button type="button" variant="secondary" size="sm" onClick={action.onSelect}>
+          {action.label}
+        </Button>
+      )}
       {slackThread && <span className="sr-only">{t('Use the Open thread button to reply.')}</span>}
     </div>
   )
