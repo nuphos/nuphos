@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
-import { getTransferGroup, listTransferGroups, resolveDownloads } from '@/lib/file-transfer/service'
+import { getTransferGroup, resolveDownloads } from '@/lib/file-transfer/service'
 
 import { agentConversations, agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
@@ -66,23 +66,6 @@ async function posterScope(channel: Channel, groupId: string): Promise<TransferS
 /** The files of a group posted to this chat, with fresh download links. */
 export async function resolveChannelFiles(channel: Channel, groupId: string) {
   return await resolveDownloads(await posterScope(channel, groupId), groupId)
-}
-
-/** What an agent pushed for download since `since` (its turn), as parts for its chat post. */
-export async function pushedFileParts(
-  agent: Pick<AgentConversation, 'sessionId' | 'userId' | 'teamId'>,
-  since: Date,
-) {
-  if (!agent.teamId) return []
-  const groups = await listTransferGroups(
-    { teamId: new ObjectId(agent.teamId), userId: agent.userId, sessionId: agent.sessionId },
-    'download',
-  )
-
-  return groups
-    .filter((group) => Date.parse(group.createdAt) >= since.getTime())
-    .reverse()
-    .map((group) => ({ type: 'transfer-download' as const, groupId: group.groupId }))
 }
 
 /**

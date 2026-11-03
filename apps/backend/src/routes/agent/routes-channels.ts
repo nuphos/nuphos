@@ -163,13 +163,13 @@ channelRoutes.get('/conversations/:sessionId/attachments/:groupId', async (c) =>
 
 // Records the message and wakes the channel's agents; each decides whether to answer.
 channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
-  // A person in the app. An agent's reply is posted when its turn ends, which spends the
-  // agents' budget; a token posting here would refill it for them.
+  // A person in the app. Agents post with channel_post, which spends the agents'
+  // budget; a token posting here would refill it for them.
   if (!c.get('sessionId'))
     throw new AppError(
       403,
       'forbidden',
-      'Post to a channel from the app; agents reply when a channel wakes them',
+      'Post to a channel from the app; agents post with channel_post',
     )
   const userId = c.get('userId')
   const body = await readBody(c)
