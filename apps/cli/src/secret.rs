@@ -65,7 +65,7 @@ mod imp {
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 mod imp {
-    use std::sync::{Arc, OnceLock};
+    use std::sync::{Arc, LazyLock};
 
     use anyhow::{anyhow, Context, Result};
     use keyring_core::{CredentialStore, Entry, Error};
@@ -84,9 +84,10 @@ mod imp {
 
     /// Opened once: on Linux this connects to the Secret Service, and a
     /// machine without one keeps the file without a warning on every run.
+    static STORE: LazyLock<Option<Arc<CredentialStore>>> = LazyLock::new(|| open().ok());
+
     fn store() -> Option<&'static Arc<CredentialStore>> {
-        static STORE: OnceLock<Option<Arc<CredentialStore>>> = OnceLock::new();
-        STORE.get_or_init(|| open().ok()).as_ref()
+        STORE.as_ref()
     }
 
     pub fn available() -> bool {
