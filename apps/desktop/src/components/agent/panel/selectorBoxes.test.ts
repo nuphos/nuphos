@@ -152,6 +152,22 @@ test('inside its computer a runtime shows its own name, or its provider', () => 
   assert.equal(boxAgentName({ label: 'Team Claude', provider: 'claude-code' }), 'Team Claude')
 })
 
+test('shared-host disclosure follows use grants, without warning owners or managers', async () => {
+  const { showSharedComputerDisclosure } = await import('./selectorBoxes.ts')
+  const agents = [{ local: { shared: { level: 'full' } } }] as unknown as Parameters<
+    typeof selectorBoxes
+  >[0]
+
+  for (const access of ['owner', 'manage', 'use'] as const) {
+    assert.equal(
+      showSharedComputerDisclosure({ device: device('fixture', { access }), agents }),
+      access === 'use',
+    )
+  }
+  assert.equal(showSharedComputerDisclosure({ agents }), true)
+  assert.equal(showSharedComputerDisclosure({ agents: [] }), false)
+})
+
 test("a teammate's computer names its owner; the viewer's own, a cloud one and the cloud do not", () => {
   const members = [
     {

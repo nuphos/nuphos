@@ -120,6 +120,15 @@ export function boxAgentName(agent: Pick<RuntimeInstance, 'label' | 'local' | 'p
   return agent.local.agentLabel ?? AGENT_PROVIDER[agent.provider].label
 }
 
+/** Explicit grants win; older catalogs identify a teammate's computer with shared. */
+export function showSharedComputerDisclosure(
+  group: Pick<SelectorBox, 'device' | 'agents'>,
+): boolean {
+  if (group.device?.access) return group.device.access === 'use'
+
+  return group.agents.some((agent) => Boolean(agent.local?.shared))
+}
+
 /**
  * "Shared by <owner>" on a teammate's own computer, so it is told apart from one of the viewer's
  * with a like name; null for their own computers, the team's cloud computers and a computer the
