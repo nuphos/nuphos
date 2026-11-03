@@ -3,16 +3,23 @@ import { Pause } from 'lucide-react'
 import { Fragment, useState } from 'react'
 
 import { t } from '../../i18n'
-import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
-import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { MessageResponse } from '../agent/MessageResponse'
+import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { formatMessageTimestamp } from '../agent/panel/streamText'
 import { Avatar } from '../Avatar'
 
+import { Typing } from './ChannelTyping'
+
 import type { AgentPersistedMessage, AgentTimelineEvent, ChannelAgent } from '../../api'
+import type { ReactNode } from 'react'
+
+type Links = {
+  renderLink: (href: string, children: ReactNode) => ReactNode
+  onLinkClick?: (href: string, beside?: boolean) => boolean
+}
 
 function textOf(message: AgentPersistedMessage): string {
   return message.parts
@@ -48,6 +55,7 @@ function ChannelMessage({
   ownAgent,
   viewerId,
   teamId,
+  links,
   onOpenSession,
 }: {
   message: AgentPersistedMessage
@@ -58,6 +66,8 @@ function ChannelMessage({
   ownAgent: boolean
   viewerId: string
   teamId: string
+  /** The same link handling as a conversation's messages: Nuphos links open in the app. */
+  links: Links
   onOpenSession: (sessionId: string) => void
 }) {
   const metadata = parseMessageMetadata(message.metadata)
@@ -69,7 +79,12 @@ function ChannelMessage({
   const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
   const open = agentId && ownAgent ? () => onOpenSession(agentId) : null
   const body = (
-    <MessageResponse teamId={teamId} className="[&_p]:whitespace-pre-wrap">
+    <MessageResponse
+      teamId={teamId}
+      className="[&_p]:whitespace-pre-wrap"
+      renderLink={links.renderLink}
+      onLinkClick={links.onLinkClick}
+    >
       {text}
     </MessageResponse>
   )
@@ -159,35 +174,6 @@ function ChannelMessage({
   )
 }
 
-/**
- * iMessage-style dots for an agent in a turn. They surface after a beat, so an
- * agent that reads the post and has nothing to say never flashes them.
- */
-function Typing({ agents }: { agents: ChannelAgent[] }) {
-  const states = useAgentRuntimeStates()
-  const busy = agents.filter((agent) => runtimeTurnActive(states.get(agent.sessionId)))
-
-  return busy.map((agent) => (
-    <div
-      key={agent.sessionId}
-      className="flex items-end gap-2.5"
-      role="status"
-      aria-label={t('{name} is thinking', { name: agent.title })}
-    >
-      <AgentAvatar agentId={agent.sessionId} avatar={agent.avatar} size={28} />
-      <div className="t-bubble-in flex items-center gap-1 rounded-2xl rounded-bl-md bg-zGray-800/70 px-3.5 py-3 [animation-delay:800ms]">
-        {[0, 160, 320].map((delay) => (
-          <span
-            key={delay}
-            className="t-typing-dot h-1.5 w-1.5 rounded-full bg-tertiary"
-            style={{ animationDelay: `${String(delay)}ms` }}
-          />
-        ))}
-      </div>
-    </div>
-  ))
-}
-
 /** The loop guard stopped agents answering agents: a line on the timeline. */
 function Paused({ turns }: { turns: number }) {
   return (
@@ -216,6 +202,7 @@ export function ChannelMessages({
   viewerId,
   teamId,
   onOpenSession,
+  onOpenNuphosLink,
 }: {
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
@@ -223,7 +210,12 @@ export function ChannelMessages({
   viewerId: string
   teamId: string
   onOpenSession: (sessionId: string) => void
+  onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
 }) {
+  const links = {
+    renderLink: useAgentLinks(teamId, onOpenNuphosLink),
+    onLinkClick: onOpenNuphosLink,
+  }
   // What was here on opening stays put; only posts that arrive later spring in.
   const owned = new Set(
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
@@ -242,6 +234,7 @@ export function ChannelMessages({
           ownAgent={owned.has(senderOf(message) ?? '')}
           viewerId={viewerId}
           teamId={teamId}
+          links={links}
           onOpenSession={onOpenSession}
         />
       ),

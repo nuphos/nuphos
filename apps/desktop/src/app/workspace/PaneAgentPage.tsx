@@ -67,6 +67,7 @@ export function PaneAgentPage({
         user={user}
         dockOpen
         onOpenSession={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
+        onOpenNuphosLink={onOpenNuphosLink}
       />
     )
 
