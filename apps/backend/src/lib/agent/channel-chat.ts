@@ -24,8 +24,9 @@ export const CHANNEL_AGENT_TURN_BUDGET = 10
 type Post = { id: string; text: string; metadata: MessageMetadata; files?: object[] }
 
 /**
- * Records a message, with its `files` parts, and wakes the channel's other agents;
- * `authorSessionId` is the posting agent's. A resent id is stored and announced once.
+ * Records a message, with its `files` parts. A person's post wakes the channel's
+ * agents now; an agent's (`authorSessionId`) waits for its turn to end, so all
+ * it said that turn wakes the others once. A resent id is stored and announced once.
  */
 export async function postChannelMessage(
   channel: AgentConversation,
@@ -57,9 +58,33 @@ export async function postChannelMessage(
   })
   await bumpConversationActivity(channel.sessionId, channel.userId)
   await noteMentions({ ...channel, teamId }, post)
-  await wakeChannelAgents({ ...channel, teamId }, authorSessionId)
+  if (authorSessionId)
+    await agentConversations().updateOne(
+      { sessionId: authorSessionId },
+      { $addToSet: { channelWakes: channel.sessionId } },
+    )
+  else await wakeChannelAgents({ ...channel, teamId }, undefined)
 
   return true
+}
+
+/**
+ * An agent's turn ended: each channel it posted in wakes its other agents once,
+ * with everything it said, spending one turn per agent woken.
+ */
+export async function wakeAfterTurn(agentSessionId: string): Promise<void> {
+  const agent = await agentConversations().findOneAndUpdate(
+    { sessionId: agentSessionId, channelWakes: { $exists: true } },
+    { $unset: { channelWakes: '' } },
+    { returnDocument: 'before' },
+  )
+
+  for (const channelId of agent?.channelWakes ?? []) {
+    const channel = await getConversationBySessionId(channelId)
+
+    if (channel?.teamId && isChannel(channel))
+      await wakeChannelAgents({ ...channel, teamId: channel.teamId }, agentSessionId)
+  }
 }
 
 /**
