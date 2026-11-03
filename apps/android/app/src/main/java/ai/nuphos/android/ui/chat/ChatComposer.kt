@@ -176,6 +176,8 @@ fun ChatComposer(
     agentQuota: ai.nuphos.android.data.RuntimeQuota? = null,
     onChooseAgent: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    /** Who the message goes to, e.g. "Message #release-planning" in a chat. */
+    placeholder: String? = null,
 ) {
     val store = LocalAgentStore.current
     val context = LocalContext.current
@@ -765,7 +767,7 @@ fun ChatComposer(
                             if (state.isFocused) collapsedByUser = false
                         }
                         .semantics {
-                            contentDescription = if (isStreaming || sendQueues) "Queue a message" else "Ask Nuphos anything"
+                            contentDescription = if (isStreaming || sendQueues) "Queue a message" else placeholder ?: "Ask Nuphos anything"
                         },
                     textStyle = fieldStyle,
                     cursorBrush = SolidColor(colors.primary),
@@ -780,7 +782,7 @@ fun ChatComposer(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (text.isEmpty()) {
                                 Text(
-                                    if (isStreaming || sendQueues) "Queue a message…" else "Ask Nuphos anything…",
+                                    if (isStreaming || sendQueues) "Queue a message…" else placeholder ?: "Ask Nuphos anything…",
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = if (expanded) 8 else 1,
                                     overflow = TextOverflow.Ellipsis,

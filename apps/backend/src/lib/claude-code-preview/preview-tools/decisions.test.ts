@@ -205,6 +205,45 @@ describe('decision tool module', () => {
     ])
   })
 
+  test('several questions in one, or choices in the text, are rejected before any card goes out', async () => {
+    const frames: Record<string, unknown>[] = []
+    const tools = decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers(ctx)
+    const several = await tools.request_user_decision!({
+      label: 'Ask two things',
+      category: 'preference',
+      question:
+        '1. Is this definition right? (Yes (Recommended) / Adjust) 2. How should the AI pick a component? (Guide (Recommended) / Descriptions only)',
+    })
+    const inline = await tools.request_user_decision!({
+      label: 'Ask with inline choices',
+      category: 'preference',
+      question:
+        'Which rule should components follow? (Repeated or stateful (Recommended) / Basics only)',
+    })
+
+    expect(several.isError).toBe(true)
+    expect(JSON.stringify(several.content)).toContain('once per question')
+    expect(inline.isError).toBe(true)
+    expect(JSON.stringify(inline.content)).toContain('`options`')
+    expect(frames).toEqual([])
+  })
+
+  test('one question with its choices in options still goes out', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.request_user_decision!({
+      label: 'Ask about versions',
+      category: 'preference',
+      question: 'Upgrade from 1.2 to 1.3 now?',
+      options: ['Upgrade (Recommended)', 'Later'],
+    })
+
+    expect(result.isError).toBeFalsy()
+  })
+
   test('an integration decision carries its providers to the Desktop Connect card', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({

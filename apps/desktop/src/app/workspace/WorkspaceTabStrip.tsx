@@ -3,16 +3,19 @@ import { Profiler } from 'react'
 import { WorkspaceTabs } from '../../app/workspace/tabs/WorkspaceTabs'
 import { reportShellRender } from '../../lib/tabSwitchLog'
 
+import { useWorkspacePane } from './WorkspacePaneContext'
+
 import type { WorkspaceController } from './useWorkspaceController'
 
 export function WorkspaceTabStrip({ ws, userId }: { ws: WorkspaceController; userId: string }) {
+  const pane = useWorkspacePane()
   const {
     databaseConnectionsByTeam,
     tabs,
     activeTabId,
     workspaceActions,
-    sidebarCollapsed,
     toggleSidebarCollapsed,
+    workspaceDockExpanded,
     accounts,
     copyLink,
     newTab,
@@ -37,7 +40,8 @@ export function WorkspaceTabStrip({ ws, userId }: { ws: WorkspaceController; use
         onCloseOthers={closeOtherTabs}
         onReorder={reorderTab}
         onCopyPageUrl={copyLink}
-        sidebarCollapsed={sidebarCollapsed}
+        // Only an expanded dock reaches the window's corner; docked, the chat header holds the toggle.
+        sidebarCollapsed={workspaceDockExpanded && (pane?.cornerPane ?? false)}
         onToggleSidebarCollapse={toggleSidebarCollapsed}
       />
     </Profiler>

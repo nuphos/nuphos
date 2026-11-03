@@ -9,6 +9,8 @@ import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChatMessage
+import ai.nuphos.android.model.ComposerAttachment
+import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.HomePage
 import ai.nuphos.android.session.ChannelSession
@@ -68,7 +70,8 @@ class ChannelTest {
         var failAttachment = true
         override suspend fun detail(tail: Int): AgentConversationDetail {
             details += tail
-            val post = if (tail == 1) "" else POST
+            val mine = landed?.let { ",{\"id\":\"$it\",\"role\":\"user\",\"metadata\":{\"version\":1,\"sender\":{\"type\":\"user\",\"id\":\"me\",\"displayName\":\"Me\"},\"sentAt\":\"2026-11-03T09:40:00Z\"},\"parts\":[{\"type\":\"text\",\"text\":\"Posted\"}]}" }.orEmpty()
+            val post = if (tail == 1) "" else POST + mine
             return Http.json.decodeFromString(
                 "{\"kind\":\"channel\",\"title\":\"release-planning\",\"transcriptUpdatedAt\":\"" + stamp +
                     "\",\"messageCount\":" + count + ",\"activitySeq\":" + count + ",\"messages\":[" + post + "]}")
@@ -78,6 +81,19 @@ class ChannelTest {
             attachments += groupId
             if (failAttachment) error("offline")
             return TransferDownloadGroup(groupId, "2099-01-01T00:00:00Z", emptyList())
+        }
+        val uploads = mutableListOf<List<String>>()
+        val posts = mutableListOf<Triple<String, String, String?>>()
+        var failPost = false
+        var landed: String? = null
+        var heldUpload: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        override suspend fun upload(attachments: List<ComposerAttachment>): String {
+            uploads += attachments.map { it.name }; heldUpload?.await(); return "64b5f1c2e4b0a1d2c3e4f5a9"
+        }
+        override suspend fun post(text: String, id: String, upload: String?) {
+            posts += Triple(text, id, upload)
+            if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
+            landed = id
         }
     }
 
@@ -103,6 +119,107 @@ class ChannelTest {
         transport.failAttachment = false
         assertEquals("g1", session.transferGroup("g1").groupId)
         assertEquals(listOf("g1", "g1"), transport.attachments)
+    }
+
+    @Test fun aPostShowsAtOnceUploadsFirstAndIsNotShownTwice() = runTest {
+        val transport = FakeTransport()
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        val file = ComposerAttachment(name = "crash.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        assertTrue(session.send(ComposerSubmission("  Ship it  ", listOf(file)), "me", "Me", null, this) { "client-1" })
+        assertEquals(listOf("client-1"), session.sending.map { it.id })
+        assertTrue("Shown at once, before the chat returns it", session.posts.last().sending)
+        assertEquals(listOf("crash.png"), session.sendingAttachments["client-1"]?.map { it.name })
+        assertEquals("post.client-1", session.lastSubmittedKey)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(listOf("crash.png")), transport.uploads)
+        assertEquals(Triple("Ship it", "client-1", "64b5f1c2e4b0a1d2c3e4f5a9"), transport.posts.single())
+        // The chat returned the post under the same id: it shows once, as stored.
+        assertTrue(session.sending.isEmpty()); assertTrue(session.sendingAttachments.isEmpty())
+        assertEquals(1, session.posts.count { it.id == "client-1" }); assertFalse(session.posts.last().sending)
+    }
+
+    @Test fun aFailedPostIsRemovedRestoredAndRetriedUnderTheSameId() = runTest {
+        val transport = FakeTransport().apply { failPost = true }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        var ids = 0
+        val submission = ComposerSubmission("Hello")
+        assertTrue(session.send(submission, "me", "Me", null, this) { "client-${++ids}" })
+        testScheduler.advanceUntilIdle()
+        assertTrue(session.sending.isEmpty())
+        assertEquals(submission, session.unsent)
+        assertEquals("Synthetic post failure", session.sendError)
+        // A retry of the same content reuses the id, so a post that did land is not doubled.
+        transport.failPost = false
+        assertTrue(session.send(submission, "me", "Me", null, this) { "client-${++ids}" })
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("client-1", "client-1"), transport.posts.map { it.second })
+        // New content gets a new id.
+        assertTrue(session.send(ComposerSubmission("Something else"), "me", "Me", null, this) { "client-${++ids}" })
+        testScheduler.advanceUntilIdle()
+        assertEquals("client-2", transport.posts.last().second)
+        assertFalse(session.send(ComposerSubmission("   "), "me", "Me", null, this))
+    }
+
+    @Test fun aScopeChangeDuringUploadNeverPostsOrRestores() = runTest {
+        val transport = FakeTransport().apply { heldUpload = kotlinx.coroutines.CompletableDeferred() }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        var current = true
+        val file = ComposerAttachment(name = "crash.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        assertTrue(session.send(ComposerSubmission("Ship it", listOf(file)), "me", "Me", null, this, { current }) { "client-1" })
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, transport.uploads.size)
+        // The account, workspace or consent changes while the files upload.
+        current = false
+        transport.heldUpload!!.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertTrue("No late post", transport.posts.isEmpty())
+        assertTrue(session.sending.isEmpty()); assertNull(session.unsent); assertNull(session.sendError)
+        assertFalse("A stale composer cannot start another post", session.send(ComposerSubmission("Again"), "me", "Me", null, this, { current }))
+    }
+
+    @Test fun leavingDuringUploadCancelsWithoutPostingOrRestoring() = runTest {
+        val transport = FakeTransport().apply { heldUpload = kotlinx.coroutines.CompletableDeferred() }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        val composer = kotlinx.coroutines.CoroutineScope(coroutineContext + kotlinx.coroutines.Job())
+        val file = ComposerAttachment(name = "crash.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        assertTrue(session.send(ComposerSubmission("Ship it", listOf(file)), "me", "Me", null, composer) { "client-1" })
+        testScheduler.advanceUntilIdle()
+        composer.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
+        transport.heldUpload!!.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertTrue(transport.posts.isEmpty())
+        assertTrue(session.sending.isEmpty()); assertNull(session.unsent); assertNull(session.sendError)
+    }
+
+    @Test fun aRetryMatchesTheSameFilesNotTheSameNames() = runTest {
+        val transport = FakeTransport().apply { failPost = true }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        var ids = 0
+        val first = ComposerAttachment(name = "photo.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        val submission = ComposerSubmission("Look", listOf(first))
+        session.send(submission, "me", "Me", null, this) { "client-${++ids}" }
+        testScheduler.advanceUntilIdle()
+        // The post put back after a failure keeps its id.
+        session.send(session.unsent!!, "me", "Me", null, this) { "client-${++ids}" }
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("client-1", "client-1"), transport.posts.map { it.second })
+        // Same caption, a newly picked file with the same name: a new post, never the old id.
+        val other = ComposerAttachment(name = "photo.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(2)))
+        session.send(ComposerSubmission("Look", listOf(other)), "me", "Me", null, this) { "client-${++ids}" }
+        testScheduler.advanceUntilIdle()
+        assertEquals("client-2", transport.posts.last().second)
+    }
+
+    @Test fun aFailedPostShowsTheServerReasonButNeverARawPayload() {
+        val reason = ai.nuphos.android.data.AgentChatApi.conflict(500, """{"error":{"message":"Synthetic post failure"}}""")
+        assertEquals("Synthetic post failure", ChannelSession.postFailureMessage(reason))
+        assertEquals("Check your connection and try again.", ChannelSession.postFailureMessage(ai.nuphos.android.data.AgentChatApi.conflict(502, "<html>bad gateway</html>")))
+        assertEquals("Check your connection and try again.", ChannelSession.postFailureMessage(java.io.IOException("socket")))
     }
 
     @Test fun chatsAreTheirOwnListingAndLaunchFollowsTheLastAnswer() {

@@ -1,11 +1,10 @@
 import clsx from 'clsx'
-import { Box, Laptop, Server } from 'lucide-react'
+import { Box, Laptop } from 'lucide-react'
 
 import { t } from '../../i18n'
 
 import { StepActions } from './StepActions'
 
-import type { AddAgentAction } from './addAgentFlow'
 import type { ReactNode } from 'react'
 
 /** One option card in Add agent: an icon, a title and what it does. */
@@ -46,17 +45,17 @@ export function Choice({
   )
 }
 
-/** Add agent's first step: what kind of agent to add. */
+/** Add computer's first step: a Nuphos cloud computer or your own. */
 export function AddAgentChoices({
   boxAvailable,
   footer,
-  onPick,
+  onCloud,
   onJoin,
   onCancel,
 }: {
   boxAvailable: boolean
   footer: HTMLElement | null
-  onPick: (action: AddAgentAction) => void
+  onCloud: () => void
   /** Connect your own machine: shows a one-time join command. */
   onJoin: () => void
   onCancel: () => void
@@ -66,28 +65,18 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Box className="h-4 w-4" />}
-          title={t('New computer')}
+          title={t('Nuphos cloud computer')}
           description={t(
             'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.',
           )}
-          onClick={() => onPick('box')}
-        />
-      )}
-      {boxAvailable && (
-        <Choice
-          icon={<Laptop className="h-4 w-4" />}
-          title={t('Connect your own machine')}
-          description={t('Connect a computer or server you run, with a one-time join command.')}
-          onClick={onJoin}
+          onClick={onCloud}
         />
       )}
       <Choice
-        icon={<Server className="h-4 w-4" />}
-        title={t('Self-hosted runtime')}
-        description={t(
-          'Connect a runtime you run on your own server, with a pairing code from its console.',
-        )}
-        onClick={() => onPick('self-hosted')}
+        icon={<Laptop className="h-4 w-4" />}
+        title={t('Your own computer')}
+        description={t('A laptop or server you run, connected with a one-time command.')}
+        onClick={onJoin}
       />
       <StepActions footer={footer} className="flex items-center justify-end gap-2">
         <button

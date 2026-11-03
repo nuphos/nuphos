@@ -43,6 +43,7 @@ export function AgentHistoryPage({
   triggerIds = null,
   pendingDecision = false,
   onListLoaded,
+  hiddenSessionIds,
   keyboardNavigation = false,
 }: {
   teamId: string
@@ -77,6 +78,8 @@ export function AgentHistoryPage({
    * append below what the reader already chose.
    */
   onListLoaded?: (items: AgentConversation[]) => void
+  /** Rows to leave out until the next listing, e.g. the Inbox's questions answered on this device. */
+  hiddenSessionIds?: ReadonlySet<string>
   /** Let Up/Down walk the list. Off for a background tab, whose rows would
    *  otherwise race the visible page for the same keystrokes. */
   keyboardNavigation?: boolean
@@ -229,9 +232,12 @@ export function AgentHistoryPage({
     })
   }
 
+  const shown = hiddenSessionIds?.size
+    ? items.filter((item) => !hiddenSessionIds.has(item.sessionId))
+    : items
   const selectedRowRef = useHistoryKeyboardNavigation({
     keyboardNavigation,
-    items,
+    items: shown,
     selectedSessionId,
     onOpenConversation,
   })
@@ -261,11 +267,11 @@ export function AgentHistoryPage({
               layout === 'page' && 'sketch-line-h pt-px',
               // Same treatment as the Recent list — dim + blur the stale
               // rows while a replacing fetch is in flight.
-              loading && items.length > 0 && 'opacity-50 blur-[1.5px] pointer-events-none',
+              loading && shown.length > 0 && 'opacity-50 blur-[1.5px] pointer-events-none',
             )}
           >
             <HistoryPageList
-              items={items}
+              items={shown}
               loading={loading}
               debouncedQuery={debouncedQuery}
               ownerId={ownerId}

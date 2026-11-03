@@ -3,10 +3,8 @@ import { Plus } from 'lucide-react'
 
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
-import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
-import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
@@ -17,49 +15,6 @@ import { STATUS_DOT } from './runtimePresentation'
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
-
-export type BoxJoin = { token: string; expiresAt: string; apiUrl: string | null }
-
-/** The two commands that make any Linux or macOS machine a Box of this user. */
-export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => void }) {
-  // Nuphos Cloud is the CLI's default; only another deployment (self-hosted, dev) names itself.
-  const env = [
-    join.apiUrl && join.apiUrl !== 'https://api.nuphos.ai' ? `NUPHOS_API_URL=${join.apiUrl}` : '',
-    `NUPHOS_JOIN_TOKEN=${join.token}`,
-  ]
-    .filter(Boolean)
-    .join(' ')
-  const command = `curl -fsSL https://nuphos.ai/install | sh\n${env} nuphos agent`
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={t('Connect your own machine')}
-      description={t('Run this on the machine. The token works once and expires in an hour.')}
-    >
-      <div className="space-y-3 p-5">
-        <pre className="whitespace-pre-wrap break-all rounded-lg border border-zGray-800 bg-main p-3 font-mono text-[12px] text-main">
-          {command}
-        </pre>
-        <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              void navigator.clipboard.writeText(command).then(() => toast.success(t('Copied')))
-            }
-          >
-            {t('Copy')}
-          </Button>
-          <Button size="sm" onClick={onClose}>
-            {t('Done')}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
 
 /** Open the same agent details panel as the usage table. */
 export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {

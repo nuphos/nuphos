@@ -242,11 +242,14 @@ export function SidebarUserEntry({
           <MenuItem
             icon={<Users className="h-3.5 w-3.5" />}
             onClick={() => {
-              signOutLocally()
-              // Said, not downgraded to signing out of this account alone.
-              void api
-                .authSignOutAllAccounts()
-                .catch((e: unknown) => toast.apiError(t('Could not log out'), e))
+              const undo = signOutLocally()
+
+              // Said, not downgraded to signing out of this account alone; and
+              // this window's drafts come back, since every account stays.
+              void api.authSignOutAllAccounts().catch((e: unknown) => {
+                undo(user)
+                toast.apiError(t('Could not log out'), e)
+              })
             }}
           >
             {t('Log out of all accounts')}

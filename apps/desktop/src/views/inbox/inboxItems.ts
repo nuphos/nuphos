@@ -4,13 +4,21 @@ import { openInputRequests } from '../../lib/agentInputRequests.ts'
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 
 /** Conversations still waiting once the questions answered on this device are set aside. */
+export function waitingConversations<T extends AgentConversation>(
+  conversations: readonly T[],
+  answered: ReadonlyMap<string, number>,
+): T[] {
+  return conversations.filter((conversation) =>
+    openInputRequests(conversation).some((request) => !answered.has(request.id)),
+  )
+}
+
+/** How many conversations {@link waitingConversations} keeps. */
 export function inboxCount(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
 ): number {
-  return conversations.filter((conversation) =>
-    openInputRequests(conversation).some((request) => !answered.has(request.id)),
-  ).length
+  return waitingConversations(conversations, answered).length
 }
 
 /**
@@ -49,6 +57,32 @@ export function nextSelection(
   const index = Math.max(0, Math.min(selected?.index ?? 0, items.length - 1))
 
   return items[index]!.sessionId
+}
+
+/**
+ * What the Inbox shows once the questions answered on this device are set
+ * aside: the conversations still waiting, the rows to hide until the listing
+ * catches up, and the one to open. When every question of the open one was
+ * answered here, the next row opens, as it will once the listing agrees.
+ */
+export function inboxReader<T extends AgentConversation>(
+  items: readonly T[] | null,
+  selected: { sessionId: string; index: number } | null,
+  answered: ReadonlyMap<string, number>,
+): { waiting: T[] | null; openId: string | null; hiddenSessionIds: Set<string> } {
+  if (!items)
+    return { waiting: null, openId: selected?.sessionId ?? null, hiddenSessionIds: new Set() }
+  const waiting = waitingConversations(items, answered)
+  const kept = new Set(waiting.map((item) => item.sessionId))
+  const hiddenSessionIds = new Set(
+    items.map((item) => item.sessionId).filter((sessionId) => !kept.has(sessionId)),
+  )
+  const openId =
+    selected && hiddenSessionIds.has(selected.sessionId)
+      ? nextSelection(selected, waiting)
+      : (selected?.sessionId ?? null)
+
+  return { waiting, openId, hiddenSessionIds }
 }
 
 /**

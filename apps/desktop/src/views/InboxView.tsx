@@ -14,10 +14,10 @@ import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCards } from './inbox/DecisionCards'
-import { nextSelection, replyTarget } from './inbox/inboxItems'
+import { inboxReader, nextSelection, replyTarget } from './inbox/inboxItems'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import { publishInboxListing } from './inbox/useInbox'
+import { publishInboxListing, useAnsweredOnDevice } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { AgentConversation } from '../api'
@@ -41,10 +41,11 @@ type Props = {
 
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
- * above every conversation waiting on the viewer. The reader shows that conversation's open questions as
- * cards: a choice answers its own question, and the composer below answers the
- * selected one. The transcript stays hidden until asked for; only delivery or
- * dismissal clears a question.
+ * above every conversation waiting on the viewer. The reader shows that
+ * conversation's open questions as cards: a choice, or a short reply typed on
+ * the selected card, answers its own question. The conversation, with its full
+ * composer, stays hidden until asked for; only delivery or dismissal clears a
+ * question.
  */
 export function InboxView({
   teamId,
@@ -92,8 +93,13 @@ export function InboxView({
       stopRefresh()
     }
   }, [])
+  // A question answered here leaves the Inbox at once, as it does the badge;
+  // the server's listing only drops it once the reply reaches the agent.
+  const answered = useAnsweredOnDevice()
+  const { waiting, openId, hiddenSessionIds } = inboxReader(items, selected, answered)
+
   useEffect(() => onLoading?.(items === null), [items, onLoading])
-  useEffect(() => onCount?.(items?.length ?? 0), [items, onCount])
+  useEffect(() => onCount?.(waiting?.length ?? 0), [waiting?.length, onCount])
 
   const select = useCallback((sessionId: string | null, list: AgentConversation[]) => {
     setChosenRequest(null)
@@ -139,7 +145,8 @@ export function InboxView({
     [teamId, query],
   )
 
-  // Enter or → moves from the list into the open conversation's composer; Esc comes back.
+  // Enter or → moves from the list into the selected card's reply field, or the
+  // conversation's composer when it is shown; Esc comes back.
   useEffect(() => {
     if (!isActive || !twoPane) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -157,8 +164,10 @@ export function InboxView({
       }
       if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing) {
         if (target && target !== document.body && !railRef.current?.contains(target)) return
-        // The first match can be a hidden copy; the composer is the one that takes focus.
-        const composers = readerRef.current?.querySelectorAll<HTMLElement>('[aria-label="Message"]')
+        // The first match can be a hidden copy; the field is the one that takes focus.
+        const composers = readerRef.current?.querySelectorAll<HTMLElement>(
+          '[data-inbox-reply], [aria-label="Message"]',
+        )
 
         for (const composer of composers ?? []) {
           composer.focus()
@@ -176,9 +185,11 @@ export function InboxView({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isActive, twoPane])
 
-  const empty = items !== null && items.length === 0 && !query
-  const selectedItem = selected && items?.find((item) => item.sessionId === selected.sessionId)
-  const selectedRequests = selectedItem ? openInputRequests(selectedItem) : []
+  const empty = waiting !== null && waiting.length === 0 && !query
+  const selectedItem = openId ? items?.find((item) => item.sessionId === openId) : undefined
+  const selectedRequests = selectedItem
+    ? openInputRequests(selectedItem).filter((request) => !answered.has(request.id))
+    : []
   const replyTo = replyTarget(selectedRequests, chosenRequest)
   const replyRequest = selectedRequests.find((request) => request.id === replyTo)
 
@@ -225,7 +236,7 @@ export function InboxView({
             refreshKey={refreshKey + tick}
             query={query}
             openingSessionId={null}
-            selectedSessionId={twoPane ? (selected?.sessionId ?? null) : null}
+            selectedSessionId={twoPane ? openId : null}
             layout="rail"
             pendingDecision
             historyScope="mine"
@@ -233,15 +244,16 @@ export function InboxView({
               twoPane ? select(sessionId, items ?? []) : onOpenConversation(sessionId)
             }
             onListLoaded={onListLoaded}
+            hiddenSessionIds={hiddenSessionIds}
             keyboardNavigation={isActive && twoPane}
           />
         </div>
         {twoPane && !empty && (
           <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
-            {selected && (
+            {openId && (
               <DecisionCards
                 teamId={teamId}
-                sessionId={selected.sessionId}
+                sessionId={openId}
                 title={selectedItem?.title}
                 requests={selectedRequests}
                 replyTo={replyTo}
@@ -253,16 +265,14 @@ export function InboxView({
                 }}
                 onShowConversation={openTranscript}
                 onHideConversation={() => setShowConversation(false)}
-                onOpenConversation={() => onOpenConversation(selected.sessionId)}
+                onOpenConversation={() => onOpenConversation(openId)}
               />
             )}
-            {selected && (
-              // Without the transcript the panel is just its composer, under the cards.
+            {openId && (
+              // Hidden until the conversation is asked for: the Inbox answers with
+              // the cards, but stays mounted, since a card's answer is sent through it.
               <div
-                className={clsx(
-                  'flex min-h-0 flex-col',
-                  showConversation ? 'flex-1' : 'h-56 shrink-0',
-                )}
+                className={clsx('min-h-0 flex-1 flex-col', showConversation ? 'flex' : 'hidden')}
               >
                 <AgentPanel
                   key="inbox"
@@ -270,7 +280,7 @@ export function InboxView({
                   open
                   focusComposerOnOpen={false}
                   teamId={teamId}
-                  sessionId={selected.sessionId}
+                  sessionId={openId}
                   decisionReplyTo={replyTo}
                   hideTranscript={!showConversation}
                   pendingPrompt={answer}

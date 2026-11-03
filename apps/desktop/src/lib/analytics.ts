@@ -94,6 +94,8 @@ type Props = Record<string, unknown>
 // once on the person profile. Kept in sync by setActiveTeam().
 let activeTeamId: string | null = null
 
+export const activeTeam = (): string | null => activeTeamId
+
 // Merged at capture time (not at the ~100 track() call sites) so no event can
 // ship without team attribution. Matches how the backend merges team_id inside
 // its own capture() (apps/backend/src/lib/posthog.ts). Explicit props win, so a
@@ -105,8 +107,7 @@ function withTeam(props?: Props): Props | undefined {
 }
 
 // Same shape as mirrorIdentityToMain below: `async` so a synchronous bridge
-// throw surfaces as a rejection the caller's single `.catch` handles alongside
-// IPC rejections.
+// throw surfaces as a rejection the caller's single `.catch` handles alongside IPC rejections.
 async function mirrorTeamToMain(teamId: string | null): Promise<void> {
   await window.api?.analyticsSetTeam?.(teamId)
 }
@@ -171,8 +172,7 @@ export function initAnalytics(): void {
 
 // Mirror the identity to the Electron main process so its lifecycle/crash
 // events attribute to the same person. `async` so a synchronous bridge throw
-// surfaces as a rejection the caller's single `.catch` handles alongside IPC
-// rejections.
+// surfaces as a rejection the caller's single `.catch` handles alongside IPC rejections.
 async function mirrorIdentityToMain(user: UserInfo): Promise<void> {
   await window.api?.analyticsIdentify?.(user.id, {
     email: user.email,

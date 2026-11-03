@@ -69,6 +69,32 @@ const requestIdField = z
   .max(200)
   .describe('The requestId request_user_decision returned.')
 
+// Numbered items that each end in a question mark: several questions in one.
+const NUMBERED_ITEM = /(?:^|\s)\d{1,2}(?:[.)]\s|、)/g
+const QUESTION_MARK = /[?？]/g
+// A "(Recommended)" marker is how a choice written into the text gives itself away.
+const INLINE_CHOICE = /[(（]\s*recommended\s*[)）]/i
+
+/**
+ * Why a question cannot become one answerable card, or null when it can:
+ * several questions in one, or choices written into the text instead of
+ * `options`. Cards answer one question with buttons, so either breaks them.
+ */
+export function decisionQuestionProblem(input: {
+  question: string
+  options?: readonly string[]
+}): string | null {
+  const items = input.question.match(NUMBERED_ITEM)?.length ?? 0
+  const marks = input.question.match(QUESTION_MARK)?.length ?? 0
+
+  if (items >= 2 && marks >= 2)
+    return 'This asks several questions at once. Call request_user_decision once per question, each with its own options, and end the turn after the first; ask the next one after the user answers.'
+  if (!input.options?.length && INLINE_CHOICE.test(input.question))
+    return 'The choices are written into the question. Pass them in `options` (two to five, the recommended one first) and keep `question` to the question itself.'
+
+  return null
+}
+
 type UserDecisionDeps = {
   agentOrigin: AgentSessionOrigin
   onExplicitUserDecision?: (decision: ExplicitUserDecision) => void
@@ -87,6 +113,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'For an integration or cloud account the task needs that is not connected to the team, or connected but not selected for this conversation, use category `integration` and list it in `providers`: in the Desktop app the user then gets a Connect card for it. ' +
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
         'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
+        'Ask exactly one question per call, and put its choices in `options`, never in the question text: the user answers with one button per option. ' +
         'The question is listed in the Inbox until answered: put what the user needs to decide in `body`, so they can answer there without reading the chat. ' +
         'The result carries a `requestId`; while the question is open, update_user_decision corrects it and withdraw_user_decision removes it once it no longer applies. ' +
         'After this tool returns, do not run more tools or make the choice yourself; follow the returned instruction, include the supplied options when present, and wait for the next user message.',
@@ -111,6 +138,9 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ),
       }),
       execute: async (input) => {
+        const problem = decisionQuestionProblem(input)
+
+        if (problem) throw new Error(problem)
         const { label: _label, category, question, body, options } = input
         const providers = category === 'integration' ? input.providers : undefined
         const secretName = category === 'credential' ? input.secretName : undefined
