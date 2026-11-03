@@ -19,10 +19,13 @@ struct ChannelView: View {
     }
 
     /// The chat's agents in a turn, as far as this device has seen their runtimes.
+    /// One with the last word is not typing: its reply takes the dots' place in
+    /// the same update, though its turn may end a poll later, as in iMessage.
     private var typing: [ChannelAgent] {
         channel.agents.filter { agent in
-            RuntimeObservations.shared.value(team: channel.teamId, session: agent.sessionId)?.turnActive == true
-                || store.conversations.first { $0.sessionId == agent.sessionId }?.activeRun != nil
+            channel.posts.last?.senderId != agent.sessionId
+                && (RuntimeObservations.shared.value(team: channel.teamId, session: agent.sessionId)?.turnActive == true
+                    || store.conversations.first { $0.sessionId == agent.sessionId }?.activeRun != nil)
         }
     }
 
@@ -62,6 +65,9 @@ struct ChannelView: View {
                 updateReading()
             }
             .onChange(of: scenePhase) { _, _ in updateReading() }
+            // A turn that ended has usually just posted: read it now, not a poll
+            // later, so the reply follows the dots without a gap.
+            .onChange(of: typing.map(\.id)) { Task { await channel.refresh() } }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId) }
             .alert("Couldn't send the message", isPresented: Binding(
                 get: { channel.sendError != nil }, set: { if !$0 { channel.sendError = nil } })) {
@@ -116,7 +122,8 @@ struct ChannelView: View {
         #if os(iOS)
         TranscriptList(rows: channel.loaded && channel.loadError == nil ? rows : [], submittedRowID: channel.lastSubmittedRowID,
                        sessionID: channel.channelId,
-                       composer: AnyView(composer.environment(store).readableWidth()), placeholder: AnyView(placeholder)) { row in
+                       composer: AnyView(composer.environment(store).readableWidth()), placeholder: AnyView(placeholder),
+                       animatesArrivals: true) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -207,7 +214,6 @@ private struct ChannelPostRow: View {
                 if !post.downloads.isEmpty {
                     TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
                 }
-                footer
             }
             if !mine { Spacer(minLength: 48) }
         }
@@ -256,16 +262,6 @@ private struct ChannelPostRow: View {
             }
         }
     }
-
-    @ViewBuilder
-    private var footer: some View {
-        if post.sending {
-            Text("Sending…")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.muted)
-                .padding(.horizontal, 4)
-        }
-    }
 }
 
 /// The loop guard stopped agents answering agents: a line on the timeline.
@@ -287,6 +283,9 @@ private struct PausedLine: View {
 /// iMessage-style dots for each agent in a turn.
 private struct TypingRow: View {
     let agents: [ChannelAgent]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The bubble grows from its tail as it comes in; the row itself fades in.
+    @State private var shown = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -298,25 +297,34 @@ private struct TypingRow: View {
                         .padding(.vertical, 12)
                         .background(Theme.chatSurface, in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: 18, bottomLeading: 6, bottomTrailing: 18, topTrailing: 18), style: .continuous))
+                        .scaleEffect(shown || reduceMotion ? 1 : 0.5, anchor: .bottomLeading)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(agent.title) is thinking")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear { withAnimation(.spring(duration: 0.3, bounce: 0.25)) { shown = true } }
     }
 }
 
+/// Three dots that brighten in a continuous wave, every frame. Read from the
+/// clock, so a row drawn again picks the wave up where it is.
 private struct TypingDots: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.16)) { context in
-            let step = Int(context.date.timeIntervalSinceReferenceDate / 0.16) % 6
-            HStack(spacing: 4) {
+        TimelineView(.animation(paused: reduceMotion)) { context in
+            let time = context.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 5) {
                 ForEach(0..<3) { index in
+                    // 0 to 1 and back, each dot a sixth of the 1.2 s cycle after the last.
+                    let level = reduceMotion ? 0.5 : max(0, sin(2 * .pi * (time / 1.2 - Double(index) / 6)))
                     Circle()
                         .fill(Theme.muted)
-                        .frame(width: 6, height: 6)
-                        .opacity(step / 2 == index ? 1 : 0.4)
+                        .frame(width: 7, height: 7)
+                        .opacity(0.35 + 0.65 * level)
+                        .scaleEffect(0.85 + 0.15 * level)
                 }
             }
         }

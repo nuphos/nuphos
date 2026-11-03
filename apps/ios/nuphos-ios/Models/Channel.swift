@@ -98,10 +98,11 @@ extension ChannelPost {
         var rows: [(at: Date, id: String, item: ChannelItem)] = []
         var previous: Date?
         for (index, post) in posts.enumerated() {
-            // A post on its way is the newest, whatever the clocks say.
+            // A post on its way is the newest, whatever the clocks say. Its time
+            // shows at once, so the chat returning it adds no row above it.
             let at = post.sending ? Date.distantFuture : post.sentAt ?? Date.distantPast
-            let timed = !post.sending && ChatTime.showsTimestamp(post.sentAt, after: previous)
-            if timed { rows.append((at: at, id: "time.\(post.id)", item: ChannelItem.time(at))) }
+            let timed = ChatTime.showsTimestamp(post.sentAt, after: previous)
+            if timed, let sentAt = post.sentAt { rows.append((at: at, id: "time.\(post.id)", item: ChannelItem.time(sentAt))) }
             previous = post.sentAt ?? previous
             let first = timed || index == 0 || posts[index - 1].senderId != post.senderId
             rows.append((at: at, id: "post.\(post.id)", item: ChannelItem.post(post, first: first)))

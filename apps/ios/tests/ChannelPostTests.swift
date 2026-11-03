@@ -87,6 +87,11 @@ enum ChannelPostTests {
         // A post on its way is the newest even when this device's clock runs behind.
         let items = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: 1, sending: true)], events: [], typing: [])
         precondition(items.map(\.id) == ["time.old", "post.old", "post.s"])
+        // After a pause it carries its time while sending, so being returned changes no rows.
+        let later = 100 + ChatTime.separatorInterval + 1
+        let sent = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: later, sending: true)], events: [], typing: [])
+        let returned = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: later)], events: [], typing: [])
+        precondition(sent.map(\.id) == ["time.old", "post.old", "time.s", "post.s"] && returned.map(\.id) == sent.map(\.id))
     }
 
     private static func placesPausedLinesAndTypingInOrder() {
