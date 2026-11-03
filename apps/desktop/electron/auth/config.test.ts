@@ -267,11 +267,15 @@ test('an item this app did not make is replaced, not reused', async () => {
   assert.equal(h.items.get(ACCOUNT), 'tok-2')
 })
 
-test('only the packaged macOS app keeps the token in the keychain', () => {
+test('only the packaged app keeps the token in the credential store, on macOS, Windows and Linux', () => {
   const electron = { versions: { ...process.versions, electron: '40.0.0' } }
 
   assert.equal(secureStorageEnabled('darwin', electron), true)
   assert.equal(secureStorageEnabled('darwin', { ...electron, defaultApp: true }), false)
   assert.equal(secureStorageEnabled('darwin', { versions: process.versions }), false)
-  assert.equal(secureStorageEnabled('linux', electron), false)
+  assert.equal(secureStorageEnabled('linux', electron), true)
+  assert.equal(secureStorageEnabled('win32', electron), true)
+  assert.equal(secureStorageEnabled('win32', { ...electron, defaultApp: true }), false)
+  assert.equal(secureStorageEnabled('linux', { versions: process.versions }), false)
+  assert.equal(secureStorageEnabled('freebsd', electron), false)
 })
