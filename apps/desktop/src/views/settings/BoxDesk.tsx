@@ -100,30 +100,34 @@ function MiniBox({ brand }: { brand: DeskModel['brand'] }) {
   )
 }
 
-/** Every machine starts seen from above; once the page shows it, the view turns to face it. Each
- * stands in the same space on the same baseline. A laptop shows its readings on its screen; a box
- * shows them in a card beside it, inside the same space, never over the machine. */
+/** Every machine starts seen from above; once the page shows it and it is on, the view turns to face
+ * it. Each stands in the same space on the same baseline. A laptop shows its readings on its screen;
+ * a box shows them in a card beside it, inside the same space, never over the machine. */
 export function DeskArt({
   model,
   on,
   children,
 }: {
   model: DeskModel
-  /** A paused or unreachable machine keeps a dark screen and an unlit power light, and no readings. */
+  /** A paused or unreachable machine stays shut, with an unlit power light and no readings. */
   on: boolean
   /** The machine's readings and agents. */
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
+  const [opened, setOpened] = useState(false)
+  // A machine that is off stays shut; it opens once it is on.
+  const open = on && opened
 
   useEffect(() => {
+    if (!on) return
+
     const timer = window.setTimeout(
-      () => setOpen(true),
+      () => setOpened(true),
       deskOpenDelay(performance.now(), openingWave),
     )
 
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [on])
 
   const laptop = model.form === 'laptop'
   // Nothing on it can be reached until it has turned to face the viewer.
