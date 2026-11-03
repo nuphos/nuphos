@@ -3,7 +3,6 @@ import { expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 
 import type { AgentDevice } from './store'
-import type * as dbActual from '@/lib/db'
 
 const updates: { filter: unknown; update: unknown }[] = []
 let rows: unknown[] = []
@@ -32,6 +31,11 @@ const base = {
   createdAt: new Date(0),
   updatedAt: new Date(0),
 }
+const cloud = (deviceId: string) => ({
+  ...base,
+  deviceId,
+  box: { provider: 'instabox', teamId: 't' },
+})
 const deps = { adminIds: () => Promise.resolve(['admin', 'creator']) }
 
 test('a share at any level becomes use; nobody manages a person’s computer but its owner', async () => {
@@ -79,16 +83,32 @@ test('a cloud computer keeps its users; its team’s admins become managers, nev
   })
 })
 
-test('migrating writes the grants, names a legacy owner and removes the old fields', async () => {
+test('migrating writes grants only where there are none, and keeps the old fields for a rollback', async () => {
   rows = [{ ...base, box: { provider: 'instabox', teamId: 't' } }]
   updates.length = 0
 
   expect(await migrateDeviceAccessGrants(deps)).toBe(1)
-  expect(updates[0]?.update).toEqual({
-    $set: {
-      access: [{ teamId: 't', everyone: false, userIds: [], managerIds: ['admin', 'creator'] }],
-      'box.createdBy': 'owner',
+  expect(updates[0]).toEqual({
+    filter: { userId: 'owner', deviceId: 'mac', access: { $exists: false } },
+    update: {
+      $set: {
+        access: [{ teamId: 't', everyone: false, userIds: [], managerIds: ['admin', 'creator'] }],
+        'box.createdBy': 'owner',
+      },
     },
-    $unset: { shares: '', 'box.access': '' },
   })
+})
+
+test('each team’s administrators are read once', async () => {
+  let reads = 0
+
+  rows = [cloud('a'), cloud('b')]
+  await migrateDeviceAccessGrants({
+    adminIds: () => {
+      reads++
+
+      return Promise.resolve([])
+    },
+  })
+  expect(reads).toBe(1)
 })

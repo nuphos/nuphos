@@ -2,8 +2,6 @@ import { expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
-import type * as dbActual from '@/lib/db'
-
 type Call = { op: string; filter: unknown; update?: unknown; options?: unknown }
 
 const calls: Call[] = []
@@ -43,6 +41,11 @@ test('replacing a team’s use list is one update that keeps its managers', asyn
   })
   expect(JSON.stringify(mine)).toContain('"$$current.managerIds"')
   expect((mine as Record<string, unknown>[])[0]?.userIds).toEqual({ $literal: ['mate'] })
+  // The fields an older release reads get the same list, so a rollback still sees it.
+  expect(Object.keys(update[0]?.$set ?? {})).toEqual(['access', 'box', 'shares', 'updatedAt'])
+  expect(JSON.stringify(update[0]?.$set)).toContain(
+    '{"teamId":"team","level":"full","everyone":false,"userIds":["mate"]}',
+  )
 })
 
 test('teamGrant reads only the asked team', () => {

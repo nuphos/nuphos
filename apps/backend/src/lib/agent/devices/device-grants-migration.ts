@@ -50,33 +50,39 @@ export async function legacyGrants(
 }
 
 /**
- * Moves people's computer shares and cloud computers' access lists into grants:
- * a share at any level becomes use, a team's administrators become managers of
- * its cloud computers, and their creator stays their owner. Idempotent: every
- * pass removes the old fields it migrates.
+ * Writes grants for devices that have none yet: a share at any level becomes use,
+ * a team's administrators become managers of its cloud computers, and their creator
+ * stays their owner. The old fields stay, so an older release still reads them.
+ * Idempotent: a device with grants is never migrated again.
  */
 export async function migrateDeviceAccessGrants(
   deps: GrantMigrationDeps = defaultDeps,
 ): Promise<number> {
+  const pending = { access: { $exists: false } }
   const legacy = await agentDevices()
     .find<LegacyDevice>({
-      $or: [
-        { shares: { $exists: true } },
-        { 'box.access': { $exists: true } },
-        { box: { $exists: true }, access: { $exists: false } },
-      ],
+      ...pending,
+      $or: [{ shares: { $exists: true } }, { box: { $exists: true } }],
     })
     .toArray()
+  const admins = new Map<string, Promise<string[]>>()
+  const cached: GrantMigrationDeps = {
+    adminIds: (teamId) => {
+      if (!admins.has(teamId)) admins.set(teamId, deps.adminIds(teamId))
+
+      return admins.get(teamId) ?? deps.adminIds(teamId)
+    },
+  }
 
   for (const device of legacy)
+    // Only while it still has no grants, so a grant saved meanwhile is never overwritten.
     await agentDevices().updateOne(
-      { userId: device.userId, deviceId: device.deviceId },
+      { userId: device.userId, deviceId: device.deviceId, ...pending },
       {
         $set: {
-          access: await legacyGrants(device, deps),
+          access: await legacyGrants(device, cached),
           ...(device.box && !device.box.createdBy ? { 'box.createdBy': device.userId } : {}),
         },
-        $unset: { shares: '', 'box.access': '' },
       },
     )
 

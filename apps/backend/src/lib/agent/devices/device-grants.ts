@@ -77,12 +77,58 @@ export async function setTeamUse(
             ],
           ],
         },
+        ...legacyUse(teamId, use),
         updatedAt: '$$NOW',
       },
     },
   ])
 
   return result.matchedCount === 1
+}
+
+/**
+ * The same list in the fields an older release reads, so a rollback still sees it:
+ * a cloud computer's own list, which named its creator, or a person's computer's share.
+ */
+function legacyUse(teamId: string, use: { everyone: boolean; userIds: string[] }) {
+  const isBox = { $eq: [{ $type: '$box' }, 'object'] }
+  const owner = { $ifNull: ['$box.createdBy', '$userId'] }
+  const otherShares = {
+    $filter: { input: { $ifNull: ['$shares', []] }, cond: { $ne: ['$$this.teamId', teamId] } },
+  }
+  const share = { teamId, level: 'full', ...use }
+
+  return {
+    box: {
+      $cond: [
+        isBox,
+        {
+          $mergeObjects: [
+            '$box',
+            {
+              access: {
+                everyone: { $literal: use.everyone },
+                userIds: { $concatArrays: [[owner], { $literal: use.userIds }] },
+              },
+            },
+          ],
+        },
+        '$$REMOVE',
+      ],
+    },
+    shares: {
+      $cond: [
+        isBox,
+        '$shares',
+        {
+          $concatArrays: [
+            otherShares,
+            use.everyone || use.userIds.length > 0 ? [{ $literal: share }] : [],
+          ],
+        },
+      ],
+    },
+  }
 }
 
 /** Someone who left the team keeps no use or management of any computer in it. */

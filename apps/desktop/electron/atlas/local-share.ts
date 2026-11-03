@@ -1,11 +1,9 @@
 import { call } from './client.ts'
 
-import type { Team } from './teams.ts'
 import type {
   LocalAgentShareState,
   LocalShareApproval,
   LocalShareInput,
-  LocalShareLevel,
   ShareApprovalStatus,
   LocalShareTrust,
   ShareTrustDuration,
@@ -80,10 +78,6 @@ export async function dropShareTrust(
   actorId: string,
 ): Promise<void> {
   await call('DELETE', trusts(deviceId, teamId, actorId), undefined, { retry: false })
-}
-
-export function setTeamLocalAgentSharing(teamId: string, level: LocalShareLevel): Promise<Team> {
-  return call<Team>('PUT', `/teams/${teamId}/local-agent-sharing`, { level }, { retry: false })
 }
 
 const runtime = (teamId: string, runtimeId: string) =>

@@ -25,12 +25,6 @@ export const SHARE_RISK = t(
   'Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.',
 )
 
-export const CEILING_DESCRIPTION: Record<LocalShareLevel, string> = {
-  off: t('Members cannot share their own computer.'),
-  approve: t('Members can share their own computer, approving each teammate’s agent.'),
-  full: t('Members can also let teammates run agents on their computer without asking.'),
-}
-
 const rank = (level: LocalShareLevel) => SHARE_LEVELS.indexOf(level)
 
 /** The levels an owner may pick under the team's ceiling. */
