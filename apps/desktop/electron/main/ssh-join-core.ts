@@ -165,7 +165,7 @@ export function sshJoinScript({ token, apiUrl }: { token: string; apiUrl: string
     'kill -0 $agent 2>/dev/null || { cat "$HOME/.nuphos-agent.log" >&2; exit 1; }',
     'echo "Started the Nuphos agent. Its log is ~/.nuphos-agent.log."',
     // Which computer it is, so Desktop waits for this one: new, joined again or already there.
-    'sed -n \'s/.*"deviceId": *"\\([^"]*\\)".*/Device: \\1/p\' "$cred"',
+    'sed -n \'s/.*"deviceId": *"\\([^"]*\\)".*/Device: \\1/p\' "$cred" 2>/dev/null || true',
     '',
   ].join('\n')
 }

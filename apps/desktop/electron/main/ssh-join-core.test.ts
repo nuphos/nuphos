@@ -96,6 +96,8 @@ test('the script starts the agent in the background with the token from stdin', 
   )
   // It names the computer it joined, so Desktop waits for that one.
   assert.match(script, /device-credential\.json[\s\S]*"deviceId"[\s\S]*Device: /)
+  // A credential still missing after the wait leaves the id out instead of failing the run.
+  assert.match(script, /Device: [^\n]*"\$cred" 2>\/dev\/null \|\| true\n/)
   assert.throws(() => sshJoinScript({ token: "x'; rm -rf ~", apiUrl: null }))
 })
 
