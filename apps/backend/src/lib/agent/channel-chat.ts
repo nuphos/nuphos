@@ -30,12 +30,11 @@ import type { UIMessage } from 'ai'
  */
 export const CHANNEL_AGENT_TURN_BUDGET = 10
 
-type Post = { id: string; text: string; metadata: MessageMetadata }
+type Post = { id: string; text: string; metadata: MessageMetadata; upload?: object }
 
 /**
- * Records a message in a channel and wakes its other agents. `authorSessionId` is
- * the posting agent's session; a person's post has none. A resent id is the
- * same message, so it is neither stored nor announced twice.
+ * Records a message (a person's may carry a file `upload`) and wakes the channel's other
+ * agents; `authorSessionId` is the posting agent's. A resent id is stored and announced once.
  */
 export async function postChannelMessage(
   channel: AgentConversation,
@@ -60,12 +59,14 @@ export async function postChannelMessage(
       {
         id: post.id,
         role: 'user',
-        parts: [{ type: 'text', text: post.text }],
+        parts: [
+          ...(post.text ? [{ type: 'text', text: post.text }] : []),
+          ...(post.upload ? [post.upload] : []),
+        ],
         metadata: post.metadata,
       },
     ],
   })
-  // Every post is new activity, as a finished turn is in a conversation: it shows unread.
   await bumpConversationActivity(channel.sessionId, channel.userId)
   await noteMentions({ ...channel, teamId }, post)
   await wakeChannelAgents({ ...channel, teamId }, authorSessionId)

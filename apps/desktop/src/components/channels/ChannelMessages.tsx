@@ -6,6 +6,8 @@ import { t } from '../../i18n'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { MessageResponse } from '../agent/MessageResponse'
+import { normalizeTransferUploadPart } from '../agent/panel/parts'
+import { UploadedFilesCard } from '../agent/panel/transferCards'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { formatMessageTimestamp } from '../agent/panel/streamText'
@@ -14,11 +16,14 @@ import { Avatar } from '../Avatar'
 import { Typing } from './ChannelTyping'
 
 import type { AgentPersistedMessage, AgentTimelineEvent, ChannelAgent } from '../../api'
+import type { FileTransferGroup } from '../../types'
 import type { ReactNode } from 'react'
 
 type Links = {
   renderLink: (href: string, children: ReactNode) => ReactNode
   onLinkClick?: (href: string, beside?: boolean) => boolean
+  /** A chat's uploads load through the chat, so every member sees them. */
+  loadUpload: (groupId: string) => Promise<FileTransferGroup>
 }
 
 function textOf(message: AgentPersistedMessage): string {
@@ -72,8 +77,13 @@ function ChannelMessage({
 }) {
   const metadata = parseMessageMetadata(message.metadata)
   const text = textOf(message)
+  const uploads = message.parts.flatMap((part) => {
+    const upload = normalizeTransferUploadPart((part ?? {}) as Record<string, unknown>)
 
-  if (!metadata || !text) return null
+    return upload ? [upload] : []
+  })
+
+  if (!metadata || (!text && uploads.length === 0)) return null
   const { sender } = metadata
   const when = time(message, metadata.sentAt)
   const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
@@ -89,18 +99,33 @@ function ChannelMessage({
     </MessageResponse>
   )
 
-  if (!agentId && sender.id === viewerId)
+  const mine = !agentId && sender.id === viewerId
+  // Files show above the words, as they do in a conversation.
+  const files = uploads.map((part, i) => (
+    <UploadedFilesCard
+      key={i}
+      part={part}
+      teamId={teamId}
+      load={links.loadUpload}
+      alignEnd={mine}
+    />
+  ))
+
+  if (mine)
     return (
       <div className="flex w-full items-start justify-end gap-2.5">
         <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-1">
-          <div
-            className={clsx(
-              'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
-              fresh && 't-bubble-in-mine',
-            )}
-          >
-            {body}
-          </div>
+          {files}
+          {text && (
+            <div
+              className={clsx(
+                'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+                fresh && 't-bubble-in-mine',
+              )}
+            >
+              {body}
+            </div>
+          )}
           <span className="pr-0.5 text-[11px] text-tertiary tabular-nums">{when}</span>
         </div>
         <div className="w-7 shrink-0">
@@ -160,14 +185,17 @@ function ChannelMessage({
             )}
           </div>
         )}
-        <div
-          className={clsx(
-            'max-w-full rounded-2xl rounded-tl-md bg-zGray-800/70 px-3.5 py-2 break-words',
-            fresh && 't-bubble-in',
-          )}
-        >
-          {body}
-        </div>
+        {files}
+        {text && (
+          <div
+            className={clsx(
+              'max-w-full rounded-2xl rounded-tl-md bg-zGray-800/70 px-3.5 py-2 break-words',
+              fresh && 't-bubble-in',
+            )}
+          >
+            {body}
+          </div>
+        )}
         <span className="px-1 text-[11px] text-tertiary tabular-nums">{when}</span>
       </div>
     </div>
@@ -203,6 +231,7 @@ export function ChannelMessages({
   teamId,
   onOpenSession,
   onOpenNuphosLink,
+  loadUpload,
 }: {
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
@@ -211,8 +240,10 @@ export function ChannelMessages({
   teamId: string
   onOpenSession: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
+  loadUpload: (groupId: string) => Promise<FileTransferGroup>
 }) {
   const links = {
+    loadUpload,
     renderLink: useAgentLinks(teamId, onOpenNuphosLink),
     onLinkClick: onOpenNuphosLink,
   }

@@ -5663,7 +5663,6 @@
   "Could not copy chat ID": "无法复制聊天 ID",
   "Could not create the chat": "无法创建聊天",
   "Create chat": "创建聊天",
-  "Files can’t be posted in a chat yet.": "聊天暂时还不能发送文件。",
   "Mentions in chats": "聊天中的提及",
   "Pick one agent and no name for a chat with just that agent.": "只选一个 Agent 且不填名称，就会创建只有它的聊天。",
   "Rename chat": "重命名聊天",

@@ -1,8 +1,9 @@
 import { clsx } from 'clsx'
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { useConversationRead } from '../agent/panel/useConversationRead'
@@ -64,25 +65,28 @@ export function ChannelPane({
   // Open at the latest post, and follow new ones and the typing bubble.
   const stickToBottom = useStickToBottom(scrollRef)
 
-  const send = async (text: string, filePaths: string[]) => {
-    if (filePaths.length > 0) {
-      toast.error(t('Files can’t be posted in a chat yet.'))
-      setRestore({ text, filePaths, nonce: Date.now() })
+  const loadUpload = useCallback(
+    (groupId: string) => api.agentResolveChannelAttachment(channelId, teamId, groupId),
+    [channelId, teamId],
+  )
 
-      return
-    }
-    if (!text.trim()) return
+  const send = async (text: string, filePaths: string[]) => {
+    if (!text.trim() && filePaths.length === 0) return
     const id = unsent.current?.text === text ? unsent.current.id : crypto.randomUUID()
+    // Files take the conversation's upload path: shown at once, uploaded, then posted.
+    const files = filePaths.length > 0 ? makeAttachmentTurn(text, filePaths, teamId) : null
 
     unsent.current = { text, id }
     stickToBottom()
-    setSending((posts) => [...posts, sendingPost(id, text, user)])
+    setSending((posts) => [...posts, sendingPost(id, text, user, files?.optimisticPart())])
     try {
-      await api.agentPostChannelMessage(channelId, teamId, text, id)
+      const upload = files ? (await files.runUpload(undefined)).groupId : undefined
+
+      await api.agentPostChannelMessage(channelId, teamId, text, id, upload)
     } catch (error) {
       setSending((posts) => posts.filter((post) => post.id !== id))
       toast.apiError(t('Could not send the message'), error)
-      setRestore({ text, nonce: Date.now() })
+      setRestore({ text, filePaths, nonce: Date.now() })
 
       return
     }
@@ -149,6 +153,7 @@ export function ChannelPane({
               teamId={teamId}
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
+              loadUpload={loadUpload}
             />
           )}
         </div>

@@ -24,3 +24,13 @@ test('a post leaves the sending list once the channel returns it', () => {
   assert.equal(stillSending([], sending), sending)
   assert.deepEqual(stillSending([{ ...a, createdAt: 'now' }], sending), [b])
 })
+
+test('a post with files shows their uploading card, with or without words', () => {
+  const card = { type: 'transfer-upload', groupId: '', status: 'uploading', files: [] }
+
+  assert.deepEqual(sendingPost('p2', '', user, card).parts, [card])
+  assert.deepEqual(sendingPost('p3', 'look', user, card).parts, [
+    { type: 'text', text: 'look' },
+    card,
+  ])
+})

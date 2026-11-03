@@ -263,6 +263,18 @@ describe('waking a channel’s agents', () => {
     expect((await channel()).activitySeq).toBe(1)
   })
 
+  test('a file goes up with its post, with or without words, and agents learn of it', async () => {
+    const upload = { type: 'transfer-upload', groupId: 'g1', status: 'ready', files: [] }
+
+    await postChannelMessage(await channel(), { id: 'pic', text: '', metadata: person, upload })
+    const [stored] = await agentMessages().find({ sessionId: 'channel' }).toArray()
+
+    expect(stored!.parts).toEqual([upload])
+    const read = await readChannelMessages(await channel(), 'agent-a')
+
+    expect(read.messages.at(-1)).toMatchObject({ uploads: ['g1'] })
+  })
+
   test('only agent conversations of the channel’s team wake', async () => {
     await agentConversations().updateOne(
       { sessionId: 'channel' },

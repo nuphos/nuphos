@@ -1,11 +1,14 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test'
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
-import { agentConversations } from '@/lib/agent/db'
+import { agentConversations, agentMessages } from '@/lib/agent/db'
+import * as transfers from '@/lib/file-transfer/service'
 import { installTurnRunner, resetTurnRunner } from '@/lib/agent/turn-runner'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
+
+import * as executionState from '../session-execution-state'
 
 import { channelToolModule } from './channels'
 
@@ -170,4 +173,54 @@ test('an agent whose owner left the team cannot open a channel', async () => {
   })
 
   expect(JSON.stringify(result)).toContain('no longer on the team')
+})
+
+test('files posted with a message are placed on the reader’s runtime, under their uploader', async () => {
+  // Uploads resolve under a real team id.
+  const team = '69e989027ab63e8d6a0ffcb6'
+  const chat = '00000000-0000-4000-8000-000000000009'
+
+  await seed(chat, { kind: 'channel', agentSessionIds: ['agent-c'], teamId: team, messageCount: 1 })
+  await seed('agent-c', { teamId: team })
+  await agentMessages().insertOne({
+    sessionId: chat,
+    userId: 'owner',
+    index: 0,
+    messageId: 'm1',
+    role: 'user',
+    parts: [{ type: 'transfer-upload', groupId: 'g1', status: 'ready', files: [] }],
+    metadata: {
+      version: 1,
+      sender: { type: 'user', id: 'mei', displayName: 'Mei' },
+      source: 'nuphos',
+      sentAt: new Date().toISOString(),
+    },
+  } as never)
+  const resolve = spyOn(transfers, 'resolveDownloads').mockResolvedValue({
+    files: [{ fileName: 'shot.png', size: 42, status: 'ready', downloadUrl: 'https://s/1' }],
+  } as unknown as Awaited<ReturnType<typeof transfers.resolveDownloads>>)
+  const place = spyOn(executionState, 'placeOnConversationRuntime').mockResolvedValue([
+    '/work/attachments/shot.png',
+  ])
+
+  try {
+    const read = channelToolModule().handlers({
+      userId: 'teammate',
+      teamId: team,
+      sessionId: 'agent-c',
+      locale: 'en',
+    } as PreviewToolContext).channel_read
+    const text = JSON.stringify(await read?.({ label: 'x', channelId: chat }))
+
+    expect(text).toContain('/work/attachments/shot.png')
+    expect(text).toContain('already on this runtime')
+    expect(text).not.toContain('uploads')
+    expect(resolve.mock.calls[0]![0]).toMatchObject({ userId: 'mei' })
+    // Placed on the reading agent's own runtime, as its owner.
+    expect(place.mock.calls[0]![0]).toMatchObject({ sessionId: 'agent-c' })
+    expect(place.mock.calls[0]![2]).toBe('owner')
+  } finally {
+    resolve.mockRestore()
+    place.mockRestore()
+  }
 })
