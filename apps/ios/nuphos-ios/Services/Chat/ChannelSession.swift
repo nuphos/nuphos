@@ -50,7 +50,7 @@ final class ChannelSession {
 
     // MARK: - Reading
 
-    /// Reads the chat until cancelled. HomeView runs it while this is the open chat.
+    /// Reads the chat until cancelled. `AgentStore.poll` runs it while this is the open chat.
     func poll() async {
         while !Task.isCancelled {
             await refresh()

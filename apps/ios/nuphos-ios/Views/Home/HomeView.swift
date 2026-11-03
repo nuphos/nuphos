@@ -174,15 +174,13 @@ struct HomeView: View {
                 connectors = ConnectorsStore(token: token)
             }
         }
-        // While a chat is open it is read up to its newest post.
+        // While a chat is open and the app active, it is read up to its newest
+        // post, and it alone polls; becoming active again reads it at once.
         .onChange(of: scenePhase == .active ? openChat?.channel?.channelId : nil, initial: true) { _, id in
             ConversationUnread.shared.setReading(id != nil, reader: chatReader,
                                                  team: openChat?.channel?.teamId ?? "", session: id ?? "")
+            store?.poll(id == nil ? nil : openChat?.channel)
         }
-        // Only the open chat polls. Here, not on the chat's view or session:
-        // collapsed, SwiftUI cancels that view's tasks while it stays on
-        // screen (#1440), and keeps the view, with its session, after going back.
-        .task(id: openChat?.channel?.channelId) { await openChat?.channel?.poll() }
         .focusedSceneValue(\.newChat) {
             page = .agent
             openChat = nil
