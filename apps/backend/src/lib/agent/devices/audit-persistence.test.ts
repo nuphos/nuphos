@@ -13,11 +13,13 @@ const collection = {
   updateOne: (filter: { operationId: string }, update: { $set: DeviceExecAuditEntry }) => {
     if (unavailable) throw new Error('synthetic database outage')
     records.set(filter.operationId, update.$set)
+
     return Promise.resolve()
   },
   insertOne: (entry: DeviceExecAuditEntry) => {
     if (unavailable) throw new Error('synthetic database outage')
     records.set(`legacy-${String(records.size)}`, entry)
+
     return Promise.resolve()
   },
 }

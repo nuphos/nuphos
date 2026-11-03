@@ -51,7 +51,6 @@ import { createAgentDeviceBoxRoutes } from './routes-devices-box'
 import { createDeviceAgentRoutes } from './routes-device-agents'
 import { readTeamIdCandidate } from './team-scope'
 
-import type { DeviceExecAuditPage } from '@/lib/agent/devices/audit'
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
 import type { BoxState } from '@/lib/agent/devices/box-instabox'
 import type { HolderMessage } from '@/lib/agent/devices/local-runtime/protocol'
