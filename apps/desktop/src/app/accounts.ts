@@ -64,7 +64,7 @@ export const ACCOUNT_TAKEOVER_ATTR = 'data-account-takeover'
 
 /**
  * Whether a key press, while an account is being added, must not reach the
- * workspace behind the sign-in screen: every shortcut, and anything aimed
+ * workspace behind the sign-in screen: every modified key, and anything aimed
  * outside the screen. Plain typing in the screen's own fields goes through.
  */
 export function keyBlockedByTakeover(event: KeyboardEvent, open: boolean): boolean {
@@ -72,7 +72,9 @@ export function keyBlockedByTakeover(event: KeyboardEvent, open: boolean): boole
   const target = event.target as Element | null
   const inside = Boolean(target?.closest?.(`[${ACCOUNT_TAKEOVER_ATTR}]`))
 
-  return !inside || event.metaKey || event.ctrlKey
+  // Alt too: Alt+Left is Back on Windows and Linux. Typing is not stopped,
+  // only the window-level handlers that would act on it.
+  return !inside || event.metaKey || event.ctrlKey || event.altKey
 }
 
 // Registered as this module loads, before any workspace listener, so it runs

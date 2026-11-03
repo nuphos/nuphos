@@ -110,11 +110,12 @@ test('over the sign-in screen, shortcuts and keys aimed elsewhere never reach th
   const inside = { closest: () => ({}) }
   const outside = { closest: () => null }
   const key = (target: unknown, mods: Partial<KeyboardEvent> = {}) =>
-    ({ target, metaKey: false, ctrlKey: false, ...mods }) as unknown as KeyboardEvent
+    ({ target, metaKey: false, ctrlKey: false, altKey: false, ...mods }) as unknown as KeyboardEvent
 
   assert.equal(keyBlockedByTakeover(key(outside, { metaKey: true }), false), false)
   assert.equal(keyBlockedByTakeover(key(inside), true), false, 'typing in its own fields')
   assert.equal(keyBlockedByTakeover(key(inside, { metaKey: true }), true), true, 'Cmd+Z, Cmd+\\')
   assert.equal(keyBlockedByTakeover(key(inside, { ctrlKey: true }), true), true)
   assert.equal(keyBlockedByTakeover(key(outside), true), true)
+  assert.equal(keyBlockedByTakeover(key(inside, { altKey: true }), true), true, 'Alt+Left is Back')
 })
