@@ -2,8 +2,8 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import {
-  allows,
   deviceAccess,
+  deviceOwner,
   listAccessibleDevices,
   losingUse,
   memberAccess,
@@ -17,6 +17,7 @@ import { zv } from '@/lib/validate'
 import { readTeamIdCandidate } from './team-scope'
 
 import type { AgentDeviceRouteDependencies } from './routes-devices'
+import type { DeviceAccessLevel } from '@/lib/agent/devices/box-access'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
 
@@ -52,7 +53,7 @@ async function deviceView(
   deps: AgentDeviceRouteDependencies,
   device: AgentDevice,
   /** What the viewer may do with it; a manager also sees who may use it. */
-  level: 'use' | 'manage',
+  level: DeviceAccessLevel,
   /** Right after a pause the frozen tunnel still looks alive; the caller knows better. */
   online?: boolean,
 ) {
@@ -74,16 +75,17 @@ async function deviceView(
     allowLocalExec: device.allowLocalExec,
     online,
     access: level,
+    ownerUserId: deviceOwner(device),
     createdAt: device.createdAt.toISOString(),
     // The IP is personal data: only for those who manage the machine.
-    ...(level === 'manage' && device.lastSeenAt
+    ...(level !== 'use' && device.lastSeenAt
       ? { lastSeenAt: device.lastSeenAt.toISOString(), lastSeen: device.lastSeen ?? null }
       : {}),
     ...(device.box && state
       ? {
           box: {
             provider: device.box.provider,
-            ...(level === 'manage' ? { access: teamUse(device, device.box.teamId) } : {}),
+            ...(level !== 'use' ? { access: teamUse(device, device.box.teamId) } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             state,
             // Its host restarting for an update: offline on purpose, and back on its own.
@@ -128,7 +130,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
             const view = await deviceView(
               deps,
               device,
-              allows(deviceAccess(device, userId, teamId), 'manage') ? 'manage' : 'use',
+              deviceAccess(device, userId, teamId) ?? 'use',
             )
 
             return view

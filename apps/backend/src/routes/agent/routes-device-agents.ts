@@ -126,7 +126,7 @@ export function createDeviceAgentRoutes(
     }
   }
 
-  /** Adding an agent is for anyone the Box is shared with, removing one for its managers;
+  /** Adding or removing an agent configures the computer, so it is for its managers;
    *  both need a host that supports it. */
   const hostDevice = async (
     c: Context<{ Variables: AuthVariables }>,
@@ -152,7 +152,7 @@ export function createDeviceAgentRoutes(
 
   routes.post('/devices/:deviceId/agents', zv('json', createSchema), async (c) => {
     const body = c.req.valid('json')
-    const host = await hostDevice(c, 'use', body.teamId)
+    const host = await hostDevice(c, 'manage', body.teamId)
     const { target, device } = host
     const { deviceId } = target
     const instanceId = body.instanceId ?? randomUUID()

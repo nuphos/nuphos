@@ -23,10 +23,8 @@ import {
   SHARE_RISK,
   sharingOffText,
 } from './localAgentSharingPresentation'
-import { LocalAgentTrustedList } from './LocalAgentTrustedList'
 
 import type { LocalAgentShareState, LocalShareLevel } from '../../api/device-types'
-import type { ReactNode } from 'react'
 
 /** Who in this team may run their own agents on the viewer's own computer, wherever the viewer is. */
 export function LocalAgentShareDialog({
@@ -40,7 +38,6 @@ export function LocalAgentShareDialog({
   onClose: () => void
   onSaved: () => void
 }) {
-  const members = useTeamMembers(teamId)
   const [state, setState] = useState<LocalAgentShareState | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -74,24 +71,9 @@ export function LocalAgentShareDialog({
         state={state}
         onClose={onClose}
         onSaved={onSaved}
-      >
-        {effectiveShare(state.share, state.ceiling).level === 'approve' && (
-          <LocalAgentTrustedList
-            teamId={teamId}
-            deviceId={device.deviceId}
-            nameOf={nameIn(members)}
-            version={0}
-          />
-        )}
-      </ShareForm>
+      />
     )
   )
-}
-
-const nameIn = (members: ReturnType<typeof useTeamMembers>) => (userId: string) => {
-  const member = members.find((entry) => entry.id === userId)
-
-  return member ? memberDisplayName(member) : t('A teammate')
 }
 
 function ShareForm({
@@ -101,7 +83,6 @@ function ShareForm({
   state,
   onClose,
   onSaved,
-  children,
 }: {
   teamId: string
   deviceId: string
@@ -109,8 +90,6 @@ function ShareForm({
   state: LocalAgentShareState
   onClose: () => void
   onSaved: () => void
-  /** Who is trusted here already, under the form. */
-  children: ReactNode
 }) {
   const currentUserId = useCurrentUser()?.id
   const members = useTeamMembers(teamId).filter((member) => member.id !== currentUserId)
@@ -243,7 +222,6 @@ function ShareForm({
             </div>
           </>
         )}
-        {children}
       </div>
     </Modal>
   )

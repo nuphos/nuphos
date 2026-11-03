@@ -365,6 +365,16 @@ describe('team Box runtime authorization before transport', () => {
       'host',
     )
     expect(owners).toEqual(['host'])
+    // Handed over to someone else, it names its new owner but still dials the transport owner.
+    const handedOver = { ...box, box: { ...box.box, createdBy: 'heir' } }
+    const listed = await listOwnLocalRuntimes('t1', 'teammate', {
+      ...shared,
+      access: { ...shared.access, listBoxes: async () => [handedOver] },
+    })
+
+    expect(listed[0]?.local.ownerUserId).toBe('heir')
+    expect(listed[0]?.id.startsWith('local_host_box')).toBe(true)
+    expect(listed[0]?.label).not.toContain('(shared)')
     box.box.teamId = 't2'
     expect(await listOwnLocalRuntimes('t1', 'teammate', shared)).toEqual([])
   })

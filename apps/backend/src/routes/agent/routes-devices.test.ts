@@ -420,8 +420,12 @@ describe('agent device routes', () => {
     expect(body.devices[0]).toMatchObject({
       deviceId: 'b1',
       online: false,
+      access: 'owner',
+      ownerUserId: 'user-1',
       box: { state: 'paused' },
     })
+    // A manager is told so, and who owns it.
+    expect(body.devices[1]).toMatchObject({ access: 'manage', ownerUserId: 'user-2' })
     expect(JSON.stringify(body)).not.toContain('secret-hash')
     const plain = (await (await buildApp().request('/agent/devices?teamId=team-1')).json()) as {
       boxAvailable: boolean
@@ -639,6 +643,7 @@ describe('agent device routes', () => {
     expect(admin.canCreateBox).toBe(true)
     expect(admin.devices[0]).toMatchObject({
       access: 'manage',
+      ownerUserId: 'host-owner',
       box: { access: { everyone: true } },
     })
     role = 'EDITOR'

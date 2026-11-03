@@ -190,8 +190,10 @@ export type AgentDevice = {
   createdAt?: string
   allowLocalExec?: boolean
   online?: boolean
-  /** What the viewer may do: 'use' runs its agents; 'manage' also changes or deletes it. */
-  access?: 'use' | 'manage'
+  /** What the viewer may do: 'use' runs its agents; 'manage' also changes it; 'owner' also removes it. */
+  access?: 'use' | 'manage' | 'owner'
+  /** Who owns it: whoever added a person's computer or created a cloud computer. */
+  ownerUserId?: string
   /** For managers: when and from where the host last reported in. */
   lastSeenAt?: string
   lastSeen?: { ip: string; city?: string; country?: string } | null

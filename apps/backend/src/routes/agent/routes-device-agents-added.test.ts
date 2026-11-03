@@ -20,7 +20,7 @@ const box: AgentDevice = {
   updatedAt: new Date(0),
 }
 
-/** `actor` may use the Box; only `admin` manages it. */
+/** `actor` may use the Box; only `admin` manages it, so only `admin` adds agents. */
 function app(
   actor: string,
   { device = box, status = {} }: { device?: AgentDevice; status?: Partial<LocalRuntimeStatus> },
@@ -99,13 +99,20 @@ const onHost = (state?: 'pending' | 'ready') => ({
   ],
 })
 
+test('adding an agent configures the computer: someone who only uses it cannot', async () => {
+  const { create, log } = app('member', {})
+
+  expect((await create({ instanceId: id })).status).toBe(404)
+  expect(log).toEqual([])
+})
+
 test('a new agent notes its adder under the transport owner before the host makes it', async () => {
   const before = Date.now()
-  const { create, log } = app('member', {})
+  const { create, log } = app('admin', {})
 
   expect((await create({ label: 'Review', instanceId: id })).status).toBe(201)
   expect(log).toMatchObject([
-    ['noted', 'transport-owner', 'box', { instanceId: id, userId: 'member' }],
+    ['noted', 'transport-owner', 'box', { instanceId: id, userId: 'admin' }],
     ['created', id],
   ])
   expect((log[0] as [string, string, string, { at: Date }])[3].at.getTime()).toBeGreaterThan(
@@ -120,7 +127,7 @@ test('an id the host already has, registered or pending, is a retry and notes no
   }
 
   for (const setup of [{ device: registered }, { status: onHost('pending') }]) {
-    const { create, log } = app('member', setup)
+    const { create, log } = app('admin', setup)
 
     expect((await create({ instanceId: id })).status).toBe(201)
     expect(log).toEqual([['created', id]])
@@ -129,7 +136,7 @@ test('an id the host already has, registered or pending, is a retry and notes no
 
 test('a create the host refuses forgets its note; one refused up front notes nothing', async () => {
   const failing = app(
-    'member',
+    'admin',
     {},
     {
       createInstance: () =>
@@ -145,7 +152,7 @@ test('a create the host refuses forgets its note; one refused up front notes not
     ['forgot', 'transport-owner'],
   ])
   expect(failing.log[1]).toEqual(['forgot', 'transport-owner', 'box', id])
-  const offline = app('member', {}, { getPresence: () => Promise.resolve(null) })
+  const offline = app('admin', {}, { getPresence: () => Promise.resolve(null) })
 
   expect((await offline.create({})).status).toBe(409)
   expect(offline.log).toEqual([])

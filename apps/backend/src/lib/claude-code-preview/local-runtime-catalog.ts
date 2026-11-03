@@ -1,6 +1,7 @@
 import { registryKey, reportedAgents, withReport } from '@/lib/agent/devices/agent-registry'
 import {
   deviceAccessDeps,
+  deviceOwner,
   listAccessibleDevices,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
@@ -32,6 +33,7 @@ import type { LocalShareLevel } from '@/lib/agent/devices/local-share-types'
 import type { AgentDeviceBox } from '@/lib/agent/devices/store'
 
 export type LocalRuntimeSummary = {
+  /** Who owns the computer; its address names the transport owner, which a handover keeps. */
   ownerUserId: string
   deviceId: string
   deviceLabel: string
@@ -55,7 +57,7 @@ export type LocalRuntimeSummary = {
   box?: Pick<AgentDeviceBox, 'provider'>
   /** Present when it is a teammate's own computer they share with the viewer; see local-share. */
   shared?: { level: Exclude<LocalShareLevel, 'off'> }
-  /** The computer opens its desktop on request; only `ownerUserId` may open it (runtime-desktop). */
+  /** The computer opens its desktop on request (runtime-desktop). */
   desktopOpen?: true
 }
 
@@ -106,8 +108,8 @@ export async function listOwnLocalRuntimes(
   const devices = await listAccessibleDevices(userId, teamId, deps.access)
   const listed = await Promise.all(
     devices.map(async (device): Promise<LocalRuntimeInstance[]> => {
-      // A teammate's computer, which released desktops label from its share level.
-      const shared = !device.box && device.userId !== userId
+      // A teammate's computer: the desktop's approval wait still reads its level.
+      const shared = !device.box && deviceOwner(device) !== userId
       const presence = await deps.getPresence(device.userId, device.deviceId)
       // Every agent this computer ever had signed in, plus whatever it reports now (an
       // added agent appears once signed in; until then only its sign-in reaches it).
@@ -134,13 +136,12 @@ export async function listOwnLocalRuntimes(
           return {
             id,
             provider,
-            // A teammate's computer says so wherever its agents are listed.
-            label: `${label ?? runtimeLabel(provider)} in ${device.label}${shared ? ' (shared)' : ''}`,
+            label: `${label ?? runtimeLabel(provider)} in ${device.label}`,
             status: 'active',
             kind: 'local',
             createdAt: device.createdAt.toISOString(),
             local: {
-              ownerUserId: device.userId,
+              ownerUserId: deviceOwner(device),
               deviceId: device.deviceId,
               deviceLabel: device.label,
               ...(label ? { agentLabel: label } : {}),
