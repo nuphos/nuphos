@@ -43,13 +43,15 @@ internal fun AgentConversation.hasUnreadPosts(): Boolean = with(Unread) { unread
 
 /** Chats where people and agents talk, as on iOS and Desktop. */
 @Composable
-internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false, onSearchingChange: (Boolean) -> Unit = {}) {
+internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false,
+    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true) {
     val store = LocalAgentStore.current
     val team = store.selectedTeam?.id
     // Refreshed with the list while it is on screen, like the iOS list poll. Only while the
     // screen is resumed: a backgrounded app or a page left behind must not keep reading.
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(store, team, store.workspaceRevision, lifecycle) {
+    LaunchedEffect(store, team, store.workspaceRevision, lifecycle, active) {
+        if (!active) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             while (true) {
                 store.loadChannels()
