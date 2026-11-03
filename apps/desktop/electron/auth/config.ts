@@ -8,7 +8,6 @@ import {
   keyOf,
   normalizedApi,
   OtherBackendError,
-  signedIn,
   stored,
   summaries,
   waiting,
@@ -111,7 +110,7 @@ export function configFile(deps: ConfigFileDeps) {
     const target = others.find((a) => keyOf(a, api) === key)
 
     // Already the one in use, as when two windows ask at once: nothing to do.
-    if (!target && signedIn(previous) && keyOf(previous, api) === key) return
+    if (!target && keyOf(previous, api) === key && (await tokenOf(previous))) return
     if (!target) throw new AccountUnavailableError('That account is not signed in on this computer')
     const token = await tokenOf(target)
 

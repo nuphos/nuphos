@@ -8,7 +8,7 @@ import yaml from 'js-yaml'
 
 import { AuthSession } from '../auth-session.ts'
 
-import { OtherBackendError } from './accounts.ts'
+import { AccountUnavailableError, OtherBackendError } from './accounts.ts'
 import { configFile } from './config.ts'
 import { status } from './me.ts'
 
@@ -235,4 +235,16 @@ test('a switch to the account already in use does nothing, as when two windows a
   await h.config.switchTo(`bob@${SELF}`)
   assert.deepEqual(await h.onDisk(), before)
   assert.deepEqual(pair(h.session), { api: SELF, token: 'tok-bob' })
+})
+
+test('the account in use whose token cannot be read is not taken as already switched to', async () => {
+  const h = await harness()
+  const file = (await h.onDisk()) as Record<string, unknown>
+
+  // Its token is in a keychain item this build cannot read.
+  await fs.writeFile(
+    h.file,
+    yaml.dump({ ...file, token: undefined, keychainAccount: `bob@${SELF}` }, { skipInvalid: true }),
+  )
+  await assert.rejects(h.config.switchTo(`bob@${SELF}`), AccountUnavailableError)
 })

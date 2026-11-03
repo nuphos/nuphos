@@ -135,7 +135,8 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
   return (
     <div className="titlebar-drag h-full flex flex-col login-surface">
       <div className="h-[44px] flex-shrink-0" />
-      <div className="flex-1 flex items-start justify-center px-8 pt-[18vh]">
+      {/* Scrolls, so a long account list never pushes the form out of reach. */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
             <NuphosLogo className="h-12 w-12" variant="white-bg" />

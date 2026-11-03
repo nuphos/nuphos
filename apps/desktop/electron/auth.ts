@@ -120,10 +120,8 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
 }
 
 export async function logout() {
-  if (pendingServer) {
-    pendingServer.close()
-    pendingServer = null
-  }
+  // A sign-in still out must not land after this one is gone.
+  cancelPendingLogin()
   const { api, token } = await requestContext()
 
   // Signed out here first; ending the session on the server is best effort.
@@ -179,6 +177,7 @@ export async function signOutAccount(key: string): Promise<void> {
 
 /** Signs every account out of this app, the active one last. */
 export async function signOutAllAccounts(): Promise<void> {
+  cancelPendingLogin()
   for (const account of await listAccounts()) {
     if (!account.active) await signOutAccount(account.key)
   }

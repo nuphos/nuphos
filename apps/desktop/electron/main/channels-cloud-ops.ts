@@ -216,7 +216,17 @@ export const cloudOpsChannels = {
     pod: string,
     container: string,
     opts?: { cols?: number; rows?: number; shell?: string },
-  ) => podExec.startPodExecSession(e.sender, id, k8s.getKubeConfig(ctx), ns, pod, container, opts),
+  ) =>
+    podExec.startPodExecSession(
+      e.sender,
+      id,
+      k8s.getKubeConfig(ctx),
+      ns,
+      pod,
+      container,
+      opts,
+      authSession.context().signal,
+    ),
   'node-exec:start': async (
     e: IpcMainInvokeEvent,
     id: string,
@@ -229,6 +239,7 @@ export const cloudOpsChannels = {
     // again every time the dock swaps chat session would train the user to
     // click through the one dialog that matters.
     if (podExec.hasPodExecSession(id)) return { id }
+    const { signal } = authSession.context()
     // Real security boundary for the node root shell: a privileged pod with
     // host PID/IPC/network and the node's root filesystem. The renderer's
     // in-app explainer is UX; this isolated prompt is what a rogue renderer
@@ -242,6 +253,8 @@ export const cloudOpsChannels = {
     })
 
     if (!ok) throw new Error('Node shell cancelled — confirmation declined.')
+    // The account may have changed while the dialog was open.
+    signal.throwIfAborted()
 
     return podExec.startNodeExecSession(
       e.sender,

@@ -7,12 +7,11 @@ import {
   subscribeAddAccount,
   takeSignInNotice,
 } from './app/accounts'
+import { signOutLocally } from './app/signOutLocally'
 import { enterAs, startupAuth } from './app/startupAuth'
 import { Workspace } from './app/workspace/Workspace'
-import { clearComposerDrafts } from './components/agent/panel/composerDrafts'
-import { clearClearedReplies } from './components/agent/panel/composerReplyCleared'
 import { CurrentUserContext } from './hooks/useCurrentUser'
-import { identifyUser, resetAnalytics, track } from './lib/analytics'
+import { identifyUser, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
 
@@ -52,11 +51,7 @@ function SignedInApp() {
   }, [signedIn])
 
   async function logout() {
-    // This window's own state goes first: signing out reloads every window.
-    clearComposerDrafts()
-    clearClearedReplies()
-    track('logout')
-    resetAnalytics()
+    signOutLocally()
     // Leave the workspace even if the main process fails to clear the token:
     // a rejected session must never strand the user on a dead workspace.
     await api.authLogout().catch(() => undefined)

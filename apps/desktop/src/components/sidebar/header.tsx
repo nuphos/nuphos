@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { waitingAccounts } from '../../app/accounts'
+import { signOutLocally } from '../../app/signOutLocally'
 import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 import { SkeletonReveal } from '../SkeletonReveal'
@@ -237,7 +238,12 @@ export function SidebarUserEntry({
           {t('Log out')}
         </MenuItem>
         {waiting.length > 0 && (
-          <MenuItem onClick={() => void api.authSignOutAllAccounts().catch(() => onLogout())}>
+          <MenuItem
+            onClick={() => {
+              signOutLocally()
+              void api.authSignOutAllAccounts().catch(() => onLogout())
+            }}
+          >
             {t('Log out of all accounts')}
           </MenuItem>
         )}
