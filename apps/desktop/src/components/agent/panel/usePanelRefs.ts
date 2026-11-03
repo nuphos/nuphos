@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { EMPTY_CREDENTIAL_OPTIONS, EMPTY_CREDENTIAL_ACCESS } from './constants'
 
+import type { OpeningConversation } from './ctx'
 import type { StallDetail } from './stall'
 import type { TextStreamBuffer } from './streamBuffer'
 import type {
@@ -32,10 +33,7 @@ export function usePanelRefs() {
   const dragDepthRef = useRef(0)
   const [history, setHistory] = useState<AgentConversation[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
-  const [openingConversation, setOpeningConversation] = useState<{
-    sessionId: string
-    title: string
-  } | null>(null)
+  const [openingConversation, setOpeningConversation] = useState<OpeningConversation | null>(null)
   const [credentialOptions, setCredentialOptions] =
     useState<AgentCredentialOptions>(EMPTY_CREDENTIAL_OPTIONS)
   // Request paths run outside render and must not send a credential the user

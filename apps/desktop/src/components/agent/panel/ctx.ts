@@ -102,8 +102,9 @@ export type PanelCtx = {
   setHistory: Dispatch<SetStateAction<AgentConversation[]>>
   historyLoading: boolean
   setHistoryLoading: Dispatch<SetStateAction<boolean>>
-  openingConversation: { sessionId: string; title: string } | null
-  setOpeningConversation: Dispatch<SetStateAction<{ sessionId: string; title: string } | null>>
+  /** The chat being fetched; `unavailable` once the reader turned out unable to see it. */
+  openingConversation: OpeningConversation | null
+  setOpeningConversation: Dispatch<SetStateAction<OpeningConversation | null>>
   credentialOptions: AgentCredentialOptions
   setCredentialOptions: Dispatch<SetStateAction<AgentCredentialOptions>>
   credentialOptionsRef: Ref<AgentCredentialOptions>
@@ -253,6 +254,8 @@ export type PanelCtx = {
     edit?: { messageId: string; text: string },
   ) => Promise<void>
 }
+
+export type OpeningConversation = { sessionId: string; title: string; unavailable?: true }
 
 export type PanelRenderState = {
   activeTabIsBlankDraft: boolean
