@@ -12,6 +12,7 @@ import {
   localCommandToolTokenFor,
 } from './conversationStreamTokens'
 import { computeStatus } from './status'
+import { isShownMessage } from './turnBoundaries'
 import { TurnRail } from './TurnRail'
 import { useConversationRead } from './useConversationRead'
 import { useConversationScroll } from './useConversationScroll'
@@ -49,7 +50,7 @@ export function Conversation({
   // already recorded when this opens; the dialog only adds detail.
   const [feedbackCommentFor, setFeedbackCommentFor] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
-  const lastMsg = tab.messages[tab.messages.length - 1]
+  const lastMsg = tab.messages.findLast(isShownMessage)
   const localCommandToolToken = useMemo(() => localCommandToolTokenFor(lastMsg), [lastMsg])
   const hasRunningTool = useMemo(() => hasRunningToolFor(lastMsg), [lastMsg])
   const lastStreamToken = useMemo(() => lastStreamTokenFor(lastMsg), [lastMsg])
