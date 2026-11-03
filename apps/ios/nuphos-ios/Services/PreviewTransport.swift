@@ -18,7 +18,7 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         let status = entry?["status"] as? Int ?? 404
         let body = entry?["body"] ?? ["error": ["message": "No preview response for \(key)"]]
         let data = (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed])) ?? Data()
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data)
         client?.urlProtocolDidFinishLoading(self)
     }

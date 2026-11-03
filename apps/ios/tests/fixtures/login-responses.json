@@ -1,0 +1,31 @@
+{
+  "GET /auth/social/login": {
+    "status": 200,
+    "headers": {
+      "X-Nuphos-Social-Providers": "google,apple"
+    },
+    "body": {}
+  },
+  "POST /auth/email/request-code": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "POST /auth/email/verify-code": {
+    "status": 400,
+    "body": {
+      "error": {
+        "message": "That code is invalid or has expired. Request a new code."
+      }
+    }
+  },
+  "POST /auth/password/sign-in": {
+    "status": 401,
+    "body": {
+      "error": {
+        "message": "The email or password is incorrect."
+      }
+    }
+  }
+}

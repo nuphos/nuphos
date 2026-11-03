@@ -27,7 +27,9 @@ The chooser's `X-Nuphos-Social-Providers` header lists the configured providers
 Apple" button, and opens `/auth/social/<provider>/start?handle=...` directly.
 Without the header it retains its legacy Google login fallback for older servers. The CLI honors `NUPHOS_LOGIN_URL` as a
 full provider chooser URL; its default now follows the selected API endpoint
-rather than `NUPHOS_WEB_URL`. Deploy the backend before mobile/CLI
+rather than `NUPHOS_WEB_URL`. iOS also reads the provider header, displays separate provider buttons, and opens the selected start URL directly. Email code and password sign-in remain available when provider discovery fails.
+
+Deploy the backend before mobile/CLI
 updates; those clients require the new chooser.
 
 ## Security decisions
