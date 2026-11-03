@@ -5,6 +5,7 @@ import android.content.ContextWrapper
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.compose.rememberNavController
@@ -93,5 +94,51 @@ class ChatsPollFixtureDeviceTest {
         compose.waitUntil(5_000) { listings.get() >= stopped + 2 }
         settle()
         assertEquals("Resuming restarts exactly one loop", stopped + 2, listings.get())
+    }
+
+    @Test fun leavingTheChatsPageStopsPolling() {
+        val shown = mutableStateOf(true)
+        compose.setContent {
+            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store) {
+                // Switching pages or navigating away removes the page from composition.
+                if (shown.value) ChatsPage(rememberNavController())
+            } }
+        }
+        compose.waitUntil(5_000) { listings.get() >= 2 }
+        settle()
+        compose.runOnIdle { shown.value = false }
+        compose.waitForIdle()
+        val left = listings.get()
+        compose.mainClock.advanceTimeBy(9_300)
+        Thread.sleep(7_000)
+        compose.waitForIdle()
+        assertEquals("A page that was left must not keep reading", left, listings.get())
+        compose.runOnIdle { shown.value = true }
+        compose.waitUntil(5_000) { listings.get() >= left + 2 }
+        settle()
+        assertEquals("Coming back starts exactly one loop", left + 2, listings.get())
+    }
+
+    @Test fun aListHiddenBehindAnOpenChatStopsPolling() {
+        val visible = mutableStateOf(true)
+        compose.setContent {
+            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store) {
+                // A phone keeps the list composed behind the chat it opened.
+                ChatsPage(rememberNavController(), active = visible.value)
+            } }
+        }
+        compose.waitUntil(5_000) { listings.get() >= 2 }
+        settle()
+        compose.runOnIdle { visible.value = false }
+        compose.waitForIdle()
+        val hidden = listings.get()
+        compose.mainClock.advanceTimeBy(9_300)
+        Thread.sleep(7_000)
+        compose.waitForIdle()
+        assertEquals("A hidden list must not keep reading", hidden, listings.get())
+        compose.runOnIdle { visible.value = true }
+        compose.waitUntil(5_000) { listings.get() >= hidden + 2 }
+        settle()
+        assertEquals(hidden + 2, listings.get())
     }
 }
