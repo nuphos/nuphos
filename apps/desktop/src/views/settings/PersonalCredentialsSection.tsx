@@ -10,7 +10,13 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
-import { PERSONAL_CREDENTIALS_CHANGED, nameOf } from './personalCredentials'
+import {
+  PERSONAL_CREDENTIALS_CHANGED,
+  credentialFor,
+  isGoogle,
+  nameOf,
+} from './personalCredentials'
+import { TEAM_SETTINGS_DEFAULT_SECTION } from './settingsNav'
 import { SectionHeader } from './shared'
 import { useAdminName } from './useAdminName'
 
@@ -45,10 +51,14 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
 // The login is styled, so split one sentence around it.
 const CONNECTED_AS = t('Connected as {login}').split('{login}')
 
-const isGoogle = (provider: PersonalCredentialProvider) =>
-  provider === 'gmail' || provider === 'google-drive'
-
-export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefined }) {
+export function PersonalCredentialsSection({
+  team,
+  onOpenSection,
+}: {
+  team: AtlasTeam | undefined
+  /** Switch Settings to another section, e.g. Team settings for the Google OAuth client. */
+  onOpenSection?: (section: string) => void
+}) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
   // Gmail / Google Drive go through the current team's own OAuth client.
   // Null while unknown, or when it could not be read: Connect stays available and says why if it fails.
@@ -151,10 +161,7 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
         >
           <div className="space-y-3">
             {PROVIDERS.map(({ provider, name, description }) => {
-              // Gmail / Google Drive grants are per team; show this team's.
-              const credential = credentials?.find(
-                (c) => c.provider === provider && (!isGoogle(provider) || c.teamId === team?.id),
-              )
+              const credential = credentialFor(credentials, provider, team?.id)
               const needsTeamClient = isGoogle(provider) && teamHasGoogleClient === false
 
               return (
@@ -183,6 +190,19 @@ export function PersonalCredentialsSection({ team }: { team: AtlasTeam | undefin
                         >
                           {t('Setup guide')}
                         </button>
+                        {/* Only admins can add the client; everyone else is told whom to ask. */}
+                        {team?.role === 'ADMINISTRATOR' && onOpenSection && (
+                          <>
+                            {' · '}
+                            <button
+                              type="button"
+                              className="text-zViolet-accent hover:underline"
+                              onClick={() => onOpenSection(TEAM_SETTINGS_DEFAULT_SECTION)}
+                            >
+                              {t('Open Team settings')}
+                            </button>
+                          </>
+                        )}
                       </p>
                     )}
                     <div className="t-collapse" data-open={Boolean(credential)}>

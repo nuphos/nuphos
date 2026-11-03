@@ -5678,5 +5678,12 @@
   "Someone else’s computer. Its owner can see what runs here.": "Es el equipo de otra persona. Su propietario puede ver lo que se ejecuta aquí.",
   "Only share with people you trust; they may access this computer’s files and sign-ins.": "Comparte solo con personas de confianza; pueden acceder a los archivos y sesiones de este equipo.",
   "Its owner can see this work, and only you can send messages in this agent.": "Su propietario puede ver este trabajo y solo tú puedes enviar mensajes en este agente.",
-  "After the move, only you can send messages; people you shared it with can still read it.": "Tras moverlo, solo tú puedes enviar mensajes; las personas con quienes lo compartiste pueden seguir leyendo."
+  "After the move, only you can send messages; people you shared it with can still read it.": "Tras moverlo, solo tú puedes enviar mensajes; las personas con quienes lo compartiste pueden seguir leyendo.",
+  "Commits, PRs and comments authored by you.": "Commits, PR y comentarios firmados por ti.",
+  "Issues and comments authored by you.": "Issues y comentarios firmados por ti.",
+  "Read, draft and send your mail.": "Lee, redacta y envía tu correo.",
+  "Find, read and save your own files.": "Busca, lee y guarda tus propios archivos.",
+  "Open Team settings": "Abrir ajustes del equipo",
+  "Team connector": "Conector del equipo",
+  "Your personal account": "Tu cuenta personal"
 }

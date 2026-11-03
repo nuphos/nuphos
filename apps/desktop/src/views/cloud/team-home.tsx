@@ -64,8 +64,6 @@ export function TeamHomeView({
   onSlackBindHandled,
 }: TeamHomeViewProps) {
   const bindFlowRef = useRef<TeamHomeBindFlowHandle>(null)
-  const openProviderInfo = (detail: Parameters<typeof onOpenConnectorInfo>[0]) =>
-    onOpenConnectorInfo(detail)
   // One connection opens its own detail; several, or one without a detail page, open the provider's list.
   const openConnector = (group: IntegrationPlatformRow[]) => {
     const [row] = group
@@ -96,7 +94,7 @@ export function TeamHomeView({
       uptimeKumaInstances,
       tailscaleClients,
       zeaburProviders,
-      onOpenConnectorInfo: openProviderInfo,
+      onOpenConnectorInfo,
     }),
     ...buildSaasConnectorRows({
       teamId,
@@ -111,7 +109,7 @@ export function TeamHomeView({
       volcengineAccounts,
       huaweiAccounts,
       azureAccounts,
-      onOpenConnectorInfo: openProviderInfo,
+      onOpenConnectorInfo,
     }),
     ...buildDevConnectorRows({
       teamId,
@@ -128,7 +126,7 @@ export function TeamHomeView({
       slackInstallation,
       slackLinkedChannels,
       larkInstallation,
-      onOpenConnectorInfo: openProviderInfo,
+      onOpenConnectorInfo,
     }),
   ]
   const filtered = applyFilter(
@@ -144,6 +142,7 @@ export function TeamHomeView({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <IntegrationCatalog
+        teamId={teamId}
         rows={rows}
         visibleRows={filtered}
         githubInstallations={githubInstallations}
@@ -152,6 +151,7 @@ export function TeamHomeView({
         onFilterChange={onFilterChange}
         onAdd={(key) => bindFlowRef.current?.openIntegration(key)}
         onOpen={openConnector}
+        onOpenSettingsSection={onOpenSettingsSection}
       />
       <TeamHomeBindFlow
         ref={bindFlowRef}
@@ -159,7 +159,7 @@ export function TeamHomeView({
         onOpenAgentChat={onOpenAgentChat}
         onOpenSettingsSection={onOpenSettingsSection}
         onChanged={onChanged}
-        onFocusConnector={openProviderInfo}
+        onFocusConnector={onOpenConnectorInfo}
         addIntegrationOpen={addIntegrationOpen}
         onAddIntegrationOpenChange={onAddIntegrationOpenChange}
         slackBindRequested={slackBindRequested}
