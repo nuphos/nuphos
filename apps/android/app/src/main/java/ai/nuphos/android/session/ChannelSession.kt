@@ -11,7 +11,9 @@ import ai.nuphos.android.model.ChannelPost
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import ai.nuphos.android.data.AgentChatApi
 import ai.nuphos.android.data.AttachmentTransfers
@@ -97,10 +99,13 @@ class ChannelSession(
 
     /** Shown at once; files upload first, then the post goes out with their group. */
     fun send(submission: ComposerSubmission, viewerId: String?, viewerName: String?, viewerAvatar: String?,
-             scope: kotlinx.coroutines.CoroutineScope, newId: () -> String = { java.util.UUID.randomUUID().toString().lowercase() }): Boolean {
+             scope: kotlinx.coroutines.CoroutineScope, allowed: () -> Boolean = { true },
+             newId: () -> String = { java.util.UUID.randomUUID().toString().lowercase() }): Boolean {
         val text = submission.text.trim()
-        if (readOnly || (text.isEmpty() && submission.attachments.isEmpty())) return false
-        val key = (listOf(text) + submission.attachments.map { it.name }).joinToString("\n")
+        if (readOnly || !allowed() || (text.isEmpty() && submission.attachments.isEmpty())) return false
+        // The same post is the same words and the same attached files (their own ids, not their
+        // names): a post put back after a failure keeps its id, while a newly picked file never does.
+        val key = (listOf(text) + submission.attachments.map { it.id }).joinToString("\n")
         val id = retry?.takeIf { it.first == key }?.second ?: newId()
         retry = key to id
         sending = sending.filter { it.id != id } + ChannelPost(id, viewerId.orEmpty(), isAgent = false, name = viewerName ?: "You",
@@ -108,17 +113,26 @@ class ChannelSession(
         if (submission.attachments.isNotEmpty()) sendingAttachments = sendingAttachments + (id to submission.attachments)
         lastSubmittedKey = "post.$id"
         sendError = null
+        fun drop() {
+            sending = sending.filter { it.id != id }
+            sendingAttachments = sendingAttachments - id
+        }
         scope.launch {
             try {
                 val upload = if (submission.attachments.isEmpty()) null else transport.upload(submission.attachments)
+                // The account, workspace, consent or chat may have changed while files uploaded.
+                currentCoroutineContext().ensureActive()
+                if (!allowed() || readOnly) { drop(); return@launch }
                 transport.post(text, id, upload)
                 retry = null
-                refresh(force = true)
+                if (allowed()) refresh(force = true)
             } catch (e: CancellationException) {
+                // Left, or the scope ended: never posted later, never put back into another composer.
+                drop()
                 throw e
             } catch (e: Exception) {
-                sending = sending.filter { it.id != id }
-                sendingAttachments = sendingAttachments - id
+                drop()
+                if (!allowed()) return@launch
                 sendError = postFailureMessage(e)
                 unsent = submission
             }

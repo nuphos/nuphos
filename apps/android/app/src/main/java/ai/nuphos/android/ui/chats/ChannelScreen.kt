@@ -97,7 +97,9 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 }
             }
         }
-        if (session.loaded && session.loadError == null && !session.readOnly) ChannelComposer(session)
+        // Keyed by session: a new workspace, account or consent gets a new composer scope, and the
+        // old one's in-flight upload is cancelled with it.
+        if (session.loaded && session.loadError == null && !session.readOnly) key(session) { ChannelComposer(session) }
         }
     }
 }
@@ -231,8 +233,16 @@ private fun ChannelComposer(session: ChannelSession) {
         isStreaming = false,
         onSend = { submission ->
             val user = auth.user
-            store.selectedTeam?.id == session.teamId && auth.aiAllowed &&
-                session.send(submission, user?.id, user?.name, user?.avatar, scope)
+            // Captured now: a post whose upload outlives this account, workspace or consent is never sent.
+            val generation = auth.generation
+            val account = user?.id
+            val workspace = store.workspaceRevision
+            val consent = AiAccess.revision
+            val allowed = {
+                auth.generation == generation && auth.user?.id == account && store.workspaceRevision == workspace &&
+                    AiAccess.revision == consent && store.selectedTeam?.id == session.teamId && auth.aiAllowed && !session.readOnly
+            }
+            session.send(submission, user?.id, user?.name, user?.avatar, scope, allowed)
         },
         canSubmit = auth.aiAllowed && store.selectedTeam?.id == session.teamId,
         draft = draft,

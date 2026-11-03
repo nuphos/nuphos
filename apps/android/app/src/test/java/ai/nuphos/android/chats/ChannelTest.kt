@@ -86,8 +86,9 @@ class ChannelTest {
         val posts = mutableListOf<Triple<String, String, String?>>()
         var failPost = false
         var landed: String? = null
+        var heldUpload: kotlinx.coroutines.CompletableDeferred<Unit>? = null
         override suspend fun upload(attachments: List<ComposerAttachment>): String {
-            uploads += attachments.map { it.name }; return "64b5f1c2e4b0a1d2c3e4f5a9"
+            uploads += attachments.map { it.name }; heldUpload?.await(); return "64b5f1c2e4b0a1d2c3e4f5a9"
         }
         override suspend fun post(text: String, id: String, upload: String?) {
             posts += Triple(text, id, upload)
@@ -159,6 +160,59 @@ class ChannelTest {
         testScheduler.advanceUntilIdle()
         assertEquals("client-2", transport.posts.last().second)
         assertFalse(session.send(ComposerSubmission("   "), "me", "Me", null, this))
+    }
+
+    @Test fun aScopeChangeDuringUploadNeverPostsOrRestores() = runTest {
+        val transport = FakeTransport().apply { heldUpload = kotlinx.coroutines.CompletableDeferred() }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        var current = true
+        val file = ComposerAttachment(name = "crash.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        assertTrue(session.send(ComposerSubmission("Ship it", listOf(file)), "me", "Me", null, this, { current }) { "client-1" })
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, transport.uploads.size)
+        // The account, workspace or consent changes while the files upload.
+        current = false
+        transport.heldUpload!!.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertTrue("No late post", transport.posts.isEmpty())
+        assertTrue(session.sending.isEmpty()); assertNull(session.unsent); assertNull(session.sendError)
+        assertFalse("A stale composer cannot start another post", session.send(ComposerSubmission("Again"), "me", "Me", null, this, { current }))
+    }
+
+    @Test fun leavingDuringUploadCancelsWithoutPostingOrRestoring() = runTest {
+        val transport = FakeTransport().apply { heldUpload = kotlinx.coroutines.CompletableDeferred() }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        val composer = kotlinx.coroutines.CoroutineScope(coroutineContext + kotlinx.coroutines.Job())
+        val file = ComposerAttachment(name = "crash.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        assertTrue(session.send(ComposerSubmission("Ship it", listOf(file)), "me", "Me", null, composer) { "client-1" })
+        testScheduler.advanceUntilIdle()
+        composer.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
+        transport.heldUpload!!.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertTrue(transport.posts.isEmpty())
+        assertTrue(session.sending.isEmpty()); assertNull(session.unsent); assertNull(session.sendError)
+    }
+
+    @Test fun aRetryMatchesTheSameFilesNotTheSameNames() = runTest {
+        val transport = FakeTransport().apply { failPost = true }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        var ids = 0
+        val first = ComposerAttachment(name = "photo.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        val submission = ComposerSubmission("Look", listOf(first))
+        session.send(submission, "me", "Me", null, this) { "client-${++ids}" }
+        testScheduler.advanceUntilIdle()
+        // The post put back after a failure keeps its id.
+        session.send(session.unsent!!, "me", "Me", null, this) { "client-${++ids}" }
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("client-1", "client-1"), transport.posts.map { it.second })
+        // Same caption, a newly picked file with the same name: a new post, never the old id.
+        val other = ComposerAttachment(name = "photo.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(2)))
+        session.send(ComposerSubmission("Look", listOf(other)), "me", "Me", null, this) { "client-${++ids}" }
+        testScheduler.advanceUntilIdle()
+        assertEquals("client-2", transport.posts.last().second)
     }
 
     @Test fun aFailedPostShowsTheServerReasonButNeverARawPayload() {
