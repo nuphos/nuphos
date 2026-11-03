@@ -5,6 +5,8 @@ import { localTerminals } from '../local-terminal'
 import { runtimeDesktops } from '../runtime-desktop'
 import { runtimeTerminals } from '../runtime-terminal'
 
+import { sshHosts, sshJoin, sshJoinCancel } from './ssh-join'
+
 import type { DesktopTarget, TerminalTarget } from '../../src/api/local-terminal-types'
 import type { IpcMainInvokeEvent } from 'electron'
 
@@ -23,7 +25,7 @@ function owner(event: IpcMainInvokeEvent) {
     actual.host !== expectedUrl.host ||
     (actual.protocol === 'app:' && actual.pathname !== expectedUrl.pathname)
   ) {
-    throw new Error('Local terminals are only available to the desktop app.')
+    throw new Error('Only the desktop app can run local processes.')
   }
 
   return contents
@@ -32,7 +34,25 @@ function owner(event: IpcMainInvokeEvent) {
 const terminals = (event: IpcMainInvokeEvent, id: string) =>
   runtimeTerminals.describe(owner(event), id) ? runtimeTerminals : localTerminals
 
+const string = (value: unknown) => {
+  if (typeof value !== 'string') throw new TypeError('Expected a string')
+
+  return value
+}
+
 export const localTerminalChannels = {
+  // Connecting your own computer over SSH runs the local ssh, so it is guarded like a terminal.
+  'ssh:hosts': (event: IpcMainInvokeEvent) => {
+    owner(event)
+
+    return sshHosts()
+  },
+  'ssh:join': (event: IpcMainInvokeEvent, id: unknown, target: unknown) =>
+    sshJoin(owner(event), string(id), string(target)),
+  'ssh:cancel': (event: IpcMainInvokeEvent, id: unknown) => {
+    owner(event)
+    sshJoinCancel(string(id))
+  },
   'local-terminal:accept-dock': (event: IpcMainInvokeEvent, id: string) =>
     acceptDockTerminal(owner(event), id),
   'local-terminal:processes': (event: IpcMainInvokeEvent) => localTerminals.processes(owner(event)),

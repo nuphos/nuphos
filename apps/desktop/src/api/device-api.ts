@@ -42,6 +42,10 @@ export const deviceApi = {
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
   boxJoinToken: () => window.api.boxJoinToken(),
+  sshHosts: () => window.api.sshHosts(),
+  sshJoin: (id: string, target: string) => window.api.sshJoin(id, target),
+  sshJoinCancel: (id: string) => window.api.sshJoinCancel(id),
+  onSshJoinOutput: (cb: (id: string, text: string) => void) => window.api.onSshJoinOutput(cb),
   openSessionDesktop: (teamId: string, sessionId: string) =>
     window.api.openSessionDesktop(teamId, sessionId),
   boxCreateAgent: (
