@@ -1,5 +1,4 @@
 import { previewSessionAccess } from './credentials-mcp'
-import { nuphosToolsVersion } from './nuphos-tools-mcp'
 import { sessionMeta } from './openab-acp-session'
 import { runtimeProvider } from './runtime-provider'
 import { storedPick } from './session-config-options'
@@ -21,15 +20,7 @@ export async function sessionConfigRestoreContext(
     teamId,
     conversation.userId,
     conversation.userId,
-    {
-      external: endpoint?.external,
-      backendUrl: endpoint?.backendUrl,
-      toolsVersion: await nuphosToolsVersion({
-        userId: conversation.userId,
-        teamId,
-        sessionId: conversation.sessionId,
-      }),
-    },
+    { external: endpoint?.external, backendUrl: endpoint?.backendUrl },
   )
   const provider = runtimeProvider(conversation.agentRuntime)
   const systemPrompt = await buildPreviewSystemPrompt({
