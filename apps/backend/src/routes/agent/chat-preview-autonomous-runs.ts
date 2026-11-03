@@ -2,10 +2,12 @@
 // a turn adopted from a replica that shut down) and their durable transcript.
 import { randomUUID } from 'node:crypto'
 
+import { wakeAfterTurn } from '@/lib/agent/channel-chat'
 import {
   setClaudeCodeAutonomousPermissionHandler,
   setClaudeCodeAutonomousUpdateHandler,
 } from '@/lib/claude-code-preview/agent-chat-runtime'
+import { logError } from '@/lib/observability'
 
 import { createClaudeCodeAutonomousUpdateHandler } from './chat-preview-autonomous'
 import { registerBackgroundToolPersistence } from './chat-preview-background-tools'
@@ -50,7 +52,15 @@ export const autonomous = createClaudeCodeAutonomousUpdateHandler({
 
     return {
       emit: state.emit,
-      finish: state.finish,
+      finish: () => {
+        state.finish()
+        // What it posted in channels this turn wakes their other agents now, once.
+        void wakeAfterTurn(context.conversationId).catch((err: unknown) => {
+          logError('agent.channel.wake_after_turn_failed', err, {
+            session_id: context.conversationId,
+          })
+        })
+      },
       handleTool: (toolUpdate) => {
         handlePreviewToolUpdate(state.emit, tools, toolUpdate)
       },

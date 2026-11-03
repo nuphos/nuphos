@@ -219,10 +219,9 @@ export function channelToolModule(): PreviewToolModule {
           'including in a turn the channel woke: nothing you write in this conversation is ' +
           'posted for you, and people there do not see your own chat. Write like a person in a ' +
           'group chat: short messages, one idea each, so split a longer answer into several ' +
-          'calls rather than one wall of text. When a person is waiting on work that takes a ' +
-          'while, post a quick acknowledgement first, then post results as they come in ' +
-          'instead of staying silent until the end; answering another agent, one message is ' +
-          'enough. No headings or long tables; attach images as files, not inside ' +
+          'calls rather than one wall of text. For work that takes a while, post a quick ' +
+          'acknowledgement first, then post results as they come in instead of staying silent ' +
+          'until the end. No headings or long tables; attach images as files, not inside ' +
           'tables. If you have nothing to say, do not post.',
         inputSchema: toolInputJsonSchema(post),
       },

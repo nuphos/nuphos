@@ -24,6 +24,8 @@ export type ChannelFields = {
   memberReadSeq?: Record<string, number>
   /** Turns agents have woken each other for since the last person spoke. */
   agentTurns?: number
+  /** On an agent: the channels it posted in this turn, woken once when the turn ends. */
+  channelWakes?: string[]
   /** People @mentioned here who have not posted since, by user id: their Inbox entry. */
   mentions?: Record<string, { messageId: string; at: Date }>
 }

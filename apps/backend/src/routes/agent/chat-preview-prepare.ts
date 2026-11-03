@@ -2,6 +2,7 @@
 // composed system prompt, the history preamble for a fresh inner session, and
 // any messages queued while no turn was running (they ride the first prompt).
 
+import { wakeAfterTurn } from '@/lib/agent/channel-chat'
 import {
   clearConversationPreviewLocalTools,
   clearPendingDecision,
@@ -259,10 +260,15 @@ export async function preparePreviewTurn(
         ),
       ),
     carried,
-    clearActiveTurn: () =>
-      clearConversationPreviewTurn(sessionId, teamId, requestId).catch((err: unknown) => {
+    clearActiveTurn: async () => {
+      await clearConversationPreviewTurn(sessionId, teamId, requestId).catch((err: unknown) => {
         traceAgentChatError('agent.chat.preview_active_turn_clear.error', err, args.run.trace, {})
-      }),
+      })
+      // What it posted in channels this turn wakes their other agents now, once.
+      await wakeAfterTurn(sessionId).catch((err: unknown) => {
+        traceAgentChatError('agent.channel.wake_after_turn.error', err, args.run.trace, {})
+      })
+    },
     openPromptSuggestion: () =>
       openConversationPromptSuggestion(sessionId, teamId, requestId).catch((err: unknown) => {
         traceAgentChatError('agent.chat.prompt_suggestion_open.error', err, args.run.trace, {})
