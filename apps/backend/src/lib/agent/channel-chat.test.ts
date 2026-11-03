@@ -250,7 +250,7 @@ describe('waking a channel’s agents', () => {
     expect(await withoutReadNotices('agent-b', all)).toHaveLength(4)
   })
 
-  test('a resent message is neither stored nor announced again', async () => {
+  test('a resent message is neither stored, announced nor unread again', async () => {
     const first = await channel()
 
     expect(await postChannelMessage(first, { id: 'same', text: 'hi', metadata: person })).toBe(true)
@@ -259,6 +259,8 @@ describe('waking a channel’s agents', () => {
     )
     expect(wokenSessions()).toHaveLength(2)
     expect(await agentMessages().find({ sessionId: 'channel' }).toArray()).toHaveLength(1)
+    // Each post is new activity, so the channel shows unread like a finished turn.
+    expect((await channel()).activitySeq).toBe(1)
   })
 
   test('only agent conversations of the channel’s team wake', async () => {

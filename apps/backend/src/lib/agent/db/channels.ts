@@ -20,6 +20,8 @@ export type ChannelFields = {
   agentSessionIds?: string[]
   /** The index of the last channel message each agent has read, by session id. */
   agentReadIndex?: Record<string, number>
+  /** Each other member's read marker, by user id, like the owner's `readSeq`. */
+  memberReadSeq?: Record<string, number>
   /** Turns agents have woken each other for since the last person spoke. */
   agentTurns?: number
   /** People @mentioned here who have not posted since, by user id: their Inbox entry. */

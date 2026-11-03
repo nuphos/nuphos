@@ -38,8 +38,14 @@ class FakeConversations {
     const doc = this.match(filter)
 
     if (!doc) return null
-    for (const [key, value] of Object.entries(update.$max)) {
-      doc[key] = Math.max((doc[key] as number | undefined) ?? 0, value)
+    for (const [path, value] of Object.entries(update.$max)) {
+      const [key, member] = path.split('.') as [string, string | undefined]
+
+      if (member) doc[key] ??= {}
+      const into = member ? (doc[key] as Doc) : doc
+      const at = member ?? key
+
+      into[at] = Math.max((into[at] as number | undefined) ?? 0, value)
     }
 
     return doc
@@ -53,7 +59,7 @@ class FakeConversations {
 
 const conversations = new FakeConversations()
 
-useDb({ db: (() => ({ collection: () => conversations })) as unknown as typeof dbActual.db })
+useDb({ db: () => ({ collection: () => conversations }) })
 
 beforeEach(() => {
   conversations.docs = [{ sessionId: 's', userId: 'owner', teamId: 't' }]
@@ -99,6 +105,24 @@ describe('conversation read state', () => {
 
   test('only the owner can move the marker', async () => {
     expect(await markConversationRead('s', 'teammate', 't', 1)).toBeNull()
+  })
+
+  test('each member of a channel reads it for themselves', async () => {
+    conversations.docs = [{ sessionId: 'c', userId: 'owner', teamId: 't', kind: 'channel' }]
+    const channel = conversations.docs[0]!
+
+    await bumpConversationActivity('c', 'owner')
+    await bumpConversationActivity('c', 'owner')
+    expect(conversationReadState(channel, 'member').unread).toBe(true)
+
+    expect(await markConversationRead('c', 'member', 't', 2)).toEqual({
+      activitySeq: 2,
+      readSeq: 2,
+      unread: false,
+    })
+    // The member's read is theirs alone: the owner still has it unread.
+    expect(conversationReadState(channel, 'owner').unread).toBe(true)
+    expect(channel.readSeq).toBeUndefined()
   })
 
   test('the unread count covers the owner’s own unarchived, watched chats in one team', async () => {

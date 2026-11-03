@@ -13,6 +13,7 @@ import {
 } from './db'
 import { onChannelTurnEnd } from './channel-reply'
 import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
+import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import { listPendingUserMessages } from './pending-queue'
@@ -64,6 +65,8 @@ export async function postChannelMessage(
       },
     ],
   })
+  // Every post is new activity, as a finished turn is in a conversation: it shows unread.
+  await bumpConversationActivity(channel.sessionId, channel.userId)
   await noteMentions({ ...channel, teamId }, post)
   await wakeChannelAgents({ ...channel, teamId }, authorSessionId)
 
