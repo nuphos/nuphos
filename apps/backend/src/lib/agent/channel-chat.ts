@@ -11,7 +11,9 @@ import {
   getConversationBySessionId,
   getConversationWithMessages,
 } from './db'
-import { onChannelTurnEnd } from './channel-reply'
+import { closingWords, onChannelTurnEnd } from './channel-reply'
+import { channelNotice } from './channel-wake'
+import { pushedFileParts } from './channel-attachments'
 import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
@@ -21,7 +23,6 @@ import { listPendingUserMessages } from './pending-queue'
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { PendingUserMessage } from './pending-messages'
-import type { UIMessage } from 'ai'
 
 /**
  * Turns agents may wake each other for between two posts by a person. Every
@@ -30,12 +31,11 @@ import type { UIMessage } from 'ai'
  */
 export const CHANNEL_AGENT_TURN_BUDGET = 10
 
-type Post = { id: string; text: string; metadata: MessageMetadata }
+type Post = { id: string; text: string; metadata: MessageMetadata; files?: object[] }
 
 /**
- * Records a message in a channel and wakes its other agents. `authorSessionId` is
- * the posting agent's session; a person's post has none. A resent id is the
- * same message, so it is neither stored nor announced twice.
+ * Records a message, with its `files` parts, and wakes the channel's other agents;
+ * `authorSessionId` is the posting agent's. A resent id is stored and announced once.
  */
 export async function postChannelMessage(
   channel: AgentConversation,
@@ -60,12 +60,11 @@ export async function postChannelMessage(
       {
         id: post.id,
         role: 'user',
-        parts: [{ type: 'text', text: post.text }],
+        parts: [...(post.text ? [{ type: 'text', text: post.text }] : []), ...(post.files ?? [])],
         metadata: post.metadata,
       },
     ],
   })
-  // Every post is new activity, as a finished turn is in a conversation: it shows unread.
   await bumpConversationActivity(channel.sessionId, channel.userId)
   await noteMentions({ ...channel, teamId }, post)
   await wakeChannelAgents({ ...channel, teamId }, authorSessionId)
@@ -126,13 +125,15 @@ async function wakeChannelAgents(
 }
 
 /**
- * A channel-woken turn's closing words are its reply, as a person's last words
- * in a group chat are what they said. Saying nothing leaves nothing behind.
+ * Posts in a channel in this agent's name: a channel-woken turn's closing words
+ * are its reply, as a person's last words in a group chat are what they said.
+ * Saying nothing leaves nothing behind.
  */
-async function postTurnReply(
+export async function postAsAgent(
   channelId: string,
   agent: Pick<AgentConversation, 'sessionId' | 'title' | 'agentRuntime'>,
   text: string,
+  files: object[] = [],
 ): Promise<void> {
   const channel = await getConversationBySessionId(channelId)
 
@@ -154,22 +155,10 @@ async function postTurnReply(
         sourceSessionId: agent.sessionId,
         sentAt: new Date().toISOString(),
       },
+      files,
     },
     agent.sessionId,
   )
-}
-
-/** The last text of the turn's closing message: what the agent said, not what it did. */
-function closingWords(message: UIMessage): string {
-  const last = message.parts.findLastIndex(
-    (part) => part.type !== 'text' && part.type !== 'step-start',
-  )
-
-  return message.parts
-    .slice(last + 1)
-    .flatMap((part) => (part.type === 'text' ? [part.text] : []))
-    .join('')
-    .trim()
 }
 
 /**
@@ -196,8 +185,11 @@ export async function replyToChannel(
   if (asked < 0 || answered < asked) return
   const ui = persistedMessageToUiMessage(messages[answered]!)
   const text = ui ? closingWords(ui) : ''
+  // Files it pushed for download this turn go with its words, as they would in its own chat.
+  const files = await pushedFileParts(target, messages[asked]!.createdAt).catch(() => [])
 
-  if (text) await postTurnReply(first.slice(CHANNEL_SENDER_PREFIX.length), target, text)
+  if (text || files.length > 0)
+    await postAsAgent(first.slice(CHANNEL_SENDER_PREFIX.length), target, text, files)
 }
 
 onChannelTurnEnd(replyToChannel)
@@ -278,7 +270,7 @@ async function notifyAgent(
     agent,
     // Fixed per channel, so the queue's dedupe keeps one; the title is a
     // member's words and travels only in the metadata.
-    `New messages in a Nuphos channel (channelId ${channel.sessionId}).`,
+    channelNotice(channel.sessionId),
     'agent.resource',
     {
       version: 1,

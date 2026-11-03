@@ -31,6 +31,7 @@ const DELIVERY_CODE = 'd'.repeat(43)
 
 const openedUrls: string[] = []
 const configWrites: string[] = []
+const files = new Map<string, string>()
 
 /** What the fake backend was asked to register, so tests can assert on PKCE. */
 type Registration = {
@@ -82,16 +83,29 @@ before(async () => {
 
   mock.module('node:fs/promises', {
     defaultExport: {
-      readFile: async () => {
-        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      // The files as written, so a sign-out reads back the sign-in it removes.
+      readFile: async (at: string) => {
+        const data = files.get(at)
+
+        if (data === undefined) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+
+        return data
       },
       mkdir: async () => {},
-      writeFile: async (_path: string, data: string) => {
+      writeFile: async (at: string, data: string) => {
+        files.set(at, data)
         configWrites.push(data)
       },
       chmod: async () => {},
-      rename: async () => {},
-      rm: async () => {},
+      rename: async (from: string, to: string) => {
+        const data = files.get(from)
+
+        if (data !== undefined) files.set(to, data)
+        files.delete(from)
+      },
+      rm: async (at: string) => {
+        files.delete(at)
+      },
       stat: async () => ({ mtimeMs: 0 }),
     },
   })
@@ -150,6 +164,7 @@ before(async () => {
 beforeEach(() => {
   openedUrls.length = 0
   configWrites.length = 0
+  files.clear()
   registrations = []
   nativeSupported = true
   chooserProbe = () =>

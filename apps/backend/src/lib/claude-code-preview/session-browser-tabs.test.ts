@@ -76,7 +76,7 @@ describe('session browser tabs', () => {
     expect(fake.sent).toEqual([
       { t: 'call', session: 's1', turn: 's1', action: 'dock', team: 't1' },
     ])
-    expect(fake.audits).toEqual(['[browser] phone dock'])
+    expect(fake.audits).toEqual(['[browser] phone dock', '[browser] phone dock'])
   })
 
   test('focus sends only the dock tab id', async () => {
@@ -89,7 +89,10 @@ describe('session browser tabs', () => {
       team: 't1',
       session: 's1',
     })
-    expect(fake.audits).toEqual(['[browser] phone focus tab=tab-1'])
+    expect(fake.audits).toEqual([
+      '[browser] phone focus tab=tab-1',
+      '[browser] phone focus tab=tab-1',
+    ])
   })
 
   test("someone else's conversation is not found and reaches no device", async () => {

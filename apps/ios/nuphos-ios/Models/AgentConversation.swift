@@ -64,8 +64,12 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Whether this user gets the chat's push notifications. Nil from a
     /// backend that predates watching, which hides the toggle.
     var watching: Bool?
+    /// `channel` for a chat where people and agents talk; nil for an agent.
+    var kind: String?
 
     var id: String { sessionId }
+
+    var isChannel: Bool { kind == "channel" }
 
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
@@ -103,6 +107,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
         parentSessionId = try c.decodeIfPresent(String.self, forKey: .parentSessionId)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
+        kind = try? c.decodeIfPresent(String.self, forKey: .kind)
     }
 
     init(
@@ -196,6 +201,8 @@ struct AgentConversationDetail: Decodable, Sendable {
     struct TimelineEvent: Decodable, Equatable, Sendable {
         let at: Date
         let text: String
+        /// `agents_paused` when a chat's loop guard stopped its agents.
+        var kind: String? = nil
     }
 
     let messages: [ChatMessage]
@@ -219,9 +226,16 @@ struct AgentConversationDetail: Decodable, Sendable {
     let timelineEvents: [TimelineEvent]
     /// The runtime's guess at what the user will send next.
     let promptSuggestion: String?
+    /// `channel` for a chat; nil for an agent.
+    let kind: String?
+    /// With `transcriptUpdatedAt`, what a chat's cheap probe compares to tell a new post.
+    let messageCount: Int?
+    let transcriptUpdatedAt: String?
+
+    var isChannel: Bool { kind == "channel" }
 
     private enum CodingKeys: String, CodingKey {
-        case isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -244,5 +258,8 @@ struct AgentConversationDetail: Decodable, Sendable {
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
         promptSuggestion = try? c.decodeIfPresent(String.self, forKey: .promptSuggestion)
+        kind = try? c.decodeIfPresent(String.self, forKey: .kind)
+        messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)
+        transcriptUpdatedAt = try? c.decodeIfPresent(String.self, forKey: .transcriptUpdatedAt)
     }
 }

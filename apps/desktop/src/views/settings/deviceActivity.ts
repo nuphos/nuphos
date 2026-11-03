@@ -30,6 +30,8 @@ export function outcomeSummary(entry: Pick<DeviceExecAuditEntry, 'outcome' | 'ex
       return { label: t('Computer offline'), tone: 'error' }
     case 'rejected':
       return { label: t('Not run'), tone: 'muted' }
+    case 'unknown':
+      return { label: t('Result not recorded'), tone: 'warning' }
     case 'error':
       return { label: t('Failed'), tone: 'error' }
   }

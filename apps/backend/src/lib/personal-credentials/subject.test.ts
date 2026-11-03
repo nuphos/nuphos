@@ -19,8 +19,8 @@ useAgentDb({
 })
 
 /** A turn in conv-1, owned by `owner`. */
-const turn = (actor: string, humanTurn: boolean) =>
-  `Bearer ${mintPreviewMcpToken({
+const turn = async (actor: string, humanTurn: boolean) =>
+  `Bearer ${await mintPreviewMcpToken({
     userId: actor,
     conversationOwnerUserId: 'owner',
     sessionId: 'conv-1',
@@ -34,22 +34,26 @@ beforeEach(() => {
 
 describe('personalCredentialSubjectFor', () => {
   test('uses the member’s Personal Credential unless the conversation picks the team', async () => {
-    expect(await personalCredentialSubjectFor('github', turn('owner', true))).toBe('owner')
-    expect(await personalCredentialSubjectFor('github', turn('teammate', true))).toBe('teammate')
-    expect(await personalCredentialSubjectFor('linear', turn('owner', false))).toBe('owner')
+    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toBe('owner')
+    expect(await personalCredentialSubjectFor('github', await turn('teammate', true))).toBe(
+      'teammate',
+    )
+    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toBe('owner')
   })
 
   test('the conversation’s team identity applies to member and automated turns alike', async () => {
     teamIdentity = ['github']
 
-    expect(await personalCredentialSubjectFor('github', turn('owner', true))).toBeNull()
-    expect(await personalCredentialSubjectFor('github', turn('owner', false))).toBeNull()
-    expect(await personalCredentialSubjectFor('github', turn('teammate', true))).toBeNull()
+    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toBeNull()
+    expect(await personalCredentialSubjectFor('github', await turn('owner', false))).toBeNull()
+    expect(await personalCredentialSubjectFor('github', await turn('teammate', true))).toBeNull()
     // Per provider: Linear still acts as the member.
-    expect(await personalCredentialSubjectFor('linear', turn('owner', false))).toBe('owner')
+    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toBe('owner')
   })
 
   test('the agent’s explicit team request still wins', async () => {
-    expect(await personalCredentialSubjectFor('github', turn('owner', true), 'team')).toBeNull()
+    expect(
+      await personalCredentialSubjectFor('github', await turn('owner', true), 'team'),
+    ).toBeNull()
   })
 })

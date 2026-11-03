@@ -1,10 +1,12 @@
 import { clsx } from 'clsx'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
+import { FileDropZone } from '../agent/panel/FileDropZone'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { toast } from '../ui/toast'
@@ -13,6 +15,7 @@ import { ChannelMessages } from './ChannelMessages'
 import { ChannelMark } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useChannel } from './useChannel'
+import { useStickToBottom } from './useStickToBottom'
 
 import type { AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
@@ -30,6 +33,7 @@ export function ChannelPane({
   dockOpen,
   grip,
   onOpenSession,
+  onOpenNuphosLink,
 }: {
   teamId: string
   channelId: string
@@ -37,6 +41,8 @@ export function ChannelPane({
   dockOpen: boolean
   grip?: ReactNode
   onOpenSession: (sessionId: string) => void
+  /** Opens a Nuphos link in the app, as a conversation's messages do. */
+  onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
 
@@ -44,11 +50,13 @@ export function ChannelPane({
   useConversationRead(channelId, true)
   // Text that could not be posted goes back into the composer.
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
-  // A resend of the same text reuses its id, so a post that did land is not doubled.
-  const unsent = useRef<{ text: string; id: string } | null>(null)
+  // A resend of the same post reuses its id, so a post that did land is not doubled.
+  const unsent = useRef<{ key: string; id: string } | null>(null)
   // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Files dropped anywhere on the chat go to its composer, as in a conversation.
+  const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
   const title = detail?.title ?? ''
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
@@ -57,31 +65,27 @@ export function ChannelPane({
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
 
-  // Open at the latest post, and follow new ones.
-  useEffect(() => {
-    const scroller = scrollRef.current
-
-    if (scroller) scroller.scrollTop = scroller.scrollHeight
-  }, [messages.length])
+  // Open at the latest post, and follow new ones and the typing bubble.
+  const stickToBottom = useStickToBottom(scrollRef)
 
   const send = async (text: string, filePaths: string[]) => {
-    if (filePaths.length > 0) {
-      toast.error(t('Files can’t be posted in a chat yet.'))
-      setRestore({ text, filePaths, nonce: Date.now() })
+    if (!text.trim() && filePaths.length === 0) return
+    const key = [text, ...filePaths].join('\n')
+    const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
+    // Files take the conversation's upload path: shown at once, uploaded, then posted.
+    const files = filePaths.length > 0 ? makeAttachmentTurn(text, filePaths, teamId) : null
 
-      return
-    }
-    if (!text.trim()) return
-    const id = unsent.current?.text === text ? unsent.current.id : crypto.randomUUID()
-
-    unsent.current = { text, id }
-    setSending((posts) => [...posts, sendingPost(id, text, user)])
+    unsent.current = { key, id }
+    stickToBottom()
+    setSending((posts) => [...posts, sendingPost(id, text, user, files?.optimisticPart())])
     try {
-      await api.agentPostChannelMessage(channelId, teamId, text, id)
+      const upload = files ? (await files.runUpload(undefined)).groupId : undefined
+
+      await api.agentPostChannelMessage(channelId, teamId, text, id, upload)
     } catch (error) {
       setSending((posts) => posts.filter((post) => post.id !== id))
       toast.apiError(t('Could not send the message'), error)
-      setRestore({ text, nonce: Date.now() })
+      setRestore({ text, filePaths, nonce: Date.now() })
 
       return
     }
@@ -90,7 +94,7 @@ export function ChannelPane({
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <FileDropZone target={dropRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         className={clsx(
           'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 pl-3',
@@ -126,27 +130,32 @@ export function ChannelPane({
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-3 pt-5 pb-4 selectable"
       >
-        {detail && messages.length === 0 && (
-          <div className="mx-auto flex w-full max-w-[760px] flex-col items-start gap-3 px-3 pt-10">
-            <ChannelMark size={44} className="rounded-xl" />
-            <div className="text-lg font-semibold leading-snug text-main">{title}</div>
-            <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
-              {t(
-                'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
-              )}
+        {/* One box, so its height says when anything below grows. */}
+        <div>
+          {detail && messages.length === 0 && (
+            <div className="mx-auto flex w-full max-w-[760px] flex-col items-start gap-3 px-3 pt-10">
+              <ChannelMark size={44} className="rounded-xl" />
+              <div className="text-lg font-semibold leading-snug text-main">{title}</div>
+              <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
+                {t(
+                  'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
+                )}
+              </div>
             </div>
-          </div>
-        )}
-        {detail && (
-          <ChannelMessages
-            messages={messages}
-            events={detail?.timelineEvents ?? []}
-            agents={agents}
-            viewerId={user.id}
-            teamId={teamId}
-            onOpenSession={onOpenSession}
-          />
-        )}
+          )}
+          {detail && (
+            <ChannelMessages
+              messages={messages}
+              events={detail?.timelineEvents ?? []}
+              agents={agents}
+              viewerId={user.id}
+              teamId={teamId}
+              onOpenSession={onOpenSession}
+              onOpenNuphosLink={onOpenNuphosLink}
+              channelId={channelId}
+            />
+          )}
+        </div>
       </div>
       <div className="mx-auto w-full max-w-[760px] px-3 pb-3">
         <Composer
@@ -156,6 +165,7 @@ export function ChannelPane({
           pendingSeed={restore}
           onSeedConsumed={() => setRestore(null)}
           draftKey={composerDraftKey(teamId, channelId)}
+          dropRegisterRef={dropRef}
           mentionScope={{
             teamId,
             sessionId: channelId,
@@ -165,6 +175,6 @@ export function ChannelPane({
           placeholder={t('Message {name}', { name: `#${title}` })}
         />
       </div>
-    </div>
+    </FileDropZone>
   )
 }

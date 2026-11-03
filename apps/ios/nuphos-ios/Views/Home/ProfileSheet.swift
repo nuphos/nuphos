@@ -6,6 +6,8 @@ import SwiftUI
 struct ProfileSheet: View {
     @Environment(AuthSession.self) private var session
     @Environment(\.dismiss) private var dismiss
+    /// Absent when shown before sign-in finishes (the AI consent screen).
+    @Environment(AgentStore.self) private var store: AgentStore?
     let user: NuphosUser
     private var currentUser: NuphosUser { session.user ?? user }
     @State private var editing = false
@@ -23,6 +25,16 @@ struct ProfileSheet: View {
                     header
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 16, trailing: 0))
+                }
+
+                if let store, !store.teams.isEmpty {
+                    Section {
+                        Picker("Workspace", selection: Binding(get: { store.selectedTeam }, set: { if let team = $0 { store.select(team: team) } })) {
+                            ForEach(store.teams) { Text($0.name).tag(Optional($0)) }
+                        }
+                        .pickerStyle(.navigationLink)
+                    }
+                    .listRowBackground(Theme.surface)
                 }
 
                 Section("Account") {

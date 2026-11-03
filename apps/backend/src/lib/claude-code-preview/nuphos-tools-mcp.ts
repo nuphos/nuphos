@@ -1,6 +1,9 @@
 // The `nuphos-tools` MCP surface: host-control tools that cannot be expressed
 // as ordinary domain REST resources (memory, decisions, local Desktop actions,
 // channel delivery, …), served to the Claude Code runtime per conversation.
+import { createHash } from 'node:crypto'
+
+import { resolvePreviewToolContext } from './preview-tool-context-resolve'
 import { previewToolModules } from './preview-tools'
 
 import type { PreviewToolContext, PreviewToolModule } from './preview-tool-context'
@@ -11,7 +14,7 @@ export { toolModuleFromAiSdkTools } from './preview-tools/ai-sdk-adapter'
 export const NUPHOS_TOOLS_INSTRUCTIONS =
   "Nuphos's native tools for this conversation: memory (save_memory / " +
   'memory_get), charts, artifacts, team-skill authoring, decisions, local Desktop actions, ' +
-  'connector setup (create_connector), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread), Nuphos channels (channel_read), and channel delivery. ' +
+  'connector setup (create_connector), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread), Nuphos channels (channel_read / channel_post / channel_create), and channel delivery. ' +
   'When the user asks for a sub-agent (in any language), use create_thread, not your ' +
   "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. " +
   'List yours with list_recent_conversations children:true. ' +
@@ -60,4 +63,24 @@ export async function nuphosToolsMcp(
   const modules = await previewToolModules(ctx)
 
   return { surface: nuphosToolsSurface(modules), tools: mergeToolHandlers(modules, ctx) }
+}
+
+/**
+ * A short hash of the conversation's tool names, declared in the `nuphos-tools`
+ * URL. Agents read the tool list only when they start, so the runtime respawns
+ * an idle agent, resuming its conversation, when this changes.
+ */
+export async function nuphosToolsVersion(
+  args: Parameters<typeof resolvePreviewToolContext>[0],
+): Promise<string | undefined> {
+  try {
+    const modules = await previewToolModules(await resolvePreviewToolContext(args))
+    const names = nuphosToolsSurface(modules).toolDefinitions.map(
+      (definition) => (definition as { name: string }).name,
+    )
+
+    return createHash('sha256').update(names.join('\n')).digest('hex').slice(0, 12)
+  } catch {
+    return undefined
+  }
 }

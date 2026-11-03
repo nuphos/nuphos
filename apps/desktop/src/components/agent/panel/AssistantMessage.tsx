@@ -11,6 +11,7 @@ import { renderCardToolPart } from './cardToolParts'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
+import { DownloadGroups } from './DownloadGroups'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
 import { renderPartRange, renderSelectedParts } from './renderPartRange'
@@ -21,7 +22,6 @@ import { assistantPartKey, lastVisiblePartIndex, turnWorkSeconds } from './strea
 import { AssistantPlanPart } from './toolParts'
 import { ToolPartView } from './ToolPartView'
 import { foldedTurnLayout, turnDisplayParts } from './toolRuns'
-import { DownloadFilesCard } from './transferCards'
 import { turnFoldSplitIndex } from './turnFold'
 import { TurnInterruptedPartView } from './TurnInterruptedPartView'
 import { TurnLinkChips } from './TurnLinkChips'
@@ -257,10 +257,7 @@ export const AssistantMessage = memo(
         ) : (
           renderRange(recallLead, orderedParts.length)
         )}
-        {teamId &&
-          downloadGroups?.map((group) => (
-            <DownloadFilesCard key={group.groupId} group={group} teamId={teamId} />
-          ))}
+        {teamId && downloadGroups && <DownloadGroups groups={downloadGroups} teamId={teamId} />}
         {/* Mid-turn recall belongs beside what the agent learned. */}
         {orderedParts
           .filter((p) => p.type === 'memory-provenance')

@@ -89,3 +89,26 @@ test('switching to an account on another backend moves backend and token in one 
   ])
   assert.equal(authSession.current(), 'tok-a', 'the active account is untouched')
 })
+
+test('switching to an account whose token is gone signs it out, to sign in again', async () => {
+  const { switchAccount, listAccounts } = await import('./auth.ts')
+  const before = authSession.current()
+
+  // A keychain item this build cannot read: the account is listed, without a token.
+  fs.writeFileSync(
+    desktopFile,
+    yaml.dump({
+      ...(yaml.load(fs.readFileSync(desktopFile, 'utf8')) as object),
+      accounts: [
+        {
+          api: 'https://b.example.test',
+          keychainAccount: 'u3@https://b.example.test',
+          userInfo: { id: 'u3' },
+        },
+      ],
+    }),
+  )
+  assert.equal(await switchAccount('u3@https://b.example.test'), 'signInAgain')
+  assert.ok(!(await listAccounts()).some((a) => a.key === 'u3@https://b.example.test'))
+  assert.equal(authSession.current(), before, 'the active account is untouched')
+})

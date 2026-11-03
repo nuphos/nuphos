@@ -1,3 +1,4 @@
+import { authSession } from '../auth-session'
 import { dangerousManifestReason, requireMainProcessConsent } from '../consent'
 import * as k8s from '../k8s'
 import * as k8sWatch from '../k8s-watch'
@@ -230,6 +231,7 @@ export const k8sChannels = {
       involvedUid ?? null,
       eventType ?? null,
     ),
+  // Port forwards are bound to the account they began as (main/account-leave.ts).
   'k8s:startPortForward': (
     _e: unknown,
     ctx: string,
@@ -237,7 +239,7 @@ export const k8sChannels = {
     pod: string,
     targetPort: number,
     localPort?: number,
-  ) => k8s.startPortForward(ctx, ns, pod, targetPort, localPort),
+  ) => k8s.startPortForward(ctx, ns, pod, targetPort, localPort, authSession.context().signal),
   'k8s:startServicePortForward': (
     _e: unknown,
     ctx: string,
@@ -245,7 +247,15 @@ export const k8sChannels = {
     service: string,
     servicePort: number,
     localPort?: number,
-  ) => k8s.startServicePortForward(ctx, ns, service, servicePort, localPort),
+  ) =>
+    k8s.startServicePortForward(
+      ctx,
+      ns,
+      service,
+      servicePort,
+      localPort,
+      authSession.context().signal,
+    ),
   'k8s:getPodPortForwardOptions': (_e: unknown, ctx: string, ns: string, pod: string) =>
     k8s.getPodPortForwardOptions(ctx, ns, pod),
   'k8s:getServicePortForwardOptions': (_e: unknown, ctx: string, ns: string, service: string) =>

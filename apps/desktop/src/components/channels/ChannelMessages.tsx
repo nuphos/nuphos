@@ -3,16 +3,27 @@ import { Pause } from 'lucide-react'
 import { Fragment, useState } from 'react'
 
 import { t } from '../../i18n'
-import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
-import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { MessageResponse } from '../agent/MessageResponse'
+import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { formatMessageTimestamp } from '../agent/panel/streamText'
 import { Avatar } from '../Avatar'
 
+import { ChannelFiles } from './ChannelFiles'
+import { channelFiles } from './postFiles'
+import { Typing } from './ChannelTyping'
+
 import type { AgentPersistedMessage, AgentTimelineEvent, ChannelAgent } from '../../api'
+import type { ReactNode } from 'react'
+
+type Links = {
+  renderLink: (href: string, children: ReactNode) => ReactNode
+  onLinkClick?: (href: string, beside?: boolean) => boolean
+  /** The chat: its files load through it, so every member sees them. */
+  channelId: string
+}
 
 function textOf(message: AgentPersistedMessage): string {
   return message.parts
@@ -48,6 +59,7 @@ function ChannelMessage({
   ownAgent,
   viewerId,
   teamId,
+  links,
   onOpenSession,
 }: {
   message: AgentPersistedMessage
@@ -58,34 +70,52 @@ function ChannelMessage({
   ownAgent: boolean
   viewerId: string
   teamId: string
+  /** The same link handling as a conversation's messages: Nuphos links open in the app. */
+  links: Links
   onOpenSession: (sessionId: string) => void
 }) {
   const metadata = parseMessageMetadata(message.metadata)
   const text = textOf(message)
+  const posted = channelFiles(message)
 
-  if (!metadata || !text) return null
+  if (!metadata || (!text && !posted.any)) return null
   const { sender } = metadata
   const when = time(message, metadata.sentAt)
   const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
   const open = agentId && ownAgent ? () => onOpenSession(agentId) : null
   const body = (
-    <MessageResponse teamId={teamId} className="[&_p]:whitespace-pre-wrap">
+    <MessageResponse
+      teamId={teamId}
+      className="[&_p]:whitespace-pre-wrap"
+      renderLink={links.renderLink}
+      onLinkClick={links.onLinkClick}
+    >
       {text}
     </MessageResponse>
   )
 
-  if (!agentId && sender.id === viewerId)
+  const mine = !agentId && sender.id === viewerId
+  // A person's files show above their words and an agent's below, as in a conversation.
+  const shown = (files: typeof posted) => (
+    <ChannelFiles files={files} teamId={teamId} channelId={links.channelId} mine={mine} />
+  )
+  const files = shown({ ...posted, downloads: [] })
+
+  if (mine)
     return (
       <div className="flex w-full items-start justify-end gap-2.5">
         <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-1">
-          <div
-            className={clsx(
-              'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
-              fresh && 't-bubble-in-mine',
-            )}
-          >
-            {body}
-          </div>
+          {files}
+          {text && (
+            <div
+              className={clsx(
+                'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+                fresh && 't-bubble-in-mine',
+              )}
+            >
+              {body}
+            </div>
+          )}
           <span className="pr-0.5 text-[11px] text-tertiary tabular-nums">{when}</span>
         </div>
         <div className="w-7 shrink-0">
@@ -145,47 +175,22 @@ function ChannelMessage({
             )}
           </div>
         )}
-        <div
-          className={clsx(
-            'max-w-full rounded-2xl rounded-tl-md bg-zGray-800/70 px-3.5 py-2 break-words',
-            fresh && 't-bubble-in',
-          )}
-        >
-          {body}
-        </div>
+        {files}
+        {text && (
+          <div
+            className={clsx(
+              'max-w-full rounded-2xl rounded-tl-md bg-zGray-800/70 px-3.5 py-2 break-words',
+              fresh && 't-bubble-in',
+            )}
+          >
+            {body}
+          </div>
+        )}
+        {shown({ ...posted, uploads: [] })}
         <span className="px-1 text-[11px] text-tertiary tabular-nums">{when}</span>
       </div>
     </div>
   )
-}
-
-/**
- * iMessage-style dots for an agent in a turn. They surface after a beat, so an
- * agent that reads the post and has nothing to say never flashes them.
- */
-function Typing({ agents }: { agents: ChannelAgent[] }) {
-  const states = useAgentRuntimeStates()
-  const busy = agents.filter((agent) => runtimeTurnActive(states.get(agent.sessionId)))
-
-  return busy.map((agent) => (
-    <div
-      key={agent.sessionId}
-      className="flex items-end gap-2.5"
-      role="status"
-      aria-label={t('{name} is thinking', { name: agent.title })}
-    >
-      <AgentAvatar agentId={agent.sessionId} avatar={agent.avatar} size={28} />
-      <div className="t-bubble-in flex items-center gap-1 rounded-2xl rounded-bl-md bg-zGray-800/70 px-3.5 py-3 [animation-delay:800ms]">
-        {[0, 160, 320].map((delay) => (
-          <span
-            key={delay}
-            className="t-typing-dot h-1.5 w-1.5 rounded-full bg-tertiary"
-            style={{ animationDelay: `${String(delay)}ms` }}
-          />
-        ))}
-      </div>
-    </div>
-  ))
 }
 
 /** The loop guard stopped agents answering agents: a line on the timeline. */
@@ -216,6 +221,8 @@ export function ChannelMessages({
   viewerId,
   teamId,
   onOpenSession,
+  onOpenNuphosLink,
+  channelId,
 }: {
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
@@ -223,7 +230,14 @@ export function ChannelMessages({
   viewerId: string
   teamId: string
   onOpenSession: (sessionId: string) => void
+  onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
+  channelId: string
 }) {
+  const links = {
+    channelId,
+    renderLink: useAgentLinks(teamId, onOpenNuphosLink),
+    onLinkClick: onOpenNuphosLink,
+  }
   // What was here on opening stays put; only posts that arrive later spring in.
   const owned = new Set(
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
@@ -242,6 +256,7 @@ export function ChannelMessages({
           ownAgent={owned.has(senderOf(message) ?? '')}
           viewerId={viewerId}
           teamId={teamId}
+          links={links}
           onOpenSession={onOpenSession}
         />
       ),

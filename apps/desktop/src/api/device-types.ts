@@ -4,7 +4,8 @@ export type DeviceIdentity = {
   createdAt: string
 }
 
-export type DeviceExecOutcome = 'ok' | 'timeout' | 'device_offline' | 'rejected' | 'error'
+export type DeviceExecOutcome =
+  'ok' | 'timeout' | 'device_offline' | 'rejected' | 'error' | 'unknown'
 
 export type DeviceExecOrigin = 'user' | 'trigger' | 'automation' | 'database-alert'
 
@@ -21,8 +22,8 @@ export type DeviceExecAuditEntry = {
   commandRedacted: boolean
   requestedAt: string
   dispatchedAt: string | null
-  finishedAt: string
-  durationMs: number
+  finishedAt: string | null
+  durationMs: number | null
   outcome: DeviceExecOutcome
   exitCode: number | null
   reason: string | null
@@ -190,8 +191,10 @@ export type AgentDevice = {
   createdAt?: string
   allowLocalExec?: boolean
   online?: boolean
-  /** What the viewer may do: 'use' runs its agents; 'manage' also changes or deletes it. */
-  access?: 'use' | 'manage'
+  /** What the viewer may do: 'use' runs its agents; 'manage' also changes it; 'owner' also removes it. */
+  access?: 'use' | 'manage' | 'owner'
+  /** Who owns it: whoever added a person's computer or created a cloud computer. */
+  ownerUserId?: string
   /** For managers: when and from where the host last reported in. */
   lastSeenAt?: string
   lastSeen?: { ip: string; city?: string; country?: string } | null

@@ -114,6 +114,25 @@ fn remove_if_same_handle<T>(
     }
 }
 
+/// Whether `declared` names different MCP servers than the agent was started with.
+/// Headers carry per-turn credentials, so they never count as a change, and an
+/// empty declaration means the caller declared nothing.
+fn mcp_declaration_changed(started: &[serde_json::Value], declared: &[serde_json::Value]) -> bool {
+    let identity = |servers: &[serde_json::Value]| -> Vec<serde_json::Value> {
+        servers
+            .iter()
+            .map(|server| {
+                let mut server = server.clone();
+                if let Some(fields) = server.as_object_mut() {
+                    fields.remove("headers");
+                }
+                server
+            })
+            .collect()
+    };
+    !declared.is_empty() && identity(started) != identity(declared)
+}
+
 fn get_or_insert_gate(map: &mut HashMap<String, Arc<Mutex<()>>>, key: &str) -> Arc<Mutex<()>> {
     map.entry(key.to_string())
         .or_insert_with(|| Arc::new(Mutex::new(())))
@@ -710,6 +729,49 @@ impl SessionPool {
         .await
     }
 
+    /// Removes an idle live connection whose MCP declaration is out of date, keeping its
+    /// native session resumable and its admission slot for the replacement spawn.
+    /// Returns that session id, or `None` and leaves the agent running when nothing changed,
+    /// it cannot resume its session, or a turn is still live.
+    async fn suspend_for_mcp_change(
+        &self,
+        thread_id: &str,
+        handle: &Arc<Mutex<AcpConnection>>,
+        declared: &[serde_json::Value],
+    ) -> Option<String> {
+        let mut state = self.state.write().await;
+        let conn = handle.try_lock().ok()?;
+        let sid = conn.acp_session_id.clone()?;
+        // Without session/load the replacement would start a new conversation.
+        if !conn.supports_load_session || !mcp_declaration_changed(&conn.mcp_servers, declared) {
+            return None;
+        }
+        drop(conn);
+        let activity = state.activity.get(thread_id).map(Arc::as_ref);
+        if candidate_in_flight(activity)
+            || candidate_relaying(
+                activity,
+                std::time::Duration::from_secs(AGENT_RELAY_GRACE_SECS),
+            )
+            || candidate_awaiting_permission(
+                activity,
+                std::time::Duration::from_secs(self.hung_threshold_secs),
+            )
+        {
+            return None;
+        }
+        remove_if_same_handle(&mut state.active, thread_id, handle)?;
+        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers changed, respawning idle session");
+        state.cancel_handles.remove(thread_id);
+        state.steering_handles.remove(thread_id);
+        state.activity.remove(thread_id);
+        state.pgids.remove(thread_id);
+        state.persisted.insert(thread_id.to_string(), sid.clone());
+        state.suspended.insert(thread_id.to_string(), sid.clone());
+        self.save_mapping(&state.persisted);
+        Some(sid)
+    }
+
     /// Restore only a known native session, without a prompt or output attachment.
     pub async fn restore_for_config(
         &self,
@@ -738,9 +800,8 @@ impl SessionPool {
             {
                 return Err(anyhow!("No saved native session to restore"));
             }
-            // A non-empty declaration updates the stored set even when a live
-            // session short-circuits below: it takes effect on the next spawn,
-            // never restarting a live session.
+            // A non-empty declaration updates the stored set used by the next
+            // spawn. An idle live agent is respawned below when it differs.
             if !restore_only
                 && !mcp_servers.is_empty()
                 && state.session_mcp_servers.get(thread_id).map(Vec::as_slice) != Some(mcp_servers)
@@ -773,19 +834,32 @@ impl SessionPool {
 
         let had_existing = existing.is_some();
         let mut saved_session_id = saved_session_id;
-        if let Some(conn) = existing.clone() {
+        if let Some(handle) = existing {
             // Never await the existing connection's mutex here: we hold the
             // per-thread creating gate, so blocking on a hung connection would
             // permanently jam ALL future messages for this thread_id (F1).
             // Lock held = busy streaming = alive (same convention as
             // has_active_session); cleanup_idle owns hung recovery.
-            let Ok(conn) = conn.try_lock() else {
+            let Ok(conn) = handle.try_lock() else {
                 return Ok(false);
             };
             if conn.alive() {
-                return Ok(false);
-            }
-            if saved_session_id.is_none() {
+                // The agent read its MCP tool lists when it started. When the
+                // declaration has changed since, suspend it between turns, as
+                // the idle sweep does, so the spawn below resumes the same
+                // conversation with the new servers. Never mid-turn.
+                drop(conn);
+                if restore_only {
+                    return Ok(false);
+                }
+                let Some(sid) = self
+                    .suspend_for_mcp_change(thread_id, &handle, mcp_servers)
+                    .await
+                else {
+                    return Ok(false);
+                };
+                saved_session_id = Some(sid);
+            } else if saved_session_id.is_none() {
                 saved_session_id = conn.acp_session_id.clone();
             }
         }
@@ -1535,8 +1609,9 @@ impl SessionPool {
 mod tests {
     use super::{
         better_candidate, candidate_awaiting_permission, candidate_in_flight, candidate_relaying,
-        classify_hung, classify_idle, get_or_insert_gate, purge_session_entries,
-        relay_is_streaming, remove_if_same_handle, PoolState, AGENT_RELAY_GRACE_SECS,
+        classify_hung, classify_idle, get_or_insert_gate, mcp_declaration_changed,
+        purge_session_entries, relay_is_streaming, remove_if_same_handle, PoolState,
+        AGENT_RELAY_GRACE_SECS,
     };
     use crate::acp::connection::SessionActivity;
     use std::collections::HashMap;
@@ -1716,6 +1791,29 @@ mod tests {
 
         assert_eq!(token.as_deref(), Some("token-xyz"));
         assert_eq!(counting.minted.lock().unwrap().as_slice(), ["acp_x"]);
+    }
+
+    #[test]
+    fn mcp_declaration_changes_ignore_headers_and_empty_declarations() {
+        let server = |url: &str, token: &str| {
+            serde_json::json!({
+                "name": "nuphos-tools",
+                "type": "http",
+                "url": url,
+                "headers": [{"name": "Authorization", "value": token}],
+            })
+        };
+        let started = vec![server("https://x/mcp-tools?tools=a", "t1")];
+        assert!(!mcp_declaration_changed(
+            &started,
+            &[server("https://x/mcp-tools?tools=a", "t2")]
+        ));
+        assert!(!mcp_declaration_changed(&started, &[]));
+        assert!(mcp_declaration_changed(
+            &started,
+            &[server("https://x/mcp-tools?tools=b", "t1")]
+        ));
+        assert!(mcp_declaration_changed(&[], &started));
     }
 
     #[test]

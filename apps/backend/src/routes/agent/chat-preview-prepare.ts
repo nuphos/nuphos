@@ -19,6 +19,7 @@ import {
 import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
 import { markCarried } from '@/lib/agent/retract-marks'
+import { nuphosToolsVersion } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
 import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
@@ -33,6 +34,7 @@ import type { PreviewTurnMemory } from './chat-preview-memory'
 import type { PreviewChatTurnArgs } from './chat-preview-turn'
 import type { AgentChatBody } from './types'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
+import type { PreviewSessionAccessOptions } from '@/lib/claude-code-preview/credentials-mcp'
 import type { RuntimeAttachment } from '@/lib/claude-code-preview/runtime-attachments'
 import type { UIMessage } from 'ai'
 
@@ -160,6 +162,8 @@ export async function persistPreviewTurnContext(
 export type PreparedPreviewTurn = {
   memory: PreviewTurnMemory | null
   systemPrompt: string | undefined
+  /** This turn's options for `previewSessionAccess`. */
+  accessOptions: PreviewSessionAccessOptions
   /** Everything but the user's own words, prompted ahead of them. */
   message: string
   /** The user's own words, prompted last so a leading slash command reaches the agent. */
@@ -181,7 +185,7 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
-  const [memory, systemPrompt, compactionSummary, drained] = await Promise.all([
+  const [memory, systemPrompt, compactionSummary, drained, toolsVersion] = await Promise.all([
     resolvePreviewTurnMemory({
       sessionId,
       userId: actorUserId,
@@ -213,6 +217,7 @@ export async function preparePreviewTurn(
     }),
     previewCompactionSummary(sessionId, userId),
     takeTurnQueue(userId, sessionId, actorUserId, args.channelTurn).then(markCarried(requestId)),
+    nuphosToolsVersion({ userId: actorUserId, conversationOwnerUserId: userId, teamId, sessionId }),
   ])
   // A channel that syncs its thread into the transcript may already hold a queued message.
   const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
@@ -241,6 +246,7 @@ export async function preparePreviewTurn(
     memory,
     attachments,
     systemPrompt,
+    accessOptions: { humanTurn: args.humanTurn, toolsVersion },
     message: lead(),
     text,
     freshSessionMessage: (uncertain?: boolean) =>

@@ -1,3 +1,5 @@
+import { clsx } from 'clsx'
+
 import { useIsChannel } from '../../components/channels/channelKind'
 import { ChannelPane } from '../../components/channels/ChannelPane'
 
@@ -26,15 +28,23 @@ export function WorkspaceSessionPane({
   if (!channel || !teamId || !sessionId)
     return <WorkspaceAgentPane ws={ws} user={user} workspaceExpanded={workspaceExpanded} />
 
+  // Like the agent's pane: a page opened from the sidebar takes its place.
   return (
-    <ChannelPane
-      key={sessionId}
-      teamId={teamId}
-      channelId={sessionId}
-      user={user}
-      dockOpen={ws.dockOpen}
-      grip={<PaneGrip />}
-      onOpenSession={(agentId) => ws.workspaceActions.selectSession(agentId, { teamId })}
-    />
+    <main
+      data-workspace-focus-surface="session"
+      inert={workspaceExpanded}
+      className={clsx('min-h-0 min-w-0 flex-1', ws.mainPageOpen ? 'hidden' : 'flex')}
+    >
+      <ChannelPane
+        key={sessionId}
+        teamId={teamId}
+        channelId={sessionId}
+        user={user}
+        dockOpen={ws.dockOpen}
+        grip={<PaneGrip />}
+        onOpenSession={(agentId) => ws.workspaceActions.selectSession(agentId, { teamId })}
+        onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
+      />
+    </main>
   )
 }

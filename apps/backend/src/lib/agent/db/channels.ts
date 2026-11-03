@@ -52,6 +52,19 @@ export async function addChannelAgent(
   )
 }
 
+/**
+ * Whether this user owns that agent, i.e. its session. Only its owner may bring
+ * an agent into a channel. Another team's session or a channel is not an agent.
+ */
+export async function ownsChannelAgent(agentSessionId: string, userId: string, teamId: string) {
+  const agent = await agentConversations().findOne({ sessionId: agentSessionId })
+
+  if (!agent || agent.teamId !== teamId || isChannel(agent))
+    throw new AppError(404, 'not_found', 'Agent conversation not found')
+
+  return agent.userId === userId
+}
+
 export async function removeChannelAgent(
   channelId: string,
   agentSessionId: string,
@@ -102,16 +115,43 @@ export const CHANNEL_READ_NOTE =
 const ONLY_AGENT_NOTE =
   ' You are the only agent in this channel, so every message here is addressed to you: answer it.'
 
+/** The upload groups a stored chat post carries. */
+function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
+  return (parts ?? []).flatMap((part) => {
+    const { type, groupId } = part as { type?: unknown; groupId?: unknown }
+
+    return (type === 'transfer-upload' || type === 'transfer-download') &&
+      typeof groupId === 'string'
+      ? [groupId]
+      : []
+  })
+}
+
 // A turn's worth of reading. An agent new to the channel starts at its latest page.
 const READ_PAGE = 50
 
-/** What the agent has not read yet, oldest first, and moves its cursor past it. */
+/** Moves the agent's place in a channel forward to `index`. */
+export async function markChannelRead(channelId: string, agentSessionId: string, index: number) {
+  await agentConversations().updateOne(
+    { sessionId: channelId },
+    // Two reads at once must not move the place back.
+    { $max: { [`agentReadIndex.${agentSessionId}`]: index } },
+  )
+}
+
+/**
+ * What the agent has not read yet, oldest first, and moves its cursor past it.
+ * `peek` leaves the cursor for the caller to move to `upTo` once the posts are
+ * delivered; `upTo` stops before the first message with files, so channel_read
+ * still places them on the agent's runtime.
+ */
 export async function readChannelMessages(
   channel: Pick<
     AgentConversation,
     'sessionId' | 'userId' | 'messageCount' | 'agentReadIndex' | 'agentSessionIds'
   >,
   agentSessionId: string,
+  peek = false,
 ) {
   const after = channel.agentReadIndex?.[agentSessionId] ?? channel.messageCount - READ_PAGE - 1
   const docs = await agentMessages()
@@ -120,18 +160,15 @@ export async function readChannelMessages(
     .limit(READ_PAGE + 1)
     .toArray()
   const page = docs.slice(0, READ_PAGE)
-  const last = page.at(-1)
+  const held = peek ? page.findIndex((doc) => channelUploadIds(doc.parts).length > 0) : -1
+  const last = held < 0 ? page.at(-1) : page[held - 1]
 
-  if (last)
-    await agentConversations().updateOne(
-      { sessionId: channel.sessionId },
-      // Two reads at once must not move the place back.
-      { $max: { [`agentReadIndex.${agentSessionId}`]: last.index } },
-    )
+  if (last && !peek) await markChannelRead(channel.sessionId, agentSessionId, last.index)
 
   return {
     messages: page.map((doc) => {
       const metadata = parseMessageMetadata(doc.metadata)
+      const uploads = channelUploadIds(doc.parts)
 
       return {
         index: doc.index,
@@ -155,44 +192,17 @@ export async function readChannelMessages(
             .join('\n'),
           '',
         ).trimEnd(),
+        // Files posted with it, placed on the reader's runtime by channel_read.
+        ...(uploads.length > 0 ? { uploads } : {}),
       }
     }),
+    upTo: last?.index,
     more: docs.length > READ_PAGE,
     note:
       channel.agentSessionIds?.length === 1
         ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE
         : CHANNEL_READ_NOTE,
   }
-}
-
-/**
- * Drops channel notices the agent has nothing left to read for: it may have
- * caught up with channel_read during the turn the notice waited behind.
- */
-export async function withoutReadNotices<M extends { source?: string; metadata?: MessageMetadata }>(
-  agentSessionId: string,
-  messages: M[],
-): Promise<M[]> {
-  const kept: M[] = []
-
-  for (const message of messages) {
-    const id = message.metadata?.sender?.id
-
-    if (message.source !== 'agent.resource' || !id?.startsWith(CHANNEL_SENDER_PREFIX)) {
-      kept.push(message)
-      continue
-    }
-    const channel = await agentConversations().findOne(
-      { sessionId: id.slice(CHANNEL_SENDER_PREFIX.length) },
-      { projection: { messageCount: 1, agentReadIndex: 1 } },
-    )
-    const read = channel?.agentReadIndex?.[agentSessionId]
-
-    if (channel && read !== undefined && read >= channel.messageCount - 1) continue
-    kept.push(message)
-  }
-
-  return kept
 }
 
 /** Where the viewer was @mentioned and has not posted since: the newest first. */

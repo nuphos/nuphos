@@ -38,7 +38,7 @@ class EmailSessionFixtureDeviceTest {
             val path = chain.request().url.encodedPath
             paths += path
             val body = when (path) {
-                "/auth/password/set" -> {
+                "/auth/email/verify-code" -> {
                     assertNull(chain.request().header("Authorization"))
                     started.countDown(); check(release.await(5, TimeUnit.SECONDS))
                     """{"token":"synthetic-session"}"""
@@ -54,8 +54,8 @@ class EmailSessionFixtureDeviceTest {
         try {
             inst.runOnMainSync {
                 auth.signOut()
-                auth.emailSignIn("fixture@example.com", "123456", "synthetic-password")
-                auth.emailSignIn("fixture@example.com", "123456", "synthetic-password")
+                auth.emailSignIn("fixture@example.com", "123456")
+                auth.emailSignIn("fixture@example.com", "123456")
             }
             assertTrue(started.await(3, TimeUnit.SECONDS))
             val job = AuthSession::class.java.getDeclaredField("loginJob").also { it.isAccessible = true }.get(auth) as Job
@@ -73,7 +73,7 @@ class EmailSessionFixtureDeviceTest {
                     assertFalse(auth.aiAllowed)
                 }
             }
-            assertEquals(if (cancel) listOf("/auth/password/set") else listOf("/auth/password/set", "/auth/me", "/auth/ai-consent"), paths.toList())
+            assertEquals(if (cancel) listOf("/auth/email/verify-code") else listOf("/auth/email/verify-code", "/auth/me", "/auth/ai-consent"), paths.toList())
         } finally {
             release.countDown()
             runBlocking { scope.coroutineContext[Job]!!.cancelAndJoin() }
@@ -83,6 +83,6 @@ class EmailSessionFixtureDeviceTest {
             assertNull(app.tokenStore.read())
         }
     }
-    @Test fun passwordResetCompletesSessionWithoutAcceptingConsentAndSuppressesDoubleTap() = scenario(false)
+    @Test fun emailCodeCompletesSessionWithoutAcceptingConsentAndSuppressesDoubleTap() = scenario(false)
     @Test fun cancellationRejectsLateSessionAndNeverPersistsToken() = scenario(true)
 }

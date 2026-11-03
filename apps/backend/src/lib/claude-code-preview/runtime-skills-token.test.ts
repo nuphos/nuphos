@@ -38,9 +38,9 @@ describe('runtime skills token', () => {
 // The suite runs off-cluster with NUPHOS_PUBLIC_BACKEND_URL seeded, so an
 // external session resolves to exactly that base.
 describe('skill bundle delivery over the session', () => {
-  test('only a self-hosted runtime is told where to fetch its bundle', () => {
-    const managed = previewSessionAccess('conv-1', 'team-1', 'user-1')
-    const external = previewSessionAccess('conv-1', 'team-1', 'user-1', 'user-1', {
+  test('only a self-hosted runtime is told where to fetch its bundle', async () => {
+    const managed = await previewSessionAccess('conv-1', 'team-1', 'user-1')
+    const external = await previewSessionAccess('conv-1', 'team-1', 'user-1', 'user-1', {
       external: true,
     })
 
@@ -54,7 +54,9 @@ describe('skill bundle delivery over the session', () => {
       verifyRuntimeSkillsToken(external.runtimeEnv?.NUPHOS_RUNTIME_SKILLS_TOKEN ?? ''),
     ).toEqual({ teamId: 'team-1', userId: 'user-1' })
     // A guest's turn names nobody: neither the guest's skills nor the owner's.
-    const guest = previewSessionAccess('conv-1', 'team-1', 'user-2', 'user-1', { external: true })
+    const guest = await previewSessionAccess('conv-1', 'team-1', 'user-2', 'user-1', {
+      external: true,
+    })
 
     expect(verifyRuntimeSkillsToken(guest.runtimeEnv?.NUPHOS_RUNTIME_SKILLS_TOKEN ?? '')).toEqual({
       teamId: 'team-1',

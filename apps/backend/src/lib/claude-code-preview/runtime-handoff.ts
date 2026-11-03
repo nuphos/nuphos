@@ -1,4 +1,3 @@
-import { sweepQueuedSessions } from '@/lib/agent/session-released'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import {
@@ -6,14 +5,16 @@ import {
   sweepAbandonedAgentRuns,
 } from '@/lib/agent/run-store/ownership'
 import { ownerKey } from '@/lib/agent/run-store/shared'
+import { sweepQueuedSessions } from '@/lib/agent/session-released'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
 
 import { sessionsByConversation } from './agent-chat-registry'
-import { openConversationSession } from './open-conversation-session'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { previewSessionAccess } from './credentials-mcp'
+import { nuphosToolsVersion } from './nuphos-tools-mcp'
+import { openConversationSession } from './open-conversation-session'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import {
   RUNTIME_HANDOFFS_KEY as HANDOFFS_KEY,
@@ -176,12 +177,22 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
 
   if (!endpoint) throw new Error('The handed-off conversation has no runtime to resume on')
   if (handoff.abandonedStreamId && liveAttachment(conversation)?.runtimeUrl !== endpoint.url) return
-  const access = previewSessionAccess(
+  const access = await previewSessionAccess(
     handoff.conversationId,
     handoff.teamId,
     handoff.actorUserId,
     handoff.ownerUserId,
-    { external: endpoint.external, backendUrl: endpoint.backendUrl, humanTurn: handoff.humanTurn },
+    {
+      external: endpoint.external,
+      backendUrl: endpoint.backendUrl,
+      humanTurn: handoff.humanTurn,
+      toolsVersion: await nuphosToolsVersion({
+        userId: handoff.actorUserId,
+        conversationOwnerUserId: handoff.ownerUserId,
+        teamId: handoff.teamId,
+        sessionId: handoff.conversationId,
+      }),
+    },
   )
   const abandonedStreamId = handoff.abandonedStreamId
 

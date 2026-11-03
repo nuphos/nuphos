@@ -7,6 +7,7 @@ import openApiDocument from '@/generated/api/openapi.json'
 import { errorHandler, notFoundHandler } from '@/lib/errors'
 import { analyticsMiddleware } from '@/middleware/analytics'
 import { responseCompression } from '@/middleware/compression'
+import { jsonEtag } from '@/middleware/etag'
 import { requestLog } from '@/middleware/request-log'
 import { otelHono } from '@/otel'
 import { adminRoutes } from '@/routes/admin'
@@ -45,7 +46,7 @@ import { slackRoutes } from '@/routes/slack'
 import { slackAppRoutes } from '@/routes/slack-app'
 import { teamsRoutes } from '@/routes/teams'
 import { webhooksRoutes } from '@/routes/webhooks'
-import { wellKnownRoutes } from '@/routes/well-known'
+import { internalWellKnownRoutes, wellKnownRoutes } from '@/routes/well-known'
 
 export { websocket } from 'hono/bun'
 
@@ -80,12 +81,17 @@ app.use(
 // Capture every request as a PostHog `api_request` event. After cors so
 // preflights are visible to the skip filter; reads userId/teamId post-next.
 app.use('*', analyticsMiddleware)
+// Innermost, so request logs, spans and analytics record the 304 that is sent;
+// still inside compression, so the tag hashes the uncompressed body.
+app.use('*', jsonEtag())
 
 app.get('/openapi.json', (c) => c.json(openApiDocument))
 app.route('/health', health)
 // Public OIDC issuer metadata for AWS BYOS web-identity federation. AWS STS
 // fetches these unauthenticated, so they live outside the auth'd route tree.
 app.route('/.well-known', wellKnownRoutes)
+// The internal issuer's JWKS (conversation tokens), kept apart from the one above.
+app.route('/internal/.well-known', internalWellKnownRoutes)
 app.route('/auth', cliAuthRoutes)
 app.route('/auth', auth)
 app.route('/avatars', avatarsRoutes)

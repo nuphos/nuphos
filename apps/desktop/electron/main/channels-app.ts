@@ -5,7 +5,7 @@ import fs from 'node:fs/promises'
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
 
 import * as agentChatSkill from '../agent-chat-skill'
-import { resetAnalyticsUser, setAnalyticsTeam, setAnalyticsUser } from '../analytics'
+import { setAnalyticsTeam, setAnalyticsUser } from '../analytics'
 import { apiUrl } from '../api-endpoint'
 import { setSendDiagnostics } from '../crash-reporter'
 import { selectAsciiInputSource } from '../input-source'
@@ -60,14 +60,15 @@ export const appChannels = {
   // events, to avoid double-counting.
   'auth:socialProviders': () => auth.socialProviders(),
   'auth:login': (_e: unknown, provider: auth.SocialProvider) => auth.login(provider),
-  'auth:logout': async () => {
-    const result = await auth.logout()
-
-    resetAnalyticsUser()
-
-    return result
-  },
+  // The analytics identity is reset when the account is left (account-leave.ts),
+  // not when these return: a slow revoke must not clear the next account's.
+  'auth:logout': () => auth.logout(),
   'auth:cancel': () => auth.cancelPendingLogin(),
+  // Leaving the active account reloads every window (account-leave.ts).
+  'auth:listAccounts': () => auth.listAccounts(),
+  'auth:switchAccount': (_e: unknown, key: string) => auth.switchAccount(key),
+  'auth:signOutAccount': (_e: unknown, key: string) => auth.signOutAccount(key),
+  'auth:signOutAllAccounts': () => auth.signOutAllAccounts(),
   'auth:emailRequestCode': (_e: unknown, email: string) => auth.requestEmailCode(email),
   'auth:emailVerifyCode': (_e: unknown, email: string, code: string) =>
     auth.verifyEmailCode(email, code),
@@ -178,8 +179,8 @@ export const appChannels = {
   ) => fileTransfer.uploadFiles(args),
   'fileTransfer:resolve': (
     _e: IpcMainInvokeEvent,
-    args: { teamId: string; sessionId?: string; groupId: string },
-  ) => fileTransfer.resolveDownloads(args.teamId, args.sessionId, args.groupId),
+    args: { teamId: string; sessionId?: string; groupId: string; channelId?: string },
+  ) => fileTransfer.resolveDownloads(args.teamId, args.sessionId, args.groupId, args.channelId),
   'fileTransfer:listDownloads': (
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string },
@@ -213,7 +214,14 @@ export const appChannels = {
   },
   'fileTransfer:downloadOne': async (
     e: IpcMainInvokeEvent,
-    args: { teamId: string; sessionId?: string; groupId: string; fileId: string; fileName: string },
+    args: {
+      teamId: string
+      sessionId?: string
+      groupId: string
+      fileId: string
+      fileName: string
+      channelId?: string
+    },
   ) => {
     const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
     const result = await dialog.showSaveDialog(
@@ -228,7 +236,13 @@ export const appChannels = {
   },
   'fileTransfer:downloadAllZip': async (
     e: IpcMainInvokeEvent,
-    args: { teamId: string; sessionId?: string; groupId: string; zipName: string },
+    args: {
+      teamId: string
+      sessionId?: string
+      groupId: string
+      zipName: string
+      channelId?: string
+    },
   ) => {
     const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
     const result = await dialog.showSaveDialog(
@@ -241,6 +255,7 @@ export const appChannels = {
       teamId: args.teamId,
       sessionId: args.sessionId,
       groupId: args.groupId,
+      channelId: args.channelId,
       destZipPath: result.filePath,
     })
 

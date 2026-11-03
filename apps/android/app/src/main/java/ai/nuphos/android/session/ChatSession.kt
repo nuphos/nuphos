@@ -364,6 +364,7 @@ class ChatSession(
             draftAccessInvalidated = readOnly || isArchived
             if (browsingOnly) loadError = null
             detail.title?.takeIf { it.isNotEmpty() }?.let { title = it }
+            if (detail.isChannel) markChannel()
             detail.credentialAccess?.let {
                 val selection = CredentialSelection(it)
                 credentialAccess = if (selection.isEmpty) null else selection
@@ -416,7 +417,17 @@ class ChatSession(
     private var preparedTransfer: AttachmentTransfers.Pending? = null
 
     fun send(text: String) = send(ComposerSubmission(text))
+    /** A chat posts through its own route; this session never sends to `/agent/chat` for it. */
+    var isChannel by mutableStateOf(false)
+        private set
+    private fun markChannel() {
+        isChannel = true
+        readOnly = true
+        draftAccessInvalidated = true
+    }
+
     fun send(submission: ComposerSubmission): Boolean {
+        if (isChannel) return false
         observationClock = RuntimeObservation.now()
         if (submission.attachments.isEmpty()) return sendPrepared(submission)
         if (!canSubmit || isStreaming || (isNative && (canReply || canEnqueueSteering))) {
@@ -838,6 +849,7 @@ class ChatSession(
         runtimeDeviceLabel = detail.runtimeLabel?.takeIf { it.isNotBlank() }
         detail.runtimeState?.let { receiveRuntime(it, observedAt) }
         detail.title?.takeIf { it.isNotEmpty() }?.let { title = it }
+        if (detail.isChannel) markChannel()
         if (isNative && !steeringUnconfirmed && !steeringRetryRequired && queued.isNotEmpty()) submitSteering()
     }
 

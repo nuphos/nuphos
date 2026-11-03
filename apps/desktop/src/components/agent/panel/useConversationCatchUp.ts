@@ -87,6 +87,12 @@ export function useConversationCatchUp(acc: Acc): void {
                   ...tab,
                   timelineEvents: probe.timelineEvents,
                   promptSuggestion: probe.promptSuggestion,
+                  // The backend can move the conversation to another agent (fallback, #1149).
+                  ...(probe.runtimeId && {
+                    agentRuntime: probe.agentRuntime,
+                    runtimeId: probe.runtimeId,
+                    runtimeLabel: probe.runtimeLabel,
+                  }),
                 }
               : tab,
           ),

@@ -277,7 +277,7 @@ pub fn token_storage(session: &Session) -> String {
         return "the NUPHOS_CLI_TOKEN environment variable".to_string();
     }
     match &session.keychain_account {
-        Some(_) => "macOS Keychain".to_string(),
+        Some(_) => secret::STORE_NAME.to_string(),
         None => format!("plaintext in {}", session_path().display()),
     }
 }

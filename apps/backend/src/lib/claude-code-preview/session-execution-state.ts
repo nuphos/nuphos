@@ -14,6 +14,7 @@ import { rememberRuntimeState } from './runtime-state-store'
 import { withSessionDesktops } from './session-desktops'
 import { steeringText } from './steering-receipt'
 
+import type { RuntimeAttachment } from './runtime-attachments'
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { AgentConversation } from '@/lib/agent/db'
@@ -154,26 +155,47 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
  * returns its path. It rides the attachment program as an inline data URL, so
  * the value never lands in the transcript, the database or object storage.
  */
-export async function putConversationSecret(
+/** Puts files on the conversation's live runtime and returns their local paths. */
+export async function placeOnConversationRuntime(
   conversation: AgentConversation,
-  secret: { name: string; value: string; userId: string },
-): Promise<string> {
+  files: RuntimeAttachment[],
+  userId: string,
+  secret = false,
+): Promise<string[]> {
   const attachment = liveAttachment(conversation)
 
   if (!attachment || !conversation.teamId)
     throw new AppError(409, 'runtime_unavailable', 'This conversation has no running agent')
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation, {
     purpose: 'control',
-    userId: secret.userId,
+    userId,
   })
 
   if (!endpoint || endpoint.url !== attachment.runtimeUrl)
     throw new AppError(409, 'runtime_unavailable', 'Conversation runtime changed')
-  const bytes = Buffer.from(secret.value, 'utf8')
-  const [file] = await materializeRuntimeAttachments(
+  const placed = await materializeRuntimeAttachments(
     conversation.teamId,
     conversation.userId,
     endpoint,
+    files,
+    secret,
+  )
+
+  return placed.map((file) => {
+    // file:///C:/x on a Windows computer, file:///tmp/x elsewhere.
+    const path = decodeURIComponent(new URL(file.uri).pathname)
+
+    return /^\/[A-Za-z]:\//u.test(path) ? path.slice(1) : path
+  })
+}
+
+export async function putConversationSecret(
+  conversation: AgentConversation,
+  secret: { name: string; value: string; userId: string },
+): Promise<string> {
+  const bytes = Buffer.from(secret.value, 'utf8')
+  const [path] = await placeOnConversationRuntime(
+    conversation,
     [
       {
         name: secret.name,
@@ -181,12 +203,11 @@ export async function putConversationSecret(
         size: bytes.length,
       },
     ],
+    secret.userId,
     true,
   )
-  // file:///C:/x on a Windows computer, file:///tmp/x elsewhere.
-  const path = decodeURIComponent(new URL(file!.uri).pathname)
 
-  return /^\/[A-Za-z]:\//u.test(path) ? path.slice(1) : path
+  return path!
 }
 
 /**

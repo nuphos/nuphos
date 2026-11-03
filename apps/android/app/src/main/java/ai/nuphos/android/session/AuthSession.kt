@@ -259,7 +259,7 @@ class AuthSession(
         }
     }
 
-    fun signIn(activity: Activity) {
+    fun signIn(activity: Activity, provider: NuphosWeb.Provider) {
         if (state !is State.SignedOut) return
         val expected = beginIdentity()
         state = State.SigningIn
@@ -271,7 +271,7 @@ class AuthSession(
             try {
                 attempt = NativeLogin()
                 loginAttempt = attempt
-                val url = withContext(Dispatchers.IO) { attempt.register() }
+                val url = withContext(Dispatchers.IO) { attempt.register(provider) }
                 if (generation != expected || state !is State.SigningIn) return@launch
                 if (activity.isFinishing || activity.isDestroyed) throw ActivityNotFoundException()
                 val tabs = CustomTabsIntent.Builder()
@@ -330,14 +330,19 @@ class AuthSession(
 
     fun passwordSignIn(email: String, password: String) = credentialSignIn(email, password, true)
 
-    fun emailSignIn(email: String, code: String, newPassword: String? = null) =
-        credentialSignIn(email, code, false, newPassword)
+    fun emailSignIn(email: String, code: String) = credentialSignIn(email, code, false)
+
+    /** Editing after a failed attempt clears its message, as on iOS. */
+    fun dismissSignInError() {
+        val current = state
+        if (current is State.SignedOut && current.error != null) state = State.SignedOut(null)
+    }
 
     fun cancelCredentialSignIn() {
         if (state is State.SigningIn && loginAttempt == null) signOut()
     }
 
-    private fun credentialSignIn(email: String, credential: String, password: Boolean, newPassword: String? = null) {
+    private fun credentialSignIn(email: String, credential: String, password: Boolean) {
         if (state !is State.SignedOut) return
         val expected = beginIdentity()
         state = State.SigningIn
@@ -345,7 +350,7 @@ class AuthSession(
             try {
                 val received = try {
                     if (password) AccountApi("").passwordSignIn(email, credential)
-                    else AccountApi("").emailSignIn(email, credential, newPassword)
+                    else AccountApi("").emailSignIn(email, credential)
                 } catch (_: NuphosApi.Failure.Unauthorized) {
                     if (generation == expected) state = State.SignedOut(if (password) "The email or password is incorrect." else "Incorrect or expired code. Request a new code if needed.")
                     return@launch

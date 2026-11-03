@@ -244,13 +244,6 @@ struct ConversationView: View {
                 try? await Task.sleep(for: .seconds(5))
             }
         }
-        // Read the files the agent sent, whatever the runtime is doing, and again
-        // when a turn settles. Keyed on the newest message, not the count: a long
-        // chat holds a fixed tail.
-        .task(id: "\(session.isStreaming).\(session.messages.last?.id ?? "")") {
-            await session.refreshResources()
-            await session.refreshDownloads()
-        }
     }
 
     /// The conversation's title, with the agent that answers in it on a
@@ -427,6 +420,7 @@ struct ConversationView: View {
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint, .event: 18
+        case .channel: 0
         }
     }
 
@@ -479,6 +473,8 @@ struct ConversationView: View {
             HintRow(text: text, isError: isError)
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:))
+        case .channel:
+            EmptyView()
         }
     }
 }
@@ -984,7 +980,7 @@ extension EnvironmentValues {
     fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
 }
 
-private extension View {
+extension View {
     /// The bar stays put while the transcript scrolls. Where the system
     /// minimizes it (iPhone Duo), each step resized the transcript and moved
     /// the composer docked under it.

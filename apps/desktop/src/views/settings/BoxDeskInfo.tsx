@@ -80,6 +80,7 @@ export function DeskAgents({
   onAdd,
   onSetUp,
   canAdd,
+  ask,
 }: {
   device: AgentDevice
   agents: RuntimeInstance[]
@@ -94,6 +95,8 @@ export function DeskAgents({
   onSetUp?: () => void
   /** Whether + shows (see canAddAgent); without it and without agents the row stays empty. */
   canAdd: boolean
+  /** Where + would be for someone who may only use it: whom to ask (see askToAdd). */
+  ask?: string
 }) {
   if (slots === 'noLocalAgent')
     return (
@@ -114,7 +117,7 @@ export function DeskAgents({
   if (slots === 'starting') return <p className="desk-note">{t('Starting agents…')}</p>
   const visible = agents.filter(visibleAgent)
 
-  if (visible.length === 0 && (dim || !canAdd)) return null
+  if (visible.length === 0 && (dim || (!canAdd && !ask))) return null
 
   return (
     <ul className={clsx('desk-agents', dim && 'opacity-50')}>
@@ -126,6 +129,7 @@ export function DeskAgents({
           <NewAgentMenu device={device} agents={agents} busy={busy} onAdd={onAdd} />
         </li>
       )}
+      {!dim && ask && <li className="desk-note min-w-0 max-w-full truncate">{ask}</li>}
     </ul>
   )
 }

@@ -22,6 +22,42 @@ final class AgentStore {
     private(set) var hasMore = false
     private var nextCursor: String?
 
+    // MARK: - Chats (channels)
+
+    /// The chats the viewer owns or joined, newest activity first.
+    private(set) var channels: [AgentConversation] = []
+    /// Set once the chats have loaded, so the home list can open on the right tab.
+    private(set) var channelsLoaded = false
+
+    /// Both listings the desktop sidebar reads: chats of one's own, then the ones joined.
+    func loadChannels() async {
+        guard let team = selectedTeam else { return }
+        let query = search
+        var rows: [AgentConversation] = []
+        for scope in ["mine", "shared"] {
+            guard let page = try? await NuphosAPI.conversations(
+                token: token, teamId: team.id, limit: 100, search: query, scope: scope, channels: true
+            ) else { return }
+            let seen = Set(rows.map(\.sessionId))
+            rows += page.conversations.filter { !seen.contains($0.sessionId) }
+        }
+        guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
+        channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        if query.isEmpty { HomePage.hasChats = !channels.isEmpty }
+        channelsLoaded = true
+    }
+
+    func channel(for conversation: AgentConversation) -> ChannelSession {
+        channel(sessionId: conversation.sessionId, title: conversation.displayTitle, teamId: conversation.teamId)
+    }
+
+    func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
+        let channel = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
+        channel.viewerId = userId
+        channel.me = me
+        return channel
+    }
+
     // MARK: - Pinned chats (sidebar favorites)
 
     private(set) var favorites: SidebarFavorites?
@@ -284,6 +320,7 @@ final class AgentStore {
         newModelPick = [:]
         credentials.reset()
         favorites = nil
+        channels = []
         runtimes = []
         agentDevices = []
         agentDevicesError = false
@@ -417,12 +454,13 @@ final class AgentStore {
         if conversations.isEmpty { phase = .loading }
         async let favoritesLoad: () = loadFavorites()
         async let runtimesLoad: () = loadRuntimes()
+        async let channelsLoad: () = loadChannels()
 
         do {
             let page = try await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: Self.pageSize, search: search
             )
-            _ = await (favoritesLoad, runtimesLoad)
+            _ = await (favoritesLoad, runtimesLoad, channelsLoad)
             guard generation == loadGeneration else { return }
             conversations = page.rows
             nextCursor = page.nextCursor
@@ -525,7 +563,9 @@ final class AgentStore {
 
     private func pollOnce() async {
         guard phase == .loaded, !isLoadingMore else { return }
+        async let chats: () = loadChannels()
         await refreshFirstPage()
+        await chats
     }
 
     /// At most two requests per tick: page one and one rotating loaded page.

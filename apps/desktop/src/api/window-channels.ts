@@ -16,5 +16,6 @@ export type WindowChannelsApi = {
     teamId: string,
     text: string,
     id: string,
+    upload?: string,
   ): Promise<{ id: string }>
 }

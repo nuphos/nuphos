@@ -42,6 +42,24 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
   )
 }
 
+/** Whose a teammate's own computer is, under its status. Never a Box, which is the team's. */
+export function OwnerLine({
+  device,
+  owner,
+}: {
+  device: AgentDevice
+  owner: { name: string | null } | null
+}) {
+  return (
+    owner &&
+    !device.box && (
+      <p className="mt-0.5 truncate text-[11.5px] leading-4 text-tertiary">
+        {owner.name ? t('Shared by {name}', { name: owner.name }) : t('Shared by a teammate')}
+      </p>
+    )
+  )
+}
+
 /** The green dot before a running Box or a live reading. */
 export function LiveDot() {
   return <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT.online}`} />

@@ -12,7 +12,7 @@ import type * as dbActual from '@/lib/db'
 const rows: AgentDevice[] = []
 
 useDb({
-  db: (() => ({
+  db: () => ({
     collection: () => ({
       insertOne: (row: AgentDevice) => {
         rows.push(row)
@@ -20,10 +20,10 @@ useDb({
         return Promise.resolve({ acknowledged: true })
       },
     }),
-  })) as unknown as typeof dbActual.db,
+  }),
 })
 
-test('Box creation persists creator-only access and rejects unlisted, cross-team and removed creators', async () => {
+test('Box creation makes its creator the owner, and only while they stay in its team', async () => {
   const created = await insertBoxAgentDevice('creator', {
     deviceId: 'box',
     label: 'New Box',
@@ -33,22 +33,19 @@ test('Box creation persists creator-only access and rejects unlisted, cross-team
       provider: 'instabox',
       teamId: 'team',
       createdBy: 'forged',
-      access: { everyone: true, userIds: ['other'] },
     },
   })
 
   expect(rows).toEqual([created])
-  expect(created.box).toEqual({
-    provider: 'instabox',
-    teamId: 'team',
-    createdBy: 'creator',
-    access: { everyone: false, userIds: ['creator'] },
-  })
+  expect(created.box).toEqual({ provider: 'instabox', teamId: 'team', createdBy: 'creator' })
+  expect(created.access).toEqual([{ teamId: 'team', everyone: false, userIds: [], managerIds: [] }])
   let active = true
   const deps: DeviceAccessDeps = {
     getDevice: () => Promise.resolve(created),
     listDevices: () => Promise.resolve(rows),
     listBoxes: () => Promise.resolve(rows),
+    listGranted: () => Promise.resolve([]),
+    findGranted: () => Promise.resolve([]),
     role: () => Promise.resolve(active ? 'EDITOR' : null),
   }
 
@@ -59,16 +56,14 @@ test('Box creation persists creator-only access and rejects unlisted, cross-team
   await expect(
     requireDeviceAccess('creator', 'another-team', 'box', 'use', deps),
   ).rejects.toMatchObject({ status: 404 })
-  await expect(requireDeviceAccess('creator', 'team', 'box', 'manage', deps)).rejects.toMatchObject(
-    { status: 404 },
-  )
+  expect(await requireDeviceAccess('creator', 'team', 'box', 'owner', deps)).toBe(created)
   active = false
   await expect(requireDeviceAccess('creator', 'team', 'box', 'use', deps)).rejects.toMatchObject({
     status: 404,
   })
 })
 
-test('Box creation shares with the requested members while keeping its creator, still ignoring the registration', async () => {
+test('Box creation lets the requested members use it, besides its owner', async () => {
   const created = await insertBoxAgentDevice(
     'creator',
     {
@@ -76,10 +71,12 @@ test('Box creation shares with the requested members while keeping its creator, 
       label: 'Shared Box',
       platform: 'linux',
       allowLocalExec: true,
-      box: { provider: 'instabox', teamId: 'team', access: { everyone: true, userIds: ['x'] } },
+      box: { provider: 'instabox', teamId: 'team' },
     },
     { everyone: false, userIds: ['alice', 'creator'] },
   )
 
-  expect(created.box?.access).toEqual({ everyone: false, userIds: ['creator', 'alice'] })
+  expect(created.access).toEqual([
+    { teamId: 'team', everyone: false, userIds: ['alice'], managerIds: [] },
+  ])
 })

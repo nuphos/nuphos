@@ -2,9 +2,6 @@ import { randomUUID } from 'node:crypto'
 
 import { db } from '@/lib/db'
 
-import { agentDevices } from './store'
-
-import type { LocalAgentShare } from './local-share-types'
 import type { AgentDevice } from './store'
 import type { Collection } from 'mongodb'
 
@@ -32,67 +29,6 @@ export async function setupShareApprovalIndexes(): Promise<void> {
   await shareApprovals().createIndex(
     { ownerId: 1, status: 1, requestedAt: -1 },
     { name: 'share_approval_owner_status' },
-  )
-  await agentDevices().createIndex(
-    { 'shares.teamId': 1 },
-    { partialFilterExpression: { 'shares.0': { $exists: true } }, name: 'agent_device_shares' },
-  )
-}
-
-/** People's own computers with a share in this team; never a Box. */
-export async function listDevicesSharedInTeam(teamId: string): Promise<AgentDevice[]> {
-  return agentDevices()
-    .find({ 'shares.teamId': teamId, box: { $exists: false } })
-    .toArray()
-}
-
-/** Replaces this team's share on the owner's own computer; null removes it. */
-export async function setDeviceShare(
-  ownerId: string,
-  deviceId: string,
-  teamId: string,
-  share: LocalAgentShare | null,
-): Promise<boolean> {
-  // One update, so two saves at once never leave the team with two shares or none.
-  const result = await agentDevices().updateOne(
-    { userId: ownerId, deviceId, box: { $exists: false } },
-    [
-      {
-        $set: {
-          shares: {
-            $concatArrays: [
-              {
-                $filter: {
-                  input: { $ifNull: ['$shares', []] },
-                  cond: { $ne: ['$$this.teamId', teamId] },
-                },
-              },
-              share ? [share] : [],
-            ],
-          },
-          updatedAt: '$$NOW',
-        },
-      },
-    ],
-  )
-
-  return result.matchedCount > 0
-}
-
-/** For a person who left the team or was removed: no computer in it stays shared with them. */
-export async function dropFromTeamDeviceShares(teamId: string, userId: string): Promise<void> {
-  await agentDevices().updateMany(
-    { shares: { $elemMatch: { teamId, userIds: userId } } },
-    { $pull: { 'shares.$[share].userIds': userId } },
-    { arrayFilters: [{ 'share.teamId': teamId }] },
-  )
-}
-
-/** Owners' computers shared in this team; they stop being shared when the owner leaves it. */
-export async function dropOwnerTeamDeviceShares(teamId: string, ownerId: string): Promise<void> {
-  await agentDevices().updateMany(
-    { userId: ownerId, 'shares.teamId': teamId },
-    { $pull: { shares: { teamId } } },
   )
 }
 

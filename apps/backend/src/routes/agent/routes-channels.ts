@@ -12,9 +12,11 @@ import {
   isChannel,
   listChannelAgents,
   listChannelMentions,
+  ownsChannelAgent,
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
+import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
@@ -66,16 +68,6 @@ function channelOrNotFound(conversation: AgentConversation | null): AgentConvers
     throw new AppError(404, 'not_found', 'Channel not found')
 
   return conversation
-}
-
-/** Whether the caller owns this agent, i.e. its session. */
-async function ownsAgent(agentSessionId: string, userId: string, teamId: string) {
-  const agent = await getConversationBySessionId(agentSessionId)
-
-  if (!agent || agent.teamId !== teamId || isChannel(agent))
-    throw new AppError(404, 'not_found', 'Agent conversation not found')
-
-  return agent.userId === userId
 }
 
 async function agentsResponse(channel: AgentConversation | null) {
@@ -130,7 +122,7 @@ channelRoutes.post('/conversations/:sessionId/agents', async (c) => {
 
   if (typeof agentSessionId !== 'string' || !agentSessionId)
     throw new AppError(400, 'invalid_request', 'sessionId must name the agent’s conversation')
-  if (!(await ownsAgent(agentSessionId, userId, teamId)))
+  if (!(await ownsChannelAgent(agentSessionId, userId, teamId)))
     throw new AppError(403, 'forbidden', 'Only its owner can add this agent')
 
   return c.json(await agentsResponse(await addChannelAgent(channelId, agentSessionId)))
@@ -146,7 +138,7 @@ channelRoutes.delete('/conversations/:sessionId/agents/:agentSessionId', async (
   const found = await getConversationBySessionId(channelId)
   const channel = channelOrNotFound(found?.teamId === teamId ? found : null)
 
-  if (channel.userId !== userId && !(await ownsAgent(agentSessionId, userId, teamId)))
+  if (channel.userId !== userId && !(await ownsChannelAgent(agentSessionId, userId, teamId)))
     throw new AppError(
       403,
       'forbidden',
@@ -157,6 +149,16 @@ channelRoutes.delete('/conversations/:sessionId/agents/:agentSessionId', async (
 
   // Nothing back: the agent's owner may not be allowed to see who else is here.
   return c.body(null, 204)
+})
+
+// A file posted here, for anyone who can read the chat.
+channelRoutes.get('/conversations/:sessionId/attachments/:groupId', async (c) => {
+  const teamId = await requireTeam(c)
+  const channel = channelOrNotFound(
+    await getReadableConversation(c.req.param('sessionId'), c.get('userId'), teamId),
+  )
+
+  return c.json(await resolveChannelFiles(channel, c.req.param('groupId')))
 })
 
 // Records the message and wakes the channel's agents; each decides whether to answer.
@@ -175,7 +177,15 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
   const channel = channelOrNotFound(
     await assertConversationSendable(c.req.param('sessionId'), userId, teamId),
   )
-  const text = requireText(body.text, 'text', MAX_MESSAGE_LENGTH)
+  // A file may go without words, as in any chat.
+  const upload =
+    typeof body.upload === 'string' && body.upload
+      ? await channelUploadPart(teamId, userId, body.upload)
+      : undefined
+  const text =
+    upload && !(typeof body.text === 'string' && body.text.trim())
+      ? ''
+      : requireText(body.text, 'text', MAX_MESSAGE_LENGTH)
   // A client id makes a resend the same message; the transcript skips ids it has.
   const id = typeof body.id === 'string' && body.id.length <= 100 ? body.id : randomUUID()
   const metadata = await createMessageMetadata(
@@ -184,7 +194,7 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
     c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
   )
 
-  await postChannelMessage(channel, { id, text, metadata })
+  await postChannelMessage(channel, { id, text, metadata, files: upload ? [upload] : [] })
   // Speaking in a channel is joining it, as it is anywhere else.
   if (userId !== channel.userId) await addConversationParticipants(channel.sessionId, [userId])
 

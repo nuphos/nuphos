@@ -6,7 +6,7 @@ import { createAgentDeviceRoutes } from '@/routes/agent/routes-devices'
 import { nextBoxLabel } from '@/routes/agent/routes-devices-box'
 
 import type { DeviceExecAuditEntry } from '@/lib/agent/devices/audit'
-import type { AgentDeviceRegistration, AgentDevice } from '@/lib/agent/devices/store'
+import type { AgentDevice, AgentDeviceRegistration, DeviceGrant } from '@/lib/agent/devices/store'
 import type { NuphosTeamRole } from '@/lib/identity/types'
 import type { AuthVariables } from '@/middleware/auth'
 import type { AgentDeviceRouteDependencies } from '@/routes/agent/routes-devices'
@@ -14,7 +14,13 @@ import type { AgentDeviceRouteDependencies } from '@/routes/agent/routes-devices
 let upserted: { userId: string; device: AgentDeviceRegistration }[]
 let devices: Record<string, AgentDevice>
 let auditEntries: DeviceExecAuditEntry[]
-let auditQueries: { ownerUserId: string; deviceId: string; limit: number; cursor?: string }[]
+let auditQueries: {
+  ownerUserId: string
+  deviceId: string
+  limit: number
+  cursor?: string
+  includeUnfinished?: boolean
+}[]
 let issued: { userId: string; options: { label?: string; expiresInSec?: number } }[]
 let credentials: Set<string>
 let disconnected: string[]
@@ -48,14 +54,17 @@ function buildApp(box: BoxDeps | null = null) {
         getDevice: async (owner, id) => devices[key(owner, id)] ?? null,
         listDevices: async (owner) => Object.values(devices).filter((d) => d.userId === owner),
         listBoxes: async (team) => Object.values(devices).filter((d) => d.box?.teamId === team),
+        listGranted: () => Promise.resolve([]),
+        findGranted: () => Promise.resolve([]),
         role: async (_actor, team) => (team === 'team-1' ? role : null),
       },
-      setBoxAccess: async (userId, deviceId, access) => {
+      setTeamUse: async (userId, deviceId, teamId, use) => {
         const device = devices[key(userId, deviceId)]
+        const managerIds = device?.access?.find((g) => g.teamId === teamId)?.managerIds ?? []
 
-        if (device?.box) device.box.access = access
+        if (device) device.access = [{ teamId, ...use, managerIds }]
 
-        return Boolean(device?.box)
+        return Boolean(device)
       },
       readMetrics: async (owner, deviceId, demand) => {
         metricsReads.push(`${owner}:${deviceId}:${String(demand)}`)
@@ -91,7 +100,10 @@ function buildApp(box: BoxDeps | null = null) {
       listDeviceExecAudit: async (ownerUserId, deviceId, options) => {
         auditQueries.push({ ownerUserId, deviceId, ...options })
         const entries = auditEntries.filter(
-          (entry) => entry.ownerUserId === ownerUserId && entry.deviceId === deviceId,
+          (entry) =>
+            entry.ownerUserId === ownerUserId &&
+            entry.deviceId === deviceId &&
+            (options.includeUnfinished || entry.outcome !== 'unknown'),
         )
 
         return {
@@ -249,6 +261,32 @@ describe('agent device routes', () => {
     ])
   })
 
+  test('GET .../audit returns unfinished operations without inventing completion timestamps', async () => {
+    registerDevice('user-1', 'd1')
+    auditEntries = [auditEntry({ outcome: 'unknown', finishedAt: null, durationMs: null })]
+    const response = await buildApp().request('/agent/devices/d1/audit?includeUnfinished=true')
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { entries: Record<string, unknown>[] }
+
+    expect(body.entries[0]).toMatchObject({
+      outcome: 'unknown',
+      finishedAt: null,
+      durationMs: null,
+    })
+  })
+
+  test('GET .../audit keeps unfinished records out of legacy client responses', async () => {
+    registerDevice('user-1', 'd1')
+    auditEntries = [auditEntry({ outcome: 'unknown', finishedAt: null, durationMs: null })]
+    const response = await buildApp().request('/agent/devices/d1/audit')
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { entries: unknown[] }
+
+    expect(body.entries).toEqual([])
+  })
+
   test('GET .../audit rejects an undecodable cursor instead of restarting at page one', async () => {
     registerDevice('user-1', 'd1')
 
@@ -317,7 +355,8 @@ describe('agent device routes', () => {
     expect(credentials.has(key('user-2', 'd1'))).toBe(true)
   })
 
-  function boxDevice(userId: string, deviceId: string) {
+  /** A cloud computer in team-1; by default user-1 manages it, as migrated admins do. */
+  function boxDevice(userId: string, deviceId: string, grant: Partial<DeviceGrant> = {}) {
     return {
       userId,
       deviceId,
@@ -325,6 +364,15 @@ describe('agent device routes', () => {
       platform: 'linux',
       allowLocalExec: true,
       box: { provider: 'instabox' as const, sandboxId: `m_${deviceId}`, teamId: 'team-1' },
+      access: [
+        {
+          teamId: 'team-1',
+          everyone: false,
+          userIds: [] as string[],
+          managerIds: userId === 'user-1' ? [] : ['user-1'],
+          ...grant,
+        },
+      ],
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -341,7 +389,7 @@ describe('agent device routes', () => {
         devices[key(userId, 'b1')] = {
           ...device,
           label,
-          box: { ...device.box, ...(shared ? { access: shared } : {}) },
+          access: [{ teamId, everyone: false, userIds: [], managerIds: [], ...shared }],
         }
 
         return devices[key(userId, 'b1')]!
@@ -407,8 +455,12 @@ describe('agent device routes', () => {
     expect(body.devices[0]).toMatchObject({
       deviceId: 'b1',
       online: false,
+      access: 'owner',
+      ownerUserId: 'user-1',
       box: { state: 'paused' },
     })
+    // A manager is told so, and who owns it.
+    expect(body.devices[1]).toMatchObject({ access: 'manage', ownerUserId: 'user-2' })
     expect(JSON.stringify(body)).not.toContain('secret-hash')
     const plain = (await (await buildApp().request('/agent/devices?teamId=team-1')).json()) as {
       boxAvailable: boolean
@@ -543,14 +595,14 @@ describe('agent device routes', () => {
     ).toBe(200)
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
-  test('Box routes deny a creator with use only, removed admins and cross-team calls before provider dispatch', async () => {
+  test('Box routes deny someone with use only, removed members and cross-team calls before provider dispatch', async () => {
     const calls: string[] = []
-    const target = boxDevice('user-1', 'b1')
+    const target = boxDevice('host-owner', 'b1', { userIds: ['user-1'], managerIds: [] })
 
-    devices[key('user-1', 'b1')] = target
+    devices[key('host-owner', 'b1')] = target
     const app = buildApp(fakeBox(calls))
 
-    for (const currentRole of ['EDITOR', null] as const) {
+    for (const currentRole of ['ADMINISTRATOR', null] as const) {
       role = currentRole
       for (const action of ['pause', 'resume', 'desktop']) {
         const result = await app.request(`/agent/devices/b1/box/${action}?teamId=team-1`, {
@@ -563,24 +615,23 @@ describe('agent device routes', () => {
         (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
       ).toBe(404)
     }
-    role = 'ADMINISTRATOR'
+    // A manager may pause it, but deleting it is its owner's.
+    role = 'EDITOR'
+    target.access[0]!.managerIds = ['user-1']
+    expect(
+      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+    ).toBe(404)
     expect(
       (await app.request('/agent/devices/b1/box/pause?teamId=team-2', { method: 'POST' })).status,
     ).toBe(404)
     expect(calls).toEqual([])
-    expect(devices[key('user-1', 'b1')]).toBe(target)
+    expect(devices[key('host-owner', 'b1')]).toBe(target)
   })
 
-  test('only an administrator of the Box’s team sets its access; those who lose it have their streams closed', async () => {
-    devices[key('host-owner', 'b1')] = {
-      ...boxDevice('host-owner', 'b1'),
-      box: {
-        provider: 'instabox',
-        sandboxId: 'm_b1',
-        teamId: 'team-1',
-        access: { everyone: true, userIds: [] },
-      },
-    }
+  test('only the Box’s owner and managers set its access; those who lose it have their streams closed', async () => {
+    const target = boxDevice('host-owner', 'b1', { everyone: true, managerIds: [] })
+
+    devices[key('host-owner', 'b1')] = target
     const app = buildApp(fakeBox([]))
     const put = (body: unknown, team = 'team-1') =>
       app.request(`/agent/devices/b1/box/access?teamId=${team}`, {
@@ -589,11 +640,13 @@ describe('agent device routes', () => {
         body: JSON.stringify(body),
       })
 
-    for (const currentRole of ['EDITOR', null] as const) {
+    // Team administrators get nothing implicit; someone who left gets nothing at all.
+    for (const currentRole of ['ADMINISTRATOR', null] as const) {
       role = currentRole
       expect((await put({ everyone: false, userIds: ['alice'] })).status).toBe(404)
     }
-    role = 'ADMINISTRATOR'
+    role = 'EDITOR'
+    target.access[0]!.managerIds = ['user-1']
     expect((await put({ everyone: false, userIds: ['alice'] }, 'team-2')).status).toBe(404)
     expect(revoked).toEqual([])
 
@@ -601,24 +654,17 @@ describe('agent device routes', () => {
     const ok = await put({ everyone: false, userIds: ['alice', 'alice', 'outsider'] })
 
     expect(ok.status).toBe(200)
-    expect(devices[key('host-owner', 'b1')]?.box?.access).toEqual({
-      everyone: false,
-      userIds: ['alice'],
-    })
-    // Bob lost access; Alice kept it and the administrator never depended on the list.
+    expect(devices[key('host-owner', 'b1')]?.access).toEqual([
+      { teamId: 'team-1', everyone: false, userIds: ['alice'], managerIds: ['user-1'] },
+    ])
+    // Bob lost access; Alice kept it and the manager never depended on the list.
     expect(revoked).toEqual([{ deviceIds: ['b1'], actorIds: ['bob'] }])
   })
 
   test('the device list tells each viewer their level, and only managers see the access list', async () => {
-    devices[key('host-owner', 'b1')] = {
-      ...boxDevice('host-owner', 'b1'),
-      box: {
-        provider: 'instabox',
-        sandboxId: 'm_b1',
-        teamId: 'team-1',
-        access: { everyone: true, userIds: [] },
-      },
-    }
+    const target = boxDevice('host-owner', 'b1', { everyone: true })
+
+    devices[key('host-owner', 'b1')] = target
     const app = buildApp(fakeBox([]))
     const list = async () =>
       (await (await app.request('/agent/devices?teamId=team-1')).json()) as {
@@ -632,9 +678,11 @@ describe('agent device routes', () => {
     expect(admin.canCreateBox).toBe(true)
     expect(admin.devices[0]).toMatchObject({
       access: 'manage',
+      ownerUserId: 'host-owner',
       box: { access: { everyone: true } },
     })
     role = 'EDITOR'
+    target.access[0]!.managerIds = []
     const member = await list()
 
     expect(member.canCreateBox).toBe(false)
@@ -643,17 +691,13 @@ describe('agent device routes', () => {
   })
 
   test('only managers see when and from where a machine was last online', async () => {
-    devices[key('host-owner', 'b1')] = {
-      ...boxDevice('host-owner', 'b1'),
-      box: {
-        provider: 'instabox',
-        sandboxId: 'm_b1',
-        teamId: 'team-1',
-        access: { everyone: true, userIds: [] },
-      },
+    const target = {
+      ...boxDevice('host-owner', 'b1', { everyone: true }),
       lastSeenAt: new Date('2026-10-16T12:00:00Z'),
       lastSeen: { ip: '203.0.113.7', city: 'Taipei', country: 'TW' },
     }
+
+    devices[key('host-owner', 'b1')] = target
     const app = buildApp(fakeBox([]))
     const list = async () =>
       (
@@ -667,7 +711,7 @@ describe('agent device routes', () => {
       lastSeenAt: '2026-10-16T12:00:00.000Z',
       lastSeen: { ip: '203.0.113.7', city: 'Taipei', country: 'TW' },
     })
-    role = 'EDITOR'
+    target.access[0]!.managerIds = []
     const member = await list()
 
     expect(member?.lastSeenAt).toBeUndefined()
@@ -677,15 +721,11 @@ describe('agent device routes', () => {
   test('every viewer sees a Box whose host is restarting for an update, until it reports in again', async () => {
     const startedAt = new Date(Date.now() - 60_000)
 
+    const base = boxDevice('host-owner', 'b1', { everyone: true, managerIds: [] })
+
     devices[key('host-owner', 'b1')] = {
-      ...boxDevice('host-owner', 'b1'),
-      box: {
-        provider: 'instabox',
-        sandboxId: 'm_b1',
-        teamId: 'team-1',
-        access: { everyone: true, userIds: [] },
-        updateStartedAt: startedAt,
-      },
+      ...base,
+      box: { ...base.box, updateStartedAt: startedAt },
       lastSeenAt: new Date(startedAt.getTime() - 60_000),
     }
     const app = buildApp(fakeBox([]))
@@ -705,15 +745,8 @@ describe('agent device routes', () => {
   })
 
   test('metrics are read and demanded only for Boxes the viewer may use, under the transport owner', async () => {
-    const box = (deviceId: string, userIds: string[]) => ({
-      ...boxDevice('host-owner', deviceId),
-      box: {
-        provider: 'instabox' as const,
-        sandboxId: `m_${deviceId}`,
-        teamId: 'team-1',
-        access: { everyone: false, userIds },
-      },
-    })
+    const box = (deviceId: string, userIds: string[]) =>
+      boxDevice('host-owner', deviceId, { userIds, managerIds: [] })
 
     devices[key('host-owner', 'mine')] = box('mine', ['user-1'])
     devices[key('host-owner', 'theirs')] = box('theirs', ['alice'])
@@ -749,25 +782,25 @@ describe('agent device routes', () => {
     expect(owners).toEqual(['host-owner'])
   })
 
-  test('list omits legacy Boxes from other creators, missing-team rows and revoked viewers', async () => {
+  test('list omits Boxes the viewer has no grant on, missing-team rows and removed viewers', async () => {
     role = 'EDITOR'
-    devices[key('host-owner', 'b1')] = boxDevice('host-owner', 'b1')
-    const target = devices[key('host-owner', 'b1')]!
+    const target = boxDevice('host-owner', 'b1', { userIds: ['user-1'], managerIds: [] })
 
-    target.box!.access = { everyone: false, userIds: ['user-1'] }
+    devices[key('host-owner', 'b1')] = target
     const app = buildApp(fakeBox([]))
     const list = async () =>
       (await (await app.request('/agent/devices?teamId=team-1')).json()) as { devices: unknown[] }
 
     expect((await list()).devices).toHaveLength(1)
-    target.box!.access.userIds = []
+    target.access[0]!.userIds = []
     expect((await list()).devices).toHaveLength(0)
-    delete target.box!.access
-    expect((await list()).devices).toHaveLength(0)
+    // An administrator role alone shows nothing.
     role = 'ADMINISTRATOR'
-    target.box!.teamId = ''
     expect((await list()).devices).toHaveLength(0)
-    target.box!.teamId = 'team-1'
+    target.access[0]!.userIds = ['user-1']
+    target.box.teamId = ''
+    expect((await list()).devices).toHaveLength(0)
+    target.box.teamId = 'team-1'
     role = null
     expect((await list()).devices).toHaveLength(0)
   })
@@ -811,9 +844,9 @@ describe('agent device routes', () => {
     expect(await (await create({ everyone: true, userIds: [] })).json()).toMatchObject({
       box: { access: { everyone: true, userIds: [] } },
     })
-    // Without a request, the provider keeps its creator-only default.
+    // Without a request, nobody but its owner uses it.
     const plain = (await (await create()).json()) as { box: { access?: unknown } }
 
-    expect(plain.box.access).toBeUndefined()
+    expect(plain.box.access).toEqual({ everyone: false, userIds: [] })
   })
 })

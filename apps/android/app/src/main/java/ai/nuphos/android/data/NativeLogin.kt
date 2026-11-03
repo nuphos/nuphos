@@ -31,7 +31,7 @@ class NativeLogin internal constructor(
     private val deadline = System.nanoTime() + timeoutMs.toLong() * 1_000_000
     val receivedCallback: Boolean get() = claimed.get()
 
-    fun register(): String {
+    fun register(provider: NuphosWeb.Provider): String {
         checkOpen()
         check(handle == null)
         val challenge = Base64.getUrlEncoder().withoutPadding().encodeToString(
@@ -47,7 +47,7 @@ class NativeLogin internal constructor(
             ?: throw IOException("Nuphos could not start secure sign-in. Please try again.")
         checkOpen()
         handle = registered
-        return NuphosWeb.loginUrl(registered)
+        return NuphosWeb.loginUrl(registered, provider)
     }
 
     /** Called on an IO thread. Close interrupts both the listener and HTTPS calls. */

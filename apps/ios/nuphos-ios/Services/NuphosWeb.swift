@@ -12,8 +12,31 @@ enum NuphosWeb {
         case failure(String)
     }
 
-    static func loginURL(baseURL: URL, handle: String) -> URL {
-        var url = URLComponents(url: baseURL.appending(path: "auth/social/login"), resolvingAgainstBaseURL: false)!
+    enum Provider: String, CaseIterable {
+        case apple, google
+
+        var name: String { self == .apple ? "Apple" : "Google" }
+    }
+
+    static func providers(header: String?) -> [Provider] {
+        guard let header else { return [.google] }
+        let configured = Set(header.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        return Provider.allCases.filter { configured.contains($0.rawValue) }
+    }
+
+    static func availableProviders(baseURL: URL) async throws -> [Provider] {
+        var request = URLRequest(url: baseURL.appending(path: "auth/social/login"))
+        request.timeoutInterval = 10
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        if response.statusCode == 503 { return [] }
+        guard (200..<300).contains(response.statusCode) else { throw URLError(.badServerResponse) }
+        return providers(header: response.value(forHTTPHeaderField: "X-Nuphos-Social-Providers"))
+    }
+
+    static func loginURL(baseURL: URL, handle: String, provider: Provider) -> URL {
+        var url = URLComponents(url: baseURL.appending(path: "auth/social/\(provider.rawValue)/start"), resolvingAgainstBaseURL: false)!
         url.queryItems = [URLQueryItem(name: "handle", value: handle)]
         return url.url!
     }

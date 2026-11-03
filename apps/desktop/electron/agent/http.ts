@@ -1,7 +1,8 @@
 import { accountFailure, accountSignal, signedIn, stillCurrent } from '../account-request.ts'
 import { buildAtlasError } from '../atlas/error.ts'
-import { requestContext } from '../auth/config.ts'
+import { requestContext } from '../auth/request-context.ts'
 import { authSession } from '../auth-session.ts'
+import { beginGet, notModified, readJson } from '../conditional-get.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
 import type { SignedIn } from '../account-request.ts'
@@ -79,6 +80,7 @@ export async function callJson<T>(
   const account = await agentAccount()
   const headers: Record<string, string> = { authorization: `Bearer ${account.token}` }
   const requestId = tagRequest(headers)
+  const get = beginGet(account, method, route, headers)
   const init: RequestInit = { method, headers, signal: accountSignal(account, timeoutMs) }
 
   if (body !== undefined) {
@@ -93,7 +95,9 @@ export async function callJson<T>(
   } catch (error) {
     throw backendFailure(accountFailure(account, error), route, requestId)
   }
+  const unchanged = notModified(get, res)
 
+  if (unchanged) return unchanged.value as T
   if (!res.ok) {
     let message = `HTTP ${String(res.status)}`
     let code: string | undefined
@@ -113,7 +117,7 @@ export async function callJson<T>(
     throw new AtlasHttpError(message, res.status, code, details)
   }
   if (res.status === 204) return undefined as T
-  const value = (await res.json()) as T
+  const value = await readJson<T>(get, res)
 
   stillCurrent(account)
 

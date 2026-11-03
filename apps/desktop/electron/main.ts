@@ -52,6 +52,7 @@ import {
 import { startDevBackendHealthProbe } from './main/dev-backend-health'
 import { APP_NAME, devSuffix, isDev } from './main/env'
 import { prepareFirstLaunch } from './main/first-launch'
+import './main/account-leave'
 import { initLocalRuntime, stopLocalRuntime } from './main/local-runtime'
 import { resumeLocalSetupSync } from './main/local-setup-watch'
 import { installApplicationMenu } from './main/menu'

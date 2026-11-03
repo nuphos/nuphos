@@ -119,6 +119,11 @@ fun ConversationScreen(
     DisposableEffect(session) {
         onDispose { session.disposeBrowsing() }
     }
+    // A chat named by a link before the list knew it: show it as a chat once its detail says so.
+    if (session.isChannel && !browsingOnly) {
+        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack)
+        return
+    }
     val auth = LocalAuthSession.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var resumed by remember(lifecycle) { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }

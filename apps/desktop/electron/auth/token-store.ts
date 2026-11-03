@@ -1,8 +1,11 @@
-// Where the session token is kept. On macOS it is a generic password in the
-// login keychain, so desktop.yaml keeps only who is signed in. This app and
-// the CLI (`apps/cli/src/secret.rs`) each keep their own item: macOS trusts an
-// item's creator, so neither asks when it reads its own. Elsewhere the token
-// stays in the file (mode 0600).
+// Where the session token is kept: in the OS credential store, so desktop.yaml
+// keeps only who is signed in. That is a generic password in the login
+// keychain on macOS, Credential Manager on Windows, and the Secret Service
+// (gnome-keyring, KWallet) on Linux. This app and the CLI
+// (`apps/cli/src/secret.rs`) each keep their own item: macOS trusts an item's
+// creator, so neither asks when it reads its own. A store that refuses the
+// write (locked, or a Linux without a Secret Service) leaves the token in the
+// file (mode 0600).
 
 /** This app's item; the account names the user and backend. The CLI's is `ai.nuphos.cli.session`. */
 export const KEYCHAIN_SERVICE = 'ai.nuphos.desktop.session'
@@ -15,27 +18,37 @@ export type TokenStore = {
   delete: (account: string) => Promise<void>
 }
 
+const SECURE_PLATFORMS: ReadonlySet<NodeJS.Platform> = new Set(['darwin', 'win32', 'linux'])
+
 /**
- * Whether a new token goes to the keychain: in the packaged app on macOS. A
- * dev build (`electron .`) and plain Node (tests, `nuphos agent`'s host) keep
- * it in the file, so an unsigned binary leaves no items behind.
+ * Whether a new token goes to the credential store: in the packaged app on
+ * macOS, Windows and Linux. A dev build (`electron .`) and plain Node (tests,
+ * `nuphos agent`'s host) keep it in the file, so an unsigned binary leaves no
+ * items behind.
  */
 export function secureStorageEnabled(
   platform: NodeJS.Platform = process.platform,
   proc: { versions: NodeJS.ProcessVersions; defaultApp?: boolean } = process,
 ): boolean {
-  return platform === 'darwin' && Boolean(proc.versions.electron) && !proc.defaultApp
+  return SECURE_PLATFORMS.has(platform) && Boolean(proc.versions.electron) && !proc.defaultApp
 }
+
+/**
+ * On Linux only the Secret Service: the kernel keyring the library otherwise
+ * falls back to forgets on reboot, which would sign the user out. Without a
+ * Secret Service the write throws and the token stays in the file.
+ */
+export const ENTRY_OPTIONS = { linux: { store: 'secret-service' } } as const
 
 async function entry(account: string) {
   // Any other binary is not the item's creator, so macOS would ask for the
   // login keychain password: fail instead of reaching the keychain.
   if (!secureStorageEnabled()) throw new Error('the keychain is used only by the packaged app')
   // Loaded on first use: the native module exists only in the packaged
-  // dependencies, and only macOS needs it today.
+  // dependencies.
   const { AsyncEntry } = await import('@napi-rs/keyring')
 
-  return new AsyncEntry(KEYCHAIN_SERVICE, account)
+  return new AsyncEntry(KEYCHAIN_SERVICE, account, ENTRY_OPTIONS)
 }
 
 export const keychainStore: TokenStore = {

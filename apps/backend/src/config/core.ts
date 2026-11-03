@@ -35,6 +35,21 @@ export function coreConfig() {
       // Browser-facing OAuth authorize base (e.g. https://nuphos.ai, which
       // proxies /oauth/authorize* to the API). Empty = same as publicBaseUrl.
       oauthAuthorizeBaseUrl: optional('NUPHOS_OAUTH_AUTHORIZE_BASE_URL')?.replace(/\/$/, ''),
+      // ES256 conversation tokens from a dedicated internal issuer, kept apart
+      // from the cloud federation issuer. With no key set they stay HS256.
+      internalTokens: {
+        // Defaults to `<publicBaseUrl>/internal`.
+        issuer: optional('NUPHOS_INTERNAL_TOKEN_ISSUER')?.replace(/\/$/, ''),
+        // Production: an AWS KMS ECC_NIST_P256 SIGN_VERIFY key, so the private
+        // key never enters this process. Wins over the local key.
+        kmsKeyId: optional('NUPHOS_INTERNAL_TOKEN_KMS_KEY_ID'),
+        kmsRegion: optional('NUPHOS_INTERNAL_TOKEN_KMS_REGION'),
+        // Self-hosted / dev: a PKCS#8 P-256 private key PEM, base64-encoded.
+        privateKeyBase64: optional('NUPHOS_INTERNAL_TOKEN_PRIVATE_KEY_BASE64'),
+        // Public key PEMs (base64, comma-separated) still served and accepted
+        // after a rotation, until tokens signed with them have expired.
+        previousPublicKeysBase64: optionalList('NUPHOS_INTERNAL_TOKEN_PREVIOUS_PUBLIC_KEYS_BASE64'),
+      },
       apple: {
         clientId: optional('APPLE_OAUTH_CLIENT_ID'),
         teamId: optional('APPLE_OAUTH_TEAM_ID'),

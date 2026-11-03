@@ -4,7 +4,6 @@ import { Hono } from 'hono'
 import { createDeviceShareRoutes } from './routes-devices-share'
 
 import type { DeviceShareRouteDependencies } from './routes-devices-share'
-import type { LocalAgentShare, LocalShareLevel } from '@/lib/agent/devices/local-share-types'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
 
@@ -20,10 +19,10 @@ const computer = (extra: Partial<AgentDevice> = {}): AgentDevice => ({
   ...extra,
 })
 
-function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?: string } = {}) {
+function app(options: { device?: AgentDevice; userId?: string } = {}) {
   const device = options.device ?? computer()
   const calls: {
-    set?: LocalAgentShare | null
+    set?: { everyone: boolean; userIds: string[] }
     revoked?: string[]
     dropped?: string[]
     settled?: string
@@ -35,14 +34,15 @@ function app(options: { device?: AgentDevice; ceiling?: LocalShareLevel; userId?
       getDevice: async (userId) => (userId === device.userId ? device : null),
       listDevices: async () => [device],
       listBoxes: async () => (device.box ? [device] : []),
+      listGranted: () => Promise.resolve(device.access ? [device] : []),
+      findGranted: () => Promise.resolve(device.access && !device.box ? [device] : []),
       role: async () => 'EDITOR',
     },
-    ceiling: async () => options.ceiling ?? 'approve',
     isMember: async () => true,
     teamMembers: async () => [{ id: 'owner' }, { id: 'mate' }, { id: 'other' }],
     getDevice: async () => device,
-    setShare: async (_owner, _device, _team, share) => {
-      calls.push({ set: share })
+    setUse: async (_owner, _device, _team, use) => {
+      calls.push({ set: use })
 
       return true
     },
@@ -163,36 +163,41 @@ test('an owner shares with chosen teammates; the rest lose their streams', async
   const response = await put({ level: 'approve', everyone: false, userIds: ['mate', 'owner'] })
 
   expect(response.status).toBe(200)
-  // The owner is never in their own share; only members are kept.
-  expect(calls[0]?.set).toEqual({
-    teamId: TEAM,
-    level: 'approve',
-    everyone: false,
-    userIds: ['mate'],
-  })
+  // The owner is never in their own list; only members are kept, and any level means use.
+  expect(calls[0]?.set).toEqual({ everyone: false, userIds: ['mate'] })
   expect(calls[1]?.revoked).toEqual(['other'])
   expect(calls[2]?.dropped).toEqual(['other'])
 })
 
-test('turning sharing off removes the share and revokes everyone', async () => {
+test('turning sharing off empties the list and revokes everyone', async () => {
   const { put, calls } = app()
   const response = await put({ level: 'off', everyone: true, userIds: [] })
 
   expect(response.status).toBe(200)
-  expect(calls[0]?.set).toBeNull()
+  expect(calls[0]?.set).toEqual({ everyone: false, userIds: [] })
   expect(calls[1]?.revoked).toEqual(['mate', 'other'])
 })
 
-test('an owner cannot grant more than the team ceiling', async () => {
-  const { put, calls } = app({ ceiling: 'approve' })
-  const response = await put({ level: 'full', everyone: true, userIds: [] })
+test('nothing caps sharing: any level is use, and the answer says full', async () => {
+  const response = await app().put({ level: 'full', everyone: true, userIds: [] })
 
-  expect(response.status).toBe(403)
-  expect(await response.json()).toEqual({ error: 'local_share_above_ceiling' })
-  expect(calls).toEqual([])
-  expect(
-    (await app({ ceiling: 'full' }).put({ level: 'full', everyone: true, userIds: [] })).status,
-  ).toBe(200)
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({
+    share: { level: 'full', everyone: true, userIds: [] },
+    ceiling: 'full',
+  })
+})
+
+test('a manager of a teammate’s computer lets others use it', async () => {
+  const device = computer({
+    access: [{ teamId: TEAM, everyone: false, userIds: [], managerIds: ['lead'] }],
+  })
+  const { put, calls } = app({ device, userId: 'lead' })
+
+  expect((await put({ level: 'approve', everyone: false, userIds: ['mate'] })).status).toBe(200)
+  expect(calls[0]?.set).toEqual({ everyone: false, userIds: ['mate'] })
+  // Revoking spares the owner and managers.
+  expect(calls[1]?.revoked).toEqual(['other'])
 })
 
 test('a Box or someone else’s computer cannot be shared this way', async () => {
@@ -205,12 +210,11 @@ test('a Box or someone else’s computer cannot be shared this way', async () =>
   )
 })
 
-test('reads the current share and the ceiling', async () => {
+test('reads the current use list as a share', async () => {
   const { server } = app({
     device: computer({
-      shares: [{ teamId: TEAM, level: 'full', everyone: false, userIds: ['mate'] }],
+      access: [{ teamId: TEAM, everyone: false, userIds: ['mate'], managerIds: [] }],
     }),
-    ceiling: 'full',
   })
   const response = await server.request(`/devices/mac/share?teamId=${TEAM}`)
 
@@ -330,15 +334,4 @@ test('teammates who lose the share lose the trust too', async () => {
     body: JSON.stringify({ level: 'approve', everyone: false, userIds: ['mate'] }),
   })
   expect(calls).toContainEqual({ untrusted: ['other'] })
-})
-
-test('leaving “Ask me first” forgets every trust on the computer', async () => {
-  const { server, calls } = app({ ceiling: 'full' })
-
-  await server.request(`/devices/mac/share?teamId=${TEAM}`, {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ level: 'full', everyone: true, userIds: [] }),
-  })
-  expect(calls.some((call) => 'untrusted' in call && call.untrusted === undefined)).toBe(true)
 })

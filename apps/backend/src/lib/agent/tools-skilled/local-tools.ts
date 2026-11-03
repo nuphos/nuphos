@@ -1,14 +1,15 @@
+import { randomUUID } from 'node:crypto'
+
 import { z } from 'zod'
 
 import { AppError } from '@/lib/errors'
 
-import { recordDeviceExecAudit } from '../devices/audit'
 import { dispatchLocalExec } from '../devices/dispatch'
 import { isActiveTeamMember } from '../devices/store'
 
 import { clientToolWithLabel, withLabel } from './labeling'
+import { createLocalExecAudit } from './local-tools-audit'
 
-import type { DeviceExecAuditInput } from '../devices/audit'
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 
 export type LocalExecDevice = {
@@ -161,26 +162,7 @@ export function createLocalExecTool(
   turn: LocalExecTurn,
   purpose: 'exec' | 'terminal' = 'exec',
 ): unknown {
-  const audit = (
-    deviceId: string,
-    command: string,
-    requestedAt: Date,
-    rest: Pick<DeviceExecAuditInput, 'outcome' | 'dispatchedAt' | 'exitCode' | 'reason'>,
-  ) =>
-    recordDeviceExecAudit({
-      ownerUserId:
-        devices.find((device) => device.deviceId === deviceId)?.ownerUserId ?? turn.userId,
-      deviceId,
-      actorUserId: turn.userId,
-      conversationOwnerUserId: turn.conversationOwnerUserId ?? turn.userId,
-      origin: turn.origin,
-      teamId: turn.teamId,
-      sessionId: turn.sessionId,
-      command,
-      requestedAt,
-      finishedAt: new Date(),
-      ...rest,
-    })
+  const audit = createLocalExecAudit(devices, turn)
 
   return withLabel(
     {
@@ -251,6 +233,9 @@ export function createLocalExecTool(
 
           return { error: refusal.error }
         }
+        const operationId = randomUUID()
+
+        await audit(deviceId, command, requestedAt, { operationId, outcome: 'unknown' })
         const dispatchedAt = new Date()
         let outcome: Awaited<ReturnType<typeof dispatchLocalExec>>
 
@@ -263,6 +248,7 @@ export function createLocalExecTool(
           await audit(deviceId, command, requestedAt, {
             outcome: 'error',
             dispatchedAt,
+            operationId,
             reason: 'dispatch_failed',
           })
           throw err
@@ -272,17 +258,26 @@ export function createLocalExecTool(
           await audit(deviceId, command, requestedAt, {
             outcome: 'ok',
             dispatchedAt,
+            operationId,
             exitCode: outcome.result.exitCode,
           })
 
           return outcome.result
         }
         if (outcome.status === 'device_disconnected') {
-          await audit(deviceId, command, requestedAt, { outcome: 'device_offline', dispatchedAt })
+          await audit(deviceId, command, requestedAt, {
+            outcome: 'device_offline',
+            dispatchedAt,
+            operationId,
+          })
 
           return { error: 'Device disconnected while the command was running.' }
         }
-        await audit(deviceId, command, requestedAt, { outcome: 'timeout', dispatchedAt })
+        await audit(deviceId, command, requestedAt, {
+          outcome: 'timeout',
+          dispatchedAt,
+          operationId,
+        })
 
         return { error: 'Timed out waiting for the device to run the command.' }
       },

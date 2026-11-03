@@ -58,7 +58,7 @@ class AccountApiTest {
         assertTrue(requests.isEmpty())
     }
 
-    @Test fun emailSignupAndPasswordResetUseExactIosContracts() = runTest {
+    @Test fun emailSignupUsesExactIosContracts() = runTest {
         response = """{"ok":true}"""
         api.requestSignInCode(" fixture@example.com ")
         assertEquals("/auth/email/request-code", requests.last().url.encodedPath)
@@ -67,9 +67,6 @@ class AccountApiTest {
         assertEquals("fixture-session", api.emailSignIn(" fixture@example.com ", "123456"))
         assertEquals("/auth/email/verify-code", requests.last().url.encodedPath)
         assertEquals("""{"email":"fixture@example.com","code":"123456"}""", body())
-        assertEquals("fixture-session", api.emailSignIn("fixture@example.com", "123456", " new password "))
-        assertEquals("/auth/password/set", requests.last().url.encodedPath)
-        assertEquals("""{"email":"fixture@example.com","code":"123456","password":" new password "}""", body())
         requests.forEach {
             assertNull(it.header("Authorization"))
             assertNull(it.header("x-nuphos-ai-consent-version"))
@@ -80,9 +77,6 @@ class AccountApiTest {
     @Test fun emailSecretsAreNotSentForInvalidInput() = runTest {
         for (code in listOf("12345", "1234567", "abcdef", "１２３４５６")) {
             try { api.emailSignIn("fixture@example.com", code); fail() } catch (_: IllegalArgumentException) { }
-        }
-        for (password in listOf("short", "p".repeat(129))) {
-            try { api.emailSignIn("fixture@example.com", "123456", password); fail() } catch (_: IllegalArgumentException) { }
         }
         try { api.requestSignInCode(" "); fail() } catch (_: IllegalArgumentException) { }
         assertTrue(requests.isEmpty())

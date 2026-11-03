@@ -11,6 +11,11 @@ export const channelsApi = {
     ipcRenderer.invoke('agent:addChannelAgent', channelId, teamId, agentSessionId),
   agentRemoveChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
     ipcRenderer.invoke('agent:removeChannelAgent', channelId, teamId, agentSessionId),
-  agentPostChannelMessage: (channelId: string, teamId: string, text: string, id: string) =>
-    ipcRenderer.invoke('agent:postChannelMessage', channelId, teamId, text, id),
+  agentPostChannelMessage: (
+    channelId: string,
+    teamId: string,
+    text: string,
+    id: string,
+    upload?: string,
+  ) => ipcRenderer.invoke('agent:postChannelMessage', channelId, teamId, text, id, upload),
 }

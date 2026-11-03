@@ -35,8 +35,8 @@ test('redaction retains native owners for ordinary text held across a message bo
   ).toBe(true)
 })
 
-test('a backend token spanning native messages remains redacted without a guessed phase', () => {
-  const token = mintPreviewMcpToken({ userId: 'u1', sessionId: 'conv-1', teamId: 't1' })
+test('a backend token spanning native messages remains redacted without a guessed phase', async () => {
+  const token = await mintPreviewMcpToken({ userId: 'u1', sessionId: 'conv-1', teamId: 't1' })
   const split = Math.floor(token.length / 2)
   const seen: OpenAbSessionUpdate[] = []
   const live = redactStreamedUpdates((update) => seen.push(update))

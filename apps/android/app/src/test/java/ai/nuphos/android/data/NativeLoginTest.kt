@@ -57,8 +57,8 @@ class NativeLoginTest {
     @Test fun nativeFlowRegistersBoundLoopbackAndRedeemsOnlyDeliveredCode() {
         val fixture = Fixture()
         NativeLogin(fixture.client).use { login ->
-            val url = login.register()
-            assertEquals("${NuphosApi.BASE_URL}/auth/social/login?handle=${"h".repeat(43)}", url)
+            val url = login.register(NuphosWeb.Provider.Google)
+            assertEquals("${NuphosApi.BASE_URL}/auth/social/google/start?handle=${"h".repeat(43)}", url)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val result = executor.submit<String> { login.awaitToken() }
@@ -89,7 +89,7 @@ class NativeLoginTest {
     @Test fun deliveryWaitsForForegroundBeforeRedemptionAndCloseRejectsIt() {
         val fixture = Fixture()
         NativeLogin(fixture.client).use { login ->
-            login.register()
+            login.register(NuphosWeb.Provider.Apple)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val delivery = executor.submit<String> { login.awaitDelivery() }
@@ -104,7 +104,7 @@ class NativeLoginTest {
         }
         val canceled = Fixture()
         NativeLogin(canceled.client).use { login ->
-            login.register()
+            login.register(NuphosWeb.Provider.Apple)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val delivery = executor.submit<String> { login.awaitDelivery() }
@@ -120,7 +120,7 @@ class NativeLoginTest {
     @Test fun wrongStateDuplicateAndExternalTokensDoNotConsumeAttempt() {
         val fixture = Fixture()
         NativeLogin(fixture.client).use { login ->
-            login.register()
+            login.register(NuphosWeb.Provider.Apple)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val result = executor.submit<String> { login.awaitToken() }
@@ -143,7 +143,7 @@ class NativeLoginTest {
     @Test fun providerFailureIsClaimedWithoutTokenExchange() {
         val fixture = Fixture()
         NativeLogin(fixture.client).use { login ->
-            login.register()
+            login.register(NuphosWeb.Provider.Apple)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val result = executor.submit { login.awaitToken() }
@@ -159,7 +159,7 @@ class NativeLoginTest {
     @Test fun cancellationClosesListenerAndCannotRedeemLateDelivery() {
         val fixture = Fixture()
         NativeLogin(fixture.client).use { login ->
-            login.register()
+            login.register(NuphosWeb.Provider.Apple)
             val executor = Executors.newSingleThreadExecutor()
             try {
                 val result = executor.submit { login.awaitToken() }
@@ -175,7 +175,7 @@ class NativeLoginTest {
     @Test fun unavailableNativeEndpointNeverFallsBackToTokenLogin() {
         val fixture = Fixture().apply { status = 404 }
         NativeLogin(fixture.client).use { login ->
-            try { login.register(); fail() } catch (_: IOException) { }
+            try { login.register(NuphosWeb.Provider.Apple); fail() } catch (_: IOException) { }
             assertEquals(1, fixture.requests.size)
             assertNull(fixture.redeemed)
         }
@@ -184,7 +184,7 @@ class NativeLoginTest {
     @Test fun expiredAttemptCannotDeliverOrRedeem() {
         val fixture = Fixture()
         NativeLogin(fixture.client, timeoutMs = 100).use { login ->
-            login.register()
+            login.register(NuphosWeb.Provider.Apple)
             Thread.sleep(150)
             try { login.awaitToken(); fail() } catch (_: java.net.SocketTimeoutException) { }
             assertNull(fixture.redeemed)
@@ -193,7 +193,7 @@ class NativeLoginTest {
     @Test fun tricklingHeadersCannotBlockLegitimateDeliveryPastReadBudget() {
         val fixture = Fixture()
         NativeLogin(fixture.client, timeoutMs = 8_000).use { login ->
-            login.register()
+            login.register(NuphosWeb.Provider.Apple)
             val executor = Executors.newFixedThreadPool(2)
             val dripping = AtomicBoolean(true)
             val started = CountDownLatch(1)
