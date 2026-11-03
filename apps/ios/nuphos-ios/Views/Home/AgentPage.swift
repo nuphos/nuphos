@@ -323,6 +323,7 @@ struct AgentPage: View {
                         }
                         .listRowBackground(openChat?.id == channel.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+                        .listSectionSeparator(.hidden, edges: .top)
                     }
                 }
             } else {
