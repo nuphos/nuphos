@@ -6,6 +6,7 @@ import { t } from '../../i18n'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
+import { FileDropZone } from '../agent/panel/FileDropZone'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { toast } from '../ui/toast'
@@ -54,6 +55,8 @@ export function ChannelPane({
   // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Files dropped anywhere on the chat go to its composer, as in a conversation.
+  const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
   const title = detail?.title ?? ''
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
@@ -91,7 +94,7 @@ export function ChannelPane({
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <FileDropZone target={dropRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         className={clsx(
           'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 pl-3',
@@ -162,6 +165,7 @@ export function ChannelPane({
           pendingSeed={restore}
           onSeedConsumed={() => setRestore(null)}
           draftKey={composerDraftKey(teamId, channelId)}
+          dropRegisterRef={dropRef}
           mentionScope={{
             teamId,
             sessionId: channelId,
@@ -171,6 +175,6 @@ export function ChannelPane({
           placeholder={t('Message {name}', { name: `#${title}` })}
         />
       </div>
-    </div>
+    </FileDropZone>
   )
 }
