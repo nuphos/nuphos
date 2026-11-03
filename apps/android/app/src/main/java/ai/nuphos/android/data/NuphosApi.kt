@@ -3,6 +3,8 @@ package ai.nuphos.android.data
 import ai.nuphos.android.model.validTriggerId
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.AgentConversationsPage
+import ai.nuphos.android.model.ChannelAgent
+import ai.nuphos.android.model.ChannelAgentsEnvelope
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.CredentialCatalog
 import ai.nuphos.android.model.NuphosUser
@@ -57,8 +59,9 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         triggerId: String? = null,
+        channels: Boolean = false,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, triggerId)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, triggerId, channels)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -70,6 +73,7 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         triggerId: String? = null,
+        channels: Boolean = false,
     ): List<Pair<String, String>> {
         if (triggerId != null) {
             require(teamId.isNotBlank() && validTriggerId(triggerId)) { "Select a valid trigger and team." }
@@ -84,7 +88,27 @@ object NuphosApi {
             if (cursor != null) add("cursor" to cursor)
             if (!search.isNullOrEmpty()) add("search" to search)
             if (!includeArchived) add("archived" to "exclude")
+            // Chats are their own listing: the server never mixes them with agents.
+            if (channels) add("kind" to "channel")
         }
+    }
+
+    /** The agents brought into a chat. */
+    suspend fun channelAgents(token: String, teamId: String, channelId: String, transport: OkHttpClient = Http.client): List<ChannelAgent> =
+        get<ChannelAgentsEnvelope>("agent/conversations/${requireSession(channelId)}/agents", token,
+            listOf("teamId" to teamId), timeoutSeconds = 20, forbiddenIsUnauthorized = false, transport = transport).agents
+
+    /** A file group posted in a chat, readable by anyone who can read the chat. */
+    suspend fun channelAttachment(token: String, teamId: String, channelId: String, groupId: String,
+                                  transport: OkHttpClient = Http.client): TransferDownloadGroup {
+        require(groupId.matches(Regex("[A-Za-z0-9_-]{1,64}")))
+        return get("agent/conversations/${requireSession(channelId)}/attachments/$groupId", token,
+            listOf("teamId" to teamId), timeoutSeconds = 20, forbiddenIsUnauthorized = false, transport = transport)
+    }
+
+    private fun requireSession(id: String): String {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,128}")))
+        return id
     }
 
     suspend fun conversationDetail(
