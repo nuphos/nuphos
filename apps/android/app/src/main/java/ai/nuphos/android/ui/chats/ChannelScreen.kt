@@ -78,7 +78,9 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             )
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).imePadding()) {
+        // The keyboard inset replaces, rather than adds to, the bar inset the scaffold already applied.
+        Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 !session.loaded -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 session.loadError != null && items.isEmpty() -> Column(Modifier.align(Alignment.Center).padding(24.dp),
@@ -95,6 +97,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 }
             }
         }
+        if (session.loaded && session.loadError == null && !session.readOnly) ChannelComposer(session)
+        }
     }
 }
 
@@ -110,6 +114,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     // Follow a new post only when the reader was already at the end.
     LaunchedEffect(newest) { if (wasAtLatest && reversed.isNotEmpty()) state.scrollToItem(0) }
     LaunchedEffect(atLatest) { wasAtLatest = atLatest }
+    // Your own send returns the transcript to the end.
+    LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().testTag("channel-transcript"), state = state, reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
@@ -148,6 +154,12 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
             if (post.text.isNotEmpty()) Surface(modifier = Modifier.width(IntrinsicSize.Max), shape = RoundedCornerShape(18.dp),
                 color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) { MarkdownText(post.text, onLink = onLink) }
+            }
+            // A post on its way shows the files it is uploading.
+            if (post.sending) session.sendingAttachments[post.id]?.forEach { attachment ->
+                Text(attachment.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 8.dp, vertical = 4.dp))
             }
             post.groups.forEach { group ->
                 Box(Modifier.padding(top = 6.dp)) {
@@ -197,4 +209,37 @@ private fun TypingRow(item: ChannelItem.Typing) {
             }
         }
     }
+}
+
+/** The conversation composer, posting to the chat: photos, files, paste and dictation work as there. */
+@Composable
+private fun ChannelComposer(session: ChannelSession) {
+    val store = LocalAgentStore.current
+    val auth = LocalAuthSession.current
+    val scope = rememberCoroutineScope()
+    val account = auth.user?.id
+    // Drafts persist per chat, like a conversation's.
+    val draft = remember(account, session.teamId, session.channelId, auth.generation, AiAccess.revision) {
+        account?.let { auth.composerDrafts.bind(it, session.teamId, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(session.channelId),
+            AiAccess.bind(auth.token.orEmpty())) }
+    }
+    session.sendError?.let { message ->
+        AlertDialog(onDismissRequest = { session.sendError = null }, title = { Text("Couldn't send the message") },
+            text = { Text(message) }, confirmButton = { TextButton(onClick = { session.sendError = null }) { Text("OK") } })
+    }
+    ai.nuphos.android.ui.chat.ChatComposer(
+        isStreaming = false,
+        onSend = { submission ->
+            val user = auth.user
+            store.selectedTeam?.id == session.teamId && auth.aiAllowed &&
+                session.send(submission, user?.id, user?.name, user?.avatar, scope)
+        },
+        canSubmit = auth.aiAllowed && store.selectedTeam?.id == session.teamId,
+        draft = draft,
+        draftingEnabled = draft != null && auth.aiAllowed,
+        // A post that failed goes back into the composer.
+        rejectedSubmission = session.unsent,
+        onRejectedRestored = { session.unsent = null },
+        placeholder = "Message #${session.title}",
+    )
 }
