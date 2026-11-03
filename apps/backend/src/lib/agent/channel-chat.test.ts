@@ -199,6 +199,37 @@ describe('waking a channel’s agents', () => {
     expect(wokenSessions()).toEqual(['agent-b'])
   })
 
+  test('a burst of posts from one agent spends at most two turns of each other agent', async () => {
+    let finish = () => {}
+    const running = new Set<string>()
+
+    // agent-b starts a turn on the first post and is busy through the rest.
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        if (!running.has(args.sessionId)) {
+          running.add(args.sessionId)
+
+          return { mode: 'run', release: () => {}, carried: [] }
+        }
+        await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
+
+        return { mode: 'queued' }
+      },
+      runAgentForTrigger: () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ status: 'completed' })
+        }),
+    })
+    for (const text of ['On it.', 'Found it.', 'Fixed.', 'Deployed.'])
+      await say(text, agentSpeaker('agent-a'), 'agent-a')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // One turn now, one queued notice that reads the rest; later posts are free.
+    expect((await channel()).agentTurns).toBe(2)
+    expect(await listPendingUserMessages('agent-b-owner', 'agent-b')).toHaveLength(1)
+    finish()
+  })
+
   test('agents stop waking each other once the budget is spent, until a person speaks', async () => {
     for (let turn = 0; turn < CHANNEL_AGENT_TURN_BUDGET + 3; turn++) {
       await say('again', agentSpeaker('agent-a'), 'agent-a')
