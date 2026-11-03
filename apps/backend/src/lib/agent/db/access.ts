@@ -23,6 +23,8 @@ type GrantFields = {
   managerIds?: string[]
 }
 type AccessFields = GrantFields & { userId: string; teamId?: string }
+/** Who besides the owner may read a conversation. */
+export type ReadGrants = Omit<GrantFields, 'managerIds'>
 
 // Absent is every conversation from before access existed, which the whole
 // team could already read and reply to. Reading it that way keeps them as they
@@ -109,6 +111,26 @@ export function initialGeneralAccess(source: string | undefined): GeneralAccess 
       source === 'agent.trigger')
 
   return teamWide ? undefined : 'none'
+}
+
+/**
+ * What a new thread copies from its parent, so whoever can read the parent can
+ * read its threads. Managing stays the owner's to give, one thread at a time.
+ */
+export function threadReadGrants(parent: GrantFields): ReadGrants {
+  return {
+    generalAccess: generalAccessOf(parent),
+    ...(parent.participantIds?.length ? { participantIds: parent.participantIds } : {}),
+    ...(parent.viewOnlyIds?.length ? { viewOnlyIds: parent.viewOnlyIds } : {}),
+  }
+}
+
+/** Who may read a new conversation: its parent's readers for a thread, else its source's default. */
+export function initialReadGrants(source: string | undefined, parent?: ReadGrants): ReadGrants {
+  if (parent) return threadReadGrants(parent)
+  const generalAccess = initialGeneralAccess(source)
+
+  return generalAccess ? { generalAccess } : {}
 }
 
 /** A read filter: the owner alone without a team, else whoever conversationAccess admits. */

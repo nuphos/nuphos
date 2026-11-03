@@ -13,6 +13,7 @@ import { useSessionConfig } from '@/lib/test/doubles/session-config'
 
 import { clearPendingUserMessages } from './pending-messages'
 import { getSessionBypass, setSessionBypass } from './auto-mode/store'
+import { threadReadGrants } from './db/access'
 import {
   authorizeThreadDelivery,
   createAgentThread,
@@ -310,6 +311,30 @@ describe('conversation-scoped thread tools', () => {
       source: 'agent.thread',
       sourceSessionId: 'source',
     })
+  })
+
+  test("a thread copies its parent's readers, never its managers or watchers", async () => {
+    Object.assign(source, {
+      generalAccess: 'reply',
+      participantIds: ['x', 'v', 'm'],
+      viewOnlyIds: ['v'],
+      managerIds: ['m'],
+      watcherIds: ['owner', 'x'],
+    })
+    await createAgentThread(actor, 'Wait for CI', 'CI watcher')
+
+    expect(threadReadGrants(shells[0]!.parentGrants!)).toEqual({
+      generalAccess: 'reply',
+      participantIds: ['x', 'v', 'm'],
+      viewOnlyIds: ['v'],
+    })
+  })
+
+  test('a thread of a private parent stays private', async () => {
+    Object.assign(source, { generalAccess: 'none' })
+    await createAgentThread(actor, 'Wait for CI', 'CI watcher')
+
+    expect(threadReadGrants(shells[0]!.parentGrants!)).toEqual({ generalAccess: 'none' })
   })
 
   test('returns without waiting for the turn, like a message typed into a chat', async () => {

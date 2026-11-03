@@ -5,12 +5,13 @@ import { resolveForNewSession } from '@/lib/agent/memory-slots/session-stamp'
 
 import { fallbackTitle } from '../title-fallback'
 
-import { initialGeneralAccess, readableConversationScope } from './access'
+import { initialReadGrants, readableConversationScope } from './access'
 import { recordAgentEvent } from './events'
 import { agentConversations, agentMessages, withTeamScope } from './shared'
 import { initialWatcherIds } from './watch'
 
 import type { ConversationTriggerRun } from '../conversation-trigger-run'
+import type { ReadGrants } from './access'
 import type {
   AgentClientMeta,
   AgentConversation,
@@ -52,10 +53,11 @@ export async function upsertConversationShell(data: {
   runtimeId?: string
   runtimeLabel?: string
   parentSessionId?: string
+  /** A thread's parent, whose readers it copies in place of what its source starts with. */
+  parentGrants?: ReadGrants
   kind?: 'channel'
 }): Promise<{ isNew: boolean }> {
   const now = new Date()
-  const generalAccess = initialGeneralAccess(data.source)
   // MongoDB rejects the same field appearing in both $setOnInsert and $set
   // ("Updating the path 'title' would create a conflict at 'title'", error
   // code 40). When data.title is truthy, $set.title fires, so don't also
@@ -71,7 +73,7 @@ export async function upsertConversationShell(data: {
     messageCount: 0,
     createdAt: now,
     watcherIds: initialWatcherIds(data.userId, data),
-    ...(generalAccess ? { generalAccess } : {}),
+    ...initialReadGrants(data.source, data.parentGrants),
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
     ...(data.parentSessionId ? { parentSessionId: data.parentSessionId } : {}),
