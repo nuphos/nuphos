@@ -14,16 +14,25 @@ export function isLocalAgentRuntime(runtimeId: string | undefined): boolean {
 export const LOCAL_AGENT_SHARING_NOTE =
   'This agent runs on your computer’s local runtime. People you share it with can read it, but only you can send messages. Move it to a team runtime to work on it together.'
 
-/** Explain the destination trust boundary before moving conversation context. */
+export const OWN_LOCAL_AGENT_MOVE_NOTICE = t(
+  'After the move, only you can send messages; people you shared it with can still read it.',
+)
+
+/** Host trust and losing collaboration are separate reasons to explain a move. */
 export function localAgentMoveWarning(
   target: Pick<RuntimeInstance, 'kind' | 'local'>,
   access?: AgentDevice['access'],
   viewerUserId?: string,
 ): string | undefined {
-  if (target.kind !== 'local' || !target.local) return undefined
-  if (access === 'owner' || access === 'manage') return undefined
-  if (!access && target.local.ownerUserId === viewerUserId) return undefined
-  if (access !== 'use' && !target.local.shared && !target.local.box) return undefined
+  if (target.kind !== 'local') return undefined
+  const own =
+    access === 'owner' ||
+    access === 'manage' ||
+    (viewerUserId !== undefined && target.local?.ownerUserId === viewerUserId)
 
-  return t('Its owner can see this work, and only you can send messages in this agent.')
+  if (!own && (access === 'use' || target.local?.shared))
+    return t('Its owner can see this work, and only you can send messages in this agent.')
+  if (target.local?.box) return undefined
+
+  return OWN_LOCAL_AGENT_MOVE_NOTICE
 }

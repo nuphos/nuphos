@@ -7,7 +7,7 @@ environment, not a private sandbox for mutually untrusted members.
 ## What sharing grants
 
 The `use` permission includes running conversations, commands, terminals, file
-operations, browser/computer control and runtime sign-in. The computer's OS
+operations, browser/computer control and runtime sign-in (including local exec). The computer's OS
 account determines which local files, existing sign-ins and services are
 reachable. Share a dedicated team machine rather than a personal environment
 containing unrelated private data.
@@ -15,6 +15,10 @@ containing unrelated private data.
 `manage` also permits computer management and changing who may use it. The
 owner retains ownership actions. Team membership or team-administrator status
 does not by itself grant access to another member's personal computer.
+
+Slack, Discord, scheduled triggers and agent threads can run work where the person
+accountable for that work has computer access. They are not categorically
+blocked by their source.
 
 ## Privacy on the host
 

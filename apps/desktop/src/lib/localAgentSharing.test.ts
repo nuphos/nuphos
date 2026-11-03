@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { LOCAL_AGENT_SHARING_NOTE, localAgentMoveWarning } from './localAgentSharing.ts'
+import {
+  LOCAL_AGENT_SHARING_NOTE,
+  localAgentMoveWarning,
+  OWN_LOCAL_AGENT_MOVE_NOTICE,
+} from './localAgentSharing.ts'
 
 const local = {
   ownerUserId: 'mate',
@@ -20,15 +24,33 @@ test('moving to a borrowed computer explains visibility and owner-only messages 
   )
 })
 
-test('owner and manage access never add a move disclosure, even with a legacy shared marker', () => {
+test('own Local Agents retain collaboration-loss consent without a host-trust notice', () => {
   for (const access of ['owner', 'manage'] as const) {
-    assert.equal(localAgentMoveWarning({ kind: 'local', local }, access, 'viewer'), undefined)
+    const warning = localAgentMoveWarning({ kind: 'local', local }, access, 'viewer')
+
+    assert.equal(warning, OWN_LOCAL_AGENT_MOVE_NOTICE)
+    assert.match(warning ?? '', /only you can send messages/)
+    assert.match(warning ?? '', /can still read/)
+    assert.doesNotMatch(warning ?? '', /owner can see/)
   }
 })
 
-test('an older catalog does not warn on the viewer’s own computer', () => {
-  assert.equal(localAgentMoveWarning({ kind: 'local', local }, undefined, 'mate'), undefined)
-  assert.equal(localAgentMoveWarning({ kind: 'local' }), undefined)
+test('older own catalogs retain consent; own or managed Boxes need no host-trust prompt', () => {
+  assert.equal(
+    localAgentMoveWarning({ kind: 'local', local }, undefined, 'mate'),
+    OWN_LOCAL_AGENT_MOVE_NOTICE,
+  )
+  assert.equal(localAgentMoveWarning({ kind: 'local' }), OWN_LOCAL_AGENT_MOVE_NOTICE)
+  for (const access of ['owner', 'manage'] as const) {
+    assert.equal(
+      localAgentMoveWarning(
+        { kind: 'local', local: { ...local, box: { state: 'running' } } },
+        access,
+        'viewer',
+      ),
+      undefined,
+    )
+  }
 })
 
 test('older shared catalogs and borrowed Boxes retain the short move notice', () => {

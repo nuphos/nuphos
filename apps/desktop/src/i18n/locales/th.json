@@ -5668,5 +5668,6 @@
   "Only share with people you trust; they may access this computer’s files and sign-ins.": "แชร์เฉพาะกับคนที่ไว้ใจ พวกเขาอาจเข้าถึงไฟล์และสถานะการลงชื่อเข้าใช้ของคอมพิวเตอร์นี้ได้",
   "Someone else’s computer. Its owner can see what runs here.": "นี่คือคอมพิวเตอร์ของผู้อื่น เจ้าของมองเห็นงานที่ทำที่นี่ได้",
   "Its owner can see this work, and only you can send messages in this agent.": "เจ้าของมองเห็นงานนี้ได้ และมีเพียงคุณที่ส่งข้อความในเอเจนต์นี้ได้",
-  "Learn more": "ดูข้อมูลเพิ่มเติม"
+  "Learn more": "ดูข้อมูลเพิ่มเติม",
+  "After the move, only you can send messages; people you shared it with can still read it.": "หลังย้าย มีเพียงคุณที่ส่งข้อความได้ ส่วนคนที่คุณแชร์ด้วยยังอ่านได้"
 }

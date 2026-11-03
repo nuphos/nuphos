@@ -5668,5 +5668,6 @@
   "Only share with people you trust; they may access this computer’s files and sign-ins.": "신뢰하는 사람에게만 공유하세요. 이 컴퓨터의 파일과 로그인 상태에 접근할 수 있습니다.",
   "Someone else’s computer. Its owner can see what runs here.": "다른 사람의 컴퓨터입니다. 소유자는 여기서 실행되는 작업을 볼 수 있습니다.",
   "Its owner can see this work, and only you can send messages in this agent.": "소유자는 이 작업을 볼 수 있으며 이 에이전트에서 메시지는 본인만 보낼 수 있습니다.",
-  "Learn more": "자세히 알아보기"
+  "Learn more": "자세히 알아보기",
+  "After the move, only you can send messages; people you shared it with can still read it.": "이동 후에는 본인만 메시지를 보낼 수 있으며 공유 상대는 계속 읽을 수 있습니다."
 }

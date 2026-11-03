@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
 import { t } from '../../../i18n/index.ts'
-import { localAgentMoveWarning } from '../../../lib/localAgentSharing'
+import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
@@ -129,6 +129,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   const [pendingLocal, setPendingLocal] = useState<{
     target: RuntimeInstance
     warning: string
+    docs: boolean
   } | null>(null)
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
@@ -157,7 +158,8 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
           const target = runtimeInstances.find((instance) => instance.id === runtimeId)
           const warning = target && localAgentMoveWarning(target, access, c.currentUser?.id)
 
-          if (target && warning) setPendingLocal({ target, warning })
+          if (target && warning)
+            setPendingLocal({ target, warning, docs: warning !== OWN_LOCAL_AGENT_MOVE_NOTICE })
           else void move(runtimeId)
         },
       }),
@@ -173,7 +175,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
             confirm: {
               title: t('Move to {name}?', { name: pendingLocal.target.label }),
               description: pendingLocal.warning,
-              sharedComputerDocs: true,
+              sharedComputerDocs: pendingLocal.docs,
               confirmLabel: t('Move'),
               onConfirm: () => {
                 setPendingLocal(null)
