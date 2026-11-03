@@ -138,6 +138,8 @@ struct ChannelView: View {
     private func rowView(_ row: ChatRow) -> some View {
         if case .channel(_, let item) = row {
             switch item {
+            case .time(let date):
+                TimestampLabel(date: date)
             case .post(let post, let first):
                 ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
                                attachments: channel.sendingAttachments[post.id] ?? [], files: channel.files,
@@ -170,8 +172,8 @@ struct ChannelMark: View {
     }
 }
 
-/// One post: yours on the right, everyone else's on the left. The first of a
-/// run carries the avatar and the name. A person's files show above their
+/// One post: yours on the right, everyone else's on the left under their
+/// avatar and name, shown once per run. A person's files show above their
 /// words and an agent's below, as in a conversation.
 private struct ChannelPostRow: View {
     let post: ChannelPost
@@ -183,7 +185,7 @@ private struct ChannelPostRow: View {
     let resolve: (String) async throws -> TransferDownloadGroup
     let onLink: (URL) -> Void
 
-    private static let avatar: CGFloat = 28
+    private static let avatar: CGFloat = 20
 
     /// The groups' files when the chat has read them all; else the card reads them.
     private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
@@ -192,8 +194,8 @@ private struct ChannelPostRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            if mine { Spacer(minLength: 48) } else { face }
+        HStack(spacing: 0) {
+            if mine { Spacer(minLength: 48) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
                 if first, !mine { header }
                 if !post.uploads.isEmpty {
@@ -208,31 +210,20 @@ private struct ChannelPostRow: View {
                 }
                 footer
             }
-            if mine { face } else { Spacer(minLength: 48) }
+            if !mine { Spacer(minLength: 48) }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
         .accessibilityElement(children: .contain)
     }
 
-    @ViewBuilder
-    private var face: some View {
-        Group {
-            if first {
-                if post.isAgent {
-                    AgentAvatar(agentId: post.senderId, runtime: post.runtime, size: Self.avatar)
-                } else {
-                    AvatarView(user: NuphosUser(id: post.senderId, email: "", name: post.name, username: "",
-                                                avatarURL: post.avatar?.absoluteString ?? ""), size: Self.avatar)
-                }
-            } else {
-                Color.clear
-            }
-        }
-        .frame(width: Self.avatar, height: Self.avatar)
-    }
-
     private var header: some View {
         HStack(spacing: 6) {
+            if post.isAgent {
+                AgentAvatar(agentId: post.senderId, runtime: post.runtime, size: Self.avatar)
+            } else {
+                AvatarView(user: NuphosUser(id: post.senderId, email: "", name: post.name, username: "",
+                                            avatarURL: post.avatar?.absoluteString ?? ""), size: Self.avatar)
+            }
             Text(post.name).font(Theme.Text.caption.weight(.medium)).foregroundStyle(Theme.body).lineLimit(1)
             if post.isAgent {
                 Text("Agent")
@@ -247,7 +238,7 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: post.text, onLink: onLink)
+        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
@@ -267,18 +258,14 @@ private struct ChannelPostRow: View {
         }
     }
 
+    @ViewBuilder
     private var footer: some View {
-        Group {
-            if post.sending {
-                Text("Sending…")
-            } else if let at = post.sentAt {
-                Text(at, format: .dateTime.hour().minute())
-            }
+        if post.sending {
+            Text("Sending…")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.muted)
+                .padding(.horizontal, 4)
         }
-        .font(.system(size: 11))
-        .foregroundStyle(Theme.muted)
-        .monospacedDigit()
-        .padding(.horizontal, 4)
     }
 }
 

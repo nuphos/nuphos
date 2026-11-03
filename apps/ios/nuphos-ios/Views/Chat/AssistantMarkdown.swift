@@ -17,6 +17,7 @@ struct AssistantMarkdown: View {
     /// While the answer is still being written, its last marker is usually
     /// only half there.
     var streaming = false
+    var theme = AssistantMarkdown.theme
     /// A tapped link. Absent, links do nothing.
     var onLink: ((URL) -> Void)?
 
@@ -31,7 +32,7 @@ struct AssistantMarkdown: View {
         if segments.count == 1, case .markdown(let text) = segments[0] {
             markdown(text)
         } else {
-            VStack(alignment: .leading, spacing: Self.theme.spacings.paragraph) {
+            VStack(alignment: .leading, spacing: theme.spacings.paragraph) {
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                     switch segment {
                     case .markdown(let text): markdown(text)
@@ -43,7 +44,7 @@ struct AssistantMarkdown: View {
     }
 
     private func markdown(_ text: String) -> some View {
-        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
+        MarkdownTextRepresentable(text: text, theme: theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
     }
 
     static var theme: MarkdownTheme {
@@ -63,6 +64,15 @@ struct AssistantMarkdown: View {
         theme.spacings.paragraph = 22
         theme.spacings.headingBefore = 24
         theme.spacings.list = 12
+        return theme
+    }
+
+    /// A message in a bubble: a short gap between paragraphs, tight lists.
+    static var bubbleTheme: MarkdownTheme {
+        var theme = Self.theme
+        theme.spacings.paragraph = 8
+        theme.spacings.headingBefore = 4
+        theme.spacings.list = 4
         return theme
     }
 }
