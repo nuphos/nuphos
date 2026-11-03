@@ -6,4 +6,4 @@ Switch workspace from the Account sheet.
 
 Download cards show while a turn is still running, and the credential picker refreshes its options every time it opens.
 
-Fixes: a chat's file cards refresh when the agent pushes a file, and a failed file read is retried.
+Fixes: every chat now opens, not only the first one after launch, chat bubbles are sized to their text, a chat's file cards refresh when the agent pushes a file, and a failed file read is retried.
