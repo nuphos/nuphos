@@ -2,6 +2,7 @@ import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { supportsCredentialRefresh } from './openab-acp-session'
+import { UndeliveredCredentialPush } from './turn-credential-renewal'
 
 import type { OpenAbProvider } from './runtime-provider'
 
@@ -30,6 +31,26 @@ export async function pushSessionCredentials(
   expected: Env,
   next: Env,
 ): Promise<boolean> {
+  // Anything that fails before the push is sent leaves the runtime unchanged.
+  const client = await connectControl(target).catch((error: unknown) => {
+    throw new UndeliveredCredentialPush(error)
+  })
+
+  try {
+    const initialized = await client.initialize().catch((error: unknown) => {
+      throw new UndeliveredCredentialPush(error)
+    })
+
+    if (!supportsCredentialRefresh(initialized)) return false
+    await client.refreshCredentials(target.openabSessionId, expected, next)
+
+    return true
+  } finally {
+    client.close()
+  }
+}
+
+async function connectControl(target: CredentialPushTarget) {
   const { endpoint } = await resolveConversationChatRuntime(
     target.teamId,
     {
@@ -43,18 +64,10 @@ export async function pushSessionCredentials(
   )
 
   if (endpoint.url !== target.runtimeUrl) throw new Error('Conversation runtime changed')
-  const client = await OpenAbAcpClient.connect({
+
+  return OpenAbAcpClient.connect({
     ...(await reachableRuntimeEndpoint(endpoint)),
     connectTimeoutMs: 10_000,
     callTimeoutMs: 15_000,
   })
-
-  try {
-    if (!supportsCredentialRefresh(await client.initialize())) return false
-    await client.refreshCredentials(target.openabSessionId, expected, next)
-
-    return true
-  } finally {
-    client.close()
-  }
 }

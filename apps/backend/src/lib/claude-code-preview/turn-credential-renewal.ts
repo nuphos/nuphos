@@ -1,23 +1,36 @@
 import { logError } from '@/lib/observability'
 
+import { OpenAbRpcError } from './openab-acp-errors'
+
 type Env = Record<string, string> | undefined
 
 const RENEW_INTERVAL_MS = 10 * 60 * 1000
-// Older unconfirmed pushes are dropped; by then their tokens have expired anyway.
-const MAX_UNCONFIRMED = 3
+
+/** A push that failed before it reached the runtime, so the runtime changed nothing. */
+export class UndeliveredCredentialPush extends Error {
+  constructor(cause: unknown) {
+    super('Credential push did not reach the runtime', { cause })
+    this.name = 'UndeliveredCredentialPush'
+  }
+}
 
 /**
  * Keeps a running turn's credentials current. Each push names the credentials
  * it replaces, and the runtime applies it only while they are still installed,
  * so a late push never overwrites a later prompt's. A push whose reply is lost
- * may still have been applied, so later pushes also try it as `expected`.
- * Pushes run one at a time, and stop for good once the runtime says it cannot
- * take them.
+ * may still have been applied, so later pushes also try it as `expected` until
+ * the runtime rules it out. Pushes run one at a time, and stop for good once
+ * the runtime says it cannot take them.
  */
 export function renewTurnCredentials(args: {
   installed: Env
   mint: () => Env | Promise<Env>
-  /** Resolves `false` when the runtime cannot take credentials mid-turn. */
+  /**
+   * Resolves `false` when the runtime cannot take credentials mid-turn. Rejects
+   * with `OpenAbRpcError` when the runtime refused it, and with
+   * `UndeliveredCredentialPush` when it never reached the runtime; any other
+   * failure leaves it unknown whether the runtime applied it.
+   */
   push: (expected: Env, next: Env) => Promise<boolean>
   intervalMs?: number
 }) {
@@ -52,9 +65,16 @@ export function renewTurnCredentials(args: {
         return
       } catch (error) {
         failure = error
+        // The runtime answered: it does not hold `expected` and applied nothing.
+        if (error instanceof OpenAbRpcError) {
+          unconfirmed = unconfirmed.filter((candidate) => candidate !== expected)
+          continue
+        }
+        // Without an answer `next` may now be installed; undelivered, nothing changed.
+        if (!(error instanceof UndeliveredCredentialPush)) unconfirmed = [...unconfirmed, next]
+        break
       }
     }
-    unconfirmed = [...unconfirmed, next].slice(-MAX_UNCONFIRMED)
     throw failure
   }
   const timer = setInterval(() => {
