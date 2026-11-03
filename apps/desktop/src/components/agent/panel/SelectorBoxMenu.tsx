@@ -11,7 +11,7 @@ import { agentAskText, agentProblem } from './agentRowFix'
 import { adminName } from './agentSignInModel'
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
-import { boxAgentName, selectorMetrics } from './selectorBoxes'
+import { boxAgentName, selectorMetrics, sharedBoxOwner } from './selectorBoxes'
 
 import type { SelectorBox, SelectorMetrics } from './selectorBoxes'
 import type { PickerFixes } from './usePickerFixes'
@@ -68,6 +68,11 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
   )
 }
 
+/** Whose a teammate's shared computer is, quietly; nothing on the viewer's own. */
+function SharedBy({ text }: { text: string | null }) {
+  return text && <span className="block truncate text-[11px] text-tertiary">{text}</span>
+}
+
 /** One computer: its load in the trigger, its runtimes in the submenu. */
 export function SelectorBoxMenu({
   group,
@@ -92,6 +97,7 @@ export function SelectorBoxMenu({
   const current = group.agents.some((agent) => agent.id === selectedId)
   const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
   const BoxIcon = group.device?.box || !group.agents[0]?.local ? Box : Laptop
+  const sharedBy = sharedBoxOwner(group, fixes.viewer.members)
 
   if (group.unavailable) {
     const problem = group.agents[0] && agentProblem(group.agents[0], undefined, fixes.viewer)
@@ -103,12 +109,16 @@ export function SelectorBoxMenu({
         onClick={() => problem && fixes.run(problem.fix)}
         hint={problem && <AgentFixChip fix={problem.fix} fixes={fixes} />}
       >
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-medium text-secondary">{group.label}</span>
-          {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
-          <span className="shrink-0 text-[11px] text-tertiary">
-            · {problem?.reason ?? t('Offline')}
+        {/* The owner goes on its own line, so the computer keeps its name. */}
+        <span className="block min-w-0">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-medium text-secondary">{group.label}</span>
+            {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
+            <span className="shrink-0 text-[11px] text-tertiary">
+              · {problem?.reason ?? t('Offline')}
+            </span>
           </span>
+          <SharedBy text={sharedBy} />
         </span>
       </MenuItem>
     )
@@ -124,6 +134,7 @@ export function SelectorBoxMenu({
               <span className="truncate font-medium">{group.label}</span>
               {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
             </span>
+            <SharedBy text={sharedBy} />
             {metrics && <SelectorBoxMeters metrics={metrics} />}
           </span>
         </span>
