@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 
 import { resetAnalyticsUser } from '../analytics'
+import { commitConfigIf } from '../auth/config.ts'
 import { authSession } from '../auth-session.ts'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
@@ -11,6 +12,11 @@ import { followAccount } from './account-leave-core.ts'
 // Wires leaving an account to the app (account-leave-core.ts), once, as
 // main.ts loads.
 followAccount(authSession, {
+  settled: () =>
+    commitConfigIf(
+      () => true,
+      () => Promise.resolve(null),
+    ),
   teardown: () => {
     k8s.stopAllPortForwards()
     terminal.closeAllSshSessions()

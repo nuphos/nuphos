@@ -7,12 +7,13 @@ import { shell } from 'electron'
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
 import { AccountUnavailableError } from './auth/accounts.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
+import { requestContext } from './auth/request-context.ts'
 import { assertWanted, beginSignIn, cancelSignIns } from './auth/sign-in-attempt.ts'
 import {
   forgetAccountConfig,
+  forgetAllAccountConfigs,
   listAccountConfigs,
   parkAccountConfig,
-  requestContext,
   switchAccountConfig,
   writeConfig,
 } from './auth/config.ts'
@@ -180,10 +181,9 @@ export async function signOutAccount(key: string): Promise<void> {
 /** Signs every account out of this app, the active one last. */
 export async function signOutAllAccounts(): Promise<void> {
   cancelPendingLogin()
-  for (const account of await listAccounts()) {
-    if (!account.active) await signOutAccount(account.key)
-  }
-  await logout()
+  // In one turn of the sign-in file, so a switch from another window cannot
+  // slip an account past it.
+  for (const { api, token } of await forgetAllAccountConfigs()) void endServerSession(api, token)
 }
 
 async function endServerSession(api: string, token: string): Promise<void> {

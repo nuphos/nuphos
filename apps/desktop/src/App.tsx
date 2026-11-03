@@ -10,7 +10,9 @@ import {
 import { signOutLocally } from './app/signOutLocally'
 import { enterAs, startupAuth } from './app/startupAuth'
 import { Workspace } from './app/workspace/Workspace'
+import { toast } from './components/ui/toast'
 import { CurrentUserContext } from './hooks/useCurrentUser'
+import { t } from './i18n'
 import { identifyUser, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
@@ -45,16 +47,25 @@ function SignedInApp() {
 
   useEffect(() => {
     if (!signedIn) return
-    onSessionRejected(() => void logout())
+    // The backend already ended this session: leave even if the file keeps it.
+    onSessionRejected(() => void logout(true))
 
     return () => onSessionRejected(null)
   }, [signedIn])
 
-  async function logout() {
+  async function logout(rejected = false) {
     signOutLocally()
-    // Leave the workspace even if the main process fails to clear the token:
-    // a rejected session must never strand the user on a dead workspace.
-    await api.authLogout().catch(() => undefined)
+    try {
+      await api.authLogout()
+    } catch (e) {
+      // Still signed in on this computer: say so instead of showing a sign-in
+      // screen the next launch would skip. A rejected session leaves anyway.
+      if (!rejected) {
+        toast.apiError(t('Could not log out'), e)
+
+        return
+      }
+    }
     // Every window then reloads (account-leave.ts) and lists the accounts left.
     setAuth({ status: 'anonymous', accounts: [] })
   }
@@ -90,7 +101,7 @@ function SignedInApp() {
           identifyUser(user)
           setAuth({ status: 'authenticated', user })
         }}
-        onLogout={logout}
+        onLogout={() => logout()}
       />
       <BoxPaywallHost />
       {/* Over the workspace, which stays mounted: Cancel returns to it as it was. */}

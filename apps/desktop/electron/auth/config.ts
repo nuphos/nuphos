@@ -1,5 +1,4 @@
 import { apiUrl, saveBackend, useAccount } from '../api-endpoint.ts'
-import { authSession } from '../auth-session.ts'
 import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import {
@@ -8,6 +7,7 @@ import {
   keyOf,
   normalizedApi,
   OtherBackendError,
+  signedIn,
   stored,
   summaries,
   waiting,
@@ -16,7 +16,6 @@ import { keychainItems } from './keychain-items.ts'
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 import { readYaml, writeYaml } from './yaml-file.ts'
 
-import type { AccountContext } from '../auth-session.ts'
 import type { UserInfo } from '../auth-status.ts'
 import type { AccountSummary, StoredAccount } from './accounts.ts'
 import type { TokenStore } from './token-store.ts'
@@ -149,6 +148,22 @@ export function configFile(deps: ConfigFileDeps) {
     return token ? { api: target.api ?? api, token } : null
   }
 
+  /** Signs every account out of this app in one turn; their tokens are returned to end them. */
+  async function forgetAll(): Promise<{ api: string; token: string }[]> {
+    const previous = (await readFile(deps.path)) ?? {}
+    const api = currentApi()
+    const all = [...(signedIn(previous) ? [previous] : []), ...(previous.accounts ?? [])]
+    const ended = await Promise.all(
+      all.map(async (a) => ({ api: a.api ?? api, token: await tokenOf(a) })),
+    )
+
+    await writeFile(deps.path, {})
+    for (const account of all) await forget(account.keychainAccount)
+    deps.onAccount(api, null, null)
+
+    return ended.filter((e): e is { api: string; token: string } => e.token !== null)
+  }
+
   /** Moves the active account, issued by `api`, to the list: signed in, but not in use. */
   async function park(api: string): Promise<void> {
     const previous = (await readFile(deps.path)) ?? {}
@@ -224,11 +239,18 @@ export function configFile(deps: ConfigFileDeps) {
 
   return {
     read: () => inTurn(load),
-    write: (cfg: Config) => {
-      // A sign-out takes effect in memory at once, before its turn.
-      if (!cfg.token) deps.onAccount(currentApi(), null, null)
+    write: async (cfg: Config) => {
+      if (cfg.token) return inTurn(() => save(cfg))
+      // A sign-out takes effect in memory at once, before its turn. If the file
+      // keeps the sign-in after all, memory follows it rather than pretend.
+      deps.onAccount(currentApi(), null, null)
+      await inTurn(() => save(cfg)).catch(async (e: unknown) => {
+        const kept = await inTurn(load)
 
-      return inTurn(() => save(cfg))
+        if (kept.token)
+          deps.onAccount(kept.api ?? currentApi(), kept.token, kept.userInfo?.id ?? null)
+        throw e
+      })
     },
     /**
      * Runs `task` in the file's turn only if `isCurrent` still holds when the
@@ -241,6 +263,7 @@ export function configFile(deps: ConfigFileDeps) {
     ): Promise<T | null> => inTurn(async () => (isCurrent() ? await task(save) : null)),
     switchTo: (key: string) => inTurn(() => switchTo(key)),
     forgetAccount: (key: string) => inTurn(() => forgetAccount(key)),
+    forgetAll: () => inTurn(forgetAll),
     park: (api: string) => inTurn(() => park(api)),
     list: () => inTurn(list),
   }
@@ -261,20 +284,6 @@ export const writeConfig = defaultConfigFile.write
 export const commitConfigIf = defaultConfigFile.commitIf
 export const switchAccountConfig = defaultConfigFile.switchTo
 export const forgetAccountConfig = defaultConfigFile.forgetAccount
+export const forgetAllAccountConfigs = defaultConfigFile.forgetAll
 export const listAccountConfigs = defaultConfigFile.list
 export const parkAccountConfig = defaultConfigFile.park
-
-/**
- * The account a request goes out as: one context, so its backend, token and
- * signal always belong together. Until the startup check has run the token
- * comes from the file; once anything has set the session, only from memory.
- */
-export async function requestContext(): Promise<AccountContext> {
-  const ctx = authSession.context()
-
-  if (ctx.token || authSession.settled()) return ctx
-  const { token } = await readConfig()
-  const now = authSession.context()
-
-  return now === ctx && token ? { ...ctx, token } : now
-}

@@ -5681,5 +5681,6 @@
   "Could not switch accounts": "สลับบัญชีไม่ได้",
   "Signed in on this computer": "ลงชื่อเข้าใช้ในคอมพิวเตอร์นี้",
   "Sign in to {name} again.": "ลงชื่อเข้าใช้ {name} อีกครั้ง",
-  "You stay signed in to the others, and can switch back any time.": "บัญชีอื่นยังคงลงชื่อเข้าใช้อยู่ และสลับกลับได้ทุกเมื่อ"
+  "You stay signed in to the others, and can switch back any time.": "บัญชีอื่นยังคงลงชื่อเข้าใช้อยู่ และสลับกลับได้ทุกเมื่อ",
+  "Could not log out": "ออกจากระบบไม่ได้"
 }

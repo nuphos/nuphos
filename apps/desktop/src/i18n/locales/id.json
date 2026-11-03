@@ -5681,5 +5681,6 @@
   "Could not switch accounts": "Tidak dapat beralih akun",
   "Signed in on this computer": "Masuk di komputer ini",
   "Sign in to {name} again.": "Masuk lagi sebagai {name}.",
-  "You stay signed in to the others, and can switch back any time.": "Anda tetap masuk di akun lainnya dan bisa beralih kembali kapan saja."
+  "You stay signed in to the others, and can switch back any time.": "Anda tetap masuk di akun lainnya dan bisa beralih kembali kapan saja.",
+  "Could not log out": "Tidak dapat keluar"
 }

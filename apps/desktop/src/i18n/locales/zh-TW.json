@@ -5681,5 +5681,6 @@
   "Could not switch accounts": "無法切換帳號",
   "Signed in on this computer": "已在這台電腦登入",
   "Sign in to {name} again.": "請重新登入 {name}。",
-  "You stay signed in to the others, and can switch back any time.": "其他帳號會保持登入，隨時可以切換回去。"
+  "You stay signed in to the others, and can switch back any time.": "其他帳號會保持登入，隨時可以切換回去。",
+  "Could not log out": "無法登出"
 }

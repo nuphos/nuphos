@@ -248,3 +248,23 @@ test('the account in use whose token cannot be read is not taken as already swit
   )
   await assert.rejects(h.config.switchTo(`bob@${SELF}`), AccountUnavailableError)
 })
+
+test('signing out of every account is one turn: a switch queued behind it finds nothing', async () => {
+  const h = await harness()
+  const all = h.config.forgetAll()
+  const racing = h.config.switchTo(`alice@${CLOUD}`)
+
+  assert.deepEqual((await all).map((e) => e.token).sort(), ['tok-alice', 'tok-bob'])
+  await assert.rejects(racing, AccountUnavailableError)
+  assert.deepEqual(await h.onDisk(), {})
+  assert.equal(h.session.context().token, null)
+})
+
+test('a sign-out the file refuses leaves the sign-in it still holds in memory', async () => {
+  const h = await harness()
+
+  await fs.chmod(h.dir, 0o500)
+  await assert.rejects(h.config.write({}))
+  await fs.chmod(h.dir, 0o700)
+  assert.deepEqual(pair(h.session), { api: SELF, token: 'tok-bob' })
+})

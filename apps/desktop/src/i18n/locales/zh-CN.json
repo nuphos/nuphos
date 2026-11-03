@@ -5681,5 +5681,6 @@
   "Could not switch accounts": "无法切换账号",
   "Signed in on this computer": "已在此电脑上登录",
   "Sign in to {name} again.": "请重新登录 {name}。",
-  "You stay signed in to the others, and can switch back any time.": "其他账号会保持登录，随时可以切换回去。"
+  "You stay signed in to the others, and can switch back any time.": "其他账号会保持登录，随时可以切换回去。",
+  "Could not log out": "无法退出登录"
 }

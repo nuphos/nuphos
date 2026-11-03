@@ -5681,5 +5681,6 @@
   "Could not switch accounts": "アカウントを切り替えられませんでした",
   "Signed in on this computer": "このコンピュータでサインイン中",
   "Sign in to {name} again.": "{name} にもう一度サインインしてください。",
-  "You stay signed in to the others, and can switch back any time.": "ほかのアカウントはサインインしたままで、いつでも切り替えて戻れます。"
+  "You stay signed in to the others, and can switch back any time.": "ほかのアカウントはサインインしたままで、いつでも切り替えて戻れます。",
+  "Could not log out": "ログアウトできませんでした"
 }

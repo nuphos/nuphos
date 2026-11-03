@@ -8,15 +8,16 @@ import { followAccount } from './account-leave-core.ts'
 const CLOUD = 'https://api.nuphos.ai'
 const SELF = 'https://nuphos.example.com'
 
-function harness() {
+function harness(written: () => Promise<unknown> = () => Promise.resolve()) {
   const session = new AuthSession(CLOUD)
   const events: string[] = []
 
   followAccount(session, {
+    settled: written,
     teardown: () => events.push('teardown'),
     reload: () => events.push('reload'),
   })
-  const settled = () => new Promise((resolve) => setImmediate(resolve))
+  const settled = () => new Promise((resolve) => setTimeout(resolve, 5))
 
   return { session, events, settled }
 }
@@ -58,4 +59,22 @@ test('signing out leaves the account', async () => {
   h.session.set(null, null)
   await h.settled()
   assert.deepEqual(h.events, ['teardown', 'reload'])
+})
+
+test('a sign-out the file refused, undone in memory, does not reload', async () => {
+  let write!: () => void
+  const written = new Promise<void>((resolve) => {
+    write = resolve
+  })
+  const h = harness(() => written)
+
+  h.session.set('tok-a', 'a')
+  h.session.set(null, null)
+  await h.settled()
+  assert.deepEqual(h.events, ['teardown'], 'no reload before the file has caught up')
+  // The write failed: memory goes back to the sign-in the file still holds.
+  h.session.set('tok-a', 'a')
+  write()
+  await h.settled()
+  assert.deepEqual(h.events, ['teardown'])
 })

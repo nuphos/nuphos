@@ -1,6 +1,6 @@
 import { accountFailure, accountSignal, signedIn, stillCurrent } from '../account-request.ts'
 import { buildAtlasError } from '../atlas/error.ts'
-import { requestContext } from '../auth/config.ts'
+import { requestContext } from '../auth/request-context.ts'
 import { authSession } from '../auth-session.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 

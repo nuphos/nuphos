@@ -18,6 +18,8 @@ export function leaves(next: AccountContext, prev: AccountContext): boolean {
 }
 
 export type LeaveHandlers = {
+  /** Resolves once the sign-in file has caught up with the change. */
+  settled: () => Promise<unknown>
   /** Ends what was opened as the account left: shells, port forwards. */
   teardown: () => void
   /** Reloads every window, once the change that left the account has settled. */
@@ -27,8 +29,15 @@ export type LeaveHandlers = {
 export function followAccount(session: AuthSession, on: LeaveHandlers): () => void {
   return session.subscribe((next, prev) => {
     if (!leaves(next, prev)) return
+    const was = accountOf(prev)
+
     on.teardown()
-    // After the change's own caller (the switch, its IPC reply) has finished.
-    setImmediate(on.reload)
+    // Once the change is on disk: a sign-out the file refused is undone in
+    // memory, and reloading then would only sign back in to the same account.
+    setImmediate(() => {
+      void on.settled().then(() => {
+        if (accountOf(session.context()) !== was) on.reload()
+      })
+    })
   })
 }
