@@ -12,6 +12,7 @@ const alice = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 const bob = 'bbbbbbbbbbbbbbbbbbbbbbbb'
 
 let root: string
+let globalConfig: string
 let env: Record<string, string>
 
 const run = (cmd: string, args: string[], cwd = root) =>
@@ -28,14 +29,15 @@ const setupAlice = () => run('bash', [setup, alice, '--name', 'Alice Example', '
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'git-signing-'))
+  globalConfig = join(root, '.gitconfig')
   env = {
     PATH: process.env.PATH ?? '',
     HOME: root,
-    GIT_CONFIG_GLOBAL: join(root, '.gitconfig'),
+    GIT_CONFIG_GLOBAL: globalConfig,
     GIT_CONFIG_NOSYSTEM: '1',
   }
   // A shared config that already names someone, as a previous setup might have left it.
-  writeFileSync(env.GIT_CONFIG_GLOBAL, '[user]\n\tname = Somebody\n\temail = somebody@example.invalid\n')
+  writeFileSync(globalConfig, '[user]\n\tname = Somebody\n\temail = somebody@example.invalid\n')
   run('git', ['init', '-q', 'repo'])
 })
 
@@ -56,7 +58,7 @@ test('signs and verifies commits for the participant who set it up', () => {
 
 test('leaves no identity in the shared config, so plain git commits fail', () => {
   setupAlice()
-  const shared = readFileSync(env.GIT_CONFIG_GLOBAL, 'utf8')
+  const shared = readFileSync(globalConfig, 'utf8')
   expect(shared).not.toContain('Somebody')
   expect(shared).not.toContain('signingkey')
   expect(fails('git', ['commit', '-q', '--allow-empty', '-m', 'x'], join(root, 'repo'))).toContain(
