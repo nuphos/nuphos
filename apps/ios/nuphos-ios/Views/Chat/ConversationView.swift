@@ -40,8 +40,13 @@ struct ConversationView: View {
     @State private var dockOpen = false
     /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
     private static var screenSize: CGSize {
+        #if NUPHOS_SHARE_EXTENSION
+        // Extensions cannot reach UIApplication; the share sheet keeps the default size.
+        return CGSize(width: 390, height: 844)
+        #else
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
         return scene?.screen.bounds.size ?? CGSize(width: 390, height: 844)
+        #endif
     }
     /// The dock shows the owner's own computer, so only the owner gets it.
     private var hasDock: Bool { !session.isNew && session.ownsChat }

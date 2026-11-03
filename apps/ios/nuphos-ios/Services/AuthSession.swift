@@ -73,8 +73,7 @@ final class AuthSession {
         if let fixture = ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"] {
             UserDefaults.standard.set(fixture, forKey: "previewResponses")
         }
-        // Share verification ignores a fixture left from an earlier preview launch.
-        let previewFixture = CommandLine.arguments.contains("-share-verification") ? nil : UserDefaults.standard.string(forKey: "previewResponses")
+        let previewFixture = UserDefaults.standard.string(forKey: "previewResponses")
         #else
         let previewFixture: String? = nil
         #endif
@@ -84,7 +83,7 @@ final class AuthSession {
             state = .signedOut(error: nil)
             return
         }
-        if CommandLine.arguments.contains("-preview-home") || previewFixture != nil {
+        if !CommandLine.arguments.contains("-share-verification") && (CommandLine.arguments.contains("-preview-home") || previewFixture != nil) {
             if previewFixture != nil {
                 URLProtocol.registerClass(PreviewTransport.self)
                 token = "preview-only"
