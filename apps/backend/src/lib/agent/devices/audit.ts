@@ -11,10 +11,12 @@ import type { Collection, Filter } from 'mongodb'
 export const DEVICE_EXEC_AUDIT_RETENTION_DAYS = 90
 const DEVICE_EXEC_AUDIT_COMMAND_MAX_CHARS = 4000
 
-export type DeviceExecOutcome = 'ok' | 'timeout' | 'device_offline' | 'rejected' | 'error'
+export type DeviceExecOutcome =
+  'ok' | 'timeout' | 'device_offline' | 'rejected' | 'error' | 'unknown'
 
 export type DeviceExecAuditEntry = {
   _id?: ObjectId
+  operationId?: string
   ownerUserId: string
   deviceId: string
   actorUserId: string
@@ -26,8 +28,8 @@ export type DeviceExecAuditEntry = {
   commandRedacted: boolean
   requestedAt: Date
   dispatchedAt?: Date
-  finishedAt: Date
-  durationMs: number
+  finishedAt: Date | null
+  durationMs: number | null
   outcome: DeviceExecOutcome
   exitCode?: number
   reason?: string
@@ -47,6 +49,10 @@ export async function setupDeviceExecAuditIndexes(): Promise<void> {
   await collection.createIndex(
     { ownerUserId: 1, deviceId: 1, requestedAt: -1, _id: -1 },
     { name: 'device_exec_audit_owner_device_recent' },
+  )
+  await collection.createIndex(
+    { operationId: 1 },
+    { unique: true, partialFilterExpression: { operationId: { $type: 'string' } } },
   )
   await collection.createIndex(
     { requestedAt: 1 },
@@ -74,14 +80,24 @@ export function buildDeviceExecAuditEntry(input: DeviceExecAuditInput): DeviceEx
     ...input,
     command,
     commandRedacted,
-    durationMs: Math.max(0, input.finishedAt.getTime() - input.requestedAt.getTime()),
+    durationMs: input.finishedAt
+      ? Math.max(0, input.finishedAt.getTime() - input.requestedAt.getTime())
+      : null,
   }
 }
 
 /** Best effort: an audit write failure must never fail the command it describes. */
 export async function recordDeviceExecAudit(input: DeviceExecAuditInput): Promise<void> {
   try {
-    await deviceExecAudit().insertOne(buildDeviceExecAuditEntry(input))
+    const entry = buildDeviceExecAuditEntry(input)
+
+    if (input.operationId) {
+      await deviceExecAudit().updateOne(
+        { operationId: input.operationId },
+        { $set: entry },
+        { upsert: true },
+      )
+    } else await deviceExecAudit().insertOne(entry)
   } catch (err) {
     logError('agent.device_exec_audit.write_failed', err, {
       deviceId: input.deviceId,
@@ -122,12 +138,13 @@ export function auditCursorFilter(cursor: AuditCursor): Filter<DeviceExecAuditEn
 export async function listDeviceExecAudit(
   ownerUserId: string,
   deviceId: string,
-  options: { limit: number; cursor?: string },
+  options: { limit: number; cursor?: string; includeUnfinished?: boolean },
 ): Promise<DeviceExecAuditPage> {
   const cursor = options.cursor ? decodeAuditCursor(options.cursor) : null
   const filter: Filter<DeviceExecAuditEntry> = {
     ownerUserId,
     deviceId,
+    ...(!options.includeUnfinished ? { outcome: { $ne: 'unknown' as const } } : {}),
     ...(cursor ? auditCursorFilter(cursor) : {}),
   }
   const docs = await deviceExecAudit()

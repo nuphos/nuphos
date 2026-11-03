@@ -14,7 +14,13 @@ import type { AgentDeviceRouteDependencies } from '@/routes/agent/routes-devices
 let upserted: { userId: string; device: AgentDeviceRegistration }[]
 let devices: Record<string, AgentDevice>
 let auditEntries: DeviceExecAuditEntry[]
-let auditQueries: { ownerUserId: string; deviceId: string; limit: number; cursor?: string }[]
+let auditQueries: {
+  ownerUserId: string
+  deviceId: string
+  limit: number
+  cursor?: string
+  includeUnfinished?: boolean
+}[]
 let issued: { userId: string; options: { label?: string; expiresInSec?: number } }[]
 let credentials: Set<string>
 let disconnected: string[]
@@ -94,7 +100,10 @@ function buildApp(box: BoxDeps | null = null) {
       listDeviceExecAudit: async (ownerUserId, deviceId, options) => {
         auditQueries.push({ ownerUserId, deviceId, ...options })
         const entries = auditEntries.filter(
-          (entry) => entry.ownerUserId === ownerUserId && entry.deviceId === deviceId,
+          (entry) =>
+            entry.ownerUserId === ownerUserId &&
+            entry.deviceId === deviceId &&
+            (options.includeUnfinished || entry.outcome !== 'unknown'),
         )
 
         return {
@@ -250,6 +259,32 @@ describe('agent device routes', () => {
         cursor: '2026-09-01T00:00:00.000Z_65f000000000000000000001',
       },
     ])
+  })
+
+  test('GET .../audit returns unfinished operations without inventing completion timestamps', async () => {
+    registerDevice('user-1', 'd1')
+    auditEntries = [auditEntry({ outcome: 'unknown', finishedAt: null, durationMs: null })]
+    const response = await buildApp().request('/agent/devices/d1/audit?includeUnfinished=true')
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { entries: Record<string, unknown>[] }
+
+    expect(body.entries[0]).toMatchObject({
+      outcome: 'unknown',
+      finishedAt: null,
+      durationMs: null,
+    })
+  })
+
+  test('GET .../audit keeps unfinished records out of legacy client responses', async () => {
+    registerDevice('user-1', 'd1')
+    auditEntries = [auditEntry({ outcome: 'unknown', finishedAt: null, durationMs: null })]
+    const response = await buildApp().request('/agent/devices/d1/audit')
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { entries: unknown[] }
+
+    expect(body.entries).toEqual([])
   })
 
   test('GET .../audit rejects an undecodable cursor instead of restarting at page one', async () => {

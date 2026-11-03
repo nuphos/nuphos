@@ -36,6 +36,13 @@ test('outcomeSummary distinguishes a clean exit, a failing exit and non-runs', (
   })
 })
 
+test('unfinished operations are not displayed as successful or failed executions', () => {
+  assert.deepEqual(outcomeSummary({ outcome: 'unknown', exitCode: null }), {
+    label: 'Result not recorded',
+    tone: 'warning',
+  })
+})
+
 test('originLabel names who started the turn', () => {
   assert.equal(originLabel('user'), 'You')
   assert.equal(originLabel('trigger'), 'Trigger')

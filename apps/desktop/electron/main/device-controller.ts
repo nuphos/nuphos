@@ -83,5 +83,8 @@ export function listDeviceAudit(before?: string): Promise<unknown> {
 
   if (before) query.set('before', before)
 
-  return callJson('GET', `/agent/devices/${encodeURIComponent(deviceId)}/audit?${query.toString()}`)
+  return callJson(
+    'GET',
+    `/agent/devices/${encodeURIComponent(deviceId)}/audit?includeUnfinished=true&${query.toString()}`,
+  )
 }

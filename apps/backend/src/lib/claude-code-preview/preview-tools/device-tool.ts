@@ -222,19 +222,25 @@ export function createDeviceToolHandler(
         input: args,
       })
       .catch(() => {})
-    const socket = deps.connect(ctx, deviceId, ownerUserId, tool.purpose)
-    const { status, result } = await dispatch(ctx, socket, tool.frame(args, ctx), deps)
-
-    await deps.audit({
+    const intent = {
+      operationId: toolCallId,
       ownerUserId,
       deviceId,
       actorUserId: ctx.userId,
       conversationOwnerUserId: ctx.conversationOwnerUserId ?? ctx.userId,
-      origin: ctx.turnOrigin ?? 'user',
+      origin: ctx.turnOrigin ?? ('user' as const),
       teamId: ctx.teamId,
       sessionId: ctx.sessionId,
       command: tool.audit(args),
       requestedAt,
+    }
+
+    await deps.audit({ ...intent, outcome: 'unknown', finishedAt: null })
+    const socket = deps.connect(ctx, deviceId, ownerUserId, tool.purpose)
+    const { status, result } = await dispatch(ctx, socket, tool.frame(args, ctx), deps)
+
+    await deps.audit({
+      ...intent,
       dispatchedAt: requestedAt,
       finishedAt: new Date(),
       outcome: status,

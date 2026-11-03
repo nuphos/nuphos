@@ -19,6 +19,7 @@ useAgentDeviceStore({
 
 useAgentDeviceDispatch({
   dispatchLocalExec: async (userId, deviceId, command) => {
+    expect(audits.at(-1)).toMatchObject({ outcome: 'unknown', finishedAt: null })
     dispatchCalls.push({ userId, deviceId, command })
     if (dispatchOutcome instanceof Error) throw dispatchOutcome
 
@@ -182,8 +183,12 @@ describe('createLocalExecTool audit', () => {
 
     await tool.execute({ label: 'run', command: 'false' }, {})
 
-    expect(audits).toHaveLength(1)
-    const [entry] = audits
+    expect(audits).toHaveLength(2)
+    const [intent, entry] = audits
+
+    expect(intent).toMatchObject({ outcome: 'unknown', finishedAt: null })
+    expect(intent?.operationId).toBe(entry?.operationId)
+    expect(intent?.dispatchedAt).toBeUndefined()
 
     expect(entry).toMatchObject({
       ownerUserId: 'u1',
@@ -198,7 +203,7 @@ describe('createLocalExecTool audit', () => {
       exitCode: 3,
     })
     expect(entry?.dispatchedAt).toBeInstanceOf(Date)
-    expect(entry?.finishedAt.getTime()).toBeGreaterThanOrEqual(entry?.requestedAt.getTime() ?? 0)
+    expect(entry?.finishedAt?.getTime()).toBeGreaterThanOrEqual(entry?.requestedAt.getTime() ?? 0)
     expect(JSON.stringify(entry)).not.toContain('secret output')
   })
 
@@ -208,7 +213,7 @@ describe('createLocalExecTool audit', () => {
 
     await tool.execute({ label: 'run', command: 'sleep 5' }, {})
 
-    expect(audits.map((a) => a.outcome)).toEqual(['device_offline'])
+    expect(audits.map((a) => a.outcome)).toEqual(['unknown', 'device_offline'])
   })
 
   test('records a timeout', async () => {
@@ -217,7 +222,7 @@ describe('createLocalExecTool audit', () => {
 
     await tool.execute({ label: 'run', command: 'sleep 99' }, {})
 
-    expect(audits.map((a) => a.outcome)).toEqual(['timeout'])
+    expect(audits.map((a) => a.outcome)).toEqual(['unknown', 'timeout'])
   })
 
   test('records a rejected dispatch to an unavailable device without dispatching', async () => {
@@ -248,7 +253,10 @@ describe('createLocalExecTool audit', () => {
     }
 
     expect(thrown).toBeInstanceOf(Error)
-    expect(audits.map((a) => [a.outcome, a.reason])).toEqual([['error', 'dispatch_failed']])
+    expect(audits.map((a) => [a.outcome, a.reason])).toEqual([
+      ['unknown', undefined],
+      ['error', 'dispatch_failed'],
+    ])
   })
 })
 
@@ -270,7 +278,7 @@ describe('shared dock terminal authorization', () => {
       teamId: 't1',
       action: 'open',
     })
-    expect(audits[0]).toMatchObject({ deviceId: 'd1', sessionId: 's1', outcome: 'ok' })
+    expect(audits.at(-1)).toMatchObject({ deviceId: 'd1', sessionId: 's1', outcome: 'ok' })
   })
 
   test('rejects another participant and an unavailable device without dispatch', async () => {

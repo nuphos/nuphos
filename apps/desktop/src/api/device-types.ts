@@ -4,7 +4,8 @@ export type DeviceIdentity = {
   createdAt: string
 }
 
-export type DeviceExecOutcome = 'ok' | 'timeout' | 'device_offline' | 'rejected' | 'error'
+export type DeviceExecOutcome =
+  'ok' | 'timeout' | 'device_offline' | 'rejected' | 'error' | 'unknown'
 
 export type DeviceExecOrigin = 'user' | 'trigger' | 'automation' | 'database-alert'
 
@@ -21,8 +22,8 @@ export type DeviceExecAuditEntry = {
   commandRedacted: boolean
   requestedAt: string
   dispatchedAt: string | null
-  finishedAt: string
-  durationMs: number
+  finishedAt: string | null
+  durationMs: number | null
   outcome: DeviceExecOutcome
   exitCode: number | null
   reason: string | null
