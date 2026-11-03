@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   accountName,
   addAccountRequest,
+  keyBlockedByTakeover,
   backendLabel,
   cancelAddAccount,
   requestAddAccount,
@@ -103,4 +104,17 @@ test('one backend spelt with another loopback name is not another backend', asyn
 
   await switchToAccount(local, (n) => `again: ${n}`, deps)
   assert.deepEqual(events, [`switch ${bob.key}`, 'sign in: again: bob'])
+})
+
+test('over the sign-in screen, shortcuts and keys aimed elsewhere never reach the workspace', () => {
+  const inside = { closest: () => ({}) }
+  const outside = { closest: () => null }
+  const key = (target: unknown, mods: Partial<KeyboardEvent> = {}) =>
+    ({ target, metaKey: false, ctrlKey: false, ...mods }) as unknown as KeyboardEvent
+
+  assert.equal(keyBlockedByTakeover(key(outside, { metaKey: true }), false), false)
+  assert.equal(keyBlockedByTakeover(key(inside), true), false, 'typing in its own fields')
+  assert.equal(keyBlockedByTakeover(key(inside, { metaKey: true }), true), true, 'Cmd+Z, Cmd+\\')
+  assert.equal(keyBlockedByTakeover(key(inside, { ctrlKey: true }), true), true)
+  assert.equal(keyBlockedByTakeover(key(outside), true), true)
 })

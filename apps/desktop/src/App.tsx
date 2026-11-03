@@ -2,6 +2,7 @@ import { Suspense, use, useCallback, useEffect, useState, useSyncExternalStore }
 
 import { api, onSessionRejected } from './api'
 import {
+  ACCOUNT_TAKEOVER_ATTR,
   addAccountRequest,
   cancelAddAccount,
   subscribeAddAccount,
@@ -113,7 +114,12 @@ function SignedInApp() {
       </div>
       {/* Over the workspace, which stays mounted: Cancel returns to it as it was. */}
       {adding && (
-        <div ref={takeFocus} tabIndex={-1} className="fixed inset-0 z-[1000] bg-main outline-none">
+        <div
+          ref={takeFocus}
+          tabIndex={-1}
+          {...{ [ACCOUNT_TAKEOVER_ATTR]: '' }}
+          className="fixed inset-0 z-[1000] bg-main outline-none"
+        >
           {signIn}
         </div>
       )}

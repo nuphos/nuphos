@@ -59,6 +59,35 @@ export function addAccountRequest(): AddAccountRequest | null {
   return addAccount
 }
 
+/** Marks the sign-in screen that covers the workspace while an account is added. */
+export const ACCOUNT_TAKEOVER_ATTR = 'data-account-takeover'
+
+/**
+ * Whether a key press, while an account is being added, must not reach the
+ * workspace behind the sign-in screen: every shortcut, and anything aimed
+ * outside the screen. Plain typing in the screen's own fields goes through.
+ */
+export function keyBlockedByTakeover(event: KeyboardEvent, open: boolean): boolean {
+  if (!open) return false
+  const target = event.target as Element | null
+  const inside = Boolean(target?.closest?.(`[${ACCOUNT_TAKEOVER_ATTR}]`))
+
+  return !inside || event.metaKey || event.ctrlKey
+}
+
+// Registered as this module loads, before any workspace listener, so it runs
+// first in the capture phase: window-level handlers such as split, undo or
+// approve never see a key pressed over the sign-in screen.
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (keyBlockedByTakeover(event, addAccount !== null)) event.stopImmediatePropagation()
+    },
+    true,
+  )
+}
+
 export function subscribeAddAccount(listener: () => void): () => void {
   addAccountListeners.add(listener)
 
