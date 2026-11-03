@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 /// A chat: people and agents talking. It runs no agent of its own; each agent
-/// here answers from its own session. Polled while on screen, as the desktop's
-/// `useChannel` is: a cheap probe, and the full read only when it changed.
+/// here answers from its own session. Polled while it is the open chat, as the
+/// desktop's `useChannel` is: a cheap probe, and the full read only when it changed.
 @Observable
 final class ChannelSession {
     static let pollInterval: Duration = .seconds(4)
@@ -38,13 +38,24 @@ final class ChannelSession {
     private var revision = ""
     /// A resend of the same post reuses its id, so a post that did land is not doubled.
     private var retry: (key: String, id: String)?
+    /// Owned here rather than by the view: SwiftUI can cancel a view's tasks
+    /// while it stays on screen, which left a chat on its cancelled first read.
+    private var polling: Task<Void, Never>?
 
     init(token: String, teamId: String, channelId: String, title: String) {
         self.token = token
         self.teamId = teamId
         self.channelId = channelId
         self.title = title
+        polling = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refresh()
+                try? await Task.sleep(for: Self.pollInterval)
+            }
+        }
     }
+
+    deinit { polling?.cancel() }
 
     var posts: [ChannelPost] { stored + ChannelPost.stillSending(stored: stored, sending: sending) }
 
@@ -65,16 +76,6 @@ final class ChannelSession {
             apply(read, agents: people)
         } catch {
             if !loaded { loadError = error.localizedDescription; loaded = true }
-        }
-    }
-
-    /// Until cancelled, with the view that shows the chat.
-    func poll() async {
-        await refresh(force: !loaded)
-        while !Task.isCancelled {
-            try? await Task.sleep(for: Self.pollInterval)
-            guard !Task.isCancelled else { return }
-            await refresh()
         }
     }
 

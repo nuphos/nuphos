@@ -69,7 +69,6 @@ struct ChannelView: View {
             } message: {
                 Text(channel.sendError ?? "")
             }
-            .task { await channel.poll() }
             #if DEBUG
             // `-channel-send "<text>"`: a post a few seconds after opening, to see it arrive.
             .task {
