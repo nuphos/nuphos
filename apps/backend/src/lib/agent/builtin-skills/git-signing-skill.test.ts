@@ -88,3 +88,30 @@ test('rejects values that could escape the generated git config', () => {
   )
   expect(fails('bash', [setup, '../x', '--name', 'Eve', '--email', 'e@example.invalid'])).toContain('invalid sender id')
 })
+
+test('records the participant even when another identity is seeded elsewhere', () => {
+  setupAlice()
+  const repo = join(root, 'repo')
+  const otherName = 'Mallory'
+  const otherEmail = 'mallory@example.invalid'
+  for (const scope of ['--global', '--local']) {
+    for (const role of ['author', 'committer']) {
+      run('git', ['config', scope, `${role}.name`, otherName], repo)
+      run('git', ['config', scope, `${role}.email`, otherEmail], repo)
+    }
+  }
+  env = { ...env, GIT_AUTHOR_NAME: otherName, GIT_COMMITTER_EMAIL: otherEmail }
+  const bin = join(root, '.local/bin/git-as')
+
+  run(bin, [alice, 'commit', '-q', '--allow-empty', '-m', 'signed'], repo)
+  expect(run(bin, [alice, 'log', '-1', '--format=%an <%ae> | %cn <%ce> | %G?'], repo)).toBe(
+    'Alice Example <alice@example.invalid> | Alice Example <alice@example.invalid> | G',
+  )
+})
+
+test('clears author and committer overrides from the shared config', () => {
+  writeFileSync(globalConfig, '[author]\n\tname = Somebody\n[committer]\n\temail = somebody@example.invalid\n')
+  setupAlice()
+  expect(readFileSync(globalConfig, 'utf8')).not.toContain('Somebody')
+  expect(readFileSync(globalConfig, 'utf8')).not.toContain('somebody@')
+})

@@ -48,6 +48,13 @@ cat > "$dir/gitconfig" <<CONFIG
 	name = "$name"
 	email = "$email"
 	signingkey = $key.pub
+# author.* and committer.* outrank user.* whatever their scope, so pin them too.
+[author]
+	name = "$name"
+	email = "$email"
+[committer]
+	name = "$name"
+	email = "$email"
 [gpg]
 	format = ssh
 [gpg "ssh"]
@@ -60,7 +67,7 @@ CONFIG
 chmod 600 "$dir/gitconfig"
 
 # Nobody's identity in the shared config; commits without git-as fail loudly.
-for k in user.name user.email user.signingkey gpg.format gpg.ssh.allowedSignersFile commit.gpgsign tag.gpgsign; do
+for k in user.name user.email author.name author.email committer.name committer.email user.signingkey gpg.format gpg.ssh.allowedSignersFile commit.gpgsign tag.gpgsign; do
   git config --global --unset-all "$k" || true
 done
 git config --global user.useConfigOnly true
