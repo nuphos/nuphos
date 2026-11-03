@@ -1,5 +1,4 @@
 import clsx from 'clsx'
-import { TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -20,9 +19,9 @@ import {
   effectiveShare,
   SHARE_LEVEL_DESCRIPTION,
   SHARE_LEVEL_LABEL,
-  SHARE_RISK,
   sharingOffText,
 } from './localAgentSharingPresentation'
+import { SharedComputerNotice } from './SharedComputerNotice'
 
 import type { LocalAgentShareState, LocalShareLevel } from '../../api/device-types'
 
@@ -126,9 +125,7 @@ function ShareForm({
       open
       onClose={onClose}
       title={t('Share {device}', { device: deviceLabel })}
-      description={t(
-        'Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.',
-      )}
+      description={t('Choose the teammates who may use this computer and its runtimes.')}
       width={560}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
@@ -167,10 +164,7 @@ function ShareForm({
 
         {level !== 'off' && (
           <>
-            <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 text-[12px] leading-snug text-warning">
-              <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-              {SHARE_RISK}
-            </div>
+            <SharedComputerNotice />
             <div className="rounded-xl border border-zGray-800">
               <label className="flex items-center justify-between gap-3 px-3 py-2.5 text-[12.5px] text-main">
                 {t('Everyone in this team, including people who join later')}

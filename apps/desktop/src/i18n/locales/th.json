@@ -4334,7 +4334,6 @@
   "Team skill": "ทักษะของทีม",
   "Teammates on this domain can join this workspace.": "เพื่อนร่วมทีมในโดเมนนี้เข้าร่วมเวิร์กสเปซนี้ได้",
   "Teammates who can open this chat will see the artifact.": "เพื่อนร่วมทีมที่เปิดแชทนี้ได้จะเห็นอาร์ติแฟกต์นี้",
-  "Teammates you pick can place their own agents on this computer’s local runtime. They cannot open its terminal or files, sign in its runtimes, or use local exec.": "เพื่อนร่วมทีมที่คุณเลือกจะวางเอเจนต์ของตนบนรันไทม์ในเครื่องของคอมพิวเตอร์นี้ได้ แต่เปิดเทอร์มินัลหรือไฟล์ ลงชื่อเข้าใช้รันไทม์ หรือใช้การรันในเครื่องไม่ได้",
   "Teammates you pick can run their own agents here without asking. Use this for a machine set aside for it.": "เพื่อนร่วมทีมที่คุณเลือกรันเอเจนต์ของตนที่นี่ได้โดยไม่ต้องถาม ใช้ตัวเลือกนี้กับเครื่องที่แยกไว้สำหรับงานนี้โดยเฉพาะ",
   "Teammates you pick can run their own agents here. You approve each agent before it starts.": "เพื่อนร่วมทีมที่คุณเลือกรันเอเจนต์ของตนที่นี่ได้ โดยคุณต้องอนุมัติเอเจนต์แต่ละตัวก่อนเริ่มทำงาน",
   "Teammates' computers": "คอมพิวเตอร์ของเพื่อนร่วมทีม",
@@ -4480,7 +4479,6 @@
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "ค่านี้จะถูกเขียนลงไฟล์บนรันไทม์ของเอเจนต์ และจะไม่ปรากฏในบทสนทนานี้",
   "The whole team": "ทั้งทีม",
   "The working files could not come along.": "ไม่สามารถย้ายไฟล์งานไปด้วยได้",
-  "Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.": "เอเจนต์ของพวกเขาจะทำงานในนามผู้ใช้ของคุณบนคอมพิวเตอร์นี้ พร้อมทุกการลงชื่อเข้าใช้บนเครื่อง ทั้งคีย์ SSH, CLI ของ GitHub และคลาวด์ รวมถึงไฟล์ของคุณ เอเจนต์จาก Slack, Discord หรือทริกเกอร์จะไม่ทำงานที่นี่",
   "Theme": "ธีม",
   "Then click {button} in AWS.": "จากนั้นคลิก {button} ใน AWS",
   "Then open {link} → copy the {id} — the final step asks for that too": "จากนั้นเปิด {link} → คัดลอก {id} — ขั้นตอนสุดท้ายจะขอค่านี้ด้วย",
@@ -5674,5 +5672,11 @@
   "The agent was started there. Its log is ~/.nuphos-agent.log on that machine.": "เอเจนต์เริ่มทำงานบนเครื่องนั้นแล้ว บันทึกอยู่ที่ ~/.nuphos-agent.log บนเครื่องนั้น",
   "Setup failed on {host}": "การตั้งค่าบน {host} ล้มเหลว",
   "See the output, or run the command on the machine yourself.": "ดูผลลัพธ์ หรือรันคำสั่งบนเครื่องนั้นด้วยตนเอง",
-  "Could not connect the computer": "เชื่อมต่อคอมพิวเตอร์ไม่ได้"
+  "Could not connect the computer": "เชื่อมต่อคอมพิวเตอร์ไม่ได้",
+  "Learn more": "ดูข้อมูลเพิ่มเติม",
+  "Choose the teammates who may use this computer and its runtimes.": "เลือกสมาชิกทีมที่ใช้คอมพิวเตอร์นี้และรันไทม์ได้",
+  "Someone else’s computer. Its owner can see what runs here.": "นี่คือคอมพิวเตอร์ของผู้อื่น เจ้าของมองเห็นงานที่ทำที่นี่ได้",
+  "Only share with people you trust; they may access this computer’s files and sign-ins.": "แชร์เฉพาะกับคนที่ไว้ใจ พวกเขาอาจเข้าถึงไฟล์และสถานะการลงชื่อเข้าใช้ของคอมพิวเตอร์นี้ได้",
+  "Its owner can see this work, and only you can send messages in this agent.": "เจ้าของมองเห็นงานนี้ได้ และมีเพียงคุณที่ส่งข้อความในเอเจนต์นี้ได้",
+  "After the move, only you can send messages; people you shared it with can still read it.": "หลังย้าย มีเพียงคุณที่ส่งข้อความได้ ส่วนคนที่คุณแชร์ด้วยยังอ่านได้"
 }

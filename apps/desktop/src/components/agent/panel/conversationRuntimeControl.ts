@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
 import { t } from '../../../i18n/index.ts'
-import { localAgentMoveWarning } from '../../../lib/localAgentSharing'
+import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
@@ -125,11 +125,11 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
-  // A move onto a Local Agent opens this computer to the whole team, so it
-  // waits for the user's go-ahead.
+  // Explain host trust or loss of collaboration before a local move.
   const [pendingLocal, setPendingLocal] = useState<{
     target: RuntimeInstance
     warning: string
+    docs: boolean
   } | null>(null)
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
@@ -154,11 +154,12 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
           ? runtimeInstances.filter((instance) => instance.kind === 'managed')
           : runtimeInstances,
       ...(canMove && {
-        onSelect: (runtimeId: string) => {
+        onSelect: (runtimeId: string, access) => {
           const target = runtimeInstances.find((instance) => instance.id === runtimeId)
-          const warning = target && localAgentMoveWarning(target)
+          const warning = target && localAgentMoveWarning(target, access, c.currentUser?.id)
 
-          if (target && warning) setPendingLocal({ target, warning })
+          if (target && warning)
+            setPendingLocal({ target, warning, docs: warning !== OWN_LOCAL_AGENT_MOVE_NOTICE })
           else void move(runtimeId)
         },
       }),
@@ -174,6 +175,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
             confirm: {
               title: t('Move to {name}?', { name: pendingLocal.target.label }),
               description: pendingLocal.warning,
+              sharedComputerDocs: pendingLocal.docs,
               confirmLabel: t('Move'),
               onConfirm: () => {
                 setPendingLocal(null)
@@ -186,6 +188,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     }
   }, [
     pendingLocal,
+    c.currentUser?.id,
     move,
     moving,
     provider,

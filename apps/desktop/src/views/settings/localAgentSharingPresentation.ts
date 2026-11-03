@@ -1,4 +1,5 @@
 import { t } from '../../i18n/index.ts'
+import { SHARED_COMPUTER_ACCESS } from '../../lib/sharedComputerDisclosure.ts'
 
 import type { LocalShareInput, LocalShareLevel } from '../../api/device-types'
 
@@ -21,9 +22,7 @@ export const SHARE_LEVEL_DESCRIPTION: Record<LocalShareLevel, string> = {
 }
 
 /** What a teammate's agent can reach here, whatever the level: said wherever sharing is turned on. */
-export const SHARE_RISK = t(
-  'Their agents run as your user on this computer, with every sign-in on it: SSH keys, GitHub and cloud CLIs, and your files. Agents from Slack, Discord or triggers never run here.',
-)
+export const SHARE_RISK = SHARED_COMPUTER_ACCESS
 
 const rank = (level: LocalShareLevel) => SHARE_LEVELS.indexOf(level)
 
