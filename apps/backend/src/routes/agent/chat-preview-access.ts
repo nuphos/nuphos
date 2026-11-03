@@ -29,3 +29,16 @@ export async function previewTurnAccess(
     throw err
   }
 }
+
+/** Mints this turn's runtime env again, so a long turn can be handed fresh credentials. */
+export function renewPreviewTurnEnv(args: PreviewChatTurnArgs, prepared: PreparedPreviewTurn) {
+  const { sessionId, teamId, userId } = args
+
+  return async () =>
+    (
+      await previewSessionAccess(sessionId, teamId, args.actorUserId ?? userId, userId, {
+        ...args.endpoint,
+        ...prepared.accessOptions,
+      })
+    ).runtimeEnv
+}
