@@ -62,15 +62,17 @@ export function jsonEtag(): MiddlewareHandler {
   return async (c, next) => {
     if (c.req.method !== 'GET') return next()
     const jsonBodies = new WeakSet<ReadableStream>()
-    const json = c.json as unknown as (...args: unknown[]) => Response
+    // A Proxy keeps c.json's overloads without a cast. `never[]` is the
+    // any-function parameter type, so TS needn't infer through JSONRespond.
+    c.json = new Proxy<typeof c.json>(c.json, {
+      apply(target: (...args: never[]) => unknown, thisArg: unknown, args: never[]) {
+        const res = Reflect.apply(target, thisArg, args)
 
-    c.json = ((...args: unknown[]) => {
-      const res = json(...args)
+        if (res instanceof Response && res.body) jsonBodies.add(res.body)
 
-      if (res.body) jsonBodies.add(res.body)
-
-      return res
-    }) as unknown as typeof c.json
+        return res
+      },
+    })
     await next()
     if (!taggable(c.res, jsonBodies)) return
     const tag = await weakTag(c.res)
