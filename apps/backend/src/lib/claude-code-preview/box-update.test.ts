@@ -147,20 +147,21 @@ describe('Box update', () => {
     expect(BOX_UPDATE_COMMAND).toContain('grep -L web-browser.desktop')
   })
 
-  test('/tmp is bound to /data/tmp once, however often the install runs', () => {
-    const line = BOX_INSTALL_COMMAND.split('\n').find((entry) => entry.includes('/etc/fstab')) ?? ''
+  test('/tmp and /var/tmp are bound to /data once, however often the install runs', () => {
+    const lines = BOX_INSTALL_COMMAND.split('\n').filter((entry) => entry.includes('/etc/fstab'))
     const fstab = path.join(mkdtempSync(path.join(os.tmpdir(), 'box-fstab-')), 'fstab')
 
     writeFileSync(fstab, '/dev/vdb  /data  ext4  defaults,nofail 0 2\n')
-    const script = line.replaceAll('/etc/fstab', fstab).replaceAll('sudo ', '')
+    const script = lines.join('\n').replaceAll('/etc/fstab', fstab).replaceAll('sudo ', '')
 
     execFileSync('/bin/bash', ['-ec', `${script}\n${script}`])
     const binds = readFileSync(fstab, 'utf8')
       .split('\n')
-      .filter((entry) => entry.includes(' /tmp '))
+      .filter((entry) => entry.includes(' bind,'))
 
     expect(binds).toEqual([
       '/data/tmp /tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0',
+      '/data/var-tmp /var/tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0',
     ])
     expect(BOX_INSTALL_COMMAND).not.toContain('systemctl mask')
   })
