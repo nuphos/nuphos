@@ -262,12 +262,14 @@ useAgentDb({
 
     return {} as AgentConversation
   },
-  // The store's $pull and $set, guarded that pulled fields are set and narrowed ones unset.
+  // The store's $pull and $set, guarded that pulled fields are lists and narrowed
+  // ones unset: missing or null, as the driver stores undefined.
   removeConversationCredentialIds: async (sessionId, _userId, _teamId, pull, narrow) => {
     const stored = selections.get(sessionId) ?? {}
-    const isSet = (key: string) => stored[key as keyof AgentCredentialAccess] !== undefined
+    const isList = (key: string) => Array.isArray(stored[key as keyof AgentCredentialAccess])
 
-    if (Object.keys(pull).some((key) => !isSet(key)) || Object.keys(narrow).some(isSet)) return null
+    if (Object.keys(pull).some((key) => !isList(key)) || Object.keys(narrow).some(isList))
+      return null
     removals.push({ sessionId, pull, narrow })
     const next = { ...stored, ...narrow } as Record<string, unknown>
 
@@ -589,6 +591,15 @@ describe('conversation-scoped thread tools', () => {
       updateThread(actor, threadId, { revoke: [{ provider: 'github', id: 'gh-2' }] }),
     ).rejects.toThrow('changed meanwhile')
     expect(selections.get(threadId)).toEqual({ githubInstallationIds: ['gh-1'] })
+  })
+
+  test('a null selection, as the driver stores undefined, is revoked from as all', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    selections.set(threadId, { githubInstallationIds: null } as never)
+    await updateThread(actor, threadId, { revoke: [{ provider: 'github', id: 'gh-1' }] })
+    expect(removals.at(-1)).toMatchObject({ pull: {}, narrow: { githubInstallationIds: ['gh-2'] } })
+    expect(selections.get(threadId)).toEqual({ githubInstallationIds: ['gh-2'] })
   })
 
   test('refuses to revoke what the thread does not have, or to grant and revoke one pair', async () => {

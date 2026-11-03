@@ -124,8 +124,9 @@ function planChange(
     toRevoke = toRevoke.filter((ref) => !has(ofThread, ref))
     if (adds.length) add[key] = adds.map((ref) => ref.id)
     if (!drops.length) continue
-    // Unset means all of them here, so removing some sets the field to the rest.
-    if (thread[key] === undefined)
+    // Unset (missing, or null as the driver stores undefined) means all of them
+    // here, so removing some sets the field to the rest.
+    if (!thread[key])
       narrow[key] = ofThread.filter((entry) => !has(drops, entry)).map((entry) => entry.id)
     else pull[key] = drops.map((ref) => ref.id)
   }

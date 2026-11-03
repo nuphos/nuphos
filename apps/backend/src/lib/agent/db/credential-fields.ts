@@ -95,10 +95,11 @@ const field = (key: string) => `credentialAccess.${key}`
 
 /**
  * Removes ids from the named selection fields in one atomic update. `pull` drops
- * ids from fields that must still be set; `narrow` sets fields that must still
+ * ids from fields that must still be lists; `narrow` sets fields that must still
  * be unset (for some connectors, "all of them") to the ids left after removal.
- * If either guard fails, the selection changed meanwhile: nothing is written and
- * null is returned.
+ * Unset is missing or null, as the driver stores undefined; `$eq: null` matches
+ * both. If either guard fails, the selection changed meanwhile: nothing is
+ * written and null is returned.
  */
 export async function removeConversationCredentialIds(
   sessionId: string,
@@ -108,14 +109,14 @@ export async function removeConversationCredentialIds(
   narrow: Partial<Record<keyof AgentCredentialAccess, string[]>>,
 ): Promise<AgentConversation | null> {
   const now = new Date()
-  const guards: [string, { $exists: boolean }][] = [
-    ...Object.keys(pull).map((key): [string, { $exists: boolean }] => [
+  const guards: [string, Record<string, unknown>][] = [
+    ...Object.keys(pull).map((key): [string, Record<string, unknown>] => [
       field(key),
-      { $exists: true },
+      { $type: 'array' },
     ]),
-    ...Object.keys(narrow).map((key): [string, { $exists: boolean }] => [
+    ...Object.keys(narrow).map((key): [string, Record<string, unknown>] => [
       field(key),
-      { $exists: false },
+      { $eq: null },
     ]),
   ]
   const result = await agentConversations().findOneAndUpdate(
