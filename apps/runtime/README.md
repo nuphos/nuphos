@@ -301,9 +301,9 @@ runtime's address and asks which team to connect it to. Only teams you administe
 can be picked. Confirm, and that team gets its own key for this runtime. To add the
 runtime to another team, press **Connect to Nuphos** again.
 
-If Nuphos Desktop does not open, go to **Runtimes → Add computer → Your own
-computer**, choose **Pairing a self-hosted runtime**, and enter the agent URL and
-pairing code the console shows. A code works once and expires after 10 minutes. Plain `ws://` is accepted only
+If Nuphos Desktop does not open, go to **Settings → Agent → Connect your own**,
+choose the pairing code option, and enter the agent URL and pairing code the console
+shows. A code works once and expires after 10 minutes. Plain `ws://` is accepted only
 for an in-cluster `*.svc` host; anything reached over the internet has to be
 `wss://`.
 
