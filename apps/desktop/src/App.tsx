@@ -16,6 +16,7 @@ import { CurrentUserContext } from './hooks/useCurrentUser'
 import { t } from './i18n'
 import { identifyUser, track } from './lib/analytics'
 import { LoginView } from './views/LoginView'
+import { AgentSetupHost } from './views/onboarding/setup/AgentSetupHost'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
 
 import type { AuthState } from './app/startupAuth'
@@ -116,6 +117,7 @@ function SignedInApp() {
           onLogout={() => logout()}
         />
         <BoxPaywallHost />
+        <AgentSetupHost />
       </div>
       {/* Over the workspace, which stays mounted: Cancel returns to it as it was. */}
       {adding && (

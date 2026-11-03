@@ -3,30 +3,34 @@ import { usable } from '../../../lib/agentName.ts'
 import { isLocalAgentRuntime } from '../../../lib/localAgentSharing.ts'
 
 import type { Tab } from './model.ts'
+import type { SendNotice } from './RuntimeSelector.tsx'
 import type { RuntimeInstance } from '../../../types/runtime.ts'
 
 /** Someone's own computer takes only its owner's turns (#667): say so before a
- *  send fails, and offer the teammate a chat of their own there when they may use it. */
+ *  send fails, and always offer one way on — a chat of the viewer's own, on that
+ *  computer when they may use it, else on any agent they can; else set one up. */
 export function sendNoticeFor(
   tab: Tab | null | undefined,
   runtimeInstances: RuntimeInstance[],
   startChatOn: (runtimeId: string) => void,
-) {
+  setUpAgent: () => void,
+): SendNotice | undefined {
   const runtimeId = tab?.runtimeId
 
   if (tab?.sendBlocked !== 'local_runtime_owner_only' || tab.readOnly || !runtimeId) return
   if (!isLocalAgentRuntime(runtimeId)) return
   // The catalog lists only the agents this viewer may run on; a new chat starts only on a usable one.
-  const computer = runtimeInstances.find((instance) => instance.id === runtimeId)
+  const runnable = runtimeInstances.filter(usable)
+  const here = runnable.find((instance) => instance.id === runtimeId)
+  const own = here ?? runnable[0]
 
   return {
     label: t('This agent runs on its owner’s computer, so only they can send messages here.'),
-    ...(computer &&
-      usable(computer) && {
-        action: {
-          label: t('Start your own chat on this computer'),
-          onSelect: () => startChatOn(runtimeId),
-        },
-      }),
+    action: own
+      ? {
+          label: here ? t('Start your own chat on this computer') : t('Start your own chat'),
+          onSelect: () => startChatOn(own.id),
+        }
+      : { label: t('Set up your agent'), onSelect: setUpAgent },
   }
 }

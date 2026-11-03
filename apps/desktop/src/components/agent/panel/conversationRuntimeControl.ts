@@ -6,6 +6,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n/index.ts'
 import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
+import { openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
 import { toast } from '../../ui/toast'
 
 import { sendNoticeFor } from './sendNotice'
@@ -178,7 +179,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       loading: runtimeInstancesLoading,
       error: runtimeInstancesError,
       onSettings: onOpenAgentSettings,
-      sendNotice: sendNoticeFor(tab, runtimeInstances, startChatOn),
+      sendNotice: sendNoticeFor(tab, runtimeInstances, startChatOn, openAgentSetup),
       ...(pendingLocal
         ? {
             confirm: {

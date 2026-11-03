@@ -52,7 +52,7 @@ export function ReadOnlyConversationNotice({
         {label ?? conversationReadOnlyLabel(activitySource, Boolean(slackThread))}
       </span>
       {action && (
-        <Button type="button" variant="secondary" size="sm" onClick={action.onSelect}>
+        <Button type="button" size="sm" onClick={action.onSelect}>
           {action.label}
         </Button>
       )}
