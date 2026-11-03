@@ -83,6 +83,8 @@ function SignedInApp() {
           : undefined
       }
       onLogin={(user) => {
+        // Who signed in first, so the event is theirs and not the last account's.
+        identifyUser(user)
         track('login', { method: 'oauth' })
         cancelAddAccount()
         // Signed in over another account: every window reloads as this one.
