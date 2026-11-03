@@ -125,7 +125,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
-  // Keep the existing move warning only for a computer the viewer borrows.
+  // Explain host trust or loss of collaboration before a local move.
   const [pendingLocal, setPendingLocal] = useState<{
     target: RuntimeInstance
     warning: string
