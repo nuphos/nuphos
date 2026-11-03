@@ -7,10 +7,7 @@ struct ChannelView: View {
     @Bindable var channel: ChannelSession
 
     @Environment(AgentStore.self) private var store
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
-    @State private var readerID = UUID()
-    @State private var onScreen = false
     @State private var draft = ""
     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
     @State private var typing: [ChannelAgent] = []
@@ -31,11 +28,6 @@ struct ChannelView: View {
             RuntimeObservations.shared.value(team: channel.teamId, session: agent.sessionId)?.turnActive == true
                 || store.conversations.first { $0.sessionId == agent.sessionId }?.activeRun != nil
         }
-    }
-
-    private func updateReading() {
-        ConversationUnread.shared.setReading(onScreen && scenePhase == .active, reader: readerID,
-                                             team: channel.teamId, session: channel.channelId)
     }
 
     var body: some View {
@@ -60,15 +52,8 @@ struct ChannelView: View {
             }
             .onAppear {
                 Analytics.shared.screen("channel", teamID: channel.teamId)
-                onScreen = true
-                updateReading()
                 if draft.isEmpty { draft = ComposerDrafts.text(team: channel.teamId, session: channel.channelId) }
             }
-            .onDisappear {
-                onScreen = false
-                updateReading()
-            }
-            .onChange(of: scenePhase) { _, _ in updateReading() }
             .onChange(of: inTurn.map(\.id), initial: true) {
                 guard inTurn.map(\.id) != typing.map(\.id) else { return }
                 // Not the view's own task: SwiftUI can cancel those while the
