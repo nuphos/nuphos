@@ -1,8 +1,8 @@
 export type BoxJoin = { token: string; expiresAt: string; apiUrl: string | null }
 
 const INSTALL = 'curl -fsSL https://nuphos.ai/install | sh'
-// user@host, host or an ~/.ssh/config alias: nothing the shell would read as more than one word.
-const SSH_TARGET = /^[\w.@-]+$/
+// user@host, host or an ~/.ssh/config alias: one shell word that ssh cannot read as an option.
+const SSH_TARGET = /^\w[\w.@-]*$/
 
 /** What turns a machine into one of your computers: run on it, or sent to it over SSH when a target is given. */
 export function joinCommand(join: BoxJoin, sshTarget = ''): string {

@@ -22,3 +22,7 @@ test('with a target it installs and starts the agent over SSH in one line', () =
 test('a target the shell would split is not used', () => {
   assert.equal(joinCommand(join, "me@host; rm -rf ~ '"), joinCommand(join))
 })
+
+test('a target ssh would read as an option is not used', () => {
+  assert.equal(joinCommand(join, '-oProxyCommand'), joinCommand(join))
+})
