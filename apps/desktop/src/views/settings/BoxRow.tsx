@@ -12,7 +12,7 @@ import { t } from '../../i18n'
 
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
-import { agentSlots, canAddAgent } from './boxAgentSlots'
+import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
 import { deskModel } from './boxDeskModel'
@@ -147,7 +147,8 @@ export function BoxRow({
           onSelect={onSelect}
           onAdd={addAgent}
           onSetUp={thisComputer ? onSetUpLocalAgent : undefined}
-          canAdd={canAddAgent(state)}
+          canAdd={canAddAgent(state, manage)}
+          ask={askToAdd(state, manage, owner)}
         />
       </DeskArt>
       {/* A fixed height keeps the taller rename field from pushing the caption down. */}

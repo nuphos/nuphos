@@ -432,6 +432,7 @@
   "Ask the agent to fix: {errors}": "ขอให้เอเจนต์แก้ไข: {errors}",
   "Ask the agent to plan a change": "ให้เอเจนต์วางแผนการเปลี่ยนแปลง",
   "Ask the agent your first question": "ถามคำถามแรกกับเอเจนต์",
+  "Ask the owner": "ขอเจ้าของ",
   "Ask to sign in": "ขอให้ลงชื่อเข้าใช้",
   "Ask {name}": "ขอ {name}",
   "Ask {name} or an editor to change the name or icon.": "ขอให้ {name} หรือผู้แก้ไขเปลี่ยนชื่อหรือไอคอน",

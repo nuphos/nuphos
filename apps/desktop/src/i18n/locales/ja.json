@@ -432,6 +432,7 @@
   "Ask the agent to fix: {errors}": "エージェントに修正を依頼：{errors}",
   "Ask the agent to plan a change": "エージェントに変更のプランを依頼",
   "Ask the agent your first question": "エージェントに最初の質問をする",
+  "Ask the owner": "オーナーに依頼",
   "Ask to sign in": "サインインを依頼",
   "Ask {name}": "{name} に依頼",
   "Ask {name} or an editor to change the name or icon.": "名前やアイコンの変更は {name} または編集者に依頼してください。",

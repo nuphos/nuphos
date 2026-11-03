@@ -432,6 +432,7 @@
   "Ask the agent to fix: {errors}": "에이전트에게 수정 요청: {errors}",
   "Ask the agent to plan a change": "에이전트에게 변경 계획을 요청하세요",
   "Ask the agent your first question": "에이전트에게 첫 질문하기",
+  "Ask the owner": "소유자에게 요청",
   "Ask to sign in": "로그인 요청",
   "Ask {name}": "{name}에게 요청",
   "Ask {name} or an editor to change the name or icon.": "이름이나 아이콘 변경은 {name} 또는 편집자에게 요청하세요.",

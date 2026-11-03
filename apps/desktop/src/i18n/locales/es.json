@@ -432,6 +432,7 @@
   "Ask the agent to fix: {errors}": "Pedir al agente que corrija: {errors}",
   "Ask the agent to plan a change": "Pide al agente que planifique un cambio",
   "Ask the agent your first question": "Hazle tu primera pregunta al agente",
+  "Ask the owner": "Pregunta al propietario",
   "Ask to sign in": "Pedir que inicien sesión",
   "Ask {name}": "Pregunta a {name}",
   "Ask {name} or an editor to change the name or icon.": "Pide a {name} o a un editor que cambie el nombre o el icono.",

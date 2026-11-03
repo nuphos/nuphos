@@ -432,6 +432,7 @@
   "Ask the agent to fix: {errors}": "請 Agent 修正：{errors}",
   "Ask the agent to plan a change": "請 Agent 規劃變更",
   "Ask the agent your first question": "向 Agent 提出第一個問題",
+  "Ask the owner": "請擁有者處理",
   "Ask to sign in": "請求登入",
   "Ask {name}": "請 {name} 處理",
   "Ask {name} or an editor to change the name or icon.": "請 {name} 或編輯者變更名稱或圖示。",
