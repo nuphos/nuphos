@@ -115,6 +115,15 @@ export const CHANNEL_READ_NOTE =
 const ONLY_AGENT_NOTE =
   ' You are the only agent in this channel, so every message here is addressed to you: answer it.'
 
+/** The upload groups a stored chat post carries. */
+function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
+  return (parts ?? []).flatMap((part) => {
+    const { type, groupId } = part as { type?: unknown; groupId?: unknown }
+
+    return type === 'transfer-upload' && typeof groupId === 'string' ? [groupId] : []
+  })
+}
+
 // A turn's worth of reading. An agent new to the channel starts at its latest page.
 const READ_PAGE = 50
 
@@ -145,6 +154,7 @@ export async function readChannelMessages(
   return {
     messages: page.map((doc) => {
       const metadata = parseMessageMetadata(doc.metadata)
+      const uploads = channelUploadIds(doc.parts)
 
       return {
         index: doc.index,
@@ -168,6 +178,8 @@ export async function readChannelMessages(
             .join('\n'),
           '',
         ).trimEnd(),
+        // Files posted with it, placed on the reader's runtime by channel_read.
+        ...(uploads.length > 0 ? { uploads } : {}),
       }
     }),
     more: docs.length > READ_PAGE,

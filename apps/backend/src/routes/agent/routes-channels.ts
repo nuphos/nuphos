@@ -16,6 +16,7 @@ import {
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
+import { channelUploadPart, resolveChannelUpload } from '@/lib/agent/channel-attachments'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
@@ -150,6 +151,16 @@ channelRoutes.delete('/conversations/:sessionId/agents/:agentSessionId', async (
   return c.body(null, 204)
 })
 
+// A file posted here, for anyone who can read the chat.
+channelRoutes.get('/conversations/:sessionId/attachments/:groupId', async (c) => {
+  const teamId = await requireTeam(c)
+  const channel = channelOrNotFound(
+    await getReadableConversation(c.req.param('sessionId'), c.get('userId'), teamId),
+  )
+
+  return c.json(await resolveChannelUpload(channel, c.req.param('groupId')))
+})
+
 // Records the message and wakes the channel's agents; each decides whether to answer.
 channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
   // A person in the app. An agent's reply is posted when its turn ends, which spends the
@@ -166,7 +177,15 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
   const channel = channelOrNotFound(
     await assertConversationSendable(c.req.param('sessionId'), userId, teamId),
   )
-  const text = requireText(body.text, 'text', MAX_MESSAGE_LENGTH)
+  // A file may go without words, as in any chat.
+  const upload =
+    typeof body.upload === 'string' && body.upload
+      ? await channelUploadPart(teamId, userId, body.upload)
+      : undefined
+  const text =
+    upload && !(typeof body.text === 'string' && body.text.trim())
+      ? ''
+      : requireText(body.text, 'text', MAX_MESSAGE_LENGTH)
   // A client id makes a resend the same message; the transcript skips ids it has.
   const id = typeof body.id === 'string' && body.id.length <= 100 ? body.id : randomUUID()
   const metadata = await createMessageMetadata(
@@ -175,7 +194,7 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
     c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
   )
 
-  await postChannelMessage(channel, { id, text, metadata })
+  await postChannelMessage(channel, { id, text, metadata, ...(upload ? { upload } : {}) })
   // Speaking in a channel is joining it, as it is anywhere else.
   if (userId !== channel.userId) await addConversationParticipants(channel.sessionId, [userId])
 

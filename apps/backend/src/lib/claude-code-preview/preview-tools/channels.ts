@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { z } from 'zod'
 
+import { resolveChannelUpload } from '@/lib/agent/channel-attachments'
 import { postAsAgent } from '@/lib/agent/channel-chat'
 import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
 import {
@@ -14,8 +15,11 @@ import { inviteConversationParticipants } from '@/lib/agent/db/participants'
 import { getTeamMembers, getTeamMembership } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
+import { placeOnConversationRuntime } from '../session-execution-state'
+
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 
+import type { AgentConversation } from '@/lib/agent/db'
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
 
 const label = z
@@ -61,9 +65,8 @@ async function memberChannel(ctx: PreviewToolContext, id: string) {
     !channel.agentSessionIds?.includes(ctx.sessionId)
   )
     throw new Error('This conversation is not in that channel.')
-  await owner(ctx)
 
-  return { channel }
+  return { channel, self: await owner(ctx) }
 }
 
 /** The agent acts as its owner, who must still be on the team. */
@@ -74,6 +77,50 @@ async function owner(ctx: PreviewToolContext) {
     throw new Error('This agent’s owner is no longer on the team.')
 
   return self
+}
+
+const FILES_NOTE =
+  ' Files posted with a message are already on this runtime at the paths listed with it: open them with your own tools.'
+
+/**
+ * Puts the files posted with each message on this agent's runtime, as a
+ * conversation's attachments are, and lists their local paths with it.
+ */
+async function withFiles(
+  channel: AgentConversation,
+  self: AgentConversation,
+  page: Awaited<ReturnType<typeof readChannelMessages>>,
+) {
+  if (!page.messages.some((message) => message.uploads)) return page
+  const messages = await Promise.all(
+    page.messages.map(async ({ uploads, ...message }) => {
+      if (!uploads) return message
+      try {
+        const groups = await Promise.all(uploads.map((id) => resolveChannelUpload(channel, id)))
+        const files = groups.flatMap((group) =>
+          group.files.flatMap((file) =>
+            file.downloadUrl && file.size != null
+              ? [
+                  {
+                    name: file.fileName,
+                    url: file.downloadUrl,
+                    size: file.size,
+                    ...(file.contentType ? { mimeType: file.contentType } : {}),
+                  },
+                ]
+              : [],
+          ),
+        )
+        const paths = await placeOnConversationRuntime(self, files, self.userId)
+
+        return { ...message, files: files.map((file, i) => ({ name: file.name, path: paths[i] })) }
+      } catch (error) {
+        return { ...message, filesError: error instanceof Error ? error.message : String(error) }
+      }
+    }),
+  )
+
+  return { ...page, messages, note: page.note + FILES_NOTE }
 }
 
 /**
@@ -167,8 +214,8 @@ export function channelToolModule(): PreviewToolModule {
         if (!parsed.success) return toolError(parsed.error.message)
 
         return answer(
-          memberChannel(ctx, parsed.data.channelId).then(({ channel }) =>
-            readChannelMessages(channel, ctx.sessionId),
+          memberChannel(ctx, parsed.data.channelId).then(async ({ channel, self }) =>
+            withFiles(channel, self, await readChannelMessages(channel, ctx.sessionId)),
           ),
         )
       },

@@ -1,4 +1,5 @@
 import type { ChannelAgent, ChannelMention } from './agent-types.ts'
+import type { FileTransferGroup } from '../types'
 
 /** Channels: places where people and agents talk. */
 export type WindowChannelsApi = {
@@ -16,5 +17,11 @@ export type WindowChannelsApi = {
     teamId: string,
     text: string,
     id: string,
+    upload?: string,
   ): Promise<{ id: string }>
+  agentResolveChannelAttachment(
+    channelId: string,
+    teamId: string,
+    groupId: string,
+  ): Promise<FileTransferGroup>
 }

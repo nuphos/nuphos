@@ -168,7 +168,19 @@ export function DownloadFilesCard({ group, teamId }: { group: FileTransferGroup;
 // the agent pulls them into its sandbox. Read-only card (no actions here).
 // Images and videos preview above it; the card lists only the rest (a previewed
 // video has no Download row to keep here), and is dropped when nothing is left.
-export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; teamId?: string }) {
+export function UploadedFilesCard({
+  part,
+  teamId,
+  load,
+  alignEnd = true,
+}: {
+  part: TransferUploadPart
+  teamId?: string
+  /** See TransferPreviews: a chat's uploads load through the chat. */
+  load?: (groupId: string) => Promise<FileTransferGroup>
+  /** Right-aligned, as the viewer's own files are. */
+  alignEnd?: boolean
+}) {
   const previewTeam =
     part.status !== 'uploading' &&
     part.status !== 'error' &&
@@ -181,12 +193,18 @@ export function UploadedFilesCard({ part, teamId }: { part: TransferUploadPart; 
   if (!previewTeam) return <UploadedFilesList part={part} rows={part.files} />
 
   return (
-    <div className="flex max-w-[480px] flex-col items-end self-end">
+    <div
+      className={clsx(
+        'flex max-w-[480px] flex-col',
+        alignEnd ? 'items-end self-end' : 'items-start self-start',
+      )}
+    >
       <TransferPreviews
         teamId={previewTeam}
         groupId={part.groupId}
         expected={part.files.filter((f) => mediaKind(f.fileName)).length}
-        alignEnd
+        alignEnd={alignEnd}
+        load={load}
       >
         {(images, videos) => {
           const rows = filesBesidePreviews(part.files, images).filter((f) =>

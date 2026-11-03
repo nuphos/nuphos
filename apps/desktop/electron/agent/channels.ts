@@ -1,6 +1,7 @@
 import { callJsonForRenderer, teamQuery } from './http'
 
 import type { ChannelAgent, ChannelMention } from '../../src/api/agent-types'
+import type { FileTransferGroup } from '../../src/types'
 
 const at = (sessionId: string) => `/agent/conversations/${encodeURIComponent(sessionId)}`
 
@@ -38,17 +39,31 @@ export async function removeChannelAgent(
   )
 }
 
-/** `id` makes a resend the same message. */
+/** `id` makes a resend the same message; `upload` is a finished upload's group. */
 export async function postChannelMessage(
   channelId: string,
   teamId: string,
   text: string,
   id: string,
+  upload?: string,
 ): Promise<{ id: string }> {
   return callJsonForRenderer('POST', `${at(channelId)}/channel-messages${teamQuery(teamId)}`, {
     text,
     id,
+    ...(upload ? { upload } : {}),
   })
+}
+
+/** A file posted in the channel, with fresh links, for anyone who can read it. */
+export async function resolveChannelAttachment(
+  channelId: string,
+  teamId: string,
+  groupId: string,
+): Promise<FileTransferGroup> {
+  return callJsonForRenderer(
+    'GET',
+    `${at(channelId)}/attachments/${encodeURIComponent(groupId)}${teamQuery(teamId)}`,
+  )
 }
 
 /** The Inbox's channel entries: posts that @mention the viewer. */

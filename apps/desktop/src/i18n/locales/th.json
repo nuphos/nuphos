@@ -5663,7 +5663,6 @@
   "Could not copy chat ID": "คัดลอก ID แชทไม่ได้",
   "Could not create the chat": "สร้างแชทไม่ได้",
   "Create chat": "สร้างแชท",
-  "Files can’t be posted in a chat yet.": "ยังโพสต์ไฟล์ในแชทไม่ได้",
   "Mentions in chats": "การกล่าวถึงในแชท",
   "Pick one agent and no name for a chat with just that agent.": "เลือกเอเจนต์เดียวและไม่ใส่ชื่อ จะได้แชทที่มีแค่เอเจนต์นั้น",
   "Rename chat": "เปลี่ยนชื่อแชท",

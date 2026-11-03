@@ -8,6 +8,13 @@ export const channelsApi = {
     window.api.agentAddChannelAgent(channelId, teamId, agentSessionId),
   agentRemoveChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
     window.api.agentRemoveChannelAgent(channelId, teamId, agentSessionId),
-  agentPostChannelMessage: (channelId: string, teamId: string, text: string, id: string) =>
-    window.api.agentPostChannelMessage(channelId, teamId, text, id),
+  agentPostChannelMessage: (
+    channelId: string,
+    teamId: string,
+    text: string,
+    id: string,
+    upload?: string,
+  ) => window.api.agentPostChannelMessage(channelId, teamId, text, id, upload),
+  agentResolveChannelAttachment: (channelId: string, teamId: string, groupId: string) =>
+    window.api.agentResolveChannelAttachment(channelId, teamId, groupId),
 }
