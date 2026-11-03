@@ -176,8 +176,8 @@ struct AgentPage: View {
         if let team = store.teams.first(where: { $0.id == target.teamId }) { store.select(team: team) }
         endEditing()
         // A chat not listed yet opens as a session first; HomeView switches it once loaded.
-        if store.channels.contains(where: { $0.sessionId == target.sessionId }) {
-            openChat = OpenChat(channel: store.channel(sessionId: target.sessionId, title: target.title, teamId: target.teamId))
+        if let channel = store.channels.first(where: { $0.sessionId == target.sessionId }) {
+            openChat = OpenChat(channel: store.channel(for: channel))
             return
         }
         openChat = OpenChat(session: store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId))
