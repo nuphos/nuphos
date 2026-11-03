@@ -19,8 +19,11 @@ let listing: { teamId: string; conversations: AgentConversation[] } | null = nul
 // open. Infinity while the reply is being sent; a deadline once it was.
 const answered = new Map<string, number>()
 const listeners = new Set<() => void>()
+// Bumped on every change, so a reader of `answered` renders again when it does.
+let version = 0
 
 function emit() {
+  version += 1
   for (const listener of listeners) listener()
 }
 
@@ -105,4 +108,11 @@ export function useInboxCount(teamId: string): number | null {
   }, [teamId])
 
   return useSyncExternalStore(subscribe, () => inboxCountFor(teamId))
+}
+
+/** The questions answered on this device that a listing may still show open. */
+export function useAnsweredOnDevice(): ReadonlyMap<string, number> {
+  useSyncExternalStore(subscribe, () => version)
+
+  return answered
 }

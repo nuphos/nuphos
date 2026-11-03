@@ -36,6 +36,15 @@ export function isDecisionCardPart(part: Part): boolean {
   )
 }
 
+/**
+ * A question stays open until the user answers it, whether or not its call got
+ * a result before the turn ended: the question ends the turn by design, and the
+ * Inbox keeps it open either way. Only a real failure turns it into a tool row.
+ */
+export function isDecisionFailed(part: ToolPart): boolean {
+  return part.state === 'output-error' && part.errorText !== INTERRUPTED_TOOL_MESSAGE
+}
+
 // Agent bookkeeping that never renders as a tool row.
 /** The call a run opens for: the newest one waiting for approval, wherever it
  * sits in the run. A failed call does not open it. */
@@ -82,6 +91,8 @@ function plainToolFollows(parts: readonly Part[], from: number, to: number): boo
 
 export function finalizeToolPartForDisplay(part: ToolPart): ToolPart {
   if (part.state !== 'input-streaming' && part.state !== 'input-available') return part
+  // A complete question with no result is still open, not interrupted.
+  if (part.state === 'input-available' && isDecisionCardPart(part)) return part
 
   return {
     ...part,
@@ -132,13 +143,14 @@ export function segmentParts(parts: readonly Part[], from: number, to: number): 
 
 /** Plan, decision and artifact cards: lifted out of a folded turn so they sit under the answer. */
 export function isLiftedCardPart(part: Part): part is ToolPart {
-  if (part.type !== 'tool' || part.state === 'output-error') return false
+  if (part.type !== 'tool') return false
+  if (isDecisionCardPart(part)) return !isDecisionFailed(part)
+  if (part.state === 'output-error') return false
 
   return (
     part.toolName === 'plan' ||
     part.toolName === 'render_artifact' ||
-    isPlanProposalToolName(part.toolName) ||
-    isDecisionCardPart(part)
+    isPlanProposalToolName(part.toolName)
   )
 }
 

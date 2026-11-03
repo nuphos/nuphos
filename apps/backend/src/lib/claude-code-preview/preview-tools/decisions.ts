@@ -8,7 +8,10 @@
 import { randomUUID } from 'node:crypto'
 
 import { addInputRequest } from '@/lib/agent/db/pending-decision'
-import { createUserDecisionTools } from '@/lib/agent/tools-skilled/decision-tools'
+import {
+  createUserDecisionTools,
+  decisionQuestionProblem,
+} from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { logError, logEvent } from '@/lib/observability'
@@ -162,6 +165,16 @@ function passthroughHandler(
     // (Slack, Discord, Lark) the question goes out as plain text.
     const { providers: _providers, secretName: _secretName, ...plain } = args
     const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
+    // Rejected before its card goes out, so no unanswerable question reaches the user.
+    const problem =
+      name === 'request_user_decision' && typeof args.question === 'string'
+        ? decisionQuestionProblem({
+            question: args.question,
+            ...(Array.isArray(args.options) ? { options: args.options as string[] } : {}),
+          })
+        : null
+
+    if (problem) return toolError(problem)
     const outcome = await runClassicTool(name, tool, input, ctx, options)
 
     if ('error' in outcome) return toolError(outcome.error)
