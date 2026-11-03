@@ -33,7 +33,8 @@ test('plain Node never reaches the keychain, even beside a keychain sign-in', as
   )
 
   const { keychainStore } = await import('./token-store.ts')
-  const { readConfig, requestContext, writeConfig } = await import('./config.ts')
+  const { readConfig, writeConfig } = await import('./config.ts')
+  const { requestContext } = await import('./request-context.ts')
 
   assert.equal((await readConfig()).token, undefined)
   assert.equal((await requestContext()).token, null)

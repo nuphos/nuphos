@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { api } from '../../api'
-import { writeLocalStorage } from '../../app/localStorage'
+import { writeAccountStorage } from '../../app/accountStorage'
 import { LAST_TEAM_STORAGE_KEY } from '../../app/workspaceTabState'
 import { ATLAS_WEB_BASE_URL } from '../../lib/webBaseUrl'
 
@@ -176,7 +176,7 @@ export function useWorkspaceAgentLinks(a: Args) {
   const switchTeam = useCallback(
     (nextTeamId: string) => {
       workspaceActions.switchTeam(nextTeamId)
-      writeLocalStorage(LAST_TEAM_STORAGE_KEY, nextTeamId)
+      writeAccountStorage(LAST_TEAM_STORAGE_KEY, nextTeamId)
       setError(null)
     },
     [setError, workspaceActions],

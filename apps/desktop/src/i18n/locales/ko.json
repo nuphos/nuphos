@@ -5665,5 +5665,13 @@
   "≥ {pct}% of Limit": "제한의 {pct}% 이상",
   "Stop viewing from iPhone": "iPhone에서 보기 중지",
   "Viewing from iPhone. Click to stop.": "iPhone에서 보는 중입니다. 클릭하면 중지됩니다.",
-  "✓ used": "✓ 사용됨"
+  "✓ used": "✓ 사용됨",
+  "Add account": "계정 추가",
+  "Add an account": "계정 추가하기",
+  "Log out of all accounts": "모든 계정에서 로그아웃",
+  "Could not switch accounts": "계정을 전환할 수 없습니다",
+  "Signed in on this computer": "이 컴퓨터에 로그인됨",
+  "Sign in to {name} again.": "{name}(으)로 다시 로그인하세요.",
+  "You stay signed in to the others, and can switch back any time.": "다른 계정은 로그인된 상태로 유지되며 언제든 다시 전환할 수 있습니다.",
+  "Could not log out": "로그아웃할 수 없습니다"
 }

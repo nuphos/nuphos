@@ -5665,5 +5665,13 @@
   "≥ {pct}% of Limit": "≥ 限制的 {pct}%",
   "Stop viewing from iPhone": "停止在 iPhone 上查看",
   "Viewing from iPhone. Click to stop.": "正在 iPhone 上查看。点击停止。",
-  "✓ used": "✓ 已使用"
+  "✓ used": "✓ 已使用",
+  "Add account": "添加账号",
+  "Add an account": "添加一个账号",
+  "Log out of all accounts": "退出所有账号",
+  "Could not switch accounts": "无法切换账号",
+  "Signed in on this computer": "已在此电脑上登录",
+  "Sign in to {name} again.": "请重新登录 {name}。",
+  "You stay signed in to the others, and can switch back any time.": "其他账号会保持登录，随时可以切换回去。",
+  "Could not log out": "无法退出登录"
 }

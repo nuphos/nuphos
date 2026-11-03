@@ -3,7 +3,7 @@
 // A sign-out or another account aborts it, and a reply that lands after the
 // account changed is dropped rather than shown as the new account's.
 
-import { requestContext } from './auth/config.ts'
+import { requestContext } from './auth/request-context.ts'
 import { AccountChangedError } from './auth-session.ts'
 
 import type { AccountContext } from './auth-session.ts'

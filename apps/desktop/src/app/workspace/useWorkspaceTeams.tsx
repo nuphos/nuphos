@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react'
 
 import { api, isNetworkError, isSessionRejected } from '../../api'
-import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
+import { readAccountStorage, writeAccountStorage } from '../../app/accountStorage'
 import { restoreNavigation } from '../../app/workspaceTabFactory'
 import { LAST_TEAM_STORAGE_KEY } from '../../app/workspaceTabState'
 import { toast } from '../../components/ui/toast'
@@ -61,7 +61,7 @@ export function useWorkspaceTeams(a: Args) {
     (nextTeams: AtlasTeam[]) => {
       setTeams(nextTeams)
       setTeamsLoaded(true)
-      const storedTeamId = readLocalStorage(LAST_TEAM_STORAGE_KEY)
+      const storedTeamId = readAccountStorage(LAST_TEAM_STORAGE_KEY)
       const preferred = nextTeams.find((team) => team.id === storedTeamId) ?? nextTeams.at(0)
 
       workspaceActions.retainTeams(
@@ -74,7 +74,7 @@ export function useWorkspaceTeams(a: Args) {
       // invitation may still arrive, and the auto-entry effect makes that call
       // once both lists have resolved.
       if (!teamId) return
-      writeLocalStorage(LAST_TEAM_STORAGE_KEY, teamId)
+      writeAccountStorage(LAST_TEAM_STORAGE_KEY, teamId)
       setError(null)
     },
     [setTeams, setTeamsLoaded, setError, workspaceActions, workspaceStore],

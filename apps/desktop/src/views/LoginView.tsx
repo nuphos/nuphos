@@ -19,20 +19,27 @@ import {
 import { signInEmailError } from '../lib/emailDomain'
 import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
+import { LoginAccounts } from './LoginAccounts'
 import { LoginApiEndpoint } from './LoginApiEndpoint'
 import { LoginSocialButtons } from './LoginSocialButtons'
 
-import type { UserInfo } from '../types'
+import type { AccountSummary, UserInfo } from '../types'
 
 type Props = {
   onLogin: (user: UserInfo) => void
+  /** Other accounts signed in on this computer, to continue as one. */
+  accounts?: AccountSummary[]
+  /** Why this screen is shown, e.g. an account that must sign in again. */
+  notice?: string
+  /** Signing in to one more account: back to the workspace without it. */
+  onCancel?: () => void
 }
 
 const inputClasses =
   'w-full px-3 py-2 rounded-md bg-surface border border-zGray-800 text-main text-[14px] ' +
   'outline-none focus:border-zViolet-accent placeholder:text-secondary titlebar-no-drag t-input'
 
-export function LoginView({ onLogin }: Props) {
+export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
   const [step, setStep] = useState<'start' | 'code'>('start')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -123,20 +130,31 @@ export function LoginView({ onLogin }: Props) {
     if (completesCode(code, next)) void verifyCode(next)
   }
 
+  // Named for why the screen is shown: an account to sign in to again comes first.
+  let title = t('Welcome to Nuphos')
+
+  if (notice) title = t('Sign in again')
+  else if (onCancel) title = t('Add an account')
+
   const [codeBefore, codeAfter] = t('Enter the 6-digit code sent to {email}').split('{email}')
 
   return (
     <div className="titlebar-drag h-full flex flex-col login-surface">
       <div className="h-[44px] flex-shrink-0" />
-      <div className="flex-1 flex items-start justify-center px-8 pt-[18vh]">
+      {/* Scrolls, so a long account list never pushes the form out of reach. */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
             <NuphosLogo className="h-12 w-12" variant="white-bg" />
           </div>
-          <h1 className="text-[20px] font-semibold text-main mb-1.5">{t('Welcome to Nuphos')}</h1>
+          <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
-            {t('The agent workspace for your team')}
+            {notice ??
+              (onCancel
+                ? t('You stay signed in to the others, and can switch back any time.')
+                : t('The agent workspace for your team'))}
           </p>
+          {step === 'start' && <LoginAccounts accounts={accounts} />}
 
           <div className="t-page-slide t-wizard-slide w-full" data-page={step === 'start' ? 1 : 2}>
             <section className="t-page" data-page-id="1" inert={step !== 'start'}>
@@ -261,6 +279,17 @@ export function LoginView({ onLogin }: Props) {
               </form>
             </section>
           </div>
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              className="mt-4 titlebar-no-drag"
+            >
+              {t('Cancel')}
+            </Button>
+          )}
         </div>
       </div>
     </div>

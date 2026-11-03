@@ -5665,5 +5665,13 @@
   "≥ {pct}% of Limit": "≥ {pct}% del límite",
   "Stop viewing from iPhone": "Dejar de ver desde el iPhone",
   "Viewing from iPhone. Click to stop.": "Viéndose desde el iPhone. Haz clic para detener.",
-  "✓ used": "✓ usada"
+  "✓ used": "✓ usada",
+  "Add account": "Añadir cuenta",
+  "Add an account": "Añade una cuenta",
+  "Log out of all accounts": "Cerrar sesión en todas las cuentas",
+  "Could not switch accounts": "No se pudo cambiar de cuenta",
+  "Signed in on this computer": "Con sesión iniciada en este equipo",
+  "Sign in to {name} again.": "Vuelve a iniciar sesión como {name}.",
+  "You stay signed in to the others, and can switch back any time.": "Seguirás con la sesión iniciada en las demás y podrás volver cuando quieras.",
+  "Could not log out": "No se pudo cerrar sesión"
 }

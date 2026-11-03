@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron'
 
+let appShortcutsSuspended = false
+
 export const integrationsApi = {
   onAgentPlanUpdated: (cb: (payload: { plan: unknown }) => void) => {
     const handler = (_e: unknown, payload: { plan: unknown }) => cb(payload)
@@ -11,11 +13,17 @@ export const integrationsApi = {
   // Untyped passthrough: the renderer-side WindowShellApi type (AppShortcutAction
   // in src/api/window-shell.ts) is the authoritative union for shortcut actions.
   onAppShortcut: (cb: (action: string) => void) => {
-    const handler = (_e: unknown, action: string) => cb(action)
+    const handler = (_e: unknown, action: string) => {
+      if (!appShortcutsSuspended) cb(action)
+    }
 
     ipcRenderer.on('app:shortcut', handler)
 
     return () => ipcRenderer.off('app:shortcut', handler)
+  },
+  /** While a screen covers the workspace (Add account), its shortcuts reach nothing. */
+  suspendAppShortcuts: (suspended: boolean) => {
+    appShortcutsSuspended = suspended
   },
   setSessionShortcutsActive: (active: boolean) =>
     ipcRenderer.send('app:sessionShortcutsActive', active),

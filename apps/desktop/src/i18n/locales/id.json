@@ -5665,5 +5665,13 @@
   "≥ {pct}% of Limit": "≥ {pct}% dari batas",
   "Stop viewing from iPhone": "Berhenti melihat dari iPhone",
   "Viewing from iPhone. Click to stop.": "Sedang dilihat dari iPhone. Klik untuk menghentikan.",
-  "✓ used": "✓ dipakai"
+  "✓ used": "✓ dipakai",
+  "Add account": "Tambah akun",
+  "Add an account": "Tambahkan akun",
+  "Log out of all accounts": "Keluar dari semua akun",
+  "Could not switch accounts": "Tidak dapat beralih akun",
+  "Signed in on this computer": "Masuk di komputer ini",
+  "Sign in to {name} again.": "Masuk lagi sebagai {name}.",
+  "You stay signed in to the others, and can switch back any time.": "Anda tetap masuk di akun lainnya dan bisa beralih kembali kapan saja.",
+  "Could not log out": "Tidak dapat keluar"
 }
