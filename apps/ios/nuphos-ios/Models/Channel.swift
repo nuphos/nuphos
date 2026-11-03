@@ -77,6 +77,8 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
 enum ChannelItem: Equatable, Sendable {
     /// `first` starts a run: it carries the avatar and the name.
     case post(ChannelPost, first: Bool)
+    /// A centered time above a post that follows a pause.
+    case time(Date)
     /// The loop guard stopped agents answering agents.
     case paused(String)
     /// Agents in a turn right now.
@@ -94,10 +96,14 @@ extension ChannelPost {
     static func items(posts: [ChannelPost], events: [AgentConversationDetail.TimelineEvent],
                       typing: [ChannelAgent]) -> [(id: String, item: ChannelItem)] {
         var rows: [(at: Date, id: String, item: ChannelItem)] = []
+        var previous: Date?
         for (index, post) in posts.enumerated() {
-            let first = index == 0 || posts[index - 1].senderId != post.senderId
             // A post on its way is the newest, whatever the clocks say.
             let at = post.sending ? Date.distantFuture : post.sentAt ?? Date.distantPast
+            let timed = !post.sending && ChatTime.showsTimestamp(post.sentAt, after: previous)
+            if timed { rows.append((at: at, id: "time.\(post.id)", item: ChannelItem.time(at))) }
+            previous = post.sentAt ?? previous
+            let first = timed || index == 0 || posts[index - 1].senderId != post.senderId
             rows.append((at: at, id: "post.\(post.id)", item: ChannelItem.post(post, first: first)))
         }
         for event in events where event.kind == "agents_paused" {
