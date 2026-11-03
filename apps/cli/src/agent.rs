@@ -89,10 +89,7 @@ async fn node() -> Result<(PathBuf, Option<PathBuf>)> {
         return Ok(("node".into(), None));
     };
     let root = data_dir()?.join("node");
-    let fetched = std::fs::read_dir(&root)
-        .ok()
-        .and_then(|entries| entries.flatten().map(|entry| entry.path()).find(|dir| dir.join("bin/node").is_file()));
-    let dir = match fetched {
+    let dir = match fetched_node(&root) {
         Some(dir) => dir,
         None => {
             let platform = platform()?;
@@ -109,6 +106,14 @@ async fn node() -> Result<(PathBuf, Option<PathBuf>)> {
     };
     let bin = dir.join("bin");
     Ok((bin.join("node"), Some(bin)))
+}
+
+/// A Node.js fetched earlier, never a `.`-named staging folder a stopped download left behind.
+fn fetched_node(root: &Path) -> Option<PathBuf> {
+    std::fs::read_dir(root).ok()?.flatten().find_map(|entry| {
+        let finished = !entry.file_name().to_string_lossy().starts_with('.');
+        (finished && entry.path().join("bin/node").is_file()).then(|| entry.path())
+    })
 }
 
 /// Whether `node` on PATH is Node.js 22 or newer; the error says what is missing.
@@ -207,7 +212,7 @@ fn unpack(archive: &[u8], expected: &str, asset: &str, root: &Path, dir: &Path, 
 
 #[cfg(test)]
 mod tests {
-    use super::node_asset;
+    use super::{fetched_node, node_asset};
 
     const SUMS: &str = "\
 1111  node-v22.21.1-darwin-arm64.tar.gz
@@ -223,5 +228,20 @@ mod tests {
         assert_eq!(node_asset(SUMS, "linux-x64"), Some(("4444".into(), "node-v22.21.1-linux-x64.tar.gz".into())));
         assert_eq!(node_asset(SUMS, "darwin-arm64"), Some(("1111".into(), "node-v22.21.1-darwin-arm64.tar.gz".into())));
         assert_eq!(node_asset(SUMS, "linux-arm64"), None);
+    }
+
+    #[test]
+    fn skips_a_staging_folder_a_stopped_download_left() {
+        let root = std::env::temp_dir().join(format!("nuphos-node-test-{}", std::process::id()));
+        let staging = root.join(".node-v22.21.1-linux-x64.123");
+        std::fs::create_dir_all(staging.join("bin")).unwrap();
+        std::fs::write(staging.join("bin/node"), "").unwrap();
+        assert_eq!(fetched_node(&root), None);
+
+        let done = root.join("node-v22.21.1-linux-x64");
+        std::fs::create_dir_all(done.join("bin")).unwrap();
+        std::fs::write(done.join("bin/node"), "").unwrap();
+        assert_eq!(fetched_node(&root), Some(done));
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }
