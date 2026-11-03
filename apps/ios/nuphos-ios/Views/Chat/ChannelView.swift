@@ -106,6 +106,7 @@ struct ChannelView: View {
             canSend: channel.loaded && !channel.readOnly,
             editRequest: $channel.unsent,
             voiceTeamId: channel.teamId,
+            recipient: "#\(channel.title)",
             onSend: { channel.send($0) },
             controls: { EmptyView() }
         )
